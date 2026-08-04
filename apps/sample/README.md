@@ -1,120 +1,87 @@
-# Genesis Starter
+# Genesis Sample
 
-The reference app and project template for all Tiderman Ventures software. Clone this to start a new project, or run it to see Genesis components in action.
+The reference app for Genesis: a public marketing landing page at `/`, plus a developer-facing
+showcase and a small demo app, both built entirely from `@marktiderman/genesis-ui`,
+`@marktiderman/genesis-core`, and `@marktiderman/genesis-design-system` — the same packages you'd
+install from npm.
 
 ## Quick Start
 
 ```bash
-pnpm dev    # http://localhost:3200
+pnpm install
+pnpm build:packages   # from the repo root — apps/sample consumes built dist output, not source
+cd apps/sample
+pnpm dev               # http://localhost:3200
 ```
 
 ## What This Is
 
-This app serves two purposes:
+This app serves three purposes:
 
-1. **Starter template** — the foundation you clone when creating a new project
-2. **Living reference** — working examples of every Genesis pattern and component
-
-When you start a new project, you clone this app, delete the example pages you don't need, and build your own routes on top of the same layout and component foundation.
+1. **Public landing page** (`/`) — the marketing face of the Genesis project: value prop, feature
+   highlights, an install snippet, and links to GitHub/npm/Storybook.
+2. **Living showcase** (`/showcase`) — tokens, primitives, layouts, and the data/resource layer,
+   each with generated prop tables and (where one exists) a Storybook link.
+3. **Demo app** (`/dashboard`, `/items`, `/tasks`, `/orders`, `/settings`) — a small, realistic app
+   built from the same components, showing them composed into real pages rather than only in
+   isolation.
 
 ## Structure
 
 ```text
 app/
-├── app.css              ← Theme tokens (swap brand preset here)
-├── root.tsx             ← Root layout, fonts, error boundary
-├── routes.ts            ← Route configuration
+├── app.css                      ← Theme tokens (swap brand preset here)
+├── root.tsx                     ← Root layout, fonts, error boundary, anti-flash theme script
+├── routes.ts                    ← Route configuration
 └── routes/
-    ├── _index.tsx       ← Entry redirect → /dashboard
-    ├── _layout.tsx      ← App shell (sidebar, mobile nav, content area)
-    ├── dashboard.tsx    ← Example: stats, kanban, activity list (PageHeader)
-    ├── items.tsx        ← Example: CRUD list with ResourcePage (L1)
-    ├── items-custom.tsx ← Example: same page built manually (L2)
-    ├── tasks.tsx        ← Example: modal detail, bulk actions (L1)
-    ├── sandbox.tsx      ← Interactive ResourcePage configurator
-    ├── design-system.tsx← Component showcase (all Genesis UI components)
-    └── settings.tsx     ← Example: form-based settings page (PageHeader)
+    ├── _index.tsx               ← Marketing landing page (no AppShell chrome)
+    ├── _layout.tsx              ← App shell (sidebar, mobile nav) for everything below
+    ├── showcase._index.tsx      ← Showcase hub
+    ├── showcase.tokens.*        ← Design tokens, sourced live from genesis-design-system
+    ├── showcase.primitives.*    ← Every genesis-ui primitive/pattern + generated prop tables
+    ├── showcase.layouts.*       ← Page templates (AppShell, DetailPage, ...) + layout primitives
+    ├── showcase.data.*          ← The /data (resource/CRUD) layer
+    ├── showcase.standards.tsx   ← Contribution and design doctrine, linked from this repo's docs
+    ├── dashboard.tsx            ← Example: stats, kanban, activity list (PageHeader)
+    ├── items.tsx                ← Example: CRUD list with ResourcePage (L1)
+    ├── items-custom.tsx         ← Example: same page built manually (L2)
+    ├── tasks.tsx                ← Example: modal detail, bulk actions (L1)
+    ├── orders.tsx                ← Example: ResourcePage with field grouping (L1)
+    ├── sandbox.tsx               ← Interactive ResourcePage configurator
+    ├── design-system.tsx        ← Legacy all-in-one kitchen-sink reference (kept; see below)
+    └── settings.tsx             ← Example: form-based settings page (PageHeader)
 ```
 
-## The Two Modes
-
-### Thin (for new projects)
-
-Keep only what you need to start building:
-
-- `_layout.tsx` — uses `<AppShell>` from `@genesis/ui-web`. Update the nav items for your app.
-- `app.css` — swap the brand preset for your project's colors.
-- `root.tsx` — update the title and fonts.
-
-Delete `dashboard.tsx`, `items.tsx`, `design-system.tsx`, and `settings.tsx`. Create your own routes.
-
-### Expanded (for learning / prototyping)
-
-Keep all example pages to see Genesis patterns in action:
+## The Customization Levels
 
 | Page | What it demonstrates |
 |------|---------------------|
+| `/showcase` | Hub linking to tokens, primitives, layouts, data, and standards |
 | `/dashboard` | PageHeader, StatCard, KanbanBoard, DataList — composing a dashboard from data components |
 | `/items` | ResourcePage (L1) — full CRUD with table/grid/list views, search, sort, status filter, detail panel |
 | `/items-custom` | L2 manual composition — same data, same features, built with DataPageShell + DataTable + DataFilters |
 | `/tasks` | ResourcePage with `detail="modal"`, bulk actions with row selection, status filters |
+| `/orders` | ResourcePage with field grouping and a 2-column form layout |
 | `/sandbox` | Interactive ResourcePage configurator — toggle props live, copy JSX config |
-| `/design-system` | Every Genesis component with variants — buttons, badges, cards, dialogs, tables, kanban, filters, empty states, progress, tooltips |
+| `/design-system` | Legacy single-page kitchen sink — every component with variants, in one scroll |
 | `/settings` | PageHeader, form layout with Input, Select, Checkbox — settings/preferences pattern |
 
-## What Each Page Teaches
-
-### Dashboard (`dashboard.tsx`)
-
-**Pattern:** Compose a dashboard from Genesis data components.
-
-- `StatCard` — metric display with icon, value, label, and trend indicator
-- `KanbanBoard` — drag-and-drop task board with typed columns
-- `DataList` — simple list with custom render function
-- `Badge` — status/priority labels with semantic variants
-
-**Customization level:** L2 (Component Composition) — custom layout built from Genesis components.
-
-### Items (`items.tsx`)
-
-**Pattern:** Data listing page with multiple view modes. This is the closest current example to what `<ResourcePage>` will provide at L1 when the data provider is built.
-
-- `DataPageShell` — page header with title, count badge, action button, and view toggle
-- `DataFilters` — search input, sort select, status chip filters
-- `DataTable` — sortable columns with custom cell renderers and pagination
-- `DataGrid` — switches between grid (cards), table, and list views
-- `useViewPreference` — persists the user's preferred view mode to localStorage
-
-**Customization level:** L2 (Component Composition) — when `<ResourcePage>` ships, this page could be reduced to ~10 lines at L1.
-
-### Design System (`design-system.tsx`)
-
-**Pattern:** Living style guide. Every Genesis component demonstrated with all variants.
-
-22 sections covering: colors, typography, buttons, badges, cards, stat cards, inputs, dialogs, alert dialogs, data tables, data grids, data lists, kanban boards, page shells, filters, view toggles, empty states, progress bars, skeletons, tabs, separators, and tooltips.
-
-Keep this page during development as a quick reference. Delete it before shipping to production.
-
-### Settings (`settings.tsx`)
-
-**Pattern:** Form-based configuration page.
-
-- Card-based section layout with separators
-- Input, Select, Checkbox components in a settings context
-- Save action button
-
-**Customization level:** L2 — straightforward form layout with Genesis primitives.
+`/design-system` predates the `/showcase/*` catalog and duplicates some of what it now covers more
+thoroughly (generated prop tables, Storybook links). It's kept rather than deleted — it's still a
+fast, single-scroll overview, and it hasn't earned removal just because something more thorough
+exists. New primitives should still be added under `/showcase/primitives`, not here.
 
 ## Tech Stack
 
 | Layer | Choice |
 |-------|--------|
 | Framework | Vite + React Router 7 (SPA mode) |
-| UI | @genesis/ui-web (Shadcn/UI + Radix primitives) |
+| UI | `@marktiderman/genesis-ui` (Shadcn/UI + Radix primitives) |
 | Styling | Tailwind CSS 4 with Genesis theme tokens |
 | Icons | Lucide React |
-| Charts | Recharts (available, not used in examples yet) |
-| Toasts | Sonner (available, not used in examples yet) |
+| Charts | Recharts, via `@marktiderman/genesis-ui`'s Chart wrapper |
+| Toasts | Sonner, via `@marktiderman/genesis-ui`'s Toast wrapper |
+| Forms | react-hook-form, via `ResourceForm` / `useResourceForm` |
 
 ## Adapting for Your Project
 
@@ -122,53 +89,54 @@ Keep this page during development as a quick reference. Delete it before shippin
 
 - `package.json` — change name, description
 - `root.tsx` — update page title, fonts
-- `app.css` — swap theme tokens for your brand preset (see `@genesis/design-system` presets)
+- `app.css` — swap theme tokens for your brand preset (see `@marktiderman/genesis-design-system` presets)
 
 ### 2. Update navigation
 
-- `_layout.tsx` — change nav items to match your app's routes
+- `_layout.tsx` — change `navItems` (and the curated `mobileNavItems`) to match your app's routes
+- `_index.tsx` — replace the marketing page with your own, or delete it and point `routes.ts`'s
+  `index()` entry at `_layout.tsx`'s first child instead
 
-### 3. Build your pages
+### 3. Wrap with GenesisProvider
 
-Start at **Level 1** (page layouts with config) when `<ResourcePage>` is available. Until then, follow the **Level 2** patterns shown in `items.tsx` and `dashboard.tsx`.
+Your app root should be wrapped in `<GenesisProvider>` from `@marktiderman/genesis-ui/provider`
+(re-exported from `@marktiderman/genesis-core`). This provides the data-provider context that
+`ResourcePage`, `useResource`, and the other data hooks need. See `root.tsx` for the setup pattern —
+this app uses `mock={{ datasets: {...} }}` for a zero-backend demo; a real app passes
+`provider={createSupabaseProvider(supabase)}` instead.
 
-See the [Genesis Architecture Spec](../../docs/specs/2026-04-14-genesis-architecture.md) for the full four-level customization model.
+### 4. Connect your data
 
-### 4. Wrap with GenesisProvider
-
-Your app root should be wrapped in `<GenesisProvider>` from `@genesis/ui-web`. This provides the data adapter context that `ResourcePage`, `useResource`, and other data hooks need to function. See `root.tsx` for the setup pattern.
-
-### 5. Connect your data
-
-Replace mock data arrays with your data layer:
-- Supabase queries via TanStack Query (default)
-- Or any data source — the components accept plain arrays
-
-### 6. Stay in sync
-
-Genesis framework files (standards, skills, hooks) sync weekly via PR. UI components update via:
-
-```bash
-pnpm update @genesis/ui-web @genesis/design-system
-```
-
-## What's Not Here Yet
-
-These are planned and will be added as Genesis matures:
-
-- Supabase auth scaffold — login, signup, session management
-- Command palette — cmdk is installed but not integrated
+Replace the mock datasets in `root.tsx` with a real provider — `createSupabaseProvider` ships from
+`@marktiderman/genesis-core`, or implement the `DataProvider` contract yourself for any other
+backend.
 
 ## Available Components
 
-### Primitives (from `@genesis/ui-web`)
+See [`docs/component-reference.md`](../../docs/component-reference.md) at the repo root for the
+full, auto-generated export list across every package (`pnpm gen:component-reference` to
+regenerate). The short version, for the subpaths this app uses most:
 
-Button, Badge, Card, Input, Select, Checkbox, Dialog, AlertDialog, Progress, Skeleton, Separator, Tabs, Tooltip
+### Primitives (from `@marktiderman/genesis-ui`)
 
-### Data Components (from `@genesis/ui-web/data`)
+Button, Badge, Card, Input, Select, Checkbox, Dialog, AlertDialog, Sheet, Drawer, Popover, Tabs,
+Tooltip, Progress, Skeleton, Separator, Command, CommandPalette, Toolbar, and 40+ more — browse them
+all at `/showcase/primitives`.
 
-AppShell, PageHeader, ResourcePage, DetailPanel, StatCard, KanbanBoard, DataList, DataPageShell, DataFilters, DataTable, DataGrid, DataBulkBar, EmptyState, ViewSettings, ViewToggle, FilterCombobox
+### Layout (from `@marktiderman/genesis-ui/layout`)
 
-### Hooks (from `@genesis/ui-web/hooks`)
+AppShell, PageHeader, DetailPage, FormPage, DashboardPage, SettingsPage, Stack, Grid, Split,
+Section, Container — browse them at `/showcase/layouts`.
 
-useDataFilters, useViewSettings, useKeyboardNavigation, useMobile, usePrefetch, useViewPreference, useResource, useOne, useResourcePage
+### Data components (from `@marktiderman/genesis-ui/data`)
+
+ResourcePage, ResourceDetailPage, ResourceForm, WizardForm, DetailPanel, StatCard, KanbanBoard,
+DataList, DataPageShell, DataFilters, DataTable, DataGrid, DataBulkBar, FilterCombobox, ViewToggle,
+ViewSettings, and the cell formatters (DateCell, NumberCell, CurrencyCell, BadgeCell) — browse them
+at `/showcase/data`.
+
+### Hooks (from `@marktiderman/genesis-ui/hooks`)
+
+useDataFilters, useViewSettings, useKeyboardNavigation, useIsMobile, createPrefetch,
+useViewPreference, useSavedViews, useResourcePage, plus the platform-agnostic useResource, useOne,
+useResourceForm, and useWizard re-exported from `@marktiderman/genesis-core`.

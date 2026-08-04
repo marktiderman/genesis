@@ -35,12 +35,33 @@ export const links: Route.LinksFunction = () => [
   },
 ];
 
+// Anti-flash theme resolution, inlined so it runs before first paint —
+// on ANY entry route, not just ones that happen to mount `<ThemeControls>`.
+// Reads the same `localStorage` key `<ThemeControls>` (components/theme-
+// controls.tsx) writes, so the two never disagree about the source of
+// truth. Previously `/` redirected straight to `/showcase`, which always
+// rendered `<ThemeControls>` on mount, so this gap was latent — a visitor
+// landing directly on `/` (the marketing page, now a real destination
+// rather than a redirect) would otherwise see a light flash regardless of
+// their stored preference or OS setting.
+const THEME_INIT_SCRIPT = `
+(function() {
+  try {
+    var stored = localStorage.getItem("genesis-showcase-mode");
+    var mode = stored === "light" || stored === "dark" ? stored : "system";
+    var dark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.classList.toggle("dark", dark);
+  } catch (e) {}
+})();
+`;
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Meta />
         <Links />
       </head>
