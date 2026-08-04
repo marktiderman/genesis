@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    # Publishing is I/O-bound and short; anything past this is a hang, not work.
+    # ci.yml's BILLING CONTRACT rule 3 — the July 2026 runaways (118 and
+    # 304-minute runs) had no timeout and ran to GitHub's 6-hour cap.
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # changesets needs history to work out what to version.
+          fetch-depth: 0
+          # ...but not every blob ever committed. This workflow fires on EVERY
+          # push to main, so its clone is the most-repeated cost in the repo —
+          # blob:none is a partial clone: the full commit graph still arrives,
+          # so changesets' version resolution and tag lookups are unchanged;
+          # only file contents become lazy, and changesets reads the working
+          # tree rather than history. Publishing behaviour is untouched.
+          filter: blob:none
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      # node-version >=22 + npm >=11.5 enables OIDC Trusted Publishing
+      # (no NPM_TOKEN secret needed; npm fetches a short-lived token via OIDC).
+      # Trusted publisher must be configured at npmjs.com → @marktiderman → Trusted Publishers
+      # pointing at this repo (marktiderman/genesis) + workflow file (release.yml).
+      #
+      # Node version pinned to 22.22.1: Node 22.22.2 ships a *broken* bundled
+      # npm 10.9.7 whose @npmcli/arborist is missing the `promise-retry` dep
+      # (MODULE_NOT_FOUND), making the bundled npm unusable for ANY install —
+      # including `npm install -g npm@<x>` to upgrade out of the bad bundle.
+      # 22.22.1 ships working npm 10.9.4. Bump deliberately when 22.22.3+ ships.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.1
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # OIDC Trusted Publishing requires npm >= 11.5.1. The bundled npm in
+      # Node 22.22.1 is 10.9.4, so we upgrade to 11.6.x explicitly.
+      # Avoid 11.5.x — those tarballs are missing `promise-retry` from
+      # arborist deps (same MODULE_NOT_FOUND issue, server-side this time).
+      # 11.6.x: past the broken 11.5 window, satisfies the >= 11.5.1 OIDC
+      # floor, caret keeps us inside 11.x — no surprise major bumps.
+      - name: Ensure npm supports OIDC Trusted Publishing
+        run: |
+          npm install -g npm@^11.6.0
+          npm --version
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm --filter "@marktiderman/*" build
+
+      - name: Create Release PR or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          publish: pnpm changeset publish
+          version: pnpm run version:packages
+          commit: "chore: version packages"
+          title: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # NPM_TOKEN intentionally omitted — OIDC Trusted Publishing handles auth.
+          # Sigstore provenance attestations work natively via id-token: write above.

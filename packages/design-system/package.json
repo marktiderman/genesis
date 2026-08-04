@@ -1,0 +1,78 @@
+{
+  "name": "@marktiderman/genesis-design-system",
+  "version": "1.2.0",
+  "private": false,
+  "type": "module",
+  "description": "Genesis brand-agnostic design tokens, canonical brand schema (with extensions slot), brand-genesis OOTB fallback, and theme generation. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/design-system"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "schema",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "pnpm build:tokens:native && tsup && pnpm build:tokens:css",
+    "build:tokens": "tsx style-dictionary.config.ts",
+    "build:tokens:native": "tsx style-dictionary.config.ts native",
+    "build:tokens:css": "tsx style-dictionary.config.ts css",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "validate": "node scripts/validate.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "react-native": "./dist/index.native.js",
+      "import": "./dist/index.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens/index.d.ts",
+      "import": "./dist/tokens/index.js"
+    },
+    "./tokens/native": {
+      "types": "./dist/tokens/native.d.ts",
+      "import": "./dist/tokens/native.js"
+    },
+    "./providers/native": {
+      "types": "./dist/providers/native.d.ts",
+      "import": "./dist/providers/native.js"
+    },
+    "./presets/*": {
+      "types": "./dist/presets/*.d.ts",
+      "import": "./dist/presets/*.js"
+    },
+    "./schema/brand": {
+      "types": "./dist/schema/brand.d.ts",
+      "import": "./dist/schema/brand.js"
+    },
+    "./schema/brand.schema.json": "./schema/brand.schema.json",
+    "./theme": {
+      "types": "./dist/theme/index.d.ts",
+      "react-native": "./dist/theme/index.native.js",
+      "import": "./dist/theme/index.js"
+    },
+    "./themes/*.css": "./dist/themes/*.css"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "ajv": "^8.17.0",
+    "style-dictionary": "4",
+    "tsup": "^8.3.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.0"
+  }
+}

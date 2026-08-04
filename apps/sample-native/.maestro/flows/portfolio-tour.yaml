@@ -1,0 +1,198 @@
+# Maestro flow: Phase G portfolio tour.
+#
+# Walks the entire Genesis Showcase end-to-end so the Maestro
+# infrastructure exercises every Phase G route. First-run mode only:
+# this flow does NOT bake in screenshots — D-VR adds the snapshot
+# capture pass once the portfolio routes have stabilized.
+#
+# Coverage:
+#   - Hero home tab
+#   - Tokens index + 6 category screens (colors, typography, spacing,
+#     radii, motion, shadows)
+#   - Primitives index + a representative detail (planned + stable)
+#   - Components showcase index + every existing showcase screen
+#   - Layouts index + 5 placeholder routes
+#   - Standards index
+#
+# Run locally:
+#   maestro test apps/sample-native/.maestro/flows/portfolio-tour.yaml
+#
+# Run with screenshot capture (when D-VR adds it):
+#   MAESTRO_SCREENSHOT=1 maestro test ... \
+#     -e screenshotsDir=../screenshots/portfolio
+appId: com.tiderman.genesis.sample
+---
+- launchApp:
+    permissions:
+      all: allow
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertVisible:
+    id: "portfolio-home"
+
+# ──────────────────────────────────────────────────────────────────────
+# Tokens (6 screens)
+# ──────────────────────────────────────────────────────────────────────
+- openLink: genesis-sample://tokens
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "tokens-index"
+
+- openLink: genesis-sample://tokens/colors
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "tokens-colors"
+
+- openLink: genesis-sample://tokens/typography
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "tokens-typography"
+
+- openLink: genesis-sample://tokens/spacing
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "tokens-spacing"
+
+- openLink: genesis-sample://tokens/radii
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "tokens-radii"
+
+- openLink: genesis-sample://tokens/motion
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "tokens-motion"
+
+- openLink: genesis-sample://tokens/shadows
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "tokens-shadows"
+
+# ──────────────────────────────────────────────────────────────────────
+# Primitives index + a planned detail
+# ──────────────────────────────────────────────────────────────────────
+- openLink: genesis-sample://primitives
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "primitive-toast"
+
+- openLink: genesis-sample://primitives/toast
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "toast-default"
+
+# ──────────────────────────────────────────────────────────────────────
+# Components showcase
+# ──────────────────────────────────────────────────────────────────────
+- openLink: genesis-sample://components-showcase
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "showcase-index"
+
+- openLink: genesis-sample://components-showcase/buttons
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "showcase-buttons"
+
+- openLink: genesis-sample://components-showcase/cards
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "showcase-cards"
+
+- openLink: genesis-sample://components-showcase/inputs
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "showcase-inputs"
+
+- openLink: genesis-sample://components-showcase/badges
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "showcase-badges"
+
+- openLink: genesis-sample://components-showcase/alerts
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "showcase-alerts"
+
+- openLink: genesis-sample://components-showcase/progress
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "showcase-progress"
+
+- openLink: genesis-sample://components-showcase/dialogs
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "showcase-dialogs"
+- tapOn:
+    id: "dialog-open-trigger"
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "dialog-content"
+- tapOn:
+    id: "dialog-cancel"
+
+# ──────────────────────────────────────────────────────────────────────
+# Layouts (5 placeholders)
+# ──────────────────────────────────────────────────────────────────────
+- openLink: genesis-sample://layouts
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "layouts-index"
+
+- openLink: genesis-sample://layouts/settings
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "coming-soon-e1"
+
+- openLink: genesis-sample://layouts/settings-sub
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "coming-soon-e2"
+
+- openLink: genesis-sample://layouts/notifications
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "coming-soon-e3"
+
+- openLink: genesis-sample://layouts/empty-state
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "coming-soon-e6"
+
+- openLink: genesis-sample://layouts/auth
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "coming-soon-e7"
+
+# ──────────────────────────────────────────────────────────────────────
+# Standards
+# ──────────────────────────────────────────────────────────────────────
+- openLink: genesis-sample://standards
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "standards-index"

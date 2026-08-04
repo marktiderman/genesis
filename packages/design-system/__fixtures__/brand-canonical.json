@@ -1,0 +1,36 @@
+{
+  "name": "genesis",
+  "neutral": {
+    "50": "#FAFAFA",
+    "100": "#F4F4F5",
+    "200": "#E4E4E7",
+    "300": "#D4D8DD",
+    "400": "#A1A1AA",
+    "500": "#71717A",
+    "600": "#52525B",
+    "700": "#3F3F46",
+    "800": "#27272A",
+    "900": "#18181B"
+  },
+  "surface": {
+    "DEFAULT": "#ffffff",
+    "light": "#ffffff",
+    "dark": "#09090b"
+  },
+  "text": {
+    "DEFAULT": "#09090b",
+    "light": "#71717a",
+    "dark": "#fafafa"
+  },
+  "accent": {
+    "DEFAULT": "#059669",
+    "light": "#34d399",
+    "dark": "#065f46"
+  },
+  "status": {
+    "success": { "DEFAULT": "#10B981", "light": "#D1FAE5", "dark": "#065F46" },
+    "warning": { "DEFAULT": "#F59E0B", "light": "#FEF3C7", "dark": "#92400E" },
+    "error": { "DEFAULT": "#EF4444", "light": "#FEE2E2", "dark": "#991B1B" },
+    "info": { "DEFAULT": "#3B82F6", "light": "#DBEAFE", "dark": "#1E40AF" }
+  }
+}

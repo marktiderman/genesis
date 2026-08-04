@@ -1,0 +1,67 @@
+{
+  "name": "@marktiderman/genesis-core",
+  "version": "1.1.1",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Genesis platform-agnostic providers, hooks, and data layer. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/core"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./provider": {
+      "types": "./dist/provider/index.d.ts",
+      "import": "./dist/provider/index.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks/index.d.ts",
+      "import": "./dist/hooks/index.js"
+    },
+    "./hooks/*": {
+      "types": "./dist/hooks/*.d.ts",
+      "import": "./dist/hooks/*.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/index.d.ts",
+      "import": "./dist/storage/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "react-hook-form": "^7.0.0",
+    "zod": "^3.0.0 || ^4.0.0",
+    "@hookform/resolvers": "^3.0.0 || ^4.0.0 || ^5.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.75.0",
+    "@types/react": "^19.2.14",
+    "react-hook-form": "^7.56.4",
+    "zod": "^3.25.67",
+    "@hookform/resolvers": "^5.0.1",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3"
+  }
+}

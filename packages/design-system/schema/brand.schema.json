@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marktiderman/genesis/packages/design-system/schema/brand.schema.json",
+  "title": "Genesis canonical brand schema",
+  "description": "Validates the shape of a @<consumer>/brand package's exported brand object. Every consumer brand satisfies this schema. The optional `extensions` slot holds consumer-domain ColorScale entries (rank, gameMode, flowTemplate, etc.) per PRD-07 D8 (revised).",
+  "type": "object",
+  "required": ["name", "neutral", "surface", "text", "accent", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Brand identifier, kebab-case (e.g. 'genesis', 'gamify'). Lowercase alphanumerics separated by single hyphens; no leading/trailing hyphen, no consecutive hyphens."
+    },
+    "neutral": {
+      "type": "object",
+      "description": "Neutral grayscale ramp keyed by stop (50, 100, ..., 900).",
+      "additionalProperties": { "type": "string" }
+    },
+    "surface": { "$ref": "#/$defs/ColorScale" },
+    "text": { "$ref": "#/$defs/ColorScale" },
+    "accent": { "$ref": "#/$defs/ColorScale" },
+    "status": {
+      "type": "object",
+      "required": ["success", "warning", "error", "info"],
+      "additionalProperties": false,
+      "properties": {
+        "success": { "$ref": "#/$defs/ColorScale" },
+        "warning": { "$ref": "#/$defs/ColorScale" },
+        "error": { "$ref": "#/$defs/ColorScale" },
+        "info": { "$ref": "#/$defs/ColorScale" }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Consumer-domain color scales. Keys are camelCase; values are ColorScale. Genesis ships no canonical extensions — every entry comes from a consumer brand package.",
+      "patternProperties": {
+        "^[a-z][a-zA-Z0-9]*$": { "$ref": "#/$defs/ColorScale" }
+      },
+      "additionalProperties": false
+    },
+    "typography": {
+      "type": "object",
+      "description": "Optional typography tokens (PRD-07 A4.0). Authored once; tailwindFromBrand emits CSS font stacks, themeFromBrand emits the head family + numeric fontWeight for React Native.",
+      "additionalProperties": false,
+      "properties": {
+        "fontFamily": {
+          "type": "object",
+          "description": "Font stacks keyed by semantic name. Each value is [head, ...fallbacks].",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          }
+        },
+        "fontSize": {
+          "type": "object",
+          "description": "Font sizes — rem strings on web, converted to px on native.",
+          "additionalProperties": { "$ref": "#/$defs/LengthString" }
+        },
+        "lineHeight": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/LengthString" }
+        },
+        "fontWeight": {
+          "type": "object",
+          "description": "Font weights — string-numeric (\"400\", \"700\").",
+          "additionalProperties": { "type": "string", "pattern": "^[1-9]00$" }
+        }
+      }
+    },
+    "spacing": {
+      "type": "object",
+      "description": "Optional spacing scale. Authored as rem strings; themeFromBrand converts to px numbers (×16 by default).",
+      "additionalProperties": { "$ref": "#/$defs/LengthString" }
+    },
+    "radius": {
+      "type": "object",
+      "description": "Optional border-radius scale. Same rem→px conversion as spacing.",
+      "additionalProperties": { "$ref": "#/$defs/LengthString" }
+    },
+    "shadow": {
+      "type": "object",
+      "description": "Optional shadow tokens. Authored once, emitted platform-correctly.",
+      "additionalProperties": { "$ref": "#/$defs/ShadowToken" }
+    },
+    "gradient": {
+      "type": "object",
+      "description": "Optional gradient tokens. Web emits linear-gradient CSS; native consumers feed stops into expo-linear-gradient.",
+      "additionalProperties": { "$ref": "#/$defs/GradientToken" }
+    },
+    "platformOverrides": {
+      "type": "object",
+      "description": "Escape hatch (PRD-07 A4.0). Per-platform overrides that the factories merge before emission. Use sparingly.",
+      "additionalProperties": false,
+      "properties": {
+        "web": { "$ref": "#/$defs/PlatformOverridable" },
+        "native": { "$ref": "#/$defs/PlatformOverridable" }
+      }
+    }
+  },
+  "$defs": {
+    "LengthString": {
+      "description": "Rem-based length, mirrored at runtime by LENGTH_REGEX in src/schema/brand.ts. Matches '0', '1rem', '0.5rem'. Rejects '12px', 'auto', percentages.",
+      "type": "string",
+      "pattern": "^(?:0|\\d+(?:\\.\\d+)?rem)$"
+    },
+    "ColorScale": {
+      "type": "object",
+      "required": ["DEFAULT"],
+      "additionalProperties": { "type": "string" },
+      "properties": {
+        "DEFAULT": { "type": "string", "minLength": 1 },
+        "light": { "type": "string" },
+        "dark": { "type": "string" }
+      }
+    },
+    "ShadowToken": {
+      "type": "object",
+      "required": ["offsetX", "offsetY", "blur", "color"],
+      "additionalProperties": false,
+      "properties": {
+        "offsetX": { "type": "number" },
+        "offsetY": { "type": "number" },
+        "blur": { "type": "number", "minimum": 0 },
+        "spread": { "type": "number" },
+        "color": { "type": "string", "minLength": 1 },
+        "elevation": { "type": "number", "minimum": 0 }
+      }
+    },
+    "GradientToken": {
+      "type": "object",
+      "required": ["direction", "stops"],
+      "additionalProperties": false,
+      "properties": {
+        "direction": { "type": "string", "minLength": 1 },
+        "stops": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["color", "position"],
+            "additionalProperties": false,
+            "properties": {
+              "color": { "type": "string", "minLength": 1 },
+              "position": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "PlatformOverridable": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "surface": { "type": "object", "additionalProperties": { "type": "string" } },
+        "text": { "type": "object", "additionalProperties": { "type": "string" } },
+        "accent": { "type": "object", "additionalProperties": { "type": "string" } },
+        "typography": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fontFamily": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1
+              }
+            },
+            "fontSize": { "type": "object", "additionalProperties": { "$ref": "#/$defs/LengthString" } },
+            "lineHeight": { "type": "object", "additionalProperties": { "$ref": "#/$defs/LengthString" } },
+            "fontWeight": {
+              "type": "object",
+              "additionalProperties": { "type": "string", "pattern": "^[1-9]00$" }
+            }
+          }
+        },
+        "spacing": { "type": "object", "additionalProperties": { "$ref": "#/$defs/LengthString" } },
+        "radius": { "type": "object", "additionalProperties": { "$ref": "#/$defs/LengthString" } },
+        "shadow": { "type": "object", "additionalProperties": { "$ref": "#/$defs/ShadowToken" } },
+        "gradient": { "type": "object", "additionalProperties": { "$ref": "#/$defs/GradientToken" } }
+      }
+    }
+  }
+}

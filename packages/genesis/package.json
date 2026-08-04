@@ -1,0 +1,113 @@
+{
+  "name": "@marktiderman/genesis",
+  "version": "0.5.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Genesis — one-install umbrella and single version coordinate for the Genesis system. Re-exports @marktiderman/genesis-core, -ui, -design-system, -switchboard, and -ui-native (as /native) via subpath exports and exact-pins each to a reproducible set. Holds no code of its own; each granular package remains independently installable.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/genesis"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "smoke:web": "node scripts/smoke-web-install.mjs"
+  },
+  "exports": {
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./ui": {
+      "types": "./dist/ui.d.ts",
+      "import": "./dist/ui.js"
+    },
+    "./ui/data": {
+      "types": "./dist/ui-data.d.ts",
+      "import": "./dist/ui-data.js"
+    },
+    "./ui/patterns": {
+      "types": "./dist/ui-patterns.d.ts",
+      "import": "./dist/ui-patterns.js"
+    },
+    "./ui/layout": {
+      "types": "./dist/ui-layout.d.ts",
+      "import": "./dist/ui-layout.js"
+    },
+    "./ui/utils": {
+      "types": "./dist/ui-utils.d.ts",
+      "import": "./dist/ui-utils.js"
+    },
+    "./ui/status-colors": {
+      "types": "./dist/ui-status-colors.d.ts",
+      "import": "./dist/ui-status-colors.js"
+    },
+    "./ui/hooks": {
+      "types": "./dist/ui-hooks.d.ts",
+      "import": "./dist/ui-hooks.js"
+    },
+    "./design-system": {
+      "types": "./dist/design-system.d.ts",
+      "import": "./dist/design-system.js"
+    },
+    "./design-system/tokens": {
+      "types": "./dist/design-system-tokens.d.ts",
+      "import": "./dist/design-system-tokens.js"
+    },
+    "./design-system/theme": {
+      "types": "./dist/design-system-theme.d.ts",
+      "import": "./dist/design-system-theme.js"
+    },
+    "./switchboard": {
+      "types": "./dist/switchboard.d.ts",
+      "import": "./dist/switchboard.js"
+    },
+    "./switchboard/gitdata": {
+      "types": "./dist/switchboard-gitdata.d.ts",
+      "import": "./dist/switchboard-gitdata.js"
+    },
+    "./switchboard/data-provider": {
+      "types": "./dist/switchboard-data-provider.d.ts",
+      "import": "./dist/switchboard-data-provider.js"
+    },
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "react-native": "./dist/native.js",
+      "import": "./dist/native.js",
+      "default": "./dist/native.js"
+    }
+  },
+  "dependencies": {
+    "@marktiderman/genesis-core": "workspace:*",
+    "@marktiderman/genesis-ui": "workspace:*",
+    "@marktiderman/genesis-design-system": "workspace:*",
+    "@marktiderman/genesis-switchboard": "workspace:*",
+    "@marktiderman/genesis-ui-native": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-native": ">=0.76.0"
+  },
+  "peerDependenciesMeta": {
+    "react-native": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,418 @@
+# Genesis Lint — reusable workflow (PRD-07 Phase D6).
+#
+# Wraps the four/five Genesis CI guards into a single workflow consumer
+# repos can call from their own pr.yml. Each guard is its own job so a
+# failure in one (e.g. raw hex) doesn't suppress the others' signal.
+#
+# How to invoke from a consumer repo's .github/workflows/pr.yml:
+#
+#   jobs:
+#     genesis-lint:
+#       permissions:
+#         contents: read
+#         pull-requests: write   # design-system-coverage posts the D6.6 comment
+#       uses: marktiderman/genesis/.github/workflows/genesis-lint.yml@main
+#       with:
+#         paths: 'apps/mobile/**'
+#         node-version: '22'
+#         # pnpm-version: '9'    # ONLY if your repo has no packageManager field
+#
+# pnpm's version: if your repo has a `packageManager` field in package.json
+# (recommended — pnpm's own single source of truth), the version is taken
+# from there, so leave `pnpm-version` UNSET. If your repo has NO
+# `packageManager` field, pass `pnpm-version` so pnpm/action-setup@v4 has a
+# version to install (action-setup requires one when packageManager is
+# absent). Don't set both to conflicting values — action-setup aborts with
+# "Multiple versions of pnpm specified".
+#
+# Grant the caller `permissions: { contents: read, pull-requests: write }`:
+# the design-system-coverage job posts the D6.6 soft-blocker comment, and a
+# reusable job can only downgrade the caller's token — a read-only default
+# GITHUB_TOKEN makes the run fail at startup. (The other jobs downgrade
+# themselves back to contents:read.)
+#
+# Pin to a release tag instead of @main once Genesis tags this workflow.
+# See docs/prds/PRD-07-genesis-consumption-architecture/standards/upgrade-process.md.
+#
+# Jobs:
+#   1. legacy-imports         — wraps scripts/check-legacy-imports.mjs (D6.1)
+#   2. token-usage            — runs check-token-usage.mjs + check-forbidden-imports.mjs (D6.2)
+#   3. peer-deps              — runs check-peer-deps.mjs (D6.2c)
+#   4. testid-coverage        — runs check-testid-coverage.mjs (D6.2d)
+#   5. f4-gate                — runs scripts/verify-f4-gate.mjs (F4.4 V8 check)
+#   6. design-system-coverage — runs design-system-coverage.mjs (D6.3 + D6.6 soft blocker)
+#   7. primitive-docs-sync    — runs sample's docs:check (G.12)
+#
+# All jobs install pnpm + node + dependencies independently. They share no
+# build artifacts so a single re-run can target one job.
+
+name: Genesis Lint (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        type: string
+        default: '22'
+      # pnpm version FALLBACK — used only when the consumer repo has no
+      # package.json `packageManager` field. action-setup@v4 resolves the
+      # version from `packageManager` when present (the SSOT), so the two must
+      # not conflict: leave this empty (the default) whenever packageManager
+      # exists, and an empty value defers to it. When there is NO
+      # `packageManager`, action-setup REQUIRES a version and this supplies it.
+      pnpm-version:
+        description: 'pnpm version fallback — used only when the repo has no package.json packageManager field'
+        type: string
+        default: ''
+      paths:
+        description: 'Glob of paths to scan (passed through to the scripts that accept it)'
+        type: string
+        default: 'apps'
+
+jobs:
+  legacy-imports:
+    name: Legacy @genesis/* imports
+    runs-on: ubuntu-latest
+    # ci.yml BILLING CONTRACT rule 3: an unbounded job runs to GitHub's
+    # 6-hour cap. Two July 2026 runaways did exactly that.
+    timeout-minutes: 15
+    # Least privilege: this job only reads + runs scripts (no PR write). The
+    # caller grants pull-requests:write for design-system-coverage's comment;
+    # every other job downgrades itself back to contents:read (Codex P2).
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version from package.json `packageManager` (SSOT) when present; falls
+      # back to the pnpm-version input for consumers without it. Empty input
+      # defers to packageManager. See the pnpm-version input above.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for legacy @genesis/* imports
+        run: pnpm check:legacy-imports
+
+  token-usage:
+    name: Raw hex + forbidden imports
+    runs-on: ubuntu-latest
+    # ci.yml BILLING CONTRACT rule 3: an unbounded job runs to GitHub's
+    # 6-hour cap. Two July 2026 runaways did exactly that.
+    timeout-minutes: 15
+    # Least privilege: this job only reads + runs scripts (no PR write). The
+    # caller grants pull-requests:write for design-system-coverage's comment;
+    # every other job downgrades itself back to contents:read (Codex P2).
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version from package.json `packageManager` (SSOT) when present; falls
+      # back to the pnpm-version input for consumers without it. Empty input
+      # defers to packageManager. See the pnpm-version input above.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for raw hex color literals
+        run: node scripts/check-token-usage.mjs ${{ inputs.paths }}
+
+      - name: Check for forbidden react-native imports
+        run: node scripts/check-forbidden-imports.mjs ${{ inputs.paths }}
+
+  peer-deps:
+    name: Peer-dep compliance
+    runs-on: ubuntu-latest
+    # ci.yml BILLING CONTRACT rule 3: an unbounded job runs to GitHub's
+    # 6-hour cap. Two July 2026 runaways did exactly that.
+    timeout-minutes: 15
+    # Least privilege: this job only reads + runs scripts (no PR write). The
+    # caller grants pull-requests:write for design-system-coverage's comment;
+    # every other job downgrades itself back to contents:read (Codex P2).
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version from package.json `packageManager` (SSOT) when present; falls
+      # back to the pnpm-version input for consumers without it. Empty input
+      # defers to packageManager. See the pnpm-version input above.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check peer-dep compliance
+        run: node scripts/check-peer-deps.mjs
+
+  testid-coverage:
+    name: testID coverage
+    runs-on: ubuntu-latest
+    # ci.yml BILLING CONTRACT rule 3: an unbounded job runs to GitHub's
+    # 6-hour cap. Two July 2026 runaways did exactly that.
+    timeout-minutes: 15
+    # Least privilege: this job only reads + runs scripts (no PR write). The
+    # caller grants pull-requests:write for design-system-coverage's comment;
+    # every other job downgrades itself back to contents:read (Codex P2).
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version from package.json `packageManager` (SSOT) when present; falls
+      # back to the pnpm-version input for consumers without it. Empty input
+      # defers to packageManager. See the pnpm-version input above.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check testID coverage
+        run: node scripts/check-testid-coverage.mjs ${{ inputs.paths }}
+
+      - name: Upload testID coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testid-coverage
+          path: coverage/testid-coverage.json
+          if-no-files-found: ignore
+
+  f4-gate:
+    name: F4 enforcement gate (V8)
+    runs-on: ubuntu-latest
+    # ci.yml BILLING CONTRACT rule 3: an unbounded job runs to GitHub's
+    # 6-hour cap. Two July 2026 runaways did exactly that.
+    timeout-minutes: 15
+    # Least privilege: this job only reads + runs scripts (no PR write). The
+    # caller grants pull-requests:write for design-system-coverage's comment;
+    # every other job downgrades itself back to contents:read (Codex P2).
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version from package.json `packageManager` (SSOT) when present; falls
+      # back to the pnpm-version input for consumers without it. Empty input
+      # defers to packageManager. See the pnpm-version input above.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      # Deliberately NO `cache: pnpm` here, unlike every other job in this
+      # workflow. This is the only job that never runs `pnpm install` — it
+      # just executes a standalone node script — so no pnpm store is ever
+      # populated. With the cache enabled, setup-node's post-job save step
+      # failed with "Path Validation Error: Path(s) specified in the action
+      # for caching do(es) not exist", which marked the whole job red even
+      # though the gate itself printed "F4 gate PASS". That spurious failure
+      # blocked every PR in the repo, since these checks are required.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      # F4.4 verification (V8): confirm the simplicity-gate scaffolding is
+      # intact — D6.6 soft blocker wired, PR template carries the field,
+      # standards docs locked, @stability convention documented. The
+      # script auto-discovers the scripts/verify-f4-gate.mjs path so this
+      # works whether the workflow is called from genesis itself or a
+      # consumer that vendors the script in. If the consumer hasn't
+      # vendored it, the step is skipped (informational).
+      - name: Run F4 verification
+        run: |
+          if [ -f scripts/verify-f4-gate.mjs ]; then
+            node scripts/verify-f4-gate.mjs
+          else
+            echo "scripts/verify-f4-gate.mjs not present — skipping (consumer repo)."
+          fi
+
+  design-system-coverage:
+    name: Design-system coverage (D6.3 + D6.6)
+    runs-on: ubuntu-latest
+    # ci.yml BILLING CONTRACT rule 3: an unbounded job runs to GitHub's
+    # 6-hour cap. Two July 2026 runaways did exactly that.
+    timeout-minutes: 15
+    # Need PR write to leave the soft-blocker comment.
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need history so design-system-coverage.mjs can diff against base
+          # (`git merge-base origin/$base HEAD`, then `git diff --name-only`).
+          fetch-depth: 0
+          # ...but not every blob ever committed — a full clone only gets
+          # slower as history grows, for a check whose diff itself is cheap.
+          #
+          # blob:none is a partial clone. The complete commit graph still
+          # arrives, so merge-base stays exact; only file *contents* become
+          # lazy.
+          #
+          # A --name-only diff walks trees, not blobs, ONLY IF rename detection
+          # is off. Rename detection compares blob CONTENTS, so with it on the
+          # diff lazily backfills base-side blobs and hard-fails (exit 128,
+          # "could not fetch <oid> from promisor remote") if that fetch fails -
+          # which design-system-coverage.mjs would turn into a silent full-scan
+          # fallback and a green check. That is why the script passes
+          # --no-renames. Do not drop that flag while this filter is here; they
+          # are one mechanism split across two files.
+          filter: blob:none
+
+      # Version from package.json `packageManager` (SSOT) when present; falls
+      # back to the pnpm-version input for consumers without it. Empty input
+      # defers to packageManager. See the pnpm-version input above.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Compute design-system coverage
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref || 'main' }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          SCAN_PATHS: ${{ inputs.paths }}
+        run: node scripts/design-system-coverage.mjs
+
+      - name: Upload design-system coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-coverage
+          path: |
+            coverage/design-system-coverage.json
+            coverage/design-system-coverage.md
+          if-no-files-found: ignore
+
+      # D6.6: comment on the PR with the markdown report. This is the
+      # soft-blocker surface — the comment makes the warning visible and
+      # asks for a reviewer ack. It does NOT auto-fail the workflow.
+      - name: Comment design-system coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'coverage/design-system-coverage.md';
+            if (!fs.existsSync(path)) {
+              core.info('No coverage report file found — skipping comment.');
+              return;
+            }
+            const body = fs.readFileSync(path, 'utf8');
+            const marker = '<!-- genesis-design-system-coverage -->';
+            const fullBody = `${marker}\n${body}`;
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+
+            // Update the previous coverage comment in place if it exists,
+            // so PR pages don't accumulate one comment per push.
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner, repo, comment_id: existing.id, body: fullBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number, body: fullBody,
+              });
+            }
+
+  primitive-docs-sync:
+    name: Primitive docs in sync (G.12)
+    runs-on: ubuntu-latest
+    # ci.yml BILLING CONTRACT rule 3: an unbounded job runs to GitHub's
+    # 6-hour cap. Two July 2026 runaways did exactly that.
+    timeout-minutes: 15
+    # Skipped automatically in consumer repos — the script only lives in
+    # genesis itself. Keeps the reusable workflow noise-free for downstream
+    # callers per D6 design.
+    # Least privilege: read-only (no PR write). See token-usage note above.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect generator
+        id: detect
+        run: |
+          if [ -f apps/sample/scripts/generate-primitive-docs.ts ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Version from packageManager (SSOT) when present; falls back to the
+      # pnpm-version input otherwise. Empty input defers. See pnpm-version input.
+      - uses: pnpm/action-setup@v4
+        if: steps.detect.outputs.present == 'true'
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.present == 'true'
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.detect.outputs.present == 'true'
+        run: pnpm install --frozen-lockfile
+
+      # Build the workspace packages first — react-docgen-typescript walks
+      # cross-package type references through their published .d.ts, so
+      # building packages before regenerating keeps the output identical
+      # to local dev (where consumers run `pnpm -r build` once).
+      - name: Build workspace packages
+        if: steps.detect.outputs.present == 'true'
+        run: pnpm -r --filter './packages/*' build
+
+      - name: Regenerate and diff
+        if: steps.detect.outputs.present == 'true'
+        run: pnpm --filter sample docs:check
+
+      - name: Skipped (consumer repo)
+        if: steps.detect.outputs.present != 'true'
+        run: echo "apps/sample/scripts/generate-primitive-docs.ts not present — skipping (consumer repo)."

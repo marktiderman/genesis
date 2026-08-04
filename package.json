@@ -1,0 +1,32 @@
+{
+  "name": "genesis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Genesis — a shadcn-based, brand-agnostic design system and data-provider layer for building React apps fast.",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:packages": "pnpm -r --filter \"./packages/*\" build",
+    "check:forbidden-imports": "node scripts/check-forbidden-imports.mjs",
+    "check:legacy-imports": "node scripts/check-legacy-imports.mjs",
+    "check:peer-deps": "node scripts/check-peer-deps.mjs",
+    "check:testid-coverage": "node scripts/check-testid-coverage.mjs",
+    "check:token-usage": "node scripts/check-token-usage.mjs",
+    "clean:packages": "pnpm --filter \"@marktiderman/genesis-*\" clean",
+    "coverage:design-system": "node scripts/design-system-coverage.mjs",
+    "gen:component-reference": "node scripts/gen-component-reference.mjs",
+    "lint": "pnpm -r lint",
+    "lint:genesis": "pnpm check:legacy-imports && pnpm check:token-usage && pnpm check:forbidden-imports && pnpm check:peer-deps && pnpm check:testid-coverage",
+    "test": "pnpm -r test && pnpm test:scripts",
+    "test:scripts": "vitest run --config vitest.scripts.config.mjs",
+    "typecheck": "pnpm -r typecheck",
+    "version:packages": "changeset version"
+  },
+  "devDependencies": {
+    "@changesets/cli": "~2.30.0",
+    "vitest": "^2.1.0",
+    "yaml": "^2.6.0"
+  }
+}

@@ -1,0 +1,98 @@
+name: Tarball Integrity
+
+# THE 0.2.1 LESSON (fix c812291, "Build the umbrella in Release; republish
+# 0.2.2"): the Release workflow's build filter matched every granular
+# package but NOT the umbrella package itself, so `changeset publish`
+# packed an UNBUILT umbrella — the 0.2.1 npm tarball shipped 2 files
+# (package.json + README), no dist/, no types. Nothing caught it before
+# publish. See scripts/verify-tarball-integrity.mjs for the full story.
+#
+# This gate builds the whole publishable set, then asserts each in-scope
+# package's `npm pack --dry-run` tarball actually contains dist/ + a .d.ts, so a
+# repeat of 0.2.1 fails LOUD in CI instead of shipping silently.
+#
+# Runs on:
+#   - any PR touching packages/**, release machinery, or this gate itself
+#     (fast path: the script builds the whole publishable set, then packs
+#     only the packages that changed — see verify-tarball-integrity.mjs's
+#     diff-based targeting).
+#   - any PR whose head is a changeset-release/* branch (the auto-generated
+#     "chore: version packages" PR that changesets/action opens against
+#     main) — that is the EXACT PR shape that published the broken 0.2.1
+#     tarball, so it always gets the full --all check below, regardless of
+#     which files the path filter matched it on.
+
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - ".changeset/**"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/tarball-integrity.yml"
+      - "scripts/verify-tarball-integrity.mjs"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+      - "package.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tarball-integrity-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  tarball-integrity:
+    name: npm pack dist/+types check
+    runs-on: ubuntu-latest
+    # ci.yml BILLING CONTRACT rule 3: an unbounded job runs to GitHub's
+    # 6-hour cap. Two July 2026 runaways did exactly that.
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history: the script diffs HEAD against the PR base ref to
+          # target only the packages that changed (fast path).
+          fetch-depth: 0
+          # Commit graph only — see the same note in genesis-lint.yml. blob:none
+          # keeps the graph, so the base-ref diff that picks which packages to
+          # pack is unchanged; only file contents become lazy.
+          #
+          # verify-tarball-integrity.mjs passes --no-renames so that diff needs
+          # no blobs at all; rename detection would otherwise read blob contents
+          # and lazily backfill them. Keep the two in step.
+          filter: blob:none
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify tarball integrity
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin "$BASE_REF"
+
+          # The changesets version-packages PR ALWAYS gets the full --all
+          # check — it is the exact PR shape that published 0.2.1, so
+          # never let its scope be narrowed by the diff-based fast path.
+          case "$HEAD_REF" in
+            changeset-release/*)
+              echo "changeset-release/* head — checking ALL publishable packages."
+              node scripts/verify-tarball-integrity.mjs --all
+              ;;
+            *)
+              node scripts/verify-tarball-integrity.mjs --base "origin/$BASE_REF"
+              ;;
+          esac

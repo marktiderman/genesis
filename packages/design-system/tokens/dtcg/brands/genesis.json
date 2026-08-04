@@ -1,0 +1,12 @@
+{
+  "brand": {
+    "primary": { "$type": "color", "$value": "#10b981" },
+    "primary-hsl": {
+      "h": { "$type": "number", "$value": 160 },
+      "s": { "$type": "number", "$value": 84 },
+      "l": { "$type": "number", "$value": 39 }
+    },
+    "radius": { "$type": "dimension", "$value": "10px" },
+    "name": { "$type": "string", "$value": "genesis" }
+  }
+}

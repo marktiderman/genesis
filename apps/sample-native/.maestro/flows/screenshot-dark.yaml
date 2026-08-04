@@ -1,0 +1,75 @@
+# Maestro flow: capture dark-mode screenshots of every primitive.
+#
+# Prerequisites (set before running this flow):
+#   iOS:     xcrun simctl ui booted appearance dark
+#   Android: adb shell "cmd uimode night yes"
+#
+# The app uses `userInterfaceStyle: automatic` (apps/sample-native/app.json)
+# so it follows system appearance on launch.
+appId: com.tiderman.genesis.sample
+---
+- launchApp:
+    permissions:
+      all: allow
+    arguments:
+      MAESTRO_SCREENSHOT_MODE: "true"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot:
+    path: ../screenshots/dark/home
+
+- openLink: genesis-sample://components-showcase
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot:
+    path: ../screenshots/dark/showcase-index
+
+- openLink: genesis-sample://components-showcase/buttons
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot:
+    path: ../screenshots/dark/buttons
+
+- openLink: genesis-sample://components-showcase/cards
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot:
+    path: ../screenshots/dark/cards
+
+- openLink: genesis-sample://components-showcase/inputs
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot:
+    path: ../screenshots/dark/inputs
+
+- openLink: genesis-sample://components-showcase/badges
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot:
+    path: ../screenshots/dark/badges
+
+- openLink: genesis-sample://components-showcase/dialogs
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot:
+    path: ../screenshots/dark/dialogs-closed
+- tapOn:
+    id: "dialog-open-trigger"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot:
+    path: ../screenshots/dark/dialogs-open
+- tapOn:
+    id: "dialog-cancel"
+
+- openLink: genesis-sample://components-showcase/alerts
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot:
+    path: ../screenshots/dark/alerts
+
+- openLink: genesis-sample://components-showcase/progress
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot:
+    path: ../screenshots/dark/progress

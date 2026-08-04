@@ -1,0 +1,22 @@
+{
+  "spacing": {
+    "page": {
+      "x": { "$type": "dimension", "$value": "16px" },
+      "sm": { "$type": "dimension", "$value": "24px" },
+      "lg": { "$type": "dimension", "$value": "32px" }
+    },
+    "card": {
+      "padding": { "$type": "dimension", "$value": "20px" }
+    },
+    "section": {
+      "gap": { "$type": "dimension", "$value": "32px" }
+    }
+  },
+  "radius": {
+    "sm": { "$type": "dimension", "$value": "4px" },
+    "md": { "$type": "dimension", "$value": "6px" },
+    "lg": { "$type": "dimension", "$value": "8px" },
+    "xl": { "$type": "dimension", "$value": "12px" },
+    "full": { "$type": "dimension", "$value": "9999px" }
+  }
+}

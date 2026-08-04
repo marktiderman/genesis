@@ -1,0 +1,777 @@
+"use client";
+
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
+import type { LucideIcon } from "lucide-react";
+import type { UseFormReturn } from "react-hook-form";
+import { Plus, Trash2 } from "lucide-react";
+import { Button } from "../ui/button";
+import { DataPageShell } from "./DataPageShell";
+import { DataFilters } from "./DataFilters";
+import { DataTable } from "./DataTable";
+import { DataBulkBar } from "./DataBulkBar";
+import { DataGrid } from "./DataGrid";
+import { DetailPanel } from "./DetailPanel";
+import { ResourceForm } from "./ResourceForm";
+import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
+import type { ViewMode } from "../patterns/view-toggle";
+import { useResource, type UseResourceOptions } from "@marktiderman/genesis-core/hooks";
+import {
+  useResourcePage,
+  type ResourceColumnDef,
+  type ResourceActions,
+} from "../../hooks/use-resource-page";
+import { useViewSettings } from "../../hooks/use-view-settings";
+import { useKeyboardNavigation } from "../../hooks/use-keyboard-navigation";
+import type { BaseRecord, FilterParam } from "@marktiderman/genesis-core/provider";
+import type { ResourceFormFieldDef } from "./ResourceFormField";
+import type { WizardStep } from "@marktiderman/genesis-core/hooks";
+import { defaultNavigate, type NavigateFn } from "../../navigation";
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+/**
+ * Row-bound actions handed to `renderCard`, on top of the resource-wide
+ * `ResourceActions`. `open` is per-row, which is why it lives here rather
+ * than on `ResourceActions` — that object is built once and shared by every
+ * row and column, so it cannot carry a row-specific callback.
+ *
+ * @stability Beta
+ */
+export interface ResourceCardActions<T> extends ResourceActions<T> {
+  /**
+   * Activate this row — opens the configured detail panel / modal / route,
+   * exactly as clicking the built-in card does. Wire it to your card's
+   * `onClick` (and call `stopPropagation` on any nested control that should
+   * not also activate the row).
+   */
+  open: () => void;
+}
+
+/**
+ * Config-driven resource page: wires data-fetching (or a pre-fetched `data`
+ * array), search/filter/sort, table/grid/list views, and a detail
+ * panel/modal/route around a `DataProvider` resource — the CRUD page most
+ * apps hand-roll, expressed as one component tree. `renderCard` lets a
+ * consumer fully own item presentation while ResourcePage keeps handling
+ * data-fetching, filtering, and layout; see also the built-in
+ * `useKeyboardNavigation` wiring (`keyboardNavigation` prop) and `gridCols`.
+ *
+ * @stability Beta
+ */
+export interface ResourcePageProps<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> {
+  // Data source — one or the other
+  /** Client-side mode: resource name passed to useResource / DataProvider. */
+  resource?: string;
+  /** Server-data mode: pre-fetched data array. */
+  data?: T[];
+  /** Server-data mode: total record count (before client-side filtering). */
+  total?: number;
+
+  // Page chrome
+  title: string;
+  /** Page subtitle shown below the title. */
+  subtitle?: string;
+  icon?: LucideIcon;
+
+  // Columns — optional, string shorthand supported
+  columns?: Array<string | ResourceColumnDef<T>>;
+
+  // Detail view
+  /** How row-click detail is shown. Default "panel". */
+  detail?: "panel" | "modal" | "route" | "none";
+  detailWidth?: "sm" | "md" | "lg";
+  titleField?: string;
+  subtitleField?: string;
+  renderDetail?: (item: T) => ReactNode;
+  detailFields?: Array<{
+    key: string;
+    label: string;
+    render?: (value: unknown, item: T) => ReactNode;
+  }>;
+
+  // Filters
+  statusFilter?: string | { field: string; options?: string[] };
+  searchFields?: string[];
+  searchPlaceholder?: string;
+  initialFilters?: FilterParam[];
+  onFiltersChange?: (filters: FilterParam[]) => void;
+
+  // CRUD — presence enables the action
+  onCreate?: () => void;
+  onEdit?: (item: T) => void;
+  onDelete?: (item: T) => void;
+  createLabel?: string;
+
+  // Built-in form support (Phase 2)
+  /** Enable built-in create form (ignored if onCreate callback is provided). */
+  allowCreate?: boolean;
+  /** Enable built-in edit form (ignored if onEdit callback is provided). */
+  allowEdit?: boolean;
+  /** Field definitions for the built-in form. */
+  formFields?: ResourceFormFieldDef[];
+  /** Custom form renderer — receives form instance and resolved fields. */
+  renderForm?: (
+    form: UseFormReturn<Record<string, unknown>>,
+    fields: ResourceFormFieldDef[],
+  ) => ReactNode;
+
+  /** Form presentation mode. Default "standard". */
+  formMode?: "standard" | "wizard";
+  /** Wizard step definitions. Required when formMode is "wizard". */
+  formSteps?: WizardStep[];
+  /** Layout mode for the built-in form container. If not set, defaults to sheet for edit, dialog for create. */
+  formLayout?: "dialog" | "sheet" | "page";
+
+  // Bulk actions
+  bulkActions?: Array<{
+    label: string;
+    icon?: LucideIcon;
+    variant?: "default" | "destructive";
+    onAction: (ids: string[]) => void | Promise<void>;
+  }>;
+
+  // Grid/list rendering + keyboard nav
+  /**
+   * Override the default card renderer used for grid view (and, absent a
+   * dedicated list layout, list view too — DataGrid falls back to the same
+   * renderer there). ResourcePage still owns data-fetching, filtering,
+   * sorting, and layout (grid columns, infinite-scroll batching, stagger
+   * animation) — this only swaps what's rendered inside each item slot.
+   *
+   * Receives `ResourceCardActions`: the row's `update`/`remove`/`refetch`
+   * plus `open()` to activate the row (opening the configured detail
+   * panel/modal/route). Row activation is *not* applied automatically to a
+   * custom card — wrapping it would double-fire against cards that bring
+   * their own click handling and would hijack clicks on nested buttons — so
+   * call `actions.open()` from wherever your card should activate.
+   */
+  renderCard?: (
+    item: T,
+    index: number,
+    actions: ResourceCardActions<T>,
+  ) => ReactNode;
+  /**
+   * Tailwind grid-column classes for the card grid, passed through to
+   * `DataGrid`'s `gridCols` — e.g. `"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"`.
+   * Defaults to DataGrid's own responsive 1/2/3/4-column ramp.
+   */
+  gridCols?: string;
+  /**
+   * Built-in list keyboard navigation via `useKeyboardNavigation`: j/k (or
+   * Arrow Up/Down) move a focus cursor, Enter opens the focused item,
+   * Backspace (⌫) closes an open detail view, and x toggles the focused
+   * item's selection when `bulkActions` are configured. Set to `false` to
+   * opt out.
+   *
+   * Default-on, and scoped so that being on by default stays safe:
+   * - Only while the grid or list view is showing. Table view keeps its own
+   *   independent sort/pagination, so a flat focus index can't reliably map
+   *   onto its visible rows.
+   * - Cursor keys suspend while a detail panel/modal or the built-in form
+   *   is open, so they can't drive the list behind the overlay; ⌫ stays
+   *   live there so it can close it.
+   * - Backspace is only intercepted while there's an open detail to close.
+   * - Modified chords (Ctrl/Cmd/Alt) are never captured, so an app's
+   *   Cmd+K-style shortcuts keep working.
+   */
+  keyboardNavigation?: boolean;
+
+  // Slots
+  toolbar?: ReactNode;
+  emptyState?: ReactNode;
+
+  /**
+   * Imperative navigation used only when `detail="route"` (navigates to
+   * `/{resource}/{id}` on row click). Defaults to a full-page navigation.
+   * Router consumers pass their navigate fn — e.g. RR `useNavigate()` or
+   * Next `router.push`.
+   */
+  onNavigate?: NavigateFn;
+
+  // Data options (client-side mode only)
+  resourceOptions?: UseResourceOptions<T>;
+  defaultView?: ViewMode;
+  /**
+   * Persist key for density / page size via `useViewSettings`.
+   * Defaults to `resource` or a slug of `title`.
+   */
+  viewSettingsKey?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function ResourcePage<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(props: ResourcePageProps<T>) {
+  const {
+    resource: resourceName,
+    data: dataProp,
+    total: totalProp,
+    title,
+    subtitle,
+    icon,
+    columns: columnsProp,
+    detail = "panel",
+    detailWidth = "md",
+    titleField: titleFieldProp,
+    subtitleField: subtitleFieldProp,
+    renderDetail: renderDetailProp,
+    detailFields,
+    statusFilter,
+    searchFields,
+    searchPlaceholder,
+    initialFilters,
+    onFiltersChange,
+    onCreate,
+    onEdit,
+    onDelete,
+    createLabel = "New",
+    allowCreate,
+    allowEdit,
+    formFields,
+    renderForm: renderFormProp,
+    formMode,
+    formSteps,
+    formLayout: formLayoutProp,
+    bulkActions,
+    renderCard: renderCardProp,
+    gridCols: gridColsProp,
+    keyboardNavigation = true,
+    toolbar,
+    emptyState,
+    resourceOptions,
+    defaultView = "table",
+    onNavigate = defaultNavigate,
+    viewSettingsKey: viewSettingsKeyProp,
+  } = props;
+
+  // ── Determine mode ──
+  const isClientMode = !!resourceName;
+
+  const viewSettingsKey =
+    viewSettingsKeyProp ??
+    resourceName ??
+    title.toLowerCase().replace(/\s+/g, "-");
+  const { settings, updateSetting } = useViewSettings(viewSettingsKey);
+
+  // ── Client-side mode: call useResource (hook is always called for rules-of-hooks) ──
+  // Core's useResource constrains its row type to BaseRecord (rows carry an
+  // `id`), which is stricter than ResourcePage's public `T extends
+  // Record<string, unknown>`. Intersect at the call site so the public
+  // ResourcePageProps<T> generic stays unchanged while satisfying the hook.
+  const resourceHook = useResource<T & BaseRecord>(
+    resourceName ?? "__noop__",
+    isClientMode ? resourceOptions : { enabled: false },
+  );
+
+  // ── Resolve display data ──
+  const displayData: T[] = isClientMode
+    ? (resourceHook.list.data?.data ?? [])
+    : (dataProp ?? []);
+  const displayTotal: number = isClientMode
+    ? (resourceHook.list.data?.total ?? 0)
+    : (totalProp ?? 0);
+  const isLoading = isClientMode ? resourceHook.list.isLoading : false;
+  const hasError = isClientMode ? resourceHook.list.isError : false;
+
+  // ── Call useResourcePage ──
+  const page = useResourcePage<T>({
+    resource: resourceName,
+    data: displayData,
+    total: displayTotal,
+    columns: columnsProp,
+    statusFilter,
+    searchFields,
+    initialFilters,
+    onFiltersChange,
+    defaultView,
+    detail,
+    titleField: titleFieldProp,
+    subtitleField: subtitleFieldProp,
+  });
+
+  // ── Build ResourceActions for column render functions ──
+  const actions: ResourceActions<T> = useMemo(() => {
+    if (isClientMode) {
+      return {
+        update: resourceHook.update as ResourceActions<T>["update"],
+        remove: resourceHook.remove,
+        refetch: () => resourceHook.list.refetch(),
+      };
+    }
+    return {
+      update: async () => {
+        throw new Error("ResourceActions.update not available in server-data mode");
+      },
+      remove: async () => {
+        throw new Error("ResourceActions.remove not available in server-data mode");
+      },
+      refetch: () => {
+        /* no-op in server-data mode */
+      },
+    };
+  }, [isClientMode, resourceHook.update, resourceHook.remove, resourceHook.list]);
+
+  // ── Bulk selection ──
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggleAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === page.data.length) return new Set();
+      return new Set(
+        page.data.map((item) =>
+          String((item as Record<string, unknown>).id ?? ""),
+        ),
+      );
+    });
+  }, [page.data]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  // ── Built-in form state ──
+  const [formOpen, setFormOpen] = useState(false);
+  const [formAction, setFormAction] = useState<"create" | "edit">("create");
+  const [formItem, setFormItem] = useState<T | null>(null);
+
+  // Determine if built-in form should handle create/edit
+  const useBuiltInCreate = allowCreate && !onCreate && isClientMode;
+  const useBuiltInEdit = allowEdit && !onEdit && isClientMode;
+
+  const handleCreate = useCallback(() => {
+    if (useBuiltInCreate) {
+      setFormAction("create");
+      setFormItem(null);
+      setFormOpen(true);
+    } else if (onCreate) {
+      onCreate();
+    }
+  }, [useBuiltInCreate, onCreate]);
+
+  const handleEdit = useCallback(
+    (item: T) => {
+      if (useBuiltInEdit) {
+        setFormAction("edit");
+        setFormItem(item);
+        setFormOpen(true);
+      } else if (onEdit) {
+        onEdit(item);
+      }
+    },
+    [useBuiltInEdit, onEdit],
+  );
+
+  // ── Patch tableColumns to use real actions (client-side mode) ──
+  const tableColumns = useMemo(() => {
+    if (!isClientMode) return page.tableColumns;
+    // Re-map columns so render functions get real actions
+    return page.columns.map((col) => ({
+      key: col.key,
+      header: col.header ?? col.key,
+      sortable: col.sortable ?? true,
+      hideBelow: col.hideBelow,
+      render: col.render
+        ? (item: T, value: unknown) => col.render!(item, value, actions)
+        : undefined,
+    }));
+  }, [isClientMode, page.columns, page.tableColumns, actions]);
+
+  // ── Detail title/subtitle values ──
+  const detailTitle = page.selectedItem
+    ? String(
+        (page.selectedItem as Record<string, unknown>)[page.titleField] ?? "",
+      )
+    : "";
+  const detailSubtitle = page.selectedItem && page.subtitleField
+    ? String(
+        (page.selectedItem as Record<string, unknown>)[page.subtitleField] ?? "",
+      )
+    : undefined;
+
+  // ── Row click handler (route mode navigates) ──
+  const handleRowClick = (item: T) => {
+    if (detail === "route") {
+      // Navigate to /{resource}/{id}
+      const id = (item as Record<string, unknown>).id;
+      if (resourceName && id) {
+        onNavigate(`/${resourceName}/${id}`);
+      }
+      return;
+    }
+    page.handleRowClick(item);
+  };
+
+  // ── Keyboard navigation (j/k, Enter, Backspace, x) ──
+  // Only engaged for grid/list views: table view runs its own independent
+  // client-side sort + pagination (DataTable), so a flat index into
+  // `page.data` can't reliably be mapped back onto its currently-visible,
+  // possibly differently-ordered rows.
+  const hasBulkSelect = !!bulkActions && bulkActions.length > 0;
+  // A detail panel/modal or the built-in form is covering the list. Cursor
+  // keys suspend (they'd otherwise drive the list behind the overlay, and
+  // Enter would re-open the row instead of activating the focused control);
+  // ⌫ stays live so it can dismiss the overlay.
+  const overlayOpen = page.detailOpen || formOpen;
+  const keyboardNav = useKeyboardNavigation({
+    itemCount: page.data.length,
+    enabled: keyboardNavigation && page.viewMode !== "table",
+    overlayOpen,
+    onOpen: (index) => {
+      const item = page.data[index];
+      if (item) handleRowClick(item);
+    },
+    onToggleSelect: hasBulkSelect
+      ? (index) => {
+          const item = page.data[index];
+          if (item) {
+            handleToggleSelect(
+              String((item as Record<string, unknown>).id ?? ""),
+            );
+          }
+        }
+      : undefined,
+    // Supplied only while there is an open detail to close — the hook
+    // suppresses Backspace's default whenever this is present, so leaving it
+    // wired up permanently would swallow the browser/app's Backspace on
+    // every grid/list page (including detail="none" and detail="route",
+    // which never open one). `detailOpen` is only ever true for the panel
+    // and modal modes, so it is the precise precondition here.
+    onBack: page.detailOpen
+      ? () => {
+          page.setDetailOpen(false);
+          page.setSelectedItem(null);
+        }
+      : undefined,
+  });
+
+  // ── Create button ──
+  const showCreateButton = onCreate || useBuiltInCreate;
+  const createButton = showCreateButton ? (
+    <Button size="sm" onClick={handleCreate}>
+      <Plus className="h-4 w-4 mr-1" />
+      {createLabel}
+    </Button>
+  ) : null;
+
+  const createAction = (toolbar || createButton) ? (
+    <div className="flex items-center gap-2">
+      {toolbar}
+      {createButton}
+    </div>
+  ) : undefined;
+
+  // ── Empty state ──
+  const isEmpty = !isLoading && !hasError && page.data.length === 0;
+
+  /**
+   * Row-bound actions for a custom `renderCard`. The shared `actions` object
+   * is memoized once for the whole resource, so the per-row `open()` is bound
+   * here instead. Without it a custom card has no way to open the detail
+   * panel/modal/route by pointer — the built-in cards get that from their own
+   * onClick, which a custom card replaces.
+   */
+  const cardActionsFor = (item: T): ResourceCardActions<T> => ({
+    ...actions,
+    open: () => handleRowClick(item),
+  });
+
+  /**
+   * Props that turn a plain `div`/`Card` into a real activatable row: a tab
+   * stop, a button role, and Enter/Space activation to match the pointer
+   * click. Without these the default card is reachable by mouse and by the
+   * j/k cursor but not by Tab, which is the one path a keyboard-only user
+   * actually has.
+   *
+   * Enter does not double-fire against the list cursor: `useKeyboardNavigation`
+   * bails out whenever the event target owns its own keys, and `role="button"`
+   * is one of the roles it checks (covered by a test in
+   * `resource-page-render-card-keyboard-nav.test.tsx`).
+   */
+  const rowActivationProps = (item: T, label: string, testId: string) => ({
+    role: "button",
+    tabIndex: 0,
+    "aria-label": label || undefined,
+    "data-testid": testId,
+    onClick: () => handleRowClick(item),
+    onKeyDown: (e: ReactKeyboardEvent<HTMLElement>) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleRowClick(item);
+      }
+    },
+  });
+
+  /** Default card renderer (grid view) — used unless `renderCard` is given. */
+  const renderDefaultCard = (item: T): ReactNode => {
+    const cols = page.columns;
+    const titleCol = cols[0];
+    const titleVal = titleCol
+      ? String((item as Record<string, unknown>)[titleCol.key] ?? "")
+      : "";
+    // Second column is typically the status badge
+    const badgeCol = cols[1];
+    const badgeVal = badgeCol
+      ? (item as Record<string, unknown>)[badgeCol.key]
+      : null;
+    // Find a numeric-looking column for the price position
+    const priceCol = cols.find(
+      (c, i) => i > 1 && /price|cost|amount|total/i.test(c.key)
+    );
+    const priceVal = priceCol
+      ? (item as Record<string, unknown>)[priceCol.key]
+      : null;
+    // Remaining metadata columns (skip title, badge, price)
+    const metaCols = cols.filter(
+      (c) =>
+        c !== titleCol && c !== badgeCol && c !== priceCol
+    );
+    return (
+      <Card
+        {...rowActivationProps(item, titleVal, "resource-card")}
+        className="h-full cursor-pointer hover:shadow-md motion-safe:transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base truncate">
+            {titleVal}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              {badgeCol && (
+                <span>
+                  {badgeCol.render
+                    ? badgeCol.render(item, badgeVal, actions)
+                    : badgeVal != null
+                      ? String(badgeVal)
+                      : "—"}
+                </span>
+              )}
+              {priceVal != null && (
+                <span className="text-sm font-semibold">
+                  {String(priceVal)}
+                </span>
+              )}
+            </div>
+            {metaCols.map((col) => {
+              const val = (item as Record<string, unknown>)[col.key];
+              return (
+                <p
+                  key={col.key}
+                  className="text-xs text-muted-foreground truncate"
+                >
+                  {col.render
+                    ? col.render(item, val, actions)
+                    : val != null
+                      ? String(val)
+                      : "—"}
+                </p>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  /** Default list-row renderer (list view) — used unless `renderCard` is given. */
+  const renderDefaultListItem = (item: T): ReactNode => {
+    const cols = page.columns;
+    const titleCol = cols[0];
+    const titleVal = titleCol
+      ? String((item as Record<string, unknown>)[titleCol.key] ?? "")
+      : "";
+    return (
+      <div
+        {...rowActivationProps(item, titleVal, "resource-list-row")}
+        className="flex items-center justify-between px-3 py-2 border-b cursor-pointer hover:bg-muted/50 motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        <span className="font-medium text-sm truncate">{titleVal}</span>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          {cols.slice(1, 4).map((col) => {
+            const val = (item as Record<string, unknown>)[col.key];
+            return (
+              <span key={col.key}>
+                {col.render
+                  ? col.render(item, val, actions)
+                  : val != null
+                    ? String(val)
+                    : "—"}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <DataPageShell
+      title={title}
+      subtitle={subtitle}
+      icon={icon}
+      count={page.data.length}
+      totalCount={displayTotal}
+      isLoading={isLoading}
+      hasError={hasError}
+      isEmpty={isEmpty}
+      onRetry={isClientMode ? () => resourceHook.list.refetch() : undefined}
+      viewMode={page.viewMode}
+      onViewModeChange={page.setViewMode}
+      pageSize={settings.pageSize}
+      onPageSizeChange={(size) => updateSetting("pageSize", size)}
+      density={settings.density}
+      onDensityChange={(d) => updateSetting("density", d)}
+      createAction={createAction}
+      hasActiveFilters={page.hasActiveFilters}
+      onClearFilters={page.clearFilters}
+      emptyAction={emptyState}
+      filters={
+        <DataFilters
+          search={page.filterConfig.search}
+          onSearchChange={page.filterConfig.onSearchChange}
+          searchPlaceholder={searchPlaceholder}
+          sort={page.filterConfig.sort}
+          onSortChange={page.filterConfig.onSortChange}
+          sortOptions={page.filterConfig.sortOptions}
+          statusChips={page.filterConfig.statusChips}
+          onClearAll={page.hasActiveFilters ? page.clearFilters : undefined}
+        />
+      }
+    >
+      {bulkActions && bulkActions.length > 0 && (
+        <DataBulkBar
+          selected={selectedIds}
+          totalCount={page.data.length}
+          onToggleAll={handleToggleAll}
+          onClearSelection={handleClearSelection}
+          actions={bulkActions.map((a) => ({
+            label: a.label,
+            icon: a.icon ?? Trash2,
+            variant: a.variant,
+            onClick: () => {
+              void a.onAction(Array.from(selectedIds));
+            },
+          }))}
+        />
+      )}
+
+      <DataGrid<T>
+        items={page.data}
+        viewMode={page.viewMode}
+        gridCols={gridColsProp}
+        getKey={(item) =>
+          String((item as Record<string, unknown>).id ?? "")
+        }
+        focusedIndex={keyboardNav.focusedIndex}
+        keyboardContainerRef={keyboardNav.containerRef}
+        renderTable={(items) => (
+          <DataTable<T>
+            items={items}
+            columns={tableColumns}
+            getKey={(item) =>
+              String((item as Record<string, unknown>).id ?? "")
+            }
+            onRowClick={detail !== "none" ? handleRowClick : undefined}
+            selectable={!!bulkActions && bulkActions.length > 0}
+            selected={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onToggleAll={handleToggleAll}
+            density={settings.density}
+            pageSize={settings.pageSize}
+          />
+        )}
+        renderCard={(item, index) =>
+          renderCardProp
+            ? renderCardProp(item, index, cardActionsFor(item))
+            : renderDefaultCard(item)
+        }
+        renderListItem={(item, index) =>
+          renderCardProp
+            ? renderCardProp(item, index, cardActionsFor(item))
+            : renderDefaultListItem(item)
+        }
+      />
+
+      {/* Detail panel / modal — DetailPanel's `layout` prop picks the shell;
+          "panel" gets its default fixed slide-in sheet, "modal" gets a
+          centered dialog. Both share one implementation (header, content,
+          edit/delete affordances) instead of ResourcePage hand-rolling a
+          second Dialog. */}
+      {(detail === "panel" || detail === "modal") && (
+        <DetailPanel<T>
+          item={page.selectedItem}
+          open={page.detailOpen}
+          onClose={() => {
+            page.setDetailOpen(false);
+            page.setSelectedItem(null);
+          }}
+          title={detailTitle}
+          subtitle={detailSubtitle}
+          onEdit={onEdit ?? (useBuiltInEdit ? handleEdit : undefined)}
+          onDelete={onDelete}
+          fields={detailFields}
+          width={detailWidth}
+          layout={detail === "modal" ? "dialog" : "sheet"}
+        >
+          {renderDetailProp
+            ? (item: T) => renderDetailProp(item)
+            : undefined}
+        </DetailPanel>
+      )}
+      {/* Built-in create/edit form */}
+      {(useBuiltInCreate || useBuiltInEdit) && resourceName && (
+        <ResourceForm
+          resource={resourceName}
+          action={formAction}
+          layout={formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog")}
+          mode={formMode}
+          steps={formSteps}
+          item={
+            formAction === "edit"
+              ? ((formItem as Record<string, unknown> | null) ?? undefined)
+              : page.data.length > 0
+                ? Object.fromEntries(
+                    Object.keys(page.data[0] as Record<string, unknown>)
+                      .filter((k) => k !== "id")
+                      .map((k) => [k, ""])
+                  )
+                : undefined
+          }
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          fields={formFields}
+          listData={page.data as Record<string, unknown>[]}
+          renderForm={renderFormProp}
+          onSuccess={() => {
+            // Data auto-refreshes via TanStack Query invalidation in useResourceForm
+            page.setDetailOpen(false);
+            page.setSelectedItem(null);
+          }}
+        />
+      )}
+    </DataPageShell>
+  );
+}

@@ -1,0 +1,8 @@
+# Maestro project-level config for sample-native visual regression.
+#
+# Per-flow `appId` overrides this; documented here so future flows
+# can rely on the canonical bundle identifier.
+#
+# Bundle identifier matches apps/sample-native/app.json `expo.ios.bundleIdentifier`
+# (also identical to `expo.android.package`).
+appId: com.tiderman.genesis.sample
