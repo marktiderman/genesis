@@ -1,0 +1,31 @@
+{
+  "name": "sample-with-extensions",
+  "neutral": {
+    "50": "#FAFAFA",
+    "500": "#71717A",
+    "900": "#18181B"
+  },
+  "surface": { "DEFAULT": "#ffffff" },
+  "text": { "DEFAULT": "#09090b" },
+  "accent": { "DEFAULT": "#7C3AED" },
+  "status": {
+    "success": { "DEFAULT": "#10B981" },
+    "warning": { "DEFAULT": "#F59E0B" },
+    "error": { "DEFAULT": "#EF4444" },
+    "info": { "DEFAULT": "#3B82F6" }
+  },
+  "extensions": {
+    "rank": {
+      "DEFAULT": "#FFD700",
+      "gold": "#FFD700",
+      "silver": "#C0C0C0",
+      "bronze": "#CD7F32"
+    },
+    "gameMode": {
+      "DEFAULT": "#7C3AED",
+      "solo": "#0EA5E9",
+      "battle": "#F43F5E",
+      "championship": "#F59E0B"
+    }
+  }
+}

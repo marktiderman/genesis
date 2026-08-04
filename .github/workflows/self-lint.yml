@@ -1,0 +1,69 @@
+# Genesis Self-Lint — genesis eats its own genesis-lint.
+#
+# The reusable workflow below is what consumer repos are told to call from
+# their own pr.yml. This caller makes genesis run it on its own PRs too — a
+# same-repo reusable call, so genesis runs byte-identically the jobs its
+# consumers run.
+#
+# ENFORCING. genesis runs the full reusable genesis-lint suite on its own PRs
+# — exactly what consumers run — as a hard gate.
+#
+# NOTE: `continue-on-error` is NOT honored on a job that calls a reusable
+# workflow via `uses:` (unsupported keyword there) — don't add a misleading
+# soft-fail key here; a job calling a reusable workflow is always hard.
+
+name: Genesis Self-Lint
+
+# COST GUARD: agent branches can push every 30-60s during active work;
+# without this, a push burst stacks multiple full genesis-lint suites. Only
+# the newest push's result matters.
+concurrency:
+  group: self-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/**'
+      # Gate-config surfaces — a change to the config that drives the gates, or
+      # to the reusable gate workflow itself, must re-run the gates it controls.
+      # Without genesis.config.yml here, a change to e.g. the testid-coverage
+      # threshold could merge WITHOUT the gate it governs ever running.
+      - 'genesis.config.yml'
+      # Root packageManager drives pnpm/action-setup's version resolution in the
+      # reusable gate (genesis-lint no longer pins a version), so a change to the
+      # root package.json must re-run self-lint — otherwise a packageManager
+      # removal passes the always-run ci.yml (which still pins pnpm) yet leaves
+      # the NEXT app/package PR failing self-lint at setup.
+      - 'package.json'
+      - '.github/workflows/genesis-lint.yml'
+      - '.github/workflows/self-lint.yml'
+
+# STARTUP-FAILURE GUARD (dogfood self-enforce): a workflow that calls a reusable
+# workflow must itself grant every permission any nested job requests — a
+# reusable job can only DOWNGRADE the caller's GITHUB_TOKEN, never elevate it.
+# genesis-lint.yml's `design-system-coverage` job declares
+# `permissions: { pull-requests: write, contents: read }` (it comments the
+# coverage report on the PR). With NO caller-level `permissions:` block here,
+# under the repo's read-only default token that write request exceeds the
+# grant, so GitHub rejects the whole run at compile time — `startup_failure`
+# with total_jobs: 0, meaning every genesis-lint gate silently never runs.
+# Granting these scopes at the caller lets the reusable workflow launch its
+# jobs. NOTE: `pull-requests: write` is granted here specifically because the
+# reusable genesis-lint.yml needs it to post its coverage comment — this
+# repo's other top-level workflows do NOT grant that scope (they only need
+# `contents: read`), so this is not the generic sibling permissions pattern.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  self-lint:
+    name: genesis-lint (self, enforcing)
+    uses: ./.github/workflows/genesis-lint.yml
+    with:
+      paths: 'apps'
+      node-version: '22'
+      # No pnpm-version: it comes from package.json `packageManager` (pnpm@9.15.4).

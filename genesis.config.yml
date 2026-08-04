@@ -1,0 +1,10 @@
+# genesis.config.yml — CI gate configuration for this repo.
+schema_version: 1
+
+ci:
+  # Threshold is a 0-1 FRACTION. Current measured coverage on this repo's scope
+  # (apps/sample, apps/sample-native, packages/ui, packages/ui-native):
+  # `node scripts/check-testid-coverage.mjs`. Ratchet this up toward 80 as
+  # testIDs land. (Value below is a placeholder verified against the actual
+  # measurement before this repo's first push.)
+  testid-coverage: { threshold: 0.37 }

@@ -1,0 +1,51 @@
+{
+  "color": {
+    "neutral": {
+      "50": { "$type": "color", "$value": "#FAFAFA" },
+      "100": { "$type": "color", "$value": "#F4F4F5" },
+      "200": { "$type": "color", "$value": "#E4E4E7" },
+      "300": { "$type": "color", "$value": "#D4D8DD" },
+      "400": { "$type": "color", "$value": "#A1A1AA" },
+      "500": { "$type": "color", "$value": "#71717A" },
+      "600": { "$type": "color", "$value": "#52525B" },
+      "700": { "$type": "color", "$value": "#3F3F46" },
+      "800": { "$type": "color", "$value": "#27272A" },
+      "900": { "$type": "color", "$value": "#18181B" }
+    },
+    "semantic": {
+      "success": {
+        "DEFAULT": { "$type": "color", "$value": "#10B981" },
+        "light": { "$type": "color", "$value": "#D1FAE5" },
+        "dark": { "$type": "color", "$value": "#065F46" }
+      },
+      "warning": {
+        "DEFAULT": { "$type": "color", "$value": "#F59E0B" },
+        "light": { "$type": "color", "$value": "#FEF3C7" },
+        "dark": { "$type": "color", "$value": "#92400E" }
+      },
+      "error": {
+        "DEFAULT": { "$type": "color", "$value": "#EF4444" },
+        "light": { "$type": "color", "$value": "#FEE2E2" },
+        "dark": { "$type": "color", "$value": "#991B1B" }
+      },
+      "info": {
+        "DEFAULT": { "$type": "color", "$value": "#3B82F6" },
+        "light": { "$type": "color", "$value": "#DBEAFE" },
+        "dark": { "$type": "color", "$value": "#1E40AF" }
+      }
+    },
+    "status": {
+      "active": { "$type": "color", "$value": "{color.semantic.success.DEFAULT}" },
+      "inactive": { "$type": "color", "$value": "{color.neutral.400}" },
+      "pending": { "$type": "color", "$value": "{color.semantic.warning.DEFAULT}" },
+      "blocked": { "$type": "color", "$value": "{color.semantic.error.DEFAULT}" },
+      "draft": { "$type": "color", "$value": "{color.neutral.500}" },
+      "archived": { "$type": "color", "$value": "{color.neutral.300}" },
+      "onTrack": { "$type": "color", "$value": "{color.semantic.success.DEFAULT}" },
+      "atRisk": { "$type": "color", "$value": "{color.semantic.warning.DEFAULT}" },
+      "offTrack": { "$type": "color", "$value": "{color.semantic.error.DEFAULT}" },
+      "done": { "$type": "color", "$value": "{color.semantic.success.DEFAULT}" },
+      "inProgress": { "$type": "color", "$value": "{color.semantic.info.DEFAULT}" }
+    }
+  }
+}

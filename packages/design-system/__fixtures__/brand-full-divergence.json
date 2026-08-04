@@ -1,0 +1,112 @@
+{
+  "name": "gamify-spike",
+  "neutral": {
+    "50": "#FAFAFA",
+    "500": "#737373",
+    "900": "#18181B"
+  },
+  "surface": {
+    "DEFAULT": "#02166C",
+    "light": "#0A2078",
+    "dark": "#020B33"
+  },
+  "text": {
+    "DEFAULT": "#FAFAFA",
+    "dark": "#02166C"
+  },
+  "accent": {
+    "DEFAULT": "#FFC402",
+    "light": "#F9C525",
+    "dark": "#D4A017"
+  },
+  "status": {
+    "success": { "DEFAULT": "#4CAF50" },
+    "warning": { "DEFAULT": "#FF9800" },
+    "error": { "DEFAULT": "#D32F2F" },
+    "info": { "DEFAULT": "#2196F3" }
+  },
+  "extensions": {
+    "rank": {
+      "DEFAULT": "#FFD700",
+      "gold": "#FFD700",
+      "silver": "#C0C0C0",
+      "bronze": "#CD7F32"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "body": ["Oswald", "system-ui", "sans-serif"],
+      "display": ["Oswald-Bold", "system-ui", "sans-serif"]
+    },
+    "fontSize": {
+      "sm": "0.875rem",
+      "base": "1rem",
+      "lg": "1.125rem",
+      "2xl": "1.5rem"
+    },
+    "lineHeight": {
+      "sm": "1.25rem",
+      "base": "1.5rem"
+    },
+    "fontWeight": {
+      "normal": "400",
+      "medium": "500",
+      "bold": "700"
+    }
+  },
+  "spacing": {
+    "xs": "0.25rem",
+    "sm": "0.5rem",
+    "md": "1rem",
+    "lg": "1.5rem",
+    "xl": "2rem"
+  },
+  "radius": {
+    "sm": "0.25rem",
+    "md": "0.5rem",
+    "lg": "0.75rem"
+  },
+  "shadow": {
+    "card": {
+      "offsetX": 0,
+      "offsetY": 2,
+      "blur": 8,
+      "color": "rgba(0,0,0,0.4)"
+    },
+    "cta": {
+      "offsetX": 0,
+      "offsetY": 4,
+      "blur": 16,
+      "color": "rgba(0,0,0,0.5)",
+      "elevation": 6
+    }
+  },
+  "gradient": {
+    "navyBg": {
+      "direction": "to bottom",
+      "stops": [
+        { "color": "#020B33", "position": 0 },
+        { "color": "#021150", "position": 0.5 },
+        { "color": "#02166C", "position": 1 }
+      ]
+    },
+    "goldButton": {
+      "direction": "to right",
+      "stops": [
+        { "color": "#F9C525", "position": 0 },
+        { "color": "#FFC402", "position": 0.5 },
+        { "color": "#D4A017", "position": 1 }
+      ]
+    }
+  },
+  "platformOverrides": {
+    "native": {
+      "typography": {
+        "fontFamily": {
+          "body": ["Oswald-Regular"],
+          "display": ["Oswald-Bold"]
+        }
+      }
+    }
+  }
+}

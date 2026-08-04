@@ -1,0 +1,12 @@
+# Expo
+.expo/
+dist/
+android/
+ios/
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local

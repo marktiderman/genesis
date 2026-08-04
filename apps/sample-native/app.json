@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Genesis Sample (Native)",
+    "slug": "genesis-sample-native",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "genesis-sample",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tiderman.genesis.sample"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#059669"
+      },
+      "package": "com.tiderman.genesis.sample"
+    },
+    "plugins": ["expo-router"]
+  }
+}

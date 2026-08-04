@@ -1,0 +1,40 @@
+{
+  "theme": {
+    "background": { "$type": "color", "$value": "#09090b" },
+    "foreground": { "$type": "color", "$value": "#fafafa" },
+    "card": { "$type": "color", "$value": "#09090b" },
+    "card-foreground": { "$type": "color", "$value": "#fafafa" },
+    "popover": { "$type": "color", "$value": "#09090b" },
+    "popover-foreground": { "$type": "color", "$value": "#fafafa" },
+    "primary-foreground": { "$type": "color", "$value": "#09090b" },
+    "secondary": { "$type": "color", "$value": "#27272a" },
+    "secondary-foreground": { "$type": "color", "$value": "#fafafa" },
+    "muted": { "$type": "color", "$value": "#27272a" },
+    "muted-foreground": { "$type": "color", "$value": "#a1a1aa" },
+    "accent": { "$type": "color", "$value": "#27272a" },
+    "accent-foreground": { "$type": "color", "$value": "#fafafa" },
+    "destructive": { "$type": "color", "$value": "#7f1d1d" },
+    "destructive-foreground": { "$type": "color", "$value": "#fafafa" },
+    "border": { "$type": "color", "$value": "#27272a" },
+    "input": { "$type": "color", "$value": "#27272a" },
+    "success": { "$type": "color", "$value": "#22c997" },
+    "success-foreground": { "$type": "color", "$value": "#ffffff" },
+    "warning": { "$type": "color", "$value": "#f59e0b" },
+    "warning-foreground": { "$type": "color", "$value": "#ffffff" },
+    "info": { "$type": "color", "$value": "#3b82f6" },
+    "info-foreground": { "$type": "color", "$value": "#ffffff" },
+    "chart-1": { "$type": "color", "$value": "#3b82f6" },
+    "chart-2": { "$type": "color", "$value": "#34d399" },
+    "chart-3": { "$type": "color", "$value": "#f59e0b" },
+    "chart-4": { "$type": "color", "$value": "#a78bfa" },
+    "chart-5": { "$type": "color", "$value": "#f472b6" },
+    "sidebar": {
+      "background": { "$type": "color", "$value": "#18181b" },
+      "foreground": { "$type": "color", "$value": "#f4f4f5" },
+      "accent": { "$type": "color", "$value": "#27272a" },
+      "accent-foreground": { "$type": "color", "$value": "#f4f4f5" },
+      "border": { "$type": "color", "$value": "#27272a" },
+      "primary-foreground": { "$type": "color", "$value": "#ffffff" }
+    }
+  }
+}

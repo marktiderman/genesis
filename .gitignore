@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+.turbo/
+
+# Coverage reports (visual + DS coverage; informational, regenerate locally + in CI)
+coverage/
+
+# Storybook static build
+storybook-static/
+
+# Maestro CI capture output (never committed; baselines live in .maestro/screenshots/)
+.maestro-out/
+
+# Package tarballs (from pnpm pack / npm pack)
+*.tgz
+
+# Expo
+.expo/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+!**/.env.example
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude local settings
+.claude/settings.local.json
+.claude/worktrees/
+/.worktrees/
+.playwright-mcp/
+
+# Temp files
+.tmp-*

@@ -1,0 +1,127 @@
+{
+  "name": "@marktiderman/genesis-ui-native",
+  "version": "2.0.1",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Genesis React Native components (NativeWind v4-5). Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/ui-native"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "source": "./src/index.ts",
+  "react-native": "./src/index.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "react-native": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "react-native": "./src/components/index.ts",
+      "import": "./dist/components/index.js"
+    },
+    "./data": {
+      "types": "./dist/data/index.d.ts",
+      "react-native": "./src/data/index.ts",
+      "import": "./dist/data/index.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks/index.d.ts",
+      "react-native": "./src/hooks/index.ts",
+      "import": "./dist/hooks/index.js"
+    },
+    "./layouts": {
+      "types": "./dist/layouts/index.d.ts",
+      "react-native": "./src/layouts/index.ts",
+      "import": "./dist/layouts/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils.d.ts",
+      "react-native": "./src/utils.ts",
+      "import": "./dist/utils.js",
+      "default": "./dist/utils.js"
+    }
+  },
+  "peerDependencies": {
+    "@gorhom/bottom-sheet": ">=5.0.0",
+    "@hookform/resolvers": "^3.0.0 || ^4.0.0 || ^5.0.0",
+    "@react-native-community/datetimepicker": ">=8.0.0",
+    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-design-system": "workspace:^",
+    "@tanstack/react-query": "^5.0.0",
+    "clsx": "^2.0.0",
+    "expo-haptics": ">=14.0.0",
+    "lucide-react-native": ">=0.400.0",
+    "nativewind": "^4.0.0 || ^5.0.0-preview",
+    "react": "^19.0.0",
+    "react-hook-form": "^7.0.0",
+    "react-native": ">=0.76.0",
+    "react-native-gesture-handler": ">=2.0.0",
+    "react-native-keyboard-controller": ">=1.0.0",
+    "react-native-reanimated": ">=3.0.0",
+    "react-native-safe-area-context": ">=4.0.0",
+    "tailwind-merge": "^3.0.0",
+    "zod": "^3.0.0 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react-native": {
+      "optional": true
+    },
+    "@gorhom/bottom-sheet": {
+      "optional": true
+    },
+    "react-native-gesture-handler": {
+      "optional": true
+    },
+    "react-native-reanimated": {
+      "optional": true
+    },
+    "@react-native-community/datetimepicker": {
+      "optional": true
+    },
+    "react-native-keyboard-controller": {
+      "optional": true
+    },
+    "expo-haptics": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "@vitest/coverage-v8": "^2.1.9",
+    "happy-dom": "^20.9.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.0"
+  }
+}
