@@ -1,5 +1,11 @@
 # @marktiderman/genesis-ui-native
 
+## 2.0.2
+
+### Patch Changes
+
+- 7cfc703: First publish from the new public repo. No functional changes — every package's current version already matches what's published from the predecessor repo, so this bump is required before this repo's release workflow can publish anything at all (npm rejects republishing an existing version).
+
 ## 2.0.1
 
 ### Patch Changes
