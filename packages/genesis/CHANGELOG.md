@@ -1,5 +1,17 @@
 # @marktiderman/genesis
 
+## 0.5.1
+
+### Patch Changes
+
+- 7cfc703: First publish from the new public repo. No functional changes — every package's current version already matches what's published from the predecessor repo, so this bump is required before this repo's release workflow can publish anything at all (npm rejects republishing an existing version).
+- Updated dependencies [7cfc703]
+  - @marktiderman/genesis-core@1.1.2
+  - @marktiderman/genesis-ui@2.0.1
+  - @marktiderman/genesis-ui-native@2.0.2
+  - @marktiderman/genesis-design-system@1.2.1
+  - @marktiderman/genesis-switchboard@2.0.1
+
 ## 0.5.0
 
 ### Minor Changes

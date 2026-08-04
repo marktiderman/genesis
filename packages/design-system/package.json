@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-design-system",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": false,
   "type": "module",
   "description": "Genesis brand-agnostic design tokens, canonical brand schema (with extensions slot), brand-genesis OOTB fallback, and theme generation. Part of the Genesis framework.",
