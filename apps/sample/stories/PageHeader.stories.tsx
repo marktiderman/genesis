@@ -4,7 +4,7 @@ import { PageHeader } from "@marktiderman/genesis-ui/layout";
 import { Compass } from "lucide-react";
 
 const meta: Meta<typeof PageHeader> = {
-  title: "Data/PageHeader",
+  title: "Layout/PageHeader",
   component: PageHeader,
 };
 export default meta;

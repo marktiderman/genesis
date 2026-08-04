@@ -31,3 +31,6 @@ export const Section: Story = {
     </div>
   ),
 };
+
+// Alias so `/showcase/primitives/page-loading` has a `ui-pageloading--default` story.
+export const Default = Page;

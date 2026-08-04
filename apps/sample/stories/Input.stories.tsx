@@ -28,3 +28,6 @@ export const Disabled: Story = {
 export const Password: Story = {
   args: { type: "password", placeholder: "Enter password" },
 };
+
+// Alias so `/showcase/primitives/input` has a `ui-input--default` story.
+export const Default = Plain;

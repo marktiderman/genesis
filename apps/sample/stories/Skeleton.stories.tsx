@@ -24,3 +24,6 @@ export const Card: Story = {
     </div>
   ),
 };
+
+// Alias so `/showcase/primitives/skeleton` has a `ui-skeleton--default` story.
+export const Default = Line;

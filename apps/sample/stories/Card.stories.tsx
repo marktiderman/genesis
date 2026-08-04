@@ -64,3 +64,8 @@ export const Minimal: Story = {
     </Card>
   ),
 };
+
+// Alias so `/showcase/primitives/card` has a `ui-card--default` story to
+// link to — every showcase entry expects one, and this file's most
+// representative variant is `Basic`.
+export const Default = Basic;

@@ -52,3 +52,6 @@ export const Multiple: Story = {
     </Accordion>
   ),
 };
+
+// Alias so `/showcase/primitives/accordion` has a `ui-accordion--default` story.
+export const Default = Single;

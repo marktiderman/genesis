@@ -22,18 +22,23 @@ export default function ShowcaseIndex() {
   return (
     <div className="mx-auto max-w-4xl p-6 space-y-8" data-testid="showcase-index">
       <header className="space-y-3">
-        <Badge variant="outline">Genesis Showcase &middot; Phase G</Badge>
+        <Badge variant="outline">Genesis Showcase</Badge>
         <h1 className="text-4xl font-bold tracking-tight">Genesis</h1>
         <p className="text-xl text-muted-foreground">
-          The brand-agnostic design system for Tiderman Ventures.
+          A shadcn-based, brand-agnostic design system and data-provider layer.
         </p>
         <p className="text-sm text-muted-foreground max-w-2xl">
-          This sample app is the canonical browser-side reference for{" "}
+          This is the developer-facing reference for{" "}
           <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
             @marktiderman/genesis-ui
           </code>
           . Every section below is live — driven by the same package your
-          consumer apps install from npm.
+          consumer apps install from npm. Looking for the project overview
+          instead?{" "}
+          <Link to="/" className="underline underline-offset-2">
+            Visit the landing page
+          </Link>
+          .
         </p>
       </header>
 

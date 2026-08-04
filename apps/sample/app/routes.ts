@@ -24,6 +24,8 @@ export default [
     route("showcase/primitives/:slug", "routes/showcase.primitives.$slug.tsx"),
     route("showcase/layouts", "routes/showcase.layouts._index.tsx"),
     route("showcase/layouts/:slug", "routes/showcase.layouts.$slug.tsx"),
+    route("showcase/data", "routes/showcase.data._index.tsx"),
+    route("showcase/data/:slug", "routes/showcase.data.$slug.tsx"),
     route("showcase/standards", "routes/showcase.standards.tsx"),
   ]),
 ] satisfies RouteConfig;

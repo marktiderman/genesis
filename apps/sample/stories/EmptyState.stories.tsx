@@ -65,3 +65,6 @@ export const WithActiveFilters: Story = {
     );
   },
 };
+
+// Alias so `/showcase/primitives/empty-state` has a `ui-emptystate--default` story.
+export const Default = FirstRun;

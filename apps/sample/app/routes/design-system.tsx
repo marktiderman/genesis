@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import {
   Users,
   DollarSign,
@@ -52,6 +53,9 @@ import {
   TabsContent,
   Separator,
   Tooltip,
+  Alert,
+  AlertTitle,
+  AlertDescription,
 } from "@marktiderman/genesis-ui";
 
 // Data components from @marktiderman/genesis-ui/data
@@ -176,6 +180,27 @@ export default function DesignSystem() {
           Every Genesis component displayed atomically. Use this as a living style guide.
         </p>
       </div>
+
+      <Alert data-testid="design-system-orientation">
+        <AlertTitle>Looking for something specific?</AlertTitle>
+        <AlertDescription>
+          This is the original all-in-one reference. For generated prop
+          tables, Storybook links, and live examples of the newer surface
+          (layouts, data & resources), see{" "}
+          <Link to="/showcase/primitives" className="underline underline-offset-2">
+            Primitives
+          </Link>
+          ,{" "}
+          <Link to="/showcase/layouts" className="underline underline-offset-2">
+            Layouts
+          </Link>
+          , and{" "}
+          <Link to="/showcase/data" className="underline underline-offset-2">
+            Data &amp; Resources
+          </Link>{" "}
+          under Showcase.
+        </AlertDescription>
+      </Alert>
 
       {/* 1. Colors & Tokens */}
       <Section id="colors" title="1. Colors & Tokens">

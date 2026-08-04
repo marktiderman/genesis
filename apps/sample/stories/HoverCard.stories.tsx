@@ -19,7 +19,7 @@ export const Default: Story = {
   render: () => (
     <HoverCard>
       <HoverCardTrigger asChild>
-        <a href="https://genesis.tiderman.ventures" className="underline">
+        <a href="https://github.com/marktiderman/genesis" className="underline">
           @genesis
         </a>
       </HoverCardTrigger>
@@ -32,7 +32,7 @@ export const Default: Story = {
           <div>
             <h4 className="font-semibold">@genesis</h4>
             <p className="text-sm text-muted-foreground">
-              Brand-agnostic design system for Tiderman Ventures.
+              Brand-agnostic design system, shadcn-based.
             </p>
           </div>
         </div>

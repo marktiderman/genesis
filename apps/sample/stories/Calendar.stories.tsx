@@ -19,3 +19,6 @@ export const Single: Story = {
     );
   },
 };
+
+// Alias so `/showcase/primitives/calendar` has a `ui-calendar--default` story.
+export const Default = Single;

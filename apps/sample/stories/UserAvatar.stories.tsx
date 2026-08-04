@@ -40,3 +40,6 @@ export const Sizes: Story = {
     </div>
   ),
 };
+
+// Alias so `/showcase/primitives/user-avatar` has a `ui-useravatar--default` story.
+export const Default = InitialsFallback;

@@ -27,3 +27,6 @@ export const Square: Story = {
     </div>
   ),
 };
+
+// Alias so `/showcase/primitives/aspect-ratio` has a `ui-aspectratio--default` story.
+export const Default = Sixteen9;

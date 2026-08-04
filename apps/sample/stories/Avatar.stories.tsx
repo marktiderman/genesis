@@ -62,3 +62,6 @@ export const Stack: Story = {
     </div>
   ),
 };
+
+// Alias so `/showcase/primitives/avatar` has a `ui-avatar--default` story.
+export const Default = Image;

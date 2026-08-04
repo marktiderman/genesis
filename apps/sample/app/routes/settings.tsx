@@ -14,7 +14,7 @@ import {
   Checkbox,
   Separator,
 } from "@marktiderman/genesis-ui";
-import { PageHeader } from "@marktiderman/genesis-ui/data";
+import { PageHeader } from "@marktiderman/genesis-ui/layout";
 
 export default function Settings() {
   return (

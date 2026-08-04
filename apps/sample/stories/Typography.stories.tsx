@@ -26,3 +26,6 @@ export const All: Story = {
     </div>
   ),
 };
+
+// Alias so `/showcase/primitives/typography` has a `ui-typography--default` story.
+export const Default = All;

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 const meta: Meta<typeof AppShell> = {
-  title: "Data/AppShell",
+  title: "Layout/AppShell",
   component: AppShell,
   parameters: { layout: "fullscreen" },
 };

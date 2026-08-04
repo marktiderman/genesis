@@ -65,6 +65,14 @@ type Pages = {
       "slug": string;
     };
   };
+  "/showcase/data": {
+    params: {};
+  };
+  "/showcase/data/:slug": {
+    params: {
+      "slug": string;
+    };
+  };
   "/showcase/standards": {
     params: {};
   };
@@ -73,7 +81,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/settings" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/settings" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/data" | "/showcase/data/:slug" | "/showcase/standards";
   };
   "routes/_index.tsx": {
     id: "routes/_index";
@@ -81,7 +89,7 @@ type RouteFiles = {
   };
   "routes/_layout.tsx": {
     id: "routes/_layout";
-    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/settings" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/settings" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/data" | "/showcase/data/:slug" | "/showcase/standards";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -143,6 +151,14 @@ type RouteFiles = {
     id: "routes/showcase.layouts.$slug";
     page: "/showcase/layouts/:slug";
   };
+  "routes/showcase.data._index.tsx": {
+    id: "routes/showcase.data._index";
+    page: "/showcase/data";
+  };
+  "routes/showcase.data.$slug.tsx": {
+    id: "routes/showcase.data.$slug";
+    page: "/showcase/data/:slug";
+  };
   "routes/showcase.standards.tsx": {
     id: "routes/showcase.standards";
     page: "/showcase/standards";
@@ -168,5 +184,7 @@ type RouteModules = {
   "routes/showcase.primitives.$slug": typeof import("./app/routes/showcase.primitives.$slug.tsx");
   "routes/showcase.layouts._index": typeof import("./app/routes/showcase.layouts._index.tsx");
   "routes/showcase.layouts.$slug": typeof import("./app/routes/showcase.layouts.$slug.tsx");
+  "routes/showcase.data._index": typeof import("./app/routes/showcase.data._index.tsx");
+  "routes/showcase.data.$slug": typeof import("./app/routes/showcase.data.$slug.tsx");
   "routes/showcase.standards": typeof import("./app/routes/showcase.standards.tsx");
 };

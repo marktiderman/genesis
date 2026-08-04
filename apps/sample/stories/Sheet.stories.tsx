@@ -33,3 +33,6 @@ export const Right: Story = { render: renderWithSide("right") };
 export const Left: Story = { render: renderWithSide("left") };
 export const Top: Story = { render: renderWithSide("top") };
 export const Bottom: Story = { render: renderWithSide("bottom") };
+
+// Alias so `/showcase/primitives/sheet` has a `ui-sheet--default` story.
+export const Default = Right;

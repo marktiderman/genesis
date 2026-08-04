@@ -117,3 +117,6 @@ export const List: Story = {
     </div>
   ),
 };
+
+// Alias so `/showcase/primitives/settings-row` has a `ui-settingsrow--default` story.
+export const Default = WithSwitch;

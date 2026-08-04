@@ -6,7 +6,8 @@ import {
   Clock,
 } from "lucide-react";
 import { Badge } from "@marktiderman/genesis-ui";
-import { StatCard, KanbanBoard, DataList, PageHeader } from "@marktiderman/genesis-ui/data";
+import { PageHeader } from "@marktiderman/genesis-ui/layout";
+import { StatCard, KanbanBoard, DataList } from "@marktiderman/genesis-ui/data";
 import type { KanbanColumn } from "@marktiderman/genesis-ui/data";
 
 /* -- Kanban data -- */

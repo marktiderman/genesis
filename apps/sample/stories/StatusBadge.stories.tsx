@@ -52,3 +52,6 @@ export const AllVariants: Story = {
     </div>
   ),
 };
+
+// Alias so `/showcase/primitives/status-badge` has a `ui-statusbadge--default` story.
+export const Default = OnTrack;

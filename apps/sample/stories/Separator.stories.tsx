@@ -26,3 +26,6 @@ export const Vertical: Story = {
     </div>
   ),
 };
+
+// Alias so `/showcase/primitives/separator` has a `ui-separator--default` story.
+export const Default = Horizontal;

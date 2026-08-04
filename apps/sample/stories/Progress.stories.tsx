@@ -27,3 +27,6 @@ export const Stack: Story = {
     </div>
   ),
 };
+
+// Alias so `/showcase/primitives/progress` has a `ui-progress--default` story.
+export const Default = Half;

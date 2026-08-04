@@ -19,11 +19,8 @@ export default function Standards() {
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Standards</h1>
         <p className="text-muted-foreground mt-1">
-          The four standards every Genesis consumer follows. Sourced from{" "}
-          <code className="text-xs bg-muted px-1 rounded">
-            docs/prds/PRD-07-genesis-consumption-architecture/standards/
-          </code>
-          .
+          The rules every Genesis consumer follows — straight from the docs
+          in this repo, not paraphrased.
         </p>
       </header>
 
