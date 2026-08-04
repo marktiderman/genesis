@@ -1,0 +1,93 @@
+name: Deploy Pages
+
+# Publishes the sample app + Storybook to GitHub Pages on every push to main:
+#   /            → apps/sample (React Router v7, SPA mode)
+#   /storybook/  → apps/sample's Storybook, built against the same
+#                  @marktiderman/genesis-ui the sample app consumes
+#
+# Requires a one-time repo setting: Settings → Pages → Source → "GitHub
+# Actions" (the default "Deploy from a branch" won't pick this up).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # apps/sample imports @marktiderman/genesis-ui etc. by their built
+      # dist/ output (package.json main/exports), not source — same
+      # prerequisite as every other build in this repo.
+      - name: Build packages
+        run: pnpm build:packages
+
+      # SPA mode (ssr: false) pre-renders one static index.html shell;
+      # GH_PAGES flips react-router.config.ts's basename to /genesis/ so
+      # every asset/route URL resolves under the project-site subpath.
+      - name: Build sample app
+        working-directory: apps/sample
+        env:
+          GH_PAGES: "true"
+        run: pnpm build
+
+      # Storybook's Vite builder already emits relative asset paths
+      # (base: './'), so it needs no subpath configuration of its own —
+      # it works unmodified at any deploy depth.
+      - name: Build Storybook
+        working-directory: apps/sample
+        run: pnpm build-storybook
+
+      - name: Assemble Pages site
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp -r apps/sample/build/client/. dist/
+          # GitHub Pages has no SPA rewrite rule: an unknown path 404s and
+          # Pages serves the repo's own 404.html for it. Copying the SPA
+          # shell there hands control back to react-router's client router
+          # for any deep link (e.g. /genesis/items).
+          cp dist/index.html dist/404.html
+          mkdir -p dist/storybook
+          cp -r apps/sample/storybook-static/. dist/storybook/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
