@@ -6,10 +6,18 @@ import {
   useMemo,
   useState,
   useCallback,
+  useEffect,
+  useRef,
 } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Button } from "../ui/button";
 import { DataPageShell } from "./DataPageShell";
 import { DataFilters, type SavedViewItem } from "./DataFilters";
@@ -174,12 +182,19 @@ export interface ResourcePageProps<
    * smaller than the real page size. Wins over the per-user page size
    * persisted by `viewSettingsKey` — an explicit prop always beats a stored
    * preference.
+   *
+   * Required whenever `onPageChange` is supplied. A short final page (the
+   * server's last page returning fewer rows than its page size) is
+   * indistinguishable from a small page size — there is no correct way to
+   * infer the divisor from the rows handed back. Rather than guess and
+   * render a wrong range or a stuck Next button, the component refuses to
+   * render the pager and shows an error instead when `onPageChange` is
+   * present without `perPage`.
    */
   perPage?: number;
   /**
    * Called with the next 1-based page number. The pager only renders when
-   * this is supplied. Pair with `perPage` (and `page` / `total`) so range
-   * and page-count math use the size the server was asked for.
+   * this is supplied (and `perPage` is also supplied — see {@link perPage}).
    *
    * Status changes reach the server through `onFiltersChange` — not a
    * dedicated callback here — because `statusFilter` state is tracked by
@@ -634,15 +649,32 @@ export function ResourcePage<
     [updateSetting, onPerPageChange, isServerControlled, onPageChange],
   );
 
+  // ── Pagination-config error ──
+  // `perPage` is required whenever `onPageChange` is supplied: see the prop
+  // doc on `perPage` for why the row count of a page can't stand in for the
+  // page size. Rather than silently guess, the pager below refuses to
+  // render and shows this instead. Logged once per mount (not on every
+  // render) so it's visible in a console without spamming it.
+  const missingPerPage =
+    isServerControlled && !!onPageChange && perPageProp === undefined;
+  const loggedMissingPerPageRef = useRef(false);
+  useEffect(() => {
+    if (!missingPerPage) return;
+    if (loggedMissingPerPageRef.current) return;
+    loggedMissingPerPageRef.current = true;
+    console.error(
+      "ResourcePage: `perPage` is required when `onPageChange` is supplied.",
+    );
+  }, [missingPerPage]);
+
   // ── Server-driven pager math ──
-  // Use the requested page size, never `page.data.length`. A short final
-  // page (e.g. 22 of 25) would understate the divisor, overcount totalPages,
-  // mis-offset the range, and leave Next enabled on the last page. Callers
-  // that render this pager must pass `perPage` with `onPageChange`; without
-  // it we fall back to `effectivePageSize` (explicit prop or stored
-  // preference) rather than inventing a size from the current window.
-  const pagerPageSize = Math.max(1, perPageProp ?? effectivePageSize);
-  const totalPages = Math.max(1, Math.ceil(displayTotal / pagerPageSize));
+  // By the time the pager renders, `missingPerPage` has already gated it
+  // off, so `perPageProp` is guaranteed present here.
+  const pagerPageSize = perPageProp ?? effectivePageSize;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(displayTotal / Math.max(1, pagerPageSize)),
+  );
   const rangeFrom =
     page.data.length === 0 ? 0 : (currentPage - 1) * pagerPageSize + 1;
   const rangeTo = rangeFrom === 0 ? 0 : rangeFrom + page.data.length - 1;
@@ -981,8 +1013,27 @@ export function ResourcePage<
           without a handler the buttons would be decoration, and a control
           that does nothing is worse than no control. It sits outside
           DataGrid so it pages the grid and list views too, not just the
-          table. */}
-      {isServerControlled && onPageChange && (
+          table.
+
+          When `onPageChange` is supplied without `perPage`, this renders an
+          error instead of a pager computed from a guess — see the
+          `missingPerPage` comment above. A pager reporting the wrong range
+          with a Next button that never disables is worse than one that
+          says why it can't render. */}
+      {isServerControlled && onPageChange && missingPerPage && (
+        <div
+          className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          data-testid="resource-page-pagination-error"
+          role="alert"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            Pagination unavailable: <code>perPage</code> is required when{" "}
+            <code>onPageChange</code> is supplied.
+          </span>
+        </div>
+      )}
+      {isServerControlled && onPageChange && !missingPerPage && (
         <nav
           aria-label="Pagination"
           className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 py-2 text-sm"
