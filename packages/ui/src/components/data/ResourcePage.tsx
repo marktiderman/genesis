@@ -142,7 +142,8 @@ export interface ResourcePageProps<
    * server-controlled mode. A caller combining `statusFilter` with server
    * pagination (`onPageChange` et al.) must supply `onFiltersChange` — see
    * that prop — or status changes will update the chip UI without ever
-   * reaching the server.
+   * reaching the server. In server-controlled mode a status change also
+   * resets to page 1 via `onPageChange(1)` — see {@link onPageChange}.
    */
   statusFilter?: string | { field: string; options?: string[] };
   searchFields?: string[];
@@ -199,10 +200,10 @@ export interface ResourcePageProps<
    * Status changes reach the server through `onFiltersChange` — not a
    * dedicated callback here — because `statusFilter` state is tracked by
    * the same filter machinery that already calls `onFiltersChange`
-   * regardless of controlled mode (see {@link statusFilter}). A caller
-   * combining server pagination with `statusFilter` must supply
-   * `onFiltersChange` or a status change will update the chip UI without
-   * ever reaching the server.
+   * regardless of controlled mode (see {@link statusFilter}). In
+   * server-controlled mode a status change also calls `onPageChange(1)`
+   * directly, since the previous page number is meaningless against a new
+   * filtered result set.
    */
   onPageChange?: (page: number) => void;
   /** Called when the user picks a different page size in the header's view settings. */
@@ -640,6 +641,30 @@ export function ResourcePage<
     onPageChange?.(1);
   }, [page, isServerControlled, onSearchChange, onSortChange, onPageChange]);
 
+  // ── Status-chip changes: same page-1 reset as search/sort ──
+  // In server-controlled mode `useResourcePage` skips client-side status
+  // filtering, so a status change only reaches the caller through
+  // `onFiltersChange`. Nothing else calls `onPageChange(1)` for it, so
+  // selecting a more restrictive status while on page 3 could otherwise
+  // fetch page 3 of the new result set and render an empty page while the
+  // matching rows sit on page 1. Guarded the same way as
+  // `handleSearchChange`, and not reachable from `handleClearFilters`
+  // (which already does its own single reset).
+  const handleStatusChange = useCallback(
+    (values: string[]) => {
+      page.filterConfig.statusChips?.onChange(values);
+      if (!isServerControlled) return;
+      if (currentPage !== 1) onPageChange?.(1);
+    },
+    [page.filterConfig, isServerControlled, onPageChange, currentPage],
+  );
+
+  const statusChipsConfig = useMemo(() => {
+    const base = page.filterConfig.statusChips;
+    if (!base) return undefined;
+    return { ...base, onChange: handleStatusChange };
+  }, [page.filterConfig.statusChips, handleStatusChange]);
+
   const handlePageSizeChange = useCallback(
     (size: number) => {
       updateSetting("pageSize", size);
@@ -937,7 +962,7 @@ export function ResourcePage<
           sort={page.filterConfig.sort}
           onSortChange={handleSortSelect}
           sortOptions={page.filterConfig.sortOptions}
-          statusChips={page.filterConfig.statusChips}
+          statusChips={statusChipsConfig}
           savedViews={savedViews}
           onLoadView={onLoadView}
           onSaveView={onSaveView}
