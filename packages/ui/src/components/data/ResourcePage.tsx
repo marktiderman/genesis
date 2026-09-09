@@ -20,7 +20,10 @@ import { DetailPanel } from "./DetailPanel";
 import { ResourceForm } from "./ResourceForm";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewMode } from "../patterns/view-toggle";
-import { useResource, type UseResourceOptions } from "@marktiderman/genesis-core/hooks";
+import {
+  useResource,
+  type UseResourceOptions,
+} from "@marktiderman/genesis-core/hooks";
 import {
   useResourcePage,
   type ResourceColumnDef,
@@ -28,7 +31,11 @@ import {
 } from "../../hooks/use-resource-page";
 import { useViewSettings } from "../../hooks/use-view-settings";
 import { useKeyboardNavigation } from "../../hooks/use-keyboard-navigation";
-import type { BaseRecord, FilterParam, SortParam } from "@marktiderman/genesis-core/provider";
+import type {
+  BaseRecord,
+  FilterParam,
+  SortParam,
+} from "@marktiderman/genesis-core/provider";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
 import type { WizardStep } from "@marktiderman/genesis-core/hooks";
 import { defaultNavigate, type NavigateFn } from "../../navigation";
@@ -120,6 +127,15 @@ export interface ResourcePageProps<
   }>;
 
   // Filters
+  /**
+   * Adds a status-chip filter. There is no dedicated status-change
+   * callback: chip clicks update the same filter state that already
+   * reports through `onFiltersChange`, whether or not the page is in
+   * server-controlled mode. A caller combining `statusFilter` with server
+   * pagination (`onPageChange` et al.) must supply `onFiltersChange` — see
+   * that prop — or status changes will update the chip UI without ever
+   * reaching the server.
+   */
   statusFilter?: string | { field: string; options?: string[] };
   searchFields?: string[];
   searchPlaceholder?: string;
@@ -155,7 +171,18 @@ export interface ResourcePageProps<
    * preference.
    */
   perPage?: number;
-  /** Called with the next 1-based page number. The pager only renders when this is supplied. */
+  /**
+   * Called with the next 1-based page number. The pager only renders when
+   * this is supplied.
+   *
+   * Status changes reach the server through `onFiltersChange` — not a
+   * dedicated callback here — because `statusFilter` state is tracked by
+   * the same filter machinery that already calls `onFiltersChange`
+   * regardless of controlled mode (see {@link statusFilter}). A caller
+   * combining server pagination with `statusFilter` must supply
+   * `onFiltersChange` or a status change will update the chip UI without
+   * ever reaching the server.
+   */
   onPageChange?: (page: number) => void;
   /** Called when the user picks a different page size in the header's view settings. */
   onPerPageChange?: (perPage: number) => void;
@@ -435,16 +462,25 @@ export function ResourcePage<
     }
     return {
       update: async () => {
-        throw new Error("ResourceActions.update not available in server-data mode");
+        throw new Error(
+          "ResourceActions.update not available in server-data mode",
+        );
       },
       remove: async () => {
-        throw new Error("ResourceActions.remove not available in server-data mode");
+        throw new Error(
+          "ResourceActions.remove not available in server-data mode",
+        );
       },
       refetch: () => {
         /* no-op in server-data mode */
       },
     };
-  }, [isClientMode, resourceHook.update, resourceHook.remove, resourceHook.list]);
+  }, [
+    isClientMode,
+    resourceHook.update,
+    resourceHook.remove,
+    resourceHook.list,
+  ]);
 
   // ── Bulk selection ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -524,21 +560,38 @@ export function ResourcePage<
     // answer presented as a sort — so the affordance is withdrawn rather
     // than left to lie. The DataFilters sort control drives `onSortChange`.
     return base.map((col) => ({ ...col, sortable: false }));
-  }, [isClientMode, isServerControlled, page.columns, page.tableColumns, actions]);
+  }, [
+    isClientMode,
+    isServerControlled,
+    page.columns,
+    page.tableColumns,
+    actions,
+  ]);
+
+  // ── Server-driven pager state, needed above for handleSearchChange's
+  // already-on-page-1 check. ──
+  const currentPage = pageProp ?? 1;
 
   // ── Filter changes: keep the controlled UI state, and tell the server ──
   // In client-side mode these are exactly the hook's own setters; in
   // server-controlled mode they additionally notify the caller and reset to
   // page 1, since the previous page number is meaningless against a new
-  // query.
+  // query. The reset is skipped when already on page 1 — nothing changed,
+  // so there is nothing for the caller to do.
   const handleSearchChange = useCallback(
     (value: string) => {
       page.filterConfig.onSearchChange(value);
       if (!isServerControlled) return;
       onSearchChange?.(value);
-      onPageChange?.(1);
+      if (currentPage !== 1) onPageChange?.(1);
     },
-    [page.filterConfig, isServerControlled, onSearchChange, onPageChange],
+    [
+      page.filterConfig,
+      isServerControlled,
+      onSearchChange,
+      onPageChange,
+      currentPage,
+    ],
   );
 
   const handleSortSelect = useCallback(
@@ -575,14 +628,23 @@ export function ResourcePage<
     [updateSetting, onPerPageChange, isServerControlled, onPageChange],
   );
 
-  // ── Server-driven pager ──
-  const currentPage = pageProp ?? 1;
+  // ── Server-driven pager math ──
+  // `effectivePageSize` is the per-user *preference* (persisted, defaults to
+  // 25) — right for the page-size selector, wrong as a pagination divisor
+  // when the caller never told us the server's actual page size. Without an
+  // explicit `perPage`, `page.data.length` (the row count the server just
+  // handed back) is the only truthful stand-in: it is what the server
+  // actually paged by, not what some other page's settings say it should
+  // have been. Client-side mode is unaffected — this only feeds the
+  // server-controlled pager below.
+  const pagerPageSize =
+    perPageProp ?? (isServerControlled ? page.data.length : effectivePageSize);
   const totalPages = Math.max(
     1,
-    Math.ceil(displayTotal / Math.max(1, effectivePageSize)),
+    Math.ceil(displayTotal / Math.max(1, pagerPageSize)),
   );
   const rangeFrom =
-    page.data.length === 0 ? 0 : (currentPage - 1) * effectivePageSize + 1;
+    page.data.length === 0 ? 0 : (currentPage - 1) * pagerPageSize + 1;
   const rangeTo = rangeFrom === 0 ? 0 : rangeFrom + page.data.length - 1;
 
   // ── Detail title/subtitle values ──
@@ -591,11 +653,13 @@ export function ResourcePage<
         (page.selectedItem as Record<string, unknown>)[page.titleField] ?? "",
       )
     : "";
-  const detailSubtitle = page.selectedItem && page.subtitleField
-    ? String(
-        (page.selectedItem as Record<string, unknown>)[page.subtitleField] ?? "",
-      )
-    : undefined;
+  const detailSubtitle =
+    page.selectedItem && page.subtitleField
+      ? String(
+          (page.selectedItem as Record<string, unknown>)[page.subtitleField] ??
+            "",
+        )
+      : undefined;
 
   // ── Row click handler (route mode navigates) ──
   const handleRowClick = (item: T) => {
@@ -662,12 +726,13 @@ export function ResourcePage<
     </Button>
   ) : null;
 
-  const createAction = (toolbar || createButton) ? (
-    <div className="flex items-center gap-2">
-      {toolbar}
-      {createButton}
-    </div>
-  ) : undefined;
+  const createAction =
+    toolbar || createButton ? (
+      <div className="flex items-center gap-2">
+        {toolbar}
+        {createButton}
+      </div>
+    ) : undefined;
 
   // ── Empty state ──
   const isEmpty = !isLoading && !hasError && page.data.length === 0;
@@ -724,15 +789,14 @@ export function ResourcePage<
       : null;
     // Find a numeric-looking column for the price position
     const priceCol = cols.find(
-      (c, i) => i > 1 && /price|cost|amount|total/i.test(c.key)
+      (c, i) => i > 1 && /price|cost|amount|total/i.test(c.key),
     );
     const priceVal = priceCol
       ? (item as Record<string, unknown>)[priceCol.key]
       : null;
     // Remaining metadata columns (skip title, badge, price)
     const metaCols = cols.filter(
-      (c) =>
-        c !== titleCol && c !== badgeCol && c !== priceCol
+      (c) => c !== titleCol && c !== badgeCol && c !== priceCol,
     );
     return (
       <Card
@@ -740,9 +804,7 @@ export function ResourcePage<
         className="h-full cursor-pointer hover:shadow-md motion-safe:transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <CardHeader className="pb-2">
-          <CardTitle className="text-base truncate">
-            {titleVal}
-          </CardTitle>
+          <CardTitle className="text-base truncate">{titleVal}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -874,9 +936,7 @@ export function ResourcePage<
         items={page.data}
         viewMode={page.viewMode}
         gridCols={gridColsProp}
-        getKey={(item) =>
-          String((item as Record<string, unknown>).id ?? "")
-        }
+        getKey={(item) => String((item as Record<string, unknown>).id ?? "")}
         focusedIndex={keyboardNav.focusedIndex}
         keyboardContainerRef={keyboardNav.containerRef}
         renderTable={(items) => (
@@ -923,11 +983,16 @@ export function ResourcePage<
           DataGrid so it pages the grid and list views too, not just the
           table. */}
       {isServerControlled && onPageChange && (
-        <div
+        <nav
+          aria-label="Pagination"
           className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 py-2 text-sm"
           data-testid="resource-page-pagination"
         >
-          <span className="text-muted-foreground" data-testid="resource-page-range">
+          <span
+            className="text-muted-foreground"
+            data-testid="resource-page-range"
+            aria-live="polite"
+          >
             {displayTotal === 0
               ? "No records"
               : `Showing ${rangeFrom}-${rangeTo} of ${displayTotal}`}
@@ -960,7 +1025,7 @@ export function ResourcePage<
               <ChevronRight className="h-4 w-4 ml-1" aria-hidden="true" />
             </Button>
           </div>
-        </div>
+        </nav>
       )}
 
       {/* Detail panel / modal — DetailPanel's `layout` prop picks the shell;
@@ -984,9 +1049,7 @@ export function ResourcePage<
           width={detailWidth}
           layout={detail === "modal" ? "dialog" : "sheet"}
         >
-          {renderDetailProp
-            ? (item: T) => renderDetailProp(item)
-            : undefined}
+          {renderDetailProp ? (item: T) => renderDetailProp(item) : undefined}
         </DetailPanel>
       )}
       {/* Built-in create/edit form */}
@@ -994,7 +1057,9 @@ export function ResourcePage<
         <ResourceForm
           resource={resourceName}
           action={formAction}
-          layout={formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog")}
+          layout={
+            formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog")
+          }
           mode={formMode}
           steps={formSteps}
           item={
@@ -1004,7 +1069,7 @@ export function ResourcePage<
                 ? Object.fromEntries(
                     Object.keys(page.data[0] as Record<string, unknown>)
                       .filter((k) => k !== "id")
-                      .map((k) => [k, ""])
+                      .map((k) => [k, ""]),
                   )
                 : undefined
           }
