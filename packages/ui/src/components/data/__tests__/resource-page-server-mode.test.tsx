@@ -77,7 +77,9 @@ describe("ResourcePage — server-controlled mode", () => {
     // The server is told, and every row it already sent stays on screen —
     // client-side mode would have dropped two of the three.
     expect(onSearchChange).toHaveBeenCalledWith("Alpha");
-    await waitFor(() => expect(renderedTitles()).toEqual(["Zulu", "Alpha", "Mike"]));
+    await waitFor(() =>
+      expect(renderedTitles()).toEqual(["Zulu", "Alpha", "Mike"]),
+    );
   });
 
   it("resets to page 1 when the search changes", async () => {
@@ -106,9 +108,24 @@ describe("ResourcePage — server-controlled mode", () => {
 
   it("reports the server's total, not the length of the page it was handed", async () => {
     renderServerPage();
-    expect(
-      (await screen.findByTestId("resource-page-range")).textContent,
-    ).toBe("Showing 4-6 of 97");
+    expect((await screen.findByTestId("resource-page-range")).textContent).toBe(
+      "Showing 4-6 of 97",
+    );
+    expect(screen.getByTestId("resource-page-indicator").textContent).toBe(
+      "Page 2 of 33",
+    );
+  });
+
+  it("derives the range and page count from the rendered rows when perPage is omitted", async () => {
+    // No `perPage` here — only page, total and onPageChange. The persisted
+    // per-user page-size setting defaults to 25, which would put page 2 at
+    // "Showing 26-28" and "Page 2 of 4" if it won. The server actually paged
+    // by 3 (the length of `serverPage`), so the range and page count must
+    // come from that instead.
+    renderServerPage({ perPage: undefined });
+    expect((await screen.findByTestId("resource-page-range")).textContent).toBe(
+      "Showing 4-6 of 97",
+    );
     expect(screen.getByTestId("resource-page-indicator").textContent).toBe(
       "Page 2 of 33",
     );
@@ -273,7 +290,6 @@ describe("ResourcePage — level-2 / level-3 passthroughs", () => {
       "genesis-settings-posts-page",
       JSON.stringify({ pageSize: 10, density: "comfortable" }),
     );
-    const onPerPageChange = vi.fn();
     render(
       <GenesisProvider mock={{ datasets: {} }}>
         <ResourcePage<Post>
@@ -286,7 +302,6 @@ describe("ResourcePage — level-2 / level-3 passthroughs", () => {
           page={1}
           perPage={3}
           onPageChange={() => {}}
-          onPerPageChange={onPerPageChange}
         />
       </GenesisProvider>,
     );
@@ -294,5 +309,34 @@ describe("ResourcePage — level-2 / level-3 passthroughs", () => {
     expect(
       (await screen.findByTestId("resource-page-indicator")).textContent,
     ).toBe("Page 1 of 33");
+  });
+
+  it("calls onPerPageChange when the header's view-settings page-size control changes", async () => {
+    const onPerPageChange = vi.fn();
+    render(
+      <GenesisProvider mock={{ datasets: {} }}>
+        <ResourcePage<Post>
+          title="Posts"
+          data={serverPage}
+          total={97}
+          columns={["title"]}
+          detail="none"
+          page={1}
+          perPage={3}
+          onPageChange={() => {}}
+          onPerPageChange={onPerPageChange}
+        />
+      </GenesisProvider>,
+    );
+    await waitFor(() => expect(renderedTitles().length).toBe(3));
+
+    fireEvent.click(screen.getByTestId("view-settings-trigger"));
+    fireEvent.click(await screen.findByTestId("view-settings-page-size"));
+    fireEvent.click(await screen.findByText("50 items"));
+
+    // The control is wired to handlePageSizeChange, which forwards the
+    // picked size to the caller — without this it would silently update
+    // the persisted per-user setting and never tell the server.
+    expect(onPerPageChange).toHaveBeenCalledWith(50);
   });
 });
