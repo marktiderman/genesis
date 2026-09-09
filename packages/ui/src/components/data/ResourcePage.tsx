@@ -158,7 +158,9 @@ export interface ResourcePageProps<
   //    The sort control in `DataFilters` drives `onSortChange` instead.
   //  - `DataTable`'s own pagination is switched off; the pager below the list
   //    is driven by `page` / `perPage` / `total` / `onPageChange`, and is only
-  //    rendered when `onPageChange` is supplied.
+  //    rendered when `onPageChange` is supplied. `perPage` is required for
+  //    that pager's math — a short final page is smaller than the real size,
+  //    so `data.length` must not be used as the divisor.
   //  - Changing search or sort calls `onPageChange(1)` as well, so the caller
   //    is never left requesting page 7 of a one-page result.
   // ─────────────────────────────────────────────────────────────────────────
@@ -166,14 +168,18 @@ export interface ResourcePageProps<
   /** Current page, 1-based. Server-controlled mode only. */
   page?: number;
   /**
-   * Rows per page the server was asked for. Wins over the per-user page size
+   * Rows per page the server was asked for. Required whenever
+   * `onPageChange` is supplied: pager math (total pages, range start, Next)
+   * cannot be inferred from `data.length`, because a short final page is
+   * smaller than the real page size. Wins over the per-user page size
    * persisted by `viewSettingsKey` — an explicit prop always beats a stored
    * preference.
    */
   perPage?: number;
   /**
    * Called with the next 1-based page number. The pager only renders when
-   * this is supplied.
+   * this is supplied. Pair with `perPage` (and `page` / `total`) so range
+   * and page-count math use the size the server was asked for.
    *
    * Status changes reach the server through `onFiltersChange` — not a
    * dedicated callback here — because `statusFilter` state is tracked by
@@ -629,20 +635,14 @@ export function ResourcePage<
   );
 
   // ── Server-driven pager math ──
-  // `effectivePageSize` is the per-user *preference* (persisted, defaults to
-  // 25) — right for the page-size selector, wrong as a pagination divisor
-  // when the caller never told us the server's actual page size. Without an
-  // explicit `perPage`, `page.data.length` (the row count the server just
-  // handed back) is the only truthful stand-in: it is what the server
-  // actually paged by, not what some other page's settings say it should
-  // have been. Client-side mode is unaffected — this only feeds the
-  // server-controlled pager below.
-  const pagerPageSize =
-    perPageProp ?? (isServerControlled ? page.data.length : effectivePageSize);
-  const totalPages = Math.max(
-    1,
-    Math.ceil(displayTotal / Math.max(1, pagerPageSize)),
-  );
+  // Use the requested page size, never `page.data.length`. A short final
+  // page (e.g. 22 of 25) would understate the divisor, overcount totalPages,
+  // mis-offset the range, and leave Next enabled on the last page. Callers
+  // that render this pager must pass `perPage` with `onPageChange`; without
+  // it we fall back to `effectivePageSize` (explicit prop or stored
+  // preference) rather than inventing a size from the current window.
+  const pagerPageSize = Math.max(1, perPageProp ?? effectivePageSize);
+  const totalPages = Math.max(1, Math.ceil(displayTotal / pagerPageSize));
   const rangeFrom =
     page.data.length === 0 ? 0 : (currentPage - 1) * pagerPageSize + 1;
   const rangeTo = rangeFrom === 0 ? 0 : rangeFrom + page.data.length - 1;

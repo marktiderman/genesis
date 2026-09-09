@@ -116,19 +116,37 @@ describe("ResourcePage — server-controlled mode", () => {
     );
   });
 
-  it("derives the range and page count from the rendered rows when perPage is omitted", async () => {
-    // No `perPage` here — only page, total and onPageChange. The persisted
-    // per-user page-size setting defaults to 25, which would put page 2 at
-    // "Showing 26-28" and "Page 2 of 4" if it won. The server actually paged
-    // by 3 (the length of `serverPage`), so the range and page count must
-    // come from that instead.
-    renderServerPage({ perPage: undefined });
+  it("keeps final-page range and Next correct when the last page is short", async () => {
+    // total=97, perPage=25 → 4 pages; page 4 holds 22 rows. Inferring the
+    // divisor from data.length (22) would claim "Page 4 of 5", range
+    // 67-88, and leave Next enabled. The requested perPage must win.
+    const lastPage: Post[] = Array.from({ length: 22 }, (_, i) => ({
+      id: String(i + 1),
+      title: `Row ${i + 1}`,
+    }));
+    render(
+      <GenesisProvider mock={{ datasets: {} }}>
+        <ResourcePage<Post>
+          title="Posts"
+          data={lastPage}
+          total={97}
+          columns={["title"]}
+          detail="none"
+          page={4}
+          perPage={25}
+          onPageChange={() => {}}
+        />
+      </GenesisProvider>,
+    );
     expect((await screen.findByTestId("resource-page-range")).textContent).toBe(
-      "Showing 4-6 of 97",
+      "Showing 76-97 of 97",
     );
     expect(screen.getByTestId("resource-page-indicator").textContent).toBe(
-      "Page 2 of 33",
+      "Page 4 of 4",
     );
+    expect(
+      (screen.getByTestId("resource-page-next") as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 
   it("pages forward and back through onPageChange", async () => {
