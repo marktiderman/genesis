@@ -158,6 +158,20 @@ describe("ResourcePage — server-controlled mode", () => {
     expect(screen.queryByTestId("resource-page-pagination")).toBeNull();
   });
 
+  it("resets to page 1 when a status filter changes", async () => {
+    const onPageChange = vi.fn();
+    renderServerPage({
+      page: 3,
+      onFiltersChange: () => {},
+      onPageChange,
+      statusFilter: { field: "status", options: ["draft"] },
+    });
+    await waitFor(() => expect(renderedTitles().length).toBe(3));
+
+    fireEvent.click(await screen.findByText("draft"));
+    expect(onPageChange).toHaveBeenCalledWith(1);
+  });
+
   it("pages forward and back through onPageChange", async () => {
     const onPageChange = vi.fn();
     renderServerPage({ onPageChange });
