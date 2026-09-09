@@ -57,12 +57,24 @@ export interface UseResourcePageProps<T> {
   titleField?: string;
   /** Field used for the detail subtitle. Defaults to second column key. */
   subtitleField?: string;
+  /**
+   * Server-controlled mode. The `data` handed in has ALREADY been searched,
+   * sorted and paginated by the server, so this hook must not do any of it a
+   * second time — `data` is returned untouched and `total` is the server's
+   * `total` rather than the length of a client-filtered slice.
+   *
+   * Search / sort / status state is still tracked (the filter UI stays
+   * controlled and `onFiltersChange` still fires) — only the client-side
+   * transform of `data` is skipped. Defaults to `false`, so every existing
+   * caller keeps its current client-side behavior.
+   */
+  controlled?: boolean;
 }
 
 export interface UseResourcePageReturn<T> {
   /** Filtered and sorted data for display. */
   data: T[];
-  /** Total count (of the filtered set). */
+  /** Total count (of the filtered set; the server's `total` when `controlled`). */
   total: number;
   /** Resolved column definitions. */
   columns: ResourceColumnDef<T>[];
@@ -233,6 +245,7 @@ export function useResourcePage<T = Record<string, unknown>>(
     subtitleField: subtitleFieldProp,
     initialFilters,
     onFiltersChange,
+    controlled = false,
   } = props;
 
   // -- View mode --
@@ -319,7 +332,13 @@ export function useResourcePage<T = Record<string, unknown>>(
   );
 
   // -- Client-side filtering + sorting --
+  // Skipped entirely in controlled mode: the server already applied the
+  // search, the sort and the page window, so re-running them here would
+  // filter the current page against a query the server has already honoured
+  // (and re-sort a slice of rows that is not the full result set).
   const filteredData = useMemo(() => {
+    if (controlled) return rawData;
+
     let result = rawData;
 
     // Text search
@@ -343,7 +362,7 @@ export function useResourcePage<T = Record<string, unknown>>(
     }
 
     return result;
-  }, [rawData, search, searchFields, statusFieldName, statusValue, sort]);
+  }, [controlled, rawData, search, searchFields, statusFieldName, statusValue, sort]);
 
   // -- Sort options (built from resolved columns) --
   const sortOptions = useMemo(() => {
@@ -475,7 +494,9 @@ export function useResourcePage<T = Record<string, unknown>>(
 
   return {
     data: filteredData,
-    total: filteredData.length,
+    // Controlled mode: `filteredData` is one server page, so its length is
+    // not the record count — the server's total is.
+    total: controlled ? rawTotal : filteredData.length,
     columns: resolvedColumns,
     tableColumns,
     filterConfig,

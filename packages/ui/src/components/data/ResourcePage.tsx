@@ -6,13 +6,21 @@ import {
   useMemo,
   useState,
   useCallback,
+  useEffect,
+  useRef,
 } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
-import { Plus, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Button } from "../ui/button";
 import { DataPageShell } from "./DataPageShell";
-import { DataFilters } from "./DataFilters";
+import { DataFilters, type SavedViewItem } from "./DataFilters";
 import { DataTable } from "./DataTable";
 import { DataBulkBar } from "./DataBulkBar";
 import { DataGrid } from "./DataGrid";
@@ -20,7 +28,10 @@ import { DetailPanel } from "./DetailPanel";
 import { ResourceForm } from "./ResourceForm";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewMode } from "../patterns/view-toggle";
-import { useResource, type UseResourceOptions } from "@marktiderman/genesis-core/hooks";
+import {
+  useResource,
+  type UseResourceOptions,
+} from "@marktiderman/genesis-core/hooks";
 import {
   useResourcePage,
   type ResourceColumnDef,
@@ -28,7 +39,11 @@ import {
 } from "../../hooks/use-resource-page";
 import { useViewSettings } from "../../hooks/use-view-settings";
 import { useKeyboardNavigation } from "../../hooks/use-keyboard-navigation";
-import type { BaseRecord, FilterParam } from "@marktiderman/genesis-core/provider";
+import type {
+  BaseRecord,
+  FilterParam,
+  SortParam,
+} from "@marktiderman/genesis-core/provider";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
 import type { WizardStep } from "@marktiderman/genesis-core/hooks";
 import { defaultNavigate, type NavigateFn } from "../../navigation";
@@ -63,6 +78,26 @@ export interface ResourceCardActions<T> extends ResourceActions<T> {
  * consumer fully own item presentation while ResourcePage keeps handling
  * data-fetching, filtering, and layout; see also the built-in
  * `useKeyboardNavigation` wiring (`keyboardNavigation` prop) and `gridCols`.
+ *
+ * Three levels of control, and each option is available at all three:
+ *
+ * 1. **The primitive offers it** — table / grid / list views, search, sort,
+ *    status chips, column visibility and resizing, density, page size,
+ *    detail panel / modal / route, built-in create and edit forms.
+ * 2. **The instance turns it on or off** — every one of those is a prop, so
+ *    a given page decides which affordances it offers at all.
+ * 3. **The end user picks their own, and it sticks** — for the options left
+ *    on at level 2, the user's choice persists to their own storage:
+ *    `viewSettingsKey` for page size and density, `columnVisibilityKey` and
+ *    `resizeKey` for column layout, `savedViews` (pair with `useSavedViews`)
+ *    for named filter sets. Persistence needs a key; without one the choice
+ *    lasts only for the session.
+ *
+ * A server-paginated list drives the same component through the controlled
+ * props (`page`, `perPage`, `onPageChange`, `onSortChange`, `onSearchChange`
+ * and friends) — supplying any of them stops ResourcePage from searching,
+ * sorting or paging the `data` a second time. See that block in
+ * {@link ResourcePageProps}.
  *
  * @stability Beta
  */
@@ -100,11 +135,112 @@ export interface ResourcePageProps<
   }>;
 
   // Filters
+  /**
+   * Adds a status-chip filter. There is no dedicated status-change
+   * callback: chip clicks update the same filter state that already
+   * reports through `onFiltersChange`, whether or not the page is in
+   * server-controlled mode. A caller combining `statusFilter` with server
+   * pagination (`onPageChange` et al.) must supply `onFiltersChange` — see
+   * that prop — or status changes will update the chip UI without ever
+   * reaching the server. In server-controlled mode a status change also
+   * resets to page 1 via `onPageChange(1)` — see {@link onPageChange}.
+   */
   statusFilter?: string | { field: string; options?: string[] };
   searchFields?: string[];
   searchPlaceholder?: string;
   initialFilters?: FilterParam[];
   onFiltersChange?: (filters: FilterParam[]) => void;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Server-controlled list (opt-in, additive)
+  //
+  // Supplying ANY prop in this block puts the page in server-controlled
+  // mode, in which ResourcePage renders `data` exactly as given: it does not
+  // search it, sort it or paginate it a second time. That double-work is the
+  // reason a server-paginated list could not previously adopt ResourcePage —
+  // page 3 of 40 would be re-filtered and re-sorted against only its own 25
+  // rows, and then re-paged on top of that.
+  //
+  // Consequences, stated rather than hidden:
+  //  - Table column headers stop being sort triggers (a header click could
+  //    only reorder the current page, which would be a lie about the sort).
+  //    The sort control in `DataFilters` drives `onSortChange` instead.
+  //  - `DataTable`'s own pagination is switched off; the pager below the list
+  //    is driven by `page` / `perPage` / `total` / `onPageChange`, and is only
+  //    rendered when `onPageChange` is supplied. `perPage` is required for
+  //    that pager's math — a short final page is smaller than the real size,
+  //    so `data.length` must not be used as the divisor.
+  //  - Changing search or sort calls `onPageChange(1)` as well, so the caller
+  //    is never left requesting page 7 of a one-page result.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Current page, 1-based. Server-controlled mode only. */
+  page?: number;
+  /**
+   * Rows per page the server was asked for. Required whenever
+   * `onPageChange` is supplied: pager math (total pages, range start, Next)
+   * cannot be inferred from `data.length`, because a short final page is
+   * smaller than the real page size. Wins over the per-user page size
+   * persisted by `viewSettingsKey` — an explicit prop always beats a stored
+   * preference.
+   *
+   * Required whenever `onPageChange` is supplied. A short final page (the
+   * server's last page returning fewer rows than its page size) is
+   * indistinguishable from a small page size — there is no correct way to
+   * infer the divisor from the rows handed back. Rather than guess and
+   * render a wrong range or a stuck Next button, the component refuses to
+   * render the pager and shows an error instead when `onPageChange` is
+   * present without `perPage`.
+   */
+  perPage?: number;
+  /**
+   * Called with the next 1-based page number. The pager only renders when
+   * this is supplied (and `perPage` is also supplied — see {@link perPage}).
+   *
+   * Status changes reach the server through `onFiltersChange` — not a
+   * dedicated callback here — because `statusFilter` state is tracked by
+   * the same filter machinery that already calls `onFiltersChange`
+   * regardless of controlled mode (see {@link statusFilter}). In
+   * server-controlled mode a status change also calls `onPageChange(1)`
+   * directly, since the previous page number is meaningless against a new
+   * filtered result set.
+   */
+  onPageChange?: (page: number) => void;
+  /** Called when the user picks a different page size in the header's view settings. */
+  onPerPageChange?: (perPage: number) => void;
+  /** Called when the user changes the sort, with `null` when the sort is cleared. */
+  onSortChange?: (sort: SortParam | null) => void;
+  /** Called when the user changes the search text (including clearing it). */
+  onSearchChange?: (search: string) => void;
+
+  // ── Saved views — passed straight through to DataFilters ──
+  /** Saved filter views to offer. Pair with `useSavedViews` for per-user storage. */
+  savedViews?: SavedViewItem[];
+  onLoadView?: (filters: Record<string, unknown>) => void;
+  onSaveView?: (name: string) => void;
+  onDeleteView?: (id: string) => void;
+  /** Show the "save current view" affordance. */
+  canSaveViews?: boolean;
+
+  // ── Table chrome — passed straight through to DataTable ──
+  /** Show the column-visibility dropdown. DataTable's default is `true`. */
+  columnVisibility?: boolean;
+  /** Persist key for the user's column-visibility picks. */
+  columnVisibilityKey?: string;
+  /** Allow drag-resizing columns. DataTable's default is `true`. */
+  resizableColumns?: boolean;
+  /** Persist key for the user's column widths. */
+  resizeKey?: string;
+  /** Keep the table header visible while scrolling. DataTable's default is `true`. */
+  stickyHeader?: boolean;
+  /** Keep the first column visible while scrolling horizontally. */
+  stickyFirstColumn?: boolean;
+  /**
+   * Page-size choices offered by `DataTable`'s own pager. Client-side mode
+   * only — server-controlled mode switches that pager off. (The header's
+   * view-settings popover has its own fixed 10/25/50/100 list.)
+   */
+  pageSizeOptions?: number[];
 
   // CRUD — presence enables the action
   onCreate?: () => void;
@@ -234,6 +370,24 @@ export function ResourcePage<
     searchPlaceholder,
     initialFilters,
     onFiltersChange,
+    page: pageProp,
+    perPage: perPageProp,
+    onPageChange,
+    onPerPageChange,
+    onSortChange,
+    onSearchChange,
+    savedViews,
+    onLoadView,
+    onSaveView,
+    onDeleteView,
+    canSaveViews,
+    columnVisibility,
+    columnVisibilityKey,
+    resizableColumns,
+    resizeKey,
+    stickyHeader,
+    stickyFirstColumn,
+    pageSizeOptions,
     onCreate,
     onEdit,
     onDelete,
@@ -260,11 +414,27 @@ export function ResourcePage<
   // ── Determine mode ──
   const isClientMode = !!resourceName;
 
+  /**
+   * Server-controlled mode is entered by supplying ANY of the controlled
+   * props — presence is the switch, so a caller that only pages (no server
+   * search) still gets its `data` left alone.
+   */
+  const isServerControlled =
+    pageProp !== undefined ||
+    perPageProp !== undefined ||
+    onPageChange !== undefined ||
+    onPerPageChange !== undefined ||
+    onSortChange !== undefined ||
+    onSearchChange !== undefined;
+
   const viewSettingsKey =
     viewSettingsKeyProp ??
     resourceName ??
     title.toLowerCase().replace(/\s+/g, "-");
   const { settings, updateSetting } = useViewSettings(viewSettingsKey);
+
+  /** Explicit prop beats the per-user stored preference. */
+  const effectivePageSize = perPageProp ?? settings.pageSize;
 
   // ── Client-side mode: call useResource (hook is always called for rules-of-hooks) ──
   // Core's useResource constrains its row type to BaseRecord (rows carry an
@@ -300,6 +470,7 @@ export function ResourcePage<
     detail,
     titleField: titleFieldProp,
     subtitleField: subtitleFieldProp,
+    controlled: isServerControlled,
   });
 
   // ── Build ResourceActions for column render functions ──
@@ -313,16 +484,25 @@ export function ResourcePage<
     }
     return {
       update: async () => {
-        throw new Error("ResourceActions.update not available in server-data mode");
+        throw new Error(
+          "ResourceActions.update not available in server-data mode",
+        );
       },
       remove: async () => {
-        throw new Error("ResourceActions.remove not available in server-data mode");
+        throw new Error(
+          "ResourceActions.remove not available in server-data mode",
+        );
       },
       refetch: () => {
         /* no-op in server-data mode */
       },
     };
-  }, [isClientMode, resourceHook.update, resourceHook.remove, resourceHook.list]);
+  }, [
+    isClientMode,
+    resourceHook.update,
+    resourceHook.remove,
+    resourceHook.list,
+  ]);
 
   // ── Bulk selection ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -385,18 +565,144 @@ export function ResourcePage<
 
   // ── Patch tableColumns to use real actions (client-side mode) ──
   const tableColumns = useMemo(() => {
-    if (!isClientMode) return page.tableColumns;
-    // Re-map columns so render functions get real actions
-    return page.columns.map((col) => ({
-      key: col.key,
-      header: col.header ?? col.key,
-      sortable: col.sortable ?? true,
-      hideBelow: col.hideBelow,
-      render: col.render
-        ? (item: T, value: unknown) => col.render!(item, value, actions)
-        : undefined,
-    }));
-  }, [isClientMode, page.columns, page.tableColumns, actions]);
+    const base = isClientMode
+      ? page.columns.map((col) => ({
+          key: col.key,
+          header: col.header ?? col.key,
+          sortable: col.sortable ?? true,
+          hideBelow: col.hideBelow,
+          render: col.render
+            ? (item: T, value: unknown) => col.render!(item, value, actions)
+            : undefined,
+        }))
+      : page.tableColumns;
+    if (!isServerControlled) return base;
+    // The server owns the ordering. DataTable's header sort is client-side
+    // and would only reorder the rows of the current page — a visibly wrong
+    // answer presented as a sort — so the affordance is withdrawn rather
+    // than left to lie. The DataFilters sort control drives `onSortChange`.
+    return base.map((col) => ({ ...col, sortable: false }));
+  }, [
+    isClientMode,
+    isServerControlled,
+    page.columns,
+    page.tableColumns,
+    actions,
+  ]);
+
+  // ── Server-driven pager state, needed above for handleSearchChange's
+  // already-on-page-1 check. ──
+  const currentPage = pageProp ?? 1;
+
+  // ── Filter changes: keep the controlled UI state, and tell the server ──
+  // In client-side mode these are exactly the hook's own setters; in
+  // server-controlled mode they additionally notify the caller and reset to
+  // page 1, since the previous page number is meaningless against a new
+  // query. The reset is skipped when already on page 1 — nothing changed,
+  // so there is nothing for the caller to do.
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      page.filterConfig.onSearchChange(value);
+      if (!isServerControlled) return;
+      onSearchChange?.(value);
+      if (currentPage !== 1) onPageChange?.(1);
+    },
+    [
+      page.filterConfig,
+      isServerControlled,
+      onSearchChange,
+      onPageChange,
+      currentPage,
+    ],
+  );
+
+  const handleSortSelect = useCallback(
+    (value: string) => {
+      page.filterConfig.onSortChange(value);
+      if (!isServerControlled) return;
+      const [field, order] = value.split(":");
+      onSortChange?.(
+        field && (order === "asc" || order === "desc")
+          ? { field, order }
+          : null,
+      );
+      onPageChange?.(1);
+    },
+    [page.filterConfig, isServerControlled, onSortChange, onPageChange],
+  );
+
+  const handleClearFilters = useCallback(() => {
+    page.clearFilters();
+    if (!isServerControlled) return;
+    // Clearing has to reach the server too — otherwise "Clear all" empties
+    // the controls and leaves the same rows on screen.
+    onSearchChange?.("");
+    onSortChange?.(null);
+    onPageChange?.(1);
+  }, [page, isServerControlled, onSearchChange, onSortChange, onPageChange]);
+
+  // ── Status-chip changes: same page-1 reset as search/sort ──
+  // In server-controlled mode `useResourcePage` skips client-side status
+  // filtering, so a status change only reaches the caller through
+  // `onFiltersChange`. Nothing else calls `onPageChange(1)` for it, so
+  // selecting a more restrictive status while on page 3 could otherwise
+  // fetch page 3 of the new result set and render an empty page while the
+  // matching rows sit on page 1. Guarded the same way as
+  // `handleSearchChange`, and not reachable from `handleClearFilters`
+  // (which already does its own single reset).
+  const handleStatusChange = useCallback(
+    (values: string[]) => {
+      page.filterConfig.statusChips?.onChange(values);
+      if (!isServerControlled) return;
+      if (currentPage !== 1) onPageChange?.(1);
+    },
+    [page.filterConfig, isServerControlled, onPageChange, currentPage],
+  );
+
+  const statusChipsConfig = useMemo(() => {
+    const base = page.filterConfig.statusChips;
+    if (!base) return undefined;
+    return { ...base, onChange: handleStatusChange };
+  }, [page.filterConfig.statusChips, handleStatusChange]);
+
+  const handlePageSizeChange = useCallback(
+    (size: number) => {
+      updateSetting("pageSize", size);
+      onPerPageChange?.(size);
+      if (isServerControlled) onPageChange?.(1);
+    },
+    [updateSetting, onPerPageChange, isServerControlled, onPageChange],
+  );
+
+  // ── Pagination-config error ──
+  // `perPage` is required whenever `onPageChange` is supplied: see the prop
+  // doc on `perPage` for why the row count of a page can't stand in for the
+  // page size. Rather than silently guess, the pager below refuses to
+  // render and shows this instead. Logged once per mount (not on every
+  // render) so it's visible in a console without spamming it.
+  const missingPerPage =
+    isServerControlled && !!onPageChange && perPageProp === undefined;
+  const loggedMissingPerPageRef = useRef(false);
+  useEffect(() => {
+    if (!missingPerPage) return;
+    if (loggedMissingPerPageRef.current) return;
+    loggedMissingPerPageRef.current = true;
+    console.error(
+      "ResourcePage: `perPage` is required when `onPageChange` is supplied.",
+    );
+  }, [missingPerPage]);
+
+  // ── Server-driven pager math ──
+  // By the time the pager renders, `missingPerPage` has already gated it
+  // off, so `perPageProp` is guaranteed present here.
+  const pagerPageSize = perPageProp ?? effectivePageSize;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(displayTotal / Math.max(1, pagerPageSize)),
+  );
+  const rangeFrom =
+    page.data.length === 0 ? 0 : (currentPage - 1) * pagerPageSize + 1;
+  const rangeTo = rangeFrom === 0 ? 0 : rangeFrom + page.data.length - 1;
 
   // ── Detail title/subtitle values ──
   const detailTitle = page.selectedItem
@@ -404,11 +710,13 @@ export function ResourcePage<
         (page.selectedItem as Record<string, unknown>)[page.titleField] ?? "",
       )
     : "";
-  const detailSubtitle = page.selectedItem && page.subtitleField
-    ? String(
-        (page.selectedItem as Record<string, unknown>)[page.subtitleField] ?? "",
-      )
-    : undefined;
+  const detailSubtitle =
+    page.selectedItem && page.subtitleField
+      ? String(
+          (page.selectedItem as Record<string, unknown>)[page.subtitleField] ??
+            "",
+        )
+      : undefined;
 
   // ── Row click handler (route mode navigates) ──
   const handleRowClick = (item: T) => {
@@ -475,12 +783,13 @@ export function ResourcePage<
     </Button>
   ) : null;
 
-  const createAction = (toolbar || createButton) ? (
-    <div className="flex items-center gap-2">
-      {toolbar}
-      {createButton}
-    </div>
-  ) : undefined;
+  const createAction =
+    toolbar || createButton ? (
+      <div className="flex items-center gap-2">
+        {toolbar}
+        {createButton}
+      </div>
+    ) : undefined;
 
   // ── Empty state ──
   const isEmpty = !isLoading && !hasError && page.data.length === 0;
@@ -537,15 +846,14 @@ export function ResourcePage<
       : null;
     // Find a numeric-looking column for the price position
     const priceCol = cols.find(
-      (c, i) => i > 1 && /price|cost|amount|total/i.test(c.key)
+      (c, i) => i > 1 && /price|cost|amount|total/i.test(c.key),
     );
     const priceVal = priceCol
       ? (item as Record<string, unknown>)[priceCol.key]
       : null;
     // Remaining metadata columns (skip title, badge, price)
     const metaCols = cols.filter(
-      (c) =>
-        c !== titleCol && c !== badgeCol && c !== priceCol
+      (c) => c !== titleCol && c !== badgeCol && c !== priceCol,
     );
     return (
       <Card
@@ -553,9 +861,7 @@ export function ResourcePage<
         className="h-full cursor-pointer hover:shadow-md motion-safe:transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <CardHeader className="pb-2">
-          <CardTitle className="text-base truncate">
-            {titleVal}
-          </CardTitle>
+          <CardTitle className="text-base truncate">{titleVal}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -640,24 +946,29 @@ export function ResourcePage<
       onRetry={isClientMode ? () => resourceHook.list.refetch() : undefined}
       viewMode={page.viewMode}
       onViewModeChange={page.setViewMode}
-      pageSize={settings.pageSize}
-      onPageSizeChange={(size) => updateSetting("pageSize", size)}
+      pageSize={effectivePageSize}
+      onPageSizeChange={handlePageSizeChange}
       density={settings.density}
       onDensityChange={(d) => updateSetting("density", d)}
       createAction={createAction}
       hasActiveFilters={page.hasActiveFilters}
-      onClearFilters={page.clearFilters}
+      onClearFilters={handleClearFilters}
       emptyAction={emptyState}
       filters={
         <DataFilters
           search={page.filterConfig.search}
-          onSearchChange={page.filterConfig.onSearchChange}
+          onSearchChange={handleSearchChange}
           searchPlaceholder={searchPlaceholder}
           sort={page.filterConfig.sort}
-          onSortChange={page.filterConfig.onSortChange}
+          onSortChange={handleSortSelect}
           sortOptions={page.filterConfig.sortOptions}
-          statusChips={page.filterConfig.statusChips}
-          onClearAll={page.hasActiveFilters ? page.clearFilters : undefined}
+          statusChips={statusChipsConfig}
+          savedViews={savedViews}
+          onLoadView={onLoadView}
+          onSaveView={onSaveView}
+          onDeleteView={onDeleteView}
+          canSaveViews={canSaveViews}
+          onClearAll={page.hasActiveFilters ? handleClearFilters : undefined}
         />
       }
     >
@@ -682,9 +993,7 @@ export function ResourcePage<
         items={page.data}
         viewMode={page.viewMode}
         gridCols={gridColsProp}
-        getKey={(item) =>
-          String((item as Record<string, unknown>).id ?? "")
-        }
+        getKey={(item) => String((item as Record<string, unknown>).id ?? "")}
         focusedIndex={keyboardNav.focusedIndex}
         keyboardContainerRef={keyboardNav.containerRef}
         renderTable={(items) => (
@@ -700,7 +1009,17 @@ export function ResourcePage<
             onToggleSelect={handleToggleSelect}
             onToggleAll={handleToggleAll}
             density={settings.density}
-            pageSize={settings.pageSize}
+            pageSize={effectivePageSize}
+            pageSizeOptions={pageSizeOptions}
+            columnVisibility={columnVisibility}
+            columnVisibilityKey={columnVisibilityKey}
+            resizableColumns={resizableColumns}
+            resizeKey={resizeKey}
+            stickyHeader={stickyHeader}
+            stickyFirstColumn={stickyFirstColumn}
+            // The server already cut the page window; DataTable's own
+            // pagination would slice the slice.
+            pagination={isServerControlled ? false : undefined}
           />
         )}
         renderCard={(item, index) =>
@@ -714,6 +1033,76 @@ export function ResourcePage<
             : renderDefaultListItem(item)
         }
       />
+
+      {/* Server-driven pager. Rendered only when `onPageChange` is supplied —
+          without a handler the buttons would be decoration, and a control
+          that does nothing is worse than no control. It sits outside
+          DataGrid so it pages the grid and list views too, not just the
+          table.
+
+          When `onPageChange` is supplied without `perPage`, this renders an
+          error instead of a pager computed from a guess — see the
+          `missingPerPage` comment above. A pager reporting the wrong range
+          with a Next button that never disables is worse than one that
+          says why it can't render. */}
+      {isServerControlled && onPageChange && missingPerPage && (
+        <div
+          className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          data-testid="resource-page-pagination-error"
+          role="alert"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            Pagination unavailable: <code>perPage</code> is required when{" "}
+            <code>onPageChange</code> is supplied.
+          </span>
+        </div>
+      )}
+      {isServerControlled && onPageChange && !missingPerPage && (
+        <nav
+          aria-label="Pagination"
+          className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 py-2 text-sm"
+          data-testid="resource-page-pagination"
+        >
+          <span
+            className="text-muted-foreground"
+            data-testid="resource-page-range"
+            aria-live="polite"
+          >
+            {displayTotal === 0
+              ? "No records"
+              : `Showing ${rangeFrom}-${rangeTo} of ${displayTotal}`}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage <= 1}
+              onClick={() => onPageChange(currentPage - 1)}
+              testID="resource-page-prev"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" aria-hidden="true" />
+              Previous
+            </Button>
+            <span
+              className="text-muted-foreground"
+              data-testid="resource-page-indicator"
+            >
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage >= totalPages}
+              onClick={() => onPageChange(currentPage + 1)}
+              testID="resource-page-next"
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-1" aria-hidden="true" />
+            </Button>
+          </div>
+        </nav>
+      )}
 
       {/* Detail panel / modal — DetailPanel's `layout` prop picks the shell;
           "panel" gets its default fixed slide-in sheet, "modal" gets a
@@ -736,9 +1125,7 @@ export function ResourcePage<
           width={detailWidth}
           layout={detail === "modal" ? "dialog" : "sheet"}
         >
-          {renderDetailProp
-            ? (item: T) => renderDetailProp(item)
-            : undefined}
+          {renderDetailProp ? (item: T) => renderDetailProp(item) : undefined}
         </DetailPanel>
       )}
       {/* Built-in create/edit form */}
@@ -746,7 +1133,9 @@ export function ResourcePage<
         <ResourceForm
           resource={resourceName}
           action={formAction}
-          layout={formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog")}
+          layout={
+            formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog")
+          }
           mode={formMode}
           steps={formSteps}
           item={
@@ -756,7 +1145,7 @@ export function ResourcePage<
                 ? Object.fromEntries(
                     Object.keys(page.data[0] as Record<string, unknown>)
                       .filter((k) => k !== "id")
-                      .map((k) => [k, ""])
+                      .map((k) => [k, ""]),
                   )
                 : undefined
           }

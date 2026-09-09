@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04",
+  "generatedAt": "2026-09-09",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -11955,11 +11955,32 @@
               "description": ""
             },
             {
+              "name": "canSaveViews",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Show the \"save current view\" affordance."
+            },
+            {
               "name": "columns",
               "type": "(string | ResourceColumnDef<T>)[]",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "columnVisibility",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Show the column-visibility dropdown. DataTable's default is `true`."
+            },
+            {
+              "name": "columnVisibilityKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Persist key for the user's column-visibility picks."
             },
             {
               "name": "createLabel",
@@ -12081,6 +12102,13 @@
               "description": ""
             },
             {
+              "name": "onDeleteView",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "onEdit",
               "type": "((item: T) => void)",
               "required": false,
@@ -12095,11 +12123,74 @@
               "description": ""
             },
             {
+              "name": "onLoadView",
+              "type": "((filters: Record<string, unknown>) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "onNavigate",
               "type": "NavigateFn",
               "required": false,
               "defaultValue": null,
               "description": "Imperative navigation used only when `detail=\"route\"` (navigates to\n`/{resource}/{id}` on row click). Defaults to a full-page navigation.\nRouter consumers pass their navigate fn — e.g. RR `useNavigate()` or\nNext `router.push`."
+            },
+            {
+              "name": "onPageChange",
+              "type": "((page: number) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called with the next 1-based page number. The pager only renders when\nthis is supplied (and `perPage` is also supplied — see {@link perPage}).\n\nStatus changes reach the server through `onFiltersChange` — not a\ndedicated callback here — because `statusFilter` state is tracked by\nthe same filter machinery that already calls `onFiltersChange`\nregardless of controlled mode (see {@link statusFilter}). In\nserver-controlled mode a status change also calls `onPageChange(1)`\ndirectly, since the previous page number is meaningless against a new\nfiltered result set."
+            },
+            {
+              "name": "onPerPageChange",
+              "type": "((perPage: number) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called when the user picks a different page size in the header's view settings."
+            },
+            {
+              "name": "onSaveView",
+              "type": "((name: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSearchChange",
+              "type": "((search: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called when the user changes the search text (including clearing it)."
+            },
+            {
+              "name": "onSortChange",
+              "type": "((sort: SortParam | null) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called when the user changes the sort, with `null` when the sort is cleared."
+            },
+            {
+              "name": "page",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Current page, 1-based. Server-controlled mode only."
+            },
+            {
+              "name": "pageSizeOptions",
+              "type": "number[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Page-size choices offered by `DataTable`'s own pager. Client-side mode\nonly — server-controlled mode switches that pager off. (The header's\nview-settings popover has its own fixed 10/25/50/100 list.)"
+            },
+            {
+              "name": "perPage",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Rows per page the server was asked for. Required whenever\n`onPageChange` is supplied: pager math (total pages, range start, Next)\ncannot be inferred from `data.length`, because a short final page is\nsmaller than the real page size. Wins over the per-user page size\npersisted by `viewSettingsKey` — an explicit prop always beats a stored\npreference.\n\nRequired whenever `onPageChange` is supplied. A short final page (the\nserver's last page returning fewer rows than its page size) is\nindistinguishable from a small page size — there is no correct way to\ninfer the divisor from the rows handed back. Rather than guess and\nrender a wrong range or a stuck Next button, the component refuses to\nrender the pager and shows an error instead when `onPageChange` is\npresent without `perPage`."
             },
             {
               "name": "renderCard",
@@ -12123,6 +12214,20 @@
               "description": "Custom form renderer — receives form instance and resolved fields."
             },
             {
+              "name": "resizableColumns",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Allow drag-resizing columns. DataTable's default is `true`."
+            },
+            {
+              "name": "resizeKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Persist key for the user's column widths."
+            },
+            {
               "name": "resource",
               "type": "string",
               "required": false,
@@ -12135,6 +12240,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "savedViews",
+              "type": "SavedViewItem[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Saved filter views to offer. Pair with `useSavedViews` for per-user storage."
             },
             {
               "name": "searchFields",
@@ -12155,7 +12267,21 @@
               "type": "string | { field: string; options?: string[]; }",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "Adds a status-chip filter. There is no dedicated status-change\ncallback: chip clicks update the same filter state that already\nreports through `onFiltersChange`, whether or not the page is in\nserver-controlled mode. A caller combining `statusFilter` with server\npagination (`onPageChange` et al.) must supply `onFiltersChange` — see\nthat prop — or status changes will update the chip UI without ever\nreaching the server. In server-controlled mode a status change also\nresets to page 1 via `onPageChange(1)` — see {@link onPageChange}."
+            },
+            {
+              "name": "stickyFirstColumn",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Keep the first column visible while scrolling horizontally."
+            },
+            {
+              "name": "stickyHeader",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Keep the table header visible while scrolling. DataTable's default is `true`."
             },
             {
               "name": "subtitle",
