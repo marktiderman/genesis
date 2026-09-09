@@ -110,7 +110,17 @@ export interface ResourcePageProps<
   resource?: string;
   /** Server-data mode: pre-fetched data array. */
   data?: T[];
-  /** Server-data mode: total record count (before client-side filtering). */
+  /**
+   * Server-data mode: total record count (before client-side filtering).
+   *
+   * Required whenever `onPageChange` is supplied. It cannot be derived from
+   * `data`, which holds only the current page. Omitted, `displayTotal` falls
+   * back to `0`, so the range span reads "No records" and `Next` stays
+   * disabled while the rows render directly below it. Rather than show a
+   * pager that contradicts the list, the component refuses to render the
+   * pager and shows an error instead. See {@link perPage} and
+   * {@link onPageChange}.
+   */
   total?: number;
 
   // Page chrome
@@ -168,9 +178,11 @@ export interface ResourcePageProps<
   //    The sort control in `DataFilters` drives `onSortChange` instead.
   //  - `DataTable`'s own pagination is switched off; the pager below the list
   //    is driven by `page` / `perPage` / `total` / `onPageChange`, and is only
-  //    rendered when `onPageChange` is supplied. `perPage` is required for
-  //    that pager's math — a short final page is smaller than the real size,
-  //    so `data.length` must not be used as the divisor.
+  //    rendered when `onPageChange` is supplied. BOTH `perPage` AND `total`
+  //    are required for that pager's math, and neither can be derived from
+  //    the rows: a short final page is smaller than the real page size, so
+  //    `data.length` must not be used as the divisor, and `data` holds only
+  //    the current page, so it cannot supply the total either.
   //  - Changing search or sort calls `onPageChange(1)` as well, so the caller
   //    is never left requesting page 7 of a one-page result.
   // ─────────────────────────────────────────────────────────────────────────
@@ -192,11 +204,16 @@ export interface ResourcePageProps<
    * render a wrong range or a stuck Next button, the component refuses to
    * render the pager and shows an error instead when `onPageChange` is
    * present without `perPage`.
+   *
+   * `total` is required on the same terms — see {@link total}. The error
+   * names every missing prop, not just the first.
    */
   perPage?: number;
   /**
    * Called with the next 1-based page number. The pager only renders when
-   * this is supplied (and `perPage` is also supplied — see {@link perPage}).
+   * this is supplied AND both `perPage` and `total` are supplied — see
+   * {@link perPage} and {@link total}. Supplying this without either one
+   * renders an error naming the missing props instead of a pager.
    *
    * Status changes reach the server through `onFiltersChange` — not a
    * dedicated callback here — because `statusFilter` state is tracked by

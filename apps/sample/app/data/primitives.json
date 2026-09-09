@@ -12141,7 +12141,7 @@
               "type": "((page: number) => void)",
               "required": false,
               "defaultValue": null,
-              "description": "Called with the next 1-based page number. The pager only renders when\nthis is supplied (and `perPage` is also supplied — see {@link perPage}).\n\nStatus changes reach the server through `onFiltersChange` — not a\ndedicated callback here — because `statusFilter` state is tracked by\nthe same filter machinery that already calls `onFiltersChange`\nregardless of controlled mode (see {@link statusFilter}). In\nserver-controlled mode a status change also calls `onPageChange(1)`\ndirectly, since the previous page number is meaningless against a new\nfiltered result set."
+              "description": "Called with the next 1-based page number. The pager only renders when\nthis is supplied AND both `perPage` and `total` are supplied — see\n{@link perPage} and {@link total}. Supplying this without either one\nrenders an error naming the missing props instead of a pager.\n\nStatus changes reach the server through `onFiltersChange` — not a\ndedicated callback here — because `statusFilter` state is tracked by\nthe same filter machinery that already calls `onFiltersChange`\nregardless of controlled mode (see {@link statusFilter}). In\nserver-controlled mode a status change also calls `onPageChange(1)`\ndirectly, since the previous page number is meaningless against a new\nfiltered result set."
             },
             {
               "name": "onPerPageChange",
@@ -12190,7 +12190,7 @@
               "type": "number",
               "required": false,
               "defaultValue": null,
-              "description": "Rows per page the server was asked for. Required whenever\n`onPageChange` is supplied: pager math (total pages, range start, Next)\ncannot be inferred from `data.length`, because a short final page is\nsmaller than the real page size. Wins over the per-user page size\npersisted by `viewSettingsKey` — an explicit prop always beats a stored\npreference.\n\nRequired whenever `onPageChange` is supplied. A short final page (the\nserver's last page returning fewer rows than its page size) is\nindistinguishable from a small page size — there is no correct way to\ninfer the divisor from the rows handed back. Rather than guess and\nrender a wrong range or a stuck Next button, the component refuses to\nrender the pager and shows an error instead when `onPageChange` is\npresent without `perPage`."
+              "description": "Rows per page the server was asked for. Required whenever\n`onPageChange` is supplied: pager math (total pages, range start, Next)\ncannot be inferred from `data.length`, because a short final page is\nsmaller than the real page size. Wins over the per-user page size\npersisted by `viewSettingsKey` — an explicit prop always beats a stored\npreference.\n\nRequired whenever `onPageChange` is supplied. A short final page (the\nserver's last page returning fewer rows than its page size) is\nindistinguishable from a small page size — there is no correct way to\ninfer the divisor from the rows handed back. Rather than guess and\nrender a wrong range or a stuck Next button, the component refuses to\nrender the pager and shows an error instead when `onPageChange` is\npresent without `perPage`.\n\n`total` is required on the same terms — see {@link total}. The error\nnames every missing prop, not just the first."
             },
             {
               "name": "renderCard",
@@ -12316,7 +12316,7 @@
               "type": "number",
               "required": false,
               "defaultValue": null,
-              "description": "Server-data mode: total record count (before client-side filtering)."
+              "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
             },
             {
               "name": "viewSettingsKey",
