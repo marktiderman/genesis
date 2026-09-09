@@ -158,6 +158,42 @@ describe("ResourcePage — server-controlled mode", () => {
     expect(screen.queryByTestId("resource-page-pagination")).toBeNull();
   });
 
+  it("renders an error instead of a pager when onPageChange is supplied without total", async () => {
+    // `total` omitted is the second door into the same room as `perPage`
+    // omitted. `displayTotal` falls back to 0, so the range span said "No
+    // records" and Next stayed disabled while `page.data` rendered rows
+    // directly below it. A surface that says "no records" above visible
+    // records is a lie, not a degraded view — so refuse instead.
+    renderServerPage({ total: undefined });
+    const error = await screen.findByTestId("resource-page-pagination-error");
+    expect(error.textContent).toContain("total");
+    expect(screen.queryByTestId("resource-page-pagination")).toBeNull();
+  });
+
+  it("names both props when onPageChange is supplied without perPage or total", async () => {
+    renderServerPage({ perPage: undefined, total: undefined });
+    const error = await screen.findByTestId("resource-page-pagination-error");
+    expect(error.textContent).toContain("perPage");
+    expect(error.textContent).toContain("total");
+    expect(screen.queryByTestId("resource-page-pagination")).toBeNull();
+  });
+
+  it("does not re-notify the page when a status filter changes on page 1", async () => {
+    // The negative half of the guard at `handleStatusChange`. Without this
+    // the guard could be deleted and every remaining test would still pass.
+    const onPageChange = vi.fn();
+    renderServerPage({
+      page: 1,
+      onFiltersChange: () => {},
+      onPageChange,
+      statusFilter: { field: "status", options: ["draft"] },
+    });
+    await waitFor(() => expect(renderedTitles().length).toBe(3));
+
+    fireEvent.click(await screen.findByText("draft"));
+    expect(onPageChange).not.toHaveBeenCalled();
+  });
+
   it("resets to page 1 when a status filter changes", async () => {
     const onPageChange = vi.fn();
     renderServerPage({

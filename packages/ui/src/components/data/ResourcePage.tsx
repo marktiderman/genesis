@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useMemo,
@@ -675,26 +676,49 @@ export function ResourcePage<
   );
 
   // ── Pagination-config error ──
-  // `perPage` is required whenever `onPageChange` is supplied: see the prop
-  // doc on `perPage` for why the row count of a page can't stand in for the
-  // page size. Rather than silently guess, the pager below refuses to
-  // render and shows this instead. Logged once per mount (not on every
-  // render) so it's visible in a console without spamming it.
+  // `perPage` AND `total` are both required whenever `onPageChange` is
+  // supplied. Neither can be derived from the other, and neither can be
+  // derived from the rows:
+  //   - `perPage`: see the prop doc on `perPage`. A short final page has
+  //     fewer rows than the page size, so the row count of a page cannot
+  //     stand in for the page size.
+  //   - `total`: `displayTotal` falls back to `0` (Line 453). With `total`
+  //     omitted the range span reads "No records" and `Next` stays
+  //     disabled, while `page.data` renders rows directly below it. A
+  //     surface that says "no records" above visible records is a lie, not
+  //     a degraded view.
+  // Rather than silently guess either one, the pager below refuses to
+  // render and shows the error instead. Logged once per mount (not on
+  // every render) so it's visible in a console without spamming it.
   const missingPerPage =
     isServerControlled && !!onPageChange && perPageProp === undefined;
+  const missingTotal =
+    isServerControlled && !!onPageChange && totalProp === undefined;
+  const pagerMisconfigured = missingPerPage || missingTotal;
+  const missingPagerProps = [
+    ...(missingPerPage ? ["perPage"] : []),
+    ...(missingTotal ? ["total"] : []),
+  ];
   const loggedMissingPerPageRef = useRef(false);
   useEffect(() => {
-    if (!missingPerPage) return;
+    if (!pagerMisconfigured) return;
     if (loggedMissingPerPageRef.current) return;
     loggedMissingPerPageRef.current = true;
     console.error(
-      "ResourcePage: `perPage` is required when `onPageChange` is supplied.",
+      `ResourcePage: ${missingPagerProps
+        .map((name) => `\`${name}\``)
+        .join(" and ")} ${
+        missingPagerProps.length > 1 ? "are" : "is"
+      } required when \`onPageChange\` is supplied.`,
     );
-  }, [missingPerPage]);
+    // `missingPagerProps` is derived from `pagerMisconfigured`'s own inputs
+    // and the ref makes this run at most once, so it is not a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagerMisconfigured]);
 
   // ── Server-driven pager math ──
-  // By the time the pager renders, `missingPerPage` has already gated it
-  // off, so `perPageProp` is guaranteed present here.
+  // By the time the pager renders, `pagerMisconfigured` has already gated
+  // it off, so `perPageProp` and `totalProp` are both present here.
   const pagerPageSize = perPageProp ?? effectivePageSize;
   const totalPages = Math.max(
     1,
@@ -1042,10 +1066,10 @@ export function ResourcePage<
 
           When `onPageChange` is supplied without `perPage`, this renders an
           error instead of a pager computed from a guess — see the
-          `missingPerPage` comment above. A pager reporting the wrong range
+          `pagerMisconfigured` comment above. A pager reporting the wrong range
           with a Next button that never disables is worse than one that
           says why it can't render. */}
-      {isServerControlled && onPageChange && missingPerPage && (
+      {isServerControlled && onPageChange && pagerMisconfigured && (
         <div
           className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
           data-testid="resource-page-pagination-error"
@@ -1053,12 +1077,19 @@ export function ResourcePage<
         >
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
-            Pagination unavailable: <code>perPage</code> is required when{" "}
+            Pagination unavailable:{" "}
+            {missingPagerProps.map((name, index) => (
+              <Fragment key={name}>
+                {index > 0 ? " and " : null}
+                <code>{name}</code>
+              </Fragment>
+            ))}{" "}
+            {missingPagerProps.length > 1 ? "are" : "is"} required when{" "}
             <code>onPageChange</code> is supplied.
           </span>
         </div>
       )}
-      {isServerControlled && onPageChange && !missingPerPage && (
+      {isServerControlled && onPageChange && !pagerMisconfigured && (
         <nav
           aria-label="Pagination"
           className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 py-2 text-sm"
