@@ -116,19 +116,22 @@ describe("ResourcePage — server-controlled mode", () => {
     );
   });
 
-  it("keeps final-page range and Next correct when the last page is short", async () => {
-    // total=97, perPage=25 → 4 pages; page 4 holds 22 rows. Inferring the
-    // divisor from data.length (22) would claim "Page 4 of 5", range
-    // 67-88, and leave Next enabled. The requested perPage must win.
-    const lastPage: Post[] = Array.from({ length: 22 }, (_, i) => ({
-      id: String(i + 1),
-      title: `Row ${i + 1}`,
+  it("gets the short final page's range and page count right", async () => {
+    // total = 97, real server page size = 25, but the last page only has 22
+    // rows. `page.data.length` (22) must NOT be used as the pagination
+    // divisor — that previously produced totalPages = ceil(97/22) = 5
+    // (should be 4), a wrong range, and a Next button that stayed enabled
+    // on the actual last page. With `perPage` supplied explicitly this is
+    // no longer inferred from the short page at all.
+    const shortFinalPage: Post[] = Array.from({ length: 22 }, (_, i) => ({
+      id: String(i),
+      title: `Row ${i}`,
     }));
     render(
       <GenesisProvider mock={{ datasets: {} }}>
         <ResourcePage<Post>
           title="Posts"
-          data={lastPage}
+          data={shortFinalPage}
           total={97}
           columns={["title"]}
           detail="none"
@@ -141,12 +144,18 @@ describe("ResourcePage — server-controlled mode", () => {
     expect((await screen.findByTestId("resource-page-range")).textContent).toBe(
       "Showing 76-97 of 97",
     );
-    expect(screen.getByTestId("resource-page-indicator").textContent).toBe(
-      "Page 4 of 4",
-    );
+    const indicator = screen.getByTestId("resource-page-indicator");
+    expect(indicator.textContent).toBe("Page 4 of 4");
+    const next = screen.getByTestId("resource-page-next") as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+  });
+
+  it("renders an error instead of a pager when onPageChange is supplied without perPage", async () => {
+    renderServerPage({ perPage: undefined });
     expect(
-      (screen.getByTestId("resource-page-next") as HTMLButtonElement).disabled,
-    ).toBe(true);
+      await screen.findByTestId("resource-page-pagination-error"),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("resource-page-pagination")).toBeNull();
   });
 
   it("pages forward and back through onPageChange", async () => {
