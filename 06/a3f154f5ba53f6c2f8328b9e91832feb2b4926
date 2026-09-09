@@ -1,0 +1,19 @@
+packages/ui/src/components/data/__tests__/resource-page-server-mode.test.tsx
+  s_e91dade8500017::t_c0bb91d50c6e6b 161-174
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "06a3f154f5ba53f6c2f8328b9e91832feb2b4926",
+  "prompts": {},
+  "sessions": {
+    "s_e91dade8500017": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "02c5507a-7342-415e-9c8a-14bb5da0532b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
