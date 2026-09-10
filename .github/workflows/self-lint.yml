@@ -66,4 +66,4 @@ jobs:
     with:
       paths: 'apps'
       node-version: '22'
-      # No pnpm-version: it comes from package.json `packageManager` (pnpm@9.15.4).
+      # No pnpm-version: it comes from package.json `packageManager` (pnpm@11.26.0).

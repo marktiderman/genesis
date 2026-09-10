@@ -34,9 +34,26 @@ jobs:
           # tree rather than history. Publishing behaviour is untouched.
           filter: blob:none
 
+      # pnpm 11, not 9, and the reason is publishing.
+      #
+      # `pnpm publish` in pnpm 9 never attempts the npm OIDC token exchange at
+      # all: it packs, then shells out to `npm publish --git-checks`, and npm
+      # under that spawn does no exchange. MEASURED on run 34432136833 — every
+      # package failed `npm error code ENEEDAUTH`, although `id-token: write`
+      # is granted and npm 11.19.1 is installed.
+      #
+      # pnpm's own changelog records the matching 404 case at 11.1.2: "Fixed
+      # `pnpm publish` failing with a 404 when authentication relied on OIDC
+      # trusted publishing alongside an `.npmrc` written by `actions/setup-node`
+      # (`_authToken=${NODE_AUTH_TOKEN}`) without `NODE_AUTH_TOKEN` being set"
+      # (pnpm/pnpm#11513). That is exactly what run 34412522632 hit.
+      #
+      # The lockfile format version is unchanged across pnpm 9, 10 and 11, so
+      # `--frozen-lockfile` reads the existing `pnpm-lock.yaml` (lockfileVersion
+      # 9.0) without a regeneration.
       - uses: pnpm/action-setup@v4
         with:
-          version: 9.15.4
+          version: 11.26.0
 
       # node-version >=22 + npm >=11.5 enables OIDC Trusted Publishing
       # (no NPM_TOKEN secret needed; npm fetches a short-lived token via OIDC).
