@@ -21,3 +21,24 @@ allowBuilds:
   esbuild: true
   style-dictionary: true
   unrs-resolver: true
+
+# pnpm 11 reads ONLY auth and registry settings from `.npmrc`. Every other
+# setting must live here (https://pnpm.io/settings). The three below were in
+# `.npmrc` and pnpm 11 ignored all three in silence — no error, no warning.
+#
+# MEASURED consequence on CI run 34433391298, the first run to get past the
+# install step: with `nodeLinker` unapplied, pnpm used its default isolated
+# layout, `@types/node` left the workspace root, and `packages/core` failed
+# to build with `TS2580: Cannot find name 'process'`. `packages/core` never
+# declared `@types/node`; it relied on the hoisted layout, and it compiled
+# under pnpm 9 for that reason.
+#
+# `autoInstallPeers` also shapes the lockfile. pnpm 9 resolved this
+# workspace with it ON, so turning it off here would put `--frozen-lockfile`
+# in conflict with the committed `pnpm-lock.yaml`.
+#
+# Hoisted layout is required for the Metro bundler in the Expo apps.
+nodeLinker: hoisted
+autoInstallPeers: true
+# React Native packages declare conflicting peers.
+strictPeerDependencies: false
