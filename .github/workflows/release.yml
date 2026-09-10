@@ -48,11 +48,24 @@ jobs:
       # (MODULE_NOT_FOUND), making the bundled npm unusable for ANY install —
       # including `npm install -g npm@<x>` to upgrade out of the bad bundle.
       # 22.22.1 ships working npm 10.9.4. Bump deliberately when 22.22.3+ ships.
+      #
+      # DO NOT add `registry-url:` here. MEASURED on run 34412522632 attempt 2:
+      # with `registry-url` set, setup-node writes
+      # `/home/runner/work/_temp/.npmrc` holding
+      # `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` and exports
+      # `NODE_AUTH_TOKEN: XXXXX-XXXXX-XXXXX-XXXXX` — a literal placeholder,
+      # because no NPM_TOKEN secret exists. npm reads that as "I already have
+      # credentials", SKIPS the OIDC exchange, and publishes with the
+      # placeholder. npm answers an unauthorised PUT on a scoped package with
+      # 404, not 403, so every package failed as
+      # `E404 Not Found - PUT https://registry.npmjs.org/@marktiderman%2f...`
+      # even though the Trusted Publisher for @marktiderman/genesis-core is
+      # correctly configured (marktiderman / genesis / release.yml).
+      # With no `.npmrc` and no token, npm performs the OIDC exchange itself.
       - uses: actions/setup-node@v4
         with:
           node-version: 22.22.1
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       # OIDC Trusted Publishing requires npm >= 11.5.1. The bundled npm in
       # Node 22.22.1 is 10.9.4, so we upgrade to 11.6.x explicitly.
