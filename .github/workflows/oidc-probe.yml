@@ -42,8 +42,9 @@ jobs:
           for PKG in genesis-core genesis-ui genesis-design-system genesis-ui-native genesis-switchboard genesis genesis-cli; do
             CODE=$(curl -sS -o /tmp/body.json -w '%{http_code}' \
               -X POST \
+              -H "Authorization: Bearer $ID_TOKEN" \
               -H 'Content-Type: application/json' \
-              -d "{\"idToken\":\"$ID_TOKEN\"}" \
+              -d '{}' \
               "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/@marktiderman%2f$PKG")
             if [ "$CODE" = "200" ]; then
               echo "$PKG -> 200 (a publish token was issued; body not printed)"
