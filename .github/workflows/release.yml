@@ -126,6 +126,45 @@ jobs:
       - name: Build packages
         run: pnpm --filter "@marktiderman/*" build
 
+      # THE 2.1.0 LESSON: @marktiderman/genesis-ui@2.1.0 and five siblings
+      # published to npm on 2026-09-10 with a literal `"workspace:^"` /
+      # `"workspace:*"` string in `dependencies`/`peerDependencies` — no
+      # consumer can install that. `@changesets/cli` here (~2.30.0) already
+      # auto-detects pnpm via `package-manager-detector` and correctly shells
+      # to `pnpm publish` (proven locally: `pnpm --filter <pkg> pack` +
+      # reading the tarball's package.json rewrites `workspace:^` to a real
+      # semver range). But every non-genesis-cli package's CI publish failed
+      # the OIDC Trusted Publisher exchange with 404 (see the comment above
+      # "Ensure npm supports OIDC Trusted Publishing"), and there is no
+      # `release.yml` run anywhere near the 2.1.0 publish timestamp — so it
+      # was published by some path OUTSIDE this pipeline, almost certainly a
+      # manual `npm publish`, which has no idea what `workspace:` means and
+      # copies the raw string verbatim (measured: `npm pack` on
+      # packages/ui leaves `workspace:^` untouched; `pnpm pack` rewrites it).
+      #
+      # This gate runs BEFORE any publish step, so a broken range fails the
+      # job loud instead of reaching the registry. It packs every
+      # publishable package for real and reads the packed package.json — the
+      # exact same check that would have caught the 2.1.0 defect regardless
+      # of which tool eventually does the actual publish (CI's own pnpm
+      # path, or a human running something else by hand outside CI).
+      # See scripts/verify-no-workspace-protocol.mjs for the full story.
+      - name: "Guard against a workspace: protocol leaking into the packed output"
+        run: node scripts/verify-no-workspace-protocol.mjs --skip-build
+
+      # KEEP `pnpm changeset publish`, do NOT switch to a raw `pnpm publish`:
+      # changesets/action's own runPublish (src/run.ts) scans this script's
+      # STDOUT for lines matching `New tag: <pkg>@<version>` to decide what
+      # was published and whether to cut GitHub releases — and that exact
+      # string is printed ONLY by `changeset publish` itself (MEASURED:
+      # `grep -n "New tag" node_modules/@changesets/cli/dist/*.js` — three
+      # hits, all inside changesets-cli, none in pnpm or npm). A bare
+      # `pnpm publish -r` would never print it, so `steps.changesets.outputs.
+      # published` would go permanently false and GitHub Releases would stop
+      # being created — a second silent breakage on top of the one this PR
+      # fixes. `changeset publish` already resolves to `pnpm publish`
+      # per-package here (see the block above), so this line was never the
+      # defect; the guard above is what actually protects the registry.
       - name: Create Release PR or Publish
         id: changesets
         uses: changesets/action@v1

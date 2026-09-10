@@ -96,3 +96,17 @@ jobs:
               node scripts/verify-tarball-integrity.mjs --base "origin/$BASE_REF"
               ;;
           esac
+
+      # THE 2.1.0 LESSON (see scripts/verify-no-workspace-protocol.mjs):
+      # a published `workspace:` range is invisible to the check above — it
+      # only asserts a tarball HAS dist/ + types, not that its package.json
+      # is installable. This runs on every PR this workflow already covers
+      # (always full-package, no fast path — a broken range on any package
+      # is worth the extra minute), so a changeset-release/* PR fails here
+      # before anyone can merge it, on top of the release.yml gate that
+      # covers a direct push to main. No --skip-build: the step above may
+      # have taken its own fast path and skipped building entirely when no
+      # publishable package's source changed, and dist/ is gitignored, so
+      # this has to build for itself rather than assume dist/ exists.
+      - name: "Verify no workspace: protocol in packed output"
+        run: node scripts/verify-no-workspace-protocol.mjs
