@@ -1,3 +1,23 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# pnpm 11 refuses to run a dependency's build script unless it is named
+# here, and it makes that refusal an ERROR (`ERR_PNPM_IGNORED_BUILDS`).
+# pnpm 9 ran every one of these silently, so this list RECORDS the behaviour
+# the repository already had. It grants nothing new.
+#
+# The key is `allowBuilds`, a MAP, not the pnpm 10 `onlyBuiltDependencies`
+# LIST. pnpm 11 removed that setting and replaced it with this one
+# (https://pnpm.io/settings/build). A leftover `onlyBuiltDependencies` block
+# is not an error and not a warning: pnpm ignores it in silence, and the
+# install still fails on `ERR_PNPM_IGNORED_BUILDS`. Measured on CI run
+# 34433045280, where the list form was present and every package in it was
+# still reported as ignored.
+#
+# The names are exactly what pnpm 11.26.0 reported on this workspace.
+allowBuilds:
+  "@bundled-es-modules/glob": true
+  esbuild: true
+  style-dictionary: true
+  unrs-resolver: true
