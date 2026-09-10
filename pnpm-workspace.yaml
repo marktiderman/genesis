@@ -1,3 +1,17 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# pnpm 10 and later refuse to run a dependency's build script unless it is
+# named here, and pnpm 11 makes that refusal an ERROR
+# (`ERR_PNPM_IGNORED_BUILDS`). pnpm 9 ran every one of these silently, so
+# this list RECORDS the behaviour the repository already had. It grants
+# nothing new.
+#
+# The list is exactly what pnpm 11.26.0 reported on this workspace, measured
+# on the CI run for the pnpm bump.
+onlyBuiltDependencies:
+  - "@bundled-es-modules/glob"
+  - esbuild
+  - style-dictionary
+  - unrs-resolver
