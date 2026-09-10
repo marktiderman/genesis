@@ -95,6 +95,56 @@ jobs:
           npm install -g npm@^11.6.0
           npm --version
 
+      # A MEASUREMENT, not a gate. It never fails the job.
+      #
+      # WHY. Run 34434260966 got past install and build, then failed the
+      # publish with `E404 ... PUT https://registry.npmjs.org/@marktiderman%2f<pkg>`
+      # for all six packages. `E404` on a PUT is npm's answer to an
+      # UNAUTHORIZED write on a scoped package. npm's OIDC code returns EARLY
+      # AND SILENT on all eight of its failure conditions (npm/cli
+      # `lib/utils/oidc.js:108-131`), so a failed exchange leaves no line in
+      # the log at all. This step does the same exchange with `curl` and
+      # prints the HTTP status code for each package.
+      #
+      # The step MUST live in this workflow file. npm matches the ID token
+      # against the workflow filename in the Trusted Publisher record, so a
+      # probe in any other file cannot answer the question.
+      #
+      # MEASURED from a separate workflow file on run 34434844933: every
+      # package answered `404 OIDC token exchange error - package not found`.
+      # That run cannot separate "no Trusted Publisher" from "wrong workflow
+      # filename". This step separates them.
+      #
+      # The body of a SUCCESSFUL exchange holds a publish token. The step
+      # prints the body only when the status is NOT 200.
+      - name: Probe npm for a Trusted Publisher on each package
+        continue-on-error: true
+        run: |
+          set -u
+          ID_TOKEN=$(curl -sS \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=npm:registry.npmjs.org" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin).get("value",""))')
+          if [ -z "$ID_TOKEN" ]; then
+            echo "PROBE: GitHub returned no ID token."
+            exit 0
+          fi
+          for PKG in genesis-core genesis-ui genesis-design-system genesis-ui-native genesis-switchboard genesis genesis-cli; do
+            CODE=$(curl -sS -o /tmp/oidc-body.json -w '%{http_code}' \
+              -X POST \
+              -H "Authorization: Bearer $ID_TOKEN" \
+              -H 'Content-Type: application/json' \
+              -d '{}' \
+              "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/@marktiderman%2f$PKG")
+            if [ "$CODE" = "200" ]; then
+              echo "PROBE $PKG -> 200 (a publish token was issued; body not printed)"
+            else
+              echo "PROBE $PKG -> $CODE"
+              head -c 300 /tmp/oidc-body.json
+              echo
+            fi
+          done
+
       - name: Install
         run: pnpm install --frozen-lockfile
 
