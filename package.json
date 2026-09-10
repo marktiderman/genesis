@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Genesis — a shadcn-based, brand-agnostic design system and data-provider layer for building React apps fast.",
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "pnpm@11.26.0",
   "engines": {
     "node": ">=20"
   },
