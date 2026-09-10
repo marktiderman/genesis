@@ -1,22 +1,19 @@
 /**
- * Regression test for the per-package pack destination fix in
+ * Regression test for the unique `--out` pack path fix in
  * scripts/verify-no-workspace-protocol.mjs.
  *
- * THE BUG: `packForReal` used to pack every package into one shared
- * destination directory. The fallback directory scan (used when pnpm's
- * stdout doesn't parse to a tarball path we recognise) lists every `.tgz`
- * in that directory and requires exactly one match — with a shared
- * directory, the second package's scan sees the first package's leftover
- * tarball too, `candidates.length !== 1`, and the guard throws for every
- * package after the first.
+ * THE BUG: `packForReal` used to share one `--pack-destination` directory and
+ * resolve the tarball via stdout / a directory scan. Empty stdout made
+ * `path.join(destDir, "")` equal the mkdir'd directory (existsSync true,
+ * not a file). With a shared dir, a fallback scan after the first package
+ * also saw 2+ `.tgz` files and threw.
  *
- * THE FIX: each package now packs into its own subdirectory
- * (`path.join(parentDir, sanitizedName)`), so the scan is unambiguous by
- * construction regardless of pack order or count.
+ * THE FIX: each package packs to an absolute `--out` path under its own
+ * subdirectory (`…/<sanitizedName>/package.tgz`), validated as a real file.
  *
  * This test packs two real fixture packages in sequence into one shared
  * parentDir (mirroring how `main()` loops over `all` with one shared
- * `destDir`) and asserts both resolve to their OWN tarball, with the
+ * temp root) and asserts both resolve to their OWN tarball, with the
  * correct name inside, and to distinct directories.
  */
 import { spawnSync } from "node:child_process";
@@ -57,7 +54,7 @@ const pnpmAvailable =
   spawnSync("pnpm", ["--version"], { encoding: "utf8" }).status === 0;
 
 describe.skipIf(!pnpmAvailable)(
-  "packForReal — per-package destination directory",
+  "packForReal — unique absolute --out path",
   () => {
     it("packs two packages in sequence into one shared parentDir without collision", () => {
       const parentDir = fs.mkdtempSync(
@@ -70,20 +67,16 @@ describe.skipIf(!pnpmAvailable)(
         const tgzA = packForReal(pkgA, parentDir);
         const tgzB = packForReal(pkgB, parentDir);
 
-        // Each tarball landed in its own subdirectory of parentDir, not a
-        // shared one — this is the fix under test.
+        // Each package wrote to its own absolute --out path under parentDir.
+        expect(tgzA).toBe(
+          path.join(parentDir, "fixture-pack-a", "package.tgz"),
+        );
+        expect(tgzB).toBe(
+          path.join(parentDir, "fixture-pack-b", "package.tgz"),
+        );
+        expect(fs.statSync(tgzA).isFile()).toBe(true);
+        expect(fs.statSync(tgzB).isFile()).toBe(true);
         expect(path.dirname(tgzA)).not.toBe(path.dirname(tgzB));
-        expect(path.dirname(tgzA)).toBe(path.join(parentDir, "fixture-pack-a"));
-        expect(path.dirname(tgzB)).toBe(path.join(parentDir, "fixture-pack-b"));
-
-        // Each subdirectory holds exactly one tarball — the invariant the
-        // candidates.length !== 1 fallback check depends on.
-        expect(
-          fs.readdirSync(path.dirname(tgzA)).filter((f) => f.endsWith(".tgz")),
-        ).toHaveLength(1);
-        expect(
-          fs.readdirSync(path.dirname(tgzB)).filter((f) => f.endsWith(".tgz")),
-        ).toHaveLength(1);
 
         // And each tarball actually contains ITS OWN package.json, not the
         // other package's (the corruption the shared-directory bug risked).

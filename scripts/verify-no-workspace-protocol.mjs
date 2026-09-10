@@ -116,15 +116,17 @@ function readPackedPackageJson(tgzPath) {
   throw new Error(`package/package.json not found in ${tgzPath}`);
 }
 
-// Each package packs into its OWN subdirectory of `parentDir`. One shared
-// destination accumulates tarballs across the loop, and the fallback scan below
-// then sees more than one candidate and cannot tell which belongs to this
-// package — every package after the first fails spuriously. One directory per
-// package makes the scan unambiguous by construction.
+// Each package packs to a unique absolute `--out` path under `parentDir`.
+// Sharing one `--pack-destination` dir (or parsing multi-line pnpm stdout for
+// the tarball path) was fragile: empty stdout made `path.join(destDir, "")`
+// equal the mkdir'd directory itself, and a shared-dir fallback scan saw 2+
+// `.tgz` files after the first package. `--out` gives a known path we can
+// validate as a file — no stdout parsing, no directory scan.
 function packForReal(pkg, parentDir) {
   const destDir = path.join(parentDir, pkg.name.replace(/[^\w.-]/g, "_"));
   fs.mkdirSync(destDir, { recursive: true });
-  const res = spawnSync("pnpm", ["pack", "--pack-destination", destDir], {
+  const outPath = path.join(destDir, "package.tgz");
+  const res = spawnSync("pnpm", ["pack", "--out", outPath], {
     cwd: pkg.cwd,
     encoding: "utf8",
     timeout: 60 * 1000,
@@ -141,24 +143,12 @@ function packForReal(pkg, parentDir) {
       `pnpm pack failed for ${pkg.name}: ${res.stderr || res.stdout}`,
     );
   }
-  const lastLine = res.stdout.trim().split("\n").filter(Boolean).pop() ?? "";
-  const tgzPath = fs.existsSync(lastLine)
-    ? lastLine
-    : path.join(destDir, `${lastLine}`);
-  if (!fs.existsSync(tgzPath)) {
-    // Fall back to scanning destDir for the single new .tgz — pnpm's stdout
-    // format has changed across versions.
-    const candidates = fs
-      .readdirSync(destDir)
-      .filter((f) => f.endsWith(".tgz"));
-    if (candidates.length !== 1) {
-      throw new Error(
-        `could not locate packed tarball for ${pkg.name} in ${destDir} (stdout: ${res.stdout})`,
-      );
-    }
-    return path.join(destDir, candidates[0]);
+  if (!fs.existsSync(outPath) || !fs.statSync(outPath).isFile()) {
+    throw new Error(
+      `could not locate packed tarball for ${pkg.name} at ${outPath} (stdout: ${res.stdout})`,
+    );
   }
-  return tgzPath;
+  return outPath;
 }
 
 export { packForReal, readPackedPackageJson };
