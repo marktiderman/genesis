@@ -116,12 +116,26 @@ function readPackedPackageJson(tgzPath) {
   throw new Error(`package/package.json not found in ${tgzPath}`);
 }
 
-function packForReal(pkg, destDir) {
+// Each package packs into its OWN subdirectory of `parentDir`. One shared
+// destination accumulates tarballs across the loop, and the fallback scan below
+// then sees more than one candidate and cannot tell which belongs to this
+// package — every package after the first fails spuriously. One directory per
+// package makes the scan unambiguous by construction.
+function packForReal(pkg, parentDir) {
+  const destDir = path.join(parentDir, pkg.name.replace(/[^\w.-]/g, "_"));
+  fs.mkdirSync(destDir, { recursive: true });
   const res = spawnSync("pnpm", ["pack", "--pack-destination", destDir], {
     cwd: pkg.cwd,
     encoding: "utf8",
     timeout: 60 * 1000,
   });
+  // A spawn that never started (pnpm absent, timeout) leaves `status` null and
+  // both streams empty. Without this the thrown message is blank.
+  if (res.error) {
+    throw new Error(
+      `pnpm pack could not run for ${pkg.name}: ${res.error.message}`,
+    );
+  }
   if (res.status !== 0) {
     throw new Error(
       `pnpm pack failed for ${pkg.name}: ${res.stderr || res.stdout}`,
@@ -146,6 +160,8 @@ function packForReal(pkg, destDir) {
   }
   return tgzPath;
 }
+
+export { packForReal, readPackedPackageJson };
 
 export function findWorkspaceProtocolDeps(packageJson) {
   const problems = [];
@@ -238,6 +254,13 @@ function main() {
 // Only run when invoked directly (`node scripts/verify-no-workspace-protocol.mjs`),
 // not when imported by a test — the pure `findWorkspaceProtocolDeps` above is
 // unit-tested in scripts/__tests__/verify-no-workspace-protocol.test.mjs.
-if (process.argv[1] === __filename) {
+// `process.argv[1]` is already absolute, but it is NOT canonical: a checkout
+// reached through a symlink (macOS `/tmp` -> `/private/tmp`) makes the two
+// strings differ and `main()` would silently never run. Compare real paths.
+const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
+const invoked = fs.existsSync(invokedPath)
+  ? fs.realpathSync(invokedPath)
+  : invokedPath;
+if (invoked === fs.realpathSync(__filename)) {
   main();
 }
