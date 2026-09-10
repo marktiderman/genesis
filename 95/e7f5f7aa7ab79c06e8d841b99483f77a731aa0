@@ -1,0 +1,31 @@
+scripts/verify-no-workspace-protocol.mjs
+  s_e91dade8500017::t_3bb1fe1a33591d 164-165
+  s_5dfa46ab2ad524::t_8b8010f66b6b13 119-126,132-138,257-264
+scripts/__tests__/verify-no-workspace-protocol.pack.test.mjs
+  s_e91dade8500017::t_0a553966a51898 1-84
+  s_5dfa46ab2ad524::t_2160c6cbc07c11 85-97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "95e7f5f7aa7ab79c06e8d841b99483f77a731aa0",
+  "prompts": {},
+  "sessions": {
+    "s_5dfa46ab2ad524": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4b1fde8d-3071-4f9e-aefd-5fbc83065d58",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_e91dade8500017": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "02c5507a-7342-415e-9c8a-14bb5da0532b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
