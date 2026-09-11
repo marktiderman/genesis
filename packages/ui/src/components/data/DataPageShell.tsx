@@ -119,7 +119,15 @@ export function DataPageShell({
   header,
 }: DataPageShellProps) {
   const entity = entityName || title.toLowerCase();
-  const collapseFilters = filtersCollapsible && filters != null;
+  // `header === null` ejects the header, and the doc on `header` promises the
+  // filter row survives that. It only does in the standard branch, where
+  // `filters` renders as an independent sibling. In the collapsible branch the
+  // filter row reaches the DOM ONLY as the header's `details` prop, so an
+  // ejected header takes the filters down with it — silently, which is the
+  // worst version. Collapsing needs a header to collapse INTO; without one we
+  // fall through to the standard branch and the filter row renders on its own.
+  const collapseFilters =
+    filtersCollapsible && filters != null && header !== null;
 
   const mergedOptions: PageHeaderOptions = {
     defaultDetailsOpen: defaultFiltersOpen,

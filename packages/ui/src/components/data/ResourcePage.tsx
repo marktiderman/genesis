@@ -4,6 +4,7 @@ import {
   Fragment,
   type KeyboardEvent as ReactKeyboardEvent,
   type ComponentProps,
+  type ComponentType,
   type ReactNode,
   useMemo,
   useState,
@@ -142,9 +143,22 @@ export type ResourcePageSlotMap<
   form: ComponentProps<typeof ResourceForm>;
 };
 
+/**
+ * `slots` for {@link ResourcePage}, with one asymmetry the map cannot express:
+ * every part may be ejected with `null` EXCEPT `shell`.
+ *
+ * The shell is not an interior part, it is the page — `Shell` is what the
+ * render returns, so ejecting it does not remove a piece, it removes the
+ * component (`const Shell = slots?.shell ?? DataPageShell` would become
+ * `null`, and React throws on the element). A caller who wants no shell wants
+ * rung 3 of the ladder, not a `null` here. Replacing it stays supported, which
+ * is the way to wrap it and change one thing.
+ */
 export type ResourcePageSlots<
   T extends Record<string, unknown> = Record<string, unknown>,
-> = Slots<ResourcePageSlotMap<T>>;
+> = Omit<Slots<ResourcePageSlotMap<T>>, "shell"> & {
+  shell?: ComponentType<ComponentProps<typeof DataPageShell>>;
+};
 
 export interface ResourcePageProps<
   T extends Record<string, unknown> = Record<string, unknown>,
