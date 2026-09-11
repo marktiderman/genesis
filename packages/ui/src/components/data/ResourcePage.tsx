@@ -21,7 +21,11 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { DataPageShell } from "./DataPageShell";
-import { DataFilters, type SavedViewItem } from "./DataFilters";
+import {
+  DataFilters,
+  type SavedViewItem,
+  type DataFilterConfig,
+} from "./DataFilters";
 import { DataTable } from "./DataTable";
 import { DataBulkBar } from "./DataBulkBar";
 import { DataGrid } from "./DataGrid";
@@ -161,6 +165,26 @@ export interface ResourcePageProps<
   searchPlaceholder?: string;
   initialFilters?: FilterParam[];
   onFiltersChange?: (filters: FilterParam[]) => void;
+  /**
+   * Extra multi-select filter comboboxes, handed straight to `DataFilters`
+   * and rendered beside the status chips. Each config owns its own
+   * `selected` array and `onChange` — ResourcePage never reads or writes
+   * them, because it cannot know what a caller's "Grade" or "Subject"
+   * combobox means against the row shape. That is deliberate rather than a
+   * gap: the built-in machinery (`searchFields`, `statusFilter`) covers the
+   * two shapes it *can* interpret, and this prop covers everything else by
+   * getting out of the way.
+   *
+   * Two consequences of that hands-off stance, stated rather than hidden:
+   * - These selections are invisible to `page.hasActiveFilters`, so the
+   *   header's "Clear filters" affordance does not appear for them alone,
+   *   and `onClearFilters` does not reset them. DataFilters' own "Clear all"
+   *   does call each config's `onChange([])`, so wire real clearing there.
+   * - In client-side mode the rows are NOT re-filtered by these selections.
+   *   A caller using them is expected to filter its own `data` (or ask the
+   *   server to), exactly as it already does in server-controlled mode.
+   */
+  filters?: DataFilterConfig[];
 
   // ─────────────────────────────────────────────────────────────────────────
   // Server-controlled list (opt-in, additive)
@@ -185,6 +209,18 @@ export interface ResourcePageProps<
   //    the current page, so it cannot supply the total either.
   //  - Changing search or sort calls `onPageChange(1)` as well, so the caller
   //    is never left requesting page 7 of a one-page result.
+  //  - Grid and list views are NOT forced to table view, and they render
+  //    cards for the current server page only. That is accepted rather than
+  //    worked around, because it is not actually wrong here: the pager is
+  //    rendered OUTSIDE DataGrid precisely so it pages grid and list too, so
+  //    "this view shows one page, and there is a pager under it" is the same
+  //    contract the table view has. Forcing `viewMode="table"` would instead
+  //    silently discard a `renderCard` the caller supplied, and silently
+  //    overriding a user's own view choice is the worse failure. The one real
+  //    caveat: DataGrid's infinite-scroll batching (48 at a time) tops out at
+  //    the page size, so a server page smaller than 48 never scroll-loads —
+  //    harmless, but it means infinite scroll and server paging do not
+  //    compose into an endless list.
   // ─────────────────────────────────────────────────────────────────────────
 
   /** Current page, 1-based. Server-controlled mode only. */
@@ -315,6 +351,23 @@ export interface ResourcePageProps<
     actions: ResourceCardActions<T>,
   ) => ReactNode;
   /**
+   * Replace the built-in `DataTable` that table view renders, keeping every
+   * other piece of the page — header, counts, view settings, filters,
+   * bulk bar, detail panel, form, pager — exactly as it is. The counterpart
+   * to `renderCard`, which does the same for grid and list view.
+   *
+   * Receives the rows for the current view, which in server-controlled mode
+   * is precisely the page the server returned. Ownership is total: row
+   * click-through, selection, density, column visibility and resizing are
+   * all things the built-in table wires for you and a custom table must
+   * wire for itself. That is the trade this prop makes, and it is why
+   * `renderCard` remains the lighter option when only the *cells* need to
+   * change — a `ResourceColumnDef.render` is lighter still.
+   *
+   * Omitted, the default `DataTable` render is used unchanged.
+   */
+  renderTable?: (items: T[]) => ReactNode;
+  /**
    * Tailwind grid-column classes for the card grid, passed through to
    * `DataGrid`'s `gridCols` — e.g. `"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"`.
    * Defaults to DataGrid's own responsive 1/2/3/4-column ramp.
@@ -388,6 +441,7 @@ export function ResourcePage<
     searchPlaceholder,
     initialFilters,
     onFiltersChange,
+    filters: filtersProp,
     page: pageProp,
     perPage: perPageProp,
     onPageChange,
@@ -419,6 +473,7 @@ export function ResourcePage<
     formLayout: formLayoutProp,
     bulkActions,
     renderCard: renderCardProp,
+    renderTable: renderTableProp,
     gridCols: gridColsProp,
     keyboardNavigation = true,
     toolbar,
@@ -1003,6 +1058,7 @@ export function ResourcePage<
           sort={page.filterConfig.sort}
           onSortChange={handleSortSelect}
           sortOptions={page.filterConfig.sortOptions}
+          filters={filtersProp}
           statusChips={statusChipsConfig}
           savedViews={savedViews}
           onLoadView={onLoadView}
@@ -1037,7 +1093,10 @@ export function ResourcePage<
         getKey={(item) => String((item as Record<string, unknown>).id ?? "")}
         focusedIndex={keyboardNav.focusedIndex}
         keyboardContainerRef={keyboardNav.containerRef}
-        renderTable={(items) => (
+        renderTable={(items) =>
+          renderTableProp ? (
+            renderTableProp(items)
+          ) : (
           <DataTable<T>
             items={items}
             columns={tableColumns}
@@ -1062,7 +1121,8 @@ export function ResourcePage<
             // pagination would slice the slice.
             pagination={isServerControlled ? false : undefined}
           />
-        )}
+          )
+        }
         renderCard={(item, index) =>
           renderCardProp
             ? renderCardProp(item, index, cardActionsFor(item))
