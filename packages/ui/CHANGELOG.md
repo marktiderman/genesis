@@ -1,5 +1,69 @@
 # @marktiderman/genesis-ui
 
+## 2.3.0
+
+### Minor Changes
+
+- **`slots`, `slotProps` and an eject button on the pattern layer.**
+
+  The pattern components were sealed: `ResourcePage`, `DataPageShell`,
+  `PageHeader`, `DataBulkBar` and `DataFilters` accepted neither `className`
+  nor a rest spread, so a surface that needed one part changed had exactly two
+  options — take the pattern as shipped, or rebuild it. Every surface that
+  needed one small difference took the second, and the design system stopped
+  being a system.
+
+  This adds the missing rung between "the whole pattern" and "the raw
+  primitives":
+
+  - `ResourcePage` takes `slots`, `slotProps` and `className`.
+    `ResourcePageSlotMap` names all seven parts it composes (`shell`,
+    `filters`, `bulkBar`, `grid`, `table`, `detail`, `form`). A replacement
+    receives exactly the props genesis would have passed the default, so the
+    common case is wrapping the default rather than reimplementing it.
+  - **`null` ejects a part** — `slots={{ bulkBar: null }}` renders the page
+    without one. The shell root is the one exception: it takes a component,
+    never `null`, because there is no page without it.
+  - `slotProps` merges **last**, so it wins over genesis's own value. A hatch
+    that silently loses to the default is not a hatch.
+  - `DataPageShell` gains `className` and an ejectable `header` slot.
+  - `PageHeader` gains `secondaryActions: PageHeaderAction[]`, rendered as one
+    overflow menu (`data-testid="page-header-more-actions"`). This exists
+    because `actions: ReactNode` let every surface spend the header's action
+    budget differently, and one of them blew it.
+  - `BulkAction` gains `testId`; `DataBulkBar` gains `className` and exports
+    `DataBulkBarProps`.
+
+  Additive throughout — every new prop is optional and no existing prop
+  changes meaning. `packages/ui/EXTENDING.md` documents the four rungs and the
+  rules that keep them true.
+
+## 2.2.1
+
+### Patch Changes
+
+- **Republished with a real dependency range.** 2.1.0 and 2.2.0 both shipped
+  `"@marktiderman/genesis-core": "workspace:^"` verbatim in `dependencies` and
+  cannot be installed by anyone. The cause is `npm publish` run from a pnpm
+  workspace: npm copies the `workspace:` protocol into the tarball as-is,
+  where `pnpm publish` rewrites it to a real semver range at pack time.
+
+  **Publish this repo with `pnpm publish`, never `npm publish`.** `pnpm pack`
+  followed by reading the packed `package.json` is the check that catches it.
+
+## 2.2.0
+
+### Minor Changes
+
+- **`ResourcePage`: the level-3 options reach the call site.** Forwards
+  `filters` and exposes `renderTable`, surfaces loading and error state in
+  server-data mode, and lets a `DataBulkBar` action be `disabled` — the case
+  being an in-flight bulk mutation, where every action should be dead until it
+  settles so a destructive operation cannot be double-fired on the same
+  selection.
+
+  Not installable — see 2.2.1.
+
 ## 2.1.0
 
 ### Minor Changes
