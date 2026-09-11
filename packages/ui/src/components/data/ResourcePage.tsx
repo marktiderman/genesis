@@ -267,6 +267,51 @@ export interface ResourcePageProps<
   /** Called when the user changes the search text (including clearing it). */
   onSearchChange?: (search: string) => void;
 
+  // ── Fetch state for server-data mode ──
+  //
+  // In client-side mode ResourcePage owns the fetch, so it knows on its own
+  // when the list is in flight or has failed and renders the shell's spinner
+  // or error panel accordingly. In server-data mode the caller owns the
+  // fetch, and ResourcePage sees only the `data` array that comes out the
+  // far end — which means a request that is still in flight and a request
+  // that failed both arrive as `data={[]}`, indistinguishable from a
+  // genuinely empty result. Left alone that renders a failed fetch as an
+  // ordinary "no records" table: the page shows nothing and says nothing is
+  // wrong, which is the worst of the three outcomes. These props let the
+  // caller say which of the three it is. They are read only outside
+  // client-side mode, so a `resource`-driven page behaves exactly as before
+  // whether or not they are supplied.
+
+  /**
+   * Server-data mode: the caller's fetch is in flight, so render the shell's
+   * loading skeleton instead of the (as yet meaningless) `data`. Ignored in
+   * client-side mode, where `useResource`'s own loading state is used.
+   */
+  loading?: boolean;
+  /**
+   * Server-data mode: the caller's fetch failed, so render the shell's error
+   * panel instead of an empty table. Takes effect even when `data` is
+   * non-empty — stale rows beside no indication of failure are exactly the
+   * silent-failure this prop exists to prevent. Ignored in client-side mode,
+   * where `useResource`'s own error state is used.
+   */
+  error?: boolean;
+  /**
+   * Message shown in the error panel, in place of the shell's generic
+   * "Failed to load …". Forwarded in both modes — it is inert unless an
+   * error state is actually showing — so a client-side page can also give
+   * its failure a human sentence.
+   */
+  errorMessage?: string;
+  /**
+   * Server-data mode: invoked by the error panel's Retry button. The button
+   * only appears when this is supplied, so a caller with no way to retry
+   * simply omits it and gets an error panel without a dead control. In
+   * client-side mode the button is already wired to `useResource`'s own
+   * `refetch` and this prop is ignored.
+   */
+  onRetry?: () => void;
+
   // ── Saved views — passed straight through to DataFilters ──
   /** Saved filter views to offer. Pair with `useSavedViews` for per-user storage. */
   savedViews?: SavedViewItem[];
@@ -448,6 +493,10 @@ export function ResourcePage<
     onPerPageChange,
     onSortChange,
     onSearchChange,
+    loading: loadingProp,
+    error: errorProp,
+    errorMessage,
+    onRetry: onRetryProp,
     savedViews,
     onLoadView,
     onSaveView,
@@ -526,8 +575,15 @@ export function ResourcePage<
   const displayTotal: number = isClientMode
     ? (resourceHook.list.data?.total ?? 0)
     : (totalProp ?? 0);
-  const isLoading = isClientMode ? resourceHook.list.isLoading : false;
-  const hasError = isClientMode ? resourceHook.list.isError : false;
+  // Client-side mode reads the hook it owns; server-data mode reads the
+  // caller's `loading` / `error` props, defaulting to false so a page that
+  // supplies neither renders exactly as it did before they existed.
+  const isLoading = isClientMode
+    ? resourceHook.list.isLoading
+    : (loadingProp ?? false);
+  const hasError = isClientMode
+    ? resourceHook.list.isError
+    : (errorProp ?? false);
 
   // ── Call useResourcePage ──
   const page = useResourcePage<T>({
@@ -1039,7 +1095,8 @@ export function ResourcePage<
       isLoading={isLoading}
       hasError={hasError}
       isEmpty={isEmpty}
-      onRetry={isClientMode ? () => resourceHook.list.refetch() : undefined}
+      errorMessage={errorMessage}
+      onRetry={isClientMode ? () => resourceHook.list.refetch() : onRetryProp}
       viewMode={page.viewMode}
       onViewModeChange={page.setViewMode}
       pageSize={effectivePageSize}
@@ -1097,30 +1154,30 @@ export function ResourcePage<
           renderTableProp ? (
             renderTableProp(items)
           ) : (
-          <DataTable<T>
-            items={items}
-            columns={tableColumns}
-            getKey={(item) =>
-              String((item as Record<string, unknown>).id ?? "")
-            }
-            onRowClick={detail !== "none" ? handleRowClick : undefined}
-            selectable={!!bulkActions && bulkActions.length > 0}
-            selected={selectedIds}
-            onToggleSelect={handleToggleSelect}
-            onToggleAll={handleToggleAll}
-            density={settings.density}
-            pageSize={effectivePageSize}
-            pageSizeOptions={pageSizeOptions}
-            columnVisibility={columnVisibility}
-            columnVisibilityKey={columnVisibilityKey}
-            resizableColumns={resizableColumns}
-            resizeKey={resizeKey}
-            stickyHeader={stickyHeader}
-            stickyFirstColumn={stickyFirstColumn}
-            // The server already cut the page window; DataTable's own
-            // pagination would slice the slice.
-            pagination={isServerControlled ? false : undefined}
-          />
+            <DataTable<T>
+              items={items}
+              columns={tableColumns}
+              getKey={(item) =>
+                String((item as Record<string, unknown>).id ?? "")
+              }
+              onRowClick={detail !== "none" ? handleRowClick : undefined}
+              selectable={!!bulkActions && bulkActions.length > 0}
+              selected={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onToggleAll={handleToggleAll}
+              density={settings.density}
+              pageSize={effectivePageSize}
+              pageSizeOptions={pageSizeOptions}
+              columnVisibility={columnVisibility}
+              columnVisibilityKey={columnVisibilityKey}
+              resizableColumns={resizableColumns}
+              resizeKey={resizeKey}
+              stickyHeader={stickyHeader}
+              stickyFirstColumn={stickyFirstColumn}
+              // The server already cut the page window; DataTable's own
+              // pagination would slice the slice.
+              pagination={isServerControlled ? false : undefined}
+            />
           )
         }
         renderCard={(item, index) =>
