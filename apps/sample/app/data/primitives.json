@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09",
+  "generatedAt": "2026-09-11",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 98
+      "count": 99
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -8184,6 +8184,13 @@
               "required": true,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Merged onto the bar, not replacing its positioning."
             }
           ]
         }
@@ -8489,6 +8496,13 @@
               "description": "Display title for the page"
             },
             {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Merged onto the root, not replacing its layout."
+            },
+            {
               "name": "count",
               "type": "number",
               "required": false,
@@ -8601,6 +8615,13 @@
               "description": "Error state"
             },
             {
+              "name": "header",
+              "type": "ComponentType<PageHeaderProps> | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replace the header outright. It receives exactly the props\n`DataPageShell` would have given `PageHeader`, so the common case is a\nwrapper that renders `PageHeader` with one thing added — an overflow\nmenu, a status strip, a second row — rather than a reimplementation.\n\n`null` ejects it: shell layout, states and filter row, no header."
+            },
+            {
               "name": "headerOptions",
               "type": "PageHeaderOptions",
               "required": false,
@@ -8683,6 +8704,13 @@
               "required": false,
               "defaultValue": null,
               "description": "View settings"
+            },
+            {
+              "name": "secondaryActions",
+              "type": "PageHeaderAction[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Extra actions, rendered in the header's one overflow menu."
             },
             {
               "name": "subtitle",
@@ -11004,6 +11032,13 @@
               "description": ""
             },
             {
+              "name": "secondaryActions",
+              "type": "PageHeaderAction[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Additional actions, rendered in ONE overflow menu — never as more\nside-by-side buttons.\n\nThe budget is the point. A header with three top-level buttons squeezes\nits own title to an ellipsis at real viewport widths, so a surface that\ngenuinely has four actions needs somewhere to put the other three. Before\nthis existed the only place was a fork of the header, which is exactly\nwhat one consumer did.\n\nPass `ReactNode` via `actions` instead when you need arbitrary chrome;\nthis prop is for the ordinary case, and it keeps the budget for you."
+            },
+            {
               "name": "subtitle",
               "type": "string",
               "required": false,
@@ -11949,7 +11984,7 @@
             },
             {
               "name": "bulkActions",
-              "type": "{ label: string; icon?: LucideIcon; variant?: \"default\" | \"destructive\"; onAction: (ids: string[]) => void | Promise<void>; }[] | undefined",
+              "type": "{ label: string; icon?: LucideIcon; variant?: \"default\" | \"destructive\"; onAction: (ids: string[]) => void | Promise<void>; disabled?: boolean | undefined; testId?: string | undefined; }[] | undefined",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -11960,6 +11995,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Show the \"save current view\" affordance."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Merged onto the page shell's root."
             },
             {
               "name": "columns",
@@ -12032,6 +12074,27 @@
               "description": ""
             },
             {
+              "name": "error",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Server-data mode: the caller's fetch failed, so render the shell's error\npanel instead of an empty table. Takes effect even when `data` is\nnon-empty — stale rows beside no indication of failure are exactly the\nsilent-failure this prop exists to prevent. Ignored in client-side mode,\nwhere `useResource`'s own error state is used."
+            },
+            {
+              "name": "errorMessage",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Message shown in the error panel, in place of the shell's generic\n\"Failed to load …\". Forwarded in both modes — it is inert unless an\nerror state is actually showing — so a client-side page can also give\nits failure a human sentence."
+            },
+            {
+              "name": "filters",
+              "type": "DataFilterConfig[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Extra multi-select filter comboboxes, handed straight to `DataFilters`\nand rendered beside the status chips. Each config owns its own\n`selected` array and `onChange` — ResourcePage never reads or writes\nthem, because it cannot know what a caller's \"Grade\" or \"Subject\"\ncombobox means against the row shape. That is deliberate rather than a\ngap: the built-in machinery (`searchFields`, `statusFilter`) covers the\ntwo shapes it *can* interpret, and this prop covers everything else by\ngetting out of the way.\n\nTwo consequences of that hands-off stance, stated rather than hidden:\n- These selections are invisible to `page.hasActiveFilters`, so the\n  header's \"Clear filters\" affordance does not appear for them alone,\n  and `onClearFilters` does not reset them. DataFilters' own \"Clear all\"\n  does call each config's `onChange([])`, so wire real clearing there.\n- In client-side mode the rows are NOT re-filtered by these selections.\n  A caller using them is expected to filter its own `data` (or ask the\n  server to), exactly as it already does in server-controlled mode."
+            },
+            {
               "name": "formFields",
               "type": "ResourceFormFieldDef[]",
               "required": false,
@@ -12086,6 +12149,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Built-in list keyboard navigation via `useKeyboardNavigation`: j/k (or\nArrow Up/Down) move a focus cursor, Enter opens the focused item,\nBackspace (⌫) closes an open detail view, and x toggles the focused\nitem's selection when `bulkActions` are configured. Set to `false` to\nopt out.\n\nDefault-on, and scoped so that being on by default stays safe:\n- Only while the grid or list view is showing. Table view keeps its own\n  independent sort/pagination, so a flat focus index can't reliably map\n  onto its visible rows.\n- Cursor keys suspend while a detail panel/modal or the built-in form\n  is open, so they can't drive the list behind the overlay; ⌫ stays\n  live there so it can close it.\n- Backspace is only intercepted while there's an open detail to close.\n- Modified chords (Ctrl/Cmd/Alt) are never captured, so an app's\n  Cmd+K-style shortcuts keep working."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Server-data mode: the caller's fetch is in flight, so render the shell's\nloading skeleton instead of the (as yet meaningless) `data`. Ignored in\nclient-side mode, where `useResource`'s own loading state is used."
             },
             {
               "name": "onCreate",
@@ -12151,6 +12221,13 @@
               "description": "Called when the user picks a different page size in the header's view settings."
             },
             {
+              "name": "onRetry",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Server-data mode: invoked by the error panel's Retry button. The button\nonly appears when this is supplied, so a caller with no way to retry\nsimply omits it and gets an error panel without a dead control. In\nclient-side mode the button is already wired to `useResource`'s own\n`refetch` and this prop is ignored."
+            },
+            {
               "name": "onSaveView",
               "type": "((name: string) => void)",
               "required": false,
@@ -12214,6 +12291,13 @@
               "description": "Custom form renderer — receives form instance and resolved fields."
             },
             {
+              "name": "renderTable",
+              "type": "((items: T[]) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replace the built-in `DataTable` that table view renders, keeping every\nother piece of the page — header, counts, view settings, filters,\nbulk bar, detail panel, form, pager — exactly as it is. The counterpart\nto `renderCard`, which does the same for grid and list view.\n\nReceives the rows for the current view, which in server-controlled mode\nis precisely the page the server returned. Ownership is total: row\nclick-through, selection, density, column visibility and resizing are\nall things the built-in table wires for you and a custom table must\nwire for itself. That is the trade this prop makes, and it is why\n`renderCard` remains the lighter option when only the *cells* need to\nchange — a `ResourceColumnDef.render` is lighter still.\n\nOmitted, the default `DataTable` render is used unchanged."
+            },
+            {
               "name": "resizableColumns",
               "type": "boolean",
               "required": false,
@@ -12261,6 +12345,27 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "secondaryActions",
+              "type": "PageHeaderAction[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Extra header actions beyond the create button, in one overflow menu.\nSee {@link PageHeaderAction} — the budget is one primary, the rest here."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<ResourcePageSlotMap<T>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Extra props merged into a part you are KEEPING. Wins over ours."
+            },
+            {
+              "name": "slots",
+              "type": "ResourcePageSlots<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct."
             },
             {
               "name": "statusFilter",
@@ -12887,6 +12992,23 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "slots",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/slots.tsx",
+      "stability": "stable",
+      "summary": "Renders one slot: the override if given, the default otherwise, nothing if\nejected with `null`.\n\n`extra` merges LAST, so `slotProps` wins over genesis's own value. That is\ndeliberate: a consumer reaching for `slotProps` is overriding on purpose,\nand a hatch that silently loses to the default is not a hatch. `className`\nis the one prop a caller should merge with `cn()` instead of replacing.",
+      "primaryComponent": "renderSlot",
+      "components": [
+        {
+          "name": "renderSlot",
+          "summary": "Renders one slot: the override if given, the default otherwise, nothing if\nejected with `null`.\n\n`extra` merges LAST, so `slotProps` wins over genesis's own value. That is\ndeliberate: a consumer reaching for `slotProps` is overriding on purpose,\nand a hatch that silently loses to the default is not a hatch. `className`\nis the one prop a caller should merge with `cn()` instead of replacing.",
+          "props": []
         }
       ]
     },

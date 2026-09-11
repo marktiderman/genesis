@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-ui",
-  "version": "2.1.0",
+  "version": "2.3.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -21,7 +21,8 @@
   "files": [
     "dist",
     "!dist/metafile-*.json",
-    "README.md"
+    "README.md",
+    "EXTENDING.md"
   ],
   "scripts": {
     "build": "tsup && node scripts/stamp-use-client.mjs && node ../../scripts/check-exports-resolve.mjs",

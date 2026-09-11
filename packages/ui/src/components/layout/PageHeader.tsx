@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ListFilter, SlidersHorizontal } from "lucide-react";
+import { ListFilter, MoreHorizontal, SlidersHorizontal } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Collapsible, CollapsibleContent } from "../ui/collapsible";
@@ -21,6 +21,12 @@ import {
   readStoredOptions as readStoredOptionsRaw,
   writeStoredOptions,
 } from "../../option-storage";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 
 /**
  * Declarative chrome for PageHeader — developer defaults + optional
@@ -115,6 +121,18 @@ function readStoredOptions(key: string): Partial<PageHeaderOptions> {
   return sanitized;
 }
 
+/** One entry in {@link PageHeaderProps.secondaryActions}. */
+export interface PageHeaderAction {
+  label: string;
+  onClick: () => void;
+  icon?: LucideIcon;
+  /** `data-testid` on the menu item, so e2e can drive it. */
+  testId?: string;
+  disabled?: boolean;
+  /** Omits the action entirely — for one gated on data. */
+  hidden?: boolean;
+}
+
 export interface PageHeaderProps {
   title: string;
   subtitle?: string;
@@ -147,6 +165,20 @@ export interface PageHeaderProps {
   density?: Density;
   onDensityChange?: (density: Density) => void;
   createAction?: ReactNode;
+  /**
+   * Additional actions, rendered in ONE overflow menu — never as more
+   * side-by-side buttons.
+   *
+   * The budget is the point. A header with three top-level buttons squeezes
+   * its own title to an ellipsis at real viewport widths, so a surface that
+   * genuinely has four actions needs somewhere to put the other three. Before
+   * this existed the only place was a fork of the header, which is exactly
+   * what one consumer did.
+   *
+   * Pass `ReactNode` via `actions` instead when you need arbitrary chrome;
+   * this prop is for the ordinary case, and it keeps the budget for you.
+   */
+  secondaryActions?: PageHeaderAction[];
 }
 
 type ToggleDef = {
@@ -178,6 +210,7 @@ export function PageHeader({
   density,
   onDensityChange,
   createAction,
+  secondaryActions,
 }: PageHeaderProps) {
   const detailsRegionId = useId();
   const hasDetails = details != null;
@@ -185,6 +218,10 @@ export function PageHeader({
   const hasViewToggle = Boolean(viewMode && onViewModeChange);
   const hasViewSettings = Boolean(onPageSizeChange && onDensityChange);
   const hasCreate = createAction != null;
+  // `hidden` is filtered here rather than at the call site: an action gated on
+  // data ("Review drafts", only when drafts exist) is the common case, and a
+  // conditional array at every call site is what makes those call sites drift.
+  const visibleSecondary = (secondaryActions ?? []).filter((a) => !a.hidden);
 
   const [userOverrides, setUserOverrides] = useState<Partial<PageHeaderOptions>>(
     {},
@@ -354,6 +391,40 @@ export function PageHeader({
       ) : null}
 
       {hasCreate && resolved.showCreate !== false ? createAction : null}
+
+      {visibleSecondary.length > 0 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="More actions"
+              data-testid="page-header-more-actions"
+            >
+              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {visibleSecondary.map((action) => {
+              const ActionIcon = action.icon;
+              return (
+                <DropdownMenuItem
+                  key={action.label}
+                  onSelect={action.onClick}
+                  disabled={action.disabled}
+                  data-testid={action.testId}
+                >
+                  {ActionIcon ? (
+                    <ActionIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+                  ) : null}
+                  {action.label}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
 
       {actions}
 

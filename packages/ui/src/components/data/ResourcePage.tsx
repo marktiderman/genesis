@@ -3,6 +3,8 @@
 import {
   Fragment,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ComponentProps,
+  type ComponentType,
   type ReactNode,
   useMemo,
   useState,
@@ -20,13 +22,24 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "../ui/button";
+import { cn } from "../../utils";
 import { DataPageShell } from "./DataPageShell";
-import { DataFilters, type SavedViewItem } from "./DataFilters";
+import type { PageHeaderAction } from "../layout/PageHeader";
+import {
+  DataFilters,
+  type SavedViewItem,
+  type DataFilterConfig,
+} from "./DataFilters";
 import { DataTable } from "./DataTable";
 import { DataBulkBar } from "./DataBulkBar";
 import { DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
 import { ResourceForm } from "./ResourceForm";
+import {
+  renderSlot,
+  type Slots,
+  type SlotPropsFor,
+} from "../../slots";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewMode } from "../patterns/view-toggle";
 import {
@@ -102,6 +115,51 @@ export interface ResourceCardActions<T> extends ResourceActions<T> {
  *
  * @stability Beta
  */
+/**
+ * Every interior part `ResourcePage` composes, with the props it composes it
+ * with. Each key is a slot: replace it via `slots`, feed it more props via
+ * `slotProps`, or eject it with `null`.
+ *
+ * The map is the contract. A part that is not named here cannot be reached,
+ * so adding a part to the render tree means adding it here in the same
+ * change — otherwise the next surface that needs it forks the whole page.
+ */
+export type ResourcePageSlotMap<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = {
+  /** The page shell: header, count pill, loading / empty / error states. */
+  shell: ComponentProps<typeof DataPageShell>;
+  /** The filter row — search, sort, facets, saved views. */
+  filters: ComponentProps<typeof DataFilters>;
+  /** The selection bar. Ejecting it leaves selection working, just unshown. */
+  bulkBar: ComponentProps<typeof DataBulkBar>;
+  /** The card/table switch. */
+  grid: ComponentProps<typeof DataGrid<T>>;
+  /** The table inside the grid. `renderTable` stays the terser way to swap. */
+  table: ComponentProps<typeof DataTable<T>>;
+  /** The detail peek. */
+  detail: ComponentProps<typeof DetailPanel<T>>;
+  /** The create / edit form. */
+  form: ComponentProps<typeof ResourceForm>;
+};
+
+/**
+ * `slots` for {@link ResourcePage}, with one asymmetry the map cannot express:
+ * every part may be ejected with `null` EXCEPT `shell`.
+ *
+ * The shell is not an interior part, it is the page — `Shell` is what the
+ * render returns, so ejecting it does not remove a piece, it removes the
+ * component (`const Shell = slots?.shell ?? DataPageShell` would become
+ * `null`, and React throws on the element). A caller who wants no shell wants
+ * rung 3 of the ladder, not a `null` here. Replacing it stays supported, which
+ * is the way to wrap it and change one thing.
+ */
+export type ResourcePageSlots<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = Omit<Slots<ResourcePageSlotMap<T>>, "shell"> & {
+  shell?: ComponentType<ComponentProps<typeof DataPageShell>>;
+};
+
 export interface ResourcePageProps<
   T extends Record<string, unknown> = Record<string, unknown>,
 > {
@@ -161,6 +219,26 @@ export interface ResourcePageProps<
   searchPlaceholder?: string;
   initialFilters?: FilterParam[];
   onFiltersChange?: (filters: FilterParam[]) => void;
+  /**
+   * Extra multi-select filter comboboxes, handed straight to `DataFilters`
+   * and rendered beside the status chips. Each config owns its own
+   * `selected` array and `onChange` — ResourcePage never reads or writes
+   * them, because it cannot know what a caller's "Grade" or "Subject"
+   * combobox means against the row shape. That is deliberate rather than a
+   * gap: the built-in machinery (`searchFields`, `statusFilter`) covers the
+   * two shapes it *can* interpret, and this prop covers everything else by
+   * getting out of the way.
+   *
+   * Two consequences of that hands-off stance, stated rather than hidden:
+   * - These selections are invisible to `page.hasActiveFilters`, so the
+   *   header's "Clear filters" affordance does not appear for them alone,
+   *   and `onClearFilters` does not reset them. DataFilters' own "Clear all"
+   *   does call each config's `onChange([])`, so wire real clearing there.
+   * - In client-side mode the rows are NOT re-filtered by these selections.
+   *   A caller using them is expected to filter its own `data` (or ask the
+   *   server to), exactly as it already does in server-controlled mode.
+   */
+  filters?: DataFilterConfig[];
 
   // ─────────────────────────────────────────────────────────────────────────
   // Server-controlled list (opt-in, additive)
@@ -185,6 +263,18 @@ export interface ResourcePageProps<
   //    the current page, so it cannot supply the total either.
   //  - Changing search or sort calls `onPageChange(1)` as well, so the caller
   //    is never left requesting page 7 of a one-page result.
+  //  - Grid and list views are NOT forced to table view, and they render
+  //    cards for the current server page only. That is accepted rather than
+  //    worked around, because it is not actually wrong here: the pager is
+  //    rendered OUTSIDE DataGrid precisely so it pages grid and list too, so
+  //    "this view shows one page, and there is a pager under it" is the same
+  //    contract the table view has. Forcing `viewMode="table"` would instead
+  //    silently discard a `renderCard` the caller supplied, and silently
+  //    overriding a user's own view choice is the worse failure. The one real
+  //    caveat: DataGrid's infinite-scroll batching (48 at a time) tops out at
+  //    the page size, so a server page smaller than 48 never scroll-loads —
+  //    harmless, but it means infinite scroll and server paging do not
+  //    compose into an endless list.
   // ─────────────────────────────────────────────────────────────────────────
 
   /** Current page, 1-based. Server-controlled mode only. */
@@ -231,6 +321,51 @@ export interface ResourcePageProps<
   /** Called when the user changes the search text (including clearing it). */
   onSearchChange?: (search: string) => void;
 
+  // ── Fetch state for server-data mode ──
+  //
+  // In client-side mode ResourcePage owns the fetch, so it knows on its own
+  // when the list is in flight or has failed and renders the shell's spinner
+  // or error panel accordingly. In server-data mode the caller owns the
+  // fetch, and ResourcePage sees only the `data` array that comes out the
+  // far end — which means a request that is still in flight and a request
+  // that failed both arrive as `data={[]}`, indistinguishable from a
+  // genuinely empty result. Left alone that renders a failed fetch as an
+  // ordinary "no records" table: the page shows nothing and says nothing is
+  // wrong, which is the worst of the three outcomes. These props let the
+  // caller say which of the three it is. They are read only outside
+  // client-side mode, so a `resource`-driven page behaves exactly as before
+  // whether or not they are supplied.
+
+  /**
+   * Server-data mode: the caller's fetch is in flight, so render the shell's
+   * loading skeleton instead of the (as yet meaningless) `data`. Ignored in
+   * client-side mode, where `useResource`'s own loading state is used.
+   */
+  loading?: boolean;
+  /**
+   * Server-data mode: the caller's fetch failed, so render the shell's error
+   * panel instead of an empty table. Takes effect even when `data` is
+   * non-empty — stale rows beside no indication of failure are exactly the
+   * silent-failure this prop exists to prevent. Ignored in client-side mode,
+   * where `useResource`'s own error state is used.
+   */
+  error?: boolean;
+  /**
+   * Message shown in the error panel, in place of the shell's generic
+   * "Failed to load …". Forwarded in both modes — it is inert unless an
+   * error state is actually showing — so a client-side page can also give
+   * its failure a human sentence.
+   */
+  errorMessage?: string;
+  /**
+   * Server-data mode: invoked by the error panel's Retry button. The button
+   * only appears when this is supplied, so a caller with no way to retry
+   * simply omits it and gets an error panel without a dead control. In
+   * client-side mode the button is already wired to `useResource`'s own
+   * `refetch` and this prop is ignored.
+   */
+  onRetry?: () => void;
+
   // ── Saved views — passed straight through to DataFilters ──
   /** Saved filter views to offer. Pair with `useSavedViews` for per-user storage. */
   savedViews?: SavedViewItem[];
@@ -265,6 +400,11 @@ export interface ResourcePageProps<
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
   createLabel?: string;
+  /**
+   * Extra header actions beyond the create button, in one overflow menu.
+   * See {@link PageHeaderAction} — the budget is one primary, the rest here.
+   */
+  secondaryActions?: PageHeaderAction[];
 
   // Built-in form support (Phase 2)
   /** Enable built-in create form (ignored if onCreate callback is provided). */
@@ -292,6 +432,15 @@ export interface ResourcePageProps<
     icon?: LucideIcon;
     variant?: "default" | "destructive";
     onAction: (ids: string[]) => void | Promise<void>;
+    /**
+     * Forwarded straight to the rendered bulk button (see `BulkAction`).
+     * Exists so a consumer can kill every bulk action while one of them is
+     * in flight — an early return inside `onAction` blocks the second call
+     * but leaves the button looking live, which misstates what it will do.
+     */
+    disabled?: boolean;
+    /** `data-testid` on the rendered bulk button, so e2e can drive it. */
+    testId?: string;
   }>;
 
   // Grid/list rendering + keyboard nav
@@ -314,6 +463,23 @@ export interface ResourcePageProps<
     index: number,
     actions: ResourceCardActions<T>,
   ) => ReactNode;
+  /**
+   * Replace the built-in `DataTable` that table view renders, keeping every
+   * other piece of the page — header, counts, view settings, filters,
+   * bulk bar, detail panel, form, pager — exactly as it is. The counterpart
+   * to `renderCard`, which does the same for grid and list view.
+   *
+   * Receives the rows for the current view, which in server-controlled mode
+   * is precisely the page the server returned. Ownership is total: row
+   * click-through, selection, density, column visibility and resizing are
+   * all things the built-in table wires for you and a custom table must
+   * wire for itself. That is the trade this prop makes, and it is why
+   * `renderCard` remains the lighter option when only the *cells* need to
+   * change — a `ResourceColumnDef.render` is lighter still.
+   *
+   * Omitted, the default `DataTable` render is used unchanged.
+   */
+  renderTable?: (items: T[]) => ReactNode;
   /**
    * Tailwind grid-column classes for the card grid, passed through to
    * `DataGrid`'s `gridCols` — e.g. `"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"`.
@@ -360,6 +526,21 @@ export interface ResourcePageProps<
    * Defaults to `resource` or a slug of `title`.
    */
   viewSettingsKey?: string;
+
+  /**
+   * The interior parts `ResourcePage` composes, by name. Replace one with your
+   * own component, or pass `null` to eject it entirely — see
+   * {@link ResourcePageSlots}.
+   *
+   * This is the reason a surface that needs one part to differ does not have
+   * to drop to the primitives and re-derive the pagination, selection and
+   * detail wiring that were already correct.
+   */
+  slots?: ResourcePageSlots<T>;
+  /** Extra props merged into a part you are KEEPING. Wins over ours. */
+  slotProps?: SlotPropsFor<ResourcePageSlotMap<T>>;
+  /** Merged onto the page shell's root. */
+  className?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -388,12 +569,17 @@ export function ResourcePage<
     searchPlaceholder,
     initialFilters,
     onFiltersChange,
+    filters: filtersProp,
     page: pageProp,
     perPage: perPageProp,
     onPageChange,
     onPerPageChange,
     onSortChange,
     onSearchChange,
+    loading: loadingProp,
+    error: errorProp,
+    errorMessage,
+    onRetry: onRetryProp,
     savedViews,
     onLoadView,
     onSaveView,
@@ -410,6 +596,7 @@ export function ResourcePage<
     onEdit,
     onDelete,
     createLabel = "New",
+    secondaryActions,
     allowCreate,
     allowEdit,
     formFields,
@@ -419,6 +606,7 @@ export function ResourcePage<
     formLayout: formLayoutProp,
     bulkActions,
     renderCard: renderCardProp,
+    renderTable: renderTableProp,
     gridCols: gridColsProp,
     keyboardNavigation = true,
     toolbar,
@@ -427,6 +615,9 @@ export function ResourcePage<
     defaultView = "table",
     onNavigate = defaultNavigate,
     viewSettingsKey: viewSettingsKeyProp,
+    slots,
+    slotProps,
+    className,
   } = props;
 
   // ── Determine mode ──
@@ -471,8 +662,15 @@ export function ResourcePage<
   const displayTotal: number = isClientMode
     ? (resourceHook.list.data?.total ?? 0)
     : (totalProp ?? 0);
-  const isLoading = isClientMode ? resourceHook.list.isLoading : false;
-  const hasError = isClientMode ? resourceHook.list.isError : false;
+  // Client-side mode reads the hook it owns; server-data mode reads the
+  // caller's `loading` / `error` props, defaulting to false so a page that
+  // supplies neither renders exactly as it did before they existed.
+  const isLoading = isClientMode
+    ? resourceHook.list.isLoading
+    : (loadingProp ?? false);
+  const hasError = isClientMode
+    ? resourceHook.list.isError
+    : (errorProp ?? false);
 
   // ── Call useResourcePage ──
   const page = useResourcePage<T>({
@@ -974,8 +1172,16 @@ export function ResourcePage<
     );
   };
 
+  // The root slot. Unlike the interior parts it cannot be ejected — a page
+  // with no shell is not a page — so it resolves to a component, never null.
+  // `slotProps.shell` merges last and wins, except `className`, which is
+  // merged rather than replaced so a consumer adding a class does not
+  // silently drop the shell's own layout.
+  const Shell = slots?.shell ?? DataPageShell;
+  const shellSlotProps = slotProps?.shell;
+
   return (
-    <DataPageShell
+    <Shell
       title={title}
       subtitle={subtitle}
       icon={icon}
@@ -984,7 +1190,8 @@ export function ResourcePage<
       isLoading={isLoading}
       hasError={hasError}
       isEmpty={isEmpty}
-      onRetry={isClientMode ? () => resourceHook.list.refetch() : undefined}
+      errorMessage={errorMessage}
+      onRetry={isClientMode ? () => resourceHook.list.refetch() : onRetryProp}
       viewMode={page.viewMode}
       onViewModeChange={page.setViewMode}
       pageSize={effectivePageSize}
@@ -992,88 +1199,114 @@ export function ResourcePage<
       density={settings.density}
       onDensityChange={(d) => updateSetting("density", d)}
       createAction={createAction}
+      secondaryActions={secondaryActions}
       hasActiveFilters={page.hasActiveFilters}
       onClearFilters={handleClearFilters}
       emptyAction={emptyState}
-      filters={
-        <DataFilters
-          search={page.filterConfig.search}
-          onSearchChange={handleSearchChange}
-          searchPlaceholder={searchPlaceholder}
-          sort={page.filterConfig.sort}
-          onSortChange={handleSortSelect}
-          sortOptions={page.filterConfig.sortOptions}
-          statusChips={statusChipsConfig}
-          savedViews={savedViews}
-          onLoadView={onLoadView}
-          onSaveView={onSaveView}
-          onDeleteView={onDeleteView}
-          canSaveViews={canSaveViews}
-          onClearAll={page.hasActiveFilters ? handleClearFilters : undefined}
-        />
-      }
-    >
-      {bulkActions && bulkActions.length > 0 && (
-        <DataBulkBar
-          selected={selectedIds}
-          totalCount={page.data.length}
-          onToggleAll={handleToggleAll}
-          onClearSelection={handleClearSelection}
-          actions={bulkActions.map((a) => ({
-            label: a.label,
-            icon: a.icon ?? Trash2,
-            variant: a.variant,
-            onClick: () => {
-              void a.onAction(Array.from(selectedIds));
-            },
-          }))}
-        />
+      filters={renderSlot(
+        DataFilters,
+        slots?.filters,
+        {
+          search: page.filterConfig.search,
+          onSearchChange: handleSearchChange,
+          searchPlaceholder,
+          sort: page.filterConfig.sort,
+          onSortChange: handleSortSelect,
+          sortOptions: page.filterConfig.sortOptions,
+          filters: filtersProp,
+          statusChips: statusChipsConfig,
+          savedViews,
+          onLoadView,
+          onSaveView,
+          onDeleteView,
+          canSaveViews,
+          onClearAll: page.hasActiveFilters ? handleClearFilters : undefined,
+        },
+        slotProps?.filters,
       )}
-
-      <DataGrid<T>
-        items={page.data}
-        viewMode={page.viewMode}
-        gridCols={gridColsProp}
-        getKey={(item) => String((item as Record<string, unknown>).id ?? "")}
-        focusedIndex={keyboardNav.focusedIndex}
-        keyboardContainerRef={keyboardNav.containerRef}
-        renderTable={(items) => (
-          <DataTable<T>
-            items={items}
-            columns={tableColumns}
-            getKey={(item) =>
-              String((item as Record<string, unknown>).id ?? "")
-            }
-            onRowClick={detail !== "none" ? handleRowClick : undefined}
-            selectable={!!bulkActions && bulkActions.length > 0}
-            selected={selectedIds}
-            onToggleSelect={handleToggleSelect}
-            onToggleAll={handleToggleAll}
-            density={settings.density}
-            pageSize={effectivePageSize}
-            pageSizeOptions={pageSizeOptions}
-            columnVisibility={columnVisibility}
-            columnVisibilityKey={columnVisibilityKey}
-            resizableColumns={resizableColumns}
-            resizeKey={resizeKey}
-            stickyHeader={stickyHeader}
-            stickyFirstColumn={stickyFirstColumn}
-            // The server already cut the page window; DataTable's own
-            // pagination would slice the slice.
-            pagination={isServerControlled ? false : undefined}
-          />
+      {...shellSlotProps}
+      className={cn(className, shellSlotProps?.className)}
+    >
+      {bulkActions &&
+        bulkActions.length > 0 &&
+        renderSlot(
+          DataBulkBar,
+          slots?.bulkBar,
+          {
+            selected: selectedIds,
+            totalCount: page.data.length,
+            onToggleAll: handleToggleAll,
+            onClearSelection: handleClearSelection,
+            actions: bulkActions.map((a) => ({
+              label: a.label,
+              icon: a.icon ?? Trash2,
+              variant: a.variant,
+              disabled: a.disabled,
+              testId: a.testId,
+              onClick: () => {
+                void a.onAction(Array.from(selectedIds));
+              },
+            })),
+          },
+          slotProps?.bulkBar,
         )}
-        renderCard={(item, index) =>
-          renderCardProp
-            ? renderCardProp(item, index, cardActionsFor(item))
-            : renderDefaultCard(item)
-        }
-        renderListItem={(item, index) =>
-          renderCardProp
-            ? renderCardProp(item, index, cardActionsFor(item))
-            : renderDefaultListItem(item)
-        }
-      />
+
+      {renderSlot(
+        DataGrid<T>,
+        slots?.grid,
+        {
+          items: page.data,
+          viewMode: page.viewMode,
+          gridCols: gridColsProp,
+          getKey: (item: T) =>
+            String((item as Record<string, unknown>).id ?? ""),
+          focusedIndex: keyboardNav.focusedIndex,
+          keyboardContainerRef: keyboardNav.containerRef,
+          renderTable: (items: T[]) =>
+          renderTableProp ? (
+            renderTableProp(items)
+          ) : (
+            renderSlot(
+              DataTable<T>,
+              slots?.table,
+              {
+                items,
+                columns: tableColumns,
+                getKey: (item: T) =>
+                  String((item as Record<string, unknown>).id ?? ""),
+                onRowClick: detail !== "none" ? handleRowClick : undefined,
+                selectable: !!bulkActions && bulkActions.length > 0,
+                selected: selectedIds,
+                onToggleSelect: handleToggleSelect,
+                onToggleAll: handleToggleAll,
+                density: settings.density,
+                pageSize: effectivePageSize,
+                pageSizeOptions,
+                columnVisibility,
+                columnVisibilityKey,
+                resizableColumns,
+                resizeKey,
+                stickyHeader,
+                stickyFirstColumn,
+                // The server already cut the page window; DataTable's own
+                // pagination would slice the slice.
+                pagination: isServerControlled ? false : undefined,
+              },
+              slotProps?.table,
+            )
+          )
+          ,
+          renderCard: (item: T, index: number) =>
+            renderCardProp
+              ? renderCardProp(item, index, cardActionsFor(item))
+              : renderDefaultCard(item),
+          renderListItem: (item: T, index: number) =>
+            renderCardProp
+              ? renderCardProp(item, index, cardActionsFor(item))
+              : renderDefaultListItem(item),
+        },
+        slotProps?.grid,
+      )}
 
       {/* Server-driven pager. Rendered only when `onPageChange` is supplied —
           without a handler the buttons would be decoration, and a control
@@ -1158,57 +1391,66 @@ export function ResourcePage<
           edit/delete affordances) instead of ResourcePage hand-rolling a
           second Dialog. */}
       {(detail === "panel" || detail === "modal") && (
-        <DetailPanel<T>
-          item={page.selectedItem}
-          open={page.detailOpen}
-          onClose={() => {
-            page.setDetailOpen(false);
-            page.setSelectedItem(null);
-          }}
-          title={detailTitle}
-          subtitle={detailSubtitle}
-          onEdit={onEdit ?? (useBuiltInEdit ? handleEdit : undefined)}
-          onDelete={onDelete}
-          fields={detailFields}
-          width={detailWidth}
-          layout={detail === "modal" ? "dialog" : "sheet"}
-        >
-          {renderDetailProp ? (item: T) => renderDetailProp(item) : undefined}
-        </DetailPanel>
+        renderSlot(
+          DetailPanel<T>,
+          slots?.detail,
+          {
+            item: page.selectedItem,
+            open: page.detailOpen,
+            onClose: () => {
+              page.setDetailOpen(false);
+              page.setSelectedItem(null);
+            },
+            title: detailTitle,
+            subtitle: detailSubtitle,
+            onEdit: onEdit ?? (useBuiltInEdit ? handleEdit : undefined),
+            onDelete,
+            fields: detailFields,
+            width: detailWidth,
+            layout: detail === "modal" ? "dialog" : "sheet",
+            children: renderDetailProp
+              ? (item: T) => renderDetailProp(item)
+              : undefined,
+          },
+          slotProps?.detail,
+        )
       )}
       {/* Built-in create/edit form */}
       {(useBuiltInCreate || useBuiltInEdit) && resourceName && (
-        <ResourceForm
-          resource={resourceName}
-          action={formAction}
-          layout={
-            formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog")
-          }
-          mode={formMode}
-          steps={formSteps}
-          item={
-            formAction === "edit"
-              ? ((formItem as Record<string, unknown> | null) ?? undefined)
-              : page.data.length > 0
-                ? Object.fromEntries(
-                    Object.keys(page.data[0] as Record<string, unknown>)
-                      .filter((k) => k !== "id")
-                      .map((k) => [k, ""]),
-                  )
-                : undefined
-          }
-          open={formOpen}
-          onOpenChange={setFormOpen}
-          fields={formFields}
-          listData={page.data as Record<string, unknown>[]}
-          renderForm={renderFormProp}
-          onSuccess={() => {
-            // Data auto-refreshes via TanStack Query invalidation in useResourceForm
-            page.setDetailOpen(false);
-            page.setSelectedItem(null);
-          }}
-        />
+        renderSlot(
+          ResourceForm,
+          slots?.form,
+          {
+            resource: resourceName,
+            action: formAction,
+            layout:
+              formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog"),
+            mode: formMode,
+            steps: formSteps,
+            item:
+              formAction === "edit"
+                ? ((formItem as Record<string, unknown> | null) ?? undefined)
+                : page.data.length > 0
+                  ? Object.fromEntries(
+                      Object.keys(page.data[0] as Record<string, unknown>)
+                        .filter((k) => k !== "id")
+                        .map((k) => [k, ""]),
+                    )
+                  : undefined,
+            open: formOpen,
+            onOpenChange: setFormOpen,
+            fields: formFields,
+            listData: page.data as Record<string, unknown>[],
+            renderForm: renderFormProp,
+            onSuccess: () => {
+              // Data auto-refreshes via TanStack Query invalidation in useResourceForm
+              page.setDetailOpen(false);
+              page.setSelectedItem(null);
+            },
+          },
+          slotProps?.form,
+        )
       )}
-    </DataPageShell>
+    </Shell>
   );
 }
