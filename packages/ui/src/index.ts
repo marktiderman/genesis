@@ -134,3 +134,4 @@ export {
   type NavigateFn,
   type SearchParamsAdapter,
 } from "./navigation";
+export * from "./slots";

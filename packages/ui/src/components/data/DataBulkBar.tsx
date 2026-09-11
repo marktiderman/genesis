@@ -2,6 +2,7 @@ import { Checkbox } from "../ui/checkbox";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import type { LucideIcon } from "lucide-react";
+import { cn } from "../../utils";
 
 /**
  * One button in the bulk action bar.
@@ -37,14 +38,25 @@ export interface BulkAction {
    * Optional and defaulted off — omitting it behaves exactly as before.
    */
   disabled?: boolean;
+  /**
+   * `data-testid` on the rendered button.
+   *
+   * Without it, a consumer migrating a hand-rolled bulk bar to `DataBulkBar`
+   * loses every selector its e2e suite uses to drive one — which is a real
+   * reason not to migrate, and the kind of small missing affordance that
+   * keeps a parallel implementation alive.
+   */
+  testId?: string;
 }
 
-interface DataBulkBarProps {
+export interface DataBulkBarProps {
   selected: Set<string>;
   totalCount: number;
   onToggleAll: () => void;
   onClearSelection: () => void;
   actions: BulkAction[];
+  /** Merged onto the bar, not replacing its positioning. */
+  className?: string;
 }
 
 export function DataBulkBar({
@@ -53,11 +65,17 @@ export function DataBulkBar({
   onToggleAll,
   onClearSelection,
   actions,
+  className,
 }: DataBulkBarProps) {
   if (selected.size === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50 animate-fade-in">
+    <div
+      className={cn(
+        "flex items-center gap-2 p-3 rounded-lg border bg-muted/50 animate-fade-in",
+        className,
+      )}
+    >
       <Checkbox
         checked={selected.size === totalCount}
         onCheckedChange={onToggleAll}
@@ -72,6 +90,7 @@ export function DataBulkBar({
             variant={action.variant || "outline"}
             onClick={action.onClick}
             disabled={action.disabled}
+            data-testid={action.testId}
           >
             <ActionIcon className="h-3.5 w-3.5 mr-1" />
             {action.label}

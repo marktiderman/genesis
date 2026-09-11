@@ -1,10 +1,12 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ComponentType, ReactNode } from "react";
+import { cn } from "../../utils";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
 import { EmptyState } from "./EmptyState";
 import {
   PageHeader,
   type PageHeaderOptions,
+  type PageHeaderAction,
 } from "../layout/PageHeader";
 import type { ViewMode } from "../patterns/view-toggle";
 import { AlertTriangle, RefreshCw } from "lucide-react";
@@ -20,6 +22,8 @@ export interface DataPageShellProps {
   /** Subtitle text */
   subtitle?: string;
   createAction?: ReactNode;
+  /** Extra actions, rendered in the header's one overflow menu. */
+  secondaryActions?: PageHeaderAction[];
   isLoading?: boolean;
   isEmpty?: boolean;
   emptyIcon?: LucideIcon;
@@ -63,6 +67,17 @@ export interface DataPageShellProps {
   /** Persist user header-option overrides (localStorage) */
   headerOptionsStorageKey?: string;
   children: ReactNode;
+  /** Merged onto the root, not replacing its layout. */
+  className?: string;
+  /**
+   * Replace the header outright. It receives exactly the props
+   * `DataPageShell` would have given `PageHeader`, so the common case is a
+   * wrapper that renders `PageHeader` with one thing added — an overflow
+   * menu, a status strip, a second row — rather than a reimplementation.
+   *
+   * `null` ejects it: shell layout, states and filter row, no header.
+   */
+  header?: ComponentType<ComponentProps<typeof PageHeader>> | null;
 }
 
 export function DataPageShell({
@@ -71,6 +86,7 @@ export function DataPageShell({
   entityName,
   subtitle,
   createAction,
+  secondaryActions,
   isLoading = false,
   isEmpty = false,
   emptyIcon,
@@ -99,6 +115,8 @@ export function DataPageShell({
   headerOptions,
   headerOptionsStorageKey,
   children,
+  className,
+  header,
 }: DataPageShellProps) {
   const entity = entityName || title.toLowerCase();
   const collapseFilters = filtersCollapsible && filters != null;
@@ -125,13 +143,17 @@ export function DataPageShell({
     density,
     onDensityChange,
     createAction,
+    secondaryActions,
     optionsStorageKey: headerOptionsStorageKey,
   };
 
+  const Header =
+    header === null ? (() => null) : (header ?? PageHeader);
+
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", className)}>
       {collapseFilters ? (
-        <PageHeader
+        <Header
           {...sharedHeaderProps}
           details={filters}
           detailsOpen={filtersOpen}
@@ -142,7 +164,7 @@ export function DataPageShell({
         />
       ) : (
         <>
-          <PageHeader {...sharedHeaderProps} options={headerOptions} />
+          <Header {...sharedHeaderProps} options={headerOptions} />
           {filters}
         </>
       )}

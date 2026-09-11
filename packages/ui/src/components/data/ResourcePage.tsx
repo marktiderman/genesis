@@ -3,6 +3,7 @@
 import {
   Fragment,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ComponentProps,
   type ReactNode,
   useMemo,
   useState,
@@ -20,7 +21,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "../ui/button";
+import { cn } from "../../utils";
 import { DataPageShell } from "./DataPageShell";
+import type { PageHeaderAction } from "../layout/PageHeader";
 import {
   DataFilters,
   type SavedViewItem,
@@ -31,6 +34,11 @@ import { DataBulkBar } from "./DataBulkBar";
 import { DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
 import { ResourceForm } from "./ResourceForm";
+import {
+  renderSlot,
+  type Slots,
+  type SlotPropsFor,
+} from "../../slots";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewMode } from "../patterns/view-toggle";
 import {
@@ -106,6 +114,38 @@ export interface ResourceCardActions<T> extends ResourceActions<T> {
  *
  * @stability Beta
  */
+/**
+ * Every interior part `ResourcePage` composes, with the props it composes it
+ * with. Each key is a slot: replace it via `slots`, feed it more props via
+ * `slotProps`, or eject it with `null`.
+ *
+ * The map is the contract. A part that is not named here cannot be reached,
+ * so adding a part to the render tree means adding it here in the same
+ * change — otherwise the next surface that needs it forks the whole page.
+ */
+export type ResourcePageSlotMap<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = {
+  /** The page shell: header, count pill, loading / empty / error states. */
+  shell: ComponentProps<typeof DataPageShell>;
+  /** The filter row — search, sort, facets, saved views. */
+  filters: ComponentProps<typeof DataFilters>;
+  /** The selection bar. Ejecting it leaves selection working, just unshown. */
+  bulkBar: ComponentProps<typeof DataBulkBar>;
+  /** The card/table switch. */
+  grid: ComponentProps<typeof DataGrid<T>>;
+  /** The table inside the grid. `renderTable` stays the terser way to swap. */
+  table: ComponentProps<typeof DataTable<T>>;
+  /** The detail peek. */
+  detail: ComponentProps<typeof DetailPanel<T>>;
+  /** The create / edit form. */
+  form: ComponentProps<typeof ResourceForm>;
+};
+
+export type ResourcePageSlots<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = Slots<ResourcePageSlotMap<T>>;
+
 export interface ResourcePageProps<
   T extends Record<string, unknown> = Record<string, unknown>,
 > {
@@ -346,6 +386,11 @@ export interface ResourcePageProps<
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
   createLabel?: string;
+  /**
+   * Extra header actions beyond the create button, in one overflow menu.
+   * See {@link PageHeaderAction} — the budget is one primary, the rest here.
+   */
+  secondaryActions?: PageHeaderAction[];
 
   // Built-in form support (Phase 2)
   /** Enable built-in create form (ignored if onCreate callback is provided). */
@@ -380,6 +425,8 @@ export interface ResourcePageProps<
      * but leaves the button looking live, which misstates what it will do.
      */
     disabled?: boolean;
+    /** `data-testid` on the rendered bulk button, so e2e can drive it. */
+    testId?: string;
   }>;
 
   // Grid/list rendering + keyboard nav
@@ -465,6 +512,21 @@ export interface ResourcePageProps<
    * Defaults to `resource` or a slug of `title`.
    */
   viewSettingsKey?: string;
+
+  /**
+   * The interior parts `ResourcePage` composes, by name. Replace one with your
+   * own component, or pass `null` to eject it entirely — see
+   * {@link ResourcePageSlots}.
+   *
+   * This is the reason a surface that needs one part to differ does not have
+   * to drop to the primitives and re-derive the pagination, selection and
+   * detail wiring that were already correct.
+   */
+  slots?: ResourcePageSlots<T>;
+  /** Extra props merged into a part you are KEEPING. Wins over ours. */
+  slotProps?: SlotPropsFor<ResourcePageSlotMap<T>>;
+  /** Merged onto the page shell's root. */
+  className?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -520,6 +582,7 @@ export function ResourcePage<
     onEdit,
     onDelete,
     createLabel = "New",
+    secondaryActions,
     allowCreate,
     allowEdit,
     formFields,
@@ -538,6 +601,9 @@ export function ResourcePage<
     defaultView = "table",
     onNavigate = defaultNavigate,
     viewSettingsKey: viewSettingsKeyProp,
+    slots,
+    slotProps,
+    className,
   } = props;
 
   // ── Determine mode ──
@@ -1092,8 +1158,16 @@ export function ResourcePage<
     );
   };
 
+  // The root slot. Unlike the interior parts it cannot be ejected — a page
+  // with no shell is not a page — so it resolves to a component, never null.
+  // `slotProps.shell` merges last and wins, except `className`, which is
+  // merged rather than replaced so a consumer adding a class does not
+  // silently drop the shell's own layout.
+  const Shell = slots?.shell ?? DataPageShell;
+  const shellSlotProps = slotProps?.shell;
+
   return (
-    <DataPageShell
+    <Shell
       title={title}
       subtitle={subtitle}
       icon={icon}
@@ -1111,94 +1185,114 @@ export function ResourcePage<
       density={settings.density}
       onDensityChange={(d) => updateSetting("density", d)}
       createAction={createAction}
+      secondaryActions={secondaryActions}
       hasActiveFilters={page.hasActiveFilters}
       onClearFilters={handleClearFilters}
       emptyAction={emptyState}
-      filters={
-        <DataFilters
-          search={page.filterConfig.search}
-          onSearchChange={handleSearchChange}
-          searchPlaceholder={searchPlaceholder}
-          sort={page.filterConfig.sort}
-          onSortChange={handleSortSelect}
-          sortOptions={page.filterConfig.sortOptions}
-          filters={filtersProp}
-          statusChips={statusChipsConfig}
-          savedViews={savedViews}
-          onLoadView={onLoadView}
-          onSaveView={onSaveView}
-          onDeleteView={onDeleteView}
-          canSaveViews={canSaveViews}
-          onClearAll={page.hasActiveFilters ? handleClearFilters : undefined}
-        />
-      }
-    >
-      {bulkActions && bulkActions.length > 0 && (
-        <DataBulkBar
-          selected={selectedIds}
-          totalCount={page.data.length}
-          onToggleAll={handleToggleAll}
-          onClearSelection={handleClearSelection}
-          actions={bulkActions.map((a) => ({
-            label: a.label,
-            icon: a.icon ?? Trash2,
-            variant: a.variant,
-            disabled: a.disabled,
-            onClick: () => {
-              void a.onAction(Array.from(selectedIds));
-            },
-          }))}
-        />
+      filters={renderSlot(
+        DataFilters,
+        slots?.filters,
+        {
+          search: page.filterConfig.search,
+          onSearchChange: handleSearchChange,
+          searchPlaceholder,
+          sort: page.filterConfig.sort,
+          onSortChange: handleSortSelect,
+          sortOptions: page.filterConfig.sortOptions,
+          filters: filtersProp,
+          statusChips: statusChipsConfig,
+          savedViews,
+          onLoadView,
+          onSaveView,
+          onDeleteView,
+          canSaveViews,
+          onClearAll: page.hasActiveFilters ? handleClearFilters : undefined,
+        },
+        slotProps?.filters,
       )}
+      {...shellSlotProps}
+      className={cn(className, shellSlotProps?.className)}
+    >
+      {bulkActions &&
+        bulkActions.length > 0 &&
+        renderSlot(
+          DataBulkBar,
+          slots?.bulkBar,
+          {
+            selected: selectedIds,
+            totalCount: page.data.length,
+            onToggleAll: handleToggleAll,
+            onClearSelection: handleClearSelection,
+            actions: bulkActions.map((a) => ({
+              label: a.label,
+              icon: a.icon ?? Trash2,
+              variant: a.variant,
+              disabled: a.disabled,
+              testId: a.testId,
+              onClick: () => {
+                void a.onAction(Array.from(selectedIds));
+              },
+            })),
+          },
+          slotProps?.bulkBar,
+        )}
 
-      <DataGrid<T>
-        items={page.data}
-        viewMode={page.viewMode}
-        gridCols={gridColsProp}
-        getKey={(item) => String((item as Record<string, unknown>).id ?? "")}
-        focusedIndex={keyboardNav.focusedIndex}
-        keyboardContainerRef={keyboardNav.containerRef}
-        renderTable={(items) =>
+      {renderSlot(
+        DataGrid<T>,
+        slots?.grid,
+        {
+          items: page.data,
+          viewMode: page.viewMode,
+          gridCols: gridColsProp,
+          getKey: (item: T) =>
+            String((item as Record<string, unknown>).id ?? ""),
+          focusedIndex: keyboardNav.focusedIndex,
+          keyboardContainerRef: keyboardNav.containerRef,
+          renderTable: (items: T[]) =>
           renderTableProp ? (
             renderTableProp(items)
           ) : (
-            <DataTable<T>
-              items={items}
-              columns={tableColumns}
-              getKey={(item) =>
-                String((item as Record<string, unknown>).id ?? "")
-              }
-              onRowClick={detail !== "none" ? handleRowClick : undefined}
-              selectable={!!bulkActions && bulkActions.length > 0}
-              selected={selectedIds}
-              onToggleSelect={handleToggleSelect}
-              onToggleAll={handleToggleAll}
-              density={settings.density}
-              pageSize={effectivePageSize}
-              pageSizeOptions={pageSizeOptions}
-              columnVisibility={columnVisibility}
-              columnVisibilityKey={columnVisibilityKey}
-              resizableColumns={resizableColumns}
-              resizeKey={resizeKey}
-              stickyHeader={stickyHeader}
-              stickyFirstColumn={stickyFirstColumn}
-              // The server already cut the page window; DataTable's own
-              // pagination would slice the slice.
-              pagination={isServerControlled ? false : undefined}
-            />
+            renderSlot(
+              DataTable<T>,
+              slots?.table,
+              {
+                items,
+                columns: tableColumns,
+                getKey: (item: T) =>
+                  String((item as Record<string, unknown>).id ?? ""),
+                onRowClick: detail !== "none" ? handleRowClick : undefined,
+                selectable: !!bulkActions && bulkActions.length > 0,
+                selected: selectedIds,
+                onToggleSelect: handleToggleSelect,
+                onToggleAll: handleToggleAll,
+                density: settings.density,
+                pageSize: effectivePageSize,
+                pageSizeOptions,
+                columnVisibility,
+                columnVisibilityKey,
+                resizableColumns,
+                resizeKey,
+                stickyHeader,
+                stickyFirstColumn,
+                // The server already cut the page window; DataTable's own
+                // pagination would slice the slice.
+                pagination: isServerControlled ? false : undefined,
+              },
+              slotProps?.table,
+            )
           )
-        }
-        renderCard={(item, index) =>
-          renderCardProp
-            ? renderCardProp(item, index, cardActionsFor(item))
-            : renderDefaultCard(item)
-        }
-        renderListItem={(item, index) =>
-          renderCardProp
-            ? renderCardProp(item, index, cardActionsFor(item))
-            : renderDefaultListItem(item)
-        }
-      />
+          ,
+          renderCard: (item: T, index: number) =>
+            renderCardProp
+              ? renderCardProp(item, index, cardActionsFor(item))
+              : renderDefaultCard(item),
+          renderListItem: (item: T, index: number) =>
+            renderCardProp
+              ? renderCardProp(item, index, cardActionsFor(item))
+              : renderDefaultListItem(item),
+        },
+        slotProps?.grid,
+      )}
 
       {/* Server-driven pager. Rendered only when `onPageChange` is supplied —
           without a handler the buttons would be decoration, and a control
@@ -1283,57 +1377,66 @@ export function ResourcePage<
           edit/delete affordances) instead of ResourcePage hand-rolling a
           second Dialog. */}
       {(detail === "panel" || detail === "modal") && (
-        <DetailPanel<T>
-          item={page.selectedItem}
-          open={page.detailOpen}
-          onClose={() => {
-            page.setDetailOpen(false);
-            page.setSelectedItem(null);
-          }}
-          title={detailTitle}
-          subtitle={detailSubtitle}
-          onEdit={onEdit ?? (useBuiltInEdit ? handleEdit : undefined)}
-          onDelete={onDelete}
-          fields={detailFields}
-          width={detailWidth}
-          layout={detail === "modal" ? "dialog" : "sheet"}
-        >
-          {renderDetailProp ? (item: T) => renderDetailProp(item) : undefined}
-        </DetailPanel>
+        renderSlot(
+          DetailPanel<T>,
+          slots?.detail,
+          {
+            item: page.selectedItem,
+            open: page.detailOpen,
+            onClose: () => {
+              page.setDetailOpen(false);
+              page.setSelectedItem(null);
+            },
+            title: detailTitle,
+            subtitle: detailSubtitle,
+            onEdit: onEdit ?? (useBuiltInEdit ? handleEdit : undefined),
+            onDelete,
+            fields: detailFields,
+            width: detailWidth,
+            layout: detail === "modal" ? "dialog" : "sheet",
+            children: renderDetailProp
+              ? (item: T) => renderDetailProp(item)
+              : undefined,
+          },
+          slotProps?.detail,
+        )
       )}
       {/* Built-in create/edit form */}
       {(useBuiltInCreate || useBuiltInEdit) && resourceName && (
-        <ResourceForm
-          resource={resourceName}
-          action={formAction}
-          layout={
-            formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog")
-          }
-          mode={formMode}
-          steps={formSteps}
-          item={
-            formAction === "edit"
-              ? ((formItem as Record<string, unknown> | null) ?? undefined)
-              : page.data.length > 0
-                ? Object.fromEntries(
-                    Object.keys(page.data[0] as Record<string, unknown>)
-                      .filter((k) => k !== "id")
-                      .map((k) => [k, ""]),
-                  )
-                : undefined
-          }
-          open={formOpen}
-          onOpenChange={setFormOpen}
-          fields={formFields}
-          listData={page.data as Record<string, unknown>[]}
-          renderForm={renderFormProp}
-          onSuccess={() => {
-            // Data auto-refreshes via TanStack Query invalidation in useResourceForm
-            page.setDetailOpen(false);
-            page.setSelectedItem(null);
-          }}
-        />
+        renderSlot(
+          ResourceForm,
+          slots?.form,
+          {
+            resource: resourceName,
+            action: formAction,
+            layout:
+              formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog"),
+            mode: formMode,
+            steps: formSteps,
+            item:
+              formAction === "edit"
+                ? ((formItem as Record<string, unknown> | null) ?? undefined)
+                : page.data.length > 0
+                  ? Object.fromEntries(
+                      Object.keys(page.data[0] as Record<string, unknown>)
+                        .filter((k) => k !== "id")
+                        .map((k) => [k, ""]),
+                    )
+                  : undefined,
+            open: formOpen,
+            onOpenChange: setFormOpen,
+            fields: formFields,
+            listData: page.data as Record<string, unknown>[],
+            renderForm: renderFormProp,
+            onSuccess: () => {
+              // Data auto-refreshes via TanStack Query invalidation in useResourceForm
+              page.setDetailOpen(false);
+              page.setSelectedItem(null);
+            },
+          },
+          slotProps?.form,
+        )
       )}
-    </DataPageShell>
+    </Shell>
   );
 }
