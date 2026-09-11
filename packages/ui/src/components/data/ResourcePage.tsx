@@ -373,6 +373,13 @@ export interface ResourcePageProps<
     icon?: LucideIcon;
     variant?: "default" | "destructive";
     onAction: (ids: string[]) => void | Promise<void>;
+    /**
+     * Forwarded straight to the rendered bulk button (see `BulkAction`).
+     * Exists so a consumer can kill every bulk action while one of them is
+     * in flight — an early return inside `onAction` blocks the second call
+     * but leaves the button looking live, which misstates what it will do.
+     */
+    disabled?: boolean;
   }>;
 
   // Grid/list rendering + keyboard nav
@@ -1136,6 +1143,7 @@ export function ResourcePage<
             label: a.label,
             icon: a.icon ?? Trash2,
             variant: a.variant,
+            disabled: a.disabled,
             onClick: () => {
               void a.onAction(Array.from(selectedIds));
             },
