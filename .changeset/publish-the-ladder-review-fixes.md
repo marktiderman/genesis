@@ -24,5 +24,16 @@ something other than what the prop's own documentation promised.
   without a shell root. The type now says so: `shell` takes a component, never
   `null`, matching what the class doc already claimed.
 
-No API is added or changed. A caller who never ejected a part sees identical
-output.
+No runtime behaviour changes for a caller who never ejected a part, and the
+second fix changes no runtime behaviour at all — `null` already fell through to
+the default; only the type stopped permitting it.
+
+**One type-level narrowing, called out because it is not visible at runtime.**
+In 2.3.0 `ResourcePageSlots` was `Slots<ResourcePageSlotMap<T>>`, so `shell`
+accepted `null` like every other part. It is now
+`Omit<Slots<…>, "shell"> & { shell?: ComponentType<…> }`. A consumer who wrote
+`slots={{ shell: null }}` compiled on 2.3.0 and will not compile on 2.3.1 —
+they should drop the key, which is what that code already did at runtime. Kept
+as a patch deliberately: the previous type described an eject the
+implementation never performed, so this is the type being corrected to match
+shipped behaviour rather than behaviour being taken away.
