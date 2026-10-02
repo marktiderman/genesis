@@ -1,5 +1,17 @@
 # @marktiderman/genesis-ui
 
+## 2.3.2
+
+### Patch Changes
+
+- **`useIsMobile` no longer mismatches on hydration.** It read `window.innerWidth`
+  in its initial state, so on a phone the first client render said `true` while
+  the server's HTML had rendered `false`, and every caller that branched on it
+  hydrated against different markup. It now reads the viewport through
+  `useSyncExternalStore` with a `false` server snapshot: hydration renders what
+  the server rendered, then React re-renders with the viewport's answer. Callers
+  that gated their mount to dodge the mismatch can drop the gate.
+
 ## 2.3.1
 
 ### Patch Changes

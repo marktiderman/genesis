@@ -1,25 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
 
 const MOBILE_BREAKPOINT = 768;
+const MOBILE_QUERY = `(max-width: ${MOBILE_BREAKPOINT - 1}px)`;
 
+function subscribe(onChange: () => void): () => void {
+  const mql = window.matchMedia(MOBILE_QUERY);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
+
+function getSnapshot(): boolean {
+  return window.matchMedia(MOBILE_QUERY).matches;
+}
+
+/**
+ * The server has no viewport, so it renders desktop. React hydrates against
+ * this same `false` and only then re-renders with the viewport's answer, so a
+ * phone's first client render matches the server's HTML.
+ */
+function getServerSnapshot(): boolean {
+  return false;
+}
+
+/** Whether the viewport is narrower than the mobile breakpoint (768px). */
 export function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.innerWidth < MOBILE_BREAKPOINT;
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    mql.addEventListener("change", onChange);
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-
-  return isMobile;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

@@ -1,5 +1,12 @@
 # @marktiderman/genesis
 
+## 0.5.4
+
+### Patch Changes
+
+- Updated dependencies
+  - @marktiderman/genesis-ui@2.3.2
+
 ## 0.5.3
 
 ### Patch Changes
