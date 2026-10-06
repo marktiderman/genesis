@@ -1,5 +1,11 @@
 export { DataPageShell, type DataPageShellProps } from "./DataPageShell";
-export { DataFilters, type DataFilterConfig, type SavedViewItem } from "./DataFilters";
+export {
+  DataFilters,
+  type DataFilterConfig,
+  type SavedViewItem,
+  type StatusChipOption,
+  type StatusChipsVariant,
+} from "./DataFilters";
 export { DataGrid } from "./DataGrid";
 export {
   DataTable,

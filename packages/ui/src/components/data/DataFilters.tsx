@@ -54,6 +54,19 @@ export interface SavedViewItem {
   filters: Record<string, unknown>;
 }
 
+/**
+ * One status chip. A plain string is shorthand for `{ value, label: value }`.
+ * `count` renders as a muted number after the label.
+ */
+export interface StatusChipOption {
+  value: string;
+  label?: string;
+  count?: number;
+}
+
+/** Rendering of the status chips — a row of pills, or one segmented strip. */
+export type StatusChipsVariant = "chips" | "tabs";
+
 interface DataFiltersProps {
   search: string;
   onSearchChange: (value: string) => void;
@@ -64,9 +77,16 @@ interface DataFiltersProps {
   filters?: DataFilterConfig[];
   /** Status chip toggles */
   statusChips?: {
-    options: string[];
+    options: Array<string | StatusChipOption>;
     selected: string[];
     onChange: (values: string[]) => void;
+    /**
+     * `"chips"` (default) renders pills inside the filter row. `"tabs"`
+     * renders a segmented strip on its own row above the search row —
+     * the same border-and-fill look as `ViewToggle`. Selection is
+     * multi-select in both.
+     */
+    variant?: StatusChipsVariant;
   };
   /** Saved views */
   savedViews?: SavedViewItem[];
@@ -112,6 +132,16 @@ export function DataFilters({
     filters.some((f) => f.selected.length > 0) ||
     (statusChips?.selected.length ?? 0) > 0;
 
+  // Plain strings and option objects normalise to one shape so both render
+  // paths below read `value`/`label`/`count` without re-checking.
+  const statusOptions: Array<{ value: string; label: string; count?: number }> =
+    (statusChips?.options ?? []).map((o) =>
+      typeof o === "string"
+        ? { value: o, label: o }
+        : { value: o.value, label: o.label ?? o.value, count: o.count },
+    );
+  const statusVariant: StatusChipsVariant = statusChips?.variant ?? "chips";
+
   const toggleStatus = (status: string) => {
     if (!statusChips) return;
     const { selected, onChange } = statusChips;
@@ -132,6 +162,39 @@ export function DataFilters({
 
   return (
     <div className="space-y-3">
+      {/* Status tabs row — a segmented strip above everything else */}
+      {statusChips && statusVariant === "tabs" && (
+        <div
+          className="flex items-center border rounded-lg overflow-hidden w-fit max-w-full"
+          role="group"
+          aria-label="Status"
+          data-testid="status-tabs"
+        >
+          {statusOptions.map((o) => {
+            const pressed = statusChips.selected.includes(o.value);
+            return (
+              <Button
+                key={o.value}
+                type="button"
+                variant={pressed ? "default" : "ghost"}
+                size="sm"
+                className="h-8 rounded-none gap-1.5"
+                onClick={() => toggleStatus(o.value)}
+                aria-pressed={pressed}
+                testID={`status-tab-${o.value}`}
+              >
+                {o.label}
+                {o.count !== undefined && (
+                  <span className="text-[10px] tabular-nums opacity-70">
+                    {o.count}
+                  </span>
+                )}
+              </Button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Search + Sort row */}
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
@@ -240,22 +303,33 @@ export function DataFilters({
         )}
 
         {/* Status chips */}
-        {statusChips && (
+        {statusChips && statusVariant === "chips" && (
           <div className="flex items-center gap-1 mr-1">
-            {statusChips.options.map((s) => (
-              <button
-                key={s}
-                onClick={() => toggleStatus(s)}
-                className={cn(
-                  "text-xs px-2.5 py-1 rounded-full border transition-all font-medium",
-                  statusChips.selected.includes(s)
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground border-border hover:border-primary/40",
-                )}
-              >
-                {s}
-              </button>
-            ))}
+            {statusOptions.map((o) => {
+              const pressed = statusChips.selected.includes(o.value);
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => toggleStatus(o.value)}
+                  aria-pressed={pressed}
+                  data-testid={`status-chip-${o.value}`}
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-full border transition-all font-medium",
+                    pressed
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:border-primary/40",
+                  )}
+                >
+                  {o.label}
+                  {o.count !== undefined && (
+                    <span className="ml-1 text-[10px] tabular-nums opacity-70">
+                      {o.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
