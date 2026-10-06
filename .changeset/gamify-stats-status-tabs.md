@@ -13,3 +13,5 @@ Purely additive — every new prop and option is optional and defaults to today'
 - **`DataFilters.statusChips.variant: "chips" | "tabs"`.** `"tabs"` (default `"chips"`) renders the same options as one segmented strip — `role="group"`, `aria-label="Status"`, the border-and-fill look `ViewToggle` already uses — on its own row above the search row. Selection stays multi-select; each segment reports `aria-pressed` and carries `data-testid="status-tab-<value>"`.
 
 New exported types from `/data`: `StatusChipOption`, `StatusChipsVariant`.
+
+The tarball now also ships `SKILL.md`, an agent-facing guide to the ladder, the layer contract, and which export to reach for first.

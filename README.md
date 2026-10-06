@@ -62,7 +62,7 @@ The **eject button** is `null` — `slots={{ bulkBar: null }}` drops a part enti
 
 Dropping to rung 3 because one part was wrong means re-deriving all the wiring that was already correct, and that re-derivation is where forks come from. **When a downstream app hand-builds something genesis nearly had, that is the bug report.**
 
-Full detail, plus the rules that keep this true: [`packages/ui/EXTENDING.md`](./packages/ui/EXTENDING.md).
+Full detail, plus the rules that keep this true: [`packages/ui/EXTENDING.md`](./packages/ui/EXTENDING.md). Agents building on Genesis load [`packages/ui/SKILL.md`](./packages/ui/SKILL.md), which ships in the `genesis-ui` tarball.
 
 ## Packages
 
