@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 124 components · 332 other exports · 133 standalone types across 5 packages.
+**Totals:** 124 components · 333 other exports · 136 standalone types across 5 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -210,7 +210,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (241)
+### Other exports (242)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -401,6 +401,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Progress`](../packages/ui/src/components/ui/progress.tsx) | value | — | _(no summary)_ |
 | [`RadioGroup`](../packages/ui/src/components/ui/radio-group.tsx) | value | — | _(no summary)_ |
 | [`RadioGroupItem`](../packages/ui/src/components/ui/radio-group.tsx) | value | — | _(no summary)_ |
+| [`renderSlot`](../packages/ui/src/slots.tsx) | function | — | Renders one slot: the override if given, the default otherwise, nothing if ejected with `null`. |
 | [`ResizableHandle`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanel`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanelGroup`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
@@ -458,7 +459,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 
-### Types (13)
+### Types (16)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -472,6 +473,9 @@ export type { LinkComponent };
 export type { NavigateFn };
 export type { SearchParamsAdapter };
 export type { SettingsPageSection };
+export type { SlotOverride };
+export type { SlotPropsFor };
+export type { Slots };
 export type { SpaceToken };
 export type { SplitBreakpoint };
 export type { SplitRatio };
