@@ -6,7 +6,7 @@
  * those must render exactly as before. The object form and the `"tabs"`
  * variant are additive on top of that.
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataFilters } from "../DataFilters";
@@ -32,12 +32,12 @@ describe("DataFilters — status chips", () => {
       />,
     );
 
-    const active = screen.getByTestId("status-chip-Active");
+    const active = screen.getByRole("button", { name: "Active" });
     expect(active.textContent).toBe("Active");
     expect(active.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByTestId("status-chip-Draft").getAttribute("aria-pressed")).toBe(
-      "false",
-    );
+    expect(
+      screen.getByRole("button", { name: "Draft" }).getAttribute("aria-pressed"),
+    ).toBe("false");
     expect(screen.queryByTestId("status-tabs")).toBeNull();
   });
 
@@ -56,11 +56,13 @@ describe("DataFilters — status chips", () => {
       />,
     );
 
-    const active = screen.getByTestId("status-chip-active");
+    const active = screen.getByRole("button", { name: /^Active/ });
     expect(active.textContent).toContain("Active");
     expect(active.textContent).toContain("12");
     // No label → the value is the label; no count → nothing after it.
-    expect(screen.getByTestId("status-chip-draft").textContent).toBe("draft");
+    expect(screen.getByRole("button", { name: "draft" }).textContent).toBe(
+      "draft",
+    );
   });
 
   it("toggles by value, not label", () => {
@@ -76,7 +78,7 @@ describe("DataFilters — status chips", () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId("status-chip-active"));
+    fireEvent.click(screen.getByRole("button", { name: "Active" }));
     expect(onChange).toHaveBeenCalledWith(["active"]);
   });
 
@@ -101,8 +103,8 @@ describe("DataFilters — status chips", () => {
     expect(strip.getAttribute("data-testid")).toBe("status-tabs");
     expect(screen.queryByTestId("status-chip-active")).toBeNull();
 
-    const active = screen.getByTestId("status-tab-active");
-    const draft = screen.getByTestId("status-tab-draft");
+    const active = within(strip).getByRole("button", { name: /^Active/ });
+    const draft = within(strip).getByRole("button", { name: /^Draft/ });
     expect(active.getAttribute("aria-pressed")).toBe("true");
     expect(draft.getAttribute("aria-pressed")).toBe("false");
     expect(active.textContent).toContain("12");

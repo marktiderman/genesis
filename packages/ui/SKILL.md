@@ -59,23 +59,23 @@ report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 
 ## Reach for this first
 
-| You need | Use | Import from |
-| --- | --- | --- |
-| App skeleton: nav, header, content | `AppShell` | `@marktiderman/genesis-ui/layout` |
-| Page title row with count, view toggle, options | `PageHeader` (+ `options.configurable` for the in-header options popover) | `/layout` |
-| List page chrome: header, filters, loading/empty/error | `DataPageShell` (`stats`, `filters` slots) | `/data` |
-| A whole CRUD list page over a resource | `ResourcePage` | `/data` |
-| Record detail side panel | `DetailPanel` | `/data` |
-| Dashboard / settings / form / detail page shape | `DashboardPage`, `SettingsPage`, `FormPage`, `DetailPage` | `/dashboard-page`, `/settings-page`, `/form-page`, `/detail-page` |
-| KPI tile | `StatCard` | `/data` |
-| Table cells: dates, numbers, money, badges, links, thumbnails | `DateCell`, `NumberCell`, `CurrencyCell`, `BadgeCell`, `LinkCell`, `ThumbnailCell` | `/data` |
-| Search, sort, filters, status chips/tabs, saved views | `DataFilters` | `/data` |
-| Create/edit form bound to a resource | `ResourceForm` / `useResourceForm` | `/data` / `/hooks/*` |
-| Nothing-here state with optional clear-filters | `EmptyState` | `/empty-state` |
-| Settings list rows | `SettingsRow`, `ToggleRow` | `/settings-row`, `/toggle-row` |
-| Cmd-K palette | `CommandPalette`, `useCommandPaletteHotkey` | `/command-palette` |
-| Arrow-key list navigation | `useKeyboardNavigation` | `/hooks/use-keyboard-navigation` |
-| Persisted page size / density | `useViewSettings` | `/hooks/use-view-settings` |
+| You need                                                      | Use                                                                                | Import from                                                       |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| App skeleton: nav, header, content                            | `AppShell`                                                                         | `@marktiderman/genesis-ui/layout`                                 |
+| Page title row with count, view toggle, options               | `PageHeader` (+ `options.configurable` for the in-header options popover)          | `/layout`                                                         |
+| List page chrome: header, filters, loading/empty/error        | `DataPageShell` (`stats`, `filters` slots)                                         | `/data`                                                           |
+| A whole CRUD list page over a resource                        | `ResourcePage`                                                                     | `/data`                                                           |
+| Record detail side panel                                      | `DetailPanel`                                                                      | `/data`                                                           |
+| Dashboard / settings / form / detail page shape               | `DashboardPage`, `SettingsPage`, `FormPage`, `DetailPage`                          | `/dashboard-page`, `/settings-page`, `/form-page`, `/detail-page` |
+| KPI tile                                                      | `StatCard`                                                                         | `/data`                                                           |
+| Table cells: dates, numbers, money, badges, links, thumbnails | `DateCell`, `NumberCell`, `CurrencyCell`, `BadgeCell`, `LinkCell`, `ThumbnailCell` | `/data`                                                           |
+| Search, sort, filters, status chips/tabs, saved views         | `DataFilters`                                                                      | `/data`                                                           |
+| Create/edit form bound to a resource                          | `ResourceForm` / `useResourceForm`                                                 | `/data` / `@marktiderman/genesis-core/hooks`                      |
+| Nothing-here state with optional clear-filters                | `EmptyState`                                                                       | `/empty-state`                                                    |
+| Settings list rows                                            | `SettingsRow`, `ToggleRow`                                                         | `/settings-row`, `/toggle-row`                                    |
+| Cmd-K palette                                                 | `CommandPalette`, `useCommandPaletteHotkey`                                        | `/command-palette`                                                |
+| Arrow-key list navigation                                     | `useKeyboardNavigation`                                                            | `/hooks/use-keyboard-navigation`                                  |
+| Persisted page size / density                                 | `useViewSettings`                                                                  | `/hooks/use-view-settings`                                        |
 
 ## Import rule
 

@@ -12,17 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "../ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import {
   Search,
   X,
@@ -165,7 +156,7 @@ export function DataFilters({
       {/* Status tabs row — a segmented strip above everything else */}
       {statusChips && statusVariant === "tabs" && (
         <div
-          className="flex items-center border rounded-lg overflow-hidden w-fit max-w-full"
+          className="flex items-center border rounded-lg overflow-x-auto w-fit max-w-full"
           role="group"
           aria-label="Status"
           data-testid="status-tabs"
