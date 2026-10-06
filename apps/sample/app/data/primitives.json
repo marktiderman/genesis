@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11",
+  "generatedAt": "2026-10-06",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -8324,7 +8324,7 @@
             },
             {
               "name": "statusChips",
-              "type": "{ options: string[]; selected: string[]; onChange: (values: string[]) => void; }",
+              "type": "{ options: (string | StatusChipOption)[]; selected: string[]; onChange: (values: string[]) => void; variant?: StatusChipsVariant; }",
               "required": false,
               "defaultValue": null,
               "description": "Status chip toggles"
@@ -8711,6 +8711,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Extra actions, rendered in the header's one overflow menu."
+            },
+            {
+              "name": "stats",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Slot for a stat cards row. Forwarded to the header, which renders it\nfull width under the title block and above the filters — but only when\n`headerOptions.showStats` is on (default off), so a page that gains\n`stats` shows nothing new until the developer or user opts in."
             },
             {
               "name": "subtitle",
@@ -11037,6 +11044,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Additional actions, rendered in ONE overflow menu — never as more\nside-by-side buttons.\n\nThe budget is the point. A header with three top-level buttons squeezes\nits own title to an ellipsis at real viewport widths, so a surface that\ngenuinely has four actions needs somewhere to put the other three. Before\nthis existed the only place was a fork of the header, which is exactly\nwhat one consumer did.\n\nPass `ReactNode` via `actions` instead when you need arbitrary chrome;\nthis prop is for the ordinary case, and it keeps the budget for you."
+            },
+            {
+              "name": "stats",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Stat cards row, full width, directly under the title block and above\n`details`. Layout-only: pass `<StatCard>`s (or anything else) and the\nheader positions them. Rendered only when `options.showStats` resolves\ntrue — see {@link PageHeaderOptions.showStats}."
             },
             {
               "name": "subtitle",

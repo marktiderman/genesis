@@ -52,6 +52,92 @@ describe("PageHeader options", () => {
     expect(screen.getByText("1 row")).toBeTruthy();
     expect(screen.queryByText("1 rows")).toBeNull();
   });
+
+  describe("stats row", () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it("hides `stats` by default — upgrading adds no chrome", () => {
+      render(
+        <PageHeader
+          title="Rows"
+          stats={<div>stat-card</div>}
+          options={{ configurable: false }}
+        />,
+      );
+
+      expect(screen.queryByTestId("page-header-stats")).toBeNull();
+      expect(screen.queryByText("stat-card")).toBeNull();
+    });
+
+    it("renders the stats row under the title when showStats is on", () => {
+      render(
+        <PageHeader
+          title="Rows"
+          stats={<div>stat-card</div>}
+          options={{ showStats: true, configurable: false }}
+        />,
+      );
+
+      const row = screen.getByTestId("page-header-stats");
+      expect(row.textContent).toContain("stat-card");
+      // Directly under the title block: the element before the stats row is
+      // the title row itself, not something between them.
+      expect(
+        row.previousElementSibling!.contains(screen.getByTestId("page-title")),
+      ).toBe(true);
+    });
+
+    it("keeps the stats row above the details region", () => {
+      render(
+        <PageHeader
+          title="Rows"
+          stats={<div>stat-card</div>}
+          details={<div>filters</div>}
+          options={{
+            showStats: true,
+            defaultDetailsOpen: true,
+            configurable: false,
+          }}
+        />,
+      );
+
+      const row = screen.getByTestId("page-header-stats");
+      const details = screen.getByText("filters");
+      expect(
+        row.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("offers the Stat cards toggle only when stats are passed", () => {
+      const { unmount } = render(
+        <PageHeader
+          title="Rows"
+          count={1}
+          totalCount={1}
+          options={{ configurable: true }}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("page-header-options"));
+      expect(screen.queryByLabelText("Stat cards")).toBeNull();
+      unmount();
+
+      render(
+        <PageHeader
+          title="Rows"
+          stats={<div>stat-card</div>}
+          options={{ configurable: true }}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("page-header-options"));
+      const toggle = screen.getByLabelText("Stat cards");
+      expect(toggle.getAttribute("aria-checked")).toBe("false");
+
+      fireEvent.click(toggle);
+      expect(screen.getByTestId("page-header-stats")).toBeTruthy();
+    });
+  });
 });
 
 describe("AppShell options", () => {

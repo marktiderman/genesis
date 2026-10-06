@@ -22,7 +22,8 @@
     "dist",
     "!dist/metafile-*.json",
     "README.md",
-    "EXTENDING.md"
+    "EXTENDING.md",
+    "SKILL.md"
   ],
   "scripts": {
     "build": "tsup && node scripts/stamp-use-client.mjs && node ../../scripts/check-exports-resolve.mjs",
