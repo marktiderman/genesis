@@ -41,6 +41,12 @@ export interface PageHeaderOptions {
   showViewToggle?: boolean;
   showViewSettings?: boolean;
   showCreate?: boolean;
+  /**
+   * Stat cards row under the title block. Off by default — a header that
+   * receives `stats` still hides them until the developer or the user turns
+   * this on, so an existing page gains no new chrome by upgrading.
+   */
+  showStats?: boolean;
   /** Ghost ListFilter control in the actions cluster */
   showDetailsToggle?: boolean;
   /** Quiet hint beside actions while details are collapsed */
@@ -75,6 +81,7 @@ const OPTION_DEFAULTS: Required<
   showViewToggle: true,
   showViewSettings: true,
   showCreate: true,
+  showStats: false,
   showDetailsToggle: true,
   showDetailsHint: true,
   subtitleInDetails: undefined,
@@ -90,6 +97,7 @@ const BOOLEAN_OPTION_KEYS: PageHeaderOptionKey[] = [
   "showViewToggle",
   "showViewSettings",
   "showCreate",
+  "showStats",
   "showDetailsToggle",
   "showDetailsHint",
   "subtitleInDetails",
@@ -146,6 +154,13 @@ export interface PageHeaderProps {
   optionsStorageKey?: string;
   /** Extra trailing actions (after create); prefer first-class slots below */
   actions?: ReactNode;
+  /**
+   * Stat cards row, full width, directly under the title block and above
+   * `details`. Layout-only: pass `<StatCard>`s (or anything else) and the
+   * header positions them. Rendered only when `options.showStats` resolves
+   * true — see {@link PageHeaderOptions.showStats}.
+   */
+  stats?: ReactNode;
   /** Collapsible details region below the title row */
   details?: ReactNode;
   detailsOpen?: boolean;
@@ -194,6 +209,7 @@ export function PageHeader({
   options: optionsProp,
   optionsStorageKey,
   actions,
+  stats,
   details,
   detailsOpen,
   onDetailsOpenChange,
@@ -214,6 +230,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   const detailsRegionId = useId();
   const hasDetails = details != null;
+  const hasStats = stats != null;
   const hasCount = count !== undefined && totalCount !== undefined;
   const hasViewToggle = Boolean(viewMode && onViewModeChange);
   const hasViewSettings = Boolean(onPageSizeChange && onDensityChange);
@@ -261,13 +278,14 @@ export function PageHeader({
     }
     if (merged.configurable === undefined) {
       merged.configurable =
-        hasDetails || hasCount || hasViewSettings || hasViewToggle;
+        hasDetails || hasStats || hasCount || hasViewSettings || hasViewToggle;
     }
     return merged;
   }, [
     optionsProp,
     userOverrides,
     hasDetails,
+    hasStats,
     hasCount,
     hasViewSettings,
     hasViewToggle,
@@ -313,6 +331,7 @@ export function PageHeader({
         available: hasViewSettings,
       },
       { key: "showCreate", label: "Create action", available: hasCreate },
+      { key: "showStats", label: "Stat cards", available: hasStats },
       {
         key: "showDetailsToggle",
         label: "Filters / details",
@@ -328,6 +347,7 @@ export function PageHeader({
 
   const showDetailsToggle =
     hasDetails && Boolean(resolved.showDetailsToggle);
+  const showStats = hasStats && Boolean(resolved.showStats);
   const showHint =
     hasDetails &&
     !open &&
@@ -519,13 +539,28 @@ export function PageHeader({
     </div>
   );
 
+  const statsRow = showStats ? (
+    <div
+      data-testid="page-header-stats"
+      className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+    >
+      {stats}
+    </div>
+  ) : null;
+
   if (!hasDetails) {
-    return titleRow;
+    return (
+      <>
+        {titleRow}
+        {statsRow}
+      </>
+    );
   }
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       {titleRow}
+      {statsRow}
       <CollapsibleContent id={detailsRegionId} className="mt-3">
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/40 p-3 sm:p-4">
           {moveSubtitle && subtitle && resolved.showSubtitle !== false ? (

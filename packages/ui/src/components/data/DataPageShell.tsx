@@ -44,6 +44,13 @@ export interface DataPageShellProps {
   onPageSizeChange?: (size: number) => void;
   density?: Density;
   onDensityChange?: (density: Density) => void;
+  /**
+   * Slot for a stat cards row. Forwarded to the header, which renders it
+   * full width under the title block and above the filters — but only when
+   * `headerOptions.showStats` is on (default off), so a page that gains
+   * `stats` shows nothing new until the developer or user opts in.
+   */
+  stats?: ReactNode;
   /** Slot for filter bar */
   filters?: ReactNode;
   /** Whether filters are currently active */
@@ -103,6 +110,7 @@ export function DataPageShell({
   onPageSizeChange,
   density,
   onDensityChange,
+  stats,
   filters,
   hasActiveFilters = false,
   onClearFilters,
@@ -152,6 +160,7 @@ export function DataPageShell({
     onDensityChange,
     createAction,
     secondaryActions,
+    stats,
     optionsStorageKey: headerOptionsStorageKey,
   };
 
