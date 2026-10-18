@@ -64,7 +64,7 @@ function color(name: string, light: Value, dark: Value = light): ThemeVar {
 }
 
 function font(key: keyof FontFamilies): ThemeVar {
-  const value: Value = (r) => formatFontStack(r.fonts[key]);
+  const value: Value = (r) => r.fonts[key];
   return { name: `font-${key}`, kind: "font", light: value, dark: value };
 }
 
@@ -143,35 +143,62 @@ const TAILWIND_COLOR_ALIASES: Readonly<Record<string, string>> = {
 };
 
 /**
- * Quote multi-word family names (`Space Grotesk` → `"Space Grotesk"`).
- * Already-quoted entries and single-word names/generic keywords pass through.
+ * Normalize a font stack: double-quote multi-word family names
+ * (`Space Grotesk` or `'Space Grotesk'` → `"Space Grotesk"`); single-word
+ * names and generic keywords stay bare. Accepts a DTCG array or a
+ * comma-separated string, and is idempotent, so Style Dictionary's
+ * `fontFamily/css` output and the raw token value render identically.
  */
-export function formatFontStack(stack: string): string {
-  return stack
-    .split(",")
-    .map((entry) => entry.trim())
+export function formatFontStack(stack: string | readonly string[]): string {
+  const entries = typeof stack === "string" ? stack.split(",") : stack;
+  return entries
+    .map((entry) => entry.trim().replace(/^(["'])(.*)\1$/, "$2"))
     .filter(Boolean)
-    .map((entry) =>
-      /\s/.test(entry) && !/^(["']).*\1$/.test(entry) ? `"${entry}"` : entry
-    )
+    .map((entry) => (/\s/.test(entry) ? `"${entry}"` : entry))
     .join(", ");
 }
 
-/** Pull `font.family.{sans,display,mono}` out of a parsed typography.json. */
-export function fontFamiliesFromDtcg(doc: unknown): FontFamilies {
-  const family = (doc as { font?: { family?: Record<string, { $value?: unknown }> } })
-    ?.font?.family;
+/** A token as Style Dictionary hands it to a format (or as read from DTCG JSON). */
+export interface FontToken {
+  path: readonly string[];
+  $value?: unknown;
+  value?: unknown;
+}
+
+/**
+ * Pick `font.family.{sans,display,mono}` out of a token list. The build passes
+ * `dictionary.allTokens`, so aliases are already resolved.
+ */
+export function fontFamiliesFromTokens(tokens: readonly FontToken[]): FontFamilies {
   const out = {} as FontFamilies;
   for (const key of FONT_FAMILY_KEYS) {
-    const value = family?.[key]?.$value;
-    if (typeof value !== "string" || value.trim() === "") {
+    const token = tokens.find(
+      (t) => t.path.length === 3 && t.path[0] === "font" && t.path[1] === "family" && t.path[2] === key
+    );
+    const value = token?.$value ?? token?.value;
+    const isStack =
+      (typeof value === "string" && value.trim() !== "") ||
+      (Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === "string"));
+    if (!isStack) {
       throw new Error(
-        `[theme-css] typography.json is missing font.family.${key}.$value (a font stack string).`
+        `[theme-css] typography tokens are missing font.family.${key} (a font stack string or array).`
       );
     }
-    out[key] = value;
+    out[key] = formatFontStack(value as string | string[]);
   }
   return out;
+}
+
+/** Same as {@link fontFamiliesFromTokens}, from a parsed typography.json. */
+export function fontFamiliesFromDtcg(doc: unknown): FontFamilies {
+  const family = (doc as { font?: { family?: Record<string, { $value?: unknown }> } })
+    ?.font?.family ?? {};
+  return fontFamiliesFromTokens(
+    Object.entries(family).map(([key, token]) => ({
+      path: ["font", "family", key],
+      $value: token?.$value,
+    }))
+  );
 }
 
 function resolve(value: Value, r: Resolved): string {

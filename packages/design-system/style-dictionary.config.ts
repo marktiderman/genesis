@@ -19,10 +19,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  fontFamiliesFromDtcg,
+  fontFamiliesFromTokens,
   renderTailwind4Bridge,
   renderThemeCss,
-  type FontFamilies,
   type ThemeBrand,
 } from "./src/tokens/theme-css";
 
@@ -75,19 +74,14 @@ function round(n: number): number {
 //
 // The variable list and renderers live in src/tokens/theme-css.ts so the
 // Tailwind v4 bridge (genesis-tailwind4.css) and the tests share it. Font
-// stacks come from the typography tokens, never a literal here.
-
-function readFontFamilies(): FontFamilies {
-  const doc = JSON.parse(
-    readFileSync(join(__dirname, "tokens", "dtcg", "typography.json"), "utf-8")
-  );
-  return fontFamiliesFromDtcg(doc);
-}
+// stacks come from the typography tokens (via the dictionary, so aliases are
+// resolved), never a literal here.
 
 function shadcnCssFormat(brand: BrandDef) {
   return {
     name: `css/shadcn-${brand.name}`,
-    format: async () => renderThemeCss(brand, readFontFamilies()),
+    format: async ({ dictionary }: FormatFnArguments) =>
+      renderThemeCss(brand, fontFamiliesFromTokens(dictionary.allTokens)),
   };
 }
 

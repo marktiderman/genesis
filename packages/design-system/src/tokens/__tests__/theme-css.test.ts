@@ -56,11 +56,14 @@ describe("genesis.css font families", () => {
     expect(block(themeCss, ":root").get("--font-sans")).toMatch(/^"?Inter"?, /);
   });
 
-  it("quotes multi-word family names only", () => {
-    expect(formatFontStack("Space Grotesk, ui-sans-serif, sans-serif")).toBe(
-      '"Space Grotesk", ui-sans-serif, sans-serif'
-    );
-    expect(formatFontStack('"Inter", SF Mono')).toBe('"Inter", "SF Mono"');
+  it("quotes multi-word family names only, idempotently", () => {
+    const expected = '"Space Grotesk", ui-sans-serif, sans-serif';
+    expect(formatFontStack("Space Grotesk, ui-sans-serif, sans-serif")).toBe(expected);
+    // Style Dictionary's fontFamily/css transform single-quotes; DTCG allows arrays.
+    expect(formatFontStack("'Space Grotesk', ui-sans-serif, sans-serif")).toBe(expected);
+    expect(formatFontStack(["Space Grotesk", "ui-sans-serif", "sans-serif"])).toBe(expected);
+    expect(formatFontStack(expected)).toBe(expected);
+    expect(formatFontStack('"Inter", SF Mono')).toBe('Inter, "SF Mono"');
   });
 
   it("rejects a typography doc missing a family", () => {
