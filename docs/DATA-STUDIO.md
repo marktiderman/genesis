@@ -145,12 +145,27 @@ Write safety is built into Genesis, whatever the data source.
     inside the edit's transaction, and a worker delivers it afterwards. A log or callback can't be the
     sink directly, because it can't commit or roll back with the edit.
 
-  If the audit write fails, the edit rolls back and the user sees "not saved: audit failed". Outbox
-  delivery is at least once: it retries with backoff (configurable; default 10 attempts over about a
-  day), and each entry carries an id so the receiver can drop duplicates. An entry that still fails
-  moves to a dead-letter table, raises an alert, and stays there until it is replayed. Delivery never
-  blocks or undoes the edit, and an edit is never visible without its audit record: the entry is in the
-  database from the moment the edit commits, even while delivery is pending or dead-lettered.
+  If the audit write fails, the edit rolls back and the user sees "not saved: audit failed". Delivery
+  never blocks or undoes the edit, and an edit is never visible without its audit record: the entry is
+  in the database from the moment the edit commits, even while delivery is pending or dead-lettered.
+
+  **Tamper-proof.** Because the handler acts as the user, the user's own role must not be able to write
+  audit rows, or anyone could forge or erase them through the Data API. The audit table and the outbox
+  are written only by a `security definer` function with `search_path = ''`, kept in a schema the Data
+  API doesn't expose. `anon` and `authenticated` get no insert, update or delete on either table, and
+  only the delivery worker's role may mark outbox entries delivered. The function takes the actor from
+  the session (`auth.uid()`), never from an argument, so it can't repeat supasheet's `p_caller` mistake.
+  Under `database`, the app's own triggers must follow the same rules.
+
+  **Outbox delivery.** Delivery is at least once, so each entry carries a unique id and receivers drop
+  duplicates. Each entry also carries a per-record sequence number, and entries for one record are
+  delivered in order: if one fails, later entries for that record wait behind it while other records
+  keep flowing. Workers claim entries with a row lock that skips rows another worker holds, so two
+  workers never send the same entry at once. Failed attempts retry with exponential backoff and jitter
+  (configurable; default 10 attempts over about a day). An error that retrying can't fix, such as the
+  receiver rejecting the payload, skips the remaining attempts. Either way the entry moves to a
+  dead-letter table, raises an alert, and stays there until someone replays it, which resets its
+  attempts.
 
 - **Safe imports and real undo (P2).** Imports dry-run first and list every row that won't convert,
   then commit in one transaction. Undo issues a compensating write from the audit, so it works even
