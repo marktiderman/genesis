@@ -115,7 +115,9 @@ import { AppShell, ResourcePage, type LinkComponent } from "@marktiderman/genesi
 
 const RouterLink: LinkComponent = ({ href, ...props }) => <Link to={href} {...props} />;
 
-<AppShell navItems={items} linkComponent={RouterLink} activePath={useLocation().pathname} />;
+// Pass the full location so items whose `to` names a query or hash can be active:
+const { pathname, search, hash } = useLocation();
+<AppShell navItems={items} linkComponent={RouterLink} activePath={`${pathname}${search}${hash}`} />;
 
 // ResourcePage row-click nav — wire onNavigate or it falls back to a full-page reload:
 const navigate = useNavigate();
