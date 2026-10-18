@@ -95,3 +95,38 @@ never raw colours.
 
 `docs/component-reference.md` lists every export with its props and stability tag. It is
 generated (`pnpm gen:component-reference`); do not edit it by hand.
+
+## Wiring into an app
+
+**Tailwind class scanning.** Tailwind v4 skips git-ignored paths such as `node_modules`, so genesis-ui's classes
+are missing unless the app points at them. Import the shipped source entry — never hardcode an
+`@source` path into `node_modules`:
+
+```css
+@import "tailwindcss";
+@import "@marktiderman/genesis-ui/styles.css"; /* = @source over the package's dist/ */
+```
+
+**Active nav items with `?query` / `#hash`.** Pass the full location as `activePath`
+(`pathname + search + hash`). Plain items still match on the path; an item whose `to` carries a
+query or hash (`/admin?tab=users`, `/settings#profile`) is active only when those match too.
+Do not write a custom `isActive` for this. `isPathActive(to, activePath, { end: true })` is the
+exact-path variant.
+
+**Hierarchical "up" navigation.** Describe the logical hierarchy once as a `NavigationNode` tree
+and call `resolveNavigation(tree, pathname)` from the root barrel or `/data`. It returns
+`{ current, parent, items, trail, params }` with every path interpolated from the URL's params.
+Use `parent` for a back-to-parent link and `items` for contextual nav — never `history.back()`.
+
+```ts
+const nav = resolveNavigation(
+  { id: "app", path: "/app", label: "Home", items: globalItems, children: [
+    { id: "clients", path: "/dashboard", label: "Clients", items: [], children: [
+      { id: "client", path: "/clients/$clientId", label: "Client", items: clientItems },
+    ] },
+  ] },
+  pathname,
+);
+// pathname "/clients/c1/tasks" → nav.current.id "client", nav.parent.path "/dashboard",
+// nav.params { clientId: "c1" }
+```

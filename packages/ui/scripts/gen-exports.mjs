@@ -9,7 +9,8 @@
  * run `node scripts/gen-exports.mjs` after adding/removing a component.
  *
  * The curated subpaths (`.`, `./data`, `./patterns`, `./layout`, `./hooks`,
- * `./utils`, `./status-colors`, `./provider`) are preserved verbatim.
+ * `./utils`, `./status-colors`, `./provider`, `./styles.css`) are preserved
+ * verbatim.
  *
  * PER-COMPONENT SUBPATHS NOW SPAN THREE FOLDERS. Since the layer split
  * (docs/FRAMEWORK.md), components live in the folder their tier names:
@@ -198,6 +199,9 @@ const baseExports = {
     types: "./dist/provider/index.d.ts",
     import: "./dist/provider/index.js",
   },
+  // Tailwind v4 `@source` entry — a CSS file, so a bare string target. It is
+  // copied into dist/ by the `build` script, not emitted by tsup.
+  "./styles.css": "./dist/styles.css",
 };
 
 const componentExports = {};

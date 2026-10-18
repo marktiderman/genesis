@@ -127,9 +127,13 @@ export { cn } from "./utils";
 export {
   DefaultLink,
   isPathActive,
+  resolveNavigation,
   defaultNavigate,
   useBrowserSearchParams,
   type GenesisLinkProps,
+  type IsPathActiveOptions,
+  type NavigationNode,
+  type ResolvedNavigation,
   type LinkComponent,
   type NavigateFn,
   type SearchParamsAdapter,
