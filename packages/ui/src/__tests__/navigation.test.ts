@@ -93,6 +93,15 @@ describe("resolveNavigation", () => {
     expect(resolveNavigation(tree, "/clients/c1").current.id).toBe("client");
   });
 
+  it("ranks by position before length, like the routers do", () => {
+    const tree = node("app", "/", [
+      node("space", "/$space/tasks"),
+      node("mine", "/my"),
+    ]);
+    expect(resolveNavigation(tree, "/my/tasks").current.id).toBe("mine");
+    expect(resolveNavigation(tree, "/team/tasks").current.id).toBe("space");
+  });
+
   it("interpolates every level of a three-level trail", () => {
     const tree = node("root", "/", [
       node("org", "/orgs/$orgId", [
@@ -148,6 +157,13 @@ describe("isPathActive", () => {
   it("supports exact matching with end", () => {
     expect(isPathActive("/clients", "/clients/1", { end: true })).toBe(false);
     expect(isPathActive("/clients", "/clients?page=2", { end: true })).toBe(true);
+  });
+
+  it("ignores a trailing slash", () => {
+    expect(isPathActive("/clients", "/clients/", { end: true })).toBe(true);
+    expect(isPathActive("/clients/", "/clients")).toBe(true);
+    expect(isPathActive("/settings#profile", "/settings/#profile")).toBe(true);
+    expect(isPathActive("/", "/clients/")).toBe(false);
   });
 
   it("requires a query item's params to match", () => {
