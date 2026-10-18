@@ -1,0 +1,24 @@
+packages/design-system/style-dictionary.config.ts
+  s_295e179b884338::t_2110f88d8a5d29 22,77-78,83-84
+packages/design-system/src/tokens/__tests__/theme-css.test.ts
+  s_295e179b884338::t_2110f88d8a5d29 59-66
+packages/design-system/src/tokens/theme-css.ts
+  s_295e179b884338::t_2110f88d8a5d29 67,146-150,152-155,157,161-172,175-182,184,187,192-202
+  s_295e179b884338::t_184cdca3e318b4 203
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bd7702e6c587ad8e9570ca2f1cf004256416590d",
+  "prompts": {},
+  "sessions": {
+    "s_295e179b884338": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a94d075-a947-4e5d-b4bb-010729bb6465",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
