@@ -86,10 +86,15 @@ not `/hooks`. Never import from the legacy `@genesis/*` scope.
 
 ## Theming
 
-Tokens come from `@marktiderman/genesis-design-system`. Build a `CanonicalBrand` once, then
-`tailwindFromBrand(brand).css` emits the Tailwind v4 `@theme` block for the web app's
-stylesheet; components reference only semantic tokens (`bg-primary`, `text-muted-foreground`),
-never raw colours.
+Tokens come from `@marktiderman/genesis-design-system`. A Tailwind v4 web app imports, in
+order: `tailwindcss`, then `@marktiderman/genesis-design-system/themes/genesis.css` (the
+semantic variables), then `.../themes/genesis-tailwind4.css` (the `@theme inline` bridge that
+turns them into `bg-primary`, `font-sans` and the rest, plus the `.dark` class variant). Do not
+hand-write that bridge, and do not use `presets/tailwind`: it is a v3-shaped JS preset. Override
+fonts or colours in an unlayered `:root` after the imports, not in `@theme`, since genesis.css
+wins over `@layer theme`. `tailwindFromBrand(brand).css` adds brand ramps
+(`--color-neutral-500` and the like) on top. Components reference only semantic tokens
+(`bg-primary`, `text-muted-foreground`), never raw colours.
 
 ## Full inventory
 

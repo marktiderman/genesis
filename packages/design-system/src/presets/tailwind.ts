@@ -1,9 +1,15 @@
 /**
- * Tailwind v4 compatible preset for Genesis projects.
+ * Tailwind v3-shaped JS preset (`theme.extend.*`) for Genesis projects.
  *
- * Usage in a child project's tailwind.config.ts:
+ * Usage in a v3 project's tailwind.config.ts (or a v4 project still loading a
+ * JS config through `@config`):
  *   import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";
  *   export default { presets: [genesisPreset], ... }
+ *
+ * Tailwind v4 projects should not use this. Import the CSS instead:
+ *   @import "tailwindcss";
+ *   @import "@marktiderman/genesis-design-system/themes/genesis.css";
+ *   @import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
  */
 
 import { neutral, semantic } from "../tokens/colors";
