@@ -128,8 +128,11 @@ Key: **has** works · **partial** limited or flawed · **no** missing · **EE** 
 
 Write safety is built into Genesis, whatever the data source.
 
-- **No silent overwrites (P0).** Every update checks a version column, `updated_at` by default
-  (configurable). If nothing changes, Genesis re-reads the row and reports what actually happened:
+- **No silent overwrites (P0).** Every update checks a version column that changes on every
+  successful update: an integer version, or `updated_at` (the default) when a trigger such as
+  `moddatetime` advances it. Postgres doesn't do that on its own, so when attaching, Genesis checks for
+  such a trigger, and a table with no reliable version column stays read-only until one is configured.
+  If nothing changes, Genesis re-reads the row and reports what actually happened:
   "changed by someone else", "not visible to you", or "deleted". It never assumes "permission denied",
   which is wrong three times out of four.
 - **Exact bulk writes (P2).** Bulk edits and deletes take explicit ids and run in one transaction. They
@@ -339,8 +342,9 @@ default and only mode. It also changed:
 
 **Corrections to v1:**
 
-- `NativeResourcePage` sends only search and filters to the server, not paging or sort
-  (`NativeResourcePage.tsx:224`).
+- `NativeResourcePage` shows only search and filter controls, but its server request also carries
+  default paging (25 rows) and any configured `defaultSort`. What's missing is paging and sort
+  controls, not the request parameters (`NativeResourcePage.tsx:215-224`, `use-resource.ts:178-189`).
 - List errors already render an error panel (`ResourcePage.tsx:671`). Only failed saves stop at
   `console.error`.
 
