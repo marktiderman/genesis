@@ -5196,7 +5196,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "Current path used to highlight the active nav item. Router consumers pass\n`useLocation().pathname` (RR) or `usePathname()` (Next). Omit to disable\nactive highlighting."
+              "description": "Current location used to highlight the active nav item. Router consumers\npass `useLocation().pathname` (RR) or `usePathname()` (Next). To let items\nwhose `to` names a query or hash (`/admin?tab=users`) become active, pass\nthe full location instead: `pathname + search + hash`. Path-only items\n(including `end` items) match the same either way. Omit to disable active\nhighlighting."
             },
             {
               "name": "appLogo",

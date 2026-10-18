@@ -196,9 +196,12 @@ export interface AppShellProps {
    */
   linkComponent?: LinkComponent;
   /**
-   * Current path used to highlight the active nav item. Router consumers pass
-   * `useLocation().pathname` (RR) or `usePathname()` (Next). Omit to disable
-   * active highlighting.
+   * Current location used to highlight the active nav item. Router consumers
+   * pass `useLocation().pathname` (RR) or `usePathname()` (Next). To let items
+   * whose `to` names a query or hash (`/admin?tab=users`) become active, pass
+   * the full location instead: `pathname + search + hash`. Path-only items
+   * (including `end` items) match the same either way. Omit to disable active
+   * highlighting.
    */
   activePath?: string;
   /**
