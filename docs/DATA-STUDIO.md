@@ -41,8 +41,8 @@ Three findings shape the build:
    some providers reject server-side sort or search today: gamify's API provider throws on sort, and
    the switchboard bridge throws on search (`data-switchboard/src/data-provider.ts:110`).
 2. **Browsers can no longer read the schema from hosted Supabase.** Since 8 Apr 2026 the `/rest/v1/`
-   OpenAPI document is refused to anon keys (Supabase changelog 42949). The schema has to be read on
-   the server or generated ahead of time.
+   OpenAPI document is refused to anon keys (Supabase changelog 42949), and publishable keys never
+   see it (see Confirmed, below). The schema has to be read on the server or generated ahead of time.
 3. **The schema model already exists** in the switchboard (`FieldSchema`, `ResourceContract`,
    `describe()`). It is promoted into one home, not duplicated (FRAMEWORK.md rule 1).
 
@@ -135,10 +135,23 @@ Write safety is built into Genesis, whatever the data source.
 - **Exact bulk writes (P2).** Bulk edits and deletes take explicit ids and run in one transaction. They
   roll back unless the number of rows changed equals the number requested, so access rules can't
   quietly skip rows.
-- **Audit before editing (P0).** Writes can't be enabled until an audit sink is configured. The sink can
-  be a table, a log, a callback, or `database`, meaning the app's own audit triggers handle it. Because
-  the handler acts as the user, those triggers see the real actor. Each entry records the actor, the
-  resource and key, and the before and after values.
+- **Audit before editing (P0).** Writes can't be enabled until an audit sink is configured. An edit and
+  its audit entry commit in the same Postgres transaction, or neither does. Each entry records the
+  actor, the resource and key, and the before and after values. The sink is one of:
+  - **A table** in the same database, written by the handler inside the edit's transaction.
+  - **`database`**, meaning the app's own audit triggers handle it. Because the handler acts as the
+    user, those triggers see the real actor.
+  - **An outbox**, for an external log or callback. The handler writes the entry to an outbox table
+    inside the edit's transaction, and a worker delivers it afterwards. A log or callback can't be the
+    sink directly, because it can't commit or roll back with the edit.
+
+  If the audit write fails, the edit rolls back and the user sees "not saved: audit failed". Outbox
+  delivery is at least once: it retries with backoff (configurable; default 10 attempts over about a
+  day), and each entry carries an id so the receiver can drop duplicates. An entry that still fails
+  moves to a dead-letter table, raises an alert, and stays there until it is replayed. Delivery never
+  blocks or undoes the edit, and an edit is never visible without its audit record: the entry is in the
+  database from the moment the edit commits, even while delivery is pending or dead-lettered.
+
 - **Safe imports and real undo (P2).** Imports dry-run first and list every row that won't convert,
   then commit in one transaction. Undo issues a compensating write from the audit, so it works even
   after the tab is closed.
@@ -267,7 +280,7 @@ proposal, and each later phase there makes more tables manageable with no gamify
 | 14  | Per-table settings              | Code first (`defineResource()`); Postgres comments later, as a generator input                                                 | Later |
 | 15  | Permissions in the UI           | From `authorize`/`can()`, with a reason                                                                                        | Now   |
 | 16  | Concurrent edits                | A version check on every update                                                                                                | P0    |
-| 17  | Audit                           | Required before writes; the sink is pluggable, including `database`                                                            | P0    |
+| 17  | Audit                           | In the edit's transaction: a table, `database` triggers, or an outbox                                                          | P0    |
 | 18  | Undo                            | A compensating write from the audit                                                                                            | P2    |
 | 19  | Bulk and import                 | Transactional, exact counts, dry run by default                                                                                | P2    |
 | 20  | Grid engine                     | A one-day spike comparing react-data-grid with TanStack Table + Virtual; the winner ships as an Experimental, optional subpath | P2    |
@@ -316,8 +329,16 @@ default and only mode. It also changed:
 - List errors already render an error panel (`ResourcePage.tsx:671`). Only failed saves stop at
   `console.error`.
 
+## Confirmed
+
+- Hosted Supabase also hides the schema document from _publishable_ keys, not only legacy anon keys.
+  Supabase's security retro says the OpenAPI spec is no longer publicly visible with the new
+  publishable keys ([Supabase security 2025 retro](https://supabase.com/blog/supabase-security-2025-retro)).
+  The self-hosting guide matches: `/rest/v1/` returns 403 to `sb_publishable_*` and anon keys and
+  needs a secret key
+  ([self-hosted auth keys](https://supabase.com/docs/guides/self-hosting/self-hosted-auth-keys)).
+
 ## Not confirmed
 
-- Whether hosted Supabase also blocks _publishable_ keys, not only anon keys, from the schema document.
 - Grid-engine maintenance status: settled by the P2 spike.
 - No benchmark has been run.
