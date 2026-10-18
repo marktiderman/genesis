@@ -176,7 +176,7 @@ const HEX_MAP: ReadonlyArray<{ preset: string; presetHex: string; dtcgHex: strin
  * Preset leaves with no clean DTCG anchor. Documented, brand-authored:
  *   - name: an identifier, not a color.
  *   - accent.dark: the dark-mode emphasis (#34d399, emerald-400). The rendered
- *     dark `--primary` is *computed* (lightness + 10) in generate-css.ts, not a
+ *     dark `--primary` is *computed* (lightness + 10) in src/tokens/theme-css.ts, not a
  *     stored DTCG token, so there is nothing to compare it against.
  */
 const UNMAPPED_LEAVES: ReadonlySet<string> = new Set(["name", "accent.dark"]);
