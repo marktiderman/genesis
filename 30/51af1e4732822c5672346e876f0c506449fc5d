@@ -1,0 +1,23 @@
+packages/ui/src/components/layout/AppShell.tsx
+  s_5e817b8ac5d6aa::t_90c9fcb8e33d2e 47-50,252-253,255,393-397
+packages/ui/src/components/layout/__tests__/app-shell-active.test.tsx
+  s_5e817b8ac5d6aa::t_64a0ffca3c0a27 1-92
+.changeset/appshell-end-query-aware.md
+  s_5e817b8ac5d6aa::t_d8828d5f6317bb 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3051af1e4732822c5672346e876f0c506449fc5d",
+  "prompts": {},
+  "sessions": {
+    "s_5e817b8ac5d6aa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "be209f63-943b-4178-9a2a-41ccb7fad337",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
