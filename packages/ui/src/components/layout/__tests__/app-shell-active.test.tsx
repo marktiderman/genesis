@@ -2,7 +2,7 @@
  * AppShell active state when `activePath` carries `?search#hash`
  * (pathname + search + hash, as `isPathActive` supports).
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { LayoutDashboard, Map, Users } from "lucide-react";
 
@@ -18,8 +18,11 @@ function renderShell(navItems: NavItem[], activePath: string) {
   );
 }
 
+// Scope to the sidebar: the mobile bottom dock renders the same links again.
 function currentOf(name: string) {
-  return screen.getAllByRole("link", { name })[0]!.getAttribute("aria-current");
+  return within(screen.getByTestId("app-shell-sidebar"))
+    .getByRole("link", { name })
+    .getAttribute("aria-current");
 }
 
 describe("AppShell `end` items with a query/hash-aware activePath", () => {
