@@ -1,0 +1,22 @@
+docs/DATA-STUDIO.md
+  s_15832cc336c4bc::t_8234e012670cff 138-153
+  s_15832cc336c4bc::t_2708499000db13 154
+  s_15832cc336c4bc::t_bd381e920714df 332-340
+  s_15832cc336c4bc::t_1277bf0ffd6b7e 44-45,283
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5715cfac0ecaa0bb1b7f35c2d58233935a51442e",
+  "prompts": {},
+  "sessions": {
+    "s_15832cc336c4bc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3d2f4cf4-5674-4838-a9e1-fa538e1875e5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
