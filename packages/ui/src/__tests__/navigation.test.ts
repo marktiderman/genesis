@@ -137,6 +137,15 @@ describe("resolveNavigation", () => {
     expect(result.params).toEqual({ id: "x y" });
     expect(result.parent?.path).toBe("/a/x%20y");
   });
+
+  it("matches an encoded URL segment against its decoded static pattern", () => {
+    const tree = node("app", "/", [node("cafe", "/café", [node("menu", "/café/$item")])]);
+    expect(resolveNavigation(tree, "/caf%C3%A9").current.id).toBe("cafe");
+    const result = resolveNavigation(tree, "/caf%C3%A9/cr%C3%AApe");
+    expect(result.current.id).toBe("menu");
+    expect(result.params).toEqual({ item: "crêpe" });
+    expect(resolveNavigation(node("app", "/", [node("enc", "/caf%C3%A9")]), "/café").current.id).toBe("enc");
+  });
 });
 
 describe("isPathActive", () => {

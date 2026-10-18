@@ -218,12 +218,16 @@ export function resolveNavigation<T>(
   tree: NavigationNode<T>,
   pathname: string,
 ): ResolvedNavigation<T> {
-  const segments = pathSegments(pathname);
+  // Compare decoded forms on both sides, so `/caf%C3%A9` matches a `/café`
+  // node (and an encoded pattern matches a decoded pathname).
+  const segments = pathSegments(pathname).map(decodeSegment);
 
   type Match = { trail: NavigationNode<T>[]; pattern: string[] };
   const matches = (pattern: string[]) =>
     pattern.length <= segments.length &&
-    pattern.every((part, i) => part.startsWith("$") || part === segments[i]);
+    pattern.every(
+      (part, i) => part.startsWith("$") || decodeSegment(part) === segments[i],
+    );
 
   // > 0 when `a` should win over `b`.
   // Positional specificity, as TanStack Router and React Router rank routes:
@@ -257,7 +261,7 @@ export function resolveNavigation<T>(
   const winner: Match = best ?? { trail: [tree], pattern: [] };
   const params: Record<string, string> = {};
   winner.pattern.forEach((part, i) => {
-    if (part.startsWith("$")) params[part.slice(1)] = decodeSegment(segments[i]!);
+    if (part.startsWith("$")) params[part.slice(1)] = segments[i]!;
   });
 
   const interpolate = (node: NavigationNode<T>): NavigationNode<T> => ({

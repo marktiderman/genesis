@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06",
+  "generatedAt": "2026-10-18",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -10733,12 +10733,17 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/navigation.tsx",
       "stability": "beta",
-      "summary": "Default active-path matcher, mirroring React Router's `NavLink` (prefix\nmatch, with `/` treated as exact). Consumers can override via an `isActive`\nprop where components accept one.",
+      "summary": "Default active-path matcher, mirroring React Router's `NavLink` (prefix\nmatch, with `/` treated as exact). Consumers can override via an `isActive`\nprop where components accept one.\n\n`activePath` may carry a query and hash (`pathname + search + hash`). An\nitem whose `to` has neither compares against the path part only, exactly as\nbefore. An item that opts in by putting a query or hash in its `to`\n(`/admin?tab=users`, `/settings#profile`) is active only when the path\nmatches exactly AND every query param it names has the same value in\n`activePath` (extra params such as `&page=2` are ignored) AND, if it names a\nhash, the hash is equal.",
       "primaryComponent": "isPathActive",
       "components": [
         {
           "name": "isPathActive",
-          "summary": "Default active-path matcher, mirroring React Router's `NavLink` (prefix\nmatch, with `/` treated as exact). Consumers can override via an `isActive`\nprop where components accept one.",
+          "summary": "Default active-path matcher, mirroring React Router's `NavLink` (prefix\nmatch, with `/` treated as exact). Consumers can override via an `isActive`\nprop where components accept one.\n\n`activePath` may carry a query and hash (`pathname + search + hash`). An\nitem whose `to` has neither compares against the path part only, exactly as\nbefore. An item that opts in by putting a query or hash in its `to`\n(`/admin?tab=users`, `/settings#profile`) is active only when the path\nmatches exactly AND every query param it names has the same value in\n`activePath` (extra params such as `&page=2` are ignored) AND, if it names a\nhash, the hash is equal.",
+          "props": []
+        },
+        {
+          "name": "resolveNavigation",
+          "summary": "Resolve where `pathname` sits in a logical navigation tree. Pure: it never\nreads browser history or `window`.\n\nA node matches when its pattern matches a leading run of WHOLE path\nsegments (`/my` matches `/my/tasks`, never `/my-other`). Among matches the\nwinner is decided by positional specificity: at the first position where\none pattern is static and the other a `$param`, the static one wins (so\n`/clients/new` beats `/clients/$clientId` whatever the sibling order, and\n`/my` beats `/$space/tasks` for `/my/tasks`). Otherwise the pattern matching\nmore segments wins, then the deeper tree node.\nNon-matching nodes are still searched, so a match keeps its logical\nancestors even when their URLs differ.",
           "props": []
         },
         {
