@@ -8,7 +8,12 @@ version of the row it was read at and committed with its audit entry, and the ou
 Built on genesis-ui's `ResourcePage` and `DataTable` (DATA-STUDIO.md decision 21). Routing and URL
 state come from your app through an adapter (decision 23), and sign-in fills a slot.
 
-**Status: 0.1, Experimental.** P0 scope: browse, search, sort, page, and single-cell edits.
+**Status: 0.2, Experimental.** P1 scope:
+- the sheet grid, with in-place edits;
+- a record pop-up with a schema-built form, related records, history and delete;
+- adding rows, and relation pickers;
+- a filter builder, multi-field sort and group-by;
+- saved views and CSV export.
 
 ## Use it
 
@@ -45,10 +50,27 @@ Tailwind v4 needs to see the studio's classes:
 | Prop | |
 | --- | --- |
 | `provider` | Any Genesis `DataProvider` with `describe` and `listResources` — usually `createStudioProvider`. |
-| `router` | `{ location, navigate }`. `createSearchParamsRouter` adapts React Router or Next.js; `useHistoryRouter` works without a router; `useMemoryRouter` for tests. URL keys: `table`, `page`, `sort`, `q`. |
+| `router` | `{ location, navigate }`. `createSearchParamsRouter` adapts React Router or Next.js; `useHistoryRouter` works without a router; `useMemoryRouter` for tests. URL keys: `table`, `page`, `sort`, `q`, `filter`, `group`, `record`. |
 | `signIn` | Rendered instead of the studio while the provider reports nobody signed in. |
 | `sessionKey` | The signed-in user's id. When it changes, everything loaded for the previous user is dropped. |
 | `title`, `perPage`, `className` | Presentation. |
+
+## What it does
+
+- **Open a record** with the ⤢ button on any row. The pop-up has three tabs:
+  - **Details:** a form built from the schema, with validation for required fields, numbers,
+    dates, enums and JSON, and pickers for links. Read-only fields show why they can't change.
+  - **Related:** records this one links to and from.
+  - **History:** the record's audit trail.
+
+  The URL names the record (`?record=…`), so **Copy link** shares it.
+- **New row** opens a form of only the fields the user may set.
+- **Filter, Sort, Group** run on the server and live in the URL. **Views** saves them, with
+  search and visible columns, per table.
+- **Export CSV** pages through every matching row, up to 10 000. Cells a spreadsheet would run
+  as formulas are neutralised.
+- **Link cells** show the linked row's label (one query per linked table per page). Links are
+  edited in the record form, with a picker that searches on the server.
 
 ## What it shows
 

@@ -454,6 +454,9 @@ importers:
 
   packages/studio:
     devDependencies:
+      '@hookform/resolvers':
+        specifier: ^5.2.2
+        version: 5.7.1(@sinclair/typebox@0.27.12)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.84.0(react@19.2.8))(valibot@1.4.2(typescript@5.9.3))(zod@4.4.3)
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../core
@@ -487,6 +490,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.8(react@19.2.8)
+      react-hook-form:
+        specifier: ^7.72.1
+        version: 7.84.0(react@19.2.8)
       tsup:
         specifier: ^8.3.0
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@5.9.3)(yaml@2.9.0)
@@ -496,6 +502,9 @@ importers:
       vitest:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.1)(happy-dom@20.11.1)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.49.1)
+      zod:
+        specifier: ^4.3.6
+        version: 4.4.3
 
   packages/studio-server:
     dependencies:

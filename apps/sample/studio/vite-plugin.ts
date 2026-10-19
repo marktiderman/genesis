@@ -112,12 +112,13 @@ export function studioDevServer(env: Record<string, string>): Plugin {
         // Every table the sample offers; categories stays read-only.
         authorize: byResource(
           {
-            "public.products": { read: true, update: true },
-            "public.order_lines": { read: true, update: ["quantity", "note"] },
+            "public.products": { read: true, update: true, create: true, delete: true, history: true },
+            "public.orders": { read: true, update: true, create: true, history: true },
+            "public.order_lines": { read: true, update: ["quantity", "note"], history: true },
             "public.categories": { read: true },
             // The stock-Supabase demo schema (examples/studio-supabase).
-            "public.clients": { read: true, update: true },
-            "public.session_notes": { read: true, update: ["summary"] },
+            "public.clients": { read: true, update: true, create: true, history: true },
+            "public.session_notes": { read: true, update: ["summary", "next_steps"], history: true },
             "public.plans": { read: true },
           },
           // Any signed-in, non-anonymous user. A real app narrows this to staff.

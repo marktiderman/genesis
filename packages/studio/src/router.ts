@@ -15,9 +15,15 @@ export interface StudioLocation {
   resource?: string;
   /** 1-based. */
   page?: number;
-  /** `field:asc` or `field:desc`. */
+  /** `field:asc` or `field:desc`; several, comma-separated, sort by each in turn. */
   sort?: string;
   search?: string;
+  /** Filters, as a JSON array of `[field, operator, value?]`. */
+  filters?: string;
+  /** Group rows by this field. */
+  group?: string;
+  /** The open record's id (`encodeRecordKey`), for a copyable link to it. */
+  record?: string;
 }
 
 export interface StudioNavigateOptions {
@@ -31,7 +37,15 @@ export interface StudioRouter {
 }
 
 /** Query parameter names. Short, and namespaced enough not to collide with an app's own. */
-const PARAM = { resource: "table", page: "page", sort: "sort", search: "q" } as const;
+const PARAM = {
+  resource: "table",
+  page: "page",
+  sort: "sort",
+  search: "q",
+  filters: "filter",
+  group: "group",
+  record: "record",
+} as const;
 
 export function locationFromSearchParams(params: URLSearchParams): StudioLocation {
   const page = Number(params.get(PARAM.page));
@@ -40,6 +54,9 @@ export function locationFromSearchParams(params: URLSearchParams): StudioLocatio
     ...(Number.isInteger(page) && page > 1 ? { page } : {}),
     ...(params.get(PARAM.sort) ? { sort: params.get(PARAM.sort)! } : {}),
     ...(params.get(PARAM.search) ? { search: params.get(PARAM.search)! } : {}),
+    ...(params.get(PARAM.filters) ? { filters: params.get(PARAM.filters)! } : {}),
+    ...(params.get(PARAM.group) ? { group: params.get(PARAM.group)! } : {}),
+    ...(params.get(PARAM.record) ? { record: params.get(PARAM.record)! } : {}),
   };
 }
 
@@ -54,6 +71,9 @@ export function searchParamsFromLocation(location: StudioLocation, base?: URLSea
   if (location.page && location.page > 1) params.set(PARAM.page, String(location.page));
   if (location.sort) params.set(PARAM.sort, location.sort);
   if (location.search) params.set(PARAM.search, location.search);
+  if (location.filters) params.set(PARAM.filters, location.filters);
+  if (location.group) params.set(PARAM.group, location.group);
+  if (location.record) params.set(PARAM.record, location.record);
   return params;
 }
 

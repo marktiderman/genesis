@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Database, History, Lock, Table2 } from "lucide-react";
+import { Database, History, Lock, Maximize2, Table2 } from "lucide-react";
 import { GenesisProvider, type BaseRecord, type DataProvider } from "@marktiderman/genesis-core/provider";
 import {
   encodeRecordKey,
@@ -11,11 +11,18 @@ import {
   type ResourceSchema,
   type ResourceSummary,
 } from "@marktiderman/genesis-core/schema";
-import { ResourcePage, type ResourceColumnDef } from "@marktiderman/genesis-ui/data";
+import { DataTable, ResourcePage, useSavedViews, type ResourceColumnDef } from "@marktiderman/genesis-ui/data";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@marktiderman/genesis-ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@marktiderman/genesis-ui/alert";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import type { StudioLocation, StudioRouter } from "./router";
 import { choicesFor, displayText, editText, parseDraft } from "./values";
+import { exportCsv, downloadText } from "./lib/csv";
+import { formatFilters, formatSorts, parseFilters, parseSorts } from "./lib/query-state";
+import { usePageLinkLabels } from "./lib/relations";
+import { RecordForm } from "./record/RecordForm";
+import { RecordPanel } from "./record/RecordPanel";
+import { ExportButton, FilterBuilder, GroupPicker, NewRowButton, SortBuilder } from "./toolbar/Toolbar";
 
 type Row = Record<string, unknown>;
 
@@ -28,6 +35,8 @@ export interface StudioActivity {
   /** The record's key, as shown to the user. */
   record: string;
   outcome: "saved" | "not_saved";
+  /** What was attempted. Default `update`. */
+  action?: "update" | "create" | "delete";
   message: string;
   /** Present when the edit committed with an audit entry from the `table` sink. */
   audit?: AuditEntry;
@@ -231,14 +240,6 @@ function TableSidebar({
   );
 }
 
-function parseSort(sort: string | undefined): { field: string; order: "asc" | "desc" } | undefined {
-  if (!sort) return undefined;
-  const at = sort.lastIndexOf(":");
-  const field = at > 0 ? sort.slice(0, at) : sort;
-  const order = sort.slice(at + 1) === "desc" ? "desc" : "asc";
-  return field ? { field, order } : undefined;
-}
-
 function Sheet({
   provider,
   resource,
@@ -259,8 +260,16 @@ function Sheet({
   const queryClient = useQueryClient();
   const { location } = router;
   const page = location.page ?? 1;
-  const sort = parseSort(location.sort);
+  const sorts = useMemo(() => parseSorts(location.sort), [location.sort]);
+  const filters = useMemo(() => parseFilters(location.filters), [location.filters]);
   const search = location.search ?? "";
+  const group = location.group;
+  const [creating, setCreating] = useState(false);
+  const [exporting, setExporting] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Bumped to remount the page after a saved view sets column visibility.
+  const [viewEpoch, setViewEpoch] = useState(0);
+  const savedViews = useSavedViews(`genesis-studio:views:${resource}`);
 
   const schemaQuery = useQuery({
     queryKey: ["genesis-studio", sessionKey, "describe", resource],
@@ -271,10 +280,21 @@ function Sheet({
     retry: false,
   });
   const schema = schemaQuery.data;
+  const capabilities = useQuery({
+    queryKey: ["genesis-studio", sessionKey, "capabilities", resource],
+    enabled: Boolean(provider.capabilities),
+    retry: false,
+    queryFn: () => provider.capabilities!(resource),
+  }).data;
 
+  // Grouping sorts by the group field first, so each group is contiguous.
+  const effectiveSorts = useMemo(
+    () => (group ? [{ field: group, order: "asc" as const }, ...sorts.filter((s) => s.field !== group)] : sorts),
+    [group, sorts],
+  );
   const listKey = useMemo(
-    () => ["genesis-studio", sessionKey, "list", resource, page, perPage, location.sort ?? "", search],
-    [sessionKey, resource, page, perPage, location.sort, search],
+    () => ["genesis-studio", sessionKey, "list", resource, page, perPage, location.sort ?? "", search, location.filters ?? "", group ?? ""],
+    [sessionKey, resource, page, perPage, location.sort, search, location.filters, group],
   );
   const listQuery = useQuery({
     queryKey: listKey,
@@ -284,7 +304,9 @@ function Sheet({
     queryFn: () =>
       provider.getList<BaseRecord>(resource, {
         pagination: { page, perPage },
-        sort,
+        sort: effectiveSorts[0],
+        sorts: effectiveSorts,
+        filters,
         search: search ? { query: search, fields: [] } : undefined,
       }),
   });
@@ -309,6 +331,7 @@ function Sheet({
     rows.forEach((row, index) => map.set(row, schema && keyed ? String(encodeRecordKey(schema, row)) : `row-${index}`));
     return map;
   }, [rows, schema, keyed]);
+  const linkLabels = usePageLinkLabels(provider, sessionKey, schema?.fields ?? [], rows);
 
   const replaceRow = useCallback(
     (oldRow: Row, next: Row) => {
@@ -318,6 +341,10 @@ function Sheet({
     },
     [queryClient, listKey],
   );
+  const refresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["genesis-studio", sessionKey, "list", resource] });
+    void queryClient.invalidateQueries({ queryKey: ["genesis-studio", sessionKey, "history", resource] });
+  }, [queryClient, sessionKey, resource]);
 
   const save = useCallback(
     async (field: FieldSchema, row: Row, draft: string) => {
@@ -333,6 +360,7 @@ function Sheet({
           expectedVersion,
         });
         replaceRow(row, result.data as Row);
+        void queryClient.invalidateQueries({ queryKey: ["genesis-studio", sessionKey, "record", resource] });
         onActivity({
           resource,
           field: field.name,
@@ -343,55 +371,135 @@ function Sheet({
         });
       } catch (error) {
         if (isUnauthenticated(error)) onSignedOut();
-        if (isDataWriteError(error) && error.outcome === "conflict" && error.current) {
-          // Show the row as it is now, so the next edit starts from their change.
-          replaceRow(row, {
-            ...row,
-            ...error.current,
-            ...(versionField ? { [versionField]: error.currentVersion ?? null } : {}),
-          });
+        if (isDataWriteError(error) && error.outcome === "conflict") {
+          if (error.current) {
+            // Show the row as it is now, so the next edit starts from their change.
+            replaceRow(row, {
+              ...row,
+              ...error.current,
+              ...(versionField ? { [versionField]: error.currentVersion ?? null } : {}),
+            });
+          } else {
+            refresh();
+          }
         }
-        if (isDataWriteError(error) && error.outcome === "gone") {
-          void queryClient.invalidateQueries({ queryKey: listKey });
-        }
+        if (isDataWriteError(error) && error.outcome === "gone") refresh();
         onActivity({ resource, field: field.name, record: recordLabel, outcome: "not_saved", message: errorText(error) });
         throw error instanceof Error ? error : new Error(String(error));
       }
     },
-    [schema, keys, provider, resource, replaceRow, onActivity, onSignedOut, queryClient, listKey],
+    [schema, keys, provider, resource, replaceRow, onActivity, onSignedOut, queryClient, sessionKey, refresh],
+  );
+
+  const openRecord = useCallback(
+    (target: string, id: string) =>
+      target === resource ? navigate({ record: id }) : router.navigate({ resource: target, record: id }),
+    [navigate, router, resource],
   );
 
   const columns = useMemo<ResourceColumnDef<Row>[]>(() => {
     if (!schema) return [];
-    return schema.fields.map((field) => {
-      const options = choicesFor(field);
-      return {
-        key: field.name,
-        header: field.name,
-        sortable: true,
-        accessor: (row: Row) => editText(row[field.name]),
-        render: (row: Row) => {
-          const text = displayText(row[field.name]);
-          return text === null ? (
-            <span className="text-muted-foreground">—</span>
-          ) : (
-            <span className="block max-w-[320px] truncate" title={text}>
-              {text}
-            </span>
-          );
-        },
-        ...(field.permissions?.update
-          ? {
-              editable: {
-                type: options ? ("select" as const) : ("text" as const),
-                ...(options ? { options } : {}),
-                onSave: (row: Row, draft: string) => save(field, row, draft),
-              },
-            }
-          : {}),
-      };
-    });
-  }, [schema, save]);
+    const open: ResourceColumnDef<Row> = {
+      key: "__genesis_open",
+      header: "",
+      sortable: false,
+      accessor: () => "",
+      render: (row: Row) => (
+        <button
+          type="button"
+          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label="Open record"
+          title="Open record"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate({ record: keys.get(row) });
+          }}
+        >
+          <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      ),
+    };
+    return [
+      ...(keyed ? [open] : []),
+      ...schema.fields.map((field) => {
+        const options = choicesFor(field);
+        const labels = linkLabels.get(field.name);
+        // Links are edited in the record's form, with a picker; a bare id in a cell is a trap.
+        const inlineEditable = field.permissions?.update && !field.references;
+        return {
+          key: field.name,
+          header: field.name,
+          sortable: capabilities?.sort !== false,
+          accessor: (row: Row) => editText(row[field.name]),
+          render: (row: Row) => {
+            const raw = row[field.name];
+            const text = displayText(raw);
+            if (text === null) return <span className="text-muted-foreground">—</span>;
+            const label = field.references ? labels?.get(String(raw)) : undefined;
+            const reason = !field.permissions?.update ? field.permissions?.reason : undefined;
+            return (
+              <span className="block max-w-[320px] truncate" title={reason ? `${text} — ${reason}` : text}>
+                {label ?? text}
+                {label && <span className="ml-1 font-mono text-[10px] text-muted-foreground">{text}</span>}
+              </span>
+            );
+          },
+          ...(inlineEditable
+            ? {
+                editable: {
+                  type: options ? ("select" as const) : ("text" as const),
+                  ...(options ? { options } : {}),
+                  onSave: (row: Row, draft: string) => save(field, row, draft),
+                },
+              }
+            : {}),
+        };
+      }),
+    ];
+  }, [schema, save, keyed, keys, navigate, linkLabels, capabilities]);
+
+  async function runExport() {
+    if (!schema) return;
+    setExporting(0);
+    setNotice(null);
+    try {
+      const { csv, rows: count, truncated } = await exportCsv({
+        provider,
+        resource,
+        fields: schema.fields,
+        sorts: effectiveSorts,
+        filters,
+        search,
+        onProgress: setExporting,
+      });
+      downloadText(`${resource}.csv`, csv);
+      setNotice(
+        truncated
+          ? `Exported the first ${count.toLocaleString()} matching rows. Narrow the list to export the rest.`
+          : `Exported ${count.toLocaleString()} rows.`,
+      );
+    } catch (error) {
+      setNotice(`Export failed: ${errorText(error)}`);
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  async function create(values: Record<string, unknown>) {
+    if (!schema) return;
+    try {
+      const result = await provider.create<BaseRecord>(resource, { data: values as never });
+      setCreating(false);
+      refresh();
+      const id = String(encodeRecordKey(schema, result.data as Row));
+      onActivity({ resource, field: "", record: id, outcome: "saved", action: "create", message: "Added, with its audit entry.", ...(result.audit ? { audit: result.audit } : {}) });
+      navigate({ record: id });
+    } catch (error) {
+      if (isUnauthenticated(error)) onSignedOut();
+      onActivity({ resource, field: "", record: "new row", outcome: "not_saved", action: "create", message: errorText(error) });
+      throw error;
+    }
+  }
 
   if (schemaQuery.isError && !isUnauthenticated(schemaQuery.error)) {
     return (
@@ -403,6 +511,26 @@ function Sheet({
   }
 
   const editable = schema?.fields.filter((f) => f.permissions?.update).length ?? 0;
+  const createFields = new Set(schema?.createFields ?? []);
+  const fieldsForCreate = schema?.fields.filter((f) => createFields.has(f.name)) ?? [];
+
+  const tableFor = (items: Row[]) => (
+    <DataTable<Row>
+      items={items}
+      columns={columns.map((c) => ({
+        key: c.key,
+        header: c.header ?? c.key,
+        sortable: false,
+        render: c.render ? (item: Row, value: unknown) => c.render!(item, value, NO_ACTIONS) : undefined,
+        accessor: c.accessor,
+        editable: c.editable,
+      }))}
+      getKey={(row) => keys.get(row) ?? ""}
+      pagination={false}
+      columnVisibility={false}
+      density="compact"
+    />
+  );
 
   return (
     <div className="space-y-3" data-testid="studio-sheet">
@@ -413,7 +541,28 @@ function Sheet({
           <AlertDescription>{schema.access.reason ?? "You can view this table but not edit it."}</AlertDescription>
         </Alert>
       )}
+      {schema && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="studio-toolbar">
+          {(capabilities?.filterOperators?.length ?? 1) > 0 && (
+            <FilterBuilder fields={schema.fields} filters={filters} onChange={(next) => navigate({ filters: formatFilters(next), page: 1 })} />
+          )}
+          {capabilities?.multiSort !== false && capabilities?.sort !== false && (
+            <SortBuilder fields={schema.fields} sorts={sorts} onChange={(next) => navigate({ sort: formatSorts(next), page: 1 })} />
+          )}
+          <GroupPicker fields={schema.fields} group={group} onChange={(next) => navigate({ group: next, page: 1 })} />
+          <ExportButton onExport={() => void runExport()} busy={exporting !== null} progress={exporting ?? 0} />
+          {schema.access.create !== undefined && (
+            <NewRowButton allowed={Boolean(schema.access.create)} reason={schema.access.reasons?.create} onClick={() => setCreating(true)} />
+          )}
+        </div>
+      )}
+      {notice && (
+        <p className="text-xs text-muted-foreground" role="status" data-testid="studio-notice">
+          {notice}
+        </p>
+      )}
       <ResourcePage<Row>
+        key={viewEpoch}
         title={schema?.label ?? resource}
         subtitle={schemaSubtitle(schema, editable)}
         data={rows}
@@ -424,7 +573,7 @@ function Sheet({
         page={page}
         perPage={perPage}
         onPageChange={(next) => navigate({ page: next })}
-        onSortChange={(next) => navigate({ sort: next ? `${next.field}:${next.order}` : undefined, page: 1 })}
+        onSortChange={(next) => navigate({ sort: formatSorts(next ? [next] : []), page: 1 })}
         onSearchChange={(text) => {
           clearTimeout(searchTimer.current);
           searchTimer.current = setTimeout(() => navigate({ search: text || undefined, page: 1 }, true), SEARCH_DEBOUNCE_MS);
@@ -434,8 +583,58 @@ function Sheet({
         // table, so mount-time seeding is enough.
         initialFilters={[
           ...(search ? [{ field: "__search__", operator: "contains" as const, value: search }] : []),
-          ...(location.sort ? [{ field: "__sort__", operator: "eq" as const, value: location.sort }] : []),
+          ...(sorts[0] ? [{ field: "__sort__", operator: "eq" as const, value: `${sorts[0].field}:${sorts[0].order}` }] : []),
         ]}
+        capabilities={capabilities}
+        renderTable={
+          group
+            ? (items: Row[]) => (
+                <div className="space-y-4" data-testid="studio-groups">
+                  {groupRows(items, group).map(([value, groupItems]) => (
+                    <section key={value ?? "__none"} data-testid="studio-group-section">
+                      <h3 className="mb-1.5 text-sm font-semibold">
+                        {group}: {value ?? "—"} <span className="font-normal text-muted-foreground">({groupItems.length} on this page)</span>
+                      </h3>
+                      {tableFor(groupItems)}
+                    </section>
+                  ))}
+                </div>
+              )
+            : undefined
+        }
+        savedViews={savedViews.savedViews}
+        canSaveViews
+        onSaveView={(name) => {
+          let hidden: unknown = null;
+          try {
+            hidden = JSON.parse(localStorage.getItem(`dt-vis-genesis-studio:${resource}`) ?? "null");
+          } catch {
+            hidden = null;
+          }
+          savedViews.saveView(name, {
+            sort: location.sort ?? null,
+            search: location.search ?? null,
+            filters: location.filters ?? null,
+            group: location.group ?? null,
+            columns: hidden,
+          });
+        }}
+        onLoadView={(view) => {
+          try {
+            if (view.columns) localStorage.setItem(`dt-vis-genesis-studio:${resource}`, JSON.stringify(view.columns));
+          } catch {
+            // Column choices are a convenience; the view still applies without them.
+          }
+          router.navigate({
+            resource,
+            ...(typeof view.sort === "string" ? { sort: view.sort } : {}),
+            ...(typeof view.search === "string" ? { search: view.search } : {}),
+            ...(typeof view.filters === "string" ? { filters: view.filters } : {}),
+            ...(typeof view.group === "string" ? { group: view.group } : {}),
+          });
+          setViewEpoch((n) => n + 1);
+        }}
+        onDeleteView={savedViews.deleteView}
         loading={schemaQuery.isLoading || listQuery.isLoading}
         error={listQuery.isError && !isUnauthenticated(listQuery.error)}
         errorMessage={listQuery.error ? errorText(listQuery.error) : undefined}
@@ -445,8 +644,71 @@ function Sheet({
         viewSettingsKey={`genesis-studio:${resource}`}
         stickyFirstColumn
       />
+      {schema && location.record && (
+        <RecordPanel
+          provider={provider}
+          sessionKey={sessionKey}
+          schema={schema}
+          id={location.record}
+          onClose={() => navigate({ record: undefined })}
+          onOpenRecord={openRecord}
+          onSaved={(row, audit) => {
+            refresh();
+            onActivity({ resource, field: Object.keys(audit?.after ?? {}).join(", "), record: location.record!, outcome: "saved", message: audit ? "Saved, with its audit entry." : "Saved.", ...(audit ? { audit } : {}) });
+            void row;
+          }}
+          onDeleted={(audit) => {
+            refresh();
+            onActivity({ resource, field: "", record: location.record!, outcome: "saved", action: "delete", message: "Deleted, with its audit entry.", ...(audit ? { audit } : {}) });
+          }}
+          onFailed={(action, message) =>
+            onActivity({ resource, field: "", record: location.record!, outcome: "not_saved", action: action === "delete" ? "delete" : "update", message })
+          }
+        />
+      )}
+      {schema && (
+        <Dialog open={creating} onOpenChange={setCreating}>
+          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg" data-testid="studio-create-dialog">
+            <DialogHeader>
+              <DialogTitle>New {schema.label ?? resource} row</DialogTitle>
+              <DialogDescription>Only fields you may set are shown. The new row is audited.</DialogDescription>
+            </DialogHeader>
+            <RecordForm
+              provider={provider}
+              sessionKey={sessionKey}
+              mode="create"
+              fields={fieldsForCreate}
+              editable={createFields}
+              onSubmit={create}
+              submitLabel="Add row"
+              onCancel={() => setCreating(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
+}
+
+const NO_ACTIONS = {
+  update: async () => {
+    throw new Error("Not available here.");
+  },
+  remove: async () => {
+    throw new Error("Not available here.");
+  },
+  refetch: () => {},
+};
+
+/** Rows of one page split by a field's value, in the order they arrived. */
+function groupRows(items: Row[], field: string): Array<[string | null, Row[]]> {
+  const groups = new Map<string | null, Row[]>();
+  for (const item of items) {
+    const value = displayText(item[field]);
+    if (!groups.has(value)) groups.set(value, []);
+    groups.get(value)!.push(item);
+  }
+  return [...groups.entries()];
 }
 
 function schemaSubtitle(schema: ResourceSchema | undefined, editable: number): string | undefined {
@@ -456,6 +718,12 @@ function schemaSubtitle(schema: ResourceSchema | undefined, editable: number): s
   if (schema.version) parts.push(`edits checked against ${schema.version.field}`);
   return parts.join(" · ");
 }
+
+const OUTCOME_LABEL = {
+  update: { saved: "Saved", not_saved: "Not saved" },
+  create: { saved: "Added", not_saved: "Not added" },
+  delete: { saved: "Deleted", not_saved: "Not deleted" },
+} as const;
 
 function ActivityPanel({ entries }: { entries: StudioActivity[] }) {
   return (
@@ -474,10 +742,10 @@ function ActivityPanel({ entries }: { entries: StudioActivity[] }) {
             <li key={entry.id} className="px-3 py-2 text-xs" data-testid={`studio-activity-${entry.outcome}`}>
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className={entry.outcome === "saved" ? "font-medium text-foreground" : "font-medium text-destructive"}>
-                  {entry.outcome === "saved" ? "Saved" : "Not saved"}
+                  {OUTCOME_LABEL[entry.action ?? "update"][entry.outcome]}
                 </span>
                 <span className="text-muted-foreground">
-                  {entry.resource} · {entry.field} · {entry.record}
+                  {[entry.resource, entry.field, entry.record].filter(Boolean).join(" · ")}
                 </span>
                 <time className="ml-auto text-muted-foreground" dateTime={entry.at.toISOString()}>
                   {entry.at.toLocaleTimeString()}

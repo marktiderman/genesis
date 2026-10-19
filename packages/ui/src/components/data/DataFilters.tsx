@@ -93,6 +93,10 @@ interface DataFiltersProps {
   onClearAll?: () => void;
   /** Expose the search input ref for keyboard nav "/" shortcut */
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
+  /** Show the search box. Default `true`; turn off when the data source can't search. */
+  showSearch?: boolean;
+  /** Show the sort select. Default `true`; turn off when the data source can't sort. */
+  showSort?: boolean;
 }
 
 export function DataFilters({
@@ -112,6 +116,8 @@ export function DataFilters({
   onViewSaved,
   onClearAll,
   searchInputRef,
+  showSearch = true,
+  showSort = true,
 }: DataFiltersProps) {
   const internalSearchRef = useRef<HTMLInputElement>(null);
   const effectiveSearchRef = searchInputRef || internalSearchRef;
@@ -187,7 +193,9 @@ export function DataFilters({
       )}
 
       {/* Search + Sort row */}
+      {(showSearch || showSort) && (
       <div className="flex flex-col sm:flex-row gap-2">
+        {showSearch && (
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -206,6 +214,8 @@ export function DataFilters({
             </button>
           )}
         </div>
+        )}
+        {showSort && (
         <Select value={sort} onValueChange={onSortChange}>
           <SelectTrigger className="w-full sm:w-[180px] shrink-0">
             <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
@@ -219,7 +229,9 @@ export function DataFilters({
             ))}
           </SelectContent>
         </Select>
+        )}
       </div>
+      )}
 
       {/* Filter chips row */}
       <div className="flex flex-wrap items-center gap-2">
