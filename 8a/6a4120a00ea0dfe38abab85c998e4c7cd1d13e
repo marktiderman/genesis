@@ -1,0 +1,20 @@
+.changeset/trusted-publishing-env.md
+  h_9ec0a1ab20d979 1-11
+.github/workflows/release.yml
+  h_9ec0a1ab20d979 6-9,18-19,21-27,125-126,128-158,209-267
+.npmrc
+  h_9ec0a1ab20d979 9-10
+docs/RELEASING.md
+  h_9ec0a1ab20d979 1-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8a6a4120a00ea0dfe38abab85c998e4c7cd1d13e",
+  "prompts": {},
+  "humans": {
+    "h_9ec0a1ab20d979": {
+      "author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
