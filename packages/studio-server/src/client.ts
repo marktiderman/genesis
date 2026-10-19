@@ -40,6 +40,9 @@ import {
   type HistoryResponse,
   type BulkResponse,
   type UndoResponse,
+  type RunActionResponse,
+  type CommentsResponse,
+  type CommentResponse,
   type ErrorResponse,
   type ListResponse,
   type ReadResponse,
@@ -68,6 +71,9 @@ export interface StudioProvider extends DataProvider {
   deleteMany: NonNullable<DataProvider["deleteMany"]>;
   importRows: NonNullable<DataProvider["importRows"]>;
   undo: NonNullable<DataProvider["undo"]>;
+  runAction: NonNullable<DataProvider["runAction"]>;
+  comments: NonNullable<DataProvider["comments"]>;
+  addComment: NonNullable<DataProvider["addComment"]>;
 }
 
 const CAPABILITIES: ProviderCapabilities = {
@@ -83,6 +89,8 @@ const CAPABILITIES: ProviderCapabilities = {
   history: true,
   import: true,
   undo: true,
+  actions: true,
+  comments: true,
 };
 
 function bulkResult(response: BulkResponse): BulkResult {
@@ -249,6 +257,28 @@ export function createStudioProvider(options: StudioProviderOptions): StudioProv
     async undo(resource, params) {
       const { audit } = await call<UndoResponse>({ op: "undo", resource, auditId: params.auditId });
       return audit ? { audit } : {};
+    },
+
+    async runAction(resource, params) {
+      const versionField = await versionFieldOf(resource);
+      const { row, audit } = await call<RunActionResponse>({
+        op: "runAction",
+        resource,
+        id: params.id,
+        action: params.action,
+        expectedVersion: params.expectedVersion ?? null,
+      });
+      return { data: row ? asRecord(row, versionField) : null, ...(audit ? { audit } : {}) };
+    },
+
+    async comments(resource, params) {
+      const { comments } = await call<CommentsResponse>({ op: "comments", resource, id: params.id });
+      return comments;
+    },
+
+    async addComment(resource, params) {
+      const { comment } = await call<CommentResponse>({ op: "comment", resource, id: params.id, body: params.body });
+      return comment;
     },
 
     async history(resource, params) {

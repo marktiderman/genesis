@@ -11,6 +11,7 @@ import type {
   ResourceRelation,
   ResourceSchema,
   ResourceSummary,
+  RowAction,
   StorageType,
   WidgetHint,
 } from "@marktiderman/genesis-core/schema";
@@ -25,8 +26,8 @@ import {
   type CatalogTable,
 } from "./catalog";
 import type { Query } from "./db";
-import type { AuthorizeDecision, StudioAction, StudioHandlerOptions } from "./options";
-import { AUDIT_FUNCTION, HISTORY_FUNCTION, OUTBOX_AUDIT_FUNCTION } from "./setup-sql";
+import type { AuthorizeDecision, RowActionSettings, StudioAction, StudioContract, StudioHandlerOptions } from "./options";
+import { ADD_COMMENT_FUNCTION, AUDIT_FUNCTION, COMMENTS_FUNCTION, HISTORY_FUNCTION, OUTBOX_AUDIT_FUNCTION } from "./setup-sql";
 
 const AUDIT_SIGNATURE_ARGS = "(text, jsonb, text, jsonb, jsonb)";
 const DEFAULT_VERSION_FIELDS = ["updated_at", "version"];
@@ -56,7 +57,14 @@ export interface ResolvedResource {
   historyBlocked: string | undefined;
   /** App functions that carry each write (decision 29), when configured. */
   functions: Readonly<Partial<Record<WriteAction, string>>>;
+  /** Row actions this user may run, each with its function. */
+  actions: readonly RowActionSettings[];
+  /** Why comments are off, or undefined when they're allowed. */
+  commentsBlocked: string | undefined;
 }
+
+/** A row action name: it goes into the audit log as `run:<name>`. */
+const ACTION_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 interface NormalizedDecision {
   allow: boolean;
@@ -88,8 +96,21 @@ export interface AccessContext {
   functionProblems?: Map<string, Promise<string | null>>;
 }
 
-async function decide(ctx: AccessContext, resource: string, action: StudioAction): Promise<NormalizedDecision> {
-  return normalize(await ctx.options.authorize({ request: ctx.request, claims: ctx.claims, resource, action }));
+async function decide(
+  ctx: AccessContext,
+  resource: string,
+  action: StudioAction,
+  rowAction?: string,
+): Promise<NormalizedDecision> {
+  return normalize(
+    await ctx.options.authorize({
+      request: ctx.request,
+      claims: ctx.claims,
+      resource,
+      action,
+      ...(rowAction !== undefined ? { rowAction } : {}),
+    }),
+  );
 }
 
 function auditFunctionName(ctx: AccessContext): string | null {
@@ -213,11 +234,12 @@ export async function resolveResource(
   const readable = table.columns.filter(isReadable);
   if (readable.length === 0) return null;
 
-  const [update, create, del, history] = await Promise.all([
+  const [update, create, del, history, comment] = await Promise.all([
     decide(ctx, resource, "update"),
     decide(ctx, resource, "create"),
     decide(ctx, resource, "delete"),
     decide(ctx, resource, "history"),
+    decide(ctx, resource, "comment"),
   ]);
   const settings = ctx.options.resources?.[resource];
   const functions = settings?.functions ?? {};
@@ -278,15 +300,41 @@ export async function resolveResource(
     if (action === "delete" && !table.canDelete) blockedRaw.delete = "the database doesn't let you delete from this table";
   }
 
-  // Updates and deletes are version-checked.
+  // Row actions: the app's own function, on one row, at the version read.
+  // Only the ones this user may run, and that can run safely, are offered.
+  const candidates: RowActionSettings[] = [];
+  for (const action of settings?.actions ?? []) {
+    if (!ACTION_NAME.test(action.name)) {
+      throw new Error(`Row action "${action.name}" on ${resource}: a name must be a letter or "_", then letters, digits or "_".`);
+    }
+    if (common) break;
+    if (!(await decide(ctx, resource, "run", action.name)).allow) continue;
+    if (
+      ctx.options.audit?.sink === "database" &&
+      !(databaseAuditTrigger(table, settings?.auditTrigger, "update") && databaseAuditTrigger(table, settings?.auditTrigger, "delete"))
+    ) {
+      continue;
+    }
+    const problem = await memoFunctionProblem(ctx, `${action.function}(jsonb)`);
+    if (problem) {
+      // A misconfigured action is the operator's to fix; the user just doesn't see it.
+      ctx.options.onError?.(new Error(`Row action "${action.name}" on ${resource}: ${action.function}(jsonb) ${problem}.`));
+      continue;
+    }
+    candidates.push(action);
+  }
+
+  // Updates, deletes and row actions are version-checked.
   let version: CatalogColumn | null = null;
-  if (!blockedRaw.update || !blockedRaw.delete) {
+  let actions: RowActionSettings[] = candidates;
+  if (!blockedRaw.update || !blockedRaw.delete || candidates.length) {
     const picked = pickVersion(table, isReadable, settings?.versionField);
     version = picked.column;
     if (!version) {
       const why = picked.reason!.replace(/^Read-only: /, "");
       if (!blockedRaw.update) blockedRaw.update = why;
       if (!blockedRaw.delete) blockedRaw.delete = why;
+      actions = [];
     }
   }
   // Studio reasons read "Read-only: <why>."; an app's own reason is kept as is.
@@ -309,6 +357,16 @@ export async function resolveResource(
   } else {
     const problem = await memoFunctionProblem(ctx, `${HISTORY_FUNCTION}(text, jsonb, int)`);
     if (problem) historyBlocked = `The history function ${HISTORY_FUNCTION} ${problem}.`;
+  }
+
+  let commentsBlocked: string | undefined;
+  if (!comment.allow) commentsBlocked = comment.reason ?? "Comments aren't enabled for this table.";
+  else if (!keyReadable) commentsBlocked = "You can't see this table's key, so comments can't be attached to a row.";
+  else {
+    const problem =
+      (await memoFunctionProblem(ctx, `${COMMENTS_FUNCTION}(text, jsonb, int)`)) ??
+      (await memoFunctionProblem(ctx, `${ADD_COMMENT_FUNCTION}(text, jsonb, text)`));
+    if (problem) commentsBlocked = `Comments need the studio's setup SQL: the comment functions ${problem}.`;
   }
 
   const keyNames = new Set(table.primaryKey);
@@ -368,12 +426,14 @@ export async function resolveResource(
     create: !blocked.create,
     delete: !blocked.delete,
     history: !historyBlocked,
-    ...(blocked.create || blocked.delete || historyBlocked
+    comment: !commentsBlocked,
+    ...(blocked.create || blocked.delete || historyBlocked || commentsBlocked
       ? {
           reasons: {
             ...(blocked.create ? { create: blocked.create } : {}),
             ...(blocked.delete ? { delete: blocked.delete } : {}),
             ...(historyBlocked ? { history: historyBlocked } : {}),
+            ...(commentsBlocked ? { comment: commentsBlocked } : {}),
           },
         }
       : {}),
@@ -381,17 +441,26 @@ export async function resolveResource(
 
   const relations = catalog ? await relationsFor(ctx, table, readable, catalog) : undefined;
 
+  const contract = ctx.options.contracts?.[resource];
+  const rowActions: RowAction[] = actions.map((a) => ({
+    name: a.name,
+    label: a.label,
+    ...(a.confirm ? { confirm: a.confirm } : {}),
+    ...(a.description ? { description: a.description } : {}),
+  }));
+  const description = contract?.description ?? table.description;
   const schema: ResourceSchema = {
     name: resource,
-    label: settings?.label ?? labelFor(table.name),
+    label: settings?.label ?? contract?.label ?? labelFor(table.name),
     key: keyReadable ? (keyColumns.length === 1 ? keyColumns[0]!.name : keyColumns.map((c) => c.name)) : [],
-    fields,
-    ...(table.description ? { description: table.description } : {}),
+    fields: contract ? withContract(fields, contract) : fields,
+    ...(description ? { description } : {}),
     access,
     ...(version ? { version: { field: version.name, kind: versionKind(version)! } } : {}),
-    labelField: pickLabelField(readable, keyColumns, settings?.labelField),
+    labelField: pickLabelField(readable, keyColumns, settings?.labelField ?? contract?.labelField),
     ...(relations && relations.length ? { relations } : {}),
     ...(creatable.size ? { createFields: [...creatable] } : {}),
+    ...(rowActions.length ? { actions: rowActions } : {}),
   };
 
   return {
@@ -406,7 +475,41 @@ export async function resolveResource(
     blocked,
     historyBlocked,
     functions,
+    actions,
+    commentsBlocked,
   };
+}
+
+/** Widgets a contract may choose, by the storage type each can edit faithfully. */
+const WIDGETS_FOR: Partial<Record<StorageType, readonly WidgetHint[]>> = {
+  string: ["text", "textarea", "email", "url"],
+  number: ["number"],
+  boolean: ["checkbox", "switch"],
+  json: ["textarea"],
+};
+
+/**
+ * A checked-in contract wins over discovery for presentation only (decision
+ * 10): a field's label, description and widget. A field the contract names
+ * but the database doesn't (or this user can't read) is ignored, so a stale
+ * contract can never reveal or invent a field.
+ */
+function withContract(fields: FieldSchema[], contract: StudioContract): FieldSchema[] {
+  const byName = new Map((contract.fields ?? []).map((f) => [f.name, f]));
+  return fields.map((field) => {
+    const over = byName.get(field.name);
+    if (!over) return field;
+    // Only a widget that can edit this field's type, and never over a
+    // relation or choice list (those come from the database's own structure).
+    const allowed = field.array || field.references || field.enumValues ? [] : WIDGETS_FOR[field.type] ?? [];
+    const widget = over.widget && allowed.includes(over.widget as WidgetHint) ? (over.widget as WidgetHint) : field.widget;
+    return {
+      ...field,
+      ...(over.label ? { label: over.label } : {}),
+      ...(over.description ? { description: over.description } : {}),
+      ...(widget ? { widget } : {}),
+    };
+  });
 }
 
 function pickLabelField(readable: CatalogColumn[], key: CatalogColumn[], configured: string | undefined): string {

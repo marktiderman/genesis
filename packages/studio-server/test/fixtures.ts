@@ -248,6 +248,27 @@ end $$;
 revoke all on function public.save_score(jsonb, jsonb), public.add_score(jsonb), public.remove_score(jsonb) from public;
 grant execute on function public.save_score(jsonb, jsonb), public.add_score(jsonb), public.remove_score(jsonb) to authenticated;
 
+-- Row actions on clients. complete_client runs as the user (their grants and
+-- RLS apply); archive_client deletes; ping_client changes nothing.
+create function public.complete_client(record_key jsonb) returns void
+language plpgsql set search_path = '' as $$
+begin
+  update public.clients set status = 'done' where id = (record_key ->> 'id')::uuid;
+  if not found then raise exception 'Client not found.'; end if;
+end $$;
+create function public.archive_client(record_key jsonb) returns void
+language plpgsql set search_path = '' as $$
+begin
+  delete from public.clients where id = (record_key ->> 'id')::uuid;
+end $$;
+create function public.ping_client(record_key jsonb) returns void
+language plpgsql set search_path = '' as $$
+begin
+  perform 1;
+end $$;
+revoke all on function public.complete_client(jsonb), public.archive_client(jsonb), public.ping_client(jsonb) from public;
+grant execute on function public.complete_client(jsonb), public.archive_client(jsonb), public.ping_client(jsonb) to authenticated;
+
 -- secret_table: granted by the database, but never allowed by authorize().
 create table public.secret_table (id int primary key, payload text);
 grant select on public.secret_table to authenticated;

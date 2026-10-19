@@ -150,6 +150,10 @@ export async function undoChange(
   );
   if (!entry || entry.resource !== resourceName) throw new WriteRejected("gone", "No such change in this table's history.");
   if (entry.actor !== actor) throw new WriteRejected("forbidden", "You can only undo your own changes.");
+  if (String(entry.action).startsWith("run:")) {
+    // The app's function may have done more than this row shows.
+    throw new WriteRejected("forbidden", "Can't undo: a row action may have changed more than this row, so it can't be reversed here.");
+  }
 
   const key = JSON.parse(String(entry.record_key)) as Record<string, unknown>;
   const before = (entry.before ?? {}) as DataRow;

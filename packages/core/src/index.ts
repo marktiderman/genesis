@@ -28,6 +28,8 @@ export type {
   FilterOperator,
   ProviderCapabilities,
   AuditEntry,
+  RowAction,
+  RecordComment,
 } from "./schema/types";
 export { keyFields, encodeRecordKey, decodeRecordKey } from "./schema/keys";
 

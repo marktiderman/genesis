@@ -201,13 +201,14 @@ async function writeAudit(
   key: DataRow,
   before: DataRow | null,
   after: DataRow | null,
+  rowAction?: string,
 ): Promise<AuditEntry | undefined> {
   if (!resolved.auditFunction) return undefined;
   try {
     const [entry] = await query(
       `select id::text as id, occurred_at::text as occurred_at, actor
          from ${auditFunctionSql(resolved.auditFunction)}($1::text, $2::text::jsonb, $3::text, $4::text::jsonb, $5::text::jsonb)`,
-      [resourceName, JSON.stringify(key), action, JSON.stringify(before), JSON.stringify(after)],
+      [resourceName, JSON.stringify(key), action === "run" ? `run:${rowAction}` : action, JSON.stringify(before), JSON.stringify(after)],
     );
     if (!entry) throw new Error("The audit function returned no entry.");
     return {
@@ -217,6 +218,7 @@ async function writeAudit(
       resource: resourceName,
       key,
       action,
+      ...(action === "run" ? { rowAction } : {}),
       before,
       after,
     };
@@ -411,4 +413,38 @@ export async function deleteRow(
 
   const audit = await writeAudit(query, resolved, input.resourceName, "delete", locked.key, locked.before, null);
   return audit ? { audit } : {};
+}
+
+export interface RunActionInput {
+  key: Record<string, unknown>;
+  action: string;
+  expectedVersion: string | null;
+  resourceName: string;
+}
+
+/**
+ * Run a row action: the app's function `fn(record_key jsonb)`, as the user,
+ * on the row at the version they saw. Its effect on the row is audited as
+ * `run:<name>`, before and after; a row it deletes is audited with no after.
+ */
+export async function runRowAction(
+  query: Query,
+  resolved: ResolvedResource,
+  input: RunActionInput,
+): Promise<{ row: StudioRow | null; audit?: AuditEntry }> {
+  const action = resolved.actions.find((a) => a.name === input.action);
+  if (!action || !resolved.version) {
+    throw new WriteRejected("forbidden", `Not run: "${input.action}" isn't an action you can run on this table.`);
+  }
+  // Like a function-carried write: no row lock (the user may hold no UPDATE
+  // grant), and REPEATABLE READ fails the function's own write if the row
+  // moved after this check.
+  const locked = await lockAtVersion(query, resolved, input.key, input.expectedVersion, false);
+  await callFunction(query, action.function, [locked.key]);
+  const after = await reread(query, resolved, input.key);
+  const { before, after: changed } = after
+    ? diff(locked.before, after[AFTER_ALIAS] as DataRow)
+    : { before: locked.before, after: null };
+  const audit = await writeAudit(query, resolved, input.resourceName, "run", locked.key, before, changed, action.name);
+  return { row: after ? toStudioRow(resolved, after) : null, ...(audit ? { audit } : {}) };
 }

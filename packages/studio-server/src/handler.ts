@@ -14,7 +14,8 @@ import {
   type StudioRequest,
 } from "./protocol";
 import { BadRequestError, listRows, readRow } from "./rows";
-import { createRow, deleteRow, updateRow, WriteRejected } from "./write";
+import { createRow, deleteRow, runRowAction, updateRow, WriteRejected } from "./write";
+import { addComment, readComments } from "./comments";
 import { readHistory } from "./history";
 import { BulkRejected, deleteMany, importRows, undoChange, updateMany } from "./bulk";
 
@@ -253,7 +254,17 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
         );
       }
 
-      const readOnly = !["update", "create", "delete", "updateMany", "deleteMany", "import", "undo"].includes(body.op);
+      const readOnly = ![
+        "update",
+        "create",
+        "delete",
+        "updateMany",
+        "deleteMany",
+        "import",
+        "undo",
+        "runAction",
+        "comment",
+      ].includes(body.op);
       const result = await database.asUser({ role, claims }, { readOnly, statementTimeoutMs }, async (query) => {
         const ctx: AccessContext = { request, claims, query, options };
         switch (body.op) {
@@ -377,6 +388,32 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
             const name = resourceName(body.resource);
             const resolved = await resolveOne(ctx, query, name);
             return undoChange(query, resolved, String(body.auditId ?? ""), claims.sub, name);
+          }
+          case "runAction": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            if (typeof body.action !== "string" || body.action.length === 0) {
+              throw new BadRequestError('"action" must name one of the table\'s row actions.');
+            }
+            if (body.expectedVersion !== null && typeof body.expectedVersion !== "string") {
+              throw new BadRequestError('"expectedVersion" must be the version token the row was read at, or null.');
+            }
+            return runRowAction(query, resolved, {
+              key: decodeKey(resolved, recordId(body.id)),
+              action: body.action,
+              expectedVersion: body.expectedVersion,
+              resourceName: name,
+            });
+          }
+          case "comments": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            return { comments: await readComments(query, resolved, decodeKey(resolved, recordId(body.id)), name) };
+          }
+          case "comment": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            return { comment: await addComment(query, resolved, decodeKey(resolved, recordId(body.id)), name, body.body) };
           }
           default:
             throw new BadRequestError(`Unknown op "${String((body as { op: unknown }).op)}".`);

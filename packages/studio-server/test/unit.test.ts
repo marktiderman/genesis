@@ -153,6 +153,21 @@ describe("byResource", () => {
     expect(ctx("public.quiz", "update")).toBe(false);
   });
 
+  it("allows row actions by name, and comments, only when listed", () => {
+    const rules = byResource(
+      { "public.a": { read: true, actions: ["approve"], comment: true }, "public.b": { read: true, actions: true } },
+      { who: () => true },
+    );
+    const run = (resource: string, rowAction?: string) =>
+      rules({ request: request(), claims: { sub: "u" }, resource, action: "run", ...(rowAction ? { rowAction } : {}) });
+    expect(run("public.a", "approve")).toBe(true);
+    expect(run("public.a", "reject")).toBe(false);
+    expect(run("public.a")).toBe(false);
+    expect(run("public.b", "anything")).toBe(true);
+    expect(rules({ request: request(), claims: { sub: "u" }, resource: "public.a", action: "comment" })).toBe(true);
+    expect(rules({ request: request(), claims: { sub: "u" }, resource: "public.b", action: "comment" })).toBe(false);
+  });
+
   it("narrows columns", () => {
     expect(ctx("public.clients", "read")).toBe(true);
     expect(ctx("public.clients", "update")).toEqual({ allow: true, columns: ["notes"] });

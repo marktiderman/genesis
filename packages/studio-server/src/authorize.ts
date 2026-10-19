@@ -16,6 +16,10 @@ export interface ResourceRule {
   delete?: true;
   /** `true` to let them read a row's audit history (only fields they can read). */
   history?: true;
+  /** `true` for every row action configured on the table, or just these. */
+  actions?: true | readonly string[];
+  /** `true` to let them read and add comments on rows they can see. */
+  comment?: true;
 }
 
 export interface ByResourceOptions {
@@ -48,7 +52,7 @@ export function byResource(rules: Readonly<Record<string, ResourceRule>>, option
   if (typeof options?.who !== "function") {
     throw new Error("byResource needs `who`: decide which signed-in users may use the studio.");
   }
-  return ({ resource, action, claims }) => {
+  return ({ resource, action, claims, rowAction }) => {
     if (!options.who(claims)) return false;
     const rule = Object.prototype.hasOwnProperty.call(rules, resource) ? rules[resource] : undefined;
     if (!rule) return false;
@@ -58,6 +62,11 @@ export function byResource(rules: Readonly<Record<string, ResourceRule>>, option
     }
     if (action === "delete") return rule.delete === true;
     if (action === "history") return rule.history === true;
+    if (action === "comment") return rule.comment === true;
+    if (action === "run") {
+      if (!rule.actions) return false;
+      return rule.actions === true || (rowAction !== undefined && rule.actions.includes(rowAction));
+    }
     const columns = action === "create" ? rule.create : rule.update;
     if (!columns) return false;
     return columns === true ? true : { allow: true, columns };

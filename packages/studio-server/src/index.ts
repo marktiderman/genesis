@@ -36,6 +36,8 @@ export {
   AUDIT_FUNCTION,
   OUTBOX_AUDIT_FUNCTION,
   HISTORY_FUNCTION,
+  ADD_COMMENT_FUNCTION,
+  COMMENTS_FUNCTION,
   type SetupSqlOptions,
 } from "./setup-sql";
 export type {
@@ -44,7 +46,9 @@ export type {
   AuthorizeDecision,
   AuditSink,
   ResourceSettings,
+  RowActionSettings,
   StudioAction,
+  StudioContract,
   StudioHandlerOptions,
 } from "./options";
 export {
@@ -61,5 +65,8 @@ export {
   type HistoryResponse,
   type BulkResponse,
   type UndoResponse,
+  type RunActionResponse,
+  type CommentsResponse,
+  type CommentResponse,
   type ErrorResponse,
 } from "./protocol";
