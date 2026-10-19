@@ -202,14 +202,15 @@ jobs:
           for pj in packages/*/package.json; do
             if [ "$(jq -r '.private // false' "$pj")" = true ]; then continue; fi
             nv=$(jq -r '"\(.name)@\(.version)"' "$pj")
-            # Unpublished = empty output (version missing) or E404 (package
+            # Unpublished = empty stdout (version missing) or E404 (package
             # missing). Any other failure is not evidence either way: stop.
-            if out=$(npm view "$nv" version 2>&1); then
+            # stderr is kept apart so an npm warning never reads as a version.
+            if out=$(npm view "$nv" version 2>"$RUNNER_TEMP/view.err"); then
               if [ -z "$out" ]; then pending+=("${nv%@*}"); fi
-            elif grep -q E404 <<<"$out"; then
+            elif grep -q E404 "$RUNNER_TEMP/view.err"; then
               pending+=("${nv%@*}")
             else
-              echo "::error::npm view $nv failed: $(head -c 300 <<<"$out")"; exit 1
+              echo "::error::npm view $nv failed: $(head -c 300 "$RUNNER_TEMP/view.err")"; exit 1
             fi
           done
           if [ ${#pending[@]} -eq 0 ]; then echo "Nothing unpublished."; exit 0; fi
@@ -225,10 +226,17 @@ jobs:
               -H "Authorization: Bearer $idt" \
               "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${name/\//%2f}") || code=000
             [[ "$code" =~ ^[0-9]{3}$ ]] || code=000
+            # Only a COMPLETED non-2xx response is described, and only by its
+            # parsed .message. A transfer error (000) may leave a partial body
+            # that could hold a minted token, so it is never read.
             if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
               echo "OK    $name (npm trusts this workflow)"
+            elif [ "$code" = 000 ]; then
+              echo "::error::$name: OIDC token exchange request did not complete (network error or timeout). Re-run this workflow."
+              failed=1
             else
-              echo "::error::$name: npm refused the OIDC token exchange ($code $(head -c 300 "$RUNNER_TEMP/x.json" 2>/dev/null)). Fix its Trusted Publisher on npmjs.com (repo marktiderman/genesis, workflow release.yml, environment blank), then re-run this workflow."
+              msg=$(jq -r '.message // empty' "$RUNNER_TEMP/x.json" 2>/dev/null | head -c 200) || msg=
+              echo "::error::$name: npm refused the OIDC token exchange ($code ${msg:-no message}). Fix its Trusted Publisher on npmjs.com (repo marktiderman/genesis, workflow release.yml, environment blank), then re-run this workflow."
               failed=1
             fi
             rm -f "$RUNNER_TEMP/x.json"
