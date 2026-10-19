@@ -1,0 +1,44 @@
+// @marktiderman/genesis-studio-server — the Data Studio's server half.
+// The browser half (a DataProvider for this handler) is at `./client`.
+
+export { createStudioHandler, type StudioHandler } from "./handler";
+export { byResource, type ResourceRule } from "./authorize";
+export {
+  jwtAuth,
+  supabaseAuth,
+  bearerToken,
+  type StudioAuth,
+  type StudioClaims,
+  type JwtAuthOptions,
+  type SupabaseAuthOptions,
+} from "./auth";
+export {
+  createPostgresDatabase,
+  IdentitySwitchError,
+  type StudioDatabase,
+  type Identity,
+  type Query,
+  type SqlRow,
+  type PostgresOptions,
+} from "./db";
+export { studioSetupSql, AUDIT_FUNCTION, type SetupSqlOptions } from "./setup-sql";
+export type {
+  Authorize,
+  AuthorizeContext,
+  AuthorizeDecision,
+  AuditSink,
+  ResourceSettings,
+  StudioAction,
+  StudioHandlerOptions,
+} from "./options";
+export {
+  STUDIO_PROTOCOL_VERSION,
+  type StudioRequest,
+  type StudioRow,
+  type ResourcesResponse,
+  type DescribeResponse,
+  type ListResponse,
+  type ReadResponse,
+  type UpdateResponse,
+  type ErrorResponse,
+} from "./protocol";

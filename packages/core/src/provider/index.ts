@@ -24,6 +24,14 @@ export type {
   DeleteResult,
 } from "./types";
 
+// Write outcomes — also exported from `@marktiderman/genesis-core/schema`.
+export {
+  DataWriteError,
+  isDataWriteError,
+  type WriteOutcome,
+  type DataWriteErrorOptions,
+} from "../schema/write-outcome";
+
 // Providers
 export { createMockProvider, type MockProviderOptions } from "./mock-provider";
 export {

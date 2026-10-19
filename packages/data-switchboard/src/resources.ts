@@ -13,7 +13,7 @@
 // =====================================================================
 
 import type { AirtableResourceMap } from "./adapters/airtable";
-import type { ResourceContract } from "./types";
+import type { SwitchboardContract } from "./types";
 
 // ---------------------------------------------------------------------
 // Airtable base + table ids (placeholders — swap in your own).
@@ -39,7 +39,7 @@ export interface TicketRow {
   [key: string]: unknown;
 }
 
-export const ticketsContract: ResourceContract<TicketRow> = {
+export const ticketsContract: SwitchboardContract<TicketRow> = {
   name: "tickets",
   key: "id",
   sourceOfTruth: "L2", // curated in Airtable today; promotable to L3.
@@ -93,7 +93,7 @@ export interface FeatureRow {
   [key: string]: unknown;
 }
 
-export const featuresContract: ResourceContract<FeatureRow> = {
+export const featuresContract: SwitchboardContract<FeatureRow> = {
   name: "features",
   key: "id",
   sourceOfTruth: "L2",

@@ -2,6 +2,13 @@
 // DataProvider — the universal CRUD interface for Genesis UI
 // ---------------------------------------------------------------------------
 
+import type {
+  AuditEntry,
+  ProviderCapabilities,
+  ResourceSchema,
+  ResourceSummary,
+} from "../schema/types";
+
 /** Record identifier — supports both string UUIDs and numeric auto-increment IDs. */
 export type Identifier = string | number;
 
@@ -106,13 +113,29 @@ export interface CreateResult<T> {
 
 /** Parameters for `update`. */
 export interface UpdateParams<T> {
+  /**
+   * The record's identifier. For a composite key, the canonical string from
+   * `encodeRecordKey` (`@marktiderman/genesis-core/schema`).
+   */
   id: Identifier;
   data: Partial<T>;
+  /**
+   * The version token the caller read the row at. A provider that reports
+   * `versionedWrites` in its capabilities rejects the update with a
+   * `DataWriteError` (`conflict`) when the row has moved on since, instead of
+   * overwriting someone else's edit. Providers without versioned writes
+   * ignore it.
+   */
+  expectedVersion?: string | null;
 }
 
 /** Result of `update`. */
 export interface UpdateResult<T> {
   data: T;
+  /** The row's new version token, from a provider with versioned writes. */
+  version?: string | null;
+  /** The audit entry committed with the edit, from a provider that audits. */
+  audit?: AuditEntry;
 }
 
 /** Parameters for `deleteOne`. */
@@ -126,7 +149,9 @@ export interface DeleteResult {
 }
 
 // ---------------------------------------------------------------------------
-// The DataProvider interface — six methods, nothing more.
+// The DataProvider interface — six required methods, plus optional ones a
+// provider implements when it can (Refine's required-versus-optional split).
+// Callers feature-detect an optional method before using it.
 // ---------------------------------------------------------------------------
 
 export interface DataProvider {
@@ -159,4 +184,20 @@ export interface DataProvider {
     resource: string,
     params: DeleteParams,
   ): Promise<DeleteResult>;
+
+  /**
+   * The resource's real shape for the CURRENT user: fields, key, version
+   * field, and per-field read and update rights. Fields the user may not read
+   * are omitted entirely.
+   */
+  describe?(resource: string): Promise<ResourceSchema>;
+
+  /** Every resource this user may see, for a sidebar or a picker. */
+  listResources?(): Promise<ResourceSummary[]>;
+
+  /**
+   * What this provider can do, optionally for one resource. A UI hides the
+   * controls a provider cannot serve instead of letting them error.
+   */
+  capabilities?(resource?: string): Promise<ProviderCapabilities>;
 }

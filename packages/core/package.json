@@ -38,6 +38,10 @@
     "./storage": {
       "types": "./dist/storage/index.d.ts",
       "import": "./dist/storage/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js"
     }
   },
   "files": [
@@ -45,8 +49,10 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
-    "clean": "rm -rf dist"
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "react": "^19.0.0",
@@ -56,12 +62,13 @@
     "@hookform/resolvers": "^3.0.0 || ^4.0.0 || ^5.0.0"
   },
   "devDependencies": {
+    "@hookform/resolvers": "^5.0.1",
     "@tanstack/react-query": "^5.75.0",
     "@types/react": "^19.2.14",
     "react-hook-form": "^7.56.4",
-    "zod": "^3.25.67",
-    "@hookform/resolvers": "^5.0.1",
     "tsup": "^8.3.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.0",
+    "zod": "^3.25.67"
   }
 }

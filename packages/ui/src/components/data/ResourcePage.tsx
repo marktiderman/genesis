@@ -190,6 +190,15 @@ export interface ResourcePageProps<
   // Columns — optional, string shorthand supported
   columns?: Array<string | ResourceColumnDef<T>>;
 
+  /**
+   * A row's identity, for React keys and bulk selection. Defaults to
+   * `String(item.id)`. Supply it for rows keyed some other way — a composite
+   * key (`encodeRecordKey` from `@marktiderman/genesis-core/schema`), or a
+   * table whose key column isn't called `id`. Detail `route` mode still
+   * navigates by `item.id`.
+   */
+  getKey?: (item: T) => string;
+
   // Detail view
   /** How row-click detail is shown. Default "panel". */
   detail?: "panel" | "modal" | "route" | "none";
@@ -558,6 +567,7 @@ export function ResourcePage<
     subtitle,
     icon,
     columns: columnsProp,
+    getKey: getKeyProp,
     detail = "panel",
     detailWidth = "md",
     titleField: titleFieldProp,
@@ -720,6 +730,13 @@ export function ResourcePage<
     resourceHook.list,
   ]);
 
+  // ── Row identity ──
+  const keyOf = useCallback(
+    (item: T): string =>
+      getKeyProp ? getKeyProp(item) : String((item as Record<string, unknown>).id ?? ""),
+    [getKeyProp],
+  );
+
   // ── Bulk selection ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -735,13 +752,9 @@ export function ResourcePage<
   const handleToggleAll = useCallback(() => {
     setSelectedIds((prev) => {
       if (prev.size === page.data.length) return new Set();
-      return new Set(
-        page.data.map((item) =>
-          String((item as Record<string, unknown>).id ?? ""),
-        ),
-      );
+      return new Set(page.data.map(keyOf));
     });
-  }, [page.data]);
+  }, [page.data, keyOf]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -787,6 +800,8 @@ export function ResourcePage<
           header: col.header ?? col.key,
           sortable: col.sortable ?? true,
           hideBelow: col.hideBelow,
+          editable: col.editable,
+          accessor: col.accessor,
           render: col.render
             ? (item: T, value: unknown) => col.render!(item, value, actions)
             : undefined,
@@ -993,9 +1008,7 @@ export function ResourcePage<
       ? (index) => {
           const item = page.data[index];
           if (item) {
-            handleToggleSelect(
-              String((item as Record<string, unknown>).id ?? ""),
-            );
+            handleToggleSelect(keyOf(item));
           }
         }
       : undefined,
@@ -1258,8 +1271,7 @@ export function ResourcePage<
           items: page.data,
           viewMode: page.viewMode,
           gridCols: gridColsProp,
-          getKey: (item: T) =>
-            String((item as Record<string, unknown>).id ?? ""),
+          getKey: keyOf,
           focusedIndex: keyboardNav.focusedIndex,
           keyboardContainerRef: keyboardNav.containerRef,
           renderTable: (items: T[]) =>
@@ -1272,8 +1284,7 @@ export function ResourcePage<
               {
                 items,
                 columns: tableColumns,
-                getKey: (item: T) =>
-                  String((item as Record<string, unknown>).id ?? ""),
+                getKey: keyOf,
                 onRowClick: detail !== "none" ? handleRowClick : undefined,
                 selectable: !!bulkActions && bulkActions.length > 0,
                 selected: selectedIds,

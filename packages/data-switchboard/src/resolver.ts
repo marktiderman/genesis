@@ -33,7 +33,8 @@
 import type { Adapter } from "./adapters/adapter";
 import { asWritable } from "./adapters/adapter";
 import type { Registry } from "./registry";
-import type { DataRow, ProviderKind, QueryOptions, ResolvedPlan, ResourceContract } from "./types";
+import type { DataRow } from "./core-schema";
+import type { ProviderKind, QueryOptions, ResolvedPlan, SwitchboardContract } from "./types";
 
 /** Per-resource handle the app holds. */
 export interface ResourceClient<Row extends DataRow = DataRow> {
@@ -67,7 +68,7 @@ export class Switchboard {
 
   // -- reads -----------------------------------------------------------
 
-  private async list(contract: ResourceContract): Promise<DataRow[]> {
+  private async list(contract: SwitchboardContract): Promise<DataRow[]> {
     const plan = this.registry.resolve(contract.name);
     if (plan.mergeSources) {
       const perSource = await Promise.all(plan.mergeSources.map((p) => this.registry.getAdapter(p).list(contract)));
@@ -78,7 +79,7 @@ export class Switchboard {
     return this.federate(contract, plan, rows);
   }
 
-  private async get(contract: ResourceContract, key: string): Promise<DataRow | null> {
+  private async get(contract: SwitchboardContract, key: string): Promise<DataRow | null> {
     const plan = this.registry.resolve(contract.name);
     if (plan.mergeSources) {
       // Ask each source for the keyed row; consolidate the (≤1-per-source) hits.
@@ -103,7 +104,7 @@ export class Switchboard {
     return merged ?? row;
   }
 
-  private async query(contract: ResourceContract, opts: QueryOptions): Promise<DataRow[]> {
+  private async query(contract: SwitchboardContract, opts: QueryOptions): Promise<DataRow[]> {
     const plan = this.registry.resolve(contract.name);
     if (plan.mergeSources) {
       // FILTER-THEN-MERGE: push the `where` down to EVERY source, then union +
@@ -133,7 +134,7 @@ export class Switchboard {
    * claimed field values onto the matching base rows. No-op for Tier A/B
    * (empty `federated`).
    */
-  private async federate(contract: ResourceContract, plan: ResolvedPlan, baseRows: DataRow[]): Promise<DataRow[]> {
+  private async federate(contract: SwitchboardContract, plan: ResolvedPlan, baseRows: DataRow[]): Promise<DataRow[]> {
     const federatedFields = Object.entries(plan.federated);
     if (federatedFields.length === 0) return baseRows;
 
@@ -207,7 +208,7 @@ export class Switchboard {
    * Worked example: source A = 5 rows, source B = 10 rows, 4 of A's keys also
    * appear in B ⇒ 15 candidates − 4 collapsed = 11 records.
    */
-  private mergeSources(contract: ResourceContract, perSource: readonly DataRow[][]): DataRow[] {
+  private mergeSources(contract: SwitchboardContract, perSource: readonly DataRow[][]): DataRow[] {
     const key = contract.key;
     // Insertion-ordered map preserves first-seen key order for a stable result.
     const merged = new Map<string, DataRow>();
@@ -234,7 +235,7 @@ export class Switchboard {
   // -- writes (single-source: base; merge: the designated write sink) --
 
   private writableBase(
-    contract: ResourceContract,
+    contract: SwitchboardContract,
     op: "create" | "update" | "delete",
   ): { adapter: Adapter; plan: ResolvedPlan } {
     const plan = this.registry.resolve(contract.name);
@@ -246,21 +247,21 @@ export class Switchboard {
     return { adapter, plan };
   }
 
-  private async create(contract: ResourceContract, row: DataRow): Promise<DataRow> {
+  private async create(contract: SwitchboardContract, row: DataRow): Promise<DataRow> {
     const plan = this.registry.resolve(contract.name);
     if (this.isFederated(plan)) return this.federatedCreate(contract, plan, row);
     const { adapter } = this.writableBase(contract, "create");
     return adapter.create!(contract, row);
   }
 
-  private async update(contract: ResourceContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
+  private async update(contract: SwitchboardContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
     const plan = this.registry.resolve(contract.name);
     if (this.isFederated(plan)) return this.federatedUpdate(contract, plan, key, patch);
     const { adapter } = this.writableBase(contract, "update");
     return adapter.update!(contract, key, patch);
   }
 
-  private async delete(contract: ResourceContract, key: string): Promise<void> {
+  private async delete(contract: SwitchboardContract, key: string): Promise<void> {
     const plan = this.registry.resolve(contract.name);
     if (this.isFederated(plan)) {
       await this.federatedDelete(contract, plan, key);
@@ -313,7 +314,7 @@ export class Switchboard {
     return byProvider;
   }
 
-  private async federatedCreate(contract: ResourceContract, plan: ResolvedPlan, row: DataRow): Promise<DataRow> {
+  private async federatedCreate(contract: SwitchboardContract, plan: ResolvedPlan, row: DataRow): Promise<DataRow> {
     const targets = this.federatedTargets(plan);
     const federatedFields = new Set([...targets.values()].flat());
 
@@ -344,7 +345,7 @@ export class Switchboard {
   }
 
   private async federatedUpdate(
-    contract: ResourceContract,
+    contract: SwitchboardContract,
     plan: ResolvedPlan,
     key: string,
     patch: Partial<DataRow>,
@@ -394,7 +395,7 @@ export class Switchboard {
     return merged;
   }
 
-  private async federatedDelete(contract: ResourceContract, plan: ResolvedPlan, key: string): Promise<void> {
+  private async federatedDelete(contract: SwitchboardContract, plan: ResolvedPlan, key: string): Promise<void> {
     const targets = this.federatedTargets(plan);
     // Delete the keyed row from the base AND every federated field-owner, so a
     // Tier-C entity leaves no orphaned field rows behind in a contributor.

@@ -1,0 +1,65 @@
+{
+  "name": "@marktiderman/genesis-studio",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "description": "Genesis Data Studio — an Airtable-style workspace for a Postgres or Supabase app's own data: a table sidebar and a sheet grid with version-checked, audited single-cell edits, as the signed-in user. Built on genesis-ui's ResourcePage; routing and sign-in come from the host app. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/studio"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && cp src/styles.css dist/styles.css && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@tanstack/react-query": "^5.0.0",
+    "lucide-react": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@tanstack/react-query": "^5.75.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.9.0",
+    "lucide-react": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.0"
+  }
+}

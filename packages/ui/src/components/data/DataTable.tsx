@@ -19,6 +19,7 @@ import {
 import { Checkbox } from "../ui/checkbox";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Spinner } from "../ui/spinner";
 import {
   Select,
   SelectContent,
@@ -73,7 +74,14 @@ export interface DataTableColumn<T> {
   editable?: {
     type: "text" | "select";
     options?: string[];
-    onSave: (item: T, newValue: string) => void;
+    /**
+     * Called with the new value. Return a promise to keep the cell in a
+     * saving state until it settles: a fulfilled save closes the editor, and
+     * a rejected one keeps it open with the error's message beneath it, so
+     * nothing the user typed is lost and the reason is on screen. A plain
+     * `void` return closes the editor at once, as before.
+     */
+    onSave: (item: T, newValue: string) => void | Promise<void>;
   };
   /** Whether column is visible by default (default true) */
   defaultVisible?: boolean;
@@ -140,6 +148,10 @@ function getCellClasses(col: DataTableColumn<unknown>) {
 
 /* ── Inline edit cell ── */
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function EditableCell<T>({
   item,
   column,
@@ -151,14 +163,54 @@ function EditableCell<T>({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value ?? ""));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // A ref, not state: Enter and the blur that follows it land in the same
+  // tick, and only the first may start a save.
+  const inFlight = useRef(false);
+  // The draft that last failed, so leaving the cell doesn't silently retry it.
+  const failedDraft = useRef<string | null>(null);
   const editable = column.editable!;
+
+  const close = useCallback(() => {
+    setEditing(false);
+    setError(null);
+    failedDraft.current = null;
+  }, []);
 
   const commit = useCallback(
     (v: string) => {
-      editable.onSave(item, v);
-      setEditing(false);
+      if (inFlight.current) return;
+      let result: void | Promise<void>;
+      try {
+        result = editable.onSave(item, v);
+      } catch (e) {
+        setError(errorMessage(e));
+        failedDraft.current = v;
+        return;
+      }
+      if (!result || typeof (result as Promise<void>).then !== "function") {
+        close();
+        return;
+      }
+      inFlight.current = true;
+      setSaving(true);
+      setError(null);
+      (result as Promise<void>).then(
+        () => {
+          inFlight.current = false;
+          setSaving(false);
+          close();
+        },
+        (e: unknown) => {
+          inFlight.current = false;
+          setSaving(false);
+          setError(errorMessage(e));
+          failedDraft.current = v;
+        },
+      );
     },
-    [editable, item],
+    [editable, item, close],
   );
 
   if (!editing) {
@@ -168,6 +220,8 @@ function EditableCell<T>({
         onClick={(e) => {
           e.stopPropagation();
           setDraft(String(value ?? ""));
+          setError(null);
+          failedDraft.current = null;
           setEditing(true);
         }}
       >
@@ -176,11 +230,33 @@ function EditableCell<T>({
     );
   }
 
+  const feedback = error ? (
+    <p role="alert" className="mt-1 text-[11px] leading-snug text-destructive">
+      {error}
+    </p>
+  ) : null;
+
   if (editable.type === "select" && editable.options) {
+    // Controlled, so what it shows is always the draft; and closable without
+    // choosing again — Radix fires no change for the value already picked,
+    // so after a failed save Escape or Cancel is the only way out.
     return (
-      <div onClick={(e) => e.stopPropagation()}>
-        <Select defaultValue={draft} onValueChange={(v) => commit(v)}>
-          <SelectTrigger className="h-7 text-xs w-28">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && !inFlight.current) close();
+        }}
+        aria-busy={saving || undefined}
+      >
+        <Select
+          value={draft}
+          disabled={saving}
+          onValueChange={(v) => {
+            setDraft(v);
+            commit(v);
+          }}
+        >
+          <SelectTrigger className="h-7 text-xs w-28" aria-invalid={error ? true : undefined}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -191,23 +267,47 @@ function EditableCell<T>({
             ))}
           </SelectContent>
         </Select>
+        {feedback}
+        {error && (
+          <button
+            type="button"
+            className="mt-0.5 text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+            onClick={close}
+          >
+            Cancel
+          </button>
+        )}
       </div>
     );
   }
 
   return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <Input
-        autoFocus
-        className="h-7 text-xs w-full"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => commit(draft)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commit(draft);
-          if (e.key === "Escape") setEditing(false);
-        }}
-      />
+    <div onClick={(e) => e.stopPropagation()} aria-busy={saving || undefined}>
+      <div className="relative">
+        <Input
+          autoFocus
+          className={cn("h-7 text-xs w-full", saving && "pr-7 opacity-70")}
+          value={draft}
+          // readOnly rather than disabled while saving: disabling would drop
+          // focus, and the resulting blur would try to save a second time.
+          readOnly={saving}
+          aria-invalid={error ? true : undefined}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => {
+            if (inFlight.current) return;
+            if (failedDraft.current === draft) close();
+            else commit(draft);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit(draft);
+            if (e.key === "Escape" && !inFlight.current) close();
+          }}
+        />
+        {saving && (
+          <Spinner className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2" aria-label="Saving" />
+        )}
+      </div>
+      {feedback}
     </div>
   );
 }

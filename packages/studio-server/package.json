@@ -1,0 +1,60 @@
+{
+  "name": "@marktiderman/genesis-studio-server",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Genesis Data Studio server handler — a web-standard Request → Response handler that reads and edits a Postgres or Supabase database AS the signed-in user: schema discovery with per-user column rights, version-checked edits, and an audit entry in the same transaction. The only Genesis package that touches database credentials. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/studio-server"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "genesis-studio-server": "./dist/cli.js"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:db": "bash scripts/with-test-db.sh vitest run"
+  },
+  "dependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "jose": "^6.2.12",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.0"
+  }
+}

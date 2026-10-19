@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 124 components · 333 other exports · 136 standalone types across 5 packages.
+**Totals:** 125 components · 354 other exports · 187 standalone types across 7 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -30,7 +30,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | _(no summary)_ |
 
-### Other exports (13)
+### Other exports (18)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -42,6 +42,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createMockProvider`](../packages/core/src/provider/mock-provider.ts) | function | — | _(no summary)_ |
 | [`createNoopStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | No-op adapter — all operations silently do nothing. |
 | [`createSupabaseProvider`](../packages/core/src/provider/supabase-provider.ts) | function | — | _(no summary)_ |
+| [`DataWriteError`](../packages/core/src/schema/write-outcome.ts) | class | — | Thrown by a provider when a write did not commit. |
+| [`decodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | The inverse of {@link encodeRecordKey}: field name → value. |
+| [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
+| [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
+| [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
@@ -50,19 +55,26 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
 
-### Types (36)
+### Types (52)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { ArrayFilter };
+export type { AuditEntry };
 export type { BaseRecord };
 export type { CreateParams };
 export type { CreateResult };
 export type { DataProvider };
+export type { DataRow };
+export type { DataWriteErrorOptions };
 export type { DeleteParams };
 export type { DeleteResult };
+export type { FieldPermissions };
+export type { FieldReference };
+export type { FieldSchema };
 export type { FieldType };
+export type { FilterOperator };
 export type { FilterParam };
 export type { GetManyParams };
 export type { GetManyResult };
@@ -74,12 +86,18 @@ export type { ListResult };
 export type { MockProviderOptions };
 export type { NullFilter };
 export type { PaginationParam };
+export type { ProviderCapabilities };
 export type { RangeFilter };
+export type { ResourceAccess };
+export type { ResourceContract };
 export type { ResourceFormFieldDef };
+export type { ResourceSchema };
+export type { ResourceSummary };
 export type { ScalarFilter };
 export type { SelectOption };
 export type { SortParam };
 export type { StorageAdapter };
+export type { StorageType };
 export type { SupabaseClient };
 export type { SupabaseClientInput };
 export type { UpdateParams };
@@ -90,7 +108,10 @@ export type { UseResourceFormReturn };
 export type { UseResourceOptions };
 export type { UseResourceReturn };
 export type { UseWizardReturn };
+export type { VersionField };
+export type { WidgetHint };
 export type { WizardStep };
+export type { WriteOutcome };
 ```
 
 ---
@@ -210,7 +231,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (242)
+### Other exports (243)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -405,6 +426,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ResizableHandle`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanel`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanelGroup`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
+| [`resolveNavigation`](../packages/ui/src/navigation.tsx) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
 | [`ScrollArea`](../packages/ui/src/components/ui/scroll-area.tsx) | value | — | _(no summary)_ |
 | [`sectionHeadingVariants`](../packages/ui/src/components/layout/section.tsx) | value | — | _(no summary)_ |
 | [`Select`](../packages/ui/src/components/ui/select.tsx) | value | — | _(no summary)_ |
@@ -459,7 +481,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 
-### Types (16)
+### Types (19)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -469,8 +491,11 @@ export type { CarouselApi };
 export type { ChartConfig };
 export type { CommandPaletteItem };
 export type { GenesisLinkProps };
+export type { IsPathActiveOptions };
 export type { LinkComponent };
 export type { NavigateFn };
+export type { NavigationNode };
+export type { ResolvedNavigation };
 export type { SearchParamsAdapter };
 export type { SettingsPageSection };
 export type { SlotOverride };
@@ -668,7 +693,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`featuresSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
 | [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
 | [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
-| [`inferFieldType`](../packages/data-switchboard/src/introspect.ts) | function | — | Infer the canonical FieldType (+ array-ness) of a single value. |
+| [`inferFieldType`](../packages/data-switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
 | [`introspectFields`](../packages/data-switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
 | [`isMergeBinding`](../packages/data-switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
 | [`LEVEL_LABEL`](../packages/data-switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
@@ -689,7 +714,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ticketsSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
 | [`UnknownResourceError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
 
-### Types (42)
+### Types (43)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -733,8 +758,105 @@ export type { SupabaseAdapterConfig };
 export type { SupabaseClientLike };
 export type { SupabaseQueryBuilder };
 export type { SupabaseResourceMap };
+export type { SwitchboardContract };
 export type { TicketRow };
 export type { Tier };
 export type { ValueDrift };
+```
+
+---
+
+## @marktiderman/genesis-studio
+
+Data Studio workspace UI — a table sidebar and a sheet grid with version-checked, audited cell edits, as the signed-in user. See packages/studio/README.md + docs/DATA-STUDIO.md.
+
+**Barrel:** [`packages/studio/src/index.ts`](../packages/studio/src/index.ts)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`DataStudio`](../packages/studio/src/DataStudio.tsx) | `DataStudioProps` | Experimental | The Data Studio: a sidebar of the tables this user may see, and a sheet of the selected one where a cell is edited in place. Every edit carries the version it was read at, so a stale edit is refused rather than saved over someone else's,... |
+
+### Other exports (5)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createSearchParamsRouter`](../packages/studio/src/router.ts) | function | — | An adapter over any router that exposes search params with a setter — React Router's `useSearchParams`, or Next.js's `useSearchParams` plus `router.replace`/`push`. |
+| [`locationFromSearchParams`](../packages/studio/src/router.ts) | function | — | _(no summary)_ |
+| [`searchParamsFromLocation`](../packages/studio/src/router.ts) | function | — | The studio's location as query parameters, keeping every parameter in `base` that isn't the studio's own. |
+| [`useHistoryRouter`](../packages/studio/src/router.ts) | function | — | For an app with no router: keeps the studio's state in the current page's query string through the History API. |
+| [`useMemoryRouter`](../packages/studio/src/router.ts) | function | — | A router held in memory, for tests and embedded previews. |
+
+### Types (4)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { StudioActivity };
+export type { StudioLocation };
+export type { StudioNavigateOptions };
+export type { StudioRouter };
+```
+
+---
+
+## @marktiderman/genesis-studio-server
+
+Data Studio server handler (Request → Response) that acts as the signed-in user over Postgres/Supabase. The only package that touches database credentials. See packages/studio-server/README.md.
+
+**Barrel:** [`packages/studio-server/src/index.ts`](../packages/studio-server/src/index.ts)
+
+### Other exports (10)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`AUDIT_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | Name of the audit function the handler calls. |
+| [`bearerToken`](../packages/studio-server/src/auth.ts) | function | — | Read a bearer token from the `Authorization` header. |
+| [`byResource`](../packages/studio-server/src/authorize.ts) | function | — | The common case of `authorize`: a fixed allow-list by `schema.table`, for the users `who` admits. Anything not listed is denied, and a listed table without `update` is read-only. |
+| [`createPostgresDatabase`](../packages/studio-server/src/db.ts) | function | — | A `StudioDatabase` over a Postgres connection string, or over a postgres.js pool you already have. A pool you pass in keeps its own type parsing, so dates arrive as JS Dates rather than Postgres's exact text; version tokens are unaffecte... |
+| [`createStudioHandler`](../packages/studio-server/src/handler.ts) | function | — | Create the handler. It opens one transaction per request, switches to the signed-in user (`set local role` plus their verified claims), and only then reads the catalog or touches a row, so the database's own privileges and row rules alwa... |
+| [`IdentitySwitchError`](../packages/studio-server/src/db.ts) | class | — | Thrown when the transaction did not end up as the requested role. |
+| [`jwtAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of `secret` and `jwksUrl` is required. |
+| [`STUDIO_PROTOCOL_VERSION`](../packages/studio-server/src/protocol.ts) | const | — | Bumped on any incompatible change; the handler rejects other versions. |
+| [`studioSetupSql`](../packages/studio-server/src/setup-sql.ts) | function | — | SQL that installs the tamper-proof audit trail: |
+| [`supabaseAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
+
+### Types (27)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AuditSink };
+export type { Authorize };
+export type { AuthorizeContext };
+export type { AuthorizeDecision };
+export type { DescribeResponse };
+export type { ErrorResponse };
+export type { Identity };
+export type { JwtAuthOptions };
+export type { ListResponse };
+export type { PostgresOptions };
+export type { Query };
+export type { ReadResponse };
+export type { ResourceRule };
+export type { ResourceSettings };
+export type { ResourcesResponse };
+export type { SetupSqlOptions };
+export type { SqlRow };
+export type { StudioAction };
+export type { StudioAuth };
+export type { StudioClaims };
+export type { StudioDatabase };
+export type { StudioHandler };
+export type { StudioHandlerOptions };
+export type { StudioRequest };
+export type { StudioRow };
+export type { SupabaseAuthOptions };
+export type { UpdateResponse };
 ```
 
