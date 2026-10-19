@@ -2,6 +2,7 @@ packages/studio/src/__tests__/data-studio-p2.test.tsx
   s_ebc909da001b53::t_9272e7ea780ba8 286-339
 packages/studio/src/DataStudio.tsx
   s_ebc909da001b53::t_c7680c610fb1fd 884-886
+  s_ebc909da001b53::t_480c6d706e9cda 531-536,545-564
 packages/studio/src/toolbar/ImportDialog.tsx
   s_ebc909da001b53::t_c7680c610fb1fd 130-134
 packages/studio-server/src/setup-sql.ts
