@@ -15,6 +15,8 @@ concurrency:
 jobs:
   release:
     name: Release
+    # workflow_dispatch can target any ref; only main may version or publish.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # Publishing is I/O-bound and short; anything past this is a hang, not work.
     # ci.yml's BILLING CONTRACT rule 3 — the July 2026 runaways (118 and
@@ -200,21 +202,33 @@ jobs:
           for pj in packages/*/package.json; do
             if [ "$(jq -r '.private // false' "$pj")" = true ]; then continue; fi
             nv=$(jq -r '"\(.name)@\(.version)"' "$pj")
-            if [ -z "$(npm view "$nv" version 2>/dev/null)" ]; then pending+=("${nv%@*}"); fi
+            # Unpublished = empty output (version missing) or E404 (package
+            # missing). Any other failure is not evidence either way: stop.
+            if out=$(npm view "$nv" version 2>&1); then
+              if [ -z "$out" ]; then pending+=("${nv%@*}"); fi
+            elif grep -q E404 <<<"$out"; then
+              pending+=("${nv%@*}")
+            else
+              echo "::error::npm view $nv failed: $(head -c 300 <<<"$out")"; exit 1
+            fi
           done
           if [ ${#pending[@]} -eq 0 ]; then echo "Nothing unpublished."; exit 0; fi
-          idt=$(curl -sf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm:registry.npmjs.org" | jq -r .value)
+          if ! idt=$(curl -sf --max-time 30 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm:registry.npmjs.org" | jq -r '.value // empty'); then
+            echo "::error::Could not get a GitHub OIDC token (is id-token: write granted?)"; exit 1
+          fi
+          if [ -z "$idt" ]; then echo "::error::GitHub returned no OIDC token value"; exit 1; fi
           echo "::add-mask::$idt"
           failed=0
           for name in "${pending[@]}"; do
-            code=$(curl -s -o "$RUNNER_TEMP/x.json" -w '%{http_code}' -X POST -H 'Content-Length: 0' \
+            code=$(curl -s --max-time 30 -o "$RUNNER_TEMP/x.json" -w '%{http_code}' -X POST -H 'Content-Length: 0' \
               -H "Authorization: Bearer $idt" \
-              "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${name/\//%2f}")
+              "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${name/\//%2f}") || code=000
+            [[ "$code" =~ ^[0-9]{3}$ ]] || code=000
             if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
               echo "OK    $name (npm trusts this workflow)"
             else
-              echo "::error::$name: npm refused the OIDC token exchange ($code $(jq -c . "$RUNNER_TEMP/x.json" 2>/dev/null)). Fix its Trusted Publisher on npmjs.com (repo marktiderman/genesis, workflow release.yml, environment blank), then re-run this workflow."
+              echo "::error::$name: npm refused the OIDC token exchange ($code $(head -c 300 "$RUNNER_TEMP/x.json" 2>/dev/null)). Fix its Trusted Publisher on npmjs.com (repo marktiderman/genesis, workflow release.yml, environment blank), then re-run this workflow."
               failed=1
             fi
             rm -f "$RUNNER_TEMP/x.json"
