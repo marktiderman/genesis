@@ -1,0 +1,60 @@
+packages/studio/src/toolbar/Toolbar.tsx
+  s_ebc909da001b53::t_c6db57ee9b4fa9 56,170,345
+  s_ebc909da001b53::t_83a2f4386ce91a 2,331-344,346-385,387-393
+  s_ebc909da001b53::t_14478af42911df 231
+  s_ebc909da001b53::t_c4856430e436d9 249,260
+  s_ebc909da001b53::t_7893afb19503aa 236,250-251
+  s_ebc909da001b53::t_8f84a30f28621f 386
+packages/studio/src/workspace/ViewsPanel.tsx
+  s_ebc909da001b53::t_83a2f4386ce91a 2,145
+  s_ebc909da001b53::t_8f84a30f28621f 37
+  s_ebc909da001b53::t_c322f0065c0647 1,3-36,38-144,146-152
+packages/studio/src/__tests__/data-studio.test.tsx
+  s_ebc909da001b53::t_fd1a45feb70f21 114,116,176-179,183
+packages/studio/test-utils/setup.ts
+  s_ebc909da001b53::t_c35d0ac010ae57 20-26
+packages/studio/src/__tests__/data-studio-p1.test.tsx
+  s_ebc909da001b53::t_fd1a45feb70f21 179,311
+packages/ui/src/components/sheet-grid/sheet-grid.tsx
+  s_ebc909da001b53::t_3b80477c144fd1 26-37,83-88,177-179,211-212,395,411-420,426,430,435-439,449,452-461,484,552-556
+  s_ebc909da001b53::t_883bd8af90a8d6 405,480-482
+packages/studio/src/__tests__/data-studio-p2.test.tsx
+  s_ebc909da001b53::t_7f84694e70f804 196-197
+  s_ebc909da001b53::t_fd1a45feb70f21 147-149,151,155-156
+packages/studio/src/__tests__/data-studio-grid.test.tsx
+  s_ebc909da001b53::t_82494d331a7638 1-95,97-160
+  s_ebc909da001b53::t_b1376d3cbbcad4 96
+packages/studio/src/grid/cells.tsx
+  s_ebc909da001b53::t_474e0b374ceeb7 1-117
+packages/studio/src/DataStudio.tsx
+  s_ebc909da001b53::t_25fa5783065813 616-617,620-621,633,914
+  s_ebc909da001b53::t_c4856430e436d9 907-908,911-913,915-917,954
+  s_ebc909da001b53::t_879a5b3eefbac5 3,14-15,26-28,34,231-270,272-273
+  s_ebc909da001b53::t_48500d75a78211 314-335,483-567,570,572-605,607-615,618-619,622-632,634-683,721-751,753,755-779
+  s_ebc909da001b53::t_074f147042faf1 76,86
+packages/studio/src/toolbar/ImportDialog.tsx
+  s_ebc909da001b53::t_7893afb19503aa 93,97
+  s_ebc909da001b53::t_c4856430e436d9 95
+  s_ebc909da001b53::t_48500d75a78211 89
+packages/studio/src/sheet/SheetView.tsx
+  s_ebc909da001b53::t_74556e304b258c 1-2,4,6-7,28-42,50-69,71,79-82,84-86,93,95-96,149,156-201
+  s_ebc909da001b53::t_78703e7cef0959 11-16,74
+.changeset/studio-airtable-layout.md
+  s_ebc909da001b53::t_c4a6e3cd776f8c 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5bbfaba603b3c16465a80050c52cfc0f4ad8b8af",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
