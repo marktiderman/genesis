@@ -5,6 +5,8 @@ packages/ui/src/components/sheet-grid/__tests__/sheet-grid.test.tsx
 packages/studio/src/__tests__/data-studio-p2.test.tsx
   s_ebc909da001b53::t_4390226f22c73b 340-350,354,356-359
   s_ebc909da001b53::t_fc81a6564ac46c 351-353,355
+packages/studio/src/DataStudio.tsx
+  s_ebc909da001b53::t_e5e7b978c4a4f9 569-576
 ---
 {
   "schema_version": "authorship/3.0.0",
