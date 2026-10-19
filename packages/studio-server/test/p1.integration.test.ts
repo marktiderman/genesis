@@ -418,7 +418,8 @@ describeDb("P1: create, delete, history, relations, rule-bearing writes, outbox"
       database: url.toString(),
       deliver: async () => {},
       pollIntervalMs: 20,
-      onError: (error) => {
+      // An async logger that rejects must not stop the worker either.
+      onError: async (error) => {
         errors.push(error);
         throw new Error("a broken logger");
       },
