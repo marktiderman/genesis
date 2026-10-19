@@ -22,7 +22,10 @@ import { formatFilters, formatSorts, parseFilters, parseSorts } from "./lib/quer
 import { usePageLinkLabels } from "./lib/relations";
 import { RecordForm } from "./record/RecordForm";
 import { RecordPanel } from "./record/RecordPanel";
-import { ExportButton, FilterBuilder, GroupPicker, NewRowButton, SortBuilder, ViewSwitch } from "./toolbar/Toolbar";
+import { ExportButton, FilterBuilder, GroupPicker, NewRowButton, SortBuilder, ViewFieldPicker, ViewSwitch } from "./toolbar/Toolbar";
+import { KanbanView } from "./views/KanbanView";
+import { CalendarView } from "./views/CalendarView";
+import { boardFields, dateFields } from "./views/fields";
 import { ImportDialog } from "./toolbar/ImportDialog";
 import { BulkEditDialog } from "./toolbar/BulkEdit";
 import { SheetView } from "./sheet/SheetView";
@@ -229,7 +232,7 @@ function StudioWorkspace({
             onSignedOut={() => setSignedOut(true)}
             formConfig={forms?.[selected]}
             onUndoLatest={() => {
-              const latest = activity.find((e) => e.resource === selected && e.outcome === "saved" && e.audit && !e.undone);
+              const latest = activity.find((e) => e.resource === selected && e.outcome === "saved" && e.audit && e.audit.action !== "run" && !e.undone);
               if (latest) void undo(latest);
             }}
           />
@@ -338,7 +341,8 @@ function Sheet({
   // Bumped to remount the page after a saved view sets column visibility.
   const [viewEpoch, setViewEpoch] = useState(0);
   const [bulkIds, setBulkIds] = useState<string[] | null>(null);
-  const sheetView = location.view === "sheet";
+  const view = location.view ?? "table";
+  const sheetView = view === "sheet";
   const savedViews = useSavedViews(`genesis-studio:views:${resource}`);
 
   const schemaQuery = useQuery({
@@ -581,6 +585,12 @@ function Sheet({
   }
 
   const editable = schema?.fields.filter((f) => f.permissions?.update).length ?? 0;
+  const boardChoices = schema ? boardFields(schema) : [];
+  const dateChoices = schema ? dateFields(schema) : [];
+  const keyedView = (view === "kanban" || view === "calendar") && keyed;
+  const viewChoices = view === "kanban" ? boardChoices : view === "calendar" ? dateChoices : [];
+  const viewField = viewChoices.find((f) => f.name === location.by) ?? viewChoices[0];
+  const altView = keyedView && viewField ? view : null;
   const createFields = new Set(schema?.createFields ?? []);
   const fieldsForCreate = schema?.fields.filter((f) => createFields.has(f.name)) ?? [];
 
@@ -619,8 +629,20 @@ function Sheet({
           {capabilities?.multiSort !== false && capabilities?.sort !== false && (
             <SortBuilder fields={schema.fields} sorts={sorts} onChange={(next) => navigate({ sort: formatSorts(next), page: 1 })} />
           )}
-          <ViewSwitch view={sheetView ? "sheet" : "table"} onChange={(next) => navigate({ view: next === "sheet" ? "sheet" : undefined })} />
-          {!sheetView && (
+          <ViewSwitch
+            view={altView ?? (sheetView ? "sheet" : "table")}
+            available={{ kanban: keyed && boardChoices.length > 0, calendar: keyed && dateChoices.length > 0 }}
+            onChange={(next) => navigate({ view: next === "table" ? undefined : next, by: undefined, month: undefined, record: undefined })}
+          />
+          {altView && viewField && (
+            <ViewFieldPicker
+              label={altView === "kanban" ? "Columns by" : "Dates by"}
+              fields={viewChoices}
+              value={viewField.name}
+              onChange={(by) => navigate({ by })}
+            />
+          )}
+          {!sheetView && !altView && (
             <GroupPicker fields={schema.fields} group={group} onChange={(next) => navigate({ group: next, page: 1 })} />
           )}
           <ExportButton onExport={() => void runExport()} busy={exporting !== null} progress={exporting ?? 0} />
@@ -645,6 +667,44 @@ function Sheet({
           {notice}
         </p>
       )}
+      {schema && altView === "kanban" && viewField && (
+        <KanbanView
+          key={`${viewField.name}|${location.filters ?? ""}|${search}|${location.sort ?? ""}`}
+          provider={provider}
+          schema={schema}
+          sessionKey={sessionKey}
+          field={viewField}
+          filters={filters}
+          sorts={sorts}
+          search={search}
+          onOpenRecord={(id) => navigate({ record: id })}
+          onMoved={(record, audit) => {
+            refresh();
+            onActivity({ resource, field: viewField.name, record, outcome: "saved", message: audit ? "Moved, with its audit entry." : "Moved.", ...(audit ? { audit } : {}) });
+          }}
+          onFailed={(record, message) => {
+            refresh();
+            onActivity({ resource, field: viewField.name, record, outcome: "not_saved", message });
+          }}
+          onSignedOut={onSignedOut}
+        />
+      )}
+      {schema && altView === "calendar" && viewField && (
+        <CalendarView
+          provider={provider}
+          schema={schema}
+          sessionKey={sessionKey}
+          field={viewField}
+          month={location.month}
+          onMonthChange={(month) => navigate({ month })}
+          filters={filters}
+          sorts={sorts}
+          search={search}
+          onOpenRecord={(id) => navigate({ record: id })}
+          onSignedOut={onSignedOut}
+        />
+      )}
+      {!altView && (
       <ResourcePage<Row>
         key={viewEpoch}
         title={schema?.label ?? resource}
@@ -794,6 +854,7 @@ function Sheet({
         viewSettingsKey={`genesis-studio:${resource}`}
         stickyFirstColumn
       />
+      )}
       {schema && location.record && (
         <RecordPanel
           provider={provider}
@@ -811,6 +872,17 @@ function Sheet({
             refresh();
             onActivity({ resource, field: Object.keys(audit?.after ?? {}).join(", "), record: location.record!, outcome: "saved", message: audit ? "Saved, with its audit entry." : "Saved.", ...(audit ? { audit } : {}) });
             void row;
+          }}
+          onActionRan={(action, row, audit) => {
+            refresh();
+            onActivity({
+              resource,
+              field: "",
+              record: location.record!,
+              outcome: "saved",
+              message: `${action.label}: done${row ? "" : ", and the row is gone"}${audit ? ", with its audit entry" : ""}.`,
+              ...(audit ? { audit } : {}),
+            });
           }}
           onDeleted={(audit) => {
             refresh();
@@ -933,7 +1005,7 @@ function ActivityPanel({ entries, onUndo }: { entries: StudioActivity[]; onUndo?
                 <time className="ml-auto text-muted-foreground" dateTime={entry.at.toISOString()}>
                   {entry.at.toLocaleTimeString()}
                 </time>
-                {onUndo && entry.outcome === "saved" && entry.audit && !entry.undone && (
+                {onUndo && entry.outcome === "saved" && entry.audit && entry.audit.action !== "run" && !entry.undone && (
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"

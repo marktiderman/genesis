@@ -24,9 +24,17 @@ export interface StudioLocation {
   group?: string;
   /** The open record's id (`encodeRecordKey`), for a copyable link to it. */
   record?: string;
-  /** `sheet` for the spreadsheet grid; the table otherwise. */
-  view?: "sheet";
+  /** `sheet`, `kanban` or `calendar`; the table otherwise. */
+  view?: StudioView;
+  /** For `kanban` and `calendar`: the field that places each row. */
+  by?: string;
+  /** For `calendar`: the month shown, `YYYY-MM`. */
+  month?: string;
 }
+
+/** The views other than the table. */
+export type StudioView = "sheet" | "kanban" | "calendar";
+const VIEWS: readonly string[] = ["sheet", "kanban", "calendar"];
 
 export interface StudioNavigateOptions {
   /** Replace the current history entry instead of pushing one (e.g. while typing a search). */
@@ -48,6 +56,8 @@ const PARAM = {
   group: "group",
   record: "record",
   view: "view",
+  by: "by",
+  month: "month",
 } as const;
 
 export function locationFromSearchParams(params: URLSearchParams): StudioLocation {
@@ -60,7 +70,9 @@ export function locationFromSearchParams(params: URLSearchParams): StudioLocatio
     ...(params.get(PARAM.filters) ? { filters: params.get(PARAM.filters)! } : {}),
     ...(params.get(PARAM.group) ? { group: params.get(PARAM.group)! } : {}),
     ...(params.get(PARAM.record) ? { record: params.get(PARAM.record)! } : {}),
-    ...(params.get(PARAM.view) === "sheet" ? { view: "sheet" as const } : {}),
+    ...(VIEWS.includes(params.get(PARAM.view) ?? "") ? { view: params.get(PARAM.view) as StudioView } : {}),
+    ...(params.get(PARAM.by) ? { by: params.get(PARAM.by)! } : {}),
+    ...(/^\d{4}-\d{2}$/.test(params.get(PARAM.month) ?? "") ? { month: params.get(PARAM.month)! } : {}),
   };
 }
 
@@ -79,6 +91,8 @@ export function searchParamsFromLocation(location: StudioLocation, base?: URLSea
   if (location.group) params.set(PARAM.group, location.group);
   if (location.record) params.set(PARAM.record, location.record);
   if (location.view) params.set(PARAM.view, location.view);
+  if (location.by) params.set(PARAM.by, location.by);
+  if (location.month) params.set(PARAM.month, location.month);
   return params;
 }
 

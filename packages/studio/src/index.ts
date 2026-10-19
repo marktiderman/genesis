@@ -12,4 +12,5 @@ export {
   type StudioLocation,
   type StudioNavigateOptions,
   type StudioRouter,
+  type StudioView,
 } from "./router";

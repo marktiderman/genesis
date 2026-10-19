@@ -262,21 +262,69 @@ export function NewRowButton({ allowed, reason, onClick }: { allowed: boolean; r
   );
 }
 
-/** Switch between the table and the spreadsheet grid. */
-export function ViewSwitch({ view, onChange }: { view: "table" | "sheet"; onChange: (view: "table" | "sheet") => void }) {
+export type ViewKind = "table" | "sheet" | "kanban" | "calendar";
+const VIEW_LABEL: Record<ViewKind, string> = { table: "Table", sheet: "Sheet", kanban: "Board", calendar: "Calendar" };
+const VIEW_UNAVAILABLE: Partial<Record<ViewKind, string>> = {
+  kanban: "A board needs a field with a fixed set of values, like an enum.",
+  calendar: "A calendar needs a date or timestamp field.",
+};
+
+/** Switch between the table, the spreadsheet grid, a board and a calendar. */
+export function ViewSwitch({
+  view,
+  onChange,
+  available = { table: true, sheet: true },
+}: {
+  view: ViewKind;
+  onChange: (view: ViewKind) => void;
+  /** Views this table can show. A board and a calendar each need a fitting field. */
+  available?: Partial<Record<ViewKind, boolean>>;
+}) {
   return (
     <div role="group" aria-label="View" className="inline-flex rounded-md border p-0.5" data-testid="studio-view-switch">
-      {(["table", "sheet"] as const).map((v) => (
-        <button
-          key={v}
-          type="button"
-          aria-pressed={view === v}
-          onClick={() => onChange(v)}
-          className={`rounded px-2 py-1 text-xs ${view === v ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          {v === "table" ? "Table" : "Sheet"}
-        </button>
-      ))}
+      {(["table", "sheet", "kanban", "calendar"] as const)
+        .filter((v) => v === "table" || v === "sheet" || available[v] !== undefined)
+        .map((v) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={view === v}
+            disabled={available[v] === false}
+            title={available[v] === false ? VIEW_UNAVAILABLE[v] : undefined}
+            onClick={() => onChange(v)}
+            className={`rounded px-2 py-1 text-xs disabled:opacity-40 ${view === v ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {VIEW_LABEL[v]}
+          </button>
+        ))}
     </div>
+  );
+}
+
+/** Which field lays out the board or the calendar. */
+export function ViewFieldPicker({
+  label,
+  fields,
+  value,
+  onChange,
+}: {
+  label: string;
+  fields: readonly FieldSchema[];
+  value: string;
+  onChange: (field: string) => void;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-9 w-auto gap-1.5 text-sm" aria-label={label} data-testid="studio-view-field">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {fields.map((f) => (
+          <SelectItem key={f.name} value={f.name}>
+            {label} {f.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
