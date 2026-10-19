@@ -9,8 +9,12 @@ import type { FieldSchema } from "@marktiderman/genesis-core/schema";
 export function csvField(value: unknown): string {
   if (value === null || value === undefined) return "";
   const text = typeof value === "object" ? JSON.stringify(value) : String(value);
-  // A leading =, +, - or @ turns into a formula in a spreadsheet; neutralise it.
-  const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  // A leading =, +, - or @ turns into a formula in a spreadsheet; neutralise
+  // it. A plain number (-5, -1.5e3) stays a number: it computes nothing, and a
+  // prefix would turn it into text nobody can sum. Postgres numerics arrive
+  // as strings, so the check is on the text, not the type.
+  const plainNumber = /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(text);
+  const safe = !plainNumber && /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
