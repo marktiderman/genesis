@@ -384,6 +384,14 @@ export interface ResourcePageProps<
   /** Show the "save current view" affordance. */
   canSaveViews?: boolean;
 
+  /**
+   * What the data source can do. A control it can't serve is hidden rather
+   * than left to error (DATA-STUDIO.md decision 9): `search: false` hides the
+   * search box, `sort: false` the sort select. Pass a provider's
+   * `capabilities()` straight in. Omitted, both show, as before.
+   */
+  capabilities?: { search?: boolean; sort?: boolean };
+
   // ── Table chrome — passed straight through to DataTable ──
   /** Show the column-visibility dropdown. DataTable's default is `true`. */
   columnVisibility?: boolean;
@@ -619,6 +627,7 @@ export function ResourcePage<
     renderTable: renderTableProp,
     gridCols: gridColsProp,
     keyboardNavigation = true,
+    capabilities,
     toolbar,
     emptyState,
     resourceOptions,
@@ -1234,6 +1243,8 @@ export function ResourcePage<
           onDeleteView,
           canSaveViews,
           onClearAll: page.hasActiveFilters ? handleClearFilters : undefined,
+          showSearch: capabilities?.search !== false,
+          showSort: capabilities?.sort !== false,
         },
         slotProps?.filters,
       )}

@@ -1,0 +1,263 @@
+import { useState } from "react";
+import { ArrowDownUp, Download, Filter, Group, Plus, X } from "lucide-react";
+import type { FilterParam, SortParam } from "@marktiderman/genesis-core/provider";
+import type { FieldSchema, FilterOperator } from "@marktiderman/genesis-core/schema";
+import { Badge } from "@marktiderman/genesis-ui/badge";
+import { Button } from "@marktiderman/genesis-ui/button";
+import { Input } from "@marktiderman/genesis-ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@marktiderman/genesis-ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
+import { needsValue, OPERATOR_LABEL, operatorsFor } from "../lib/query-state";
+import { choicesFor } from "../values";
+
+const NONE = "__genesis_none__";
+
+interface FilterDraft {
+  field: string;
+  operator: FilterOperator;
+  value: string;
+}
+
+function toDraft(f: FilterParam): FilterDraft {
+  return { field: f.field, operator: f.operator, value: "value" in f && f.value != null ? String(f.value) : "" };
+}
+
+function fromDraft(d: FilterDraft): FilterParam {
+  return needsValue(d.operator)
+    ? ({ field: d.field, operator: d.operator, value: d.value } as FilterParam)
+    : ({ field: d.field, operator: d.operator } as FilterParam);
+}
+
+/** Filters by field, with the operators that fit each field's type. */
+export function FilterBuilder({
+  fields,
+  filters,
+  onChange,
+}: {
+  fields: readonly FieldSchema[];
+  filters: FilterParam[];
+  onChange: (filters: FilterParam[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [drafts, setDrafts] = useState<FilterDraft[]>(filters.map(toDraft));
+  const filterable = fields.filter((f) => !f.array);
+  const update = (i: number, patch: Partial<FilterDraft>) =>
+    setDrafts((prev) => prev.map((d, j) => (j === i ? { ...d, ...patch } : d)));
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setDrafts(filters.map(toDraft));
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="sm" testID="studio-filter">
+          <Filter className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+          Filter
+          {filters.length > 0 && <Badge className="ml-1.5 h-4 px-1.5 text-[10px]">{filters.length}</Badge>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[min(36rem,calc(100vw-2rem))] space-y-2">
+        {drafts.length === 0 && <p className="text-xs text-muted-foreground">No filters. Every row you can see is listed.</p>}
+        {drafts.map((d, i) => {
+          const field = filterable.find((f) => f.name === d.field);
+          const operators = field ? operatorsFor(field) : [];
+          const choices = field ? choicesFor(field) : undefined;
+          return (
+            <div key={i} className="flex flex-wrap items-center gap-1.5" data-testid="studio-filter-row">
+              <Select value={d.field} onValueChange={(v) => update(i, { field: v, operator: operatorsFor(filterable.find((f) => f.name === v)!)[0]!, value: "" })}>
+                <SelectTrigger className="h-8 w-36 text-xs" aria-label="Field">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {filterable.map((f) => (
+                    <SelectItem key={f.name} value={f.name}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={d.operator} onValueChange={(v) => update(i, { operator: v as FilterOperator })}>
+                <SelectTrigger className="h-8 w-40 text-xs" aria-label="Operator">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {operators.map((op) => (
+                    <SelectItem key={op} value={op}>
+                      {OPERATOR_LABEL[op]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {needsValue(d.operator) &&
+                (choices ? (
+                  <Select value={d.value || NONE} onValueChange={(v) => update(i, { value: v === NONE ? "" : v })}>
+                    <SelectTrigger className="h-8 w-36 text-xs" aria-label="Value">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>—</SelectItem>
+                      {choices.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    className="h-8 w-36 text-xs"
+                    aria-label="Value"
+                    type={field?.widget === "date" ? "date" : "text"}
+                    value={d.value}
+                    onChange={(e) => update(i, { value: e.target.value })}
+                  />
+                ))}
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="Remove filter" onClick={() => setDrafts((p) => p.filter((_, j) => j !== i))}>
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </Button>
+            </div>
+          );
+        })}
+        <div className="flex justify-between gap-2 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={filterable.length === 0}
+            onClick={() => {
+              const first = filterable[0]!;
+              setDrafts((p) => [...p, { field: first.name, operator: operatorsFor(first)[0]!, value: "" }]);
+            }}
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" aria-hidden />
+            Add filter
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            testID="studio-filter-apply"
+            onClick={() => {
+              onChange(drafts.filter((d) => !needsValue(d.operator) || d.value !== "").map(fromDraft));
+              setOpen(false);
+            }}
+          >
+            Apply
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Sort by several fields, first one first. */
+export function SortBuilder({
+  fields,
+  sorts,
+  onChange,
+}: {
+  fields: readonly FieldSchema[];
+  sorts: SortParam[];
+  onChange: (sorts: SortParam[]) => void;
+}) {
+  const sortable = fields.filter((f) => !f.array);
+  const unused = sortable.filter((f) => !sorts.some((s) => s.field === f.name));
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="sm" testID="studio-sort">
+          <ArrowDownUp className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+          Sort
+          {sorts.length > 0 && <Badge className="ml-1.5 h-4 px-1.5 text-[10px]">{sorts.length}</Badge>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 space-y-2">
+        {sorts.length === 0 && <p className="text-xs text-muted-foreground">Rows are in key order.</p>}
+        {sorts.map((s, i) => (
+          <div key={s.field} className="flex items-center gap-1.5" data-testid="studio-sort-row">
+            <span className="w-5 text-right text-xs text-muted-foreground">{i + 1}</span>
+            <span className="flex-1 truncate text-sm">{s.field}</span>
+            <Select value={s.order} onValueChange={(v) => onChange(sorts.map((x, j) => (j === i ? { ...x, order: v as "asc" | "desc" } : x)))}>
+              <SelectTrigger className="h-8 w-28 text-xs" aria-label={`Direction for ${s.field}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="asc">Ascending</SelectItem>
+                <SelectItem value="desc">Descending</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Stop sorting by ${s.field}`} onClick={() => onChange(sorts.filter((_, j) => j !== i))}>
+              <X className="h-3.5 w-3.5" aria-hidden />
+            </Button>
+          </div>
+        ))}
+        {unused.length > 0 && sorts.length < 5 && (
+          <Select value={NONE} onValueChange={(v) => v !== NONE && onChange([...sorts, { field: v, order: "asc" }])}>
+            <SelectTrigger className="h-8 text-xs" aria-label="Add a sort field">
+              <SelectValue placeholder="Add a sort field" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE} disabled>
+                Add a sort field…
+              </SelectItem>
+              {unused.map((f) => (
+                <SelectItem key={f.name} value={f.name}>
+                  {f.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Group rows by a field with few distinct values. */
+export function GroupPicker({
+  fields,
+  group,
+  onChange,
+}: {
+  fields: readonly FieldSchema[];
+  group: string | undefined;
+  onChange: (group: string | undefined) => void;
+}) {
+  const groupable = fields.filter((f) => !f.array && f.type !== "json");
+  return (
+    <Select value={group ?? NONE} onValueChange={(v) => onChange(v === NONE ? undefined : v)}>
+      <SelectTrigger className="h-9 w-auto gap-1.5 text-sm" aria-label="Group by" data-testid="studio-group">
+        <Group className="h-3.5 w-3.5" aria-hidden />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE}>No grouping</SelectItem>
+        {groupable.map((f) => (
+          <SelectItem key={f.name} value={f.name}>
+            Group by {f.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+export function ExportButton({ onExport, busy, progress }: { onExport: () => void; busy: boolean; progress: number }) {
+  return (
+    <Button type="button" variant="outline" size="sm" onClick={onExport} disabled={busy} testID="studio-export">
+      <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+      {busy ? `Exporting… ${progress}` : "Export CSV"}
+    </Button>
+  );
+}
+
+export function NewRowButton({ allowed, reason, onClick }: { allowed: boolean; reason?: string; onClick: () => void }) {
+  return (
+    <Button type="button" size="sm" onClick={onClick} disabled={!allowed} title={allowed ? undefined : reason} testID="studio-new-row">
+      <Plus className="mr-1 h-3.5 w-3.5" aria-hidden />
+      New row
+    </Button>
+  );
+}

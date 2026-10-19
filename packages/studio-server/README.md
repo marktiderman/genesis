@@ -10,8 +10,13 @@ It is the only Genesis package that touches a database credential. The browser h
 [`@marktiderman/genesis-studio`](../studio/README.md); the client it talks to ships here at
 `@marktiderman/genesis-studio-server/client`.
 
-**Status: 0.1, milestone P0** ("fix a real row"). Read, list and single-cell edit. Creating and
-deleting rows, bulk edits and imports come later.
+**Status: 0.2, milestone P1.**
+- **Reads:** lists, server search and filters, multi-field sort, relations and audit history.
+- **Writes:** edits, creates and deletes, all version-checked and audited.
+- **Rule-bearing writes:** routed through the app's own database functions.
+- **Outbox delivery:** audit entries can also go to an external log.
+
+Bulk edits, imports and undo come in P2.
 
 ## What every request does
 
@@ -116,6 +121,9 @@ can reach the table through PostgREST, revoke the column there too:
   (someone else changed it), `forbidden` (visible and unchanged, but the row rules refuse this
   user), or `gone` (deleted, or no longer visible). "Deleted" and "no longer visible" are one answer
   on purpose: telling them apart needs a privileged look at a row the user can't see.
+- **Create and delete, too.** A new row is inserted as the user, under RLS `WITH CHECK`, with only
+  the fields both the database and `authorize` let them set. A delete is version-checked like an
+  edit, so a row someone just changed isn't thrown away unseen.
 - **Audit before editing.** No sink, no writes. The entry records the actor, the resource and key,
   and the before and after values of every field the user can see that changed (the version bump
   and trigger side effects included). Sinks:
@@ -124,7 +132,67 @@ can reach the table through PostgREST, revoke the column there too:
     writable by the acting role).
   - `{ sink: "database" }` — your own triggers audit. Name the trigger per table
     (`resources[name].auditTrigger`); it must fire on every update, or the table stays read-only.
-  - An outbox for external delivery is planned (DATA-STUDIO.md "Outbox delivery"), not in 0.1.
+  - `{ sink: "outbox" }` — as `table`, and the entry is also queued in `genesis_studio.outbox`
+    in the same transaction, for `createOutboxWorker` to deliver (below).
+
+## Rule-bearing writes
+
+Map a resource's writes to the app's own database functions, so its rules (grading, locks,
+purchases) always run (decision 29):
+
+```ts
+resources: {
+  "public.questions": {
+    functions: { update: "public.save_question", create: "public.add_question", delete: "public.remove_question" },
+  },
+},
+```
+
+Each function is called **as the signed-in user**, inside the edit's transaction. It runs after
+the studio's version check and before its audit entry:
+
+| Action | Signature | Returns |
+| --- | --- | --- |
+| `update` | `fn(record_key jsonb, changes jsonb)` | Anything (ignored) |
+| `create` | `fn(values jsonb)` | The new row, or an object with its key fields |
+| `delete` | `fn(record_key jsonb)` | Anything (ignored) |
+
+A function that raises refuses the change, and its message is shown. The user needs no direct
+grant on the table: the version check and the write happen in one `REPEATABLE READ` transaction,
+so a change committed by anyone in between fails the function's write instead of being
+overwritten.
+
+## Outbox delivery
+
+```ts
+import { createOutboxWorker, PermanentDeliveryError } from "@marktiderman/genesis-studio-server";
+
+const worker = createOutboxWorker({
+  database: process.env.STUDIO_OUTBOX_DATABASE_URL!, // logs in as the worker role
+  deliver: async ({ id, entry }) => {
+    const res = await fetch(LOG_URL, { method: "POST", headers: { "idempotency-key": id }, body: JSON.stringify(entry) });
+    if (res.status === 422) throw new PermanentDeliveryError(await res.text()); // retrying won't help
+    if (!res.ok) throw new Error(`log service answered ${res.status}`); // retried with backoff
+  },
+  onDeadLetter: (letter) => console.error(`audit delivery dead-lettered: ${letter.id}`), // or your alerting
+  // A run that fails before any delivery: a refused login, a missing grant, a lost connection.
+  onError: (error) => console.error(`audit outbox worker can't run: ${String(error)}`),
+});
+worker.start();
+```
+
+- **At least once.** Each entry carries its audit id, so a receiver drops duplicates.
+- **In order per record.** An entry waits while an earlier one for the same record is still
+  undelivered or dead-lettered. Other records keep flowing.
+- **Never sent twice at once.** Workers claim entries with `FOR UPDATE SKIP LOCKED`.
+- **Retries back off.** They use exponential backoff with jitter: by default 10 attempts over
+  about a day.
+- **Dead letters.** `PermanentDeliveryError` skips the remaining attempts. Either way, a failed
+  entry moves to `genesis_studio.outbox_dead_letter` and stays there until
+  `worker.replay(id)` puts it back in line.
+- **Pruning.** `worker.prune()` clears delivered rows; the audit log keeps every entry.
+- **Its own role.** Create the worker's login role and pass `--worker-role` (`workerRole`) when
+  generating the setup SQL. Only that role may read or settle the outbox.
 
 ## Operational notes
 
@@ -140,7 +208,7 @@ can reach the table through PostgREST, revoke the column there too:
 ## Wire protocol
 
 One endpoint, `POST`, JSON, bearer token. `op` is one of `resources`, `describe`, `list`, `read`,
-`update`; types in `src/protocol.ts` (`StudioRequest` and the `*Response` types). Errors are
+`update`, `create`, `delete`, `history`; types in `src/protocol.ts` (`StudioRequest` and the `*Response` types). Errors are
 `{ error: { outcome, message, current?, currentVersion? } }` with status 400, 401, 403, 404, 409,
 410, 415, 422 or 500.
 

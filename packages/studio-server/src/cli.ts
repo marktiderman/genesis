@@ -9,13 +9,16 @@ function flag(name: string): string | undefined {
 }
 
 if (command === "sql") {
-  process.stdout.write(studioSetupSql({ role: flag("--role"), loginRole: flag("--login-role") }));
+  process.stdout.write(
+    studioSetupSql({ role: flag("--role"), loginRole: flag("--login-role"), workerRole: flag("--worker-role") }),
+  );
 } else {
   process.stderr.write(
-    "Usage: genesis-studio-server sql [--role <name>] [--login-role <name>]\n" +
+    "Usage: genesis-studio-server sql [--role <name>] [--login-role <name>] [--worker-role <name>]\n" +
       "  Prints the SQL that installs the studio's audit trail. Save it as a migration.\n" +
       "  --role        the role the studio acts as (default: authenticated)\n" +
-      "  --login-role  the handler's own login; only it may write audit entries\n",
+      "  --login-role  the handler's own login; only it may write audit entries\n" +
+      "  --worker-role the outbox worker's login; only it may read and settle the outbox\n",
   );
   process.exitCode = command ? 1 : 0;
 }

@@ -50,14 +50,22 @@ await db.unsafe(`grant authenticated to ${LOGIN_ROLE}`);
 await db.unsafe(readFileSync(join(here, "schema.sql"), "utf8"));
 await db.unsafe(studioSetupSql({ loginRole: LOGIN_ROLE }));
 await db.unsafe(
-  `insert into public.products (owner_id, name, status, category, price, internal_cost) values
-     ($1, 'Wireless Headphones', 'Active', 'Electronics', 79.99, 31.00),
-     ($1, 'Leather Notebook', 'Active', 'Stationery', 24.50, 6.10),
-     ($1, 'Running Shoes', 'Draft', 'Apparel', 129.00, 52.00),
-     ($1, 'Ceramic Mug', 'Active', 'Kitchen', 18.00, 4.25),
-     ($1, 'Desk Lamp', 'Archived', 'Office', 45.00, 19.00),
-     ($2, 'Yoga Mat', 'Active', 'Fitness', 35.00, 11.00),
-     ($2, 'Coffee Beans', 'Active', 'Kitchen', 22.00, 9.00)`,
+  `insert into public.categories values (1, 'Electronics'), (2, 'Stationery'), (3, 'Apparel'), (4, 'Kitchen'), (5, 'Office'), (6, 'Fitness')`,
+);
+await db.unsafe(
+  `insert into public.products (owner_id, name, status, category_id, price, internal_cost) values
+     ($1, 'Wireless Headphones', 'Active', 1, 79.99, 31.00),
+     ($1, 'Leather Notebook', 'Active', 2, 24.50, 6.10),
+     ($1, 'Running Shoes', 'Draft', 3, 129.00, 52.00),
+     ($1, 'Ceramic Mug', 'Active', 4, 18.00, 4.25),
+     ($1, 'Desk Lamp', 'Archived', 5, 45.00, 19.00),
+     ($2, 'Yoga Mat', 'Active', 6, 35.00, 11.00),
+     ($2, 'Coffee Beans', 'Active', 4, 22.00, 9.00)`,
+  [USERS.sam.id, USERS.riley.id],
+);
+await db.unsafe(
+  `insert into public.orders (id, owner_id, customer, status) values
+     (1001, $1, 'Ada Lovelace', 'Paid'), (1002, $1, 'Grace Hopper', 'Pending'), (1003, $2, 'Alan Turing', 'Shipped')`,
   [USERS.sam.id, USERS.riley.id],
 );
 await db.unsafe(
@@ -68,7 +76,6 @@ await db.unsafe(
      (1003, 1, $2, 'Yoga Mat', 1, null)`,
   [USERS.sam.id, USERS.riley.id],
 );
-await db.unsafe(`insert into public.categories values (1, 'Electronics'), (2, 'Stationery'), (3, 'Apparel'), (4, 'Kitchen')`);
 await db.end();
 
 const loginUrl = new URL(dbUrl);

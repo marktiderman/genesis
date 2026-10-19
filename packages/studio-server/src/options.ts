@@ -1,8 +1,11 @@
 import type { StudioAuth, StudioClaims } from "./auth";
 import type { StudioDatabase } from "./db";
 
-/** The actions `authorize` is asked about. */
-export type StudioAction = "read" | "update";
+/**
+ * The actions `authorize` is asked about. `create`, `delete` and `history`
+ * (reading a row's audit trail) are off unless `authorize` allows them.
+ */
+export type StudioAction = "read" | "update" | "create" | "delete" | "history";
 
 export interface AuthorizeContext {
   request: Request;
@@ -50,11 +53,17 @@ export type Authorize = (context: AuthorizeContext) => AuthorizeDecision | Promi
  *
  * - `table`: the handler calls `genesis_studio.record_audit` (installed by
  *   `npx genesis-studio-server sql`) inside the edit's transaction.
+ * - `outbox`: as `table`, and the same function also queues the entry in
+ *   `genesis_studio.outbox` for delivery to an external log or callback by
+ *   `createOutboxWorker`. Delivery never blocks or undoes the edit.
  * - `database`: the app's own triggers audit every change. Because the
  *   handler acts as the user, those triggers see the real actor. They must
  *   follow the same tamper-proof rules as the `table` sink.
  */
-export type AuditSink = { sink: "table"; function?: string } | { sink: "database" };
+export type AuditSink =
+  | { sink: "table"; function?: string }
+  | { sink: "outbox"; function?: string }
+  | { sink: "database" };
 
 // The `database` sink also needs, per resource, the name of the trigger that
 // audits it (`ResourceSettings.auditTrigger`). The handler checks that the
@@ -75,6 +84,23 @@ export interface ResourceSettings {
    * entries. Required for the table to be editable under that sink.
    */
   auditTrigger?: string;
+  /**
+   * The field that names a row in links and pickers. Default: the first of
+   * name, title, label, full_name, display_name, email that the user can read.
+   */
+  labelField?: string;
+  /**
+   * Rule-bearing writes (DATA-STUDIO.md decision 29): route create, update or
+   * delete through the app's own database functions instead of a direct
+   * write, so the app's rules (grading, locks, purchases) always run. Each is
+   * called as the signed-in user, inside the edit's transaction, after the
+   * studio's version check, and before its audit entry:
+   *   - update: `fn(record_key jsonb, changes jsonb)`
+   *   - create: `fn(values jsonb)`, returning the new row or a JSON object
+   *     with its key fields
+   *   - delete: `fn(record_key jsonb)`
+   */
+  functions?: { create?: string; update?: string; delete?: string };
   /**
    * Allow edits to a table with row-level security OFF. Without RLS every
    * signed-in user who may update it may update every row, so the studio

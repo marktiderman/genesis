@@ -36,8 +36,8 @@ const studio = createStudioHandler({
   auth: supabaseAuth({ url: env.STUDIO_SUPABASE_URL }),
   authorize: byResource(
     {
-      "public.clients": { read: true, update: true },
-      "public.session_notes": { read: true, update: ["summary", "next_steps"] },
+      "public.clients": { read: true, update: true, create: true, history: true },
+      "public.session_notes": { read: true, update: ["summary", "next_steps"], history: true },
       "public.plans": { read: true },
     },
     { who: (claims) => typeof claims.email === "string" && claims.email.endsWith("@coach.test") },
@@ -126,15 +126,30 @@ assert.equal(noteFix.status, 200, JSON.stringify(noteFix.body));
 assert.equal(noteFix.body.row.version, String(Number(note.version) + 1));
 step("fixed a session note addressed by its composite key (client_id, session_on)");
 
+const history = await call(ada, { op: "history", resource: "public.clients", id: maya.values.id });
+assert.equal(history.status, 200, JSON.stringify(history.body));
+assert.equal(history.body.entries[0].id, fixed.body.audit.id);
+step(`read Maya's audit history through the studio (${history.body.entries.length} entry)`);
+
+const described2 = await call(ada, { op: "describe", resource: "public.clients" });
+const kinds = (described2.body.schema.relations ?? []).map((r) => `${r.kind}:${r.resource}`).sort();
+assert.deepEqual(kinds, ["many:public.session_notes", "one:public.plans"]);
+step(`describe() reports relations: ${kinds.join(", ")}`);
+
+const added = await call(ada, { op: "create", resource: "public.clients", data: { full_name: "Noor Aziz", status: "lead" } });
+assert.equal(added.status, 200, JSON.stringify(added.body));
+assert.equal(added.body.row.values.coach_id, ada.id);
+step(`added a client as Ada; RLS set coach_id to her (audit ${added.body.audit.id})`);
+
 const admin = postgres(env.STUDIO_ADMIN_DATABASE_URL, { max: 1, onnotice: () => {} });
 const log = await admin`
   select a.id, u.email, a.resource, a.record_key, a.before, a.after
     from genesis_studio.audit_log a join auth.users u on u.id::text = a.actor
-   where a.id = any(${[fixed.body.audit.id, noteFix.body.audit.id]}::uuid[])
+   where a.id = any(${[fixed.body.audit.id, noteFix.body.audit.id, added.body.audit.id]}::uuid[])
    order by a.occurred_at`;
 await admin.end();
 await studio.close();
-assert.equal(log.length, 2);
+assert.equal(log.length, 3);
 console.log("\nAudit log, read back from the database:");
 for (const entry of log) {
   console.log(`  ${entry.id}  ${entry.email}  ${entry.resource}  ${JSON.stringify(entry.record_key)}`);

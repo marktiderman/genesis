@@ -29,7 +29,10 @@ export type StudioRequest =
       /** 1-based. */
       page?: number;
       perPage?: number;
+      /** One sort field. `sorts` wins when both are sent. */
       sort?: SortParam;
+      /** Sort by up to 5 fields, first one first. */
+      sorts?: SortParam[];
       search?: string;
       filters?: FilterParam[];
     }
@@ -42,7 +45,10 @@ export type StudioRequest =
       data: DataRow;
       /** The version token the row was read at; `null` when it had none. */
       expectedVersion: string | null;
-    };
+    }
+  | { op: "create"; resource: string; data: DataRow }
+  | { op: "delete"; resource: string; id: string | number; expectedVersion: string | null }
+  | { op: "history"; resource: string; id: string | number; limit?: number };
 
 export interface StudioEnvelope {
   /** Protocol version of the sender. */
@@ -80,6 +86,22 @@ export interface UpdateResponse {
   row: StudioRow;
   /** Present when the handler wrote the audit entry itself (`table` sink). */
   audit?: AuditEntry;
+}
+
+export interface CreateResponse {
+  row: StudioRow;
+  /** The new row's id, as `encodeRecordKey` makes it. */
+  id: string | number;
+  audit?: AuditEntry;
+}
+
+export interface DeleteResponse {
+  audit?: AuditEntry;
+}
+
+export interface HistoryResponse {
+  /** Most recent first, with only the fields this user may read. */
+  entries: AuditEntry[];
 }
 
 /**

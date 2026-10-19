@@ -8323,6 +8323,20 @@
               "description": ""
             },
             {
+              "name": "showSearch",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Show the search box. Default `true`; turn off when the data source can't search."
+            },
+            {
+              "name": "showSort",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Show the sort select. Default `true`; turn off when the data source can't sort."
+            },
+            {
               "name": "statusChips",
               "type": "{ options: (string | StatusChipOption)[]; selected: string[]; onChange: (values: string[]) => void; variant?: StatusChipsVariant; }",
               "required": false,
@@ -12014,6 +12028,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Show the \"save current view\" affordance."
+            },
+            {
+              "name": "capabilities",
+              "type": "{ search?: boolean; sort?: boolean; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
             },
             {
               "name": "className",

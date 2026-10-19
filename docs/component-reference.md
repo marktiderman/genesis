@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 125 components · 354 other exports · 187 standalone types across 7 packages.
+**Totals:** 125 components · 359 other exports · 198 standalone types across 7 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -55,7 +55,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
 
-### Types (52)
+### Types (54)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -80,6 +80,7 @@ export type { GetManyParams };
 export type { GetManyResult };
 export type { GetOneParams };
 export type { GetOneResult };
+export type { HistoryParams };
 export type { Identifier };
 export type { ListParams };
 export type { ListResult };
@@ -91,6 +92,7 @@ export type { RangeFilter };
 export type { ResourceAccess };
 export type { ResourceContract };
 export type { ResourceFormFieldDef };
+export type { ResourceRelation };
 export type { ResourceSchema };
 export type { ResourceSummary };
 export type { ScalarFilter };
@@ -809,24 +811,29 @@ Data Studio server handler (Request → Response) that acts as the signed-in use
 
 **Barrel:** [`packages/studio-server/src/index.ts`](../packages/studio-server/src/index.ts)
 
-### Other exports (10)
+### Other exports (15)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`AUDIT_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | Name of the audit function the handler calls. |
+| [`backoffDelay`](../packages/studio-server/src/outbox.ts) | function | — | Delay before attempt `attempt + 1`, with jitter. |
 | [`bearerToken`](../packages/studio-server/src/auth.ts) | function | — | Read a bearer token from the `Authorization` header. |
 | [`byResource`](../packages/studio-server/src/authorize.ts) | function | — | The common case of `authorize`: a fixed allow-list by `schema.table`, for the users `who` admits. Anything not listed is denied, and a listed table without `update` is read-only. |
+| [`createOutboxWorker`](../packages/studio-server/src/outbox.ts) | function | — | _(no summary)_ |
 | [`createPostgresDatabase`](../packages/studio-server/src/db.ts) | function | — | A `StudioDatabase` over a Postgres connection string, or over a postgres.js pool you already have. A pool you pass in keeps its own type parsing, so dates arrive as JS Dates rather than Postgres's exact text; version tokens are unaffecte... |
 | [`createStudioHandler`](../packages/studio-server/src/handler.ts) | function | — | Create the handler. It opens one transaction per request, switches to the signed-in user (`set local role` plus their verified claims), and only then reads the catalog or touches a row, so the database's own privileges and row rules alwa... |
+| [`HISTORY_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | Reads a record's audit history. |
 | [`IdentitySwitchError`](../packages/studio-server/src/db.ts) | class | — | Thrown when the transaction did not end up as the requested role. |
 | [`jwtAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of `secret` and `jwksUrl` is required. |
+| [`OUTBOX_AUDIT_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | The `outbox` sink's audit function: writes the log entry and queues it. |
+| [`PermanentDeliveryError`](../packages/studio-server/src/outbox.ts) | class | — | Throw this from `deliver` when retrying can't help (the receiver rejected the payload). |
 | [`STUDIO_PROTOCOL_VERSION`](../packages/studio-server/src/protocol.ts) | const | — | Bumped on any incompatible change; the handler rejects other versions. |
 | [`studioSetupSql`](../packages/studio-server/src/setup-sql.ts) | function | — | SQL that installs the tamper-proof audit trail: |
 | [`supabaseAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
 
-### Types (27)
+### Types (36)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -835,17 +842,26 @@ export type { AuditSink };
 export type { Authorize };
 export type { AuthorizeContext };
 export type { AuthorizeDecision };
+export type { ByResourceOptions };
+export type { CreateResponse };
+export type { DeadLetter };
+export type { DeleteResponse };
 export type { DescribeResponse };
 export type { ErrorResponse };
+export type { HistoryResponse };
 export type { Identity };
 export type { JwtAuthOptions };
 export type { ListResponse };
+export type { OutboxEntry };
+export type { OutboxWorker };
+export type { OutboxWorkerOptions };
 export type { PostgresOptions };
 export type { Query };
 export type { ReadResponse };
 export type { ResourceRule };
 export type { ResourceSettings };
 export type { ResourcesResponse };
+export type { RunSummary };
 export type { SetupSqlOptions };
 export type { SqlRow };
 export type { StudioAction };

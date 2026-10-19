@@ -164,7 +164,8 @@ function filterSql(resolved: ResolvedResource, raw: FilterParam, params: Params)
 export interface ListInput {
   page: number;
   perPage: number;
-  sort?: SortParam;
+  /** Sort by these fields, first one first. */
+  sorts?: SortParam[];
   search?: string;
   filters?: FilterParam[];
 }
@@ -195,10 +196,12 @@ export async function listRows(
 
   const whereSql = where.length ? ` where ${where.join(" and ")}` : "";
   const order: string[] = [];
-  if (input.sort) {
-    if (typeof input.sort.field !== "string") throw new BadRequestError("Sort needs a field.");
-    const column = readableColumn(resolved, input.sort.field);
-    order.push(`${ident(column.name)} ${input.sort.order === "desc" ? "desc" : "asc"} nulls last`);
+  const sorts = input.sorts ?? [];
+  if (sorts.length > 5) throw new BadRequestError("Sort by at most 5 fields.");
+  for (const sort of sorts) {
+    if (!sort || typeof sort.field !== "string") throw new BadRequestError("Each sort needs a field.");
+    const column = readableColumn(resolved, sort.field);
+    order.push(`${ident(column.name)} ${sort.order === "desc" ? "desc" : "asc"} nulls last`);
   }
   // A stable tiebreak, so paging never shows a row twice or skips one.
   for (const k of resolved.key) order.push(`${ident(k.name)} asc`);

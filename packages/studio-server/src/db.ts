@@ -157,7 +157,14 @@ function wrap(sql: postgres.Sql, owned: boolean): StudioDatabase {
         if (who?.role !== identity.role) throw new IdentitySwitchError(identity.role, who?.role);
         return fn(query);
       };
-      return (readOnly ? sql.begin("read only", run) : sql.begin(run)) as Promise<never>;
+      // Writes run at REPEATABLE READ: if anyone commits a change to a row
+      // after this transaction's snapshot, writing that row fails with a
+      // serialization error instead of quietly building on a stale read.
+      // That is what makes a version check safe where the user can't take a
+      // row lock (a write carried by an app's function).
+      return (readOnly
+        ? sql.begin("read only", run)
+        : sql.begin("isolation level repeatable read", run)) as Promise<never>;
     },
     async inspectLogin() {
       const [row] = await sql.unsafe(
