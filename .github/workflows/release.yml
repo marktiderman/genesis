@@ -115,25 +115,36 @@ jobs:
       # All seven packages exist on the registry; a plain GET returns 200 for
       # each. So the 404 is about AUTHORIZATION, not about the package.
       # `genesis-cli` proves the workflow, the permissions and the npm version
-      # are all correct — it is the one package with a Trusted Publisher.
+      # are all correct — it is the one package whose Trusted Publisher is bound
+      # to THIS repo (see ROOT CAUSE below; the six DO have configs).
       #
-      # THE REMAINING GAP IS NOT IN THIS REPOSITORY. Each of the other six
-      # packages needs a Trusted Publisher on npmjs.com: package Settings,
-      # organization `marktiderman`, repository `genesis`, workflow
-      # `release.yml`, environment BLANK. Only an npm account owner can set it.
+      # ROOT CAUSE (found 2026-10-19): the six Trusted Publishers were bound
+      # to a DIFFERENT repository. npm binds a trusted-publisher config to the
+      # repo's immutable identity (repository_id) on its first successful
+      # publish (docs.npmjs.com/trusted-publishers). The six configs
+      # (genesis 052d6dfc, ui a3d79b99, core e584c918, design-system 0868e588,
+      # switchboard e7323afd, ui-native b6d1c5f1) were validated by OIDC
+      # publishes in July and on 2026-08-03/04 BEFORE 17:32Z, i.e. from an
+      # earlier repo with the same name. This repo (id 1323213642) was created
+      # 2026-08-04 17:32Z. Same owner/name/file, different repository_id, so
+      # the exchange answers 404 "package not found", while `npm trust list`
+      # shows nothing wrong (it does not print the bound repo id). genesis-cli
+      # works because its config was re-created (331d2596 -> da090be5) and
+      # first used from THIS repo (1.0.2, 2026-08-04 19:02Z).
       #
-      # RE-MEASURED 2026-10-19 on run 39261411711 (same exchange, from this
-      # file, claims: repository marktiderman/genesis, workflow_ref
-      # .github/workflows/release.yml, environment null): IDENTICAL result —
-      # genesis-cli 201, the other six 404 "OIDC token exchange error - package
-      # not found" — although `npm trust list` shows the same config on all
-      # seven. The claims do not vary per package; only npm's per-package trust
-      # state does. pnpm 11 and npm 11.21 both attempt the exchange correctly
+      # FIX: on npmjs.com (or `npm trust revoke` + `npm trust github`), delete
+      # and re-create the package's Trusted Publisher, then publish a new
+      # version from this workflow WITHIN 48 HOURS. An unused config expires
+      # after 48h (GitHub changelog 2026-10-02). The first publish binds it to
+      # this repo. If this repo is ever deleted and re-created, every package
+      # needs the same treatment.
+      #
+      # pnpm 11 and npm 11.21 both attempt the exchange correctly
       # (`[WARN] Skipped OIDC: ... 404` / `npm verbose oidc Failed token
       # exchange`), then fall back to an UNAUTHENTICATED PUT, which npm answers
       # with E404. changesets swallows pnpm's warning, so all the log ever shows
-      # is that E404. The "Verify npm Trusted Publishing" step below now
-      # surfaces the real cause before any PUT.
+      # is that E404. The "Verify npm Trusted Publishing" step below surfaces
+      # the real cause before any PUT.
       #
       # The probe step that measured this is deleted. It printed the exchange
       # response body on any status other than 200, and a 201 body holds a
@@ -187,7 +198,7 @@ jobs:
       # Fails loud, BEFORE any PUT, when npm will not trust this workflow for
       # a package about to be published. Without it, pnpm logs "Skipped OIDC"
       # (hidden by changesets), publishes unauthenticated, and the only
-      # visible error is a misleading E404 (see the RE-MEASURED note above).
+      # visible error is a misleading E404 (see the ROOT CAUSE note above).
       # Only runs when this push would publish: no pending changesets and at
       # least one local version missing from npm. Never prints a token: an
       # exchange body is shown only for an error status, and the minted token
@@ -236,7 +247,7 @@ jobs:
               failed=1
             else
               msg=$(jq -r '.message // empty' "$RUNNER_TEMP/x.json" 2>/dev/null | head -c 200) || msg=
-              echo "::error::$name: npm refused the OIDC token exchange ($code ${msg:-no message}). Fix its Trusted Publisher on npmjs.com (repo marktiderman/genesis, workflow release.yml, environment blank), then re-run this workflow."
+              echo "::error::$name: npm refused the OIDC token exchange ($code ${msg:-no message}). Its Trusted Publisher is missing, bound to another repo, or expired: delete and re-create it on npmjs.com (repo marktiderman/genesis, workflow release.yml, environment blank), then re-run this workflow within 48h."
               failed=1
             fi
             rm -f "$RUNNER_TEMP/x.json"
