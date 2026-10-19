@@ -1,0 +1,76 @@
+packages/studio-server/src/authorize.ts
+  s_ebc909da001b53::t_15a29e5057eee3 13-18,59-63
+packages/studio-server/src/db.ts
+  s_ebc909da001b53::t_939318f33ab38c 160-167
+packages/studio-server/src/access.ts
+  s_ebc909da001b53::t_c3db9e9895eab3 243-245,257-258,292-302,331-332
+  s_ebc909da001b53::t_d445cc33b3cd1f 10-11,20,22,29,33-36,45-46,49,51,53-58,86,88,97-108,126,139,141,190-195,199-201,203-207,216-221,223,229-233,235,237,239-242,246-256,259-283,286-290,303-311,316,318,323-325,329-330,333-338,364-383,390,392-394,402,405-443,445-482
+packages/studio-server/src/setup-sql.ts
+  s_ebc909da001b53::t_a3112d3907ba80 61-63
+  s_ebc909da001b53::t_d19769a6d653da 13-17,36-39,54-58,60,64-66,143-222,224-225,230-232,237-239
+  s_ebc909da001b53::t_7118002a61a972 59
+  s_ebc909da001b53::t_36205012c7d466 12
+packages/studio-server/src/write.ts
+  s_ebc909da001b53::t_939318f33ab38c 96,134,147,258-263,387-388
+  s_ebc909da001b53::t_67ab867fbf15d6 15,117-129,132-133,135-139,145-146,148,154,162-168,170-171,173-186,188-189,193,195-205,209-210,214-221,228,234-257,264-386,389-414
+packages/studio-server/src/outbox.ts
+  s_ebc909da001b53::t_d2ea2eeae1870d 1-61,63,65-89,95-126,129-251,262-280
+  s_ebc909da001b53::t_de59a45cad273d 62,127
+  s_ebc909da001b53::t_7118002a61a972 90-94,252-261
+  s_ebc909da001b53::t_2fee4244c396fd 64,128
+packages/studio-server/src/index.ts
+  s_ebc909da001b53::t_7118002a61a972 5-15
+  s_ebc909da001b53::t_15a29e5057eee3 34-40,59-61
+packages/core/src/schema/index.ts
+  s_ebc909da001b53::t_57eca848a0cbb9 12
+packages/studio-server/src/client.ts
+  s_ebc909da001b53::t_15a29e5057eee3 12,15,17,29,36-37,39,63,73-76,157,187-194,197-214
+packages/studio-server/test/p1.integration.test.ts
+  s_ebc909da001b53::t_3339574c7d52ea 1-410
+packages/core/src/provider/index.ts
+  s_ebc909da001b53::t_57eca848a0cbb9 25
+packages/studio-server/src/protocol.ts
+  s_ebc909da001b53::t_b642b03fd07d33 32,34-35,48-51,91-105
+  s_ebc909da001b53::t_1424bfb12514d8 106
+packages/studio-server/src/catalog.ts
+  s_ebc909da001b53::t_feb13edb65c5e3 35,49-50,65-66,71-72,87-88,119,145,154-155,181-182,185-187,212,235-236,295-310
+packages/core/src/index.ts
+  s_ebc909da001b53::t_57eca848a0cbb9 24
+packages/studio-server/src/handler.ts
+  s_ebc909da001b53::t_b642b03fd07d33 17-18,196-204,208,255,269,283,311-337
+packages/core/src/schema/types.ts
+  s_ebc909da001b53::t_57eca848a0cbb9 118-152,182-187,229-235
+packages/studio-server/src/options.ts
+  s_ebc909da001b53::t_d19769a6d653da 4-8,56-58,63-66,88-104
+packages/studio-server/test/unit.test.ts
+  s_ebc909da001b53::t_1eeec105b5755f 248-261,264-294
+  s_ebc909da001b53::t_1cb7936e123e85 106-107
+  s_ebc909da001b53::t_2fee4244c396fd 262
+  s_ebc909da001b53::t_de59a45cad273d 263
+packages/studio-server/src/rows.ts
+  s_ebc909da001b53::t_e84b2ddaba9788 167-168,199-204
+packages/studio-server/src/history.ts
+  s_ebc909da001b53::t_e84b2ddaba9788 1-58
+packages/studio-server/test/studio.integration.test.ts
+  s_ebc909da001b53::t_fa175e3c52f99e 122,125,131-132,152
+packages/studio-server/test/fixtures.ts
+  s_ebc909da001b53::t_fa175e3c52f99e 55-57,72-81,85-86,99-115,119-120,213-250,257-259,273,298,316-320
+packages/core/src/provider/types.ts
+  s_ebc909da001b53::t_57eca848a0cbb9 69-73,117-118,151-152,158-166,221-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d3dc549620e9d002d1bed139319a9844a247b905",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
