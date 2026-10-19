@@ -63,16 +63,35 @@ export function qualifiedTable(resolved: ResolvedResource): string {
   return `${ident(resolved.table.schema)}.${ident(resolved.table.name)}`;
 }
 
+/**
+ * The row's version token as SQL text: the version column, or, for a table
+ * with none, a fingerprint of every column this user can read. Unqualified
+ * column names, so it works in a SELECT, an UPDATE's WHERE, or a DELETE's.
+ */
+export function versionSql(resolved: ResolvedResource): string | null {
+  if (resolved.version) return `${ident(resolved.version.name)}::text`;
+  if (resolved.rowVersion) {
+    return `md5(jsonb_build_object(${resolved.readable.map((c) => `${literal(c.name)}, ${ident(c.name)}`).join(", ")})::text)`;
+  }
+  return null;
+}
+
+/** True when edits to this table can be checked against the version they were read at. */
+export function versioned(resolved: ResolvedResource): boolean {
+  return Boolean(resolved.version || resolved.rowVersion);
+}
+
 export function selectList(resolved: ResolvedResource): string {
   const columns = resolved.readable.map((c) => ident(c.name));
-  if (resolved.version) columns.push(`${ident(resolved.version.name)}::text as ${ident(VERSION_ALIAS)}`);
+  const version = versionSql(resolved);
+  if (version) columns.push(`${version} as ${ident(VERSION_ALIAS)}`);
   return columns.join(", ");
 }
 
 export function toStudioRow(resolved: ResolvedResource, row: SqlRow): StudioRow {
   const values: Record<string, unknown> = {};
   for (const c of resolved.readable) values[c.name] = row[c.name] ?? null;
-  const version = resolved.version ? ((row[VERSION_ALIAS] as string | null | undefined) ?? null) : null;
+  const version = versioned(resolved) ? ((row[VERSION_ALIAS] as string | null | undefined) ?? null) : null;
   return { values, version };
 }
 

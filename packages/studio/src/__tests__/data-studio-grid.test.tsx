@@ -158,3 +158,29 @@ describe("The Airtable-style workspace", () => {
     expect(screen.getByTestId("studio-filter")).toBeTruthy();
   });
 });
+
+describe("Embedding with no wiring", () => {
+  it("runs with no router (the page's query string) and keys data to the provider's session", async () => {
+    const { provider } = makeProvider();
+    let emit: (id: string | null) => void = () => {};
+    const withSession = Object.assign(provider, {
+      session: {
+        subscribe(listener: (id: string | null) => void) {
+          emit = listener;
+          listener("u1");
+          return () => {};
+        },
+      },
+    });
+    window.history.replaceState(null, "", "/admin/data?table=public.clients");
+    render(<DataStudio provider={withSession} />);
+    const grid = await screen.findByRole("grid", { name: "Clients sheet" });
+    await within(grid).findByText("Ana Ruiz");
+    fireEvent.click(screen.getByText("Notes"));
+    await waitFor(() => expect(window.location.search).toBe("?table=public.notes"));
+    // A different user signs in: what the first one loaded is dropped and asked for again.
+    await act(async () => emit("u2"));
+    expect(await screen.findByRole("navigation", { name: "Tables" })).toBeTruthy();
+    window.history.replaceState(null, "", "/");
+  });
+});

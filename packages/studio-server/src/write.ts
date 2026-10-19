@@ -25,6 +25,8 @@ import {
   readRow,
   selectList,
   toStudioRow,
+  versioned,
+  versionSql,
   VERSION_ALIAS,
 } from "./rows";
 
@@ -133,15 +135,14 @@ async function lockAtVersion(
   expectedVersion: string | null,
   lock: boolean,
 ): Promise<Locked> {
-  const version = resolved.version!;
   const params = new Params();
   const predicate = keyPredicate(resolved, key, params);
-  const expected = params.add(expectedVersion, version.castType);
+  const expected = params.add(expectedVersion, "text");
   let locked: SqlRow | undefined;
   try {
     [locked] = await query(
       `select ${selectList(resolved)},
-              ${ident(version.name)} is not distinct from ${expected} as ${ident(MATCH_ALIAS)},
+              ${versionSql(resolved)} is not distinct from ${expected} as ${ident(MATCH_ALIAS)},
               ${jsonOf(resolved.readable.map((c) => c.name))} as ${ident(BEFORE_ALIAS)},
               ${jsonOf(resolved.key.map((c) => c.name))} as ${ident(KEY_ALIAS)}
          from ${qualifiedTable(resolved)} where ${predicate}${lock ? " for update" : ""}`,
@@ -239,10 +240,10 @@ export async function updateRow(
   resolved: ResolvedResource,
   input: UpdateInput,
 ): Promise<{ row: StudioRow; audit?: AuditEntry }> {
-  const { version } = resolved;
-  if (resolved.blocked.update || !version) {
+  if (resolved.blocked.update || !versioned(resolved)) {
     throw new WriteRejected("forbidden", `Not saved: ${resolved.blocked.update ?? "this table is read-only."}`);
   }
+  const { version } = resolved;
   const fields = Object.keys(input.data);
   if (fields.length === 0) throw new BadRequestError("Nothing to save.");
   for (const field of fields) {
@@ -276,11 +277,11 @@ export async function updateRow(
     const params = new Params();
     const assignments = changed.map((c) => `${ident(c.name)} = ${params.add(input.data[c.name], c.castType)}`);
     const predicate = keyPredicate(resolved, input.key, params);
-    const versionGuard = params.add(locked.previousVersion, version.castType);
+    const versionGuard = params.add(locked.previousVersion, "text");
     try {
       [updated] = await query(
         `update ${table} set ${assignments.join(", ")}
-          where ${predicate} and ${ident(version.name)} is not distinct from ${versionGuard}
+          where ${predicate} and ${versionSql(resolved)} is not distinct from ${versionGuard}
           returning ${selectList(resolved)},
                     ${jsonOf(resolved.readable.map((c) => c.name))} as ${ident(AFTER_ALIAS)}`,
         params.values,
@@ -292,8 +293,10 @@ export async function updateRow(
   }
 
   // 3. The version must have moved, or the next conflict would go unseen.
+  // (A fingerprint moves whenever a value does, and a write that changes no
+  // value has nothing to conflict with.)
   const row = toStudioRow(resolved, updated);
-  if (row.version === locked.previousVersion) {
+  if (version && row.version === locked.previousVersion) {
     throw new WriteRejected(
       fn ? "invalid" : "error",
       fn
@@ -379,8 +382,7 @@ export async function deleteRow(
   resolved: ResolvedResource,
   input: DeleteInput,
 ): Promise<{ audit?: AuditEntry }> {
-  const { version } = resolved;
-  if (resolved.blocked.delete || !version) {
+  if (resolved.blocked.delete || !versioned(resolved)) {
     throw new WriteRejected("forbidden", `Not deleted: ${resolved.blocked.delete ?? "this table is read-only."}`);
   }
   // Deletes are version-checked too: deleting a row someone just changed
@@ -398,12 +400,12 @@ export async function deleteRow(
   } else {
     const params = new Params();
     const predicate = keyPredicate(resolved, input.key, params);
-    const versionGuard = params.add(locked.previousVersion, version.castType);
+    const versionGuard = params.add(locked.previousVersion, "text");
     let deleted: SqlRow[];
     try {
       deleted = await query(
         `delete from ${qualifiedTable(resolved)}
-          where ${predicate} and ${ident(version.name)} is not distinct from ${versionGuard}
+          where ${predicate} and ${versionSql(resolved)} is not distinct from ${versionGuard}
           returning 1 as deleted`,
         params.values,
       );
@@ -435,7 +437,7 @@ export async function runRowAction(
   input: RunActionInput,
 ): Promise<{ row: StudioRow | null; audit?: AuditEntry }> {
   const action = resolved.actions.find((a) => a.name === input.action);
-  if (!action || !resolved.version) {
+  if (!action || !versioned(resolved)) {
     throw new WriteRejected("forbidden", `Not run: "${input.action}" isn't an action you can run on this table.`);
   }
   // Like a function-carried write: no row lock (the user may hold no UPDATE

@@ -16,7 +16,7 @@ import { Button } from "@marktiderman/genesis-ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@marktiderman/genesis-ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@marktiderman/genesis-ui/alert";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import type { StudioLocation, StudioRouter } from "./router";
+import { useHistoryRouter, type StudioLocation, type StudioRouter } from "./router";
 import { choicesFor, displayText, editText, fieldLabel, parseDraft } from "./values";
 import { exportCsv, downloadText } from "./lib/csv";
 import { formatFilters, formatSorts, parseFilters, parseSorts } from "./lib/query-state";
@@ -62,13 +62,17 @@ export interface DataStudioProps {
    * `listResources`.
    */
   provider: DataProvider;
-  /** URL state, from the app's router. See `createSearchParamsRouter` and `useHistoryRouter`. */
-  router: StudioRouter;
+  /**
+   * URL state, from the app's router (see `createSearchParamsRouter`).
+   * Default: the page's own query string, through the History API.
+   */
+  router?: StudioRouter;
   /** Shown in place of the studio while nobody is signed in. */
   signIn?: ReactNode;
   /**
    * Changes when the signed-in user does (their id, say). The studio drops
-   * everything it loaded for the previous user and asks again.
+   * everything it loaded for the previous user and asks again. Not needed
+   * with a provider that reports its session (`createSupabaseStudioProvider`).
    */
   sessionKey?: string | number | null;
   /** Heading above the table list. Default "Data". */
@@ -107,11 +111,24 @@ function errorText(error: unknown): string {
  * @stability Experimental
  */
 export function DataStudio(props: DataStudioProps) {
+  const historyRouter = useHistoryRouter();
+  const router = props.router ?? historyRouter;
+  // A provider that knows who is signed in (the Supabase one) keys the
+  // studio's data to that user, so the app needn't pass a sessionKey.
+  const session = (props.provider as { session?: StudioSessionSource }).session;
+  const [sessionUser, setSessionUser] = useState<string | null>(null);
+  useEffect(() => session?.subscribe(setSessionUser), [session]);
+  const sessionKey = props.sessionKey !== undefined ? props.sessionKey : session ? sessionUser : null;
   return (
     <GenesisProvider provider={props.provider}>
-      <StudioWorkspace {...props} />
+      <StudioWorkspace {...props} router={router} sessionKey={sessionKey} />
     </GenesisProvider>
   );
+}
+
+/** A provider's report of who is signed in (see `createSupabaseStudioProvider`). */
+export interface StudioSessionSource {
+  subscribe(listener: (userId: string | null) => void): () => void;
 }
 
 function StudioWorkspace({
@@ -123,7 +140,7 @@ function StudioWorkspace({
   perPage = PER_PAGE,
   forms,
   className,
-}: DataStudioProps) {
+}: DataStudioProps & { router: StudioRouter }) {
   const queryClient = useQueryClient();
   const [activity, setActivity] = useState<StudioActivity[]>([]);
   // The provider whose token was refused. Signing in again, even as the same

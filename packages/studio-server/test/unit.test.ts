@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { SignJWT } from "jose";
 import { isDataWriteError } from "@marktiderman/genesis-core/schema";
-import { byResource, createStudioHandler, jwtAuth, studioSetupSql, type StudioDatabase } from "../src/index";
+import { byResource, createStudioHandler, databaseDecides, jwtAuth, studioSetupSql, supabaseStudio, type StudioDatabase } from "../src/index";
 import { triggerAdvances, withoutSettings, type CatalogTrigger } from "../src/catalog";
-import { createStudioProvider } from "../src/client";
+import { createStudioProvider, createSupabaseStudioProvider } from "../src/client";
 
 const SECRET = "unit-test-secret-with-at-least-32-chars!!";
 
@@ -314,5 +314,88 @@ describe("comment settings", () => {
     expect(withoutSettings('@genesis {"label": "Clients"}')).toBeNull();
     expect(withoutSettings("Plain.")).toBe("Plain.");
     expect(withoutSettings(null)).toBeNull();
+  });
+});
+
+describe("databaseDecides", () => {
+  const ask = (authorize: ReturnType<typeof databaseDecides>, resource: string, action: "read" | "update" | "delete" | "comment", claims: Record<string, unknown> = {}) =>
+    authorize({ request: request(), claims: { sub: "u", ...claims }, resource, action });
+
+  it("allows everything for signed-in users, leaving the rest to the database", () => {
+    const authorize = databaseDecides();
+    for (const action of ["read", "update", "delete", "comment"] as const) expect(ask(authorize, "public.any", action)).toBe(true);
+    expect(ask(authorize, "public.any", "read", { is_anonymous: true })).toBe(false);
+    expect(authorize({ request: request(), claims: {} as never, resource: "public.any", action: "read" })).toBe(false);
+  });
+
+  it("narrows by who, except and per-table rules", () => {
+    const authorize = databaseDecides({
+      who: (claims) => claims.app_metadata === "staff",
+      except: ["public.secrets"],
+      rules: { "public.quiz": { read: { except: ["answer_key"] } } },
+    });
+    expect(ask(authorize, "public.any", "read")).toBe(false);
+    const staff = { app_metadata: "staff" };
+    expect(ask(authorize, "public.any", "update", staff)).toBe(true);
+    expect(ask(authorize, "public.secrets", "read", staff)).toBe(false);
+    expect(ask(authorize, "public.quiz", "read", staff)).toEqual({ allow: true, exceptColumns: ["answer_key"] });
+    expect(ask(authorize, "public.quiz", "update", staff)).toBe(false);
+  });
+
+  it("builds a Supabase handler with no other setup", () => {
+    const handler = supabaseStudio({ url: "https://example.supabase.co", database: "postgres://user:pw@127.0.0.1:1/db" });
+    expect(typeof handler).toBe("function");
+    void handler.close();
+  });
+});
+
+describe("createSupabaseStudioProvider", () => {
+  function fakeSupabase() {
+    let session: { access_token: string; user: { id: string } } | null = { access_token: "tok-1", user: { id: "u1" } };
+    const listeners: Array<(event: string, s: typeof session) => void> = [];
+    return {
+      client: {
+        auth: {
+          getSession: async () => ({ data: { session } }),
+          onAuthStateChange: (cb: (event: string, s: typeof session) => void) => {
+            listeners.push(cb);
+            return { data: { subscription: { unsubscribe: () => listeners.splice(listeners.indexOf(cb), 1) } } };
+          },
+        },
+      },
+      signIn(id: string, token: string) {
+        session = { access_token: token, user: { id } };
+        for (const l of [...listeners]) l("SIGNED_IN", session);
+      },
+      signOut() {
+        session = null;
+        for (const l of [...listeners]) l("SIGNED_OUT", null);
+      },
+    };
+  }
+
+  it("sends the current session's token, and reports each user change once", async () => {
+    const supa = fakeSupabase();
+    const seen: string[] = [];
+    const provider = createSupabaseStudioProvider(supa.client, {
+      fetch: (async (_url: string, init: RequestInit) => {
+        seen.push((init.headers as Record<string, string>).authorization);
+        return new Response(JSON.stringify({ resources: [] }), { status: 200 });
+      }) as typeof fetch,
+    });
+    await provider.listResources();
+    supa.signIn("u2", "tok-2");
+    await provider.listResources();
+    expect(seen).toEqual(["Bearer tok-1", "Bearer tok-2"]);
+
+    const users: Array<string | null> = [];
+    const stop = provider.session.subscribe((id) => users.push(id));
+    await new Promise((r) => setTimeout(r, 0));
+    supa.signIn("u2", "tok-3"); // same user, new token: no change to report
+    supa.signOut();
+    stop();
+    supa.signIn("u3", "tok-4");
+    expect(users).toEqual(["u2", null]);
+    await expect(provider.listResources()).resolves.toEqual([]);
   });
 });

@@ -293,3 +293,62 @@ export function createStudioProvider(options: StudioProviderOptions): StudioProv
   };
   return provider;
 }
+
+/**
+ * Who is signed in, for a provider that knows: `DataStudio` subscribes, and
+ * drops everything it loaded when the user changes (no `sessionKey` to wire).
+ */
+export interface StudioSession {
+  /** Called now with the current user's id (null when signed out), then on every change. */
+  subscribe(listener: (userId: string | null) => void): () => void;
+}
+
+/** The parts of a supabase-js client the studio uses. Any `createClient()` result fits. */
+export interface SupabaseClientLike {
+  auth: {
+    getSession(): Promise<{ data: { session: { access_token: string; user: { id: string } } | null } }>;
+    onAuthStateChange(
+      callback: (event: string, session: { access_token: string; user: { id: string } } | null) => void,
+    ): { data: { subscription: { unsubscribe(): void } } };
+  };
+}
+
+export interface SupabaseStudioProviderOptions {
+  /** Where the handler is mounted. Default `/api/studio`. */
+  url?: string;
+  fetch?: typeof fetch;
+}
+
+/**
+ * The studio's provider for an app that signs in with Supabase: it sends the
+ * current session's token with every request and tells `DataStudio` when
+ * the user changes, so embedding the studio is one line.
+ *
+ * @example
+ * const provider = useMemo(() => createSupabaseStudioProvider(supabase), [supabase]);
+ * return <DataStudio provider={provider} />;
+ */
+export function createSupabaseStudioProvider(
+  supabase: SupabaseClientLike,
+  options: SupabaseStudioProviderOptions = {},
+): StudioProvider & { session: StudioSession } {
+  const provider = createStudioProvider({
+    url: options.url ?? "/api/studio",
+    ...(options.fetch ? { fetch: options.fetch } : {}),
+    getAccessToken: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
+  });
+  const session: StudioSession = {
+    subscribe(listener) {
+      let last: string | null | undefined;
+      const emit = (userId: string | null) => {
+        if (userId === last) return;
+        last = userId;
+        listener(userId);
+      };
+      void supabase.auth.getSession().then(({ data }) => emit(data.session?.user.id ?? null));
+      const { data } = supabase.auth.onAuthStateChange((_event, next) => emit(next?.user.id ?? null));
+      return () => data.subscription.unsubscribe();
+    },
+  };
+  return Object.assign(provider, { session });
+}

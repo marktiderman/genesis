@@ -49,6 +49,11 @@ export interface ResolvedResource {
   key: CatalogColumn[];
   /** The trusted version column, when updates or deletes are allowed. */
   version: CatalogColumn | null;
+  /**
+   * No trusted version column: edits are checked against a fingerprint of
+   * the row's readable values instead (`versionSql`).
+   */
+  rowVersion: boolean;
   /** Audit function to call (`table` and `outbox` sinks); null for `database`. */
   auditFunction: string | null;
   /** Why each write action is off, or undefined when it's allowed. */
@@ -65,6 +70,9 @@ export interface ResolvedResource {
 
 /** A row action name: it goes into the audit log as `run:<name>`. */
 const ACTION_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** Where a `row` version token travels on each record (no real column has this name). */
+export const ROW_VERSION_FIELD = "__genesis_version";
 
 interface NormalizedDecision {
   allow: boolean;
@@ -324,13 +332,19 @@ export async function resolveResource(
     candidates.push(action);
   }
 
-  // Updates, deletes and row actions are version-checked.
+  // Updates, deletes and row actions are version-checked: against a version
+  // column a trigger advances, or, with none, against the row's own values,
+  // so no table needs a trigger before it can be edited.
   let version: CatalogColumn | null = null;
+  let rowVersion = false;
   let actions: RowActionSettings[] = candidates;
   if (!blockedRaw.update || !blockedRaw.delete || candidates.length) {
     const picked = pickVersion(table, isReadable, settings?.versionField);
     version = picked.column;
-    if (!version) {
+    if (!version && !settings?.versionField) {
+      rowVersion = true;
+    } else if (!version) {
+      // A configured version field that can't be trusted is a mistake to fix, not to work around.
       const why = picked.reason!.replace(/^Read-only: /, "");
       if (!blockedRaw.update) blockedRaw.update = why;
       if (!blockedRaw.delete) blockedRaw.delete = why;
@@ -456,7 +470,11 @@ export async function resolveResource(
     fields: contract ? withContract(fields, contract) : fields,
     ...(description ? { description } : {}),
     access,
-    ...(version ? { version: { field: version.name, kind: versionKind(version)! } } : {}),
+    ...(version
+      ? { version: { field: version.name, kind: versionKind(version)! } }
+      : rowVersion
+        ? { version: { field: ROW_VERSION_FIELD, kind: "row" as const } }
+        : {}),
     labelField: pickLabelField(readable, keyColumns, settings?.labelField ?? contract?.labelField),
     ...(relations && relations.length ? { relations } : {}),
     ...(creatable.size ? { createFields: [...creatable] } : {}),
@@ -471,6 +489,7 @@ export async function resolveResource(
     creatable,
     key: keyReadable ? keyColumns : [],
     version,
+    rowVersion,
     auditFunction,
     blocked,
     historyBlocked,

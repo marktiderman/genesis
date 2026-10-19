@@ -2,7 +2,14 @@
 // The browser half (a DataProvider for this handler) is at `./client`.
 
 export { createStudioHandler, type StudioHandler } from "./handler";
-export { byResource, type ResourceRule, type ByResourceOptions } from "./authorize";
+export {
+  byResource,
+  databaseDecides,
+  type ResourceRule,
+  type ByResourceOptions,
+  type DatabaseDecidesOptions,
+} from "./authorize";
+export { supabaseStudio, type SupabaseStudioOptions } from "./supabase";
 export {
   createOutboxWorker,
   backoffDelay,

@@ -170,7 +170,12 @@ export interface VersionField {
    * `expectedVersion` echoes `String(row[field])` back unchanged.
    */
   readonly field: string;
-  readonly kind: "integer" | "timestamp";
+  /**
+   * `row`: no column tracks versions, so the token is a fingerprint of the
+   * row's values, and `field` is a name the provider adds to each record
+   * (it is not one of the resource's fields).
+   */
+  readonly kind: "integer" | "timestamp" | "row";
 }
 
 /**

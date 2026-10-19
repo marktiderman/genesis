@@ -10,7 +10,7 @@
 import type { AuditEntry, DataRow } from "@marktiderman/genesis-core/schema";
 import type { ResolvedResource } from "./access";
 import { ident, type Query } from "./db";
-import { BadRequestError, keyPredicate, literal, Params, qualifiedTable } from "./rows";
+import { BadRequestError, keyPredicate, literal, Params, qualifiedTable, versionSql } from "./rows";
 import { AUDIT_ENTRY_FUNCTION } from "./setup-sql";
 import { createRow, deleteRow, updateRow, WriteRejected } from "./write";
 
@@ -195,10 +195,10 @@ async function currentRow(query: Query, resolved: ResolvedResource, key: Record<
   const params = new Params();
   const predicate = keyPredicate(resolved, key, params);
   const names = resolved.readable.map((c) => c.name);
-  const version = resolved.version;
+  const version = versionSql(resolved);
   const [row] = await query(
     `select jsonb_build_object(${names.map((n) => `${literal(n)}, ${ident(n)}`).join(", ")}) as values
-            ${version ? `, ${ident(version.name)}::text as version` : ""}
+            ${version ? `, ${version} as version` : ""}
        from ${qualifiedTable(resolved)} where ${predicate}`,
     params.values,
   );

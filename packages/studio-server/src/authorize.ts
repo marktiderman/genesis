@@ -72,3 +72,40 @@ export function byResource(rules: Readonly<Record<string, ResourceRule>>, option
     return columns === true ? true : { allow: true, columns };
   };
 }
+
+export interface DatabaseDecidesOptions {
+  /**
+   * Who may open the studio, from their verified claims. Default: any
+   * signed-in, non-anonymous user. That's safe because the studio acts as
+   * them, so they get exactly what the database already lets them do through
+   * its own Data API, and nothing more. Narrow it to keep the UI to staff.
+   */
+  who?: (claims: StudioClaims) => boolean;
+  /** Tables (`schema.table`) to leave out of the studio entirely. */
+  except?: readonly string[];
+  /** Tighter rules for some tables, in `byResource` form. Tables not listed get everything the database allows. */
+  rules?: Readonly<Record<string, ResourceRule>>;
+}
+
+/**
+ * Turn the studio on for every table, and let the database decide: each
+ * user reads, edits, adds and deletes exactly what their grants and row
+ * rules allow, sees history and comments on the rows they can see, and runs
+ * the row actions configured for a table. This is the default the studio is
+ * built around ("a signed-in user sees and edits exactly what they already
+ * can"); `byResource` is the opt-in allow-list for apps that want less.
+ *
+ * @example authorize: databaseDecides({ who: (claims) => claims.app_metadata?.role === "staff" })
+ */
+export function databaseDecides(options: DatabaseDecidesOptions = {}): Authorize {
+  const who = options.who ?? ((claims: StudioClaims) => typeof claims.sub === "string" && claims.is_anonymous !== true);
+  const except = new Set(options.except ?? []);
+  const narrowed = options.rules ? byResource(options.rules, { who }) : null;
+  return (context) => {
+    if (!who(context.claims) || except.has(context.resource)) return false;
+    if (narrowed && options.rules && Object.prototype.hasOwnProperty.call(options.rules, context.resource)) {
+      return narrowed(context);
+    }
+    return true;
+  };
+}
