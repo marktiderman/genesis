@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { adminSql, call, CLIENT_1, CLIENT_2, CLIENT_B, COACH_A, COACH_B, DEFAULT_RULES, describeDb, makeHandler, resetDatabase } from "./fixtures";
-import { byResource, type StudioHandler } from "../src/index";
+import { byResource, studioSetupSql, type StudioHandler } from "../src/index";
 
 const ACTIONS = [
   { name: "complete", label: "Mark done", function: "public.complete_client", confirm: "Mark this client done?" },
@@ -157,6 +157,30 @@ describeDb("P3: row actions, comments, checked-in contracts", () => {
     expect(refused.status).toBe(403);
     const empty = await call(studio, COACH_A, { op: "comment", resource: "public.clients", id: CLIENT_1, body: "   " });
     expect(empty.status).toBe(400);
+  });
+
+  it("keeps the read functions to the studio's login when loginRole is set", async () => {
+    await admin.unsafe(studioSetupSql({ loginRole: "studio_login", workerRole: "outbox_worker" }));
+    await call(studio, COACH_A, { op: "comment", resource: "public.clients", id: CLIENT_1, body: "Through the handler." });
+    const listed = await call(studio, COACH_A, { op: "comments", resource: "public.clients", id: CLIENT_1 });
+    expect(listed.body.comments).toHaveLength(1);
+    const history = await call(studio, COACH_A, { op: "history", resource: "public.clients", id: CLIENT_1 });
+    expect(history.status).toBe(200);
+    // Any other login (a Data API's, say) acting as the same role is refused.
+    for (const statement of [
+      `select * from genesis_studio.record_comments('public.clients', '{"id": "${CLIENT_1}"}', 10)`,
+      `select * from genesis_studio.record_history('public.clients', '{"id": "${CLIENT_1}"}', 10)`,
+      `select * from genesis_studio.audit_entry(gen_random_uuid())`,
+      `select * from genesis_studio.add_comment('public.clients', '{"id": "${CLIENT_1}"}', 'forged')`,
+    ]) {
+      await expect(
+        admin.begin(async (tx) => {
+          await tx.unsafe(`select set_config('request.jwt.claims', '{"sub": "${COACH_A}"}', true)`);
+          await tx.unsafe("set local role authenticated");
+          await tx.unsafe(statement);
+        }),
+      ).rejects.toThrow(/only the studio login/);
+    }
   });
 
   // ── Contracts ───────────────────────────────────────────────────────────

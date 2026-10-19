@@ -194,4 +194,16 @@ describe("DataStudio", () => {
     expect(await screen.findByTestId("studio-sign-in")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
   });
+
+  it("comes back when the same user signs in again (a new provider, the same sessionKey)", async () => {
+    const stale = makeProvider();
+    stale.state.signedIn = false;
+    const view = render(<Harness provider={stale.provider} />);
+    await screen.findByTestId("studio-sign-in");
+    // A fresh token means a fresh provider object; the user id is unchanged,
+    // and the old token keeps being refused.
+    view.rerender(<Harness provider={makeProvider().provider} />);
+    expect(await screen.findByText("Clients")).toBeTruthy();
+    expect(screen.queryByTestId("studio-sign-in")).toBeNull();
+  });
 });

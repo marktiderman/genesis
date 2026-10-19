@@ -123,11 +123,17 @@ function StudioWorkspace({
 }: DataStudioProps) {
   const queryClient = useQueryClient();
   const [activity, setActivity] = useState<StudioActivity[]>([]);
-  const [signedOut, setSignedOut] = useState(false);
+  // The provider whose token was refused. Signing in again, even as the same
+  // user, gives a new provider (a new token), which ends the signed-out state.
+  const [refusedProvider, setRefusedProvider] = useState<DataProvider | null>(null);
+  const signedOut = refusedProvider !== null && refusedProvider === provider;
+  const providerRef = useRef(provider);
+  providerRef.current = provider;
+  const setSignedOut = useCallback((value: boolean) => setRefusedProvider(value ? providerRef.current : null), []);
 
   // A new user sees nothing the previous one loaded.
   useEffect(() => {
-    setSignedOut(false);
+    setRefusedProvider(null);
     setActivity([]);
     void queryClient.resetQueries({ queryKey: ["genesis-studio"] });
   }, [sessionKey, queryClient]);
@@ -144,6 +150,15 @@ function StudioWorkspace({
   useEffect(() => {
     if (isUnauthenticated(resources.error)) setSignedOut(true);
   }, [resources.error]);
+
+  // The same user signed in again: ask again with the new token. Declared
+  // after the queries, so their fetchers already use the new provider.
+  useEffect(() => {
+    if (refusedProvider && refusedProvider !== provider) {
+      setRefusedProvider(null);
+      void queryClient.resetQueries({ queryKey: ["genesis-studio", sessionKey] });
+    }
+  }, [provider, refusedProvider, queryClient, sessionKey]);
 
   /**
    * Undo a change from its audit entry: a compensating write, itself

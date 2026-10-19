@@ -10455,12 +10455,12 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/KanbanBoard.tsx",
       "stability": "stable",
-      "summary": "",
+      "summary": "Columns of cards, optionally movable between columns.\n\nWhy the keyboard path isn't Radix (docs/FRAMEWORK.md rule 3): Radix has no\ndrag and drop, and native drag and drop can't be done from a keyboard. The\n\"Move to…\" menu (a Radix DropdownMenu) is the equivalent path for keyboard\nand screen-reader users, so dragging is never the only way to move a card.",
       "primaryComponent": "KanbanBoard",
       "components": [
         {
           "name": "KanbanBoard",
-          "summary": "",
+          "summary": "Columns of cards, optionally movable between columns.\n\nWhy the keyboard path isn't Radix (docs/FRAMEWORK.md rule 3): Radix has no\ndrag and drop, and native drag and drop can't be done from a keyboard. The\n\"Move to…\" menu (a Radix DropdownMenu) is the equivalent path for keyboard\nand screen-reader users, so dragging is never the only way to move a card.",
           "props": [
             {
               "name": "columns",
@@ -10489,6 +10489,34 @@
               "required": false,
               "defaultValue": "No items",
               "description": ""
+            },
+            {
+              "name": "getItemLabel",
+              "type": "((item: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A name for an item, for the move menu's label (\"Move Ana Ruiz\")."
+            },
+            {
+              "name": "getKey",
+              "type": "((item: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A stable key per item. Without one, cards are keyed by position."
+            },
+            {
+              "name": "onMoveItem",
+              "type": "((item: T, toColumn: string) => void | Promise<void>)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Move an item to another column. When set, cards can be dragged between\ncolumns, and each card gets a \"Move to…\" menu that does the same from\nthe keyboard. A rejected promise leaves the card where it was."
+            },
+            {
+              "name": "renderColumnFooter",
+              "type": "((column: KanbanColumn<T>) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Under a column's cards, e.g. a \"Load more\" button."
             }
           ]
         }

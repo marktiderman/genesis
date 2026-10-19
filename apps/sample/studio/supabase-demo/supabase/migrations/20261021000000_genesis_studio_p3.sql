@@ -141,33 +141,49 @@ end;
 $fn$;
 
 -- A record's history, most recent first. The handler only calls it for a
--- row the user can see right now, and strips fields they can't read.
+-- row the user can see right now, and strips fields they can't read. The
+-- read functions check the login too (with loginRole), so they stay the
+-- handler's even if a Data API is ever pointed at this schema.
 create or replace function genesis_studio.record_history(p_resource text, p_record_key jsonb, p_limit int)
 returns table (id uuid, occurred_at timestamptz, actor text, action text, before jsonb, after jsonb)
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $fn$
-  select a.id, a.occurred_at, a.actor, a.action, a.before, a.after
-    from genesis_studio.audit_log a
-   where a.resource = p_resource and a.record_key = p_record_key
-   order by a.occurred_at desc
-   limit least(greatest(p_limit, 1), 200)
+begin
+  if session_user <> 'genesis_studio_login' then
+    raise exception 'genesis_studio.record_history: only the studio login may read history'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return query
+    select a.id, a.occurred_at, a.actor, a.action, a.before, a.after
+      from genesis_studio.audit_log a
+     where a.resource = p_resource and a.record_key = p_record_key
+     order by a.occurred_at desc
+     limit least(greatest(p_limit, 1), 200);
+end;
 $fn$;
 
 -- One entry by id, for undo. The handler only acts on an entry the signed-in
 -- user wrote themselves, for a resource they may still change.
 create or replace function genesis_studio.audit_entry(p_id uuid)
 returns table (id uuid, occurred_at timestamptz, actor text, resource text, record_key jsonb, action text, before jsonb, after jsonb)
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $fn$
-  select a.id, a.occurred_at, a.actor, a.resource, a.record_key, a.action, a.before, a.after
-    from genesis_studio.audit_log a
-   where a.id = p_id
+begin
+  if session_user <> 'genesis_studio_login' then
+    raise exception 'genesis_studio.audit_entry: only the studio login may read audit entries'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return query
+    select a.id, a.occurred_at, a.actor, a.resource, a.record_key, a.action, a.before, a.after
+      from genesis_studio.audit_log a
+     where a.id = p_id;
+end;
 $fn$;
 
 -- Comments on records. Written and read only through the functions below;
@@ -210,16 +226,23 @@ $fn$;
 
 create or replace function genesis_studio.record_comments(p_resource text, p_record_key jsonb, p_limit int)
 returns table (id uuid, author text, body text, created_at timestamptz)
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $fn$
-  select c.id, c.author, c.body, c.created_at
-    from genesis_studio.comments c
-   where c.resource = p_resource and c.record_key = p_record_key
-   order by c.created_at
-   limit least(greatest(p_limit, 1), 500)
+begin
+  if session_user <> 'genesis_studio_login' then
+    raise exception 'genesis_studio.record_comments: only the studio login may read comments'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return query
+    select c.id, c.author, c.body, c.created_at
+      from genesis_studio.comments c
+     where c.resource = p_resource and c.record_key = p_record_key
+     order by c.created_at
+     limit least(greatest(p_limit, 1), 500);
+end;
 $fn$;
 
 revoke all on function genesis_studio.record_audit(text, jsonb, text, jsonb, jsonb) from public;
