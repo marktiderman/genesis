@@ -1,0 +1,44 @@
+.changeset/studio-p1-packages.md
+  s_ebc909da001b53::t_c7091698a82412 19,21-22,27
+packages/studio/src/__tests__/lib.test.ts
+  s_ebc909da001b53::t_c7091698a82412 19-25
+packages/studio-server/test/p1.integration.test.ts
+  s_ebc909da001b53::t_c7091698a82412 18,129-135,193-212,420-438,440
+  s_ebc909da001b53::t_5a0ca35cf184ec 439,441
+packages/studio/src/lib/csv.ts
+  s_ebc909da001b53::t_c7091698a82412 12-17
+packages/studio-server/test/studio.integration.test.ts
+  s_ebc909da001b53::t_c7091698a82412 127
+packages/studio/src/__tests__/data-studio-p1.test.tsx
+  s_ebc909da001b53::t_c7091698a82412 247-259
+packages/studio-server/src/outbox.ts
+  s_ebc909da001b53::t_c7091698a82412 58-63,231-237
+packages/studio/src/DataStudio.tsx
+  s_ebc909da001b53::t_c7091698a82412 550-554,589,907
+packages/studio-server/src/write.ts
+  s_ebc909da001b53::t_c7091698a82412 387-389,391
+packages/studio-server/test/fixtures.ts
+  s_ebc909da001b53::t_c7091698a82412 272-280,303,360
+packages/studio/package.json
+  s_ebc909da001b53::t_c7091698a82412 42
+.changeset/studio-p2-packages.md
+  s_ebc909da001b53::t_c7091698a82412 12
+packages/studio-server/README.md
+  s_ebc909da001b53::t_c7091698a82412 249-250
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "96bdbcae8a2cf4d023c78aa2ffdf49fa50c0ea58",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
