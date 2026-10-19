@@ -139,7 +139,7 @@ function StudioWorkspace({
   const list = resources.data ?? [];
 
   return (
-    <div className={cn("flex min-h-[480px] w-full flex-col gap-4 md:flex-row", className)} data-testid="studio">
+    <div className={cn("flex min-h-[480px] w-full flex-col gap-4 lg:flex-row", className)} data-testid="studio">
       <TableSidebar
         title={title}
         resources={list}
@@ -191,7 +191,7 @@ function TableSidebar({
   onSelect: (resource: string) => void;
 }) {
   return (
-    <nav aria-label="Tables" className="w-full shrink-0 rounded-lg border bg-card md:w-60" data-testid="studio-sidebar">
+    <nav aria-label="Tables" className="w-full shrink-0 self-start rounded-lg border bg-card lg:w-56" data-testid="studio-sidebar">
       <div className="flex items-center gap-2 border-b px-3 py-2 text-sm font-semibold">
         <Database className="h-4 w-4 text-muted-foreground" aria-hidden />
         {title}

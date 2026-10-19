@@ -26,6 +26,12 @@ importers:
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../../packages/design-system
+      '@marktiderman/genesis-studio':
+        specifier: workspace:^
+        version: link:../../packages/studio
+      '@marktiderman/genesis-studio-server':
+        specifier: workspace:^
+        version: link:../../packages/studio-server
       '@marktiderman/genesis-ui':
         specifier: workspace:^
         version: link:../../packages/ui
@@ -192,6 +198,12 @@ importers:
       chromatic:
         specifier: ^11.25.2
         version: 11.29.0
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.12
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
       react-docgen-typescript:
         specifier: ^2.4.0
         version: 2.4.0(typescript@5.9.3)
