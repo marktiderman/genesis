@@ -109,28 +109,47 @@ export default function Studio() {
 
 function SignIn({ config, onSignIn }: { config: StudioConfig; onSignIn: (session: Session) => void }) {
   if (config.mode === "supabase") return <SupabaseSignIn config={config} onSignIn={onSignIn} />;
+  return <DevSignIn users={config.users ?? []} onSignIn={onSignIn} />;
+}
+
+function DevSignIn({ users, onSignIn }: { users: DevUser[]; onSignIn: (session: Session) => void }) {
+  const [error, setError] = useState<string | null>(null);
+
+  async function signInAs(user: DevUser) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/studio-dev-token?user=${encodeURIComponent(user.id)}`);
+      const body = (await res.json()) as { token?: string; error?: string };
+      if (!res.ok || !body.token) throw new Error(body.error ?? `Sign-in failed (${res.status}).`);
+      onSignIn({ token: body.token, userId: user.id, label: user.name });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   return (
     <div className="w-full max-w-sm space-y-3 rounded-lg border bg-card p-4" data-testid="studio-dev-sign-in">
       <h2 className="text-sm font-semibold">Sign in as a sample user</h2>
       <p className="text-xs text-muted-foreground">
         Development only: the dev server signs a short-lived token for the user you pick.
       </p>
-      {config.users?.map((user) => (
+      {users.map((user) => (
         <Button
           key={user.id}
           variant="outline"
           className="w-full justify-between"
           testID={`studio-dev-user-${user.name.toLowerCase()}`}
-          onClick={async () => {
-            const res = await fetch(`/api/studio-dev-token?user=${encodeURIComponent(user.id)}`);
-            const body = (await res.json()) as { token: string };
-            onSignIn({ token: body.token, userId: user.id, label: user.name });
-          }}
+          onClick={() => void signInAs(user)}
         >
           <span>{user.name}</span>
           <span className="text-xs text-muted-foreground">{user.note}</span>
         </Button>
       ))}
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

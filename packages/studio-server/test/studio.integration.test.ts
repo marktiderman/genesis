@@ -372,8 +372,10 @@ describeDb("studio handler against Postgres with RLS", () => {
   });
 
   it("rolls the edit back when its audit entry can't be written", async () => {
+    const causes: unknown[] = [];
+    const reporting = handler({ onError: (error) => causes.push(error) });
     const seen = await readClient(CLIENT_1);
-    const res = await call(studio, COACH_A, {
+    const res = await call(reporting, COACH_A, {
       op: "update",
       resource: "public.clients",
       id: CLIENT_1,
@@ -383,6 +385,9 @@ describeDb("studio handler against Postgres with RLS", () => {
     expect(res.status).toBe(500);
     expect(res.body.error.outcome).toBe("audit_failed");
     expect(res.body.error.message).toMatch(/^Not saved: the audit entry couldn't be written/);
+    // The database's own text stays on the server, for the operator.
+    expect(res.body.error.message).not.toMatch(/audit sink is down/);
+    expect(String(causes[0])).toMatch(/audit sink is down/);
 
     const after = await readClient(CLIENT_1);
     expect(after.body.row.values.notes).toBe("Prefers mornings");

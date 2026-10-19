@@ -34,8 +34,8 @@ export class WriteRejected extends Error {
   readonly current?: DataRow;
   readonly currentVersion?: string | null;
 
-  constructor(outcome: WriteOutcome, message: string, current?: StudioRow) {
-    super(message);
+  constructor(outcome: WriteOutcome, message: string, current?: StudioRow, cause?: unknown) {
+    super(message, cause === undefined ? undefined : { cause });
     this.name = "WriteRejected";
     this.outcome = outcome;
     if (current) {
@@ -228,9 +228,13 @@ export async function updateRow(
       },
     };
   } catch (error) {
+    // The database's own text names internals (functions, tables, an app's
+    // RAISE message): it goes to `onError`, not to the browser.
     throw new WriteRejected(
       "audit_failed",
-      `Not saved: the audit entry couldn't be written, so the edit was undone (${error instanceof Error ? error.message : String(error)}).`,
+      "Not saved: the audit entry couldn't be written, so the edit was undone.",
+      undefined,
+      error,
     );
   }
 }

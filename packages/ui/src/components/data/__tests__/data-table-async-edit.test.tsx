@@ -102,3 +102,26 @@ describe("DataTable async cell editing", () => {
     expect(screen.queryByDisplayValue("sync")).toBeNull();
   });
 });
+
+describe("DataTable async select editing", () => {
+  it("closes on Escape without saving", async () => {
+    const onSave = vi.fn(() => Promise.resolve());
+    render(
+      <DataTable<{ id: string; status: string }>
+        items={[{ id: "1", status: "active" }]}
+        getKey={(r) => r.id}
+        columnVisibility={false}
+        pagination={false}
+        columns={[{ key: "status", header: "Status", editable: { type: "select", options: ["active", "paused"], onSave } }]}
+      />,
+    );
+    fireEvent.click(screen.getByText("active"));
+    await act(async () => {
+      fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
+    });
+    expect(screen.queryByRole("combobox")).toBeNull();
+    fireEvent.click(screen.getByText("active"));
+    expect(screen.getByRole("combobox")).toBeTruthy();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+});

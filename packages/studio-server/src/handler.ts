@@ -185,6 +185,11 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
         );
       }
       return null;
+    }).catch((error: unknown) => {
+      // A failed check (the database unreachable at startup) must not be
+      // cached, or the handler would stay off until a restart.
+      loginCheck = undefined;
+      throw error;
     }));
 
   async function resolveOne(ctx: AccessContext, query: Query, name: string): Promise<ResolvedResource> {
@@ -302,6 +307,8 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
       return json(result);
     } catch (error) {
       if (error instanceof WriteRejected) {
+        // The user hears only that nothing was saved; the operator gets why.
+        if (error.cause !== undefined) options.onError?.(error.cause);
         return fail(error.outcome, error.message, {
           ...(error.current ? { current: error.current, currentVersion: error.currentVersion ?? null } : {}),
         });

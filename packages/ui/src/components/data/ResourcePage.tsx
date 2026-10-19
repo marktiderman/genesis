@@ -800,6 +800,8 @@ export function ResourcePage<
           header: col.header ?? col.key,
           sortable: col.sortable ?? true,
           hideBelow: col.hideBelow,
+          editable: col.editable,
+          accessor: col.accessor,
           render: col.render
             ? (item: T, value: unknown) => col.render!(item, value, actions)
             : undefined,

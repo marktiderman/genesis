@@ -130,6 +130,7 @@ const admin = postgres(env.STUDIO_ADMIN_DATABASE_URL, { max: 1, onnotice: () => 
 const log = await admin`
   select a.id, u.email, a.resource, a.record_key, a.before, a.after
     from genesis_studio.audit_log a join auth.users u on u.id::text = a.actor
+   where a.id = any(${[fixed.body.audit.id, noteFix.body.audit.id]}::uuid[])
    order by a.occurred_at`;
 await admin.end();
 await studio.close();

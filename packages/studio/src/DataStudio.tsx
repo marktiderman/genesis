@@ -429,6 +429,13 @@ function Sheet({
           clearTimeout(searchTimer.current);
           searchTimer.current = setTimeout(() => navigate({ search: text || undefined, page: 1 }, true), SEARCH_DEBOUNCE_MS);
         }}
+        // Seed the search box and sort control from the URL, so a deep link
+        // or a reload shows why the rows are filtered. Sheet remounts per
+        // table, so mount-time seeding is enough.
+        initialFilters={[
+          ...(search ? [{ field: "__search__", operator: "contains" as const, value: search }] : []),
+          ...(location.sort ? [{ field: "__sort__", operator: "eq" as const, value: location.sort }] : []),
+        ]}
         loading={schemaQuery.isLoading || listQuery.isLoading}
         error={listQuery.isError && !isUnauthenticated(listQuery.error)}
         errorMessage={listQuery.error ? errorText(listQuery.error) : undefined}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SignJWT } from "jose";
 import { isDataWriteError } from "@marktiderman/genesis-core/schema";
-import { byResource, jwtAuth, studioSetupSql } from "../src/index";
+import { byResource, createStudioHandler, jwtAuth, studioSetupSql, type StudioDatabase } from "../src/index";
 import { triggerAdvances, type CatalogTrigger } from "../src/catalog";
 import { createStudioProvider } from "../src/client";
 
@@ -55,6 +55,42 @@ describe("jwtAuth", () => {
     expect(() => jwtAuth({ audience: "a" })).toThrow(/exactly one/);
     expect(() => jwtAuth({ secret: SECRET, jwksUrl: "https://x.test/jwks", audience: "a" })).toThrow(/exactly one/);
     expect(() => jwtAuth({ secret: SECRET, audience: [] })).toThrow(/audience/);
+  });
+});
+
+describe("createStudioHandler login check", () => {
+  it("retries a login check that failed, instead of staying off until a restart", async () => {
+    let attempts = 0;
+    const database: StudioDatabase = {
+      async inspectLogin() {
+        attempts += 1;
+        if (attempts === 1) throw new Error("database unreachable");
+        return { name: "studio_login", superuser: false, bypassRls: false, inherit: false };
+      },
+      async asUser() {
+        return { resources: [] } as never;
+      },
+      async end() {},
+    };
+    const handler = createStudioHandler({
+      database,
+      auth: jwtAuth({ secret: SECRET, audience: "authenticated" }),
+      authorize: () => false,
+    });
+    const post = async () =>
+      handler(
+        new Request("http://studio.test", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${await sign({ sub: "u", aud: "authenticated" })}`,
+          },
+          body: JSON.stringify({ op: "resources" }),
+        }),
+      );
+    expect((await post()).status).toBe(500);
+    expect((await post()).status).toBe(200);
+    expect(attempts).toBe(2);
   });
 });
 

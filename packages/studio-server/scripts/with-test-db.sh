@@ -15,10 +15,21 @@ if ! docker ps --format '{{.Names}}' | grep -qx "$NAME"; then
     -e POSTGRES_PASSWORD=postgres "$IMAGE" >/dev/null
 fi
 
+# Probe over TCP: on first start the image runs a temporary server on the
+# Unix socket only, so a socket probe can pass before the real one is up.
+ready=""
 for _ in $(seq 1 60); do
-  if docker exec "$NAME" pg_isready -U postgres >/dev/null 2>&1; then break; fi
+  if docker exec "$NAME" pg_isready -h 127.0.0.1 -p 5432 -U postgres >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
   sleep 1
 done
+if [ -z "$ready" ]; then
+  echo "Postgres in container $NAME wasn't ready after 60s." >&2
+  docker logs --tail 20 "$NAME" >&2 || true
+  exit 1
+fi
 
 export STUDIO_TEST_DATABASE_URL="postgres://postgres:postgres@127.0.0.1:${PORT}/postgres"
 exec "$@"

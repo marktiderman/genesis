@@ -237,9 +237,25 @@ function EditableCell<T>({
   ) : null;
 
   if (editable.type === "select" && editable.options) {
+    // Controlled, so what it shows is always the draft; and closable without
+    // choosing again — Radix fires no change for the value already picked,
+    // so after a failed save Escape or Cancel is the only way out.
     return (
-      <div onClick={(e) => e.stopPropagation()} aria-busy={saving || undefined}>
-        <Select defaultValue={draft} disabled={saving} onValueChange={(v) => commit(v)}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && !inFlight.current) close();
+        }}
+        aria-busy={saving || undefined}
+      >
+        <Select
+          value={draft}
+          disabled={saving}
+          onValueChange={(v) => {
+            setDraft(v);
+            commit(v);
+          }}
+        >
           <SelectTrigger className="h-7 text-xs w-28" aria-invalid={error ? true : undefined}>
             <SelectValue />
           </SelectTrigger>
@@ -252,6 +268,15 @@ function EditableCell<T>({
           </SelectContent>
         </Select>
         {feedback}
+        {error && (
+          <button
+            type="button"
+            className="mt-0.5 text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+            onClick={close}
+          >
+            Cancel
+          </button>
+        )}
       </div>
     );
   }
