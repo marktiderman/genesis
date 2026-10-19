@@ -1,0 +1,12 @@
+/*
+ * Tailwind v4 source entry for @marktiderman/genesis-studio.
+ *
+ * Copied to dist/styles.css at build time, so "./" is the published dist/
+ * folder: importing this file makes Tailwind scan the studio's compiled
+ * components for the utility classes they use. Import genesis-ui's too.
+ *
+ *   @import "tailwindcss";
+ *   @import "@marktiderman/genesis-ui/styles.css";
+ *   @import "@marktiderman/genesis-studio/styles.css";
+ */
+@source "./";

@@ -32,6 +32,11 @@ export interface ResourceColumnDef<T> {
   ) => ReactNode;
   /** In-place cell editing, passed straight through to `DataTable`. */
   editable?: DataTableColumn<T>["editable"];
+  /**
+   * The cell's value, when it isn't `item[key]`. Passed straight through to
+   * `DataTable`, which also starts an edit from `String(accessor(item))`.
+   */
+  accessor?: (item: T) => unknown;
 }
 
 export interface UseResourcePageProps<T> {
@@ -405,6 +410,7 @@ export function useResourcePage<T = Record<string, unknown>>(
         sortable: col.sortable ?? true,
         hideBelow: col.hideBelow,
         editable: col.editable,
+        accessor: col.accessor,
         render: col.render
           ? (item: T, value: unknown) =>
               col.render!(item, value, {
