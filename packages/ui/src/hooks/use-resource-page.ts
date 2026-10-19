@@ -30,6 +30,8 @@ export interface ResourceColumnDef<T> {
     value: unknown,
     actions: ResourceActions<T>,
   ) => ReactNode;
+  /** In-place cell editing, passed straight through to `DataTable`. */
+  editable?: DataTableColumn<T>["editable"];
 }
 
 export interface UseResourcePageProps<T> {
@@ -402,6 +404,7 @@ export function useResourcePage<T = Record<string, unknown>>(
         header: col.header ?? titleCase(col.key),
         sortable: col.sortable ?? true,
         hideBelow: col.hideBelow,
+        editable: col.editable,
         render: col.render
           ? (item: T, value: unknown) =>
               col.render!(item, value, {
