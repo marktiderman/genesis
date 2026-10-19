@@ -566,7 +566,14 @@ function Sheet({
     setSelected(new Set());
     if (result.ok) {
       setNotice(`Deleted ${result.count} records in one transaction.`);
-      onActivity({ resource, field: "", record: `${result.count} rows`, outcome: "saved", action: "delete", message: "Deleted, each row audited." });
+      // One entry per row, each with its audit entry, so each can be undone.
+      if (result.audit?.length) {
+        result.audit.forEach((audit) =>
+          onActivity({ resource, field: "", record: JSON.stringify(audit.key), outcome: "saved", action: "delete", message: "Deleted, with its audit entry.", audit }),
+        );
+      } else {
+        onActivity({ resource, field: "", record: `${result.count} rows`, outcome: "saved", action: "delete", message: "Deleted, each row audited." });
+      }
     } else {
       const message = `Nothing was deleted: ${(result.failures ?? []).length} of ${ids.length} records couldn't be (${result.failures?.[0]?.message ?? ""}).`;
       setNotice(message);

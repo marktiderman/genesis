@@ -337,4 +337,24 @@ describe("DataStudio P2", () => {
     });
     expect((await within(dialog).findByTestId("studio-bulk-error")).textContent).toMatch(/Nothing was changed: The studio server couldn't be reached/);
   });
+
+  it("lists each bulk-deleted row with its own Undo", async () => {
+    const { provider } = makeProvider();
+    (provider as { deleteMany: unknown }).deleteMany = async (_r: string, { items }: { items: { id: string }[] }) => ({
+      ok: true,
+      count: items.length,
+      audit: items.map((item, n) => ({ id: `00000000-0000-4000-8000-0000000000d${n}`, occurredAt: "t", actor: "me", resource: "public.clients", key: { id: item.id }, action: "delete", before: {}, after: null })),
+    });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<Harness provider={provider} initial={{ resource: "public.clients" }} />);
+    await screen.findByText("Ana Ruiz");
+    const boxes = screen.getAllByRole("checkbox");
+    fireEvent.click(boxes[1]!);
+    fireEvent.click(boxes[3]!);
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId("studio-bulk-delete"));
+    });
+    await waitFor(() => expect(screen.getAllByTestId("studio-activity-undo")).toHaveLength(2));
+    confirm.mockRestore();
+  });
 });
