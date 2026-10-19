@@ -1,0 +1,35 @@
+/*
+ * The Data Studio's prebuilt stylesheet: every class the studio and the
+ * genesis-ui components it uses need, compiled at build time. For apps that
+ * don't run Tailwind v4 (Tailwind 3, CSS modules, or none):
+ *
+ *   import "@marktiderman/genesis-studio/standalone.css";
+ *
+ * It adds no global reset. Theme colors come from the app when it already
+ * defines shadcn-style variables (--background, --primary, ...): Genesis's
+ * own defaults sit in a low-priority cascade layer, so the app's win.
+ */
+@layer theme, genesis-defaults, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "@marktiderman/genesis-design-system/themes/genesis.css" layer(genesis-defaults);
+@import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
+
+@source "../dist";
+@source "../../ui/dist";
+
+@theme inline {
+  --animate-fade-in: fade-in 0.2s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

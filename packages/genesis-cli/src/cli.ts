@@ -119,6 +119,56 @@ program
     console.log(`✔ Wrote ${opts.out}: ${tables.length} tables.`);
   });
 
+const studio = program.command("studio").description("The Genesis Data Studio");
+
+studio
+  .command("init")
+  .description("Turn the Data Studio on in this app: a server for every table, a page, and one migration to review")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--host <host>", "next or supabase-function (default: detected)")
+  .option("--route <path>", "Where the page lives", "/admin/data")
+  .option("--login-role <name>", "The studio's database login", "genesis_studio_login")
+  .option("--force", "Overwrite files that already exist", false)
+  .action(async (opts: { dir: string; host?: string; route: string; loginRole: string; force: boolean }) => {
+    const { planStudioInit } = await import("./studio/init.js");
+    const root = path.resolve(opts.dir);
+    const packageJson = JSON.parse(await fs.readFile(path.join(root, "package.json"), "utf-8").catch(() => "{}"));
+    const existsSync = (await import("node:fs")).existsSync;
+    const readSync = (await import("node:fs")).readFileSync;
+    if (opts.host && opts.host !== "next" && opts.host !== "supabase-function") {
+      throw new Error("--host must be next or supabase-function.");
+    }
+    const plan = planStudioInit(
+      {
+        packageJson,
+        exists: (p) => existsSync(path.join(root, p)),
+        read: (p) => (existsSync(path.join(root, p)) ? readSync(path.join(root, p), "utf-8") : null),
+        timestamp: new Date().toISOString().replace(/\D/g, "").slice(0, 14),
+      },
+      { host: opts.host as "next" | "supabase-function" | undefined, route: opts.route, loginRole: opts.loginRole },
+    );
+    for (const file of plan.files) {
+      const target = path.join(root, file.path);
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      if (file.append) {
+        await fs.appendFile(target, file.content, "utf-8");
+        console.log(`+ ${file.path} (appended)`);
+        continue;
+      }
+      if (existsSync(target) && !opts.force) {
+        console.log(`= ${file.path} exists; left as it is (--force to replace)`);
+        continue;
+      }
+      await fs.writeFile(target, file.content, "utf-8");
+      console.log(`+ ${file.path}`);
+    }
+    const pm = existsSync(path.join(root, "pnpm-lock.yaml")) ? "pnpm add" : existsSync(path.join(root, "yarn.lock")) ? "yarn add" : existsSync(path.join(root, "bun.lockb")) ? "bun add" : "npm install";
+    console.log("");
+    console.log(`✔ The Data Studio is set up for ${plan.host === "next" ? "Next.js" : "a Supabase Edge Function"}. To finish:`);
+    console.log(`  1. ${pm} ${plan.install.join(" ")}`);
+    plan.steps.forEach((step, i) => console.log(`  ${i + 2}. ${step}`));
+  });
+
 program.parseAsync(process.argv).catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`✗ ${message}`);

@@ -16,7 +16,7 @@ export default defineConfig([
     minify: false,
     target: "es2022",
     outExtension: () => ({ js: ".js" }),
-    external: ["commander", "postgres"],
+    external: ["commander", "postgres", "@marktiderman/genesis-studio-server"],
   },
   {
     entry: {
@@ -32,6 +32,6 @@ export default defineConfig([
     target: "es2022",
     outExtension: () => ({ js: ".js" }),
     banner: { js: "#!/usr/bin/env node" },
-    external: ["commander", "postgres"],
+    external: ["commander", "postgres", "@marktiderman/genesis-studio-server"],
   },
 ]);

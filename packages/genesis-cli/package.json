@@ -3,7 +3,7 @@
   "version": "1.0.3",
   "private": false,
   "type": "module",
-  "description": "Genesis CLI \u2014 `genesis init <consumer>` scaffolds a Genesis app; `genesis introspect` writes a checked-in Data Studio contract from Postgres or a Supabase OpenAPI spec.",
+  "description": "Genesis CLI \u2014 `genesis init` scaffolds a Genesis app; `genesis studio init` turns the Data Studio on in an existing app; `genesis introspect` writes a checked-in contract.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -42,6 +42,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@marktiderman/genesis-studio-server": "workspace:^",
     "commander": "^12.1.0",
     "postgres": "^3.4.9"
   },

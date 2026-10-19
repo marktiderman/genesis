@@ -32,3 +32,13 @@ export {
   type TableSettings,
   type StorageType,
 } from "./introspect/index.js";
+
+export {
+  planStudioInit,
+  detectHost,
+  type StudioHost,
+  type ProjectFacts,
+  type InitOptions,
+  type InitPlan,
+  type PlannedFile,
+} from "./studio/init.js";

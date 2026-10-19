@@ -214,7 +214,26 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
     return resolved;
   }
 
-  const handler = async (request: Request): Promise<Response> => {
+  // The studio hosted on another origin than the app (a Supabase Edge
+  // Function, say) answers the browser's preflight for the origins listed in
+  // allowedOrigins. The bearer token is the credential; no cookies are used.
+  const corsHeaders = (request: Request): Record<string, string> => {
+    const origin = request.headers.get("origin");
+    if (!origin || !(options.allowedOrigins ?? []).includes(origin)) return {};
+    return {
+      "access-control-allow-origin": origin,
+      "access-control-allow-headers": "authorization, content-type, apikey, x-client-info",
+      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-max-age": "600",
+      vary: "origin",
+    };
+  };
+
+  const handle = async (request: Request): Promise<Response> => {
+    if (request.method === "OPTIONS") {
+      const headers = corsHeaders(request);
+      return new Response(null, { status: Object.keys(headers).length ? 204 : 403, headers });
+    }
     if (request.method !== "POST") {
       return new Response(null, { status: 405, headers: { allow: "POST" } });
     }
@@ -443,6 +462,13 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
       if (error instanceof IdentitySwitchError) return fail("error", "The studio couldn't switch to your identity.");
       return fail("error", "Something went wrong. Nothing was changed.");
     }
+  };
+
+  const handler = async (request: Request): Promise<Response> => {
+    const response = await handle(request);
+    const cors = corsHeaders(request);
+    for (const [name, value] of Object.entries(cors)) response.headers.set(name, value);
+    return response;
   };
 
   return Object.assign(handler, { close: () => database.end() });

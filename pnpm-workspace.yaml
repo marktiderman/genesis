@@ -18,6 +18,10 @@ packages:
 # The names are exactly what pnpm 11.26.0 reported on this workspace.
 allowBuilds:
   "@bundled-es-modules/glob": true
+  # From @tailwindcss/cli (the studio's prebuilt stylesheet). Its install
+  # script only builds a native file watcher for --watch, which the build
+  # never uses; prebuilt binaries cover the platforms we run on.
+  "@parcel/watcher": false
   esbuild: true
   style-dictionary: true
   unrs-resolver: true

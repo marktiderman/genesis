@@ -379,7 +379,7 @@ describe("createSupabaseStudioProvider", () => {
     const seen: string[] = [];
     const provider = createSupabaseStudioProvider(supa.client, {
       fetch: (async (_url: string, init: RequestInit) => {
-        seen.push((init.headers as Record<string, string>).authorization);
+        seen.push((init.headers as Record<string, string>).authorization ?? "");
         return new Response(JSON.stringify({ resources: [] }), { status: 200 });
       }) as typeof fetch,
     });
@@ -397,5 +397,38 @@ describe("createSupabaseStudioProvider", () => {
     supa.signIn("u3", "tok-4");
     expect(users).toEqual(["u2", null]);
     await expect(provider.listResources()).resolves.toEqual([]);
+  });
+});
+
+describe("CORS, for a studio hosted on another origin", () => {
+  const db: StudioDatabase = {
+    asUser: async () => ({ resources: [] }) as never,
+    inspectLogin: async () => ({ name: "studio_login", superuser: false, bypassRls: false }),
+    end: async () => {},
+  } as unknown as StudioDatabase;
+  const handler = createStudioHandler({
+    database: db,
+    auth: async () => ({ sub: "u", role: "authenticated" }),
+    authorize: () => true,
+    allowedOrigins: ["https://app.example.com"],
+  });
+
+  it("answers the preflight for listed origins only, and tags responses for them", async () => {
+    const ok = await handler(new Request("https://fn.example.com/studio", { method: "OPTIONS", headers: { origin: "https://app.example.com" } }));
+    expect(ok.status).toBe(204);
+    expect(ok.headers.get("access-control-allow-origin")).toBe("https://app.example.com");
+    expect(ok.headers.get("access-control-allow-headers")).toMatch(/authorization/);
+    const other = await handler(new Request("https://fn.example.com/studio", { method: "OPTIONS", headers: { origin: "https://evil.example" } }));
+    expect(other.status).toBe(403);
+    expect(other.headers.get("access-control-allow-origin")).toBeNull();
+    const post = await handler(
+      new Request("https://fn.example.com/studio", {
+        method: "POST",
+        headers: { origin: "https://app.example.com", "content-type": "application/json" },
+        body: JSON.stringify({ op: "resources" }),
+      }),
+    );
+    expect(post.status).toBe(200);
+    expect(post.headers.get("access-control-allow-origin")).toBe("https://app.example.com");
   });
 });
