@@ -1,0 +1,185 @@
+import postgres from "postgres";
+import ts from "typescript";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  CommentSettingsError,
+  emitContracts,
+  introspectOpenApi,
+  introspectPostgres,
+  parseColumnComment,
+  parseTableComment,
+  type IntrospectedTable,
+} from "../src/introspect/index.js";
+
+/** Type-check generated source on its own, as a consumer's compiler would. */
+function compileErrors(source: string): string[] {
+  const file = "resources.genesis.ts";
+  const host = ts.createCompilerHost({ strict: true, noEmit: true, target: ts.ScriptTarget.ES2022 });
+  const read = host.getSourceFile;
+  host.getSourceFile = (name, version) =>
+    name === file ? ts.createSourceFile(file, source, ts.ScriptTarget.ES2022, true) : read(name, version);
+  const program = ts.createProgram([file], { strict: true, noEmit: true, target: ts.ScriptTarget.ES2022, types: [] }, host);
+  return ts.getPreEmitDiagnostics(program).map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"));
+}
+
+describe("@genesis comment settings", () => {
+  it("splits the description from the settings", () => {
+    expect(parseTableComment('People in a program. @genesis {"label": "Clients", "labelField": "name"}', "t")).toEqual({
+      description: "People in a program.",
+      settings: { label: "Clients", labelField: "name" },
+    });
+    expect(parseColumnComment("Just a note.", "c")).toEqual({ description: "Just a note." });
+    expect(parseColumnComment(null, "c")).toEqual({});
+  });
+
+  it("refuses malformed or unknown settings, naming where", () => {
+    expect(() => parseColumnComment("@genesis {nope", "public.clients.notes")).toThrow(/public\.clients\.notes/);
+    expect(() => parseColumnComment('@genesis {"color": "red"}', "c")).toThrow(CommentSettingsError);
+    expect(() => parseTableComment('@genesis {"label": 3}', "t")).toThrow(/must be a string/);
+  });
+});
+
+const OPENAPI = {
+  swagger: "2.0",
+  definitions: {
+    clients: {
+      description: 'People in a program. @genesis {"label": "Clients"}',
+      required: ["id", "name", "status"],
+      properties: {
+        id: { format: "uuid", type: "string", default: "gen_random_uuid()", description: "Note:\nThis is a Primary Key.<pk/>" },
+        name: { format: "text", type: "string" },
+        status: { format: "public.client_status", type: "string", enum: ["active", "paused"] },
+        program_id: {
+          format: "integer",
+          type: "integer",
+          description: 'The program. @genesis {"label": "Program"}\n\nNote:\nThis is a Foreign Key to `programs.id`.<fk table=\'programs\' column=\'id\'/>',
+        },
+        tags: { type: "array", items: { type: "string", format: "text" } },
+        starts_at: { format: "timestamp with time zone", type: "string" },
+      },
+    },
+    programs: { required: ["id"], properties: { id: { format: "integer", type: "integer", description: "Note:\nThis is a Primary Key.<pk/>" } } },
+  },
+};
+
+describe("introspect from OpenAPI (PostgREST / Supabase)", () => {
+  it("reads keys, links, enums, arrays and comment settings", () => {
+    const [clients, programs] = introspectOpenApi(OPENAPI);
+    expect(clients).toMatchObject({ name: "public.clients", key: ["id"], description: "People in a program.", settings: { label: "Clients" } });
+    expect(programs!.key).toEqual(["id"]);
+    const col = (n: string) => clients!.columns.find((c) => c.name === n)!;
+    expect(col("id")).toMatchObject({ type: "string", dbType: "uuid", hasDefault: true, nullable: false });
+    expect(col("id").description).toBeUndefined();
+    expect(col("status")).toMatchObject({ enumValues: ["active", "paused"] });
+    expect(col("program_id")).toMatchObject({
+      type: "number",
+      nullable: true,
+      references: { resource: "public.programs", field: "id" },
+      description: "The program.",
+      settings: { label: "Program" },
+    });
+    expect(col("tags")).toMatchObject({ array: true, dbType: "text[]", type: "string" });
+    expect(col("starts_at").type).toBe("datetime");
+  });
+
+  it("explains a document that isn't PostgREST's", () => {
+    expect(() => introspectOpenApi({ openapi: "3.0.0" })).toThrow(/PostgREST/);
+  });
+});
+
+describe("the emitted contract", () => {
+  const tables = introspectOpenApi(OPENAPI);
+  const source = emitContracts(tables, { source: "OpenAPI test" });
+
+  it("compiles under strict TypeScript, with row types", () => {
+    expect(compileErrors(source)).toEqual([]);
+    expect(source).toContain("export interface PublicClientsRow {");
+    expect(source).toContain('  status: "active" | "paused";');
+    expect(source).toContain("  program_id: number | null;");
+    expect(source).toContain("  tags: string[] | null;");
+    expect(source).toContain('label: "Program", description: "The program."');
+  });
+
+  it("is the same bytes on a re-run, whatever order the tables came in", () => {
+    expect(emitContracts([...tables].reverse(), { source: "OpenAPI test" })).toBe(source);
+  });
+
+  it("quotes names that aren't identifiers", () => {
+    const odd: IntrospectedTable = {
+      name: "public.odd table",
+      schema: "public",
+      table: "odd table",
+      key: ["a-b", "c"],
+      columns: [
+        { name: "a-b", dbType: "text", type: "string", array: false, nullable: false, hasDefault: false, generated: false },
+        { name: "c", dbType: "jsonb", type: "json", array: false, nullable: true, hasDefault: false, generated: false },
+      ],
+    };
+    const out = emitContracts([odd], { source: "x" });
+    expect(compileErrors(out)).toEqual([]);
+    expect(out).toContain('  "a-b": string;');
+    expect(out).toContain('key: ["a-b", "c"]');
+  });
+});
+
+const ADMIN_URL = process.env.GENESIS_TEST_DATABASE_URL ?? process.env.STUDIO_TEST_DATABASE_URL;
+const DB = "genesis_cli_introspect_test";
+
+describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
+  let sql: postgres.Sql;
+
+  beforeAll(async () => {
+    // A database of its own, so this never touches another package's fixtures.
+    const admin = postgres(ADMIN_URL!, { max: 1, onnotice: () => {} });
+    try {
+      await admin.unsafe(`drop database if exists ${DB} with (force)`);
+      await admin.unsafe(`create database ${DB}`);
+    } finally {
+      await admin.end();
+    }
+    const url = new URL(ADMIN_URL!);
+    url.pathname = `/${DB}`;
+    sql = postgres(url.toString(), { max: 1, onnotice: () => {} });
+    await sql.unsafe(`
+      create type public.client_status as enum ('active', 'paused', 'done');
+      create table public.programs (id int primary key, name text not null);
+      create table public.clients (
+        id uuid primary key default gen_random_uuid(),
+        program_id int references public.programs (id),
+        name text not null,
+        status public.client_status not null default 'active',
+        tags text[],
+        score numeric(5, 2),
+        starts_on date,
+        seq bigint generated always as identity,
+        updated_at timestamptz(6) not null default now()
+      );
+      create table public.coach_clients (coach_id uuid, client_id uuid references public.clients (id), primary key (coach_id, client_id));
+      comment on table public.clients is 'People in a program. @genesis {"label": "Coaching clients", "labelField": "name"}';
+      comment on column public.clients.tags is 'Free-form tags. @genesis {"label": "Tags"}';
+      create schema private;
+      create table private.hidden (id int primary key);
+    `);
+  });
+  afterAll(async () => {
+    await sql?.end();
+    const admin = postgres(ADMIN_URL!, { max: 1, onnotice: () => {} });
+    await admin.unsafe(`drop database if exists ${DB} with (force)`).finally(() => admin.end());
+  });
+
+  it("reads tables, keys, types, links and comment settings from the catalog", async () => {
+    const tables = await introspectPostgres(sql, ["public"]);
+    expect(tables.map((t) => t.name)).toEqual(["public.clients", "public.coach_clients", "public.programs"]);
+    const clients = tables[0]!;
+    expect(clients).toMatchObject({ key: ["id"], description: "People in a program.", settings: { label: "Coaching clients", labelField: "name" } });
+    const col = (n: string) => clients.columns.find((c) => c.name === n)!;
+    expect(col("status")).toMatchObject({ dbType: "client_status", enumValues: ["active", "paused", "done"], hasDefault: true, nullable: false });
+    expect(col("program_id").references).toEqual({ resource: "public.programs", field: "id" });
+    expect(col("tags")).toMatchObject({ array: true, type: "string", settings: { label: "Tags" }, description: "Free-form tags." });
+    expect(col("score")).toMatchObject({ type: "number", dbType: "numeric(5,2)" });
+    expect(col("starts_on")).toMatchObject({ type: "datetime", dbType: "date" });
+    expect(col("seq")).toMatchObject({ generated: true, hasDefault: true });
+    expect(tables[1]!.key).toEqual(["coach_id", "client_id"]);
+    expect(compileErrors(emitContracts(tables, { source: "Postgres (public)" }))).toEqual([]);
+  });
+});

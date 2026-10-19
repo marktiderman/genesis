@@ -171,6 +171,9 @@ importers:
         specifier: ^4.3.6
         version: 4.4.3
     devDependencies:
+      '@marktiderman/genesis-cli':
+        specifier: workspace:^
+        version: link:../../packages/genesis-cli
       '@react-router/dev':
         specifier: 7.14.0
         version: 7.14.0(@react-router/serve@7.14.0(react-router@7.14.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@8.1.1)(typescript@5.9.3))(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.33.0)(react-router@7.14.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@8.1.1)(terser@5.49.1)(tsx@4.23.5)(typescript@5.9.3)(vite@8.2.0(@types/node@22.20.1)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))(yaml@2.9.0)
@@ -438,6 +441,9 @@ importers:
       commander:
         specifier: ^12.1.0
         version: 12.1.0
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
     devDependencies:
       '@types/node':
         specifier: ^22.9.0

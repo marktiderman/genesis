@@ -16,3 +16,19 @@ export {
   type ScaffoldResult,
   type ScaffoldLogger,
 } from "./scaffolder.js";
+
+export {
+  introspectPostgres,
+  introspectOpenApi,
+  emitContracts,
+  parseTableComment,
+  parseColumnComment,
+  CommentSettingsError,
+  type OpenApiDocument,
+  type EmitOptions,
+  type IntrospectedTable,
+  type IntrospectedColumn,
+  type FieldSettings,
+  type TableSettings,
+  type StorageType,
+} from "./introspect/index.js";

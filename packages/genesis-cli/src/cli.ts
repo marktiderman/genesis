@@ -72,6 +72,53 @@ program
     console.log(`  3. Read docs/prds/PRD-07-genesis-consumption-architecture/standards/usage-doctrine.md`);
   });
 
+program
+  .command("introspect")
+  .description("Write a checked-in contract (resources.genesis.ts) from the Postgres catalog or a PostgREST/Supabase OpenAPI spec")
+  .option("--database-env <name>", "Environment variable holding the Postgres URL", "DATABASE_URL")
+  .option("--openapi <file-or-url>", "Read a PostgREST OpenAPI document (a Supabase project's /rest/v1/) instead of Postgres")
+  .option("--header <header...>", "HTTP header for --openapi URLs, e.g. 'apikey: …' (repeatable)")
+  .option("-s, --schema <schemas>", "Comma-separated schemas", "public")
+  .option("-o, --out <file>", "Where to write the contract", "resources.genesis.ts")
+  .option("--check", "Write nothing; exit 1 if the contract on disk is out of date (for CI)", false)
+  .action(async (opts: { databaseEnv: string; openapi?: string; header?: string[]; schema: string; out: string; check: boolean }) => {
+    const schemas = opts.schema.split(",").map((s) => s.trim()).filter(Boolean);
+    const { introspectOpenApi, introspectPostgres, emitContracts } = await import("./introspect/index.js");
+    let tables;
+    let source: string;
+    if (opts.openapi) {
+      const doc = await readOpenApi(opts.openapi, opts.header ?? []);
+      tables = introspectOpenApi(doc, schemas[0]);
+      source = `OpenAPI ${redactUrl(opts.openapi)}`;
+    } else {
+      // The URL comes from the environment, never the command line, so it
+      // stays out of shell history and process listings.
+      const url = process.env[opts.databaseEnv];
+      if (!url) throw new Error(`Set ${opts.databaseEnv} to the database URL, or pass --openapi.`);
+      const { default: postgres } = await import("postgres");
+      const sql = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
+      try {
+        tables = await introspectPostgres(sql, schemas);
+      } finally {
+        await sql.end();
+      }
+      source = `Postgres (${schemas.join(", ")})`;
+    }
+    const content = emitContracts(tables, { source });
+    const target = path.resolve(opts.out);
+    if (opts.check) {
+      const current = await fs.readFile(target, "utf-8").catch(() => null);
+      if (current !== content) {
+        console.error(`✗ ${opts.out} is out of date. Run \`genesis introspect\` and commit the result.`);
+        process.exit(1);
+      }
+      console.log(`✔ ${opts.out} is up to date (${tables.length} tables).`);
+      return;
+    }
+    await fs.writeFile(target, content, "utf-8");
+    console.log(`✔ Wrote ${opts.out}: ${tables.length} tables.`);
+  });
+
 program.parseAsync(process.argv).catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`✗ ${message}`);
@@ -106,4 +153,27 @@ function createNodeFs(): FileSystem {
   };
 }
 
-void path;
+async function readOpenApi(location: string, headers: string[]) {
+  if (/^https?:\/\//.test(location)) {
+    const init: Record<string, string> = {};
+    for (const h of headers) {
+      const at = h.indexOf(":");
+      if (at < 1) throw new Error(`--header must be "Name: value".`);
+      init[h.slice(0, at).trim()] = h.slice(at + 1).trim();
+    }
+    const response = await fetch(location, { headers: { accept: "application/openapi+json, application/json", ...init } });
+    if (!response.ok) throw new Error(`Fetching the OpenAPI document failed: HTTP ${response.status}.`);
+    return response.json();
+  }
+  return JSON.parse(await fs.readFile(location, "utf-8"));
+}
+
+/** A URL without credentials or query (where API keys tend to be). */
+function redactUrl(location: string): string {
+  try {
+    const url = new URL(location);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return path.basename(location);
+  }
+}
