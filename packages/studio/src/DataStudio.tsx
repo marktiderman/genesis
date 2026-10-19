@@ -528,6 +528,12 @@ function Sheet({
       return next;
     });
   const pageIds = rows.map((r) => keys.get(r) ?? "");
+  // A selection belongs to the rows on screen: a new page, filter, search or
+  // sort starts with none, so a bulk action never reaches rows out of view.
+  const listIdentity = JSON.stringify(listKey);
+  useEffect(() => {
+    setSelected(new Set());
+  }, [listIdentity]);
   const toggleAll = () =>
     setSelected((prev) => (pageIds.every((id) => prev.has(id)) ? new Set() : new Set(pageIds)));
   const canAdd = Boolean(schema?.access.create);
@@ -535,11 +541,27 @@ function Sheet({
   async function deleteSelected() {
     if (!schema) return;
     const ids = [...selected];
-    if (!window.confirm(`Delete ${ids.length} record${ids.length === 1 ? "" : "s"}? All of them go, or none do.`)) return;
     const chosen = rows.filter((r) => ids.includes(keys.get(r) ?? ""));
-    const result = await provider.deleteMany!(resource, {
-      items: chosen.map((r) => ({ id: encodeRecordKey(schema, r), expectedVersion: versionOf(schema, r) })),
-    });
+    // Never act on fewer rows than were confirmed.
+    if (chosen.length !== ids.length) {
+      setSelected(new Set());
+      setNotice("Some selected rows aren't on this page any more. Select the rows again.");
+      return;
+    }
+    if (!window.confirm(`Delete ${ids.length} record${ids.length === 1 ? "" : "s"}? All of them go, or none do.`)) return;
+    let result;
+    try {
+      result = await provider.deleteMany!(resource, {
+        items: chosen.map((r) => ({ id: encodeRecordKey(schema, r), expectedVersion: versionOf(schema, r) })),
+      });
+    } catch (error) {
+      if (isUnauthenticated(error)) onSignedOut();
+      refresh();
+      const message = `Nothing was deleted: ${errorText(error)}`;
+      setNotice(message);
+      onActivity({ resource, field: "", record: `${ids.length} rows`, outcome: "not_saved", action: "delete", message });
+      return;
+    }
     refresh();
     setSelected(new Set());
     if (result.ok) {
@@ -859,6 +881,9 @@ function Sheet({
           onOpenChange={(open) => !open && setBulkIds(null)}
           onApply={async (data) => {
             const chosen = rows.filter((r) => bulkIds.includes(keys.get(r) ?? ""));
+            if (chosen.length !== bulkIds.length) {
+              throw new Error("Some selected rows aren't on this page any more. Select the rows again.");
+            }
             const result = await provider.updateMany!(resource, {
               changes: chosen.map((r) => ({ id: encodeRecordKey(schema, r), data, expectedVersion: versionOf(schema, r) })),
             });

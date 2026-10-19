@@ -156,3 +156,24 @@ describe("SheetGrid", () => {
     expect(cell(0, 1).getAttribute("aria-invalid")).toBeNull();
   });
 });
+
+describe("SheetGrid edits follow their row", () => {
+  it("saves to the row being edited even when rows shift underneath", async () => {
+    const commits: unknown[] = [];
+    type R = { id: string; name: string };
+    const cols = [{ key: "name", header: "Name", editable: true }];
+    const onCommit = (changes: unknown[]) => {
+      commits.push(...changes);
+    };
+    const view = render(<SheetGrid<R> label="People" rows={[{ id: "a", name: "Ann" }, { id: "b", name: "Bo" }]} columns={cols} getKey={(r) => r.id} onCommit={onCommit} />);
+    fireEvent.doubleClick(screen.getByText("Bo"));
+    const input = screen.getByDisplayValue("Bo");
+    fireEvent.change(input, { target: { value: "Bob" } });
+    // A refetch puts a new row first while the editor is open.
+    view.rerender(<SheetGrid<R> label="People" rows={[{ id: "z", name: "Zed" }, { id: "a", name: "Ann" }, { id: "b", name: "Bo" }]} columns={cols} getKey={(r) => r.id} onCommit={onCommit} />);
+    await act(async () => {
+      fireEvent.keyDown(screen.getByDisplayValue("Bob"), { key: "Enter" });
+    });
+    expect(commits).toEqual([expect.objectContaining({ rowKey: "b", column: "name", value: "Bob" })]);
+  });
+});

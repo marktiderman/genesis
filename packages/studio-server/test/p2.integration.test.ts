@@ -165,12 +165,29 @@ describeDb("P2: exact bulk writes, imports with a dry run, undo from the audit",
     expect((await admin`select notes from public.clients where id = ${CLIENT_1}`)[0]!.notes).toBe("second");
   });
 
+  it("checks deferred constraints per row, in a dry run too", async () => {
+    const rows = [
+      { id: 1, code: "A" },
+      { id: 2, code: "A" },
+    ];
+    const dry = await call(studio, COACH_A, { op: "import", resource: "public.deferred_codes", rows, dryRun: true });
+    expect(dry.body.ok).toBe(false);
+    expect(dry.body.failures.map((f: any) => f.index)).toEqual([1]);
+    const real = await call(studio, COACH_A, { op: "import", resource: "public.deferred_codes", rows, dryRun: false });
+    expect(real.status).toBe(200);
+    expect(real.body).toMatchObject({ ok: false, count: 0 });
+    expect(real.body.failures.map((f: any) => f.index)).toEqual([1]);
+  });
+
   it("only undoes the user's own changes", async () => {
     const auditId = await edit(CLIENT_1, { notes: "mine" });
     const [row] = await admin`update genesis_studio.audit_log set actor = ${COACH_B} where id = ${auditId} returning id`;
     expect(row).toBeTruthy();
     const res = await call(studio, COACH_A, { op: "undo", resource: "public.clients", auditId });
-    expect(res.status).toBe(403);
+    // audit_entry returns only the caller's own entries, so someone else's reads as missing.
+    expect(res.status).toBe(410);
+    const [still] = await admin`select notes from public.clients where id = ${CLIENT_1}`;
+    expect(still!.notes).toBe("mine");
   });
 
   it("undoes an added row by deleting it", async () => {

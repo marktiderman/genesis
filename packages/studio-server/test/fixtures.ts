@@ -284,6 +284,18 @@ alter table public.read_policy_only enable row level security;
 create policy rpo_read on public.read_policy_only for select to authenticated using (true);
 grant select, insert, update, delete on public.read_policy_only to authenticated;
 
+-- deferred_codes: a unique code checked only at COMMIT (deferrable initially deferred).
+create table public.deferred_codes (
+  id int primary key,
+  code text not null unique deferrable initially deferred,
+  updated_at timestamptz not null default now()
+);
+create trigger deferred_codes_updated_at before update on public.deferred_codes
+  for each row execute function extensions.moddatetime(updated_at);
+alter table public.deferred_codes enable row level security;
+create policy dc_all on public.deferred_codes for all to authenticated using (true) with check (true);
+grant select, insert, update, delete on public.deferred_codes to authenticated;
+
 -- secret_table: granted by the database, but never allowed by authorize().
 create table public.secret_table (id int primary key, payload text);
 grant select on public.secret_table to authenticated;
@@ -364,6 +376,7 @@ export const DEFAULT_RULES = {
   "public.no_rls": { read: true, update: true },
   "public.coarse": { read: true, update: true },
   "public.app_audited": { read: true, update: true },
+  "public.deferred_codes": { read: true, update: true, create: true, delete: true },
   "public.delete_only": { read: true, delete: true },
 } as const;
 

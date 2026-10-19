@@ -44,9 +44,18 @@ export function RecordForm({ provider, sessionKey, mode, fields, editable, row, 
   const sections = useMemo(() => sectionFields(fields, config), [fields, config]);
   // The schema is built at runtime from the fields, so its inferred type is
   // only known to be FormValues by construction.
-  const resolver = useMemo(
-    () => zodResolver(formSchema(writable, mode) as never) as unknown as Resolver<FormValues>,
-    [writable, mode],
+  // Only the fields a condition currently shows are validated: a hidden
+  // required field can't block the save (and is left out of it).
+  const resolver = useMemo<Resolver<FormValues>>(
+    () => (values, context, options) => {
+      const shown = writable.filter((f) => {
+        const rule = config?.visibleWhen?.[f.name];
+        return rule ? rule(values as Record<string, unknown>) : true;
+      });
+      const validate = zodResolver(formSchema(shown, mode) as never) as unknown as Resolver<FormValues>;
+      return validate(values, context, options);
+    },
+    [writable, mode, config],
   );
   const defaults = useMemo(() => toFormValues(fields, row), [fields, row]);
   const form = useForm<FormValues>({ resolver, defaultValues: defaults });

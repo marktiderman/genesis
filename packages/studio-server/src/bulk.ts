@@ -50,6 +50,10 @@ async function eachInSavepoint<I>(
 ): Promise<{ failures: RowFailure[]; audit: AuditEntry[] }> {
   const failures: RowFailure[] = [];
   const audit: AuditEntry[] = [];
+  // Deferred constraints and constraint triggers would otherwise run only at
+  // COMMIT: never in a dry run, and outside any row's savepoint in a real one.
+  // Checked per row instead, so every failure is reported against its row.
+  await query("set constraints all immediate");
   for (let index = 0; index < items.length; index++) {
     const item = items[index]!;
     try {

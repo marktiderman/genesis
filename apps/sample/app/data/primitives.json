@@ -13035,19 +13035,9 @@
       "subpath": "@marktiderman/genesis-ui/sheet-grid",
       "filePath": "packages/ui/src/components/sheet-grid/sheet-grid.tsx",
       "stability": "experimental",
-      "summary": "Parse spreadsheet clipboard text (tab-separated, quoted when needed).",
-      "primaryComponent": "parseTsv",
+      "summary": "A spreadsheet grid: virtualized rows, a keyboard-driven active cell and\nrange, in-place editing, and copy and paste through the system clipboard\nas tab-separated text, so it round-trips with Sheets and Excel.\n\nKeys: arrows, Tab and Shift+Tab move; Shift+arrows extend the range;\nEnter or F2 edits (Enter again saves and moves down); typing starts an\nedit; Escape cancels; Delete clears; Home/End and Ctrl+Home/End jump;\nPageUp/PageDown move a screen; Ctrl/Cmd+Z undoes.\n\nWhy it isn't Radix (docs/FRAMEWORK.md rule 3): Radix has no data grid.\nThe focus model follows the WAI-ARIA grid pattern instead: one tab stop\n(the grid), the active cell exposed through aria-activedescendant, and\naria-selected for the range, so a screen reader announces each move.\nVirtualization comes from TanStack Virtual (decision 20's spike: stable,\nheadless, actively released; react-data-grid's latest has been a beta for\nyears and brings its own CSS).",
+      "primaryComponent": "SheetGrid",
       "components": [
-        {
-          "name": "parseTsv",
-          "summary": "Parse spreadsheet clipboard text (tab-separated, quoted when needed).",
-          "props": []
-        },
-        {
-          "name": "toTsv",
-          "summary": "",
-          "props": []
-        },
         {
           "name": "SheetGrid",
           "summary": "A spreadsheet grid: virtualized rows, a keyboard-driven active cell and\nrange, in-place editing, and copy and paste through the system clipboard\nas tab-separated text, so it round-trips with Sheets and Excel.\n\nKeys: arrows, Tab and Shift+Tab move; Shift+arrows extend the range;\nEnter or F2 edits (Enter again saves and moves down); typing starts an\nedit; Escape cancels; Delete clears; Home/End and Ctrl+Home/End jump;\nPageUp/PageDown move a screen; Ctrl/Cmd+Z undoes.\n\nWhy it isn't Radix (docs/FRAMEWORK.md rule 3): Radix has no data grid.\nThe focus model follows the WAI-ARIA grid pattern instead: one tab stop\n(the grid), the active cell exposed through aria-activedescendant, and\naria-selected for the range, so a screen reader announces each move.\nVirtualization comes from TanStack Virtual (decision 20's spike: stable,\nheadless, actively released; react-data-grid's latest has been a beta for\nyears and brings its own CSS).",
@@ -13144,6 +13134,16 @@
               "description": "Row height in px. Default 32."
             }
           ]
+        },
+        {
+          "name": "parseTsv",
+          "summary": "Parse spreadsheet clipboard text (tab-separated, quoted when needed).",
+          "props": []
+        },
+        {
+          "name": "toTsv",
+          "summary": "Write a block of cells as spreadsheet clipboard text (the inverse of `parseTsv`).",
+          "props": []
         },
         {
           "name": "SheetCommitError",
