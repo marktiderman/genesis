@@ -124,6 +124,11 @@ export interface ResourceAccess {
  * column nothing advances detects nothing.
  */
 export interface VersionField {
+  /**
+   * The field holding the version. A provider with versioned writes returns
+   * each row with its exact version token in this field, as a string, and
+   * `expectedVersion` echoes `String(row[field])` back unchanged.
+   */
   readonly field: string;
   readonly kind: "integer" | "timestamp";
 }
