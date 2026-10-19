@@ -13095,6 +13095,20 @@
               "description": ""
             },
             {
+              "name": "empty",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown when there are no rows."
+            },
+            {
+              "name": "footer",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Rendered after the last row, inside the scroll area (e.g. \"Add a record\")."
+            },
+            {
               "name": "height",
               "type": "number",
               "required": false,
@@ -13114,6 +13128,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Cmd/Ctrl+Z inside the grid."
+            },
+            {
+              "name": "rowHeader",
+              "type": "SheetGridRowHeader<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "A pinned column at the left of every row."
             },
             {
               "name": "rowHeight",
