@@ -62,3 +62,58 @@ describe("genesis studio init", () => {
     expect(() => planStudioInit(LOVABLE, { route: "/a b" })).toThrow(/simple path/);
   });
 });
+
+const SHELL_APP = `import { lazy } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AppLayout } from "@/components/AppLayout";
+import { AdminGuard } from "@/components/admin/AdminGuard";
+const Auth = lazy(() => import("./pages/Auth"));
+const TodayPage = lazy(() => import("./pages/TodayPage"));
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Index />} />
+          <Route path="today" element={<TodayPage />} />
+          <Route path="admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
+`;
+
+describe("putting the studio inside the app's shell", () => {
+  const app = project(
+    { ...Object.fromEntries(["src/integrations/supabase/client.ts", "src/pages/Index.tsx"].map((p) => [p, ""])), "src/App.tsx": SHELL_APP },
+    { "@supabase/supabase-js": "^2", "react-router-dom": "^6" },
+  );
+
+  it("adds the route inside the layout route, behind the app's admin guard, lazy like its other pages", () => {
+    const plan = planStudioInit(app);
+    const router = plan.files.find((f) => f.path === "src/App.tsx")!;
+    expect(router.edit).toMatch(/inside your app's layout, behind <AdminGuard>/);
+    expect(router.content).toContain('const DataStudioPage = lazy(() => import("./pages/DataStudioPage"));');
+    expect(router.content).toContain('          <Route path="admin/data" element={<AdminGuard><DataStudioPage /></AdminGuard>} />\n        </Route>');
+    const page = plan.files.find((f) => f.path === "src/pages/DataStudioPage.tsx")!.content;
+    expect(page).toContain('variant="plain"');
+    expect(plan.steps.some((s) => s.includes("Add the page"))).toBe(false);
+  });
+
+  it("leaves an existing page at that path alone, and says how to swap it", () => {
+    const taken = project({ "src/App.tsx": SHELL_APP.replace('path="admin"', 'path="admin/data"') }, {});
+    const plan = planStudioInit(taken);
+    expect(plan.files.some((f) => f.path === "src/App.tsx")).toBe(false);
+    expect(plan.steps.join("\n")).toMatch(/already has a page at \/admin\/data/);
+  });
+});

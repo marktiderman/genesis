@@ -75,8 +75,14 @@ export interface DataStudioProps {
    * with a provider that reports its session (`createSupabaseStudioProvider`).
    */
   sessionKey?: string | number | null;
-  /** Heading above the table list. Default "Data". */
-  title?: string;
+  /** Heading above the table list. Default "Data"; `null` for none (the app's own page header names it). */
+  title?: string | null;
+  /**
+   * `card` (default): the studio draws its own frame. `plain`: no frame, so
+   * it sits flush inside an app's layout, under its own header and nav,
+   * like any other page of the app.
+   */
+  variant?: "card" | "plain";
   /** Rows per page. Default 50. */
   perPage?: number;
   /**
@@ -140,6 +146,7 @@ function StudioWorkspace({
   signIn,
   sessionKey = null,
   title = "Data",
+  variant = "card",
   perPage = PER_PAGE,
   forms,
   className,
@@ -249,18 +256,27 @@ function StudioWorkspace({
 
   return (
     <div className={cn("w-full space-y-3", className)}>
-      <div className="overflow-hidden rounded-lg border bg-background" data-testid="studio">
-        <div className="flex items-center gap-2 border-b px-3 py-2">
-          <Database className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <span className="text-sm font-semibold">{title}</span>
-          {resources.isLoading && <span className="text-xs text-muted-foreground">Loading tables…</span>}
-          {resources.isError && (
-            <span role="alert" className="text-xs text-destructive">
-              {errorText(resources.error)}
-            </span>
-          )}
-        </div>
-        <TableTabs resources={list} selected={selected} onSelect={(resource) => router.navigate({ resource })} />
+      <div className={variant === "card" ? "overflow-hidden rounded-lg border bg-background" : "min-w-0"} data-testid="studio" data-variant={variant}>
+        {(title !== null || resources.isLoading || resources.isError) && (
+          <div className={cn("flex items-center gap-2", variant === "card" ? "border-b px-3 py-2" : "pb-3")}>
+            {title !== null &&
+              (variant === "card" ? (
+                <>
+                  <Database className="h-4 w-4 text-muted-foreground" aria-hidden />
+                  <span className="text-sm font-semibold">{title}</span>
+                </>
+              ) : (
+                <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+              ))}
+            {resources.isLoading && <span className="text-xs text-muted-foreground">Loading tables…</span>}
+            {resources.isError && (
+              <span role="alert" className="text-xs text-destructive">
+                {errorText(resources.error)}
+              </span>
+            )}
+          </div>
+        )}
+        <TableTabs resources={list} selected={selected} onSelect={(resource) => router.navigate({ resource })} variant={variant} />
         <main className="min-w-0" data-testid="studio-main">
           {selected ? (
             <Sheet

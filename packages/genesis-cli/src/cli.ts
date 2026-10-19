@@ -135,6 +135,7 @@ studio
     const packageJson = JSON.parse(await fs.readFile(path.join(root, "package.json"), "utf-8").catch(() => "{}"));
     const existsSync = (await import("node:fs")).existsSync;
     const readSync = (await import("node:fs")).readFileSync;
+    const readdirSync = (await import("node:fs")).readdirSync;
     if (opts.host && opts.host !== "next" && opts.host !== "supabase-function") {
       throw new Error("--host must be next or supabase-function.");
     }
@@ -144,12 +145,24 @@ studio
         exists: (p) => existsSync(path.join(root, p)),
         read: (p) => (existsSync(path.join(root, p)) ? readSync(path.join(root, p), "utf-8") : null),
         timestamp: new Date().toISOString().replace(/\D/g, "").slice(0, 14),
+        list: (p) => {
+          try {
+            return readdirSync(path.join(root, p));
+          } catch {
+            return [];
+          }
+        },
       },
       { host: opts.host as "next" | "supabase-function" | undefined, route: opts.route, loginRole: opts.loginRole },
     );
     for (const file of plan.files) {
       const target = path.join(root, file.path);
       await fs.mkdir(path.dirname(target), { recursive: true });
+      if (file.edit) {
+        await fs.writeFile(target, file.content, "utf-8");
+        console.log(`~ ${file.path} (${file.edit})`);
+        continue;
+      }
       if (file.append) {
         await fs.appendFile(target, file.content, "utf-8");
         console.log(`+ ${file.path} (appended)`);

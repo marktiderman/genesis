@@ -119,11 +119,40 @@ export function TableTabs({
   resources,
   selected,
   onSelect,
+  variant = "card",
 }: {
   resources: { name: string; label?: string; access: { update: boolean; reason?: string } }[];
   selected?: string;
   onSelect: (resource: string) => void;
+  /** `plain` draws underlined tabs on the page instead of a tinted band. */
+  variant?: "card" | "plain";
 }) {
+  if (variant === "plain") {
+    return (
+      <nav aria-label="Tables" className="flex gap-1 overflow-x-auto border-b" data-testid="studio-sidebar">
+        {resources.map((r) => {
+          const active = r.name === selected;
+          return (
+            <button
+              key={r.name}
+              type="button"
+              onClick={() => onSelect(r.name)}
+              aria-current={active ? "page" : undefined}
+              title={r.access.update ? r.name : `${r.name}: ${r.access.reason ?? "read-only"}`}
+              data-testid={`studio-table-${r.name}`}
+              className={cn(
+                "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
+                active ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {r.label ?? r.name}
+              {!r.access.update && <Lock className="h-3 w-3 text-muted-foreground" aria-label="Read-only" />}
+            </button>
+          );
+        })}
+      </nav>
+    );
+  }
   return (
     <nav aria-label="Tables" className="flex gap-0.5 overflow-x-auto bg-primary/10 px-2 pt-1.5" data-testid="studio-sidebar">
       {resources.map((r) => {
