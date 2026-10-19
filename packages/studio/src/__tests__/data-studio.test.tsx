@@ -111,8 +111,9 @@ function Harness({ provider, initial }: { provider: DataProvider; initial?: Stud
   return <DataStudio provider={provider} router={router} signIn={<button type="button">Sign in</button>} />;
 }
 
+/** Double-click a cell to edit it, as in Airtable; Enter saves. */
 async function editCell(from: string, to: string) {
-  fireEvent.click(await screen.findByText(from));
+  fireEvent.doubleClick(await screen.findByText(from));
   const input = screen.getByDisplayValue(from);
   fireEvent.change(input, { target: { value: to } });
   await act(async () => {
@@ -172,15 +173,14 @@ describe("DataStudio", () => {
 
     await editCell("Prefers mornings", "My change");
 
-    const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toMatch(/someone else changed this row/);
+    // The cell is marked with why, and nothing was saved.
+    await waitFor(() =>
+      expect(screen.getAllByRole("gridcell").some((c) => /someone else changed this row/.test(c.getAttribute("title") ?? ""))).toBe(true),
+    );
     expect(screen.getByTestId("studio-activity-not_saved").textContent).toMatch(/someone else changed this row/);
     expect(state.clients[0]!.notes).toBe("Their change");
 
-    // Leaving the cell shows the row as it is now, so the next edit starts from it.
-    await act(async () => {
-      fireEvent.keyDown(screen.getByDisplayValue("My change"), { key: "Escape" });
-    });
+    // The grid then shows the row as it is now, so the next edit starts from it.
     expect(await screen.findByText("Their change")).toBeTruthy();
     await editCell("Their change", "Building on theirs");
     await waitFor(() => expect(screen.getByTestId("studio-activity-saved")).toBeTruthy());

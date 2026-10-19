@@ -144,14 +144,16 @@ describe("DataStudio P2", () => {
     const { provider, calls, db } = makeProvider();
     const grid = await openSheet(provider);
     await waitFor(() => expect(within(grid).getByText("Ana Ruiz")).toBeTruthy());
-    fireEvent.keyDown(grid, { key: "ArrowRight" }); // name column
+    // The name column comes first (the primary field); status is two to the right.
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
     await act(async () => {
-      fireEvent.paste(grid, { clipboardData: { getData: () => "Ana R\tpaused\nBen O\tdone\n" } });
+      fireEvent.paste(grid, { clipboardData: { getData: () => "paused\tcalled\ndone\tmet\n" } });
     });
     await waitFor(() => expect(calls.find((c) => c.op === "updateMany")).toBeTruthy());
     expect(calls.find((c) => c.op === "updateMany")!.args).toEqual([
-      { id: "c1", data: { name: "Ana R", status: "paused" }, expectedVersion: "v1" },
-      { id: "c2", data: { name: "Ben O", status: "done" }, expectedVersion: "v1" },
+      { id: "c1", data: { status: "paused", notes: "called" }, expectedVersion: "v1" },
+      { id: "c2", data: { status: "done", notes: "met" }, expectedVersion: "v1" },
     ]);
     expect(db.slice(0, 2).map((r) => r.status)).toEqual(["paused", "done"]);
     expect(await screen.findByText("Saved 2 rows in one transaction.")).toBeTruthy();
@@ -162,7 +164,6 @@ describe("DataStudio P2", () => {
     failNextBulkAt(1);
     const grid = await openSheet(provider);
     await waitFor(() => expect(within(grid).getByText("Ana Ruiz")).toBeTruthy());
-    fireEvent.keyDown(grid, { key: "ArrowRight" });
     await act(async () => {
       fireEvent.paste(grid, { clipboardData: { getData: () => "Ana R\nBen O\n" } });
     });
@@ -178,7 +179,6 @@ describe("DataStudio P2", () => {
     const { provider, calls, db } = makeProvider();
     const grid = await openSheet(provider);
     await waitFor(() => expect(within(grid).getByText("Cy Lam")).toBeTruthy());
-    fireEvent.keyDown(grid, { key: "ArrowRight" });
     fireEvent.keyDown(grid, { key: "ArrowDown" });
     fireEvent.keyDown(grid, { key: "ArrowDown" });
     fireEvent.keyDown(grid, { key: "Q" });
@@ -193,7 +193,8 @@ describe("DataStudio P2", () => {
     });
     await waitFor(() => expect(calls.find((c) => c.op === "undo")).toBeTruthy());
     expect(db[2]!.name).toBe("Cy Lam");
-    expect(await screen.findByText("Undone, with its own audit entry.")).toBeTruthy();
+    // Shown in the activity list, and as the latest entry on its collapsed header.
+    expect((await screen.findAllByText("Undone, with its own audit entry.")).length).toBeGreaterThan(0);
   });
 
   it("sets one field on the selected rows, all in one transaction", async () => {

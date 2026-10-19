@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowDownUp, Download, Filter, Group, Plus, X } from "lucide-react";
+import { ArrowDownUp, Download, EyeOff, Filter, Group, Plus, Search, X } from "lucide-react";
 import type { FilterParam, SortParam } from "@marktiderman/genesis-core/provider";
 import type { FieldSchema, FilterOperator } from "@marktiderman/genesis-core/schema";
 import { Badge } from "@marktiderman/genesis-ui/badge";
@@ -53,7 +53,7 @@ export function FilterBuilder({
       }}
     >
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm" testID="studio-filter">
+        <Button type="button" variant="ghost" size="sm" testID="studio-filter" className={`px-2 ${filters.length ? "bg-success/15" : ""}`}>
           <Filter className="mr-1.5 h-3.5 w-3.5" aria-hidden />
           Filter
           {filters.length > 0 && <Badge className="ml-1.5 h-4 px-1.5 text-[10px]">{filters.length}</Badge>}
@@ -167,7 +167,7 @@ export function SortBuilder({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm" testID="studio-sort">
+        <Button type="button" variant="ghost" size="sm" testID="studio-sort" className={`px-2 ${sorts.length ? "bg-warning/20" : ""}`}>
           <ArrowDownUp className="mr-1.5 h-3.5 w-3.5" aria-hidden />
           Sort
           {sorts.length > 0 && <Badge className="ml-1.5 h-4 px-1.5 text-[10px]">{sorts.length}</Badge>}
@@ -228,12 +228,12 @@ export function GroupPicker({
   const groupable = fields.filter((f) => !f.array && f.type !== "json");
   return (
     <Select value={group ?? NONE} onValueChange={(v) => onChange(v === NONE ? undefined : v)}>
-      <SelectTrigger className="h-9 w-auto gap-1.5 text-sm" aria-label="Group by" data-testid="studio-group">
+      <SelectTrigger className={`h-8 w-auto gap-1.5 border-0 text-sm shadow-none hover:bg-muted ${group ? "bg-info/15" : ""}`} aria-label="Group by" data-testid="studio-group">
         <Group className="h-3.5 w-3.5" aria-hidden />
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={NONE}>No grouping</SelectItem>
+        <SelectItem value={NONE}>Group</SelectItem>
         {groupable.map((f) => (
           <SelectItem key={f.name} value={f.name}>
             Group by {fieldLabel(f)}
@@ -246,9 +246,9 @@ export function GroupPicker({
 
 export function ExportButton({ onExport, busy, progress }: { onExport: () => void; busy: boolean; progress: number }) {
   return (
-    <Button type="button" variant="outline" size="sm" onClick={onExport} disabled={busy} testID="studio-export">
-      <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-      {busy ? `Exporting… ${progress}` : "Export CSV"}
+    <Button type="button" variant="ghost" size="sm" onClick={onExport} disabled={busy} testID="studio-export" aria-label="Export CSV" title="Export CSV">
+      <Download className="h-3.5 w-3.5" aria-hidden />
+      {busy && <span className="ml-1.5">{progress}</span>}
     </Button>
   );
 }
@@ -257,7 +257,7 @@ export function NewRowButton({ allowed, reason, onClick }: { allowed: boolean; r
   return (
     <Button type="button" size="sm" onClick={onClick} disabled={!allowed} title={allowed ? undefined : reason} testID="studio-new-row">
       <Plus className="mr-1 h-3.5 w-3.5" aria-hidden />
-      New row
+      Add record
     </Button>
   );
 }
@@ -326,5 +326,68 @@ export function ViewFieldPicker({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+/** Which fields the grid shows. */
+export function HideFields({
+  fields,
+  hidden,
+  onChange,
+}: {
+  fields: readonly FieldSchema[];
+  hidden: ReadonlySet<string>;
+  onChange: (hidden: Set<string>) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className="px-2" testID="studio-hide-fields">
+          <EyeOff className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+          {hidden.size ? `${hidden.size} hidden field${hidden.size === 1 ? "" : "s"}` : "Hide fields"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 space-y-1 p-2">
+        {fields.map((f) => (
+          <label key={f.name} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5"
+              checked={!hidden.has(f.name)}
+              onChange={() => {
+                const next = new Set(hidden);
+                if (next.has(f.name)) next.delete(f.name);
+                else next.add(f.name);
+                onChange(next);
+              }}
+            />
+            <span className="truncate">{fieldLabel(f)}</span>
+          </label>
+        ))}
+        {hidden.size > 0 && (
+          <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => onChange(new Set())}>
+            Show all
+          </Button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Search every text field, as you type. */
+export function SearchBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      <Input
+        type="search"
+        aria-label="Search"
+        placeholder="Search"
+        className="h-8 w-36 pl-7 text-sm"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        data-testid="studio-search"
+      />
+    </div>
   );
 }
