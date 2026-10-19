@@ -242,7 +242,10 @@ begin${loginCheckFor("audit_entry", "read audit entries")}
   return query
     select a.id, a.occurred_at, a.actor, a.resource, a.record_key, a.action, a.before, a.after
       from genesis_studio.audit_log a
-     where a.id = p_id;
+     -- Only the caller's own entries: undo is for your own changes, and this
+     -- keeps other users' before/after values out of reach, login or not.
+     where a.id = p_id
+       and a.actor = (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub');
 end;
 $fn$;
 

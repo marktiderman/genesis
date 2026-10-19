@@ -126,7 +126,11 @@ export function ImportDialog({ provider, schema, onImported }: ImportDialogProps
                       <span className="w-32 truncate font-mono text-xs" title={column}>
                         {column || `(column ${i + 1})`}
                       </span>
-                      <Select value={mapping[i] ?? SKIP} onValueChange={(v) => setMapping((m) => ({ ...m, [i]: v }))}>
+                      <Select value={mapping[i] ?? SKIP} onValueChange={(v) => {
+                          setMapping((m) => ({ ...m, [i]: v }));
+                          // A new mapping hasn't been checked: run the dry run again before importing.
+                          setCheck(null);
+                        }}>
                         <SelectTrigger className="h-8 flex-1 text-xs" aria-label={`Field for ${column}`}>
                           <SelectValue />
                         </SelectTrigger>

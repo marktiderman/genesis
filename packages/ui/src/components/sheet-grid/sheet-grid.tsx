@@ -75,54 +75,6 @@ interface Cell {
   c: number;
 }
 
-/* ── TSV for copy and paste ── */
-
-/** Parse spreadsheet clipboard text (tab-separated, quoted when needed). */
-export function parseTsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]!;
-    if (quoted) {
-      if (ch === '"' && text[i + 1] === '"') {
-        field += '"';
-        i++;
-      } else if (ch === '"') {
-        quoted = false;
-      } else {
-        field += ch;
-      }
-      continue;
-    }
-    if (ch === '"' && field === "") quoted = true;
-    else if (ch === "\t") {
-      row.push(field);
-      field = "";
-    } else if (ch === "\n" || ch === "\r") {
-      if (ch === "\r" && text[i + 1] === "\n") i++;
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-    } else field += ch;
-  }
-  if (field !== "" || row.length) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows;
-}
-
-function tsvField(text: string): string {
-  return /[\t\n\r"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-export function toTsv(grid: string[][]): string {
-  return grid.map((row) => row.map(tsvField).join("\t")).join("\n");
-}
-
 /* ── Component ── */
 
 /**
@@ -160,12 +112,14 @@ export function SheetGrid<T>({
   const scroller = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<Cell>({ r: 0, c: 0 });
   const [anchor, setAnchor] = useState<Cell | null>(null);
-  const [editing, setEditingState] = useState<{ cell: Cell; draft: string } | null>(null);
+  // The row being edited is remembered by its key, not its position: rows can
+  // be refetched, added or removed while the editor is open.
+  const [editing, setEditingState] = useState<{ cell: Cell; rowKey: string; draft: string } | null>(null);
   // Mirrors `editing` synchronously. Enter and the blur that follows it fire
   // in the same tick; only the first may save, or the cell is sent twice
   // with the same (by then stale) version.
-  const editingRef = useRef<{ cell: Cell; draft: string } | null>(null);
-  const setEditing = (next: { cell: Cell; draft: string } | null) => {
+  const editingRef = useRef<{ cell: Cell; rowKey: string; draft: string } | null>(null);
+  const setEditing = (next: { cell: Cell; rowKey: string; draft: string } | null) => {
     editingRef.current = next;
     setEditingState(next);
   };
@@ -249,20 +203,23 @@ export function SheetGrid<T>({
     const column = columns[cell.c];
     const row = rows[cell.r];
     if (!column?.editable || !row) return;
-    setEditing({ cell, draft: draft ?? textOf(row, column) });
+    setEditing({ cell, rowKey: getKey(row), draft: draft ?? textOf(row, column) });
   };
 
   const finishEdit = async (move?: Cell) => {
     const current = editingRef.current;
     if (!current) return;
-    const { cell, draft } = current;
-    const row = rows[cell.r]!;
+    const { cell, rowKey, draft } = current;
+    const row = rows.find((r) => getKey(r) === rowKey);
     const column = columns[cell.c]!;
     setEditing(null);
     scroller.current?.focus();
     if (move) moveTo(move);
+    // The row left the grid while it was being edited: drop the draft rather
+    // than save it to whichever row now sits at that position.
+    if (!row) return;
     if (draft !== textOf(row, column)) {
-      await commit([{ row, rowKey: getKey(row), column: column.key, value: draft }]);
+      await commit([{ row, rowKey, column: column.key, value: draft }]);
     }
   };
 
@@ -416,7 +373,7 @@ export function SheetGrid<T>({
                   const isActive = active.r === item.index && active.c === c;
                   const selected = inRange(item.index, c);
                   const state = status[cellKey(rowKey, column.key)];
-                  const isEditing = editing && editing.cell.r === item.index && editing.cell.c === c;
+                  const isEditing = editing && editing.rowKey === rowKey && editing.cell.c === c;
                   return (
                     <div
                       key={column.key}
@@ -504,4 +461,53 @@ export function SheetGrid<T>({
       </div>
     </div>
   );
+}
+
+/* ── TSV for copy and paste ── */
+
+/** Parse spreadsheet clipboard text (tab-separated, quoted when needed). */
+export function parseTsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (ch === '"') {
+        quoted = false;
+      } else {
+        field += ch;
+      }
+      continue;
+    }
+    if (ch === '"' && field === "") quoted = true;
+    else if (ch === "\t") {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else field += ch;
+  }
+  if (field !== "" || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+function tsvField(text: string): string {
+  return /[\t\n\r"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/** Write a block of cells as spreadsheet clipboard text (the inverse of `parseTsv`). */
+export function toTsv(grid: string[][]): string {
+  return grid.map((row) => row.map(tsvField).join("\t")).join("\n");
 }

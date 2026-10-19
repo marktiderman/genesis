@@ -734,11 +734,26 @@ function Sheet({
                         variant: "destructive" as const,
                         testId: "studio-bulk-delete",
                         onAction: async (ids: string[]) => {
-                          if (!window.confirm(`Delete ${ids.length} row${ids.length === 1 ? "" : "s"}? All of them go, or none do.`)) return;
                           const chosen = rows.filter((r) => ids.includes(keys.get(r) ?? ""));
-                          const result = await provider.deleteMany!(resource, {
-                            items: chosen.map((r) => ({ id: encodeRecordKey(schema, r), expectedVersion: versionOf(schema, r) })),
-                          });
+                          // A selection kept from another page: never delete fewer rows than were confirmed.
+                          if (chosen.length !== ids.length) {
+                            setNotice("Some selected rows aren't on this page any more. Select the rows again.");
+                            return;
+                          }
+                          if (!window.confirm(`Delete ${ids.length} row${ids.length === 1 ? "" : "s"}? All of them go, or none do.`)) return;
+                          let result;
+                          try {
+                            result = await provider.deleteMany!(resource, {
+                              items: chosen.map((r) => ({ id: encodeRecordKey(schema, r), expectedVersion: versionOf(schema, r) })),
+                            });
+                          } catch (error) {
+                            if (isUnauthenticated(error)) onSignedOut();
+                            refresh();
+                            const message = `Nothing was deleted: ${errorText(error)}`;
+                            setNotice(message);
+                            onActivity({ resource, field: "", record: `${ids.length} rows`, outcome: "not_saved", action: "delete", message });
+                            return;
+                          }
                           refresh();
                           if (result.ok) {
                             setNotice(`Deleted ${result.count} rows in one transaction.`);
@@ -832,6 +847,9 @@ function Sheet({
           onOpenChange={(open) => !open && setBulkIds(null)}
           onApply={async (data) => {
             const chosen = rows.filter((r) => bulkIds.includes(keys.get(r) ?? ""));
+            if (chosen.length !== bulkIds.length) {
+              throw new Error("Some selected rows aren't on this page any more. Select the rows again.");
+            }
             const result = await provider.updateMany!(resource, {
               changes: chosen.map((r) => ({ id: encodeRecordKey(schema, r), data, expectedVersion: versionOf(schema, r) })),
             });

@@ -282,4 +282,58 @@ describe("DataStudio P2", () => {
     const panel = await screen.findByTestId("studio-record-panel");
     expect(await within(panel).findByLabelText(/^notes/)).toBeTruthy(); // Ben is paused
   });
+
+  it("doesn't let a hidden required field block the save", async () => {
+    const { provider, calls } = makeProvider();
+    const forms: Record<string, StudioFormConfig> = {
+      "public.clients": { visibleWhen: { name: (values) => values.status === "active" } },
+    };
+    render(<Harness provider={provider} initial={{ resource: "public.clients", record: "c1" }} forms={forms} />);
+    const panel = await screen.findByTestId("studio-record-panel");
+    fireEvent.change(await within(panel).findByLabelText(/^name/), { target: { value: "" } });
+    fireEvent.click(within(panel).getByLabelText(/^status/));
+    fireEvent.click(await screen.findByRole("option", { name: "paused" }));
+    await waitFor(() => expect(within(panel).queryByLabelText(/^name/)).toBeNull());
+    await act(async () => {
+      fireEvent.click(within(panel).getByRole("button", { name: "Save changes" }));
+    });
+    await waitFor(() => expect(calls.find((c) => c.op === "update")).toBeTruthy());
+    expect(calls.find((c) => c.op === "update")!.args.data).toEqual({ status: "paused" });
+  });
+
+  it("asks for a new dry run after the column mapping changes", async () => {
+    const { provider } = makeProvider();
+    render(<Harness provider={provider} initial={{ resource: "public.clients" }} />);
+    await screen.findByText("Ana Ruiz");
+    fireEvent.click(screen.getByTestId("studio-import"));
+    const dialog = await screen.findByTestId("studio-import-dialog");
+    const file = new File(["name,status\nDee,active\n"], "ok.csv", { type: "text/csv" });
+    await act(async () => {
+      fireEvent.change(within(dialog).getByTestId("studio-import-file"), { target: { files: [file] } });
+    });
+    await act(async () => {
+      fireEvent.click(await within(dialog).findByTestId("studio-import-check-button"));
+    });
+    await waitFor(() => expect((within(dialog).getByTestId("studio-import-commit") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(dialog).getByLabelText("Field for status"));
+    fireEvent.click(await screen.findByRole("option", { name: "Skip this column" }));
+    expect((within(dialog).getByTestId("studio-import-commit") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("says why when a bulk edit can't reach the server", async () => {
+    const { provider } = makeProvider();
+    (provider as { updateMany: unknown }).updateMany = async () => {
+      throw new Error("The studio server couldn't be reached.");
+    };
+    render(<Harness provider={provider} initial={{ resource: "public.clients" }} />);
+    await screen.findByText("Ana Ruiz");
+    fireEvent.click(screen.getAllByRole("checkbox")[1]!);
+    fireEvent.click(screen.getByTestId("studio-bulk-set"));
+    const dialog = await screen.findByTestId("studio-bulk-edit");
+    fireEvent.change(within(dialog).getByLabelText("New value"), { target: { value: "x" } });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByTestId("studio-bulk-apply"));
+    });
+    expect((await within(dialog).findByTestId("studio-bulk-error")).textContent).toMatch(/Nothing was changed: The studio server couldn't be reached/);
+  });
 });

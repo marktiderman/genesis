@@ -24,16 +24,20 @@ export function BulkEditDialog({ schema, count, open, onOpenChange, onApply }: B
   const [value, setValue] = useState("");
   const [result, setResult] = useState<BulkResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const target = fields.find((f) => f.name === field);
   const choices = target ? choicesFor(target) : undefined;
 
   async function apply() {
     if (!target) return;
     setBusy(true);
+    setError(null);
     try {
       const outcome = await onApply({ [target.name]: parseDraft(target, value) });
       if (outcome.ok) onOpenChange(false);
       else setResult(outcome);
+    } catch (e) {
+      setError(`Nothing was changed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -57,7 +61,7 @@ export function BulkEditDialog({ schema, count, open, onOpenChange, onApply }: B
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="studio-bulk-field">Field</Label>
-            <Select value={field} onValueChange={(v) => { setField(v); setValue(""); }}>
+            <Select value={field} onValueChange={(v) => { setField(v); setValue(""); setError(null); }}>
               <SelectTrigger id="studio-bulk-field">
                 <SelectValue />
               </SelectTrigger>
@@ -73,7 +77,7 @@ export function BulkEditDialog({ schema, count, open, onOpenChange, onApply }: B
           <div className="space-y-1.5">
             <Label htmlFor="studio-bulk-value">New value</Label>
             {choices ? (
-              <Select value={value} onValueChange={setValue}>
+              <Select value={value} onValueChange={(v) => { setValue(v); setError(null); }}>
                 <SelectTrigger id="studio-bulk-value">
                   <SelectValue placeholder="Choose…" />
                 </SelectTrigger>
@@ -86,9 +90,14 @@ export function BulkEditDialog({ schema, count, open, onOpenChange, onApply }: B
                 </SelectContent>
               </Select>
             ) : (
-              <Input id="studio-bulk-value" value={value} onChange={(e) => setValue(e.target.value)} />
+              <Input id="studio-bulk-value" value={value} onChange={(e) => { setValue(e.target.value); setError(null); }} />
             )}
           </div>
+          {error && (
+            <p role="alert" className="rounded-md border border-destructive/40 p-2 text-sm text-destructive" data-testid="studio-bulk-error">
+              {error}
+            </p>
+          )}
           {result && !result.ok && (
             <div role="alert" className="rounded-md border border-destructive/40 p-2 text-sm text-destructive">
               Nothing was changed: {(result.failures ?? []).length} row(s) failed.
