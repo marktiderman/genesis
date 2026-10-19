@@ -16,7 +16,8 @@
 import type { Adapter } from "./adapter";
 import { UnknownResourceError } from "./adapter";
 import { introspectFields } from "../introspect";
-import type { DataRow, DescribeResult, Level, ProviderKind, QueryOptions, ResourceContract } from "../types";
+import type { DataRow } from "../core-schema";
+import type { DescribeResult, Level, ProviderKind, QueryOptions, SwitchboardContract } from "../types";
 
 /** Minimal structural shape of the supabase-js query builder we rely on. */
 export interface SupabaseQueryBuilder {
@@ -73,7 +74,7 @@ export class SupabaseAdapter implements Adapter {
 
   constructor(private readonly cfg: SupabaseAdapterConfig) {}
 
-  private map(contract: ResourceContract): SupabaseResourceMap {
+  private map(contract: SwitchboardContract): SupabaseResourceMap {
     const m = this.cfg.maps[contract.name];
     if (!m) throw new UnknownResourceError(this.kind, contract.name);
     return m;
@@ -116,14 +117,14 @@ export class SupabaseAdapter implements Adapter {
     return out;
   }
 
-  async list(contract: ResourceContract): Promise<DataRow[]> {
+  async list(contract: SwitchboardContract): Promise<DataRow[]> {
     const map = this.map(contract);
     const { data, error } = await this.withFilter(this.cfg.client.from(map.table).select("*"), map).then((r) => r);
     if (error) throw this.wrap(error, "list", contract.name);
     return ((data as DataRow[] | null) ?? []).map((r) => this.toCanonical(map, r));
   }
 
-  async get(contract: ResourceContract, key: string): Promise<DataRow | null> {
+  async get(contract: SwitchboardContract, key: string): Promise<DataRow | null> {
     const map = this.map(contract);
     const { data, error } = await this.withFilter(this.cfg.client.from(map.table).select("*"), map)
       .eq(this.col(map, contract.key), key)
@@ -132,7 +133,7 @@ export class SupabaseAdapter implements Adapter {
     return data ? this.toCanonical(map, data as DataRow) : null;
   }
 
-  async query(contract: ResourceContract, opts: QueryOptions): Promise<DataRow[]> {
+  async query(contract: SwitchboardContract, opts: QueryOptions): Promise<DataRow[]> {
     const map = this.map(contract);
     let qb = this.withFilter(this.cfg.client.from(map.table).select("*"), map);
     if (opts.where) {
@@ -177,7 +178,7 @@ export class SupabaseAdapter implements Adapter {
     return ((data as DataRow[] | null) ?? []).map((r) => this.toCanonical(map, r));
   }
 
-  async describe(contract: ResourceContract, rows?: DataRow[]): Promise<DescribeResult> {
+  async describe(contract: SwitchboardContract, rows?: DataRow[]): Promise<DescribeResult> {
     // INTROSPECT the live rows (WC46.015) — derive the schema from a `select *`
     // of the actual table, so a column added in Postgres surfaces in drift
     // WITHOUT hand-editing the contract (a richer signal than echoing it). A
@@ -195,7 +196,7 @@ export class SupabaseAdapter implements Adapter {
     };
   }
 
-  async create(contract: ResourceContract, row: DataRow): Promise<DataRow> {
+  async create(contract: SwitchboardContract, row: DataRow): Promise<DataRow> {
     const map = this.map(contract);
     const dbRow = {
       ...this.toDbRow(map, row),
@@ -206,7 +207,7 @@ export class SupabaseAdapter implements Adapter {
     return this.toCanonical(map, data as DataRow);
   }
 
-  async update(contract: ResourceContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
+  async update(contract: SwitchboardContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
     const map = this.map(contract);
     const dbPatch = {
       ...this.toDbRow(map, patch),
@@ -223,7 +224,7 @@ export class SupabaseAdapter implements Adapter {
     return this.toCanonical(map, data as DataRow);
   }
 
-  async delete(contract: ResourceContract, key: string): Promise<void> {
+  async delete(contract: SwitchboardContract, key: string): Promise<void> {
     const map = this.map(contract);
     const { error } = await this.withFilter(
       this.cfg.client.from(map.table).delete(),

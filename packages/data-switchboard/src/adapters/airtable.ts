@@ -25,7 +25,8 @@ import type { Adapter } from "./adapter";
 import { UnknownResourceError } from "./adapter";
 import { introspectFields } from "../introspect";
 import { markStale, propagateStale } from "../staleness";
-import type { DataRow, DescribeResult, Level, ProviderKind, QueryOptions, ResourceContract } from "../types";
+import type { DataRow } from "../core-schema";
+import type { DescribeResult, Level, ProviderKind, QueryOptions, SwitchboardContract } from "../types";
 
 /** Minimal `fetch` shape so this compiles on Node 18+, Deno, and RN. */
 export type FetchLike = (
@@ -118,7 +119,7 @@ export class AirtableAdapter implements Adapter {
     };
   }
 
-  private map(contract: ResourceContract): AirtableResourceMap {
+  private map(contract: SwitchboardContract): AirtableResourceMap {
     const m = this.cfg.maps[contract.name];
     if (!m) throw new UnknownResourceError(this.kind, contract.name);
     return m;
@@ -182,7 +183,7 @@ export class AirtableAdapter implements Adapter {
   }
 
   // -- list with TTL cache + stale-while-error -------------------------
-  private async listFresh(contract: ResourceContract): Promise<DataRow[]> {
+  private async listFresh(contract: SwitchboardContract): Promise<DataRow[]> {
     const map = this.map(contract);
     const now = Date.now();
     const cached = this.cache.get(contract.name);
@@ -225,7 +226,7 @@ export class AirtableAdapter implements Adapter {
     }
   }
 
-  private async fetchAllPages(contract: ResourceContract, map: AirtableResourceMap): Promise<DataRow[]> {
+  private async fetchAllPages(contract: SwitchboardContract, map: AirtableResourceMap): Promise<DataRow[]> {
     const rows: DataRow[] = [];
     let offset: string | undefined;
     do {
@@ -245,20 +246,20 @@ export class AirtableAdapter implements Adapter {
     return rows;
   }
 
-  async list(contract: ResourceContract): Promise<DataRow[]> {
+  async list(contract: SwitchboardContract): Promise<DataRow[]> {
     const rows = await this.listFresh(contract);
     // Re-stamp staleness onto the defensive clone (the array-level symbol does
     // not survive `.map(...)`), so a degraded read stays flagged downstream.
     return propagateStale(rows, rows.map((r) => ({ ...r })));
   }
 
-  async get(contract: ResourceContract, key: string): Promise<DataRow | null> {
+  async get(contract: SwitchboardContract, key: string): Promise<DataRow | null> {
     const rows = await this.listFresh(contract);
     const hit = rows.find((r) => String(r[contract.key]) === key);
     return hit ? { ...hit } : null;
   }
 
-  async query(contract: ResourceContract, opts: QueryOptions): Promise<DataRow[]> {
+  async query(contract: SwitchboardContract, opts: QueryOptions): Promise<DataRow[]> {
     // Filter client-side off the cached snapshot — keeps the hardened cache /
     // stale path as the single network seam and avoids per-query formula bugs.
     const source = await this.listFresh(contract);
@@ -299,7 +300,7 @@ export class AirtableAdapter implements Adapter {
     return propagateStale(source, out);
   }
 
-  async describe(contract: ResourceContract, rows?: DataRow[]): Promise<DescribeResult> {
+  async describe(contract: SwitchboardContract, rows?: DataRow[]): Promise<DescribeResult> {
     // INTROSPECT the live records (WC46.015) — derive the schema from the
     // canonical fields that ACTUALLY appear in the records, not a static
     // contract echo filtered by the map. A curator adding a (mapped) column's
@@ -321,7 +322,7 @@ export class AirtableAdapter implements Adapter {
     this.cache.delete(resource);
   }
 
-  async create(contract: ResourceContract, row: DataRow): Promise<DataRow> {
+  async create(contract: SwitchboardContract, row: DataRow): Promise<DataRow> {
     const map = this.map(contract);
     const json = (await this.request(map.table, {
       method: "POST",
@@ -335,7 +336,7 @@ export class AirtableAdapter implements Adapter {
     return this.toCanonical(map, json);
   }
 
-  async update(contract: ResourceContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
+  async update(contract: SwitchboardContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
     const map = this.map(contract);
     const recordId = await this.resolveRecordId(contract, map, key);
     const json = (await this.request(`${map.table}/${recordId}`, {
@@ -350,7 +351,7 @@ export class AirtableAdapter implements Adapter {
     return this.toCanonical(map, json);
   }
 
-  async delete(contract: ResourceContract, key: string): Promise<void> {
+  async delete(contract: SwitchboardContract, key: string): Promise<void> {
     const map = this.map(contract);
     const recordId = await this.resolveRecordId(contract, map, key);
     await this.request(`${map.table}/${recordId}`, { method: "DELETE" });
@@ -358,7 +359,7 @@ export class AirtableAdapter implements Adapter {
   }
 
   /** Map a canonical `key` value back to its Airtable record id (recXXX). */
-  private async resolveRecordId(contract: ResourceContract, map: AirtableResourceMap, key: string): Promise<string> {
+  private async resolveRecordId(contract: SwitchboardContract, map: AirtableResourceMap, key: string): Promise<string> {
     const idField = map.idField ?? "id";
     // Fast path: identity IS the record id.
     if (contract.key === idField && key.startsWith("rec")) return key;

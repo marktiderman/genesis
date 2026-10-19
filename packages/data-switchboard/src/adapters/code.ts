@@ -12,7 +12,8 @@
 import type { Adapter } from "./adapter";
 import { UnknownResourceError } from "./adapter";
 import { introspectFields } from "../introspect";
-import type { DataRow, DescribeResult, Level, ProviderKind, QueryOptions, ResourceContract } from "../types";
+import type { DataRow } from "../core-schema";
+import type { DescribeResult, Level, ProviderKind, QueryOptions, SwitchboardContract } from "../types";
 
 export interface CodeAdapterOptions {
   /**
@@ -37,22 +38,22 @@ export class CodeAdapter implements Adapter {
     }
   }
 
-  private rows(contract: ResourceContract): DataRow[] {
+  private rows(contract: SwitchboardContract): DataRow[] {
     const rows = this.store.get(contract.name);
     if (!rows) throw new UnknownResourceError(this.kind, contract.name);
     return rows;
   }
 
-  async list(contract: ResourceContract): Promise<DataRow[]> {
+  async list(contract: SwitchboardContract): Promise<DataRow[]> {
     return this.rows(contract).map((r) => ({ ...r }));
   }
 
-  async get(contract: ResourceContract, key: string): Promise<DataRow | null> {
+  async get(contract: SwitchboardContract, key: string): Promise<DataRow | null> {
     const hit = this.rows(contract).find((r) => String(r[contract.key]) === key);
     return hit ? { ...hit } : null;
   }
 
-  async query(contract: ResourceContract, opts: QueryOptions): Promise<DataRow[]> {
+  async query(contract: SwitchboardContract, opts: QueryOptions): Promise<DataRow[]> {
     let out = this.rows(contract).map((r) => ({ ...r }));
     if (opts.where) {
       const entries = Object.entries(opts.where);
@@ -89,7 +90,7 @@ export class CodeAdapter implements Adapter {
     return out;
   }
 
-  async describe(contract: ResourceContract, rows?: DataRow[]): Promise<DescribeResult> {
+  async describe(contract: SwitchboardContract, rows?: DataRow[]): Promise<DescribeResult> {
     // INTROSPECT the live fixtures (WC46.015) — derive the schema from the rows
     // actually present, not a hand-authored echo. Adding a field to a fixture
     // surfaces here automatically; the contract only enriches (description /
@@ -103,14 +104,14 @@ export class CodeAdapter implements Adapter {
     };
   }
 
-  async create(contract: ResourceContract, row: DataRow): Promise<DataRow> {
+  async create(contract: SwitchboardContract, row: DataRow): Promise<DataRow> {
     const rows = this.rows(contract);
     const copy = { ...row };
     rows.push(copy);
     return { ...copy };
   }
 
-  async update(contract: ResourceContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
+  async update(contract: SwitchboardContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
     const rows = this.rows(contract);
     const idx = rows.findIndex((r) => String(r[contract.key]) === key);
     if (idx === -1) {
@@ -121,7 +122,7 @@ export class CodeAdapter implements Adapter {
     return { ...merged };
   }
 
-  async delete(contract: ResourceContract, key: string): Promise<void> {
+  async delete(contract: SwitchboardContract, key: string): Promise<void> {
     const rows = this.rows(contract);
     const idx = rows.findIndex((r) => String(r[contract.key]) === key);
     if (idx !== -1) rows.splice(idx, 1);

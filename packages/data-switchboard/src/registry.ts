@@ -17,19 +17,10 @@
 
 import type { Adapter } from "./adapters/adapter";
 import { isMergeBinding } from "./types";
-import type {
-  Binding,
-  EnvironmentBinding,
-  FieldBinding,
-  MergeBinding,
-  ProviderKind,
-  ResolvedPlan,
-  ResourceBinding,
-  ResourceContract,
-} from "./types";
+import type { Binding, EnvironmentBinding, FieldBinding, MergeBinding, ProviderKind, ResolvedPlan, ResourceBinding, SwitchboardContract } from "./types";
 
 export class Registry {
-  private readonly contracts = new Map<string, ResourceContract>();
+  private readonly contracts = new Map<string, SwitchboardContract>();
   private readonly adapters = new Map<ProviderKind, Adapter>();
 
   private environment: EnvironmentBinding | null = null; // Tier A
@@ -40,7 +31,7 @@ export class Registry {
   // -- registration ----------------------------------------------------
 
   /** Declare a Resource's contract (field schema + identity `key`). */
-  register(contract: ResourceContract): this {
+  register(contract: SwitchboardContract): this {
     this.contracts.set(contract.name, contract);
     return this;
   }
@@ -113,7 +104,7 @@ export class Registry {
 
   // -- lookups ---------------------------------------------------------
 
-  getContract(resource: string): ResourceContract {
+  getContract(resource: string): SwitchboardContract {
     const c = this.contracts.get(resource);
     if (!c) throw new Error(`Registry: no contract registered for "${resource}".`);
     return c;

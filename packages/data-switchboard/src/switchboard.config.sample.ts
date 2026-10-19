@@ -41,7 +41,7 @@ import {
   ticketsContract,
   ticketsSupabaseMap,
 } from "./resources";
-import type { ResourceContract } from "./types";
+import type { SwitchboardContract } from "./types";
 
 // ---------------------------------------------------------------------
 // Injected configuration — the ONLY place credentials enter. Nothing here
@@ -72,7 +72,7 @@ interface WidgetRow extends Record<string, unknown> {
   scratch: string;
 }
 
-export const widgetsContract: ResourceContract<WidgetRow> = {
+export const widgetsContract: SwitchboardContract<WidgetRow> = {
   name: "widgets",
   key: "id",
   sourceOfTruth: "L3", // identity + durable rows live in Supabase…
@@ -90,7 +90,7 @@ interface TestimonialRow extends Record<string, unknown> {
   quote: string;
 }
 
-export const testimonialsContract: ResourceContract<TestimonialRow> = {
+export const testimonialsContract: SwitchboardContract<TestimonialRow> = {
   name: "testimonials",
   key: "id",
   sourceOfTruth: "L1",

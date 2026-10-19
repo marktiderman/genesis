@@ -26,7 +26,8 @@ import type { Adapter } from "./adapters/adapter";
 import { UnknownResourceError } from "./adapters/adapter";
 import type { Registry } from "./registry";
 import { staleInfo, type StaleReadInfo } from "./staleness";
-import type { DataRow, FieldSchema, FieldType, Level, ResourceContract } from "./types";
+import type { DataRow, FieldSchema, StorageType } from "./core-schema";
+import type { Level, SwitchboardContract } from "./types";
 
 // ---------------------------------------------------------------------
 // Drift report
@@ -198,7 +199,7 @@ export interface ReconcileModelOptions {
 }
 
 /** Does this adapter back the resource? (false ⇔ it has no mapping for it.) */
-async function adapterBacks(adapter: Adapter, contract: ResourceContract): Promise<boolean> {
+async function adapterBacks(adapter: Adapter, contract: SwitchboardContract): Promise<boolean> {
   try {
     await adapter.list(contract);
     return true;
@@ -298,7 +299,7 @@ export interface PromoteResult {
   readonly sql: string;
 }
 
-const PG_TYPE: Record<FieldType, string> = {
+const PG_TYPE: Record<StorageType, string> = {
   string: "TEXT",
   number: "DOUBLE PRECISION",
   boolean: "BOOLEAN",
@@ -438,7 +439,7 @@ ${valueTuples};`;
 }
 
 /** The full FieldSchema for a column (synthesizes a string fallback if absent). */
-function fieldOf(contract: ResourceContract, name: string): FieldSchema {
+function fieldOf(contract: SwitchboardContract, name: string): FieldSchema {
   return contract.fields.find((f) => f.name === name) ?? { name, type: "string" };
 }
 
@@ -457,7 +458,7 @@ function quoteIdent(name: string): string {
   return /^[a-z_][a-z0-9_]*$/.test(name) ? name : `"${name.replace(/"/g, '""')}"`;
 }
 
-function sqlScalar(value: unknown, type: FieldType): string {
+function sqlScalar(value: unknown, type: StorageType): string {
   if (value == null) return "NULL";
   switch (type) {
     case "number":

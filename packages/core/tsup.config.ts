@@ -10,6 +10,7 @@ export default defineConfig({
     "src/hooks/index.ts",
     "src/hooks/*.ts",
     "src/storage/index.ts",
+    "src/schema/index.ts",
     "src/form-types.ts",
     "src/utils.ts",
   ],

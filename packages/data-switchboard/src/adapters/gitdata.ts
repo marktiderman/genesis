@@ -15,7 +15,8 @@ import { basename, join, normalize, resolve, sep } from "node:path";
 import type { Adapter } from "./adapter";
 import { UnknownResourceError } from "./adapter";
 import { introspectFields } from "../introspect";
-import type { DataRow, DescribeResult, Level, ProviderKind, QueryOptions, ResourceContract } from "../types";
+import type { DataRow } from "../core-schema";
+import type { DescribeResult, Level, ProviderKind, QueryOptions, SwitchboardContract } from "../types";
 import { PROVIDER_LEVEL } from "../types";
 import { gitdataMdContract, gitdataResourceName } from "../gitdata-names";
 
@@ -296,7 +297,7 @@ export class GitdataAdapter implements Adapter {
     this.resources = opts.resources;
   }
 
-  private mapFor(contract: ResourceContract): GitdataResourceMap {
+  private mapFor(contract: SwitchboardContract): GitdataResourceMap {
     const map = this.resources[contract.name];
     if (!map) throw new UnknownResourceError(this.kind, contract.name);
     return map;
@@ -320,17 +321,17 @@ export class GitdataAdapter implements Adapter {
     return abs.startsWith(prefix) ? abs.slice(prefix.length) : abs;
   }
 
-  async list(contract: ResourceContract): Promise<DataRow[]> {
+  async list(contract: SwitchboardContract): Promise<DataRow[]> {
     const map = this.mapFor(contract);
     return this.listFiles(map).map((abs) => rowFromFile(abs, this.relPath(abs)));
   }
 
-  async get(contract: ResourceContract, key: string): Promise<DataRow | null> {
+  async get(contract: SwitchboardContract, key: string): Promise<DataRow | null> {
     const rows = await this.list(contract);
     return rows.find((r) => String(r[contract.key]) === key) ?? null;
   }
 
-  async query(contract: ResourceContract, opts: QueryOptions): Promise<DataRow[]> {
+  async query(contract: SwitchboardContract, opts: QueryOptions): Promise<DataRow[]> {
     let out = await this.list(contract);
     if (opts.where) {
       const entries = Object.entries(opts.where);
@@ -365,7 +366,7 @@ export class GitdataAdapter implements Adapter {
     return out;
   }
 
-  async describe(contract: ResourceContract, rows?: DataRow[]): Promise<DescribeResult> {
+  async describe(contract: SwitchboardContract, rows?: DataRow[]): Promise<DescribeResult> {
     const snapshot = rows ?? (await this.list(contract));
     return {
       resource: contract.name,
@@ -375,7 +376,7 @@ export class GitdataAdapter implements Adapter {
     };
   }
 
-  async create(contract: ResourceContract, row: DataRow): Promise<DataRow> {
+  async create(contract: SwitchboardContract, row: DataRow): Promise<DataRow> {
     const map = this.mapFor(contract);
     const id = safePathToken(String(row[contract.key] ?? ""), contract.key);
     const slug = safePathToken(String(row.slug ?? id.toLowerCase()), "slug");
@@ -391,7 +392,7 @@ export class GitdataAdapter implements Adapter {
     return rowFromFile(abs, this.relPath(abs));
   }
 
-  async update(contract: ResourceContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
+  async update(contract: SwitchboardContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
     const existing = await this.get(contract, key);
     if (!existing) {
       throw new Error(`GitdataAdapter: no "${contract.name}" row with ${contract.key}="${key}".`);
@@ -425,7 +426,7 @@ export class GitdataAdapter implements Adapter {
     return rowFromFile(absNew, this.relPath(absNew));
   }
 
-  async delete(contract: ResourceContract, key: string): Promise<void> {
+  async delete(contract: SwitchboardContract, key: string): Promise<void> {
     const existing = await this.get(contract, key);
     if (!existing) return;
     const abs = join(this.dataRoot, String(existing[PATH_KEY]));

@@ -13,6 +13,15 @@
 // provider(s) serve it. See SWITCHBOARD.md for the full design.
 // =====================================================================
 
+// Type-only: erased from the JS, and inlined into this package's .d.ts at
+// build time (tsup `dts.resolve`), so genesis-core stays an OPTIONAL peer.
+import type {
+  DataRow as CoreDataRow,
+  FieldSchema as CoreFieldSchema,
+  ResourceContract as CoreResourceContract,
+  StorageType,
+} from "./core-schema";
+
 // ---------------------------------------------------------------------
 // LEVELS — HOW a resource is backed (persistence + governance).
 // Cost-of-change + durability rise L1 → L3.
@@ -43,25 +52,24 @@ export type Tier =
 
 // ---------------------------------------------------------------------
 // FIELD SCHEMA — the provider-agnostic contract for a resource's columns.
+//
+// Promoted to @marktiderman/genesis-core/schema as the one schema model
+// (docs/DATA-STUDIO.md decision 11). The names below stay for one
+// deprecation window and are the same types, not copies.
+//
+// They are LOCAL type aliases rather than `export type { X } from`, because
+// TypeScript only carries a JSDoc `@deprecated` through to a consumer's
+// editor from a local declaration.
 // ---------------------------------------------------------------------
-export type FieldType = "string" | "number" | "boolean" | "datetime" | "json" | "relation";
 
-export interface FieldSchema {
-  /** Canonical field name in the resource's shape (provider-agnostic). */
-  readonly name: string;
-  readonly type: FieldType;
-  /** True when a row may omit this field. */
-  readonly optional?: boolean;
-  /**
-   * True when the field holds an ORDERED LIST of `type` values (e.g. a
-   * multi-relation like `deps`/`serves`). Promotion emits a Postgres ARRAY
-   * column (`<base>[]`) instead of a lossy scalar, so the cardinality survives
-   * L1→L3 (CMT-1742-014).
-   */
-  readonly array?: boolean;
-  /** Human note (surfaces in describe()/drift reports). */
-  readonly description?: string;
-}
+/**
+ * @deprecated Import `StorageType` from `@marktiderman/genesis-core/schema`.
+ * Same union; it is the field's storage type, beside a separate widget hint.
+ */
+export type FieldType = StorageType;
+
+/** @deprecated Import `FieldSchema` from `@marktiderman/genesis-core/schema`. */
+export type FieldSchema = CoreFieldSchema;
 
 // ---------------------------------------------------------------------
 // PROVIDER — a concrete backing for some/all of a resource. Each provider
@@ -93,32 +101,31 @@ export const PROVIDER_LEVEL: Record<ProviderKind, Level> = {
 //   • its sourceOfTruth Level (the drift baseline),
 //   • (bindings live in the Registry, not here — see Binding below).
 // The app reads this; nothing else knows where data lives.
+//
+// The schema half is core's `ResourceContract`. What the switchboard adds
+// is the Level, and a single-field `key`: Tier C is a field-level JOIN keyed
+// on it, which a composite key does not support yet.
 // ---------------------------------------------------------------------
-export interface ResourceContract<Row extends DataRow = DataRow> {
-  /** Resource name the app addresses, e.g. "tickets". */
-  readonly name: string;
+export interface SwitchboardContract<Row extends CoreDataRow = CoreDataRow>
+  extends CoreResourceContract<Row> {
   /**
    * Identity field name. Tier C is a field-level JOIN keyed on this — every
    * contributing provider MUST surface the same `key` value per row.
-   *
-   * Typed `string` (not `keyof Row & string`) on purpose: `keyof Row` is a
-   * dependent type that TypeScript checks contravariantly, which would make
-   * `ResourceContract<WorkCycleRow>` non-assignable to the erased
-   * `ResourceContract<DataRow>` the adapters/registry accept. The key is
-   * validated against the field schema at runtime instead.
    */
   readonly key: string;
-  readonly fields: readonly FieldSchema[];
   /** Baseline Level for reconciliation/drift. */
   readonly sourceOfTruth: Level;
-  /** Optional doc string (jobs-to-be-done, surfaced in SWITCHBOARD.md). */
-  readonly description?: string;
-  /** Phantom marker so `Row` is inferable from a contract. */
-  readonly __row?: Row;
 }
 
-/** A canonical, provider-agnostic row. Keys are field names from the schema. */
-export type DataRow = Record<string, unknown>;
+/**
+ * @deprecated Use `SwitchboardContract` for a contract bound to a Level, or
+ * `ResourceContract` from `@marktiderman/genesis-core/schema` for the schema
+ * alone (which also allows a composite `key`).
+ */
+export type ResourceContract<Row extends CoreDataRow = CoreDataRow> = SwitchboardContract<Row>;
+
+/** @deprecated Import `DataRow` from `@marktiderman/genesis-core/schema`. */
+export type DataRow = CoreDataRow;
 
 // ---------------------------------------------------------------------
 // BINDINGS — Tier A/B/C declarations attached in the Registry.
@@ -239,7 +246,7 @@ export interface DescribeResult {
   readonly resource: string;
   readonly provider: ProviderKind;
   readonly level: Level;
-  readonly fields: readonly FieldSchema[];
+  readonly fields: readonly CoreFieldSchema[];
 }
 
 // ---------------------------------------------------------------------

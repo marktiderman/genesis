@@ -24,13 +24,14 @@
 // fields (you cannot introspect nothing) — the one documented exception.
 // =====================================================================
 
-import type { DataRow, FieldSchema, FieldType, ResourceContract } from "./types";
+import type { DataRow, FieldSchema, StorageType } from "./core-schema";
+import type { SwitchboardContract } from "./types";
 
 /** ISO-8601-ish date / datetime detector (e.g. 2026-06-25, 2026-06-25T09:48:40Z). */
 const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 
-/** Infer the canonical FieldType (+ array-ness) of a single value. */
-export function inferFieldType(value: unknown): { type: FieldType; array: boolean } {
+/** Infer the canonical StorageType (+ array-ness) of a single value. */
+export function inferFieldType(value: unknown): { type: StorageType; array: boolean } {
   if (Array.isArray(value)) {
     // Element type from the first non-null member; an empty/all-null array is a
     // string[] by default (the safest scalar). `array: true` preserves cardinality.
@@ -40,7 +41,7 @@ export function inferFieldType(value: unknown): { type: FieldType; array: boolea
   return { type: inferScalarType(value), array: false };
 }
 
-function inferScalarType(value: unknown): FieldType {
+function inferScalarType(value: unknown): StorageType {
   switch (typeof value) {
     case "boolean":
       return "boolean";
@@ -66,7 +67,7 @@ function inferScalarType(value: unknown): FieldType {
  */
 export function introspectFields(
   rows: readonly DataRow[],
-  contract?: Pick<ResourceContract, "fields">,
+  contract?: Pick<SwitchboardContract, "fields">,
 ): FieldSchema[] {
   if (rows.length === 0) {
     return (contract?.fields ?? []).map((f) => ({ ...f }));
@@ -76,7 +77,7 @@ export function introspectFields(
 
   // First-appearance order across rows (a stable, deterministic field order).
   const order: string[] = [];
-  const stats = new Map<string, { present: number; inferred?: FieldType; array: boolean }>();
+  const stats = new Map<string, { present: number; inferred?: StorageType; array: boolean }>();
   for (const row of rows) {
     for (const name of Object.keys(row)) {
       let s = stats.get(name);
@@ -100,7 +101,7 @@ export function introspectFields(
   return order.map((name) => {
     const s = stats.get(name)!;
     const d = declared.get(name);
-    let type: FieldType = s.inferred ?? d?.type ?? "string";
+    let type: StorageType = s.inferred ?? d?.type ?? "string";
     // Prefer a contract's MORE-SPECIFIC declared type when data inference fell to
     // the generic "string" (e.g. a relation id, or an ISO-less stored date) — so
     // a known semantic type survives introspection without spurious downgrades.

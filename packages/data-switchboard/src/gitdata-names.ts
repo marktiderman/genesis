@@ -2,7 +2,7 @@
 // Gitdata naming + contracts — browser-safe (no node:fs).
 // =====================================================================
 
-import type { ResourceContract } from "./types";
+import type { SwitchboardContract } from "./types";
 
 /** Stable resource name for a gitdata table — minimum wiring for new tables. */
 export function gitdataResourceName(table: string): string {
@@ -13,7 +13,7 @@ export function gitdataResourceName(table: string): string {
 export function gitdataMdContract(
   resourceName: string,
   opts?: { description?: string; key?: string },
-): ResourceContract {
+): SwitchboardContract {
   return {
     name: resourceName,
     key: opts?.key ?? "id",

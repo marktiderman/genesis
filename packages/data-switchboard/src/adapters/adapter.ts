@@ -8,7 +8,8 @@
 // writable — a read-only provider throws `ReadOnlyAdapterError`.
 // =====================================================================
 
-import type { DataRow, DescribeResult, Level, ProviderKind, QueryOptions, ResourceContract } from "../types";
+import type { DataRow } from "../core-schema";
+import type { DescribeResult, Level, ProviderKind, QueryOptions, SwitchboardContract } from "../types";
 
 /** Thrown by a read-only adapter when a write op is attempted. */
 export class ReadOnlyAdapterError extends Error {
@@ -31,13 +32,13 @@ export interface Adapter {
   readonly level: Level;
 
   /** All rows for a resource (subject to the provider's natural limits). */
-  list(contract: ResourceContract): Promise<DataRow[]>;
+  list(contract: SwitchboardContract): Promise<DataRow[]>;
 
   /** A single row by its identity `key` value, or null if absent. */
-  get(contract: ResourceContract, key: string): Promise<DataRow | null>;
+  get(contract: SwitchboardContract, key: string): Promise<DataRow | null>;
 
   /** Rows matching a provider-agnostic query. */
-  query(contract: ResourceContract, opts: QueryOptions): Promise<DataRow[]>;
+  query(contract: SwitchboardContract, opts: QueryOptions): Promise<DataRow[]>;
 
   /**
    * Live schema for the resource as this provider sees it (drives drift).
@@ -46,12 +47,12 @@ export interface Adapter {
    * consistent and avoids a redundant `select *`. When omitted, the adapter
    * fetches its own snapshot.
    */
-  describe(contract: ResourceContract, rows?: DataRow[]): Promise<DescribeResult>;
+  describe(contract: SwitchboardContract, rows?: DataRow[]): Promise<DescribeResult>;
 
   // -- Writable providers only (else ReadOnlyAdapterError). ------------
-  create?(contract: ResourceContract, row: DataRow): Promise<DataRow>;
-  update?(contract: ResourceContract, key: string, patch: Partial<DataRow>): Promise<DataRow>;
-  delete?(contract: ResourceContract, key: string): Promise<void>;
+  create?(contract: SwitchboardContract, row: DataRow): Promise<DataRow>;
+  update?(contract: SwitchboardContract, key: string, patch: Partial<DataRow>): Promise<DataRow>;
+  delete?(contract: SwitchboardContract, key: string): Promise<void>;
 }
 
 /** Narrow an adapter to its writable surface (or throw a typed error). */

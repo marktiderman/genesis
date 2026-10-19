@@ -31,7 +31,8 @@ import { UnknownResourceError } from "./adapter";
 import type { FetchLike } from "./airtable";
 import { introspectFields } from "../introspect";
 import { markStale, propagateStale } from "../staleness";
-import type { DataRow, DescribeResult, Level, ProviderKind, QueryOptions, ResourceContract } from "../types";
+import type { DataRow } from "../core-schema";
+import type { DescribeResult, Level, ProviderKind, QueryOptions, SwitchboardContract } from "../types";
 
 /** The Notion property types this adapter encodes/decodes. */
 export type NotionPropertyType =
@@ -145,7 +146,7 @@ export class NotionAdapter implements Adapter {
     };
   }
 
-  private map(contract: ResourceContract): NotionResourceMap {
+  private map(contract: SwitchboardContract): NotionResourceMap {
     const m = this.cfg.maps[contract.name];
     if (!m) throw new UnknownResourceError(this.kind, contract.name);
     return m;
@@ -290,7 +291,7 @@ export class NotionAdapter implements Adapter {
     }
   }
 
-  private async fetchAllPages(contract: ResourceContract, map: NotionResourceMap): Promise<DataRow[]> {
+  private async fetchAllPages(contract: SwitchboardContract, map: NotionResourceMap): Promise<DataRow[]> {
     const rows: DataRow[] = [];
     let cursor: string | undefined;
     do {
@@ -307,7 +308,7 @@ export class NotionAdapter implements Adapter {
   }
 
   // -- list with TTL cache + stale-while-error -------------------------
-  private async listFresh(contract: ResourceContract): Promise<DataRow[]> {
+  private async listFresh(contract: SwitchboardContract): Promise<DataRow[]> {
     const map = this.map(contract);
     const now = Date.now();
     const cached = this.cache.get(contract.name);
@@ -344,7 +345,7 @@ export class NotionAdapter implements Adapter {
     }
   }
 
-  async list(contract: ResourceContract): Promise<DataRow[]> {
+  async list(contract: SwitchboardContract): Promise<DataRow[]> {
     const rows = await this.listFresh(contract);
     return propagateStale(
       rows,
@@ -352,13 +353,13 @@ export class NotionAdapter implements Adapter {
     );
   }
 
-  async get(contract: ResourceContract, key: string): Promise<DataRow | null> {
+  async get(contract: SwitchboardContract, key: string): Promise<DataRow | null> {
     const rows = await this.listFresh(contract);
     const hit = rows.find((r) => String(r[contract.key]) === key);
     return hit ? { ...hit } : null;
   }
 
-  async query(contract: ResourceContract, opts: QueryOptions): Promise<DataRow[]> {
+  async query(contract: SwitchboardContract, opts: QueryOptions): Promise<DataRow[]> {
     // Filter client-side off the cached snapshot — keeps the hardened cache /
     // stale path as the single network seam (mirrors the AirtableAdapter).
     const source = await this.listFresh(contract);
@@ -396,7 +397,7 @@ export class NotionAdapter implements Adapter {
     return propagateStale(source, out);
   }
 
-  async describe(contract: ResourceContract, rows?: DataRow[]): Promise<DescribeResult> {
+  async describe(contract: SwitchboardContract, rows?: DataRow[]): Promise<DescribeResult> {
     // INTROSPECT the live pages (WC46.015) — schema from the canonical fields
     // that actually appear, not a static echo. The property map is the
     // translation seam; unmapped Notion properties stay invisible by design. A
@@ -414,7 +415,7 @@ export class NotionAdapter implements Adapter {
     this.cache.delete(resource);
   }
 
-  async create(contract: ResourceContract, row: DataRow): Promise<DataRow> {
+  async create(contract: SwitchboardContract, row: DataRow): Promise<DataRow> {
     const map = this.map(contract);
     const json = (await this.request("pages", {
       method: "POST",
@@ -427,7 +428,7 @@ export class NotionAdapter implements Adapter {
     return this.toCanonical(map, json);
   }
 
-  async update(contract: ResourceContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
+  async update(contract: SwitchboardContract, key: string, patch: Partial<DataRow>): Promise<DataRow> {
     const map = this.map(contract);
     const pageId = await this.resolvePageId(contract, map, key);
     const json = (await this.request(`pages/${pageId}`, {
@@ -438,7 +439,7 @@ export class NotionAdapter implements Adapter {
     return this.toCanonical(map, json);
   }
 
-  async delete(contract: ResourceContract, key: string): Promise<void> {
+  async delete(contract: SwitchboardContract, key: string): Promise<void> {
     const map = this.map(contract);
     const pageId = await this.resolvePageId(contract, map, key);
     // Notion has no hard delete — ARCHIVE the page (reversible in the UI).
@@ -447,7 +448,7 @@ export class NotionAdapter implements Adapter {
   }
 
   /** Map a canonical `key` value back to its Notion page id. */
-  private async resolvePageId(contract: ResourceContract, map: NotionResourceMap, key: string): Promise<string> {
+  private async resolvePageId(contract: SwitchboardContract, map: NotionResourceMap, key: string): Promise<string> {
     const idField = map.idField ?? "id";
     if (contract.key === idField) return key; // identity IS the page id.
     const rows = await this.listFresh(contract);
