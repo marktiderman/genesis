@@ -5,6 +5,9 @@
   before proposing a new component.
 - [`component-reference.md`](./component-reference.md) — auto-generated catalogue of every
   export across every package. Regenerate with `pnpm gen:component-reference`.
+- [`DATA-STUDIO.md`](./DATA-STUDIO.md): proposal for an Airtable-style data workspace built on the
+  data-bound layer. It covers the server handler that acts as the user, the generated schema contract,
+  write safety, the roadmap, and the decisions still open.
 - [`MIGRATION.md`](./MIGRATION.md) — per-version migration notes. Appended to at every
   release; newest on top.
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — setup, branch/PR flow, changesets, gates.

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18",
+  "generatedAt": "2026-10-19",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -5196,7 +5196,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "Current path used to highlight the active nav item. Router consumers pass\n`useLocation().pathname` (RR) or `usePathname()` (Next). Omit to disable\nactive highlighting."
+              "description": "Current location used to highlight the active nav item. Pass the full\nlocation, `pathname + search + hash` (React Router: `useLocation()`), so\nitems whose `to` names a query or hash (`/admin?tab=users`) can become\nactive. A pathname alone still works for path-only items, `end` included.\nOmit to disable active highlighting."
             },
             {
               "name": "appLogo",

@@ -23,14 +23,14 @@ const RouterLink: LinkComponent = ({ href, testID, ...props }) => (
 );
 
 export default function Layout() {
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
   return (
     <AppShell
       appName="Genesis Showcase"
       appLogo="G"
       navItems={navItems}
       linkComponent={RouterLink}
-      activePath={pathname}
+      activePath={`${pathname}${search}${hash}`}
     >
       <Outlet />
     </AppShell>
