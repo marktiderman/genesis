@@ -13,7 +13,10 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o storybook-static",
     "chromatic": "chromatic --project-token=$CHROMATIC_PROJECT_TOKEN --build-script-name=build-storybook --exit-zero-on-changes",
-    "studio:db": "node studio/setup-db.mjs"
+    "studio:db": "node studio/setup-db.mjs",
+    "studio:supabase": "cd studio/supabase-demo && supabase start && node seed.mjs",
+    "studio:adopt": "node studio/supabase-demo/adopt.mjs",
+    "dev:supabase": "react-router dev --mode supabase"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
