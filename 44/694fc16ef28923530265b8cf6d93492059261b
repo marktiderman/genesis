@@ -1,0 +1,25 @@
+.npmrc
+  s_06b71c929ad9e0::t_cda50d42ee2118 9-10
+docs/RELEASING.md
+  s_06b71c929ad9e0::t_985d76090c6bd2 1-66
+.github/workflows/release.yml
+  s_06b71c929ad9e0::t_cda50d42ee2118 21-27,142-145,258
+.changeset/trusted-publishing-env.md
+  s_06b71c929ad9e0::t_bd73e264b8f107 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "44694fc16ef28923530265b8cf6d93492059261b",
+  "prompts": {},
+  "sessions": {
+    "s_06b71c929ad9e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d875784a-2ec4-4b04-b784-0ea60dbee0ac",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
