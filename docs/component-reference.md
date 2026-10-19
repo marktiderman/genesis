@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 125 components · 359 other exports · 198 standalone types across 7 packages.
+**Totals:** 125 components · 359 other exports · 204 standalone types across 7 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -55,7 +55,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
 
-### Types (54)
+### Types (58)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -63,6 +63,8 @@ Type-only exports not consumed as a component's `Props`.
 export type { ArrayFilter };
 export type { AuditEntry };
 export type { BaseRecord };
+export type { BulkChange };
+export type { BulkResult };
 export type { CreateParams };
 export type { CreateResult };
 export type { DataProvider };
@@ -82,6 +84,7 @@ export type { GetOneParams };
 export type { GetOneResult };
 export type { HistoryParams };
 export type { Identifier };
+export type { ImportParams };
 export type { ListParams };
 export type { ListResult };
 export type { MockProviderOptions };
@@ -95,6 +98,7 @@ export type { ResourceFormFieldDef };
 export type { ResourceRelation };
 export type { ResourceSchema };
 export type { ResourceSummary };
+export type { RowFailure };
 export type { ScalarFilter };
 export type { SelectOption };
 export type { SortParam };
@@ -833,7 +837,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`studioSetupSql`](../packages/studio-server/src/setup-sql.ts) | function | — | SQL that installs the tamper-proof audit trail: |
 | [`supabaseAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
 
-### Types (36)
+### Types (38)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -842,6 +846,7 @@ export type { AuditSink };
 export type { Authorize };
 export type { AuthorizeContext };
 export type { AuthorizeDecision };
+export type { BulkResponse };
 export type { ByResourceOptions };
 export type { CreateResponse };
 export type { DeadLetter };
@@ -873,6 +878,7 @@ export type { StudioHandlerOptions };
 export type { StudioRequest };
 export type { StudioRow };
 export type { SupabaseAuthOptions };
+export type { UndoResponse };
 export type { UpdateResponse };
 ```
 

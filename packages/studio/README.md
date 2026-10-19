@@ -8,7 +8,15 @@ version of the row it was read at and committed with its audit entry, and the ou
 Built on genesis-ui's `ResourcePage` and `DataTable` (DATA-STUDIO.md decision 21). Routing and URL
 state come from your app through an adapter (decision 23), and sign-in fills a slot.
 
-**Status: 0.2, Experimental.** P1 scope:
+**Status: 0.3, Experimental.** P2 adds:
+- the **sheet view**, with keyboard editing and copy and paste;
+- multi-row pastes saved in one transaction;
+- **undo** from the audit;
+- **bulk** set and delete;
+- **CSV import** with a dry run;
+- code-configured **form sections and conditions** (`forms`).
+
+From P1:
 - the sheet grid, with in-place edits;
 - a record pop-up with a schema-built form, related records, history and delete;
 - adding rows, and relation pickers;
@@ -53,6 +61,7 @@ Tailwind v4 needs to see the studio's classes:
 | `router` | `{ location, navigate }`. `createSearchParamsRouter` adapts React Router or Next.js; `useHistoryRouter` works without a router; `useMemoryRouter` for tests. URL keys: `table`, `page`, `sort`, `q`, `filter`, `group`, `record`. |
 | `signIn` | Rendered instead of the studio while the provider reports nobody signed in. |
 | `sessionKey` | The signed-in user's id. When it changes, everything loaded for the previous user is dropped. |
+| `forms` | Per `schema.table`: `{ sections: [{ title, fields }], visibleWhen: { field: (values) => boolean } }`. |
 | `title`, `perPage`, `className` | Presentation. |
 
 ## What it does
@@ -63,12 +72,21 @@ Tailwind v4 needs to see the studio's classes:
   - **Related:** records this one links to and from.
   - **History:** the record's audit trail.
 
-  The URL names the record (`?record=…`), so **Copy link** shares it.
+  The URL names the record (`?record=…`), so **Copy link** shares it. History entries
+  have an **Undo** button.
 - **New row** opens a form of only the fields the user may set.
 - **Filter, Sort, Group** run on the server and live in the URL. **Views** saves them, with
   search and visible columns, per table.
 - **Export CSV** pages through every matching row, up to 10 000. Cells a spreadsheet would run
   as formulas are neutralised.
+- **Sheet view** (Table | Sheet, `?view=sheet`): arrows, Tab and Shift+arrows move and select;
+  Enter, F2 or typing edits; Delete clears; Cmd/Ctrl+C and Cmd/Ctrl+V copy and paste with Sheets
+  and Excel. A paste across rows is **one transaction**: every row changes at the version you
+  see, or none does, and the failing cells are marked. **Cmd/Ctrl+Z** undoes your latest
+  change from its audit entry.
+- **Select rows** to set a field on all of them, or delete them: all or none.
+- **Import CSV:** map the file's columns, **Check rows** (a dry run against the database that
+  lists every row that won't import, and why), then **Import**, in one transaction.
 - **Link cells** show the linked row's label (one query per linked table per page). Links are
   edited in the record form, with a picker that searches on the server.
 

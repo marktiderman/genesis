@@ -10,6 +10,7 @@ import { Label } from "@marktiderman/genesis-ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { formSchema, fromFormValue, isRequired, toFormValues, type FormValues } from "../lib/form-schema";
+import { sectionFields, type StudioFormConfig } from "../lib/form-config";
 import { choicesFor } from "../values";
 import { RelationPicker } from "./RelationPicker";
 
@@ -29,6 +30,8 @@ export interface RecordFormProps {
   onSubmit: (values: Record<string, unknown>) => Promise<void>;
   submitLabel: string;
   onCancel?: () => void;
+  /** Sections and conditional fields for this resource. */
+  config?: StudioFormConfig;
 }
 
 /**
@@ -36,8 +39,9 @@ export interface RecordFormProps {
  * validation from the schema (required, numbers, dates, enums, JSON), and
  * read-only fields shown with the reason they can't be changed.
  */
-export function RecordForm({ provider, sessionKey, mode, fields, editable, row, onSubmit, submitLabel, onCancel }: RecordFormProps) {
+export function RecordForm({ provider, sessionKey, mode, fields, editable, row, onSubmit, submitLabel, onCancel, config }: RecordFormProps) {
   const writable = useMemo(() => fields.filter((f) => editable.has(f.name)), [fields, editable]);
+  const sections = useMemo(() => sectionFields(fields, config), [fields, config]);
   // The schema is built at runtime from the fields, so its inferred type is
   // only known to be FormValues by construction.
   const resolver = useMemo(
@@ -47,6 +51,11 @@ export function RecordForm({ provider, sessionKey, mode, fields, editable, row, 
   const defaults = useMemo(() => toFormValues(fields, row), [fields, row]);
   const form = useForm<FormValues>({ resolver, defaultValues: defaults });
   const [error, setError] = useState<string | null>(null);
+  const values = form.watch();
+  const isVisible = (name: string) => {
+    const rule = config?.visibleWhen?.[name];
+    return rule ? rule(values as Record<string, unknown>) : true;
+  };
 
   // A save (or someone else's change) brings a new row: start from it.
   useEffect(() => {
@@ -57,6 +66,8 @@ export function RecordForm({ provider, sessionKey, mode, fields, editable, row, 
     setError(null);
     const out: Record<string, unknown> = {};
     for (const field of writable) {
+      // A field the config hides is left out of the save.
+      if (!isVisible(field.name)) continue;
       const value = values[field.name];
       if (value === undefined) continue;
       if (mode === "edit" && value === defaults[field.name]) continue;
@@ -73,7 +84,10 @@ export function RecordForm({ provider, sessionKey, mode, fields, editable, row, 
 
   return (
     <form onSubmit={submit} className="space-y-4" noValidate data-testid={`studio-record-form-${mode}`}>
-      {fields.map((field) => {
+      {sections.map((section) => (
+        <fieldset key={section.title ?? "fields"} className="space-y-4">
+          {section.title && <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</legend>}
+      {section.fields.filter((field) => isVisible(field.name)).map((field) => {
         const id = `studio-field-${field.name}`;
         const canEdit = editable.has(field.name);
         const fieldError = form.formState.errors[field.name]?.message;
@@ -172,6 +186,8 @@ export function RecordForm({ provider, sessionKey, mode, fields, editable, row, 
           </div>
         );
       })}
+        </fieldset>
+      ))}
       {error && (
         <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-2 text-sm text-destructive" data-testid="studio-form-error">
           {error}

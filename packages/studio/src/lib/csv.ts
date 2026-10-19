@@ -57,6 +57,46 @@ export async function exportCsv(options: ExportOptions): Promise<{ csv: string; 
   return { csv: toCsv(options.fields, rows), rows: rows.length, truncated };
 }
 
+/**
+ * Parse CSV text (RFC 4180: quoted fields, doubled quotes, CRLF or LF) into
+ * a header and rows. A cell is always text: nothing is guessed or coerced,
+ * so the database decides whether "1,5" is a number.
+ */
+export function parseCsv(text: string): { header: string[]; rows: string[][] } {
+  const records: string[][] = [];
+  let record: string[] = [];
+  let field = "";
+  let quoted = false;
+  const input = text.replace(/^\uFEFF/, "");
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i]!;
+    if (quoted) {
+      if (ch === '"' && input[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else field += ch;
+    } else if (ch === '"' && field === "") quoted = true;
+    else if (ch === ",") {
+      record.push(field);
+      field = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && input[i + 1] === "\n") i++;
+      record.push(field);
+      records.push(record);
+      record = [];
+      field = "";
+    } else field += ch;
+  }
+  if (field !== "" || record.length) {
+    record.push(field);
+    records.push(record);
+  }
+  const nonEmpty = records.filter((r) => r.some((v) => v !== ""));
+  const [header = [], ...rows] = nonEmpty;
+  return { header: header.map((h) => h.trim()), rows };
+}
+
 /** Hand the browser a file to save. */
 export function downloadText(filename: string, text: string, type = "text/csv;charset=utf-8"): void {
   const url = URL.createObjectURL(new Blob([text], { type }));

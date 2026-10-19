@@ -1,0 +1,285 @@
+/**
+ * DataStudio P2: the sheet view (a multi-row paste saved in ONE transaction,
+ * with failing cells marked), undo from the audit, bulk set and delete, CSV
+ * import with a dry run, and code-configured form sections and conditions.
+ */
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type { BaseRecord, BulkChange, DataProvider, ListParams } from "@marktiderman/genesis-core/provider";
+import { type AuditEntry, type ResourceSchema } from "@marktiderman/genesis-core/schema";
+import { DataStudio } from "../DataStudio";
+import { useMemoryRouter, type StudioLocation } from "../router";
+import type { StudioFormConfig } from "../lib/form-config";
+
+type Row = Record<string, unknown>;
+
+const CLIENTS: ResourceSchema = {
+  name: "public.clients",
+  label: "Clients",
+  key: "id",
+  labelField: "name",
+  version: { field: "updated_at", kind: "timestamp" },
+  access: { read: true, update: true, create: true, delete: true, history: true },
+  createFields: ["name", "status", "notes"],
+  fields: [
+    { name: "id", type: "string", permissions: { read: true, update: false, reason: "Key fields can't be edited." } },
+    { name: "name", type: "string", nullable: false, permissions: { read: true, update: true } },
+    { name: "status", type: "string", enumValues: ["active", "paused", "done"], nullable: false, hasDefault: true, permissions: { read: true, update: true } },
+    { name: "notes", type: "string", nullable: true, permissions: { read: true, update: true } },
+    { name: "updated_at", type: "datetime", permissions: { read: true, update: false } },
+  ],
+};
+
+function makeProvider() {
+  let n = 1;
+  const db: Row[] = [
+    { id: "c1", name: "Ana Ruiz", status: "active", notes: "", updated_at: "v1" },
+    { id: "c2", name: "Ben Ode", status: "paused", notes: "x", updated_at: "v1" },
+    { id: "c3", name: "Cy Lam", status: "active", notes: "", updated_at: "v1" },
+  ];
+  const calls: Array<{ op: string; args: any }> = [];
+  const audits: AuditEntry[] = [];
+  const audit = (key: Row, before: Row, after: Row): AuditEntry => {
+    const e = { id: `00000000-0000-4000-8000-00000000000${n++}`, occurredAt: "t", actor: "me", resource: CLIENTS.name, key, action: "update" as const, before, after };
+    audits.push(e);
+    return e;
+  };
+  let failBulkIndex: number | null = null;
+  const provider: DataProvider = {
+    async listResources() {
+      return [{ name: CLIENTS.name, label: "Clients", access: CLIENTS.access }];
+    },
+    async describe() {
+      return CLIENTS;
+    },
+    async capabilities() {
+      return { search: true, sort: true, filterOperators: ["eq"], bulkWrites: true, versionedWrites: true, compositeKeys: true, multiSort: true, create: true, delete: true, history: true, import: true, undo: true };
+    },
+    async getList<T extends BaseRecord>(_r: string, params: ListParams) {
+      const { page = 1, perPage = 25 } = params.pagination ?? {};
+      return { data: db.slice((page - 1) * perPage, page * perPage).map((r) => ({ ...r })) as unknown as T[], total: db.length };
+    },
+    async getOne<T extends BaseRecord>(_r: string, { id }: { id: unknown }) {
+      return { data: { ...db.find((r) => r.id === id)! } as unknown as T };
+    },
+    async getMany() {
+      return { data: [] };
+    },
+    async update<T extends BaseRecord>(_r: string, params: { id: unknown; data: Row; expectedVersion?: string | null }) {
+      calls.push({ op: "update", args: params });
+      const row = db.find((r) => r.id === params.id)!;
+      const before = Object.fromEntries(Object.keys(params.data).map((k) => [k, row[k]]));
+      Object.assign(row, params.data, { updated_at: `v${n++}` });
+      return { data: { ...row } as unknown as T, audit: audit({ id: row.id }, before, params.data) };
+    },
+    async updateMany(_r: string, { changes }: { changes: BulkChange[] }) {
+      calls.push({ op: "updateMany", args: changes });
+      if (failBulkIndex !== null) {
+        return { ok: false, count: 0, failures: [{ index: failBulkIndex, id: changes[failBulkIndex]!.id, outcome: "conflict", message: "Not saved: someone else changed this row." }] };
+      }
+      const entries = changes.map((c) => {
+        const row = db.find((r) => r.id === c.id)!;
+        const before = Object.fromEntries(Object.keys(c.data).map((k) => [k, row[k]]));
+        Object.assign(row, c.data, { updated_at: `v${n++}` });
+        return audit({ id: row.id }, before, c.data);
+      });
+      return { ok: true, count: changes.length, audit: entries };
+    },
+    async deleteMany(_r: string, { items }: { items: { id: unknown }[] }) {
+      calls.push({ op: "deleteMany", args: items });
+      for (const item of items) db.splice(db.findIndex((r) => r.id === item.id), 1);
+      return { ok: true, count: items.length };
+    },
+    async importRows(_r: string, params: { rows: Row[]; dryRun: boolean }) {
+      calls.push({ op: params.dryRun ? "importDryRun" : "import", args: params.rows });
+      const failures = params.rows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => row.status && !["active", "paused", "done"].includes(String(row.status)))
+        .map(({ index }) => ({ index, outcome: "invalid", message: 'Not saved: new row violates check constraint "clients_status_check".' }));
+      if (params.dryRun) return { ok: failures.length === 0, count: params.rows.length - failures.length, failures };
+      if (failures.length) return { ok: false, count: 0, failures };
+      params.rows.forEach((row) => db.push({ id: `c${n++}`, status: "active", notes: "", updated_at: "v1", ...row }));
+      return { ok: true, count: params.rows.length };
+    },
+    async undo(_r: string, { auditId }: { auditId: string }) {
+      calls.push({ op: "undo", args: auditId });
+      const entry = audits.find((a) => a.id === auditId)!;
+      Object.assign(db.find((r) => r.id === entry.key.id)!, entry.before);
+      return {};
+    },
+    async history() {
+      return [...audits].reverse();
+    },
+    create: async () => {
+      throw new Error("no");
+    },
+    deleteOne: async () => {
+      throw new Error("no");
+    },
+  } as unknown as DataProvider;
+  return { provider, db, calls, failNextBulkAt: (i: number | null) => (failBulkIndex = i) };
+}
+
+function Harness({ provider, initial, forms }: { provider: DataProvider; initial?: StudioLocation; forms?: Record<string, StudioFormConfig> }) {
+  const router = useMemoryRouter(initial);
+  return <DataStudio provider={provider} router={router} forms={forms} />;
+}
+
+beforeAll(() => {
+  // The sheet grid virtualizes rows; give happy-dom a viewport to lay out in.
+  Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get: () => 520 });
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get: () => 1024 });
+  HTMLElement.prototype.getBoundingClientRect = () =>
+    ({ x: 0, y: 0, top: 0, left: 0, bottom: 520, right: 1024, width: 1024, height: 520, toJSON: () => ({}) }) as DOMRect;
+});
+beforeEach(() => localStorage.clear());
+
+async function openSheet(provider: DataProvider) {
+  render(<Harness provider={provider} initial={{ resource: "public.clients", view: "sheet" }} />);
+  return screen.findByRole("grid", { name: "Clients sheet" });
+}
+
+describe("DataStudio P2", () => {
+  it("saves a multi-row paste in one bulk transaction, at each row's version", async () => {
+    const { provider, calls, db } = makeProvider();
+    const grid = await openSheet(provider);
+    await waitFor(() => expect(within(grid).getByText("Ana Ruiz")).toBeTruthy());
+    fireEvent.keyDown(grid, { key: "ArrowRight" }); // name column
+    await act(async () => {
+      fireEvent.paste(grid, { clipboardData: { getData: () => "Ana R\tpaused\nBen O\tdone\n" } });
+    });
+    await waitFor(() => expect(calls.find((c) => c.op === "updateMany")).toBeTruthy());
+    expect(calls.find((c) => c.op === "updateMany")!.args).toEqual([
+      { id: "c1", data: { name: "Ana R", status: "paused" }, expectedVersion: "v1" },
+      { id: "c2", data: { name: "Ben O", status: "done" }, expectedVersion: "v1" },
+    ]);
+    expect(db.slice(0, 2).map((r) => r.status)).toEqual(["paused", "done"]);
+    expect(await screen.findByText("Saved 2 rows in one transaction.")).toBeTruthy();
+  });
+
+  it("marks the failing row's cells and keeps everything when a bulk paste is refused", async () => {
+    const { provider, failNextBulkAt, db } = makeProvider();
+    failNextBulkAt(1);
+    const grid = await openSheet(provider);
+    await waitFor(() => expect(within(grid).getByText("Ana Ruiz")).toBeTruthy());
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    await act(async () => {
+      fireEvent.paste(grid, { clipboardData: { getData: () => "Ana R\nBen O\n" } });
+    });
+    await waitFor(() => expect(within(grid).getAllByRole("gridcell").some((c) => c.getAttribute("aria-invalid") === "true")).toBe(true));
+    const invalid = within(grid).getAllByRole("gridcell").filter((c) => c.getAttribute("aria-invalid") === "true");
+    expect(invalid).toHaveLength(1);
+    expect(invalid[0]!.getAttribute("title")).toMatch(/someone else changed/);
+    expect(db.map((r) => r.name)).toEqual(["Ana Ruiz", "Ben Ode", "Cy Lam"]);
+    expect((await screen.findByTestId("studio-activity-not_saved")).textContent).toMatch(/Nothing was saved: 1 of 2 rows failed/);
+  });
+
+  it("undoes the latest change with Ctrl+Z in the sheet, from its audit entry", async () => {
+    const { provider, calls, db } = makeProvider();
+    const grid = await openSheet(provider);
+    await waitFor(() => expect(within(grid).getByText("Cy Lam")).toBeTruthy());
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    fireEvent.keyDown(grid, { key: "ArrowDown" });
+    fireEvent.keyDown(grid, { key: "ArrowDown" });
+    fireEvent.keyDown(grid, { key: "Q" });
+    const input = screen.getByLabelText("name, row 3");
+    fireEvent.change(input, { target: { value: "Quinn" } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    await waitFor(() => expect(db[2]!.name).toBe("Quinn"));
+    await act(async () => {
+      fireEvent.keyDown(grid, { key: "z", ctrlKey: true });
+    });
+    await waitFor(() => expect(calls.find((c) => c.op === "undo")).toBeTruthy());
+    expect(db[2]!.name).toBe("Cy Lam");
+    expect(await screen.findByText("Undone, with its own audit entry.")).toBeTruthy();
+  });
+
+  it("sets one field on the selected rows, all in one transaction", async () => {
+    const { provider, calls } = makeProvider();
+    render(<Harness provider={provider} initial={{ resource: "public.clients" }} />);
+    await screen.findByText("Ana Ruiz");
+    const boxes = screen.getAllByRole("checkbox");
+    fireEvent.click(boxes[1]!);
+    fireEvent.click(boxes[3]!);
+    fireEvent.click(screen.getByTestId("studio-bulk-set"));
+    const dialog = await screen.findByTestId("studio-bulk-edit");
+    fireEvent.change(within(dialog).getByLabelText("New value"), { target: { value: "Bulk note" } });
+    // Field defaults to the first editable one (name); pick notes.
+    fireEvent.click(within(dialog).getByLabelText("Field"));
+    fireEvent.click(await screen.findByRole("option", { name: "notes" }));
+    fireEvent.change(within(dialog).getByLabelText("New value"), { target: { value: "Bulk note" } });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByTestId("studio-bulk-apply"));
+    });
+    await waitFor(() => expect(calls.find((c) => c.op === "updateMany")).toBeTruthy());
+    expect(calls.find((c) => c.op === "updateMany")!.args).toEqual([
+      { id: "c1", data: { notes: "Bulk note" }, expectedVersion: "v1" },
+      { id: "c3", data: { notes: "Bulk note" }, expectedVersion: "v1" },
+    ]);
+  });
+
+  it("deletes the selected rows together after confirming", async () => {
+    const { provider, calls, db } = makeProvider();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<Harness provider={provider} initial={{ resource: "public.clients" }} />);
+    await screen.findByText("Ana Ruiz");
+    fireEvent.click(screen.getAllByRole("checkbox")[2]!);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("studio-bulk-delete"));
+    });
+    await waitFor(() => expect(calls.find((c) => c.op === "deleteMany")).toBeTruthy());
+    expect(calls.find((c) => c.op === "deleteMany")!.args).toEqual([{ id: "c2", expectedVersion: "v1" }]);
+    expect(db.map((r) => r.id)).toEqual(["c1", "c3"]);
+    confirm.mockRestore();
+  });
+
+  it("imports a CSV: maps columns, lists failing rows on a dry run, then imports", async () => {
+    const { provider, calls, db } = makeProvider();
+    render(<Harness provider={provider} initial={{ resource: "public.clients" }} />);
+    await screen.findByText("Ana Ruiz");
+    fireEvent.click(screen.getByTestId("studio-import"));
+    const dialog = await screen.findByTestId("studio-import-dialog");
+    const file = new File(['name,status,ignored\n"Dee, Park",active,x\nEli,bogus,y\n'], "clients.csv", { type: "text/csv" });
+    await act(async () => {
+      fireEvent.change(within(dialog).getByTestId("studio-import-file"), { target: { files: [file] } });
+    });
+    await within(dialog).findByText(/clients\.csv: 2 rows, 3 columns/);
+    await act(async () => {
+      fireEvent.click(within(dialog).getByTestId("studio-import-check-button"));
+    });
+    const check = await within(dialog).findByTestId("studio-import-check");
+    expect(check.textContent).toMatch(/1 of 2 rows won't import/);
+    expect(check.textContent).toMatch(/Row 3: .*check constraint/);
+    expect(calls[0]).toEqual({ op: "importDryRun", args: [{ name: "Dee, Park", status: "active" }, { name: "Eli", status: "bogus" }] });
+    expect((within(dialog).getByTestId("studio-import-commit") as HTMLButtonElement).disabled).toBe(true);
+    expect(db).toHaveLength(3);
+  });
+
+  it("lays out the record form in configured sections, with a conditional field", async () => {
+    const { provider } = makeProvider();
+    const forms: Record<string, StudioFormConfig> = {
+      "public.clients": {
+        sections: [{ title: "Who", fields: ["name"] }, { title: "Status", fields: ["status", "notes"] }],
+        visibleWhen: { notes: (values) => values.status === "paused" },
+      },
+    };
+    render(<Harness provider={provider} initial={{ resource: "public.clients", record: "c1" }} forms={forms} />);
+    const panel = await screen.findByTestId("studio-record-panel");
+    await within(panel).findByLabelText(/^name/);
+    const legends = within(panel).getAllByText(/^(Who|Status|Other)$/).map((el) => el.textContent);
+    expect(legends).toEqual(["Who", "Status", "Other"]);
+    expect(within(panel).queryByLabelText(/^notes/)).toBeNull(); // Ana is active
+  });
+
+  it("shows a conditional field when its condition holds", async () => {
+    const { provider } = makeProvider();
+    const forms: Record<string, StudioFormConfig> = {
+      "public.clients": { visibleWhen: { notes: (values) => values.status === "paused" } },
+    };
+    render(<Harness provider={provider} initial={{ resource: "public.clients", record: "c2" }} forms={forms} />);
+    const panel = await screen.findByTestId("studio-record-panel");
+    expect(await within(panel).findByLabelText(/^notes/)).toBeTruthy(); // Ben is paused
+  });
+});

@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@marktiderman/genesis-
 import { singleKey, useSchema } from "../lib/relations";
 import { displayText } from "../values";
 import { RecordForm } from "./RecordForm";
+import type { StudioFormConfig } from "../lib/form-config";
 
 export interface RecordPanelProps {
   provider: DataProvider;
@@ -40,6 +41,10 @@ export interface RecordPanelProps {
   onSaved: (row: Record<string, unknown>, audit?: AuditEntry) => void;
   onDeleted: (audit?: AuditEntry) => void;
   onFailed: (action: string, message: string) => void;
+  /** A change from the History tab was undone. */
+  onUndone?: (audit?: AuditEntry) => void;
+  /** Sections and conditional fields for the form. */
+  formConfig?: StudioFormConfig;
 }
 
 function versionOf(schema: ResourceSchema, row: Record<string, unknown> | undefined): string | null {
@@ -192,6 +197,7 @@ export function RecordPanel(props: RecordPanelProps) {
                   row={row}
                   onSubmit={save}
                   submitLabel="Save changes"
+                  config={props.formConfig}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">Loading…</p>
@@ -215,7 +221,16 @@ export function RecordPanel(props: RecordPanelProps) {
             )}
             {schema.access.history && (
               <TabsContent value="history" className="pt-2">
-                <History provider={provider} sessionKey={sessionKey} resource={schema.name} id={id} />
+                <History
+                  provider={provider}
+                  sessionKey={sessionKey}
+                  resource={schema.name}
+                  id={id}
+                  onUndone={(audit) => {
+                    void record.refetch();
+                    props.onUndone?.(audit);
+                  }}
+                />
               </TabsContent>
             )}
           </Tabs>
@@ -315,7 +330,20 @@ function RelatedSection({
   );
 }
 
-function History({ provider, sessionKey, resource, id }: { provider: DataProvider; sessionKey: unknown; resource: string; id: string }) {
+function History({
+  provider,
+  sessionKey,
+  resource,
+  id,
+  onUndone,
+}: {
+  provider: DataProvider;
+  sessionKey: unknown;
+  resource: string;
+  id: string;
+  onUndone: (audit?: AuditEntry) => void;
+}) {
+  const [undoError, setUndoError] = useState<string | null>(null);
   const history = useQuery({
     queryKey: ["genesis-studio", sessionKey, "history", resource, id],
     enabled: Boolean(provider.history),
@@ -331,7 +359,24 @@ function History({ provider, sessionKey, resource, id }: { provider: DataProvide
     );
   }
   if (!history.data?.length) return <p className="text-xs text-muted-foreground">No audited changes yet.</p>;
+  async function undo(entry: AuditEntry) {
+    setUndoError(null);
+    try {
+      const result = await provider.undo!(resource, { auditId: entry.id });
+      void history.refetch();
+      onUndone(result.audit);
+    } catch (error) {
+      setUndoError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   return (
+    <>
+    {undoError && (
+      <p role="alert" className="mb-2 text-xs text-destructive" data-testid="studio-undo-error">
+        {undoError}
+      </p>
+    )}
     <ol className="space-y-2" data-testid="studio-history">
       {history.data.map((entry) => {
         const fields = [...new Set([...Object.keys(entry.before ?? {}), ...Object.keys(entry.after ?? {})])];
@@ -341,6 +386,17 @@ function History({ provider, sessionKey, resource, id }: { provider: DataProvide
               <span className="font-medium capitalize">{entry.action}</span>
               <span className="text-muted-foreground">by {entry.actor ?? "unknown"}</span>
               <time className="ml-auto text-muted-foreground">{entry.occurredAt}</time>
+              {provider.undo && (
+                <button
+                  type="button"
+                  className="rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                  onClick={() => void undo(entry)}
+                  title="Put this change back. Refused if the row has changed since."
+                  data-testid="studio-history-undo"
+                >
+                  Undo
+                </button>
+              )}
             </div>
             <div className="mt-1 font-mono text-[11px]">
               {fields.map((field) => (
@@ -353,5 +409,6 @@ function History({ provider, sessionKey, resource, id }: { provider: DataProvide
         );
       })}
     </ol>
+    </>
   );
 }

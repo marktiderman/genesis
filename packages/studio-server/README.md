@@ -16,7 +16,10 @@ It is the only Genesis package that touches a database credential. The browser h
 - **Rule-bearing writes:** routed through the app's own database functions.
 - **Outbox delivery:** audit entries can also go to an external log.
 
-Bulk edits, imports and undo come in P2.
+- **P2:**
+  - exact bulk updates and deletes (all or none);
+  - CSV import with a dry run, checked by the database itself;
+  - undo of your own changes, from the audit.
 
 ## What every request does
 
@@ -134,6 +137,24 @@ can reach the table through PostgREST, revoke the column there too:
     (`resources[name].auditTrigger`); it must fire on every update, or the table stays read-only.
   - `{ sink: "outbox" }` — as `table`, and the entry is also queued in `genesis_studio.outbox`
     in the same transaction, for `createOutboxWorker` to deliver (below).
+
+## Bulk writes, imports and undo
+
+- **`updateMany` and `deleteMany`** take explicit ids and run in **one transaction**. Each row is
+  version-checked in its own savepoint, so every failure is collected. Then either every row is
+  kept or none is, so access rules can't quietly skip rows. Up to 500 rows.
+- **`import`** inserts each row for real, in its own savepoint, so the database itself checks
+  every value, constraint and row rule. With `dryRun` (the default) everything rolls back and the
+  response lists every row that would fail, with the database's reason. Without it, all rows
+  commit together or none do. Nothing is coerced: a value that won't convert is a failure, never
+  a null. Up to 5000 rows.
+- **`undo`** makes a compensating write from an audit entry, and audits it too:
+  - an edit's fields are put back;
+  - an added row is removed;
+  - a deleted row is restored with its own key, or refused.
+
+  It works after the tab is closed, but only for the user's own changes, and only while the row
+  still looks the way that change left it. Undoing over a later edit would silently lose that edit.
 
 ## Rule-bearing writes
 

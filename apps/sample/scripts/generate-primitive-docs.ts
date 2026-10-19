@@ -246,6 +246,9 @@ function deriveWebSubpath(filePath: string): string {
     return "@marktiderman/genesis-ui/layout";
   if (rel.startsWith("hooks/")) return "@marktiderman/genesis-ui/hooks";
   if (rel.startsWith("provider/")) return "@marktiderman/genesis-ui/provider";
+  // Experimental grid on its own subpath, kept out of the root and /data so
+  // nobody else inherits its @tanstack/react-virtual peer.
+  if (rel.startsWith("components/sheet-grid/")) return "@marktiderman/genesis-ui/sheet-grid";
   return "@marktiderman/genesis-ui";
 }
 
