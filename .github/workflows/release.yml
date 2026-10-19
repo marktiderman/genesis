@@ -3,6 +3,10 @@ name: Release
 on:
   push:
     branches: [main]
+  # Re-run a publish without a new commit, e.g. after fixing a Trusted
+  # Publisher on npmjs.com. With no pending changesets, changesets/action
+  # publishes every local version not yet on npm, which is exactly the retry.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -116,6 +120,19 @@ jobs:
       # organization `marktiderman`, repository `genesis`, workflow
       # `release.yml`, environment BLANK. Only an npm account owner can set it.
       #
+      # RE-MEASURED 2026-10-19 on run 39261411711 (same exchange, from this
+      # file, claims: repository marktiderman/genesis, workflow_ref
+      # .github/workflows/release.yml, environment null): IDENTICAL result —
+      # genesis-cli 201, the other six 404 "OIDC token exchange error - package
+      # not found" — although `npm trust list` shows the same config on all
+      # seven. The claims do not vary per package; only npm's per-package trust
+      # state does. pnpm 11 and npm 11.21 both attempt the exchange correctly
+      # (`[WARN] Skipped OIDC: ... 404` / `npm verbose oidc Failed token
+      # exchange`), then fall back to an UNAUTHENTICATED PUT, which npm answers
+      # with E404. changesets swallows pnpm's warning, so all the log ever shows
+      # is that E404. The "Verify npm Trusted Publishing" step below now
+      # surfaces the real cause before any PUT.
+      #
       # The probe step that measured this is deleted. It printed the exchange
       # response body on any status other than 200, and a 201 body holds a
       # short-lived publish token, so the step leaked one into the run log.
@@ -165,6 +182,45 @@ jobs:
       # fixes. `changeset publish` already resolves to `pnpm publish`
       # per-package here (see the block above), so this line was never the
       # defect; the guard above is what actually protects the registry.
+      # Fails loud, BEFORE any PUT, when npm will not trust this workflow for
+      # a package about to be published. Without it, pnpm logs "Skipped OIDC"
+      # (hidden by changesets), publishes unauthenticated, and the only
+      # visible error is a misleading E404 (see the RE-MEASURED note above).
+      # Only runs when this push would publish: no pending changesets and at
+      # least one local version missing from npm. Never prints a token: an
+      # exchange body is shown only for an error status, and the minted token
+      # is discarded unused (it expires on its own).
+      - name: Verify npm Trusted Publishing for packages about to publish
+        run: |
+          set -euo pipefail
+          if find .changeset -maxdepth 1 -name '*.md' ! -name README.md | grep -q .; then
+            echo "Pending changesets: this run opens a version PR, nothing publishes."; exit 0
+          fi
+          pending=()
+          for pj in packages/*/package.json; do
+            if [ "$(jq -r '.private // false' "$pj")" = true ]; then continue; fi
+            nv=$(jq -r '"\(.name)@\(.version)"' "$pj")
+            if [ -z "$(npm view "$nv" version 2>/dev/null)" ]; then pending+=("${nv%@*}"); fi
+          done
+          if [ ${#pending[@]} -eq 0 ]; then echo "Nothing unpublished."; exit 0; fi
+          idt=$(curl -sf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm:registry.npmjs.org" | jq -r .value)
+          echo "::add-mask::$idt"
+          failed=0
+          for name in "${pending[@]}"; do
+            code=$(curl -s -o "$RUNNER_TEMP/x.json" -w '%{http_code}' -X POST -H 'Content-Length: 0' \
+              -H "Authorization: Bearer $idt" \
+              "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${name/\//%2f}")
+            if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+              echo "OK    $name (npm trusts this workflow)"
+            else
+              echo "::error::$name: npm refused the OIDC token exchange ($code $(jq -c . "$RUNNER_TEMP/x.json" 2>/dev/null)). Fix its Trusted Publisher on npmjs.com (repo marktiderman/genesis, workflow release.yml, environment blank), then re-run this workflow."
+              failed=1
+            fi
+            rm -f "$RUNNER_TEMP/x.json"
+          done
+          exit $failed
+
       - name: Create Release PR or Publish
         id: changesets
         uses: changesets/action@v1
