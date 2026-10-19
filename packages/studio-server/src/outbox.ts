@@ -60,7 +60,7 @@ export interface OutboxWorkerOptions {
    * missing grant, a dropped connection), so a stuck worker is seen. Only
    * `start()` reports here; `runOnce()` rejects instead.
    */
-  onError?(error: unknown): void;
+  onError?(error: unknown): void | Promise<void>;
   /** Entries claimed per run. Default 20. */
   batchSize?: number;
   /** Attempts before dead-lettering. Default 10. */
@@ -228,9 +228,9 @@ export function createOutboxWorker(options: OutboxWorkerOptions): OutboxWorker {
       timer = setInterval(() => {
         if (running) return;
         running = runOnce()
-          .catch((error: unknown) => {
+          .catch(async (error: unknown) => {
             try {
-              options.onError?.(error);
+              await options.onError?.(error);
             } catch {
               // A failing logger must not stop the worker.
             }
