@@ -87,8 +87,12 @@ function makeProvider() {
     },
     async deleteMany(_r: string, { items }: { items: { id: unknown }[] }) {
       calls.push({ op: "deleteMany", args: items });
-      for (const item of items) db.splice(db.findIndex((r) => r.id === item.id), 1);
-      return { ok: true, count: items.length };
+      const entries = items.map((item) => {
+        const [row] = db.splice(db.findIndex((r) => r.id === item.id), 1);
+        return { ...audit({ id: row!.id }, row!, {}), action: "delete" as const, after: null };
+      });
+      entries.forEach((e) => (audits[audits.findIndex((a) => a.id === e.id)] = e));
+      return { ok: true, count: items.length, audit: entries };
     },
     async importRows(_r: string, params: { rows: Row[]; dryRun: boolean }) {
       calls.push({ op: params.dryRun ? "importDryRun" : "import", args: params.rows });
@@ -104,7 +108,8 @@ function makeProvider() {
     async undo(_r: string, { auditId }: { auditId: string }) {
       calls.push({ op: "undo", args: auditId });
       const entry = audits.find((a) => a.id === auditId)!;
-      Object.assign(db.find((r) => r.id === entry.key.id)!, entry.before);
+      if (entry.action === "delete") db.push({ ...entry.before });
+      else Object.assign(db.find((r) => r.id === entry.key.id)!, entry.before);
       return {};
     },
     async history() {
@@ -337,13 +342,8 @@ describe("DataStudio P2", () => {
     expect((await within(dialog).findByTestId("studio-bulk-error")).textContent).toMatch(/Nothing was changed: The studio server couldn't be reached/);
   });
 
-  it("lists each bulk-deleted row with its own Undo", async () => {
-    const { provider } = makeProvider();
-    (provider as { deleteMany: unknown }).deleteMany = async (_r: string, { items }: { items: { id: string }[] }) => ({
-      ok: true,
-      count: items.length,
-      audit: items.map((item, n) => ({ id: `00000000-0000-4000-8000-0000000000d${n}`, occurredAt: "t", actor: "me", resource: "public.clients", key: { id: item.id }, action: "delete", before: {}, after: null })),
-    });
+  it("undoes every row of a bulk delete from one Undo", async () => {
+    const { provider, calls } = makeProvider();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<Harness provider={provider} initial={{ resource: "public.clients" }} />);
     await screen.findByText("Ana Ruiz");
@@ -353,7 +353,17 @@ describe("DataStudio P2", () => {
     await act(async () => {
       fireEvent.click(await screen.findByTestId("studio-bulk-delete"));
     });
-    await waitFor(() => expect(screen.getAllByTestId("studio-activity-undo")).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByText("Ana Ruiz")).toBeNull());
+    expect(screen.queryByText("Cy Lam")).toBeNull();
+    const undoButton = screen.getByTestId("studio-activity-undo");
+    expect(undoButton.textContent).toMatch(/Undo all 2/);
+    await act(async () => {
+      fireEvent.click(undoButton);
+    });
+    expect(await screen.findByText("Ana Ruiz")).toBeTruthy();
+    expect(await screen.findByText("Cy Lam")).toBeTruthy();
+    expect(calls.filter((c) => c.op === "undo")).toHaveLength(2);
+    expect(screen.queryByTestId("studio-activity-undo")).toBeNull();
     confirm.mockRestore();
   });
 });
