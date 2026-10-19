@@ -18,6 +18,13 @@ jobs:
     # workflow_dispatch can target any ref; only main may version or publish.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # The `npm` environment allows deployments from `main` ONLY (repo
+    # Settings → Environments → npm → deployment branches: main). Every npm
+    # Trusted Publisher is bound to environment `npm`, so npm issues a publish
+    # token only to this job running on main. A branch that edits this file
+    # cannot mint one: without the environment its OIDC token does not match,
+    # and with it GitHub refuses the deployment.
+    environment: npm
     # Publishing is I/O-bound and short; anything past this is a hang, not work.
     # ci.yml's BILLING CONTRACT rule 3 — the July 2026 runaways (118 and
     # 304-minute runs) had no timeout and ran to GitHub's 6-hour cap.
@@ -132,9 +139,10 @@ jobs:
       # works because its config was re-created (331d2596 -> da090be5) and
       # first used from THIS repo (1.0.2, 2026-08-04 19:02Z).
       #
-      # FIX: on npmjs.com (or `npm trust revoke` + `npm trust github`), delete
-      # and re-create the package's Trusted Publisher, then publish a new
-      # version from this workflow WITHIN 48 HOURS. An unused config expires
+      # FIX: on npmjs.com (or `npm trust revoke` + `npm trust github ...
+      # --env npm`), delete and re-create the package's Trusted Publisher,
+      # then publish a new version from this workflow WITHIN 48 HOURS. Full
+      # runbook: docs/RELEASING.md. An unused config expires
       # after 48h (GitHub changelog 2026-10-02). The first publish binds it to
       # this repo. If this repo is ever deleted and re-created, every package
       # needs the same treatment.
@@ -247,7 +255,7 @@ jobs:
               failed=1
             else
               msg=$(jq -r '.message // empty' "$RUNNER_TEMP/x.json" 2>/dev/null | head -c 200) || msg=
-              echo "::error::$name: npm refused the OIDC token exchange ($code ${msg:-no message}). Its Trusted Publisher is missing, bound to another repo, or expired: delete and re-create it on npmjs.com (repo marktiderman/genesis, workflow release.yml, environment blank), then re-run this workflow within 48h."
+              echo "::error::$name: npm refused the OIDC token exchange ($code ${msg:-no message}). Its Trusted Publisher is missing, bound to another repo, or expired: delete and re-create it on npmjs.com (repo marktiderman/genesis, workflow release.yml, environment npm), then re-run this workflow within 48h."
               failed=1
             fi
             rm -f "$RUNNER_TEMP/x.json"
