@@ -5,6 +5,8 @@ packages/studio/src/DataStudio.tsx
   s_ebc909da001b53::t_c5c43186ccf0fc 53-57,238-240,943-950
   s_ebc909da001b53::t_b3ee8d7ad267a3 214,217,221,224,1060
   s_ebc909da001b53::t_93fffcb8926ec7 231
+  s_ebc909da001b53::t_69d94a34981885 610-619
+  s_ebc909da001b53::t_4627cf290c9444 1052
 ---
 {
   "schema_version": "authorship/3.0.0",
