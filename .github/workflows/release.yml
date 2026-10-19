@@ -138,6 +138,9 @@ jobs:
       # shows nothing wrong (it does not print the bound repo id). genesis-cli
       # works because its config was re-created (331d2596 -> da090be5) and
       # first used from THIS repo (1.0.2, 2026-08-04 19:02Z).
+      # 2026-10-19: genesis, ui and design-system were re-created and published
+      # from this repo; then ALL packages were re-bound to environment `npm`
+      # (see the `environment:` note on the job) and validated by one release.
       #
       # FIX: on npmjs.com (or `npm trust revoke` + `npm trust github ...
       # --env npm`), delete and re-create the package's Trusted Publisher,
