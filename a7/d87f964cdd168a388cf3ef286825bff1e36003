@@ -1,0 +1,80 @@
+packages/data-switchboard/src/introspect.ts
+  s_ebc909da001b53::t_e8c8523af59bfb 28,33-34,44,70,80,104
+  s_ebc909da001b53::t_873fa7a901cdb1 27
+packages/core/src/schema/types.ts
+  s_ebc909da001b53::t_97d1ef05d5a565 1-200
+packages/data-switchboard/src/core-schema.ts
+  s_ebc909da001b53::t_873fa7a901cdb1 1-23
+packages/core/src/schema/write-outcome.ts
+  s_ebc909da001b53::t_77c82a0a5e621c 1-66
+packages/core/src/provider/index.ts
+  s_ebc909da001b53::t_c9efd5b19b0138 27-34
+packages/data-switchboard/src/adapters/adapter.ts
+  s_ebc909da001b53::t_e8c8523af59bfb 12,35,38,41,50,53-55
+  s_ebc909da001b53::t_873fa7a901cdb1 11
+packages/data-switchboard/src/adapters/airtable.ts
+  s_ebc909da001b53::t_873fa7a901cdb1 28
+  s_ebc909da001b53::t_e8c8523af59bfb 29,122,186,229,249,256,262,303,325,339,354,362
+packages/core/src/index.ts
+  s_ebc909da001b53::t_c9efd5b19b0138 13-32
+packages/core/src/schema/keys.ts
+  s_ebc909da001b53::t_e6752b9d90b6e3 1-76
+packages/core/src/provider/types.ts
+  s_ebc909da001b53::t_c9efd5b19b0138 5-11,116-119,122-129,135-138,152-154,187-202
+packages/data-switchboard/src/adapters/notion.ts
+  s_ebc909da001b53::t_e8c8523af59bfb 35,149,294,311,348,356,362,400,418,431,442,451
+  s_ebc909da001b53::t_873fa7a901cdb1 34
+packages/data-switchboard/src/reconcile.ts
+  s_ebc909da001b53::t_873fa7a901cdb1 29
+  s_ebc909da001b53::t_e8c8523af59bfb 30,202,302,442,461
+packages/data-switchboard/src/resolver.ts
+  s_ebc909da001b53::t_e8c8523af59bfb 37,71,82,107,137,211,238,250,257,264,317,348,398
+  s_ebc909da001b53::t_873fa7a901cdb1 36
+packages/data-switchboard/src/switchboard.config.sample.ts
+  s_ebc909da001b53::t_e8c8523af59bfb 44,75,93
+packages/data-switchboard/src/resources.ts
+  s_ebc909da001b53::t_e8c8523af59bfb 16,42,96
+packages/core/src/schema/__tests__/keys.test.ts
+  s_ebc909da001b53::t_5f88bead7f008d 1-49
+packages/core/package.json
+  s_ebc909da001b53::t_c9efd5b19b0138 41-44,52-55,65,70-72
+packages/core/src/schema/index.ts
+  s_ebc909da001b53::t_267719c6a39c94 1-25
+packages/data-switchboard/src/adapters/code.ts
+  s_ebc909da001b53::t_e8c8523af59bfb 16,41,47,51,56,93,107,114,125
+  s_ebc909da001b53::t_873fa7a901cdb1 15
+packages/data-switchboard/src/adapters/supabase.ts
+  s_ebc909da001b53::t_e8c8523af59bfb 20,77,120,127,136,181,199,210,227
+  s_ebc909da001b53::t_873fa7a901cdb1 19
+packages/data-switchboard/src/adapters/gitdata.ts
+  s_ebc909da001b53::t_873fa7a901cdb1 18
+  s_ebc909da001b53::t_e8c8523af59bfb 19,300,324,329,334,369,379,395,429
+packages/data-switchboard/src/registry.ts
+  s_ebc909da001b53::t_e8c8523af59bfb 20,23,34,107
+packages/data-switchboard/src/__tests__/published-types.test.ts
+  s_ebc909da001b53::t_6f9310d4056f10 1-38,41-46,48-51
+  s_ebc909da001b53::t_3aa8b0ba11d25d 39-40,47
+packages/data-switchboard/src/gitdata-names.ts
+  s_ebc909da001b53::t_e8c8523af59bfb 5,16
+packages/core/tsup.config.ts
+  s_ebc909da001b53::t_c9efd5b19b0138 13
+packages/data-switchboard/src/types.ts
+  s_ebc909da001b53::t_873fa7a901cdb1 23
+  s_ebc909da001b53::t_e8c8523af59bfb 16-22,24,55-62,65-72,104-107,109-110,120-128,249
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a7d87f964cdd168a388cf3ef286825bff1e36003",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
