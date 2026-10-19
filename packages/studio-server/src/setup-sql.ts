@@ -233,14 +233,17 @@ $fn$;
 -- user wrote themselves, for a resource they may still change.
 create or replace function genesis_studio.audit_entry(p_id uuid)
 returns table (id uuid, occurred_at timestamptz, actor text, resource text, record_key jsonb, action text, before jsonb, after jsonb)
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $fn$
-  select a.id, a.occurred_at, a.actor, a.resource, a.record_key, a.action, a.before, a.after
-    from genesis_studio.audit_log a
-   where a.id = p_id
+begin${loginCheckFor("audit_entry", "read audit entries")}
+  return query
+    select a.id, a.occurred_at, a.actor, a.resource, a.record_key, a.action, a.before, a.after
+      from genesis_studio.audit_log a
+     where a.id = p_id;
+end;
 $fn$;
 
 revoke all on function genesis_studio.record_audit(text, jsonb, text, jsonb, jsonb) from public;
