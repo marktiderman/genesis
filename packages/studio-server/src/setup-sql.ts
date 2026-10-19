@@ -37,6 +37,8 @@ export const AUDIT_FUNCTION = "genesis_studio.record_audit";
 export const OUTBOX_AUDIT_FUNCTION = "genesis_studio.record_audit_outbox";
 /** Reads a record's audit history. */
 export const HISTORY_FUNCTION = "genesis_studio.record_history";
+/** Reads one audit entry by id, for undo. */
+export const AUDIT_ENTRY_FUNCTION = "genesis_studio.audit_entry";
 
 /**
  * SQL that installs the tamper-proof audit trail:
@@ -220,7 +222,22 @@ as $fn$
    limit least(greatest(p_limit, 1), 200)
 $fn$;
 
+-- One entry by id, for undo. The handler only acts on an entry the signed-in
+-- user wrote themselves, for a resource they may still change.
+create or replace function genesis_studio.audit_entry(p_id uuid)
+returns table (id uuid, occurred_at timestamptz, actor text, resource text, record_key jsonb, action text, before jsonb, after jsonb)
+language sql
+stable
+security definer
+set search_path = ''
+as $fn$
+  select a.id, a.occurred_at, a.actor, a.resource, a.record_key, a.action, a.before, a.after
+    from genesis_studio.audit_log a
+   where a.id = p_id
+$fn$;
+
 revoke all on function genesis_studio.record_audit(text, jsonb, text, jsonb, jsonb) from public;
+revoke all on function genesis_studio.audit_entry(uuid) from public;
 revoke all on function genesis_studio.record_audit_outbox(text, jsonb, text, jsonb, jsonb) from public;
 revoke all on function genesis_studio.record_history(text, jsonb, int) from public;
 do $$
@@ -229,6 +246,7 @@ begin
     execute 'revoke all on function genesis_studio.record_audit(text, jsonb, text, jsonb, jsonb) from anon';
     execute 'revoke all on function genesis_studio.record_audit_outbox(text, jsonb, text, jsonb, jsonb) from anon';
     execute 'revoke all on function genesis_studio.record_history(text, jsonb, int) from anon';
+    execute 'revoke all on function genesis_studio.audit_entry(uuid) from anon';
     execute 'revoke all on genesis_studio.outbox, genesis_studio.outbox_dead_letter from anon';
     execute 'revoke all on schema genesis_studio from anon';
   end if;
@@ -236,5 +254,6 @@ end $$;
 grant execute on function genesis_studio.record_audit(text, jsonb, text, jsonb, jsonb) to ${role};
 grant execute on function genesis_studio.record_audit_outbox(text, jsonb, text, jsonb, jsonb) to ${role};
 grant execute on function genesis_studio.record_history(text, jsonb, int) to ${role};
+grant execute on function genesis_studio.audit_entry(uuid) to ${role};
 ${workerGrants}`;
 }

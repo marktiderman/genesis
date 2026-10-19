@@ -16,6 +16,7 @@ import {
 import { BadRequestError, listRows, readRow } from "./rows";
 import { createRow, deleteRow, updateRow, WriteRejected } from "./write";
 import { readHistory } from "./history";
+import { BulkRejected, deleteMany, importRows, undoChange, updateMany } from "./bulk";
 
 export interface StudioHandler {
   (request: Request): Promise<Response>;
@@ -252,7 +253,7 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
         );
       }
 
-      const readOnly = body.op !== "update" && body.op !== "create" && body.op !== "delete";
+      const readOnly = !["update", "create", "delete", "updateMany", "deleteMany", "import", "undo"].includes(body.op);
       const result = await database.asUser({ role, claims }, { readOnly, statementTimeoutMs }, async (query) => {
         const ctx: AccessContext = { request, claims, query, options };
         switch (body.op) {
@@ -335,12 +336,63 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
             const entries = await readHistory(query, resolved, decodeKey(resolved, recordId(body.id)), name, Math.min(limit, 200));
             return { entries };
           }
+          case "updateMany": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            if (!Array.isArray(body.changes)) throw new BadRequestError('"changes" must be a list.');
+            return updateMany(
+              query,
+              resolved,
+              body.changes.map((c) => {
+                if (!c || !c.data || typeof c.data !== "object" || Array.isArray(c.data)) {
+                  throw new BadRequestError('Each change needs "data": an object of field → value.');
+                }
+                const id = recordId(c.id);
+                return { id, key: decodeKey(resolved, id), data: c.data, expectedVersion: c.expectedVersion ?? null };
+              }),
+              name,
+            );
+          }
+          case "deleteMany": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            if (!Array.isArray(body.items)) throw new BadRequestError('"items" must be a list.');
+            return deleteMany(
+              query,
+              resolved,
+              body.items.map((item) => {
+                const id = recordId(item?.id);
+                return { id, key: decodeKey(resolved, id), expectedVersion: item.expectedVersion ?? null };
+              }),
+              name,
+            );
+          }
+          case "import": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            if (!Array.isArray(body.rows)) throw new BadRequestError('"rows" must be a list.');
+            return importRows(query, resolved, body.rows, name, body.dryRun !== false);
+          }
+          case "undo": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            return undoChange(query, resolved, String(body.auditId ?? ""), claims.sub, name);
+          }
           default:
             throw new BadRequestError(`Unknown op "${String((body as { op: unknown }).op)}".`);
         }
       });
       return json(result);
     } catch (error) {
+      if (error instanceof BulkRejected) {
+        // The transaction rolled back; report every row, not just the first.
+        return json({
+          ok: error.dryRunCount !== undefined && error.failures.length === 0,
+          count: error.dryRunCount ?? 0,
+          ...(error.dryRunCount !== undefined ? { dryRun: true } : {}),
+          ...(error.failures.length ? { failures: error.failures } : {}),
+        });
+      }
       if (error instanceof WriteRejected) {
         // The user hears only that nothing was saved; the operator gets why.
         if (error.cause !== undefined) options.onError?.(error.cause);

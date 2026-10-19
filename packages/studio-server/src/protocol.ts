@@ -48,7 +48,15 @@ export type StudioRequest =
     }
   | { op: "create"; resource: string; data: DataRow }
   | { op: "delete"; resource: string; id: string | number; expectedVersion: string | null }
-  | { op: "history"; resource: string; id: string | number; limit?: number };
+  | { op: "history"; resource: string; id: string | number; limit?: number }
+  | {
+      op: "updateMany";
+      resource: string;
+      changes: { id: string | number; data: DataRow; expectedVersion: string | null }[];
+    }
+  | { op: "deleteMany"; resource: string; items: { id: string | number; expectedVersion: string | null }[] }
+  | { op: "import"; resource: string; rows: DataRow[]; dryRun: boolean }
+  | { op: "undo"; resource: string; auditId: string };
 
 export interface StudioEnvelope {
   /** Protocol version of the sender. */
@@ -102,6 +110,24 @@ export interface DeleteResponse {
 export interface HistoryResponse {
   /** Most recent first, with only the fields this user may read. */
   entries: AuditEntry[];
+}
+
+/**
+ * A bulk write, import or dry run. `ok` false means NOTHING changed, and
+ * `failures` lists every row that would not go through.
+ */
+export interface BulkResponse {
+  ok: boolean;
+  /** Rows changed, or for a dry run, rows that would go through. */
+  count: number;
+  dryRun?: true;
+  failures?: { index: number; id?: string | number; outcome: string; message: string }[];
+  audit?: AuditEntry[];
+}
+
+export interface UndoResponse {
+  /** The compensating write's own audit entry. */
+  audit?: AuditEntry;
 }
 
 /**

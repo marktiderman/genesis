@@ -59,5 +59,7 @@ export {
   type CreateResponse,
   type DeleteResponse,
   type HistoryResponse,
+  type BulkResponse,
+  type UndoResponse,
   type ErrorResponse,
 } from "./protocol";
