@@ -184,3 +184,19 @@ describe("Embedding with no wiring", () => {
     window.history.replaceState(null, "", "/");
   });
 });
+
+describe("Many tables", () => {
+  it("adds a searchable list of every table after the tabs", async () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ name: `public.t${i}`, label: `Table ${i}`, access: { read: true, update: true } }));
+    const { provider } = makeProvider();
+    const wide = Object.assign(provider, { listResources: async () => many });
+    render(<Harness provider={wide} />);
+    fireEvent.click(await screen.findByTestId("studio-all-tables"));
+    const find = await screen.findByRole("textbox", { name: "Find a table" });
+    fireEvent.change(find, { target: { value: "table 11" } });
+    const list = screen.getByRole("list", { name: "Tables" });
+    expect(within(list).getAllByRole("button").map((b) => b.textContent)).toEqual(["Table 11"]);
+    fireEvent.keyDown(find, { key: "Enter" });
+    await waitFor(() => expect(screen.getByTestId("studio-table-public.t11").getAttribute("aria-current")).toBe("page"));
+  });
+});

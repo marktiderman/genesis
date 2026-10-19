@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Bookmark, CalendarDays, Columns3, Lock, Plus, Table2, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@marktiderman/genesis-ui/popover";
+import { Bookmark, CalendarDays, ChevronDown, Columns3, Lock, Plus, Search, Table2, X } from "lucide-react";
 import type { SavedViewItem } from "@marktiderman/genesis-ui/data";
 import { cn } from "@marktiderman/genesis-ui/utils";
 
@@ -127,9 +128,11 @@ export function TableTabs({
   /** `plain` draws underlined tabs on the page instead of a tinted band. */
   variant?: "card" | "plain";
 }) {
+  const picker = resources.length > PICKER_AFTER && <AllTables resources={resources} selected={selected} onSelect={onSelect} />;
   if (variant === "plain") {
     return (
-      <nav aria-label="Tables" className="flex gap-1 overflow-x-auto border-b" data-testid="studio-sidebar">
+      <div className="flex items-end border-b">
+      <nav aria-label="Tables" className="flex min-w-0 flex-1 gap-1 overflow-x-auto" data-testid="studio-sidebar">
         {resources.map((r) => {
           const active = r.name === selected;
           return (
@@ -151,10 +154,13 @@ export function TableTabs({
           );
         })}
       </nav>
+      {picker}
+      </div>
     );
   }
   return (
-    <nav aria-label="Tables" className="flex gap-0.5 overflow-x-auto bg-primary/10 px-2 pt-1.5" data-testid="studio-sidebar">
+    <div className="flex items-end bg-primary/10 pr-2">
+    <nav aria-label="Tables" className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto px-2 pt-1.5" data-testid="studio-sidebar">
       {resources.map((r) => {
         const active = r.name === selected;
         return (
@@ -176,6 +182,82 @@ export function TableTabs({
         );
       })}
     </nav>
+    {picker}
+    </div>
   );
 }
+
+/** Past this many tables, a searchable list sits at the end of the tabs. */
+const PICKER_AFTER = 8;
+
+function AllTables({
+  resources,
+  selected,
+  onSelect,
+}: {
+  resources: { name: string; label?: string; access: { update: boolean } }[];
+  selected?: string;
+  onSelect: (resource: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const shown = resources.filter((r) => !q || (r.label ?? r.name).toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+  return (
+    <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) setQuery(""); }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="mb-1 ml-1 flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+          data-testid="studio-all-tables"
+        >
+          All tables ({resources.length})
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-1">
+        <div className="relative p-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <input
+            autoFocus
+            aria-label="Find a table"
+            placeholder="Find a table"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && shown[0]) {
+                onSelect(shown[0].name);
+                setOpen(false);
+              }
+            }}
+            className="h-8 w-full rounded border bg-background pl-7 pr-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+        <ul className="max-h-72 overflow-y-auto" aria-label="Tables">
+          {shown.map((r) => (
+            <li key={r.name}>
+              <button
+                type="button"
+                aria-current={r.name === selected ? "page" : undefined}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted",
+                  r.name === selected && "bg-accent text-accent-foreground",
+                )}
+                onClick={() => {
+                  onSelect(r.name);
+                  setOpen(false);
+                }}
+              >
+                <span className="truncate">{r.label ?? r.name}</span>
+                {!r.access.update && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Read-only" />}
+              </button>
+            </li>
+          ))}
+          {shown.length === 0 && <li className="px-2 py-1.5 text-sm text-muted-foreground">No table matches.</li>}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 

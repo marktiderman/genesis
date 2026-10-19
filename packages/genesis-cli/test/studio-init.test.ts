@@ -117,3 +117,35 @@ describe("putting the studio inside the app's shell", () => {
     expect(plan.steps.join("\n")).toMatch(/already has a page at \/admin\/data/);
   });
 });
+
+describe("TanStack Start apps", () => {
+  const shell = `import { AppShell } from "@marktiderman/genesis-ui/data";\nexport const Route = createFileRoute("/_authenticated/_shell")({ component: () => <AppShell /> });`;
+  const app = project(
+    {
+      "src/routes/__root.tsx": "",
+      "src/routes/_authenticated/route.tsx": "export const Route = createFileRoute('/_authenticated')({ component: () => <Outlet /> });",
+      "src/routes/_authenticated/_shell/route.tsx": shell,
+      "src/routes/_authenticated/_shell/clients/$clientId/route.tsx": "<Layout />",
+      "src/routes/_authenticated/_shell/admin.tsx": "export const Route = createFileRoute('/_authenticated/_shell/admin')({});",
+      "src/integrations/supabase/client.ts": "",
+      "src/styles.css": '@import "tailwindcss" source(none);\n@source "../node_modules/@marktiderman/genesis-ui/dist";\n',
+    },
+    { "@tanstack/react-start": "^1", "@supabase/supabase-js": "^2" },
+  );
+  const facts = { ...app, listDeep: () => ["src/routes/_authenticated/route.tsx", "src/routes/_authenticated/_shell/route.tsx", "src/routes/_authenticated/_shell/clients/$clientId/route.tsx", "src/routes/_authenticated/_shell/admin.tsx"] };
+
+  it("puts the server in the app and the page in the shell's folder, beside an existing /admin page", () => {
+    const plan = planStudioInit(facts);
+    expect(plan.host).toBe("tanstack-start");
+    const paths = plan.files.map((f) => f.path);
+    expect(paths).toContain("src/routes/api/studio.ts");
+    expect(paths).toContain("src/routes/_authenticated/_shell/admin_.data.tsx");
+    const page = plan.files.find((f) => f.path.endsWith("admin_.data.tsx"))!.content;
+    expect(page).toContain('createFileRoute("/_authenticated/_shell/admin_/data")');
+    expect(page).toContain('variant="plain"');
+    expect(page).not.toContain("standalone.css");
+    const server = plan.files.find((f) => f.path === "src/routes/api/studio.ts")!.content;
+    expect(server).toContain('await import("@marktiderman/genesis-studio-server")');
+    expect(plan.files.find((f) => f.path === "src/styles.css")!.content).toContain('@source "../node_modules/@marktiderman/genesis-studio/dist";');
+  });
+});

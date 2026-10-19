@@ -136,8 +136,8 @@ studio
     const existsSync = (await import("node:fs")).existsSync;
     const readSync = (await import("node:fs")).readFileSync;
     const readdirSync = (await import("node:fs")).readdirSync;
-    if (opts.host && opts.host !== "next" && opts.host !== "supabase-function") {
-      throw new Error("--host must be next or supabase-function.");
+    if (opts.host && !["next", "tanstack-start", "supabase-function"].includes(opts.host)) {
+      throw new Error("--host must be next, tanstack-start or supabase-function.");
     }
     const plan = planStudioInit(
       {
@@ -145,6 +145,22 @@ studio
         exists: (p) => existsSync(path.join(root, p)),
         read: (p) => (existsSync(path.join(root, p)) ? readSync(path.join(root, p), "utf-8") : null),
         timestamp: new Date().toISOString().replace(/\D/g, "").slice(0, 14),
+        listDeep: (p) => {
+          const out: string[] = [];
+          const walk = (rel: string) => {
+            for (const entry of readdirSync(path.join(root, rel), { withFileTypes: true })) {
+              const child = `${rel}/${entry.name}`;
+              if (entry.isDirectory()) walk(child);
+              else out.push(child);
+            }
+          };
+          try {
+            walk(p);
+          } catch {
+            // No such folder.
+          }
+          return out;
+        },
         list: (p) => {
           try {
             return readdirSync(path.join(root, p));
@@ -153,7 +169,7 @@ studio
           }
         },
       },
-      { host: opts.host as "next" | "supabase-function" | undefined, route: opts.route, loginRole: opts.loginRole },
+      { host: opts.host as "next" | "tanstack-start" | "supabase-function" | undefined, route: opts.route, loginRole: opts.loginRole },
     );
     for (const file of plan.files) {
       const target = path.join(root, file.path);
@@ -177,7 +193,7 @@ studio
     }
     const pm = existsSync(path.join(root, "pnpm-lock.yaml")) ? "pnpm add" : existsSync(path.join(root, "yarn.lock")) ? "yarn add" : existsSync(path.join(root, "bun.lockb")) ? "bun add" : "npm install";
     console.log("");
-    console.log(`✔ The Data Studio is set up for ${plan.host === "next" ? "Next.js" : "a Supabase Edge Function"}. To finish:`);
+    console.log(`✔ The Data Studio is set up for ${{ next: "Next.js", "tanstack-start": "TanStack Start", "supabase-function": "a Supabase Edge Function" }[plan.host]}. To finish:`);
     console.log(`  1. ${pm} ${plan.install.join(" ")}`);
     plan.steps.forEach((step, i) => console.log(`  ${i + 2}. ${step}`));
   });
