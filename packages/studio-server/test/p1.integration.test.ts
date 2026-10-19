@@ -15,6 +15,7 @@ import {
 import {
   byResource,
   createOutboxWorker,
+  studioSetupSql,
   PermanentDeliveryError,
   type OutboxEntry,
   type StudioHandler,
@@ -125,6 +126,13 @@ describeDb("P1: create, delete, history, relations, rule-bearing writes, outbox"
     expect(await admin`select 1 from public.clients where id = ${CLIENT_2}`).toHaveLength(0);
   });
 
+  it("deletes with only DELETE rights: no row lock that needs UPDATE", async () => {
+    const read = await call(studio, COACH_A, { op: "read", resource: "public.delete_only", id: 1 });
+    const res = await call(studio, COACH_A, { op: "delete", resource: "public.delete_only", id: 1, expectedVersion: read.body.row.version });
+    expect(res.status).toBe(200);
+    expect(await admin`select count(*)::int as n from public.delete_only`).toEqual([{ n: 0 }]);
+  });
+
   it("won't delete a row someone changed since it was read", async () => {
     const seen = await readClient(CLIENT_2);
     await admin`update public.clients set notes = 'changed meanwhile' where id = ${CLIENT_2}`;
@@ -180,6 +188,19 @@ describeDb("P1: create, delete, history, relations, rule-bearing writes, outbox"
       expect(entry.after).not.toHaveProperty("notes");
       expect(entry.before).not.toHaveProperty("notes");
     }
+  });
+
+  it("keeps record_history to the studio's login when loginRole is set", async () => {
+    await admin.unsafe(studioSetupSql({ loginRole: "studio_login", workerRole: "outbox_worker" }));
+    const ok = await call(studio, COACH_A, { op: "history", resource: "public.clients", id: CLIENT_1 });
+    expect(ok.status).toBe(200);
+    await expect(
+      admin.begin(async (tx) => {
+        await tx.unsafe(`select set_config('request.jwt.claims', '{"sub": "${COACH_A}"}', true)`);
+        await tx.unsafe("set local role authenticated");
+        await tx.unsafe(`select * from genesis_studio.record_history('public.clients', '{"id": "${CLIENT_1}"}', 10)`);
+      }),
+    ).rejects.toThrow(/only the studio login/);
   });
 
   it("refuses history for a row the user can't see", async () => {
@@ -386,6 +407,28 @@ describeDb("P1: create, delete, history, relations, rule-bearing writes, outbox"
       expect(new Set(seen).size).toBe(2);
     } finally {
       await Promise.all([a.stop(), b.stop()]);
+    }
+  });
+
+  it("reports a polling failure to onError instead of failing silently", async () => {
+    const url = new URL(workerUrl());
+    url.password = "wrong";
+    const errors: unknown[] = [];
+    const worker = createOutboxWorker({
+      database: url.toString(),
+      deliver: async () => {},
+      pollIntervalMs: 20,
+      onError: (error) => {
+        errors.push(error);
+        throw new Error("a broken logger");
+      },
+    });
+    worker.start();
+    try {
+      await expect.poll(() => errors.length, { timeout: 5_000 }).toBeGreaterThan(1);
+      expect(String(errors[0])).toMatch(/password authentication failed/);
+    } finally {
+      await worker.stop();
     }
   });
 

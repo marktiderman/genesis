@@ -124,6 +124,7 @@ describeDb("studio handler against Postgres with RLS", () => {
       "public.coach_clients",
       "public.coaches",
       "public.coarse",
+      "public.delete_only",
       "public.locked_rows",
       "public.lying",
       "public.no_rls",

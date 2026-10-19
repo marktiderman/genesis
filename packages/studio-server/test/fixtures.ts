@@ -248,6 +248,15 @@ end $$;
 revoke all on function public.save_score(jsonb, jsonb), public.add_score(jsonb), public.remove_score(jsonb) from public;
 grant execute on function public.save_score(jsonb, jsonb), public.add_score(jsonb), public.remove_score(jsonb) to authenticated;
 
+-- delete_only: rows can be deleted but never updated (no UPDATE grant or policy).
+create table public.delete_only (id int primary key, label text, updated_at timestamptz not null default now());
+create trigger delete_only_updated_at before update on public.delete_only
+  for each row execute function extensions.moddatetime(updated_at);
+alter table public.delete_only enable row level security;
+create policy d_read on public.delete_only for select to authenticated using (true);
+create policy d_delete on public.delete_only for delete to authenticated using (true);
+grant select, delete on public.delete_only to authenticated;
+
 -- secret_table: granted by the database, but never allowed by authorize().
 create table public.secret_table (id int primary key, payload text);
 grant select on public.secret_table to authenticated;
@@ -270,6 +279,7 @@ insert into public.no_trigger values (1, 'static', now());
 insert into public.locked_rows values (1, 'open', false, now()), (2, 'frozen', true, now());
 insert into public.lying values (1, 'original', now());
 insert into public.secret_table values (1, 'nope');
+insert into public.delete_only (id, label) values (1, 'remove me');
 insert into public.client_notes (client_id, body) values ('${CLIENT_1}', 'Kickoff call'), ('${CLIENT_1}', 'Goal review');
 insert into public.no_rls values (1, 'open to all', now());
 insert into public.coarse values (1, 'coarse', now());
@@ -326,6 +336,7 @@ export const DEFAULT_RULES = {
   "public.no_rls": { read: true, update: true },
   "public.coarse": { read: true, update: true },
   "public.app_audited": { read: true, update: true },
+  "public.delete_only": { read: true, delete: true },
 } as const;
 
 export function makeHandler(overrides: Partial<StudioHandlerOptions> = {}) {

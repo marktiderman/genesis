@@ -55,6 +55,12 @@ export interface OutboxWorkerOptions {
   deliver(entry: OutboxEntry): Promise<void>;
   /** Called when an entry moves to the dead-letter table. Wire your alerting here. */
   onDeadLetter?(letter: DeadLetter, error: unknown): void | Promise<void>;
+  /**
+   * Called when a polling run fails before any delivery (a refused login, a
+   * missing grant, a dropped connection), so a stuck worker is seen. Only
+   * `start()` reports here; `runOnce()` rejects instead.
+   */
+  onError?(error: unknown): void;
   /** Entries claimed per run. Default 20. */
   batchSize?: number;
   /** Attempts before dead-lettering. Default 10. */
@@ -222,7 +228,13 @@ export function createOutboxWorker(options: OutboxWorkerOptions): OutboxWorker {
       timer = setInterval(() => {
         if (running) return;
         running = runOnce()
-          .catch(() => undefined)
+          .catch((error: unknown) => {
+            try {
+              options.onError?.(error);
+            } catch {
+              // A failing logger must not stop the worker.
+            }
+          })
           .finally(() => {
             running = null;
           });
