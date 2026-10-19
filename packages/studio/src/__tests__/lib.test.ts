@@ -16,6 +16,13 @@ describe("CSV", () => {
     expect(csvField("=HYPERLINK(\"x\")")).toBe(`"'=HYPERLINK(""x"")"`);
     expect(csvField("+1")).toBe("'+1");
     expect(csvField("@sum")).toBe("'@sum");
+    expect(csvField("-2+3+cmd|' /C calc'!A0")).toMatch(/^"?'-2/);
+  });
+
+  it("leaves plain negative numbers as numbers", () => {
+    expect(csvField(-5)).toBe("-5");
+    expect(csvField("-12.50")).toBe("-12.50");
+    expect(csvField("-1.5e3")).toBe("-1.5e3");
   });
 
   it("writes a header from the fields and one line per row", () => {

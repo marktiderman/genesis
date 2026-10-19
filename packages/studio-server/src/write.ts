@@ -384,9 +384,11 @@ export async function deleteRow(
     throw new WriteRejected("forbidden", `Not deleted: ${resolved.blocked.delete ?? "this table is read-only."}`);
   }
   // Deletes are version-checked too: deleting a row someone just changed
-  // would throw away their change unseen.
+  // would throw away their change unseen. No FOR UPDATE: it needs UPDATE
+  // rights a deleter may not have. The DELETE's own version guard, in
+  // REPEATABLE READ, catches a change made after this check.
   const fn = resolved.functions.delete;
-  const locked = await lockAtVersion(query, resolved, input.key, input.expectedVersion, !fn);
+  const locked = await lockAtVersion(query, resolved, input.key, input.expectedVersion, false);
 
   if (fn) {
     await callFunction(query, fn, [locked.key]);

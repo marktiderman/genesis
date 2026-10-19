@@ -547,6 +547,11 @@ function Sheet({
     ];
   }, [schema, save, keyed, keys, navigate, linkLabels, capabilities]);
 
+  // Stable while the schema is, so a background refetch doesn't reset the
+  // new-row form under the user's typing.
+  const createFields = useMemo(() => new Set(schema?.createFields ?? []), [schema]);
+  const fieldsForCreate = useMemo(() => schema?.fields.filter((f) => createFields.has(f.name)) ?? [], [schema, createFields]);
+
   async function runExport() {
     if (!schema) return;
     setExporting(0);
@@ -581,7 +586,7 @@ function Sheet({
       setCreating(false);
       refresh();
       const id = String(encodeRecordKey(schema, result.data as Row));
-      onActivity({ resource, field: "", record: id, outcome: "saved", action: "create", message: "Added, with its audit entry.", ...(result.audit ? { audit: result.audit } : {}) });
+      onActivity({ resource, field: "", record: id, outcome: "saved", action: "create", message: result.audit ? "Added, with its audit entry." : "Added.", ...(result.audit ? { audit: result.audit } : {}) });
       navigate({ record: id });
     } catch (error) {
       if (isUnauthenticated(error)) onSignedOut();
@@ -606,8 +611,6 @@ function Sheet({
   const viewChoices = view === "kanban" ? boardChoices : view === "calendar" ? dateChoices : [];
   const viewField = viewChoices.find((f) => f.name === location.by) ?? viewChoices[0];
   const altView = keyedView && viewField ? view : null;
-  const createFields = new Set(schema?.createFields ?? []);
-  const fieldsForCreate = schema?.fields.filter((f) => createFields.has(f.name)) ?? [];
 
   const tableFor = (items: Row[]) => (
     <DataTable<Row>
@@ -901,7 +904,7 @@ function Sheet({
           }}
           onDeleted={(audit) => {
             refresh();
-            onActivity({ resource, field: "", record: location.record!, outcome: "saved", action: "delete", message: "Deleted, with its audit entry.", ...(audit ? { audit } : {}) });
+            onActivity({ resource, field: "", record: location.record!, outcome: "saved", action: "delete", message: audit ? "Deleted, with its audit entry." : "Deleted.", ...(audit ? { audit } : {}) });
           }}
           onFailed={(action, message) =>
             onActivity({ resource, field: "", record: location.record!, outcome: "not_saved", action: action === "delete" ? "delete" : "update", message })

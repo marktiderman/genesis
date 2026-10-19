@@ -244,6 +244,19 @@ describe("DataStudio P1", () => {
     expect(await screen.findByTestId("studio-record-panel")).toBeTruthy();
   });
 
+  it("keeps what the user typed in the new-row form when the sheet re-renders", async () => {
+    const { provider } = makeProvider();
+    await openClients(provider);
+    fireEvent.click(screen.getByTestId("studio-new-row"));
+    const dialog = await screen.findByTestId("studio-create-dialog");
+    fireEvent.change(within(dialog).getByLabelText(/^name/), { target: { value: "Half typed" } });
+    // Anything that re-renders the sheet (a refetch, a link label arriving,
+    // an activity entry) must leave the form alone; a URL update does it here.
+    await act(async () => router!.navigate({ ...router!.location }));
+    await act(async () => {});
+    expect((within(dialog).getByLabelText(/^name/) as HTMLInputElement).value).toBe("Half typed");
+  });
+
   it("deletes a row after confirming, at its version", async () => {
     const { provider, calls, db } = makeProvider();
     await openClients(provider, { record: "c3" });

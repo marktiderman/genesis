@@ -246,6 +246,8 @@ const worker = createOutboxWorker({
     if (!res.ok) throw new Error(`log service answered ${res.status}`); // retried with backoff
   },
   onDeadLetter: (letter) => alert(`audit delivery dead-lettered: ${letter.id}`),
+  // A run that fails before any delivery: a refused login, a missing grant, a lost connection.
+  onError: (error) => alert(`audit outbox worker can't run: ${String(error)}`),
 });
 worker.start();
 ```
