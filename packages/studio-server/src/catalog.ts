@@ -32,6 +32,7 @@ export interface CatalogColumn {
   identity: boolean;
   canSelect: boolean;
   canUpdate: boolean;
+  canInsert: boolean;
   description: string | null;
   enumValues: string[] | null;
   references: { schema: string; table: string; column: string } | null;
@@ -45,6 +46,8 @@ export interface CatalogTrigger {
   forEachRow: boolean;
   before: boolean;
   onUpdate: boolean;
+  onInsert: boolean;
+  onDelete: boolean;
   columnSpecific: boolean;
   conditional: boolean;
   args: string[];
@@ -59,10 +62,14 @@ export interface CatalogTable {
   description: string | null;
   canSelectAny: boolean;
   canUpdateAny: boolean;
+  canInsertAny: boolean;
+  canDelete: boolean;
   /** Row-level security is enabled on the table. */
   rls: boolean;
   columns: CatalogColumn[];
   primaryKey: string[];
+  /** Columns that are unique on their own (a single-column unique constraint). */
+  uniqueColumns: string[];
   triggers: CatalogTrigger[];
 }
 
@@ -77,6 +84,8 @@ export async function loadTables(
             obj_description(c.oid, 'pg_class') as description,
             has_any_column_privilege(c.oid, 'SELECT') as can_select,
             has_any_column_privilege(c.oid, 'UPDATE') as can_update,
+            has_any_column_privilege(c.oid, 'INSERT') as can_insert,
+            has_table_privilege(c.oid, 'DELETE') as can_delete,
             c.relrowsecurity as rls
        from pg_class c
        join pg_namespace n on n.oid = c.relnamespace
@@ -107,6 +116,7 @@ export async function loadTables(
               a.attidentity <> '' as identity,
               has_column_privilege(a.attrelid, a.attnum, 'SELECT') as can_select,
               has_column_privilege(a.attrelid, a.attnum, 'UPDATE') as can_update,
+              has_column_privilege(a.attrelid, a.attnum, 'INSERT') as can_insert,
               col_description(a.attrelid, a.attnum) as description,
               (select array_agg(e.enumlabel::text order by e.enumsortorder)
                  from pg_enum e where e.enumtypid = coalesce(et.oid, bt.oid)) as enum_values
@@ -132,7 +142,7 @@ export async function loadTables(
          from pg_constraint con
          left join pg_class fc on fc.oid = con.confrelid
          left join pg_namespace fn on fn.oid = fc.relnamespace
-        where con.conrelid = any($1::oid[]) and con.contype in ('p', 'f')`,
+        where con.conrelid = any($1::oid[]) and con.contype in ('p', 'f', 'u')`,
       [oids],
     ),
     query(
@@ -141,6 +151,8 @@ export async function loadTables(
               (tg.tgtype & 1) <> 0 as for_each_row,
               (tg.tgtype & 2) <> 0 as before,
               (tg.tgtype & 16) <> 0 as on_update,
+              (tg.tgtype & 4) <> 0 as on_insert,
+              (tg.tgtype & 8) <> 0 as on_delete,
               cardinality(tg.tgattr::int2[]) > 0 as column_specific,
               tg.tgqual is not null as conditional,
               encode(tg.tgargs, 'escape') as args
@@ -166,8 +178,13 @@ export async function loadTables(
       description: (t.description as string | null) ?? null,
       canSelectAny: Boolean(t.can_select),
       canUpdateAny: Boolean(t.can_update),
+      canInsertAny: Boolean(t.can_insert),
+      canDelete: Boolean(t.can_delete),
       rls: Boolean(t.rls),
       primaryKey: (pk?.columns as string[] | undefined) ?? [],
+      uniqueColumns: constraints
+        .filter((c) => c.table_oid === oid && c.kind === "u" && (c.columns as string[]).length === 1)
+        .map((c) => (c.columns as string[])[0]!),
       columns: columns
         .filter((c) => c.table_oid === oid)
         .map((c): CatalogColumn => {
@@ -192,6 +209,7 @@ export async function loadTables(
             identity: Boolean(c.identity),
             canSelect: Boolean(c.can_select),
             canUpdate: Boolean(c.can_update),
+            canInsert: Boolean(c.can_insert),
             description: (c.description as string | null) ?? null,
             enumValues: (c.enum_values as string[] | null) ?? null,
             references: fk
@@ -214,6 +232,8 @@ export async function loadTables(
             forEachRow: Boolean(tg.for_each_row),
             before: Boolean(tg.before),
             onUpdate: Boolean(tg.on_update),
+            onInsert: Boolean(tg.on_insert),
+            onDelete: Boolean(tg.on_delete),
             columnSpecific: Boolean(tg.column_specific),
             conditional: Boolean(tg.conditional),
             // `tgargs` is NUL-separated; `encode(..., 'escape')` prints NUL as \000.
@@ -272,8 +292,22 @@ export function versionKind(column: CatalogColumn): "integer" | "timestamp" | nu
  * condition. Whether its body really writes an audit row is the app's
  * responsibility; this only proves it can't be skipped.
  */
-export function triggerAuditsEveryUpdate(trigger: CatalogTrigger): boolean {
-  return trigger.forEachRow && trigger.onUpdate && !trigger.columnSpecific && !trigger.conditional;
+export function triggerAuditsEvery(trigger: CatalogTrigger, action: "update" | "create" | "delete"): boolean {
+  const fires = action === "update" ? trigger.onUpdate : action === "create" ? trigger.onInsert : trigger.onDelete;
+  return trigger.forEachRow && fires && !trigger.columnSpecific && !trigger.conditional;
+}
+
+/** Why a function the studio would call can't be used, or `null` when it can. */
+export async function functionProblem(query: Query, signature: string): Promise<string | null> {
+  const [row] = await query(
+    `select f.oid is not null as exists,
+            coalesce(has_function_privilege(f.oid, 'EXECUTE'), false) as executable
+       from (select to_regprocedure($1::text) as oid) f`,
+    [signature],
+  );
+  if (!row?.exists) return "isn't installed (or its arguments don't match)";
+  if (!row.executable) return "can't be run by you";
+  return null;
 }
 
 /**

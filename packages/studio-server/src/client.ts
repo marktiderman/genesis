@@ -9,9 +9,12 @@
 
 import type {
   BaseRecord,
+  CreateParams,
   CreateResult,
   DataProvider,
+  DeleteParams,
   DeleteResult,
+  HistoryParams,
   GetManyParams,
   GetManyResult,
   GetOneParams,
@@ -23,13 +26,17 @@ import type {
 } from "@marktiderman/genesis-core/provider";
 import {
   DataWriteError,
+  type AuditEntry,
   type ProviderCapabilities,
   type ResourceSchema,
   type ResourceSummary,
 } from "@marktiderman/genesis-core/schema";
 import {
   STUDIO_PROTOCOL_VERSION,
+  type CreateResponse,
+  type DeleteResponse,
   type DescribeResponse,
+  type HistoryResponse,
   type ErrorResponse,
   type ListResponse,
   type ReadResponse,
@@ -53,6 +60,7 @@ export interface StudioProvider extends DataProvider {
   describe(resource: string): Promise<ResourceSchema>;
   listResources(): Promise<ResourceSummary[]>;
   capabilities(resource?: string): Promise<ProviderCapabilities>;
+  history(resource: string, params: HistoryParams): Promise<AuditEntry[]>;
 }
 
 const CAPABILITIES: ProviderCapabilities = {
@@ -62,6 +70,10 @@ const CAPABILITIES: ProviderCapabilities = {
   bulkWrites: false,
   versionedWrites: true,
   compositeKeys: true,
+  multiSort: true,
+  create: true,
+  delete: true,
+  history: true,
 };
 
 const OUTCOME_FROM_WIRE = {
@@ -142,6 +154,7 @@ export function createStudioProvider(options: StudioProviderOptions): StudioProv
         page: params.pagination?.page,
         perPage: params.pagination?.perPage,
         sort: params.sort,
+        ...(params.sorts?.length ? { sorts: params.sorts } : {}),
         search: params.search?.query,
         filters: params.filters,
       });
@@ -171,12 +184,34 @@ export function createStudioProvider(options: StudioProviderOptions): StudioProv
       return { data: asRecord(row, versionField) as T, version: row.version, ...(audit ? { audit } : {}) };
     },
 
-    async create<T extends BaseRecord = BaseRecord>(): Promise<CreateResult<T>> {
-      throw new DataWriteError("forbidden", "Adding rows isn't available in this version of the studio.");
+    async create<T extends BaseRecord = BaseRecord>(resource: string, params: CreateParams<T>): Promise<CreateResult<T>> {
+      const versionField = await versionFieldOf(resource);
+      const { row, audit } = await call<CreateResponse>({
+        op: "create",
+        resource,
+        data: params.data as Record<string, unknown>,
+      });
+      return { data: asRecord(row, versionField) as T, ...(audit ? { audit } : {}) };
     },
 
-    async deleteOne(): Promise<DeleteResult> {
-      throw new DataWriteError("forbidden", "Deleting rows isn't available in this version of the studio.");
+    async deleteOne(resource: string, params: DeleteParams): Promise<DeleteResult> {
+      const { audit } = await call<DeleteResponse>({
+        op: "delete",
+        resource,
+        id: params.id,
+        expectedVersion: params.expectedVersion ?? null,
+      });
+      return { data: { id: params.id }, ...(audit ? { audit } : {}) };
+    },
+
+    async history(resource, params) {
+      const { entries } = await call<HistoryResponse>({
+        op: "history",
+        resource,
+        id: params.id,
+        ...(params.limit ? { limit: params.limit } : {}),
+      });
+      return entries;
     },
   };
   return provider;

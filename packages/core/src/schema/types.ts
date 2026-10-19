@@ -115,6 +115,41 @@ export interface ResourceAccess {
   readonly update: boolean;
   /** Why `update` (or `read`) is false, in one human sentence. */
   readonly reason?: string;
+  /** True when this user may add rows. Absent means the provider doesn't say. */
+  readonly create?: boolean;
+  /** True when this user may delete rows they can see. */
+  readonly delete?: boolean;
+  /** True when this user may read a row's audit history. */
+  readonly history?: boolean;
+  /** Why `create`, `delete` or `history` is false, in one human sentence each. */
+  readonly reasons?: {
+    readonly create?: string;
+    readonly delete?: string;
+    readonly history?: string;
+  };
+}
+
+/**
+ * How another resource relates to this one, from the store's foreign keys.
+ *
+ * - `one`: a field on THIS resource points at one row of `resource`.
+ * - `many`: rows of `resource` point at this row through their `field`.
+ * - `through`: many rows of `resource`, linked by the junction resource in
+ *   `through` (a table whose key is two foreign keys).
+ */
+export interface ResourceRelation {
+  readonly kind: "one" | "many" | "through";
+  /** The related resource. */
+  readonly resource: string;
+  /**
+   * `one`: the field on this resource. `many`: the field on `resource` that
+   * holds this row's key. `through`: the junction's field holding this row's key.
+   */
+  readonly field: string;
+  /** For `through`: the junction resource, and its field pointing at `resource`. */
+  readonly through?: { readonly resource: string; readonly otherField: string };
+  /** True when at most one related row can exist (a unique foreign key). */
+  readonly unique?: boolean;
 }
 
 /**
@@ -144,6 +179,12 @@ export interface ResourceSchema<Row extends DataRow = DataRow> extends ResourceC
   readonly access: ResourceAccess;
   /** Present only when writes can be version-checked. */
   readonly version?: VersionField;
+  /** The field that best names a row to a person (a name or title), for links and pickers. */
+  readonly labelField?: string;
+  /** Resources this one links to or is linked from. Only ones this user may see. */
+  readonly relations?: readonly ResourceRelation[];
+  /** Fields the user may set when creating a row. Absent when creating isn't allowed. */
+  readonly createFields?: readonly string[];
 }
 
 /** One entry of `listResources()`: enough to draw a sidebar. */
@@ -185,6 +226,13 @@ export interface ProviderCapabilities {
   readonly versionedWrites: boolean;
   /** Records may be keyed by more than one field. */
   readonly compositeKeys: boolean;
+  /** Server-side sort by several fields at once (`ListParams.sorts`). */
+  readonly multiSort?: boolean;
+  /** `create` and `deleteOne` are served, subject to each resource's access. */
+  readonly create?: boolean;
+  readonly delete?: boolean;
+  /** `history` is served, subject to each resource's access. */
+  readonly history?: boolean;
 }
 
 /** One audit record, as committed alongside the edit it describes. */

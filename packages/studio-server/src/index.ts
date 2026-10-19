@@ -2,7 +2,17 @@
 // The browser half (a DataProvider for this handler) is at `./client`.
 
 export { createStudioHandler, type StudioHandler } from "./handler";
-export { byResource, type ResourceRule } from "./authorize";
+export { byResource, type ResourceRule, type ByResourceOptions } from "./authorize";
+export {
+  createOutboxWorker,
+  backoffDelay,
+  PermanentDeliveryError,
+  type OutboxWorker,
+  type OutboxWorkerOptions,
+  type OutboxEntry,
+  type DeadLetter,
+  type RunSummary,
+} from "./outbox";
 export {
   jwtAuth,
   supabaseAuth,
@@ -21,7 +31,13 @@ export {
   type SqlRow,
   type PostgresOptions,
 } from "./db";
-export { studioSetupSql, AUDIT_FUNCTION, type SetupSqlOptions } from "./setup-sql";
+export {
+  studioSetupSql,
+  AUDIT_FUNCTION,
+  OUTBOX_AUDIT_FUNCTION,
+  HISTORY_FUNCTION,
+  type SetupSqlOptions,
+} from "./setup-sql";
 export type {
   Authorize,
   AuthorizeContext,
@@ -40,5 +56,8 @@ export {
   type ListResponse,
   type ReadResponse,
   type UpdateResponse,
+  type CreateResponse,
+  type DeleteResponse,
+  type HistoryResponse,
   type ErrorResponse,
 } from "./protocol";

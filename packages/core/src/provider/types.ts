@@ -66,6 +66,11 @@ export type FilterParam = ScalarFilter | ArrayFilter | RangeFilter | NullFilter;
 export interface ListParams {
   pagination?: PaginationParam;
   sort?: SortParam;
+  /**
+   * Sort by several fields, first one first. Wins over `sort` on a provider
+   * whose capabilities report `multiSort`; others use only `sort`.
+   */
+  sorts?: SortParam[];
   filters?: FilterParam[];
   /** Supabase select syntax, e.g. "*, author:profiles(name)". Mock provider ignores this. */
   select?: string;
@@ -109,6 +114,8 @@ export interface CreateParams<T> {
 /** Result of `create`. */
 export interface CreateResult<T> {
   data: T;
+  /** The audit entry committed with the new row, from a provider that audits. */
+  audit?: AuditEntry;
 }
 
 /** Parameters for `update`. */
@@ -141,11 +148,22 @@ export interface UpdateResult<T> {
 /** Parameters for `deleteOne`. */
 export interface DeleteParams {
   id: Identifier;
+  /** The version token the row was read at; see `UpdateParams.expectedVersion`. */
+  expectedVersion?: string | null;
 }
 
 /** Result of `deleteOne`. */
 export interface DeleteResult {
   data: { id: Identifier };
+  /** The audit entry committed with the deletion, from a provider that audits. */
+  audit?: AuditEntry;
+}
+
+/** Parameters for `history`. */
+export interface HistoryParams {
+  id: Identifier;
+  /** Most recent first; default and maximum are the provider's. */
+  limit?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -200,4 +218,10 @@ export interface DataProvider {
    * controls a provider cannot serve instead of letting them error.
    */
   capabilities?(resource?: string): Promise<ProviderCapabilities>;
+
+  /**
+   * A record's audit history, most recent first, limited to the fields this
+   * user may read.
+   */
+  history?(resource: string, params: HistoryParams): Promise<AuditEntry[]>;
 }

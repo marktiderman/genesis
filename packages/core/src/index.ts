@@ -21,6 +21,7 @@ export type {
   FieldSchema,
   ResourceContract,
   ResourceAccess,
+  ResourceRelation,
   VersionField,
   ResourceSchema,
   ResourceSummary,

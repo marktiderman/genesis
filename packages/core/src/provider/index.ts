@@ -22,6 +22,7 @@ export type {
   UpdateResult,
   DeleteParams,
   DeleteResult,
+  HistoryParams,
 } from "./types";
 
 // Write outcomes — also exported from `@marktiderman/genesis-core/schema`.

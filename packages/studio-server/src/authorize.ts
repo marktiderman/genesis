@@ -10,6 +10,12 @@ export interface ResourceRule {
   read?: true | { except: readonly string[] };
   /** `true` for every column the database lets them update, or just these columns. */
   update?: true | readonly string[];
+  /** `true` to let them add rows (any field the database lets them set), or just these fields. */
+  create?: true | readonly string[];
+  /** `true` to let them delete rows they can see. */
+  delete?: true;
+  /** `true` to let them read a row's audit history (only fields they can read). */
+  history?: true;
 }
 
 export interface ByResourceOptions {
@@ -50,7 +56,10 @@ export function byResource(rules: Readonly<Record<string, ResourceRule>>, option
       if (!rule.read) return false;
       return rule.read === true ? true : { allow: true, exceptColumns: rule.read.except };
     }
-    if (!rule.update) return false;
-    return rule.update === true ? true : { allow: true, columns: rule.update };
+    if (action === "delete") return rule.delete === true;
+    if (action === "history") return rule.history === true;
+    const columns = action === "create" ? rule.create : rule.update;
+    if (!columns) return false;
+    return columns === true ? true : { allow: true, columns };
   };
 }

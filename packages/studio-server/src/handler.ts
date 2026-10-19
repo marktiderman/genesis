@@ -14,7 +14,8 @@ import {
   type StudioRequest,
 } from "./protocol";
 import { BadRequestError, listRows, readRow } from "./rows";
-import { updateRow, WriteRejected } from "./write";
+import { createRow, deleteRow, updateRow, WriteRejected } from "./write";
+import { readHistory } from "./history";
 
 export interface StudioHandler {
   (request: Request): Promise<Response>;
@@ -192,12 +193,19 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
       throw error;
     }));
 
-  async function resolveOne(ctx: AccessContext, query: Query, name: string): Promise<ResolvedResource> {
-    const tables = await loadTables(query, schemas, name);
+  async function resolveOne(
+    ctx: AccessContext,
+    query: Query,
+    name: string,
+    withRelations = false,
+  ): Promise<ResolvedResource> {
+    // Relations need the whole catalog; every other op needs one table.
+    const catalog = withRelations ? await loadTables(query, schemas) : undefined;
+    const tables = catalog ? catalog.filter((t) => t.qualified === name) : await loadTables(query, schemas, name);
     // Two tables can only share a dotted name if a schema name has a dot in
     // it; refuse rather than guess which one was meant.
     const table = tables.length === 1 ? tables[0] : undefined;
-    const resolved = table ? await resolveResource(ctx, table) : null;
+    const resolved = table ? await resolveResource(ctx, table, catalog) : null;
     // A table this user may not see gets the same answer as one that does
     // not exist, so the response never confirms a hidden table's existence.
     if (!resolved) throw new NotFoundError(`No resource "${name}".`);
@@ -244,7 +252,7 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
         );
       }
 
-      const readOnly = body.op !== "update";
+      const readOnly = body.op !== "update" && body.op !== "create" && body.op !== "delete";
       const result = await database.asUser({ role, claims }, { readOnly, statementTimeoutMs }, async (query) => {
         const ctx: AccessContext = { request, claims, query, options };
         switch (body.op) {
@@ -258,7 +266,7 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
             return { resources };
           }
           case "describe": {
-            const resolved = await resolveOne(ctx, query, resourceName(body.resource));
+            const resolved = await resolveOne(ctx, query, resourceName(body.resource), true);
             return { schema: resolved.schema };
           }
           case "list": {
@@ -272,7 +280,7 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
             return listRows(query, resolved, {
               page,
               perPage,
-              sort: body.sort,
+              sorts: Array.isArray(body.sorts) ? body.sorts : body.sort ? [body.sort] : undefined,
               search: typeof body.search === "string" ? body.search : undefined,
               filters: Array.isArray(body.filters) ? body.filters : undefined,
             });
@@ -299,6 +307,33 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
               expectedVersion: body.expectedVersion,
               resourceName: name,
             });
+          }
+          case "create": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            if (!body.data || typeof body.data !== "object" || Array.isArray(body.data)) {
+              throw new BadRequestError('"data" must be an object of field → value.');
+            }
+            return createRow(query, resolved, { data: body.data, resourceName: name });
+          }
+          case "delete": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            if (body.expectedVersion !== null && typeof body.expectedVersion !== "string") {
+              throw new BadRequestError('"expectedVersion" must be the version token the row was read at, or null.');
+            }
+            return deleteRow(query, resolved, {
+              key: decodeKey(resolved, recordId(body.id)),
+              expectedVersion: body.expectedVersion,
+              resourceName: name,
+            });
+          }
+          case "history": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            const limit = positiveInt(body.limit, 50, "limit");
+            const entries = await readHistory(query, resolved, decodeKey(resolved, recordId(body.id)), name, Math.min(limit, 200));
+            return { entries };
           }
           default:
             throw new BadRequestError(`Unknown op "${String((body as { op: unknown }).op)}".`);

@@ -119,13 +119,17 @@ describeDb("studio handler against Postgres with RLS", () => {
     const byName = Object.fromEntries(res.body.resources.map((r: any) => [r.name, r]));
     expect(Object.keys(byName).sort()).toEqual([
       "public.app_audited",
+      "public.client_notes",
       "public.clients",
       "public.coach_clients",
+      "public.coaches",
       "public.coarse",
       "public.locked_rows",
       "public.lying",
       "public.no_rls",
       "public.no_trigger",
+      "public.programs",
+      "public.scores",
       "public.typed",
     ]);
     expect(byName["public.clients"].access.update).toBe(true);
@@ -145,7 +149,7 @@ describeDb("studio handler against Postgres with RLS", () => {
     const res = await call(studio, COACH_A, { op: "describe", resource: "public.clients" });
     const { schema } = res.body;
     const fields = Object.fromEntries(schema.fields.map((f: any) => [f.name, f]));
-    expect(Object.keys(fields)).toEqual(["id", "coach_id", "name", "status", "notes", "updated_at"]);
+    expect(Object.keys(fields)).toEqual(["id", "coach_id", "program_id", "name", "status", "notes", "updated_at"]);
     expect(fields.secret_score).toBeUndefined();
     expect(fields.name.permissions).toEqual({ read: true, update: true });
     expect(fields.notes.permissions.update).toBe(true);

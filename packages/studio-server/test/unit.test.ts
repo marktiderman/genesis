@@ -103,6 +103,8 @@ describe("triggerAdvances", () => {
     forEachRow: true,
     before: true,
     onUpdate: true,
+    onInsert: false,
+    onDelete: false,
     columnSpecific: false,
     conditional: false,
     args: ["updated_at"],
@@ -241,5 +243,52 @@ describe("createStudioProvider", () => {
     });
     const list = await provider.getList("public.t", {});
     expect(list.data[0]).toMatchObject({ id: 1, updated_at: "2026-01-01 00:00:00.123456+00" });
+  });
+});
+
+describe("backoffDelay", () => {
+  it("doubles from the base, stays within the jitter band, and caps", async () => {
+    const { backoffDelay } = await import("../src/outbox");
+    expect(backoffDelay(1, 1000, 60_000, 0)).toBe(1000);
+    expect(backoffDelay(3, 1000, 60_000, 0)).toBe(4000);
+    expect(backoffDelay(20, 1000, 60_000, 0)).toBe(60_000);
+    expect(backoffDelay(2, 1000, 60_000, 0.25, () => 0)).toBe(1500);
+    expect(backoffDelay(2, 1000, 60_000, 0.25, () => 1)).toBe(2500);
+  });
+
+  it("spreads the default 10 attempts over about a day", async () => {
+    const { backoffDelay } = await import("../src/outbox");
+    let total = 0;
+    for (let attempt = 1; attempt < 10; attempt++) total += backoffDelay(attempt, 180_000, 12 * 3600_000, 0);
+    expect(total / 3600_000).toBeGreaterThan(20);
+    expect(total / 3600_000).toBeLessThan(30);
+  });
+});
+
+describe("createStudioProvider writes", () => {
+  it("sends create, delete with its version, and history", async () => {
+    const sent: any[] = [];
+    const replies: Record<string, unknown> = {
+      describe: { schema: { name: "public.t", key: "id", fields: [], access: { read: true, update: true }, version: { field: "v", kind: "integer" } } },
+      create: { row: { values: { id: 9 }, version: "1" }, id: 9 },
+      delete: {},
+      history: { entries: [{ id: "a" }] },
+    };
+    const provider = createStudioProvider({
+      url: "/api/studio",
+      getAccessToken: () => "tok",
+      fetch: (async (_url: unknown, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body));
+        sent.push(body);
+        return new Response(JSON.stringify(replies[body.op]), { status: 200 });
+      }) as typeof fetch,
+    });
+    const created = await provider.create("public.t", { data: { name: "x" } as never });
+    expect(created.data).toMatchObject({ id: 9, v: "1" });
+    await provider.deleteOne("public.t", { id: 9, expectedVersion: "1" });
+    expect(await provider.history("public.t", { id: 9 })).toEqual([{ id: "a" }]);
+    expect(sent.map((b) => b.op)).toEqual(["describe", "create", "delete", "history"]);
+    expect(sent[2]).toMatchObject({ id: 9, expectedVersion: "1" });
+    expect((await provider.capabilities()).multiSort).toBe(true);
   });
 });

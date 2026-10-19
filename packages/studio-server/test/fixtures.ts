@@ -52,6 +52,9 @@ begin
   if not exists (select 1 from pg_roles where rolname = 'studio_login') then
     create role studio_login login noinherit password 'studio_login';
   end if;
+  if not exists (select 1 from pg_roles where rolname = 'outbox_worker') then
+    create role outbox_worker login password 'outbox_worker';
+  end if;
 end $$;
 grant authenticated to studio_login;
 grant usage on schema public, extensions to anon, authenticated;
@@ -66,10 +69,21 @@ create function auth.uid() returns uuid language sql stable as $$
   )::uuid
 $$;
 
+-- programs and coaches: link targets for relations.
+create table public.programs (id int primary key, name text not null);
+alter table public.programs enable row level security;
+create policy programs_read on public.programs for select to authenticated using (true);
+grant select on public.programs to authenticated;
+create table public.coaches (id uuid primary key, name text not null);
+alter table public.coaches enable row level security;
+create policy coaches_read on public.coaches for select to authenticated using (true);
+grant select on public.coaches to authenticated;
+
 -- clients: RLS by coach; a column the database hides; a CHECK constraint.
 create table public.clients (
   id uuid primary key default gen_random_uuid(),
-  coach_id uuid not null,
+  coach_id uuid not null default auth.uid(),
+  program_id int references public.programs (id),
   name text not null,
   status text not null default 'active' check (status in ('active', 'paused', 'done')),
   notes text,
@@ -82,13 +96,28 @@ alter table public.clients enable row level security;
 create policy clients_select on public.clients for select to authenticated using (coach_id = auth.uid());
 create policy clients_update on public.clients for update to authenticated
   using (coach_id = auth.uid()) with check (coach_id = auth.uid());
-grant select (id, coach_id, name, status, notes, updated_at) on public.clients to authenticated;
-grant update (name, status, notes) on public.clients to authenticated;
+create policy clients_insert on public.clients for insert to authenticated with check (coach_id = auth.uid());
+create policy clients_delete on public.clients for delete to authenticated using (coach_id = auth.uid());
+grant select (id, coach_id, program_id, name, status, notes, updated_at) on public.clients to authenticated;
+grant update (name, status, notes, program_id) on public.clients to authenticated;
+grant insert (name, status, notes, program_id) on public.clients to authenticated;
+grant delete on public.clients to authenticated;
+
+-- client_notes: rows pointing at a client (a "many" relation).
+create table public.client_notes (
+  id int generated always as identity primary key,
+  client_id uuid not null references public.clients (id) on delete cascade,
+  body text not null
+);
+alter table public.client_notes enable row level security;
+create policy cn_read on public.client_notes for select to authenticated
+  using (exists (select 1 from public.clients c where c.id = client_id and c.coach_id = auth.uid()));
+grant select on public.client_notes to authenticated;
 
 -- coach_clients: a composite key and an integer version a trigger advances.
 create table public.coach_clients (
-  coach_id uuid not null,
-  client_id uuid not null,
+  coach_id uuid not null references public.coaches (id),
+  client_id uuid not null references public.clients (id) on delete cascade,
   label text,
   version int not null default 1,
   primary key (coach_id, client_id)
@@ -181,12 +210,53 @@ alter table public.app_audited enable row level security;
 create policy aa_all on public.app_audited for all to authenticated using (true) with check (true);
 grant select, update (label) on public.app_audited to authenticated;
 
+-- scores: every write goes through the app's own functions (decision 29).
+create table public.scores (
+  id int primary key,
+  coach_id uuid not null default auth.uid(),
+  points int not null,
+  updated_at timestamptz not null default now()
+);
+create trigger scores_updated_at before update on public.scores
+  for each row execute function extensions.moddatetime(updated_at);
+alter table public.scores enable row level security;
+create policy s_read on public.scores for select to authenticated using (coach_id = auth.uid());
+grant select on public.scores to authenticated;
+-- No direct write grants: only the functions below may change scores.
+create function public.save_score(record_key jsonb, changes jsonb) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if (changes ->> 'points')::int > 100 then
+    raise exception 'Points can''t exceed 100.';
+  end if;
+  update public.scores set points = (changes ->> 'points')::int
+   where id = (record_key ->> 'id')::int and coach_id = auth.uid();
+end $$;
+create function public.add_score(vals jsonb) returns public.scores
+language plpgsql security definer set search_path = '' as $$
+declare r public.scores;
+begin
+  insert into public.scores (id, coach_id, points)
+  values ((vals ->> 'id')::int, auth.uid(), (vals ->> 'points')::int) returning * into r;
+  return r;
+end $$;
+create function public.remove_score(record_key jsonb) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  delete from public.scores where id = (record_key ->> 'id')::int and coach_id = auth.uid();
+end $$;
+revoke all on function public.save_score(jsonb, jsonb), public.add_score(jsonb), public.remove_score(jsonb) from public;
+grant execute on function public.save_score(jsonb, jsonb), public.add_score(jsonb), public.remove_score(jsonb) to authenticated;
+
 -- secret_table: granted by the database, but never allowed by authorize().
 create table public.secret_table (id int primary key, payload text);
 grant select on public.secret_table to authenticated;
 `;
 
 const SEED_SQL = `
+insert into public.programs values (1, 'Leadership'), (2, 'Wellbeing');
+insert into public.coaches values ('${COACH_A}', 'Coach A'), ('${COACH_B}', 'Coach B');
+insert into public.scores (id, coach_id, points) values (1, '${COACH_A}', 40);
 insert into public.clients (id, coach_id, name, status, notes, secret_score) values
   ('${CLIENT_1}', '${COACH_A}', 'Ana Ruiz', 'active', 'Prefers mornings', 91),
   ('${CLIENT_2}', '${COACH_A}', 'Ben Ode', 'paused', null, 40),
@@ -200,6 +270,7 @@ insert into public.no_trigger values (1, 'static', now());
 insert into public.locked_rows values (1, 'open', false, now()), (2, 'frozen', true, now());
 insert into public.lying values (1, 'original', now());
 insert into public.secret_table values (1, 'nope');
+insert into public.client_notes (client_id, body) values ('${CLIENT_1}', 'Kickoff call'), ('${CLIENT_1}', 'Goal review');
 insert into public.no_rls values (1, 'open to all', now());
 insert into public.coarse values (1, 'coarse', now());
 insert into public.app_audited values (1, 'app', now());
@@ -224,7 +295,7 @@ export async function resetDatabase(): Promise<void> {
   const sql = adminSql();
   try {
     await sql.unsafe(SCHEMA_SQL);
-    await sql.unsafe(studioSetupSql());
+    await sql.unsafe(studioSetupSql({ workerRole: "outbox_worker" }));
     await sql.unsafe(FAILING_AUDIT_SQL);
     await sql.unsafe(SEED_SQL);
   } finally {
@@ -242,7 +313,11 @@ export async function tokenFor(sub: string, claims: Record<string, unknown> = {}
 }
 
 export const DEFAULT_RULES = {
-  "public.clients": { read: true, update: true },
+  "public.clients": { read: true, update: true, create: true, delete: true, history: true },
+  "public.programs": { read: true },
+  "public.coaches": { read: true },
+  "public.client_notes": { read: true },
+  "public.scores": { read: true, update: true, create: true, delete: true },
   "public.coach_clients": { read: true, update: true },
   "public.no_trigger": { read: true, update: true },
   "public.locked_rows": { read: true, update: true },

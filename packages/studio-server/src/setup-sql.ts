@@ -10,6 +10,12 @@ export interface SetupSqlOptions {
   /** Role the handler acts as. Default `authenticated`. */
   role?: string;
   /**
+   * The role an outbox worker logs in as. Only it may read the outbox, mark
+   * entries delivered, and move them to and from the dead-letter table.
+   * Omit it if you don't use the `outbox` sink.
+   */
+  workerRole?: string;
+  /**
    * The handler's login role. When given, the audit function refuses any
    * session that didn't log in as it — so even code that can run SQL as the
    * acting role can't add entries outside the studio. Recommended.
@@ -27,6 +33,10 @@ function quoteIdent(name: string): string {
 
 /** Name of the audit function the handler calls. */
 export const AUDIT_FUNCTION = "genesis_studio.record_audit";
+/** The `outbox` sink's audit function: writes the log entry and queues it. */
+export const OUTBOX_AUDIT_FUNCTION = "genesis_studio.record_audit_outbox";
+/** Reads a record's audit history. */
+export const HISTORY_FUNCTION = "genesis_studio.record_history";
 
 /**
  * SQL that installs the tamper-proof audit trail:
@@ -41,6 +51,19 @@ export const AUDIT_FUNCTION = "genesis_studio.record_audit";
  */
 export function studioSetupSql(options: SetupSqlOptions = {}): string {
   const role = quoteIdent(options.role ?? "authenticated");
+  const worker = options.workerRole ? quoteIdent(options.workerRole) : null;
+  const workerGrants = worker
+    ? `
+-- The outbox worker: it reads and settles deliveries, and nothing else.
+grant usage on schema genesis_studio to ${worker};
+grant select, update, delete on genesis_studio.outbox to ${worker};
+grant select, insert, delete on genesis_studio.outbox_dead_letter to ${worker};
+-- Replay puts an entry back with its ORIGINAL seq (overriding system value),
+-- so it is still delivered before later entries for the same record.
+grant insert (id, seq, resource, record_key, payload, attempts, next_attempt_at, last_error, created_at)
+  on genesis_studio.outbox to ${worker};
+`
+    : "";
   const loginCheck = options.loginRole
     ? `
   if session_user <> ${quoteLiteral(options.loginRole)} then
@@ -117,14 +140,101 @@ begin${loginCheck}
 end;
 $fn$;
 
+-- An entry and its delivery job, written together (the outbox sink). The
+-- outbox row IS the pending delivery: it exists from the moment the edit
+-- commits, whether or not delivery has happened yet.
+create table if not exists genesis_studio.outbox (
+  id uuid primary key references genesis_studio.audit_log (id),
+  seq bigint generated always as identity,
+  resource text not null,
+  record_key jsonb not null,
+  payload jsonb not null,
+  attempts int not null default 0,
+  next_attempt_at timestamptz not null default clock_timestamp(),
+  last_error text,
+  created_at timestamptz not null default clock_timestamp(),
+  delivered_at timestamptz
+);
+create index if not exists outbox_pending_idx
+  on genesis_studio.outbox (next_attempt_at) where delivered_at is null;
+create index if not exists outbox_record_idx on genesis_studio.outbox (resource, record_key, seq);
+
+-- Entries that ran out of attempts or were refused outright. They stay here,
+-- holding back later entries for the same record, until replayed.
+create table if not exists genesis_studio.outbox_dead_letter (
+  id uuid primary key,
+  seq bigint not null,
+  resource text not null,
+  record_key jsonb not null,
+  payload jsonb not null,
+  attempts int not null,
+  last_error text,
+  created_at timestamptz not null,
+  failed_at timestamptz not null default clock_timestamp()
+);
+create index if not exists outbox_dead_record_idx on genesis_studio.outbox_dead_letter (resource, record_key);
+revoke all on genesis_studio.outbox, genesis_studio.outbox_dead_letter from public;
+revoke all on genesis_studio.outbox, genesis_studio.outbox_dead_letter from ${role};
+
+create or replace function genesis_studio.record_audit_outbox(
+  p_resource text,
+  p_record_key jsonb,
+  p_action text,
+  p_before jsonb,
+  p_after jsonb
+)
+returns table (id uuid, occurred_at timestamptz, actor text)
+language plpgsql
+security definer
+set search_path = ''
+as $fn$
+declare
+  v_entry record;
+begin
+  select * into v_entry
+    from genesis_studio.record_audit(p_resource, p_record_key, p_action, p_before, p_after);
+  insert into genesis_studio.outbox (id, resource, record_key, payload)
+  values (
+    v_entry.id, p_resource, p_record_key,
+    jsonb_build_object(
+      'id', v_entry.id, 'occurredAt', v_entry.occurred_at, 'actor', v_entry.actor,
+      'resource', p_resource, 'key', p_record_key, 'action', p_action,
+      'before', p_before, 'after', p_after));
+  return query select v_entry.id, v_entry.occurred_at, v_entry.actor;
+end;
+$fn$;
+
+-- A record's history, most recent first. The handler only calls it for a
+-- row the user can see right now, and strips fields they can't read.
+create or replace function genesis_studio.record_history(p_resource text, p_record_key jsonb, p_limit int)
+returns table (id uuid, occurred_at timestamptz, actor text, action text, before jsonb, after jsonb)
+language sql
+stable
+security definer
+set search_path = ''
+as $fn$
+  select a.id, a.occurred_at, a.actor, a.action, a.before, a.after
+    from genesis_studio.audit_log a
+   where a.resource = p_resource and a.record_key = p_record_key
+   order by a.occurred_at desc
+   limit least(greatest(p_limit, 1), 200)
+$fn$;
+
 revoke all on function genesis_studio.record_audit(text, jsonb, text, jsonb, jsonb) from public;
+revoke all on function genesis_studio.record_audit_outbox(text, jsonb, text, jsonb, jsonb) from public;
+revoke all on function genesis_studio.record_history(text, jsonb, int) from public;
 do $$
 begin
   if exists (select 1 from pg_roles where rolname = 'anon') then
     execute 'revoke all on function genesis_studio.record_audit(text, jsonb, text, jsonb, jsonb) from anon';
+    execute 'revoke all on function genesis_studio.record_audit_outbox(text, jsonb, text, jsonb, jsonb) from anon';
+    execute 'revoke all on function genesis_studio.record_history(text, jsonb, int) from anon';
+    execute 'revoke all on genesis_studio.outbox, genesis_studio.outbox_dead_letter from anon';
     execute 'revoke all on schema genesis_studio from anon';
   end if;
 end $$;
 grant execute on function genesis_studio.record_audit(text, jsonb, text, jsonb, jsonb) to ${role};
-`;
+grant execute on function genesis_studio.record_audit_outbox(text, jsonb, text, jsonb, jsonb) to ${role};
+grant execute on function genesis_studio.record_history(text, jsonb, int) to ${role};
+${workerGrants}`;
 }
