@@ -79,6 +79,20 @@ const PACKAGES = [
     description:
       "Pluggable data layer — a resource's backing (L1 Code / L2 Airtable·Notion / L3 Supabase × tiers A/B/C) is config, not a rewrite. Read one canonical shape via data.resource('x'). See packages/data-switchboard/README.md + SWITCHBOARD.md.",
   },
+  {
+    name: "@marktiderman/genesis-studio",
+    dir: "packages/studio",
+    barrel: "packages/studio/src/index.ts",
+    description:
+      "Data Studio workspace UI — a table sidebar and a sheet grid with version-checked, audited cell edits, as the signed-in user. See packages/studio/README.md + docs/DATA-STUDIO.md.",
+  },
+  {
+    name: "@marktiderman/genesis-studio-server",
+    dir: "packages/studio-server",
+    barrel: "packages/studio-server/src/index.ts",
+    description:
+      "Data Studio server handler (Request → Response) that acts as the signed-in user over Postgres/Supabase. The only package that touches database credentials. See packages/studio-server/README.md.",
+  },
 ];
 
 // ---------------------------------------------------------------------------

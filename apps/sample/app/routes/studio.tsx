@@ -83,7 +83,7 @@ export default function Studio() {
             <span className="text-muted-foreground" data-testid="studio-signed-in-as">
               Signed in as {session.label}
             </span>
-            <Button variant="outline" size="sm" onClick={signOut} data-testid="studio-sign-out">
+            <Button variant="outline" size="sm" onClick={signOut} testID="studio-sign-out">
               Sign out
             </Button>
           </div>
@@ -120,7 +120,7 @@ function SignIn({ config, onSignIn }: { config: StudioConfig; onSignIn: (session
           key={user.id}
           variant="outline"
           className="w-full justify-between"
-          data-testid={`studio-dev-user-${user.name.toLowerCase()}`}
+          testID={`studio-dev-user-${user.name.toLowerCase()}`}
           onClick={async () => {
             const res = await fetch(`/api/studio-dev-token?user=${encodeURIComponent(user.id)}`);
             const body = (await res.json()) as { token: string };
@@ -183,7 +183,7 @@ function SupabaseSignIn({ config, onSignIn }: { config: StudioConfig; onSignIn: 
           {error}
         </p>
       )}
-      <Button type="submit" className="w-full" disabled={busy} data-testid="studio-sign-in-submit">
+      <Button type="submit" className="w-full" disabled={busy} testID="studio-sign-in-submit">
         {busy ? "Signing in…" : "Sign in"}
       </Button>
     </form>
