@@ -86,8 +86,12 @@ export type { PageHeaderProps, PageHeaderOptions };
 export {
   DefaultLink,
   isPathActive,
+  resolveNavigation,
   defaultNavigate,
   type GenesisLinkProps,
+  type IsPathActiveOptions,
+  type NavigationNode,
+  type ResolvedNavigation,
   type LinkComponent,
   type NavigateFn,
 } from "../../navigation";

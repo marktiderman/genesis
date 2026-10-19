@@ -26,7 +26,7 @@
     "SKILL.md"
   ],
   "scripts": {
-    "build": "tsup && node scripts/stamp-use-client.mjs && node ../../scripts/check-exports-resolve.mjs",
+    "build": "tsup && node scripts/stamp-use-client.mjs && cp src/styles.css dist/styles.css && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
     "check:exports": "node ../../scripts/check-exports-resolve.mjs",
     "test": "vitest run"
@@ -68,6 +68,7 @@
       "types": "./dist/provider/index.d.ts",
       "import": "./dist/provider/index.js"
     },
+    "./styles.css": "./dist/styles.css",
     "./accessible-icon": {
       "types": "./dist/components/ui/accessible-icon.d.ts",
       "import": "./dist/components/ui/accessible-icon.js"

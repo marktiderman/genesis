@@ -44,7 +44,10 @@ export interface NavItem {
   children?: NavItem[];
   badge?: string | number;
   disabled?: boolean;
-  /** Exact-match active state (e.g. overview `/`) */
+  /**
+   * Exact-match active state (e.g. overview `/`). Exact on the path only, so
+   * an `activePath` carrying `?search#hash` still matches.
+   */
   end?: boolean;
 }
 
@@ -193,9 +196,11 @@ export interface AppShellProps {
    */
   linkComponent?: LinkComponent;
   /**
-   * Current path used to highlight the active nav item. Router consumers pass
-   * `useLocation().pathname` (RR) or `usePathname()` (Next). Omit to disable
-   * active highlighting.
+   * Current location used to highlight the active nav item. Pass the full
+   * location, `pathname + search + hash` (React Router: `useLocation()`), so
+   * items whose `to` names a query or hash (`/admin?tab=users`) can become
+   * active. A pathname alone still works for path-only items, `end` included.
+   * Omit to disable active highlighting.
    */
   activePath?: string;
   /**
@@ -246,8 +251,10 @@ function itemIsActive(
   activePath: string | undefined,
   isActive: (to: string, activePath?: string) => boolean,
 ): boolean {
+  // `end` is exact on the path but ignores an incidental query/hash, so an
+  // `end` item stays active on `/dashboard?page=2`.
   if (item.end) {
-    return Boolean(activePath && activePath === item.to);
+    return isPathActive(item.to, activePath, { end: true });
   }
   if (isActive(item.to, activePath)) return true;
   return Boolean(
@@ -385,8 +392,11 @@ function NavGroup({
   // Parent may be its own route (`item.to`) — keep a real link and a separate
   // expand control so groups under an existing page stay navigable + highlightable.
   // Visual highlight may use prefix match; aria-current is exact-only so a child
-  // route does not leave two "page" currents in the tree (CMT-322-008).
-  const selfExact = Boolean(item.to && activePath && activePath === item.to);
+  // route does not leave two "page" currents in the tree (CMT-322-008). Exact
+  // means the same path; a query/hash on `activePath` alone doesn't break it.
+  const selfExact = Boolean(
+    item.to && isPathActive(item.to, activePath, { end: true }),
+  );
   const selfActive = item.to
     ? item.end
       ? selfExact
