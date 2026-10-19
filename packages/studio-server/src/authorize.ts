@@ -1,26 +1,49 @@
+import type { StudioClaims } from "./auth";
 import type { Authorize } from "./options";
 
 export interface ResourceRule {
-  /** `true` for every column, or `{ except }` to keep some columns from ever being sent. */
+  /**
+   * `true` for every column, or `{ except }` to keep some columns out of the
+   * studio. Hiding a column here is not a security boundary: revoke it in the
+   * database too if the same user can reach the table another way.
+   */
   read?: true | { except: readonly string[] };
   /** `true` for every column the database lets them update, or just these columns. */
   update?: true | readonly string[];
 }
 
+export interface ByResourceOptions {
+  /**
+   * Who may use the studio at all, from their verified claims. Required:
+   * on Supabase every signed-in user holds the same `authenticated` role,
+   * including customers who signed themselves up, so "signed in" alone is
+   * almost never the right answer.
+   *
+   * @example (claims) => claims.app_metadata?.role === "staff"
+   */
+  who: (claims: StudioClaims) => boolean;
+}
+
 /**
- * The common case of `authorize`: a fixed allow-list by `schema.table`.
- * Anything not listed is denied, and a listed table without `update` is
- * read-only. For rules that depend on who is asking, write `authorize`
- * yourself — it receives the verified claims.
+ * The common case of `authorize`: a fixed allow-list by `schema.table`, for
+ * the users `who` admits. Anything not listed is denied, and a listed table
+ * without `update` is read-only.
  *
  * @example
- * byResource({
- *   "public.clients": { read: true, update: ["notes", "status"] },
- *   "public.quiz_questions": { read: { except: ["answer_key"] } },
- * })
+ * byResource(
+ *   {
+ *     "public.clients": { read: true, update: ["notes", "status"] },
+ *     "public.sessions": { read: true },
+ *   },
+ *   { who: (claims) => (claims.app_metadata as { role?: string } | undefined)?.role === "coach" },
+ * )
  */
-export function byResource(rules: Readonly<Record<string, ResourceRule>>): Authorize {
-  return ({ resource, action }) => {
+export function byResource(rules: Readonly<Record<string, ResourceRule>>, options: ByResourceOptions): Authorize {
+  if (typeof options?.who !== "function") {
+    throw new Error("byResource needs `who`: decide which signed-in users may use the studio.");
+  }
+  return ({ resource, action, claims }) => {
+    if (!options.who(claims)) return false;
     const rule = Object.prototype.hasOwnProperty.call(rules, resource) ? rules[resource] : undefined;
     if (!rule) return false;
     if (action === "read") {

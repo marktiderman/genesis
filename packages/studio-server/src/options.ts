@@ -19,6 +19,12 @@ export interface AuthorizeContext {
  * they render read-only. Either way the database's own privileges and row
  * rules still apply on top, so an allow can never grant more than the
  * database does.
+ *
+ * Column narrowing shapes what the STUDIO shows; it is not a security
+ * boundary on its own. If the same user can reach the table through the
+ * Data API (PostgREST), a column hidden only here is still readable there.
+ * To truly protect a column (an answer key), revoke it in the database:
+ * `revoke select (answer_key) on quiz from authenticated`.
  */
 export type AuthorizeDecision =
   | boolean
@@ -50,6 +56,11 @@ export type Authorize = (context: AuthorizeContext) => AuthorizeDecision | Promi
  */
 export type AuditSink = { sink: "table"; function?: string } | { sink: "database" };
 
+// The `database` sink also needs, per resource, the name of the trigger that
+// audits it (`ResourceSettings.auditTrigger`). The handler checks that the
+// trigger exists and fires on every update; without it the table stays
+// read-only, because an unnamed promise is not an audit trail.
+
 export interface ResourceSettings {
   /**
    * The version column checked on every update. Default: `updated_at`, then
@@ -59,6 +70,17 @@ export interface ResourceSettings {
   versionField?: string;
   /** Sidebar label. Default: the table name in title case. */
   label?: string;
+  /**
+   * For the `database` audit sink: the trigger that writes this table's audit
+   * entries. Required for the table to be editable under that sink.
+   */
+  auditTrigger?: string;
+  /**
+   * Allow edits to a table with row-level security OFF. Without RLS every
+   * signed-in user who may update it may update every row, so the studio
+   * keeps such tables read-only unless you opt in here.
+   */
+  allowWithoutRls?: boolean;
 }
 
 export interface StudioHandlerOptions {
@@ -80,6 +102,27 @@ export interface StudioHandlerOptions {
   statementTimeoutMs?: number;
   /** Largest page a list may ask for. Default 200. */
   maxPageSize?: number;
-  /** Called with errors the user only sees as "something went wrong". */
+  /**
+   * Origins allowed to call the handler from a browser, besides its own.
+   * A cross-site request is refused unless its origin is listed here.
+   */
+  allowedOrigins?: readonly string[];
+  /**
+   * Let Supabase anonymous sign-ins (`is_anonymous: true`) use the studio.
+   * They hold the `authenticated` role too, so they are refused by default.
+   */
+  allowAnonymousUsers?: boolean;
+  /**
+   * Allow a login role that is a superuser or has BYPASSRLS. Refused by
+   * default: the per-request switch to the user's role would then be the
+   * only thing between a bug and every row. Use a dedicated NOINHERIT login
+   * role instead (see the README); set this only for local development.
+   */
+  allowPrivilegedLogin?: boolean;
+  /**
+   * Called with errors the user only sees as "something went wrong". The
+   * error may carry query parameters, which can include the user's claims
+   * and cell values: scrub it before sending it to a log service.
+   */
   onError?: (error: unknown) => void;
 }

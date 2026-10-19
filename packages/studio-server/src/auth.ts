@@ -22,10 +22,14 @@ export interface JwtAuthOptions {
   secret?: string;
   /** JWKS endpoint for asymmetric keys, e.g. `<supabase-url>/auth/v1/.well-known/jwks.json`. */
   jwksUrl?: string;
-  /** Expected `iss`. */
+  /** Expected `iss`. Recommended, so a token minted for something else is refused. */
   issuer?: string;
-  /** Expected `aud`. Supabase uses `authenticated`. */
-  audience?: string;
+  /**
+   * Expected `aud`. Required: without it, any token signed with the same key
+   * that names a subject would be accepted, including ones the app minted
+   * for another purpose. Supabase uses `authenticated`.
+   */
+  audience: string | string[];
 }
 
 /** Read a bearer token from the `Authorization` header. */
@@ -43,7 +47,16 @@ export function jwtAuth(options: JwtAuthOptions): StudioAuth {
   if (Boolean(options.secret) === Boolean(options.jwksUrl)) {
     throw new Error("jwtAuth needs exactly one of `secret` or `jwksUrl`.");
   }
-  const claimsCheck = { issuer: options.issuer, audience: options.audience };
+  if (!options.audience || (Array.isArray(options.audience) && options.audience.length === 0)) {
+    throw new Error("jwtAuth needs an `audience`.");
+  }
+  // jose only checks `exp` when it is present, so require it: a token
+  // without one would never expire.
+  const claimsCheck = {
+    issuer: options.issuer,
+    audience: options.audience,
+    requiredClaims: ["exp", "sub"],
+  };
   let verify: (token: string) => Promise<{ payload: JWTPayload }>;
   if (options.secret) {
     const secret = new TextEncoder().encode(options.secret);

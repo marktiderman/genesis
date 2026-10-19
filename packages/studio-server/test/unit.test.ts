@@ -44,9 +44,17 @@ describe("jwtAuth", () => {
     expect(await auth(request(`${header}.${body}.`))).toBeNull();
   });
 
-  it("needs exactly one key source", () => {
-    expect(() => jwtAuth({})).toThrow(/exactly one/);
-    expect(() => jwtAuth({ secret: SECRET, jwksUrl: "https://x.test/jwks" })).toThrow(/exactly one/);
+  it("rejects a token that never expires", async () => {
+    const forever = await new SignJWT({ sub: "u", aud: "authenticated" })
+      .setProtectedHeader({ alg: "HS256" })
+      .sign(new TextEncoder().encode(SECRET));
+    expect(await auth(request(forever))).toBeNull();
+  });
+
+  it("needs exactly one key source, and an audience", () => {
+    expect(() => jwtAuth({ audience: "a" })).toThrow(/exactly one/);
+    expect(() => jwtAuth({ secret: SECRET, jwksUrl: "https://x.test/jwks", audience: "a" })).toThrow(/exactly one/);
+    expect(() => jwtAuth({ secret: SECRET, audience: [] })).toThrow(/audience/);
   });
 });
 
@@ -86,12 +94,20 @@ describe("triggerAdvances", () => {
 });
 
 describe("byResource", () => {
-  const authorize = byResource({
-    "public.clients": { read: true, update: ["notes"] },
-    "public.quiz": { read: { except: ["answer_key"] } },
+  const authorize = byResource(
+    {
+      "public.clients": { read: true, update: ["notes"] },
+      "public.quiz": { read: { except: ["answer_key"] } },
+    },
+    { who: (claims) => claims.app_metadata === "staff" },
+  );
+  const ctx = (resource: string, action: "read" | "update", claims: Record<string, unknown> = { app_metadata: "staff" }) =>
+    authorize({ request: request(), claims: { sub: "u", ...claims }, resource, action });
+
+  it("denies everyone `who` doesn't admit, and requires `who`", () => {
+    expect(ctx("public.clients", "read", { app_metadata: "customer" })).toBe(false);
+    expect(() => byResource({}, undefined as never)).toThrow(/needs `who`/);
   });
-  const ctx = (resource: string, action: "read" | "update") =>
-    authorize({ request: request(), claims: { sub: "u" }, resource, action });
 
   it("denies anything not listed, and leaves a listed table read-only without update", () => {
     expect(ctx("public.other", "read")).toBe(false);

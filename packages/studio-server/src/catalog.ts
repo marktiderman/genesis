@@ -24,6 +24,8 @@ export interface CatalogColumn {
   /** `pg_type.typcategory` of the base type (or of the element, for arrays). */
   category: string;
   isArray: boolean;
+  /** `atttypmod`: for a timestamp, its fractional-second precision (-1 = default, 6). */
+  typmod: number;
   nullable: boolean;
   hasDefault: boolean;
   generated: boolean;
@@ -57,6 +59,8 @@ export interface CatalogTable {
   description: string | null;
   canSelectAny: boolean;
   canUpdateAny: boolean;
+  /** Row-level security is enabled on the table. */
+  rls: boolean;
   columns: CatalogColumn[];
   primaryKey: string[];
   triggers: CatalogTrigger[];
@@ -72,10 +76,14 @@ export async function loadTables(
     `select c.oid::text as oid, n.nspname as schema, c.relname as name,
             obj_description(c.oid, 'pg_class') as description,
             has_any_column_privilege(c.oid, 'SELECT') as can_select,
-            has_any_column_privilege(c.oid, 'UPDATE') as can_update
+            has_any_column_privilege(c.oid, 'UPDATE') as can_update,
+            c.relrowsecurity as rls
        from pg_class c
        join pg_namespace n on n.oid = c.relnamespace
       where c.relkind in ('r', 'p')
+        -- A partition is reached through its parent; querying it directly
+        -- could skip row rules defined only on the parent.
+        and not c.relispartition
         and n.nspname = any($1::text[])
         and ($2::text is null or n.nspname || '.' || c.relname = $2::text)
       order by n.nspname, c.relname`,
@@ -92,6 +100,7 @@ export async function loadTables(
               coalesce(et.typname, bt.typname) as base_type,
               coalesce(et.typcategory, bt.typcategory) as category,
               bt.typcategory = 'A' as is_array,
+              a.atttypmod as typmod,
               not a.attnotnull as nullable,
               a.atthasdef as has_default,
               a.attgenerated <> '' as generated,
@@ -157,6 +166,7 @@ export async function loadTables(
       description: (t.description as string | null) ?? null,
       canSelectAny: Boolean(t.can_select),
       canUpdateAny: Boolean(t.can_update),
+      rls: Boolean(t.rls),
       primaryKey: (pk?.columns as string[] | undefined) ?? [],
       columns: columns
         .filter((c) => c.table_oid === oid)
@@ -175,6 +185,7 @@ export async function loadTables(
             baseType: String(c.base_type),
             category: String(c.category),
             isArray: Boolean(c.is_array),
+            typmod: Number(c.typmod),
             nullable: Boolean(c.nullable),
             hasDefault: Boolean(c.has_default),
             generated: Boolean(c.generated),
@@ -240,19 +251,55 @@ export function triggerAdvances(trigger: CatalogTrigger, column: string): boolea
   return assignment.test(trigger.source);
 }
 
-/** Version kinds the studio can check, by base type. */
+/**
+ * Version kinds the studio can check, by base type. A timestamp stored with
+ * less than microsecond precision is refused: two writes inside the same
+ * second (or millisecond) would leave it unchanged, and the second writer's
+ * edit would silently overwrite the first.
+ */
 export function versionKind(column: CatalogColumn): "integer" | "timestamp" | null {
   if (column.isArray) return null;
   if (["int2", "int4", "int8"].includes(column.baseType)) return "integer";
-  if (["timestamp", "timestamptz"].includes(column.baseType)) return "timestamp";
+  if (["timestamp", "timestamptz"].includes(column.baseType)) {
+    return column.typmod < 0 || column.typmod >= 6 ? "timestamp" : null;
+  }
   return null;
 }
 
-/** True when the acting role may execute the audit function. */
-export async function canExecuteAudit(query: Query, signature: string): Promise<boolean> {
+/**
+ * Does this trigger record every update for the `database` audit sink? It
+ * must be enabled, row-level, fire on UPDATE with no column list and no WHEN
+ * condition. Whether its body really writes an audit row is the app's
+ * responsibility; this only proves it can't be skipped.
+ */
+export function triggerAuditsEveryUpdate(trigger: CatalogTrigger): boolean {
+  return trigger.forEachRow && trigger.onUpdate && !trigger.columnSpecific && !trigger.conditional;
+}
+
+/**
+ * Checks that the `table` audit sink is still tamper-proof for this user:
+ * the function exists, they may run it, it is `security definer` with an
+ * empty `search_path`, and — for the stock log — they can't write the log
+ * directly. A later blanket `grant all` would otherwise break the guarantee
+ * in silence. Returns why it isn't, or `null` when it is.
+ */
+export async function auditSinkProblem(query: Query, signature: string, checkLogTable: boolean): Promise<string | null> {
   const [row] = await query(
-    `select coalesce(has_function_privilege(to_regprocedure($1::text), 'EXECUTE'), false) as ok`,
-    [signature],
+    `select p.oid is not null as exists,
+            coalesce(has_function_privilege(p.oid, 'EXECUTE'), false) as executable,
+            coalesce(p.prosecdef, false) as definer,
+            coalesce('search_path=""' = any(p.proconfig) or 'search_path=' = any(p.proconfig), false) as pinned,
+            case when $2::boolean and to_regclass('genesis_studio.audit_log') is not null
+                 then has_table_privilege('genesis_studio.audit_log', 'INSERT, UPDATE, DELETE, TRUNCATE')
+                 else false end as log_writable
+       from (select to_regprocedure($1::text) as oid) f
+       left join pg_proc p on p.oid = f.oid`,
+    [signature, checkLogTable],
   );
-  return Boolean(row?.ok);
+  if (!row?.exists) return "isn't installed";
+  if (!row.executable) return "can't be run by you";
+  if (!row.definer) return "isn't security definer";
+  if (!row.pinned) return "doesn't pin an empty search_path";
+  if (row.log_writable) return "is bypassable: you can write genesis_studio.audit_log directly";
+  return null;
 }

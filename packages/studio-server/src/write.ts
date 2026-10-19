@@ -54,6 +54,18 @@ function jsonOf(columns: readonly string[]): string {
   return `jsonb_build_object(${columns.map((c) => `${literal(c)}, ${ident(c)}`).join(", ")})`;
 }
 
+/** Only the fields whose value changed, before and after. */
+function diff(before: DataRow, after: DataRow): { before: DataRow; after: DataRow } {
+  const out = { before: {} as Record<string, unknown>, after: {} as Record<string, unknown> };
+  for (const key of Object.keys(after)) {
+    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+      out.before[key] = before[key] ?? null;
+      out.after[key] = after[key] ?? null;
+    }
+  }
+  return out;
+}
+
 /** Re-read the row and say why a step changed nothing. */
 async function explain(
   query: Query,
@@ -125,6 +137,10 @@ export async function updateRow(
   const changed = resolved.readable.filter((c) => fields.includes(c.name));
   const table = qualifiedTable(resolved);
   const keyNames = resolved.key.map((c) => c.name);
+  // Before and after cover every column this user can read, not only the
+  // ones they sent, so a trigger's side effects and the version bump are in
+  // the audit entry too. Columns hidden from them are never read.
+  const readableNames = resolved.readable.map((c) => c.name);
 
   // 1. Lock the row and check the version it was edited from.
   const lockParams = new Params();
@@ -135,7 +151,7 @@ export async function updateRow(
     [locked] = await query(
       `select ${selectList(resolved)},
               ${ident(version.name)} is not distinct from ${expected} as ${ident(MATCH_ALIAS)},
-              ${jsonOf(changed.map((c) => c.name))} as ${ident(BEFORE_ALIAS)},
+              ${jsonOf(readableNames)} as ${ident(BEFORE_ALIAS)},
               ${jsonOf(keyNames)} as ${ident(KEY_ALIAS)}
          from ${table} where ${lockPredicate} for update`,
       lockParams.values,
@@ -165,7 +181,7 @@ export async function updateRow(
     [updated] = await query(
       `update ${table} set ${assignments.join(", ")}
         where ${predicate} and ${ident(version.name)} is not distinct from ${versionGuard}
-        returning ${selectList(resolved)}, ${jsonOf(changed.map((c) => c.name))} as ${ident(AFTER_ALIAS)}`,
+        returning ${selectList(resolved)}, ${jsonOf(readableNames)} as ${ident(AFTER_ALIAS)}`,
       params.values,
     );
   } catch (error) {
@@ -185,6 +201,7 @@ export async function updateRow(
 
   // 4. Audit, in the same transaction.
   if (!resolved.auditFunction) return { row };
+  const { before, after } = diff(locked[BEFORE_ALIAS] as DataRow, updated[AFTER_ALIAS] as DataRow);
   try {
     const [entry] = await query(
       `select id::text as id, occurred_at::text as occurred_at, actor
@@ -192,8 +209,8 @@ export async function updateRow(
       [
         input.resourceName,
         JSON.stringify(locked[KEY_ALIAS]),
-        JSON.stringify(locked[BEFORE_ALIAS]),
-        JSON.stringify(updated[AFTER_ALIAS]),
+        JSON.stringify(before),
+        JSON.stringify(after),
       ],
     );
     if (!entry) throw new Error("The audit function returned no entry.");
@@ -206,8 +223,8 @@ export async function updateRow(
         resource: input.resourceName,
         key: locked[KEY_ALIAS] as DataRow,
         action: "update",
-        before: locked[BEFORE_ALIAS] as DataRow,
-        after: updated[AFTER_ALIAS] as DataRow,
+        before,
+        after,
       },
     };
   } catch (error) {

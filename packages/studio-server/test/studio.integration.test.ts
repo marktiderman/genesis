@@ -14,7 +14,7 @@ import {
   makeHandler,
   resetDatabase,
 } from "./fixtures";
-import { byResource, type StudioHandler } from "../src/index";
+import { byResource, createPostgresDatabase, type StudioHandler } from "../src/index";
 
 describeDb("studio handler against Postgres with RLS", () => {
   let studio: StudioHandler;
@@ -35,6 +35,13 @@ describeDb("studio handler against Postgres with RLS", () => {
   afterAll(async () => {
     await Promise.all([studio.close(), admin.end(), ...extra.map((h) => h.close())]);
   });
+
+  /** List coach A's clients through a handler whose pool is `shared`. */
+  async function makeHandlerOn(shared: postgres.Sql): Promise<string[]> {
+    const h = handler({ database: createPostgresDatabase(shared) });
+    const res = await call(h, COACH_A, { op: "list", resource: "public.clients", sort: { field: "name", order: "asc" } });
+    return res.body.rows.map((r: any) => r.values.name);
+  }
 
   async function readClient(id: string) {
     return call(studio, COACH_A, { op: "read", resource: "public.clients", id });
@@ -57,6 +64,44 @@ describeDb("studio handler against Postgres with RLS", () => {
     expect(res.status).toBe(403);
   });
 
+  it("refuses an anonymous Supabase session", async () => {
+    const res = await call(studio, COACH_A, { op: "resources" }, { is_anonymous: true });
+    expect(res.status).toBe(403);
+  });
+
+  it("refuses a browser request from another site, and anything but JSON", async () => {
+    const crossSite = await call(studio, COACH_A, { op: "resources" }, undefined, { origin: "https://evil.test" });
+    expect(crossSite.status).toBe(403);
+    const sameSite = await call(studio, COACH_A, { op: "resources" }, undefined, { origin: "http://studio.test" });
+    expect(sameSite.status).toBe(200);
+    const listed = handler({ allowedOrigins: ["https://admin.test"] });
+    const allowed = await call(listed, COACH_A, { op: "resources" }, undefined, { origin: "https://admin.test" });
+    expect(allowed.status).toBe(200);
+    const form = await call(studio, COACH_A, { op: "resources" }, undefined, { "content-type": "text/plain" });
+    expect(form.status).toBe(415);
+  });
+
+  it("ignores a stale per-claim setting left on a pooled connection", async () => {
+    // Simulates another client's session-level SET on a shared server connection.
+    const shared = postgres(loginUrl(), { max: 1, onnotice: () => {} });
+    try {
+      await shared`select set_config('request.jwt.claim.sub', ${COACH_B}, false)`;
+      const res = await makeHandlerOn(shared);
+      expect(res).toEqual(["Ana Ruiz", "Ben Ode", "Cy Lam"]);
+    } finally {
+      await shared.end();
+    }
+  });
+
+  it("refuses to run with a superuser login unless told it's local development", async () => {
+    const privileged = handler({ database: process.env.STUDIO_TEST_DATABASE_URL! });
+    const refused = await call(privileged, COACH_A, { op: "resources" });
+    expect(refused.status).toBe(500);
+    expect(refused.body.error.message).toMatch(/isn't set up safely/);
+    const allowed = handler({ database: process.env.STUDIO_TEST_DATABASE_URL!, allowPrivilegedLogin: true });
+    expect((await call(allowed, COACH_A, { op: "resources" })).status).toBe(200);
+  });
+
   it("connects with a login role that can do nothing until it becomes the user", async () => {
     const login = postgres(loginUrl(), { max: 1, onnotice: () => {} });
     try {
@@ -73,10 +118,13 @@ describeDb("studio handler against Postgres with RLS", () => {
     expect(res.status).toBe(200);
     const byName = Object.fromEntries(res.body.resources.map((r: any) => [r.name, r]));
     expect(Object.keys(byName).sort()).toEqual([
+      "public.app_audited",
       "public.clients",
       "public.coach_clients",
+      "public.coarse",
       "public.locked_rows",
       "public.lying",
+      "public.no_rls",
       "public.no_trigger",
       "public.typed",
     ]);
@@ -111,7 +159,10 @@ describeDb("studio handler against Postgres with RLS", () => {
 
   it("narrows columns further by authorize(), and never selects a hidden one", async () => {
     const narrow = handler({
-      authorize: byResource({ "public.clients": { read: { except: ["notes"] }, update: ["status"] } }),
+      authorize: byResource(
+        { "public.clients": { read: { except: ["notes"] }, update: ["status"] } },
+        { who: () => true },
+      ),
     });
     const described = await call(narrow, COACH_A, { op: "describe", resource: "public.clients" });
     const names = described.body.schema.fields.map((f: any) => f.name);
@@ -146,6 +197,55 @@ describeDb("studio handler against Postgres with RLS", () => {
       expectedVersion: null,
     });
     expect(blocked.status).toBe(403);
+  });
+
+  it("keeps a table with row-level security off read-only unless the app opts in", async () => {
+    const res = await call(studio, COACH_A, { op: "describe", resource: "public.no_rls" });
+    expect(res.body.schema.access).toMatchObject({ update: false });
+    expect(res.body.schema.access.reason).toMatch(/row-level security is off/);
+    const optedIn = handler({ resources: { "public.no_rls": { allowWithoutRls: true } } });
+    const after = await call(optedIn, COACH_A, { op: "describe", resource: "public.no_rls" });
+    expect(after.body.schema.access.update).toBe(true);
+  });
+
+  it("refuses a timestamp version too coarse to tell two edits apart", async () => {
+    const res = await call(studio, COACH_A, { op: "describe", resource: "public.coarse" });
+    expect(res.body.schema.access.update).toBe(false);
+    expect(res.body.schema.access.reason).toMatch(/microsecond precision/);
+  });
+
+  it("only trusts the database audit sink for a table whose audit trigger is named and real", async () => {
+    const unnamed = handler({ audit: { sink: "database" } });
+    const a = await call(unnamed, COACH_A, { op: "describe", resource: "public.app_audited" });
+    expect(a.body.schema.access.reason).toMatch(/name the trigger that audits this table/);
+
+    const wrong = handler({ audit: { sink: "database" }, resources: { "public.app_audited": { auditTrigger: "nope" } } });
+    const b = await call(wrong, COACH_A, { op: "describe", resource: "public.app_audited" });
+    expect(b.body.schema.access.reason).toMatch(/"nope" doesn't exist/);
+
+    const named = handler({
+      audit: { sink: "database" },
+      resources: { "public.app_audited": { auditTrigger: "app_audited_audit" } },
+    });
+    const listed = await call(named, COACH_A, { op: "list", resource: "public.app_audited" });
+    const res = await call(named, COACH_A, {
+      op: "update",
+      resource: "public.app_audited",
+      id: 1,
+      data: { label: "changed" },
+      expectedVersion: listed.body.rows[0].version,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.audit).toBeUndefined();
+    const [logged] = await admin`select actor, label from public.app_log`;
+    expect(logged).toEqual({ actor: COACH_A, label: "changed" });
+  });
+
+  it("stops writes when the audit log has become writable by the acting role", async () => {
+    await admin`grant insert on genesis_studio.audit_log to authenticated`;
+    const res = await call(studio, COACH_A, { op: "describe", resource: "public.clients" });
+    expect(res.body.schema.access.update).toBe(false);
+    expect(res.body.schema.access.reason).toMatch(/write genesis_studio\.audit_log directly/);
   });
 
   it("keeps every table read-only until an audit sink is configured", async () => {
@@ -336,7 +436,9 @@ describeDb("studio handler against Postgres with RLS", () => {
     expect(row).toEqual({ active: false, meta: { b: [1, 2] }, starts_at: "2026-05-06 07:08:09.654321", score: "2.25" });
     expect(last.body.row.values.starts_at).toBe("2026-05-06 07:08:09.654321");
     const audits = await auditRows();
-    expect(audits.map((a) => a.after)).toEqual([
+    // Every entry also records the version the database advanced.
+    expect(audits.every((a) => typeof a.after.updated_at === "string" && a.before.updated_at !== a.after.updated_at)).toBe(true);
+    expect(audits.map(({ after: { updated_at: _, ...rest } }) => rest)).toEqual([
       { active: false },
       { meta: { b: [1, 2] } },
       { starts_at: "2026-05-06T07:08:09.654321" },

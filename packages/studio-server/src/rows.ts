@@ -98,7 +98,37 @@ function escapeLike(text: string): string {
   return text.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
-function filterSql(resolved: ResolvedResource, filter: FilterParam, params: Params): string {
+type Scalar = string | number | boolean;
+const isScalar = (v: unknown): v is Scalar => typeof v === "string" || typeof v === "number" || typeof v === "boolean";
+
+/** Reject a malformed filter with a 400 instead of letting it reach SQL. */
+function validFilter(filter: unknown): FilterParam {
+  const f = filter as { field?: unknown; operator?: unknown; value?: unknown } | null;
+  if (!f || typeof f.field !== "string" || typeof f.operator !== "string") {
+    throw new BadRequestError("Each filter needs a field and an operator.");
+  }
+  switch (f.operator) {
+    case "is_null":
+    case "is_not_null":
+      return f as FilterParam;
+    case "in":
+      if (!Array.isArray(f.value) || f.value.length > 500 || !f.value.every(isScalar)) {
+        throw new BadRequestError(`"in" needs a list of up to 500 values.`);
+      }
+      return f as FilterParam;
+    case "between":
+      if (!Array.isArray(f.value) || f.value.length !== 2 || !f.value.every(isScalar)) {
+        throw new BadRequestError(`"between" needs exactly two values.`);
+      }
+      return f as FilterParam;
+    default:
+      if (!isScalar(f.value)) throw new BadRequestError(`"${f.operator}" needs one value.`);
+      return f as FilterParam;
+  }
+}
+
+function filterSql(resolved: ResolvedResource, raw: FilterParam, params: Params): string {
+  const filter = validFilter(raw);
   const column = readableColumn(resolved, filter.field);
   const col = ident(column.name);
   const cast = column.castType;
@@ -139,15 +169,18 @@ export interface ListInput {
   filters?: FilterParam[];
 }
 
+/** Rows counted before `total` becomes "at least". */
+export const COUNT_CAP = 10_000;
+
 export async function listRows(
   query: Query,
   resolved: ResolvedResource,
   input: ListInput,
-): Promise<{ rows: StudioRow[]; total: number }> {
+): Promise<{ rows: StudioRow[]; total: number; totalIsLowerBound?: true }> {
   const params = new Params();
   const where: string[] = [];
 
-  const term = input.search?.trim();
+  const term = input.search?.trim().slice(0, 200);
   if (term) {
     const searchable = resolved.readable.filter((c) => !c.isArray && (c.category === "S" || c.category === "E" || c.baseType === "uuid"));
     if (searchable.length === 0) {
@@ -157,11 +190,13 @@ export async function listRows(
       where.push(`(${searchable.map((c) => `${ident(c.name)}::text ilike ${pattern}`).join(" or ")})`);
     }
   }
+  if ((input.filters?.length ?? 0) > 20) throw new BadRequestError("At most 20 filters.");
   for (const filter of input.filters ?? []) where.push(filterSql(resolved, filter, params));
 
   const whereSql = where.length ? ` where ${where.join(" and ")}` : "";
   const order: string[] = [];
   if (input.sort) {
+    if (typeof input.sort.field !== "string") throw new BadRequestError("Sort needs a field.");
     const column = readableColumn(resolved, input.sort.field);
     order.push(`${ident(column.name)} ${input.sort.order === "desc" ? "desc" : "asc"} nulls last`);
   }
@@ -176,9 +211,19 @@ export async function listRows(
 
   const [rows, count] = await Promise.all([
     query(`select ${selectList(resolved)} from ${table}${whereSql}${orderSql} limit ${limit}::int8 offset ${offset}::int8`, params.values),
-    query(`select count(*)::int8 as total from ${table}${whereSql}`, countParams),
+    // Counting stops at COUNT_CAP: an exact count of a large table is a full
+    // scan on every page turn. Past it, `total` is a floor, not the size.
+    query(
+      `select count(*)::int8 as total from (select 1 from ${table}${whereSql} limit ${COUNT_CAP + 1}) capped`,
+      countParams,
+    ),
   ]);
-  return { rows: rows.map((r) => toStudioRow(resolved, r)), total: Number(count[0]?.total ?? 0) };
+  const counted = Number(count[0]?.total ?? 0);
+  return {
+    rows: rows.map((r) => toStudioRow(resolved, r)),
+    total: Math.min(counted, COUNT_CAP),
+    ...(counted > COUNT_CAP ? { totalIsLowerBound: true } : {}),
+  };
 }
 
 /** One row by key, or `null` when this user can't see it. */

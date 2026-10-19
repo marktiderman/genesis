@@ -23,6 +23,8 @@ export interface StudioHandler {
 }
 
 const MAX_BODY_BYTES = 1_000_000;
+/** Deepest row a list may page to. Past this, filter or search instead. */
+const MAX_OFFSET = 100_000;
 
 const STATUS: Record<ErrorResponse["error"]["outcome"], number> = {
   bad_request: 400,
@@ -53,11 +55,35 @@ function fail(
 
 class NotFoundError extends Error {}
 
-async function readBody(request: Request): Promise<StudioRequest & { v?: number }> {
+/** Read at most MAX_BODY_BYTES, counting bytes, even without a content-length. */
+async function readText(request: Request): Promise<string> {
   const length = Number(request.headers.get("content-length") ?? 0);
   if (length > MAX_BODY_BYTES) throw new BadRequestError("Request body is too large.");
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) throw new BadRequestError("Request body is too large.");
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_BODY_BYTES) {
+      await reader.cancel();
+      throw new BadRequestError("Request body is too large.");
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+async function readBody(request: Request): Promise<StudioRequest & { v?: number }> {
+  const text = await readText(request);
   let body: unknown;
   try {
     body = JSON.parse(text);
@@ -88,6 +114,30 @@ function positiveInt(value: unknown, fallback: number, name: string): number {
 function recordId(value: unknown): string | number {
   if (typeof value === "string" || typeof value === "number") return value;
   throw new BadRequestError('"id" must be a string or a number.');
+}
+
+/**
+ * Refuse a browser request from another site. The bearer token already stops
+ * classic CSRF, but an app that swaps in cookie-based `auth` would otherwise
+ * be open to it. Requests with no `Origin` (servers, scripts) pass: the token
+ * is still required.
+ */
+function crossSiteRefusal(request: Request, allowed: readonly string[]): string | null {
+  const origin = request.headers.get("origin");
+  if (!origin || allowed.includes(origin)) return null;
+  if (origin === "null") return "Requests from an opaque origin are refused.";
+  let host: string;
+  try {
+    host = new URL(origin).host;
+  } catch {
+    return "Malformed Origin header.";
+  }
+  const own = [
+    new URL(request.url).host,
+    request.headers.get("host"),
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim(),
+  ];
+  return own.includes(host) ? null : `Requests from ${origin} aren't allowed. Add it to allowedOrigins.`;
 }
 
 function decodeKey(resolved: ResolvedResource, id: string | number): Record<string, unknown> {
@@ -122,8 +172,26 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
   const statementTimeoutMs = options.statementTimeoutMs ?? 10_000;
   const maxPageSize = options.maxPageSize ?? 200;
 
+  // Checked once, on the first request: the login role must not be able to
+  // see past row rules on its own.
+  let loginCheck: Promise<string | null> | undefined;
+  const checkLogin = () =>
+    (loginCheck ??= database.inspectLogin().then((login) => {
+      if (options.allowPrivilegedLogin) return null;
+      if (login.superuser || login.bypassRls) {
+        return (
+          `The studio's database login "${login.name}" is a superuser or bypasses row-level security. ` +
+          "Connect with a dedicated NOINHERIT login role (see the README), or set allowPrivilegedLogin for local development."
+        );
+      }
+      return null;
+    }));
+
   async function resolveOne(ctx: AccessContext, query: Query, name: string): Promise<ResolvedResource> {
-    const [table] = await loadTables(query, schemas, name);
+    const tables = await loadTables(query, schemas, name);
+    // Two tables can only share a dotted name if a schema name has a dot in
+    // it; refuse rather than guess which one was meant.
+    const table = tables.length === 1 ? tables[0] : undefined;
     const resolved = table ? await resolveResource(ctx, table) : null;
     // A table this user may not see gets the same answer as one that does
     // not exist, so the response never confirms a hidden table's existence.
@@ -136,18 +204,39 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
       return new Response(null, { status: 405, headers: { allow: "POST" } });
     }
     try {
-      const body = await readBody(request);
-      if (body.v !== undefined && body.v !== STUDIO_PROTOCOL_VERSION) {
-        throw new BadRequestError(
-          `This server speaks studio protocol v${STUDIO_PROTOCOL_VERSION}; the client sent v${String(body.v)}.`,
-        );
+      const refusal = crossSiteRefusal(request, options.allowedOrigins ?? []);
+      if (refusal) return fail("forbidden", refusal);
+      // Only JSON: a cross-site form can't send it without a preflight.
+      const type = request.headers.get("content-type") ?? "";
+      if (!/^application\/json\b/i.test(type)) {
+        return new Response(JSON.stringify({ error: { outcome: "bad_request", message: "Send application/json." } }), {
+          status: 415,
+          headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+        });
       }
 
+      // Who is asking, before reading anything they sent.
       const claims = await options.auth(request);
       if (!claims) return fail("unauthenticated", "Sign in to use the studio.");
       if (claims.role !== undefined && claims.role !== role) {
         // e.g. a service-role key: the studio only ever acts as a signed-in user.
         return fail("forbidden", "This token doesn't belong to a signed-in user.");
+      }
+      if (claims.is_anonymous === true && !options.allowAnonymousUsers) {
+        return fail("forbidden", "Anonymous sessions can't use the studio. Sign in with an account.");
+      }
+
+      const loginProblem = await checkLogin();
+      if (loginProblem) {
+        options.onError?.(new Error(loginProblem));
+        return fail("error", "The studio isn't set up safely, so it's switched off. Your administrator has the details.");
+      }
+
+      const body = await readBody(request);
+      if (body.v !== undefined && body.v !== STUDIO_PROTOCOL_VERSION) {
+        throw new BadRequestError(
+          `This server speaks studio protocol v${STUDIO_PROTOCOL_VERSION}; the client sent v${String(body.v)}.`,
+        );
       }
 
       const readOnly = body.op !== "update";
@@ -171,8 +260,12 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
             const resolved = await resolveOne(ctx, query, resourceName(body.resource));
             const perPage = positiveInt(body.perPage, 25, "perPage");
             if (perPage > maxPageSize) throw new BadRequestError(`"perPage" may be at most ${maxPageSize}.`);
+            const page = positiveInt(body.page, 1, "page");
+            if ((page - 1) * perPage > MAX_OFFSET) {
+              throw new BadRequestError(`Pages past row ${MAX_OFFSET} aren't served. Narrow the list with a search or filter.`);
+            }
             return listRows(query, resolved, {
-              page: positiveInt(body.page, 1, "page"),
+              page,
               perPage,
               sort: body.sort,
               search: typeof body.search === "string" ? body.search : undefined,

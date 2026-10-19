@@ -66,7 +66,10 @@ export interface StudioRow {
 
 export interface ListResponse {
   rows: StudioRow[];
+  /** Matching rows, counted up to 10 000. */
   total: number;
+  /** Present when more rows match than were counted: `total` is a floor. */
+  totalIsLowerBound?: true;
 }
 
 export interface ReadResponse {

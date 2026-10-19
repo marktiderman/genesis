@@ -58,8 +58,12 @@ grant usage on schema public, extensions to anon, authenticated;
 
 create schema auth;
 grant usage on schema auth to anon, authenticated;
+-- Supabase's own definition: the older per-claim setting is read FIRST.
 create function auth.uid() returns uuid language sql stable as $$
-  select (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+  )::uuid
 $$;
 
 -- clients: RLS by coach; a column the database hides; a CHECK constraint.
@@ -147,6 +151,36 @@ alter table public.typed enable row level security;
 create policy t_all on public.typed for all to authenticated using (true) with check (true);
 grant select, update (active, meta, starts_at, score) on public.typed to authenticated;
 
+-- no_rls: a trusted version, but row-level security off.
+create table public.no_rls (id int primary key, label text, updated_at timestamptz default now());
+create trigger no_rls_updated_at before update on public.no_rls
+  for each row execute function extensions.moddatetime(updated_at);
+grant select, update (label) on public.no_rls to authenticated;
+
+-- coarse: a version stored to the whole second, too coarse to tell two quick edits apart.
+create table public.coarse (id int primary key, label text, updated_at timestamptz(0) default now());
+create trigger coarse_updated_at before update on public.coarse
+  for each row execute function extensions.moddatetime(updated_at);
+alter table public.coarse enable row level security;
+create policy c_all on public.coarse for all to authenticated using (true) with check (true);
+grant select, update (label) on public.coarse to authenticated;
+
+-- app_audited: audited by the app's own trigger (the "database" sink).
+create table public.app_log (id bigserial primary key, actor uuid, label text);
+create table public.app_audited (id int primary key, label text, updated_at timestamptz default now());
+create trigger app_audited_updated_at before update on public.app_audited
+  for each row execute function extensions.moddatetime(updated_at);
+create function public.log_app_audited() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  insert into public.app_log (actor, label) values (auth.uid(), new.label);
+  return new;
+end $$;
+create trigger app_audited_audit after update on public.app_audited
+  for each row execute function public.log_app_audited();
+alter table public.app_audited enable row level security;
+create policy aa_all on public.app_audited for all to authenticated using (true) with check (true);
+grant select, update (label) on public.app_audited to authenticated;
+
 -- secret_table: granted by the database, but never allowed by authorize().
 create table public.secret_table (id int primary key, payload text);
 grant select on public.secret_table to authenticated;
@@ -166,6 +200,9 @@ insert into public.no_trigger values (1, 'static', now());
 insert into public.locked_rows values (1, 'open', false, now()), (2, 'frozen', true, now());
 insert into public.lying values (1, 'original', now());
 insert into public.secret_table values (1, 'nope');
+insert into public.no_rls values (1, 'open to all', now());
+insert into public.coarse values (1, 'coarse', now());
+insert into public.app_audited values (1, 'app', now());
 insert into public.typed (id, active, meta, starts_at, score) values (1, true, '{"a": 1}', '2026-01-02 03:04:05.123456', 1.50);
 `;
 
@@ -211,13 +248,16 @@ export const DEFAULT_RULES = {
   "public.locked_rows": { read: true, update: true },
   "public.lying": { read: true, update: true },
   "public.typed": { read: true, update: true },
+  "public.no_rls": { read: true, update: true },
+  "public.coarse": { read: true, update: true },
+  "public.app_audited": { read: true, update: true },
 } as const;
 
 export function makeHandler(overrides: Partial<StudioHandlerOptions> = {}) {
   return createStudioHandler({
     database: loginUrl(),
     auth: jwtAuth({ secret: JWT_SECRET, audience: "authenticated" }),
-    authorize: byResource(DEFAULT_RULES),
+    authorize: byResource(DEFAULT_RULES, { who: () => true }),
     audit: { sink: "table" },
     ...overrides,
   });
@@ -234,8 +274,9 @@ export async function call(
   sub: string | null,
   body: Record<string, unknown>,
   claims?: Record<string, unknown>,
+  extraHeaders: Record<string, string> = {},
 ): Promise<CallResult> {
-  const headers: Record<string, string> = { "content-type": "application/json" };
+  const headers: Record<string, string> = { "content-type": "application/json", ...extraHeaders };
   if (sub) headers.authorization = `Bearer ${await tokenFor(sub, claims)}`;
   const response = await handler(
     new Request("http://studio.test/api/studio", { method: "POST", headers, body: JSON.stringify(body) }),

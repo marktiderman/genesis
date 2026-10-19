@@ -13,7 +13,14 @@ import type {
   WidgetHint,
 } from "@marktiderman/genesis-core/schema";
 import type { StudioClaims } from "./auth";
-import { canExecuteAudit, triggerAdvances, versionKind, type CatalogColumn, type CatalogTable } from "./catalog";
+import {
+  auditSinkProblem,
+  triggerAdvances,
+  triggerAuditsEveryUpdate,
+  versionKind,
+  type CatalogColumn,
+  type CatalogTable,
+} from "./catalog";
 import type { Query } from "./db";
 import type { AuthorizeDecision, StudioAction, StudioHandlerOptions } from "./options";
 import { AUDIT_FUNCTION } from "./setup-sql";
@@ -61,8 +68,8 @@ export interface AccessContext {
   claims: StudioClaims;
   query: Query;
   options: StudioHandlerOptions;
-  /** Memo for the audit-function check, which is the same for every table. */
-  auditExecutable?: Promise<boolean>;
+  /** Memo for the audit-sink check, which is the same for every table. */
+  auditProblem?: Promise<string | null>;
 }
 
 async function decide(ctx: AccessContext, resource: string, action: StudioAction): Promise<NormalizedDecision> {
@@ -98,6 +105,15 @@ function widget(column: CatalogColumn): WidgetHint | undefined {
   return "text";
 }
 
+function schemasOf(ctx: AccessContext): readonly string[] {
+  return ctx.options.schemas ?? ["public"];
+}
+
+function databaseAuditTrigger(table: CatalogTable, name: string | undefined): boolean {
+  if (!name) return false;
+  return table.triggers.some((t) => t.name === name && triggerAuditsEveryUpdate(t));
+}
+
 function labelFor(name: string): string {
   return name
     .replace(/[_-]+/g, " ")
@@ -116,7 +132,12 @@ function pickVersion(
     const column = table.columns.find((c) => c.name === name);
     if (!column) continue;
     if (!versionKind(column)) {
-      return { column: null, reason: `Read-only: "${name}" can't be a version field (it must be an integer or a timestamp).` };
+      return {
+        column: null,
+        reason:
+          `Read-only: "${name}" can't be a version field. It must be an integer, or a timestamp with ` +
+          "microsecond precision so two quick edits can't share one value.",
+      };
     }
     if (!readable(column)) {
       return { column: null, reason: `Read-only: you can't read the version field "${name}".` };
@@ -173,16 +194,27 @@ export async function resolveResource(ctx: AccessContext, table: CatalogTable): 
     tableReason = "Read-only: you can't see this table's key.";
   } else if (!table.canUpdateAny) {
     tableReason = "Read-only: the database doesn't let you update this table.";
+  } else if (!table.rls && !settings?.allowWithoutRls) {
+    tableReason =
+      "Read-only: row-level security is off for this table, so anyone who may edit it could edit every row. " +
+      "Turn RLS on, or opt in with allowWithoutRls.";
+  } else if (ctx.options.audit?.sink === "database" && !databaseAuditTrigger(table, settings?.auditTrigger)) {
+    tableReason = settings?.auditTrigger
+      ? `Read-only: the audit trigger "${settings.auditTrigger}" doesn't exist, is disabled, or doesn't fire on every update.`
+      : "Read-only: name the trigger that audits this table (auditTrigger), so edits are never made without an audit entry.";
   } else {
     const picked = pickVersion(table, isReadable, settings?.versionField);
     version = picked.column;
     tableReason = picked.reason;
   }
   if (!tableReason && auditFunction) {
-    ctx.auditExecutable ??= canExecuteAudit(ctx.query, `${auditFunction}${AUDIT_SIGNATURE_ARGS}`);
-    if (!(await ctx.auditExecutable)) {
-      tableReason = `Read-only: the audit function ${auditFunction} isn't installed, or you can't run it.`;
-    }
+    ctx.auditProblem ??= auditSinkProblem(
+      ctx.query,
+      `${auditFunction}${AUDIT_SIGNATURE_ARGS}`,
+      auditFunction === AUDIT_FUNCTION,
+    );
+    const problem = await ctx.auditProblem;
+    if (problem) tableReason = `Read-only: the audit function ${auditFunction} ${problem}.`;
   }
   if (tableReason) version = null;
 
@@ -214,7 +246,9 @@ export async function resolveResource(ctx: AccessContext, table: CatalogTable): 
       ...(c.generated || c.identity ? { generated: true } : {}),
       ...(c.enumValues ? { enumValues: c.enumValues } : {}),
       ...(c.description ? { description: c.description } : {}),
-      ...(c.references
+      // Only link to tables the studio could show; a reference into another
+      // schema would name a table this user was never offered.
+      ...(c.references && schemasOf(ctx).includes(c.references.schema)
         ? { references: { resource: `${c.references.schema}.${c.references.table}`, field: c.references.column } }
         : {}),
       permissions: { read: true, update: !reason, ...(reason ? { reason } : {}) },
