@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SignJWT } from "jose";
 import { isDataWriteError } from "@marktiderman/genesis-core/schema";
-import { byResource, createStudioHandler, databaseDecides, jwtAuth, studioSetupSql, supabaseStudio, type StudioDatabase } from "../src/index";
+import { byResource, createStudioHandler, databaseDecides, jwtAuth, studioSetupSql, supabaseAuth, supabaseStudio, type StudioDatabase } from "../src/index";
 import { triggerAdvances, withoutSettings, type CatalogTrigger } from "../src/catalog";
 import { createStudioProvider, createSupabaseStudioProvider } from "../src/client";
 
@@ -430,5 +430,32 @@ describe("CORS, for a studio hosted on another origin", () => {
     );
     expect(post.status).toBe(200);
     expect(post.headers.get("access-control-allow-origin")).toBe("https://app.example.com");
+  });
+});
+
+describe("supabaseAuth issuers", () => {
+  const secret = "unit-test-secret-with-at-least-32-chars!!";
+  const token = (iss: string) =>
+    new SignJWT({ role: "authenticated" })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject("u1")
+      .setIssuer(iss)
+      .setAudience("authenticated")
+      .setExpirationTime("5m")
+      .sign(new TextEncoder().encode(secret));
+  const req = async (iss: string) => new Request("http://x", { headers: { authorization: `Bearer ${await token(iss)}` } });
+
+  it("only accepts the project's own issuer", async () => {
+    const auth = supabaseAuth({ url: "https://abc.supabase.co", jwtSecret: secret });
+    expect(await auth(await req("https://abc.supabase.co/auth/v1"))).toMatchObject({ sub: "u1" });
+    expect(await auth(await req("https://other.supabase.co/auth/v1"))).toBeNull();
+    expect(await auth(await req("http://127.0.0.1:54321/auth/v1"))).toBeNull();
+  });
+
+  it("accepts the browser's localhost issuer inside the local stack", async () => {
+    const auth = supabaseAuth({ url: "http://kong:8000", jwtSecret: secret });
+    expect(await auth(await req("http://127.0.0.1:54321/auth/v1"))).toMatchObject({ sub: "u1" });
+    expect(await auth(await req("http://kong:8000/auth/v1"))).toMatchObject({ sub: "u1" });
+    expect(await auth(await req("https://abc.supabase.co/auth/v1"))).toBeNull();
   });
 });

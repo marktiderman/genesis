@@ -23,6 +23,31 @@ From P1:
 - a filter builder, multi-field sort and group-by;
 - saved views and CSV export.
 
+## Embed it in any app
+
+```tsx
+import { DataStudio } from "@marktiderman/genesis-studio";
+import { createSupabaseStudioProvider } from "@marktiderman/genesis-studio-server/client";
+import "@marktiderman/genesis-studio/standalone.css";
+import { supabase } from "@/integrations/supabase/client";
+
+const provider = createSupabaseStudioProvider(supabase, { url: "/api/studio" });
+
+export default function DataPage() {
+  return <DataStudio provider={provider} />;
+}
+```
+
+`npx @marktiderman/genesis-cli studio init` writes this page and its server for you.
+
+- **No router or session wiring.** The studio keeps its state in the page's query string. The
+  Supabase provider tells it when the signed-in user changes.
+- **`standalone.css`** is prebuilt: every class the studio uses, for apps without Tailwind v4
+  (Tailwind 3, CSS modules, or none). It adds no global reset. A small reset applies only inside
+  the studio and its pop-ups. The app's own shadcn-style theme variables (`--background`,
+  `--primary`, …) win over Genesis's defaults, so the studio matches the app.
+- An app already on Tailwind v4 imports `styles.css` instead (see below).
+
 ## Use it
 
 ```tsx

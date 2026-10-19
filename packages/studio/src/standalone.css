@@ -33,3 +33,64 @@
     transform: translateY(0);
   }
 }
+
+/*
+ * A minimal reset, scoped to the studio and the pop-ups it opens (dialogs,
+ * menus, pickers), because an app without Tailwind has none. In a cascade
+ * layer under the utilities, so the studio's own classes still win, and
+ * any rule the app writes for its own elements is untouched.
+ */
+@layer base {
+  :where(
+      [data-genesis-studio],
+      [data-genesis-studio] *,
+      [data-radix-popper-content-wrapper],
+      [data-radix-popper-content-wrapper] *,
+      [role="dialog"],
+      [role="dialog"] *,
+      [role="alertdialog"],
+      [role="alertdialog"] *,
+      [data-slot="dialog-overlay"],
+      [data-slot="sheet-overlay"]
+    ) {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid hsl(var(--border));
+  }
+  :where([data-genesis-studio], [data-radix-popper-content-wrapper], [role="dialog"], [role="alertdialog"]) {
+    font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    line-height: 1.5;
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+  }
+  :where([data-genesis-studio], [data-radix-popper-content-wrapper], [role="dialog"], [role="alertdialog"])
+    :where(button, input, select, textarea, optgroup) {
+    font: inherit;
+    color: inherit;
+    background-color: transparent;
+    letter-spacing: inherit;
+  }
+  :where([data-genesis-studio], [data-radix-popper-content-wrapper], [role="dialog"], [role="alertdialog"])
+    :where(button, [role="button"]) {
+    cursor: pointer;
+  }
+  :where([data-genesis-studio], [data-radix-popper-content-wrapper], [role="dialog"], [role="alertdialog"])
+    :where(ol, ul) {
+    list-style: none;
+  }
+  :where([data-genesis-studio], [data-radix-popper-content-wrapper], [role="dialog"], [role="alertdialog"])
+    :where(svg, img) {
+    display: block;
+    vertical-align: middle;
+  }
+  :where([data-genesis-studio], [data-radix-popper-content-wrapper], [role="dialog"], [role="alertdialog"])
+    :where(table) {
+    border-collapse: collapse;
+  }
+  :where([data-genesis-studio], [data-radix-popper-content-wrapper], [role="dialog"], [role="alertdialog"])
+    :where(h1, h2, h3, h4) {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+}

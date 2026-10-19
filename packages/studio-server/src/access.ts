@@ -306,6 +306,10 @@ export async function resolveResource(
     if (action === "update" && !table.canUpdateAny) blockedRaw.update = "the database doesn't let you update this table";
     if (action === "create" && !table.canInsertAny) blockedRaw.create = "the database doesn't let you add rows to this table";
     if (action === "delete" && !table.canDelete) blockedRaw.delete = "the database doesn't let you delete from this table";
+    // Granted, but no row-level security policy lets this role do it: every attempt would fail.
+    if (table.rls && !blockedRaw[action] && !table.rlsAllows[action === "create" ? "insert" : action]) {
+      blockedRaw[action] = `no row-level security policy lets you ${action === "create" ? "add rows to" : action} this table`;
+    }
   }
 
   // Row actions: the app's own function, on one row, at the version read.

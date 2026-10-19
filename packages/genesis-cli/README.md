@@ -7,6 +7,23 @@ npx @marktiderman/genesis-cli init <consumer>
 Scaffolds a Genesis consumer: a brand package, Tailwind and tokens.
 
 ```bash
+npx @marktiderman/genesis-cli studio init
+```
+
+Turns the Data Studio on in an existing Supabase app. It writes three things:
+
+- **One migration to review:** the studio's `NOINHERIT` login and the audit trail. It holds no
+  password.
+- **The server:** a Next.js route when the app has an `app/` router; otherwise a Supabase Edge
+  Function, `supabase/functions/genesis-studio`, with `verify_jwt = false` added to
+  `supabase/config.toml` because the function checks tokens itself.
+- **A page:** for Lovable apps, it imports `@/integrations/supabase/client`.
+
+It then prints the steps left: install, route the page, set the login's password, set the
+function's secrets, apply the migration. Options: `--host next|supabase-function`, `--route`
+(default `/admin/data`), `--login-role`, `--force`.
+
+```bash
 DATABASE_URL=postgres://… npx @marktiderman/genesis-cli introspect
 ```
 

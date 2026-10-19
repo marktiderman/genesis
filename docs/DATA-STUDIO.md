@@ -15,6 +15,18 @@ This plan comes from three sources:
 Gamify, the first consumer, is only one of three adoption tests. Its own plan for moving data access
 off its API is in `GamifyEducation/gamify-platform` `prds/api-shrink/`.
 
+> **Revised 2026-10-19, at the maintainer's direction.** The goal is that any project embeds the
+> studio and it simply turns on, for every table. Three changes follow:
+>
+> - **Decision 8: the database decides by default.** `databaseDecides()` and `supabaseStudio()`
+>   show every table, bounded by the user's grants and row-level security. The rule below is
+>   unchanged: the studio gives a user nothing the Data API doesn't already give them. `byResource`
+>   remains the opt-in allow-list.
+> - **Write safety: no version trigger required.** A table without a trusted version column is
+>   checked against a fingerprint of the row's readable values, so stale edits are still refused.
+> - **One command:** `genesis-cli studio init`. Plus a Supabase preset on both halves and a
+>   prebuilt `standalone.css`.
+
 ## The rule
 
 > A signed-in user sees and edits exactly what they already can. The database or the app's own API

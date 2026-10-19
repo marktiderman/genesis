@@ -121,7 +121,10 @@ export function DataStudio(props: DataStudioProps) {
   const sessionKey = props.sessionKey !== undefined ? props.sessionKey : session ? sessionUser : null;
   return (
     <GenesisProvider provider={props.provider}>
-      <StudioWorkspace {...props} router={router} sessionKey={sessionKey} />
+      {/* The scope standalone.css resets, for apps without Tailwind. */}
+      <div data-genesis-studio="">
+        <StudioWorkspace {...props} router={router} sessionKey={sessionKey} />
+      </div>
     </GenesisProvider>
   );
 }

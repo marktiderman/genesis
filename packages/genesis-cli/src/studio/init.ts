@@ -48,11 +48,13 @@ const PACKAGES = [
   "@marktiderman/genesis-studio-server",
   "@marktiderman/genesis-ui",
   "@marktiderman/genesis-core",
-  "@tanstack/react-query",
-  "@tanstack/react-virtual",
-  "react-hook-form",
-  "zod",
-  "@hookform/resolvers",
+  // Pinned to the ranges the studio supports: an unpinned "latest" can move
+  // past them (@hookform/resolvers 6 is a different major).
+  "@tanstack/react-query@^5",
+  "@tanstack/react-virtual@^3.14",
+  "react-hook-form@^7",
+  "zod@^4",
+  "@hookform/resolvers@^5.1.0",
 ];
 
 const ROLE = /^[a-z_][a-z0-9_]{0,62}$/;
@@ -120,6 +122,8 @@ export const runtime = "nodejs";
 export const POST = supabaseStudio({
   url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
   database: process.env.STUDIO_DATABASE_URL!,
+  // Server-side details of anything that goes wrong; users only see a plain message.
+  onError: (error) => console.error("[genesis-studio]", error),
   // Who may open the studio. The default is any signed-in user, who sees exactly what row-level
   // security already lets them see. Narrow it to staff with, e.g.:
   // who: (claims) => (claims.app_metadata as { role?: string } | undefined)?.role === "admin",
@@ -164,6 +168,8 @@ const handler = supabaseStudio({
   database: Deno.env.get("STUDIO_DATABASE_URL")!,
   // The app's origins, comma-separated, e.g. "https://app.example.com,http://localhost:8080".
   allowedOrigins: (Deno.env.get("STUDIO_ALLOWED_ORIGINS") ?? "").split(",").map((o) => o.trim()).filter(Boolean),
+  // Server-side details of anything that goes wrong (the function's logs); users only see a plain message.
+  onError: (error) => console.error("[genesis-studio]", error),
   // Who may open the studio. The default is any signed-in user, who sees exactly what row-level
   // security already lets them see. Narrow it to staff with, e.g.:
   // who: (claims) => (claims.app_metadata as { role?: string } | undefined)?.role === "admin",

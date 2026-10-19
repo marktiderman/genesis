@@ -66,12 +66,26 @@ export interface CatalogTable {
   canDelete: boolean;
   /** Row-level security is enabled on the table. */
   rls: boolean;
+  /**
+   * With row-level security on: whether any permissive policy lets this
+   * role update, insert or delete at all. With none, the grant alone can
+   * never succeed, so the studio shows the action as off rather than
+   * letting every attempt fail.
+   */
+  rlsAllows: { update: boolean; insert: boolean; delete: boolean };
   columns: CatalogColumn[];
   primaryKey: string[];
   /** Columns that are unique on their own (a single-column unique constraint). */
   uniqueColumns: string[];
   triggers: CatalogTrigger[];
 }
+
+/** A permissive policy for `cmd` (or ALL) that applies to the current role. */
+const POLICY_FOR = (cmd: "w" | "a" | "d") => `exists (
+              select 1 from pg_policy p
+               where p.polrelid = c.oid and p.polpermissive and p.polcmd in ('${cmd}', '*')
+                 and (0 = any(p.polroles)
+                      or exists (select 1 from unnest(p.polroles) r where pg_has_role(current_user, r, 'MEMBER'))))`;
 
 /** Every table in `schemas`, or just `only` (`schema.table`) when given. */
 export async function loadTables(
@@ -86,7 +100,10 @@ export async function loadTables(
             has_any_column_privilege(c.oid, 'UPDATE') as can_update,
             has_any_column_privilege(c.oid, 'INSERT') as can_insert,
             has_table_privilege(c.oid, 'DELETE') as can_delete,
-            c.relrowsecurity as rls
+            c.relrowsecurity as rls,
+            ${POLICY_FOR("w")} as rls_update,
+            ${POLICY_FOR("a")} as rls_insert,
+            ${POLICY_FOR("d")} as rls_delete
        from pg_class c
        join pg_namespace n on n.oid = c.relnamespace
       where c.relkind in ('r', 'p')
@@ -181,6 +198,7 @@ export async function loadTables(
       canInsertAny: Boolean(t.can_insert),
       canDelete: Boolean(t.can_delete),
       rls: Boolean(t.rls),
+      rlsAllows: { update: Boolean(t.rls_update), insert: Boolean(t.rls_insert), delete: Boolean(t.rls_delete) },
       primaryKey: (pk?.columns as string[] | undefined) ?? [],
       uniqueColumns: constraints
         .filter((c) => c.table_oid === oid && c.kind === "u" && (c.columns as string[]).length === 1)

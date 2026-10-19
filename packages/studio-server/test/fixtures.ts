@@ -278,6 +278,12 @@ create policy d_read on public.delete_only for select to authenticated using (tr
 create policy d_delete on public.delete_only for delete to authenticated using (true);
 grant select, delete on public.delete_only to authenticated;
 
+-- read_policy_only: Supabase-style blanket grants, but RLS only lets you read.
+create table public.read_policy_only (id int primary key, label text, updated_at timestamptz not null default now());
+alter table public.read_policy_only enable row level security;
+create policy rpo_read on public.read_policy_only for select to authenticated using (true);
+grant select, insert, update, delete on public.read_policy_only to authenticated;
+
 -- secret_table: granted by the database, but never allowed by authorize().
 create table public.secret_table (id int primary key, payload text);
 grant select on public.secret_table to authenticated;
@@ -300,6 +306,7 @@ insert into public.no_trigger values (1, 'static', now());
 insert into public.locked_rows values (1, 'open', false, now()), (2, 'frozen', true, now());
 insert into public.lying values (1, 'original', now());
 insert into public.secret_table values (1, 'nope');
+insert into public.read_policy_only (id, label) values (1, 'look only');
 insert into public.delete_only (id, label) values (1, 'remove me');
 insert into public.client_notes (client_id, body) values ('${CLIENT_1}', 'Kickoff call'), ('${CLIENT_1}', 'Goal review');
 insert into public.no_rls values (1, 'open to all', now());

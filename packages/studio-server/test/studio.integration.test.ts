@@ -138,6 +138,15 @@ describeDb("studio handler against Postgres with RLS", () => {
     expect(byName["public.no_trigger"].access).toMatchObject({ update: true });
   });
 
+  it("shows a granted table read-only when no row-level security policy allows writes", async () => {
+    const open = handler({ authorize: databaseDecides() });
+    const { schema } = (await call(open, COACH_A, { op: "describe", resource: "public.read_policy_only" })).body;
+    expect(schema.access.update).toBe(false);
+    expect(schema.access.reason).toMatch(/no row-level security policy lets you update this table/);
+    expect(schema.access.reasons.create).toMatch(/no row-level security policy lets you add rows/);
+    expect(schema.access.reasons.delete).toMatch(/no row-level security policy lets you delete/);
+  });
+
   it("turns on for every table with databaseDecides, within the database's own rights", async () => {
     const open = handler({ authorize: databaseDecides() });
     const res = await call(open, COACH_A, { op: "resources" });
