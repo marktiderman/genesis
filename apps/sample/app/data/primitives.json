@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18",
+  "generatedAt": "2026-10-19",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -10743,7 +10743,7 @@
         },
         {
           "name": "resolveNavigation",
-          "summary": "Resolve where `pathname` sits in a logical navigation tree. Pure: it never\nreads browser history or `window`.\n\nA node matches when its pattern matches a leading run of WHOLE path\nsegments (`/my` matches `/my/tasks`, never `/my-other`). Among matches the\nwinner is the one matching the most segments; on a tie, the one whose first\ndiffering segment is static rather than `$param` (so `/clients/new` beats\n`/clients/$clientId` whatever the sibling order); then the deeper tree node.\nNon-matching nodes are still searched, so a match keeps its logical\nancestors even when their URLs differ.",
+          "summary": "Resolve where `pathname` sits in a logical navigation tree. Pure: it never\nreads browser history or `window`.\n\nA node matches when its pattern matches a leading run of WHOLE path\nsegments (`/my` matches `/my/tasks`, never `/my-other`). Among matches the\nwinner is decided by positional specificity: at the first position where\none pattern is static and the other a `$param`, the static one wins (so\n`/clients/new` beats `/clients/$clientId` whatever the sibling order, and\n`/my` beats `/$space/tasks` for `/my/tasks`). Otherwise the pattern matching\nmore segments wins, then the deeper tree node.\nNon-matching nodes are still searched, so a match keeps its logical\nancestors even when their URLs differ.",
           "props": []
         },
         {

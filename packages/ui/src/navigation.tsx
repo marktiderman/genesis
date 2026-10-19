@@ -73,14 +73,18 @@ export const DefaultLink: LinkComponent = ({
   </a>
 );
 
-/** Split a href into its path, query (no `?`) and hash (no `#`). */
+/**
+ * Split a href into its path (trailing slash dropped, except for `/`), query
+ * (no `?`) and hash (no `#`).
+ */
 function splitHref(href: string): { path: string; search: string; hash: string } {
   const hashAt = href.indexOf("#");
   const hash = hashAt === -1 ? "" : href.slice(hashAt + 1);
   const beforeHash = hashAt === -1 ? href : href.slice(0, hashAt);
   const searchAt = beforeHash.indexOf("?");
+  const rawPath = searchAt === -1 ? beforeHash : beforeHash.slice(0, searchAt);
   return {
-    path: searchAt === -1 ? beforeHash : beforeHash.slice(0, searchAt),
+    path: rawPath.length > 1 ? rawPath.replace(/\/+$/, "") || "/" : rawPath,
     search: searchAt === -1 ? "" : beforeHash.slice(searchAt + 1),
     hash,
   };
@@ -200,9 +204,11 @@ function decodeSegment(segment: string): string {
  *
  * A node matches when its pattern matches a leading run of WHOLE path
  * segments (`/my` matches `/my/tasks`, never `/my-other`). Among matches the
- * winner is the one matching the most segments; on a tie, the one whose first
- * differing segment is static rather than `$param` (so `/clients/new` beats
- * `/clients/$clientId` whatever the sibling order); then the deeper tree node.
+ * winner is decided by positional specificity: at the first position where
+ * one pattern is static and the other a `$param`, the static one wins (so
+ * `/clients/new` beats `/clients/$clientId` whatever the sibling order, and
+ * `/my` beats `/$space/tasks` for `/my/tasks`). Otherwise the pattern matching
+ * more segments wins, then the deeper tree node.
  * Non-matching nodes are still searched, so a match keeps its logical
  * ancestors even when their URLs differ.
  *
@@ -212,22 +218,30 @@ export function resolveNavigation<T>(
   tree: NavigationNode<T>,
   pathname: string,
 ): ResolvedNavigation<T> {
-  const segments = pathSegments(pathname);
+  // Compare decoded forms on both sides, so `/caf%C3%A9` matches a `/café`
+  // node (and an encoded pattern matches a decoded pathname).
+  const segments = pathSegments(pathname).map(decodeSegment);
 
   type Match = { trail: NavigationNode<T>[]; pattern: string[] };
   const matches = (pattern: string[]) =>
     pattern.length <= segments.length &&
-    pattern.every((part, i) => part.startsWith("$") || part === segments[i]);
+    pattern.every(
+      (part, i) => part.startsWith("$") || decodeSegment(part) === segments[i],
+    );
 
   // > 0 when `a` should win over `b`.
+  // Positional specificity, as TanStack Router and React Router rank routes:
+  // walking left to right, the first position where one pattern is static and
+  // the other a `$param` decides. Only then does the longer match win.
   const compare = (a: Match, b: Match): number => {
-    if (a.pattern.length !== b.pattern.length) {
-      return a.pattern.length - b.pattern.length;
-    }
-    for (let i = 0; i < a.pattern.length; i++) {
+    const shared = Math.min(a.pattern.length, b.pattern.length);
+    for (let i = 0; i < shared; i++) {
       const aParam = a.pattern[i]!.startsWith("$");
       const bParam = b.pattern[i]!.startsWith("$");
       if (aParam !== bParam) return aParam ? -1 : 1;
+    }
+    if (a.pattern.length !== b.pattern.length) {
+      return a.pattern.length - b.pattern.length;
     }
     return a.trail.length - b.trail.length;
   };
@@ -247,7 +261,7 @@ export function resolveNavigation<T>(
   const winner: Match = best ?? { trail: [tree], pattern: [] };
   const params: Record<string, string> = {};
   winner.pattern.forEach((part, i) => {
-    if (part.startsWith("$")) params[part.slice(1)] = decodeSegment(segments[i]!);
+    if (part.startsWith("$")) params[part.slice(1)] = segments[i]!;
   });
 
   const interpolate = (node: NavigationNode<T>): NavigationNode<T> => ({
