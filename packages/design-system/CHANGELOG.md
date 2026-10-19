@@ -1,5 +1,11 @@
 # @marktiderman/genesis-design-system
 
+## 1.3.1
+
+### Patch Changes
+
+- 1a9d899: Release-pipeline only, no code changes. This version is published by CI through npm Trusted Publishing, which now requires the `npm` GitHub environment (main only).
+
 ## 1.3.0
 
 ### Minor Changes
