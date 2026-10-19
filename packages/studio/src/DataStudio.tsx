@@ -50,6 +50,11 @@ export interface StudioActivity {
   message: string;
   /** Present when the edit committed with an audit entry from the `table` sink. */
   audit?: AuditEntry;
+  /**
+   * A bulk write's audit entries, one per row. A single entry holds them all,
+   * so its Undo reaches every row however many there were.
+   */
+  audits?: AuditEntry[];
   /** True once this change has been undone. */
   undone?: boolean;
 }
@@ -191,12 +196,48 @@ function StudioWorkspace({
   }, [provider, refusedProvider, queryClient, sessionKey]);
 
   /**
+   * Undo a bulk write row by row, each a compensating write with its own audit
+   * entry. Rows that can't be undone stay on the entry, so Undo can be retried.
+   */
+  const undoAll = useCallback(
+    async (entry: StudioActivity, audits: AuditEntry[]) => {
+      const left: AuditEntry[] = [];
+      let firstError: unknown;
+      for (const audit of audits) {
+        try {
+          await provider.undo!(entry.resource, { auditId: audit.id });
+        } catch (error) {
+          left.push(audit);
+          firstError ??= error;
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: ["genesis-studio", sessionKey] });
+      const done = audits.length - left.length;
+      setActivity((prev) => {
+        const updated = prev.map((e) => (e.id === entry.id ? (left.length ? { ...e, audits: left } : { ...e, undone: true }) : e));
+        const now = new Date();
+        const added: StudioActivity[] = [];
+        if (left.length) {
+          added.push({ id: `${now.getTime()}-undo-failed`, at: now, resource: entry.resource, field: entry.field, record: `${left.length} rows`, outcome: "not_saved", message: `${left.length} of ${audits.length} rows weren't undone: ${errorText(firstError)}` });
+        }
+        if (done) {
+          added.push({ id: `${now.getTime()}-undo`, at: now, resource: entry.resource, field: entry.field, record: `${done} rows`, outcome: "saved", action: "update", message: "Undone, each row with its own audit entry." });
+        }
+        return [...added, ...updated].slice(0, 50);
+      });
+    },
+    [provider, queryClient, sessionKey],
+  );
+
+  /**
    * Undo a change from its audit entry: a compensating write, itself
    * audited, that the server refuses if the row has moved on since.
    */
   const undo = useCallback(
     async (entry: StudioActivity) => {
-      if (!provider.undo || !entry.audit || entry.undone) return;
+      if (!provider.undo || entry.undone) return;
+      if (entry.audits?.length) return undoAll(entry, entry.audits);
+      if (!entry.audit) return;
       try {
         const result = await provider.undo(entry.resource, { auditId: entry.audit.id });
         setActivity((prev) => prev.map((e) => (e.id === entry.id ? { ...e, undone: true } : e)));
@@ -234,7 +275,7 @@ function StudioWorkspace({
         );
       }
     },
-    [provider, queryClient, sessionKey],
+    [provider, queryClient, sessionKey, undoAll],
   );
 
   const record = useCallback((entry: Omit<StudioActivity, "id" | "at">) => {
@@ -566,14 +607,16 @@ function Sheet({
     setSelected(new Set());
     if (result.ok) {
       setNotice(`Deleted ${result.count} records in one transaction.`);
-      // One entry per row, each with its audit entry, so each can be undone.
-      if (result.audit?.length) {
-        result.audit.forEach((audit) =>
-          onActivity({ resource, field: "", record: JSON.stringify(audit.key), outcome: "saved", action: "delete", message: "Deleted, with its audit entry.", audit }),
-        );
-      } else {
-        onActivity({ resource, field: "", record: `${result.count} rows`, outcome: "saved", action: "delete", message: "Deleted, each row audited." });
-      }
+      // One entry holds every row's audit, so one Undo reaches them all.
+      onActivity({
+        resource,
+        field: "",
+        record: `${result.count} rows`,
+        outcome: "saved",
+        action: "delete",
+        message: "Deleted, each row audited.",
+        ...(result.audit?.length ? { audits: result.audit } : {}),
+      });
     } else {
       const message = `Nothing was deleted: ${(result.failures ?? []).length} of ${ids.length} records couldn't be (${result.failures?.[0]?.message ?? ""}).`;
       setNotice(message);
@@ -897,9 +940,14 @@ function Sheet({
             refresh();
             if (result.ok) {
               setNotice(`Saved ${result.count} rows in one transaction.`);
-              (result.audit ?? []).forEach((audit) =>
-                onActivity({ resource, field: Object.keys(data).join(", "), record: JSON.stringify(audit.key), outcome: "saved", message: "Saved, with its audit entry.", audit }),
-              );
+              onActivity({
+                resource,
+                field: Object.keys(data).join(", "),
+                record: `${result.count} rows`,
+                outcome: "saved",
+                message: "Saved, each row audited.",
+                ...(result.audit?.length ? { audits: result.audit } : {}),
+              });
             }
             return result;
           }}
@@ -1001,7 +1049,7 @@ function ActivityPanel({ entries, onUndo }: { entries: StudioActivity[]; onUndo?
                 <time className="ml-auto text-muted-foreground" dateTime={entry.at.toISOString()}>
                   {entry.at.toLocaleTimeString()}
                 </time>
-                {onUndo && entry.outcome === "saved" && entry.audit && entry.audit.action !== "run" && !entry.undone && (
+                {onUndo && entry.outcome === "saved" && ((entry.audit && entry.audit.action !== "run") || entry.audits?.length) && !entry.undone && (
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -1009,7 +1057,7 @@ function ActivityPanel({ entries, onUndo }: { entries: StudioActivity[]; onUndo?
                     data-testid="studio-activity-undo"
                   >
                     <Undo2 className="h-3 w-3" aria-hidden />
-                    Undo
+                    {entry.audits?.length ? `Undo all ${entry.audits.length}` : "Undo"}
                   </button>
                 )}
               </div>
