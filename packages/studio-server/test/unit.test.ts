@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SignJWT } from "jose";
 import { isDataWriteError } from "@marktiderman/genesis-core/schema";
 import { byResource, createStudioHandler, jwtAuth, studioSetupSql, type StudioDatabase } from "../src/index";
-import { triggerAdvances, type CatalogTrigger } from "../src/catalog";
+import { triggerAdvances, withoutSettings, type CatalogTrigger } from "../src/catalog";
 import { createStudioProvider } from "../src/client";
 
 const SECRET = "unit-test-secret-with-at-least-32-chars!!";
@@ -305,5 +305,14 @@ describe("createStudioProvider writes", () => {
     expect(sent.map((b) => b.op)).toEqual(["describe", "create", "delete", "history"]);
     expect(sent[2]).toMatchObject({ id: 9, expectedVersion: "1" });
     expect((await provider.capabilities()).multiSort).toBe(true);
+  });
+});
+
+describe("comment settings", () => {
+  it("keeps @genesis settings out of descriptions", () => {
+    expect(withoutSettings('People in a program. @genesis {"label": "Clients"}')).toBe("People in a program.");
+    expect(withoutSettings('@genesis {"label": "Clients"}')).toBeNull();
+    expect(withoutSettings("Plain.")).toBe("Plain.");
+    expect(withoutSettings(null)).toBeNull();
   });
 });

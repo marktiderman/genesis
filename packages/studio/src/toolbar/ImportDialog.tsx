@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
 import { parseCsv } from "../lib/csv";
+import { fieldLabel } from "../values";
 
 const SKIP = "__genesis_skip__";
 
@@ -134,7 +135,7 @@ export function ImportDialog({ provider, schema, onImported }: ImportDialogProps
                           <SelectItem value={SKIP}>Skip this column</SelectItem>
                           {targets.map((f) => (
                             <SelectItem key={f.name} value={f.name}>
-                              {f.name}
+                              {fieldLabel(f)}
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -5,7 +5,7 @@ import type { BaseRecord, DataProvider, FilterParam, SortParam } from "@marktide
 import { encodeRecordKey, isDataWriteError, type FieldSchema, type ResourceSchema } from "@marktiderman/genesis-core/schema";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import { displayText } from "../values";
+import { displayText, fieldLabel } from "../values";
 import { currentMonth, dayKey, isDateOnly, localDay, monthBounds, shiftMonth } from "./fields";
 
 type Row = Record<string, unknown>;
@@ -118,7 +118,7 @@ export function CalendarView({
         <h3 className="text-sm font-semibold" aria-live="polite">
           {title}
         </h3>
-        <span className="text-xs text-muted-foreground">by {field.name}</span>
+        <span className="text-xs text-muted-foreground">by {fieldLabel(field)}</span>
       </div>
       {total > rows.length && (
         <p role="status" className="text-xs text-muted-foreground" data-testid="studio-calendar-capped">
@@ -133,7 +133,7 @@ export function CalendarView({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[42rem] table-fixed border-collapse text-sm">
           <caption className="sr-only">
-            {schema.label ?? schema.name} by {field.name}, {title}
+            {schema.label ?? schema.name} by {fieldLabel(field)}, {title}
           </caption>
           <thead>
             <tr>

@@ -87,6 +87,13 @@ Tailwind v4 needs to see the studio's classes:
 - **Select rows** to set a field on all of them, or delete them: all or none.
 - **Import CSV:** map the file's columns, **Check rows** (a dry run against the database that
   lists every row that won't import, and why), then **Import**, in one transaction.
+- **Board view** (`?view=kanban&by=status`): one column per value of an enum or yes/no field,
+  50 cards per column with **Load more**, the same filters, search and sort as the table. Drag a
+  card, or use its **Move to** menu from the keyboard: a move is a version-checked update.
+- **Calendar view** (`?view=calendar&by=starts_on&month=2026-10`): a month of rows by a date or
+  timestamp field, one request per month, up to 200 rows. Timestamps show on the viewer's day.
+- **Row actions** the server offers are buttons in the record pop-up, asking first when the
+  action has a `confirm` question. A **Comments** tab lists and adds comments.
 - **Link cells** show the linked row's label (one query per linked table per page). Links are
   edited in the record form, with a picker that searches on the server.
 

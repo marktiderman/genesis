@@ -28,7 +28,7 @@ const CLIENTS: ResourceSchema = {
     { name: "id", type: "string", permissions: { read: true, update: false } },
     { name: "name", type: "string", permissions: { read: true, update: true } },
     { name: "status", type: "string", enumValues: ["active", "paused", "done"], permissions: { read: true, update: true } },
-    { name: "starts_on", type: "datetime", dbType: "date", widget: "date", nullable: true, permissions: { read: true, update: true } },
+    { name: "starts_on", type: "datetime", dbType: "date", widget: "date", label: "Starts on", nullable: true, permissions: { read: true, update: true } },
     { name: "updated_at", type: "datetime", dbType: "timestamp with time zone", permissions: { read: true, update: false } },
   ],
 };
@@ -88,6 +88,7 @@ function makeProvider(count = 3) {
     async runAction(_r: string, params: { id: unknown; action: string; expectedVersion?: string | null }) {
       calls.push({ op: "runAction", args: params });
       const row = db.find((r) => r.id === params.id)!;
+      if (row.status === "done") throw new Error("Not saved: Only an open client can be marked done.");
       if (params.action === "complete") Object.assign(row, { status: "done", updated_at: `v${++n}` });
       const audit: AuditEntry = { id: "a1", occurredAt: "t", actor: "me", resource: CLIENTS.name, key: { id: row.id }, action: "run", rowAction: params.action, before: {}, after: {} };
       return { data: { ...row }, audit };
@@ -205,6 +206,26 @@ describe("DataStudio P3: row actions and comments", () => {
     fireEvent.click(await within(panel).findByTestId("studio-action-ping"));
     await waitFor(() => expect(calls.filter((c) => c.op === "runAction")).toHaveLength(2));
     expect(calls.filter((c) => c.op === "runAction")[1]!.args.expectedVersion).not.toBe("v1");
+  });
+
+  it("says which action didn't run, and why", async () => {
+    const { provider, db } = makeProvider();
+    db[0]!.status = "done";
+    render(<Harness provider={provider} initial={{ resource: "public.clients", record: "c1" }} />);
+    const panel = await screen.findByTestId("studio-record-panel");
+    await within(panel).findByDisplayValue("Client 1");
+    fireEvent.click(within(panel).getByTestId("studio-action-ping"));
+    const alert = await within(panel).findByTestId("studio-action-error");
+    expect(alert.textContent).toContain("Ping didn't run");
+    expect(alert.textContent).toContain("Only an open client can be marked done. Nothing was changed.");
+    expect(alert.textContent).not.toContain("Not saved");
+  });
+
+  it("labels fields from the contract", async () => {
+    const { provider } = makeProvider();
+    render(<Harness provider={provider} initial={{ resource: "public.clients", record: "c1" }} />);
+    const panel = await screen.findByTestId("studio-record-panel");
+    expect(await within(panel).findByText("Starts on")).toBeTruthy();
   });
 
   it("lists and posts comments", async () => {

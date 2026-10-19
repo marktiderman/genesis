@@ -87,7 +87,7 @@ async function explain(
 function rejectedBy(error: unknown): WriteRejected | null {
   const state = sqlState(error);
   if (!state) return null;
-  const detail = error instanceof Error ? error.message : String(error);
+  const detail = (error instanceof Error ? error.message : String(error)).replace(/\.$/, "");
   if (state === "42501") return new WriteRejected("forbidden", `Not saved: ${detail}.`);
   if (state.startsWith("22") || state.startsWith("23") || state === "P0001") {
     return new WriteRejected("invalid", `Not saved: ${detail}.`);

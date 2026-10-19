@@ -4,7 +4,7 @@ import type { BaseRecord, DataProvider, FilterParam, SortParam } from "@marktide
 import { encodeRecordKey, isDataWriteError, type AuditEntry, type FieldSchema, type ResourceSchema } from "@marktiderman/genesis-core/schema";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { KanbanBoard, type KanbanColumn } from "@marktiderman/genesis-ui/data";
-import { choicesFor, displayText } from "../values";
+import { choicesFor, displayText, fieldLabel } from "../values";
 
 type Row = Record<string, unknown>;
 
@@ -99,8 +99,21 @@ export function KanbanView({
   });
 
   const labelField = schema.labelField;
+  // A card's subtitle: the next two fields a person would read, not keys,
+  // links, ids or the version.
+  const keyNames = new Set(typeof schema.key === "string" ? [schema.key] : schema.key);
   const extra = schema.fields
-    .filter((f) => f.name !== labelField && f.name !== field.name && f.name !== schema.version?.field && !f.array)
+    .filter(
+      (f) =>
+        f.name !== labelField &&
+        f.name !== field.name &&
+        f.name !== schema.version?.field &&
+        !keyNames.has(f.name) &&
+        !f.references &&
+        !f.array &&
+        f.type !== "json" &&
+        f.dbType !== "uuid",
+    )
     .slice(0, 2);
   const canMove = Boolean(field.permissions?.update && schema.version);
 
@@ -133,9 +146,9 @@ export function KanbanView({
           {failure instanceof Error ? failure.message : String(failure)}
         </p>
       )}
-      <div className="overflow-x-auto pb-2">
+      <div>
         <KanbanBoard<Row>
-          className="min-w-max auto-cols-[minmax(16rem,1fr)] grid-flow-col grid-cols-none md:grid-cols-none lg:grid-cols-none xl:grid-cols-none"
+          className="grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]"
           columns={columns}
           getKey={(row) => String(encodeRecordKey(schema, row))}
           getItemLabel={(row) => displayText(labelField ? row[labelField] : undefined) ?? String(encodeRecordKey(schema, row))}
@@ -154,7 +167,7 @@ export function KanbanView({
                 <span className="block truncate font-medium">{displayText(labelField ? row[labelField] : undefined) ?? id}</span>
                 {extra.map((f) => (
                   <span key={f.name} className="block truncate text-xs text-muted-foreground">
-                    {f.name}: {displayText(row[f.name]) ?? "—"}
+                    {fieldLabel(f)}: {displayText(row[f.name]) ?? "—"}
                   </span>
                 ))}
               </button>

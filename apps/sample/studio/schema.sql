@@ -44,8 +44,11 @@ create table public.orders (
   owner_id uuid not null default auth.uid(),
   customer text not null,
   status text not null default 'Pending' check (status in ('Pending', 'Paid', 'Shipped')),
+  placed_on date not null default current_date,
   updated_at timestamptz not null default now()
 );
+comment on table public.orders is 'Customer orders. @genesis {"label": "Orders", "labelField": "customer"}';
+comment on column public.orders.placed_on is 'The day the order came in. @genesis {"label": "Placed on"}';
 create trigger orders_updated_at before update on public.orders
   for each row execute function extensions.moddatetime(updated_at);
 alter table public.orders enable row level security;
@@ -55,7 +58,20 @@ create policy orders_update on public.orders for update to authenticated
 create policy orders_insert on public.orders for insert to authenticated with check (owner_id = auth.uid());
 grant select on public.orders to authenticated;
 grant update (customer, status) on public.orders to authenticated;
-grant insert (id, customer, status) on public.orders to authenticated;
+grant insert (id, customer, status, placed_on) on public.orders to authenticated;
+
+-- A row action (P3): runs as the user, so their grants and RLS apply.
+create function public.ship_order(record_key jsonb) returns void
+language plpgsql set search_path = '' as $$
+begin
+  update public.orders set status = 'Shipped'
+   where id = (record_key ->> 'id')::int and status = 'Paid';
+  if not found then
+    raise exception 'Only a paid order can ship.';
+  end if;
+end $$;
+revoke all on function public.ship_order(jsonb) from public;
+grant execute on function public.ship_order(jsonb) to authenticated;
 
 create table public.order_lines (
   order_id int not null references public.orders (id),

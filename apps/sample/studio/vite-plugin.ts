@@ -20,6 +20,7 @@ import {
   supabaseAuth,
   type StudioAuth,
 } from "@marktiderman/genesis-studio-server";
+import { contracts } from "./resources.genesis";
 
 interface DevUser {
   id: string;
@@ -113,7 +114,7 @@ export function studioDevServer(env: Record<string, string>): Plugin {
         authorize: byResource(
           {
             "public.products": { read: true, update: true, create: true, delete: true, history: true },
-            "public.orders": { read: true, update: true, create: true, history: true },
+            "public.orders": { read: true, update: true, create: true, history: true, actions: ["ship"], comment: true },
             "public.order_lines": { read: true, update: ["quantity", "note"], history: true },
             "public.categories": { read: true },
             // The stock-Supabase demo schema (examples/studio-supabase).
@@ -125,6 +126,13 @@ export function studioDevServer(env: Record<string, string>): Plugin {
           { who: (claims) => typeof claims.sub === "string" },
         ),
         audit: { sink: "table" },
+        // Checked in, from `pnpm --filter sample studio:contract`.
+        contracts,
+        resources: {
+          "public.orders": {
+            actions: [{ name: "ship", label: "Ship", function: "public.ship_order", confirm: "Mark this order shipped?" }],
+          },
+        },
         onError: (error) => server.config.logger.error(`[studio] ${error instanceof Error ? error.message : String(error)}`),
       });
       server.httpServer?.once("close", () => void handler.close());

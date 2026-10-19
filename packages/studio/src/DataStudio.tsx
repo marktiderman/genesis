@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Alert, AlertDescription, AlertTitle } from "@marktiderman/genesis-ui/alert";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import type { StudioLocation, StudioRouter } from "./router";
-import { choicesFor, displayText, editText, parseDraft } from "./values";
+import { choicesFor, displayText, editText, fieldLabel, parseDraft } from "./values";
 import { exportCsv, downloadText } from "./lib/csv";
 import { formatFilters, formatSorts, parseFilters, parseSorts } from "./lib/query-state";
 import { usePageLinkLabels } from "./lib/relations";
@@ -502,7 +502,7 @@ function Sheet({
         const inlineEditable = field.permissions?.update && !field.references;
         return {
           key: field.name,
-          header: field.name,
+          header: fieldLabel(field),
           sortable: capabilities?.sort !== false,
           accessor: (row: Row) => editText(row[field.name]),
           render: (row: Row) => {

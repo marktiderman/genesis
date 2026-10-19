@@ -115,9 +115,11 @@ export function RecordPanel(props: RecordPanelProps) {
   }
 
   const [running, setRunning] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{ label: string; message: string } | null>(null);
   const [confirming, setConfirming] = useState<RowAction | null>(null);
   async function runAction(action: RowAction) {
     setConflict(null);
+    setActionError(null);
     setRunning(action.name);
     try {
       const result = await provider.runAction!(schema.name, { id, action: action.name, expectedVersion: versionOf(schema, row) });
@@ -127,7 +129,7 @@ export function RecordPanel(props: RecordPanelProps) {
       void queryClient.invalidateQueries({ queryKey: ["genesis-studio", sessionKey, "history", schema.name, id] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setConflict(message);
+      setActionError({ label: action.label, message: message.replace(/^Not (saved|run): /, "") });
       props.onFailed(`action:${action.name}`, message);
       void record.refetch();
     } finally {
@@ -229,6 +231,12 @@ export function RecordPanel(props: RecordPanelProps) {
           </AlertDialogContent>
         </AlertDialog>
 
+        {actionError && (
+          <Alert variant="destructive" className="mt-3" data-testid="studio-action-error">
+            <AlertTitle>{actionError.label} didn't run</AlertTitle>
+            <AlertDescription>{actionError.message} Nothing was changed.</AlertDescription>
+          </Alert>
+        )}
         {conflict && (
           <Alert variant="destructive" className="mt-3" data-testid="studio-record-conflict">
             <AlertTitle>Not saved</AlertTitle>

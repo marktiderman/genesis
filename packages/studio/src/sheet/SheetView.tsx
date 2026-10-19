@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { BaseRecord, DataProvider } from "@marktiderman/genesis-core/provider";
 import { encodeRecordKey, isDataWriteError, type AuditEntry, type ResourceSchema } from "@marktiderman/genesis-core/schema";
 import { SheetCommitError, SheetGrid, type SheetCellChange, type SheetGridColumn } from "@marktiderman/genesis-ui/sheet-grid";
-import { choicesFor, displayText, editText, parseDraft } from "../values";
+import { choicesFor, displayText, editText, fieldLabel, parseDraft } from "../values";
 
 type Row = Record<string, unknown>;
 
@@ -32,7 +32,7 @@ export function SheetView({ provider, schema, rows, keys, linkLabels, onSaved, o
         const labels = linkLabels.get(field.name);
         return {
           key: field.name,
-          header: field.name,
+          header: fieldLabel(field),
           width: field.type === "json" ? 220 : field.name.length > 14 ? 180 : 150,
           getText: (row: Row) => editText(row[field.name]),
           ...(labels

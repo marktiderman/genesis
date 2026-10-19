@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
-import { choicesFor, parseDraft } from "../values";
+import { choicesFor, parseDraft, fieldLabel } from "../values";
 
 export interface BulkEditDialogProps {
   schema: ResourceSchema;
@@ -64,7 +64,7 @@ export function BulkEditDialog({ schema, count, open, onOpenChange, onApply }: B
               <SelectContent>
                 {fields.map((f) => (
                   <SelectItem key={f.name} value={f.name}>
-                    {f.name}
+                    {fieldLabel(f)}
                   </SelectItem>
                 ))}
               </SelectContent>

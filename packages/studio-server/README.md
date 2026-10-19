@@ -183,6 +183,56 @@ grant on the table: the version check and the write happen in one `REPEATABLE RE
 so a change committed by anyone in between fails the function's write instead of being
 overwritten.
 
+## Row actions
+
+A named operation on one row ("Approve", "Send reminder"), carried out by the app's own function
+`fn(record_key jsonb)`:
+
+```ts
+resources: {
+  "public.orders": {
+    actions: [
+      { name: "approve", label: "Approve", function: "public.approve_order", confirm: "Approve this order?" },
+    ],
+  },
+},
+authorize: byResource({ "public.orders": { read: true, actions: ["approve"] } }, { who }),
+```
+
+The function runs **as the signed-in user**, at the version they saw, inside one `REPEATABLE READ`
+transaction, so a row changed in between is a conflict, not an overwrite. Its effect on the row is
+audited as `run:approve` (before and after, or no after when it removed the row). The studio never
+undoes an action, because the function may have changed more than the row shows.
+
+An action is offered only when `authorize` allows `{ action: "run", rowAction: name }`, the
+table's write preconditions hold (audit sink, key, RLS, version field), and the function exists
+with that signature. A misconfigured one is reported to `onError`, not shown to the user. A name is
+a letter or `_`, then letters, digits or `_`.
+
+## Comments
+
+`authorize` allows `{ action: "comment" }` per table (`byResource`: `comment: true`). Comments
+live in `genesis_studio.comments`, written and read only through the setup SQL's security definer
+functions. A comment can only be read or added for a row the user can see right now, and its
+author is always the token's `sub`.
+
+## Checked-in contracts
+
+`genesis introspect` (in `@marktiderman/genesis-cli`) writes `resources.genesis.ts` from the
+Postgres catalog or a Supabase OpenAPI spec. Pass it in, and it wins over discovery for
+presentation (decision 10):
+
+```ts
+import { contracts } from "./resources.genesis";
+createStudioHandler({ …, contracts });
+```
+
+It sets a table's label, label field and description, and a field's label, description and
+widget. A widget applies only when it can edit the field's type, and never over a link or a
+choice list. Types, keys and every permission still come from the live database, so a stale
+contract can't reveal, invent or unlock a field. `@genesis {…}` settings in comments are left out
+of the descriptions the studio shows.
+
 ## Outbox delivery
 
 ```ts

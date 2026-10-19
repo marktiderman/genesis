@@ -175,7 +175,7 @@ export async function loadTables(
       schema: String(t.schema),
       name: String(t.name),
       qualified: `${String(t.schema)}.${String(t.name)}`,
-      description: (t.description as string | null) ?? null,
+      description: withoutSettings(t.description),
       canSelectAny: Boolean(t.can_select),
       canUpdateAny: Boolean(t.can_update),
       canInsertAny: Boolean(t.can_insert),
@@ -210,7 +210,7 @@ export async function loadTables(
             canSelect: Boolean(c.can_select),
             canUpdate: Boolean(c.can_update),
             canInsert: Boolean(c.can_insert),
-            description: (c.description as string | null) ?? null,
+            description: withoutSettings(c.description),
             enumValues: (c.enum_values as string[] | null) ?? null,
             references: fk
               ? {
@@ -336,4 +336,15 @@ export async function auditSinkProblem(query: Query, signature: string, checkLog
   if (!row.pinned) return "doesn't pin an empty search_path";
   if (row.log_writable) return "is bypassable: you can write genesis_studio.audit_log directly";
   return null;
+}
+
+/**
+ * A table or column comment without its `@genesis {...}` settings, which
+ * are input for `genesis introspect`, not text for people.
+ */
+export function withoutSettings(comment: unknown): string | null {
+  if (typeof comment !== "string") return null;
+  const at = comment.indexOf("@genesis");
+  const text = (at < 0 ? comment : comment.slice(0, at)).trim();
+  return text || null;
 }

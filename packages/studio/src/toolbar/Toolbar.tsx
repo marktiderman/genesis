@@ -8,7 +8,7 @@ import { Input } from "@marktiderman/genesis-ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@marktiderman/genesis-ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
 import { needsValue, OPERATOR_LABEL, operatorsFor } from "../lib/query-state";
-import { choicesFor } from "../values";
+import { choicesFor, fieldLabel } from "../values";
 
 const NONE = "__genesis_none__";
 
@@ -74,7 +74,7 @@ export function FilterBuilder({
                 <SelectContent>
                   {filterable.map((f) => (
                     <SelectItem key={f.name} value={f.name}>
-                      {f.name}
+                      {fieldLabel(f)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -204,7 +204,7 @@ export function SortBuilder({
               </SelectItem>
               {unused.map((f) => (
                 <SelectItem key={f.name} value={f.name}>
-                  {f.name}
+                  {fieldLabel(f)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -236,7 +236,7 @@ export function GroupPicker({
         <SelectItem value={NONE}>No grouping</SelectItem>
         {groupable.map((f) => (
           <SelectItem key={f.name} value={f.name}>
-            Group by {f.name}
+            Group by {fieldLabel(f)}
           </SelectItem>
         ))}
       </SelectContent>
@@ -321,7 +321,7 @@ export function ViewFieldPicker({
       <SelectContent>
         {fields.map((f) => (
           <SelectItem key={f.name} value={f.name}>
-            {label} {f.name}
+            {label} {fieldLabel(f)}
           </SelectItem>
         ))}
       </SelectContent>

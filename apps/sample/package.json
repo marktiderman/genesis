@@ -16,7 +16,8 @@
     "studio:db": "node studio/setup-db.mjs",
     "studio:supabase": "cd studio/supabase-demo && supabase start && node seed.mjs",
     "studio:adopt": "node studio/supabase-demo/adopt.mjs",
-    "dev:supabase": "react-router dev --mode supabase"
+    "dev:supabase": "react-router dev --mode supabase",
+    "studio:contract": "genesis introspect --database-env STUDIO_CONTRACT_DATABASE_URL --out studio/resources.genesis.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -71,6 +72,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@marktiderman/genesis-cli": "workspace:^",
     "@react-router/dev": "7.14.0",
     "@storybook/addon-essentials": "^8.4.0",
     "@storybook/react": "^8.4.0",

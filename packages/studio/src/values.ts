@@ -32,3 +32,8 @@ export function choicesFor(field: FieldSchema): string[] | undefined {
   if (field.type === "boolean") return ["true", "false"];
   return undefined;
 }
+
+/** What a person calls a field: its contract label, or its name. */
+export function fieldLabel(field: FieldSchema): string {
+  return field.label ?? field.name;
+}
