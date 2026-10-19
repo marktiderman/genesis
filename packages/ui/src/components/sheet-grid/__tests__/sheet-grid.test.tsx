@@ -177,3 +177,13 @@ describe("SheetGrid edits follow their row", () => {
     expect(commits).toEqual([expect.objectContaining({ rowKey: "b", column: "name", value: "Bob" })]);
   });
 });
+
+describe("blank cells in copy and paste", () => {
+  it("round-trips a lone blank cell and a trailing blank row", () => {
+    expect(toTsv([[""]])).toBe('""');
+    expect(parseTsv(toTsv([[""]]))).toEqual([[""]]);
+    expect(parseTsv(toTsv([["A"], [""]]))).toEqual([["A"], [""]]);
+    expect(parseTsv(toTsv([["", ""]]))).toEqual([["", ""]]);
+    expect(parseTsv(toTsv([["a\tb"], [""], ["c"]]))).toEqual([["a\tb"], [""], ["c"]]);
+  });
+});

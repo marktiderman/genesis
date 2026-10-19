@@ -471,6 +471,8 @@ export function parseTsv(text: string): string[][] {
   let row: string[] = [];
   let field = "";
   let quoted = false;
+  // A field that was quoted counts even when empty: `""` is one blank cell.
+  let wasQuoted = false;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]!;
     if (quoted) {
@@ -484,19 +486,23 @@ export function parseTsv(text: string): string[][] {
       }
       continue;
     }
-    if (ch === '"' && field === "") quoted = true;
-    else if (ch === "\t") {
+    if (ch === '"' && field === "") {
+      quoted = true;
+      wasQuoted = true;
+    } else if (ch === "\t") {
       row.push(field);
       field = "";
+      wasQuoted = false;
     } else if (ch === "\n" || ch === "\r") {
       if (ch === "\r" && text[i + 1] === "\n") i++;
       row.push(field);
       rows.push(row);
       row = [];
       field = "";
+      wasQuoted = false;
     } else field += ch;
   }
-  if (field !== "" || row.length) {
+  if (field !== "" || wasQuoted || row.length) {
     row.push(field);
     rows.push(row);
   }
@@ -509,5 +515,7 @@ function tsvField(text: string): string {
 
 /** Write a block of cells as spreadsheet clipboard text (the inverse of `parseTsv`). */
 export function toTsv(grid: string[][]): string {
-  return grid.map((row) => row.map(tsvField).join("\t")).join("\n");
+  // A row that is one blank cell would otherwise be an empty line, which a
+  // paste can't tell from no row at all: write it as `""`.
+  return grid.map((row) => (row.length === 1 && row[0] === "" ? '""' : row.map(tsvField).join("\t"))).join("\n");
 }
