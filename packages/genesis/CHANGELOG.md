@@ -1,5 +1,19 @@
 # @marktiderman/genesis
 
+## 0.5.6
+
+### Patch Changes
+
+- 1a9d899: Release-pipeline only, no code changes. This version is published by CI through npm Trusted Publishing, which now requires the `npm` GitHub environment (main only).
+- Updated dependencies [8b251da]
+- Updated dependencies [8b251da]
+- Updated dependencies [1a9d899]
+  - @marktiderman/genesis-core@1.2.0
+  - @marktiderman/genesis-switchboard@2.1.0
+  - @marktiderman/genesis-ui@2.5.0
+  - @marktiderman/genesis-design-system@1.3.1
+  - @marktiderman/genesis-ui-native@2.0.3
+
 ## 0.5.5
 
 ### Patch Changes

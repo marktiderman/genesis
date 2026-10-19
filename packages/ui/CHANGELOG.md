@@ -1,5 +1,22 @@
 # @marktiderman/genesis-ui
 
+## 2.5.0
+
+### Minor Changes
+
+- 8b251da: **DataTable and ResourcePage, extended for Data Studio** (DATA-STUDIO.md decision 21). Additive; a **minor**.
+
+  - **`DataTableColumn.editable.onSave` may return a promise.** While it is pending the cell stays open in a saving state (one save, even when Enter and blur both fire); a rejection keeps the editor open with the draft and shows the error's message beneath the cell (`role="alert"`, `aria-invalid`), and leaving the cell after a failure doesn't silently retry. A `void` return closes the editor at once, exactly as before.
+  - **`ResourcePage` `getKey`** — row identity for rows not keyed by `id` (composite keys). Used for React keys and bulk selection; detail `route` mode still navigates by `item.id`.
+  - **`ResourceColumnDef.editable` and `.accessor`** pass straight through to `DataTable`.
+
+### Patch Changes
+
+- 1a9d899: Release-pipeline only, no code changes. This version is published by CI through npm Trusted Publishing, which now requires the `npm` GitHub environment (main only).
+- Updated dependencies [8b251da]
+- Updated dependencies [1a9d899]
+  - @marktiderman/genesis-core@1.2.0
+
 ## 2.4.0
 
 ### Minor Changes
