@@ -451,9 +451,17 @@ function Sheet({
     () => ["genesis-studio", sessionKey, "list", resource, page, perPage, location.sort ?? "", search, location.filters ?? "", group ?? ""],
     [sessionKey, resource, page, perPage, location.sort, search, location.filters, group],
   );
+  const keyed = Boolean(schema && keyFields(schema).length > 0);
+  const boardChoices = schema ? boardFields(schema) : [];
+  const dateChoices = schema ? dateFields(schema) : [];
+  const keyedView = (view === "kanban" || view === "calendar") && keyed;
+  const viewChoices = view === "kanban" ? boardChoices : view === "calendar" ? dateChoices : [];
+  const viewField = viewChoices.find((f) => f.name === location.by) ?? viewChoices[0];
+  const altView = keyedView && viewField ? view : null;
   const listQuery = useQuery({
     queryKey: listKey,
-    enabled: Boolean(schema),
+    // A board or calendar makes its own requests; the grid's page isn't needed then.
+    enabled: Boolean(schema) && !altView,
     placeholderData: keepPreviousData,
     retry: false,
     queryFn: () =>
@@ -480,7 +488,6 @@ function Sheet({
   );
 
   const rows = (listQuery.data?.data ?? []) as Row[];
-  const keyed = Boolean(schema && keyFields(schema).length > 0);
   const keys = useMemo(() => {
     const map = new Map<Row, string>();
     rows.forEach((row, index) => map.set(row, schema && keyed ? String(encodeRecordKey(schema, row)) : `row-${index}`));
@@ -572,12 +579,6 @@ function Sheet({
   }
 
   const editable = schema?.fields.filter((f) => f.permissions?.update).length ?? 0;
-  const boardChoices = schema ? boardFields(schema) : [];
-  const dateChoices = schema ? dateFields(schema) : [];
-  const keyedView = (view === "kanban" || view === "calendar") && keyed;
-  const viewChoices = view === "kanban" ? boardChoices : view === "calendar" ? dateChoices : [];
-  const viewField = viewChoices.find((f) => f.name === location.by) ?? viewChoices[0];
-  const altView = keyedView && viewField ? view : null;
 
   const gridView = !altView;
   const pageCount = Math.max(1, Math.ceil((listQuery.data?.total ?? 0) / perPage));

@@ -267,6 +267,8 @@ export function SheetGrid<T>({
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (editing) return; // the editor handles its own keys
+    // Keys pressed in a row header or the footer (a checkbox, a button) belong to that control.
+    if (e.target !== e.currentTarget) return;
     const mod = e.metaKey || e.ctrlKey;
     const page = Math.max(1, Math.floor(height / rowHeight) - 1);
     const { r, c } = active;
@@ -321,7 +323,7 @@ export function SheetGrid<T>({
   };
 
   const onCopy = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    if (editing || rows.length === 0 || columns.length === 0) return;
+    if (editing || e.target !== e.currentTarget || rows.length === 0 || columns.length === 0) return;
     const block: string[][] = [];
     for (let r = range.r0; r <= range.r1; r++) {
       const line: string[] = [];
@@ -333,7 +335,7 @@ export function SheetGrid<T>({
   };
 
   const onPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    if (editing) return;
+    if (editing || e.target !== e.currentTarget) return;
     const text = e.clipboardData.getData("text/plain");
     if (!text) return;
     e.preventDefault();

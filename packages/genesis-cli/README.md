@@ -37,8 +37,9 @@ from the live database.
 | --- | --- | --- |
 | `--database-env <name>` | `DATABASE_URL` | The variable holding the Postgres URL. It's never read from the command line, so it stays out of shell history. Any role that can read `pg_catalog` works; no table data is read. |
 | `--openapi <file-or-url>` | | Read a PostgREST OpenAPI document instead, e.g. a Supabase project's `https://<ref>.supabase.co/rest/v1/`. |
-| `--header "<Name>: <value>"` | | Headers for an `--openapi` URL, e.g. `apikey`. Repeatable. |
-| `-s, --schema <list>` | `public` | Comma-separated schemas. |
+| `--apikey-env <name>` | | The variable holding the API key for an `--openapi` URL, sent as `apikey` and as a Bearer token. Like the database URL, it stays off the command line. |
+| `--header "<Name>: <value>"` | | Other headers for an `--openapi` URL, for values that aren't secret. Repeatable. |
+| `-s, --schema <list>` | `public` | Comma-separated schemas. `--openapi` reads one. |
 | `-o, --out <file>` | `resources.genesis.ts` | Where to write. |
 | `--check` | | Write nothing; exit 1 when the file is out of date. Run it in CI to catch drift. |
 

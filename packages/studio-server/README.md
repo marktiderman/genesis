@@ -47,7 +47,7 @@ import { supabaseStudio } from "@marktiderman/genesis-studio-server";
 export const POST = supabaseStudio({
   url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
   database: process.env.STUDIO_DATABASE_URL!,
-  who: (claims) => claims.app_metadata?.role === "admin", // optional: keep the UI to staff
+  who: (claims) => (claims.app_metadata as { role?: string } | undefined)?.role === "admin", // optional: keep the UI to staff
 });
 ```
 

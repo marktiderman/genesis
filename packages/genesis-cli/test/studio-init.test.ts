@@ -165,4 +165,10 @@ describe("TanStack Start apps", () => {
     expect(server).toContain('await import("@marktiderman/genesis-studio-server")');
     expect(plan.files.find((f) => f.path === "src/styles.css")!.content).toContain('@source "../node_modules/@marktiderman/genesis-studio/dist";');
   });
+
+  it("has Tailwind scan genesis-ui too, when the app doesn't yet", () => {
+    const bare = { ...facts, read: (p: string) => (p === "src/styles.css" ? '@import "tailwindcss" source(none);\n' : facts.read(p)) };
+    const css = planStudioInit(bare).files.find((f) => f.path === "src/styles.css")!.content;
+    expect(css).toBe('@import "tailwindcss" source(none);\n@source "../node_modules/@marktiderman/genesis-ui/dist";\n@source "../node_modules/@marktiderman/genesis-studio/dist";\n');
+  });
 });

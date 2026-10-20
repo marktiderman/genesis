@@ -83,6 +83,25 @@ describe("SheetGrid", () => {
     expect(grid.getAttribute("aria-activedescendant")).toBe(cell(1, 1).id);
   });
 
+  it("leaves keys and pastes in a row header or the footer to that control", () => {
+    const onCommit = vi.fn(async () => {});
+    renderGrid(onCommit, {
+      rowHeader: { width: 40, render: (row: Row) => <input type="checkbox" aria-label={`Select ${row.name}`} /> },
+      footer: <button type="button">Add a record</button>,
+    });
+    const box = screen.getByLabelText("Select Ana");
+    const space = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    box.dispatchEvent(space);
+    expect(space.defaultPrevented).toBe(false);
+    expect(screen.queryByLabelText("id, row 1")).toBeNull();
+    const add = screen.getByRole("button", { name: "Add a record" });
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    add.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(false);
+    fireEvent.paste(box, { clipboardData: { getData: () => "X" } });
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
   it("won't edit a read-only cell", () => {
     const { grid } = renderGrid();
     fireEvent.keyDown(grid, { key: "Enter" });

@@ -77,17 +77,27 @@ program
   .description("Write a checked-in contract (resources.genesis.ts) from the Postgres catalog or a PostgREST/Supabase OpenAPI spec")
   .option("--database-env <name>", "Environment variable holding the Postgres URL", "DATABASE_URL")
   .option("--openapi <file-or-url>", "Read a PostgREST OpenAPI document (a Supabase project's /rest/v1/) instead of Postgres")
-  .option("--header <header...>", "HTTP header for --openapi URLs, e.g. 'apikey: …' (repeatable)")
+  .option("--header <header...>", "HTTP header for --openapi URLs, for values that aren't secret (repeatable)")
+  .option("--apikey-env <name>", "Environment variable holding the API key for --openapi URLs (sent as apikey and Bearer)")
   .option("-s, --schema <schemas>", "Comma-separated schemas", "public")
   .option("-o, --out <file>", "Where to write the contract", "resources.genesis.ts")
   .option("--check", "Write nothing; exit 1 if the contract on disk is out of date (for CI)", false)
-  .action(async (opts: { databaseEnv: string; openapi?: string; header?: string[]; schema: string; out: string; check: boolean }) => {
+  .action(async (opts: { databaseEnv: string; openapi?: string; header?: string[]; apikeyEnv?: string; schema: string; out: string; check: boolean }) => {
     const schemas = opts.schema.split(",").map((s) => s.trim()).filter(Boolean);
     const { introspectOpenApi, introspectPostgres, emitContracts } = await import("./introspect/index.js");
     let tables;
     let source: string;
     if (opts.openapi) {
-      const doc = await readOpenApi(opts.openapi, opts.header ?? []);
+      if (schemas.length !== 1) throw new Error("--openapi reads one schema at a time; pass a single --schema.");
+      // A key comes from the environment, like the database URL, so it stays
+      // out of shell history and process listings.
+      const headers = [...(opts.header ?? [])];
+      if (opts.apikeyEnv) {
+        const key = process.env[opts.apikeyEnv];
+        if (!key) throw new Error(`Set ${opts.apikeyEnv} to the API key.`);
+        headers.push(`apikey: ${key}`, `Authorization: Bearer ${key}`);
+      }
+      const doc = await readOpenApi(opts.openapi, headers);
       tables = introspectOpenApi(doc, schemas[0]);
       source = `OpenAPI ${redactUrl(opts.openapi)}`;
     } else {
