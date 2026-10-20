@@ -261,3 +261,22 @@ export function NewRowButton({ allowed, reason, onClick }: { allowed: boolean; r
     </Button>
   );
 }
+
+/** Switch between the table and the spreadsheet grid. */
+export function ViewSwitch({ view, onChange }: { view: "table" | "sheet"; onChange: (view: "table" | "sheet") => void }) {
+  return (
+    <div role="group" aria-label="View" className="inline-flex rounded-md border p-0.5" data-testid="studio-view-switch">
+      {(["table", "sheet"] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          aria-pressed={view === v}
+          onClick={() => onChange(v)}
+          className={`rounded px-2 py-1 text-xs ${view === v ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          {v === "table" ? "Table" : "Sheet"}
+        </button>
+      ))}
+    </div>
+  );
+}

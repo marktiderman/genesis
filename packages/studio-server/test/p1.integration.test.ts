@@ -201,6 +201,13 @@ describeDb("P1: create, delete, history, relations, rule-bearing writes, outbox"
         await tx.unsafe(`select * from genesis_studio.record_history('public.clients', '{"id": "${CLIENT_1}"}', 10)`);
       }),
     ).rejects.toThrow(/only the studio login/);
+    await expect(
+      admin.begin(async (tx) => {
+        await tx.unsafe(`select set_config('request.jwt.claims', '{"sub": "${COACH_A}"}', true)`);
+        await tx.unsafe("set local role authenticated");
+        await tx.unsafe("select * from genesis_studio.audit_entry(gen_random_uuid())");
+      }),
+    ).rejects.toThrow(/only the studio login/);
   });
 
   it("refuses history for a row the user can't see", async () => {

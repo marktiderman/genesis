@@ -11,7 +11,23 @@ import postgres from "postgres";
 export type SqlRow = Record<string, unknown>;
 
 /** A parameterised statement inside the current transaction. */
-export type Query = (text: string, params?: readonly unknown[]) => Promise<SqlRow[]>;
+export interface Query {
+  (text: string, params?: readonly unknown[]): Promise<SqlRow[]>;
+  /**
+   * Run `fn` in a savepoint: if it throws, only its own statements are
+   * undone and the transaction carries on. Bulk writes and imports use this
+   * to try every row and report all the failures, not just the first.
+   */
+  savepoint<T>(fn: (query: Query) => Promise<T>): Promise<T>;
+}
+
+function queryOver(tx: postgres.TransactionSql): Query {
+  const query = (async (text: string, params: readonly unknown[] = []) =>
+    (await tx.unsafe(text, params as postgres.ParameterOrJSON<never>[])) as unknown as SqlRow[]) as Query;
+  query.savepoint = <T>(fn: (inner: Query) => Promise<T>) =>
+    tx.savepoint((sp) => fn(queryOver(sp as unknown as postgres.TransactionSql))) as Promise<T>;
+  return query;
+}
 
 /** The identity a transaction runs as. */
 export interface Identity {
@@ -113,8 +129,7 @@ function wrap(sql: postgres.Sql, owned: boolean): StudioDatabase {
   return {
     async asUser(identity, { readOnly, statementTimeoutMs }, fn) {
       const run = async (tx: postgres.TransactionSql) => {
-        const query: Query = async (text, params = []) =>
-          (await tx.unsafe(text, params as postgres.ParameterOrJSON<never>[])) as unknown as SqlRow[];
+        const query = queryOver(tx);
         // `set_config(..., true)` is `SET LOCAL`: it ends with the
         // transaction, so nothing leaks to the next request on this
         // connection. Every value is a parameter, never interpolated.

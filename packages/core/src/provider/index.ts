@@ -23,6 +23,10 @@ export type {
   DeleteParams,
   DeleteResult,
   HistoryParams,
+  BulkChange,
+  BulkResult,
+  RowFailure,
+  ImportParams,
 } from "./types";
 
 // Write outcomes — also exported from `@marktiderman/genesis-core/schema`.

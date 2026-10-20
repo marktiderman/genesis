@@ -15,6 +15,7 @@ import type {
   DeleteParams,
   DeleteResult,
   HistoryParams,
+  BulkResult,
   GetManyParams,
   GetManyResult,
   GetOneParams,
@@ -37,6 +38,8 @@ import {
   type DeleteResponse,
   type DescribeResponse,
   type HistoryResponse,
+  type BulkResponse,
+  type UndoResponse,
   type ErrorResponse,
   type ListResponse,
   type ReadResponse,
@@ -61,20 +64,35 @@ export interface StudioProvider extends DataProvider {
   listResources(): Promise<ResourceSummary[]>;
   capabilities(resource?: string): Promise<ProviderCapabilities>;
   history(resource: string, params: HistoryParams): Promise<AuditEntry[]>;
+  updateMany: NonNullable<DataProvider["updateMany"]>;
+  deleteMany: NonNullable<DataProvider["deleteMany"]>;
+  importRows: NonNullable<DataProvider["importRows"]>;
+  undo: NonNullable<DataProvider["undo"]>;
 }
 
 const CAPABILITIES: ProviderCapabilities = {
   search: true,
   sort: true,
   filterOperators: ["eq", "neq", "gt", "lt", "gte", "lte", "contains", "in", "between", "is_null", "is_not_null"],
-  bulkWrites: false,
+  bulkWrites: true,
   versionedWrites: true,
   compositeKeys: true,
   multiSort: true,
   create: true,
   delete: true,
   history: true,
+  import: true,
+  undo: true,
 };
+
+function bulkResult(response: BulkResponse): BulkResult {
+  return {
+    ok: response.ok,
+    count: response.count,
+    ...(response.failures ? { failures: response.failures } : {}),
+    ...(response.audit ? { audit: response.audit } : {}),
+  };
+}
 
 const OUTCOME_FROM_WIRE = {
   not_found: "gone",
@@ -202,6 +220,35 @@ export function createStudioProvider(options: StudioProviderOptions): StudioProv
         expectedVersion: params.expectedVersion ?? null,
       });
       return { data: { id: params.id }, ...(audit ? { audit } : {}) };
+    },
+
+    async updateMany(resource, params) {
+      return bulkResult(
+        await call<BulkResponse>({
+          op: "updateMany",
+          resource,
+          changes: params.changes.map((c) => ({ id: c.id, data: c.data, expectedVersion: c.expectedVersion ?? null })),
+        }),
+      );
+    },
+
+    async deleteMany(resource, params) {
+      return bulkResult(
+        await call<BulkResponse>({
+          op: "deleteMany",
+          resource,
+          items: params.items.map((i) => ({ id: i.id, expectedVersion: i.expectedVersion ?? null })),
+        }),
+      );
+    },
+
+    async importRows(resource, params) {
+      return bulkResult(await call<BulkResponse>({ op: "import", resource, rows: params.rows, dryRun: params.dryRun }));
+    },
+
+    async undo(resource, params) {
+      const { audit } = await call<UndoResponse>({ op: "undo", resource, auditId: params.auditId });
+      return audit ? { audit } : {};
     },
 
     async history(resource, params) {

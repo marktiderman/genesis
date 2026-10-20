@@ -24,6 +24,8 @@ export interface StudioLocation {
   group?: string;
   /** The open record's id (`encodeRecordKey`), for a copyable link to it. */
   record?: string;
+  /** `sheet` for the spreadsheet grid; the table otherwise. */
+  view?: "sheet";
 }
 
 export interface StudioNavigateOptions {
@@ -45,6 +47,7 @@ const PARAM = {
   filters: "filter",
   group: "group",
   record: "record",
+  view: "view",
 } as const;
 
 export function locationFromSearchParams(params: URLSearchParams): StudioLocation {
@@ -57,6 +60,7 @@ export function locationFromSearchParams(params: URLSearchParams): StudioLocatio
     ...(params.get(PARAM.filters) ? { filters: params.get(PARAM.filters)! } : {}),
     ...(params.get(PARAM.group) ? { group: params.get(PARAM.group)! } : {}),
     ...(params.get(PARAM.record) ? { record: params.get(PARAM.record)! } : {}),
+    ...(params.get(PARAM.view) === "sheet" ? { view: "sheet" as const } : {}),
   };
 }
 
@@ -74,6 +78,7 @@ export function searchParamsFromLocation(location: StudioLocation, base?: URLSea
   if (location.filters) params.set(PARAM.filters, location.filters);
   if (location.group) params.set(PARAM.group, location.group);
   if (location.record) params.set(PARAM.record, location.record);
+  if (location.view) params.set(PARAM.view, location.view);
   return params;
 }
 

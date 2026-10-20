@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Database, History, Lock, Maximize2, Table2 } from "lucide-react";
+import { Database, History, Lock, Maximize2, PencilLine, Table2, Trash2, Undo2 } from "lucide-react";
 import { GenesisProvider, type BaseRecord, type DataProvider } from "@marktiderman/genesis-core/provider";
 import {
   encodeRecordKey,
@@ -22,7 +22,11 @@ import { formatFilters, formatSorts, parseFilters, parseSorts } from "./lib/quer
 import { usePageLinkLabels } from "./lib/relations";
 import { RecordForm } from "./record/RecordForm";
 import { RecordPanel } from "./record/RecordPanel";
-import { ExportButton, FilterBuilder, GroupPicker, NewRowButton, SortBuilder } from "./toolbar/Toolbar";
+import { ExportButton, FilterBuilder, GroupPicker, NewRowButton, SortBuilder, ViewSwitch } from "./toolbar/Toolbar";
+import { ImportDialog } from "./toolbar/ImportDialog";
+import { BulkEditDialog } from "./toolbar/BulkEdit";
+import { SheetView } from "./sheet/SheetView";
+import type { StudioFormConfig } from "./lib/form-config";
 
 type Row = Record<string, unknown>;
 
@@ -40,6 +44,13 @@ export interface StudioActivity {
   message: string;
   /** Present when the edit committed with an audit entry from the `table` sink. */
   audit?: AuditEntry;
+  /**
+   * A bulk write's audit entries, one per row. A single entry holds them all,
+   * so its Undo reaches every row however many there were.
+   */
+  audits?: AuditEntry[];
+  /** True once this change has been undone. */
+  undone?: boolean;
 }
 
 export interface DataStudioProps {
@@ -63,6 +74,11 @@ export interface DataStudioProps {
   title?: string;
   /** Rows per page. Default 25. */
   perPage?: number;
+  /**
+   * Record-form layout per resource (`schema.table`): sections, and fields
+   * shown only when a condition holds. Code first; see `StudioFormConfig`.
+   */
+  forms?: Readonly<Record<string, StudioFormConfig>>;
   className?: string;
 }
 
@@ -104,6 +120,7 @@ function StudioWorkspace({
   sessionKey = null,
   title = "Data",
   perPage = PER_PAGE,
+  forms,
   className,
 }: DataStudioProps) {
   const queryClient = useQueryClient();
@@ -129,6 +146,104 @@ function StudioWorkspace({
   useEffect(() => {
     if (isUnauthenticated(resources.error)) setSignedOut(true);
   }, [resources.error]);
+
+  /**
+   * Undo a bulk write row by row, each a compensating write with its own audit
+   * entry. Rows that can't be undone stay on the entry, so Undo can be retried.
+   */
+  // Entries with an undo in flight, so a second click or Ctrl+Z can't resend it.
+  const undoing = useRef(new Set<string>());
+
+  const undoAll = useCallback(
+    async (entry: StudioActivity, audits: AuditEntry[]) => {
+      const left: AuditEntry[] = [];
+      let firstError: unknown;
+      for (const audit of audits) {
+        try {
+          await provider.undo!(entry.resource, { auditId: audit.id });
+        } catch (error) {
+          left.push(audit);
+          firstError ??= error;
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: ["genesis-studio", sessionKey] });
+      const done = audits.length - left.length;
+      setActivity((prev) => {
+        const updated = prev.map((e) => (e.id === entry.id ? (left.length ? { ...e, audits: left } : { ...e, undone: true }) : e));
+        const now = new Date();
+        const added: StudioActivity[] = [];
+        if (left.length) {
+          added.push({ id: `${now.getTime()}-undo-failed`, at: now, resource: entry.resource, field: entry.field, record: `${left.length} rows`, outcome: "not_saved", message: `${left.length} of ${audits.length} rows weren't undone: ${errorText(firstError)}` });
+        }
+        if (done) {
+          added.push({ id: `${now.getTime()}-undo`, at: now, resource: entry.resource, field: entry.field, record: `${done} rows`, outcome: "saved", action: "update", message: "Undone, each row with its own audit entry." });
+        }
+        return [...added, ...updated].slice(0, 50);
+      });
+    },
+    [provider, queryClient, sessionKey],
+  );
+
+  const undoOne = useCallback(
+    async (entry: StudioActivity) => {
+      if (entry.audits?.length) return undoAll(entry, entry.audits);
+      try {
+        const result = await provider.undo!(entry.resource, { auditId: entry.audit!.id });
+        setActivity((prev) => prev.map((e) => (e.id === entry.id ? { ...e, undone: true } : e)));
+        void queryClient.invalidateQueries({ queryKey: ["genesis-studio", sessionKey] });
+        setActivity((prev) =>
+          [
+            {
+              id: `${Date.now()}-undo`,
+              at: new Date(),
+              resource: entry.resource,
+              field: entry.field,
+              record: entry.record,
+              outcome: "saved" as const,
+              action: "update" as const,
+              message: "Undone, with its own audit entry.",
+              ...(result.audit ? { audit: result.audit, undone: true } : {}),
+            },
+            ...prev,
+          ].slice(0, 50),
+        );
+      } catch (error) {
+        setActivity((prev) =>
+          [
+            {
+              id: `${Date.now()}-undo-failed`,
+              at: new Date(),
+              resource: entry.resource,
+              field: entry.field,
+              record: entry.record,
+              outcome: "not_saved" as const,
+              message: errorText(error),
+            },
+            ...prev,
+          ].slice(0, 50),
+        );
+      }
+    },
+    [provider, queryClient, sessionKey, undoAll],
+  );
+
+  /**
+   * Undo a change from its audit entry: a compensating write, itself
+   * audited, that the server refuses if the row has moved on since.
+   */
+  const undo = useCallback(
+    async (entry: StudioActivity) => {
+      if (!provider.undo || entry.undone || undoing.current.has(entry.id)) return;
+      if (!entry.audit && !entry.audits?.length) return;
+      undoing.current.add(entry.id);
+      try {
+        await undoOne(entry);
+      } finally {
+        undoing.current.delete(entry.id);
+      }
+    },
+    [provider, undoOne],
+  );
 
   const record = useCallback((entry: Omit<StudioActivity, "id" | "at">) => {
     setActivity((prev) =>
@@ -168,6 +283,11 @@ function StudioWorkspace({
             perPage={perPage}
             onActivity={record}
             onSignedOut={() => setSignedOut(true)}
+            formConfig={forms?.[selected]}
+            onUndoLatest={() => {
+              const latest = activity.find((e) => e.resource === selected && e.outcome === "saved" && (e.audit || e.audits?.length) && !e.undone);
+              if (latest) void undo(latest);
+            }}
           />
         ) : (
           <div
@@ -178,7 +298,7 @@ function StudioWorkspace({
             <p className="text-sm">{list.length ? "Pick a table to open it." : "No tables to show yet."}</p>
           </div>
         )}
-        <ActivityPanel entries={activity} />
+        <ActivityPanel entries={activity} onUndo={provider.undo ? (entry) => void undo(entry) : undefined} />
       </main>
     </div>
   );
@@ -248,6 +368,8 @@ function Sheet({
   perPage,
   onActivity,
   onSignedOut,
+  formConfig,
+  onUndoLatest,
 }: {
   provider: DataProvider;
   resource: string;
@@ -256,6 +378,8 @@ function Sheet({
   perPage: number;
   onActivity: (entry: Omit<StudioActivity, "id" | "at">) => void;
   onSignedOut: () => void;
+  formConfig?: StudioFormConfig;
+  onUndoLatest: () => void;
 }) {
   const queryClient = useQueryClient();
   const { location } = router;
@@ -269,6 +393,8 @@ function Sheet({
   const [notice, setNotice] = useState<string | null>(null);
   // Bumped to remount the page after a saved view sets column visibility.
   const [viewEpoch, setViewEpoch] = useState(0);
+  const [bulkIds, setBulkIds] = useState<string[] | null>(null);
+  const sheetView = location.view === "sheet";
   const savedViews = useSavedViews(`genesis-studio:views:${resource}`);
 
   const schemaQuery = useQuery({
@@ -552,8 +678,22 @@ function Sheet({
           {capabilities?.multiSort !== false && capabilities?.sort !== false && (
             <SortBuilder fields={schema.fields} sorts={sorts} onChange={(next) => navigate({ sort: formatSorts(next), page: 1 })} />
           )}
-          <GroupPicker fields={schema.fields} group={group} onChange={(next) => navigate({ group: next, page: 1 })} />
+          <ViewSwitch view={sheetView ? "sheet" : "table"} onChange={(next) => navigate({ view: next === "sheet" ? "sheet" : undefined })} />
+          {!sheetView && (
+            <GroupPicker fields={schema.fields} group={group} onChange={(next) => navigate({ group: next, page: 1 })} />
+          )}
           <ExportButton onExport={() => void runExport()} busy={exporting !== null} progress={exporting ?? 0} />
+          {schema.access.create !== undefined && (
+            <ImportDialog
+              provider={provider}
+              schema={schema}
+              onImported={(count) => {
+                refresh();
+                setNotice(`Imported ${count.toLocaleString()} rows in one transaction.`);
+                onActivity({ resource, field: "", record: `${count} rows`, outcome: "saved", action: "create", message: "Imported, each row audited." });
+              }}
+            />
+          )}
           {schema.access.create !== undefined && (
             <NewRowButton allowed={Boolean(schema.access.create)} reason={schema.access.reasons?.create} onClick={() => setCreating(true)} />
           )}
@@ -590,7 +730,51 @@ function Sheet({
         ]}
         capabilities={capabilities}
         renderTable={
-          group
+          sheetView && schema
+            ? (items: Row[]) => (
+                <SheetView
+                  provider={provider}
+                  schema={schema}
+                  rows={items}
+                  keys={keys}
+                  linkLabels={linkLabels}
+                  onSaved={(updates) => {
+                    if (updates.length === 1) replaceRow(updates[0]!.old, updates[0]!.next);
+                    else refresh();
+                    void queryClient.invalidateQueries({ queryKey: ["genesis-studio", sessionKey, "record", resource] });
+                    const fieldsOf = (audit?: AuditEntry) => Object.keys(audit?.after ?? {}).filter((f) => f !== schema.version?.field);
+                    if (updates.length === 1) {
+                      const u = updates[0]!;
+                      onActivity({
+                        resource,
+                        field: fieldsOf(u.audit).join(", "),
+                        record: keys.get(u.old) ?? "",
+                        outcome: "saved",
+                        message: u.audit ? "Saved, with its audit entry." : "Saved.",
+                        ...(u.audit ? { audit: u.audit } : {}),
+                      });
+                    } else {
+                      // A multi-row paste is one bulk write: one entry, one Undo for every row.
+                      const audits = updates.flatMap((u) => (u.audit ? [u.audit] : []));
+                      onActivity({
+                        resource,
+                        field: [...new Set(audits.flatMap(fieldsOf))].join(", "),
+                        record: `${updates.length} rows`,
+                        outcome: "saved",
+                        message: audits.length ? "Saved, each row audited." : "Saved.",
+                        ...(audits.length ? { audits } : {}),
+                      });
+                    }
+                  }}
+                  onFailed={(message) => {
+                    refresh();
+                    onActivity({ resource, field: "", record: "", outcome: "not_saved", message });
+                  }}
+                  onUndo={onUndoLatest}
+                  onNotice={setNotice}
+                />
+              )
+            : group
             ? (items: Row[]) => (
                 <div className="space-y-4" data-testid="studio-groups">
                   {groupRows(items, group).map(([value, groupItems]) => (
@@ -603,6 +787,65 @@ function Sheet({
                   ))}
                 </div>
               )
+            : undefined
+        }
+        bulkActions={
+          schema && !sheetView && keyed
+            ? [
+                ...(schema.access.update && provider.updateMany
+                  ? [{ label: "Set a field…", icon: PencilLine, testId: "studio-bulk-set", onAction: (ids: string[]) => setBulkIds(ids) }]
+                  : []),
+                ...(schema.access.delete && provider.deleteMany
+                  ? [
+                      {
+                        label: "Delete",
+                        icon: Trash2,
+                        variant: "destructive" as const,
+                        testId: "studio-bulk-delete",
+                        onAction: async (ids: string[]) => {
+                          const chosen = rows.filter((r) => ids.includes(keys.get(r) ?? ""));
+                          // A selection kept from another page: never delete fewer rows than were confirmed.
+                          if (chosen.length !== ids.length) {
+                            setNotice("Some selected rows aren't on this page any more. Select the rows again.");
+                            return;
+                          }
+                          if (!window.confirm(`Delete ${ids.length} row${ids.length === 1 ? "" : "s"}? All of them go, or none do.`)) return;
+                          let result;
+                          try {
+                            result = await provider.deleteMany!(resource, {
+                              items: chosen.map((r) => ({ id: encodeRecordKey(schema, r), expectedVersion: versionOf(schema, r) })),
+                            });
+                          } catch (error) {
+                            if (isUnauthenticated(error)) onSignedOut();
+                            refresh();
+                            const message = `Nothing was deleted: ${errorText(error)}`;
+                            setNotice(message);
+                            onActivity({ resource, field: "", record: `${ids.length} rows`, outcome: "not_saved", action: "delete", message });
+                            return;
+                          }
+                          refresh();
+                          if (result.ok) {
+                            setNotice(`Deleted ${result.count} rows in one transaction.`);
+                            // One entry holds every row's audit, so one Undo reaches them all.
+                            onActivity({
+                              resource,
+                              field: "",
+                              record: `${result.count} rows`,
+                              outcome: "saved",
+                              action: "delete",
+                              message: "Deleted, each row audited.",
+                              ...(result.audit?.length ? { audits: result.audit } : {}),
+                            });
+                          } else {
+                            const message = `Nothing was deleted: ${(result.failures ?? []).length} of ${ids.length} rows couldn't be (${result.failures?.[0]?.message ?? ""}).`;
+                            setNotice(message);
+                            onActivity({ resource, field: "", record: `${ids.length} rows`, outcome: "not_saved", action: "delete", message });
+                          }
+                        },
+                      },
+                    ]
+                  : []),
+              ]
             : undefined
         }
         savedViews={savedViews.savedViews}
@@ -655,6 +898,11 @@ function Sheet({
           id={location.record}
           onClose={() => navigate({ record: undefined })}
           onOpenRecord={openRecord}
+          formConfig={formConfig}
+          onUndone={(audit) => {
+            refresh();
+            onActivity({ resource, field: "", record: location.record!, outcome: "saved", message: "Undone, with its own audit entry.", ...(audit ? { audit, undone: true } : {}) });
+          }}
           onSaved={(row, audit) => {
             refresh();
             onActivity({ resource, field: Object.keys(audit?.after ?? {}).join(", "), record: location.record!, outcome: "saved", message: audit ? "Saved, with its audit entry." : "Saved.", ...(audit ? { audit } : {}) });
@@ -667,6 +915,36 @@ function Sheet({
           onFailed={(action, message) =>
             onActivity({ resource, field: "", record: location.record!, outcome: "not_saved", action: action === "delete" ? "delete" : "update", message })
           }
+        />
+      )}
+      {schema && bulkIds && (
+        <BulkEditDialog
+          schema={schema}
+          count={bulkIds.length}
+          open
+          onOpenChange={(open) => !open && setBulkIds(null)}
+          onApply={async (data) => {
+            const chosen = rows.filter((r) => bulkIds.includes(keys.get(r) ?? ""));
+            if (chosen.length !== bulkIds.length) {
+              throw new Error("Some selected rows aren't on this page any more. Select the rows again.");
+            }
+            const result = await provider.updateMany!(resource, {
+              changes: chosen.map((r) => ({ id: encodeRecordKey(schema, r), data, expectedVersion: versionOf(schema, r) })),
+            });
+            refresh();
+            if (result.ok) {
+              setNotice(`Saved ${result.count} rows in one transaction.`);
+              onActivity({
+                resource,
+                field: Object.keys(data).join(", "),
+                record: `${result.count} rows`,
+                outcome: "saved",
+                message: "Saved, each row audited.",
+                ...(result.audit?.length ? { audits: result.audit } : {}),
+              });
+            }
+            return result;
+          }}
         />
       )}
       {schema && (
@@ -685,12 +963,18 @@ function Sheet({
               onSubmit={create}
               submitLabel="Add row"
               onCancel={() => setCreating(false)}
+              config={formConfig}
             />
           </DialogContent>
         </Dialog>
       )}
     </div>
   );
+}
+
+function versionOf(schema: ResourceSchema, row: Row): string | null {
+  const field = schema.version?.field;
+  return field && row[field] != null ? String(row[field]) : null;
 }
 
 const NO_ACTIONS = {
@@ -728,7 +1012,7 @@ const OUTCOME_LABEL = {
   delete: { saved: "Deleted", not_saved: "Not deleted" },
 } as const;
 
-function ActivityPanel({ entries }: { entries: StudioActivity[] }) {
+function ActivityPanel({ entries, onUndo }: { entries: StudioActivity[]; onUndo?: (entry: StudioActivity) => void }) {
   return (
     <section aria-label="This session's edits" className="rounded-lg border bg-card" data-testid="studio-activity">
       <h2 className="flex items-center gap-2 border-b px-3 py-2 text-sm font-semibold">
@@ -753,6 +1037,17 @@ function ActivityPanel({ entries }: { entries: StudioActivity[] }) {
                 <time className="ml-auto text-muted-foreground" dateTime={entry.at.toISOString()}>
                   {entry.at.toLocaleTimeString()}
                 </time>
+                {onUndo && entry.outcome === "saved" && (entry.audit || entry.audits?.length) && !entry.undone && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                    onClick={() => onUndo(entry)}
+                    data-testid="studio-activity-undo"
+                  >
+                    <Undo2 className="h-3 w-3" aria-hidden />
+                    {entry.audits?.length ? `Undo all ${entry.audits.length}` : "Undo"}
+                  </button>
+                )}
               </div>
               <p className="mt-0.5 text-muted-foreground">{entry.message}</p>
               {entry.audit && <AuditLine audit={entry.audit} />}

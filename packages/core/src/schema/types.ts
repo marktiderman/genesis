@@ -233,6 +233,10 @@ export interface ProviderCapabilities {
   readonly delete?: boolean;
   /** `history` is served, subject to each resource's access. */
   readonly history?: boolean;
+  /** `importRows` is served, with a dry run. */
+  readonly import?: boolean;
+  /** `undo` is served. */
+  readonly undo?: boolean;
 }
 
 /** One audit record, as committed alongside the edit it describes. */

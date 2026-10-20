@@ -159,6 +159,41 @@ export interface DeleteResult {
   audit?: AuditEntry;
 }
 
+/** One row's change in a bulk update. */
+export interface BulkChange {
+  id: Identifier;
+  data: Record<string, unknown>;
+  /** The version token the row was read at. */
+  expectedVersion?: string | null;
+}
+
+/** Why one row of a bulk write or import didn't go through. */
+export interface RowFailure {
+  /** The row's position in the request, from 0. */
+  index: number;
+  id?: Identifier;
+  outcome: string;
+  message: string;
+}
+
+/** Result of a bulk write: every row changed, or none did. */
+export interface BulkResult {
+  /** Rows changed; always the number requested when `ok`. */
+  count: number;
+  ok: boolean;
+  /** Present when `ok` is false: every row that failed, so the caller can fix them all at once. */
+  failures?: RowFailure[];
+  /** One audit entry per row changed. */
+  audit?: AuditEntry[];
+}
+
+/** Parameters for `importRows`. */
+export interface ImportParams {
+  rows: Record<string, unknown>[];
+  /** Check every row against the database and change nothing. */
+  dryRun: boolean;
+}
+
 /** Parameters for `history`. */
 export interface HistoryParams {
   id: Identifier;
@@ -224,4 +259,28 @@ export interface DataProvider {
    * user may read.
    */
   history?(resource: string, params: HistoryParams): Promise<AuditEntry[]>;
+
+  /**
+   * Update many rows in ONE transaction. All of them change or none do: a
+   * single conflict, refusal or invalid value rolls back the rest, and the
+   * result lists every row that failed.
+   */
+  updateMany?(resource: string, params: { changes: BulkChange[] }): Promise<BulkResult>;
+
+  /** Delete many rows in one transaction, all or none, each at its version. */
+  deleteMany?(resource: string, params: { items: { id: Identifier; expectedVersion?: string | null }[] }): Promise<BulkResult>;
+
+  /**
+   * Add rows from an import. With `dryRun`, every row is tried against the
+   * database and nothing is kept, so the result lists every row that would
+   * fail; without it, all rows are added in one transaction or none are.
+   */
+  importRows?(resource: string, params: ImportParams): Promise<BulkResult>;
+
+  /**
+   * Undo one audited change with a compensating write: put the changed
+   * fields back, remove an added row, or restore a deleted one. Refused when
+   * the row has changed since.
+   */
+  undo?(resource: string, params: { auditId: string }): Promise<{ audit?: AuditEntry }>;
 }

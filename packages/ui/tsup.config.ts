@@ -53,6 +53,9 @@ export default defineConfig({
     "src/components/layout/detail-page.tsx",
     "src/components/layout/form-page.tsx",
     "src/components/layout/settings-page.tsx",
+    // Experimental spreadsheet grid, on its own subpath so nobody else
+    // inherits its @tanstack/react-virtual peer (DATA-STUDIO.md decision 20).
+    "src/components/sheet-grid/sheet-grid.tsx",
   ],
   format: ["esm"],
   dts: true,
