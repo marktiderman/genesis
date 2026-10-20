@@ -1,5 +1,69 @@
 # @marktiderman/genesis-core
 
+## 1.3.0
+
+### Minor Changes
+
+- 9667f9a: **Data Studio P1 contract** (docs/DATA-STUDIO.md P1). Additive; a **minor**.
+
+  - **genesis-core:**
+    - `ResourceSchema` gains `labelField`, `relations` (`ResourceRelation`: `one`, `many`, or `through` a junction) and `createFields`.
+    - `ResourceAccess` gains optional `create`, `delete` and `history`, each with a reason in `reasons`.
+    - `ProviderCapabilities` gains optional `multiSort`, `create`, `delete` and `history`.
+    - `ListParams.sorts` sorts by several fields.
+    - `DeleteParams.expectedVersion` version-checks deletes.
+    - `CreateResult` and `DeleteResult` carry an optional `audit`.
+    - New optional `DataProvider.history(resource, { id, limit })`.
+  - **genesis-ui:**
+    - `ResourcePage` gains `capabilities` (`{ search?, sort? }`): a control the data source can't serve is hidden, not left to error (decision 9).
+    - `DataFilters` gains `showSearch` and `showSort`.
+    - `ResourceColumnDef.editable` and `accessor` now reach `DataTable` in client-side mode too.
+
+- a642bc0: **Data Studio P2 contract and the sheet grid.** Additive; a **minor**.
+
+  - **genesis-core:** new optional `DataProvider` methods.
+    - `updateMany` and `deleteMany` run in one transaction and are exact: all rows change or none do, and `BulkResult.failures` lists every row that failed.
+    - `importRows` adds rows, with a dry run that lists every row that would fail.
+    - `undo` makes a compensating write from an audit entry.
+    - New types: `BulkChange`, `BulkResult`, `RowFailure`, `ImportParams`. `ProviderCapabilities` gains `import` and `undo`.
+  - **genesis-ui:**
+    - **`@marktiderman/genesis-ui/sheet-grid`** (new subpath, **Experimental**): `SheetGrid`, a spreadsheet grid with virtualized rows.
+      - Keyboard: an active cell and range, and Enter, F2 or typing to edit.
+      - Copy and paste go through the system clipboard as TSV (`parseTsv`, `toTsv`), so they round-trip with Sheets and Excel.
+      - Delete clears the range, and Ctrl/Cmd+Z undoes.
+      - Each cell shows a saving or failed state; `SheetCommitError` marks only the cells that failed.
+      - It follows the WAI-ARIA grid pattern.
+      - `@tanstack/react-virtual` is an **optional** peer, needed only by this subpath (DATA-STUDIO.md decision 20).
+
+- 69d7f90: **Data Studio P3 contract, and a movable KanbanBoard.** Additive; a **minor**.
+
+  - **genesis-core:**
+    - New optional `DataProvider` methods: `runAction` (a row action at the row's version), `comments` and `addComment`.
+    - New types `RowAction` and `RecordComment`. `ResourceSchema.actions` lists the row actions the user may run. `ResourceAccess` gains `comment` and `reasons.comment`. `ProviderCapabilities` gains `actions` and `comments`.
+    - `FieldSchema.label`: what a person calls the field.
+    - `AuditEntry.action` may now be `"run"`, with `rowAction` naming the action. Code that switches on `action` exhaustively should add the case.
+  - **genesis-ui:** `KanbanBoard` gains, all opt-in:
+    - `getKey`, for stable card keys.
+    - `onMoveItem`: cards drag between columns, and each card gets a **Move to** menu that does the same from the keyboard.
+    - `getItemLabel`, which names the card in that menu.
+    - `KanbanColumn.total` (the badge shows it when a column is paged) and `renderColumnFooter` (e.g. **Load more**).
+
+- 69d7f90: **The Data Studio turns on in any app, for every table.**
+
+  - **genesis-cli:** `genesis studio init` writes one migration to review (the studio's `NOINHERIT` login and the audit trail), the server and a page, then prints the remaining steps. The server is a Next.js route, or a Supabase Edge Function for Vite and Lovable apps.
+  - **studio-server:**
+    - **`supabaseStudio({ url, database })`:** the handler for a Supabase project in one call.
+    - **`databaseDecides()`:** every table, every action, bounded by the user's grants and row-level security. `who` defaults to any signed-in, non-anonymous user.
+    - **No version trigger needed.** A table without a trusted version column is checked against a fingerprint of the row's readable values (`VersionField.kind: "row"`), so it's editable and stale edits are still refused. A configured `versionField` that can't be trusted still makes the table read-only.
+    - **Policies are read too.** A granted table that no row-level security policy lets you update, insert or delete shows that action as off, with the reason, instead of failing on every try.
+    - **CORS:** the handler answers preflights for `allowedOrigins`, so it can run on another origin.
+    - **`supabaseAuth` inside the local Supabase stack** (`http://kong:8000`) also accepts the browser's localhost issuer. Hosted projects keep the exact issuer check.
+    - **`createSupabaseStudioProvider(supabase)`** in `/client`: it sends the session's token and reports user changes.
+  - **studio:**
+    - `router` is optional (the page's query string), and no `sessionKey` is needed with a provider that reports its session.
+    - **`standalone.css`:** every class the studio uses, prebuilt, for apps without Tailwind v4. Its small reset applies only inside the studio and its pop-ups, and the app's own theme variables win.
+  - **core:** `VersionField.kind` may be `"row"`.
+
 ## 1.2.0
 
 ### Minor Changes
