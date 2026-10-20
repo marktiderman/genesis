@@ -1,0 +1,22 @@
+packages/studio-server/src/handler.ts
+  s_ebc909da001b53::t_3e977e7b0ef946 187,192-193
+packages/studio-server/test/unit.test.ts
+  s_ebc909da001b53::t_d4a4e89c520623 95-130,134-135
+  s_ebc909da001b53::t_62c08f3583ff64 131-133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cc043d7a1f41293ae7fc88130b8fc2d571fb6ed8",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
