@@ -201,7 +201,7 @@ studio
       await fs.writeFile(target, file.content, "utf-8");
       console.log(`+ ${file.path}`);
     }
-    const pm = existsSync(path.join(root, "pnpm-lock.yaml")) ? "pnpm add" : existsSync(path.join(root, "yarn.lock")) ? "yarn add" : existsSync(path.join(root, "bun.lockb")) ? "bun add" : "npm install";
+    const pm = existsSync(path.join(root, "pnpm-lock.yaml")) ? "pnpm add" : existsSync(path.join(root, "yarn.lock")) ? "yarn add" : existsSync(path.join(root, "bun.lock")) || existsSync(path.join(root, "bun.lockb")) ? "bun add" : "npm install";
     console.log("");
     console.log(`✔ The Data Studio is set up for ${{ next: "Next.js", "tanstack-start": "TanStack Start", "supabase-function": "a Supabase Edge Function" }[plan.host]}. To finish:`);
     console.log(`  1. ${pm} ${plan.install.join(" ")}`);

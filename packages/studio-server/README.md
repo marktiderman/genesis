@@ -322,6 +322,10 @@ worker.start();
   Scrub before shipping them to a log service.
 - The audit log is append-only by design. Decide its retention, and how a deletion request is
   handled, before it holds production data.
+- On Cloudflare Workers (where Lovable deploys TanStack Start apps), a database connection
+  belongs to the request that opened it. There the studio opens one per transaction and closes
+  it after, instead of keeping a pool, so one handler can still serve every request. Set
+  `createPostgresDatabase(url, { perRequest })` to choose either way yourself.
 
 ## Wire protocol
 
