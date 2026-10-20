@@ -180,6 +180,37 @@ describe("DataStudio P2", () => {
     expect((await screen.findByTestId("studio-activity-not_saved")).textContent).toMatch(/Nothing was saved: 1 of 2 rows failed/);
   });
 
+  it("undoes every row of a multi-row paste with one Ctrl+Z", async () => {
+    const { provider, calls, db } = makeProvider();
+    const grid = await openSheet(provider);
+    await waitFor(() => expect(within(grid).getByText("Ana Ruiz")).toBeTruthy());
+    await act(async () => {
+      fireEvent.paste(grid, { clipboardData: { getData: () => "Ana R\nBen O\n" } });
+    });
+    await waitFor(() => expect(db[1]!.name).toBe("Ben O"));
+    await act(async () => {
+      fireEvent.keyDown(grid, { key: "z", ctrlKey: true });
+    });
+    await waitFor(() => expect(calls.filter((c) => c.op === "undo")).toHaveLength(2));
+    expect(db.slice(0, 2).map((r) => r.name)).toEqual(["Ana Ruiz", "Ben Ode"]);
+  });
+
+  it("sends an undo once, however often it's clicked", async () => {
+    const { provider, calls } = makeProvider();
+    const grid = await openSheet(provider);
+    await waitFor(() => expect(within(grid).getByText("Ana Ruiz")).toBeTruthy());
+    await act(async () => {
+      fireEvent.paste(grid, { clipboardData: { getData: () => "Ana R\nBen O\n" } });
+    });
+    const button = await screen.findByTestId("studio-activity-undo");
+    await act(async () => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+    });
+    await waitFor(() => expect(screen.queryByTestId("studio-activity-undo")).toBeNull());
+    expect(calls.filter((c) => c.op === "undo")).toHaveLength(2);
+  });
+
   it("undoes the latest change with Ctrl+Z in the sheet, from its audit entry", async () => {
     const { provider, calls, db } = makeProvider();
     const grid = await openSheet(provider);
