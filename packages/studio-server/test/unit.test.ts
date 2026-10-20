@@ -92,6 +92,47 @@ describe("createStudioHandler login check", () => {
     expect((await post()).status).toBe(200);
     expect(attempts).toBe(2);
   });
+
+  it("keeps a refusal when a slower check of the same login finds nothing", async () => {
+    // Two first requests check at once; the unsafe answer arrives first.
+    const answers = [
+      { delay: 1, login: { name: "studio_login", superuser: true, bypassRls: false, inherit: false } },
+      { delay: 20, login: { name: "studio_login", superuser: false, bypassRls: false, inherit: false } },
+    ];
+    const database: StudioDatabase = {
+      async inspectLogin() {
+        const { delay, login } = answers.shift()!;
+        await new Promise((r) => setTimeout(r, delay));
+        return login;
+      },
+      async asUser() {
+        return { resources: [] } as never;
+      },
+      async end() {},
+    };
+    const handler = createStudioHandler({
+      database,
+      auth: jwtAuth({ secret: SECRET, audience: "authenticated" }),
+      authorize: () => false,
+    });
+    const post = async () =>
+      handler(
+        new Request("http://studio.test", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${await sign({ sub: "u", aud: "authenticated" })}`,
+          },
+          body: JSON.stringify({ op: "resources" }),
+        }),
+      );
+    const [first, second] = await Promise.all([post(), post()]);
+    expect(first.status).toBe(500);
+    // The slower check finished after the refusal was recorded, so it's refused too.
+    expect(second.status).toBe(500);
+    // And so is every request after that.
+    expect((await post()).status).toBe(500);
+  });
 });
 
 describe("triggerAdvances", () => {

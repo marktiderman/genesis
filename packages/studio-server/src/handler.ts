@@ -184,11 +184,13 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
   const checkLogin = async (): Promise<string | null> => {
     if (loginProblem !== undefined) return loginProblem;
     const login = await database.inspectLogin();
-    loginProblem =
+    const problem =
       !options.allowPrivilegedLogin && (login.superuser || login.bypassRls)
         ? `The studio's database login "${login.name}" is a superuser or bypasses row-level security. ` +
           "Connect with a dedicated NOINHERIT login role (see the README), or set allowPrivilegedLogin for local development."
         : null;
+    // A refusal sticks: a check that finished later and found nothing never lifts one.
+    loginProblem = loginProblem || problem;
     return loginProblem;
   };
 
