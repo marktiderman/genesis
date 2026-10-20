@@ -2,6 +2,7 @@ packages/studio/src/DataStudio.tsx
   s_ebc909da001b53::t_65bcd4a2232723 202-204,235,239
   s_ebc909da001b53::t_05652634e576f8 278-293
   s_ebc909da001b53::t_551ee3283750a2 294-295
+  s_ebc909da001b53::t_34b8995161b4e3 349,672-674,677,683-692
 packages/studio/src/__tests__/data-studio-p2.test.tsx
   s_ebc909da001b53::t_533b8b795dfa55 183-186,187-201,202-213
 ---
