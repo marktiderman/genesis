@@ -1,0 +1,21 @@
+packages/genesis-cli/src/studio/init.ts
+  s_ebc909da001b53::t_95e1d7da6abe78 163-164
+packages/genesis-cli/test/studio-init.test.ts
+  s_ebc909da001b53::t_e836052fdb2c00 63-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7f219e3543f912ae439a64559ebb95027a819ab8",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
