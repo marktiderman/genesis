@@ -78,7 +78,15 @@ export function wireStudioRoute(source: string, route: string, pageImportPath: s
     };
   }
   const layout = roots[0]!;
-  const childPath = /path=["']\/["']/.test(layout.text) || !/path=/.test(layout.text) ? relative : route;
+  // A child path is relative to its layout's path: React Router rejects an
+  // absolute child that doesn't start with its parent's path.
+  const base = (/\bpath=["']([^"']*)["']/.exec(layout.text)?.[1] ?? "").replace(/^\/+|\/+$/g, "");
+  if (base && !relative.startsWith(`${base}/`)) {
+    return {
+      skipped: `Your layout route lives at /${base}, outside ${route}. Add <Route path="${route}" element={<DataStudioPage />} /> where your app's other pages are.`,
+    };
+  }
+  const childPath = base ? relative.slice(base.length + 1) : relative;
   const guard = GUARD.exec(source)?.[1];
   const element = guard ? `<${guard}><DataStudioPage /></${guard}>` : "<DataStudioPage />";
 

@@ -142,6 +142,20 @@ describeDb("P2: exact bulk writes, imports with a dry run, undo from the audit",
     return res.body.audit.id as string;
   }
 
+  it("lists, edits and undoes on a table wider than a function call's arguments, with a computed column", async () => {
+    const list = await call(studio, COACH_A, { op: "list", resource: "public.wide" });
+    expect(list.status).toBe(200);
+    const res = await call(studio, COACH_A, { op: "update", resource: "public.wide", id: 1, data: { c01: "Changed", c60: "end" }, expectedVersion: list.body.rows[0].version });
+    expect(res.body.error?.message ?? null).toBeNull();
+    expect(res.status).toBe(200);
+    expect(res.body.audit.after).toMatchObject({ c01: "Changed", c60: "end", search: "changed" });
+    // Undo puts back what the user wrote; the database recomputes the rest.
+    const undone = await call(studio, COACH_A, { op: "undo", resource: "public.wide", auditId: res.body.audit.id });
+    expect(undone.body.error?.message ?? null).toBeNull();
+    expect(undone.status).toBe(200);
+    expect((await admin`select c01, c60, search from public.wide where id = 1`)[0]).toEqual({ c01: "Wide", c60: null, search: "wide" });
+  });
+
   it("undoes an edit with a compensating, audited write", async () => {
     const auditId = await edit(CLIENT_1, { notes: "oops", status: "paused" });
     const res = await call(studio, COACH_A, { op: "undo", resource: "public.clients", auditId });

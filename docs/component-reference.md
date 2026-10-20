@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 125 components · 359 other exports · 204 standalone types across 7 packages.
+**Totals:** 125 components · 363 other exports · 215 standalone types across 7 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -55,7 +55,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
 
-### Types (58)
+### Types (60)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -92,12 +92,14 @@ export type { NullFilter };
 export type { PaginationParam };
 export type { ProviderCapabilities };
 export type { RangeFilter };
+export type { RecordComment };
 export type { ResourceAccess };
 export type { ResourceContract };
 export type { ResourceFormFieldDef };
 export type { ResourceRelation };
 export type { ResourceSchema };
 export type { ResourceSummary };
+export type { RowAction };
 export type { RowFailure };
 export type { ScalarFilter };
 export type { SelectOption };
@@ -796,7 +798,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useHistoryRouter`](../packages/studio/src/router.ts) | function | — | For an app with no router: keeps the studio's state in the current page's query string through the History API. |
 | [`useMemoryRouter`](../packages/studio/src/router.ts) | function | — | A router held in memory, for tests and embedded previews. |
 
-### Types (4)
+### Types (6)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -805,6 +807,8 @@ export type { StudioActivity };
 export type { StudioLocation };
 export type { StudioNavigateOptions };
 export type { StudioRouter };
+export type { StudioSessionSource };
+export type { StudioView };
 ```
 
 ---
@@ -815,19 +819,22 @@ Data Studio server handler (Request → Response) that acts as the signed-in use
 
 **Barrel:** [`packages/studio-server/src/index.ts`](../packages/studio-server/src/index.ts)
 
-### Other exports (15)
+### Other exports (19)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`ADD_COMMENT_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | Comments on records. |
 | [`AUDIT_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | Name of the audit function the handler calls. |
 | [`backoffDelay`](../packages/studio-server/src/outbox.ts) | function | — | Delay before attempt `attempt + 1`, with jitter. |
 | [`bearerToken`](../packages/studio-server/src/auth.ts) | function | — | Read a bearer token from the `Authorization` header. |
 | [`byResource`](../packages/studio-server/src/authorize.ts) | function | — | The common case of `authorize`: a fixed allow-list by `schema.table`, for the users `who` admits. Anything not listed is denied, and a listed table without `update` is read-only. |
+| [`COMMENTS_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | _(no summary)_ |
 | [`createOutboxWorker`](../packages/studio-server/src/outbox.ts) | function | — | _(no summary)_ |
 | [`createPostgresDatabase`](../packages/studio-server/src/db.ts) | function | — | A `StudioDatabase` over a Postgres connection string, or over a postgres.js pool you already have. A pool you pass in keeps its own type parsing, so dates arrive as JS Dates rather than Postgres's exact text; version tokens are unaffecte... |
 | [`createStudioHandler`](../packages/studio-server/src/handler.ts) | function | — | Create the handler. It opens one transaction per request, switches to the signed-in user (`set local role` plus their verified claims), and only then reads the catalog or touches a row, so the database's own privileges and row rules alwa... |
+| [`databaseDecides`](../packages/studio-server/src/authorize.ts) | function | — | Turn the studio on for every table, and let the database decide: each user reads, edits, adds and deletes exactly what their grants and row rules allow, sees history and comments on the rows they can see, and runs the row actions configu... |
 | [`HISTORY_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | Reads a record's audit history. |
 | [`IdentitySwitchError`](../packages/studio-server/src/db.ts) | class | — | Thrown when the transaction did not end up as the requested role. |
 | [`jwtAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of `secret` and `jwksUrl` is required. |
@@ -836,8 +843,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`STUDIO_PROTOCOL_VERSION`](../packages/studio-server/src/protocol.ts) | const | — | Bumped on any incompatible change; the handler rejects other versions. |
 | [`studioSetupSql`](../packages/studio-server/src/setup-sql.ts) | function | — | SQL that installs the tamper-proof audit trail: |
 | [`supabaseAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
+| [`supabaseStudio`](../packages/studio-server/src/supabase.ts) | function | — | The studio handler for a Supabase project, on for every table in `public`: each user sees and edits what their row rules allow, every write is version-checked and audited (`genesis_studio.audit_log`, from `genesis studio init`'s migratio... |
 
-### Types (38)
+### Types (45)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -848,7 +856,10 @@ export type { AuthorizeContext };
 export type { AuthorizeDecision };
 export type { BulkResponse };
 export type { ByResourceOptions };
+export type { CommentResponse };
+export type { CommentsResponse };
 export type { CreateResponse };
+export type { DatabaseDecidesOptions };
 export type { DeadLetter };
 export type { DeleteResponse };
 export type { DescribeResponse };
@@ -866,18 +877,22 @@ export type { ReadResponse };
 export type { ResourceRule };
 export type { ResourceSettings };
 export type { ResourcesResponse };
+export type { RowActionSettings };
+export type { RunActionResponse };
 export type { RunSummary };
 export type { SetupSqlOptions };
 export type { SqlRow };
 export type { StudioAction };
 export type { StudioAuth };
 export type { StudioClaims };
+export type { StudioContract };
 export type { StudioDatabase };
 export type { StudioHandler };
 export type { StudioHandlerOptions };
 export type { StudioRequest };
 export type { StudioRow };
 export type { SupabaseAuthOptions };
+export type { SupabaseStudioOptions };
 export type { UndoResponse };
 export type { UpdateResponse };
 ```

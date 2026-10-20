@@ -125,7 +125,7 @@ studio
   .command("init")
   .description("Turn the Data Studio on in this app: a server for every table, a page, and one migration to review")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
-  .option("--host <host>", "next or supabase-function (default: detected)")
+  .option("--host <host>", "next, tanstack-start or supabase-function (default: detected)")
   .option("--route <path>", "Where the page lives", "/admin/data")
   .option("--login-role <name>", "The studio's database login", "genesis_studio_login")
   .option("--force", "Overwrite files that already exist", false)

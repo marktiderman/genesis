@@ -321,7 +321,7 @@ export function SheetGrid<T>({
   };
 
   const onCopy = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    if (editing) return;
+    if (editing || rows.length === 0 || columns.length === 0) return;
     const block: string[][] = [];
     for (let r = range.r0; r <= range.r1; r++) {
       const line: string[] = [];

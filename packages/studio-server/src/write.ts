@@ -27,6 +27,7 @@ import {
   toStudioRow,
   versioned,
   versionSql,
+  jsonObjectSql,
   VERSION_ALIAS,
 } from "./rows";
 
@@ -53,7 +54,7 @@ const KEY_ALIAS = "__genesis_key";
 const MATCH_ALIAS = "__genesis_version_matches";
 
 function jsonOf(columns: readonly string[]): string {
-  return `jsonb_build_object(${columns.map((c) => `${literal(c)}, ${ident(c)}`).join(", ")})`;
+  return jsonObjectSql(columns);
 }
 
 /** Only the fields whose value changed, before and after. */

@@ -340,14 +340,25 @@ export function createSupabaseStudioProvider(
   const session: StudioSession = {
     subscribe(listener) {
       let last: string | null | undefined;
+      // An auth event is newer than the first read, and nothing is reported after unsubscribing.
+      let settled = false;
+      let stopped = false;
       const emit = (userId: string | null) => {
-        if (userId === last) return;
+        if (stopped || userId === last) return;
         last = userId;
         listener(userId);
       };
-      void supabase.auth.getSession().then(({ data }) => emit(data.session?.user.id ?? null));
-      const { data } = supabase.auth.onAuthStateChange((_event, next) => emit(next?.user.id ?? null));
-      return () => data.subscription.unsubscribe();
+      void supabase.auth.getSession().then(({ data }) => {
+        if (!settled) emit(data.session?.user.id ?? null);
+      });
+      const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+        settled = true;
+        emit(next?.user.id ?? null);
+      });
+      return () => {
+        stopped = true;
+        data.subscription.unsubscribe();
+      };
     },
   };
   return Object.assign(provider, { session });

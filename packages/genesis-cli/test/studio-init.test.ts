@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { detectHost, planStudioInit, type ProjectFacts } from "../src/studio/init.js";
 
@@ -37,6 +38,11 @@ describe("genesis studio init", () => {
     expect(plan.files.find((f) => f.path === "supabase/config.toml")).toMatchObject({ append: true, content: expect.stringContaining("verify_jwt = false") });
     expect(plan.steps[0]).toContain('<Route path="/admin/data"');
     expect(plan.install).toContain("@hookform/resolvers@^5.1.0");
+    // The browser client and the Edge Function run the exact server this CLI was built with.
+    const { version } = JSON.parse(readFileSync(new URL("../../studio-server/package.json", import.meta.url), "utf8"));
+    expect(plan.install).toContain(`@marktiderman/genesis-studio-server@${version}`);
+    const fn = plan.files.find((f) => f.path === "supabase/functions/genesis-studio/index.ts")!.content;
+    expect(fn).toContain(`npm:@marktiderman/genesis-studio-server@${version}"`);
   });
 
   it("writes one migration with a NOINHERIT login, the audit trail, and no password", () => {
@@ -107,7 +113,18 @@ describe("putting the studio inside the app's shell", () => {
     expect(router.content).toContain('          <Route path="admin/data" element={<AdminGuard><DataStudioPage /></AdminGuard>} />\n        </Route>');
     const page = plan.files.find((f) => f.path === "src/pages/DataStudioPage.tsx")!.content;
     expect(page).toContain('variant="plain"');
-    expect(plan.steps.some((s) => s.includes("Add the page"))).toBe(false);
+    expect(plan.steps.some((s) => s.includes("<Route path="))).toBe(false);
+  });
+
+  it("nests the page relative to a layout route that has its own path", () => {
+    const plan = planStudioInit(project({ "src/App.tsx": SHELL_APP.replace('path="/"\n', 'path="/admin"\n') }, {}));
+    expect(plan.files.find((f) => f.path === "src/App.tsx")!.content).toContain('<Route path="data" element={<AdminGuard><DataStudioPage /></AdminGuard>} />');
+  });
+
+  it("leaves the router alone when the layout route lives outside the page's path", () => {
+    const plan = planStudioInit(project({ "src/App.tsx": SHELL_APP.replace('path="/"\n', 'path="/dashboard"\n') }, {}));
+    expect(plan.files.some((f) => f.path === "src/App.tsx")).toBe(false);
+    expect(plan.steps.join("\n")).toMatch(/layout route lives at \/dashboard, outside \/admin\/data/);
   });
 
   it("leaves an existing page at that path alone, and says how to swap it", () => {

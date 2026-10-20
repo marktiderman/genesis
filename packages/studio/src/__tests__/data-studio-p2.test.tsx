@@ -357,6 +357,16 @@ describe("DataStudio P2", () => {
     expect((within(dialog).getByTestId("studio-import-commit") as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("says why a table won't open, instead of crashing", async () => {
+    const { provider } = makeProvider();
+    (provider as { describe: unknown }).describe = async () => {
+      await new Promise((r) => setTimeout(r, 10));
+      throw new Error("The studio server had a problem.");
+    };
+    render(<Harness provider={provider} initial={{ resource: "public.clients" }} />);
+    expect((await screen.findByTestId("studio-describe-error", {}, { timeout: 4000 })).textContent).toMatch(/Couldn't open public.clients/);
+  });
+
   it("says why when a bulk edit can't reach the server", async () => {
     const { provider } = makeProvider();
     (provider as { updateMany: unknown }).updateMany = async () => {

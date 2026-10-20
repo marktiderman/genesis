@@ -133,6 +133,7 @@ describeDb("studio handler against Postgres with RLS", () => {
       "public.programs",
       "public.scores",
       "public.typed",
+      "public.wide",
     ]);
     expect(byName["public.clients"].access.update).toBe(true);
     // No trigger advances its updated_at, so edits are checked against the row's values instead.

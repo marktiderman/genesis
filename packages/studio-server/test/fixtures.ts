@@ -194,6 +194,13 @@ alter table public.coarse enable row level security;
 create policy c_all on public.coarse for all to authenticated using (true) with check (true);
 grant select, update (label) on public.coarse to authenticated;
 
+-- wide: more columns than a function call has arguments for, no version column,
+-- and one the database computes from another.
+create table public.wide (id int primary key, c01 text, c02 text, c03 text, c04 text, c05 text, c06 text, c07 text, c08 text, c09 text, c10 text, c11 text, c12 text, c13 text, c14 text, c15 text, c16 text, c17 text, c18 text, c19 text, c20 text, c21 text, c22 text, c23 text, c24 text, c25 text, c26 text, c27 text, c28 text, c29 text, c30 text, c31 text, c32 text, c33 text, c34 text, c35 text, c36 text, c37 text, c38 text, c39 text, c40 text, c41 text, c42 text, c43 text, c44 text, c45 text, c46 text, c47 text, c48 text, c49 text, c50 text, c51 text, c52 text, c53 text, c54 text, c55 text, c56 text, c57 text, c58 text, c59 text, c60 text, search text generated always as (lower(c01)) stored);
+alter table public.wide enable row level security;
+create policy w_all on public.wide for all to authenticated using (true) with check (true);
+grant select, update on public.wide to authenticated;
+
 -- app_audited: audited by the app's own trigger (the "database" sink).
 create table public.app_log (id bigserial primary key, actor uuid, label text);
 create table public.app_audited (id int primary key, label text, updated_at timestamptz default now());
@@ -323,6 +330,7 @@ insert into public.delete_only (id, label) values (1, 'remove me');
 insert into public.client_notes (client_id, body) values ('${CLIENT_1}', 'Kickoff call'), ('${CLIENT_1}', 'Goal review');
 insert into public.no_rls values (1, 'open to all', now());
 insert into public.coarse values (1, 'coarse', now());
+insert into public.wide (id, c01) values (1, 'Wide');
 insert into public.app_audited values (1, 'app', now());
 insert into public.typed (id, active, meta, starts_at, score) values (1, true, '{"a": 1}', '2026-01-02 03:04:05.123456', 1.50);
 `;
@@ -375,6 +383,7 @@ export const DEFAULT_RULES = {
   "public.typed": { read: true, update: true },
   "public.no_rls": { read: true, update: true },
   "public.coarse": { read: true, update: true },
+  "public.wide": { read: true, update: true, history: true },
   "public.app_audited": { read: true, update: true },
   "public.deferred_codes": { read: true, update: true, create: true, delete: true },
   "public.delete_only": { read: true, delete: true },

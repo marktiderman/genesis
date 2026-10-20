@@ -71,9 +71,24 @@ export function qualifiedTable(resolved: ResolvedResource): string {
 export function versionSql(resolved: ResolvedResource): string | null {
   if (resolved.version) return `${ident(resolved.version.name)}::text`;
   if (resolved.rowVersion) {
-    return `md5(jsonb_build_object(${resolved.readable.map((c) => `${literal(c.name)}, ${ident(c.name)}`).join(", ")})::text)`;
+    // A row constructor is syntax, not a function call, so it has no
+    // 100-argument limit: a table of any width gets a fingerprint.
+    return `md5(row(${resolved.readable.map((c) => ident(c.name)).join(", ")})::text)`;
   }
   return null;
+}
+
+/**
+ * A JSON object of these columns, as SQL. A function call takes at most 100
+ * arguments (50 columns), so wider lists are built in pieces and joined.
+ */
+export function jsonObjectSql(columns: readonly string[]): string {
+  if (columns.length === 0) return "'{}'::jsonb";
+  const parts: string[] = [];
+  for (let i = 0; i < columns.length; i += 50) {
+    parts.push(`jsonb_build_object(${columns.slice(i, i + 50).map((c) => `${literal(c)}, ${ident(c)}`).join(", ")})`);
+  }
+  return parts.length === 1 ? parts[0]! : `(${parts.join(" || ")})`;
 }
 
 /** True when edits to this table can be checked against the version they were read at. */

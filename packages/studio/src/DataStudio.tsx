@@ -511,6 +511,13 @@ function Sheet({
   // new-row form under the user's typing.
   const createFields = useMemo(() => new Set(schema?.createFields ?? []), [schema]);
   const fieldsForCreate = useMemo(() => schema?.fields.filter((f) => createFields.has(f.name)) ?? [], [schema, createFields]);
+  // A selection belongs to the rows on screen: a new page, filter, search or
+  // sort starts with none, so a bulk action never reaches rows out of view.
+  // (Declared before the early returns below, as every hook must be.)
+  const listIdentity = JSON.stringify(listKey);
+  useEffect(() => {
+    setSelected(new Set());
+  }, [listIdentity]);
 
   async function runExport() {
     if (!schema) return;
@@ -584,12 +591,6 @@ function Sheet({
       return next;
     });
   const pageIds = rows.map((r) => keys.get(r) ?? "");
-  // A selection belongs to the rows on screen: a new page, filter, search or
-  // sort starts with none, so a bulk action never reaches rows out of view.
-  const listIdentity = JSON.stringify(listKey);
-  useEffect(() => {
-    setSelected(new Set());
-  }, [listIdentity]);
   const toggleAll = () =>
     setSelected((prev) => (pageIds.every((id) => prev.has(id)) ? new Set() : new Set(pageIds)));
   const canAdd = Boolean(schema?.access.create);
