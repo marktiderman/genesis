@@ -160,7 +160,8 @@ import "@marktiderman/genesis-studio/standalone.css";
 
 export default function DataStudioPage() {
   const provider = useMemo(() => {
-    const supabase = ${ssr ? "createBrowserClient" : "createClient"}(process.env["NEXT_PUBLIC_SUPABASE_URL"]!, process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]!);
+    // Dot access: Next.js inlines a public variable into the browser bundle only for process.env.NAME.
+    const supabase = ${ssr ? "createBrowserClient" : "createClient"}(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
     return createSupabaseStudioProvider(supabase, { url: "/api/studio" });
   }, []);
   // "plain": no frame of its own, so it sits under the app's header and nav like its other pages.

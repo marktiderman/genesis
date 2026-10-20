@@ -60,6 +60,8 @@ describe("genesis studio init", () => {
     const plan = planStudioInit(next, { route: "/staff/data" });
     expect(plan.files.map((f) => f.path)).toEqual(["genesis-studio.sql", "app/api/studio/route.ts", "app/staff/data/page.tsx"]);
     expect(plan.files[2]!.content).toContain('import { createBrowserClient } from "@supabase/ssr";');
+    // Next.js inlines public variables into the browser bundle only for dot access.
+    expect(plan.files[2]!.content).toContain("process.env.NEXT_PUBLIC_SUPABASE_URL!");
     expect(plan.files[1]!.content).toContain("supabaseStudio(");
   });
 
