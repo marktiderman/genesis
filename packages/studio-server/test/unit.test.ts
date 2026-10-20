@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SignJWT } from "jose";
 import { isDataWriteError } from "@marktiderman/genesis-core/schema";
 import { byResource, createStudioHandler, databaseDecides, jwtAuth, studioSetupSql, supabaseAuth, supabaseStudio, type StudioDatabase } from "../src/index";
@@ -94,17 +94,12 @@ describe("createStudioHandler login check", () => {
   });
 
   it("keeps a refusal when a slower check of the same login finds nothing", async () => {
-    // Two first requests check at once; the unsafe answer arrives first.
-    const answers = [
-      { delay: 1, login: { name: "studio_login", superuser: true, bypassRls: false, inherit: false } },
-      { delay: 20, login: { name: "studio_login", superuser: false, bypassRls: false, inherit: false } },
-    ];
+    // Two first requests each check the login, both at once. Each check is held
+    // open until released, so the order they finish in is the test's to choose.
+    type Login = Awaited<ReturnType<StudioDatabase["inspectLogin"]>>;
+    const pending: Array<(login: Login) => void> = [];
     const database: StudioDatabase = {
-      async inspectLogin() {
-        const { delay, login } = answers.shift()!;
-        await new Promise((r) => setTimeout(r, delay));
-        return login;
-      },
+      inspectLogin: () => new Promise<Login>((resolve) => pending.push(resolve)),
       async asUser() {
         return { resources: [] } as never;
       },
@@ -126,12 +121,17 @@ describe("createStudioHandler login check", () => {
           body: JSON.stringify({ op: "resources" }),
         }),
       );
-    const [first, second] = await Promise.all([post(), post()]);
-    expect(first.status).toBe(500);
-    // The slower check finished after the refusal was recorded, so it's refused too.
-    expect(second.status).toBe(500);
-    // And so is every request after that.
+    const first = post();
+    const second = post();
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    // The unsafe answer comes back first, then the safe one.
+    pending[0]!({ name: "studio_login", superuser: true, bypassRls: false, inherit: false });
+    expect((await first).status).toBe(500);
+    pending[1]!({ name: "studio_login", superuser: false, bypassRls: false, inherit: false });
+    expect((await second).status).toBe(500);
+    // Every request after that is refused, without checking again.
     expect((await post()).status).toBe(500);
+    expect(pending).toHaveLength(2);
   });
 });
 
