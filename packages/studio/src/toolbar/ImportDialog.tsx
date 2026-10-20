@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
 import { parseCsv } from "../lib/csv";
+import { fieldLabel } from "../values";
 
 const SKIP = "__genesis_skip__";
 
@@ -85,15 +86,15 @@ export function ImportDialog({ provider, schema, onImported }: ImportDialogProps
     <>
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
         disabled={!allowed}
-        title={allowed ? undefined : schema.access.reasons?.create ?? "This data provider can't import."}
+        title={allowed ? "Import CSV" : schema.access.reasons?.create ?? "This data provider can't import."}
         testID="studio-import"
+        aria-label="Import CSV"
       >
-        <Upload className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-        Import CSV
+        <Upload className="h-3.5 w-3.5" aria-hidden />
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" data-testid="studio-import-dialog">
@@ -138,7 +139,7 @@ export function ImportDialog({ provider, schema, onImported }: ImportDialogProps
                           <SelectItem value={SKIP}>Skip this column</SelectItem>
                           {targets.map((f) => (
                             <SelectItem key={f.name} value={f.name}>
-                              {f.name}
+                              {fieldLabel(f)}
                             </SelectItem>
                           ))}
                         </SelectContent>

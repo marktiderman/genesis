@@ -10,7 +10,7 @@
 import type { AuditEntry, DataRow } from "@marktiderman/genesis-core/schema";
 import type { ResolvedResource } from "./access";
 import { ident, type Query } from "./db";
-import { BadRequestError, keyPredicate, literal, Params, qualifiedTable } from "./rows";
+import { BadRequestError, jsonObjectSql, keyPredicate, literal, Params, qualifiedTable, versionSql } from "./rows";
 import { AUDIT_ENTRY_FUNCTION } from "./setup-sql";
 import { createRow, deleteRow, updateRow, WriteRejected } from "./write";
 
@@ -154,6 +154,10 @@ export async function undoChange(
   );
   if (!entry || entry.resource !== resourceName) throw new WriteRejected("gone", "No such change in this table's history.");
   if (entry.actor !== actor) throw new WriteRejected("forbidden", "You can only undo your own changes.");
+  if (String(entry.action).startsWith("run:")) {
+    // The app's function may have done more than this row shows.
+    throw new WriteRejected("forbidden", "Can't undo: a row action may have changed more than this row, so it can't be reversed here.");
+  }
 
   const key = JSON.parse(String(entry.record_key)) as Record<string, unknown>;
   const before = (entry.before ?? {}) as DataRow;
@@ -175,7 +179,10 @@ export async function undoChange(
     if (entry.action === "create") {
       return deleteRow(query, resolved, { key, expectedVersion: current.version, resourceName });
     }
-    const data = Object.fromEntries(touched.map((f) => [f, before[f] ?? null]));
+    // Generated and trigger-set fields follow from the rest: put back only what the user can write.
+    const writable = touched.filter((f) => resolved.updatable.has(f));
+    if (writable.length === 0) throw new WriteRejected("forbidden", "Can't undo: none of the changed fields can be edited.");
+    const data = Object.fromEntries(writable.map((f) => [f, before[f] ?? null]));
     const result = await updateRow(query, resolved, { key, data, expectedVersion: current.version, resourceName });
     return result.audit ? { audit: result.audit } : {};
   }
@@ -195,10 +202,10 @@ async function currentRow(query: Query, resolved: ResolvedResource, key: Record<
   const params = new Params();
   const predicate = keyPredicate(resolved, key, params);
   const names = resolved.readable.map((c) => c.name);
-  const version = resolved.version;
+  const version = versionSql(resolved);
   const [row] = await query(
-    `select jsonb_build_object(${names.map((n) => `${literal(n)}, ${ident(n)}`).join(", ")}) as values
-            ${version ? `, ${ident(version.name)}::text as version` : ""}
+    `select ${jsonObjectSql(names)} as values
+            ${version ? `, ${version} as version` : ""}
        from ${qualifiedTable(resolved)} where ${predicate}`,
     params.values,
   );

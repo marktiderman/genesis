@@ -176,7 +176,7 @@ describe("DataStudio P1", () => {
   it("opens a record in a panel, with a link in the URL", async () => {
     const { provider } = makeProvider();
     await openClients(provider);
-    fireEvent.click(screen.getAllByLabelText("Open record")[0]!);
+    fireEvent.click(screen.getAllByTestId("studio-open-record")[0]!);
     const panel = await screen.findByTestId("studio-record-panel");
     expect(await within(panel).findByText("Ana Ruiz")).toBeTruthy();
     expect(router!.location.record).toBe("c1");
@@ -308,10 +308,7 @@ describe("DataStudio P1", () => {
     const { provider } = makeProvider();
     await openClients(provider, { group: "status" });
     const sections = await screen.findAllByTestId("studio-group-section");
-    expect(sections.map((s) => s.querySelector("h3")?.textContent)).toEqual([
-      "status: active (2 on this page)",
-      "status: paused (1 on this page)",
-    ]);
+    expect(sections.map((s) => s.querySelector("h3")?.textContent)).toEqual(["statusactive2", "statuspaused1"]);
   });
 
   it("exports every matching row as CSV", async () => {

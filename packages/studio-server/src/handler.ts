@@ -14,7 +14,8 @@ import {
   type StudioRequest,
 } from "./protocol";
 import { BadRequestError, listRows, readRow } from "./rows";
-import { createRow, deleteRow, updateRow, WriteRejected } from "./write";
+import { createRow, deleteRow, runRowAction, updateRow, WriteRejected } from "./write";
+import { addComment, readComments } from "./comments";
 import { readHistory } from "./history";
 import { BulkRejected, deleteMany, importRows, undoChange, updateMany } from "./bulk";
 
@@ -213,7 +214,26 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
     return resolved;
   }
 
-  const handler = async (request: Request): Promise<Response> => {
+  // The studio hosted on another origin than the app (a Supabase Edge
+  // Function, say) answers the browser's preflight for the origins listed in
+  // allowedOrigins. The bearer token is the credential; no cookies are used.
+  const corsHeaders = (request: Request): Record<string, string> => {
+    const origin = request.headers.get("origin");
+    if (!origin || !(options.allowedOrigins ?? []).includes(origin)) return {};
+    return {
+      "access-control-allow-origin": origin,
+      "access-control-allow-headers": "authorization, content-type, apikey, x-client-info",
+      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-max-age": "600",
+      vary: "origin",
+    };
+  };
+
+  const handle = async (request: Request): Promise<Response> => {
+    if (request.method === "OPTIONS") {
+      const headers = corsHeaders(request);
+      return new Response(null, { status: Object.keys(headers).length ? 204 : 403, headers });
+    }
     if (request.method !== "POST") {
       return new Response(null, { status: 405, headers: { allow: "POST" } });
     }
@@ -253,7 +273,17 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
         );
       }
 
-      const readOnly = !["update", "create", "delete", "updateMany", "deleteMany", "import", "undo"].includes(body.op);
+      const readOnly = ![
+        "update",
+        "create",
+        "delete",
+        "updateMany",
+        "deleteMany",
+        "import",
+        "undo",
+        "runAction",
+        "comment",
+      ].includes(body.op);
       const result = await database.asUser({ role, claims }, { readOnly, statementTimeoutMs }, async (query) => {
         const ctx: AccessContext = { request, claims, query, options };
         switch (body.op) {
@@ -378,6 +408,32 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
             const resolved = await resolveOne(ctx, query, name);
             return undoChange(query, resolved, String(body.auditId ?? ""), claims.sub, name);
           }
+          case "runAction": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            if (typeof body.action !== "string" || body.action.length === 0) {
+              throw new BadRequestError('"action" must name one of the table\'s row actions.');
+            }
+            if (body.expectedVersion !== null && typeof body.expectedVersion !== "string") {
+              throw new BadRequestError('"expectedVersion" must be the version token the row was read at, or null.');
+            }
+            return runRowAction(query, resolved, {
+              key: decodeKey(resolved, recordId(body.id)),
+              action: body.action,
+              expectedVersion: body.expectedVersion,
+              resourceName: name,
+            });
+          }
+          case "comments": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            return { comments: await readComments(query, resolved, decodeKey(resolved, recordId(body.id)), name) };
+          }
+          case "comment": {
+            const name = resourceName(body.resource);
+            const resolved = await resolveOne(ctx, query, name);
+            return { comment: await addComment(query, resolved, decodeKey(resolved, recordId(body.id)), name, body.body) };
+          }
           default:
             throw new BadRequestError(`Unknown op "${String((body as { op: unknown }).op)}".`);
         }
@@ -406,6 +462,13 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
       if (error instanceof IdentitySwitchError) return fail("error", "The studio couldn't switch to your identity.");
       return fail("error", "Something went wrong. Nothing was changed.");
     }
+  };
+
+  const handler = async (request: Request): Promise<Response> => {
+    const response = await handle(request);
+    const cors = corsHeaders(request);
+    for (const [name, value] of Object.entries(cors)) response.headers.set(name, value);
+    return response;
   };
 
   return Object.assign(handler, { close: () => database.end() });

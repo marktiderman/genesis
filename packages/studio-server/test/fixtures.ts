@@ -194,6 +194,13 @@ alter table public.coarse enable row level security;
 create policy c_all on public.coarse for all to authenticated using (true) with check (true);
 grant select, update (label) on public.coarse to authenticated;
 
+-- wide: more columns than a function call has arguments for, no version column,
+-- and one the database computes from another.
+create table public.wide (id int primary key, c01 text, c02 text, c03 text, c04 text, c05 text, c06 text, c07 text, c08 text, c09 text, c10 text, c11 text, c12 text, c13 text, c14 text, c15 text, c16 text, c17 text, c18 text, c19 text, c20 text, c21 text, c22 text, c23 text, c24 text, c25 text, c26 text, c27 text, c28 text, c29 text, c30 text, c31 text, c32 text, c33 text, c34 text, c35 text, c36 text, c37 text, c38 text, c39 text, c40 text, c41 text, c42 text, c43 text, c44 text, c45 text, c46 text, c47 text, c48 text, c49 text, c50 text, c51 text, c52 text, c53 text, c54 text, c55 text, c56 text, c57 text, c58 text, c59 text, c60 text, search text generated always as (lower(c01)) stored);
+alter table public.wide enable row level security;
+create policy w_all on public.wide for all to authenticated using (true) with check (true);
+grant select, update on public.wide to authenticated;
+
 -- app_audited: audited by the app's own trigger (the "database" sink).
 create table public.app_log (id bigserial primary key, actor uuid, label text);
 create table public.app_audited (id int primary key, label text, updated_at timestamptz default now());
@@ -248,6 +255,27 @@ end $$;
 revoke all on function public.save_score(jsonb, jsonb), public.add_score(jsonb), public.remove_score(jsonb) from public;
 grant execute on function public.save_score(jsonb, jsonb), public.add_score(jsonb), public.remove_score(jsonb) to authenticated;
 
+-- Row actions on clients. complete_client runs as the user (their grants and
+-- RLS apply); archive_client deletes; ping_client changes nothing.
+create function public.complete_client(record_key jsonb) returns void
+language plpgsql set search_path = '' as $$
+begin
+  update public.clients set status = 'done' where id = (record_key ->> 'id')::uuid;
+  if not found then raise exception 'Client not found.'; end if;
+end $$;
+create function public.archive_client(record_key jsonb) returns void
+language plpgsql set search_path = '' as $$
+begin
+  delete from public.clients where id = (record_key ->> 'id')::uuid;
+end $$;
+create function public.ping_client(record_key jsonb) returns void
+language plpgsql set search_path = '' as $$
+begin
+  perform 1;
+end $$;
+revoke all on function public.complete_client(jsonb), public.archive_client(jsonb), public.ping_client(jsonb) from public;
+grant execute on function public.complete_client(jsonb), public.archive_client(jsonb), public.ping_client(jsonb) to authenticated;
+
 -- delete_only: rows can be deleted but never updated (no UPDATE grant or policy).
 create table public.delete_only (id int primary key, label text, updated_at timestamptz not null default now());
 create trigger delete_only_updated_at before update on public.delete_only
@@ -256,6 +284,12 @@ alter table public.delete_only enable row level security;
 create policy d_read on public.delete_only for select to authenticated using (true);
 create policy d_delete on public.delete_only for delete to authenticated using (true);
 grant select, delete on public.delete_only to authenticated;
+
+-- read_policy_only: Supabase-style blanket grants, but RLS only lets you read.
+create table public.read_policy_only (id int primary key, label text, updated_at timestamptz not null default now());
+alter table public.read_policy_only enable row level security;
+create policy rpo_read on public.read_policy_only for select to authenticated using (true);
+grant select, insert, update, delete on public.read_policy_only to authenticated;
 
 -- deferred_codes: a unique code checked only at COMMIT (deferrable initially deferred).
 create table public.deferred_codes (
@@ -291,10 +325,12 @@ insert into public.no_trigger values (1, 'static', now());
 insert into public.locked_rows values (1, 'open', false, now()), (2, 'frozen', true, now());
 insert into public.lying values (1, 'original', now());
 insert into public.secret_table values (1, 'nope');
+insert into public.read_policy_only (id, label) values (1, 'look only');
 insert into public.delete_only (id, label) values (1, 'remove me');
 insert into public.client_notes (client_id, body) values ('${CLIENT_1}', 'Kickoff call'), ('${CLIENT_1}', 'Goal review');
 insert into public.no_rls values (1, 'open to all', now());
 insert into public.coarse values (1, 'coarse', now());
+insert into public.wide (id, c01) values (1, 'Wide');
 insert into public.app_audited values (1, 'app', now());
 insert into public.typed (id, active, meta, starts_at, score) values (1, true, '{"a": 1}', '2026-01-02 03:04:05.123456', 1.50);
 `;
@@ -347,6 +383,7 @@ export const DEFAULT_RULES = {
   "public.typed": { read: true, update: true },
   "public.no_rls": { read: true, update: true },
   "public.coarse": { read: true, update: true },
+  "public.wide": { read: true, update: true, history: true },
   "public.app_audited": { read: true, update: true },
   "public.deferred_codes": { read: true, update: true, create: true, delete: true },
   "public.delete_only": { read: true, delete: true },

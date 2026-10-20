@@ -40,6 +40,9 @@ import {
   type HistoryResponse,
   type BulkResponse,
   type UndoResponse,
+  type RunActionResponse,
+  type CommentsResponse,
+  type CommentResponse,
   type ErrorResponse,
   type ListResponse,
   type ReadResponse,
@@ -68,6 +71,9 @@ export interface StudioProvider extends DataProvider {
   deleteMany: NonNullable<DataProvider["deleteMany"]>;
   importRows: NonNullable<DataProvider["importRows"]>;
   undo: NonNullable<DataProvider["undo"]>;
+  runAction: NonNullable<DataProvider["runAction"]>;
+  comments: NonNullable<DataProvider["comments"]>;
+  addComment: NonNullable<DataProvider["addComment"]>;
 }
 
 const CAPABILITIES: ProviderCapabilities = {
@@ -83,6 +89,8 @@ const CAPABILITIES: ProviderCapabilities = {
   history: true,
   import: true,
   undo: true,
+  actions: true,
+  comments: true,
 };
 
 function bulkResult(response: BulkResponse): BulkResult {
@@ -251,6 +259,28 @@ export function createStudioProvider(options: StudioProviderOptions): StudioProv
       return audit ? { audit } : {};
     },
 
+    async runAction(resource, params) {
+      const versionField = await versionFieldOf(resource);
+      const { row, audit } = await call<RunActionResponse>({
+        op: "runAction",
+        resource,
+        id: params.id,
+        action: params.action,
+        expectedVersion: params.expectedVersion ?? null,
+      });
+      return { data: row ? asRecord(row, versionField) : null, ...(audit ? { audit } : {}) };
+    },
+
+    async comments(resource, params) {
+      const { comments } = await call<CommentsResponse>({ op: "comments", resource, id: params.id });
+      return comments;
+    },
+
+    async addComment(resource, params) {
+      const { comment } = await call<CommentResponse>({ op: "comment", resource, id: params.id, body: params.body });
+      return comment;
+    },
+
     async history(resource, params) {
       const { entries } = await call<HistoryResponse>({
         op: "history",
@@ -262,4 +292,74 @@ export function createStudioProvider(options: StudioProviderOptions): StudioProv
     },
   };
   return provider;
+}
+
+/**
+ * Who is signed in, for a provider that knows: `DataStudio` subscribes, and
+ * drops everything it loaded when the user changes (no `sessionKey` to wire).
+ */
+export interface StudioSession {
+  /** Called now with the current user's id (null when signed out), then on every change. */
+  subscribe(listener: (userId: string | null) => void): () => void;
+}
+
+/** The parts of a supabase-js client the studio uses. Any `createClient()` result fits. */
+export interface SupabaseClientLike {
+  auth: {
+    getSession(): Promise<{ data: { session: { access_token: string; user: { id: string } } | null } }>;
+    onAuthStateChange(
+      callback: (event: string, session: { access_token: string; user: { id: string } } | null) => void,
+    ): { data: { subscription: { unsubscribe(): void } } };
+  };
+}
+
+export interface SupabaseStudioProviderOptions {
+  /** Where the handler is mounted. Default `/api/studio`. */
+  url?: string;
+  fetch?: typeof fetch;
+}
+
+/**
+ * The studio's provider for an app that signs in with Supabase: it sends the
+ * current session's token with every request and tells `DataStudio` when
+ * the user changes, so embedding the studio is one line.
+ *
+ * @example
+ * const provider = useMemo(() => createSupabaseStudioProvider(supabase), [supabase]);
+ * return <DataStudio provider={provider} />;
+ */
+export function createSupabaseStudioProvider(
+  supabase: SupabaseClientLike,
+  options: SupabaseStudioProviderOptions = {},
+): StudioProvider & { session: StudioSession } {
+  const provider = createStudioProvider({
+    url: options.url ?? "/api/studio",
+    ...(options.fetch ? { fetch: options.fetch } : {}),
+    getAccessToken: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
+  });
+  const session: StudioSession = {
+    subscribe(listener) {
+      let last: string | null | undefined;
+      // An auth event is newer than the first read, and nothing is reported after unsubscribing.
+      let settled = false;
+      let stopped = false;
+      const emit = (userId: string | null) => {
+        if (stopped || userId === last) return;
+        last = userId;
+        listener(userId);
+      };
+      void supabase.auth.getSession().then(({ data }) => {
+        if (!settled) emit(data.session?.user.id ?? null);
+      });
+      const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+        settled = true;
+        emit(next?.user.id ?? null);
+      });
+      return () => {
+        stopped = true;
+        data.subscription.unsubscribe();
+      };
+    },
+  };
+  return Object.assign(provider, { session });
 }

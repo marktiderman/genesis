@@ -64,8 +64,10 @@ await db.unsafe(
   [USERS.sam.id, USERS.riley.id],
 );
 await db.unsafe(
-  `insert into public.orders (id, owner_id, customer, status) values
-     (1001, $1, 'Ada Lovelace', 'Paid'), (1002, $1, 'Grace Hopper', 'Pending'), (1003, $2, 'Alan Turing', 'Shipped')`,
+  `insert into public.orders (id, owner_id, customer, status, placed_on) values
+     (1001, $1, 'Ada Lovelace', 'Paid', current_date - 3),
+     (1002, $1, 'Grace Hopper', 'Pending', current_date),
+     (1003, $2, 'Alan Turing', 'Shipped', current_date - 9)`,
   [USERS.sam.id, USERS.riley.id],
 );
 await db.unsafe(

@@ -23,6 +23,31 @@ From P1:
 - a filter builder, multi-field sort and group-by;
 - saved views and CSV export.
 
+## Embed it in any app
+
+```tsx
+import { DataStudio } from "@marktiderman/genesis-studio";
+import { createSupabaseStudioProvider } from "@marktiderman/genesis-studio-server/client";
+import "@marktiderman/genesis-studio/standalone.css";
+import { supabase } from "@/integrations/supabase/client";
+
+const provider = createSupabaseStudioProvider(supabase, { url: "/api/studio" });
+
+export default function DataPage() {
+  return <DataStudio provider={provider} />;
+}
+```
+
+`npx @marktiderman/genesis-cli studio init` writes this page and its server for you.
+
+- **No router or session wiring.** The studio keeps its state in the page's query string. The
+  Supabase provider tells it when the signed-in user changes.
+- **`standalone.css`** is prebuilt: every class the studio uses, for apps without Tailwind v4
+  (Tailwind 3, CSS modules, or none). It adds no global reset. A small reset applies only inside
+  the studio and its pop-ups. The app's own shadcn-style theme variables (`--background`,
+  `--primary`, …) win over Genesis's defaults, so the studio matches the app.
+- An app already on Tailwind v4 imports `styles.css` instead (see below).
+
 ## Use it
 
 ```tsx
@@ -87,6 +112,13 @@ Tailwind v4 needs to see the studio's classes:
 - **Select rows** to set a field on all of them, or delete them: all or none.
 - **Import CSV:** map the file's columns, **Check rows** (a dry run against the database that
   lists every row that won't import, and why), then **Import**, in one transaction.
+- **Board view** (`?view=kanban&by=status`): one column per value of an enum or yes/no field,
+  50 cards per column with **Load more**, the same filters, search and sort as the table. Drag a
+  card, or use its **Move to** menu from the keyboard: a move is a version-checked update.
+- **Calendar view** (`?view=calendar&by=starts_on&month=2026-10`): a month of rows by a date or
+  timestamp field, one request per month, up to 200 rows. Timestamps show on the viewer's day.
+- **Row actions** the server offers are buttons in the record pop-up, asking first when the
+  action has a `confirm` question. A **Comments** tab lists and adds comments.
 - **Link cells** show the linked row's label (one query per linked table per page). Links are
   edited in the record form, with a picker that searches on the server.
 

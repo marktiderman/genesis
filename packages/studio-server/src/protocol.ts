@@ -11,6 +11,7 @@ import type {
   AuditEntry,
   DataRow,
   FilterParam,
+  RecordComment,
   ResourceSchema,
   ResourceSummary,
   SortParam,
@@ -56,7 +57,10 @@ export type StudioRequest =
     }
   | { op: "deleteMany"; resource: string; items: { id: string | number; expectedVersion: string | null }[] }
   | { op: "import"; resource: string; rows: DataRow[]; dryRun: boolean }
-  | { op: "undo"; resource: string; auditId: string };
+  | { op: "undo"; resource: string; auditId: string }
+  | { op: "runAction"; resource: string; id: string | number; action: string; expectedVersion: string | null }
+  | { op: "comments"; resource: string; id: string | number }
+  | { op: "comment"; resource: string; id: string | number; body: string };
 
 export interface StudioEnvelope {
   /** Protocol version of the sender. */
@@ -123,6 +127,21 @@ export interface BulkResponse {
   dryRun?: true;
   failures?: { index: number; id?: string | number; outcome: string; message: string }[];
   audit?: AuditEntry[];
+}
+
+export interface RunActionResponse {
+  /** The row after the action, or null when the action removed it (or hid it from you). */
+  row: StudioRow | null;
+  audit?: AuditEntry;
+}
+
+export interface CommentsResponse {
+  /** Oldest first. */
+  comments: RecordComment[];
+}
+
+export interface CommentResponse {
+  comment: RecordComment;
 }
 
 export interface UndoResponse {

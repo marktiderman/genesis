@@ -3,7 +3,7 @@
   "version": "1.0.3",
   "private": false,
   "type": "module",
-  "description": "Genesis init scaffolder — npx @marktiderman/genesis-cli init <consumer> to bootstrap a new Genesis-based app in one command.",
+  "description": "Genesis CLI \u2014 `genesis init` scaffolds a Genesis app; `genesis studio init` turns the Data Studio on in an existing app; `genesis introspect` writes a checked-in contract.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -42,7 +42,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "commander": "^12.1.0"
+    "@marktiderman/genesis-studio-server": "workspace:^",
+    "commander": "^12.1.0",
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

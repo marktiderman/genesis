@@ -2,7 +2,14 @@
 // The browser half (a DataProvider for this handler) is at `./client`.
 
 export { createStudioHandler, type StudioHandler } from "./handler";
-export { byResource, type ResourceRule, type ByResourceOptions } from "./authorize";
+export {
+  byResource,
+  databaseDecides,
+  type ResourceRule,
+  type ByResourceOptions,
+  type DatabaseDecidesOptions,
+} from "./authorize";
+export { supabaseStudio, type SupabaseStudioOptions } from "./supabase";
 export {
   createOutboxWorker,
   backoffDelay,
@@ -36,6 +43,8 @@ export {
   AUDIT_FUNCTION,
   OUTBOX_AUDIT_FUNCTION,
   HISTORY_FUNCTION,
+  ADD_COMMENT_FUNCTION,
+  COMMENTS_FUNCTION,
   type SetupSqlOptions,
 } from "./setup-sql";
 export type {
@@ -44,7 +53,9 @@ export type {
   AuthorizeDecision,
   AuditSink,
   ResourceSettings,
+  RowActionSettings,
   StudioAction,
+  StudioContract,
   StudioHandlerOptions,
 } from "./options";
 export {
@@ -61,5 +72,8 @@ export {
   type HistoryResponse,
   type BulkResponse,
   type UndoResponse,
+  type RunActionResponse,
+  type CommentsResponse,
+  type CommentResponse,
   type ErrorResponse,
 } from "./protocol";

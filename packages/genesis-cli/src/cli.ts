@@ -72,6 +72,142 @@ program
     console.log(`  3. Read docs/prds/PRD-07-genesis-consumption-architecture/standards/usage-doctrine.md`);
   });
 
+program
+  .command("introspect")
+  .description("Write a checked-in contract (resources.genesis.ts) from the Postgres catalog or a PostgREST/Supabase OpenAPI spec")
+  .option("--database-env <name>", "Environment variable holding the Postgres URL", "DATABASE_URL")
+  .option("--openapi <file-or-url>", "Read a PostgREST OpenAPI document (a Supabase project's /rest/v1/) instead of Postgres")
+  .option("--header <header...>", "HTTP header for --openapi URLs, for values that aren't secret (repeatable)")
+  .option("--apikey-env <name>", "Environment variable holding the API key for --openapi URLs (sent as apikey and Bearer)")
+  .option("-s, --schema <schemas>", "Comma-separated schemas", "public")
+  .option("-o, --out <file>", "Where to write the contract", "resources.genesis.ts")
+  .option("--check", "Write nothing; exit 1 if the contract on disk is out of date (for CI)", false)
+  .action(async (opts: { databaseEnv: string; openapi?: string; header?: string[]; apikeyEnv?: string; schema: string; out: string; check: boolean }) => {
+    const schemas = opts.schema.split(",").map((s) => s.trim()).filter(Boolean);
+    const { introspectOpenApi, introspectPostgres, emitContracts } = await import("./introspect/index.js");
+    let tables;
+    let source: string;
+    if (opts.openapi) {
+      if (schemas.length !== 1) throw new Error("--openapi reads one schema at a time; pass a single --schema.");
+      // A key comes from the environment, like the database URL, so it stays
+      // out of shell history and process listings.
+      const headers = [...(opts.header ?? [])];
+      if (opts.apikeyEnv) {
+        const key = process.env[opts.apikeyEnv];
+        if (!key) throw new Error(`Set ${opts.apikeyEnv} to the API key.`);
+        headers.push(`apikey: ${key}`, `Authorization: Bearer ${key}`);
+      }
+      const doc = await readOpenApi(opts.openapi, headers);
+      tables = introspectOpenApi(doc, schemas[0]);
+      source = `OpenAPI ${redactUrl(opts.openapi)}`;
+    } else {
+      // The URL comes from the environment, never the command line, so it
+      // stays out of shell history and process listings.
+      const url = process.env[opts.databaseEnv];
+      if (!url) throw new Error(`Set ${opts.databaseEnv} to the database URL, or pass --openapi.`);
+      const { default: postgres } = await import("postgres");
+      const sql = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
+      try {
+        tables = await introspectPostgres(sql, schemas);
+      } finally {
+        await sql.end();
+      }
+      source = `Postgres (${schemas.join(", ")})`;
+    }
+    const content = emitContracts(tables, { source });
+    const target = path.resolve(opts.out);
+    if (opts.check) {
+      const current = await fs.readFile(target, "utf-8").catch(() => null);
+      if (current !== content) {
+        console.error(`✗ ${opts.out} is out of date. Run \`genesis introspect\` and commit the result.`);
+        process.exit(1);
+      }
+      console.log(`✔ ${opts.out} is up to date (${tables.length} tables).`);
+      return;
+    }
+    await fs.writeFile(target, content, "utf-8");
+    console.log(`✔ Wrote ${opts.out}: ${tables.length} tables.`);
+  });
+
+const studio = program.command("studio").description("The Genesis Data Studio");
+
+studio
+  .command("init")
+  .description("Turn the Data Studio on in this app: a server for every table, a page, and one migration to review")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--host <host>", "next, tanstack-start or supabase-function (default: detected)")
+  .option("--route <path>", "Where the page lives", "/admin/data")
+  .option("--login-role <name>", "The studio's database login", "genesis_studio_login")
+  .option("--force", "Overwrite files that already exist", false)
+  .action(async (opts: { dir: string; host?: string; route: string; loginRole: string; force: boolean }) => {
+    const { planStudioInit } = await import("./studio/init.js");
+    const root = path.resolve(opts.dir);
+    const packageJson = JSON.parse(await fs.readFile(path.join(root, "package.json"), "utf-8").catch(() => "{}"));
+    const existsSync = (await import("node:fs")).existsSync;
+    const readSync = (await import("node:fs")).readFileSync;
+    const readdirSync = (await import("node:fs")).readdirSync;
+    if (opts.host && !["next", "tanstack-start", "supabase-function"].includes(opts.host)) {
+      throw new Error("--host must be next, tanstack-start or supabase-function.");
+    }
+    const plan = planStudioInit(
+      {
+        packageJson,
+        exists: (p) => existsSync(path.join(root, p)),
+        read: (p) => (existsSync(path.join(root, p)) ? readSync(path.join(root, p), "utf-8") : null),
+        timestamp: new Date().toISOString().replace(/\D/g, "").slice(0, 14),
+        listDeep: (p) => {
+          const out: string[] = [];
+          const walk = (rel: string) => {
+            for (const entry of readdirSync(path.join(root, rel), { withFileTypes: true })) {
+              const child = `${rel}/${entry.name}`;
+              if (entry.isDirectory()) walk(child);
+              else out.push(child);
+            }
+          };
+          try {
+            walk(p);
+          } catch {
+            // No such folder.
+          }
+          return out;
+        },
+        list: (p) => {
+          try {
+            return readdirSync(path.join(root, p));
+          } catch {
+            return [];
+          }
+        },
+      },
+      { host: opts.host as "next" | "tanstack-start" | "supabase-function" | undefined, route: opts.route, loginRole: opts.loginRole },
+    );
+    for (const file of plan.files) {
+      const target = path.join(root, file.path);
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      if (file.edit) {
+        await fs.writeFile(target, file.content, "utf-8");
+        console.log(`~ ${file.path} (${file.edit})`);
+        continue;
+      }
+      if (file.append) {
+        await fs.appendFile(target, file.content, "utf-8");
+        console.log(`+ ${file.path} (appended)`);
+        continue;
+      }
+      if (existsSync(target) && !opts.force) {
+        console.log(`= ${file.path} exists; left as it is (--force to replace)`);
+        continue;
+      }
+      await fs.writeFile(target, file.content, "utf-8");
+      console.log(`+ ${file.path}`);
+    }
+    const pm = existsSync(path.join(root, "pnpm-lock.yaml")) ? "pnpm add" : existsSync(path.join(root, "yarn.lock")) ? "yarn add" : existsSync(path.join(root, "bun.lockb")) ? "bun add" : "npm install";
+    console.log("");
+    console.log(`✔ The Data Studio is set up for ${{ next: "Next.js", "tanstack-start": "TanStack Start", "supabase-function": "a Supabase Edge Function" }[plan.host]}. To finish:`);
+    console.log(`  1. ${pm} ${plan.install.join(" ")}`);
+    plan.steps.forEach((step, i) => console.log(`  ${i + 2}. ${step}`));
+  });
+
 program.parseAsync(process.argv).catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`✗ ${message}`);
@@ -106,4 +242,27 @@ function createNodeFs(): FileSystem {
   };
 }
 
-void path;
+async function readOpenApi(location: string, headers: string[]) {
+  if (/^https?:\/\//.test(location)) {
+    const init: Record<string, string> = {};
+    for (const h of headers) {
+      const at = h.indexOf(":");
+      if (at < 1) throw new Error(`--header must be "Name: value".`);
+      init[h.slice(0, at).trim()] = h.slice(at + 1).trim();
+    }
+    const response = await fetch(location, { headers: { accept: "application/openapi+json, application/json", ...init } });
+    if (!response.ok) throw new Error(`Fetching the OpenAPI document failed: HTTP ${response.status}.`);
+    return response.json();
+  }
+  return JSON.parse(await fs.readFile(location, "utf-8"));
+}
+
+/** A URL without credentials or query (where API keys tend to be). */
+function redactUrl(location: string): string {
+  try {
+    const url = new URL(location);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return path.basename(location);
+  }
+}

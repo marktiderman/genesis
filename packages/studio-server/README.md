@@ -21,6 +21,43 @@ It is the only Genesis package that touches a database credential. The browser h
   - CSV import with a dry run, checked by the database itself;
   - undo of your own changes, from the audit.
 
+## Turn it on (Supabase, one command)
+
+```bash
+npx @marktiderman/genesis-cli studio init
+```
+
+It writes three things into your app and tells you the rest:
+
+- **One migration to review:** the studio's own `NOINHERIT` database login and the audit trail.
+- **The server:** a Next.js route, or, for a Vite or Lovable app with no server of its own, a
+  Supabase Edge Function.
+- **A page:** `<DataStudio provider={createSupabaseStudioProvider(supabase)} />`, which your app's
+  own Supabase sign-in drives.
+
+Then set the login's password, add one secret, and open the page. Every table in `public` is
+there, with everything the signed-in user's grants and row-level security allow, and nothing more.
+No table needs listing, and no table needs a version trigger.
+
+By hand, the server is one call:
+
+```ts
+import { supabaseStudio } from "@marktiderman/genesis-studio-server";
+
+export const POST = supabaseStudio({
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  database: process.env.STUDIO_DATABASE_URL!,
+  who: (claims) => (claims.app_metadata as { role?: string } | undefined)?.role === "admin", // optional: keep the UI to staff
+});
+```
+
+- `supabaseStudio` is `createStudioHandler` with `supabaseAuth`, `databaseDecides()` and the table
+  audit sink.
+- Pass `except: ["public.secrets"]` to leave tables out, and `rules` to narrow some tables in
+  `byResource` form.
+- Off its own origin (an Edge Function), list the app's origins in `allowedOrigins`. The handler
+  then answers the browser's CORS preflight for them.
+
 ## What every request does
 
 1. Refuses a cross-site browser request and anything but `application/json`.
@@ -61,8 +98,9 @@ Its connection string (direct, or the transaction pooler on port 6543) is the ha
 `database`. The handler refuses a superuser or `BYPASSRLS` login unless you set
 `allowPrivilegedLogin` for local development.
 
-**3. Make the tables you want editable checkable.** Edits are version-checked, so a table is
-read-only until something advances a version field on every update:
+**3. (Optional) A version trigger.** Every edit is version-checked. A table with an `updated_at`
+(microsecond timestamp) or integer `version` that a trigger advances on every update is checked
+against that column:
 
 ```sql
 create extension if not exists moddatetime schema extensions;
@@ -70,7 +108,9 @@ create trigger clients_updated_at before update on public.clients
   for each row execute function extensions.moddatetime(updated_at);
 ```
 
-An integer `version` column bumped by a `BEFORE UPDATE` trigger works too. RLS must be on.
+A table without one is checked against a fingerprint of the row's values (every column the user
+can read), so it's editable straight away. Either way, an edit to a row someone else changed since
+it was read is refused, never saved over theirs. RLS must be on.
 
 **4. Mount the handler** on one POST route. In Next.js, `app/api/studio/route.ts`:
 
@@ -99,7 +139,9 @@ Hono: `app.post("/api/studio", (c) => studio(c.req.raw))`. Cloudflare: `fetch: s
 
 ## Which tables appear, and who may edit what
 
-Everything is denied by default. A table appears when **all** of these allow it:
+Pass `authorize: databaseDecides()` (what `supabaseStudio` uses) to turn every table on and let the
+database decide. Pass `byResource` for an allow-list. With your own function, everything is denied
+by default. A table appears when **all** of these allow it:
 
 | Layer | Decides |
 | --- | --- |
@@ -107,10 +149,15 @@ Everything is denied by default. A table appears when **all** of these allow it:
 | Postgres grants | Column-level `SELECT` and `UPDATE` for the acting role. |
 | RLS | Which rows. |
 
-Then a table is editable only when it also has a primary key the user can see, a trusted version
-field (an integer, or a timestamp with microsecond precision, advanced by a trigger on every
-update), RLS on (or `resources[name].allowWithoutRls`), and a working audit sink. When it isn't,
-`describe()` says why, in a sentence the studio shows.
+Then a table is editable only when it also has all of these:
+- a primary key the user can see;
+- RLS on (or `resources[name].allowWithoutRls`);
+- a row-level security policy that allows the action at all;
+- a working audit sink.
+
+When it isn't, `describe()` says why, in a sentence the studio shows. A configured `versionField`
+that can't be trusted (no trigger, or a timestamp too coarse) makes the table read-only, and says
+so.
 
 **Hiding a column in `authorize()` hides it in the studio, not from the database.** If the same user
 can reach the table through PostgREST, revoke the column there too:
@@ -182,6 +229,56 @@ A function that raises refuses the change, and its message is shown. The user ne
 grant on the table: the version check and the write happen in one `REPEATABLE READ` transaction,
 so a change committed by anyone in between fails the function's write instead of being
 overwritten.
+
+## Row actions
+
+A named operation on one row ("Approve", "Send reminder"), carried out by the app's own function
+`fn(record_key jsonb)`:
+
+```ts
+resources: {
+  "public.orders": {
+    actions: [
+      { name: "approve", label: "Approve", function: "public.approve_order", confirm: "Approve this order?" },
+    ],
+  },
+},
+authorize: byResource({ "public.orders": { read: true, actions: ["approve"] } }, { who }),
+```
+
+The function runs **as the signed-in user**, at the version they saw, inside one `REPEATABLE READ`
+transaction, so a row changed in between is a conflict, not an overwrite. Its effect on the row is
+audited as `run:approve` (before and after, or no after when it removed the row). The studio never
+undoes an action, because the function may have changed more than the row shows.
+
+An action is offered only when `authorize` allows `{ action: "run", rowAction: name }`, the
+table's write preconditions hold (audit sink, key, RLS, version field), and the function exists
+with that signature. A misconfigured one is reported to `onError`, not shown to the user. A name is
+a letter or `_`, then letters, digits or `_`.
+
+## Comments
+
+`authorize` allows `{ action: "comment" }` per table (`byResource`: `comment: true`). Comments
+live in `genesis_studio.comments`, written and read only through the setup SQL's security definer
+functions. A comment can only be read or added for a row the user can see right now, and its
+author is always the token's `sub`.
+
+## Checked-in contracts
+
+`genesis introspect` (in `@marktiderman/genesis-cli`) writes `resources.genesis.ts` from the
+Postgres catalog or a Supabase OpenAPI spec. Pass it in, and it wins over discovery for
+presentation (decision 10):
+
+```ts
+import { contracts } from "./resources.genesis";
+createStudioHandler({ …, contracts });
+```
+
+It sets a table's label, label field and description, and a field's label, description and
+widget. A widget applies only when it can edit the field's type, and never over a link or a
+choice list. Types, keys and every permission still come from the live database, so a stale
+contract can't reveal, invent or unlock a field. `@genesis {…}` settings in comments are left out
+of the descriptions the studio shows.
 
 ## Outbox delivery
 

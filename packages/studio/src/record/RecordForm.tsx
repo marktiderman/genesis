@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { formSchema, fromFormValue, isRequired, toFormValues, type FormValues } from "../lib/form-schema";
 import { sectionFields, type StudioFormConfig } from "../lib/form-config";
-import { choicesFor } from "../values";
+import { choicesFor, fieldLabel } from "../values";
 import { RelationPicker } from "./RelationPicker";
 
 const NONE = "__genesis_none__";
@@ -105,7 +105,7 @@ export function RecordForm({ provider, sessionKey, mode, fields, editable, row, 
         return (
           <div key={field.name} className="space-y-1.5">
             <Label htmlFor={id} className="flex items-baseline gap-1.5">
-              <span>{field.name}</span>
+              <span title={field.label ? field.name : undefined}>{fieldLabel(field)}</span>
               {required && <span className="text-destructive" aria-hidden>*</span>}
               <span className="ml-auto font-mono text-[10px] font-normal text-muted-foreground">{field.dbType}</span>
             </Label>

@@ -22,8 +22,11 @@ export interface JwtAuthOptions {
   secret?: string;
   /** JWKS endpoint for asymmetric keys, e.g. `<supabase-url>/auth/v1/.well-known/jwks.json`. */
   jwksUrl?: string;
-  /** Expected `iss`. Recommended, so a token minted for something else is refused. */
-  issuer?: string;
+  /**
+   * Expected `iss`: one value, several, or a test. Recommended, so a token
+   * minted for something else is refused.
+   */
+  issuer?: string | string[] | ((issuer: string) => boolean);
   /**
    * Expected `aud`. Required: without it, any token signed with the same key
    * that names a subject would be accepted, including ones the app minted
@@ -52,10 +55,11 @@ export function jwtAuth(options: JwtAuthOptions): StudioAuth {
   }
   // jose only checks `exp` when it is present, so require it: a token
   // without one would never expire.
+  const issuerTest = typeof options.issuer === "function" ? options.issuer : null;
   const claimsCheck = {
-    issuer: options.issuer,
+    ...(issuerTest ? {} : { issuer: options.issuer as string | string[] | undefined }),
     audience: options.audience,
-    requiredClaims: ["exp", "sub"],
+    requiredClaims: issuerTest ? ["exp", "sub", "iss"] : ["exp", "sub"],
   };
   let verify: (token: string) => Promise<{ payload: JWTPayload }>;
   if (options.secret) {
@@ -72,6 +76,7 @@ export function jwtAuth(options: JwtAuthOptions): StudioAuth {
     try {
       const { payload } = await verify(token);
       if (typeof payload.sub !== "string" || payload.sub.length === 0) return null;
+      if (issuerTest && (typeof payload.iss !== "string" || !issuerTest(payload.iss))) return null;
       return payload as StudioClaims;
     } catch {
       return null;
@@ -95,9 +100,18 @@ export interface SupabaseAuthOptions {
  */
 export function supabaseAuth(options: SupabaseAuthOptions): StudioAuth {
   const base = options.url.replace(/\/+$/, "");
+  const expected = `${base}/auth/v1`;
+  // Inside the local Supabase stack, an Edge Function reaches the project as
+  // http://kong:8000 while tokens name the address the browser used
+  // (http://127.0.0.1:54321). That host name exists only in the local
+  // stack, so there, a localhost issuer is accepted too. The signature is
+  // still checked against this project's own keys, either way.
+  const localStack = /^https?:\/\/kong(:\d+)?$/.test(base);
   return jwtAuth({
     ...(options.jwtSecret ? { secret: options.jwtSecret } : { jwksUrl: `${base}/auth/v1/.well-known/jwks.json` }),
-    issuer: `${base}/auth/v1`,
+    issuer: localStack
+      ? (iss) => iss === expected || /^http:\/\/(127\.0\.0\.1|localhost):\d+\/auth\/v1$/.test(iss)
+      : expected,
     audience: "authenticated",
   });
 }

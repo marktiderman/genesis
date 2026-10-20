@@ -23,6 +23,18 @@ export interface SheetGridColumn<T> {
   readOnlyReason?: string;
   /** Fixed choices: the editor becomes a select. */
   options?: string[];
+  /** Shown before the header text, e.g. an icon for the field's type. */
+  icon?: ReactNode;
+  /** `end` right-aligns the cells, as for numbers. */
+  align?: "start" | "end";
+}
+
+/** A column pinned to the left of every row, outside the cell grid (row numbers, a checkbox, an open button). */
+export interface SheetGridRowHeader<T> {
+  width: number;
+  render: (row: T, index: number) => ReactNode;
+  /** The header cell above it. */
+  header?: ReactNode;
 }
 
 /** One cell's new text. A paste or a clear produces several at once. */
@@ -68,6 +80,12 @@ export interface SheetGridProps<T> {
   /** Accessible name for the grid. */
   label: string;
   className?: string;
+  /** A pinned column at the left of every row. */
+  rowHeader?: SheetGridRowHeader<T>;
+  /** Rendered after the last row, inside the scroll area (e.g. "Add a record"). */
+  footer?: ReactNode;
+  /** Shown when there are no rows. */
+  empty?: ReactNode;
 }
 
 interface Cell {
@@ -108,6 +126,9 @@ export function SheetGrid<T>({
   rowHeight = 32,
   label,
   className,
+  rowHeader,
+  footer,
+  empty,
 }: SheetGridProps<T>) {
   const scroller = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<Cell>({ r: 0, c: 0 });
@@ -141,7 +162,8 @@ export function SheetGrid<T>({
     [],
   );
   const cellKey = (rowKey: string, column: string) => `${rowKey}\u0000${column}`;
-  const width = useMemo(() => columns.reduce((sum, c) => sum + (c.width ?? 160), 0), [columns]);
+  const lead = rowHeader?.width ?? 0;
+  const width = useMemo(() => lead + columns.reduce((sum, c) => sum + (c.width ?? 160), 0), [columns, lead]);
 
   // Keep the active cell inside the grid as rows come and go.
   useEffect(() => {
@@ -245,6 +267,8 @@ export function SheetGrid<T>({
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (editing) return; // the editor handles its own keys
+    // Keys pressed in a row header or the footer (a checkbox, a button) belong to that control.
+    if (e.target !== e.currentTarget) return;
     const mod = e.metaKey || e.ctrlKey;
     const page = Math.max(1, Math.floor(height / rowHeight) - 1);
     const { r, c } = active;
@@ -299,7 +323,7 @@ export function SheetGrid<T>({
   };
 
   const onCopy = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    if (editing) return;
+    if (editing || e.target !== e.currentTarget || rows.length === 0 || columns.length === 0) return;
     const block: string[][] = [];
     for (let r = range.r0; r <= range.r1; r++) {
       const line: string[] = [];
@@ -311,7 +335,7 @@ export function SheetGrid<T>({
   };
 
   const onPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    if (editing) return;
+    if (editing || e.target !== e.currentTarget) return;
     const text = e.clipboardData.getData("text/plain");
     if (!text) return;
     e.preventDefault();
@@ -327,7 +351,7 @@ export function SheetGrid<T>({
   const activeCellId = `${id}-cell-${active.r}-${active.c}`;
 
   return (
-    <div className={cn("rounded-lg border", className)} data-testid="sheet-grid">
+    <div className={cn("overflow-hidden rounded-lg border bg-background", className)} data-testid="sheet-grid">
       <div
         ref={scroller}
         role="grid"
@@ -337,26 +361,41 @@ export function SheetGrid<T>({
         aria-multiselectable="true"
         aria-activedescendant={rows.length ? activeCellId : undefined}
         tabIndex={0}
-        className="relative overflow-auto text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group/grid relative overflow-auto text-sm outline-none"
         style={{ height }}
         onKeyDown={onKeyDown}
         onCopy={onCopy}
         onPaste={onPaste}
       >
-        <div role="row" aria-rowindex={1} className="sticky top-0 z-10 flex border-b bg-muted/60 backdrop-blur" style={{ width }}>
+        <div role="row" aria-rowindex={1} className="sticky top-0 z-20 flex border-b bg-muted" style={{ width }}>
+          {rowHeader && (
+            <div
+              role="presentation"
+              className="sticky left-0 z-10 flex shrink-0 items-center border-r bg-muted px-2 text-xs text-muted-foreground"
+              style={{ width: rowHeader.width, height: rowHeight }}
+            >
+              {rowHeader.header}
+            </div>
+          )}
           {columns.map((column, c) => (
             <div
               key={column.key}
               role="columnheader"
               aria-colindex={c + 1}
-              className="flex shrink-0 items-center border-r px-2 py-1.5 text-xs font-medium text-muted-foreground"
+              className="flex shrink-0 items-center gap-1.5 border-r px-2 py-1.5 text-xs font-medium text-muted-foreground"
               style={{ width: column.width ?? 160, height: rowHeight }}
               title={column.readOnlyReason}
             >
+              {column.icon && <span className="flex shrink-0 items-center" aria-hidden>{column.icon}</span>}
               <span className="truncate">{column.header}</span>
             </div>
           ))}
         </div>
+        {rows.length === 0 && empty && (
+          <div className="sticky left-0 px-3 py-6 text-sm text-muted-foreground" style={{ width: "100%" }}>
+            {empty}
+          </div>
+        )}
         <div style={{ height: virtualizer.getTotalSize(), width, position: "relative" }}>
           {items.map((item) => {
             const row = rows[item.index]!;
@@ -366,9 +405,19 @@ export function SheetGrid<T>({
                 key={rowKey}
                 role="row"
                 aria-rowindex={item.index + 2}
-                className="absolute left-0 flex border-b"
+                className="group/row absolute left-0 flex border-b hover:bg-muted/40"
                 style={{ top: item.start, height: rowHeight, width }}
               >
+                {rowHeader && (
+                  <div
+                    role="presentation"
+                    className="sticky left-0 z-10 flex shrink-0 items-center border-r bg-background px-2 text-xs text-muted-foreground group-hover/row:bg-muted"
+                    style={{ width: rowHeader.width }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    {rowHeader.render(row, item.index)}
+                  </div>
+                )}
                 {columns.map((column, c) => {
                   const isActive = active.r === item.index && active.c === c;
                   const selected = inRange(item.index, c);
@@ -387,10 +436,11 @@ export function SheetGrid<T>({
                       title={state?.error ?? (!column.editable ? column.readOnlyReason : undefined)}
                       className={cn(
                         "relative flex shrink-0 items-center border-r px-2",
-                        selected && "bg-primary/5",
-                        isActive && "outline outline-2 -outline-offset-2 outline-primary",
+                        selected && (range.r1 > range.r0 || range.c1 > range.c0) && "bg-primary/5",
+                        // The active cell shows while the grid has focus, as in a spreadsheet.
+                        isActive && "group-focus-within/grid:outline group-focus-within/grid:outline-2 group-focus-within/grid:-outline-offset-2 group-focus-within/grid:outline-primary",
                         state?.error && "bg-destructive/10",
-                        !column.editable && "text-muted-foreground",
+                        column.align === "end" && "justify-end tabular-nums",
                       )}
                       style={{ width: column.width ?? 160 }}
                       onMouseDown={(e) => {
@@ -458,6 +508,11 @@ export function SheetGrid<T>({
             );
           })}
         </div>
+        {footer && (
+          <div className="sticky left-0 border-b" style={{ width: Math.max(width, 0) }}>
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

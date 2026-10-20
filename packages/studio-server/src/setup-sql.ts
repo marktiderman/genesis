@@ -37,6 +37,9 @@ export const AUDIT_FUNCTION = "genesis_studio.record_audit";
 export const OUTBOX_AUDIT_FUNCTION = "genesis_studio.record_audit_outbox";
 /** Reads a record's audit history. */
 export const HISTORY_FUNCTION = "genesis_studio.record_history";
+/** Comments on records. */
+export const ADD_COMMENT_FUNCTION = "genesis_studio.add_comment";
+export const COMMENTS_FUNCTION = "genesis_studio.record_comments";
 /** Reads one audit entry by id, for undo. */
 export const AUDIT_ENTRY_FUNCTION = "genesis_studio.audit_entry";
 
@@ -89,10 +92,15 @@ create table if not exists genesis_studio.audit_log (
   actor_claims jsonb,
   resource text not null,
   record_key jsonb not null,
-  action text not null check (action in ('create', 'update', 'delete')),
+  action text not null,
   before jsonb,
   after jsonb
 );
+-- A row action is recorded as "run:<name>". Replaced on every run so an
+-- older install picks it up.
+alter table genesis_studio.audit_log drop constraint if exists audit_log_action_check;
+alter table genesis_studio.audit_log add constraint audit_log_action_check
+  check (action in ('create', 'update', 'delete') or action ~ '^run:[A-Za-z_][A-Za-z0-9_]*$');
 create index if not exists audit_log_record_idx
   on genesis_studio.audit_log (resource, record_key, occurred_at desc);
 
@@ -249,8 +257,61 @@ begin${loginCheckFor("audit_entry", "read audit entries")}
 end;
 $fn$;
 
+-- Comments on records. Written and read only through the functions below;
+-- the author always comes from the session's verified claims.
+create table if not exists genesis_studio.comments (
+  id uuid primary key default gen_random_uuid(),
+  resource text not null,
+  record_key jsonb not null,
+  author text not null,
+  body text not null check (length(body) between 1 and 10000),
+  created_at timestamptz not null default clock_timestamp()
+);
+create index if not exists comments_record_idx on genesis_studio.comments (resource, record_key, created_at);
+revoke all on genesis_studio.comments from public;
+revoke all on genesis_studio.comments from ${role};
+
+create or replace function genesis_studio.add_comment(p_resource text, p_record_key jsonb, p_body text)
+returns table (id uuid, author text, body text, created_at timestamptz)
+language plpgsql
+security definer
+set search_path = ''
+as $fn$
+declare
+  v_author text := nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub';
+begin${loginCheckFor("add_comment", "add comments")}
+  if v_author is null then
+    raise exception 'genesis_studio.add_comment: no signed-in user in this session'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return query
+    insert into genesis_studio.comments (resource, record_key, author, body)
+    values (p_resource, p_record_key, v_author, p_body)
+    returning comments.id, comments.author, comments.body, comments.created_at;
+end;
+$fn$;
+
+create or replace function genesis_studio.record_comments(p_resource text, p_record_key jsonb, p_limit int)
+returns table (id uuid, author text, body text, created_at timestamptz)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $fn$
+begin${loginCheckFor("record_comments", "read comments")}
+  return query
+    select c.id, c.author, c.body, c.created_at
+      from genesis_studio.comments c
+     where c.resource = p_resource and c.record_key = p_record_key
+     order by c.created_at
+     limit least(greatest(p_limit, 1), 500);
+end;
+$fn$;
+
 revoke all on function genesis_studio.record_audit(text, jsonb, text, jsonb, jsonb) from public;
 revoke all on function genesis_studio.audit_entry(uuid) from public;
+revoke all on function genesis_studio.add_comment(text, jsonb, text) from public;
+revoke all on function genesis_studio.record_comments(text, jsonb, int) from public;
 revoke all on function genesis_studio.record_audit_outbox(text, jsonb, text, jsonb, jsonb) from public;
 revoke all on function genesis_studio.record_history(text, jsonb, int) from public;
 do $$
@@ -260,6 +321,9 @@ begin
     execute 'revoke all on function genesis_studio.record_audit_outbox(text, jsonb, text, jsonb, jsonb) from anon';
     execute 'revoke all on function genesis_studio.record_history(text, jsonb, int) from anon';
     execute 'revoke all on function genesis_studio.audit_entry(uuid) from anon';
+    execute 'revoke all on function genesis_studio.add_comment(text, jsonb, text) from anon';
+    execute 'revoke all on function genesis_studio.record_comments(text, jsonb, int) from anon';
+    execute 'revoke all on genesis_studio.comments from anon';
     execute 'revoke all on genesis_studio.outbox, genesis_studio.outbox_dead_letter from anon';
     execute 'revoke all on schema genesis_studio from anon';
   end if;
@@ -268,5 +332,7 @@ grant execute on function genesis_studio.record_audit(text, jsonb, text, jsonb, 
 grant execute on function genesis_studio.record_audit_outbox(text, jsonb, text, jsonb, jsonb) to ${role};
 grant execute on function genesis_studio.record_history(text, jsonb, int) to ${role};
 grant execute on function genesis_studio.audit_entry(uuid) to ${role};
+grant execute on function genesis_studio.add_comment(text, jsonb, text) to ${role};
+grant execute on function genesis_studio.record_comments(text, jsonb, int) to ${role};
 ${workerGrants}`;
 }

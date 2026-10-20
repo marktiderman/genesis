@@ -1,10 +1,18 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
+import { Maximize2 } from "lucide-react";
 import type { BaseRecord, DataProvider } from "@marktiderman/genesis-core/provider";
-import { encodeRecordKey, isDataWriteError, type AuditEntry, type ResourceSchema } from "@marktiderman/genesis-core/schema";
+import { encodeRecordKey, isDataWriteError, keyFields, type AuditEntry, type ResourceSchema } from "@marktiderman/genesis-core/schema";
 import { SheetCommitError, SheetGrid, type SheetCellChange, type SheetGridColumn } from "@marktiderman/genesis-ui/sheet-grid";
-import { choicesFor, displayText, editText, parseDraft } from "../values";
+import { choicesFor, editText, fieldLabel, parseDraft } from "../values";
+import { CellValue, FieldIcon } from "../grid/cells";
 
 type Row = Record<string, unknown>;
+
+/** Fields in grid order: the field that names a row first, as Airtable's primary field, then the table's order. */
+export function gridFields(schema: ResourceSchema) {
+  const primary = schema.fields.find((f) => f.name === schema.labelField);
+  return primary ? [primary, ...schema.fields.filter((f) => f !== primary)] : [...schema.fields];
+}
 
 export interface SheetViewProps {
   provider: DataProvider;
@@ -17,6 +25,21 @@ export interface SheetViewProps {
   onFailed: (message: string) => void;
   onUndo: () => void;
   onNotice: (message: string) => void;
+  /** Fields not shown. */
+  hidden?: ReadonlySet<string>;
+  /** Selected row ids, and how to change them. Without these, no checkboxes. */
+  selected?: ReadonlySet<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleAll?: () => void;
+  /** Open a row in the record pop-up. */
+  onOpenRecord?: (id: string) => void;
+  /** The number shown for the first row (pages after the first start later). */
+  firstRowNumber?: number;
+  /** Under the last row, e.g. "Add a record". */
+  footer?: ReactNode;
+  height?: number;
+  /** Accessible name; defaults to the table's label. */
+  label?: string;
 }
 
 /**
@@ -24,28 +47,53 @@ export interface SheetViewProps {
  * is saved in ONE transaction through `updateMany`: every row changes, at
  * the version it was read, or none does, and the failing cells are marked.
  */
-export function SheetView({ provider, schema, rows, keys, linkLabels, onSaved, onFailed, onUndo, onNotice }: SheetViewProps) {
+export function SheetView({
+  provider,
+  schema,
+  rows,
+  keys,
+  linkLabels,
+  onSaved,
+  onFailed,
+  onUndo,
+  onNotice,
+  hidden,
+  selected,
+  onToggleSelect,
+  onToggleAll,
+  onOpenRecord,
+  firstRowNumber = 1,
+  footer,
+  height,
+  label,
+}: SheetViewProps) {
   const versionField = schema.version?.field;
+  const keyNames = useMemo(() => new Set(keyFields(schema)), [schema]);
   const columns = useMemo<SheetGridColumn<Row>[]>(
     () =>
-      schema.fields.map((field) => {
+      gridFields(schema).filter((field) => !hidden?.has(field.name)).map((field, index) => {
         const labels = linkLabels.get(field.name);
         return {
           key: field.name,
-          header: field.name,
-          width: field.type === "json" ? 220 : field.name.length > 14 ? 180 : 150,
+          header: fieldLabel(field),
+          icon: <FieldIcon field={field} isKey={keyNames.has(field.name)} />,
+          // The first column names the row, so it gets more room.
+          width: index === 0 && field.name === schema.labelField ? 220 : field.type === "json" ? 220 : field.type === "boolean" ? 110 : 170,
+          ...(field.type === "number" && !field.enumValues ? { align: "end" as const } : {}),
           getText: (row: Row) => editText(row[field.name]),
-          ...(labels
-            ? { render: (row: Row) => labels.get(String(row[field.name])) ?? displayText(row[field.name]) ?? "" }
-            : {}),
+          render: (row: Row) => (
+            <CellValue field={field} value={row[field.name]} linkLabel={labels?.get(String(row[field.name]))} />
+          ),
           // Links are edited in the record form, with a picker.
           editable: Boolean(field.permissions?.update) && !field.references,
           readOnlyReason: field.references && field.permissions?.update ? "Edit links in the record's form." : field.permissions?.reason,
           ...(choicesFor(field) ? { options: choicesFor(field) } : {}),
         };
       }),
-    [schema, linkLabels],
+    [schema, linkLabels, hidden, keyNames],
   );
+  const selectable = Boolean(selected && onToggleSelect);
+  const allSelected = selectable && rows.length > 0 && rows.every((row) => selected!.has(keys.get(row) ?? ""));
 
   async function commit(changes: SheetCellChange<Row>[]) {
     // One update per row, with every cell that changed in it.
@@ -98,14 +146,59 @@ export function SheetView({ provider, schema, rows, keys, linkLabels, onSaved, o
 
   return (
     <SheetGrid<Row>
-      label={`${schema.label ?? schema.name} sheet`}
+      label={label ?? `${schema.label ?? schema.name} sheet`}
       rows={rows}
       columns={columns}
       getKey={(row) => keys.get(row) ?? ""}
       onCommit={commit}
       onUndo={onUndo}
       onSkipped={(count) => onNotice(`${count} read-only cell${count === 1 ? " was" : "s were"} left as they were.`)}
-      height={520}
+      height={height ?? Math.min(640, Math.max(160, (rows.length + 2) * 32 + 4))}
+      className="rounded-md"
+      empty="No records match."
+      footer={footer}
+      rowHeader={{
+        width: selectable ? 84 : 64,
+        header: selectable ? (
+          <input
+            type="checkbox"
+            aria-label="Select every row on this page"
+            className="h-3.5 w-3.5"
+            checked={allSelected}
+            onChange={() => onToggleAll?.()}
+          />
+        ) : null,
+        render: (row, index) => {
+          const id = keys.get(row) ?? "";
+          return (
+            <span className="flex w-full items-center gap-1.5">
+              {selectable && (
+                <input
+                  type="checkbox"
+                  aria-label={`Select row ${firstRowNumber + index}`}
+                  className="h-3.5 w-3.5"
+                  checked={selected!.has(id)}
+                  onChange={() => onToggleSelect!(id)}
+                  data-testid="studio-row-select"
+                />
+              )}
+              <span className="min-w-[1.5rem] tabular-nums">{firstRowNumber + index}</span>
+              {onOpenRecord && id && (
+                <button
+                  type="button"
+                  className="ml-auto rounded p-0.5 text-muted-foreground opacity-0 hover:bg-background hover:text-foreground focus-visible:opacity-100 group-hover/row:opacity-100"
+                  aria-label={`Open row ${firstRowNumber + index}`}
+                  title="Open record"
+                  onClick={() => onOpenRecord(id)}
+                  data-testid="studio-open-record"
+                >
+                  <Maximize2 className="h-3 w-3" aria-hidden />
+                </button>
+              )}
+            </span>
+          );
+        },
+      }}
     />
   );
 }

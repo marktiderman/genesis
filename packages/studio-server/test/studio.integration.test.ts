@@ -14,7 +14,7 @@ import {
   makeHandler,
   resetDatabase,
 } from "./fixtures";
-import { byResource, createPostgresDatabase, type StudioHandler } from "../src/index";
+import { byResource, createPostgresDatabase, databaseDecides, type StudioHandler } from "../src/index";
 
 describeDb("studio handler against Postgres with RLS", () => {
   let studio: StudioHandler;
@@ -133,10 +133,35 @@ describeDb("studio handler against Postgres with RLS", () => {
       "public.programs",
       "public.scores",
       "public.typed",
+      "public.wide",
     ]);
     expect(byName["public.clients"].access.update).toBe(true);
-    expect(byName["public.no_trigger"].access).toMatchObject({ update: false });
-    expect(byName["public.no_trigger"].access.reason).toMatch(/no trigger advances "updated_at"/);
+    // No trigger advances its updated_at, so edits are checked against the row's values instead.
+    expect(byName["public.no_trigger"].access).toMatchObject({ update: true });
+  });
+
+  it("shows a granted table read-only when no row-level security policy allows writes", async () => {
+    const open = handler({ authorize: databaseDecides() });
+    const { schema } = (await call(open, COACH_A, { op: "describe", resource: "public.read_policy_only" })).body;
+    expect(schema.access.update).toBe(false);
+    expect(schema.access.reason).toMatch(/no row-level security policy lets you update this table/);
+    expect(schema.access.reasons.create).toMatch(/no row-level security policy lets you add rows/);
+    expect(schema.access.reasons.delete).toMatch(/no row-level security policy lets you delete/);
+  });
+
+  it("turns on for every table with databaseDecides, within the database's own rights", async () => {
+    const open = handler({ authorize: databaseDecides() });
+    const res = await call(open, COACH_A, { op: "resources" });
+    const names = res.body.resources.map((r: any) => r.name);
+    // Tables no allow-list mentions now appear, because the database lets this user read them.
+    expect(names).toEqual(expect.arrayContaining(["public.secret_table", "public.clients", "public.scores"]));
+    // Row rules still decide which rows: coach A never sees coach B's client.
+    const list = await call(open, COACH_A, { op: "list", resource: "public.clients" });
+    expect(list.body.rows.map((r: any) => r.values.name)).not.toContain("Dee Park");
+    // And the database's column grants still decide what can change.
+    const { schema } = (await call(open, COACH_A, { op: "describe", resource: "public.clients" })).body;
+    expect(schema.fields.map((f: any) => f.name)).not.toContain("secret_score");
+    expect(schema.fields.find((f: any) => f.name === "coach_id").permissions.update).toBe(false);
   });
 
   it("answers a table authorize() denies exactly like a table that doesn't exist", async () => {
@@ -214,8 +239,15 @@ describeDb("studio handler against Postgres with RLS", () => {
     expect(after.body.schema.access.update).toBe(true);
   });
 
-  it("refuses a timestamp version too coarse to tell two edits apart", async () => {
+  it("doesn't trust a timestamp too coarse to tell two edits apart, and checks the row's values instead", async () => {
     const res = await call(studio, COACH_A, { op: "describe", resource: "public.coarse" });
+    expect(res.body.schema.access.update).toBe(true);
+    expect(res.body.schema.version).toEqual({ field: "__genesis_version", kind: "row" });
+  });
+
+  it("still refuses a configured version field it can't trust", async () => {
+    const strict = handler({ resources: { "public.coarse": { versionField: "updated_at" } } });
+    const res = await call(strict, COACH_A, { op: "describe", resource: "public.coarse" });
     expect(res.body.schema.access.update).toBe(false);
     expect(res.body.schema.access.reason).toMatch(/microsecond precision/);
   });
@@ -533,17 +565,45 @@ describeDb("studio handler against Postgres with RLS", () => {
     expect(res.body.error.message).toMatch(/check constraint/);
   });
 
-  it("refuses edits to a table whose version nothing advances", async () => {
-    const res = await call(studio, COACH_A, {
+  it("edits a table with no version trigger, checked against the row's values", async () => {
+    const read = await call(studio, COACH_A, { op: "read", resource: "public.no_trigger", id: 1 });
+    const fingerprint = read.body.row.version as string;
+    expect(fingerprint).toMatch(/^[0-9a-f]{32}$/);
+
+    // A stale fingerprint is a conflict, never an overwrite.
+    const missing = await call(studio, COACH_A, {
       op: "update",
       resource: "public.no_trigger",
       id: 1,
       data: { label: "changed" },
       expectedVersion: null,
     });
-    expect(res.status).toBe(403);
+    expect(missing.status).toBe(409);
+
+    const saved = await call(studio, COACH_A, {
+      op: "update",
+      resource: "public.no_trigger",
+      id: 1,
+      data: { label: "changed" },
+      expectedVersion: fingerprint,
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.body.row.version).not.toBe(fingerprint);
+    expect(saved.body.audit.after).toMatchObject({ label: "changed" });
+
+    // Someone else changes the row: the old fingerprint no longer matches.
+    await admin`update public.no_trigger set label = 'theirs' where id = 1`;
+    const stale = await call(studio, COACH_A, {
+      op: "update",
+      resource: "public.no_trigger",
+      id: 1,
+      data: { label: "mine" },
+      expectedVersion: saved.body.row.version,
+    });
+    expect(stale.status).toBe(409);
+    expect(stale.body.error.current).toMatchObject({ label: "theirs" });
     const [row] = await admin`select label from public.no_trigger where id = 1`;
-    expect(row!.label).toBe("static");
+    expect(row!.label).toBe("theirs");
   });
 
   it("rolls back an edit when a trigger that looked right didn't advance the version", async () => {

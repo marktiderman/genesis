@@ -16,6 +16,8 @@ export type {
   FilterOperator,
   ProviderCapabilities,
   AuditEntry,
+  RowAction,
+  RecordComment,
 } from "./types";
 export { keyFields, encodeRecordKey, decodeRecordKey } from "./keys";
 export {

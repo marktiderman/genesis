@@ -5,7 +5,7 @@ import type { StudioDatabase } from "./db";
  * The actions `authorize` is asked about. `create`, `delete` and `history`
  * (reading a row's audit trail) are off unless `authorize` allows them.
  */
-export type StudioAction = "read" | "update" | "create" | "delete" | "history";
+export type StudioAction = "read" | "update" | "create" | "delete" | "history" | "run" | "comment";
 
 export interface AuthorizeContext {
   request: Request;
@@ -14,6 +14,8 @@ export interface AuthorizeContext {
   /** `schema.table`, e.g. `public.clients`. */
   resource: string;
   action: StudioAction;
+  /** For `run`: which row action. */
+  rowAction?: string;
 }
 
 /**
@@ -102,11 +104,36 @@ export interface ResourceSettings {
    */
   functions?: { create?: string; update?: string; delete?: string };
   /**
+   * Row actions: named operations on one row, each carried out by the app's
+   * own function `fn(record_key jsonb)`, called as the user at the row's
+   * version. `authorize` is asked `{ action: "run", rowAction: name }`.
+   */
+  actions?: readonly RowActionSettings[];
+  /**
    * Allow edits to a table with row-level security OFF. Without RLS every
    * signed-in user who may update it may update every row, so the studio
    * keeps such tables read-only unless you opt in here.
    */
   allowWithoutRls?: boolean;
+}
+
+/** One row action. `name` is an identifier: it is recorded in the audit log as `run:<name>`. */
+export interface RowActionSettings {
+  name: string;
+  label: string;
+  /** `schema.function` taking `(record_key jsonb)`. Called as the user. */
+  function: string;
+  /** Ask before running, with this question. */
+  confirm?: string;
+  description?: string;
+}
+
+/** What a checked-in contract may say about a resource. */
+export interface StudioContract {
+  label?: string;
+  labelField?: string;
+  description?: string;
+  fields?: readonly { name: string; label?: string; description?: string; widget?: string }[];
 }
 
 export interface StudioHandlerOptions {
@@ -124,6 +151,13 @@ export interface StudioHandlerOptions {
   role?: string;
   /** Per-resource settings, keyed `schema.table`. */
   resources?: Readonly<Record<string, ResourceSettings>>;
+  /**
+   * A generated, checked-in contract (`genesis introspect`), keyed
+   * `schema.table`. It wins over discovery for presentation — labels, the
+   * label field, field descriptions and widgets (decision 10) — while types,
+   * keys and every permission still come from the live database.
+   */
+  contracts?: Readonly<Record<string, StudioContract>>;
   /** Default 10 000. */
   statementTimeoutMs?: number;
   /** Largest page a list may ask for. Default 200. */

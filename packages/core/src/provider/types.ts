@@ -4,6 +4,7 @@
 
 import type {
   AuditEntry,
+  RecordComment,
   ProviderCapabilities,
   ResourceSchema,
   ResourceSummary,
@@ -283,4 +284,20 @@ export interface DataProvider {
    * the row has changed since.
    */
   undo?(resource: string, params: { auditId: string }): Promise<{ audit?: AuditEntry }>;
+
+  /**
+   * Run one of the resource's row actions (`ResourceSchema.actions`) on a
+   * row, at the version it was read. The app's function does the work; the
+   * row's change is audited.
+   */
+  runAction?(
+    resource: string,
+    params: { id: Identifier; action: string; expectedVersion?: string | null },
+  ): Promise<{ data: Record<string, unknown> | null; audit?: AuditEntry }>;
+
+  /** A record's comments, oldest first. */
+  comments?(resource: string, params: { id: Identifier }): Promise<RecordComment[]>;
+
+  /** Add a comment to a record, as the signed-in user. */
+  addComment?(resource: string, params: { id: Identifier; body: string }): Promise<RecordComment>;
 }

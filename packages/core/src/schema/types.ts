@@ -63,6 +63,8 @@ export interface FieldSchema {
   readonly array?: boolean;
   /** Human note (surfaces in describe()/drift reports). */
   readonly description?: string;
+  /** Human label, e.g. "Date of birth". Absent means a UI derives one from `name`. */
+  readonly label?: string;
   /** The store's exact type, e.g. `timestamp with time zone` or `public.status`. */
   readonly dbType?: string;
   /** Which control fits this field. A hint: a UI may still choose another. */
@@ -121,11 +123,14 @@ export interface ResourceAccess {
   readonly delete?: boolean;
   /** True when this user may read a row's audit history. */
   readonly history?: boolean;
-  /** Why `create`, `delete` or `history` is false, in one human sentence each. */
+  /** True when this user may read and add comments on rows they can see. */
+  readonly comment?: boolean;
+  /** Why `create`, `delete`, `history` or `comment` is false, in one human sentence each. */
   readonly reasons?: {
     readonly create?: string;
     readonly delete?: string;
     readonly history?: string;
+    readonly comment?: string;
   };
 }
 
@@ -165,7 +170,12 @@ export interface VersionField {
    * `expectedVersion` echoes `String(row[field])` back unchanged.
    */
   readonly field: string;
-  readonly kind: "integer" | "timestamp";
+  /**
+   * `row`: no column tracks versions, so the token is a fingerprint of the
+   * row's values, and `field` is a name the provider adds to each record
+   * (it is not one of the resource's fields).
+   */
+  readonly kind: "integer" | "timestamp" | "row";
 }
 
 /**
@@ -185,6 +195,28 @@ export interface ResourceSchema<Row extends DataRow = DataRow> extends ResourceC
   readonly relations?: readonly ResourceRelation[];
   /** Fields the user may set when creating a row. Absent when creating isn't allowed. */
   readonly createFields?: readonly string[];
+  /** Row actions this user may run: each calls the app's own function on one row. */
+  readonly actions?: readonly RowAction[];
+}
+
+/** A named operation on one row, carried out by the app's own database function. */
+export interface RowAction {
+  readonly name: string;
+  readonly label: string;
+  /** Ask before running, with this question. */
+  readonly confirm?: string;
+  /** One sentence on what it does. */
+  readonly description?: string;
+}
+
+/** A comment on a record. */
+export interface RecordComment {
+  readonly id: string;
+  /** The signed-in user who wrote it (the token's `sub`). */
+  readonly author: string;
+  readonly body: string;
+  /** ISO 8601, as the store recorded it. */
+  readonly createdAt: string;
 }
 
 /** One entry of `listResources()`: enough to draw a sidebar. */
@@ -237,6 +269,10 @@ export interface ProviderCapabilities {
   readonly import?: boolean;
   /** `undo` is served. */
   readonly undo?: boolean;
+  /** `runAction` is served. */
+  readonly actions?: boolean;
+  /** `comments` and `addComment` are served. */
+  readonly comments?: boolean;
 }
 
 /** One audit record, as committed alongside the edit it describes. */
@@ -249,7 +285,10 @@ export interface AuditEntry {
   readonly resource: string;
   /** The record's key, field name → value. */
   readonly key: DataRow;
-  readonly action: "create" | "update" | "delete";
+  /** `run` is a row action; `rowAction` names it. */
+  readonly action: "create" | "update" | "delete" | "run";
+  /** For `run`: which row action. */
+  readonly rowAction?: string;
   /** Values of the changed fields before the edit. */
   readonly before: DataRow | null;
   /** Values of the changed fields after the edit. */
