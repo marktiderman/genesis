@@ -1,5 +1,75 @@
 # @marktiderman/genesis-ui
 
+## 2.6.0
+
+### Minor Changes
+
+- 69d7f90: **The Data Studio looks and works like Airtable.**
+
+  - **studio:** tables are tabs across the top, and Grid, Board and Calendar are views on the left, alongside saved views. The spreadsheet grid is the default view:
+    - The field that names a row comes first.
+    - Each column header has an icon for its type.
+    - Choices show as colored pills (status words in their meaning's color), links as chips, and yes/no as checks.
+    - Each row has a number, a checkbox for bulk actions, and an open button.
+    - An **Add a record** row sits under the grid, and the footer shows the record count.
+    - **Hide fields** is remembered per table.
+    - The session's edits fold into one line under the workspace.
+    - The default page size is now 50.
+    - The old Table view (`?view=sheet` still opens the grid) is replaced by the grid.
+  - **ui:** `SheetGrid` gains, all opt-in: a column `icon` and `align`, a pinned `rowHeader` column, a `footer` row, and an `empty` message. The active cell is outlined only while the grid has focus.
+
+- 9667f9a: **Data Studio P1 contract** (docs/DATA-STUDIO.md P1). Additive; a **minor**.
+
+  - **genesis-core:**
+    - `ResourceSchema` gains `labelField`, `relations` (`ResourceRelation`: `one`, `many`, or `through` a junction) and `createFields`.
+    - `ResourceAccess` gains optional `create`, `delete` and `history`, each with a reason in `reasons`.
+    - `ProviderCapabilities` gains optional `multiSort`, `create`, `delete` and `history`.
+    - `ListParams.sorts` sorts by several fields.
+    - `DeleteParams.expectedVersion` version-checks deletes.
+    - `CreateResult` and `DeleteResult` carry an optional `audit`.
+    - New optional `DataProvider.history(resource, { id, limit })`.
+  - **genesis-ui:**
+    - `ResourcePage` gains `capabilities` (`{ search?, sort? }`): a control the data source can't serve is hidden, not left to error (decision 9).
+    - `DataFilters` gains `showSearch` and `showSort`.
+    - `ResourceColumnDef.editable` and `accessor` now reach `DataTable` in client-side mode too.
+
+- a642bc0: **Data Studio P2 contract and the sheet grid.** Additive; a **minor**.
+
+  - **genesis-core:** new optional `DataProvider` methods.
+    - `updateMany` and `deleteMany` run in one transaction and are exact: all rows change or none do, and `BulkResult.failures` lists every row that failed.
+    - `importRows` adds rows, with a dry run that lists every row that would fail.
+    - `undo` makes a compensating write from an audit entry.
+    - New types: `BulkChange`, `BulkResult`, `RowFailure`, `ImportParams`. `ProviderCapabilities` gains `import` and `undo`.
+  - **genesis-ui:**
+    - **`@marktiderman/genesis-ui/sheet-grid`** (new subpath, **Experimental**): `SheetGrid`, a spreadsheet grid with virtualized rows.
+      - Keyboard: an active cell and range, and Enter, F2 or typing to edit.
+      - Copy and paste go through the system clipboard as TSV (`parseTsv`, `toTsv`), so they round-trip with Sheets and Excel.
+      - Delete clears the range, and Ctrl/Cmd+Z undoes.
+      - Each cell shows a saving or failed state; `SheetCommitError` marks only the cells that failed.
+      - It follows the WAI-ARIA grid pattern.
+      - `@tanstack/react-virtual` is an **optional** peer, needed only by this subpath (DATA-STUDIO.md decision 20).
+
+- 69d7f90: **Data Studio P3 contract, and a movable KanbanBoard.** Additive; a **minor**.
+
+  - **genesis-core:**
+    - New optional `DataProvider` methods: `runAction` (a row action at the row's version), `comments` and `addComment`.
+    - New types `RowAction` and `RecordComment`. `ResourceSchema.actions` lists the row actions the user may run. `ResourceAccess` gains `comment` and `reasons.comment`. `ProviderCapabilities` gains `actions` and `comments`.
+    - `FieldSchema.label`: what a person calls the field.
+    - `AuditEntry.action` may now be `"run"`, with `rowAction` naming the action. Code that switches on `action` exhaustively should add the case.
+  - **genesis-ui:** `KanbanBoard` gains, all opt-in:
+    - `getKey`, for stable card keys.
+    - `onMoveItem`: cards drag between columns, and each card gets a **Move to** menu that does the same from the keyboard.
+    - `getItemLabel`, which names the card in that menu.
+    - `KanbanColumn.total` (the badge shows it when a column is paged) and `renderColumnFooter` (e.g. **Load more**).
+
+### Patch Changes
+
+- Updated dependencies [9667f9a]
+- Updated dependencies [a642bc0]
+- Updated dependencies [69d7f90]
+- Updated dependencies [69d7f90]
+  - @marktiderman/genesis-core@1.3.0
+
 ## 2.5.0
 
 ### Minor Changes
