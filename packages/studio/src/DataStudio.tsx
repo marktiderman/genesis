@@ -151,6 +151,9 @@ function StudioWorkspace({
    * Undo a bulk write row by row, each a compensating write with its own audit
    * entry. Rows that can't be undone stay on the entry, so Undo can be retried.
    */
+  // Entries with an undo in flight, so a second click or Ctrl+Z can't resend it.
+  const undoing = useRef(new Set<string>());
+
   const undoAll = useCallback(
     async (entry: StudioActivity, audits: AuditEntry[]) => {
       const left: AuditEntry[] = [];
@@ -181,17 +184,11 @@ function StudioWorkspace({
     [provider, queryClient, sessionKey],
   );
 
-  /**
-   * Undo a change from its audit entry: a compensating write, itself
-   * audited, that the server refuses if the row has moved on since.
-   */
-  const undo = useCallback(
+  const undoOne = useCallback(
     async (entry: StudioActivity) => {
-      if (!provider.undo || entry.undone) return;
       if (entry.audits?.length) return undoAll(entry, entry.audits);
-      if (!entry.audit) return;
       try {
-        const result = await provider.undo(entry.resource, { auditId: entry.audit.id });
+        const result = await provider.undo!(entry.resource, { auditId: entry.audit!.id });
         setActivity((prev) => prev.map((e) => (e.id === entry.id ? { ...e, undone: true } : e)));
         void queryClient.invalidateQueries({ queryKey: ["genesis-studio", sessionKey] });
         setActivity((prev) =>
@@ -228,6 +225,24 @@ function StudioWorkspace({
       }
     },
     [provider, queryClient, sessionKey, undoAll],
+  );
+
+  /**
+   * Undo a change from its audit entry: a compensating write, itself
+   * audited, that the server refuses if the row has moved on since.
+   */
+  const undo = useCallback(
+    async (entry: StudioActivity) => {
+      if (!provider.undo || entry.undone || undoing.current.has(entry.id)) return;
+      if (!entry.audit && !entry.audits?.length) return;
+      undoing.current.add(entry.id);
+      try {
+        await undoOne(entry);
+      } finally {
+        undoing.current.delete(entry.id);
+      }
+    },
+    [provider, undoOne],
   );
 
   const record = useCallback((entry: Omit<StudioActivity, "id" | "at">) => {
@@ -270,7 +285,7 @@ function StudioWorkspace({
             onSignedOut={() => setSignedOut(true)}
             formConfig={forms?.[selected]}
             onUndoLatest={() => {
-              const latest = activity.find((e) => e.resource === selected && e.outcome === "saved" && e.audit && !e.undone);
+              const latest = activity.find((e) => e.resource === selected && e.outcome === "saved" && (e.audit || e.audits?.length) && !e.undone);
               if (latest) void undo(latest);
             }}
           />
@@ -727,14 +742,27 @@ function Sheet({
                     if (updates.length === 1) replaceRow(updates[0]!.old, updates[0]!.next);
                     else refresh();
                     void queryClient.invalidateQueries({ queryKey: ["genesis-studio", sessionKey, "record", resource] });
-                    for (const u of updates) {
+                    const fieldsOf = (audit?: AuditEntry) => Object.keys(audit?.after ?? {}).filter((f) => f !== schema.version?.field);
+                    if (updates.length === 1) {
+                      const u = updates[0]!;
                       onActivity({
                         resource,
-                        field: Object.keys(u.audit?.after ?? {}).filter((f) => f !== schema.version?.field).join(", "),
+                        field: fieldsOf(u.audit).join(", "),
                         record: keys.get(u.old) ?? "",
                         outcome: "saved",
                         message: u.audit ? "Saved, with its audit entry." : "Saved.",
                         ...(u.audit ? { audit: u.audit } : {}),
+                      });
+                    } else {
+                      // A multi-row paste is one bulk write: one entry, one Undo for every row.
+                      const audits = updates.flatMap((u) => (u.audit ? [u.audit] : []));
+                      onActivity({
+                        resource,
+                        field: [...new Set(audits.flatMap(fieldsOf))].join(", "),
+                        record: `${updates.length} rows`,
+                        outcome: "saved",
+                        message: audits.length ? "Saved, each row audited." : "Saved.",
+                        ...(audits.length ? { audits } : {}),
                       });
                     }
                   }}
