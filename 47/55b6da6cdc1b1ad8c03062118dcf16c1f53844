@@ -1,0 +1,22 @@
+packages/studio-server/README.md
+  s_ebc909da001b53::t_752f1e8ae3e102 329-334
+packages/studio-server/src/handler.ts
+  s_ebc909da001b53::t_752f1e8ae3e102 178-189,191-193
+  s_ebc909da001b53::t_b1fcb0e0824100 260-262
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4755b6da6cdc1b1ad8c03062118dcf16c1f53844",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
