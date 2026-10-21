@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Button } from "@marktiderman/genesis-ui";
 import { PageHeader } from "@marktiderman/genesis-ui/layout";
 import { Compass } from "lucide-react";

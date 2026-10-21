@@ -1,4 +1,4 @@
-import type { Preview } from "@storybook/react";
+import type { Preview } from "@storybook/react-vite";
 import { GenesisProvider } from "@marktiderman/genesis-ui/provider";
 import "../app/app.css";
 
@@ -22,11 +22,17 @@ const preview: Preview = {
       },
     },
     backgrounds: {
-      default: "light",
-      values: [
-        { name: "light", value: "hsl(0 0% 100%)" },
-        { name: "dark", value: "hsl(240 10% 3.9%)" },
-      ],
+      options: {
+        light: { name: "light", value: "hsl(0 0% 100%)" },
+        dark: { name: "dark", value: "hsl(240 10% 3.9%)" },
+      },
+    },
+    a11y: {
+      // addon-vitest runs an axe check on every story. 39 of the 135
+      // existing stories have violations today (mostly color-contrast on the
+      // primary/destructive tokens), so they report as warnings ("todo")
+      // rather than failing CI. Flip to "error" once those are fixed.
+      test: "todo",
     },
   },
   globalTypes: {
@@ -58,6 +64,9 @@ const preview: Preview = {
       );
     },
   ],
+  initialGlobals: {
+    backgrounds: { value: "light" },
+  },
 };
 
 export default preview;

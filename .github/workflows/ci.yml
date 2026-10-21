@@ -79,3 +79,37 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+  storybook-browser-tests:
+    name: Storybook browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.26.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Stories render @marktiderman/genesis-ui by its built dist/ output.
+      - name: Build packages
+        run: pnpm build:packages
+
+      # Installs the Chromium build matching apps/sample's pinned
+      # `playwright` devDependency, plus its OS libraries.
+      - name: Install Playwright Chromium
+        working-directory: apps/sample
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Every story renders as a Vitest browser test (headless Chromium)
+      # with an axe a11y check; see apps/sample/vitest.config.ts.
+      - name: Run Storybook browser tests
+        run: pnpm --filter sample test:storybook

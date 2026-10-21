@@ -259,7 +259,9 @@ describe("DataStudio P2", () => {
 
   it("deletes the selected rows together after confirming", async () => {
     const { provider, calls, db } = makeProvider();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    // happy-dom has no window.confirm; Vitest 4 refuses to spy on a missing
+    // method (Vitest 2 allowed it), so stub the global instead.
+    vi.stubGlobal("confirm", vi.fn(() => true));
     render(<Harness provider={provider} initial={{ resource: "public.clients" }} />);
     await screen.findByText("Ana Ruiz");
     fireEvent.click(screen.getAllByRole("checkbox")[2]!);
@@ -269,7 +271,7 @@ describe("DataStudio P2", () => {
     await waitFor(() => expect(calls.find((c) => c.op === "deleteMany")).toBeTruthy());
     expect(calls.find((c) => c.op === "deleteMany")!.args).toEqual([{ id: "c2", expectedVersion: "v1" }]);
     expect(db.map((r) => r.id)).toEqual(["c1", "c3"]);
-    confirm.mockRestore();
+    vi.unstubAllGlobals();
   });
 
   it("imports a CSV: maps columns, lists failing rows on a dry run, then imports", async () => {
@@ -386,7 +388,9 @@ describe("DataStudio P2", () => {
 
   it("undoes every row of a bulk delete from one Undo", async () => {
     const { provider, calls } = makeProvider();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    // happy-dom has no window.confirm; Vitest 4 refuses to spy on a missing
+    // method (Vitest 2 allowed it), so stub the global instead.
+    vi.stubGlobal("confirm", vi.fn(() => true));
     render(<Harness provider={provider} initial={{ resource: "public.clients" }} />);
     await screen.findByText("Ana Ruiz");
     const boxes = screen.getAllByRole("checkbox");
@@ -406,6 +410,6 @@ describe("DataStudio P2", () => {
     expect(await screen.findByText("Cy Lam")).toBeTruthy();
     expect(calls.filter((c) => c.op === "undo")).toHaveLength(2);
     expect(screen.queryByTestId("studio-activity-undo")).toBeNull();
-    confirm.mockRestore();
+    vi.unstubAllGlobals();
   });
 });

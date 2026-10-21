@@ -18,7 +18,7 @@ import { mergeConfig } from "vite";
  */
 const config: StorybookConfig = {
   stories: ["../stories/**/*.stories.@(ts|tsx)"],
-  addons: ["@storybook/addon-essentials"],
+  addons: ["@storybook/addon-docs", "@storybook/addon-a11y", "@storybook/addon-vitest"],
   framework: {
     name: "@storybook/react-vite",
     options: {
@@ -27,7 +27,6 @@ const config: StorybookConfig = {
       },
     },
   },
-  docs: { autodocs: false },
   typescript: {
     check: false,
     reactDocgen: false,

@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Toggle, ToggleGroup, ToggleGroupItem } from "@marktiderman/genesis-ui";
 import { Bold, Italic, Underline } from "lucide-react";
 
