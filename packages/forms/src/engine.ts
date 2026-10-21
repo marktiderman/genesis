@@ -1,4 +1,6 @@
-import { computePath, fieldMap, ruleVisible, type EvalScope } from "./logic";
+import { normalizeValue } from "./fields";
+import { coerceHidden } from "./hidden";
+import { computePath, fieldMap, own, type EvalScope } from "./logic";
 import { recall } from "./recall";
 import type { Block, FieldBlock, FormDefinition, FormEvent, Json } from "./types";
 import { validateField, type FieldValidator } from "./validate";
@@ -22,7 +24,9 @@ export interface FormState {
 }
 
 export interface CreateFormOptions {
+  /** Prefilled answers by field id. Logged as leading `answer` events with `source: "prefill"`. */
   initialValues?: Record<string, Json>;
+  /** Hidden inputs by name. Declared ones are typed with `coerceHidden`, as the server types them. */
   hidden?: Record<string, Json | undefined>;
   validators?: Record<string, FieldValidator>;
   /** Timestamps on events. Pass `() => undefined` to record none (anonymous forms). */
@@ -56,11 +60,26 @@ export interface FormEngine {
 }
 
 export function createForm(definition: FormDefinition, options: CreateFormOptions = {}): FormEngine {
+  return build(definition, options).engine;
+}
+
+interface Built {
+  engine: FormEngine;
+  /** Apply a logged event as-is, appending to the log in place (replay only). */
+  apply(event: FormEvent): void;
+  /** End a replay: later events are copied and notify subscribers again. */
+  finish(): void;
+}
+
+function build(definition: FormDefinition, options: CreateFormOptions, replaying = false): Built {
   const fields = fieldMap(definition);
   const byKey = new Map([...fields.values()].map((f) => [f.key, f]));
   const blocks = new Map(definition.blocks.map((b) => [b.id, b]));
   const clock = options.clock ?? (() => Date.now());
   const listeners = new Set<() => void>();
+  // While replaying, events are pushed onto one array instead of copied per
+  // event, so a long log replays in linear time.
+  let batch = replaying;
 
   const scopeOf = (values: FormState["values"], hidden: FormState["hidden"]): EvalScope => ({
     values,
@@ -68,12 +87,18 @@ export function createForm(definition: FormDefinition, options: CreateFormOption
     fields,
   });
 
-  const initialValues: FormState["values"] = { ...(options.initialValues ?? {}) };
-  const initialHidden = { ...(options.hidden ?? {}) };
-  const first = computePath(definition, scopeOf(initialValues, initialHidden));
+  // Declared inputs are typed exactly as the server types them; undeclared
+  // names pass through (logic and recall cannot reference them).
+  const declared = new Set((definition.hidden ?? []).map((h) => h.name));
+  const initialHidden: FormState["hidden"] = {};
+  for (const [name, value] of Object.entries(options.hidden ?? {})) {
+    if (!declared.has(name)) initialHidden[name] = value;
+  }
+  Object.assign(initialHidden, coerceHidden(definition, options.hidden).values);
 
+  const first = computePath(definition, scopeOf({}, initialHidden));
   let state: FormState = {
-    values: initialValues,
+    values: {},
     hidden: initialHidden,
     path: first.path,
     current: first.path[0] ?? null,
@@ -86,25 +111,41 @@ export function createForm(definition: FormDefinition, options: CreateFormOption
 
   const emit = (next: FormState) => {
     state = next;
+    if (batch) return;
     for (const l of listeners) l();
+  };
+  const log = (event: FormEvent): FormEvent[] => {
+    if (!batch) return [...state.events, event];
+    state.events.push(event);
+    return state.events;
   };
   const stamp = <E extends FormEvent>(event: E): E => {
     const at = clock();
     return at === undefined ? event : { ...event, at };
   };
 
-  const isVisibleIn = (s: FormState, id: string) =>
-    s.path.includes(id) && ruleVisible(definition, id, scopeOf(s.values, s.hidden));
+  // Every block on the path is visible: the path only takes blocks whose
+  // rules allow them, given the answers before them.
+  const isVisibleIn = (s: FormState, id: string) => s.path.includes(id);
 
   const errorsFor = (s: FormState, ids: string[]) => {
     const errors: Record<string, string> = {};
     for (const id of ids) {
       const field = fields.get(id);
       if (!field || !isVisibleIn(s, id)) continue;
-      const message = validateField(field, s.values[id], { custom: options.validators?.[id] });
+      const message = validateField(field, own(s.values, id), { custom: options.validators?.[id] });
       if (message) errors[id] = message;
     }
     return errors;
+  };
+
+  const answer = (id: string, value: Json | undefined, event: FormEvent) => {
+    if (state.status === "completed" || own(state.values, id) === value) return;
+    const values = { ...state.values, [id]: value };
+    const { path } = computePath(definition, scopeOf(values, state.hidden));
+    const errors = { ...state.errors };
+    delete errors[id];
+    emit({ ...state, values, path, errors, events: log(event) });
   };
 
   const engine: FormEngine = {
@@ -125,24 +166,14 @@ export function createForm(definition: FormDefinition, options: CreateFormOption
 
     setValue(id, value) {
       if (!fields.has(id)) throw new Error(`No field "${id}".`);
-      if (state.status === "completed" || state.values[id] === value) return;
-      const values = { ...state.values, [id]: value };
-      const { path } = computePath(definition, scopeOf(values, state.hidden));
-      const { [id]: _cleared, ...errors } = state.errors;
-      emit({
-        ...state,
-        values,
-        path,
-        errors,
-        events: [...state.events, stamp({ type: "answer", field: id, value })],
-      });
+      answer(id, value, stamp({ type: "answer", field: id, value }));
     },
 
     next() {
       if (!state.current || state.status === "completed") return false;
       const errors = errorsFor(state, [state.current]);
       // A failed attempt is logged too, so a replay shows the same errors.
-      const events = [...state.events, stamp({ type: "next" as const })];
+      const events = log(stamp({ type: "next" as const }));
       if (Object.keys(errors).length) {
         emit({ ...state, errors: { ...state.errors, ...errors }, events });
         return false;
@@ -163,15 +194,15 @@ export function createForm(definition: FormDefinition, options: CreateFormOption
       let previous = history.pop();
       while (previous && !state.path.includes(previous)) previous = history.pop();
       if (!previous) return;
-      emit({ ...state, current: previous, history, events: [...state.events, stamp({ type: "back" as const })] });
+      emit({ ...state, current: previous, history, events: log(stamp({ type: "back" as const })) });
     },
 
     submit() {
       if (state.status === "completed") return false;
       const errors = errorsFor(state, state.path);
-      const events = [...state.events, stamp({ type: "submit" as const })];
+      const events = log(stamp({ type: "submit" as const }));
       if (Object.keys(errors).length) {
-        const firstError = state.path.find((id) => errors[id]) ?? state.current;
+        const firstError = state.path.find((id) => own(errors, id)) ?? state.current;
         emit({ ...state, errors, current: firstError, events });
         return false;
       }
@@ -186,13 +217,39 @@ export function createForm(definition: FormDefinition, options: CreateFormOption
     answers() {
       const out: Record<string, Json> = {};
       for (const id of state.path) {
-        const value = state.values[id];
-        if (fields.has(id) && value !== undefined && isVisibleIn(state, id)) out[id] = value;
+        const field = fields.get(id);
+        const value = own(state.values, id);
+        if (field && value !== undefined) out[id] = normalizeValue(value, field);
       }
       return out;
     },
   };
-  return engine;
+
+  // Prefilled answers are logged as leading `answer` events, so a replay of
+  // the log, and the server, see them too.
+  if (options.initialValues) {
+    for (const [id, value] of Object.entries(options.initialValues)) {
+      if (!fields.has(id) || value === undefined) continue;
+      answer(id, value, stamp({ type: "answer", field: id, value, source: "prefill" }));
+    }
+  }
+
+  const apply = (event: FormEvent) => {
+    if (event.type === "answer") {
+      if (fields.has(event.field)) {
+        const { at: _at, ...logged } = event;
+        answer(event.field, event.value, logged);
+      }
+    } else if (event.type === "next") engine.next();
+    else if (event.type === "back") engine.back();
+    else if (event.type === "submit") engine.submit();
+    // Unknown event types are ignored.
+  };
+  const finish = () => {
+    batch = false;
+    state = { ...state, events: [...state.events] };
+  };
+  return { engine, apply, finish };
 }
 
 /** Rebuild a form's state from its event log. Timestamps are ignored. */
@@ -201,15 +258,8 @@ export function replay(
   events: FormEvent[],
   options: Omit<CreateFormOptions, "clock" | "initialValues"> = {},
 ): FormEngine {
-  const engine = createForm(definition, { ...options, clock: () => undefined });
-  for (const event of events) {
-    if (event.type === "answer") {
-      if (engine.field(event.field)) engine.setValue(event.field, event.value);
-    } else if (event.type === "next") engine.next();
-    else if (event.type === "back") engine.back();
-    else if (event.type === "submit") engine.submit();
-    // Unknown event types are ignored.
-  }
+  const { engine, apply, finish } = build(definition, { ...options, initialValues: undefined, clock: () => undefined }, true);
+  for (const event of events) apply(event);
+  finish();
   return engine;
 }
-

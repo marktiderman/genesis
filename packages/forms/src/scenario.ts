@@ -4,10 +4,13 @@
  * playground, so every runtime is held to the same behaviour.
  */
 import { replay, type FormEngine, type FormState } from "./engine";
+import { compactEvents } from "./events";
 import { canonicalJson } from "./hash";
 import { fieldMap } from "./logic";
 import { validateSubmission } from "./server";
 import type { FormDefinition, FormEvent, Json } from "./types";
+
+export { compactEvents };
 
 export interface ScenarioExpectation {
   /** Keys (block ids for content) on the respondent's path. */
@@ -57,22 +60,6 @@ export interface ScenarioResult {
   pass: boolean;
   failures: string[];
   state: FormState;
-}
-
-/**
- * Merge consecutive answer events to the same field, keeping the last value.
- * Text inputs log one event per keystroke; the merged log replays to the same
- * state, because the path is derived from values alone.
- */
-export function compactEvents(events: FormEvent[]): FormEvent[] {
-  const out: FormEvent[] = [];
-  for (const event of events) {
-    const last = out[out.length - 1];
-    if (event.type === "answer" && last?.type === "answer" && last.field === event.field) {
-      out[out.length - 1] = event;
-    } else out.push(event);
-  }
-  return out;
 }
 
 function keyed(def: FormDefinition) {

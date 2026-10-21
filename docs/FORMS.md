@@ -305,11 +305,24 @@ export type LogicRule =
 - **Navigation is a history stack.** Back after a jump returns to where the respondent really was.
 - **Explicit visibility semantics.** A field that logic has hidden is never validated. Its value is
   cleared on submit by default (`settings.clearHiddenValues`) or kept. This applies to fields hidden by
-  logic, not to hidden *inputs*, which are never cleared.
+  logic, not to hidden *inputs*, which are never cleared. A kept value was never checked on the
+  path, so the server keeps it only if its format is valid (`validateField` with
+  `requireAnswers: false`) and drops it otherwise, in drafts too.
+- **Logic reads the answers on the path.** The path is built in one forward pass: a block's
+  show/hide rules, and the jumps from it, see only the fields already on the path before it (a jump
+  also sees its own field). A field that is hidden, jumped over or later in the form reads as
+  unanswered whatever value it still holds, so a stale answer never drives logic and the path needs
+  no fixed point. `parseForm` warns about a rule that reads a field which does not come before the
+  block it applies to.
+- **Empty is unanswered.** In comparisons an empty value (unanswered, `null`, blank text, an empty
+  list: `isEmptyValue`) fails `eq`, `in` and `contains` and passes `neq`. So `eq null` is never
+  true for a cleared field, and `neq x` is true for a field not answered yet.
 - **Trusted context.** A hidden input with `source: "server"` is never read from the client. The
   form loader resolves it for display (recall), and the submit handler resolves it again,
   authoritatively, and stores it in `response.context`. URL and host inputs are untrusted and stored
-  in `response.hidden`. Recall of an unanswered field renders its
+  in `response.hidden`. The engine and the server type every declared input with the same
+  `coerceHidden(definition, raw)`: only string, number and boolean primitives are accepted, `""` is
+  not a number, and strings over 1000 characters are dropped. Recall of an unanswered field renders its
   `fallback`; it never drops the question.
 - **Extensible.** `registerFunction({ name, args, returns, impl })` adds pure functions. They are
   type-checked by the analyser and must be installed wherever the form is evaluated, including on
@@ -386,6 +399,10 @@ form.state.visible("enterprise_needs");
 form.state.variables.score;
 await form.submit();
 ```
+
+In R1, `initialValues` (prefilled answers) are logged as leading `answer` events with
+`source: "prefill"`, so `replay(definition, engine.events)` and the server rebuild the same response.
+`replay` appends to the log in place, so a long log replays in linear time.
 
 The store being framework-agnostic is what makes `@marktiderman/genesis-forms/server`, `@marktiderman/genesis-forms/testing`, React Native,
 and later Vue or Svelte bindings cheap.
@@ -540,7 +557,11 @@ export interface FormStore {
 - **The server decides.** `createSubmitHandler()` loads the pinned version, replays the answers
   through the same engine, clears values of fields hidden by logic, resolves server-sourced context, recomputes variables and the ending, and only then
   writes. It also signs outgoing webhooks (HMAC, with timestamp and replay protection) and supports
-  idempotency keys so double submits don't create duplicates.
+  idempotency keys so double submits don't create duplicates. The R1 `validateSubmission` already
+  runs `parseForm` on the definition (cached per definition object) and refuses one that fails,
+  returns `{ ok: false, errors: { "": "Malformed submission." } }` for a body of the wrong shape
+  (events that fail `isFormEvent`, answers or hidden inputs that are not plain JSON objects) instead
+  of throwing, and compacts the event log before enforcing `maxEvents` (default 10 000).
 - **Supabase adapter.** Ships SQL for `forms`, `form_versions` and `form_responses`, RLS policies,
   storage bucket policies, and an edge-function submit handler. **Clients never write response
   tables directly**: anon and authenticated roles get no `INSERT` or `UPDATE` on `form_responses`.
@@ -607,7 +628,8 @@ trace ("why is this field hidden?"); and `genesis-forms typegen` and `genesis-fo
 - No `eval`, no `Function`, no HTML injection: rich text in content blocks is a sanitized,
   structured document, not HTML.
 - `sensitive` fields: excluded from analytics, masked in devtools, optionally encrypted at rest by
-  the store adapter.
+  the store adapter. In R1 it is a top-level `FieldBlock` property (`f.shortText("ssn", { label,
+  sensitive: true })`); `props.sensitive` is read as an alias, and `isSensitive(block)` checks both.
 - Spam: honeypot and timing checks built in; captcha as a plugin; rate limiting in the server
   handler.
 - Retention: `settings.retention` (for example, delete drafts after 30 days); the Supabase adapter

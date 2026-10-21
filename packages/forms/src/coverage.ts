@@ -6,7 +6,7 @@
  */
 import { canonicalJson } from "./hash";
 import { choiceOptions } from "./fields";
-import { computePath, evaluate, fieldMap, ruleVisible, steps, type EvalScope } from "./logic";
+import { evaluate, fieldMap, steps, walkPath, type EvalScope, type PathWalk } from "./logic";
 import type { Condition, FieldBlock, FormDefinition, Json } from "./types";
 import { validateField } from "./validate";
 
@@ -130,13 +130,16 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
 
   const keyOf = (id: string) => fields.get(id)?.key ?? id;
 
-  const terminal = (scope: EvalScope, path: string[], ending: string | null) => {
+  const terminal = (scope: EvalScope, walk: PathWalk) => {
+    const { path, ending } = walk;
     paths++;
     for (const id of path) reachedBlocks.add(id);
     for (const rule of def.logic ?? []) {
       if (fired.has(rule.id)) continue;
       if (rule.effect === "jump" && !path.includes(rule.from)) continue;
-      if (evaluate(rule.when, scope)) fired.add(rule.id);
+      // Each rule sees the answers on the path before the block it applies to.
+      const at = rule.effect === "jump" ? walk.scopeAt(rule.from, true) : walk.scopeAt(rule.target);
+      if (evaluate(rule.when, at)) fired.add(rule.id);
     }
     if (ending === null) return;
     const entry = (endings[ending] ??= { reached: false });
@@ -145,7 +148,7 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
     const witness: Record<string, Json> = {};
     for (const id of path) {
       const v = scope.values[id];
-      if (fields.has(id) && v !== undefined && ruleVisible(def, id, scope)) witness[keyOf(id)] = v;
+      if (fields.has(id) && v !== undefined) witness[keyOf(id)] = v;
     }
     entry.witness = witness;
     const hidden = Object.fromEntries(
@@ -161,9 +164,9 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
       return;
     }
     const scope: EvalScope = { values, hidden, fields };
-    const { path, ending } = computePath(def, scope);
-    const next = path.find((id) => fields.has(id) && !assigned.has(id));
-    if (next === undefined) return terminal(scope, path, ending);
+    const walk = walkPath(def, scope);
+    const next = walk.path.find((id) => fields.has(id) && !assigned.has(id));
+    if (next === undefined) return terminal(scope, walk);
     const nextAssigned = new Set(assigned).add(next);
     for (const value of domains.get(next) ?? [undefined]) {
       explore({ ...values, [next]: value }, nextAssigned, hidden);

@@ -1,4 +1,5 @@
 import { summarizeValue } from "./fields";
+import { own } from "./logic";
 import type { FieldBlock, Json } from "./types";
 
 const TOKEN = /\{\{\s*(field|hidden):([A-Za-z0-9_-]+)\s*(?:\|([^}]*))?\}\}/g;
@@ -19,10 +20,10 @@ export function recall(text: string, scope: RecallScope): string {
   return text.replace(TOKEN, (_match, kind: string, name: string, fallback?: string) => {
     if (kind === "field") {
       const field = scope.fieldsByKey.get(name);
-      const out = field ? summarizeValue(scope.values[field.id], field) : "";
+      const out = field ? summarizeValue(own(scope.values, field.id), field) : "";
       return out || (fallback ?? "").trim();
     }
-    const value = scope.hidden[name];
+    const value = own(scope.hidden, name);
     const out = value === undefined || value === null ? "" : String(value);
     return out || (fallback ?? "").trim();
   });
