@@ -24,8 +24,9 @@
  *
  * WHAT IT CHECKS
  *
- * Every target in the `exports` map — both the `types` and the `import`
- * condition — resolves to a file that actually exists under `dist/`.
+ * Every target in the `exports` map — every condition, including nested
+ * ones such as `require: { types, default }` — resolves to a file that
+ * actually exists under `dist/`.
  *
  * WILDCARDS
  *
@@ -89,13 +90,18 @@ let concrete = 0;
 let wildcard = 0;
 
 for (const [subpath, conditions] of Object.entries(pkg.exports ?? {})) {
-  const targets =
-    typeof conditions === "string"
-      ? { default: conditions }
-      : (conditions ?? {});
+  // Conditions may nest (`import: { types, default }`); flatten them to
+  // `import.types`-style labels so nested targets are checked too.
+  const targets = {};
+  const flatten = (value, label) => {
+    if (typeof value === "string") targets[label] = value;
+    else if (value && typeof value === "object") {
+      for (const [k, v] of Object.entries(value)) flatten(v, label ? `${label}.${k}` : k);
+    }
+  };
+  flatten(conditions, typeof conditions === "string" ? "default" : "");
 
   for (const [condition, target] of Object.entries(targets)) {
-    if (typeof target !== "string") continue;
 
     if (target.includes("*")) {
       // Wildcard: require at least one emitted file to match.
