@@ -33,7 +33,8 @@
  * exist" is the wrong question. For those the check asserts the pattern
  * matches AT LEAST ONE emitted file, which catches a whole directory failing
  * to emit while still allowing the pattern's open-ended set. A wildcard that
- * matches nothing is reported as a failure.
+ * matches nothing is reported as a failure. A wildcard outside `dist/` (such
+ * as committed fixtures) is matched against its own top-level directory.
  *
  * Usage:  node ../../scripts/check-exports-resolve.mjs [packageDir]
  *         (packageDir defaults to cwd, which is the package dir under `pnpm run`)
@@ -100,7 +101,11 @@ for (const [subpath, conditions] of Object.entries(pkg.exports ?? {})) {
       // Wildcard: require at least one emitted file to match.
       wildcard++;
       const re = patternToRegExp(target);
-      if (!distFiles.some((f) => re.test(f))) {
+      // Non-dist targets (e.g. `./conformance/*`, committed fixtures) are
+      // matched against their own top-level directory.
+      const top = target.replace(/^\.\//, "").split("/")[0];
+      const candidates = top === "dist" ? distFiles : walk(join(pkgRoot, top));
+      if (!candidates.some((f) => re.test(f))) {
         failures.push(
           `${subpath} [${condition}] -> ${target} : pattern matched no emitted file`,
         );

@@ -38,11 +38,16 @@ export interface FormEngine {
   field(id: string): FieldBlock | undefined;
   block(id: string): Block | undefined;
   isVisible(id: string): boolean;
+  /**
+   * Set an answer. Like `next`, `back` and `submit`, it does nothing once the
+   * response is completed: a completed response is final, so its stored
+   * answers are the ones that were validated.
+   */
   setValue(id: string, value: Json | undefined): void;
   /** Validate the current step and move on. Returns false if it has errors. */
   next(): boolean;
   back(): void;
-  /** Validate every visible field and complete. Returns false if it has errors. */
+  /** Validate every visible field and complete. Returns false if it has errors or is already completed. */
   submit(): boolean;
   /** Text with `{{recall}}` tokens resolved. */
   text(template: string): string;
@@ -120,7 +125,7 @@ export function createForm(definition: FormDefinition, options: CreateFormOption
 
     setValue(id, value) {
       if (!fields.has(id)) throw new Error(`No field "${id}".`);
-      if (state.values[id] === value) return;
+      if (state.status === "completed" || state.values[id] === value) return;
       const values = { ...state.values, [id]: value };
       const { path } = computePath(definition, scopeOf(values, state.hidden));
       const { [id]: _cleared, ...errors } = state.errors;
@@ -134,15 +139,16 @@ export function createForm(definition: FormDefinition, options: CreateFormOption
     },
 
     next() {
-      if (!state.current) return false;
+      if (!state.current || state.status === "completed") return false;
       const errors = errorsFor(state, [state.current]);
+      // A failed attempt is logged too, so a replay shows the same errors.
+      const events = [...state.events, stamp({ type: "next" as const })];
       if (Object.keys(errors).length) {
-        emit({ ...state, errors: { ...state.errors, ...errors } });
+        emit({ ...state, errors: { ...state.errors, ...errors }, events });
         return false;
       }
       const at = state.path.indexOf(state.current);
       const target = state.path[at + 1];
-      const events = [...state.events, stamp({ type: "next" as const })];
       if (!target) {
         emit({ ...state, events });
         return true;
@@ -152,6 +158,7 @@ export function createForm(definition: FormDefinition, options: CreateFormOption
     },
 
     back() {
+      if (state.status === "completed") return;
       const history = [...state.history];
       let previous = history.pop();
       while (previous && !state.path.includes(previous)) previous = history.pop();
@@ -160,20 +167,16 @@ export function createForm(definition: FormDefinition, options: CreateFormOption
     },
 
     submit() {
+      if (state.status === "completed") return false;
       const errors = errorsFor(state, state.path);
+      const events = [...state.events, stamp({ type: "submit" as const })];
       if (Object.keys(errors).length) {
         const firstError = state.path.find((id) => errors[id]) ?? state.current;
-        emit({ ...state, errors, current: firstError });
+        emit({ ...state, errors, current: firstError, events });
         return false;
       }
       const { ending } = computePath(definition, scopeOf(state.values, state.hidden));
-      emit({
-        ...state,
-        errors: {},
-        status: "completed",
-        ending,
-        events: [...state.events, stamp({ type: "submit" as const })],
-      });
+      emit({ ...state, errors: {}, status: "completed", ending, events });
       return true;
     },
 

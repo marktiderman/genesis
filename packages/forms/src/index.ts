@@ -43,3 +43,13 @@ export {
 export { recall } from "./recall";
 export { validateField, REQUIRED_MESSAGE, type FieldValidator, type StandardSchemaV1 } from "./validate";
 export { canonicalJson, fingerprint } from "./hash";
+export {
+  describeCondition,
+  explain,
+  type Explanation,
+  type ExplainInput,
+  type ExplainOptions,
+  type FieldValidation,
+  type JumpTrace,
+  type RuleTrace,
+} from "./explain";
