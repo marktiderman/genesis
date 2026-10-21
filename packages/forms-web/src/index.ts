@@ -1,6 +1,7 @@
 export {
   Form,
   type EndingSlotProps,
+  type ErrorSummaryItem,
   type ErrorSummarySlotProps,
   type FormProps,
   type FormSlotMap,

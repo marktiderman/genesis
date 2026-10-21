@@ -427,7 +427,7 @@ export interface FieldTypeManifest<TValue, TProps> {
   summarize: (v: TValue, props: TProps, locale: string) => string; // recall, exports, emails
   toJsonSchema?: (props: TProps) => JSONSchema;
   a11y: { semantics: "control" | "group"; autocomplete?: string };
-  keyboard?: { shortcuts?: "letters" | "numbers" };  // one-at-a-time mode
+  keyboard?: { shortcuts?: "letters" | "numbers" };  // planned; letter/number shortcuts are not built yet
 }
 
 // @marktiderman/genesis-forms-react: renderers are registered per platform, with ranked testers
@@ -482,7 +482,8 @@ import { Form } from "@marktiderman/genesis-forms-web";
 
 **Three layouts over one definition:** `classic` (all visible blocks, optional columns), `paged`
 (split at page breaks, progress bar or steps), and `focus` (one question at a time: Enter advances,
-letter or number keys select, Shift+Enter makes a newline, the next question animates in). Layouts
+in long text Enter makes a newline and Ctrl/Cmd+Enter advances, arrow keys move through and select
+options, and a click, tap or Space on a single pick advances except on the last question). Layouts
 are themselves registered, so a "chat" layout is a plugin, not a fork.
 
 **Composition, from most to least done for you:**
@@ -507,9 +508,12 @@ Custom CSS is an escape hatch.
 
 - `fieldset`/`legend` for every `semantics: "group"` type (radio, checkbox list, rating, scale,
   matrix);
-- `aria-invalid` and `aria-describedby` on every control; a focusable error summary on submit;
-- in focus mode, focus moves to each question's heading, progress is announced through `aria-live`,
-  and the sticky footer never covers the focused control (WCAG 2.2 2.4.11);
+- `aria-invalid` on every control and question group, and `aria-describedby` linking each text
+  control or group to its description and error; a focusable error summary on submit, above the
+  fields, linking to each invalid one;
+- in focus mode, focus moves to each question (a text field's input, otherwise the visible question
+  text), a failed step is announced once through a persistent live region, the ending heading takes
+  focus, and the sticky footer never covers the focused control (WCAG 2.2 2.4.11);
 - `autocomplete` tokens from the manifest; paste and autofill are never blocked (3.3.8);
 - answers survive Back, refresh and resume, and recall avoids asking twice (3.3.7);
 - 24px minimum targets (2.5.8); reduced motion respected;
