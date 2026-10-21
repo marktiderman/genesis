@@ -43,7 +43,9 @@ export function validateField(
     return field.required && options.requireAnswers !== false ? REQUIRED_MESSAGE : null;
   }
   const manifest = getFieldType(field.type);
-  const builtIn = manifest?.validate?.(value as Json, field) ?? null;
+  // A type with no manifest cannot say what a valid answer is, so none is accepted.
+  if (!manifest) return `Unknown field type "${field.type}".`;
+  const builtIn = manifest.validate?.(value as Json, field) ?? null;
   if (builtIn) return builtIn;
   return options.custom ? runCustom(options.custom, value as Json) : null;
 }

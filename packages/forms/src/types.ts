@@ -19,6 +19,11 @@ export interface FieldBlock {
   description?: string;
   placeholder?: string;
   required?: boolean;
+  /**
+   * Personal or secret data (an SSN, a health detail). Tools such as devtools
+   * mask it. `props.sensitive: true` is read as an alias; see `isSensitive`.
+   */
+  sensitive?: boolean;
   props?: Record<string, Json>;
 }
 
@@ -107,7 +112,14 @@ export interface FormDefinition {
 
 /** One thing a respondent did. A response is the replay of its events. */
 export type FormEvent =
-  | { type: "answer"; field: string; value: Json | undefined; at?: number }
+  | {
+      type: "answer";
+      field: string;
+      value: Json | undefined;
+      at?: number;
+      /** `"prefill"`: set by `initialValues` when the form was created, not typed by the respondent. */
+      source?: "prefill";
+    }
   | { type: "next"; at?: number }
   | { type: "back"; at?: number }
   | { type: "submit"; at?: number };

@@ -1,4 +1,4 @@
-import type { FieldBlock, Json, Operator } from "./types";
+import type { Block, FieldBlock, Json, Operator } from "./types";
 
 /**
  * A field type, without any UI. Renderers are registered separately per
@@ -19,6 +19,11 @@ export interface FieldTypeManifest {
   validate?: (value: Json, field: FieldBlock) => string | null;
   /** Plain text for recall, exports and emails. */
   summarize?: (value: Json, field: FieldBlock) => string;
+  /**
+   * The form a (valid, non-empty) value is stored in, such as an email
+   * without surrounding spaces. Applied by `engine.answers()` and the server.
+   */
+  normalize?: (value: Json, field: FieldBlock) => Json;
 }
 
 // One registry per process, shared by every entry point (index, server,
@@ -56,6 +61,17 @@ export function isEmptyValue(value: Json | undefined, field?: FieldBlock): boole
   if (typeof value === "string") return value.trim() === "";
   if (Array.isArray(value)) return value.length === 0;
   return false;
+}
+
+/** A value in its stored form (see `FieldTypeManifest.normalize`). */
+export function normalizeValue(value: Json, field: FieldBlock): Json {
+  const manifest = registry.get(field.type);
+  return manifest?.normalize ? manifest.normalize(value, field) : value;
+}
+
+/** Whether a block holds personal or secret data: `sensitive: true`, or the `props.sensitive: true` alias. */
+export function isSensitive(block: Block): boolean {
+  return block.kind === "field" && (block.sensitive === true || block.props?.sensitive === true);
 }
 
 export function summarizeValue(value: Json | undefined, field: FieldBlock): string {
@@ -108,6 +124,22 @@ function textValidate(fallback: number) {
   };
 }
 
+/** The longest address SMTP allows (RFC 5321). */
+const MAX_EMAIL_LENGTH = 254;
+
+/**
+ * `local@domain.tld`: no spaces, exactly one `@`, and a dot inside the domain.
+ * A linear scan rather than a regex, so a hostile value cannot backtrack.
+ */
+function isEmailAddress(value: string): boolean {
+  if (value.length > MAX_EMAIL_LENGTH || /\s/.test(value)) return false;
+  const at = value.indexOf("@");
+  if (at < 1 || value.indexOf("@", at + 1) !== -1) return false;
+  const domain = value.slice(at + 1);
+  // A dot with at least one character on each side.
+  return domain.slice(1, -1).includes(".");
+}
+
 const builtins: FieldTypeManifest[] = [
   {
     type: "short-text",
@@ -135,9 +167,10 @@ const builtins: FieldTypeManifest[] = [
     operators: textOps,
     a11y: { semantics: "control", autocomplete: "email" },
     validate: (value) =>
-      typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+      typeof value === "string" && isEmailAddress(value.trim())
         ? null
         : "Enter an email address like name@example.com.",
+    normalize: (value) => (typeof value === "string" ? value.trim() : value),
   },
   {
     type: "rating",
@@ -189,7 +222,11 @@ const builtins: FieldTypeManifest[] = [
     a11y: { semantics: "group" },
     validate: (value, field) => {
       const allowed = new Set(choiceOptions(field).map((o) => o.value));
-      return Array.isArray(value) && value.every((v) => typeof v === "string" && allowed.has(v))
+      // Each option at most once, so a value is never longer than the option list.
+      return Array.isArray(value) &&
+        value.length <= allowed.size &&
+        new Set(value).size === value.length &&
+        value.every((v) => typeof v === "string" && allowed.has(v))
         ? null
         : "Choose from the options.";
     },

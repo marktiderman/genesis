@@ -1,4 +1,5 @@
 import { fingerprint } from "./hash";
+import { parseForm } from "./parse";
 import type {
   Condition,
   ContentBlock,
@@ -28,6 +29,8 @@ export interface FieldOptions {
   description?: string;
   placeholder?: string;
   required?: boolean;
+  /** Personal or secret data (see `isSensitive`). */
+  sensitive?: boolean;
   /** Defaults to the key. Set it before renaming a key on a live form, so answers stay linked. */
   id?: string;
 }
@@ -52,6 +55,7 @@ function field<K extends string, V>(
   if (options.description) block.description = options.description;
   if (options.placeholder) block.placeholder = options.placeholder;
   if (options.required) block.required = true;
+  if (options.sensitive) block.sensitive = true;
   if (props && Object.keys(props).length) block.props = props;
   return block as FieldSpec<K, V>;
 }
@@ -92,27 +96,35 @@ export const f = {
 
 // ── Rule builder ─────────────────────────────────────────────────────────────
 
+/**
+ * Resolves a field key to its id. `"target"` (a show/hide target or a jump
+ * destination) also accepts the id of a content block.
+ */
+export type KeyResolver = (key: string, as?: "field" | "target") => string;
+
 /** A rule written with field keys; `defineForm` resolves keys to ids. */
 export interface RuleSpec {
   readonly __rule: true;
-  build(resolve: (key: string) => string, id: string): LogicRule;
+  build(resolve: KeyResolver, id: string): LogicRule;
 }
 
 type Effects = {
+  /** Show a field (by key) or a content block (by id). */
   show(targetKey: string): RuleSpec;
+  /** Hide a field (by key) or a content block (by id). */
   hide(targetKey: string): RuleSpec;
-  /** Jump from this field to a later field, or to an ending. */
+  /** Jump from this field to a later field or content block, or to an ending. */
   jumpTo(target: string | { ending: string }): RuleSpec;
 };
 
-function effects(fromKey: string | null, condition: (resolve: (key: string) => string) => Condition): Effects {
-  const spec = (make: (resolve: (key: string) => string, id: string) => LogicRule): RuleSpec => ({
+function effects(fromKey: string | null, condition: (resolve: KeyResolver) => Condition): Effects {
+  const spec = (make: (resolve: KeyResolver, id: string) => LogicRule): RuleSpec => ({
     __rule: true,
     build: make,
   });
   return {
-    show: (target) => spec((r, id) => ({ id, when: condition(r), effect: "show", target: r(target) })),
-    hide: (target) => spec((r, id) => ({ id, when: condition(r), effect: "hide", target: r(target) })),
+    show: (target) => spec((r, id) => ({ id, when: condition(r), effect: "show", target: r(target, "target") })),
+    hide: (target) => spec((r, id) => ({ id, when: condition(r), effect: "hide", target: r(target, "target") })),
     jumpTo: (target) =>
       spec((r, id) => {
         if (!fromKey) throw new Error("jumpTo needs a starting field: use when(key)…");
@@ -121,7 +133,7 @@ function effects(fromKey: string | null, condition: (resolve: (key: string) => s
           when: condition(r),
           effect: "jump",
           from: r(fromKey),
-          to: typeof target === "string" ? r(target) : target,
+          to: typeof target === "string" ? r(target, "target") : target,
         };
       }),
   };
@@ -129,7 +141,7 @@ function effects(fromKey: string | null, condition: (resolve: (key: string) => s
 
 const compare =
   (key: string, op: Operator, value?: Json) =>
-  (r: (key: string) => string): Condition =>
+  (r: KeyResolver): Condition =>
     value === undefined ? { op, left: { field: r(key) } } : { op, left: { field: r(key) }, right: { value } };
 
 /** Start a rule on a field: `when("overall").lessThan(4).jumpTo("improve")`. */
@@ -153,7 +165,7 @@ export function when(key: string) {
 when.condition = (condition: Condition, from?: string) =>
   effects(from ?? null, (r) => resolveCondition(condition, r));
 
-function resolveCondition(c: Condition, r: (key: string) => string): Condition {
+function resolveCondition(c: Condition, r: KeyResolver): Condition {
   if ("all" in c) return { all: c.all.map((x) => resolveCondition(x, r)) };
   if ("any" in c) return { any: c.any.map((x) => resolveCondition(x, r)) };
   if ("not" in c) return { not: resolveCondition(c.not, r) };
@@ -209,12 +221,17 @@ export function defineForm<
   H extends Record<string, HiddenSpec> = Record<never, HiddenSpec>,
 >(input: FormInput<B, H>): Form<AnswersOf<B>, { [K in keyof H]?: HiddenValue<H[K]["type"]> }> {
   const keyToId = new Map<string, string>();
+  const contentIds = new Set<string>();
   for (const block of input.blocks) {
     if (block.kind === "field") keyToId.set(block.key, block.id);
+    else contentIds.add(block.id);
   }
-  const resolve = (key: string) => {
-    const id = keyToId.get(key);
-    if (!id) throw new Error(`defineForm "${input.id}": no field with key "${key}".`);
+  const resolve: KeyResolver = (key, as = "field") => {
+    const id = keyToId.get(key) ?? (as === "target" && contentIds.has(key) ? key : undefined);
+    if (!id) {
+      const what = as === "target" ? "field key or content block id" : "field with key";
+      throw new Error(`defineForm "${input.id}": no ${what} "${key}".`);
+    }
     return id;
   };
 
@@ -239,6 +256,11 @@ export function defineForm<
   if (input.meta) definition.meta = input.meta;
 
   const frozen = JSON.parse(JSON.stringify(definition)) as FormDefinition;
+  const parsed = parseForm(frozen);
+  if (!parsed.ok) {
+    const list = parsed.issues.map((i) => `  - ${i.path ? `${i.path}: ` : ""}${i.message}`).join("\n");
+    throw new Error(`defineForm "${input.id}" is not a valid form:\n${list}`);
+  }
   return {
     definition: frozen,
     toJSON: () => JSON.parse(JSON.stringify(frozen)) as FormDefinition,
