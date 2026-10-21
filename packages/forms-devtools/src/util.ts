@@ -1,15 +1,8 @@
-import type { Block, FormDefinition, FormEvent } from "@marktiderman/genesis-forms";
+import { isFormEvent, isSensitive, type FormDefinition, type FormEvent } from "@marktiderman/genesis-forms";
+
+export { isFormEvent, isSensitive };
 
 // ── Sensitive fields ─────────────────────────────────────────────────────────
-
-/**
- * Local stand-in for the engine's `isSensitive(block)`: a field is sensitive
- * when the block (top level) or its props say so. Swap for the engine helper
- * once it ships.
- */
-export const isSensitive = (block: Block): boolean =>
-  (block as { sensitive?: unknown }).sensitive === true ||
-  (block.kind === "field" && block.props?.sensitive === true);
 
 /** Ids of the sensitive fields in a definition. */
 export const sensitiveIds = (definition: FormDefinition): Set<string> =>
@@ -47,15 +40,6 @@ export function exceedsDepth(value: unknown, limit = MAX_VALUE_DEPTH): boolean {
   }
   return false;
 }
-
-/** Shape check for one event (no depth check; pair with `exceedsDepth`). */
-export const isFormEvent = (event: unknown): event is FormEvent => {
-  if (!event || typeof event !== "object" || Array.isArray(event)) return false;
-  const e = event as Record<string, unknown>;
-  if (e.at !== undefined && typeof e.at !== "number") return false;
-  if (e.type === "answer") return typeof e.field === "string";
-  return e.type === "next" || e.type === "back" || e.type === "submit";
-};
 
 /** Structural equality for two events, used to tell whether a log still extends another. */
 export function sameEvent(a: FormEvent, b: FormEvent): boolean {

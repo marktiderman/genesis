@@ -1,4 +1,4 @@
-import type { FormDefinition, FormEvent, Json } from "@marktiderman/genesis-forms";
+import { isFormEvent, type FormDefinition, type FormEvent, type Json } from "@marktiderman/genesis-forms";
 
 /** Messages between the playground shell and the device-frame iframe (same origin only). */
 export type ShellToFrame = {
@@ -11,14 +11,6 @@ export type ShellToFrame = {
 export type FrameToShell = { type: "gf:ready" } | { type: "gf:events"; events: FormEvent[] };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
-
-// Local shape check; the devtools share decoder has the same one internally.
-const isFormEvent = (event: unknown): event is FormEvent => {
-  if (!isRecord(event)) return false;
-  if (event.at !== undefined && typeof event.at !== "number") return false;
-  if (event.type === "answer") return typeof event.field === "string";
-  return event.type === "next" || event.type === "back" || event.type === "submit";
-};
 
 const isEventLog = (events: unknown): events is FormEvent[] => Array.isArray(events) && events.every(isFormEvent);
 
