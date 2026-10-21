@@ -183,7 +183,7 @@ export default function FormsScenario() {
             ref={frameRef}
             src={frameSrc}
             title={`${scenario.title} on a ${device}`}
-            className={cn("rounded-xl border bg-background shadow-sm", DEVICE_CLASS[device])}
+            className={cn("max-w-full rounded-xl border bg-background shadow-sm", DEVICE_CLASS[device])}
           />
         </div>
         <Card>
