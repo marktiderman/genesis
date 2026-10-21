@@ -199,6 +199,11 @@ type IntakeAnswers = typeof intake.$answers;
 const json = intake.toJSON(); // the same FormDefinition the builder produces
 ```
 
+The object maps for `hidden` and `variables` above are **authoring sugar only**. `defineForm`
+normalizes them to the canonical array shape that `FormDefinition` declares (`{ name, type, … }[]`,
+in declaration order), and `toJSON()` always emits that canonical shape. `parseForm` accepts only
+the canonical shape, so there is exactly one stored format, and the builder never sees the sugar.
+
 **Data-first:** the builder, an AI agent or an API produces the JSON directly. `parseForm(json)`
 validates it (structure, references, operator/type compatibility, cycles) and returns the same typed
 object. A CLI (`genesis-forms typegen intake.json`) generates `IntakeAnswers` for JSON-authored forms.
@@ -395,8 +400,8 @@ export interface FieldTypeManifest<TValue, TProps> {
   valueSchema: (props: TProps) => StandardSchemaV1<TValue>;
   emptyValue: TValue | undefined;
   operators: OperatorDef<TValue>[];               // feeds the logic builder and the analyser
-  serialize?: (v: TValue) => Json;                // required if TValue isn't plain JSON (files, dates)
-  deserialize?: (j: Json) => TValue;
+  value: { json: true }                           // TValue is already plain JSON
+       | { json: false; serialize: (v: TValue) => Json; deserialize: (j: Json) => TValue };
   summarize: (v: TValue, props: TProps, locale: string) => string; // recall, exports, emails
   toJsonSchema?: (props: TProps) => JSONSchema;
   a11y: { semantics: "control" | "group"; autocomplete?: string };
@@ -409,6 +414,10 @@ registerRenderer({ type: "email", rank: 10, Component: MyEmailField });         
 registerRenderer({ test: (b) => b.props?.variant === "cards", rank: 20, Component: ChoiceCards });
 ```
 
+- `registerFieldType` rejects a manifest whose `value` is `json: false` without both converters, so
+  a plugin can't register a `Date`, `File` or other non-JSON value that would corrupt drafts and
+  server replay. In development it also round-trips `defaultProps`' empty value through
+  `serialize`/`deserialize` (or `JSON.stringify`) and throws if the result differs.
 - The highest-ranked match wins, so overriding a built-in never needs a fork.
 - Registries are scoped (`<FormProvider registry={…}>`), so two forms on a page can differ.
 - A plugin is a package exporting a manifest plus renderers (`genesis-forms-field-signature`). It shows up
@@ -518,16 +527,19 @@ export interface FormStore {
 - **Partials and resume are separate settings**, because they raise different privacy questions.
   `capturePartials` autosaves drafts (debounced, offline-queued in IndexedDB or AsyncStorage).
   `resume: "device" | "link" | "user" | false` chooses how a respondent gets back.
-- **Every field type serializes**, so no type silently breaks resume.
+- **Every field type serializes**: the registry refuses types that don't (see the field-type
+  registry), so no type silently breaks resume.
 - **Uploads are direct-to-storage** with signed URLs, progress, retries and cancellation. A response
   holds file references, never file bytes.
 - **The server decides.** `createSubmitHandler()` loads the pinned version, replays the answers
   through the same engine, clears hidden values, recomputes variables and the ending, and only then
   writes. It also signs outgoing webhooks (HMAC, with timestamp and replay protection) and supports
   idempotency keys so double submits don't create duplicates.
-- **Supabase adapter.** Ships SQL for `forms`, `form_versions` and `form_responses`, RLS policies
-  (public insert of drafts by token, owner read), storage bucket policies, and an edge-function
-  submit handler.
+- **Supabase adapter.** Ships SQL for `forms`, `form_versions` and `form_responses`, RLS policies,
+  storage bucket policies, and an edge-function submit handler. **Clients never write response
+  tables directly**: anon and authenticated roles get no `INSERT` or `UPDATE` on `form_responses`.
+  Drafts and submissions both go through the handler, which validates and writes with its own role.
+  Staff read through RLS.
 
 ## Analytics
 
@@ -715,7 +727,7 @@ Members can always open it anonymously; anything identifying is opt-in.
 | Core | Definition format and schema, `defineForm`, `parseForm` (structure checks), show/hide, jump, recall with fallback, typed hidden inputs from the URL, validation | Variables and calculations, repeat groups, full static analysis, i18n |
 | Fields | `rating`, `nps`, `single-choice`, `multi-choice`, `yes-no`, `short-text`, `long-text`, `email` | Everything else |
 | Layouts | `focus` (members on phones) and `classic` | `paged`, print |
-| Store | Supabase: `forms`, `form_versions`, `form_responses` tables, RLS (anyone can insert a response; only staff can read) | Partials, resume, uploads |
+| Store | Supabase: `forms`, `form_versions`, `form_responses` tables. No client role can write `form_responses`; the submit handler is the only writer. Only staff can read. | Partials, resume, uploads |
 | Server | Edge-function submit handler that re-validates against the pinned version; honeypot and rate limit | Signed webhooks to third parties |
 | Admin | `ResourcePage` responses list, alert function, summary view | Builder, dashboards in the product |
 | Analytics | `form_view`, `form_start`, `submit_success` | Per-question drop-off |
