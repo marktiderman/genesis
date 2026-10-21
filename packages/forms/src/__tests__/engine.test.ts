@@ -51,6 +51,25 @@ describe("parseForm", () => {
     expect(messages).toMatch(/"contains" does not apply to a rating field/);
   });
 
+  it("reports malformed entries instead of throwing", () => {
+    const result = parseForm({
+      schemaVersion: 1,
+      id: "m",
+      title: "M",
+      blocks: [{ kind: "content", id: "c" }, { kind: "field", id: "a", key: "a", type: "yes-no", label: "A" }],
+      hidden: [null],
+      logic: [{ id: "r1" }, { id: "r2", when: { op: "eq" }, effect: "hide", target: "a" }, { id: "r3", when: { all: [null] }, effect: "hide", target: "a" }],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const messages = result.issues.map((i) => i.message).join("\n");
+    expect(messages).toMatch(/content|Required text/);
+    expect(messages).toMatch(/hidden input needs a name/);
+    expect(messages).toMatch(/needs an id and a `when`/);
+    expect(messages).toMatch(/needs an `op` and a `left`/);
+    expect(messages).toMatch(/condition must be an object/);
+  });
+
   it("warns about backward jumps", () => {
     const result = parseForm({
       schemaVersion: 1,

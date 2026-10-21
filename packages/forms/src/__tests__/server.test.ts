@@ -45,4 +45,21 @@ describe("validateSubmission", () => {
     const result = validateSubmission(def, { events: form.getState().events, answers: { overall: 1 } });
     expect(result.ok && result.submission.answers).toEqual({ overall: 5, contact_me: false });
   });
+
+  it("re-validates answers sent after the submit event", () => {
+    const events = [
+      { type: "answer" as const, field: "overall", value: 5 },
+      { type: "answer" as const, field: "contact_me", value: false },
+      { type: "submit" as const },
+      { type: "answer" as const, field: "overall", value: 99 },
+    ];
+    const result = validateSubmission(def, { events });
+    expect(result.ok).toBe(false);
+  });
+
+  it("does not treat unknown event types as a submit", () => {
+    const events = [{ type: "answer" as const, field: "overall", value: 5 }, { type: "anything" } as never];
+    const result = validateSubmission(def, { events }, { complete: false });
+    expect(result.ok && result.submission.status).toBe("draft");
+  });
 });

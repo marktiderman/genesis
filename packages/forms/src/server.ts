@@ -104,7 +104,9 @@ export function validateSubmission(
 
   const complete = options.complete !== false;
   if (complete) {
-    if (engine.getState().status !== "completed" && !engine.submit()) {
+    // Always re-validate: a replayed "completed" status proves nothing, since
+    // answers can follow the submit event in a client-supplied log.
+    if (!engine.submit()) {
       return { ok: false, errors: engine.getState().errors };
     }
   } else {

@@ -204,7 +204,8 @@ export function replay(
       if (engine.field(event.field)) engine.setValue(event.field, event.value);
     } else if (event.type === "next") engine.next();
     else if (event.type === "back") engine.back();
-    else engine.submit();
+    else if (event.type === "submit") engine.submit();
+    // Unknown event types are ignored.
   }
   return engine;
 }

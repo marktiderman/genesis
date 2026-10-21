@@ -88,3 +88,27 @@ describe("<Form> classic layout and slots", () => {
     expect(screen.getByRole("button", { name: "Next" })).toBeTruthy();
   });
 });
+
+describe("<Form> submission", () => {
+  it("shows the ending only after onSubmit resolves, and offers a retry when it fails", async () => {
+    let attempts = 0;
+    const onSubmit = vi.fn(async () => {
+      attempts++;
+      if (attempts === 1) throw new Error("offline");
+    });
+    render(<Form form={afterClass} layout="classic" onSubmit={onSubmit} />);
+    fireEvent.click(screen.getByRole("radio", { name: "5" }));
+    fireEvent.click(screen.getByRole("radio", { name: "No" }));
+    await act(async () => {
+      fireEvent.submit(screen.getByRole("button", { name: "Submit" }).closest("form")!);
+    });
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("alert").textContent).toMatch(/couldn't send/);
+    await act(async () => {
+      fireEvent.submit(screen.getByRole("button", { name: "Submit" }).closest("form")!);
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("status").textContent).toMatch(/Thanks, see you next class/);
+  });
+});
+

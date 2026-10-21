@@ -1,6 +1,7 @@
 import {
   useEffect,
   useRef,
+  useState,
   type ComponentType,
   type FormEvent as ReactFormEvent,
   type KeyboardEvent,
@@ -47,6 +48,8 @@ export interface ProgressSlotProps {
 export interface NavigationSlotProps {
   canGoBack: boolean;
   isLast: boolean;
+  /** True while `onSubmit` is running. */
+  busy: boolean;
   onBack: () => void;
   submitLabel: string;
   nextLabel: string;
@@ -92,16 +95,16 @@ function DefaultProgress({ step, total, className }: ProgressSlotProps) {
   );
 }
 
-function DefaultNavigation({ canGoBack, isLast, onBack, submitLabel, nextLabel, className }: NavigationSlotProps) {
+function DefaultNavigation({ canGoBack, isLast, busy, onBack, submitLabel, nextLabel, className }: NavigationSlotProps) {
   return (
     <div className={cn("flex items-center gap-3", className)}>
       {canGoBack ? (
-        <Button type="button" variant="outline" size="lg" onClick={onBack}>
+        <Button type="button" variant="outline" size="lg" onClick={onBack} disabled={busy}>
           Back
         </Button>
       ) : null}
-      <Button type="submit" size="lg">
-        {isLast ? submitLabel : nextLabel}
+      <Button type="submit" size="lg" loading={busy}>
+        {busy ? "Sending…" : isLast ? submitLabel : nextLabel}
       </Button>
     </div>
   );
@@ -135,7 +138,10 @@ export interface FormProps {
   /** Overrides the definition's layout. */
   layout?: "focus" | "classic";
   registry?: RendererRegistry;
-  /** Called once the form completes. */
+  /**
+   * Called once the form completes. The ending shows only after it resolves;
+   * if it rejects, the form stays on screen with an error and can be sent again.
+   */
   onSubmit?: (engine: FormEngine) => void | Promise<void>;
   /** Called after every answer (debounce it to save drafts). */
   onChange?: (state: FormState, engine: FormEngine) => void;
@@ -186,6 +192,8 @@ function FormBody({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mounted = useRef(false);
+  const [phase, setPhase] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const sending = useRef(false);
 
   useEffect(() => {
     if (!onChange) return;
@@ -205,7 +213,21 @@ function FormBody({
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
   const finish = async () => {
-    if (engine.submit()) await onSubmit?.(engine);
+    if (sending.current || !engine.submit()) return;
+    if (!onSubmit) {
+      setPhase("sent");
+      return;
+    }
+    sending.current = true;
+    setPhase("sending");
+    try {
+      await onSubmit(engine);
+      setPhase("sent");
+    } catch {
+      setPhase("failed");
+    } finally {
+      sending.current = false;
+    }
   };
 
   const advance = () => {
@@ -238,7 +260,7 @@ function FormBody({
         }
       : undefined;
 
-  if (status === "completed") {
+  if (status === "completed" && (phase === "sent" || !onSubmit)) {
     const end = def.endings?.find((x) => x.id === ending) ?? def.endings?.[0];
     return (
       <div className={cn("mx-auto w-full max-w-xl", className)} data-testid={testID}>
@@ -303,6 +325,11 @@ function FormBody({
       ) : (
         <div className="space-y-8">{visiblePath.map((id) => renderBlock(id, false))}</div>
       )}
+      {phase === "failed" ? (
+        <p role="alert" className="text-sm font-medium text-destructive">
+          We couldn't send your answers. Check your connection and try again.
+        </p>
+      ) : null}
       {errorCount > 0 && layout === "classic"
         ? renderSlot(DefaultErrorSummary, slots?.errorSummary, { count: errorCount }, slotProps?.errorSummary)
         : null}
@@ -310,8 +337,9 @@ function FormBody({
         DefaultNavigation,
         slots?.navigation,
         {
-          canGoBack: layout === "focus" && historyLength > 0,
-          isLast,
+          canGoBack: layout === "focus" && historyLength > 0 && phase !== "sending",
+          isLast: isLast || status === "completed",
+          busy: phase === "sending",
           onBack: () => engine.back(),
           submitLabel,
           nextLabel,

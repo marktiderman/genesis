@@ -54,19 +54,30 @@ export function parseForm(input: unknown): ParseResult {
     ids.add(block.id);
     order.set(block.id, i);
     if (block.kind === "field") {
+      if (typeof block.label !== "string") issues.push({ path: `${path}.label`, message: "Required text." });
+      if (typeof block.key !== "string" || !block.key) issues.push({ path: `${path}.key`, message: "Required." });
       if (!getFieldType(block.type)) {
         issues.push({ path: `${path}.type`, message: `Unknown field type "${block.type}".` });
       }
       if (keys.has(block.key)) issues.push({ path: `${path}.key`, message: `Duplicate key "${block.key}".` });
       keys.set(block.key, block.id);
       fieldTypes.set(block.id, block.type);
-    } else if (block.kind !== "content" && block.kind !== "page-break") {
+    } else if (block.kind === "content") {
+      if (typeof block.text !== "string") issues.push({ path: `${path}.text`, message: "Required text." });
+    } else if (block.kind !== "page-break") {
       issues.push({ path: `${path}.kind`, message: `Unknown block kind.` });
     }
   });
 
   const hiddenNames = new Set<string>();
-  (def.hidden ?? []).forEach((h, i) => {
+  if (def.hidden !== undefined && !Array.isArray(def.hidden)) {
+    issues.push({ path: "hidden", message: "Must be an array." });
+  }
+  (Array.isArray(def.hidden) ? def.hidden : []).forEach((h, i) => {
+    if (!isObject(h) || typeof h.name !== "string" || !h.name) {
+      issues.push({ path: `hidden[${i}]`, message: "Each hidden input needs a name." });
+      return;
+    }
     if (!["url", "host", "server"].includes(h.source)) {
       issues.push({ path: `hidden[${i}].source`, message: "Must be url, host or server." });
     }
@@ -79,14 +90,28 @@ export function parseForm(input: unknown): ParseResult {
   const endingIds = new Set((def.endings ?? []).map((e) => e.id));
 
   const checkOperand = (o: Operand | undefined, path: string) => {
-    if (!o) return;
+    if (o === undefined) return;
+    if (!isObject(o)) {
+      issues.push({ path, message: "An operand must be an object." });
+      return;
+    }
     if ("field" in o && !fieldTypes.has(o.field)) issues.push({ path, message: `No field "${o.field}".` });
     if ("hidden" in o && !hiddenNames.has(o.hidden)) issues.push({ path, message: `No hidden input "${o.hidden}".` });
   };
-  const checkCondition = (c: Condition, path: string) => {
+  const checkCondition = (c: Condition, path: string): void => {
+    if (!isObject(c)) {
+      issues.push({ path, message: "A condition must be an object." });
+      return;
+    }
+    if ("all" in c && !Array.isArray(c.all)) return void issues.push({ path, message: "`all` must be an array." });
+    if ("any" in c && !Array.isArray(c.any)) return void issues.push({ path, message: "`any` must be an array." });
     if ("all" in c) return c.all.forEach((x, i) => checkCondition(x, `${path}.all[${i}]`));
     if ("any" in c) return c.any.forEach((x, i) => checkCondition(x, `${path}.any[${i}]`));
     if ("not" in c) return checkCondition(c.not, `${path}.not`);
+    if (typeof c.op !== "string" || !isObject(c.left)) {
+      issues.push({ path, message: "A comparison needs an `op` and a `left` operand." });
+      return;
+    }
     checkOperand(c.left, `${path}.left`);
     checkOperand(c.right, `${path}.right`);
     if ("field" in c.left) {
@@ -98,8 +123,15 @@ export function parseForm(input: unknown): ParseResult {
   };
 
   const ruleIds = new Set<string>();
-  (def.logic ?? []).forEach((rule, i) => {
+  if (def.logic !== undefined && !Array.isArray(def.logic)) {
+    issues.push({ path: "logic", message: "Must be an array." });
+  }
+  (Array.isArray(def.logic) ? def.logic : []).forEach((rule, i) => {
     const path = `logic[${i}]`;
+    if (!isObject(rule) || typeof rule.id !== "string" || !isObject(rule.when)) {
+      issues.push({ path, message: "Each rule needs an id and a `when` condition." });
+      return;
+    }
     if (ruleIds.has(rule.id)) issues.push({ path: `${path}.id`, message: `Duplicate rule id "${rule.id}".` });
     ruleIds.add(rule.id);
     checkCondition(rule.when, `${path}.when`);
@@ -118,8 +150,10 @@ export function parseForm(input: unknown): ParseResult {
   });
 
   def.blocks.forEach((block, i) => {
-    const texts =
-      block.kind === "field" ? [block.label, block.description ?? ""] : block.kind === "content" ? [block.text] : [];
+    if (!isObject(block)) return;
+    const raw =
+      block.kind === "field" ? [block.label, block.description] : block.kind === "content" ? [block.text] : [];
+    const texts = raw.filter((t): t is string => typeof t === "string");
     for (const text of texts) {
       for (const ref of recallRefs(text)) {
         if (ref.kind === "hidden" && !hiddenNames.has(ref.name)) {
