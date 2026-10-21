@@ -3,6 +3,7 @@
 @import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
 @source "../../../packages/ui/src";
 @source "../../../packages/studio/src";
+@source "../../../packages/forms-web/src";
 
 @theme inline {
   --animate-fade-in: fade-in 0.2s ease-out;

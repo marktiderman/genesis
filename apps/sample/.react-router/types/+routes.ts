@@ -35,6 +35,9 @@ type Pages = {
   "/sandbox": {
     params: {};
   };
+  "/forms-playground": {
+    params: {};
+  };
   "/settings": {
     params: {};
   };
@@ -76,7 +79,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/_index.tsx": {
     id: "routes/_index";
@@ -84,7 +87,7 @@ type RouteFiles = {
   };
   "routes/_layout.tsx": {
     id: "routes/_layout";
-    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -113,6 +116,10 @@ type RouteFiles = {
   "routes/sandbox.tsx": {
     id: "routes/sandbox";
     page: "/sandbox";
+  };
+  "routes/forms-playground.tsx": {
+    id: "routes/forms-playground";
+    page: "/forms-playground";
   };
   "routes/settings.tsx": {
     id: "routes/settings";
@@ -167,6 +174,7 @@ type RouteModules = {
   "routes/orders": typeof import("./app/routes/orders.tsx");
   "routes/design-system": typeof import("./app/routes/design-system.tsx");
   "routes/sandbox": typeof import("./app/routes/sandbox.tsx");
+  "routes/forms-playground": typeof import("./app/routes/forms-playground.tsx");
   "routes/settings": typeof import("./app/routes/settings.tsx");
   "routes/studio": typeof import("./app/routes/studio.tsx");
   "routes/showcase._index": typeof import("./app/routes/showcase._index.tsx");

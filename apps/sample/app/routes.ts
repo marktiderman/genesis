@@ -15,6 +15,7 @@ export default [
     route("orders", "routes/orders.tsx"),
     route("design-system", "routes/design-system.tsx"),
     route("sandbox", "routes/sandbox.tsx"),
+    route("forms-playground", "routes/forms-playground.tsx"),
     route("settings", "routes/settings.tsx"),
     route("studio", "routes/studio.tsx"),
     // Phase G — Genesis Showcase portfolio routes

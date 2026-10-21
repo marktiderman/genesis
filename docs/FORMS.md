@@ -756,6 +756,18 @@ themselves, then onboarding (new-member intake with waiver signature and injury 
 Each step lands in the packages first, so Breakthrough, Conversation Cards, Gamify and the forms
 product get it too.
 
+## Releases (current)
+
+The 22 features are grouped into four releases. The phase table below (F0–F6) is the original
+breakdown and maps onto them.
+
+| Release | Ships |
+| --- | --- |
+| **R1 · Gym launch** (built) | `genesis-forms`, `genesis-forms-react`, `genesis-forms-web` 0.1: definition, `defineForm`, `parseForm`, show/hide and jump logic, recall, typed hidden inputs, event log and `replay`, eight field types, `validateSubmission`, focus and classic layouts. First consumer: CrossFit Fairfield feedback in Breakthrough. |
+| **R2 · Packages for every app** | Complete logic (calculations, endings by score), checks and tests, field plugins, paged layout, accessibility and translations, theming, partials and resume, uploads, privacy, webhooks, analytics. |
+| **R3 · Builder + AI** | Visual builder, publishing and versions, agent access (MCP and API) and AI assist. |
+| **R4 · Reach** | Worksheets (answer keys, grading, attempts, print), embeds and React Native, collaboration. |
+
 ## Roadmap
 
 Ordered so client projects can use it as early as possible, and so the product's builder lands on a
@@ -780,8 +792,8 @@ Decided: the builder (F3) ships before assessment (F4).
 
 1. **Package split:** `@marktiderman/genesis-forms` plus `-react`, `-web`, `-native`, `-supabase`,
    `-builder`, as above.
-2. **Engine-owned state.** FRAMEWORK.md rule 4 is to be amended when the first forms package lands
-   (it is unchanged today): react-hook-form + zod still covers CRUD forms; form products use `genesis-forms`, whose engine owns its state (see
+2. **Engine-owned state.** FRAMEWORK.md rule 4 is amended (with the R1 packages): react-hook-form
+   + zod still covers CRUD forms; form products use `genesis-forms`, whose engine owns its state (see
    [The engine and state](#the-engine-and-state)).
 3. **The builder comes before assessment:** F3 is the builder, F4 is assessment.
 
