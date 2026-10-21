@@ -2,6 +2,17 @@
 import { createForm, type CreateFormOptions, type FormEngine } from "./engine";
 import type { FormDefinition, Json } from "./types";
 
+export { coverage, type CoverageOptions, type CoverageReport, type EndingCoverage } from "./coverage";
+export {
+  compactEvents,
+  recordScenario,
+  runScenario,
+  type RecordScenarioOptions,
+  type Scenario,
+  type ScenarioExpectation,
+  type ScenarioResult,
+} from "./scenario";
+
 export interface Simulation {
   engine: FormEngine;
   /** Answer by key: `answer({ overall: 2 })`. */

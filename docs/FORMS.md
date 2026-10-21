@@ -595,7 +595,7 @@ test("enterprise path", async () => {
 });
 
 test("every branch is reachable", () => {
-  expect(coverage(intake).unreachable).toEqual([]);  // enumerates paths symbolically
+  expect(coverage(intake).unreachableBlocks).toEqual([]);  // enumerates paths symbolically
 });
 ```
 
