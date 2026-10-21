@@ -139,8 +139,17 @@ describe("share links", () => {
 
   it("refuses a payload that inflates past the size cap", async () => {
     const huge = { ...form.definition, description: "a".repeat(1_100_000) };
-    expect(
-      await decodeShare(await encodeShare({ v: 1, definition: huge })),
-    ).toBeNull();
+    // encodeShare refuses to build this, so deflate it by hand.
+    const stream = new Blob([JSON.stringify({ v: 1, definition: huge })])
+      .stream()
+      .pipeThrough(new CompressionStream("deflate-raw"));
+    const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    let bin = "";
+    for (const b of bytes) bin += String.fromCharCode(b);
+    const hash = btoa(bin)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    expect(await decodeShare(hash)).toBeNull();
   });
 });
