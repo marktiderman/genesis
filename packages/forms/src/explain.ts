@@ -5,7 +5,7 @@
  */
 import type { FormEngine } from "./engine";
 import { choiceOptions, isEmptyValue } from "./fields";
-import { evaluate, fieldMap, own, ruleVisible, steps, walkPath, type EvalScope, type PathWalk } from "./logic";
+import { evaluate, fieldMap, own, ruleVisible, steps, walkPath, withheld, type EvalScope, type PathWalk } from "./logic";
 import type { Condition, FieldBlock, FormDefinition, Json, LogicRule, Operand } from "./types";
 import { validateField, type FieldValidator } from "./validate";
 
@@ -130,7 +130,9 @@ export function explain(
   let summary: string;
   if (block.kind === "page-break") summary = "Page breaks are never on the path; they only group blocks into pages.";
   else if (visible) summary = rules.find((r) => r.effect === "show" && r.matched)?.sentence ?? "Visible: no rule hides it.";
-  else if (!visibleByRules) {
+  else if (block.kind === "field" && withheld(def, block)) {
+    summary = "Not asked: the form is anonymous and this field identifies the respondent.";
+  } else if (!visibleByRules) {
     summary =
       rules.find((r) => r.effect === "hide" && r.matched)?.sentence ??
       rules.find((r) => r.effect === "show")?.sentence ??

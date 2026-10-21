@@ -453,7 +453,7 @@ Deliberately tight; Jotform's sprawl is the anti-pattern. Everything else is a p
 
 | Category | Types |
 | --- | --- |
-| Text | `short-text`, `long-text`, `email`, `phone` (with country), `url`, `number`, `currency` |
+| Text | `short-text`, `long-text`, `email`, `phone` (with country; R1 ships a country-free `phone`: 7–15 digits, `+` and common separators, `autocomplete`/`inputMode` `tel`), `url`, `number`, `currency` |
 | Choice | `single-choice` (list or cards, optional "other"), `multi-choice`, `dropdown` (searchable), `yes-no`, `consent` |
 | Scale | `rating`, `scale` (1–N with labels), `nps`, `ranking`, `matrix` |
 | Date | `date`, `time`, `date-time`, `date-range` |
@@ -627,6 +627,12 @@ trace ("why is this field hidden?"); and `genesis-forms typegen` and `genesis-fo
 
 - No `eval`, no `Function`, no HTML injection: rich text in content blocks is a sanitized,
   structured document, not HTML.
+- **Anonymous forms.** `settings.anonymous` is a per-form admin setting, off by default. When it is
+  on, fields marked `identifying: true` (name, email, phone) are treated as hidden: off the path,
+  not validated, and never stored. `validateSubmission` drops client-sent values for them and lists
+  them in `ignored`, and the engine records no event timestamps whatever clock it is given. Fields
+  not marked `identifying` are unaffected, so an opt-in follow-up (like the gym's "want a coach to
+  follow up?") keeps working on an anonymous form.
 - `sensitive` fields: excluded from analytics, masked in devtools, optionally encrypted at rest by
   the store adapter. In R1 it is a top-level `FieldBlock` property (`f.shortText("ssn", { label,
   sensitive: true })`); `props.sensitive` is read as an alias, and `isSensitive(block)` checks both.

@@ -504,3 +504,108 @@ describe("B. sensitive fields", () => {
     expect(parseForm(raw([{ ...field("x", "short-text"), sensitive: "yes" as never }])).ok).toBe(false);
   });
 });
+
+describe("C. phone field", () => {
+  const phone = f.phone("phone", { label: "Phone" });
+
+  it("accepts 7 to 15 digits with common separators, trimmed", () => {
+    for (const ok of ["+1 (555) 010-0199", "555.0100", " 0201234567 ", "+441234567890123"]) {
+      expect(validateField(phone, ok), ok).toBeNull();
+    }
+    for (const bad of ["123456", "+1234567890123456", "555-CALL-NOW", "1+5550100199", "555 0100 x12", 5550100199, `${"1".repeat(10)}${" ".repeat(30)}1`]) {
+      expect(validateField(phone, bad as Json), String(bad)).toMatch(/7 to 15 digits/);
+    }
+  });
+
+  it("is linear on hostile input and stores the trimmed value", () => {
+    const start = performance.now();
+    expect(validateField(phone, "(".repeat(100_000))).not.toBeNull();
+    expect(performance.now() - start).toBeLessThan(50);
+    const def = defineForm({ id: "p", title: "P", blocks: [phone] }).definition;
+    const result = validateSubmission(def, { answers: { phone: "  555 0100 199 " } });
+    expect(result.ok && result.submission.answers).toEqual({ phone: "555 0100 199" });
+  });
+
+  it("has tel input hints, its operators, and a coverage domain", async () => {
+    const { getFieldType } = await import("../index");
+    const { coverage } = await import("../testing");
+    const manifest = getFieldType("phone")!;
+    expect(manifest.a11y).toEqual({ semantics: "control", autocomplete: "tel", inputMode: "tel" });
+    expect(manifest.operators.sort()).toEqual(["answered", "empty", "eq", "neq"]);
+    expect(manifest.summarize?.("+1 555 0100", phone)).toBe("+1 555 0100");
+    expect(parseForm(raw([phone], { logic: [{ id: "r", when: { op: "gt", left: { field: "phone" }, right: { value: 1 } }, effect: "hide", target: "phone" }] })).ok).toBe(false);
+    const form = defineForm({
+      id: "cov",
+      title: "Cov",
+      blocks: [f.phone("phone", { label: "Phone", required: true }), f.yesNo("ok", { label: "ok" })],
+      logic: [when("phone").isAnswered().jumpTo({ ending: "called" })],
+      endings: [{ id: "default", title: "D" }, { id: "called", title: "C" }],
+    });
+    expect(coverage(form).endings.called).toMatchObject({ reached: true, witness: { phone: "+1 555 010 0199" } });
+  });
+});
+
+describe("D. anonymous forms withhold identifying fields", () => {
+  const build = (anonymous: boolean) =>
+    defineForm({
+      id: "contact",
+      title: "Contact",
+      blocks: [
+        f.rating("overall", { label: "Overall", required: true }),
+        f.shortText("name", { label: "Name", required: true, identifying: true }),
+        f.email("email", { label: "Email", required: true, identifying: true }),
+        f.phone("phone", { label: "Phone", required: true, identifying: true }),
+      ],
+      settings: { anonymous },
+    }).definition;
+
+  it("asks for identifying fields only when the form is not anonymous", () => {
+    const named = createForm(build(false));
+    expect(named.getState().path).toEqual(["overall", "name", "email", "phone"]);
+    named.setValue("overall", 4);
+    expect(named.submit()).toBe(false);
+    expect(Object.keys(named.getState().errors)).toEqual(["name", "email", "phone"]);
+
+    const anon = createForm(build(true));
+    expect(anon.getState().path).toEqual(["overall"]);
+    anon.setValue("overall", 4);
+    anon.setValue("name", "Ada");
+    expect(anon.isVisible("name")).toBe(false);
+    expect(anon.submit()).toBe(true);
+    expect(anon.answers()).toEqual({ overall: 4 });
+  });
+
+  it("the server drops identifying values and lists them in ignored", () => {
+    const answers = { overall: 5, name: "Ada", email: "ada@example.com", phone: "+1 555 010 0199" };
+    const fromAnswers = validateSubmission(build(true), { answers });
+    expect(fromAnswers.ok && fromAnswers.submission).toMatchObject({ answers: { overall: 5 }, ignored: ["name", "email", "phone"] });
+    const events: FormEvent[] = [
+      ...Object.entries(answers).map(([field, value]): FormEvent => ({ type: "answer", field, value })),
+      { type: "answer", field: "name", value: "Bob" },
+      { type: "submit" },
+    ];
+    const fromEvents = validateSubmission(build(true), { events });
+    expect(fromEvents.ok && fromEvents.submission).toMatchObject({ answers: { overall: 5 }, ignored: ["name", "email", "phone"] });
+    const kept = validateSubmission({ ...build(true), settings: { anonymous: true, clearHiddenValues: false } }, { answers });
+    expect(kept.ok && kept.submission.answers).toEqual({ overall: 5 });
+    const named = validateSubmission(build(false), { answers });
+    expect(named.ok && named.submission.answers).toEqual(answers);
+  });
+
+  it("records no timestamps, whatever clock is passed", () => {
+    const anon = createForm(build(true), { clock: () => 42 });
+    anon.setValue("overall", 3);
+    anon.next();
+    expect(anon.getState().events.every((e) => e.at === undefined)).toBe(true);
+    const named = createForm(build(false), { clock: () => 42 });
+    named.setValue("overall", 3);
+    expect(named.getState().events[0]?.at).toBe(42);
+  });
+
+  it("is off by default, and parseForm checks the flag", () => {
+    const def = build(false);
+    delete def.settings;
+    expect(createForm(def).getState().path).toContain("name");
+    expect(parseForm(raw([{ ...field("x", "short-text"), identifying: 1 as never }])).ok).toBe(false);
+  });
+});

@@ -4,8 +4,8 @@ The Genesis Forms engine. A form is plain JSON: blocks, logic, endings and typed
 can be stored, diffed, versioned, and evaluated identically in a browser, in React Native and on a
 server. Zero dependencies.
 
-**Status: 0.1, release R1.** Field types: `short-text`, `long-text`, `email`, `rating`, `nps`,
-`single-choice`, `multi-choice`, `yes-no`. Logic: show, hide, jump to a field or an ending. Layouts
+**Status: 0.1, release R1.** Field types: `short-text`, `long-text`, `email`, `phone`, `rating`,
+`nps`, `single-choice`, `multi-choice`, `yes-no`. Logic: show, hide, jump to a field or an ending. Layouts
 (rendered by `genesis-forms-web`): focus (one question at a time) and classic. The full plan is in
 [docs/FORMS.md](../../docs/FORMS.md).
 
@@ -49,6 +49,11 @@ const version = afterClass.hash();         // content fingerprint for publishing
   1000 characters.
 - **Everything is in the event log.** `initialValues` are logged as leading `answer` events with
   `source: "prefill"`, so `replay` and the server see them.
+- **Anonymous forms withhold identifying fields.** `settings.anonymous` is a per-form admin
+  setting, off by default. When it is true, fields marked `identifying: true` are treated as hidden
+  (off the path, not validated, cleared on submit), the server drops client-sent values for them and
+  lists them in `ignored`, and events carry no `at` timestamps whatever clock is passed. Fields not
+  marked `identifying` are unaffected.
 - **Definitions are checked.** `defineForm` runs `parseForm` and throws with every issue;
   `validateSubmission` refuses a definition that does not parse. Ids, keys, hidden names and ending
   ids may not be `Object.prototype` names (`constructor`, `__proto__`…).
@@ -66,6 +71,11 @@ const version = afterClass.hash();         // content fingerprint for publishing
 | `coerceHidden(def, raw, { sources })` | Type hidden inputs by their declarations; reports dropped names in `ignored`. |
 | `isFormEvent(value)` | Guard for one well-formed event-log entry. |
 | `isSensitive(block)` | `sensitive: true` on a field, or the `props.sensitive` alias. |
+
+`f.phone(key, opts)` stores a string: trimmed, an optional leading `+`, digits and the separators
+space, `-`, `(`, `)` and `.`, 7 to 15 digits, at most 32 characters. Operators: `eq`, `neq`,
+`answered`, `empty`. Its manifest carries `autocomplete: "tel"` and `inputMode: "tel"` (email:
+`"email"` for both).
 | `/server` → `validateSubmission`, `publicDefinition` | Re-check a submission against the published definition: drops unknown and logic-hidden answers, ignores client values for server inputs, checks drafts by format only. Never throws on a malformed body. No IO. |
 | `explain(engine, blockId)` | "Why is this hidden?": the path, the jump that skipped a block, each show/hide rule with its result in plain English, and the field's validation. |
 | `/testing` → `simulate`, `coverage`, `runScenario`, `recordScenario`, `compactEvents` | Walk a form by key, enumerate its paths, and run JSON scenarios. See [Testing](#testing). |

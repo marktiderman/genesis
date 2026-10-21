@@ -100,6 +100,9 @@ function domainOf(field: FieldBlock, extra: Value[], maxOptions: number): Value[
     case "email":
       base = ["ada@example.com"];
       break;
+    case "phone":
+      base = ["+1 555 010 0199"];
+      break;
     case "short-text":
     case "long-text":
       base = ["sample"];

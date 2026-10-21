@@ -7,7 +7,7 @@ import { createForm, replay, type FormEngine } from "./engine";
 import { compactEvents, isFormEvent, isJson, isPlainObject, isUnknownEvent } from "./events";
 import { isEmptyValue, normalizeValue } from "./fields";
 import { coerceHidden } from "./hidden";
-import { fieldMap, own } from "./logic";
+import { fieldMap, own, withheld } from "./logic";
 import { parseForm } from "./parse";
 import type { FormDefinition, FormEvent, Json } from "./types";
 import { validateField, type FieldValidator } from "./validate";
@@ -107,6 +107,16 @@ export function validateSubmission(
   const context = coerceHidden(definition, options.context, { sources: ["server"] }).values;
 
   const fields = fieldMap(definition);
+  // Anonymous forms never store identifying fields: client values are dropped.
+  const dropped = new Set<string>();
+  /** `true`: store it; `false`: withheld; `undefined`: not a field. Both of the latter are reported in `ignored`. */
+  const accept = (id: string): boolean | undefined => {
+    if (!fields.has(id)) return void ignored.push(id);
+    if (!withheld(definition, fields.get(id))) return true;
+    if (!dropped.has(id)) ignored.push(id);
+    dropped.add(id);
+    return false;
+  };
   const engineHidden = { ...hidden, ...context };
   let engine: FormEngine;
   if (input.events) {
@@ -115,14 +125,14 @@ export function validateSubmission(
     if (events.length > max) {
       return { ok: false, errors: { "": `Too many events: ${events.length} after compaction; the limit is ${max}.` } };
     }
-    for (const e of events) if (e.type === "answer" && !fields.has(e.field)) ignored.push(e.field);
-    engine = replay(definition, events, { hidden: engineHidden, validators: options.validators });
+    // Unknown fields stay in the log (replay ignores them); withheld ones are removed.
+    const kept = events.filter((e) => e.type !== "answer" || accept(e.field) !== false);
+    engine = replay(definition, kept, { hidden: engineHidden, validators: options.validators });
   } else {
     const answers: Record<string, Json> = {};
     for (const id of Object.keys(input.answers ?? {})) {
       const value = own(input.answers!, id);
-      if (!fields.has(id)) ignored.push(id);
-      else if (value !== undefined) answers[id] = value;
+      if (accept(id) && value !== undefined) answers[id] = value;
     }
     engine = createForm(definition, {
       initialValues: answers,
@@ -157,6 +167,7 @@ export function validateSubmission(
     // Values of fields off the path were never validated. Keep one only if
     // its format is valid; drop the rest, so nothing stored is unchecked.
     for (const [id, field] of fields) {
+      if (withheld(definition, field)) continue;
       const value = own(state.values, id);
       if (own(answers, id) !== undefined || value === undefined || isEmptyValue(value, field)) continue;
       const message = validateField(field, value, { requireAnswers: false, custom: options.validators?.[id] });

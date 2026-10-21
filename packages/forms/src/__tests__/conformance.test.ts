@@ -4,12 +4,15 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createForm, replay } from "../index";
 import { compactEvents, recordScenario, runScenario, type Scenario } from "../testing";
+import { contactAnonymous, contactNamed } from "./conformance-forms";
 import { afterClass, monthlyPulse } from "./sample-forms";
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "conformance");
 const files = readdirSync(dir).filter((f) => f.endsWith(".scenario.json")).sort();
 const load = (file: string) => JSON.parse(readFileSync(join(dir, file), "utf8")) as Scenario;
-const definitions = { [afterClass.definition.id]: afterClass.definition, [monthlyPulse.definition.id]: monthlyPulse.definition };
+const definitions = Object.fromEntries(
+  [afterClass, monthlyPulse, contactNamed, contactAnonymous].map((form) => [form.definition.id, form.definition]),
+);
 
 /** Drive the engine through its public API, the way a renderer does. */
 function liveRun(s: Scenario) {

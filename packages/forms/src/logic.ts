@@ -86,8 +86,14 @@ function visibilityRules(def: FormDefinition, blockId: string) {
   );
 }
 
+/** Whether a field is withheld because the form is anonymous and the field identifies the respondent. */
+export function withheld(def: FormDefinition, field: FieldBlock | undefined): boolean {
+  return def.settings?.anonymous === true && field?.identifying === true;
+}
+
 /** Show/hide rules against a scope as given. A matching `hide` wins; any `show` must match. */
 function rulesAllow(def: FormDefinition, blockId: string, scope: EvalScope): boolean {
+  if (withheld(def, scope.fields.get(blockId))) return false;
   const rules = visibilityRules(def, blockId);
   if (rules.some((r) => r.effect === "hide" && evaluate(r.when, scope))) return false;
   const shows = rules.filter((r) => r.effect === "show");

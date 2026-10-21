@@ -24,6 +24,12 @@ export interface FieldBlock {
    * mask it. `props.sensitive: true` is read as an alias; see `isSensitive`.
    */
   sensitive?: boolean;
+  /**
+   * Identifies the respondent (name, email, phone). When the form's
+   * `settings.anonymous` is true the field is treated as hidden: off the
+   * path, not validated, and its value is never stored.
+   */
+  identifying?: boolean;
   props?: Record<string, Json>;
 }
 
@@ -86,7 +92,11 @@ export interface Ending {
 }
 
 export interface FormSettings {
-  /** Store no identifying metadata with responses. The app's store enforces it. */
+  /**
+   * A per-form admin setting, off by default. When true, fields marked
+   * `identifying` are not asked or stored, events carry no timestamps, and
+   * the app's store keeps no identifying metadata with responses.
+   */
   anonymous?: boolean;
   /** Clear the values of fields hidden by logic on submit. Default true. */
   clearHiddenValues?: boolean;

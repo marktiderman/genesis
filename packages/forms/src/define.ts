@@ -31,6 +31,8 @@ export interface FieldOptions {
   required?: boolean;
   /** Personal or secret data (see `isSensitive`). */
   sensitive?: boolean;
+  /** Identifies the respondent (name, email, phone). Not asked when `settings.anonymous` is true. */
+  identifying?: boolean;
   /** Defaults to the key. Set it before renaming a key on a live form, so answers stay linked. */
   id?: string;
 }
@@ -56,6 +58,7 @@ function field<K extends string, V>(
   if (options.placeholder) block.placeholder = options.placeholder;
   if (options.required) block.required = true;
   if (options.sensitive) block.sensitive = true;
+  if (options.identifying) block.identifying = true;
   if (props && Object.keys(props).length) block.props = props;
   return block as FieldSpec<K, V>;
 }
@@ -70,6 +73,7 @@ export const f = {
   longText: <K extends string>(key: K, o: FieldOptions & { maxLength?: number }) =>
     field<K, string>("long-text", key, o, o.maxLength ? { maxLength: o.maxLength } : undefined),
   email: <K extends string>(key: K, o: FieldOptions) => field<K, string>("email", key, o),
+  phone: <K extends string>(key: K, o: FieldOptions) => field<K, string>("phone", key, o),
   rating: <K extends string>(key: K, o: FieldOptions & { max?: number }) =>
     field<K, number>("rating", key, o, { max: o.max ?? 5 }),
   nps: <K extends string>(key: K, o: FieldOptions) => field<K, number>("nps", key, o),

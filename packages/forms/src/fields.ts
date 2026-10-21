@@ -13,7 +13,13 @@ export interface FieldTypeManifest {
     | { json: true }
     | { json: false; serialize: (value: unknown) => Json; deserialize: (json: Json) => unknown };
   operators: Operator[];
-  a11y: { semantics: "control" | "group"; autocomplete?: string };
+  a11y: {
+    semantics: "control" | "group";
+    /** The HTML `autocomplete` token, such as `"email"` or `"tel"`. */
+    autocomplete?: string;
+    /** The HTML `inputmode` hint for on-screen keyboards, such as `"email"` or `"tel"`. */
+    inputMode?: "text" | "email" | "tel" | "numeric" | "decimal" | "url" | "search";
+  };
   isEmpty?: (value: Json | undefined) => boolean;
   /** Return an error message, or null when the (non-empty) value is valid. */
   validate?: (value: Json, field: FieldBlock) => string | null;
@@ -140,6 +146,26 @@ function isEmailAddress(value: string): boolean {
   return domain.slice(1, -1).includes(".");
 }
 
+/** Longest phone number accepted, separators included. */
+const MAX_PHONE_LENGTH = 32;
+
+/**
+ * Digits with optional separators (spaces, `-`, `(`, `)`, `.`) and an
+ * optional leading `+`; 7 to 15 digits (E.164 allows at most 15). One linear scan.
+ */
+function isPhoneNumber(value: string): boolean {
+  if (value.length > MAX_PHONE_LENGTH) return false;
+  let digits = 0;
+  for (let i = 0; i < value.length; i++) {
+    const c = value[i]!;
+    if (c >= "0" && c <= "9") digits++;
+    else if (c === "+") {
+      if (i !== 0) return false;
+    } else if (c !== " " && c !== "-" && c !== "(" && c !== ")" && c !== ".") return false;
+  }
+  return digits >= 7 && digits <= 15;
+}
+
 const builtins: FieldTypeManifest[] = [
   {
     type: "short-text",
@@ -165,12 +191,26 @@ const builtins: FieldTypeManifest[] = [
     category: "text",
     value: { json: true },
     operators: textOps,
-    a11y: { semantics: "control", autocomplete: "email" },
+    a11y: { semantics: "control", autocomplete: "email", inputMode: "email" },
     validate: (value) =>
       typeof value === "string" && isEmailAddress(value.trim())
         ? null
         : "Enter an email address like name@example.com.",
     normalize: (value) => (typeof value === "string" ? value.trim() : value),
+  },
+  {
+    type: "phone",
+    label: "Phone",
+    category: "text",
+    value: { json: true },
+    operators: ["eq", "neq", "answered", "empty"],
+    a11y: { semantics: "control", autocomplete: "tel", inputMode: "tel" },
+    validate: (value) =>
+      typeof value === "string" && isPhoneNumber(value.trim())
+        ? null
+        : "Enter a phone number with 7 to 15 digits.",
+    normalize: (value) => (typeof value === "string" ? value.trim() : value),
+    summarize: (value) => String(value),
   },
   {
     type: "rating",

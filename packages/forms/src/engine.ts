@@ -75,7 +75,8 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
   const fields = fieldMap(definition);
   const byKey = new Map([...fields.values()].map((f) => [f.key, f]));
   const blocks = new Map(definition.blocks.map((b) => [b.id, b]));
-  const clock = options.clock ?? (() => Date.now());
+  // An anonymous form records no timestamps, whatever clock is passed.
+  const clock = definition.settings?.anonymous === true ? () => undefined : (options.clock ?? (() => Date.now()));
   const listeners = new Set<() => void>();
   // While replaying, events are pushed onto one array instead of copied per
   // event, so a long log replays in linear time.

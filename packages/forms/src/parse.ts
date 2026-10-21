@@ -108,6 +108,7 @@ export function parseForm(input: unknown): ParseResult {
       optionalText(block.placeholder, `${path}.placeholder`);
       optionalBoolean(block.required, `${path}.required`);
       optionalBoolean(block.sensitive, `${path}.sensitive`);
+      optionalBoolean(block.identifying, `${path}.identifying`);
       const validKey = name(block.key, `${path}.key`, "A field key");
       if (typeof block.type !== "string" || !getFieldType(block.type)) {
         issue(`${path}.type`, `Unknown field type "${String(block.type)}".`);
