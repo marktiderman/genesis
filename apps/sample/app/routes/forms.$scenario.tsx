@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHref, useLocation, useParams } from "react-router";
 import { parseForm, replay, type FormDefinition, type FormEvent, type Json as JsonValue } from "@marktiderman/genesis-forms";
-import { ContextEditor, Inspector, JsonView, decodeShare, encodeShare, pretty } from "@marktiderman/genesis-forms-devtools";
+import {
+  ContextEditor,
+  CoveragePanel,
+  FlowMapPanel,
+  Inspector,
+  JsonView,
+  LogicTracePanel,
+  decodeShare,
+  encodeShare,
+  pretty,
+} from "@marktiderman/genesis-forms-devtools";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Card, CardContent } from "@marktiderman/genesis-ui/card";
 import { Label } from "@marktiderman/genesis-ui/label";
@@ -35,6 +45,7 @@ export default function FormsScenario() {
   const [draft, setDraft] = useState(pretty(scenario.form.definition));
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [loadKey, setLoadKey] = useState(0);
+  const [contextVersion, setContextVersion] = useState(0);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const startEvents = useRef<FormEvent[]>([]);
 
@@ -87,6 +98,14 @@ export default function FormsScenario() {
     startEvents.current = evts;
     setEvents(evts);
     setLoadKey((k) => k + 1);
+  };
+
+  const loadWitness = (evts: FormEvent[], hidden?: Record<string, JsonValue>) => {
+    if (hidden) {
+      setContext((c) => ({ ...c, ...hidden }));
+      setContextVersion((v) => v + 1);
+    }
+    restart(evts);
   };
 
   // The inspector reads a mirror engine rebuilt from the frame's event log.
@@ -167,12 +186,19 @@ export default function FormsScenario() {
               context={context}
               onFork={restart}
               extraTabs={[
+                { id: "flow", label: "Flow map", content: <FlowMapPanel engine={mirror} /> },
+                { id: "trace", label: "Logic trace", content: <LogicTracePanel engine={mirror} /> },
+                {
+                  id: "coverage",
+                  label: "Coverage",
+                  content: <CoveragePanel definition={definition} onFork={loadWitness} />,
+                },
                 {
                   id: "context",
                   label: "Server context",
                   content: (
                     <ContextEditor
-                      key={`${scenario.id}-${loadKey === 0 ? 0 : "x"}`}
+                      key={`${scenario.id}-${loadKey === 0 ? 0 : "x"}-${contextVersion}`}
                       value={context}
                       onChange={(next) => {
                         setContext(next);
