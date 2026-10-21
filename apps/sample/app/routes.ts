@@ -7,6 +7,8 @@ import {
 
 export default [
   index("routes/_index.tsx"),
+  // The playground's device frame: the form alone, outside the app shell.
+  route("forms-frame", "routes/forms-frame.tsx"),
   layout("routes/_layout.tsx", [
     route("dashboard", "routes/dashboard.tsx"),
     route("items", "routes/items.tsx"),
@@ -16,6 +18,10 @@ export default [
     route("design-system", "routes/design-system.tsx"),
     route("sandbox", "routes/sandbox.tsx"),
     route("forms-playground", "routes/forms-playground.tsx"),
+    route("forms", "routes/forms.tsx", [
+      index("routes/forms._index.tsx"),
+      route(":scenario", "routes/forms.$scenario.tsx"),
+    ]),
     route("settings", "routes/settings.tsx"),
     route("studio", "routes/studio.tsx"),
     // Phase G — Genesis Showcase portfolio routes

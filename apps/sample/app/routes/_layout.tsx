@@ -11,7 +11,7 @@ const navItems = [
   { to: "/orders", icon: ShoppingCart, label: "Orders" },
   { to: "/design-system", icon: Palette, label: "Design System" },
   { to: "/sandbox", icon: SlidersHorizontal, label: "Sandbox" },
-  { to: "/forms-playground", icon: ClipboardList, label: "Forms playground" },
+  { to: "/forms", icon: ClipboardList, label: "Forms playground" },
   { to: "/studio", icon: Database, label: "Data Studio" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];

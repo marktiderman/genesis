@@ -63,3 +63,32 @@ export const monthlyPulse = defineForm({
 });
 
 export const playgroundForms = { "after-class": afterClass, "monthly-pulse": monthlyPulse } as const;
+
+export interface PlaygroundScenario {
+  id: string;
+  title: string;
+  description: string;
+  form: typeof afterClass | typeof monthlyPulse;
+  context: Record<string, string>;
+  tags: string[];
+}
+
+/** The scenario library shown in the playground sidebar. */
+export const scenarios: PlaygroundScenario[] = [
+  {
+    id: "after-class",
+    title: "After class",
+    description: "Rating, optional follow-up; a low rating skips “what went well”.",
+    form: afterClass,
+    context: { coach: "Sam", class: "06:00 CrossFit" },
+    tags: ["R1", "jump", "show/hide", "recall", "server context"],
+  },
+  {
+    id: "monthly-pulse",
+    title: "Monthly pulse",
+    description: "NPS; promoters jump to their own ending.",
+    form: monthlyPulse,
+    context: {},
+    tags: ["R1", "nps", "endings"],
+  },
+];
