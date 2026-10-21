@@ -202,12 +202,13 @@ describe("<Form> auto-advance", () => {
 });
 
 describe("<Form> field semantics", () => {
-  it("puts aria-invalid and aria-describedby on the group, and aria-required on the radiogroup", () => {
+  it("puts aria-describedby on the group, and aria-required and aria-invalid on the radiogroup", () => {
     render(<Form form={afterClass} />);
     submit();
     const group = screen.getByRole("group", { name: /How was today's class\?/ });
     expect(group.tagName).toBe("FIELDSET");
-    expect(group.getAttribute("aria-invalid")).toBe("true");
+    // ARIA 1.2 doesn't allow aria-invalid on a group; the radiogroup carries it.
+    expect(group.hasAttribute("aria-invalid")).toBe(false);
     const error = document.getElementById(group.getAttribute("aria-describedby")!);
     expect(error?.textContent).toMatch(/needs an answer/);
     const radios = screen.getByRole("radiogroup", { name: /How was today's class\?/ });

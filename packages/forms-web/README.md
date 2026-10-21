@@ -28,7 +28,7 @@ import { Form } from "@marktiderman/genesis-forms-web";
   deliberate press. `classic` shows every visible question; a failed submit focuses an error summary
   above the fields that links to each invalid one.
 - **Accessible by default:** group questions are a `fieldset` with a `legend`, and rating, NPS and
-  yes/no are real radio groups (arrows select). Every control and group carries `aria-invalid`,
+  yes/no are real radio groups (arrows select). Every control carries `aria-invalid`,
   errors are linked with `aria-describedby`, and the NPS end labels are read with 0 and 10. In
   focus layout, focus moves to each new question (the input of a text field, otherwise the visible
   question text), a failed Next is announced once through a live region, and the ending heading

@@ -1,7 +1,7 @@
 # Genesis Forms
 
-Plan v0.3, 2026-10-21. Status: **proposal, for the maintainer's decision**. Nothing described here
-is built yet.
+Plan v0.3, 2026-10-21. Status: **R1 built** (see [Releases](#releases-current)); later releases
+are the plan. Where this document describes something beyond R1, it is not built yet.
 
 > **Revised 2026-10-21, at the maintainer's direction.**
 >
@@ -141,7 +141,7 @@ Apache-2.0.
        │ on genesis-ui + │ │ on genesis-ui-  │ │ (MIT)               │ │ submit handler, storage  │
        │ design-system   │ │ native          │ │                     │ │                          │
        └─────────────────┘ └─────────────────┘ └─────────────────────┘ └──────────────────────────┘
-                                         later: genesis-forms-embed · -devtools · -mcp · field plugins
+                                            R1: genesis-forms-devtools · later: -embed · -mcp · field plugins
 ```
 
 **The greenfield line.** `genesis-forms` and `genesis-forms-react` depend on nothing else in Genesis,
@@ -159,7 +159,8 @@ so every Genesis app gets it, not just forms.
 | `@marktiderman/genesis-forms-native` | React Native renderer kit | Built on `genesis-ui-native` (NativeWind). Same vocabulary as the web kit. |
 | `@marktiderman/genesis-forms-supabase` | `FormStore` for Supabase: SQL for forms, versions, responses, grades; RLS; storage policies; edge-function submit handler | The backend most client projects already use. |
 | `@marktiderman/genesis-forms-builder` | Visual builder | Edits a definition; no storage of its own. The product hosts it; any app can embed it (e.g. teachers authoring worksheets inside Gamify). |
-| Later: `-embed`, `-devtools`, `-mcp`, field plugins | Web component and iframe embeds (inline, full page, popup, slider, side tab, `postMessage` events); logic-trace devtools; MCP server for agents; payments, scheduling, signature, captcha | |
+| `@marktiderman/genesis-forms-devtools` (R1) | `<Inspector>` (state, event-log time travel, server check with tamper mode), share links, and the flow map, logic trace and coverage panels | Development only; powers the `/forms` playground in `apps/sample`. Sensitive values are masked unless revealed. |
+| Later: `-embed`, `-mcp`, field plugins | Web component and iframe embeds (inline, full page, popup, slider, side tab, `postMessage` events); MCP server for agents; payments, scheduling, signature, captcha | |
 
 ## Two ways to author, one artifact
 
@@ -508,7 +509,8 @@ Custom CSS is an escape hatch.
 
 - `fieldset`/`legend` for every `semantics: "group"` type (radio, checkbox list, rating, scale,
   matrix);
-- `aria-invalid` on every control and question group, and `aria-describedby` linking each text
+- `aria-invalid` on every control (for a group question, on its radio group or each checkbox;
+  ARIA 1.2 doesn't allow it on the group itself), and `aria-describedby` linking each text
   control or group to its description and error; a focusable error summary on submit, above the
   fields, linking to each invalid one;
 - in focus mode, focus moves to each question (a text field's input, otherwise the visible question
@@ -625,7 +627,7 @@ test("every branch is reachable", () => {
 ```
 
 Also: `renderForm()` for testing-library with axe checks built in; `genesis-forms-devtools` with a logic
-trace ("why is this field hidden?"); and `genesis-forms typegen` and `genesis-forms validate` CLI commands for CI.
+trace ("why is this field hidden?", built in R1 on `explain()`); and `genesis-forms typegen` and `genesis-forms validate` CLI commands for CI.
 
 ## Security and privacy
 
@@ -637,7 +639,8 @@ trace ("why is this field hidden?"); and `genesis-forms typegen` and `genesis-fo
   them in `ignored`, and the engine records no event timestamps whatever clock it is given. Fields
   not marked `identifying` are unaffected, so an opt-in follow-up (like the gym's "want a coach to
   follow up?") keeps working on an anonymous form.
-- `sensitive` fields: excluded from analytics, masked in devtools, optionally encrypted at rest by
+- `sensitive` fields: excluded from analytics, masked in devtools by default (with a "Reveal
+  sensitive values" switch), blanked in share links, optionally encrypted at rest by
   the store adapter. In R1 it is a top-level `FieldBlock` property (`f.shortText("ssn", { label,
   sensitive: true })`); `props.sensitive` is read as an alias, and `isSensitive(block)` checks both.
 - Spam: honeypot and timing checks built in; captcha as a plugin; rate limiting in the server
@@ -795,7 +798,7 @@ breakdown and maps onto them.
 
 | Release | Ships |
 | --- | --- |
-| **R1 · Gym launch** (built) | `genesis-forms`, `genesis-forms-react`, `genesis-forms-web` 0.1: definition, `defineForm`, `parseForm`, show/hide and jump logic, recall, typed hidden inputs, event log and `replay`, eight field types, `validateSubmission`, focus and classic layouts. First consumer: CrossFit Fairfield feedback in Breakthrough. |
+| **R1 · Gym launch** (built) | `genesis-forms`, `genesis-forms-react`, `genesis-forms-web` 0.1: definition, `defineForm`, `parseForm`, show/hide and jump logic, recall, typed hidden inputs, event log and `replay`, nine field types (with `phone`), `validateSubmission`, focus and classic layouts, `identifying` fields and the anonymous setting. `/testing`: `simulate`, `coverage`, `runScenario`, `recordScenario`, `compactEvents` and the conformance suite; `explain()`. `genesis-forms-devtools` 0.1 and the `/forms` playground. Umbrella subpaths `@marktiderman/genesis/forms`, `/forms/server`, `/forms/react`, `/forms/web`. First consumer: CrossFit Fairfield feedback in Breakthrough. |
 | **R2 · Packages for every app** | Complete logic (calculations, endings by score), checks and tests, field plugins, paged layout, accessibility and translations, theming, partials and resume, uploads, privacy, webhooks, analytics. |
 | **R3 · Builder + AI** | Visual builder, publishing and versions, agent access (MCP and API) and AI assist. |
 | **R4 · Reach** | Worksheets (answer keys, grading, attempts, print), embeds and React Native, collaboration. |
@@ -813,7 +816,7 @@ layer.
 | **F2 · Responses** | `FormStore`, `genesis-forms-supabase`, partials, resume, uploads, `/server` submit handler, webhooks, analytics events. | An onboarding form resumes on another device; a lead form is re-validated server-side and fires a signed webhook. |
 | **F3 · Builder** | `genesis-forms-builder`: document editor, `/` menu, inspector from `propsSchema`, logic panel and flow map, preview, publish/versioning, translations. **The product's builder app ships on it.** | A non-developer builds and publishes a branching form; a plugin field type appears in the builder with no builder changes. |
 | **F4 · Assessment** | Answer keys, `publicDefinition`, auto + manual grading, rubrics, attempts, assignments, `<ResponseReview>`, `<GradingQueue>`, print layout, `fillBlanks`, matching, ordering. | A worksheet is assigned, completed over two sessions, auto- and manually graded, with no answer key in the browser bundle or network traffic. |
-| **F5 · Native + embed** | `genesis-forms-native`, `genesis-forms-embed`, devtools. | The same definition runs in an Expo app and in an embed on a marketing site. |
+| **F5 · Native + embed** | `genesis-forms-native`, `genesis-forms-embed` (devtools shipped in R1). | The same definition runs in an Expo app and in an embed on a marketing site. |
 | **F6 · Ecosystem** | Plugins (payments, scheduling, signature, captcha), AI assist, MCP server, collaboration, Genesis `ResourceForm` and Data Studio integration. | Third-party field packages exist outside the repo. |
 
 Decided: the builder (F3) ships before assessment (F4).

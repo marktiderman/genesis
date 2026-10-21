@@ -25,8 +25,8 @@ export interface FieldChromeProps {
  * Label, description and error around a control. Group types (radio,
  * checkbox list, rating, scale) get a real `fieldset`/`legend`, so a screen
  * reader announces the question with every option; the fieldset carries the
- * field's `inputId` (an error summary links to it), `aria-describedby` and
- * `aria-invalid`.
+ * field's `inputId` (an error summary links to it) and `aria-describedby`.
+ * `aria-invalid` sits on the controls: ARIA 1.2 doesn't allow it on a group.
  *
  * The legend or label is the question text: it has `id="${inputId}-label"`
  * and `tabIndex={-1}` and is marked `data-gf-question`, which the focus
@@ -52,7 +52,6 @@ export function FieldChrome({ props, children, className }: FieldChromeProps) {
         id={inputId}
         data-slot="form-field"
         aria-describedby={describedBy(props)}
-        aria-invalid={error ? true : undefined}
         className={cn("space-y-3 border-0 p-0 m-0 min-w-0", className)}
       >
         <legend
@@ -167,7 +166,7 @@ function TextField(
         <Input
           {...common}
           type={type}
-          inputMode={inputMode}
+          inputMode={manifest?.a11y.inputMode ?? inputMode}
           autoComplete={manifest?.a11y.autocomplete ?? autoComplete}
           onChange={(e) => binding.setValue(e.target.value)}
         />
