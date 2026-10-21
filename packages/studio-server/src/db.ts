@@ -87,6 +87,19 @@ export interface PostgresOptions {
   prepare?: boolean;
   /** Passed through to postgres.js. */
   ssl?: postgres.Options<Record<string, never>>["ssl"];
+  /**
+   * Open a connection for each transaction and close it after, instead of
+   * keeping a pool. Default: on when running on Cloudflare Workers, where a
+   * connection belongs to the request that opened it and a pooled one fails
+   * from the second request on ("Cannot perform I/O on behalf of a different
+   * request"); off everywhere else.
+   */
+  perRequest?: boolean;
+}
+
+/** True on Cloudflare Workers (and so on Lovable's hosting). */
+export function onCloudflareWorkers(): boolean {
+  return typeof navigator !== "undefined" && (navigator as { userAgent?: string }).userAgent === "Cloudflare-Workers";
 }
 
 /**
@@ -103,9 +116,30 @@ export function createPostgresDatabase(
   connection: string | postgres.Sql,
   options: PostgresOptions = {},
 ): StudioDatabase {
+  if (typeof connection === "string" && (options.perRequest ?? onCloudflareWorkers())) {
+    return perRequest(connection, options);
+  }
   const owned = typeof connection === "string";
-  const sql = owned ? connect(connection, options) : connection;
+  const sql = owned ? connect(connection, options) : (connection as postgres.Sql);
   return wrap(sql, owned);
+}
+
+/** A connection per transaction, closed when it ends: nothing outlives the request. */
+function perRequest(connectionString: string, options: PostgresOptions): StudioDatabase {
+  const once = async <T>(fn: (db: StudioDatabase) => Promise<T>): Promise<T> => {
+    const sql = connect(connectionString, { ...options, max: 1 });
+    try {
+      return await fn(wrap(sql, true));
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+  };
+  return {
+    asUser: (identity, opts, fn) => once((db) => db.asUser(identity, opts, fn)),
+    inspectLogin: () => once((db) => db.inspectLogin()),
+    // Nothing stays open between requests.
+    async end() {},
+  };
 }
 
 function connect(connectionString: string, options: PostgresOptions): postgres.Sql {

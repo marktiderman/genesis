@@ -102,6 +102,22 @@ describeDb("studio handler against Postgres with RLS", () => {
     expect((await call(allowed, COACH_A, { op: "resources" })).status).toBe(200);
   });
 
+  it("can open a connection per transaction and leave none open, as on Cloudflare Workers", async () => {
+    const url = new URL(loginUrl());
+    url.searchParams.set("application_name", "studio_per_request");
+    const h = handler({ database: createPostgresDatabase(url.toString(), { perRequest: true }) });
+    const open = async () =>
+      Number((await admin`select count(*)::int as n from pg_stat_activity where application_name = 'studio_per_request'`)[0]!.n);
+    const list = await call(h, COACH_A, { op: "list", resource: "public.clients" });
+    expect(list.status).toBe(200);
+    expect(await open()).toBe(0);
+    const row = list.body.rows[0];
+    const saved = await call(h, COACH_A, { op: "update", resource: "public.clients", id: row.values.id, data: { notes: "per request" }, expectedVersion: row.version });
+    expect(saved.status).toBe(200);
+    expect(saved.body.audit).toBeTruthy();
+    expect(await open()).toBe(0);
+  });
+
   it("connects with a login role that can do nothing until it becomes the user", async () => {
     const login = postgres(loginUrl(), { max: 1, onnotice: () => {} });
     try {

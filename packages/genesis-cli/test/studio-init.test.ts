@@ -60,6 +60,8 @@ describe("genesis studio init", () => {
     const plan = planStudioInit(next, { route: "/staff/data" });
     expect(plan.files.map((f) => f.path)).toEqual(["genesis-studio.sql", "app/api/studio/route.ts", "app/staff/data/page.tsx"]);
     expect(plan.files[2]!.content).toContain('import { createBrowserClient } from "@supabase/ssr";');
+    // Next.js inlines public variables into the browser bundle only for dot access.
+    expect(plan.files[2]!.content).toContain("process.env.NEXT_PUBLIC_SUPABASE_URL!");
     expect(plan.files[1]!.content).toContain("supabaseStudio(");
   });
 
@@ -163,6 +165,9 @@ describe("TanStack Start apps", () => {
     expect(page).not.toContain("standalone.css");
     const server = plan.files.find((f) => f.path === "src/routes/api/studio.ts")!.content;
     expect(server).toContain('await import("@marktiderman/genesis-studio-server")');
+    // Bracket access works under noPropertyAccessFromIndexSignature.
+    expect(server).toContain('process.env["STUDIO_DATABASE_URL"]!');
+    expect(server).not.toMatch(/process\.env\.[A-Z]/);
     expect(plan.files.find((f) => f.path === "src/styles.css")!.content).toContain('@source "../node_modules/@marktiderman/genesis-studio/dist";');
   });
 

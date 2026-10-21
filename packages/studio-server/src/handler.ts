@@ -175,25 +175,24 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
   const statementTimeoutMs = options.statementTimeoutMs ?? 10_000;
   const maxPageSize = options.maxPageSize ?? 200;
 
-  // Checked once, on the first request: the login role must not be able to
-  // see past row rules on its own.
-  let loginCheck: Promise<string | null> | undefined;
-  const checkLogin = () =>
-    (loginCheck ??= database.inspectLogin().then((login) => {
-      if (options.allowPrivilegedLogin) return null;
-      if (login.superuser || login.bypassRls) {
-        return (
-          `The studio's database login "${login.name}" is a superuser or bypasses row-level security. ` +
+  // Checked once: the login role must not be able to see past row rules on
+  // its own. Only the settled answer is kept, never the check in flight: on
+  // Cloudflare Workers one request can't wait on I/O another request started,
+  // so two first requests each check for themselves. A failed check (the
+  // database unreachable) isn't kept either, or the handler would stay off.
+  let loginProblem: string | null | undefined;
+  const checkLogin = async (): Promise<string | null> => {
+    if (loginProblem !== undefined) return loginProblem;
+    const login = await database.inspectLogin();
+    const problem =
+      !options.allowPrivilegedLogin && (login.superuser || login.bypassRls)
+        ? `The studio's database login "${login.name}" is a superuser or bypasses row-level security. ` +
           "Connect with a dedicated NOINHERIT login role (see the README), or set allowPrivilegedLogin for local development."
-        );
-      }
-      return null;
-    }).catch((error: unknown) => {
-      // A failed check (the database unreachable at startup) must not be
-      // cached, or the handler would stay off until a restart.
-      loginCheck = undefined;
-      throw error;
-    }));
+        : null;
+    // A refusal sticks: a check that finished later and found nothing never lifts one.
+    loginProblem = loginProblem || problem;
+    return loginProblem;
+  };
 
   async function resolveOne(
     ctx: AccessContext,
@@ -260,9 +259,9 @@ export function createStudioHandler(options: StudioHandlerOptions): StudioHandle
         return fail("forbidden", "Anonymous sessions can't use the studio. Sign in with an account.");
       }
 
-      const loginProblem = await checkLogin();
-      if (loginProblem) {
-        options.onError?.(new Error(loginProblem));
+      const unsafeLogin = await checkLogin();
+      if (unsafeLogin) {
+        options.onError?.(new Error(unsafeLogin));
         return fail("error", "The studio isn't set up safely, so it's switched off. Your administrator has the details.");
       }
 

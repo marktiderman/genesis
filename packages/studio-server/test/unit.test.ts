@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SignJWT } from "jose";
 import { isDataWriteError } from "@marktiderman/genesis-core/schema";
 import { byResource, createStudioHandler, databaseDecides, jwtAuth, studioSetupSql, supabaseAuth, supabaseStudio, type StudioDatabase } from "../src/index";
@@ -91,6 +91,47 @@ describe("createStudioHandler login check", () => {
     expect((await post()).status).toBe(500);
     expect((await post()).status).toBe(200);
     expect(attempts).toBe(2);
+  });
+
+  it("keeps a refusal when a slower check of the same login finds nothing", async () => {
+    // Two first requests each check the login, both at once. Each check is held
+    // open until released, so the order they finish in is the test's to choose.
+    type Login = Awaited<ReturnType<StudioDatabase["inspectLogin"]>>;
+    const pending: Array<(login: Login) => void> = [];
+    const database: StudioDatabase = {
+      inspectLogin: () => new Promise<Login>((resolve) => pending.push(resolve)),
+      async asUser() {
+        return { resources: [] } as never;
+      },
+      async end() {},
+    };
+    const handler = createStudioHandler({
+      database,
+      auth: jwtAuth({ secret: SECRET, audience: "authenticated" }),
+      authorize: () => false,
+    });
+    const post = async () =>
+      handler(
+        new Request("http://studio.test", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${await sign({ sub: "u", aud: "authenticated" })}`,
+          },
+          body: JSON.stringify({ op: "resources" }),
+        }),
+      );
+    const first = post();
+    const second = post();
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    // The unsafe answer comes back first, then the safe one.
+    pending[0]!({ name: "studio_login", superuser: true, bypassRls: false, inherit: false });
+    expect((await first).status).toBe(500);
+    pending[1]!({ name: "studio_login", superuser: false, bypassRls: false, inherit: false });
+    expect((await second).status).toBe(500);
+    // Every request after that is refused, without checking again.
+    expect((await post()).status).toBe(500);
+    expect(pending).toHaveLength(2);
   });
 });
 

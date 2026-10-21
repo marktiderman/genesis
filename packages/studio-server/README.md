@@ -322,6 +322,16 @@ worker.start();
   Scrub before shipping them to a log service.
 - The audit log is append-only by design. Decide its retention, and how a deletion request is
   handled, before it holds production data.
+- On Cloudflare Workers (where Lovable deploys TanStack Start apps), a database connection
+  belongs to the request that opened it. There the studio opens one per transaction and closes
+  it after, instead of keeping a pool, so one handler can still serve every request. Set
+  `createPostgresDatabase(url, { perRequest })` to choose either way yourself.
+- Cloudflare recommends [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) for a remote
+  Postgres on Workers: without it each request pays a fresh TCP, TLS and login handshake. Pass its
+  connection string as `createPostgresDatabase(env.HYPERDRIVE.connectionString, { prepare: true })`
+  (Hyperdrive's transaction pooling needs prepared statements on). Create the Hyperdrive config with
+  query caching off (`--caching-disabled`): a cached result would skip the row rules of the user
+  who asks next.
 
 ## Wire protocol
 
