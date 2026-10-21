@@ -732,7 +732,7 @@ Members can always open it anonymously; anything identifying is opt-in.
 | Admin | `ResourcePage` responses list, alert function, summary view | Builder, dashboards in the product |
 | Analytics | `form_view`, `form_start`, `submit_success` | Per-question drop-off |
 
-Forms are authored in code for M1; the gym owner asks for a change and it ships. The builder (F4)
+Forms are authored in code for M1; the gym owner asks for a change and it ships. The builder (F3)
 later opens exactly these definitions.
 
 ### After M1, driven by what the gym asks for
@@ -756,27 +756,30 @@ layer.
 | **F0 · Core** | `genesis-forms`: definition + schema, `defineForm` with inference, `parseForm` + analyser, logic engine, navigation, store, validation, recall, variables, `/testing`. | Conformance suite passes in Node, Workers and React Native's JS engine; size budget met. |
 | **F1 · Web** | `genesis-forms-react`, registries, `genesis-forms-web` with text, choice, scale, date and file types; classic, paged and focus layouts; keyboard model; a11y suite; new primitives in `genesis-ui`. | A branching, scoring feedback form works with keyboard and screen reader only; axe clean in CI. **First client project adopts it.** |
 | **F2 · Responses** | `FormStore`, `genesis-forms-supabase`, partials, resume, uploads, `/server` submit handler, webhooks, analytics events. | An onboarding form resumes on another device; a lead form is re-validated server-side and fires a signed webhook. |
-| **F3 · Assessment** | Answer keys, `publicDefinition`, auto + manual grading, rubrics, attempts, assignments, `<ResponseReview>`, `<GradingQueue>`, print layout, `fillBlanks`, matching, ordering. | A worksheet is assigned, completed over two sessions, auto- and manually graded, with no answer key in the browser bundle or network traffic. |
-| **F4 · Builder** | `genesis-forms-builder`: document editor, `/` menu, inspector from `propsSchema`, logic panel and flow map, preview, publish/versioning, translations. **The product's builder app ships on it.** | A non-developer builds and publishes a branching form; a plugin field type appears in the builder with no builder changes. |
+| **F3 · Builder** | `genesis-forms-builder`: document editor, `/` menu, inspector from `propsSchema`, logic panel and flow map, preview, publish/versioning, translations. **The product's builder app ships on it.** | A non-developer builds and publishes a branching form; a plugin field type appears in the builder with no builder changes. |
+| **F4 · Assessment** | Answer keys, `publicDefinition`, auto + manual grading, rubrics, attempts, assignments, `<ResponseReview>`, `<GradingQueue>`, print layout, `fillBlanks`, matching, ordering. | A worksheet is assigned, completed over two sessions, auto- and manually graded, with no answer key in the browser bundle or network traffic. |
 | **F5 · Native + embed** | `genesis-forms-native`, `genesis-forms-embed`, devtools. | The same definition runs in an Expo app and in an embed on a marketing site. |
 | **F6 · Ecosystem** | Plugins (payments, scheduling, signature, captcha), AI assist, MCP server, collaboration, Genesis `ResourceForm` and Data Studio integration. | Third-party field packages exist outside the repo. |
 
-F3 and F4 can swap if the product needs the builder before any project needs worksheets.
+Decided: the builder (F3) ships before assessment (F4).
 
-## Decisions needed
+## Decisions
 
-1. **Package names.** `@marktiderman/genesis-forms` plus `-react`, `-web`, `-native`, `-supabase`,
-   `-builder`, as above. The alternative is a single `genesis-forms` package with subpaths, which is
-   fewer packages but forces every app to install Radix and React Native peers it may not use.
-   *Recommended: the split above.*
-2. **Engine-owned state, and amending FRAMEWORK.md rule 4** for form products. *Recommended*, for
-   the reasons in [The engine and state](#the-engine-and-state).
-3. **Own logic AST** that round-trips to JSON Logic, instead of storing raw JSON Logic.
+**Decided 2026-10-21 by the maintainer:**
+
+1. **Package split:** `@marktiderman/genesis-forms` plus `-react`, `-web`, `-native`, `-supabase`,
+   `-builder`, as above.
+2. **Engine-owned state.** FRAMEWORK.md rule 4 is amended: react-hook-form + zod still covers CRUD
+   forms; form products use `genesis-forms`, whose engine owns its state (see
+   [The engine and state](#the-engine-and-state)).
+3. **The builder comes before assessment:** F3 is the builder, F4 is assessment.
+
+**Still open:**
+
+4. **Own logic AST** that round-trips to JSON Logic, instead of storing raw JSON Logic.
    *Recommended.*
-4. **Assessment in the core** (F3) rather than a plugin. *Recommended*, because answer-key stripping
-   has to be enforced by the store and server, and a plugin can't guarantee that.
-5. **F3 vs F4 order**, depending on whether a client project needs worksheets or the product needs
-   its builder first.
+5. **Assessment in the core** rather than a plugin. *Recommended*, because answer-key stripping has
+   to be enforced by the store and server, and a plugin can't guarantee that.
 6. **The product's name and repository**, which this plan deliberately leaves open: it consumes the
    packages like any other client project.
 
