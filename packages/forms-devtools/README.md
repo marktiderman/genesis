@@ -20,8 +20,11 @@ const engine = useForm(afterClass, { hidden: context });
   Tamper mode adds a forged server input, an unknown field and a value for a hidden field, so you can
   watch the server drop them.
 - **Share links:** `encodeShare` / `decodeShare` put a definition and events in a URL hash
-  (deflate-raw + base64url). The hash never reaches a server; answers to fields with
-  `props.sensitive` are blanked.
+  (deflate-raw + base64url). The hash never reaches a server, but it does land in browser history,
+  clipboards and chats, so answers to fields with `props.sensitive` are blanked and the server
+  `context` and `definition.meta` are left out unless you pass `{ includeContext: true }` or
+  `{ includeMeta: true }`. `decodeShare` returns `null` for anything that is not a valid form
+  (checked with `parseForm`), carries a malformed event, or inflates past `MAX_SHARE_BYTES` (1 MB).
 - **`extraTabs`:** add your own panels (definition editor, flow map, coverage).
 
 Add `@import "@marktiderman/genesis-forms-devtools/styles.css";` after the genesis-ui one.

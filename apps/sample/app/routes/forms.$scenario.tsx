@@ -100,7 +100,11 @@ export default function FormsScenario() {
   }, [draft]);
 
   const share = async () => {
-    const encoded = await encodeShare({ v: 1, definition, events, context, layout });
+    // Playground data is made up, so links carry the context and meta too.
+    const encoded = await encodeShare(
+      { v: 1, definition, events, context, layout },
+      { includeContext: true, includeMeta: true },
+    );
     const url = `${window.location.origin}${window.location.pathname}#d=${encoded}`;
     try {
       await navigator.clipboard.writeText(url);

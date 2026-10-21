@@ -102,7 +102,14 @@ export function TimelinePanel({
             Live
           </Button>
           {onFork ? (
-            <Button size="sm" onClick={() => onFork(events.slice(0, at))} disabled={at === events.length}>
+            <Button
+              size="sm"
+              onClick={() => {
+                onFork(events.slice(0, at));
+                setCursor(null);
+              }}
+              disabled={at === events.length}
+            >
               Continue from here
             </Button>
           ) : null}
