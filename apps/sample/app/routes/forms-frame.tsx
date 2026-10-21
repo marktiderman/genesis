@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { replay } from "@marktiderman/genesis-forms";
+import { parseForm, replay, type FormEvent } from "@marktiderman/genesis-forms";
+import { ErrorBoundary } from "@marktiderman/genesis-forms-devtools";
 import { Form } from "@marktiderman/genesis-forms-web";
-import type { FrameToShell, ShellToFrame } from "../lib/forms-frame-protocol";
+import { isShellMessage, type FrameToShell, type ShellToFrame } from "../lib/forms-frame-protocol";
 
 /**
  * The form alone, inside the playground's device frame. Rendering in an
@@ -14,33 +15,43 @@ export default function FormsFrame() {
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || e.source !== window.parent) return;
-      if ((e.data as ShellToFrame)?.type === "gf:load") setLoad(e.data as ShellToFrame);
+      if (isShellMessage(e.data) && parseForm(e.data.definition).ok) setLoad(e.data);
     };
     window.addEventListener("message", onMessage);
     window.parent.postMessage({ type: "gf:ready" } satisfies FrameToShell, window.location.origin);
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  const engine = useMemo(
-    () => (load ? replay(load.definition, load.events, { hidden: load.context }) : null),
-    [load],
-  );
+  const engine = useMemo(() => {
+    if (!load) return null;
+    try {
+      return replay(load.definition, load.events, { hidden: load.context });
+    } catch {
+      return null;
+    }
+  }, [load]);
 
   useEffect(() => {
     if (!engine) return;
-    const post = () =>
-      window.parent.postMessage(
-        { type: "gf:events", events: engine.getState().events } satisfies FrameToShell,
-        window.location.origin,
-      );
+    // The engine notifies on every state change; only clone the log across when it changed.
+    let last: FormEvent[] | null = null;
+    const post = () => {
+      const events = engine.getState().events;
+      if (events === last) return;
+      last = events;
+      window.parent.postMessage({ type: "gf:events", events } satisfies FrameToShell, window.location.origin);
+    };
     post();
     return engine.subscribe(post);
   }, [engine]);
 
+  if (load && !engine) return <p className="p-6 text-destructive">This form could not be loaded.</p>;
   if (!load || !engine) return <p className="p-6 text-muted-foreground">Waiting for the playground…</p>;
   return (
     <main className="min-h-screen bg-background p-4 sm:p-8">
-      <Form form={load.definition} engine={engine} layout={load.layout} />
+      <ErrorBoundary resetKey={load} label="The form">
+        <Form form={load.definition} engine={engine} layout={load.layout} />
+      </ErrorBoundary>
     </main>
   );
 }
