@@ -46,7 +46,7 @@ describe("validateSubmission", () => {
     expect(result.ok && result.submission.answers).toEqual({ overall: 5, contact_me: false });
   });
 
-  it("re-validates answers sent after the submit event", () => {
+  it("ignores answers sent after the submit event", () => {
     const events = [
       { type: "answer" as const, field: "overall", value: 5 },
       { type: "answer" as const, field: "contact_me", value: false },
@@ -54,7 +54,7 @@ describe("validateSubmission", () => {
       { type: "answer" as const, field: "overall", value: 99 },
     ];
     const result = validateSubmission(def, { events });
-    expect(result.ok).toBe(false);
+    expect(result.ok && result.submission.answers).toEqual({ overall: 5, contact_me: false });
   });
 
   it("does not treat unknown event types as a submit", () => {

@@ -213,7 +213,9 @@ function FormBody({
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
   const finish = async () => {
-    if (sending.current || !engine.submit()) return;
+    if (sending.current) return;
+    // A retry after a failed onSubmit finds the response already completed.
+    if (engine.getState().status !== "completed" && !engine.submit()) return;
     if (!onSubmit) {
       setPhase("sent");
       return;
