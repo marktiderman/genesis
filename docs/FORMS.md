@@ -219,7 +219,7 @@ export interface FormDefinition {
   description?: string;
   layout: FormLayout;               // default; the renderer may override
   blocks: Block[];                  // flat, ordered; page-break blocks split pages
-  hidden?: HiddenInput[];           // typed inputs: URL, host app, data lookup
+  hidden?: HiddenInput[];           // typed inputs; source: "url" | "host" | "server"
   variables?: Variable[];           // typed: score, price, …
   logic?: LogicRule[];
   endings?: Ending[];
@@ -303,8 +303,13 @@ export type LogicRule =
   required field, conditions that can never be true (an operator that doesn't fit the type, a
   choice value that doesn't exist), and recall of a field that comes later in the form.
 - **Navigation is a history stack.** Back after a jump returns to where the respondent really was.
-- **Explicit hidden semantics.** A hidden field is never validated. Its value is cleared on submit by
-  default (`settings.clearHiddenValues`) or kept. Recall of an unanswered field renders its
+- **Explicit visibility semantics.** A field that logic has hidden is never validated. Its value is
+  cleared on submit by default (`settings.clearHiddenValues`) or kept. This applies to fields hidden by
+  logic, not to hidden *inputs*, which are never cleared.
+- **Trusted context.** A hidden input with `source: "server"` is never read from the client. The
+  form loader resolves it for display (recall), and the submit handler resolves it again,
+  authoritatively, and stores it in `response.context`. URL and host inputs are untrusted and stored
+  in `response.hidden`. Recall of an unanswered field renders its
   `fallback`; it never drops the question.
 - **Extensible.** `registerFunction({ name, args, returns, impl })` adds pure functions. They are
   type-checked by the analyser and must be installed wherever the form is evaluated, including on
@@ -505,7 +510,8 @@ export interface FormResponse {
   formVersion: number;               // pinned
   status: "draft" | "completed" | "abandoned";
   answers: Record<string, Json>;     // keyed by block id, serialized
-  hidden: Record<string, Json>;
+  hidden: Record<string, Json>;     // untrusted inputs (URL, host app)
+  context: Record<string, Json>;    // server-resolved inputs, e.g. class and coach; never client-supplied
   variables: Record<string, Json>;
   ending?: string;
   cursor?: { pageId?: string; blockId?: string; history: string[] };
@@ -532,7 +538,7 @@ export interface FormStore {
 - **Uploads are direct-to-storage** with signed URLs, progress, retries and cancellation. A response
   holds file references, never file bytes.
 - **The server decides.** `createSubmitHandler()` loads the pinned version, replays the answers
-  through the same engine, clears hidden values, recomputes variables and the ending, and only then
+  through the same engine, clears values of fields hidden by logic, resolves server-sourced context, recomputes variables and the ending, and only then
   writes. It also signs outgoing webhooks (HMAC, with timestamp and replay protection) and supports
   idempotency keys so double submits don't create duplicates.
 - **Supabase adapter.** Ships SQL for `forms`, `form_versions` and `form_responses`, RLS policies,
@@ -677,15 +683,20 @@ later without migrating data. Everything else is deliberately minimal.
 
 ### What members see
 
-A QR code on the whiteboard and in the post-class message links to the form. The class and coach
-come from the URL (`/f/after-class?class=0600&coach=sam`), so members don't type them.
+One permanent QR code on the whiteboard and in the post-class message links to the form
+(`/f/after-class`). Members never type the class or coach, and can't change them. The server works
+them out from the submission time and a small `class_schedule` table, and stores them in
+`response.context`.
 
 ```ts
 export const afterClass = defineForm({
   id: "after-class",
   title: "How was class?",
   layout: { mode: "focus" },                       // one question at a time, thumb-friendly
-  hidden: { class: f.hidden.string(), coach: f.hidden.string() },
+  hidden: {                                         // resolved by the server, never from the URL
+    class: f.hidden.string({ source: "server" }),
+    coach: f.hidden.string({ source: "server" }),
+  },
   blocks: [
     f.rating("overall", { label: "How was today's class?", max: 5, required: true }),
     f.multiChoice("went_well", {
@@ -769,8 +780,8 @@ Decided: the builder (F3) ships before assessment (F4).
 
 1. **Package split:** `@marktiderman/genesis-forms` plus `-react`, `-web`, `-native`, `-supabase`,
    `-builder`, as above.
-2. **Engine-owned state.** FRAMEWORK.md rule 4 is amended: react-hook-form + zod still covers CRUD
-   forms; form products use `genesis-forms`, whose engine owns its state (see
+2. **Engine-owned state.** FRAMEWORK.md rule 4 is to be amended when the first forms package lands
+   (it is unchanged today): react-hook-form + zod still covers CRUD forms; form products use `genesis-forms`, whose engine owns its state (see
    [The engine and state](#the-engine-and-state)).
 3. **The builder comes before assessment:** F3 is the builder, F4 is assessment.
 
