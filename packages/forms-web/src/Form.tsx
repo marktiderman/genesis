@@ -531,7 +531,7 @@ function FormBody({
           ? renderSlot(DefaultProgress, slots?.progress, { step, total: visiblePath.length }, slotProps?.progress)
           : null}
         {/* Disabled once the response is completed (sending, or after a failed send): read-only, not dead. */}
-        <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
+        <fieldset disabled={locked} className="min-w-0 border-0 p-0">
           {layout === "focus" ? (
             <div ref={stepRef} tabIndex={-1} className="outline-none">
               {current ? renderBlock(current, true) : null}
