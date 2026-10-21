@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useHref, useLocation, useParams } from "react-router";
+import { useHref, useLocation, useParams, useRouteError } from "react-router";
 import { parseForm, replay, type FormDefinition, type FormEvent, type Json as JsonValue } from "@marktiderman/genesis-forms";
 import {
   ContextEditor,
@@ -44,10 +44,14 @@ export default function FormsScenario() {
   const [events, setEvents] = useState<FormEvent[]>([]);
   const [draft, setDraft] = useState(pretty(scenario.form.definition));
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
   const [loadKey, setLoadKey] = useState(0);
   const [contextVersion, setContextVersion] = useState(0);
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const startEvents = useRef<FormEvent[]>([]);
+  // The frame's live event log. Every load sends it, so a layout or context
+  // change keeps the respondent's progress; only an explicit restart, a fork
+  // or a loaded link replaces it.
+  const eventsRef = useRef<FormEvent[]>([]);
 
   // Reset when the scenario changes, or load a shared link.
   useEffect(() => {
@@ -57,13 +61,19 @@ export default function FormsScenario() {
       setDraft(pretty(def));
       setContext(ctx);
       setLayout(lay ?? def.layout?.mode ?? "focus");
-      startEvents.current = evts;
+      eventsRef.current = evts;
       setEvents(evts);
       setLoadKey((k) => k + 1);
     };
+    setShareError(null);
     if (hash.startsWith("#d=")) {
       void decodeShare(hash).then((p) => {
-        if (!cancelled && p) reset(p.definition, p.context ?? {}, p.events ?? [], p.layout);
+        if (cancelled) return;
+        if (p) reset(p.definition, p.context ?? {}, p.events ?? [], p.layout);
+        else {
+          setShareError("This share link could not be read.");
+          reset(scenario.form.definition, scenario.context, []);
+        }
       });
     } else {
       reset(scenario.form.definition, scenario.context, []);
@@ -74,7 +84,7 @@ export default function FormsScenario() {
   }, [scenario, hash]);
 
   const send = useCallback(() => {
-    const message: ShellToFrame = { type: "gf:load", definition, context, layout, events: startEvents.current };
+    const message: ShellToFrame = { type: "gf:load", definition, context, layout, events: eventsRef.current };
     frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
   }, [definition, context, layout]);
 
@@ -83,7 +93,10 @@ export default function FormsScenario() {
       if (e.origin !== window.location.origin || e.source !== frameRef.current?.contentWindow) return;
       if (!isFrameMessage(e.data)) return;
       if (e.data.type === "gf:ready") send();
-      else setEvents(e.data.events);
+      else {
+        eventsRef.current = e.data.events;
+        setEvents(e.data.events);
+      }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -95,7 +108,7 @@ export default function FormsScenario() {
   }, [send, loadKey]);
 
   const restart = (evts: FormEvent[]) => {
-    startEvents.current = evts;
+    eventsRef.current = evts;
     setEvents(evts);
     setLoadKey((k) => k + 1);
   };
@@ -120,10 +133,18 @@ export default function FormsScenario() {
 
   const share = async () => {
     // Playground data is made up, so links carry the context and meta too.
-    const encoded = await encodeShare(
-      { v: 1, definition, events, context, layout },
-      { includeContext: true, includeMeta: true },
-    );
+    let encoded: string;
+    try {
+      encoded = await encodeShare(
+        { v: 1, definition, events, context, layout },
+        { includeContext: true, includeMeta: true },
+      );
+    } catch (err) {
+      setShareStatus(null);
+      setShareError((err as Error).message);
+      return;
+    }
+    setShareError(null);
     const url = `${window.location.origin}${window.location.pathname}#d=${encoded}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -168,6 +189,11 @@ export default function FormsScenario() {
           </span>
         ) : null}
       </div>
+      {shareError ? (
+        <p className="rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive" role="alert">
+          {shareError}
+        </p>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[auto_minmax(0,1fr)]">
         <div className="overflow-auto">
@@ -176,7 +202,7 @@ export default function FormsScenario() {
             ref={frameRef}
             src={frameSrc}
             title={`${scenario.title} on a ${device}`}
-            className={cn("rounded-xl border bg-background shadow-sm", DEVICE_CLASS[device])}
+            className={cn("max-w-full rounded-xl border bg-background shadow-sm", DEVICE_CLASS[device])}
           />
         </div>
         <Card>
@@ -200,10 +226,7 @@ export default function FormsScenario() {
                     <ContextEditor
                       key={`${scenario.id}-${loadKey === 0 ? 0 : "x"}-${contextVersion}`}
                       value={context}
-                      onChange={(next) => {
-                        setContext(next);
-                        restart(startEvents.current);
-                      }}
+                      onChange={setContext}
                     />
                   ),
                 },
@@ -243,6 +266,17 @@ export default function FormsScenario() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+/** A crash in this scenario stays in this pane; the scenario list keeps working. */
+export function ErrorBoundary() {
+  const error = useRouteError();
+  return (
+    <div role="alert" className="space-y-1 rounded-md border border-destructive/50 p-4 text-sm">
+      <p className="font-medium text-destructive">This scenario could not be shown.</p>
+      <p className="font-mono text-xs text-muted-foreground">{error instanceof Error ? error.message : String(error)}</p>
     </div>
   );
 }

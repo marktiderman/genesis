@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useId,
   useMemo,
   useRef,
   useSyncExternalStore,
@@ -23,11 +24,20 @@ const definitionOf = (form: FormLike) => ("definition" in form ? form.definition
 
 // ── Engine hooks ─────────────────────────────────────────────────────────────
 
-/** Create a form engine once for the component's lifetime. */
+/**
+ * Create a form engine for a definition. The engine lives as long as the
+ * definition's identity: pass a different definition object and you get a
+ * fresh engine (and a fresh response). Keep the definition stable (module
+ * scope, `useMemo`) so a re-render doesn't start over. `options` are read when
+ * an engine is created.
+ */
 export function useForm(form: FormLike, options?: CreateFormOptions): FormEngine {
-  const ref = useRef<FormEngine | null>(null);
-  if (!ref.current) ref.current = createForm(definitionOf(form), options);
-  return ref.current;
+  const definition = definitionOf(form);
+  const ref = useRef<{ definition: FormDefinition; engine: FormEngine } | null>(null);
+  if (!ref.current || ref.current.definition !== definition) {
+    ref.current = { definition, engine: createForm(definition, options) };
+  }
+  return ref.current.engine;
 }
 
 /**
@@ -73,11 +83,18 @@ export function useField(engine: FormEngine, id: string): FieldBinding {
 export interface FieldRendererProps {
   engine: FormEngine;
   binding: FieldBinding;
-  /** Element id for the control (and `${inputId}-error`, `${inputId}-desc`). */
+  /**
+   * Element id for the control (and `${inputId}-error`, `${inputId}-desc`,
+   * `${inputId}-label`). Unique per `<FormRuntime>`, so two forms on one page
+   * never share ids.
+   */
   inputId: string;
-  /** Focus the control when it mounts (focus layout). */
-  autoFocus?: boolean;
-  /** Ask the layout to advance (Enter, or a single-choice pick in focus layout). */
+  /**
+   * Ask the layout to advance (focus layout, auto-advance on). Call it only
+   * for a deliberate pick (a click or tap, Space or Enter), never for a change
+   * that arrow keys made while moving through a group. The layout ignores it
+   * on the last question, so a pick never submits.
+   */
   onAdvance?: () => void;
 }
 
@@ -123,6 +140,8 @@ export function createRendererRegistry(entries: RendererEntry[] = []): RendererR
 interface FormContextValue {
   engine: FormEngine;
   registry: RendererRegistry;
+  /** Prefix for every element id this form renders (from `useId`). */
+  idPrefix: string;
 }
 
 const FormContext = createContext<FormContextValue | null>(null);
@@ -139,9 +158,12 @@ export interface FormRuntimeProps {
   children: ReactNode;
 }
 
-/** Headless: provides the engine and the renderer registry to everything below. */
+/** Headless: provides the engine, the renderer registry and an id prefix to everything below. */
 export function FormRuntime({ engine, registry, children }: FormRuntimeProps) {
-  const value = useMemo(() => ({ engine, registry }), [engine, registry]);
+  // `useId` keeps ids unique when two forms share a page; only letters and
+  // digits are kept so an id is safe in a URL fragment and a CSS selector.
+  const idPrefix = `gf-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const value = useMemo(() => ({ engine, registry, idPrefix }), [engine, registry, idPrefix]);
   return <FormContext.Provider value={value}>{children}</FormContext.Provider>;
 }
 
@@ -150,11 +172,11 @@ export function FieldRenderer({
   id,
   ...rest
 }: { id: string } & Omit<FieldRendererProps, "engine" | "binding" | "inputId">) {
-  const { engine, registry } = useFormContext();
+  const { engine, registry, idPrefix } = useFormContext();
   const binding = useField(engine, id);
   const Component = registry.resolve(binding.field);
   if (!Component) throw new Error(`No renderer registered for field type "${binding.field.type}".`);
-  return <Component engine={engine} binding={binding} inputId={`gf-${id}`} {...rest} />;
+  return <Component engine={engine} binding={binding} inputId={`${idPrefix}-${id}`} {...rest} />;
 }
 
 export type { Block, FieldBlock, FormEngine, FormState, Json };

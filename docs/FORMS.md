@@ -1,7 +1,7 @@
 # Genesis Forms
 
-Plan v0.3, 2026-10-21. Status: **proposal, for the maintainer's decision**. Nothing described here
-is built yet.
+Plan v0.3, 2026-10-21. Status: **R1 built** (see [Releases](#releases-current)); later releases
+are the plan. Where this document describes something beyond R1, it is not built yet.
 
 > **Revised 2026-10-21, at the maintainer's direction.**
 >
@@ -141,7 +141,7 @@ Apache-2.0.
        │ on genesis-ui + │ │ on genesis-ui-  │ │ (MIT)               │ │ submit handler, storage  │
        │ design-system   │ │ native          │ │                     │ │                          │
        └─────────────────┘ └─────────────────┘ └─────────────────────┘ └──────────────────────────┘
-                                         later: genesis-forms-embed · -devtools · -mcp · field plugins
+                                            R1: genesis-forms-devtools · later: -embed · -mcp · field plugins
 ```
 
 **The greenfield line.** `genesis-forms` and `genesis-forms-react` depend on nothing else in Genesis,
@@ -159,7 +159,8 @@ so every Genesis app gets it, not just forms.
 | `@marktiderman/genesis-forms-native` | React Native renderer kit | Built on `genesis-ui-native` (NativeWind). Same vocabulary as the web kit. |
 | `@marktiderman/genesis-forms-supabase` | `FormStore` for Supabase: SQL for forms, versions, responses, grades; RLS; storage policies; edge-function submit handler | The backend most client projects already use. |
 | `@marktiderman/genesis-forms-builder` | Visual builder | Edits a definition; no storage of its own. The product hosts it; any app can embed it (e.g. teachers authoring worksheets inside Gamify). |
-| Later: `-embed`, `-devtools`, `-mcp`, field plugins | Web component and iframe embeds (inline, full page, popup, slider, side tab, `postMessage` events); logic-trace devtools; MCP server for agents; payments, scheduling, signature, captcha | |
+| `@marktiderman/genesis-forms-devtools` (R1) | `<Inspector>` (state, event-log time travel, server check with tamper mode), share links, and the flow map, logic trace and coverage panels | Development only; powers the `/forms` playground in `apps/sample`. Sensitive values are masked unless revealed. |
+| Later: `-embed`, `-mcp`, field plugins | Web component and iframe embeds (inline, full page, popup, slider, side tab, `postMessage` events); MCP server for agents; payments, scheduling, signature, captcha | |
 
 ## Two ways to author, one artifact
 
@@ -305,11 +306,24 @@ export type LogicRule =
 - **Navigation is a history stack.** Back after a jump returns to where the respondent really was.
 - **Explicit visibility semantics.** A field that logic has hidden is never validated. Its value is
   cleared on submit by default (`settings.clearHiddenValues`) or kept. This applies to fields hidden by
-  logic, not to hidden *inputs*, which are never cleared.
+  logic, not to hidden *inputs*, which are never cleared. A kept value was never checked on the
+  path, so the server keeps it only if its format is valid (`validateField` with
+  `requireAnswers: false`) and drops it otherwise, in drafts too.
+- **Logic reads the answers on the path.** The path is built in one forward pass: a block's
+  show/hide rules, and the jumps from it, see only the fields already on the path before it (a jump
+  also sees its own field). A field that is hidden, jumped over or later in the form reads as
+  unanswered whatever value it still holds, so a stale answer never drives logic and the path needs
+  no fixed point. `parseForm` warns about a rule that reads a field which does not come before the
+  block it applies to.
+- **Empty is unanswered.** In comparisons an empty value (unanswered, `null`, blank text, an empty
+  list: `isEmptyValue`) fails `eq`, `in` and `contains` and passes `neq`. So `eq null` is never
+  true for a cleared field, and `neq x` is true for a field not answered yet.
 - **Trusted context.** A hidden input with `source: "server"` is never read from the client. The
   form loader resolves it for display (recall), and the submit handler resolves it again,
   authoritatively, and stores it in `response.context`. URL and host inputs are untrusted and stored
-  in `response.hidden`. Recall of an unanswered field renders its
+  in `response.hidden`. The engine and the server type every declared input with the same
+  `coerceHidden(definition, raw)`: only string, number and boolean primitives are accepted, `""` is
+  not a number, and strings over 1000 characters are dropped. Recall of an unanswered field renders its
   `fallback`; it never drops the question.
 - **Extensible.** `registerFunction({ name, args, returns, impl })` adds pure functions. They are
   type-checked by the analyser and must be installed wherever the form is evaluated, including on
@@ -387,6 +401,10 @@ form.state.variables.score;
 await form.submit();
 ```
 
+In R1, `initialValues` (prefilled answers) are logged as leading `answer` events with
+`source: "prefill"`, so `replay(definition, engine.events)` and the server rebuild the same response.
+`replay` appends to the log in place, so a long log replays in linear time.
+
 The store being framework-agnostic is what makes `@marktiderman/genesis-forms/server`, `@marktiderman/genesis-forms/testing`, React Native,
 and later Vue or Svelte bindings cheap.
 
@@ -410,7 +428,7 @@ export interface FieldTypeManifest<TValue, TProps> {
   summarize: (v: TValue, props: TProps, locale: string) => string; // recall, exports, emails
   toJsonSchema?: (props: TProps) => JSONSchema;
   a11y: { semantics: "control" | "group"; autocomplete?: string };
-  keyboard?: { shortcuts?: "letters" | "numbers" };  // one-at-a-time mode
+  keyboard?: { shortcuts?: "letters" | "numbers" };  // planned; letter/number shortcuts are not built yet
 }
 
 // @marktiderman/genesis-forms-react: renderers are registered per platform, with ranked testers
@@ -436,7 +454,7 @@ Deliberately tight; Jotform's sprawl is the anti-pattern. Everything else is a p
 
 | Category | Types |
 | --- | --- |
-| Text | `short-text`, `long-text`, `email`, `phone` (with country), `url`, `number`, `currency` |
+| Text | `short-text`, `long-text`, `email`, `phone` (with country; R1 ships a country-free `phone`: 7–15 digits, `+` and common separators, `autocomplete`/`inputMode` `tel`), `url`, `number`, `currency` |
 | Choice | `single-choice` (list or cards, optional "other"), `multi-choice`, `dropdown` (searchable), `yes-no`, `consent` |
 | Scale | `rating`, `scale` (1–N with labels), `nps`, `ranking`, `matrix` |
 | Date | `date`, `time`, `date-time`, `date-range` |
@@ -465,7 +483,8 @@ import { Form } from "@marktiderman/genesis-forms-web";
 
 **Three layouts over one definition:** `classic` (all visible blocks, optional columns), `paged`
 (split at page breaks, progress bar or steps), and `focus` (one question at a time: Enter advances,
-letter or number keys select, Shift+Enter makes a newline, the next question animates in). Layouts
+in long text Enter makes a newline and Ctrl/Cmd+Enter advances, arrow keys move through and select
+options, and a click, tap or Space on a single pick advances except on the last question). Layouts
 are themselves registered, so a "chat" layout is a plugin, not a fork.
 
 **Composition, from most to least done for you:**
@@ -490,9 +509,13 @@ Custom CSS is an escape hatch.
 
 - `fieldset`/`legend` for every `semantics: "group"` type (radio, checkbox list, rating, scale,
   matrix);
-- `aria-invalid` and `aria-describedby` on every control; a focusable error summary on submit;
-- in focus mode, focus moves to each question's heading, progress is announced through `aria-live`,
-  and the sticky footer never covers the focused control (WCAG 2.2 2.4.11);
+- `aria-invalid` on every control (for a group question, on its radio group or each checkbox;
+  ARIA 1.2 doesn't allow it on the group itself), and `aria-describedby` linking each text
+  control or group to its description and error; a focusable error summary on submit, above the
+  fields, linking to each invalid one;
+- in focus mode, focus moves to each question (a text field's input, otherwise the visible question
+  text), a failed step is announced once through a persistent live region, the ending heading takes
+  focus, and the sticky footer never covers the focused control (WCAG 2.2 2.4.11);
 - `autocomplete` tokens from the manifest; paste and autofill are never blocked (3.3.8);
 - answers survive Back, refresh and resume, and recall avoids asking twice (3.3.7);
 - 24px minimum targets (2.5.8); reduced motion respected;
@@ -540,7 +563,11 @@ export interface FormStore {
 - **The server decides.** `createSubmitHandler()` loads the pinned version, replays the answers
   through the same engine, clears values of fields hidden by logic, resolves server-sourced context, recomputes variables and the ending, and only then
   writes. It also signs outgoing webhooks (HMAC, with timestamp and replay protection) and supports
-  idempotency keys so double submits don't create duplicates.
+  idempotency keys so double submits don't create duplicates. The R1 `validateSubmission` already
+  runs `parseForm` on the definition (cached per definition object) and refuses one that fails,
+  returns `{ ok: false, errors: { "": "Malformed submission." } }` for a body of the wrong shape
+  (events that fail `isFormEvent`, answers or hidden inputs that are not plain JSON objects) instead
+  of throwing, and compacts the event log before enforcing `maxEvents` (default 10 000).
 - **Supabase adapter.** Ships SQL for `forms`, `form_versions` and `form_responses`, RLS policies,
   storage bucket policies, and an edge-function submit handler. **Clients never write response
   tables directly**: anon and authenticated roles get no `INSERT` or `UPDATE` on `form_responses`.
@@ -600,14 +627,22 @@ test("every branch is reachable", () => {
 ```
 
 Also: `renderForm()` for testing-library with axe checks built in; `genesis-forms-devtools` with a logic
-trace ("why is this field hidden?"); and `genesis-forms typegen` and `genesis-forms validate` CLI commands for CI.
+trace ("why is this field hidden?", built in R1 on `explain()`); and `genesis-forms typegen` and `genesis-forms validate` CLI commands for CI.
 
 ## Security and privacy
 
 - No `eval`, no `Function`, no HTML injection: rich text in content blocks is a sanitized,
   structured document, not HTML.
-- `sensitive` fields: excluded from analytics, masked in devtools, optionally encrypted at rest by
-  the store adapter.
+- **Anonymous forms.** `settings.anonymous` is a per-form admin setting, off by default. When it is
+  on, fields marked `identifying: true` (name, email, phone) are treated as hidden: off the path,
+  not validated, and never stored. `validateSubmission` drops client-sent values for them and lists
+  them in `ignored`, and the engine records no event timestamps whatever clock it is given. Fields
+  not marked `identifying` are unaffected, so an opt-in follow-up (like the gym's "want a coach to
+  follow up?") keeps working on an anonymous form.
+- `sensitive` fields: excluded from analytics, masked in devtools by default (with a "Reveal
+  sensitive values" switch), blanked in share links, optionally encrypted at rest by
+  the store adapter. In R1 it is a top-level `FieldBlock` property (`f.shortText("ssn", { label,
+  sensitive: true })`); `props.sensitive` is read as an alias, and `isSensitive(block)` checks both.
 - Spam: honeypot and timing checks built in; captcha as a plugin; rate limiting in the server
   handler.
 - Retention: `settings.retention` (for example, delete drafts after 30 days); the Supabase adapter
@@ -763,7 +798,7 @@ breakdown and maps onto them.
 
 | Release | Ships |
 | --- | --- |
-| **R1 · Gym launch** (built) | `genesis-forms`, `genesis-forms-react`, `genesis-forms-web` 0.1: definition, `defineForm`, `parseForm`, show/hide and jump logic, recall, typed hidden inputs, event log and `replay`, eight field types, `validateSubmission`, focus and classic layouts. First consumer: CrossFit Fairfield feedback in Breakthrough. |
+| **R1 · Gym launch** (built) | `genesis-forms`, `genesis-forms-react`, `genesis-forms-web` 0.1: definition, `defineForm`, `parseForm`, show/hide and jump logic, recall, typed hidden inputs, event log and `replay`, nine field types (with `phone`), `validateSubmission`, focus and classic layouts, `identifying` fields and the anonymous setting. `/testing`: `simulate`, `coverage`, `runScenario`, `recordScenario`, `compactEvents` and the conformance suite; `explain()`. `genesis-forms-devtools` 0.1 and the `/forms` playground. Umbrella subpaths `@marktiderman/genesis/forms`, `/forms/server`, `/forms/react`, `/forms/web`. First consumer: CrossFit Fairfield feedback in Breakthrough. |
 | **R2 · Packages for every app** | Complete logic (calculations, endings by score), checks and tests, field plugins, paged layout, accessibility and translations, theming, partials and resume, uploads, privacy, webhooks, analytics. |
 | **R3 · Builder + AI** | Visual builder, publishing and versions, agent access (MCP and API) and AI assist. |
 | **R4 · Reach** | Worksheets (answer keys, grading, attempts, print), embeds and React Native, collaboration. |
@@ -781,7 +816,7 @@ layer.
 | **F2 · Responses** | `FormStore`, `genesis-forms-supabase`, partials, resume, uploads, `/server` submit handler, webhooks, analytics events. | An onboarding form resumes on another device; a lead form is re-validated server-side and fires a signed webhook. |
 | **F3 · Builder** | `genesis-forms-builder`: document editor, `/` menu, inspector from `propsSchema`, logic panel and flow map, preview, publish/versioning, translations. **The product's builder app ships on it.** | A non-developer builds and publishes a branching form; a plugin field type appears in the builder with no builder changes. |
 | **F4 · Assessment** | Answer keys, `publicDefinition`, auto + manual grading, rubrics, attempts, assignments, `<ResponseReview>`, `<GradingQueue>`, print layout, `fillBlanks`, matching, ordering. | A worksheet is assigned, completed over two sessions, auto- and manually graded, with no answer key in the browser bundle or network traffic. |
-| **F5 · Native + embed** | `genesis-forms-native`, `genesis-forms-embed`, devtools. | The same definition runs in an Expo app and in an embed on a marketing site. |
+| **F5 · Native + embed** | `genesis-forms-native`, `genesis-forms-embed` (devtools shipped in R1). | The same definition runs in an Expo app and in an embed on a marketing site. |
 | **F6 · Ecosystem** | Plugins (payments, scheduling, signature, captcha), AI assist, MCP server, collaboration, Genesis `ResourceForm` and Data Studio integration. | Third-party field packages exist outside the repo. |
 
 Decided: the builder (F3) ships before assessment (F4).

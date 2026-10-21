@@ -1,5 +1,6 @@
+export { ErrorBoundary, type ErrorBoundaryProps } from "./ErrorBoundary";
 export { Inspector, type InspectorProps, type InspectorTab } from "./Inspector";
-export { ContextEditor, JsonView, ServerPanel, StatePanel, TimelinePanel, pretty } from "./panels";
+export { ContextEditor, JsonView, ServerPanel, StatePanel, TimelinePanel, pretty, type PrettyOptions } from "./panels";
 export { CoveragePanel, witnessEvents, type CoveragePanelProps } from "./coverage-panel";
 export {
   FLOW_NODE_HEIGHT,

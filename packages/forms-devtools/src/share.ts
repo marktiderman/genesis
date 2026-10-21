@@ -4,6 +4,8 @@ import {
   type FormEvent,
   type Json,
 } from "@marktiderman/genesis-forms";
+import { compactEvents } from "@marktiderman/genesis-forms/testing";
+import { MAX_VALUE_DEPTH, exceedsDepth, isFormEvent, sensitiveIds } from "./util";
 
 /** What a share link carries. It lives in the URL hash, so it never reaches a server. */
 export interface SharePayload {
@@ -22,9 +24,18 @@ export interface EncodeShareOptions {
   includeContext?: boolean;
   /** Include `definition.meta`. Off by default for the same reason. */
   includeMeta?: boolean;
+  /**
+   * Keep each event's `at` timestamp. Off by default: timestamps say when and
+   * how fast someone answered, and replay ignores them anyway.
+   */
+  includeTimestamps?: boolean;
 }
 
-/** Decoded payloads larger than this are rejected (a decompression bomb guard). */
+/**
+ * The largest payload, as JSON bytes, a share link may carry. `encodeShare`
+ * throws above it and `decodeShare` rejects anything that inflates past it
+ * (a decompression bomb guard).
+ */
 export const MAX_SHARE_BYTES = 1_000_000;
 
 const toBase64Url = (bytes: Uint8Array) => {
@@ -68,31 +79,27 @@ async function pipe(
   return out;
 }
 
-const isFormEvent = (event: unknown): event is FormEvent => {
-  if (!event || typeof event !== "object" || Array.isArray(event)) return false;
-  const e = event as Record<string, unknown>;
-  if (e.at !== undefined && typeof e.at !== "number") return false;
-  if (e.type === "answer") return typeof e.field === "string";
-  return e.type === "next" || e.type === "back" || e.type === "submit";
-};
-
 /**
- * Encode a payload for a URL hash (deflate-raw + base64url). Answers to fields
- * marked `sensitive` in their props are blanked; the server context and
- * `definition.meta` are left out unless asked for.
+ * Encode a payload for a URL hash (deflate-raw + base64url). Keystroke-level
+ * answers are compacted (consecutive answers to one field keep the last),
+ * answers to sensitive fields are blanked, and `at` timestamps, the server
+ * context and `definition.meta` are left out unless asked for. Throws when
+ * the JSON is larger than `MAX_SHARE_BYTES`, since `decodeShare` would refuse it.
  */
 export async function encodeShare(
   payload: SharePayload,
   options: EncodeShareOptions = {},
 ): Promise<string> {
-  const sensitive = new Set(
-    payload.definition.blocks
-      .filter((b) => b.kind === "field" && b.props?.sensitive === true)
-      .map((b) => b.id),
-  );
-  const events = payload.events?.map((e) =>
-    e.type === "answer" && sensitive.has(e.field) ? { ...e, value: null } : e,
-  );
+  const sensitive = sensitiveIds(payload.definition);
+  const events = payload.events
+    ? compactEvents(payload.events).map((e): FormEvent => {
+        const blanked: FormEvent =
+          e.type === "answer" && sensitive.has(e.field) ? { ...e, value: null } : e;
+        if (options.includeTimestamps || blanked.at === undefined) return blanked;
+        const { at: _at, ...rest } = blanked;
+        return rest as FormEvent;
+      })
+    : undefined;
   const { meta, ...definitionWithoutMeta } = payload.definition;
   const definition =
     options.includeMeta && meta
@@ -106,10 +113,18 @@ export async function encodeShare(
   };
   if (options.includeContext && payload.context) out.context = payload.context;
   const json = new TextEncoder().encode(JSON.stringify(out));
+  if (json.byteLength > MAX_SHARE_BYTES) {
+    throw new Error(
+      `This form is too large to share as a link (${Math.ceil(json.byteLength / 1000)} KB; the limit is ${MAX_SHARE_BYTES / 1000} KB).`,
+    );
+  }
   return toBase64Url(await pipe(json, new CompressionStream("deflate-raw")));
 }
 
-/** Decode a share hash. Returns null for anything malformed, oversized or not a valid form. */
+/**
+ * Decode a share hash. Returns null for anything malformed, oversized or not a
+ * valid form, or whose event values or context nest deeper than 32 levels.
+ */
 export async function decodeShare(hash: string): Promise<SharePayload | null> {
   try {
     const bytes = await pipe(
@@ -121,7 +136,11 @@ export async function decodeShare(hash: string): Promise<SharePayload | null> {
     if (payload?.v !== 1 || !parseForm(payload.definition).ok) return null;
     if (
       payload.events !== undefined &&
-      (!Array.isArray(payload.events) || !payload.events.every(isFormEvent))
+      (!Array.isArray(payload.events) ||
+        !payload.events.every(isFormEvent) ||
+        payload.events.some(
+          (e) => e.type === "answer" && exceedsDepth(e.value, MAX_VALUE_DEPTH),
+        ))
     ) {
       return null;
     }
@@ -129,7 +148,9 @@ export async function decodeShare(hash: string): Promise<SharePayload | null> {
       payload.context !== undefined &&
       (typeof payload.context !== "object" ||
         payload.context === null ||
-        Array.isArray(payload.context))
+        Array.isArray(payload.context) ||
+        // The context object itself is one level; its values get 32.
+        exceedsDepth(payload.context, MAX_VALUE_DEPTH + 1))
     ) {
       return null;
     }

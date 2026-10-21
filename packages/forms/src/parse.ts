@@ -1,6 +1,7 @@
+import { isJson } from "./events";
 import { getFieldType } from "./fields";
 import { recallRefs } from "./recall";
-import type { Condition, FormDefinition, Operand } from "./types";
+import type { Condition, FormDefinition, Operator } from "./types";
 
 export interface FormIssue {
   path: string;
@@ -14,154 +15,274 @@ export type ParseResult =
 const isObject = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 
+const OPERATORS: ReadonlySet<string> = new Set<Operator>([
+  "eq",
+  "neq",
+  "lt",
+  "lte",
+  "gt",
+  "gte",
+  "in",
+  "contains",
+  "answered",
+  "empty",
+]);
+
 /**
- * Check a definition before it is stored or rendered: structure, unique ids
- * and keys, known field types, references that resolve, operators that fit
- * the field type. Warnings flag things that work but are probably mistakes.
+ * Names an id, key or hidden input may not take: they collide with
+ * `Object.prototype` (`__proto__`, `constructor`, `toString`…) when used as a
+ * record key.
+ */
+const RESERVED: ReadonlySet<string> = new Set(Object.getOwnPropertyNames(Object.prototype));
+
+/** Deepest nesting of `all` / `any` / `not` a condition may have. */
+const MAX_CONDITION_DEPTH = 32;
+
+/**
+ * Check a definition before it is stored or rendered: structure, the types of
+ * text fields, unique ids and keys, known field types, references that
+ * resolve, operators that fit the field type. Warnings flag things that work
+ * but are probably mistakes. Never throws, whatever the input.
  */
 export function parseForm(input: unknown): ParseResult {
   const issues: FormIssue[] = [];
   const warnings: FormIssue[] = [];
   const fail = () => ({ ok: false as const, issues, warnings });
+  const issue = (path: string, message: string) => void issues.push({ path, message });
+
+  /** A required string (non-empty with `nonEmpty`). */
+  const text = (v: unknown, path: string, nonEmpty = false) => {
+    if (typeof v !== "string" || (nonEmpty && !v)) issue(path, nonEmpty ? "Required." : "Required text.");
+  };
+  /** An optional string. */
+  const optionalText = (v: unknown, path: string) => {
+    if (v !== undefined && typeof v !== "string") issue(path, "Must be text.");
+  };
+  const optionalBoolean = (v: unknown, path: string) => {
+    if (v !== undefined && typeof v !== "boolean") issue(path, "Must be true or false.");
+  };
+  /** An identifier: a non-empty string that is not an `Object.prototype` name. */
+  const name = (v: unknown, path: string, what: string): v is string => {
+    if (typeof v !== "string" || !v) {
+      issue(path, `${what} must be a non-empty string.`);
+      return false;
+    }
+    if (RESERVED.has(v)) {
+      issue(path, `"${v}" is reserved and cannot be used as ${what.toLowerCase()}.`);
+      return false;
+    }
+    return true;
+  };
 
   if (!isObject(input)) {
-    issues.push({ path: "", message: "A form definition must be an object." });
+    issue("", "A form definition must be an object.");
     return fail();
   }
-  if (input.schemaVersion !== 1) {
-    issues.push({ path: "schemaVersion", message: "Unsupported schemaVersion; expected 1." });
-  }
-  if (typeof input.id !== "string" || !input.id) issues.push({ path: "id", message: "Required." });
-  if (typeof input.title !== "string") issues.push({ path: "title", message: "Required." });
+  if (input.schemaVersion !== 1) issue("schemaVersion", "Unsupported schemaVersion; expected 1.");
+  text(input.id, "id", true);
+  text(input.title, "title");
+  optionalText(input.description, "description");
   if (!Array.isArray(input.blocks)) {
-    issues.push({ path: "blocks", message: "Must be an array." });
+    issue("blocks", "Must be an array.");
     return fail();
   }
 
-  const def = input as unknown as FormDefinition;
   const ids = new Set<string>();
   const keys = new Map<string, string>();
   const fieldTypes = new Map<string, string>();
   const order = new Map<string, number>();
 
-  def.blocks.forEach((block, i) => {
+  input.blocks.forEach((block: unknown, i) => {
     const path = `blocks[${i}]`;
     if (!isObject(block) || typeof block.id !== "string" || !block.id) {
-      issues.push({ path, message: "Every block needs a string id." });
+      issue(path, "Every block needs a string id.");
       return;
     }
-    if (ids.has(block.id)) issues.push({ path: `${path}.id`, message: `Duplicate id "${block.id}".` });
+    if (!name(block.id, `${path}.id`, "A block id")) return;
+    if (ids.has(block.id)) issue(`${path}.id`, `Duplicate id "${block.id}".`);
     ids.add(block.id);
     order.set(block.id, i);
     if (block.kind === "field") {
-      if (typeof block.label !== "string") issues.push({ path: `${path}.label`, message: "Required text." });
-      if (typeof block.key !== "string" || !block.key) issues.push({ path: `${path}.key`, message: "Required." });
-      if (!getFieldType(block.type)) {
-        issues.push({ path: `${path}.type`, message: `Unknown field type "${block.type}".` });
+      text(block.label, `${path}.label`);
+      optionalText(block.description, `${path}.description`);
+      optionalText(block.placeholder, `${path}.placeholder`);
+      optionalBoolean(block.required, `${path}.required`);
+      optionalBoolean(block.sensitive, `${path}.sensitive`);
+      optionalBoolean(block.identifying, `${path}.identifying`);
+      const validKey = name(block.key, `${path}.key`, "A field key");
+      if (typeof block.type !== "string" || !getFieldType(block.type)) {
+        issue(`${path}.type`, `Unknown field type "${String(block.type)}".`);
       }
-      if (keys.has(block.key)) issues.push({ path: `${path}.key`, message: `Duplicate key "${block.key}".` });
-      keys.set(block.key, block.id);
-      fieldTypes.set(block.id, block.type);
+      if (block.props !== undefined) {
+        if (!isObject(block.props) || !isJson(block.props)) issue(`${path}.props`, "Must be a JSON object.");
+        else if (block.props.options !== undefined) {
+          const options = block.props.options;
+          if (!Array.isArray(options)) issue(`${path}.props.options`, "Must be an array.");
+          else {
+            options.forEach((o, j) => {
+              const at = `${path}.props.options[${j}]`;
+              if (!isObject(o) || typeof o.value !== "string") issue(at, "Each option needs a string value.");
+              else optionalText(o.label, `${at}.label`);
+            });
+          }
+        }
+      }
+      if (validKey) {
+        if (keys.has(block.key as string)) issue(`${path}.key`, `Duplicate key "${String(block.key)}".`);
+        keys.set(block.key as string, block.id);
+      }
+      fieldTypes.set(block.id, typeof block.type === "string" ? block.type : "");
     } else if (block.kind === "content") {
-      if (typeof block.text !== "string") issues.push({ path: `${path}.text`, message: "Required text." });
-    } else if (block.kind !== "page-break") {
-      issues.push({ path: `${path}.kind`, message: `Unknown block kind.` });
+      if (block.type !== "heading" && block.type !== "text") issue(`${path}.type`, "Must be heading or text.");
+      text(block.text, `${path}.text`);
+    } else if (block.kind === "page-break") {
+      optionalText(block.title, `${path}.title`);
+    } else {
+      issue(`${path}.kind`, "Unknown block kind.");
     }
   });
 
   const hiddenNames = new Set<string>();
-  if (def.hidden !== undefined && !Array.isArray(def.hidden)) {
-    issues.push({ path: "hidden", message: "Must be an array." });
-  }
-  (Array.isArray(def.hidden) ? def.hidden : []).forEach((h, i) => {
+  if (input.hidden !== undefined && !Array.isArray(input.hidden)) issue("hidden", "Must be an array.");
+  (Array.isArray(input.hidden) ? input.hidden : []).forEach((h: unknown, i) => {
     if (!isObject(h) || typeof h.name !== "string" || !h.name) {
-      issues.push({ path: `hidden[${i}]`, message: "Each hidden input needs a name." });
+      issue(`hidden[${i}]`, "Each hidden input needs a name.");
       return;
     }
-    if (!["url", "host", "server"].includes(h.source)) {
-      issues.push({ path: `hidden[${i}].source`, message: "Must be url, host or server." });
+    if (!name(h.name, `hidden[${i}].name`, "A hidden input name")) return;
+    if (hiddenNames.has(h.name)) issue(`hidden[${i}].name`, `Duplicate hidden input "${h.name}".`);
+    if (typeof h.source !== "string" || !["url", "host", "server"].includes(h.source)) {
+      issue(`hidden[${i}].source`, "Must be url, host or server.");
     }
-    if (!["string", "number", "boolean"].includes(h.type)) {
-      issues.push({ path: `hidden[${i}].type`, message: "Must be string, number or boolean." });
+    if (typeof h.type !== "string" || !["string", "number", "boolean"].includes(h.type)) {
+      issue(`hidden[${i}].type`, "Must be string, number or boolean.");
     }
     hiddenNames.add(h.name);
   });
 
-  const endingIds = new Set((def.endings ?? []).map((e) => e.id));
+  const endingIds = new Set<string>();
+  if (input.endings !== undefined && !Array.isArray(input.endings)) issue("endings", "Must be an array.");
+  (Array.isArray(input.endings) ? input.endings : []).forEach((e: unknown, i) => {
+    const path = `endings[${i}]`;
+    if (!isObject(e)) {
+      issue(path, "Each ending must be an object with an id and a title.");
+      return;
+    }
+    text(e.title, `${path}.title`);
+    optionalText(e.description, `${path}.description`);
+    if (!name(e.id, `${path}.id`, "An ending id")) return;
+    if (endingIds.has(e.id)) issue(`${path}.id`, `Duplicate ending id "${e.id}".`);
+    endingIds.add(e.id);
+  });
 
-  const checkOperand = (o: Operand | undefined, path: string) => {
+  /** Field ids a condition reads, for the order check. */
+  const checkOperand = (o: unknown, path: string, reads: string[]) => {
     if (o === undefined) return;
-    if (!isObject(o)) {
-      issues.push({ path, message: "An operand must be an object." });
-      return;
+    if (!isObject(o)) return issue(path, "An operand must be an object.");
+    if ("field" in o) {
+      if (typeof o.field !== "string" || !fieldTypes.has(o.field)) return issue(path, `No field "${String(o.field)}".`);
+      reads.push(o.field);
+    } else if ("hidden" in o) {
+      if (typeof o.hidden !== "string" || !hiddenNames.has(o.hidden)) {
+        issue(path, `No hidden input "${String(o.hidden)}".`);
+      }
+    } else if (!("value" in o) || !isJson(o.value)) {
+      issue(path, "An operand needs a `field`, a `hidden` input or a JSON `value`.");
     }
-    if ("field" in o && !fieldTypes.has(o.field)) issues.push({ path, message: `No field "${o.field}".` });
-    if ("hidden" in o && !hiddenNames.has(o.hidden)) issues.push({ path, message: `No hidden input "${o.hidden}".` });
   };
-  const checkCondition = (c: Condition, path: string): void => {
-    if (!isObject(c)) {
-      issues.push({ path, message: "A condition must be an object." });
-      return;
+  const checkCondition = (c: unknown, path: string, reads: string[], depth = 0): void => {
+    if (!isObject(c)) return issue(path, "A condition must be an object.");
+    if (depth > MAX_CONDITION_DEPTH) return issue(path, "The condition is nested too deeply.");
+    if ("all" in c || "any" in c) {
+      const group = "all" in c ? "all" : "any";
+      const list = c[group];
+      if (!Array.isArray(list)) return issue(path, `\`${group}\` must be an array.`);
+      return list.forEach((x, i) => checkCondition(x, `${path}.${group}[${i}]`, reads, depth + 1));
     }
-    if ("all" in c && !Array.isArray(c.all)) return void issues.push({ path, message: "`all` must be an array." });
-    if ("any" in c && !Array.isArray(c.any)) return void issues.push({ path, message: "`any` must be an array." });
-    if ("all" in c) return c.all.forEach((x, i) => checkCondition(x, `${path}.all[${i}]`));
-    if ("any" in c) return c.any.forEach((x, i) => checkCondition(x, `${path}.any[${i}]`));
-    if ("not" in c) return checkCondition(c.not, `${path}.not`);
+    if ("not" in c) return checkCondition(c.not, `${path}.not`, reads, depth + 1);
     if (typeof c.op !== "string" || !isObject(c.left)) {
-      issues.push({ path, message: "A comparison needs an `op` and a `left` operand." });
-      return;
+      return issue(path, "A comparison needs an `op` and a `left` operand.");
     }
-    checkOperand(c.left, `${path}.left`);
-    checkOperand(c.right, `${path}.right`);
-    if ("field" in c.left) {
+    if (!OPERATORS.has(c.op)) issue(`${path}.op`, `Unknown operator "${c.op}".`);
+    checkOperand(c.left, `${path}.left`, reads);
+    checkOperand(c.right, `${path}.right`, reads);
+    if (typeof c.left.field === "string") {
       const manifest = getFieldType(fieldTypes.get(c.left.field) ?? "");
-      if (manifest && !manifest.operators.includes(c.op)) {
-        issues.push({ path: `${path}.op`, message: `"${c.op}" does not apply to a ${manifest.type} field.` });
+      if (manifest && OPERATORS.has(c.op) && !manifest.operators.includes(c.op as Operator)) {
+        issue(`${path}.op`, `"${c.op}" does not apply to a ${manifest.type} field.`);
       }
     }
   };
+  const keyOf = (id: string) => [...keys].find(([, v]) => v === id)?.[0] ?? id;
 
   const ruleIds = new Set<string>();
-  if (def.logic !== undefined && !Array.isArray(def.logic)) {
-    issues.push({ path: "logic", message: "Must be an array." });
-  }
-  (Array.isArray(def.logic) ? def.logic : []).forEach((rule, i) => {
+  if (input.logic !== undefined && !Array.isArray(input.logic)) issue("logic", "Must be an array.");
+  (Array.isArray(input.logic) ? input.logic : []).forEach((rule: unknown, i) => {
     const path = `logic[${i}]`;
     if (!isObject(rule) || typeof rule.id !== "string" || !isObject(rule.when)) {
-      issues.push({ path, message: "Each rule needs an id and a `when` condition." });
+      issue(path, "Each rule needs an id and a `when` condition.");
       return;
     }
-    if (ruleIds.has(rule.id)) issues.push({ path: `${path}.id`, message: `Duplicate rule id "${rule.id}".` });
+    if (ruleIds.has(rule.id)) issue(`${path}.id`, `Duplicate rule id "${rule.id}".`);
     ruleIds.add(rule.id);
-    checkCondition(rule.when, `${path}.when`);
+    const reads: string[] = [];
+    checkCondition(rule.when, `${path}.when`, reads);
+
+    // The block whose position the condition is read at, for the order check.
+    let at: string | undefined;
+    let inclusive = false;
     if (rule.effect === "jump") {
-      if (!ids.has(rule.from)) issues.push({ path: `${path}.from`, message: `No block "${rule.from}".` });
-      if (typeof rule.to === "object") {
-        if (!endingIds.has(rule.to.ending)) issues.push({ path: `${path}.to`, message: `No ending "${rule.to.ending}".` });
-      } else if (!ids.has(rule.to)) {
-        issues.push({ path: `${path}.to`, message: `No block "${rule.to}".` });
-      } else if ((order.get(rule.to) ?? 0) <= (order.get(rule.from) ?? 0)) {
+      if (typeof rule.from !== "string" || !ids.has(rule.from)) {
+        issue(`${path}.from`, `No block "${String(rule.from)}".`);
+      } else {
+        at = rule.from;
+        inclusive = true;
+      }
+      if (isObject(rule.to)) {
+        if (typeof rule.to.ending !== "string" || !endingIds.has(rule.to.ending)) {
+          issue(`${path}.to`, `No ending "${String(rule.to.ending)}".`);
+        }
+      } else if (typeof rule.to !== "string" || !ids.has(rule.to)) {
+        issue(`${path}.to`, `No block "${String(rule.to)}".`);
+      } else if (at !== undefined && (order.get(rule.to) ?? 0) <= (order.get(at) ?? 0)) {
         warnings.push({ path: `${path}.to`, message: "Jumps only go forward; this one is ignored." });
       }
-    } else if (!ids.has(rule.target)) {
-      issues.push({ path: `${path}.target`, message: `No block "${rule.target}".` });
+    } else if (rule.effect === "show" || rule.effect === "hide") {
+      if (typeof rule.target !== "string" || !ids.has(rule.target)) {
+        issue(`${path}.target`, `No block "${String(rule.target)}".`);
+      } else at = rule.target;
+    } else {
+      issue(`${path}.effect`, "Must be show, hide or jump.");
+    }
+
+    // Logic reads only the answers on the path before the block it applies to.
+    if (at !== undefined) {
+      const limit = order.get(at) ?? 0;
+      for (const field of new Set(reads)) {
+        const p = order.get(field) ?? 0;
+        if (p > limit || (p === limit && !inclusive)) {
+          warnings.push({
+            path: `${path}.when`,
+            message: `Reads "${keyOf(field)}", which does not come before "${keyOf(at)}"; it always reads as unanswered.`,
+          });
+        }
+      }
     }
   });
 
-  def.blocks.forEach((block, i) => {
+  input.blocks.forEach((block: unknown, i) => {
     if (!isObject(block)) return;
     const raw =
       block.kind === "field" ? [block.label, block.description] : block.kind === "content" ? [block.text] : [];
     const texts = raw.filter((t): t is string => typeof t === "string");
-    for (const text of texts) {
-      for (const ref of recallRefs(text)) {
+    for (const t of texts) {
+      for (const ref of recallRefs(t)) {
         if (ref.kind === "hidden" && !hiddenNames.has(ref.name)) {
-          issues.push({ path: `blocks[${i}]`, message: `Recalls unknown hidden input "${ref.name}".` });
+          issue(`blocks[${i}]`, `Recalls unknown hidden input "${ref.name}".`);
         }
         if (ref.kind === "field") {
           const target = keys.get(ref.name);
-          if (!target) issues.push({ path: `blocks[${i}]`, message: `Recalls unknown field "${ref.name}".` });
+          if (!target) issue(`blocks[${i}]`, `Recalls unknown field "${ref.name}".`);
           else if ((order.get(target) ?? 0) >= i) {
             warnings.push({ path: `blocks[${i}]`, message: `Recalls "${ref.name}", which comes later.` });
           }
@@ -170,5 +291,5 @@ export function parseForm(input: unknown): ParseResult {
     }
   });
 
-  return issues.length ? fail() : { ok: true, form: def, warnings };
+  return issues.length ? fail() : { ok: true, form: input as unknown as FormDefinition, warnings };
 }

@@ -49,3 +49,47 @@ describe("createRendererRegistry", () => {
     expect(reg.resolve({ kind: "field", id: "e", key: "e", type: "email", label: "E" })).toBe(Custom);
   });
 });
+
+describe("useForm", () => {
+  it("creates a new engine when the definition changes, and keeps it across re-renders", () => {
+    const other = defineForm({ id: "u", title: "U", blocks: [f.shortText("c", { label: "C" })] });
+    const seen: ReturnType<typeof useForm>[] = [];
+    function Host({ def }: { def: Parameters<typeof useForm>[0] }) {
+      seen.push(useForm(def));
+      return null;
+    }
+    const { rerender } = render(<Host def={form} />);
+    rerender(<Host def={form} />);
+    expect(seen[1]).toBe(seen[0]);
+    rerender(<Host def={other} />);
+    expect(seen[2]).not.toBe(seen[0]);
+    expect(seen[2]!.definition.id).toBe("u");
+  });
+});
+
+describe("FormRuntime", () => {
+  it("gives each form its own input ids, so two forms on a page never collide", () => {
+    function IdProbe({ inputId }: FieldRendererProps) {
+      return <input id={inputId} />;
+    }
+    const registry = createRendererRegistry([{ type: "short-text", Component: IdProbe }]);
+    function One() {
+      const engine = useForm(form);
+      return (
+        <FormRuntime engine={engine} registry={registry}>
+          <FieldRenderer id="a" />
+        </FormRuntime>
+      );
+    }
+    const { container } = render(
+      <>
+        <One />
+        <One />
+      </>,
+    );
+    const ids = Array.from(container.querySelectorAll("input"), (i) => i.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) expect(id).toMatch(/^gf-[a-zA-Z0-9]+-a$/);
+  });
+});

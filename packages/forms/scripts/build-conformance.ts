@@ -14,6 +14,7 @@ import { createForm, replay, type FormEngine } from "../src/engine";
 import { validateSubmission } from "../src/server";
 import { recordScenario, runScenario, type Scenario } from "../src/scenario";
 import type { FormDefinition, FormEvent, Json } from "../src/types";
+import { contactAnonymous, contactNamed } from "../src/__tests__/conformance-forms";
 import { afterClass, monthlyPulse } from "../src/__tests__/sample-forms";
 
 const out = join(dirname(fileURLToPath(import.meta.url)), "..", "conformance");
@@ -180,6 +181,40 @@ const pulse = monthlyPulse.definition;
     description: "NPS 8 is one under the jump's boundary: every question is asked and the default ending is reached.",
     tags: ["monthly-pulse", "ending"],
   }));
+}
+
+{
+  const e = live(contactNamed.definition);
+  e.setValue("overall", 4);
+  e.setValue("name", "Ada");
+  e.setValue("email", " ada@example.com ");
+  e.setValue("phone", "+1 (555) 010-0199");
+  e.submit();
+  add(recordScenario(e, "contact-details: named form asks for identifying fields", {
+    description: "With settings.anonymous false, name, email and phone are asked, validated and stored (email and phone trimmed).",
+    tags: ["contact-details", "identifying"],
+  }));
+}
+
+{
+  // Hand-written log: a tampered client answers the identifying fields anyway.
+  const anon = contactAnonymous.definition;
+  const events: FormEvent[] = [
+    { type: "answer", field: "overall", value: 5 },
+    { type: "answer", field: "name", value: "Ada" },
+    { type: "answer", field: "email", value: "ada@example.com" },
+    { type: "answer", field: "phone", value: "+1 555 010 0199" },
+    { type: "submit" },
+  ];
+  const s = recordScenario(replay(anon, events), "contact-details: anonymous form skips identifying fields", {
+    description: "With settings.anonymous true, identifying fields are off the path and not required; the server drops client-sent values for them and lists them in ignored.",
+    tags: ["contact-details", "identifying", "anonymous", "server", "security"],
+  });
+  s.events = events;
+  const result = validateSubmission(anon, { events });
+  if (!result.ok) throw new Error("expected the server to accept it");
+  s.expect.server = { ok: true, answers: result.submission.answers, context: result.submission.context, ignored: result.submission.ignored };
+  add(s);
 }
 
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

@@ -4,8 +4,12 @@
  * comes back.
  */
 import { createForm, replay, type FormEngine } from "./engine";
-import { fieldMap } from "./logic";
-import type { FormDefinition, FormEvent, HiddenInput, Json } from "./types";
+import { compactEvents, isFormEvent, isJson, isPlainObject, isUnknownEvent } from "./events";
+import { isEmptyValue, normalizeValue } from "./fields";
+import { coerceHidden } from "./hidden";
+import { fieldMap, own, withheld } from "./logic";
+import { parseForm } from "./parse";
+import type { FormDefinition, FormEvent, Json } from "./types";
 import { validateField, type FieldValidator } from "./validate";
 
 export interface SubmissionInput {
@@ -23,11 +27,13 @@ export interface SubmissionOptions {
   /** `false` checks a draft: formats only, nothing required. Default true. */
   complete?: boolean;
   validators?: Record<string, FieldValidator>;
+  /** Most events accepted, counted after `compactEvents`. Default 10 000. */
+  maxEvents?: number;
 }
 
 export interface CheckedSubmission {
   status: "draft" | "completed";
-  /** Visible answers only, keyed by field id. */
+  /** Visible answers only, keyed by field id (kept hidden answers too, with `clearHiddenValues: false`). */
   answers: Record<string, Json>;
   /** Untrusted URL and host inputs, coerced to their declared types. */
   hidden: Record<string, Json>;
@@ -42,57 +48,91 @@ export type SubmissionResult =
   | { ok: true; submission: CheckedSubmission }
   | { ok: false; errors: Record<string, string> };
 
-function coerce(value: Json, type: HiddenInput["type"]): Json | undefined {
-  if (type === "string") return typeof value === "string" ? value : String(value);
-  if (type === "number") {
-    const n = typeof value === "number" ? value : Number(value);
-    return Number.isFinite(n) ? n : undefined;
+/** Default for `SubmissionOptions.maxEvents`. */
+export const MAX_EVENTS = 10_000;
+
+const MALFORMED: SubmissionResult = { ok: false, errors: { "": "Malformed submission." } };
+
+// Definitions that parsed cleanly. Failures are not cached: registering a
+// missing field type later can fix them.
+const parsedDefinitions = new WeakMap<object, true>();
+
+function checkDefinition(definition: FormDefinition): string | null {
+  if (typeof definition === "object" && definition !== null && parsedDefinitions.has(definition)) return null;
+  const parsed = parseForm(definition);
+  if (!parsed.ok) {
+    const list = parsed.issues.map((i) => (i.path ? `${i.path}: ${i.message}` : i.message)).join("; ");
+    return `Invalid form definition: ${list}`;
   }
-  if (typeof value === "boolean") return value;
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return undefined;
+  parsedDefinitions.set(definition, true);
+  return null;
 }
 
+/** The input as a well-formed submission, or null. Unknown event types are dropped. */
+function wellFormed(input: unknown): SubmissionInput | null {
+  if (!isPlainObject(input)) return null;
+  const { answers, events, hidden } = input;
+  const record = (v: unknown) =>
+    v === undefined ||
+    (isPlainObject(v) && Object.keys(v).every((k) => v[k] === undefined || isJson(v[k])));
+  if (!record(answers) || !record(hidden)) return null;
+  if (events === undefined) return { answers: answers as SubmissionInput["answers"], hidden: hidden as SubmissionInput["hidden"] };
+  if (!Array.isArray(events)) return null;
+  const known: FormEvent[] = [];
+  for (const e of events as unknown[]) {
+    if (isFormEvent(e)) known.push(e);
+    else if (!isUnknownEvent(e)) return null;
+  }
+  return { answers: answers as SubmissionInput["answers"], events: known, hidden: hidden as SubmissionInput["hidden"] };
+}
+
+/**
+ * Check a submission against the published definition. Never throws on a
+ * malformed submission: it returns `{ ok: false, errors: { "": … } }`.
+ */
 export function validateSubmission(
   definition: FormDefinition,
-  input: SubmissionInput,
+  submission: SubmissionInput,
   options: SubmissionOptions = {},
 ): SubmissionResult {
-  const ignored: string[] = [];
-  const declared = new Map((definition.hidden ?? []).map((h) => [h.name, h]));
+  const invalid = checkDefinition(definition);
+  if (invalid) return { ok: false, errors: { "": invalid } };
+  const input = wellFormed(submission);
+  if (!input) return MALFORMED;
 
-  const hidden: Record<string, Json> = {};
-  for (const [name, value] of Object.entries(input.hidden ?? {})) {
-    const spec = declared.get(name);
-    if (!spec || spec.source === "server") {
-      ignored.push(`hidden.${name}`);
-      continue;
-    }
-    const coerced = coerce(value, spec.type);
-    if (coerced === undefined) ignored.push(`hidden.${name}`);
-    else hidden[name] = coerced;
-  }
-  const context: Record<string, Json> = {};
-  for (const [name, value] of Object.entries(options.context ?? {})) {
-    const spec = declared.get(name);
-    if (spec?.source === "server") {
-      const coerced = coerce(value, spec.type);
-      if (coerced !== undefined) context[name] = coerced;
-    }
-  }
+  const ignored: string[] = [];
+  const client = coerceHidden(definition, input.hidden, { sources: ["url", "host"] });
+  for (const name of client.ignored) ignored.push(`hidden.${name}`);
+  const hidden = client.values;
+  const context = coerceHidden(definition, options.context, { sources: ["server"] }).values;
 
   const fields = fieldMap(definition);
+  // Anonymous forms never store identifying fields: client values are dropped.
+  const dropped = new Set<string>();
+  /** `true`: store it; `false`: withheld; `undefined`: not a field. Both of the latter are reported in `ignored`. */
+  const accept = (id: string): boolean | undefined => {
+    if (!fields.has(id)) return void ignored.push(id);
+    if (!withheld(definition, fields.get(id))) return true;
+    if (!dropped.has(id)) ignored.push(id);
+    dropped.add(id);
+    return false;
+  };
   const engineHidden = { ...hidden, ...context };
   let engine: FormEngine;
   if (input.events) {
-    for (const e of input.events) if (e.type === "answer" && !fields.has(e.field)) ignored.push(e.field);
-    engine = replay(definition, input.events, { hidden: engineHidden, validators: options.validators });
+    const events = compactEvents(input.events);
+    const max = options.maxEvents ?? MAX_EVENTS;
+    if (events.length > max) {
+      return { ok: false, errors: { "": `Too many events: ${events.length} after compaction; the limit is ${max}.` } };
+    }
+    // Unknown fields stay in the log (replay ignores them); withheld ones are removed.
+    const kept = events.filter((e) => e.type !== "answer" || accept(e.field) !== false);
+    engine = replay(definition, kept, { hidden: engineHidden, validators: options.validators });
   } else {
     const answers: Record<string, Json> = {};
-    for (const [id, value] of Object.entries(input.answers ?? {})) {
-      if (fields.has(id)) answers[id] = value;
-      else ignored.push(id);
+    for (const id of Object.keys(input.answers ?? {})) {
+      const value = own(input.answers!, id);
+      if (accept(id) && value !== undefined) answers[id] = value;
     }
     engine = createForm(definition, {
       initialValues: answers,
@@ -122,12 +162,18 @@ export function validateSubmission(
   }
 
   const state = engine.getState();
-  const keepHidden = definition.settings?.clearHiddenValues === false;
-  const answers: Record<string, Json> = keepHidden
-    ? Object.fromEntries(
-        Object.entries(state.values).filter((e): e is [string, Json] => e[1] !== undefined && fields.has(e[0])),
-      )
-    : engine.answers();
+  const answers = engine.answers();
+  if (definition.settings?.clearHiddenValues === false) {
+    // Values of fields off the path were never validated. Keep one only if
+    // its format is valid; drop the rest, so nothing stored is unchecked.
+    for (const [id, field] of fields) {
+      if (withheld(definition, field)) continue;
+      const value = own(state.values, id);
+      if (own(answers, id) !== undefined || value === undefined || isEmptyValue(value, field)) continue;
+      const message = validateField(field, value, { requireAnswers: false, custom: options.validators?.[id] });
+      if (message === null) answers[id] = normalizeValue(value, field);
+    }
+  }
 
   return {
     ok: true,

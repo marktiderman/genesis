@@ -25,16 +25,21 @@ export {
   type FieldSpec,
   type Form,
   type FormInput,
+  type KeyResolver,
   type RuleSpec,
 } from "./define";
 export { parseForm, type FormIssue, type ParseResult } from "./parse";
+export { coerceHidden, coerceHiddenValue, MAX_HIDDEN_STRING_LENGTH, type CoercedHidden, type CoerceHiddenOptions } from "./hidden";
+export { isFormEvent, isJson } from "./events";
 export { createForm, replay, type CreateFormOptions, type FormEngine, type FormState } from "./engine";
 export { computePath, evaluate, ruleVisible, steps, type PathResult } from "./logic";
 export {
   choiceOptions,
   getFieldType,
   isEmptyValue,
+  isSensitive,
   listFieldTypes,
+  normalizeValue,
   registerFieldType,
   summarizeValue,
   type ChoiceOption,

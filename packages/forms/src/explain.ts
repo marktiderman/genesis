@@ -5,7 +5,7 @@
  */
 import type { FormEngine } from "./engine";
 import { choiceOptions, isEmptyValue } from "./fields";
-import { computePath, evaluate, fieldMap, ruleVisible, steps, type EvalScope } from "./logic";
+import { evaluate, fieldMap, own, ruleVisible, steps, walkPath, withheld, type EvalScope, type PathWalk } from "./logic";
 import type { Condition, FieldBlock, FormDefinition, Json, LogicRule, Operand } from "./types";
 import { validateField, type FieldValidator } from "./validate";
 
@@ -90,11 +90,14 @@ export function explain(
     return b?.kind === "field" ? b.key : bid;
   };
   const key = nameOf(id);
+  // Logic reads only the answers on the path before a block.
+  const walk = walkPath(def, scope);
+  const at = walk.scopeAt(id);
 
   const rules: RuleTrace[] = (def.logic ?? [])
     .filter((r): r is VisibilityRule => (r.effect === "show" || r.effect === "hide") && r.target === id)
     .map((r) => {
-      const matched = evaluate(r.when, scope);
+      const matched = evaluate(r.when, at);
       const cond = describeCondition(r.when, def, fields);
       const sentence =
         r.effect === "hide"
@@ -107,15 +110,15 @@ export function explain(
       return { ruleId: r.id, effect: r.effect, matched, sentence };
     });
 
-  const { path } = computePath(def, scope);
+  const { path } = walk;
   const onPath = path.includes(id);
   const visibleByRules = ruleVisible(def, id, scope);
-  const skippedBy = onPath ? undefined : findSkippingJump(def, scope, path, id, nameOf);
+  const skippedBy = onPath ? undefined : findSkippingJump(def, walk, id, nameOf);
   const visible = onPath && visibleByRules;
 
   let validation: FieldValidation | undefined;
   if (block.kind === "field") {
-    const value = input.values[id];
+    const value = own(input.values, id);
     if (!visible) validation = { status: "not-checked" };
     else {
       const message = validateField(block, value, { custom: options.validators?.[id] });
@@ -127,7 +130,9 @@ export function explain(
   let summary: string;
   if (block.kind === "page-break") summary = "Page breaks are never on the path; they only group blocks into pages.";
   else if (visible) summary = rules.find((r) => r.effect === "show" && r.matched)?.sentence ?? "Visible: no rule hides it.";
-  else if (!visibleByRules) {
+  else if (block.kind === "field" && withheld(def, block)) {
+    summary = "Not asked: the form is anonymous and this field identifies the respondent.";
+  } else if (!visibleByRules) {
     summary =
       rules.find((r) => r.effect === "hide" && r.matched)?.sentence ??
       rules.find((r) => r.effect === "show")?.sentence ??
@@ -152,8 +157,7 @@ export function explain(
 /** The effective jump on the path that passes over `id`, mirroring `computePath`. */
 function findSkippingJump(
   def: FormDefinition,
-  scope: EvalScope,
-  path: string[],
+  walk: PathWalk,
   id: string,
   nameOf: (id: string) => string,
 ): JumpTrace | undefined {
@@ -162,9 +166,10 @@ function findSkippingJump(
   const at = index.get(id);
   if (at === undefined) return undefined;
   const jumps = (def.logic ?? []).filter((r): r is JumpRule => r.effect === "jump");
-  for (const from of path) {
+  for (const from of walk.path) {
     const i = index.get(from)!;
     if (i >= at) break;
+    const scope = walk.scopeAt(from, true);
     const jump = jumps.find((r) => r.from === from && evaluate(r.when, scope));
     if (!jump) continue;
     const cond = describeCondition(jump.when, def, fieldMap(def));
