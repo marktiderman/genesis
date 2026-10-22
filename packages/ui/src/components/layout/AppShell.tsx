@@ -16,6 +16,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   ChevronDown,
+  ArrowLeft,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "../ui/button";
@@ -33,7 +34,9 @@ import { readStoredOptions, writeStoredOptions } from "../../option-storage";
 import {
   DefaultLink,
   isPathActive,
+  resolveNavigation,
   type LinkComponent,
+  type NavigationNode,
 } from "../../navigation";
 
 export interface NavItem {
@@ -49,6 +52,17 @@ export interface NavItem {
    * an `activePath` carrying `?search#hash` still matches.
    */
   end?: boolean;
+}
+
+/**
+ * The "up" link AppShell renders above page content: a real link to the
+ * logical parent, never `history.back()`.
+ *
+ * @stability Beta
+ */
+export interface ParentNavigation {
+  href: string;
+  label: string;
 }
 
 /**
@@ -144,8 +158,33 @@ export interface AppShellProps {
   appLogo?: string;
   /** Custom logo node — preferred over `appLogo` letter tile */
   logo?: ReactNode;
-  /** Primary navigation items */
-  navItems: NavItem[];
+  /**
+   * Primary navigation items. Optional when `navigation` is set: the tree
+   * root's `items` are the global nav then.
+   */
+  navItems?: NavItem[];
+  /**
+   * The app's logical navigation hierarchy. AppShell resolves it against
+   * `activePath` (see `resolveNavigation`) and derives:
+   * - the sidebar's global items from the root's `items` (unless `navItems`),
+   * - a contextual section from the current node's `items`, labelled with
+   *   the node's `label` (`$param` segments in `to` filled from the URL),
+   * - the mobile tab bar: the contextual items when there are any, else the
+   *   global top-level items (unless `mobileNavItems`),
+   * - a back link to the current node's logical parent (unless
+   *   `parentNavigation`).
+   *
+   * @stability Beta
+   */
+  navigation?: NavigationNode<NavItem>;
+  /**
+   * Back-to-parent link rendered in the content header, above `children`, on
+   * mobile and desktop. Derived from `navigation` when omitted; `null` hides
+   * it. Use this instead of placing a back row inside page content.
+   *
+   * @stability Beta
+   */
+  parentNavigation?: ParentNavigation | null;
   /** Secondary nav (e.g. “More”) — rendered below a divider when shown */
   secondaryNavItems?: NavItem[];
   /** Label above secondary nav (default “More”) */
@@ -208,6 +247,39 @@ export interface AppShellProps {
    * treated as exact), mirroring React Router `NavLink`.
    */
   isActive?: (to: string, activePath?: string) => boolean;
+}
+
+const PARAM = /^\$(.+)$/;
+
+/** Fill `$name` path segments from `params`; `undefined` if one is missing. */
+function fillParams(to: string, params: Record<string, string>): string | undefined {
+  let missing = false;
+  const filled = to
+    .split("/")
+    .map((part) => {
+      const name = PARAM.exec(part)?.[1];
+      if (name == null) return part;
+      const value = params[name];
+      if (value == null) missing = true;
+      return value == null ? part : encodeURIComponent(value);
+    })
+    .join("/");
+  return missing ? undefined : filled;
+}
+
+/** Interpolate items (and children); drop any whose path the URL can't fill. */
+function fillItems(items: NavItem[], params: Record<string, string>): NavItem[] {
+  return items.flatMap((item) => {
+    const to = fillParams(item.to, params);
+    if (to == null) return [];
+    return [
+      {
+        ...item,
+        to,
+        children: item.children ? fillItems(item.children, params) : undefined,
+      },
+    ];
+  });
 }
 
 function ThemeToggle({ testId }: { testId: string }) {
@@ -485,6 +557,8 @@ function NavGroup({
 
 function SidebarNav({
   navItems,
+  contextualNavItems,
+  contextualNavLabel,
   secondaryNavItems,
   secondaryNavLabel,
   showSecondary,
@@ -496,6 +570,8 @@ function SidebarNav({
   isActive,
 }: {
   navItems: NavItem[];
+  contextualNavItems?: NavItem[];
+  contextualNavLabel?: string;
   secondaryNavItems?: NavItem[];
   secondaryNavLabel: string;
   showSecondary: boolean;
@@ -526,6 +602,34 @@ function SidebarNav({
           isActive={isActive}
         />
       ))}
+
+      {contextualNavItems && contextualNavItems.length > 0 ? (
+        <div
+          className={cn(
+            "mt-4 space-y-1 border-t border-sidebar-border pt-4",
+            collapsed && "mt-2 pt-2",
+          )}
+          data-testid="app-shell-contextual-nav"
+        >
+          {!collapsed && contextualNavLabel ? (
+            <p className="mb-2 truncate px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground/40">
+              {contextualNavLabel}
+            </p>
+          ) : null}
+          {contextualNavItems.map((item) => (
+            <NavGroup
+              key={item.to + item.label}
+              item={item}
+              collapsed={collapsed}
+              density={density}
+              onNavClick={onNavClick}
+              linkComponent={linkComponent}
+              activePath={activePath}
+              isActive={isActive}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {showSecondary && secondaryNavItems && secondaryNavItems.length > 0 ? (
         <div
@@ -613,7 +717,9 @@ export function AppShell({
   appName,
   appLogo,
   logo,
-  navItems,
+  navItems: navItemsProp,
+  navigation,
+  parentNavigation: parentNavigationProp,
   secondaryNavItems,
   secondaryNavLabel = "More",
   mobileNavItems,
@@ -632,6 +738,27 @@ export function AppShell({
   isActive = isPathActive,
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Hierarchical nav: resolve the tree against the current location once.
+  const derived = useMemo(() => {
+    if (!navigation) return undefined;
+    const nav = resolveNavigation(navigation, activePath ?? "/");
+    const atRoot = nav.trail.length === 1;
+    const globalItems = fillItems(navigation.items, nav.params);
+    const contextualItems = atRoot ? [] : fillItems(nav.items, nav.params);
+    // A parent path the URL couldn't fill would be a broken link; drop it.
+    const parent =
+      nav.parent && !nav.parent.path.split("/").some((p) => PARAM.test(p))
+        ? { href: nav.parent.path, label: nav.parent.label }
+        : undefined;
+    return { current: nav.current, globalItems, contextualItems, parent };
+  }, [navigation, activePath]);
+
+  const navItems = navItemsProp ?? derived?.globalItems ?? [];
+  const contextualNavItems = derived?.contextualItems ?? [];
+  const parentNavigation =
+    parentNavigationProp === undefined ? derived?.parent : parentNavigationProp ?? undefined;
+
   const [userOverrides, setUserOverrides] = useState<Partial<AppShellOptions>>(
     {},
   );
@@ -740,6 +867,7 @@ export function AppShell({
     onCollapsedChange?.(next);
   };
 
+  const ParentLink = linkComponent;
   const density = resolved.density ?? "comfortable";
   const scrollWindow = resolved.scrollRoot === "window";
   const railExpanded =
@@ -748,7 +876,9 @@ export function AppShell({
 
   const bottomItems = (
     mobileNavItems ??
-    navItems.filter((i) => !i.children || i.children.length === 0)
+    (contextualNavItems.length > 0 ? contextualNavItems : navItems).filter(
+      (i) => !i.children || i.children.length === 0,
+    )
   ).filter((i) => !i.disabled);
 
   const toggles: ToggleDef[] = (
@@ -919,6 +1049,8 @@ export function AppShell({
 
       <SidebarNav
         navItems={navItems}
+        contextualNavItems={contextualNavItems}
+        contextualNavLabel={derived?.current.label}
         secondaryNavItems={secondaryNavItems}
         secondaryNavLabel={secondaryNavLabel}
         showSecondary={showSecondary}
@@ -1052,6 +1184,28 @@ export function AppShell({
             showMobileBottom ? "pb-16 md:pb-0" : "pb-0",
           )}
         >
+          {parentNavigation ? (
+            <div
+              className="flex min-w-0 items-center px-2 pt-2 sm:px-4 sm:pt-3 lg:px-6"
+              data-testid="app-shell-parent-nav"
+            >
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="min-w-0 max-w-full"
+                testID="app-shell-parent-link"
+              >
+                <ParentLink
+                  href={parentNavigation.href}
+                  aria-label={`Back to ${parentNavigation.label}`}
+                >
+                  <ArrowLeft aria-hidden />
+                  <span className="truncate">{parentNavigation.label}</span>
+                </ParentLink>
+              </Button>
+            </div>
+          ) : null}
           <div className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</div>
         </main>
 
