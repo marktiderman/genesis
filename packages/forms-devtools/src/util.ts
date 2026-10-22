@@ -4,13 +4,20 @@ export { isFormEvent, isSensitive };
 
 // ── Sensitive fields ─────────────────────────────────────────────────────────
 
-/** Ids of the sensitive fields in a definition. */
+/**
+ * Ids of the fields devtools masks: sensitive ones, and identifying ones (a
+ * name or an email is personal data too, even on a form that is not anonymous).
+ */
 export const sensitiveIds = (definition: FormDefinition): Set<string> =>
-  new Set(definition.blocks.filter((b) => b.kind === "field" && isSensitive(b)).map((b) => b.id));
+  new Set(
+    definition.blocks
+      .filter((b) => b.kind === "field" && (isSensitive(b) || b.identifying === true))
+      .map((b) => b.id),
+  );
 
-/** Names of the hidden inputs marked `sensitive`. */
+/** Names of the hidden inputs devtools masks: marked `sensitive` or `identifying`. */
 export const sensitiveHiddenNames = (definition: FormDefinition): Set<string> =>
-  new Set((definition.hidden ?? []).filter((h) => h.sensitive === true).map((h) => h.name));
+  new Set((definition.hidden ?? []).filter((h) => h.sensitive === true || h.identifying === true).map((h) => h.name));
 
 /** What the inspector shows in place of a sensitive value. */
 export const SENSITIVE_MASK = "•••• (sensitive)";

@@ -1,11 +1,14 @@
 # Releasing Genesis packages
 
-All seven `@marktiderman/*` packages are published by CI, from
-`.github/workflows/release.yml` on `main`, with npm Trusted Publishing (OIDC).
-No npm token is stored anywhere. Do not publish by hand (except a brand-new
+All thirteen public `@marktiderman/*` packages (every `packages/*` without
+`"private": true`) are published by CI, from `.github/workflows/release.yml` on
+`main`, with npm Trusted Publishing (OIDC). No npm token is stored anywhere.
+Every package sets `publishConfig.provenance: false`, so no provenance
+attestation is published; the commit that shipped is in the release tag and the
+Actions run. Do not publish by hand (except a brand-new
 package's first version, below): a manual `npm publish`
-skips the `workspace:` rewrite (the 2.1.0 incident) and leaves no provenance
-of which commit shipped.
+skips the `workspace:` rewrite (the 2.1.0 incident) and leaves no record of
+which commit shipped.
 
 ## Normal release (nothing to do on npm)
 
@@ -60,6 +63,20 @@ release (e.g. `0.1.0`) and leave it out of the changeset. A changeset bumping a
 `0.0.0` package puts its `workspace:^` dependents out of range, and changesets
 then gives them a major bump (`1.0.0`). Every later version goes through CI as
 usual.
+
+## Forms packages and 0.x peer ranges
+
+changesets gives a package a **major** bump whenever a new version of one of
+its peer dependencies leaves the peer range, and there is no option to turn
+that off. With `workspace:^` on a 0.x package, every minor of
+`genesis-forms` would leave `^0.1.x` and push `-react`, `-web` and `-devtools`
+to `1.0.0`. So their peer ranges on other forms packages are written as
+`workspace:>=0.1.1 <1.0.0` (any 0.x from that floor). Raise the floor by hand
+when a dependent starts needing a newer forms API; changesets leaves in-range
+peer ranges alone. The forms packages are also a `linked` group in
+`.changeset/config.json` (`@marktiderman/genesis-forms` and
+`@marktiderman/genesis-forms-*`), so packages released together get the same
+version. Check a release plan with `pnpm changeset status --verbose`.
 
 ## When the "Verify npm Trusted Publishing" step fails
 

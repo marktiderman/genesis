@@ -11,6 +11,9 @@
     "paths": {
       "@marktiderman/genesis-forms": [
         "../dist/index.d.ts"
+      ],
+      "@marktiderman/genesis-forms/server": [
+        "../dist/server.d.ts"
       ]
     },
     "types": []

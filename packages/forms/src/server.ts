@@ -14,33 +14,33 @@ import { validateField, type FieldValidator } from "./validate";
 
 export interface SubmissionInput {
   /** Answers keyed by field id. Ignored when `events` is given. */
-  answers?: Record<string, Json>;
+  answers?: Record<string, Json> | undefined;
   /** The respondent's event log. Replayed instead of trusting `answers`. */
-  events?: FormEvent[];
+  events?: FormEvent[] | undefined;
   /** URL and host inputs sent by the client. Server inputs here are ignored. */
-  hidden?: Record<string, Json>;
+  hidden?: Record<string, Json> | undefined;
 }
 
 export interface SubmissionOptions {
   /** Values for `source: "server"` inputs, resolved by the server (class, coach, user id…). */
-  context?: Record<string, Json>;
+  context?: Record<string, Json> | undefined;
   /** `false` checks a draft: formats only, nothing required. Default true. */
-  complete?: boolean;
-  validators?: Record<string, FieldValidator>;
+  complete?: boolean | undefined;
+  validators?: Record<string, FieldValidator> | undefined;
   /** Most events accepted, counted after `compactEvents`. Default 10 000. */
-  maxEvents?: number;
+  maxEvents?: number | undefined;
 }
 
 export interface CheckedSubmission {
   status: "draft" | "completed";
   /** Visible answers only, keyed by field id (kept hidden answers too, with `clearHiddenValues: false`). */
   answers: Record<string, Json>;
-  /** Untrusted URL and host inputs, coerced to their declared types. */
+  /** Untrusted URL and host inputs, coerced to their declared types. Identifying ones are left out on anonymous forms. */
   hidden: Record<string, Json>;
-  /** Trusted server inputs. */
+  /** Trusted server inputs. Identifying ones are left out on anonymous forms. */
   context: Record<string, Json>;
   ending: string | null;
-  /** Client-sent keys that were dropped: unknown fields, server inputs, undeclared hidden names. */
+  /** Client-sent keys that were dropped, each once: unknown fields, server inputs, undeclared or withheld hidden names. */
   ignored: string[];
 }
 
@@ -100,21 +100,20 @@ export function validateSubmission(
   const input = wellFormed(submission);
   if (!input) return MALFORMED;
 
-  const ignored: string[] = [];
+  // A Set: a key sent many times (one answer event per keystroke) is reported once.
+  const ignored = new Set<string>();
   const client = coerceHidden(definition, input.hidden, { sources: ["url", "host"] });
-  for (const name of client.ignored) ignored.push(`hidden.${name}`);
+  for (const name of client.ignored) ignored.add(`hidden.${name}`);
   const hidden = client.values;
   const context = coerceHidden(definition, options.context, { sources: ["server"] }).values;
 
   const fields = fieldMap(definition);
   // Anonymous forms never store identifying fields: client values are dropped.
-  const dropped = new Set<string>();
   /** `true`: store it; `false`: withheld; `undefined`: not a field. Both of the latter are reported in `ignored`. */
   const accept = (id: string): boolean | undefined => {
-    if (!fields.has(id)) return void ignored.push(id);
+    if (!fields.has(id)) return void ignored.add(id);
     if (!withheld(definition, fields.get(id))) return true;
-    if (!dropped.has(id)) ignored.push(id);
-    dropped.add(id);
+    ignored.add(id);
     return false;
   };
   const engineHidden = { ...hidden, ...context };
@@ -175,15 +174,28 @@ export function validateSubmission(
     }
   }
 
+  // Anonymous forms never store identifying hidden inputs either. Logic above
+  // still read them, so the path matches the client's.
+  const store = (values: Record<string, Json>, report: boolean) => {
+    if (definition.settings?.anonymous !== true) return values;
+    const identifying = new Set((definition.hidden ?? []).filter((h) => h.identifying === true).map((h) => h.name));
+    const kept: Record<string, Json> = {};
+    for (const [name, value] of Object.entries(values)) {
+      if (!identifying.has(name)) kept[name] = value;
+      else if (report) ignored.add(`hidden.${name}`);
+    }
+    return kept;
+  };
+
   return {
     ok: true,
     submission: {
       status: complete ? "completed" : "draft",
       answers,
-      hidden,
-      context,
+      hidden: store(hidden, true),
+      context: store(context, false),
       ending: complete ? state.ending : null,
-      ignored,
+      ignored: [...ignored],
     },
   };
 }

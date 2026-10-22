@@ -26,15 +26,15 @@ export type FieldSpec<K extends string = string, V = unknown> = FieldBlock & {
 
 export interface FieldOptions {
   label: string;
-  description?: string;
-  placeholder?: string;
-  required?: boolean;
+  description?: string | undefined;
+  placeholder?: string | undefined;
+  required?: boolean | undefined;
   /** Personal or secret data (see `isSensitive`). */
-  sensitive?: boolean;
+  sensitive?: boolean | undefined;
   /** Identifies the respondent (name, email, phone). Not asked when `settings.anonymous` is true. */
-  identifying?: boolean;
+  identifying?: boolean | undefined;
   /** Defaults to the key. Set it before renaming a key on a live form, so answers stay linked. */
-  id?: string;
+  id?: string | undefined;
 }
 
 export interface ChoiceFieldOptions<O extends string> extends FieldOptions {
@@ -68,8 +68,10 @@ const choiceProps = (options: readonly { value: string; label?: string }[]): Rec
 });
 
 interface HiddenOptions {
-  source?: HiddenInput["source"];
-  sensitive?: boolean;
+  source?: HiddenInput["source"] | undefined;
+  sensitive?: boolean | undefined;
+  /** Identifies the respondent. Not stored when `settings.anonymous` is true. */
+  identifying?: boolean | undefined;
 }
 
 // Typed explicitly: the inferred `sensitive?: true | undefined` from the
@@ -77,20 +79,21 @@ interface HiddenOptions {
 const hiddenSpec = <T extends HiddenInput["type"]>(
   type: T,
   o: HiddenOptions,
-): { type: T; source: HiddenInput["source"]; sensitive?: true } => ({
+): { type: T; source: HiddenInput["source"]; sensitive?: true; identifying?: true } => ({
   type,
   source: o.source ?? "url",
   ...(o.sensitive ? { sensitive: true as const } : {}),
+  ...(o.identifying ? { identifying: true as const } : {}),
 });
 
 export const f = {
-  shortText: <K extends string>(key: K, o: FieldOptions & { maxLength?: number }) =>
+  shortText: <K extends string>(key: K, o: FieldOptions & { maxLength?: number | undefined }) =>
     field<K, string>("short-text", key, o, o.maxLength ? { maxLength: o.maxLength } : undefined),
-  longText: <K extends string>(key: K, o: FieldOptions & { maxLength?: number }) =>
+  longText: <K extends string>(key: K, o: FieldOptions & { maxLength?: number | undefined }) =>
     field<K, string>("long-text", key, o, o.maxLength ? { maxLength: o.maxLength } : undefined),
   email: <K extends string>(key: K, o: FieldOptions) => field<K, string>("email", key, o),
   phone: <K extends string>(key: K, o: FieldOptions) => field<K, string>("phone", key, o),
-  rating: <K extends string>(key: K, o: FieldOptions & { max?: number }) =>
+  rating: <K extends string>(key: K, o: FieldOptions & { max?: number | undefined }) =>
     field<K, number>("rating", key, o, { max: o.max ?? 5 }),
   nps: <K extends string>(key: K, o: FieldOptions) => field<K, number>("nps", key, o),
   singleChoice: <K extends string, O extends string>(key: K, o: ChoiceFieldOptions<O>) =>
@@ -195,7 +198,12 @@ function resolveCondition(c: Condition, r: KeyResolver): Condition {
 
 // ── defineForm ───────────────────────────────────────────────────────────────
 
-type HiddenSpec = { type: HiddenInput["type"]; source: HiddenInput["source"]; sensitive?: boolean };
+type HiddenSpec = {
+  type: HiddenInput["type"];
+  source: HiddenInput["source"];
+  sensitive?: boolean;
+  identifying?: boolean;
+};
 type HiddenValue<T extends HiddenSpec["type"]> = T extends "number" ? number : T extends "boolean" ? boolean : string;
 
 type AnyBlock = FieldSpec<string, unknown> | ContentBlock | PageBreakBlock;
@@ -269,6 +277,7 @@ export function defineForm<
       type: spec.type,
       source: spec.source,
       ...(spec.sensitive ? { sensitive: true } : {}),
+      ...(spec.identifying ? { identifying: true } : {}),
     }));
   }
   if (input.logic?.length) definition.logic = input.logic.map((rule, i) => rule.build(resolve, `r${i + 1}`));

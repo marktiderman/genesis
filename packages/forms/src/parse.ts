@@ -15,6 +15,23 @@ export type ParseResult =
 const isObject = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 
+const isInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
+
+/** The JSON type a comparison operand must have to match a built-in field type's value. */
+const LITERAL_TYPE: Readonly<Record<string, "string" | "number" | "boolean">> = {
+  "short-text": "string",
+  "long-text": "string",
+  email: "string",
+  phone: "string",
+  rating: "number",
+  nps: "number",
+  "single-choice": "string",
+  "multi-choice": "string",
+  "yes-no": "boolean",
+};
+
+const ORDERING: ReadonlySet<string> = new Set<Operator>(["lt", "lte", "gt", "gte"]);
+
 const OPERATORS: ReadonlySet<string> = new Set<Operator>([
   "eq",
   "neq",
@@ -110,6 +127,8 @@ export function parseForm(input: unknown): ParseResult {
   const keys = new Map<string, string>();
   const fieldTypes = new Map<string, string>();
   const order = new Map<string, number>();
+  /** Option values of fields with `props.options`, for the operand check. */
+  const choices = new Map<string, Set<string>>();
 
   input.blocks.forEach((block: unknown, i) => {
     const path = `blocks[${i}]`;
@@ -144,7 +163,19 @@ export function parseForm(input: unknown): ParseResult {
               if (!isObject(o) || typeof o.value !== "string") issue(at, "Each option needs a string value.");
               else optionalText(o.label, `${at}.label`);
             });
+            choices.set(
+              block.id,
+              new Set(options.flatMap((o) => (isObject(o) && typeof o.value === "string" ? [o.value] : []))),
+            );
           }
+        }
+        // Renderers draw one button per point, so the scale is bounded.
+        const { max, maxLength } = isObject(block.props) ? block.props : {};
+        if (block.type === "rating" && max !== undefined && !(isInt(max) && max >= 2 && max <= 10)) {
+          issue(`${path}.props.max`, "Must be a whole number from 2 to 10.");
+        }
+        if (maxLength !== undefined && !(isInt(maxLength) && maxLength > 0)) {
+          issue(`${path}.props.maxLength`, "Must be a whole number above 0.");
         }
       }
       if (validKey) {
@@ -163,6 +194,7 @@ export function parseForm(input: unknown): ParseResult {
   });
 
   const hiddenNames = new Set<string>();
+  const hiddenTypes = new Map<string, string>();
   if (input.hidden !== undefined && !Array.isArray(input.hidden)) issue("hidden", "Must be an array.");
   (Array.isArray(input.hidden) ? input.hidden : []).forEach((h: unknown, i) => {
     if (!isObject(h) || typeof h.name !== "string" || !h.name) {
@@ -178,7 +210,9 @@ export function parseForm(input: unknown): ParseResult {
       issue(`hidden[${i}].type`, "Must be string, number or boolean.");
     }
     optionalBoolean(h.sensitive, `hidden[${i}].sensitive`);
+    optionalBoolean(h.identifying, `hidden[${i}].identifying`);
     hiddenNames.add(h.name);
+    if (typeof h.type === "string") hiddenTypes.set(h.name, h.type);
   });
 
   const endingIds = new Set<string>();
@@ -232,6 +266,50 @@ export function parseForm(input: unknown): ParseResult {
       if (manifest && OPERATORS.has(c.op) && !manifest.operators.includes(c.op as Operator)) {
         issue(`${path}.op`, `"${c.op}" does not apply to a ${manifest.type} field.`);
       }
+    }
+    checkLiterals(c.op, c.left, c.right, path);
+  };
+  /** Warn when a literal `value` can never match what the left side holds: wrong type, or not an option. */
+  const checkLiterals = (op: string, left: Record<string, unknown>, right: unknown, path: string) => {
+    if (op === "answered" || op === "empty" || !OPERATORS.has(op)) return;
+    const literal = isObject(right) && "value" in right;
+    // A `field` or `hidden` operand on the right is only known when the form runs.
+    if (right !== undefined && !literal) return;
+    let what = "the left side";
+    let type: string | undefined;
+    let options: Set<string> | undefined;
+    if (typeof left.field === "string" && fieldTypes.has(left.field)) {
+      const fieldType = fieldTypes.get(left.field)!;
+      what = `"${keyOf(left.field)}"`;
+      type = LITERAL_TYPE[fieldType];
+      if (fieldType === "single-choice" || fieldType === "multi-choice") options = choices.get(left.field);
+    } else if (typeof left.hidden === "string" && hiddenTypes.has(left.hidden)) {
+      what = `hidden input "${left.hidden}"`;
+      type = hiddenTypes.get(left.hidden);
+    }
+    const outcome = op === "neq" ? "always true" : "never true";
+    let values: unknown[];
+    if (op === "in") {
+      if (!literal || !Array.isArray(right.value)) {
+        return void warnings.push({ path: `${path}.right`, message: "`in` needs a list of values; it never matches." });
+      }
+      values = right.value;
+    } else if (!literal) return;
+    else values = [right.value];
+    if (ORDERING.has(op)) {
+      if (type !== undefined && type !== "number") {
+        return void warnings.push({ path: `${path}.op`, message: `"${op}" compares numbers, but ${what} holds a ${type}; it is never true.` });
+      }
+      type = "number";
+    }
+    for (const v of values) {
+      const message =
+        type !== undefined && typeof v !== type
+          ? `${what} holds a ${type}, but ${JSON.stringify(v)} is not one; this comparison is ${outcome}.`
+          : options && typeof v === "string" && !options.has(v)
+            ? `${JSON.stringify(v)} is not an option of ${what}; this comparison is ${outcome}.`
+            : null;
+      if (message) warnings.push({ path: `${path}.right`, message });
     }
   };
   const keyOf = (id: string) => [...keys].find(([, v]) => v === id)?.[0] ?? id;
