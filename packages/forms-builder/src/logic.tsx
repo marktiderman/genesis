@@ -19,7 +19,7 @@ import { Button } from "@marktiderman/genesis-ui/button";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import { DraftInput, Pick, SelectRow, useDraft, type Choice } from "./controls";
+import { DraftInput, Editable, Pick, SelectRow, useDraft, type Choice } from "./controls";
 import type { Finding } from "./analyze";
 import {
   addRule,
@@ -146,6 +146,7 @@ export function LogicPanel({ def, apply, findings }: { def: FormDefinition; appl
   const rules = def.logic ?? [];
   const [open, setOpen] = useState<string | null>(null);
   const config = useBuilderConfig();
+  const readOnly = !!config.readOnly;
   const add = (effect: LogicRule["effect"]) => {
     const rule = starterRule(def, effect, config.fieldEditors);
     if (!rule) return;
@@ -183,6 +184,8 @@ export function LogicPanel({ def, apply, findings }: { def: FormDefinition; appl
                     {describeRule(rule, def)}
                   </button>
                   {ruleFindings.length ? <Badge variant="warning">{ruleFindings.length}</Badge> : null}
+                  {readOnly ? null : (
+                  <>
                   <Button variant="ghost" size="icon" aria-label="Move rule up" disabled={index === 0} onClick={() => apply((d) => moveRule(d, rule.id, index - 1))}>
                     <ArrowUp />
                   </Button>
@@ -198,6 +201,8 @@ export function LogicPanel({ def, apply, findings }: { def: FormDefinition; appl
                   <Button variant="ghost" size="icon" aria-label="Delete rule" onClick={() => apply((d) => removeRule(d, rule.id))}>
                     <Trash2 />
                   </Button>
+                  </>
+                  )}
                 </div>
                 {isOpen ? (
                   <div className="space-y-4 border-t p-4">
@@ -206,7 +211,9 @@ export function LogicPanel({ def, apply, findings }: { def: FormDefinition; appl
                         {f.message}
                       </p>
                     ))}
-                    <RuleEditor def={def} rule={rule} onChange={(next) => apply((d) => updateRule(d, rule.id, next))} />
+                    <Editable readOnly={readOnly}>
+                      <RuleEditor def={def} rule={rule} onChange={(next) => apply((d) => updateRule(d, rule.id, next))} />
+                    </Editable>
                   </div>
                 ) : null}
               </li>
@@ -216,6 +223,8 @@ export function LogicPanel({ def, apply, findings }: { def: FormDefinition; appl
       ) : (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No rules: every question is asked, in order.</p>
       )}
+      {readOnly ? null : (
+      <>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" disabled={!canAdd} onClick={() => add("show")} data-testid="builder-add-rule-show">
           <Plus /> Show/hide rule
@@ -229,6 +238,8 @@ export function LogicPanel({ def, apply, findings }: { def: FormDefinition; appl
           A jump needs a later question or an ending to go to. Add an ending (or a question after the first one) to make one.
         </p>
       ) : null}
+      </>
+      )}
     </div>
   );
 }
@@ -329,7 +340,7 @@ export function ConditionEditor({
   condition: Condition;
   onChange: (condition: Condition) => void;
 }) {
-  const { fieldEditors } = useBuilderConfig();
+  const { fieldEditors, readOnly: readOnlyConfig } = useBuilderConfig();
   const flat = flatten(condition);
   const fields = readableFields(def, rule);
   const hidden = def.hidden ?? [];
@@ -337,6 +348,7 @@ export function ConditionEditor({
   const { mode, clauses } = flat;
   const setClause = (i: number, c: Comparison) => onChange(join(mode, clauses.map((x, j) => (j === i ? c : x))));
   const first = fields[0];
+  const readOnly = !!readOnlyConfig;
   return (
     <fieldset className="space-y-2">
       <legend className="mb-1 flex items-center gap-2 text-sm font-medium">
@@ -357,6 +369,7 @@ export function ConditionEditor({
       {clauses.map((clause, i) => (
         <div key={i} className="flex flex-wrap items-center gap-2" data-testid={`builder-clause-${i}`}>
           <ClauseEditor def={def} fields={fields} hidden={hidden} clause={clause} onChange={(c) => setClause(i, c)} />
+          {readOnly ? null : (
           <Button
             variant="ghost"
             size="icon"
@@ -366,9 +379,10 @@ export function ConditionEditor({
           >
             <X />
           </Button>
+          )}
         </div>
       ))}
-      {first ? (
+      {first && !readOnly ? (
         <Button variant="ghost" size="sm" onClick={() => onChange(join(mode, [...clauses, starterCondition(first, fieldEditors) as Comparison]))}>
           <Plus /> Add condition
         </Button>
@@ -461,7 +475,7 @@ function ValueEditor({
 }) {
   const config = useBuilderConfig();
   const Custom = field ? editorFor(config, field.type)?.ConditionValue : undefined;
-  if (field && Custom) return <Custom field={field} op={op} value={value} onChange={onChange} />;
+  if (field && Custom) return <Custom field={field} op={op} value={value} onChange={onChange} readOnly={!!config.readOnly} />;
   const boolean = field?.type === "yes-no" || input?.type === "boolean";
   if (boolean) {
     return (
