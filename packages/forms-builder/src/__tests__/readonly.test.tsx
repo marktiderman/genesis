@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { FormDefinition } from "@marktiderman/genesis-forms";
-import { FormBuilder, getTemplate, type FieldPanelProps, type FieldTypeEditor } from "../index";
+import { FormBuilder, type FieldPanelProps, type FieldTypeEditor } from "../index";
+import { fixtureTemplate } from "./fixtures";
 
 const afterClass = (): FormDefinition => {
-  const def = getTemplate("after-class")!.create();
+  const def = fixtureTemplate("after-class").create();
   return {
     ...def,
     endings: [...(def.endings ?? []), { id: "early", title: "See you soon" }],

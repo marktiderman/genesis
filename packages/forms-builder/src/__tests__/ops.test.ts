@@ -19,12 +19,15 @@ import {
   setOptions,
   slugKey,
   starterValue,
+  BLANK_TEMPLATE,
+  getTemplate,
   TEMPLATES,
   updateBlock,
   updateHidden,
   updateSettings,
   useBuilderHistory,
 } from "../index";
+import { ALL_TEMPLATES, COACHING_TEMPLATES } from "./fixtures";
 
 const field = (def: FormDefinition, id: string) => def.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id)!;
 
@@ -122,11 +125,24 @@ describe("ops", () => {
 });
 
 describe("templates", () => {
-  it.each(TEMPLATES.map((t) => [t.id, t] as const))("%s is valid", (_id, t) => {
+  it.each(ALL_TEMPLATES.map((t) => [t.id, t] as const))("%s is valid", (_id, t) => {
     const def = t.create();
     expect(parseForm(def).ok).toBe(true);
     if (t.id !== "blank") expect(analyze(def).canPublish).toBe(true);
     expect(t.create().id).not.toBe(def.id);
+  });
+
+  it("ships only the blank template", () => {
+    expect(TEMPLATES).toEqual([BLANK_TEMPLATE]);
+    expect(getTemplate("blank")).toBe(BLANK_TEMPLATE);
+    expect(getTemplate("after-class")).toBeUndefined();
+  });
+
+  it("finds a host's own template", () => {
+    const mine = [...TEMPLATES, ...COACHING_TEMPLATES];
+    expect(getTemplate("after-class", mine)?.name).toBe("After-class feedback");
+    expect(getTemplate("blank", mine)).toBe(BLANK_TEMPLATE);
+    expect(getTemplate("missing", mine)).toBeUndefined();
   });
 });
 

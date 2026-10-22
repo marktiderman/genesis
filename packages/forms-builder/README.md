@@ -7,15 +7,16 @@ it and decide where drafts and published versions live.
 
 > **Use with `@marktiderman/genesis-forms` 0.2.0 or later.** Earlier versions store identifying hidden inputs on anonymous forms, which the builder's anonymous setting promises not to.
 >
-> **Stability (0.x):** the supported API is `FormBuilder` (its props, `readOnly` included, and `FormBuilderHandle`), `analyze`, `diffDefinitions`, the form operations, `TEMPLATES` / `getTemplate`, and the editor types. The individual panels and other exports may change in minor releases.
+> **Stability (0.x):** the supported API is `FormBuilder` (its props, `readOnly` included, and `FormBuilderHandle`), `analyze`, `diffDefinitions`, the form operations, `FormTemplate` / `BLANK_TEMPLATE` / `TEMPLATES` / `getTemplate`, and the editor types. The individual panels and other exports may change in minor releases.
 
 ```tsx
 import "@marktiderman/genesis-forms-builder/styles.css";
 import { FormBuilder, diffDefinitions, getTemplate } from "@marktiderman/genesis-forms-builder";
+import { MY_TEMPLATES } from "./form-templates"; // see "Templates" below
 
 <FormBuilder
   key={form.id}
-  defaultValue={draft ?? getTemplate("after-class")!.create()}
+  defaultValue={draft ?? getTemplate("after-class", MY_TEMPLATES)!.create()}
   onChange={(def) => saveDraftDebounced(def)}
   actions={(_def, analysis, builder) => (
     <Button
@@ -99,8 +100,43 @@ valid definition: removing something removes the rules that pointed at it. Edits
 id or option value take it as an argument (`duplicateBlock(def, id, copyId)`, `withOptionValues`,
 `defaultProps`), so make it outside a reducer and the edit stays pure. Use them on a server or
 in scripts too: `@marktiderman/genesis-forms-builder/ops` has the same functions without
-`"use client"`, so a server component or route handler can import them. `TEMPLATES` has starting points (blank, after-class feedback, monthly pulse, new
-member intake).
+`"use client"`, so a server component or route handler can import them.
+
+### Templates
+
+A `FormTemplate` is a starting point for a new form: `{ id, name, description, create }`, where
+`create()` returns a fresh definition with a new form id. The builder ships one, `BLANK_TEMPLATE`
+(`TEMPLATES` is `[BLANK_TEMPLATE]`). Starting points for your domain belong in your app: define
+them, offer them in your own New-form picker, and look one up with `getTemplate(id, templates)`.
+
+```ts
+import { TEMPLATES, getTemplate, newId, type FormTemplate } from "@marktiderman/genesis-forms-builder";
+
+export const MY_TEMPLATES: readonly FormTemplate[] = [
+  ...TEMPLATES, // keeps "Blank form"
+  {
+    id: "after-class",
+    name: "After-class feedback",
+    description: "A 1–5 rating and what could be better.",
+    create: () => ({
+      schemaVersion: 1,
+      id: newId("form"),
+      title: "How was class?",
+      blocks: [
+        { kind: "field", id: "q_rating", key: "rating", type: "rating", label: "How was class today?", required: true, props: { max: 5 } },
+        { kind: "field", id: "q_better", key: "better", type: "long-text", label: "What could we do better?" },
+      ],
+      endings: [{ id: "default", title: "Thanks — see you next class!" }],
+    }),
+  },
+];
+
+const start = getTemplate("after-class", MY_TEMPLATES)!.create(); // getTemplate(id) alone searches TEMPLATES
+```
+
+Up to 0.1.x the package also shipped after-class, monthly-pulse and new-member intake templates.
+To keep using them, copy them from `packages/forms-builder/src/templates.ts` at the tag
+`@marktiderman/genesis-forms-builder@0.1.1` (or from `apps/sample/app/lib/form-templates.ts`).
 
 The main entry ships `"use client"` and needs Tailwind to see its classes: import `styles.css` (it
 adds an `@source` for the package).
