@@ -48,6 +48,20 @@ describe("<Form> introduction", () => {
     render(<Form form={intro} options={{ hidden: { coach: "Sam" } }} />);
     expect(screen.getByText("Coached by Sam")).toBeTruthy();
   });
+
+  it("updates a description that recalls an answer as it changes", () => {
+    const intro = defineForm({
+      id: "intro-recall",
+      title: "Hi",
+      description: "Hello {{field:name|there}}",
+      layout: { mode: "classic" },
+      blocks: [f.shortText("name", { label: "Name" })],
+    });
+    render(<Form form={intro} />);
+    expect(screen.getByText("Hello there")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: "Ana" } });
+    expect(screen.getByText("Hello Ana")).toBeTruthy();
+  });
 });
 
 describe("<Form> focus layout", () => {

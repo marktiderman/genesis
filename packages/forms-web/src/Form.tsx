@@ -503,6 +503,9 @@ function FormBody({
   const errorsKey = useFormSelector(engine, (s) => JSON.stringify(s.errors));
   const ending = useFormSelector(engine, (s) => s.ending);
   const historyLength = useFormSelector(engine, (s) => s.history.length);
+  // The introduction recalls like endings do ({{field:name}}, {{hidden:coach}}), so it follows
+  // the answers; a string, so it re-renders only when the recalled text changes.
+  const description = useFormSelector(engine, () => (def.description ? engine.text(def.description) : undefined));
   const path = JSON.parse(pathKey) as string[];
   const errors = JSON.parse(errorsKey) as Record<string, string>;
   const formRef = useRef<HTMLFormElement>(null);
@@ -770,8 +773,7 @@ function FormBody({
   const header = renderSlot(
     DefaultHeader,
     slots?.header,
-    // The introduction recalls like endings do ({{hidden:coach}}); unanswered fields show their fallback.
-    { title: def.title, description: def.description ? engine.text(def.description) : undefined },
+    { title: def.title, description },
     slotProps?.header,
   );
   const errorSummary =
