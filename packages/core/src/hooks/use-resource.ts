@@ -37,6 +37,10 @@ export interface UseResourceOptions<T> {
    */
   defaultFilters?: FilterParam[];
   defaultPerPage?: number;
+  /** The page to start on (from 1), e.g. restored from the URL. Default 1. */
+  defaultPage?: number;
+  /** The search to start with, e.g. restored from the URL. Default "". */
+  defaultSearch?: string;
   /** Supabase select/join syntax, e.g. "*, author:profiles(name)". */
   select?: string;
   /** Fields to search across when setSearch is called. Required for server-side search. */
@@ -121,6 +125,8 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     defaultSort,
     defaultFilters,
     defaultPerPage = 25,
+    defaultPage = 1,
+    defaultSearch = "",
     select,
     searchFields: searchFieldsOption,
     enabled = true,
@@ -141,9 +147,9 @@ export function useResource<T extends BaseRecord = BaseRecord>(
 
   const [sort, setSortRaw] = useState<SortParam | undefined>(defaultSort);
   const [filters, setFiltersRaw] = useState<FilterParam[]>(defaultFilters ?? []);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(Math.max(1, Math.floor(defaultPage)));
   const [perPage, setPerPageRaw] = useState(defaultPerPage);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(defaultSearch);
 
   // `defaultFilters` often resolves asynchronously — a caller's scope/audience
   // (team, project, ...) can still be loading on first render, so the array
