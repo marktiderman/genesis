@@ -48,7 +48,23 @@ already right, change the one part that was not.
 Every interior part a pattern composes is named in its slot map
 (`ResourcePageSlotMap`). That map is the contract: **a part added to the
 render tree gets added to the map in the same change**, otherwise the next
-surface that needs it forks the page instead.
+surface that needs it forks the page instead. (The delete confirmation,
+`deleteDialog`, joined the map with the built-in delete.)
+
+Type your slots with the exported types rather than reaching into the props:
+
+```tsx
+import type { ResourcePageSlots, ResourcePageSlotProps } from "@marktiderman/genesis-ui/data";
+
+const slots: ResourcePageSlots<Practice> = { filters: null };
+const slotProps: ResourcePageSlotProps<Practice> = { table: { stickyHeader: true } };
+```
+
+**Before writing a slot, check for the prop.** A slot that exists only to
+compute a subtitle, gate Edit per row, confirm a delete, drop the title or
+add an empty-state sentence is a slot genesis now owes you as a prop
+(`getSubtitle`, `canEdit` / `canDelete`, `allowDelete` / `confirmDelete`,
+`header="toolbar"`, `emptyDescription`) — and those exist.
 
 ### 3 · The primitives
 

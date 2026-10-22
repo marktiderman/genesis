@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import {
+  keepPreviousData as keepPreviousPlaceholder,
   useQuery,
   useMutation,
   useQueryClient,
@@ -48,6 +49,13 @@ export interface UseResourceOptions<T> {
    * when a write changes the signed-in user's roles).
    */
   invalidates?: InvalidationKey[];
+  /**
+   * While the next page / sort / search is loading, keep returning the
+   * previous result (`list.isPlaceholderData` is true meanwhile) instead of
+   * dropping to `undefined`. A paged list then stays on screen between pages
+   * rather than flashing a skeleton. Default false.
+   */
+  keepPreviousData?: boolean;
   onCreateSuccess?: (data: T) => void;
   onUpdateSuccess?: (data: T) => void;
   onDeleteSuccess?: () => void;
@@ -117,6 +125,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     searchFields: searchFieldsOption,
     enabled = true,
     invalidates,
+    keepPreviousData = false,
     onCreateSuccess,
     onUpdateSuccess,
     onDeleteSuccess,
@@ -211,6 +220,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     queryKey: listQueryKey,
     queryFn: () => provider.getList<T>(resource, params),
     enabled,
+    placeholderData: keepPreviousData ? keepPreviousPlaceholder : undefined,
   });
 
   // -------------------------------------------------------------------------

@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 105
+      "count": 106
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -7863,6 +7863,73 @@
       ]
     },
     {
+      "slug": "confirm-delete-dialog",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/ConfirmDeleteDialog.tsx",
+      "stability": "beta",
+      "summary": "The confirm step in front of a destructive delete: an `AlertDialog` (Radix\nowns focus trap, Escape and focus return), a pending state, and the\nfailure shown in place rather than swallowed. `ResourcePage` renders it\nfor `allowDelete` / `confirmDelete`, as its `deleteDialog` slot.",
+      "primaryComponent": "ConfirmDeleteDialog",
+      "components": [
+        {
+          "name": "ConfirmDeleteDialog",
+          "summary": "The confirm step in front of a destructive delete: an `AlertDialog` (Radix\nowns focus trap, Escape and focus return), a pending state, and the\nfailure shown in place rather than swallowed. `ResourcePage` renders it\nfor `allowDelete` / `confirmDelete`, as its `deleteDialog` slot.",
+          "props": [
+            {
+              "name": "onConfirm",
+              "type": "() => void | Promise<void>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Runs the delete. The dialog stays open while it is pending, closes when\nit resolves, and shows the error's message (staying open, so the user\ncan retry or cancel) when it rejects."
+            },
+            {
+              "name": "onOpenChange",
+              "type": "(open: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "cancelLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Cancel",
+              "description": "Default \"Cancel\"."
+            },
+            {
+              "name": "confirmLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Delete",
+              "description": "Default \"Delete\"."
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": "This can't be undone.",
+              "description": "Default \"This can't be undone.\""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Delete this record?",
+              "description": "Default \"Delete this record?\"."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "container",
       "aliases": [],
       "surface": "web",
@@ -8591,7 +8658,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "A line under the empty-state title, e.g. what to add first."
+              "description": "A sentence under the empty-state title — what this list is for, or what\nto do first. Forwarded to `EmptyState`'s `description`; hidden while\nfilters are active, where \"no results\" is the whole story."
             },
             {
               "name": "emptyIcon",
@@ -8672,10 +8739,10 @@
             },
             {
               "name": "header",
-              "type": "ComponentType<PageHeaderProps> | null",
+              "type": "ComponentType<PageHeaderProps> | \"toolbar\" | null",
               "required": false,
               "defaultValue": null,
-              "description": "Replace the header outright. It receives exactly the props\n`DataPageShell` would have given `PageHeader`, so the common case is a\nwrapper that renders `PageHeader` with one thing added — an overflow\nmenu, a status strip, a second row — rather than a reimplementation.\n\n`null` ejects it: shell layout, states and filter row, no header."
+              "description": "Replace the header outright. It receives exactly the props\n`DataPageShell` would have given `PageHeader`, so the common case is a\nwrapper that renders `PageHeader` with one thing added — an overflow\nmenu, a status strip, a second row — rather than a reimplementation.\n\n`null` ejects it: shell layout, states and filter row, no header.\n\n`\"toolbar\"` keeps the header's actions — count, view toggle, view\nsettings, create, overflow menu — and drops the title block, for a list\nembedded in a tab or card whose page already has the heading. `title`\nstill feeds the generated copy (\"Failed to load …\", the count's noun)."
             },
             {
               "name": "headerOptions",
@@ -10087,11 +10154,46 @@
               "description": ""
             },
             {
+              "name": "aria-describedby",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aria-invalid",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aria-labelledby",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The label's id. The drop zone is what takes keyboard focus (the input\nis hidden), so it is named by `aria-labelledby` rather than `htmlFor`."
+            },
+            {
+              "name": "aria-required",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "disabled",
               "type": "boolean",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Id for the file input, so a `<label htmlFor>` names it."
             }
           ]
         }
@@ -11568,11 +11670,39 @@
               "description": ""
             },
             {
+              "name": "aria-describedby",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aria-invalid",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aria-required",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "disabled",
               "type": "boolean",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Id for the trigger, so a `<label htmlFor>` names it."
             }
           ]
         }
@@ -11949,6 +12079,13 @@
               "description": ""
             },
             {
+              "name": "autoPlaceholder",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Generate a placeholder (\"Enter name\") for fields whose `placeholder` is\nunset. Default `false`: a placeholder that restates the label adds noise,\nand reads as a filled value at a glance. A field's own `placeholder`\nalways shows. (Select fields keep their \"Select…\" prompt either way.)"
+            },
+            {
               "name": "columns",
               "type": "enum",
               "required": false,
@@ -12003,6 +12140,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "prefillFromUrl",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Pre-fill a create form from the page URL: a query param named like a\nfield (`?status=draft`) becomes that field's starting value. Default\n`true`, as before. Pass `false` when the page's query string means\nsomething else — a list's own filters, say — and must not leak into the\nnew record."
             },
             {
               "name": "renderForm",
@@ -12111,6 +12255,13 @@
               "description": "Enable built-in create form (ignored if onCreate callback is provided)."
             },
             {
+              "name": "allowDelete",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Built-in delete for `resource` mode (ignored if `onDelete` is\nprovided): the peek's Delete button opens a confirm dialog, then calls\n`useResource`'s `remove` with the row's `getKey` (when supplied) or its\n`id` — which invalidates the list — and closes the peek. A failure shows\nin the dialog."
+            },
+            {
               "name": "allowEdit",
               "type": "boolean",
               "required": false,
@@ -12125,11 +12276,25 @@
               "description": ""
             },
             {
+              "name": "canDelete",
+              "type": "((item: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Whether this row may be deleted. The peek's Delete button is hidden for\na row that returns `false`. Omitted, every row is deletable. A UI gate\nonly: the server must still refuse the write."
+            },
+            {
+              "name": "canEdit",
+              "type": "((item: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Whether this row may be edited. The peek's Edit button is hidden for a\nrow that returns `false` (and the built-in edit form will not open for\nit). Omitted, every row is editable, as before. A UI gate only: the\nserver must still refuse the write."
+            },
+            {
               "name": "canEditItem",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether the signed-in user may change this record. When it returns\nfalse, the detail view shows no Edit or Delete for it, while other rows\nkeep theirs. Omitted, every row offers what `onEdit` / `onDelete` allow."
+              "description": "Whether the signed-in user may change this record at all. When it\nreturns false the peek offers neither Edit nor Delete for it. Shorthand\nfor the pair below; when both are given, a row needs to pass each."
             },
             {
               "name": "canSaveViews",
@@ -12153,6 +12318,13 @@
               "description": "Merged onto the page shell's root."
             },
             {
+              "name": "clientRowLimit",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "`pagination=\"client\"` only: the most rows fetched. Default 1000. An\nexplicit `resourceOptions.defaultPerPage` wins."
+            },
+            {
               "name": "columns",
               "type": "(string | ResourceColumnDef<T>)[]",
               "required": false,
@@ -12174,6 +12346,13 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
+              "name": "confirmDelete",
+              "type": "boolean | ResourceDeleteConfirmCopy<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -12189,10 +12368,10 @@
             },
             {
               "name": "defaultView",
-              "type": "enum",
+              "type": "ViewModeDefault",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "The view shown until the user picks one with the view toggle. Default\n`\"table\"`. Pass `{ mobile: \"grid\", desktop: \"table\" }` for cards on\nphones and a table on desktops. Only an explicit pick is persisted, so\nthe responsive default stays responsive until the user chooses."
             },
             {
               "name": "detail",
@@ -12220,7 +12399,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "A line under the empty-state title."
+              "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
             },
             {
               "name": "emptyIcon",
@@ -12234,7 +12413,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "The empty state's title, e.g. \"No tasks yet\"."
+              "description": "The empty state's title, e.g. \"No tasks yet\". Default \"No results found\"."
             },
             {
               "name": "emptyState",
@@ -12304,7 +12483,7 @@
               "type": "((item: T) => string)",
               "required": false,
               "defaultValue": null,
-              "description": "The detail subtitle from more than one field. Wins over `subtitleField`."
+              "description": "The detail peek's subtitle, computed from the row (\"2 staff\", \"Due\nFriday\"). Wins over `subtitleField`, which can only show one column\nverbatim."
             },
             {
               "name": "getTitle",
@@ -12319,6 +12498,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Tailwind grid-column classes for the card grid, passed through to\n`DataGrid`'s `gridCols` — e.g. `\"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3\"`.\nDefaults to DataGrid's own responsive 1/2/3/4-column ramp."
+            },
+            {
+              "name": "header",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "`\"page\"` (default) renders the full header with the title. `\"toolbar\"`\nkeeps the header's actions (count, view toggle, settings, create) and\ndrops the title block — for a list inside a tab or card whose page\nalready has the heading. See `DataPageShell`'s `header`."
             },
             {
               "name": "icon",
@@ -12357,10 +12543,17 @@
             },
             {
               "name": "onDelete",
+              "type": "((item: T) => void | Promise<void>)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Delete handler, shown as the detail peek's Delete button. Called\ndirectly, as before, unless `confirmDelete` is set — then it runs after\nthe confirm dialog, which shows its error if the returned promise\nrejects, and closes the peek when it resolves."
+            },
+            {
+              "name": "onDeleted",
               "type": "((item: T) => void)",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "Called after a confirmed or built-in delete succeeds — e.g. a toast."
             },
             {
               "name": "onDeleteView",
@@ -12459,6 +12652,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Page-size choices offered by `DataTable`'s own pager. Client-side mode\nonly — server-controlled mode switches that pager off. (The header's\nview-settings popover has its own fixed 10/25/50/100 list.)"
+            },
+            {
+              "name": "pagination",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "How `resource` mode reaches rows past the first page. Ignored with\n`data` (server-data mode pages through the controlled props instead).\n\n- `\"client\"` (default): fetch up to `clientRowLimit` rows in one request\n  and search, sort, filter and page them in the browser — header-click\n  sort and instant search keep working. If the resource holds more rows\n  than that, a notice under the list says how many are shown (and a\n  console warning names this prop), rather than silently truncating.\n- `\"server\"`: fetch one page at a time. The pager under the list drives\n  `useResource`'s page, the header's page size its `perPage`, and\n  search / sort / status chips become provider queries (search is\n  debounced), and the current page stays on screen while the next one\n  loads. Give `statusFilter` explicit `options` here — derived ones can\n  only see the current page's values. Search needs `searchFields` (or\n  `resourceOptions.searchFields`) — the provider must be told which\n  columns to match — so the search box is hidden without them. Table\n  header sorting is withdrawn, as in server-data mode; the sort control\n  in the filter row drives the query."
             },
             {
               "name": "perPage",

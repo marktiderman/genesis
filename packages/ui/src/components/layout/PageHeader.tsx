@@ -526,7 +526,12 @@ export function PageHeader({
   );
 
   const titleRow = resolved.showTitle === false ? (
-    <div className="flex justify-end">{actionsCluster}</div>
+    <div
+      data-testid="page-header-toolbar"
+      className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+    >
+      {actionsCluster}
+    </div>
   ) : (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3 min-w-0">
