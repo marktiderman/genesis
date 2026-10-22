@@ -79,14 +79,27 @@ const AlertDialogDescription = React.forwardRef<
 ));
 AlertDialogDescription.displayName = AlertDialogPrimitive.Description.displayName;
 
+const ALERT_ACTION_VARIANT = {
+  destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+  default: "bg-primary text-primary-foreground hover:bg-primary/90",
+} as const;
+
+/**
+ * The confirming button. `variant` defaults to `"destructive"` (red), the
+ * right colour for deleting; pass `"default"` when the action is not
+ * dangerous (publish, send, continue).
+ */
 const AlertDialogAction = React.forwardRef<
   React.ComponentRef<typeof AlertDialogPrimitive.Action>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action> & {
+    variant?: keyof typeof ALERT_ACTION_VARIANT | undefined;
+  }
+>(({ className, variant = "destructive", ...props }, ref) => (
   <AlertDialogPrimitive.Action
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center rounded-lg bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+      "inline-flex h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+      ALERT_ACTION_VARIANT[variant],
       className
     )}
     {...props}

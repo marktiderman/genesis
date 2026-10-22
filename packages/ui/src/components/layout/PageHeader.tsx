@@ -35,6 +35,13 @@ import {
  * @stability Beta
  */
 export interface PageHeaderOptions {
+  /**
+   * The icon, title and subtitle block. Turn it off where the surrounding
+   * page already names the content (a list inside a tab), keeping only the
+   * actions row: count, view toggle, filters, create. Default true. A
+   * developer setting, not offered in the user's Header options.
+   */
+  showTitle?: boolean;
   showIcon?: boolean;
   showSubtitle?: boolean;
   showCount?: boolean;
@@ -75,6 +82,7 @@ const OPTION_DEFAULTS: Required<
   Omit<PageHeaderOptions, "detailsLabel" | "defaultDetailsOpen" | "subtitleInDetails" | "configurable">
 > &
   Pick<PageHeaderOptions, "detailsLabel" | "defaultDetailsOpen" | "subtitleInDetails" | "configurable"> = {
+  showTitle: true,
   showIcon: true,
   showSubtitle: true,
   showCount: true,
@@ -90,6 +98,8 @@ const OPTION_DEFAULTS: Required<
   configurable: undefined,
 };
 
+// `showTitle` is left out on purpose: it is a developer setting, so a stored
+// user override must never hide the title.
 const BOOLEAN_OPTION_KEYS: PageHeaderOptionKey[] = [
   "showIcon",
   "showSubtitle",
@@ -515,7 +525,9 @@ export function PageHeader({
     </div>
   );
 
-  const titleRow = (
+  const titleRow = resolved.showTitle === false ? (
+    <div className="flex justify-end">{actionsCluster}</div>
+  ) : (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3 min-w-0">
         {Icon && resolved.showIcon !== false ? (
