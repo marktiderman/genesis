@@ -83,3 +83,15 @@ describe("useResourceForm", () => {
     await waitFor(() => expect(keys()).toEqual([["tasks"], ["person", "p1"], ["me"]]));
   });
 });
+
+describe("useResource defaultPage / defaultSearch", () => {
+  it("starts on the given page and search (e.g. restored from the URL)", () => {
+    const { wrapper } = setup();
+    const { result } = renderHook(
+      () => useResource("tasks", { defaultPage: 3, defaultSearch: "wri", searchFields: ["title"] }),
+      { wrapper },
+    );
+    expect(result.current.params.pagination?.page).toBe(3);
+    expect(result.current.params.search).toEqual({ query: "wri", fields: ["title"] });
+  });
+});

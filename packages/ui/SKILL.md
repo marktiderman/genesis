@@ -136,6 +136,9 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
   `emptyIcon`, `emptyMessage`, `emptyDescription` and `emptyState` (its action) for the empty list.
 - **A list inside tabs:** `header="toolbar"` (on `ResourcePage` or `DataPageShell`) drops the title
   block and keeps the count, view toggle, filters and create button.
+- **Shareable state:** `urlState={useReactRouterSearchParams()}` (or the TanStack / browser adapter) keeps
+  the open record (`?id=`), search, sort and, with `pagination="server"`, the page in the URL. Back
+  closes a record that was opened. A page that owns its own paging uses `useResourceUrlState`.
 - **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays
   the default for deletes.
 

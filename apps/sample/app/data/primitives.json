@@ -12829,6 +12829,13 @@
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
             },
             {
+              "name": "urlState",
+              "type": "SearchParamsAdapter | ResourceUrlStateOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Keep the list's state in the URL: the open record (`?id=`), the search\n(`q`), the sort (`sort=field:asc`) and, with `pagination=\"server\"`, the\npage. Pass your router's search-params adapter\n(`useReactRouterSearchParams()`, `useTanStackRouterSearchParams()`, or\n`useBrowserSearchParams()` with no router), or `{ searchParams, params }`\nto rename the keys. A copied link reopens the same record, and Back\ncloses one that was opened. Search and sort are read when the page\nmounts and written as they change. A server-controlled page owns its\nown page, sort and search: use `useResourceUrlState` there."
+            },
+            {
               "name": "viewSettingsKey",
               "type": "string",
               "required": false,
