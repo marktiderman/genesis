@@ -222,7 +222,8 @@
       "links": {
         "code": [
           "packages/ui/src/components/data/ResourcePage.tsx",
-          "packages/ui/src/hooks/use-resource-page.ts"
+          "packages/ui/src/hooks/use-resource-page.ts",
+          "packages/ui/src/hooks/use-resource-url-state.ts"
         ]
       },
       "access": "all",
@@ -737,8 +738,7 @@
       "summary": "defineFeatures and defineFlags in one features.ts that code imports, with generated AGENTS.md, JSON, flag manifest, skill and README output, a check for CI and a FeatureList page.",
       "tagline": "One typed list of what your product does, kept honest by CI.",
       "category": "Tooling",
-      "status": "building",
-      "claimedBy": "claude (feature-registry session)",
+      "status": "beta",
       "owner": "mark",
       "apps": [
         "cli",
@@ -747,6 +747,10 @@
       "audience": [
         "developer",
         "agent"
+      ],
+      "acceptance": [
+        "genesis features check fails when a generated file is stale, a links.code path is missing, a flag breaks the rules or an id disappears.",
+        "FeatureList shows the registry as a table, a status board and a dateless roadmap."
       ],
       "reviewedAt": "2026-10-22",
       "links": {
@@ -768,7 +772,7 @@
       "name": "Status from evidence",
       "summary": "A feature's status follows evidence (merged PRs and changesets tagged with it, flag rollout): check warns when tagged work shipped but the feature is still planned, and later a bot proposes status changes as PRs.",
       "status": "building",
-      "claimedBy": "claude (feature-evidence session)",
+      "horizon": "next",
       "owner": "mark",
       "apps": [
         "cli"

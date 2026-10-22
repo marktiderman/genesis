@@ -124,7 +124,7 @@ export const features = defineFeatures({
       "Server-controlled props stop it from searching, sorting or paging the data a second time.",
     ],
     reviewedAt,
-    links: { code: ["packages/ui/src/components/data/ResourcePage.tsx", "packages/ui/src/hooks/use-resource-page.ts"] },
+    links: { code: ["packages/ui/src/components/data/ResourcePage.tsx", "packages/ui/src/hooks/use-resource-page.ts", "packages/ui/src/hooks/use-resource-url-state.ts"] },
   },
   "data-views": {
     name: "Data views",
@@ -369,11 +369,14 @@ export const features = defineFeatures({
     summary: "defineFeatures and defineFlags in one features.ts that code imports, with generated AGENTS.md, JSON, flag manifest, skill and README output, a check for CI and a FeatureList page.",
     tagline: "One typed list of what your product does, kept honest by CI.",
     category: "Tooling",
-    status: "building",
-    claimedBy: "claude (feature-registry session)",
+    status: "beta",
     owner: "mark",
     apps: ["cli", "web"],
     audience: ["developer", "agent"],
+    acceptance: [
+      "genesis features check fails when a generated file is stale, a links.code path is missing, a flag breaks the rules or an id disappears.",
+      "FeatureList shows the registry as a table, a status board and a dateless roadmap.",
+    ],
     reviewedAt,
     links: { code: ["packages/features", "packages/genesis-cli/src/features.ts", "features.ts"], docs: ["packages/features/README.md"] },
   },
@@ -381,8 +384,10 @@ export const features = defineFeatures({
   "feature-evidence": {
     name: "Status from evidence",
     summary: "A feature's status follows evidence (merged PRs and changesets tagged with it, flag rollout): check warns when tagged work shipped but the feature is still planned, and later a bot proposes status changes as PRs.",
+    // Step 1 (check warns when a planned feature already shipped tagged work) is in; the bot that
+    // proposes status changes is next.
     status: "building",
-    claimedBy: "claude (feature-evidence session)",
+    horizon: "next",
     owner: "mark",
     apps: ["cli"],
     audience: ["developer", "agent"],
