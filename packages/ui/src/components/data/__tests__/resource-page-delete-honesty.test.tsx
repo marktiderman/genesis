@@ -90,3 +90,28 @@ describe("ResourcePage unconfirmed delete failures", () => {
     expect(toastError).not.toHaveBeenCalled();
   });
 });
+
+describe("ResourcePage caller onDelete rejections", () => {
+  it("toasts a rejected unconfirmed onDelete instead of leaving it unhandled", async () => {
+    const provider = createMockProvider({ tasks: [{ id: "1", title: "Write" }] });
+    renderTasks({ onDelete: () => Promise.reject(new Error("Couldn't delete it.")) }, provider);
+    await askToDelete("Write");
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("Couldn't delete it."));
+  });
+});
+
+describe("ResourcePage caller onDelete that throws synchronously", () => {
+  it("toasts it too", async () => {
+    const provider = createMockProvider({ tasks: [{ id: "1", title: "Write" }] });
+    renderTasks(
+      {
+        onDelete: () => {
+          throw new Error("Nope.");
+        },
+      },
+      provider,
+    );
+    await askToDelete("Write");
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("Nope."));
+  });
+});
