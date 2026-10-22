@@ -747,7 +747,19 @@ export interface ResourcePageProps<
 // Component
 // ---------------------------------------------------------------------------
 
-export function ResourcePage<
+/**
+ * The list behind {@link ResourcePage}, without any markup: where the rows
+ * come from (a `resource` through the data provider, or `data` you pass),
+ * search, sort, status filter and paging, selection, the open record (and
+ * its URL state), the built-in create/edit form and confirmed delete, and
+ * the row/keyboard handlers. Takes the same options as `ResourcePage`.
+ *
+ * Use it to build a different layout over the same behaviour; `ResourcePage`
+ * itself is this hook plus Genesis's markup.
+ *
+ * @stability Beta
+ */
+export function useResourceTable<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(props: ResourcePageProps<T>) {
   const {
@@ -1249,7 +1261,7 @@ export function ResourcePage<
   const { data: providerCaps } = useCapabilities(resourceName, {
     enabled: useBuiltInDelete && deleteConfirmed,
   });
-  const deleteKind = providerCaps?.softDelete ? "recycle" : "permanent";
+  const deleteKind: "recycle" | "permanent" = providerCaps?.softDelete ? "recycle" : "permanent";
 
   const performDelete = useCallback(
     async (item: T) => {
@@ -1654,6 +1666,213 @@ export function ResourcePage<
   });
 
   // ── Create button ──
+  return {
+    actions,
+    allows,
+    clientTruncated,
+    closeDetail,
+    currentPage,
+    deleteConfirmed,
+    deleteCopy,
+    deleteHandler,
+    deleteKind,
+    deleteOpen,
+    detailOpen,
+    detailSubtitle,
+    detailTitle,
+    displayData,
+    displayTotal,
+    effectivePageSize,
+    formAction,
+    formItem,
+    formOpen,
+    handleClearFilters,
+    handleClearSelection,
+    handleCreate,
+    handleEdit,
+    handlePageSizeChange,
+    handleRowClick,
+    handleSearchChange,
+    handleSortSelect,
+    handleTableSort,
+    handleToggleAll,
+    handleToggleSelect,
+    hasError,
+    isClientMode,
+    isLoading,
+    isServerControlled,
+    keyOf,
+    keyboardNav,
+    linkMissing,
+    linked,
+    missingPagerProps,
+    page,
+    pagerMisconfigured,
+    pagerOnPageChange,
+    pendingDelete,
+    performDelete,
+    rangeFrom,
+    rangeTo,
+    resourceHook,
+    resourceServerPaging,
+    selectedDeletable,
+    selectedEditable,
+    selectedIds,
+    selectedItem,
+    serverSearchFields,
+    setDeleteOpen,
+    setFormOpen,
+    settings,
+    statusChipsConfig,
+    tableColumns,
+    tableSort,
+    titleOf,
+    totalPages,
+    updateSetting,
+    useBuiltInCreate,
+    useBuiltInDelete,
+    useBuiltInEdit,
+  };
+}
+
+/**
+ * What {@link useResourceTable} returns.
+ *
+ * @stability Beta
+ */
+export type ResourceTableState<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = ReturnType<typeof useResourceTable<T>>;
+
+export function ResourcePage<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(props: ResourcePageProps<T>) {
+  const {
+    bulkActions,
+    can,
+    canSaveViews,
+    capabilities,
+    className,
+    columnVisibility,
+    columnVisibilityKey,
+    createLabel = "New",
+    detail = "panel",
+    detailFields,
+    detailWidth = "md",
+    emptyDescription,
+    emptyIcon,
+    emptyMessage,
+    emptyState,
+    errorMessage,
+    filters: filtersProp,
+    formFields,
+    formLayout: formLayoutProp,
+    formMode,
+    formSteps,
+    gridCols: gridColsProp,
+    header: headerMode = "page",
+    icon,
+    keyboardNavigation = true,
+    mutationMode: mutationModeProp,
+    onCreate,
+    onDelete,
+    onDeleteView,
+    onEdit,
+    onLoadView,
+    onPageChange,
+    onRetry: onRetryProp,
+    onSaveView,
+    onSearchChange,
+    onSortChange,
+    openOnCardClick = false,
+    pageSizeOptions,
+    pagination = "client",
+    renderCard: renderCardProp,
+    renderDetail: renderDetailProp,
+    renderForm: renderFormProp,
+    renderTable: renderTableProp,
+    resizableColumns,
+    resizeKey,
+    resource: resourceName,
+    savedViews,
+    searchPlaceholder,
+    secondaryActions,
+    slotProps,
+    slots,
+    stickyFirstColumn,
+    stickyHeader,
+    subtitle,
+    title,
+    toolbar,
+  } = props;
+  const {
+    actions,
+    allows,
+    clientTruncated,
+    closeDetail,
+    currentPage,
+    deleteConfirmed,
+    deleteCopy,
+    deleteHandler,
+    deleteKind,
+    deleteOpen,
+    detailOpen,
+    detailSubtitle,
+    detailTitle,
+    displayData,
+    displayTotal,
+    effectivePageSize,
+    formAction,
+    formItem,
+    formOpen,
+    handleClearFilters,
+    handleClearSelection,
+    handleCreate,
+    handleEdit,
+    handlePageSizeChange,
+    handleRowClick,
+    handleSearchChange,
+    handleSortSelect,
+    handleTableSort,
+    handleToggleAll,
+    handleToggleSelect,
+    hasError,
+    isClientMode,
+    isLoading,
+    isServerControlled,
+    keyOf,
+    keyboardNav,
+    linkMissing,
+    linked,
+    missingPagerProps,
+    page,
+    pagerMisconfigured,
+    pagerOnPageChange,
+    pendingDelete,
+    performDelete,
+    rangeFrom,
+    rangeTo,
+    resourceHook,
+    resourceServerPaging,
+    selectedDeletable,
+    selectedEditable,
+    selectedIds,
+    selectedItem,
+    serverSearchFields,
+    setDeleteOpen,
+    setFormOpen,
+    settings,
+    statusChipsConfig,
+    tableColumns,
+    tableSort,
+    titleOf,
+    totalPages,
+    updateSetting,
+    useBuiltInCreate,
+    useBuiltInDelete,
+    useBuiltInEdit,
+  } = useResourceTable<T>(props);
+
   const showCreateButton = (onCreate || useBuiltInCreate) && allows("create");
   const createButton = showCreateButton ? (
     <Button size="sm" onClick={handleCreate}>
