@@ -18,6 +18,7 @@ import {
   removeHidden,
   setOptions,
   slugKey,
+  starterValue,
   TEMPLATES,
   updateBlock,
   updateHidden,
@@ -211,5 +212,15 @@ describe("diff of field settings", () => {
     const kinds = diffDefinitions(before, after).map((c) => c.kind);
     expect(kinds.filter((k) => k === "field-settings-changed")).toHaveLength(2);
     expect(kinds).toContain("field-label-changed");
+  });
+});
+
+describe("starter values", () => {
+  it("are lists for 'is one of'", () => {
+    const def = sample();
+    expect(starterValue(field(def, "q_rating"), "in")).toEqual([3]);
+    expect(starterValue(field(def, "q_pick"), "in")).toEqual(["a"]);
+    expect(starterValue(field(def, "q_why"), "in")).toEqual([]);
+    expect(starterValue(field(def, "q_rating"), "eq")).toBe(3);
   });
 });

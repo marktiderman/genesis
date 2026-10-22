@@ -345,12 +345,16 @@ export function starterCondition(field: FieldBlock): Condition {
 }
 
 export function starterValue(field: FieldBlock, op: Operator): Json {
+  const one = starterScalar(field);
+  // "is one of" compares with a list.
+  return op === "in" ? (one === "" ? [] : [one]) : one;
+}
+
+function starterScalar(field: FieldBlock): string | number | boolean {
   if (field.type === "yes-no") return true;
   if (field.type === "rating") return typeof field.props?.max === "number" ? Math.ceil(field.props.max / 2) : 3;
   if (field.type === "nps") return 9;
-  const options = choiceOptions(field);
-  if (options.length) return op === "in" ? [options[0]!.value] : options[0]!.value;
-  return "";
+  return choiceOptions(field)[0]?.value ?? "";
 }
 
 // ── Endings ──────────────────────────────────────────────────────────────────

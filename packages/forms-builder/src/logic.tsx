@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
 import {
   choiceOptions,
@@ -447,6 +447,20 @@ function ValueEditor({
     );
   }
   const numeric = field ? field.type === "rating" || field.type === "nps" : input?.type === "number";
+  if (op === "in") {
+    // "is one of" needs a list: comma-separated values, numbers for numeric questions.
+    const list = Array.isArray(value) ? value : [];
+    return (
+      <ListInput
+        numeric={numeric}
+        value={list.map(String).join(", ")}
+        onChange={(text) => {
+          const parts = text.split(",").map((t) => t.trim()).filter(Boolean);
+          onChange(numeric ? parts.map(Number).filter((n) => Number.isFinite(n)) : parts);
+        }}
+      />
+    );
+  }
   if (numeric) {
     return (
       <Input
@@ -465,6 +479,23 @@ function ValueEditor({
       className="h-9 w-44"
       value={typeof value === "string" ? value : value == null ? "" : String(value)}
       onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
+
+/** Comma-separated values, kept as typed until blur so "1, " isn't cut back to "1". */
+function ListInput({ value, numeric, onChange }: { value: string; numeric: boolean; onChange: (text: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <Input
+      aria-label="Values"
+      className="h-9 w-44"
+      inputMode={numeric ? "numeric" : "text"}
+      placeholder={numeric ? "1, 2, 3" : "a, b, c"}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onChange(draft)}
     />
   );
 }
@@ -494,10 +525,16 @@ function ConditionJson({
         onChange={(e) => {
           setText(e.target.value);
           try {
-            const parsed = JSON.parse(e.target.value) as Condition;
+            const raw: unknown = JSON.parse(e.target.value);
+            // A condition is an object; null, a number or a list would crash the clause editor.
+            if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+              setError("A condition is an object, such as {\"all\": [...]}.");
+              return;
+            }
+            const parsed = raw as Condition;
             // Checked in this form, so the fields and hidden inputs it names resolve.
             const check = parseForm({ ...def, logic: [{ ...rule, when: parsed }] });
-            const conditionIssue = !check.ok && check.issues.find((i) => i.path.startsWith("logic[0].when"));
+            const conditionIssue = !check.ok && check.issues.find((i) => i.path.startsWith("logic[0]"));
             setError(conditionIssue ? conditionIssue.message : null);
             if (!conditionIssue) onChange(parsed);
           } catch {
