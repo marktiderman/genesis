@@ -34,3 +34,19 @@ describe("<FormBuilder>", () => {
     expect(within(screen.getByTestId("builder-findings")).getByText(/at least one question/)).toBeTruthy();
   });
 });
+
+describe("<FormBuilder> editing", () => {
+  it("commits a key on blur, not on every keystroke", () => {
+    const onChange = vi.fn<(def: FormDefinition) => void>();
+    render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
+    const key = screen.getByTestId("builder-field-key") as HTMLInputElement;
+    fireEvent.change(key, { target: { value: "overall_" } });
+    expect(key.value).toBe("overall_");
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(key, { target: { value: "overall_score" } });
+    fireEvent.blur(key);
+    const last = onChange.mock.lastCall![0];
+    expect(last.blocks.find((b) => b.id === "q_rating")).toMatchObject({ key: "overall_score" });
+  });
+});

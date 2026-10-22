@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
@@ -58,6 +58,56 @@ export function TextRow(props: {
   );
 }
 
+/**
+ * A text row that commits on blur or Enter instead of on every keystroke, for
+ * values that are normalized when saved (keys, names): typing "first_" must not
+ * be cut back to "first" before the next letter arrives.
+ */
+export function DraftRow(props: {
+  label: string;
+  value: string;
+  onCommit: (value: string) => void;
+  hint?: ReactNode;
+  testID?: string;
+}) {
+  const id = useId();
+  const [draft, setDraft] = useState(props.value);
+  useEffect(() => setDraft(props.value), [props.value]);
+  const commit = () => {
+    if (draft !== props.value) props.onCommit(draft);
+    setDraft(props.value);
+  };
+  return (
+    <Row label={props.label} hint={props.hint} htmlFor={id}>
+      <DraftInput id={id} value={draft} onChange={setDraft} onCommit={commit} testID={props.testID} />
+    </Row>
+  );
+}
+
+/** The input of a DraftRow, without its label. */
+export function DraftInput(props: {
+  value: string;
+  onChange: (value: string) => void;
+  onCommit: () => void;
+  id?: string;
+  ariaLabel?: string;
+  testID?: string;
+}) {
+  return (
+    <Input
+      id={props.id}
+      aria-label={props.ariaLabel}
+      data-testid={props.testID}
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+      onBlur={props.onCommit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") props.onCommit();
+      }}
+    />
+  );
+}
+
 export function NumberRow(props: {
   label: string;
   value: number | undefined;
@@ -105,9 +155,10 @@ export function SelectRow(props: {
   className?: string;
 }) {
   const id = useId();
+  const { label, hint, className, ...pick } = props;
   return (
-    <Row label={props.label} hint={props.hint} htmlFor={id} className={props.className}>
-      <Pick id={id} {...props} />
+    <Row label={label} hint={hint} htmlFor={id} className={className}>
+      <Pick id={id} {...pick} />
     </Row>
   );
 }
@@ -124,7 +175,7 @@ export function Pick(props: {
   className?: string;
 }) {
   return (
-    <Select value={props.value || undefined} onValueChange={props.onChange}>
+    <Select value={props.value} onValueChange={props.onChange}>
       <SelectTrigger id={props.id} aria-label={props.ariaLabel} data-testid={props.testID} className={props.className}>
         <SelectValue placeholder={props.placeholder ?? "Choose…"} />
       </SelectTrigger>

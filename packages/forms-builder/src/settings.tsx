@@ -3,9 +3,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { parseForm, type FormDefinition, type HiddenInput } from "@marktiderman/genesis-forms";
 import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Button } from "@marktiderman/genesis-ui/button";
-import { Input } from "@marktiderman/genesis-ui/input";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
-import { Pick, SelectRow, SwitchRow, TextRow } from "./controls";
+import { DraftInput, Pick, SelectRow, SwitchRow, TextRow } from "./controls";
 import type { Finding } from "./analyze";
 import { addEnding, addHidden, removeEnding, removeHidden, updateEnding, updateForm, updateHidden, updateSettings } from "./ops";
 
@@ -129,7 +128,7 @@ function HiddenInputsSection({ def, apply }: { def: FormDefinition; apply: Apply
             <li key={i} className="flex flex-wrap items-end gap-2 rounded-md border p-3">
               <div className="min-w-32 flex-1 space-y-1.5">
                 <span className="text-xs text-muted-foreground">Name</span>
-                <Input aria-label="Name" value={h.name} onChange={(e) => apply((d) => updateHidden(d, h.name, { name: e.target.value }))} />
+                <HiddenName name={h.name} onCommit={(name) => apply((d) => updateHidden(d, h.name, { name }))} />
               </div>
               <Pick
                 ariaLabel="Type"
@@ -160,6 +159,23 @@ function HiddenInputsSection({ def, apply }: { def: FormDefinition; apply: Apply
         <Plus /> Add hidden input
       </Button>
     </section>
+  );
+}
+
+/** A hidden input's name, renamed on blur or Enter: renaming normalizes it and rewrites its uses. */
+function HiddenName({ name, onCommit }: { name: string; onCommit: (name: string) => void }) {
+  const [draft, setDraft] = useState(name);
+  useEffect(() => setDraft(name), [name]);
+  return (
+    <DraftInput
+      ariaLabel="Name"
+      value={draft}
+      onChange={setDraft}
+      onCommit={() => {
+        if (draft !== name) onCommit(draft);
+        setDraft(name);
+      }}
+    />
   );
 }
 

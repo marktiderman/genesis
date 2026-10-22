@@ -140,6 +140,7 @@ export type BlockPatch =
  */
 export function updateBlock(def: FormDefinition, id: string, patch: BlockPatch): FormDefinition {
   let typeChanged = false;
+  let renamed: { from: string; to: string } | undefined;
   const blocks = def.blocks.map((block): Block => {
     if (block.id !== id) return block;
     const next = { ...block } as Record<string, unknown>;
@@ -154,6 +155,7 @@ export function updateBlock(def: FormDefinition, id: string, patch: BlockPatch):
     if (block.kind === "field") {
       if (typeof next.key === "string" && next.key !== block.key) {
         next.key = uniqueName(slugKey(next.key, block.key), fieldKeys(def, id));
+        if (next.key !== block.key) renamed = { from: block.key, to: next.key as string };
       }
       if (typeof next.type === "string" && next.type !== block.type) {
         typeChanged = true;
@@ -166,7 +168,8 @@ export function updateBlock(def: FormDefinition, id: string, patch: BlockPatch):
     }
     return next as unknown as Block;
   });
-  const out = { ...def, blocks };
+  let out: FormDefinition = { ...def, blocks };
+  if (renamed) out = rewriteRecall(out, "field", renamed.from, renamed.to);
   return typeChanged ? removeRulesWhere(out, (rule) => conditionFields(rule.when).has(id)) : out;
 }
 
@@ -199,9 +202,14 @@ export function duplicateBlock(def: FormDefinition, id: string): FormDefinition 
   return insertBlock(def, copy, index + 1);
 }
 
-/** Remove a block and every rule that reads, targets or jumps from or to it. */
+/**
+ * Remove a block, every rule that reads, targets or jumps from or to it, and its
+ * recall tokens (they become their fallback text).
+ */
 export function removeBlock(def: FormDefinition, id: string): FormDefinition {
-  const out = { ...def, blocks: def.blocks.filter((b) => b.id !== id) };
+  const removed = def.blocks.find((b) => b.id === id);
+  let out: FormDefinition = { ...def, blocks: def.blocks.filter((b) => b.id !== id) };
+  if (removed?.kind === "field") out = rewriteRecall(out, "field", removed.key, null);
   return removeRulesWhere(out, (rule) => ruleRefs(rule).has(id));
 }
 
@@ -399,10 +407,10 @@ export function updateHidden(def: FormDefinition, name: string, patch: Partial<H
   return out;
 }
 
-/** Remove a hidden input and the rules that read it. */
+/** Remove a hidden input, the rules that read it and its recall tokens. */
 export function removeHidden(def: FormDefinition, name: string): FormDefinition {
   const hidden = (def.hidden ?? []).filter((h) => h.name !== name);
-  const out: FormDefinition = { ...def, hidden };
+  const out: FormDefinition = { ...rewriteRecall(def, "hidden", name, null), hidden };
   if (!hidden.length) delete out.hidden;
   return removeRulesWhere(out, (r) => conditionHidden(r.when).has(name));
 }
@@ -416,22 +424,34 @@ function renameHiddenRefs(def: FormDefinition, from: string, to: string): FormDe
     const right = c.right && "hidden" in c.right && c.right.hidden === from ? { hidden: to } : c.right;
     return right ? { ...c, left, right } : { op: c.op, left };
   };
-  const recall = new RegExp(`\\{\\{hidden:${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\||\\}\\})`, "g");
-  const text = (s: string | undefined) => s?.replace(recall, `{{hidden:${to}$1`);
-  const out: FormDefinition = {
+  const out = rewriteRecall(def, "hidden", from, to);
+  if (out.logic) out.logic = out.logic.map((r) => ({ ...r, when: rename(r.when) }));
+  return out;
+}
+
+/**
+ * Point `{{field:from}}` / `{{hidden:from}}` recall tokens at `to`, or, with `to`
+ * null, replace them with their fallback text, so labels, descriptions and content
+ * never recall something that no longer exists.
+ */
+function rewriteRecall(def: FormDefinition, kind: "field" | "hidden", from: string, to: string | null): FormDefinition {
+  const token = new RegExp(`\\{\\{\\s*${kind}:${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*(?:\\|([^}]*))?\\}\\}`, "g");
+  const text = (s: string) =>
+    s.replace(token, (_m, fallback: string | undefined) =>
+      to === null ? (fallback ?? "").trim() : `{{${kind}:${to}${fallback !== undefined ? `|${fallback}` : ""}}}`,
+    );
+  return {
     ...def,
     blocks: def.blocks.map((b) => {
       if (b.kind === "field") {
-        const next = { ...b, label: text(b.label)! };
-        if (b.description) next.description = text(b.description)!;
+        const next = { ...b, label: text(b.label) };
+        if (b.description) next.description = text(b.description);
         return next;
       }
-      if (b.kind === "content") return { ...b, text: text(b.text)! };
+      if (b.kind === "content") return { ...b, text: text(b.text) };
       return b;
     }),
   };
-  if (def.logic) out.logic = def.logic.map((r) => ({ ...r, when: rename(r.when) }));
-  return out;
 }
 
 // ── Form ─────────────────────────────────────────────────────────────────────

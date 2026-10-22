@@ -57,17 +57,15 @@ export function FormBuilder({
   const [tab, setTab] = useState<BuilderTab>(defaultTab);
   const [selected, setSelected] = useState<string | null>(null);
 
-  // Report edits, not the initial value.
-  const first = useRef(true);
+  // Report edits, not the initial value (also when StrictMode runs effects twice).
+  const reported = useRef(defaultValue);
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
   });
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+    if (reported.current === def) return;
+    reported.current = def;
     onChangeRef.current?.(def, analysis);
   }, [def, analysis]);
 

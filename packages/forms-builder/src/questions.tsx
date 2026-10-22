@@ -20,7 +20,7 @@ import {
 } from "@marktiderman/genesis-ui/dropdown-menu";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import { NumberRow, SelectRow, SwitchRow, TextRow } from "./controls";
+import { DraftRow, NumberRow, SelectRow, SwitchRow, TextRow } from "./controls";
 import type { Finding } from "./analyze";
 import {
   createContent,
@@ -117,13 +117,11 @@ export function QuestionsPanel({
   const [dragging, setDragging] = useState<string | null>(null);
 
   const add = (make: (def: FormDefinition) => Block) => {
-    let created: Block | undefined;
-    apply((d) => {
-      created = make(d);
-      const at = selected ? d.blocks.findIndex((b) => b.id === selected) + 1 : d.blocks.length;
-      return insertBlock(d, created, at || d.blocks.length);
-    });
-    if (created) onSelect(created.id);
+    // Made here, not in the edit: edits run in the reducer and must stay pure.
+    const created = make(def);
+    const at = selected ? def.blocks.findIndex((b) => b.id === selected) + 1 : def.blocks.length;
+    apply((d) => insertBlock(d, created, at || d.blocks.length));
+    onSelect(created.id);
   };
 
   if (!def.blocks.length) {
@@ -155,6 +153,8 @@ export function QuestionsPanel({
               onDragStart={(e) => {
                 setDragging(block.id);
                 e.dataTransfer.effectAllowed = "move";
+                // Firefox starts a drag only when it carries data.
+                e.dataTransfer.setData("text/plain", block.id);
               }}
               onDragEnd={() => setDragging(null)}
               onDragOver={(e) => {
@@ -309,12 +309,12 @@ function FieldInspector({
           hint="Changing the type resets its options and removes rules that compare this question."
           onChange={(type) => set({ type })}
         />
-        <TextRow
+        <DraftRow
           label="Key"
           value={field.key}
           testID="builder-field-key"
-          hint="The column name in exports and the name used in {{field:…}}."
-          onChange={(key) => set({ key }, `key:${field.id}`)}
+          hint="The column name in exports and the name used in {{field:…}}. Renaming updates its uses."
+          onCommit={(key) => set({ key })}
         />
       </div>
       {TEXT_TYPES.has(field.type) ? (

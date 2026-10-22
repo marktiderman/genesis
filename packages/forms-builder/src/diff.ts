@@ -12,6 +12,7 @@ export type ChangeKind =
   | "field-key-changed"
   | "field-label-changed"
   | "field-required-changed"
+  | "field-settings-changed"
   | "option-added"
   | "option-removed"
   | "option-label-changed"
@@ -45,6 +46,12 @@ export interface Change {
 const fields = (def: FormDefinition) =>
   new Map(def.blocks.filter((b): b is FieldBlock => b.kind === "field").map((b) => [b.id, b]));
 
+/** A field's props without its options, which are compared one by one. */
+const withoutOptions = (props: FieldBlock["props"]) => {
+  const { options: _options, ...rest } = props ?? {};
+  return rest;
+};
+
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 const blockName = (b: Block) =>
@@ -72,6 +79,22 @@ export function diffDefinitions(before: FormDefinition, after: FormDefinition): 
       push("field-key-changed", true, `${blockName(next)} is now exported as "${next.key}" instead of "${old.key}".`, id);
     }
     if (old.label !== next.label) push("field-label-changed", false, `Question reworded: "${old.label}" → "${next.label}".`, id);
+    if (!!old.identifying !== !!next.identifying) {
+      push(
+        "field-settings-changed",
+        false,
+        next.identifying
+          ? `${blockName(next)} now identifies the respondent: anonymous forms no longer ask it.`
+          : `${blockName(next)} no longer identifies the respondent: anonymous forms ask it.`,
+        id,
+      );
+    }
+    if (!!old.sensitive !== !!next.sensitive) {
+      push("field-settings-changed", false, `${blockName(next)} is ${next.sensitive ? "now" : "no longer"} masked as sensitive.`, id);
+    }
+    if (old.type === next.type && !same(withoutOptions(old.props), withoutOptions(next.props))) {
+      push("field-settings-changed", false, `${blockName(next)}'s settings changed; check earlier answers still fit.`, id);
+    }
     if (!!old.required !== !!next.required) {
       push("field-required-changed", false, `${blockName(next)} is now ${next.required ? "required" : "optional"}.`, id);
     }

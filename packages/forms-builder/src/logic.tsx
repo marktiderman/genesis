@@ -265,7 +265,7 @@ export function ConditionEditor({
   const flat = flatten(condition);
   const fields = readableFields(def, rule);
   const hidden = def.hidden ?? [];
-  if (!flat) return <ConditionJson condition={condition} onChange={onChange} />;
+  if (!flat) return <ConditionJson def={def} rule={rule} condition={condition} onChange={onChange} />;
   const { mode, clauses } = flat;
   const setClause = (i: number, c: Comparison) => onChange(join(mode, clauses.map((x, j) => (j === i ? c : x))));
   const first = fields[0];
@@ -470,7 +470,17 @@ function ValueEditor({
 }
 
 /** For conditions the clause editor can't show (nested groups, `not`): edit the JSON. */
-function ConditionJson({ condition, onChange }: { condition: Condition; onChange: (c: Condition) => void }) {
+function ConditionJson({
+  def,
+  rule,
+  condition,
+  onChange,
+}: {
+  def: FormDefinition;
+  rule: LogicRule;
+  condition: Condition;
+  onChange: (c: Condition) => void;
+}) {
   const [text, setText] = useState(() => JSON.stringify(condition, null, 2));
   const [error, setError] = useState<string | null>(null);
   return (
@@ -485,13 +495,8 @@ function ConditionJson({ condition, onChange }: { condition: Condition; onChange
           setText(e.target.value);
           try {
             const parsed = JSON.parse(e.target.value) as Condition;
-            const check = parseForm({
-              schemaVersion: 1,
-              id: "check",
-              title: "check",
-              blocks: [],
-              logic: [{ id: "r", effect: "show", target: "x", when: parsed }],
-            });
+            // Checked in this form, so the fields and hidden inputs it names resolve.
+            const check = parseForm({ ...def, logic: [{ ...rule, when: parsed }] });
             const conditionIssue = !check.ok && check.issues.find((i) => i.path.startsWith("logic[0].when"));
             setError(conditionIssue ? conditionIssue.message : null);
             if (!conditionIssue) onChange(parsed);

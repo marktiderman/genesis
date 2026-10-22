@@ -183,3 +183,33 @@ describe("history", () => {
     expect(field(result.current.value, "q_why").label).toBe("Wh");
   });
 });
+
+describe("recall stays valid", () => {
+  it("follows a renamed key and falls back when a field is removed", () => {
+    let def = updateBlock(sample(), "q_why", { label: "Why {{field:rating|that}}?" });
+    def = updateBlock(def, "q_rating", { key: "score" });
+    expect(field(def, "q_why").label).toBe("Why {{field:score|that}}?");
+    def = removeBlock(def, "q_rating");
+    expect(field(def, "q_why").label).toBe("Why that?");
+    expect(parseForm(def).ok).toBe(true);
+  });
+
+  it("drops a removed hidden input's tokens", () => {
+    let def = addHidden(sample(), { name: "coach" });
+    def = updateBlock(def, "q_why", { label: "Hi {{hidden:coach}}" });
+    def = removeHidden(def, "coach");
+    expect(field(def, "q_why").label).toBe("Hi ");
+    expect(parseForm(def).ok).toBe(true);
+  });
+});
+
+describe("diff of field settings", () => {
+  it("lists privacy and prop changes alongside other edits", () => {
+    const before = sample();
+    let after = updateBlock(before, "q_why", { identifying: true, label: "Why not?" });
+    after = updateBlock(after, "q_rating", { props: { max: 10 } });
+    const kinds = diffDefinitions(before, after).map((c) => c.kind);
+    expect(kinds.filter((k) => k === "field-settings-changed")).toHaveLength(2);
+    expect(kinds).toContain("field-label-changed");
+  });
+});

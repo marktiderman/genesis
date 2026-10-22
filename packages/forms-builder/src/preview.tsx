@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { fingerprint, parseForm, type FormDefinition } from "@marktiderman/genesis-forms";
 import { Form, type FormBrand } from "@marktiderman/genesis-forms-web";
@@ -19,7 +19,10 @@ export function Preview({
   /** Sample values for hidden inputs, so recall and logic on them can be tried. */
   hidden?: Record<string, string | number | boolean>;
 }) {
-  const [layout, setLayout] = useState<"focus" | "classic">(def.layout?.mode ?? "focus");
+  const mode = def.layout?.mode ?? "focus";
+  const [layout, setLayout] = useState<"focus" | "classic">(mode);
+  // Follow the form's own layout setting; the toggle overrides it until it changes again.
+  useEffect(() => setLayout(mode), [mode]);
   const [run, setRun] = useState(0);
   const parsed = useMemo(() => parseForm(def), [def]);
   const key = useMemo(() => `${fingerprint(def)}:${layout}:${run}`, [def, layout, run]);
