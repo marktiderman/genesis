@@ -47,6 +47,14 @@ describe("RichTextEditor", () => {
     expect(screen.getByRole("toolbar", { name: "Formatting" })).toBeTruthy();
   });
 
+  it("injects no <style> tag, so a strict style-src CSP is enough", async () => {
+    render(<RichTextEditor aria-label="Lesson text" defaultValue={hello} />);
+    const box = await mounted();
+    expect(document.querySelector("style[data-tiptap-style]")).toBeNull();
+    // Tiptap's base rules ride on the editable element instead.
+    expect(box.className).toContain("whitespace-break-spaces");
+  });
+
   it("toggles marks from the toolbar and emits sanitized JSON + HTML", async () => {
     const onChange = vi.fn<(doc: RichTextDoc, d: RichTextChangeDetails) => void>();
     const ref = React.createRef<RichTextEditorHandle>();

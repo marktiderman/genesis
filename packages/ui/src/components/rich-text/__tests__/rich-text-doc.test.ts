@@ -10,6 +10,7 @@ import {
   isSafeUrl,
   normalizeLinkUrl,
   parseVideoUrl,
+  RichTextLimitError,
   richTextToHtml,
   richTextToPlainText,
   sanitizeRichTextDoc,
@@ -176,6 +177,42 @@ describe("sanitizeRichTextDoc", () => {
     let node: object = p(t("deep"));
     for (let i = 0; i < 10_000; i++) node = { type: "blockquote", content: [node] };
     expect(() => sanitizeRichTextDoc(doc(node))).not.toThrow();
+  });
+
+  it("rejects too-deep nesting with onTooDeep: throw, and keeps 32 levels", () => {
+    const nest = (levels: number) => {
+      let node: object = p(t("deep"));
+      for (let i = 0; i < levels; i++) node = { type: "blockquote", content: [node] };
+      return doc(node);
+    };
+    expect(() => sanitizeRichTextDoc(nest(31), { onTooDeep: "throw" })).not.toThrow();
+    expect(richTextToPlainText(sanitizeRichTextDoc(nest(31)))).toBe("deep");
+    const err = (() => {
+      try {
+        sanitizeRichTextDoc(nest(40), { onTooDeep: "throw" });
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(err).toBeInstanceOf(RichTextLimitError);
+    expect(err).toMatchObject({ reason: "depth", limit: 32 });
+    // The default still drops it, for rendering stored documents.
+    expect(richTextToPlainText(sanitizeRichTextDoc(nest(40)))).toBe("");
+  });
+
+  it("enforces maxCharacters and maxNodes after sanitizing", () => {
+    const input = doc(p(t("hello "), t("world", [{ type: "bold" }])), { type: "codeBlock", content: [t("x")] });
+    // 2 paragraphs + 3 text nodes = 5 nodes; 12 characters.
+    expect(() => sanitizeRichTextDoc(input, { maxCharacters: 12, maxNodes: 5 })).not.toThrow();
+    expect(() => sanitizeRichTextDoc(input, { maxCharacters: 11 })).toThrow(
+      expect.objectContaining({ reason: "characters", limit: 11, actual: 12 }),
+    );
+    expect(() => sanitizeRichTextDoc(input, { maxNodes: 4 })).toThrow(
+      expect.objectContaining({ reason: "nodes", limit: 4, actual: 5 }),
+    );
+    // Content the allow-list drops does not count toward the limits.
+    const dropped = doc(p(t("ok")), { type: "script", attrs: { src: "x".repeat(1000) } });
+    expect(() => sanitizeRichTextDoc(dropped, { maxCharacters: 2, maxNodes: 2 })).not.toThrow();
   });
 });
 
