@@ -273,6 +273,11 @@ export interface ProviderCapabilities {
   readonly actions?: boolean;
   /** `comments` and `addComment` are served. */
   readonly comments?: boolean;
+  /**
+   * The most rows one `getList` page returns. A request for more is cut to
+   * this (and the provider warns), so a client that wants every row must page.
+   */
+  readonly maxPerPage?: number;
 }
 
 /** One audit record, as committed alongside the edit it describes. */

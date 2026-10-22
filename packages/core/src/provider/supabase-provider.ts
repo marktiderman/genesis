@@ -7,7 +7,9 @@ import type {
   WriteEvent,
 } from "./types";
 import { DataWriteError } from "../schema/write-outcome";
-import { toDataWriteError } from "./postgrest-errors";
+import { DataReadError, readFailureMessage } from "../schema/read-outcome";
+import type { FilterOperator, ProviderCapabilities } from "../schema/types";
+import { readOutcomeFromCode, toDataWriteError } from "./postgrest-errors";
 
 // ---------------------------------------------------------------------------
 // Minimal Supabase client shape — no hard dependency on @supabase/supabase-js
@@ -85,6 +87,12 @@ export interface SupabaseResourceConfig {
   /** Singular noun for failure messages, e.g. "project". Defaults to "record". */
   noun?: string;
   /**
+   * The column a sorted list orders by last, so rows with equal sort values
+   * keep one order from page to page (none repeats, none is skipped).
+   * Default `"id"`; `false` for a table or view without one.
+   */
+  orderKey?: string | false;
+  /**
    * `"bin"` for a table whose delete trigger moves the row to a recycle bin
    * instead of removing it (see `SupabaseProviderOptions.binTables`).
    * `"hard"` forces a plain delete even when `binTables` lists the table.
@@ -148,7 +156,23 @@ export interface SupabaseProviderOptions {
    * failure is logged and never turns a committed write into a failed one.
    */
   onWrite?: (event: WriteEvent) => void | Promise<void>;
+  /**
+   * The most rows one list page may ask for (PostgREST's `max-rows` caps
+   * reads anyway; default 1000). A larger request is cut to this with a
+   * console warning, and `capabilities().maxPerPage` reports it.
+   */
+  maxPerPage?: number;
+  /**
+   * Called with every failed read, before it is thrown. The thrown
+   * `DataReadError` carries a plain message for users; the store's own
+   * error (its raw text and code) is its `cause`, for logging here.
+   */
+  onReadError?: (error: DataReadError, context: { resource: string; operation: "getList" | "getOne" | "getMany" }) => void;
 }
+
+const SERVED_OPERATORS: readonly FilterOperator[] = [
+  "eq", "neq", "gt", "lt", "gte", "lte", "contains", "in", "between", "is_null", "is_not_null",
+];
 
 function escapeIlike(value: string): string {
   return value.replace(/[%_\\]/g, (char) => `\\${char}`);
@@ -233,14 +257,29 @@ export function createSupabaseProvider(
     return query;
   }
 
-  function throwIfError(result: { error: unknown }): void {
-    if (result.error) {
-      const pgError = result.error as { message?: string; code?: string; hint?: string };
-      const message = pgError.message ?? String(result.error);
-      const err = new Error(message, { cause: result.error });
-      Object.assign(err, { code: pgError.code, hint: pgError.hint });
-      throw err;
+  const maxPerPage = options.maxPerPage ?? 1000;
+
+  /** A failed read, as a `DataReadError` with a message users can be shown. */
+  function throwIfReadError(
+    result: { error: unknown },
+    resource: string,
+    operation: "getList" | "getOne" | "getMany",
+  ): void {
+    if (!result.error) return;
+    const raw = result.error as { message?: string; code?: string };
+    const code = typeof raw.code === "string" ? raw.code : undefined;
+    const outcome = readOutcomeFromCode(code);
+    const error = new DataReadError(
+      outcome,
+      readFailureMessage(outcome, nounFor(resource), operation === "getOne"),
+      { code, cause: result.error },
+    );
+    try {
+      options.onReadError?.(error, { resource, operation });
+    } catch {
+      // A logging hook never changes what the caller is told.
     }
+    throw error;
   }
 
   // ---------------------------------------------------------------------------
@@ -365,16 +404,26 @@ export function createSupabaseProvider(
         }
       }
 
-      // Sort.
+      // Sort, then the key column, so equal sort values keep one order
+      // across pages (otherwise a row can repeat on page 2 or be skipped).
       if (params.sort) {
         query = query.order(params.sort.field, {
           ascending: params.sort.order === "asc",
         });
+        const key = configFor(resource).orderKey ?? "id";
+        if (key && key !== params.sort.field) query = query.order(key, { ascending: true });
       }
 
-      // Pagination (offset).
+      // Pagination (offset), never past what one page may return.
       if (params.pagination) {
-        const { page, perPage } = params.pagination;
+        const { page } = params.pagination;
+        let { perPage } = params.pagination;
+        if (perPage > maxPerPage) {
+          console.warn(
+            `[SupabaseProvider] "${resource}" asked for ${perPage} rows per page; capped at ${maxPerPage} (maxPerPage). Page through the rest.`,
+          );
+          perPage = maxPerPage;
+        }
         const from = (page - 1) * perPage;
         const to = from + perPage - 1;
         query = query.range(from, to);
@@ -385,7 +434,7 @@ export function createSupabaseProvider(
         error: unknown;
         count?: number | null;
       };
-      throwIfError(result);
+      throwIfReadError(result, resource, "getList");
 
       return { data: result.data ?? [], total: result.count ?? 0 } as never;
     },
@@ -395,7 +444,7 @@ export function createSupabaseProvider(
         .select(params.select ?? "*")
         .eq("id", params.id)
         .single()) as { data: unknown; error: unknown };
-      throwIfError(result);
+      throwIfReadError(result, resource, "getOne");
       return { data: result.data } as never;
     },
 
@@ -404,8 +453,23 @@ export function createSupabaseProvider(
       const result = (await (client.from(resource) as SupabaseQueryBuilder)
         .select("*")
         .in("id", params.ids)) as { data: unknown[]; error: unknown };
-      throwIfError(result);
+      throwIfReadError(result, resource, "getMany");
       return { data: result.data ?? [] } as never;
+    },
+
+    async capabilities(): Promise<ProviderCapabilities> {
+      return {
+        search: true,
+        sort: true,
+        filterOperators: SERVED_OPERATORS,
+        bulkWrites: false,
+        versionedWrites: false,
+        compositeKeys: false,
+        multiSort: false,
+        create: true,
+        delete: true,
+        maxPerPage,
+      };
     },
 
     async create(resource, params) {

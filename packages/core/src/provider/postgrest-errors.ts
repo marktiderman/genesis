@@ -7,6 +7,23 @@ import {
   isDataWriteError,
   type WriteOutcome,
 } from "../schema/write-outcome";
+import type { ReadOutcome } from "../schema/read-outcome";
+
+/**
+ * Maps a store error code to the read outcome it means: the write mapping,
+ * with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116,
+ * `42703` unknown column, `42P01` unknown table) read as `invalid`.
+ */
+export function readOutcomeFromCode(code: string | null | undefined): ReadOutcome {
+  if (!code) return "error";
+  if (code === "42703" || code === "42P01" || (/^PGRST1\d\d$/.test(code) && code !== "PGRST116")) {
+    return "invalid";
+  }
+  const write = writeOutcomeFromCode(code);
+  return write === "forbidden" || write === "gone" || write === "unauthenticated" || write === "invalid"
+    ? write
+    : "error";
+}
 
 /**
  * Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it

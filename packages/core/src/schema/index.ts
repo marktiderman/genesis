@@ -26,3 +26,10 @@ export {
   type WriteOutcome,
   type DataWriteErrorOptions,
 } from "./write-outcome";
+export {
+  DataReadError,
+  isDataReadError,
+  readFailureMessage,
+  type ReadOutcome,
+  type DataReadErrorOptions,
+} from "./read-outcome";
