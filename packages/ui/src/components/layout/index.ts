@@ -19,7 +19,22 @@
  */
 
 // Page templates (structure, no data)
-export { AppShell, type AppShellProps, type AppShellOptions, type NavItem } from "./AppShell";
+export {
+  AppShell,
+  type AppShellProps,
+  type AppShellOptions,
+  type NavItem,
+  type ParentNavigation,
+} from "./AppShell";
+// AppShell's `navigation` tree and `linkComponent` contract; re-exported so a
+// layout-only import has everything it needs.
+export {
+  resolveNavigation,
+  type GenesisLinkProps,
+  type LinkComponent,
+  type NavigationNode,
+  type ResolvedNavigation,
+} from "../../navigation";
 export { PageHeader, type PageHeaderProps, type PageHeaderOptions } from "./PageHeader";
 // FRAMEWORK.md migration step 8. Each takes its content as props/children and
 // binds to nothing; the record-bound counterpart to `DetailPage` is

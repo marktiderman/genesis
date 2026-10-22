@@ -8,7 +8,7 @@ import {
   Badge,
   Button,
 } from "@marktiderman/genesis-ui";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { PRIMITIVE_CARDS } from "../lib/portfolio-data";
 import {
   findPrimitive,
@@ -42,13 +42,6 @@ export default function PrimitiveDetail() {
 
   return (
     <div className="mx-auto max-w-3xl p-6 space-y-6" data-testid="primitive-detail">
-      <Link
-        to="/showcase/primitives"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-3 w-3" /> Primitives
-      </Link>
-
       {card || doc ? (
         <>
           <header className="space-y-2">
