@@ -7,6 +7,7 @@
  *
  * Usage:
  *   npx @marktiderman/genesis-cli init <consumer-name> [--target <dir>] [--emit-conflicts]
+ *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>]
  */
 import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
@@ -127,6 +128,36 @@ program
     }
     await fs.writeFile(target, content, "utf-8");
     console.log(`✔ Wrote ${opts.out}: ${tables.length} tables.`);
+  });
+
+program
+  .command("doctor")
+  .description("Check this app against the installed Genesis: components, tokens, imports, colors, plus the app's own rules")
+  .option("--strict", "Fail on warnings too", false)
+  .option("--json", "Print the report as JSON", false)
+  .option("--build", "Also run the app's typecheck and build (doctor.build, or its typecheck/build scripts)", false)
+  .option("-c, --config <path>", "Config file (default: genesis.config.json, then package.json \"genesis\")")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--print-genesis", "Print the components, tokens and raw tags read from Genesis, and exit", false)
+  .action(async (opts: { strict: boolean; json: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean }) => {
+    const doctor = await import("./doctor/index.js");
+    const root = path.resolve(opts.dir);
+    try {
+      if (opts.printGenesis) {
+        const { config } = doctor.loadConfig(root, opts.config);
+        console.log(JSON.stringify(doctor.genesisSummary(doctor.loadGenesis(root, config)), null, 2));
+        return;
+      }
+      const result = await doctor.runDoctor({ root, configPath: opts.config, strict: opts.strict, build: opts.build, quietBuild: opts.json });
+      console.log(opts.json ? JSON.stringify(doctor.toJson(result), null, 2) : doctor.formatReport(result));
+      process.exitCode = result.ok ? 0 : 1;
+    } catch (err) {
+      // Exit 2: the doctor could not run (bad config, Genesis not installed), as opposed to finding problems.
+      if (!(err instanceof doctor.DoctorConfigError)) throw err;
+      if (opts.json) console.log(JSON.stringify({ ok: false, error: err.message }, null, 2));
+      else console.error(`✗ ${err.message}`);
+      process.exitCode = 2;
+    }
   });
 
 const studio = program.command("studio").description("The Genesis Data Studio");

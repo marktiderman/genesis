@@ -23,6 +23,7 @@ concurrency:
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - 'apps/**'
       - 'packages/**'
@@ -40,6 +41,7 @@ on:
       - 'package.json'
       - '.github/workflows/genesis-lint.yml'
       - '.github/workflows/self-lint.yml'
+  workflow_dispatch:
 
 # STARTUP-FAILURE GUARD (dogfood self-enforce): a workflow that calls a reusable
 # workflow must itself grant every permission any nested job requests — a

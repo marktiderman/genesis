@@ -13,7 +13,7 @@ import {
   startNativeJob,
   syncSidePanel,
 } from "../index";
-import { mountSurfaceFrame } from "../surfaces";
+import { mountSurfaceFrame, resetSurfaceForTests } from "../surfaces";
 import { renderPageBar } from "../page-bar";
 
 let fake: ChromeFake;
@@ -155,7 +155,7 @@ describe("surfaces", () => {
     ).toBe(true);
   });
 
-  it("hands the frame a private line, never posting to the page, and closes if it's navigated", () => {
+  it("hands the frame a private line, never posting to the page, and closes if it's navigated", async () => {
     let toPage = 0;
     const realPost = window.postMessage;
     window.postMessage = (() =>
@@ -172,30 +172,39 @@ describe("surfaces", () => {
     expect(state.host.getAttribute("style")).toContain("top: 0 !important");
     // Plain values only: a MessagePort held by a mock trips vitest's formatter.
     let got: { type?: string; origin?: string; port?: boolean } = {};
-    Object.defineProperty(state.frame, "contentWindow", {
-      value: {
-        postMessage: (
-          m: { type: string },
-          origin: string,
-          transfer: unknown[],
-        ) =>
-          (got = {
-            type: m.type,
-            origin,
-            port:
-              typeof (transfer?.[0] as MessagePort | undefined)?.postMessage ===
-              "function",
-          }),
+    let offered: MessagePort | null = null;
+    expect(state.frame.name).not.toBe(""); // the secret, not in the address
+    expect(state.frame.src).not.toContain("#");
+    const wrap = state.frame.parentElement as HTMLElement;
+    expect(wrap.style.visibility).toBe("hidden"); // blank until the surface answers
+    const frameWindow = {
+      postMessage: (
+        m: { type: string; nonce?: string },
+        origin: string,
+        transfer: unknown[],
+      ) => {
+        offered = transfer?.[0] as MessagePort;
+        got = {
+          type: m.type,
+          origin,
+          port: typeof offered?.postMessage === "function",
+        };
       },
-    });
+    };
+    Object.defineProperty(state.frame, "contentWindow", { value: frameWindow });
     state.frame.dispatchEvent(new Event("load"));
     window.postMessage = realPost;
+    // Offered to the frame only, at the extension's own origin (not the
+    // per-session address `src` has), with a line of its own.
     expect(got).toEqual({
       type: "gx-connect",
       origin: "chrome-extension://testextensionid",
       port: true,
     });
     expect(toPage).toBe(0);
+    offered!.postMessage({ type: "gx-hello" });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(wrap.style.visibility).toBe("visible");
     // The page sets frames[0].location: a second load closes the frame.
     const host = state.host;
     state.frame.dispatchEvent(new Event("load"));
@@ -216,13 +225,18 @@ describe("surfaces", () => {
   });
 
   it("in the page, listens only on the line its secret came with", async () => {
-    history.replaceState(
-      null,
-      "",
-      "/popup.html?tab=3&panel=1&bar=1#secret-nonce",
-    );
+    history.replaceState(null, "", "/popup.html?tab=3&panel=1&bar=1");
+    window.name = "secret-nonce";
+    resetSurfaceForTests();
     vi.spyOn(window, "top", "get").mockReturnValue({} as Window);
+    const asked: unknown[] = [];
+    vi.spyOn(window, "postMessage").mockImplementation((m: unknown) => {
+      asked.push(m);
+    });
     const surface = connectSurface({ autoResize: false });
+    expect(asked).toEqual([]); // nothing goes to the page
+    expect(window.name).toBe(""); // cleared once read
+    expect(connectSurface()).toBe(surface); // one surface per page
     expect(surface.mode).toBe("bar");
     const seen: string[] = [];
     surface.onPageChanged((url) => seen.push(url));
@@ -260,9 +274,26 @@ describe("surfaces", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(seen).toEqual(["https://example.com/next"]);
     expect(fromFrame).toEqual([
+      { type: "gx-hello" },
       { type: "gx-resize", height: 200 },
       { type: "gx-close" },
     ]);
+  });
+});
+
+describe("surface visibility", () => {
+  it("counts as hidden until Chrome says it's visible, where Chrome can tell", () => {
+    history.replaceState(null, "", "/popup.html?tab=3&panel=1");
+    vi.spyOn(window, "top", "get").mockReturnValue({} as Window);
+    vi.spyOn(window, "postMessage").mockImplementation(() => undefined);
+    class Entry {}
+    Object.defineProperty(Entry.prototype, "isVisible", { value: false });
+    vi.stubGlobal("IntersectionObserverEntry", Entry);
+    resetSurfaceForTests();
+    expect(connectSurface({ autoResize: false }).visible()).toBe(false);
+    vi.unstubAllGlobals();
+    resetSurfaceForTests();
+    expect(connectSurface({ autoResize: false }).visible()).toBe(true);
   });
 });
 

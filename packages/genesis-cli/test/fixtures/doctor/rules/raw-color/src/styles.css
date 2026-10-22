@@ -1,0 +1,5 @@
+/* Brand notes: #abcdef is documented here, not used. */
+.alert {
+  color: #ff0000;
+  background: hsl(var(--primary));
+}

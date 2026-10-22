@@ -42,7 +42,7 @@ app/
 
 Keep only what you need to start building:
 
-- `_layout.tsx` — uses `<AppShell>` from `@genesis/ui-web`. Update the nav items for your app.
+- `_layout.tsx` — uses `<AppShell navigation={tree}>` from `@marktiderman/genesis-ui/layout`. Edit the `NavigationNode` tree: it drives the sidebar, contextual nav, mobile tab bar and back links.
 - `app.css` — swap the brand preset for your project's colors.
 - `root.tsx` — update the title and fonts.
 

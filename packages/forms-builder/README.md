@@ -7,7 +7,7 @@ it and decide where drafts and published versions live.
 
 > **Use with `@marktiderman/genesis-forms` 0.2.0 or later.** Earlier versions store identifying hidden inputs on anonymous forms, which the builder's anonymous setting promises not to.
 >
-> **Stability (0.x):** the supported API is `FormBuilder` (its props and `FormBuilderHandle`), `analyze`, `diffDefinitions`, the form operations, `TEMPLATES` / `getTemplate`, and the editor types. The individual panels and other exports may change in minor releases.
+> **Stability (0.x):** the supported API is `FormBuilder` (its props, `readOnly` included, and `FormBuilderHandle`), `analyze`, `diffDefinitions`, the form operations, `TEMPLATES` / `getTemplate`, and the editor types. The individual panels and other exports may change in minor releases.
 
 ```tsx
 import "@marktiderman/genesis-forms-builder/styles.css";
@@ -42,6 +42,23 @@ import { FormBuilder, diffDefinitions, getTemplate } from "@marktiderman/genesis
   `builder.analysing` says so, and `builder.getAnalysis()` checks the current value now.
 - `ref` (a `FormBuilderHandle`) has `getValue()`, `getAnalysis()` and `flush()`, which commits
   pending drafts (keys, hidden input names, numbers) and returns the value.
+
+### Read-only viewers
+
+Pass `readOnly` for people who may read a form but not change it (for example, a coach who is not
+the form's owner):
+
+```tsx
+<FormBuilder key={form.id} defaultValue={working} readOnly={!canEdit} onChange={saveDraftDebounced} />
+```
+
+Every panel stays visible, and questions and rules still open so their settings can be read. Inputs,
+selects and switches are disabled (a host's own field-type `Panel` and `ConditionValue` get
+`readOnly: true` and render inside a disabled `<fieldset>`); add, remove, reorder, duplicate and drag
+are hidden; undo/redo are replaced by a "Read only" badge; the JSON tab is selectable but has no
+Apply; and `onChange` is never called, not even for text typed before the switch. The preview,
+checks, `actions` and the ref handle work as usual. Panels rendered on their own read the flag from
+`BuilderConfigContext` (`{ readOnly: true }`).
 
 ### Building a variant (worksheets)
 
@@ -81,8 +98,9 @@ Every edit is a function in `ops` (`updateBlock`, `setOptions`, `removeBlock`…
 valid definition: removing something removes the rules that pointed at it. Edits that need a new
 id or option value take it as an argument (`duplicateBlock(def, id, copyId)`, `withOptionValues`,
 `defaultProps`), so make it outside a reducer and the edit stays pure. Use them on a server or
-in scripts too. `TEMPLATES` has starting points (blank, after-class feedback, monthly pulse, new
+in scripts too: `@marktiderman/genesis-forms-builder/ops` has the same functions without
+`"use client"`, so a server component or route handler can import them. `TEMPLATES` has starting points (blank, after-class feedback, monthly pulse, new
 member intake).
 
-The package ships `"use client"` and needs Tailwind to see its classes: import `styles.css` (it
+The main entry ships `"use client"` and needs Tailwind to see its classes: import `styles.css` (it
 adds an `@source` for the package).

@@ -34,6 +34,7 @@ const ENTRY = [
   "src/native.ts",
   "src/forms.ts",
   "src/forms-server.ts",
+  "src/forms-destinations.ts",
   "src/forms-react.ts",
   "src/forms-web.ts",
 ];

@@ -1,6 +1,7 @@
 import { isJson } from "./events";
 import { getFieldType } from "./fields";
 import { recallRefs } from "./recall";
+import { MAX_ROWS_COLUMNS } from "./worksheet";
 import type { Condition, FormDefinition, Operator } from "./types";
 
 /** A value for a message. Never throws: parseForm accepts any input, including BigInts, cycles and deep nesting. */
@@ -40,6 +41,7 @@ const LITERAL_TYPE: Readonly<Record<string, "string" | "number" | "boolean">> = 
   "single-choice": "string",
   "multi-choice": "string",
   "yes-no": "boolean",
+  list: "string",
 };
 
 const ORDERING: ReadonlySet<string> = new Set<Operator>(["lt", "lte", "gt", "gte"]);
@@ -101,6 +103,51 @@ export function parseForm(input: unknown): ParseResult {
       return false;
     }
     return true;
+  };
+
+  /** An optional whole number of at least `floor`. */
+  const optionalInt = (v: unknown, path: string, floor: number) => {
+    if (v !== undefined && !(isInt(v) && v >= floor)) issue(path, `Must be a whole number of ${floor} or more.`);
+  };
+  /** `low` may not exceed `high` when both are whole numbers. */
+  const ordered = (low: unknown, high: unknown, path: string, what: string) => {
+    if (isInt(low) && isInt(high) && low > high) issue(path, `Can't be more than the ${what}.`);
+  };
+  /** The props of the worksheet types (list, rows, timestamp-notes, highlights). */
+  const worksheetProps = (type: string, props: Record<string, unknown>, path: string) => {
+    if (type === "list") {
+      optionalInt(props.min, `${path}.min`, 0);
+      optionalInt(props.max, `${path}.max`, 1);
+      optionalInt(props.itemMaxLength, `${path}.itemMaxLength`, 1);
+      optionalText(props.placeholder, `${path}.placeholder`);
+      ordered(props.min, props.max ?? 10, `${path}.min`, "most items");
+    } else if (type === "rows") {
+      const columns = props.columns;
+      if (!Array.isArray(columns) || columns.length < 1 || columns.length > MAX_ROWS_COLUMNS) {
+        issue(`${path}.columns`, `Must be a list of 1 to ${MAX_ROWS_COLUMNS} columns.`);
+      } else {
+        const seen = new Set<string>();
+        columns.forEach((c, j) => {
+          const at = `${path}.columns[${j}]`;
+          if (!isObject(c)) return issue(at, "Each column needs a key and a label.");
+          if (name(c.key, `${at}.key`, "A column key")) {
+            if (seen.has(c.key)) issue(`${at}.key`, `Duplicate column key "${c.key}".`);
+            seen.add(c.key);
+          }
+          text(c.label, `${at}.label`);
+          optionalBoolean(c.long, `${at}.long`);
+        });
+      }
+      optionalInt(props.minRows, `${path}.minRows`, 0);
+      optionalInt(props.maxRows, `${path}.maxRows`, 1);
+      ordered(props.minRows, props.maxRows ?? 3, `${path}.minRows`, "most rows");
+    } else if (type === "timestamp-notes") {
+      optionalInt(props.maxNotes, `${path}.maxNotes`, 1);
+      optionalInt(props.textMaxLength, `${path}.textMaxLength`, 1);
+    } else if (type === "highlights") {
+      optionalText(props.text, `${path}.text`);
+      optionalInt(props.maxHighlights, `${path}.maxHighlights`, 1);
+    }
   };
 
   if (!isObject(input)) {
@@ -189,6 +236,7 @@ export function parseForm(input: unknown): ParseResult {
         if (maxLength !== undefined && !(isInt(maxLength) && maxLength > 0)) {
           issue(`${path}.props.maxLength`, "Must be a whole number above 0.");
         }
+        if (isObject(block.props) && typeof block.type === "string") worksheetProps(block.type, block.props, `${path}.props`);
       }
       if (validKey) {
         if (keys.has(block.key as string)) issue(`${path}.key`, `Duplicate key "${String(block.key)}".`);
