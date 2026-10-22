@@ -1,5 +1,30 @@
 # @marktiderman/genesis
 
+## 0.7.2
+
+### Patch Changes
+
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+  - @marktiderman/genesis-ui@2.9.0
+  - @marktiderman/genesis-core@1.5.0
+  - @marktiderman/genesis-forms@0.3.1
+
 ## 0.7.1
 
 ### Patch Changes
