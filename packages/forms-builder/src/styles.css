@@ -1,0 +1,9 @@
+/*
+ * Tailwind v4 source entry for @marktiderman/genesis-forms-builder.
+ *
+ *   @import "tailwindcss";
+ *   @import "@marktiderman/genesis-ui/styles.css";
+ *   @import "@marktiderman/genesis-forms-web/styles.css";
+ *   @import "@marktiderman/genesis-forms-builder/styles.css";
+ */
+@source "./";
