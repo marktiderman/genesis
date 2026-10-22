@@ -6,7 +6,7 @@ import { Inspector, decodeShare, encodeShare } from "../index";
 const form = defineForm({
   id: "t",
   title: "T",
-  hidden: { coach: f.hidden.string({ source: "server" }) },
+  hidden: { owner: f.hidden.string({ source: "server" }) },
   blocks: [
     f.rating("overall", { label: "Overall", required: true }),
     f.longText("improve", { label: "Improve" }),
@@ -19,7 +19,7 @@ const form = defineForm({
 describe("Inspector", () => {
   it("shows live path and values, and the server check", () => {
     const engine = createForm(form.definition, { clock: () => undefined });
-    render(<Inspector engine={engine} context={{ coach: "Sam" }} />);
+    render(<Inspector engine={engine} context={{ owner: "Sam" }} />);
     expect(screen.getByTestId("devtools-state").textContent).toMatch(
       /overall → improve → contact_me/,
     );
@@ -51,15 +51,15 @@ describe("Inspector", () => {
     render(
       <Inspector
         engine={engine}
-        context={{ coach: "Sam" }}
+        context={{ owner: "Sam" }}
         defaultTab="server"
       />,
     );
     fireEvent.click(screen.getByRole("switch"));
     const text = screen.getByTestId("devtools-server").textContent ?? "";
-    expect(text).toMatch(/hidden\.coach/);
+    expect(text).toMatch(/hidden\.owner/);
     expect(text).toMatch(/__forged_field__/);
-    expect(text).toMatch(/"coach": "Sam"/);
+    expect(text).toMatch(/"owner": "Sam"/);
   });
 });
 
@@ -84,17 +84,17 @@ describe("share links", () => {
   it("leaves server context and meta out unless asked, and rejects malformed payloads", async () => {
     const definition = { ...form.definition, meta: { owner: "dana" } };
     const plain = await decodeShare(
-      await encodeShare({ v: 1, definition, context: { coach: "Sam" } }),
+      await encodeShare({ v: 1, definition, context: { owner: "Sam" } }),
     );
     expect(plain?.context).toBeUndefined();
     expect(plain?.definition.meta).toBeUndefined();
     const full = await decodeShare(
       await encodeShare(
-        { v: 1, definition, context: { coach: "Sam" } },
+        { v: 1, definition, context: { owner: "Sam" } },
         { includeContext: true, includeMeta: true },
       ),
     );
-    expect(full?.context).toEqual({ coach: "Sam" });
+    expect(full?.context).toEqual({ owner: "Sam" });
     expect(full?.definition.meta).toEqual({ owner: "dana" });
 
     const raw = async (value: unknown) => {
