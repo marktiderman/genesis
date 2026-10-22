@@ -79,6 +79,7 @@ report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 | Reorderable list: drag, keyboard, row-menu moves             | `SortableList`                                                                     | `/sortable-list`                                                  |
 | Formatted text (lessons, notes): editor and read-only view    | `RichTextEditor`, `RichText` (+ `sanitizeRichTextDoc`, `richTextToHtml` on the server) | `/rich-text-editor`, `/rich-text`                                 |
 | Persisted page size / density                                 | `useViewSettings`                                                                  | `/hooks/use-view-settings`                                        |
+| Client-side links, navigate, URL filters on your router       | `ReactRouterLink` / `TanStackRouterLink` and their `use…Navigate`, `use…SearchParams`, `use…ActivePath` hooks | `/router/react-router`, `/router/tanstack-router`                 |
 
 ## Import rule
 
@@ -98,6 +99,22 @@ fonts or colours in an unlayered `:root` after the imports, not in `@theme`, sin
 wins over `@layer theme`. `tailwindFromBrand(brand).css` adds brand ramps
 (`--color-neutral-500` and the like) on top. Components reference only semantic tokens
 (`bg-primary`, `text-muted-foreground`), never raw colours.
+
+## Data views without hand-rolling
+
+Reach for `ResourcePage` (with `data` for rows you already have) before composing DataTable,
+DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
+
+- **Column widths:** `width: 180` is px, through a `<colgroup>`; the other columns share the rest.
+  Long headers truncate and keep the full text as a tooltip.
+- **Clickable cards:** with a custom `renderCard`, `openOnCardClick` makes the whole card one
+  keyboard-reachable button that opens the detail. On a bare `DataGrid`, use `onItemClick` and
+  `getItemLabel`. Never wrap a card in a `div role="button"`.
+- **Per-row rights:** `canEditItem(item)` hides Edit and Delete for rows the user can't change.
+- **A list inside tabs:** `slotProps={{ shell: { headerOptions: { showTitle: false } } }}` drops
+  the title block and keeps the count, view toggle, filters and create button.
+- **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays
+  the default for deletes.
 
 ## Full inventory
 
@@ -152,8 +169,35 @@ are missing unless the app points at them. Import the shipped source entry — n
 @import "@marktiderman/genesis-ui/styles.css"; /* = @source over the package's dist/ */
 ```
 
+**Router adapters.** genesis-ui never imports a router from its root or layer subpaths. Links default
+to a plain `<a>` and navigation to a full page load until you inject an adapter. Take the shipped one
+for your router; do not hand-write it. Each lives on its own subpath with its router as an optional
+peer, so the other router is never installed or bundled.
+
+```tsx
+// React Router v7
+import {
+  ReactRouterLink,
+  useReactRouterActivePath,
+  useReactRouterNavigate,
+  useReactRouterSearchParams,
+} from "@marktiderman/genesis-ui/router/react-router";
+// TanStack Router: the same four, named TanStackRouterLink / useTanStackRouter…,
+// from "@marktiderman/genesis-ui/router/tanstack-router".
+
+<AppShell linkComponent={ReactRouterLink} activePath={useReactRouterActivePath()} … />
+<ResourcePage detail="route" onNavigate={useReactRouterNavigate()} … />
+useDataFilters("orders", defs, { searchParams: useReactRouterSearchParams() });
+```
+
+The link takes Genesis's string `href` (`/admin?tab=users#top`) and keeps its query and hash; the
+TanStack one parses the query with the router's own `parseSearch`, so `validateSearch` sees what a
+typed `<Link search>` would give it. Genesis owns the active state: the adapters never add a
+router's own `aria-current` or `active` class. Absolute URLs leave the app as plain anchors or a
+document navigation. Next.js needs no adapter: pass `next/link` as `linkComponent`.
+
 **Active nav items with `?query` / `#hash`.** Pass the full location as `activePath`
-(`pathname + search + hash`). Plain items still match on the path; an item whose `to` carries a
+(`pathname + search + hash`, which `use…ActivePath()` above returns). Plain items still match on the path; an item whose `to` carries a
 query or hash (`/admin?tab=users`, `/settings#profile`) is active only when those match too.
 Do not write a custom `isActive` for this. `isPathActive(to, activePath, { end: true })` is the
 exact-path variant.

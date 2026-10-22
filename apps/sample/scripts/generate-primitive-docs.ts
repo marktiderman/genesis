@@ -258,6 +258,11 @@ function deriveWebSubpath(filePath: string): string {
   if (rel === "components/rich-text/rich-text-editor.tsx")
     return "@marktiderman/genesis-ui/rich-text-editor";
   if (rel.startsWith("components/rich-text/")) return "@marktiderman/genesis-ui/rich-text";
+  // Router adapters: one subpath per router, never re-exported from the root
+  // (each router is an optional peer), so the root would be a broken import.
+  if (rel.startsWith("router/")) {
+    return `@marktiderman/genesis-ui/router/${basename(rel).replace(/\.(tsx|ts)$/, "")}`;
+  }
   return "@marktiderman/genesis-ui";
 }
 

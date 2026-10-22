@@ -65,6 +65,23 @@ const PACKAGES = [
     dir: "packages/ui",
     barrel: "packages/ui/src/index.ts",
     description: "Shadcn-based web components. Use in Vite / RR7 / Next surfaces.",
+    // Subpath-only entries that the root barrel deliberately does NOT
+    // re-export (each pulls in an optional peer), so they need their own
+    // section or they never reach this reference.
+    subpaths: [
+      {
+        name: "@marktiderman/genesis-ui/router/react-router",
+        barrel: "packages/ui/src/router/react-router.tsx",
+        description:
+          "React Router adapters for genesis-ui's navigation contract: a `LinkComponent`, a `NavigateFn`, a `SearchParamsAdapter` and the full-location `activePath`. `react-router` is an optional peer, loaded only by this subpath.",
+      },
+      {
+        name: "@marktiderman/genesis-ui/router/tanstack-router",
+        barrel: "packages/ui/src/router/tanstack-router.tsx",
+        description:
+          "TanStack Router adapters for genesis-ui's navigation contract: a `LinkComponent`, a `NavigateFn`, a `SearchParamsAdapter` and the full-location `activePath`. `@tanstack/react-router` is an optional peer, loaded only by this subpath.",
+      },
+    ],
   },
   // Subpath-only entry points: kept out of the genesis-ui root barrel so
   // nobody inherits their optional peers, so they are listed on their own.
@@ -414,6 +431,14 @@ function main() {
     totalTypes += classified.standaloneTypes.length;
 
     sections.push(renderPackageSection(pkg, classified));
+
+    for (const sub of pkg.subpaths ?? []) {
+      const subClassified = classifyExports(parseBarrel(resolve(REPO_ROOT, sub.barrel)));
+      totalComponents += subClassified.components.length;
+      totalOther += subClassified.otherValues.length;
+      totalTypes += subClassified.standaloneTypes.length;
+      sections.push(renderPackageSection(sub, subClassified));
+    }
   }
 
   const header = [

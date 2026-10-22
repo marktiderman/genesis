@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 128 components · 382 other exports · 237 standalone types across 9 packages and entry points.
+**Totals:** 128 components · 390 other exports · 237 standalone types across 9 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -524,6 +524,44 @@ export type { SplitBreakpoint };
 export type { SplitRatio };
 export type { StatusBadgeStatus };
 ```
+
+---
+
+## @marktiderman/genesis-ui/router/react-router
+
+React Router adapters for genesis-ui's navigation contract: a `LinkComponent`, a `NavigateFn`, a `SearchParamsAdapter` and the full-location `activePath`. `react-router` is an optional peer, loaded only by this subpath.
+
+**Barrel:** [`packages/ui/src/router/react-router.tsx`](../packages/ui/src/router/react-router.tsx)
+
+### Other exports (4)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`ReactRouterLink`](../packages/ui/src/router/react-router.tsx) | const | Beta | {@link LinkComponent} for React Router. Pass it as `linkComponent` to `AppShell`, `StatCard` and anything else that takes one. `href` maps to React Router's `to` (query and hash included), and `testID` is forwarded as `data-testid`, as `... |
+| [`useReactRouterActivePath`](../packages/ui/src/router/react-router.tsx) | function | Beta | The current location as `pathname + search + hash`, the shape `AppShell`'s `activePath` expects, so nav items whose `to` names a query or hash (`/admin?tab=users`, `/settings#profile`) highlight correctly. |
+| [`useReactRouterNavigate`](../packages/ui/src/router/react-router.tsx) | function | Beta | {@link NavigateFn} backed by React Router's `useNavigate()`. Pass it as `ResourcePage`'s `onNavigate` (or anywhere a `NavigateFn` is accepted) for client-side navigation instead of a full page load. Absolute URLs (`https://…`, `mailto:…`... |
+| [`useReactRouterSearchParams`](../packages/ui/src/router/react-router.tsx) | function | Beta | {@link SearchParamsAdapter} backed by React Router's location. Pass it as `useDataFilters(key, defs, { searchParams })` so URL-synced filters go through the router (loaders re-run, back/forward stays in sync) instead of the raw History A... |
+
+---
+
+## @marktiderman/genesis-ui/router/tanstack-router
+
+TanStack Router adapters for genesis-ui's navigation contract: a `LinkComponent`, a `NavigateFn`, a `SearchParamsAdapter` and the full-location `activePath`. `@tanstack/react-router` is an optional peer, loaded only by this subpath.
+
+**Barrel:** [`packages/ui/src/router/tanstack-router.tsx`](../packages/ui/src/router/tanstack-router.tsx)
+
+### Other exports (4)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`TanStackRouterLink`](../packages/ui/src/router/tanstack-router.tsx) | const | Beta | {@link LinkComponent} for TanStack Router. Pass it as `linkComponent` to `AppShell`, `StatCard` and anything else that takes one. In-app hrefs navigate client-side (query and hash included, parsed by the router's `parseSearch`); absolute... |
+| [`useTanStackRouterActivePath`](../packages/ui/src/router/tanstack-router.tsx) | function | Beta | The current location as `pathname + search + hash`, the shape `AppShell`'s `activePath` expects, so nav items whose `to` names a query or hash (`/admin?tab=users`, `/settings#profile`) highlight correctly. Paths are the router's (basepat... |
+| [`useTanStackRouterNavigate`](../packages/ui/src/router/tanstack-router.tsx) | function | Beta | {@link NavigateFn} backed by the TanStack router. Pass it as `ResourcePage`'s `onNavigate` (or anywhere a `NavigateFn` is accepted) for client-side navigation instead of a full page load. Absolute URLs (`https://…`, `mailto:…`, `//host/…... |
+| [`useTanStackRouterSearchParams`](../packages/ui/src/router/tanstack-router.tsx) | function | Beta | {@link SearchParamsAdapter} backed by the TanStack router's location. Pass it as `useDataFilters(key, defs, { searchParams })` so URL-synced filters go through the router (loaders and `validateSearch` run, back/forward stays in sync) ins... |
 
 ---
 

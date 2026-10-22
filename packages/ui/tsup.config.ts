@@ -62,6 +62,12 @@ export default defineConfig({
     // helpers) never imports Tiptap.
     "src/components/rich-text/rich-text.tsx",
     "src/components/rich-text/rich-text-editor.tsx",
+    // Router adapters, one subpath per router, so each router stays an
+    // optional peer that only its own adapter's importers load. Listed one
+    // by one (not `router/*.tsx`) because `router/utils.ts` is internal and
+    // has no `exports` entry.
+    "src/router/react-router.tsx",
+    "src/router/tanstack-router.tsx",
   ],
   format: ["esm"],
   dts: true,

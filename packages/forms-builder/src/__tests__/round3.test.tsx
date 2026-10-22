@@ -124,6 +124,7 @@ describe("2. the value is reported at once, kept on unmount and readable through
     const onChange = vi.fn<(def: FormDefinition) => void>();
     const { unmount } = render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
+    fireEvent.click(screen.getByTestId("builder-field-advanced"));
     fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "overall_score" } });
     expect(onChange).not.toHaveBeenCalled();
     unmount();
@@ -134,6 +135,7 @@ describe("2. the value is reported at once, kept on unmount and readable through
     let last: FormDefinition | undefined;
     render(<FormBuilder defaultValue={afterClass()} onChange={(d) => (last = d)} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
+    fireEvent.click(screen.getByTestId("builder-field-advanced"));
     fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "closed_key" } });
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     expect(last?.blocks.find((b) => b.id === "q_rating")).toMatchObject({ key: "closed_key" });

@@ -80,6 +80,14 @@
       "types": "./dist/components/rich-text/rich-text-editor.d.ts",
       "import": "./dist/components/rich-text/rich-text-editor.js"
     },
+    "./router/react-router": {
+      "types": "./dist/router/react-router.d.ts",
+      "import": "./dist/router/react-router.js"
+    },
+    "./router/tanstack-router": {
+      "types": "./dist/router/tanstack-router.d.ts",
+      "import": "./dist/router/tanstack-router.js"
+    },
     "./styles.css": "./dist/styles.css",
     "./accessible-icon": {
       "types": "./dist/components/ui/accessible-icon.d.ts",
@@ -352,6 +360,7 @@
   },
   "peerDependencies": {
     "@marktiderman/genesis-design-system": "workspace:^",
+    "@tanstack/react-router": "^1.0.0",
     "@tanstack/react-virtual": "^3.14.0",
     "@tiptap/core": "^3.0.0",
     "@tiptap/extensions": "^3.0.0",
@@ -370,6 +379,7 @@
     "react-dropzone": "^14.0.0 || ^15.0.0",
     "react-hook-form": "^7.0.0",
     "react-resizable-panels": "^2.0.0",
+    "react-router": "^7.0.0",
     "recharts": "^2.12.0 || ^3.0.0",
     "sonner": "^1.0.0 || ^2.0.0",
     "vaul": "^1.0.0"
@@ -398,6 +408,7 @@
     "@radix-ui/react-toggle": "^1.1.0",
     "@radix-ui/react-toggle-group": "^1.1.0",
     "@tanstack/react-query": "^5.75.0",
+    "@tanstack/react-router": "1.170.41",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "3.14.13",
     "@testing-library/react": "^16.3.2",
@@ -419,6 +430,7 @@
     "react-dropzone": "^15.0.0",
     "react-hook-form": "^7.72.1",
     "react-resizable-panels": "^2.0.0",
+    "react-router": "7.14.0",
     "recharts": "^2.15.0",
     "sonner": "^1.0.0",
     "tsup": "^8.3.0",
@@ -428,6 +440,9 @@
     "zod": "^4.3.6"
   },
   "peerDependenciesMeta": {
+    "@tanstack/react-router": {
+      "optional": true
+    },
     "@tanstack/react-virtual": {
       "optional": true
     },
@@ -444,6 +459,9 @@
       "optional": true
     },
     "@tiptap/starter-kit": {
+      "optional": true
+    },
+    "react-router": {
       "optional": true
     }
   }

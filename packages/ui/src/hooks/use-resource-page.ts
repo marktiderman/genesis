@@ -25,6 +25,12 @@ export interface ResourceColumnDef<T> {
   header?: string;
   sortable?: boolean;
   hideBelow?: "sm" | "md" | "lg" | "xl";
+  /** Starting width, passed straight through to `DataTable` (a number is px). */
+  width?: DataTableColumn<T>["width"];
+  /** Smallest width the user can resize to, in px. Passed through to `DataTable`. */
+  minWidth?: number;
+  /** Whether the column shows before the user picks columns. Default true. */
+  defaultVisible?: boolean;
   render?: (
     item: T,
     value: unknown,
@@ -409,6 +415,9 @@ export function useResourcePage<T = Record<string, unknown>>(
         header: col.header ?? titleCase(col.key),
         sortable: col.sortable ?? true,
         hideBelow: col.hideBelow,
+        width: col.width,
+        minWidth: col.minWidth,
+        defaultVisible: col.defaultVisible,
         editable: col.editable,
         accessor: col.accessor,
         render: col.render
