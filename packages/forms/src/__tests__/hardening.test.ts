@@ -437,7 +437,10 @@ describe("12. strict server coercion", () => {
     expect(hiddenOf({ n: [], s: [1, 2], b: 1 })?.hidden).toEqual({});
     expect(hiddenOf({ n: "  ", s: "x".repeat(1001) })?.hidden).toEqual({});
     expect(hiddenOf({ n: true })?.hidden).toEqual({});
-    expect(hiddenOf({ n: " 4 ", s: "x".repeat(1000), b: "true" })?.hidden).toEqual({ n: 4, s: "x".repeat(1000), b: true });
+    expect(hiddenOf({ n: "4", s: "x".repeat(1000), b: "true" })?.hidden).toEqual({ n: 4, s: "x".repeat(1000), b: true });
+    // Plain decimals only: no padding, hex, exponents or Infinity.
+    for (const n of [" 4 ", "0x1A", "1e3", "Infinity", "+4", ".5", "4."]) expect(hiddenOf({ n })?.hidden).toEqual({});
+    expect(hiddenOf({ n: "-2.5" })?.hidden).toEqual({ n: -2.5 });
     expect(hiddenOf({ s: 5 })?.hidden).toEqual({ s: "5" });
   });
 
@@ -752,5 +755,169 @@ describe("coverage with a plugin field (CodeRabbit on #40)", () => {
     const report = coverage(form);
     expect(report.endings.default).toEqual({ reached: true, witness: { sig: "sig:ada" } });
     expect(report.unsampledFields).toEqual([]);
+  });
+});
+
+describe("forms review fixes", () => {
+  it("anonymous forms do not store identifying hidden inputs", () => {
+    const hidden = {
+      memberId: f.hidden.string({ source: "server", identifying: true }),
+      ref: f.hidden.string({ identifying: true }),
+      cls: f.hidden.string({ source: "server" }),
+      utm: f.hidden.string(),
+    };
+    const blocks = [f.rating("overall", { label: "O" }), f.yesNo("vip", { label: "VIP" })] as const;
+    const logic = [when.condition({ op: "eq", left: { hidden: "memberId" }, right: { value: "m_42" } }).hide("vip")];
+    const anon = defineForm({ id: "a", title: "A", settings: { anonymous: true }, hidden, blocks, logic });
+    expect(anon.definition.hidden?.find((h) => h.name === "memberId")).toMatchObject({ identifying: true });
+    const submit = (def: FormDefinition) =>
+      validateSubmission(
+        def,
+        { answers: { overall: 4 }, hidden: { ref: "member-123", utm: "mail" } },
+        { context: { memberId: "m_42", cls: "yoga" } },
+      );
+    const r = submit(anon.definition);
+    expect(r.ok && r.submission).toMatchObject({ hidden: { utm: "mail" }, context: { cls: "yoga" }, ignored: ["hidden.ref"] });
+    expect(r.ok && Object.keys(r.submission.context)).toEqual(["cls"]);
+    // Logic still reads the withheld input.
+    expect(createForm(anon.definition, { hidden: { memberId: "m_42" } }).getState().path).toEqual(["overall"]);
+    const named = defineForm({ id: "n", title: "N", hidden, blocks });
+    expect(submit(named.definition)).toMatchObject({
+      ok: true,
+      submission: { hidden: { ref: "member-123", utm: "mail" }, context: { memberId: "m_42", cls: "yoga" }, ignored: [] },
+    });
+    const bad = { name: "x", type: "string", source: "url", identifying: "yes" } as never;
+    expect(parseForm(raw([field("q", "short-text")], { hidden: [bad] })).ok).toBe(false);
+  });
+
+  it("reports an ignored key once, however often it is sent", () => {
+    const def = raw([field("r", "rating", { required: true })]);
+    const events: FormEvent[] = [];
+    for (let i = 0; i < 3; i++) events.push({ type: "answer", field: "bogus", value: "x" }, { type: "next" });
+    events.push({ type: "answer", field: "r", value: 4 }, { type: "submit" });
+    const r = validateSubmission(def, { events });
+    expect(r.ok && r.submission.ignored).toEqual(["bogus"]);
+  });
+
+  it("does not store empty optional answers; required ones still fail", () => {
+    const options = { props: { options: [{ value: "a" }] } };
+    const def = raw([field("e", "email"), field("t", "short-text"), field("m", "multi-choice", options)]);
+    const r = validateSubmission(def, { answers: { e: "   ", t: "", m: [] } });
+    expect(r.ok && r.submission.answers).toEqual({});
+    const engine = createForm(def);
+    engine.setValue("t", "  ");
+    expect(engine.answers()).toEqual({});
+    const required = raw([field("t", "short-text", { required: true })]);
+    expect(validateSubmission(required, { answers: { t: "  " } })).toEqual({
+      ok: false,
+      errors: { t: "This question needs an answer." },
+    });
+    expect(validateSubmission(required, { answers: { t: " hi " } })).toMatchObject({
+      ok: true,
+      submission: { answers: { t: " hi " } },
+    });
+  });
+
+  it("checks rating max and maxLength", () => {
+    const rating = (max: Json) => parseForm(raw([field("r", "rating", { props: { max } })])).ok;
+    expect([2, 5, 10].map(rating)).toEqual([true, true, true]);
+    expect([1, 11, 1e6, 4.5, "5"].map(rating)).toEqual([false, false, false, false, false]);
+    const text = (maxLength: Json) => parseForm(raw([field("t", "short-text", { props: { maxLength } })])).ok;
+    expect([1, 200].map(text)).toEqual([true, true]);
+    expect([0, -1, 2.5, "10"].map(text)).toEqual([false, false, false, false]);
+  });
+
+  describe("warns when a literal can never match", () => {
+    type Cond = Parameters<typeof evaluate>[0];
+    const warns = (condition: Cond) => {
+      const def = raw(
+        [
+          field("r", "rating"),
+          field("y", "yes-no"),
+          field("c", "single-choice", { props: { options: [{ value: "a" }, { value: "b" }] } }),
+          field("m", "multi-choice", { props: { options: [{ value: "a" }] } }),
+          field("t", "short-text"),
+          field("last", "short-text"),
+        ],
+        {
+          hidden: [{ name: "cls", type: "number", source: "url" }],
+          logic: [{ id: "x", when: condition, effect: "show", target: "last" }],
+        },
+      );
+      const p = parseForm(def);
+      expect(p.ok).toBe(true);
+      return p.warnings.map((w) => w.message);
+    };
+
+    it("for mismatched types and options", () => {
+      expect(warns({ op: "eq", left: { field: "r" }, right: { value: "5" } })).toEqual([
+        '"r" holds a number, but "5" is not one; this comparison is never true.',
+      ]);
+      expect(warns({ op: "neq", left: { field: "y" }, right: { value: "true" } })[0]).toMatch(/always true/);
+      expect(warns({ op: "eq", left: { field: "c" }, right: { value: "z" } })[0]).toMatch(/"z" is not an option of "c"/);
+      expect(warns({ op: "in", left: { field: "c" }, right: { value: ["a", "z"] } })).toHaveLength(1);
+      expect(warns({ op: "contains", left: { field: "m" }, right: { value: "q" } })).toHaveLength(1);
+      expect(warns({ op: "eq", left: { hidden: "cls" }, right: { value: "12" } })[0]).toMatch(
+        /hidden input "cls" holds a number/,
+      );
+      expect(warns({ op: "lt", left: { value: 1 }, right: { value: "2" } })).toHaveLength(1);
+    });
+
+    it("for `in` without a list", () => {
+      expect(warns({ op: "in", left: { field: "r" }, right: { value: 5 } })).toEqual([
+        "`in` needs a list of values; it never matches.",
+      ]);
+      expect(warns({ op: "in", left: { field: "r" } })).toHaveLength(1);
+    });
+
+    it("without throwing on literals JSON can't show", () => {
+      let deep: unknown = 1;
+      for (let i = 0; i < 20000; i++) deep = [deep];
+      const def = (value: unknown) => ({
+        schemaVersion: 1,
+        id: "f",
+        title: "F",
+        blocks: [field("r", "rating"), field("last", "short-text")],
+        logic: [{ id: "x", when: { op: "eq", left: { field: "r" }, right: { value } }, effect: "show", target: "last" }],
+      });
+      expect(() => parseForm(def(1n))).not.toThrow();
+      expect(() => parseForm(def(deep))).not.toThrow();
+    });
+
+    it("once, as an error, for an operator that doesn't apply", () => {
+      const def = {
+        schemaVersion: 1, id: "f", title: "F",
+        blocks: [field("t", "short-text"), field("last", "short-text")],
+        logic: [{ id: "x", when: { op: "lt", left: { field: "t" }, right: { value: 3 } }, effect: "show", target: "last" }],
+      };
+      const p = parseForm(def);
+      expect(p.ok).toBe(false);
+      expect(p.warnings).toEqual([]);
+    });
+
+    it("for recall in endings and the introduction that names nothing", () => {
+      const p = parseForm({
+        schemaVersion: 1, id: "f", title: "F", description: "Hi {{hidden:who}}",
+        blocks: [field("a", "short-text")],
+        endings: [{ id: "default", title: "Thanks {{field:a}}", description: "Bye {{field:gone|friend}}" }],
+      });
+      expect(p.ok).toBe(true);
+      expect(p.warnings.map((w) => w.path)).toEqual(["description", "endings[0]"]);
+    });
+
+    it("not for literals that fit, or operands known only at run time", () => {
+      const fine: Cond[] = [
+        { op: "eq", left: { field: "r" }, right: { value: 5 } },
+        { op: "in", left: { field: "r" }, right: { value: [4, 5] } },
+        { op: "eq", left: { field: "y" }, right: { value: false } },
+        { op: "eq", left: { field: "c" }, right: { value: "a" } },
+        { op: "contains", left: { field: "m" }, right: { value: "a" } },
+        { op: "contains", left: { field: "t" }, right: { value: "x" } },
+        { op: "gte", left: { hidden: "cls" }, right: { value: 12 } },
+        { op: "eq", left: { field: "r" }, right: { hidden: "cls" } },
+        { op: "answered", left: { field: "y" } },
+      ];
+      for (const condition of fine) expect(warns(condition)).toEqual([]);
+    });
   });
 });

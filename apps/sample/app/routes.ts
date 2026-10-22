@@ -20,6 +20,7 @@ export default [
     route("design-system", "routes/design-system.tsx"),
     route("sandbox", "routes/sandbox.tsx"),
     route("forms-playground", "routes/forms-playground.tsx"),
+    route("forms-builder", "routes/forms-builder.tsx"),
     route("forms", "routes/forms.tsx", [
       index("routes/forms._index.tsx"),
       route(":scenario", "routes/forms.$scenario.tsx"),

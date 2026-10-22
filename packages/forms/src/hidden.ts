@@ -5,6 +5,9 @@ import type { FormDefinition, HiddenInput, Json } from "./types";
 /** Longest string a hidden input accepts. Longer values are dropped. */
 export const MAX_HIDDEN_STRING_LENGTH = 1000;
 
+/** A plain decimal: an optional `-`, digits, and an optional fraction. */
+const DECIMAL = /^-?\d+(\.\d+)?$/;
+
 export interface CoerceHiddenOptions {
   /** Coerce only inputs with these sources; the rest are reported in `ignored`. Default: all. */
   sources?: readonly HiddenInput["source"][];
@@ -21,7 +24,8 @@ export interface CoercedHidden {
  * Convert one raw value to a hidden input's declared type, or `undefined` when
  * it cannot be. Only string, number and boolean primitives are accepted.
  * - `string`: a string (at most 1000 characters), or a number or boolean as text.
- * - `number`: a finite number, or a non-blank numeric string. `""` is not a number.
+ * - `number`: a finite number, or a plain decimal string such as `"12"`, `"-3"`
+ *   or `"2.5"`. No spaces, hex, exponents or `""`.
  * - `boolean`: `true`/`false`, or the strings `"true"`/`"false"`.
  */
 export function coerceHiddenValue(value: unknown, type: HiddenInput["type"]): Json | undefined {
@@ -33,7 +37,7 @@ export function coerceHiddenValue(value: unknown, type: HiddenInput["type"]): Js
   }
   if (type === "number") {
     if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
-    if (typeof value !== "string" || value.trim() === "") return undefined;
+    if (typeof value !== "string" || !DECIMAL.test(value)) return undefined;
     const n = Number(value);
     return Number.isFinite(n) ? n : undefined;
   }

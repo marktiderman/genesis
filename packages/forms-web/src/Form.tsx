@@ -386,17 +386,17 @@ function DefaultErrorSummary({ count, errors, className }: ErrorSummarySlotProps
 export interface FormBrand {
   name: string;
   /** An image URL or your own element (decorative: the name is the text). Without one, the name's initials are shown. */
-  logo?: ReactNode;
+  logo?: ReactNode | undefined;
 }
 
 export interface FormProps {
   /** A `defineForm` result or a canonical definition. */
   form: FormDefinition | { definition: FormDefinition };
   /** Bring your own engine (from `useForm`) to read state outside the form. `form` and `options` are then unused. */
-  engine?: FormEngine;
-  options?: CreateFormOptions;
+  engine?: FormEngine | undefined;
+  options?: CreateFormOptions | undefined;
   /** Overrides the definition's layout. */
-  layout?: "focus" | "classic";
+  layout?: "focus" | "classic" | undefined;
   /**
    * `"embedded"` (default): a block inside your own page. `"page"`: the
    * respondent's whole screen, for a QR code or a shared link. It fills the
@@ -404,32 +404,35 @@ export interface FormProps {
    * under a thin progress bar with large type and tap targets, and in classic
    * layout the questions are sections on one scrolling page.
    */
-  presentation?: FormPresentation;
+  presentation?: FormPresentation | undefined;
   /** A practice's name and logo, shown small at the top of every step and on the ending. */
-  brand?: FormBrand;
-  registry?: RendererRegistry;
+  brand?: FormBrand | undefined;
+  registry?: RendererRegistry | undefined;
   /**
    * Called once the form completes. The ending shows only after it resolves.
    * If it rejects, the answers stay on screen, read-only (a completed response
    * is final), with an error and a "Try again" button that sends them again.
    */
-  onSubmit?: (engine: FormEngine) => void | Promise<void>;
-  /** Called after every answer (debounce it to save drafts). */
-  onChange?: (state: FormState, engine: FormEngine) => void;
+  onSubmit?: ((engine: FormEngine) => void | Promise<void>) | undefined;
+  /**
+   * Called on every state change: an answer, a step forward or back, a
+   * submit attempt (debounce it to save drafts).
+   */
+  onChange?: ((state: FormState, engine: FormEngine) => void) | undefined;
   /**
    * In focus layout, move on after a single pick (rating, yes/no, one choice).
    * Arrow keys only move through the options; a click, tap or Space picks.
    * Never moves on from the last question. Default true.
    */
-  autoAdvance?: boolean;
-  submitLabel?: string;
-  nextLabel?: string;
+  autoAdvance?: boolean | undefined;
+  submitLabel?: string | undefined;
+  nextLabel?: string | undefined;
   /** The submit button's label after `onSubmit` failed. Default "Try again". */
-  retryLabel?: string;
-  slots?: { [K in keyof FormSlotMap]?: SlotOverride<FormSlotMap[K]> };
-  slotProps?: { [K in keyof FormSlotMap]?: Partial<FormSlotMap[K]> };
-  className?: string;
-  testID?: string;
+  retryLabel?: string | undefined;
+  slots?: { [K in keyof FormSlotMap]?: SlotOverride<FormSlotMap[K]> } | undefined;
+  slotProps?: { [K in keyof FormSlotMap]?: Partial<FormSlotMap[K]> } | undefined;
+  className?: string | undefined;
+  testID?: string | undefined;
 }
 
 const ADVANCE_DELAY_MS = 250;
@@ -500,6 +503,9 @@ function FormBody({
   const errorsKey = useFormSelector(engine, (s) => JSON.stringify(s.errors));
   const ending = useFormSelector(engine, (s) => s.ending);
   const historyLength = useFormSelector(engine, (s) => s.history.length);
+  // The introduction recalls like endings do ({{field:name}}, {{hidden:coach}}), so it follows
+  // the answers; a string, so it re-renders only when the recalled text changes.
+  const description = useFormSelector(engine, () => (def.description ? engine.text(def.description) : undefined));
   const path = JSON.parse(pathKey) as string[];
   const errors = JSON.parse(errorsKey) as Record<string, string>;
   const formRef = useRef<HTMLFormElement>(null);
@@ -751,8 +757,7 @@ function FormBody({
     );
   };
 
-  const visiblePath = path.filter((id) => engine.isVisible(id) || engine.block(id)?.kind === "content");
-  const step = current ? Math.max(1, visiblePath.indexOf(current) + 1) : 1;
+  const step = current ? Math.max(1, path.indexOf(current) + 1) : 1;
   const isLast = layout === "classic" || current === path[path.length - 1];
   const errorItems: ErrorSummaryItem[] = path
     .filter((id) => errors[id])
@@ -768,7 +773,7 @@ function FormBody({
   const header = renderSlot(
     DefaultHeader,
     slots?.header,
-    { title: def.title, description: def.description },
+    { title: def.title, description },
     slotProps?.header,
   );
   const errorSummary =
@@ -786,7 +791,7 @@ function FormBody({
       : null;
   const progress =
     layout === "focus"
-      ? renderSlot(DefaultProgress, slots?.progress, { step, total: visiblePath.length }, slotProps?.progress)
+      ? renderSlot(DefaultProgress, slots?.progress, { step, total: path.length }, slotProps?.progress)
       : null;
   const fields = (
     // Disabled once the response is completed (sending, or after a failed send): read-only, not dead.
@@ -807,7 +812,7 @@ function FormBody({
           {current ? renderBlock(current, true) : null}
         </div>
       ) : (
-        <div className={pageClassic ? "space-y-4" : "space-y-8"}>{visiblePath.map((id) => renderBlock(id, false))}</div>
+        <div className={pageClassic ? "space-y-4" : "space-y-8"}>{path.map((id) => renderBlock(id, false))}</div>
       )}
     </fieldset>
   );

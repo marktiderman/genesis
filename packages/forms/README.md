@@ -45,15 +45,19 @@ const version = afterClass.hash();         // content fingerprint for publishing
   `eq`, `in` and `contains` and passes `neq`: `eq null` is never true for a cleared field.
 - **Hidden inputs are typed and sourced.** `url` and `host` inputs are untrusted; `server` inputs are
   never read from the client. `coerceHidden(definition, raw)` types them, in `createForm` and on the
-  server alike: only string, number and boolean primitives, `""` is not a number, strings at most
-  1000 characters.
+  server alike: only string, number and boolean primitives, a number string must be a plain decimal
+  (`"12"`, `"-2.5"`; not `""`, `" 12 "` or `"0x1A"`), strings at most 1000 characters.
+- **Empty answers are not stored.** `engine.answers()` and the server leave out blank text, `""` and
+  empty lists; a required field with one still fails as unanswered.
 - **Everything is in the event log.** `initialValues` are logged as leading `answer` events with
   `source: "prefill"`, so `replay` and the server see them.
 - **Anonymous forms withhold identifying fields.** `settings.anonymous` is a per-form admin
   setting, off by default. When it is true, fields marked `identifying: true` are treated as hidden
   (off the path, not validated, cleared on submit), the server drops client-sent values for them and
-  lists them in `ignored`, and events carry no `at` timestamps whatever clock is passed. Fields not
-  marked `identifying` are unaffected.
+  lists them in `ignored`, and events carry no `at` timestamps whatever clock is passed. Hidden
+  inputs marked `identifying: true` (`f.hidden.string({ source: "server", identifying: true })`) are
+  left out of the stored `hidden` and `context`; logic still reads them. Fields not marked
+  `identifying` are unaffected.
 - **Definitions are checked.** `defineForm` runs `parseForm` and throws with every issue;
   `validateSubmission` refuses a definition that does not parse. Ids, keys, hidden names and ending
   ids may not be `Object.prototype` names (`constructor`, `__proto__`…).
