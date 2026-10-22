@@ -695,6 +695,27 @@ describe("coverage with a plugin field (CodeRabbit on #40)", () => {
     expect(report.pathsExplored).toBe(0);
   });
 
+  it("explores the logic on an unsampled field instead of assuming it's unanswered", async () => {
+    const { registerFieldType } = await import("../index");
+    const { coverage } = await import("../testing");
+    registerFieldType({
+      type: "test-signature-branch", label: "Signature", category: "advanced", value: { json: true },
+      operators: ["answered", "empty"], a11y: { semantics: "control" },
+      validate: (v: unknown) => (typeof v === "string" && v.startsWith("sig:") ? null : "Sign here."),
+    } as never);
+    const form = defineForm({
+      id: "plug3", title: "Plug",
+      blocks: [f.custom("test-signature-branch", "sig", { label: "Sign" }), f.yesNo("after", { label: "After" })],
+      endings: [{ id: "default", title: "Done" }, { id: "signed", title: "Signed" }],
+      logic: [when("sig").isAnswered().jumpTo({ ending: "signed" })],
+    });
+    const report = coverage(form);
+    expect(report.rulesNeverFired).toEqual([]);
+    expect(report.endings.signed).toEqual({ reached: false, needsSamples: ["sig"] });
+    // Unanswered is valid for an optional field, so the default ending is truly reached.
+    expect(report.endings.default?.reached).toBe(true);
+  });
+
   it("uses a plugin's samples to build a valid witness", async () => {
     const { registerFieldType } = await import("../index");
     const { coverage } = await import("../testing");
