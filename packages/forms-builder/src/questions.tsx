@@ -22,7 +22,7 @@ import {
 } from "@marktiderman/genesis-ui/dropdown-menu";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import { DraftRow, NumberRow, SelectRow, SwitchRow, TextRow } from "./controls";
+import { DraftRow, Editable, NumberRow, SelectRow, SwitchRow, TextRow } from "./controls";
 import type { Finding } from "./analyze";
 import {
   createContent,
@@ -173,6 +173,7 @@ export function QuestionsPanel({
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
   const config = useBuilderConfig();
+  const readOnly = !!config.readOnly;
 
   const add = (make: (def: FormDefinition) => Block) => {
     // Made here, not in the edit: edits run in the reducer and must stay pure.
@@ -185,8 +186,8 @@ export function QuestionsPanel({
   if (!def.blocks.length) {
     return (
       <div className="rounded-lg border border-dashed p-8 text-center" data-testid="builder-empty">
-        <p className="mb-3 text-sm text-muted-foreground">No questions yet.</p>
-        <AddBlockMenu onAdd={add} label="Add the first question" />
+        <p className={cn("text-sm text-muted-foreground", !readOnly && "mb-3")}>No questions yet.</p>
+        {readOnly ? null : <AddBlockMenu onAdd={add} label="Add the first question" />}
       </div>
     );
   }
@@ -209,16 +210,17 @@ export function QuestionsPanel({
                 dragging === block.id && "opacity-50",
               )}
               onDragOver={(e) => {
-                if (dragging && dragging !== block.id) e.preventDefault();
+                if (!readOnly && dragging && dragging !== block.id) e.preventDefault();
               }}
               onDrop={(e) => {
                 e.preventDefault();
-                if (dragging && dragging !== block.id) apply((d) => moveBlock(d, dragging, index));
+                if (!readOnly && dragging && dragging !== block.id) apply((d) => moveBlock(d, dragging, index));
                 setDragging(null);
               }}
             >
               <div className="flex items-center gap-2 p-3">
                 {/* Only the handle drags, so selecting text in the row (or in its inspector) still works. */}
+                {readOnly ? null : (
                 <span
                   aria-hidden
                   draggable
@@ -237,6 +239,7 @@ export function QuestionsPanel({
                 >
                   <GripVertical className="size-4" />
                 </span>
+                )}
                 <button
                   type="button"
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -253,6 +256,7 @@ export function QuestionsPanel({
                   {rules ? <Badge variant="info">{rules} rule{rules === 1 ? "" : "s"}</Badge> : null}
                   {blockFindings.length ? <Badge variant="warning">{blockFindings.length}</Badge> : null}
                 </button>
+                {readOnly ? null : (
                 <div className="flex shrink-0 items-center">
                   <Button
                     variant="ghost"
@@ -293,6 +297,7 @@ export function QuestionsPanel({
                     <Trash2 />
                   </Button>
                 </div>
+                )}
               </div>
               {open ? (
                 <div className="space-y-4 border-t p-4">
@@ -301,14 +306,16 @@ export function QuestionsPanel({
                       {f.message}
                     </p>
                   ))}
-                  <BlockInspector def={def} block={block} apply={apply} />
+                  <Editable readOnly={readOnly}>
+                    <BlockInspector def={def} block={block} apply={apply} />
+                  </Editable>
                 </div>
               ) : null}
             </li>
           );
         })}
       </ol>
-      <AddBlockMenu onAdd={add} variant="outline" />
+      {readOnly ? null : <AddBlockMenu onAdd={add} variant="outline" />}
     </div>
   );
 }
@@ -422,7 +429,7 @@ function FieldInspector({
           onCommit={(key) => set({ key })}
         />
       </div>
-      {Panel ? <Panel def={def} field={field} set={set} setProps={setProps} apply={apply} /> : null}
+      {Panel ? <Panel def={def} field={field} set={set} setProps={setProps} apply={apply} readOnly={!!config.readOnly} /> : null}
       {!Panel && TEXT_TYPES.has(field.type) ? (
         <TextRow
           label="Placeholder"
@@ -484,6 +491,7 @@ function FieldInspector({
 }
 
 function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
+  const { readOnly } = useBuilderConfig();
   const options = choiceOptions(field).map((o) => ({ value: o.value, label: o.label ?? o.value }));
   const save = (next: { value?: string; label: string }[], coalesce?: string) => {
     // Values are made here, not in the edit: edits must stay pure.
@@ -510,6 +518,8 @@ function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
             <code className="hidden shrink-0 text-xs text-muted-foreground sm:block" title="Stored value">
               {o.value}
             </code>
+            {readOnly ? null : (
+            <>
             <Button
               variant="ghost"
               size="icon"
@@ -532,17 +542,21 @@ function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
             >
               <X />
             </Button>
+            </>
+            )}
           </li>
         ))}
       </ol>
-      <Button
-        variant="outline"
-        size="sm"
-        data-testid="builder-option-add"
-        onClick={() => save([...options, { label: `Option ${options.length + 1}` }])}
-      >
-        <Plus /> Add option
-      </Button>
+      {readOnly ? null : (
+        <Button
+          variant="outline"
+          size="sm"
+          data-testid="builder-option-add"
+          onClick={() => save([...options, { label: `Option ${options.length + 1}` }])}
+        >
+          <Plus /> Add option
+        </Button>
+      )}
       <p className="text-xs text-muted-foreground">
         Answers store the value on the right, so a relabelled option keeps its earlier answers (they show the new label).
         Removing an option takes it out of “is one of” lists and removes the other rules that compare with it.
