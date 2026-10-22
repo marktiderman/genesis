@@ -679,8 +679,8 @@ describe("coverage with a plugin field (CodeRabbit on #40)", () => {
     registerFieldType({
       type: "test-signature", label: "Signature", category: "advanced", value: { json: true },
       operators: ["answered", "empty"], a11y: { semantics: "control" },
-      validate: (v) => (typeof v === "string" && v.startsWith("sig:") ? null : "Sign here."),
-      summarize: (v) => String(v),
+      validate: (v: unknown) => (typeof v === "string" && v.startsWith("sig:") ? null : "Sign here."),
+      summarize: (v: unknown) => String(v),
     } as never);
     const form = defineForm({
       id: "plug", title: "Plug",
