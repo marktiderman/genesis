@@ -65,7 +65,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs && tsc -p type-tests",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
