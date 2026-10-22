@@ -58,6 +58,7 @@ import {
   type AppShellProps,
   type AppShellOptions,
   type NavItem,
+  type ParentNavigation,
 } from "../layout/AppShell";
 import {
   PageHeader as PageHeaderImpl,
@@ -79,7 +80,7 @@ export const AppShell = AppShellImpl;
  * @stability Deprecated
  */
 export const PageHeader = PageHeaderImpl;
-export type { AppShellProps, AppShellOptions, NavItem };
+export type { AppShellProps, AppShellOptions, NavItem, ParentNavigation };
 export type { PageHeaderProps, PageHeaderOptions };
 
 // Router-agnostic navigation primitives (re-exported for `/data` consumers)

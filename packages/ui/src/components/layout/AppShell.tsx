@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useState,
 } from "react";
@@ -16,6 +17,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   ChevronDown,
+  ArrowLeft,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "../ui/button";
@@ -33,7 +35,9 @@ import { readStoredOptions, writeStoredOptions } from "../../option-storage";
 import {
   DefaultLink,
   isPathActive,
+  resolveNavigation,
   type LinkComponent,
+  type NavigationNode,
 } from "../../navigation";
 
 export interface NavItem {
@@ -49,6 +53,17 @@ export interface NavItem {
    * an `activePath` carrying `?search#hash` still matches.
    */
   end?: boolean;
+}
+
+/**
+ * The "up" link AppShell renders above page content: a real link to the
+ * logical parent, never `history.back()`.
+ *
+ * @stability Beta
+ */
+export interface ParentNavigation {
+  href: string;
+  label: string;
 }
 
 /**
@@ -144,8 +159,33 @@ export interface AppShellProps {
   appLogo?: string;
   /** Custom logo node — preferred over `appLogo` letter tile */
   logo?: ReactNode;
-  /** Primary navigation items */
-  navItems: NavItem[];
+  /**
+   * Primary navigation items. Optional when `navigation` is set: the tree
+   * root's `items` are the global nav then.
+   */
+  navItems?: NavItem[];
+  /**
+   * The app's logical navigation hierarchy. AppShell resolves it against
+   * `activePath` (see `resolveNavigation`) and derives:
+   * - the sidebar's global items from the root's `items` (unless `navItems`),
+   * - a contextual section from the current node's `items`, labelled with
+   *   the node's `label` (`$param` segments in `to` filled from the URL),
+   * - the mobile tab bar: the contextual items when there are any, else the
+   *   global top-level items (unless `mobileNavItems`),
+   * - a back link to the current node's logical parent (unless
+   *   `parentNavigation`).
+   *
+   * @stability Beta
+   */
+  navigation?: NavigationNode<NavItem>;
+  /**
+   * Back-to-parent link rendered in the content header, above `children`, on
+   * mobile and desktop. Derived from `navigation` when omitted; `null` hides
+   * it. Use this instead of placing a back row inside page content.
+   *
+   * @stability Beta
+   */
+  parentNavigation?: ParentNavigation | null;
   /** Secondary nav (e.g. “More”) — rendered below a divider when shown */
   secondaryNavItems?: NavItem[];
   /** Label above secondary nav (default “More”) */
@@ -210,6 +250,45 @@ export interface AppShellProps {
   isActive?: (to: string, activePath?: string) => boolean;
 }
 
+const PARAM = /^\$(.+)$/;
+
+/**
+ * Fill `$name` path segments from `params`; `undefined` if one is missing. A
+ * `?query` / `#hash` on `to` is kept as is.
+ */
+function fillParams(to: string, params: Record<string, string>): string | undefined {
+  const cut = to.search(/[?#]/);
+  const path = cut === -1 ? to : to.slice(0, cut);
+  const suffix = cut === -1 ? "" : to.slice(cut);
+  let missing = false;
+  const filled = path
+    .split("/")
+    .map((part) => {
+      const name = PARAM.exec(part)?.[1];
+      if (name == null) return part;
+      const value = params[name];
+      if (value == null) missing = true;
+      return value == null ? part : encodeURIComponent(value);
+    })
+    .join("/");
+  return missing ? undefined : filled + suffix;
+}
+
+/** Interpolate items (and children); drop any whose path the URL can't fill. */
+function fillItems(items: NavItem[], params: Record<string, string>): NavItem[] {
+  return items.flatMap((item) => {
+    const to = fillParams(item.to, params);
+    if (to == null) return [];
+    return [
+      {
+        ...item,
+        to,
+        children: item.children ? fillItems(item.children, params) : undefined,
+      },
+    ];
+  });
+}
+
 function ThemeToggle({ testId }: { testId: string }) {
   const [dark, setDark] = useState(false);
 
@@ -270,6 +349,7 @@ function NavLinkRow({
   linkComponent: LinkComp,
   activePath,
   isActive,
+  notCurrent = false,
 }: {
   item: NavItem;
   collapsed: boolean;
@@ -278,6 +358,8 @@ function NavLinkRow({
   linkComponent: LinkComponent;
   activePath?: string;
   isActive: (to: string, activePath?: string) => boolean;
+  /** Highlight as usual but never claim `aria-current` (another section holds it). */
+  notCurrent?: boolean;
 }) {
   const active = itemIsActive(item, activePath, isActive);
   const pad = density === "compact" ? "px-2.5 py-1.5" : "px-3 py-2";
@@ -305,7 +387,7 @@ function NavLinkRow({
       onClick={onNavClick}
       title={collapsed ? item.label : undefined}
       aria-label={collapsed ? item.label : undefined}
-      aria-current={active ? "page" : undefined}
+      aria-current={active && !notCurrent ? "page" : undefined}
       className={cn(
         "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
         pad,
@@ -338,6 +420,7 @@ function NavGroup({
   linkComponent,
   activePath,
   isActive,
+  notCurrent = false,
 }: {
   item: NavItem;
   collapsed: boolean;
@@ -346,6 +429,8 @@ function NavGroup({
   linkComponent: LinkComponent;
   activePath?: string;
   isActive: (to: string, activePath?: string) => boolean;
+  /** Highlight as usual but never claim `aria-current` (another section holds it). */
+  notCurrent?: boolean;
 }) {
   const children = item.children ?? [];
   const childActive = children.some((c) =>
@@ -367,6 +452,7 @@ function NavGroup({
         linkComponent={linkComponent}
         activePath={activePath}
         isActive={isActive}
+        notCurrent={notCurrent}
       />
     );
   }
@@ -385,6 +471,7 @@ function NavGroup({
         linkComponent={linkComponent}
         activePath={activePath}
         isActive={isActive}
+        notCurrent={notCurrent}
       />
     );
   }
@@ -421,7 +508,7 @@ function NavGroup({
             <LinkComp
               href={item.to}
               onClick={onNavClick}
-              aria-current={selfExact ? "page" : undefined}
+              aria-current={selfExact && !notCurrent ? "page" : undefined}
               className={parentClass}
             >
               <item.icon className="h-4 w-4 shrink-0" />
@@ -474,6 +561,7 @@ function NavGroup({
                 linkComponent={linkComponent}
                 activePath={activePath}
                 isActive={isActive}
+                notCurrent={notCurrent}
               />
             ))}
           </div>
@@ -485,6 +573,8 @@ function NavGroup({
 
 function SidebarNav({
   navItems,
+  contextualNavItems,
+  contextualNavLabel,
   secondaryNavItems,
   secondaryNavLabel,
   showSecondary,
@@ -496,6 +586,8 @@ function SidebarNav({
   isActive,
 }: {
   navItems: NavItem[];
+  contextualNavItems?: NavItem[];
+  contextualNavLabel?: string;
   secondaryNavItems?: NavItem[];
   secondaryNavLabel: string;
   showSecondary: boolean;
@@ -506,6 +598,13 @@ function SidebarNav({
   activePath?: string;
   isActive: (to: string, activePath?: string) => boolean;
 }) {
+  const contextualLabelId = useId();
+  // While a contextual item is the current page, global items keep their
+  // highlight (the section you are in) but leave `aria-current` to it, so
+  // "Showcase" and "Overview" are never both the current page.
+  const contextualActive = Boolean(
+    contextualNavItems?.some((item) => itemIsActive(item, activePath, isActive)),
+  );
   return (
     <nav
       className={cn(
@@ -524,8 +623,43 @@ function SidebarNav({
           linkComponent={linkComponent}
           activePath={activePath}
           isActive={isActive}
+          notCurrent={contextualActive}
         />
       ))}
+
+      {contextualNavItems && contextualNavItems.length > 0 ? (
+        <div
+          className={cn(
+            "mt-4 space-y-1 border-t border-sidebar-border pt-4",
+            collapsed && "mt-2 pt-2",
+          )}
+          data-testid="app-shell-contextual-nav"
+          role="group"
+          aria-labelledby={!collapsed && contextualNavLabel ? contextualLabelId : undefined}
+          aria-label={collapsed ? contextualNavLabel : undefined}
+        >
+          {!collapsed && contextualNavLabel ? (
+            <p
+              id={contextualLabelId}
+              className="mb-2 truncate px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground/40"
+            >
+              {contextualNavLabel}
+            </p>
+          ) : null}
+          {contextualNavItems.map((item) => (
+            <NavGroup
+              key={item.to + item.label}
+              item={item}
+              collapsed={collapsed}
+              density={density}
+              onNavClick={onNavClick}
+              linkComponent={linkComponent}
+              activePath={activePath}
+              isActive={isActive}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {showSecondary && secondaryNavItems && secondaryNavItems.length > 0 ? (
         <div
@@ -613,7 +747,9 @@ export function AppShell({
   appName,
   appLogo,
   logo,
-  navItems,
+  navItems: navItemsProp,
+  navigation,
+  parentNavigation: parentNavigationProp,
   secondaryNavItems,
   secondaryNavLabel = "More",
   mobileNavItems,
@@ -632,6 +768,30 @@ export function AppShell({
   isActive = isPathActive,
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Hierarchical nav: resolve the tree against the current location once.
+  const derived = useMemo(() => {
+    if (!navigation) return undefined;
+    const nav = resolveNavigation(navigation, activePath ?? "/");
+    const atRoot = nav.trail.length === 1;
+    const globalItems = fillItems(navigation.items, nav.params);
+    const contextualItems = atRoot ? [] : fillItems(nav.items, nav.params);
+    // No link up to the root from a top-level page (it is where the global
+    // nav already goes), and none whose path the URL couldn't fill.
+    const parent =
+      nav.parent &&
+      nav.trail.length > 2 &&
+      !nav.parent.path.split("/").some((p) => PARAM.test(p))
+        ? { href: nav.parent.path, label: nav.parent.label }
+        : undefined;
+    return { current: nav.current, globalItems, contextualItems, parent };
+  }, [navigation, activePath]);
+
+  const navItems = navItemsProp ?? derived?.globalItems ?? [];
+  const contextualNavItems = derived?.contextualItems ?? [];
+  const parentNavigation =
+    parentNavigationProp === undefined ? derived?.parent : parentNavigationProp ?? undefined;
+
   const [userOverrides, setUserOverrides] = useState<Partial<AppShellOptions>>(
     {},
   );
@@ -740,16 +900,26 @@ export function AppShell({
     onCollapsedChange?.(next);
   };
 
+  const ParentLink = linkComponent;
   const density = resolved.density ?? "comfortable";
   const scrollWindow = resolved.scrollRoot === "window";
   const railExpanded =
     resolved.railWidth === "wide" ? "md:w-64" : "md:w-52";
   const railClass = collapsed ? "md:w-14" : railExpanded;
 
+  const leaves = (items: NavItem[]) =>
+    items.filter((i) => !i.children || i.children.length === 0);
+  const contextualLeaves = leaves(contextualNavItems);
   const bottomItems = (
     mobileNavItems ??
-    navItems.filter((i) => !i.children || i.children.length === 0)
+    (contextualLeaves.length > 0 ? contextualLeaves : leaves(navItems))
   ).filter((i) => !i.disabled);
+  // Global tabs shown as a fallback keep their highlight, but leave
+  // `aria-current` to the contextual item that is the current page (see SidebarNav).
+  const bottomNotCurrent =
+    !mobileNavItems &&
+    contextualLeaves.length === 0 &&
+    contextualNavItems.some((i) => itemIsActive(i, activePath, isActive));
 
   const toggles: ToggleDef[] = (
     [
@@ -919,6 +1089,8 @@ export function AppShell({
 
       <SidebarNav
         navItems={navItems}
+        contextualNavItems={contextualNavItems}
+        contextualNavLabel={derived?.current.label}
         secondaryNavItems={secondaryNavItems}
         secondaryNavLabel={secondaryNavLabel}
         showSecondary={showSecondary}
@@ -1052,7 +1224,37 @@ export function AppShell({
             showMobileBottom ? "pb-16 md:pb-0" : "pb-0",
           )}
         >
-          <div className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</div>
+          {parentNavigation ? (
+            <div
+              className="flex min-w-0 items-center px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8"
+              data-testid="app-shell-parent-nav"
+            >
+              {/* -ml-3 lines the arrow up with the content's left edge. */}
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="-ml-3 min-w-0 max-w-full"
+                testID="app-shell-parent-link"
+              >
+                <ParentLink
+                  href={parentNavigation.href}
+                  aria-label={`Back to ${parentNavigation.label}`}
+                >
+                  <ArrowLeft aria-hidden />
+                  <span className="truncate">{parentNavigation.label}</span>
+                </ParentLink>
+              </Button>
+            </div>
+          ) : null}
+          <div
+            className={cn(
+              "min-w-0 p-4 sm:p-6 lg:p-8",
+              parentNavigation && "pt-2 sm:pt-3 lg:pt-4",
+            )}
+          >
+            {children}
+          </div>
         </main>
 
         {showMobileBottom ? (
@@ -1069,7 +1271,7 @@ export function AppShell({
                   href={item.to}
                   title={item.label}
                   aria-label={item.label}
-                  aria-current={active ? "page" : undefined}
+                  aria-current={active && !bottomNotCurrent ? "page" : undefined}
                   className={cn(
                     "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors",
                     active ? "text-primary" : "text-muted-foreground",

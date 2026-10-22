@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import {
   Card,
   CardHeader,
@@ -10,7 +10,6 @@ import {
   AlertTitle,
   AlertDescription,
 } from "@marktiderman/genesis-ui";
-import { ArrowLeft } from "lucide-react";
 import { LAYOUTS } from "../lib/portfolio-data";
 
 const SPEC_BULLETS: Record<string, string[]> = {
@@ -53,13 +52,6 @@ export default function LayoutDetail() {
 
   return (
     <div className="mx-auto max-w-3xl p-6 space-y-6" data-testid={`layout-detail-${slug}`}>
-      <Link
-        to="/showcase/layouts"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-3 w-3" /> Layouts
-      </Link>
-
       {meta ? (
         <>
           <header className="space-y-2">

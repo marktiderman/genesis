@@ -62,6 +62,7 @@ report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 | You need                                                      | Use                                                                                | Import from                                                       |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | App skeleton: nav, header, content                            | `AppShell`                                                                         | `@marktiderman/genesis-ui/layout`                                 |
+| Sidebar, contextual nav, tab bar and back link from one tree | `AppShell navigation={tree}` (`NavigationNode`; `parentNavigation` to override)    | `/layout`                                                         |
 | Page title row with count, view toggle, options               | `PageHeader` (+ `options.configurable` for the in-header options popover)          | `/layout`                                                         |
 | List page chrome: header, filters, loading/empty/error        | `DataPageShell` (`stats`, `filters` slots)                                         | `/data`                                                           |
 | A whole CRUD list page over a resource                        | `ResourcePage`                                                                     | `/data`                                                           |
@@ -119,10 +120,35 @@ query or hash (`/admin?tab=users`, `/settings#profile`) is active only when thos
 Do not write a custom `isActive` for this. `isPathActive(to, activePath, { end: true })` is the
 exact-path variant.
 
-**Hierarchical "up" navigation.** Describe the logical hierarchy once as a `NavigationNode` tree
-and call `resolveNavigation(tree, pathname)` from the root barrel or `/data`. It returns
-`{ current, parent, items, trail, params }` with every path interpolated from the URL's params.
-Use `parent` for a back-to-parent link and `items` for contextual nav — never `history.back()`.
+**Hierarchical navigation — the default.** Describe the logical hierarchy once as a
+`NavigationNode<NavItem>` tree and hand it to `AppShell` with the current location. AppShell
+derives the global sidebar (the root's `items`), a contextual section (the current node's
+`items`, `$param`s filled from the URL), the mobile tab bar (contextual items, else global) and
+a back-to-parent link in the content header. `navItems`, `mobileNavItems` and
+`parentNavigation={{ href, label }}` override a derived part; `parentNavigation={null}` hides the
+link. Never put a back row in page content, never `history.back()`, never copy the resolver.
+
+```tsx
+import { AppShell, type NavigationNode, type NavItem } from "@marktiderman/genesis-ui/layout";
+
+const navigation: NavigationNode<NavItem> = {
+  id: "app", path: "/", label: "Home", items: globalItems, children: [
+    { id: "clients", path: "/clients", label: "Clients", items: [], children: [
+      { id: "client", path: "/clients/$clientId", label: "Client", items: [
+        { to: "/clients/$clientId", icon: FileText, label: "Overview", end: true },
+        { to: "/clients/$clientId/tasks", icon: CheckSquare, label: "Tasks" },
+      ] },
+    ] },
+  ],
+};
+
+<AppShell appName="Acme" navigation={navigation} activePath={pathname + search + hash}
+  linkComponent={RouterLink}>{children}</AppShell>
+```
+
+For chrome outside AppShell, call the same resolver: `resolveNavigation(tree, pathname)` (from
+`/layout`, `/data` or the root barrel) returns `{ current, parent, items, trail, params }` with
+every path interpolated from the URL's params.
 
 ```ts
 const nav = resolveNavigation(
