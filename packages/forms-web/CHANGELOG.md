@@ -1,5 +1,21 @@
 # @marktiderman/genesis-forms-web
 
+## 0.2.0
+
+### Minor Changes
+
+- 9453f10: Renderers for the `list`, `table`, `media-notes` and `text-highlights` field types, in `defaultRegistry`. Lists and tables add, remove and reorder entries (SortableList: drag, keyboard and a Move menu). Media notes take a typed time (`m:ss`, `h:mm:ss` or seconds); text highlights come from selecting words in the passage or typing them. New `MediaTimeContext` / `useMediaTime` (type `MediaTime`) link notes to the host's video or audio player (`currentTime` prefills "Add note at 1:23", `seek` plays from a note), and `SourceTextContext` / `useSourceText` supply the passage to highlight.
+
+### Patch Changes
+
+- 9453f10: Form builder polish from hands-on testing:
+
+  - A form with no questions now previews as "Add a question to see it here." instead of "Question 1 of 0" with an OK button, and a published form never shows "Question N of 0".
+  - The question editor keeps Question, Description, Type, its settings and Required up front. Answer name (was Key), "Identifies the respondent", "Sensitive" and the note on repeating an earlier answer move into a closed "Advanced" section, in plainer words.
+  - Question titles in the list no longer disappear in a narrow column: the title truncates with "…" (full text on hover), badges wrap under it, and the action buttons wrap to a second line when space runs out.
+
+- 9453f10: Raise the `@marktiderman/genesis-forms` peer floor to `>=0.3.0`. Both packages now import exports that only exist from forms 0.3.0 (`formatTimestamp`, `parseTimestamp`, `rowsColumns`, `MAX_ROWS_COLUMNS`, the structured field types), so a host on forms 0.2.x failed at module load.
+
 ## 0.1.1
 
 ### Patch Changes
