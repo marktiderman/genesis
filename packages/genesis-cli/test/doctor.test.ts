@@ -179,6 +179,14 @@ describe("config", () => {
     expect(brief(r.findings, "stale-exception")).toEqual(["stale-exception src/old/**:0 raw-tag"]);
   });
 
+  it("rules can turn stale-exception off or change its level", async () => {
+    const allow = [{ rule: "raw-tag", file: "src/old/**", reason: "deleted folder" }];
+    const off = await run("raw-tag", { allow, rules: { "stale-exception": "off" } });
+    expect(brief(off.findings, "stale-exception")).toEqual([]);
+    const error = await run("raw-tag", { allow, rules: { "stale-exception": "error" } });
+    expect(error.findings.filter((f) => f.rule === "stale-exception").map((f) => f.level)).toEqual(["error"]);
+  });
+
   it("ignore globs add to the defaults", async () => {
     const r = await run("raw-tag", { ignore: ["src/form.tsx"] });
     expect(r.findings).toEqual([]);

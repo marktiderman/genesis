@@ -95,20 +95,24 @@ export function genesisDoctor(options: GenesisDoctorOptions = {}): Plugin[] {
           }
         };
 
-        const schedule = (file: string) => {
-          const rel = path.relative(root, file).split(path.sep).join("/");
-          if (rel.startsWith("..") || rel.includes("node_modules/")) return;
-          clearTimeout(timer);
-          timer = setTimeout(() => void check(), options.debounceMs ?? 300);
-        };
-        // The config and rules doc live outside src/, so watch them explicitly.
-        server.watcher.add([path.join(root, "genesis.config.json"), ...(options.configPath ? [path.resolve(root, options.configPath)] : [])]);
+        // The config and rules doc live outside src/ (and may live outside root),
+        // so watch them explicitly and always re-check when they change.
+        const explicit = new Set([path.join(root, "genesis.config.json"), ...(options.configPath ? [path.resolve(root, options.configPath)] : [])]);
         try {
           const { config } = loadConfig(root, options.configPath);
-          if (config.rulesDoc) server.watcher.add(path.resolve(root, config.rulesDoc));
+          if (config.rulesDoc) explicit.add(path.resolve(root, config.rulesDoc));
         } catch {
           // A broken config is reported by the first check.
         }
+        const schedule = (file: string) => {
+          if (!explicit.has(path.resolve(file))) {
+            const rel = path.relative(root, file).split(path.sep).join("/");
+            if (rel.startsWith("..") || rel.includes("node_modules/")) return;
+          }
+          clearTimeout(timer);
+          timer = setTimeout(() => void check(), options.debounceMs ?? 300);
+        };
+        server.watcher.add([...explicit]);
         server.watcher.on("change", schedule);
         server.watcher.on("add", schedule);
         server.watcher.on("unlink", schedule);

@@ -127,11 +127,13 @@ function applyConfig(raw: FindingInput[], config: DoctorConfig): Finding[] {
     }
     out.push(finding);
   }
+  // stale-exception is a rule like any other: `rules` can turn it off or change its level.
+  const staleLevel = config.rules?.["stale-exception"];
   for (const a of allow) {
-    if (a.used || config.rules?.[a.entry.rule] === "off") continue;
+    if (staleLevel === "off" || a.used || config.rules?.[a.entry.rule] === "off") continue;
     out.push({
       rule: "stale-exception",
-      level: "warn",
+      level: staleLevel ?? "warn",
       file: a.entry.file ?? "genesis config",
       line: 0,
       subject: a.entry.rule,

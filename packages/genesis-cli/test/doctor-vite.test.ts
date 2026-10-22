@@ -57,4 +57,26 @@ describe("genesisDoctor() for Vite", () => {
     handlers.change[0](path.join(root, "src/form.tsx"));
     await vi.waitFor(() => expect(sent.at(-1)).toEqual({ type: "full-reload" }));
   });
+
+  it("re-checks when a config outside root changes", async () => {
+    const root = makeApp("raw-tag");
+    const outside = path.join(path.dirname(root), `${path.basename(root)}-genesis.config.json`);
+    writeFileSync(outside, "{}\n");
+    const sent: unknown[] = [];
+    const handlers: Record<string, Array<(file: string) => void>> = {};
+    const server = {
+      config: { logger: { error: vi.fn(), info: vi.fn() } },
+      ws: { send: (payload: unknown) => sent.push(payload), on: vi.fn() },
+      watcher: { add: vi.fn(), on: (event: string, fn: (file: string) => void) => (handlers[event] ??= []).push(fn) },
+      httpServer: null,
+    };
+    const serve = genesisDoctor({ root, configPath: outside, debounceMs: 10 }).find((p) => p.apply === "serve")!;
+    (serve.configureServer as (s: unknown) => void)(server);
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(server.watcher.add).toHaveBeenCalledWith(expect.arrayContaining([outside]));
+
+    writeFileSync(outside, JSON.stringify({ rules: { "raw-tag": "off" } }));
+    handlers.change[0](outside);
+    await vi.waitFor(() => expect(sent.at(-1)).toEqual({ type: "full-reload" }));
+  });
 });
