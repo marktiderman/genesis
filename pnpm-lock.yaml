@@ -26,6 +26,18 @@ importers:
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../../packages/design-system
+      '@marktiderman/genesis-forms':
+        specifier: workspace:^
+        version: link:../../packages/forms
+      '@marktiderman/genesis-forms-devtools':
+        specifier: workspace:^
+        version: link:../../packages/forms-devtools
+      '@marktiderman/genesis-forms-react':
+        specifier: workspace:^
+        version: link:../../packages/forms-react
+      '@marktiderman/genesis-forms-web':
+        specifier: workspace:^
+        version: link:../../packages/forms-web
       '@marktiderman/genesis-studio':
         specifier: workspace:^
         version: link:../../packages/studio
@@ -402,6 +414,153 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.1)(happy-dom@20.11.1)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.49.1)
 
+  packages/forms:
+    devDependencies:
+      '@fast-check/vitest':
+        specifier: ^0.2.4
+        version: 0.2.4(vitest@2.1.9(@types/node@22.20.1)(happy-dom@20.11.1)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.49.1))
+      fast-check:
+        specifier: ^4.10.2
+        version: 4.10.2
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@20.11.1)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.49.1)
+
+  packages/forms-devtools:
+    devDependencies:
+      '@marktiderman/genesis-design-system':
+        specifier: workspace:^
+        version: link:../design-system
+      '@marktiderman/genesis-forms':
+        specifier: workspace:^
+        version: link:../forms
+      '@marktiderman/genesis-forms-react':
+        specifier: workspace:^
+        version: link:../forms-react
+      '@marktiderman/genesis-ui':
+        specifier: workspace:^
+        version: link:../ui
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.4(@types/react@19.2.18)
+      happy-dom:
+        specifier: ^20.9.0
+        version: 20.11.1
+      lucide-react:
+        specifier: ^1.0.0
+        version: 1.28.0(react@19.2.8)
+      radix-ui:
+        specifier: ^1.6.7
+        version: 1.6.7(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@20.11.1)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.49.1)
+
+  packages/forms-react:
+    devDependencies:
+      '@marktiderman/genesis-forms':
+        specifier: workspace:^
+        version: link:../forms
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.4(@types/react@19.2.18)
+      happy-dom:
+        specifier: ^20.9.0
+        version: 20.11.1
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@20.11.1)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.49.1)
+
+  packages/forms-web:
+    devDependencies:
+      '@marktiderman/genesis-design-system':
+        specifier: workspace:^
+        version: link:../design-system
+      '@marktiderman/genesis-forms':
+        specifier: workspace:^
+        version: link:../forms
+      '@marktiderman/genesis-forms-react':
+        specifier: workspace:^
+        version: link:../forms-react
+      '@marktiderman/genesis-ui':
+        specifier: workspace:^
+        version: link:../ui
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.4(@types/react@19.2.18)
+      happy-dom:
+        specifier: ^20.9.0
+        version: 20.11.1
+      lucide-react:
+        specifier: ^1.0.0
+        version: 1.28.0(react@19.2.8)
+      radix-ui:
+        specifier: ^1.6.7
+        version: 1.6.7(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@20.11.1)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.49.1)
+
   packages/genesis:
     dependencies:
       '@marktiderman/genesis-core':
@@ -410,6 +569,15 @@ importers:
       '@marktiderman/genesis-design-system':
         specifier: workspace:*
         version: link:../design-system
+      '@marktiderman/genesis-forms':
+        specifier: workspace:*
+        version: link:../forms
+      '@marktiderman/genesis-forms-react':
+        specifier: workspace:*
+        version: link:../forms-react
+      '@marktiderman/genesis-forms-web':
+        specifier: workspace:*
+        version: link:../forms-web
       '@marktiderman/genesis-switchboard':
         specifier: workspace:*
         version: link:../data-switchboard
@@ -2192,6 +2360,11 @@ packages:
   '@expo/xcpretty@4.4.4':
     resolution: {integrity: sha512-4aQzz9vgxcNXFfo/iyNgDDYfsU5XGKKxWxZopw0cVotHiW+U8IJbIxMaxsINs6bHhtkG3StKNPcOrn3eBuxKPw==}
     hasBin: true
+
+  '@fast-check/vitest@0.2.4':
+    resolution: {integrity: sha512-Ilcr+JAIPhb1s6FRm4qoglQYSGXXrS+zAupZeNuWAA3qHVGDA1d1Gb84Hb/+otL3GzVZjFJESg5/1SfIvrgssA==}
+    peerDependencies:
+      vitest: ^1 || ^2 || ^3 || ^4
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -5788,6 +5961,10 @@ packages:
   extendable-error@0.1.7:
     resolution: {integrity: sha512-UOiS2in6/Q0FK0R0q6UY9vYpQ21mr/Qn1KOnte7vsACuNJf514WvCCUHSRCPcgjPT2bAhNIJdlE6bVap1GKmeg==}
 
+  fast-check@4.10.2:
+    resolution: {integrity: sha512-iK2f+YrcmoeGqk6fA0ea2bptcu/itMIm4NfEozq6N25+aG6h7s5HZbB/k1aV7b5w5sFLMCbbtRUsTVR+BgC3xw==}
+    engines: {node: '>=12.17.0'}
+
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
 
@@ -7471,6 +7648,9 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
+
+  pure-rand@8.4.2:
+    resolution: {integrity: sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng==}
 
   qs@6.15.3:
     resolution: {integrity: sha512-O9gl3zCl5h5blw1KGUzQKhA5oUXSl8rwUIM5o0S3nCXMliSvy5Dzx7/DJcI+SwgICv+IneSZwhBh1oSyEHA71A==}
@@ -10372,6 +10552,11 @@ snapshots:
       '@babel/code-frame': 7.29.7
       chalk: 4.1.2
       js-yaml: 4.3.1
+
+  '@fast-check/vitest@0.2.4(vitest@2.1.9(@types/node@22.20.1)(happy-dom@20.11.1)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.49.1))':
+    dependencies:
+      fast-check: 4.10.2
+      vitest: 2.1.9(@types/node@22.20.1)(happy-dom@20.11.1)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.49.1)
 
   '@floating-ui/core@1.8.0':
     dependencies:
@@ -14389,6 +14574,10 @@ snapshots:
 
   extendable-error@0.1.7: {}
 
+  fast-check@4.10.2:
+    dependencies:
+      pure-rand: 8.4.2
+
   fast-deep-equal@3.1.3: {}
 
   fast-equals@5.4.1: {}
@@ -16277,6 +16466,8 @@ snapshots:
   punycode@1.4.1: {}
 
   punycode@2.3.1: {}
+
+  pure-rand@8.4.2: {}
 
   qs@6.15.3:
     dependencies:

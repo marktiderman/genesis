@@ -14,6 +14,9 @@ type Pages = {
   "/": {
     params: {};
   };
+  "/forms-frame": {
+    params: {};
+  };
   "/dashboard": {
     params: {};
   };
@@ -34,6 +37,17 @@ type Pages = {
   };
   "/sandbox": {
     params: {};
+  };
+  "/forms-playground": {
+    params: {};
+  };
+  "/forms": {
+    params: {};
+  };
+  "/forms/:scenario": {
+    params: {
+      "scenario": string;
+    };
   };
   "/settings": {
     params: {};
@@ -76,15 +90,19 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/" | "/forms-frame" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms" | "/forms/:scenario" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/_index.tsx": {
     id: "routes/_index";
     page: "/";
   };
+  "routes/forms-frame.tsx": {
+    id: "routes/forms-frame";
+    page: "/forms-frame";
+  };
   "routes/_layout.tsx": {
     id: "routes/_layout";
-    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms" | "/forms/:scenario" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -113,6 +131,22 @@ type RouteFiles = {
   "routes/sandbox.tsx": {
     id: "routes/sandbox";
     page: "/sandbox";
+  };
+  "routes/forms-playground.tsx": {
+    id: "routes/forms-playground";
+    page: "/forms-playground";
+  };
+  "routes/forms.tsx": {
+    id: "routes/forms";
+    page: "/forms" | "/forms/:scenario";
+  };
+  "routes/forms._index.tsx": {
+    id: "routes/forms._index";
+    page: "/forms";
+  };
+  "routes/forms.$scenario.tsx": {
+    id: "routes/forms.$scenario";
+    page: "/forms/:scenario";
   };
   "routes/settings.tsx": {
     id: "routes/settings";
@@ -159,6 +193,7 @@ type RouteFiles = {
 type RouteModules = {
   "root": typeof import("./app/root.tsx");
   "routes/_index": typeof import("./app/routes/_index.tsx");
+  "routes/forms-frame": typeof import("./app/routes/forms-frame.tsx");
   "routes/_layout": typeof import("./app/routes/_layout.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/items": typeof import("./app/routes/items.tsx");
@@ -167,6 +202,10 @@ type RouteModules = {
   "routes/orders": typeof import("./app/routes/orders.tsx");
   "routes/design-system": typeof import("./app/routes/design-system.tsx");
   "routes/sandbox": typeof import("./app/routes/sandbox.tsx");
+  "routes/forms-playground": typeof import("./app/routes/forms-playground.tsx");
+  "routes/forms": typeof import("./app/routes/forms.tsx");
+  "routes/forms._index": typeof import("./app/routes/forms._index.tsx");
+  "routes/forms.$scenario": typeof import("./app/routes/forms.$scenario.tsx");
   "routes/settings": typeof import("./app/routes/settings.tsx");
   "routes/studio": typeof import("./app/routes/studio.tsx");
   "routes/showcase._index": typeof import("./app/routes/showcase._index.tsx");

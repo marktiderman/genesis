@@ -1,0 +1,129 @@
+{
+  "scenarioVersion": 1,
+  "name": "contact-details: named form asks for identifying fields",
+  "description": "With settings.anonymous false, name, email and phone are asked, validated and stored (email and phone trimmed).",
+  "tags": [
+    "contact-details",
+    "identifying"
+  ],
+  "definition": {
+    "schemaVersion": 1,
+    "id": "contact-details",
+    "title": "Tell us about your visit",
+    "blocks": [
+      {
+        "kind": "field",
+        "id": "overall",
+        "key": "overall",
+        "type": "rating",
+        "label": "How was your visit?",
+        "required": true,
+        "props": {
+          "max": 5
+        }
+      },
+      {
+        "kind": "field",
+        "id": "name",
+        "key": "name",
+        "type": "short-text",
+        "label": "Your name",
+        "required": true,
+        "identifying": true
+      },
+      {
+        "kind": "field",
+        "id": "email",
+        "key": "email",
+        "type": "email",
+        "label": "Email",
+        "required": true,
+        "identifying": true
+      },
+      {
+        "kind": "field",
+        "id": "phone",
+        "key": "phone",
+        "type": "phone",
+        "label": "Phone",
+        "identifying": true
+      },
+      {
+        "kind": "field",
+        "id": "comments",
+        "key": "comments",
+        "type": "long-text",
+        "label": "Anything else?"
+      }
+    ],
+    "endings": [
+      {
+        "id": "default",
+        "title": "Thanks!"
+      }
+    ],
+    "settings": {
+      "anonymous": false
+    }
+  },
+  "events": [
+    {
+      "type": "answer",
+      "field": "overall",
+      "value": 4
+    },
+    {
+      "type": "answer",
+      "field": "name",
+      "value": "Ada"
+    },
+    {
+      "type": "answer",
+      "field": "email",
+      "value": " ada@example.com "
+    },
+    {
+      "type": "answer",
+      "field": "phone",
+      "value": "+1 (555) 010-0199"
+    },
+    {
+      "type": "submit"
+    }
+  ],
+  "expect": {
+    "path": [
+      "overall",
+      "name",
+      "email",
+      "phone",
+      "comments"
+    ],
+    "visible": [
+      "overall",
+      "name",
+      "email",
+      "phone",
+      "comments"
+    ],
+    "current": "overall",
+    "status": "completed",
+    "ending": "default",
+    "answers": {
+      "overall": 4,
+      "name": "Ada",
+      "email": "ada@example.com",
+      "phone": "+1 (555) 010-0199"
+    },
+    "server": {
+      "ok": true,
+      "answers": {
+        "overall": 4,
+        "name": "Ada",
+        "email": "ada@example.com",
+        "phone": "+1 (555) 010-0199"
+      },
+      "context": {}
+    }
+  }
+}
