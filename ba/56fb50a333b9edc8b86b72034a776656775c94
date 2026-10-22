@@ -1,0 +1,77 @@
+.changeset/ui-resource-page-gaps.md
+  s_a1b83c03f697d3::t_b91ea99d9c0660 1-33
+apps/sample/app/data/primitives.json
+  s_2c334912fcb08f::t_16bc2152ee5711 10,7844-7910,8621-8627,8707,8710,10121-10148,10155-10161,11605-11625,11632-11638,12014-12020,12077-12083,12190-12196,12211-12224,12246-12252,12274-12280,12297,12300,12323-12336,12344-12350,12407-12413,12421-12427,12465-12471,12475,12568-12574
+apps/sample/stories/ResourcePage.stories.tsx
+  s_a1b83c03f697d3::t_4e36abd5aa8b93 1-133
+packages/core/src/form-types.ts
+  s_a1b83c03f697d3::t_1b55815caf5fca 40-45
+packages/core/src/hooks/use-resource-form.ts
+  s_a1b83c03f697d3::t_2241bdc76d6f08 25-30,32-38,111,113-114,122,142-144,155,207-212,240-245,337,363-364
+packages/core/src/hooks/use-resource.ts
+  s_a1b83c03f697d3::t_e20b51c13d6f3f 3,43-49,118,213
+packages/ui/EXTENDING.md
+  s_a1b83c03f697d3::t_1601aefeba72c4 51-67
+packages/ui/SKILL.md
+  s_a1b83c03f697d3::t_20f7c08010a3ec 52-70
+packages/ui/src/components/data/ConfirmDeleteDialog.tsx
+  s_a1b83c03f697d3::t_eee0e524efddc8 1-124
+packages/ui/src/components/data/DataPageShell.tsx
+  s_a1b83c03f697d3::t_80e51dbb7d218d 31-36,92-96,98,112,152-159,164,188-192,208,246
+packages/ui/src/components/data/FileUploadField.tsx
+  s_a1b83c03f697d3::t_49e7147614ec0d 50-59,71-75,163-172,182-189
+packages/ui/src/components/data/RelationField.tsx
+  s_a1b83c03f697d3::t_e3b684fb940d59 38-42,54-57,126,128-130
+packages/ui/src/components/data/ResourceForm.tsx
+  s_a1b83c03f697d3::t_21d3ab5c77ae5a 29,59-73,112-126,143-144,154,210-214,243-244,284-285,309-310
+packages/ui/src/components/data/ResourceFormField.tsx
+  s_a1b83c03f697d3::t_ce49295138963b 3,47-55,88-93,95,97,106-108,131-133,143,164-165,174,182,184-185,194,198,203,205-206,215,220,228-229,238,255-256,264,270,277-278
+packages/ui/src/components/data/ResourcePage.tsx
+  s_a1b83c03f697d3::t_93a34d4857933a 38,45,60,146-150,170-194,216-242,267-272,483-489,491-519,629-641,653-659,677,693-694,704,739-743,760-763,781-786,788,802-804,813-832,835-839,874-963,1002-1016,1061,1070-1115,1118-1144,1176-1188,1201-1204,1211,1226-1227,1229-1235,1245-1253,1268,1270-1276,1289-1291,1293-1300,1319,1321,1347,1356-1368,1370-1371,1373-1381,1406,1627-1630,1649-1651,1749-1759,1779,1782-1786,1804,1820,1840,1842,1845-1848,1887-1891,1897-1923
+packages/ui/src/components/data/__tests__/data-page-shell-embedded.test.tsx
+  s_a1b83c03f697d3::t_97e1c6b9933581 1-101
+packages/ui/src/components/data/__tests__/resource-form-a11y-errors.test.tsx
+  s_a1b83c03f697d3::t_30f04d4561d1c1 1-154
+packages/ui/src/components/data/__tests__/resource-page-resource-pagination.test.tsx
+  s_a1b83c03f697d3::t_dd1a3e30f2a1a7 1-241
+packages/ui/src/components/data/__tests__/resource-page-responsive-view-exports.test.tsx
+  s_a1b83c03f697d3::t_ae86037fbc2ee1 1-90
+packages/ui/src/components/data/__tests__/resource-page-rights-delete-peek.test.tsx
+  s_2c334912fcb08f::t_f390415da7905c 1-238
+packages/ui/src/components/data/index.ts
+  s_a1b83c03f697d3::t_9fabdbc1cb5732 31-34,36-46
+packages/ui/src/components/layout/PageHeader.tsx
+  s_a1b83c03f697d3::t_a4cbb7fd651d54 38-46,87,528-535
+packages/ui/src/hooks/__tests__/use-view-preference.test.tsx
+  s_a1b83c03f697d3::t_0a02d044fe24bc 1-114
+packages/ui/src/hooks/index.ts
+  s_a1b83c03f697d3::t_88b02cdb558cf0 11
+packages/ui/src/hooks/use-resource-page.ts
+  s_a1b83c03f697d3::t_b56f472269293d 9,59-64
+packages/ui/src/hooks/use-view-preference.ts
+  s_a1b83c03f697d3::t_d0d32be6a22450 3,6-73,77,80-119,121-134,136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ba56fb50a333b9edc8b86b72034a776656775c94",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
