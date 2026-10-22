@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import type { BaseRecord, DataProvider, Identifier, ListResult } from "../provider/types";
 import type { AuditEntry, ProviderCapabilities } from "../schema/types";
+import { capabilitiesQueryKey } from "./use-capabilities";
 
 export type MutationMode = "pessimistic" | "optimistic" | "undoable";
 
@@ -306,7 +307,11 @@ export type ExecuteWriteResult<R> =
   | { status: "committed"; record: R }
   | { status: "applied" };
 
-async function providerServesUndo(
+/**
+ * Whether `provider` serves `undo` for `resource`, from its capabilities.
+ * @internal Exported for tests.
+ */
+export async function providerServesUndo(
   queryClient: QueryClient,
   provider: DataProvider,
   resource: string,
@@ -314,8 +319,9 @@ async function providerServesUndo(
   if (!provider.undo || !provider.capabilities) return false;
   try {
     const caps = await queryClient.fetchQuery<ProviderCapabilities>({
-      // The same key as useCapabilities, so the answer is shared.
-      queryKey: ["__capabilities", resource],
+      // useCapabilities' key, so the answer is shared, and scoped to this
+      // provider: a swapped-out provider's capabilities never offer undo.
+      queryKey: capabilitiesQueryKey(provider, resource),
       queryFn: () => provider.capabilities!(resource),
       staleTime: Infinity,
       // The write waits on this answer; an app's default retries would

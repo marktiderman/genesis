@@ -12427,7 +12427,7 @@
               "type": "number",
               "required": false,
               "defaultValue": null,
-              "description": "`pagination=\"client\"` only: the most rows fetched. Default 1000. An\nexplicit `resourceOptions.defaultPerPage` wins."
+              "description": "`pagination=\"client\"` only: the most rows fetched. Default 1000. An\nexplicit `resourceOptions.defaultPerPage` wins. Keep it at or under the\nprovider's `maxPerPage` (`capabilities().maxPerPage`; 1000 by default for\nSupabase): a larger page is refused, not cut short."
             },
             {
               "name": "columns",
