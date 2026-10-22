@@ -131,8 +131,16 @@ export function installChromeFake({
       id,
       getURL: (path) => base + path.replace(/^\//, ""),
       // From an extension page by default.
+      // From an extension page by default. Like Chrome, it fails when
+      // nothing is listening at all.
       sendMessage: (message) =>
-        deliver(message, { id, url: `${base}page.html` }),
+        onMessage.set.size
+          ? deliver(message, { id, url: `${base}page.html` })
+          : Promise.reject(
+              new Error(
+                "Could not establish connection. Receiving end does not exist.",
+              ),
+            ),
       onMessage: onMessage.event,
       connectNative(name) {
         const script = hosts.get(name);
@@ -175,8 +183,12 @@ export function installChromeFake({
     },
     scripting: {
       async executeScript({ func, args }) {
-        const run = func as unknown as (...a: unknown[]) => unknown;
-        return [{ result: await run(...(args || [])) }] as never;
+        // Like Chrome: the function goes as source, so one that leans on
+        // anything outside itself fails here too, and the arguments are copied.
+        const run = new Function(`return (${func.toString()})`)() as (
+          ...a: unknown[]
+        ) => unknown;
+        return [{ result: await run(...structuredClone(args || [])) }] as never;
       },
     },
     sidePanel: {
@@ -189,17 +201,6 @@ export function installChromeFake({
       },
       async getPanelBehavior() {
         return { ...sidePanelCalls.behavior };
-      },
-    },
-    tabs: {
-      async query() {
-        return [];
-      },
-      async get(tabId) {
-        return { id: tabId };
-      },
-      async create({ url }) {
-        return { id: 1, url };
       },
     },
     windows: {

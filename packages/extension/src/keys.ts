@@ -1,4 +1,4 @@
-import { chrome } from "./chrome";
+import { getChrome } from "./chrome";
 
 /**
  * Keyboard shortcuts as people read them: on a Mac, in the Mac's own names
@@ -42,7 +42,7 @@ export async function commandKeys(
   mac = isMac(),
 ): Promise<string[]> {
   const commands =
-    (await chrome()
+    (await getChrome()
       .commands?.getAll()
       .catch(() => [])) || [];
   return shortcutKeys(

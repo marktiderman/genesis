@@ -1,4 +1,4 @@
-import { chrome, type Port } from "./chrome";
+import { getChrome, type Port } from "./chrome";
 
 /**
  * A job for a native messaging host (a local helper program the extension
@@ -32,7 +32,7 @@ export function pingNativeHost(
   host: string,
   timeoutMs = 3000,
 ): Promise<Record<string, unknown> | null> {
-  const api = chrome();
+  const api = getChrome();
   if (!api.runtime.connectNative) return Promise.resolve(null);
   return new Promise((resolve) => {
     let port: Port | undefined;
@@ -60,8 +60,17 @@ export function pingNativeHost(
   });
 }
 
-export function startNativeJob(host: string, message: unknown): NativeJob {
-  const api = chrome();
+export interface NativeJobOptions {
+  /** Give up (and end the helper) after this long without the job finishing. Default: no limit. */
+  timeoutMs?: number;
+}
+
+export function startNativeJob(
+  host: string,
+  message: unknown,
+  { timeoutMs }: NativeJobOptions = {},
+): NativeJob {
+  const api = getChrome();
   if (!api.runtime.connectNative)
     throw new Error("This build can't talk to a local helper.");
   const port = api.runtime.connectNative(host);
@@ -72,40 +81,64 @@ export function startNativeJob(host: string, message: unknown): NativeJob {
     settle = resolve;
     fail = reject;
   });
-  done.catch(() => undefined);
-  const waiters = new Map<
-    string,
-    {
-      resolve: (m: Record<string, unknown>) => void;
-      reject: (e: Error) => void;
-    }[]
-  >();
+  done.catch(() => undefined); // a job nobody awaits mustn't report an unhandled rejection
+  type Waiter = {
+    resolve: (m: Record<string, unknown>) => void;
+    reject: (e: Error) => void;
+  };
+  const waiters = new Map<string, Waiter[]>();
   const replies = new Map<string, (m: Record<string, unknown>) => unknown>();
-  const finish = (error: Error | null, value?: Record<string, unknown>) => {
+  const timer =
+    timeoutMs !== undefined
+      ? setTimeout(
+          () => finish(new Error("The helper took too long.")),
+          timeoutMs,
+        )
+      : null;
+  const release = (type: string, m: Record<string, unknown>) => {
+    const list = waiters.get(type);
+    if (!list?.length) return;
+    waiters.delete(type);
+    for (const w of list) w.resolve(m);
+  };
+  function finish(error: Error | null, value?: Record<string, unknown>) {
     if (finished) return;
     finished = true;
+    if (timer) clearTimeout(timer);
     try {
       port.disconnect();
     } catch {
       /* already gone */
     }
-    for (const list of waiters.values())
+    // Waiting for "done" is answered by success; anything else still waited
+    // for won't come now.
+    if (!error && value) release("done", value);
+    for (const list of waiters.values()) {
       for (const w of list)
         w.reject(error || new Error("The helper finished."));
+    }
     waiters.clear();
     if (error) fail(error);
     else settle(value!);
-  };
+  }
   const job: NativeJob = {
     done,
     onProgress: () => {},
     waitFor(type) {
       if (finished) return Promise.reject(new Error("The helper finished."));
-      return new Promise((resolve, reject) => {
-        waiters.set(type, [...(waiters.get(type) || []), { resolve, reject }]);
-      });
+      const waiting = new Promise<Record<string, unknown>>(
+        (resolve, reject) => {
+          waiters.set(type, [
+            ...(waiters.get(type) || []),
+            { resolve, reject },
+          ]);
+        },
+      );
+      return waiting;
     },
-    post: (m) => port.postMessage(m),
+    post: (m) => {
+      if (!finished) port.postMessage(m);
+    },
     close: () => finish(new Error("Cancelled.")),
     answer(type, reply) {
       replies.set(type, reply);
@@ -114,15 +147,19 @@ export function startNativeJob(host: string, message: unknown): NativeJob {
   port.onMessage.addListener(async (raw) => {
     const m = raw as Record<string, unknown>;
     const type = String(m?.type || "");
+    if (type === "done") return finish(null, m);
+    if (type === "error")
+      return finish(new Error(String(m.message || "The helper failed.")));
     if (type === "progress") job.onProgress(m);
-    else if (type === "done") finish(null, m);
-    else if (type === "error")
-      finish(new Error(String(m.message || "The helper failed.")));
-    else if (replies.has(type)) port.postMessage(await replies.get(type)!(m));
-    const list = waiters.get(type);
-    if (list?.length) {
-      waiters.delete(type);
-      for (const w of list) w.resolve(m);
+    release(type, m);
+    const reply = replies.get(type);
+    if (reply) {
+      try {
+        job.post(await reply(m));
+      } catch (err) {
+        // A reply that fails (no fresh token, say) ends the job, saying why.
+        finish(err instanceof Error ? err : new Error(String(err)));
+      }
     }
   });
   port.onDisconnect.addListener(() =>

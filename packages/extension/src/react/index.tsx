@@ -245,6 +245,10 @@ export function useLazyList<T>(
   const [error, setError] = React.useState<string | null>(null);
   const [done, setDone] = React.useState(false);
   const generation = React.useRef(0);
+  const inView = React.useRef(false);
+  const doneRef = React.useRef(false);
+  const failed = React.useRef(false);
+  const loadMoreRef = React.useRef<() => void>(() => {});
   const busy = React.useRef(false);
   const count = React.useRef(0);
   const loadRef = React.useRef(load);
@@ -256,30 +260,42 @@ export function useLazyList<T>(
     const mine = generation.current;
     setLoading(true);
     setError(null);
+    failed.current = false;
     loadRef
       .current(count.current, pageSize)
       .then((page) => {
         if (mine !== generation.current) return;
         count.current += page.length;
         setItems((prev) => [...prev, ...page]);
-        if (page.length < pageSize) setDone(true);
+        if (page.length < pageSize) {
+          doneRef.current = true;
+          setDone(true);
+        }
       })
-      .catch(
-        (err: unknown) =>
-          mine === generation.current &&
-          setError(err instanceof Error ? err.message : String(err)),
-      )
+      .catch((err: unknown) => {
+        if (mine !== generation.current) return;
+        failed.current = true;
+        setError(err instanceof Error ? err.message : String(err));
+      })
       .finally(() => {
         if (mine !== generation.current) return;
         busy.current = false;
         setLoading(false);
+        // The end of the list is still in view (a page that didn't fill
+        // it): the observer won't fire again by itself, so load on.
+        if (inView.current && !doneRef.current && !failed.current) {
+          setTimeout(() => loadMoreRef.current(), 0);
+        }
       });
   }, [pageSize]);
+
+  loadMoreRef.current = loadMore;
 
   const reset = React.useCallback(() => {
     generation.current++;
     busy.current = false;
     count.current = 0;
+    doneRef.current = false;
     setItems([]);
     setDone(false);
     setError(null);
@@ -297,6 +313,7 @@ export function useLazyList<T>(
       observer.current?.disconnect();
       if (!node || typeof IntersectionObserver === "undefined") return;
       observer.current = new IntersectionObserver((entries) => {
+        inView.current = entries.some((e) => e.isIntersecting);
         const s = state.current;
         if (
           entries.some((e) => e.isIntersecting) &&

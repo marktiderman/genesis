@@ -1,4 +1,4 @@
-import { chrome } from "./chrome";
+import { getChrome } from "./chrome";
 
 /**
  * A thin bar across the top of a web page, drawn by the extension: "this page
@@ -46,7 +46,7 @@ export async function showPageBar(
   tabId: number,
   model: PageBarModel | null,
 ): Promise<void> {
-  await chrome()
+  await getChrome()
     .scripting?.executeScript({
       target: { tabId },
       func: renderPageBar,
@@ -158,7 +158,7 @@ export function renderPageBar(model: PageBarModel | null): void {
       button.addEventListener("click", () => send(action.id, action.value));
       bar.append(button);
     }
-    const shrink = el("button", "icon", "⌃");
+    const shrink = el("button", "icon", "▴");
     shrink.title = "Shrink to a tab";
     shrink.setAttribute("aria-label", "Shrink to a tab");
     shrink.addEventListener("click", () => {

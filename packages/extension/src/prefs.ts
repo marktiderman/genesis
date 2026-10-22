@@ -1,10 +1,13 @@
-import { chrome } from "./chrome";
+import { getChrome } from "./chrome";
 
 /**
  * An extension's settings in `chrome.storage.local`, under one key, with
- * defaults. Writes run one after another, each merging into the latest
- * saved values, so two quick changes (from two pages, say) can't overwrite
- * each other; one failed write doesn't block later ones.
+ * defaults. Each write reads the latest saved values and merges into them
+ * under a Web Lock (`navigator.locks`) named for the key, which every page
+ * and the service worker of the extension share, so two quick changes from
+ * two pages can't overwrite each other. Where Web Locks are missing, writes
+ * from one page still run one after another. One failed write doesn't block
+ * later ones.
  */
 export interface Prefs<T extends Record<string, unknown>> {
   readonly key: string;
@@ -22,7 +25,7 @@ export function createPrefs<T extends Record<string, unknown>>(
 ): Prefs<T> {
   let writes: Promise<void> = Promise.resolve();
   const get = async (): Promise<T> => {
-    const data = await chrome().storage.local.get(key);
+    const data = await getChrome().storage.local.get(key);
     return { ...defaults, ...(data[key] as Partial<T> | undefined) };
   };
   return {
@@ -30,9 +33,16 @@ export function createPrefs<T extends Record<string, unknown>>(
     defaults,
     get,
     set(patch) {
-      const run = writes.then(async () => {
+      const merge = async () => {
         const current = await get();
-        await chrome().storage.local.set({ [key]: { ...current, ...patch } });
+        await getChrome().storage.local.set({
+          [key]: { ...current, ...patch },
+        });
+      };
+      const locks = (globalThis.navigator as Navigator | undefined)?.locks;
+      const run: Promise<void> = writes.then(async () => {
+        if (locks) await locks.request(`genesis-extension:prefs:${key}`, merge);
+        else await merge();
       });
       writes = run.catch(() => undefined);
       return run;
@@ -48,8 +58,8 @@ export function createPrefs<T extends Record<string, unknown>>(
           ...(changes[key]!.newValue as Partial<T> | undefined),
         });
       };
-      chrome().storage.onChanged.addListener(onChanged);
-      return () => chrome().storage.onChanged.removeListener(onChanged);
+      getChrome().storage.onChanged.addListener(onChanged);
+      return () => getChrome().storage.onChanged.removeListener(onChanged);
     },
   };
 }

@@ -1,4 +1,4 @@
-import { chrome, type MessageSender } from "./chrome";
+import { getChrome, type MessageSender } from "./chrome";
 
 /**
  * Messages between an extension's parts, checked by who sent them.
@@ -29,21 +29,26 @@ export interface ContentContext {
   sender: MessageSender;
   /** The tab the script runs in: the only tab its handlers should touch. */
   tab: NonNullable<MessageSender["tab"]>;
+  /** The frame in that tab (0 for the top frame). */
+  frameId: number;
 }
 
 /** Sent by one of this extension's own pages (not a script inside a web page). */
 export function isFromExtensionPage(sender: MessageSender): boolean {
-  const api = chrome();
+  // This extension's id, and an extension page's address. With
+  // use_dynamic_url a framed page's address carries a per-session id instead
+  // of the extension's, so the address is checked for the scheme, not the id;
+  // a content script's address is the web page's, never chrome-extension://.
   return (
-    sender.id === api.runtime.id &&
-    (sender.url || "").startsWith(api.runtime.getURL(""))
+    sender.id === getChrome().runtime.id &&
+    (sender.url || sender.origin || "").startsWith("chrome-extension://")
   );
 }
 
 /** Sent by this extension's script inside a web page (a content script). */
 export function isFromContentScript(sender: MessageSender): boolean {
   return (
-    sender.id === chrome().runtime.id &&
+    sender.id === getChrome().runtime.id &&
     Boolean(sender.tab) &&
     !isFromExtensionPage(sender)
   );
@@ -66,7 +71,7 @@ export function createRouter({
   pages?: Record<string, Handler<PageContext>>;
   content?: Record<string, Handler<ContentContext>>;
 }): Router {
-  const api = chrome();
+  const api = getChrome();
   const listener = (
     raw: unknown,
     sender: MessageSender,
@@ -87,7 +92,11 @@ export function createRouter({
           ? content[message.type]
           : undefined;
         if (!handler) return false;
-        answer = handler(message, { sender, tab: sender.tab! });
+        answer = handler(message, {
+          sender,
+          tab: sender.tab!,
+          frameId: sender.frameId ?? 0,
+        });
       } else return false;
     } catch (err) {
       sendResponse({ error: errorMessage(err) });
@@ -111,8 +120,10 @@ export async function request<T = unknown>(
   type: string,
   payload: Record<string, unknown> = {},
 ): Promise<T> {
-  const answer = (await chrome().runtime.sendMessage({ ...payload, type })) as
-    { error?: string } | T | undefined;
+  const answer = (await getChrome().runtime.sendMessage({
+    ...payload,
+    type,
+  })) as { error?: string } | T | undefined;
   if (
     answer &&
     typeof answer === "object" &&
@@ -129,7 +140,7 @@ export function broadcast(
   type: string,
   payload: Record<string, unknown> = {},
 ): Promise<void> {
-  return chrome()
+  return getChrome()
     .runtime.sendMessage({ ...payload, type })
     .then(
       () => undefined,

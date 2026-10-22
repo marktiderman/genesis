@@ -1,6 +1,6 @@
 /**
  * The parts of the `chrome.*` extension APIs this package uses, typed here so
- * it needs no `@types/chrome`. `chrome()` reads the live global each time,
+ * it needs no `@types/chrome`. `getChrome()` reads the live global each time,
  * so tests can install a fake (see `@marktiderman/genesis-extension/testing`).
  */
 
@@ -8,6 +8,8 @@ export interface MessageSender {
   id?: string;
   url?: string;
   origin?: string;
+  /** 0 for a tab's top frame; a framed extension page or content script in a subframe has its own. */
+  frameId?: number;
   tab?: { id?: number; url?: string; windowId?: number };
 }
 
@@ -84,15 +86,6 @@ export interface ChromeLike {
       tabId?: number;
     }): Promise<void>;
   };
-  tabs?: {
-    query(query: {
-      active?: boolean;
-      currentWindow?: boolean;
-      url?: string;
-    }): Promise<Tab[]>;
-    get(tabId: number): Promise<Tab>;
-    create(properties: { url: string }): Promise<Tab>;
-  };
   windows?: {
     getCurrent(): Promise<{ id?: number }>;
     create(options: {
@@ -124,7 +117,7 @@ export interface ChromeLike {
 }
 
 /** The extension APIs (`globalThis.chrome`); throws outside an extension. */
-export function chrome(): ChromeLike {
+export function getChrome(): ChromeLike {
   const api = (globalThis as { chrome?: ChromeLike }).chrome;
   if (!api?.runtime?.id) {
     throw new Error(

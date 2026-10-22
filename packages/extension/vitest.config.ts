@@ -8,5 +8,7 @@ export default defineConfig({
       happyDOM: { settings: { disableIframePageLoading: true } },
     },
     include: ["src/**/*.test.{ts,tsx}"],
+    // Public types are tests too (src/**/*.test-d.ts), checked by tsc.
+    typecheck: { enabled: true, include: ["src/**/*.test-d.ts"] },
   },
 });
