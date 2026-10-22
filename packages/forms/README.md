@@ -117,7 +117,9 @@ expect(report.endings.default.reached).toBe(true); // witness: answers that reac
 `0..10`, yes/no, each choice option, a sample text, "unanswered" unless required) plus the values
 the logic compares it with, and a depth-first search answers fields in path order. It stops at
 `maxStates` (default 5000) and then reports `truncated: true`. A completed response with no jump to
-an ending reaches the default ending.
+an ending reaches the default ending. A plugin type gives coverage its answers through the manifest's
+`samples(field)`; a required field without any valid sample is listed in `unsampledFields`, and an
+ending reached only through it stays `reached: false` with `needsSamples` naming the fields.
 
 **Scenarios** are versioned JSON (`scenarioVersion: 1`): a definition, hidden inputs, server
 `context`, an event log and the expected `path`, `visible`, `current`, `status`, `ending`,

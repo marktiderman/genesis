@@ -5,7 +5,7 @@
  * combinations a respondent could actually produce are explored.
  */
 import { canonicalJson } from "./hash";
-import { choiceOptions } from "./fields";
+import { choiceOptions, getFieldType } from "./fields";
 import { evaluate, fieldMap, steps, walkPath, type EvalScope, type PathWalk } from "./logic";
 import type { Condition, FieldBlock, FormDefinition, Json } from "./types";
 import { validateField } from "./validate";
@@ -25,6 +25,12 @@ export interface EndingCoverage {
   witness?: Record<string, Json>;
   /** Hidden inputs that witness needs, when the logic reads any. */
   witnessHidden?: Record<string, Json>;
+  /**
+   * Set when this ending is reached only through required fields that have no
+   * sample value (a plugin type without `samples`), so no completed response
+   * could be built: the keys of those fields. `reached` stays false.
+   */
+  needsSamples?: string[];
 }
 
 export interface CoverageReport {
@@ -33,12 +39,18 @@ export interface CoverageReport {
   unreachableBlocks: string[];
   /** Rules whose condition never held in a completed response (a jump also needs its `from` on the path). */
   rulesNeverFired: string[];
+  /** Keys of required fields coverage could not answer: give their type `samples`. */
+  unsampledFields: string[];
   /** Completed responses explored. */
   pathsExplored: number;
   truncated: boolean;
 }
 
 type Value = Json | undefined;
+
+/** Stands in for an answer to a required field that has no known valid value. */
+const UNSAMPLED = Symbol("unsampled");
+type Candidate = Value | typeof UNSAMPLED;
 
 /** Values each field or hidden input is compared with, anywhere in the logic. */
 function boundaries(def: FormDefinition) {
@@ -72,7 +84,7 @@ function dedupe(values: Value[]): Value[] {
   });
 }
 
-function domainOf(field: FieldBlock, extra: Value[], maxOptions: number): Value[] {
+function domainOf(field: FieldBlock, extra: Value[], maxOptions: number): Candidate[] {
   const options = choiceOptions(field).map((o) => o.value);
   let base: Value[];
   switch (field.type) {
@@ -108,13 +120,14 @@ function domainOf(field: FieldBlock, extra: Value[], maxOptions: number): Value[
       base = ["sample"];
       break;
     default:
-      base = [];
+      base = getFieldType(field.type)?.samples?.(field) ?? [];
   }
   // Unanswered first, so witnesses stay as short as possible.
   const candidates = dedupe([undefined, ...base, ...extra]);
   const valid = candidates.filter((v) => validateField(field, v) === null);
-  // A type with no known valid value (a plugin) must not dead-end the search.
-  return valid.length ? valid : [undefined];
+  // A required field with no known valid value (a plugin without samples)
+  // must not dead-end the search, but no completed response can go through it.
+  return valid.length ? valid : [UNSAMPLED];
 }
 
 export function coverage(form: FormDefinition | { definition: FormDefinition }, opts: CoverageOptions = {}): CoverageReport {
@@ -134,10 +147,12 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
   let truncated = false;
 
   const keyOf = (id: string) => fields.get(id)?.key ?? id;
+  const unsampled = new Set<string>();
 
-  const terminal = (scope: EvalScope, walk: PathWalk) => {
+  const terminal = (scope: EvalScope, walk: PathWalk, placeholders: Set<string>) => {
     const { path, ending } = walk;
-    paths++;
+    // Blocks and rules depend only on the logic, which never reads a
+    // placeholder (it would have offered the compared values as candidates).
     for (const id of path) reachedBlocks.add(id);
     for (const rule of def.logic ?? []) {
       if (fired.has(rule.id)) continue;
@@ -146,10 +161,19 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
       const at = rule.effect === "jump" ? walk.scopeAt(rule.from, true) : walk.scopeAt(rule.target);
       if (evaluate(rule.when, at)) fired.add(rule.id);
     }
+    // A path through a placeholder is not a response anyone could submit.
+    const missing = path.filter((id) => placeholders.has(id)).map(keyOf);
+    if (missing.length) {
+      for (const key of missing) unsampled.add(key);
+      if (ending !== null && !endings[ending]?.reached) (endings[ending] ??= { reached: false }).needsSamples ??= missing;
+      return;
+    }
+    paths++;
     if (ending === null) return;
     const entry = (endings[ending] ??= { reached: false });
     if (entry.reached) return;
     entry.reached = true;
+    delete entry.needsSamples;
     const witness: Record<string, Json> = {};
     for (const id of path) {
       const v = scope.values[id];
@@ -162,7 +186,12 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
     if (Object.keys(hidden).length) entry.witnessHidden = hidden;
   };
 
-  const explore = (values: Record<string, Value>, assigned: Set<string>, hidden: Record<string, Value>) => {
+  const explore = (
+    values: Record<string, Value>,
+    assigned: Set<string>,
+    hidden: Record<string, Value>,
+    placeholders: Set<string>,
+  ) => {
     if (truncated) return;
     if (++states > maxStates) {
       truncated = true;
@@ -171,10 +200,11 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
     const scope: EvalScope = { values, hidden, fields };
     const walk = walkPath(def, scope);
     const next = walk.path.find((id) => fields.has(id) && !assigned.has(id));
-    if (next === undefined) return terminal(scope, walk);
+    if (next === undefined) return terminal(scope, walk, placeholders);
     const nextAssigned = new Set(assigned).add(next);
     for (const value of domains.get(next) ?? [undefined]) {
-      explore({ ...values, [next]: value }, nextAssigned, hidden);
+      if (value === UNSAMPLED) explore({ ...values, [next]: undefined }, nextAssigned, hidden, new Set(placeholders).add(next));
+      else explore({ ...values, [next]: value }, nextAssigned, hidden, placeholders);
       if (truncated) return;
     }
   };
@@ -183,7 +213,7 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
   const hiddenNames = [...bounds.hidden.keys()];
   const enumerateHidden = (i: number, hidden: Record<string, Value>) => {
     if (truncated) return;
-    if (opts.hidden || i === hiddenNames.length) return explore({}, new Set(), opts.hidden ?? hidden);
+    if (opts.hidden || i === hiddenNames.length) return explore({}, new Set(), opts.hidden ?? hidden, new Set());
     const name = hiddenNames[i]!;
     for (const v of dedupe(bounds.hidden.get(name)!)) enumerateHidden(i + 1, { ...hidden, [name]: v });
   };
@@ -193,6 +223,7 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
     endings,
     unreachableBlocks: stepIds.filter((id) => !reachedBlocks.has(id)).map(keyOf),
     rulesNeverFired: (def.logic ?? []).filter((r) => !fired.has(r.id)).map((r) => r.id),
+    unsampledFields: [...unsampled],
     pathsExplored: paths,
     truncated,
   };

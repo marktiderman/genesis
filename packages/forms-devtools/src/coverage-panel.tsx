@@ -97,6 +97,11 @@ export function CoveragePanel({ definition, onFork, autoRunFields = 12, maxState
                     {e.witnessHidden ? `; hidden ${JSON.stringify(e.witnessHidden)}` : ""}
                   </p>
                 ) : null}
+                {e.needsSamples ? (
+                  <p className="text-xs text-muted-foreground">
+                    Only reachable through {e.needsSamples.join(", ")}, whose field type has no sample answers.
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>

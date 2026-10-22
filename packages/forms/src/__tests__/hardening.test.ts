@@ -689,6 +689,28 @@ describe("coverage with a plugin field (CodeRabbit on #40)", () => {
     });
     const report = coverage(form);
     expect(report.unreachableBlocks).toEqual([]);
-    expect(report.endings.default?.reached).toBe(true);
+    // No valid signature is known, so no completed response exists to witness.
+    expect(report.endings.default).toEqual({ reached: false, needsSamples: ["sig"] });
+    expect(report.unsampledFields).toEqual(["sig"]);
+    expect(report.pathsExplored).toBe(0);
+  });
+
+  it("uses a plugin's samples to build a valid witness", async () => {
+    const { registerFieldType } = await import("../index");
+    const { coverage } = await import("../testing");
+    registerFieldType({
+      type: "test-signature-sampled", label: "Signature", category: "advanced", value: { json: true },
+      operators: ["answered", "empty"], a11y: { semantics: "control" },
+      validate: (v: unknown) => (typeof v === "string" && v.startsWith("sig:") ? null : "Sign here."),
+      samples: () => ["sig:ada"],
+    } as never);
+    const form = defineForm({
+      id: "plug2", title: "Plug",
+      blocks: [f.custom("test-signature-sampled", "sig", { label: "Sign", required: true })],
+      endings: [{ id: "default", title: "Done" }],
+    });
+    const report = coverage(form);
+    expect(report.endings.default).toEqual({ reached: true, witness: { sig: "sig:ada" } });
+    expect(report.unsampledFields).toEqual([]);
   });
 });
