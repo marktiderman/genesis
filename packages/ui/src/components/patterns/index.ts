@@ -22,6 +22,11 @@ export { FormField, FormLabel, FormError, FormDescription } from "./form-field";
 export { PageLoading, pageLoadingVariants, type PageLoadingProps } from "./page-loading";
 export { SettingsRow, type SettingsRowProps } from "./settings-row";
 export {
+  SortableList,
+  type SortableListProps,
+  type SortableListItemContext,
+} from "./sortable-list";
+export {
   StatusBadge,
   statusBadgeVariants,
   type StatusBadgeProps,

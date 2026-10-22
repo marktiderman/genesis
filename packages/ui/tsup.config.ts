@@ -18,7 +18,7 @@ export default defineConfig({
     "src/components/ui/*.tsx",
     // Layer barrels + per-component entrypoints for the patterns tier.
     //
-    // These six are listed one by one rather than globbed as
+    // These are listed one by one rather than globbed as
     // `patterns/*.tsx`, because the entry list has to MIRROR the `exports`
     // map — no wider, no narrower. A glob is wider: it would also emit
     // `patterns/view-toggle.js` and `view-settings.js`, which no `exports`
@@ -36,6 +36,7 @@ export default defineConfig({
     "src/components/patterns/form-field.tsx",
     "src/components/patterns/page-loading.tsx",
     "src/components/patterns/settings-row.tsx",
+    "src/components/patterns/sortable-list.tsx",
     "src/components/patterns/status-badge.tsx",
     "src/components/patterns/toggle-row.tsx",
     "src/components/patterns/user-avatar.tsx",
