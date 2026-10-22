@@ -9,9 +9,9 @@
   data-bound layer. It covers the server handler that acts as the user, the generated schema contract,
   write safety, the roadmap, and the decisions still open.
 - [`FORMS.md`](./FORMS.md): proposal for Genesis Forms, an open-source, schema-driven form system
-  (feedback, onboarding, intake, worksheets, lead qualification) with branching, scoring,
+  (feedback, onboarding, intake, exercises, lead qualification) with branching, scoring,
   partials, server validation and a builder. It includes research on Typeform, Tally, Fillout,
-  Google Forms, SurveyJS and others, and the first milestone: CrossFit Fairfield feedback.
+  Google Forms, SurveyJS and others, and the first milestone: session feedback.
 - [`../packages/extension/README.md`](../packages/extension/README.md): building Chrome extensions
   with Genesis (messaging, settings, panel / top bar / side panel, an in-page bar, native helpers,
   React pages on Genesis UI, a `chrome.*` fake for tests).
