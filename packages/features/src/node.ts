@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  BrokenBlockError,
   MARKETING_BLOCK_END,
   MARKETING_BLOCK_START,
   readAgentsBlock,
@@ -90,8 +91,9 @@ const DEFAULT_COVERAGE_IGNORE = ["**/routeTree.gen.ts", "**/__root.tsx", "**/*.d
 const DEFAULT_ACCESSORS = ["useFlag", "getFlag", "<Flag name>"];
 const SKIP_DIRS = new Set(["node_modules", "dist", "build", "coverage", "out", "storybook-static"]);
 
+/** A file's text with CRLF line endings read as LF, so a Windows checkout isn't "stale" forever. */
 function read(file: string): string | null {
-  return existsSync(file) ? readFileSync(file, "utf8") : null;
+  return existsSync(file) ? readFileSync(file, "utf8").replace(/\r\n/g, "\n") : null;
 }
 
 /** A glob (`*`, `**`, `?`, `{a,b}`) as a RegExp over `/`-separated relative paths. */
@@ -269,7 +271,13 @@ export function buildFeatureOutputs(options: FeatureProjectOptions): string[] {
   };
   for (const output of outputs(options)) {
     const current = read(join(options.root, output.path));
-    const next = output.next(current);
+    let next: string;
+    try {
+      next = output.next(current);
+    } catch (error) {
+      if (error instanceof BrokenBlockError) throw new Error(`${output.path}: ${error.message}`);
+      throw error;
+    }
     if (!output.same(current, next)) write(output.path, next);
   }
   const claude = claudeImport(options);
@@ -307,7 +315,15 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
 
   for (const output of outputs(options)) {
     const current = read(join(root, output.path));
-    if (!output.same(current, output.next(current))) {
+    let same: boolean;
+    try {
+      same = output.same(current, output.next(current));
+    } catch (error) {
+      if (!(error instanceof BrokenBlockError)) throw error;
+      errors.push(`${output.path}: ${error.message}`);
+      continue;
+    }
+    if (!same) {
       stale.push(output.path);
       errors.push(`${output.path} is stale. Run \`${options.command ?? "genesis features"} build\` and commit the result.`);
     }

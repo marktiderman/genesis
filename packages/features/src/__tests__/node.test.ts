@@ -57,6 +57,27 @@ describe("build and check", () => {
     expect(checkFeatureOutputs(opts(root)).stale).toEqual(["AGENTS.md"]);
   });
 
+  it("refuses a block with a missing, repeated or misordered marker, rather than wipe text", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root));
+    const file = join(root, "AGENTS.md");
+    const built = readFileSync(file, "utf8");
+    writeFileSync(file, built.replace("<!-- genesis-features:end -->", "") + "\nMy notes after.\n");
+    expect(checkFeatureOutputs(opts(root)).errors[0]).toMatch(/^AGENTS\.md: The generated block's markers are broken/);
+    expect(() => buildFeatureOutputs(opts(root))).toThrow(/AGENTS\.md: The generated block's markers are broken/);
+    expect(readFileSync(file, "utf8")).toContain("My notes after.");
+  });
+
+  it("reads CRLF files as LF, so a Windows checkout isn't stale", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root));
+    for (const path of ["AGENTS.md", "features.json"]) {
+      const file = join(root, path);
+      writeFileSync(file, readFileSync(file, "utf8").replace(/\n/g, "\r\n"));
+    }
+    expect(checkFeatureOutputs(opts(root)).stale).toEqual([]);
+  });
+
   it("needs CLAUDE.md to import AGENTS.md, and build adds the line to an existing file", () => {
     const root = repo({ "CLAUDE.md": "# Claude\n" });
     expect(checkFeatureOutputs(opts(root)).errors).toContain("CLAUDE.md must import the agent notes with a line `@AGENTS.md` (`build` adds it).");

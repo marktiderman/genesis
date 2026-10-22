@@ -134,11 +134,29 @@ export function toMarketingMarkdown(features: Features, options: { heading?: str
   return lines.join("\n");
 }
 
-/** The block between `start` and `end` inside `doc`, markers included, or null when there is none. */
+/** Thrown when a generated block's markers are broken: one is missing, repeated or out of order. */
+export class BrokenBlockError extends Error {
+  constructor(start: string) {
+    super(`The generated block's markers are broken (${start} and its end marker must each appear once, in order). Fix them by hand, or delete both and the block between them.`);
+    this.name = "BrokenBlockError";
+  }
+}
+
+const count = (doc: string, marker: string) => doc.split(marker).length - 1;
+
+/**
+ * The block between `start` and `end` inside `doc`, markers included, or null
+ * when there is none. Throws {@link BrokenBlockError} when only one marker is
+ * there, or either is repeated or out of order, rather than guess where the
+ * block ends and wipe the text after it.
+ */
 export function readBlock(doc: string, start: string, end: string): string | null {
+  const starts = count(doc, start);
+  const ends = count(doc, end);
+  if (starts === 0 && ends === 0) return null;
   const from = doc.indexOf(start);
-  const to = doc.indexOf(end, from);
-  if (from === -1 || to === -1) return null;
+  const to = doc.indexOf(end);
+  if (starts !== 1 || ends !== 1 || to < from) throw new BrokenBlockError(start);
   return doc.slice(from, to + end.length);
 }
 
