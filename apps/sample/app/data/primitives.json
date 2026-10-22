@@ -12192,7 +12192,7 @@
             },
             {
               "name": "mutationMode",
-              "type": "enum",
+              "type": "any",
               "required": false,
               "defaultValue": null,
               "description": "When a save reaches the list. Default `\"pessimistic\"`: the form waits\nfor the provider. `\"optimistic\"` closes at once and updates the cached\nlist, putting it back (and toasting the error) if the save fails.\n`\"undoable\"` does the same and shows an Undo toast; the save is sent\nafter `undoDelayMs` unless undone (or at once, undone by the provider,\nwhen it serves `undo`). Needs a mounted `<Toaster />`."
@@ -12427,7 +12427,7 @@
               "type": "number",
               "required": false,
               "defaultValue": null,
-              "description": "`pagination=\"client\"` only: the most rows fetched. Default 1000. An\nexplicit `resourceOptions.defaultPerPage` wins."
+              "description": "`pagination=\"client\"` only: the most rows fetched. Default 1000. An\nexplicit `resourceOptions.defaultPerPage` wins. Keep it at or under the\nprovider's `maxPerPage` (`capabilities().maxPerPage`; 1000 by default for\nSupabase): a larger page is refused, not cut short."
             },
             {
               "name": "columns",
@@ -12641,7 +12641,7 @@
             },
             {
               "name": "mutationMode",
-              "type": "enum",
+              "type": "any",
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
@@ -13256,7 +13256,7 @@
             },
             {
               "name": "mutationMode",
-              "type": "enum",
+              "type": "any",
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
@@ -15789,57 +15789,7 @@
         {
           "name": "showUndoToast",
           "summary": "The undo toast for an `undoable` write (core's `onUndoable`): a sonner\ntoast with an Undo button, shown for as long as the undo is offered.\nNeeds a mounted `<Toaster />`.",
-          "props": [
-            {
-              "name": "commit",
-              "type": "() => void",
-              "required": true,
-              "defaultValue": null,
-              "description": "Send a `delay` write now."
-            },
-            {
-              "name": "delayMs",
-              "type": "number",
-              "required": true,
-              "defaultValue": null,
-              "description": "How long the undo is offered, in ms (the toast's duration)."
-            },
-            {
-              "name": "kind",
-              "type": "enum",
-              "required": true,
-              "defaultValue": null,
-              "description": ""
-            },
-            {
-              "name": "resource",
-              "type": "string",
-              "required": true,
-              "defaultValue": null,
-              "description": ""
-            },
-            {
-              "name": "strategy",
-              "type": "enum",
-              "required": true,
-              "defaultValue": null,
-              "description": "- `delay`: the write has not been sent. `undo()` discards it; `commit()`\n  sends it now instead of waiting.\n- `provider`: the write was sent at once, because the provider serves\n  `undo`. `undo()` asks the provider to reverse it; `commit()` does\n  nothing."
-            },
-            {
-              "name": "undo",
-              "type": "() => Promise<boolean>",
-              "required": true,
-              "defaultValue": null,
-              "description": "Take the write back. Resolves true when it was undone, false when it\ncould not be: already sent under `delay` (the window closed, or the hook\nunmounted), already undone, or the provider's undo failed (reported\nthrough `onError`). Safe to call more than once."
-            },
-            {
-              "name": "id",
-              "type": "Identifier",
-              "required": false,
-              "defaultValue": null,
-              "description": "The record's id; absent for a create (it has none until it is sent)."
-            }
-          ]
+          "props": []
         },
         {
           "name": "showWriteErrorToast",
