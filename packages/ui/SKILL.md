@@ -75,6 +75,7 @@ report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 | Settings list rows                                            | `SettingsRow`, `ToggleRow`                                                         | `/settings-row`, `/toggle-row`                                    |
 | Cmd-K palette                                                 | `CommandPalette`, `useCommandPaletteHotkey`                                        | `/command-palette`                                                |
 | Arrow-key list navigation                                     | `useKeyboardNavigation`                                                            | `/hooks/use-keyboard-navigation`                                  |
+| Reorderable list: drag, keyboard, row-menu moves             | `SortableList`                                                                     | `/sortable-list`                                                  |
 | Persisted page size / density                                 | `useViewSettings`                                                                  | `/hooks/use-view-settings`                                        |
 
 ## Import rule

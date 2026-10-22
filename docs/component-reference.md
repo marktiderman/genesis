@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 125 components · 363 other exports · 215 standalone types across 7 packages.
+**Totals:** 126 components · 363 other exports · 216 standalone types across 7 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -198,7 +198,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (36)
+### Components (37)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -225,6 +225,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`Section`](../packages/ui/src/components/layout/section.tsx) | `SectionProps` | Beta | Section — a titled region of a page: heading, optional description, optional trailing actions, and the content itself. |
 | [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | Beta | SettingsPage — a sectioned settings surface with a nav rail for jumping between sections. |
 | [`SettingsRow`](../packages/ui/src/components/patterns/settings-row.tsx) | `SettingsRowProps` | Beta | SettingsRow — label + description on one side, an arbitrary trailing control (Switch, Select, Button, Badge, ...) on the other. This is the shared layout behind every settings/preferences list row; see `ToggleRow` for the common label+de... |
+| [`SortableList`](../packages/ui/src/components/patterns/sortable-list.tsx) | `SortableListProps` | Beta | An ordered list the user can rearrange: course steps, lesson blocks, form fields. |
 | [`Spinner`](../packages/ui/src/components/ui/spinner.tsx) | `SpinnerProps` | — | _(no summary)_ |
 | [`Split`](../packages/ui/src/components/layout/split.tsx) | `SplitProps` | Beta | Split — the master-detail layout: two panes side by side above a breakpoint, stacked below it. |
 | [`Stack`](../packages/ui/src/components/layout/stack.tsx) | `StackProps` | Beta | Stack — one-dimensional flow. The single most-repeated shape in any application: a run of things in a line, evenly spaced. |
@@ -489,7 +490,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 
-### Types (19)
+### Types (20)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -509,6 +510,7 @@ export type { SettingsPageSection };
 export type { SlotOverride };
 export type { SlotPropsFor };
 export type { Slots };
+export type { SortableListItemContext };
 export type { SpaceToken };
 export type { SplitBreakpoint };
 export type { SplitRatio };
