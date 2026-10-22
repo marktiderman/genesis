@@ -142,6 +142,14 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
 - **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays
   the default for deletes.
 
+## Big tables
+
+`DataTable` runs on TanStack Table. Sorting compares numbers, dates and booleans by value. For a long
+list without pages, `pagination={false} virtualize` renders only the rows in view (`virtualize={{ height }}`
+sets the scroll box). `pinnedColumns={{ left: ["name"], right: ["actions"] }}` keeps columns in view
+when scrolling sideways. Users can reorder columns by dragging a header or with Alt+←/→, and the order
+is kept per device with `columnOrderKey`.
+
 ## Full inventory
 
 `docs/component-reference.md` lists every export with its props and stability tag. It is

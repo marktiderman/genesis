@@ -5,9 +5,19 @@ import {
   useState,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
+import {
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef as TanStackColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Table,
   TableBody,
@@ -147,23 +157,56 @@ export interface DataTableProps<T> {
    * link or button in the cell. `null` makes no cell a button (mouse only).
    */
   openColumn?: string | null;
+  /**
+   * Render only the rows in view, for a long table without pagination
+   * (`pagination={false}`). The table scrolls inside a box of `height` px
+   * (default 600). Ignored while paginated.
+   */
+  virtualize?: boolean | { height?: number; estimateRowHeight?: number };
+  /**
+   * Columns that stay in view when the table scrolls sideways, by key, on
+   * the left and right. `stickyFirstColumn` is shorthand for pinning the
+   * first visible column left.
+   */
+  pinnedColumns?: { left?: string[]; right?: string[] };
+  /**
+   * Let users reorder columns: drag a header, or press Alt+←/→ on its sort
+   * button. Default true; the order is kept per device under
+   * `columnOrderKey`, and "Reset to defaults" in the Columns menu restores it.
+   */
+  reorderableColumns?: boolean;
+  /** localStorage key for the user's column order. */
+  columnOrderKey?: string;
+}
+
+/** Row height estimate per density, for virtualization. */
+const ROW_HEIGHT: Record<Density, number> = { compact: 33, comfortable: 41, spacious: 49 };
+/** Width assumed for a pinned column with no width of its own (pinning needs offsets). */
+const PINNED_WIDTH = 160;
+
+/**
+ * Typed comparison for sorting: numbers and dates by value, booleans false
+ * before true, everything else as text with numbers in it ordered naturally.
+ * Empty values sort first ascending.
+ */
+function compareValues(a: unknown, b: unknown): number {
+  const emptyA = a == null || a === "";
+  const emptyB = b == null || b === "";
+  if (emptyA || emptyB) return emptyA === emptyB ? 0 : emptyA ? -1 : 1;
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  if (typeof a === "bigint" && typeof b === "bigint") return a < b ? -1 : a > b ? 1 : 0;
+  if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime();
+  if (typeof a === "boolean" && typeof b === "boolean") return Number(a) - Number(b);
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
 }
 
 const ROW_OPEN = "data-row-open";
 
-/** Focus the open button `to` rows away (or the first/last), staying in this table body. */
-function focusRow(from: HTMLElement, to: "next" | "prev" | "first" | "last") {
-  const body = from.closest("tbody");
-  if (!body) return;
-  const buttons = Array.from(body.querySelectorAll<HTMLElement>(`[${ROW_OPEN}]`));
-  const i = buttons.indexOf(from);
-  const target =
-    to === "first"
-      ? buttons[0]
-      : to === "last"
-        ? buttons[buttons.length - 1]
-        : buttons[to === "next" ? i + 1 : i - 1];
+/** Focus row `index`'s open button in this table body, if it is rendered. */
+function focusRowAt(body: Element | null, index: number): boolean {
+  const target = body?.querySelector<HTMLElement>(`[${ROW_OPEN}="${index}"]`);
   target?.focus();
+  return !!target;
 }
 
 /* ── Helpers ── */
@@ -453,6 +496,10 @@ export function DataTable<T>({
   density = "comfortable",
   keyboardNavigation = true,
   openColumn,
+  virtualize,
+  pinnedColumns,
+  reorderableColumns = true,
+  columnOrderKey,
 }: DataTableProps<T>) {
   const rowKeys = keyboardNavigation && !!onRowClick;
   // Roving tabindex: one row's open button is the table's tab stop.
@@ -547,6 +594,7 @@ export function DataTable<T>({
       defaults[c.key] = c.defaultVisible !== false;
     });
     setVisibleCols(defaults);
+    setColOrder(null);
     if (columnVisibilityKey) {
       localStorage.removeItem(`dt-vis-${columnVisibilityKey}`);
     }
@@ -567,9 +615,66 @@ export function DataTable<T>({
     });
   }, [columns]);
 
-  const activeColumns = columnVisibility
-    ? columns.filter((c) => visibleCols[c.key] !== false)
-    : columns;
+  // ── Column order (drag a header, or Alt+←/→ on its button) ──
+  // Keys in the user's order; columns it doesn't name keep their place at
+  // the end, so a new column still shows up.
+  const [colOrder, setColOrder] = useState<string[] | null>(null);
+  const [orderHydrated, setOrderHydrated] = useState(false);
+  useEffect(() => {
+    if (columnOrderKey) {
+      try {
+        const saved = localStorage.getItem(`dt-order-${columnOrderKey}`);
+        if (saved) setColOrder(JSON.parse(saved) as string[]);
+      } catch {
+        // ignore corrupt prefs
+      }
+    }
+    setOrderHydrated(true);
+  }, [columnOrderKey]);
+  useEffect(() => {
+    if (!orderHydrated || !columnOrderKey) return;
+    if (colOrder) localStorage.setItem(`dt-order-${columnOrderKey}`, JSON.stringify(colOrder));
+    else localStorage.removeItem(`dt-order-${columnOrderKey}`);
+  }, [colOrder, columnOrderKey, orderHydrated]);
+  const orderedColumns = useMemo(() => {
+    if (!colOrder) return columns;
+    const rank = new Map(colOrder.map((k, i) => [k, i]));
+    return [...columns].sort(
+      (a, b) => (rank.get(a.key) ?? colOrder.length) - (rank.get(b.key) ?? colOrder.length),
+    );
+  }, [columns, colOrder]);
+  /** Move column `key` to just before or just after another column. */
+  const moveColumn = useCallback(
+    (key: string, to: { before: string } | { after: string }) => {
+      const keys = orderedColumns.map((c) => c.key);
+      const from = keys.indexOf(key);
+      if (from < 0) return;
+      keys.splice(from, 1);
+      const at =
+        "before" in to
+          ? Math.max(0, keys.indexOf(to.before))
+          : keys.indexOf(to.after) + 1;
+      keys.splice(at, 0, key);
+      setColOrder(keys);
+    },
+    [orderedColumns],
+  );
+  const [dragKey, setDragKey] = useState<string | null>(null);
+
+  const visibleColumns = columnVisibility
+    ? orderedColumns.filter((c) => visibleCols[c.key] !== false)
+    : orderedColumns;
+
+  // ── Pinning: left-pinned first, right-pinned last, each kept in view ──
+  const leftKeys =
+    pinnedColumns?.left ??
+    (stickyFirstColumn && visibleColumns[0] ? [visibleColumns[0].key] : []);
+  const rightKeys = pinnedColumns?.right ?? [];
+  const activeColumns = [
+    ...visibleColumns.filter((c) => leftKeys.includes(c.key)),
+    ...visibleColumns.filter((c) => !leftKeys.includes(c.key) && !rightKeys.includes(c.key)),
+    ...visibleColumns.filter((c) => rightKeys.includes(c.key)),
+  ];
 
   // ── Column resizing ──
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
@@ -608,6 +713,37 @@ export function DataTable<T>({
     }
   }, [resizeKey, colWidths]);
 
+  // Pinned columns: each one's offset from its edge, after the checkbox
+  // (left) or actions (right) column, which pin with them.
+  const pinWidth = (key: string) => colWidths[key] ?? PINNED_WIDTH;
+  const pinned: Record<string, { side: "left" | "right"; offset: number }> = {};
+  {
+    let left = selectable ? 40 : 0;
+    for (const c of activeColumns) {
+      if (!leftKeys.includes(c.key)) continue;
+      pinned[c.key] = { side: "left", offset: left };
+      left += pinWidth(c.key);
+    }
+    let right = renderActions ? 40 : 0;
+    for (const c of [...activeColumns].reverse()) {
+      if (!rightKeys.includes(c.key)) continue;
+      pinned[c.key] = { side: "right", offset: right };
+      right += pinWidth(c.key);
+    }
+  }
+  /** Sticky classes and offset for a pinned cell (header cells sit above body cells). */
+  const pinProps = (key: string | "__select" | "__actions", header: boolean) => {
+    const z = header ? (stickyHeader ? "z-[15]" : "z-[5]") : "z-[1]";
+    if (key === "__select") {
+      return leftKeys.length ? { className: cn("sticky left-0 bg-background", z), style: { left: 0 } } : null;
+    }
+    if (key === "__actions") {
+      return rightKeys.length ? { className: cn("sticky right-0 bg-background", z), style: { right: 0 } } : null;
+    }
+    const p = pinned[key];
+    return p ? { className: cn("sticky bg-background", z), style: { [p.side]: p.offset } } : null;
+  };
+
   // ── Pagination ──
   const [currentPage, setCurrentPage] = useState(0);
   const [currentPageSize, setCurrentPageSize] = useState(initialPageSize);
@@ -617,41 +753,67 @@ export function DataTable<T>({
     setCurrentPage(0);
   }, [items.length, currentPageSize]);
 
-  // ── Sort items ──
-  const sorted = (() => {
-    if (sorts.length === 0) return items;
-    return [...items].sort((a, b) => {
-      for (const s of sorts) {
-        const col = columns.find((c) => c.key === s.key);
-        if (!col) continue;
-        const acc =
-          col.accessor ||
-          ((item: T) => (item as Record<string, unknown>)[col.key]);
-        const va = acc(a);
-        const vb = acc(b);
-        const sa = va == null ? "" : String(va);
-        const sb = vb == null ? "" : String(vb);
-        const cmp = sa.localeCompare(sb, undefined, {
-          numeric: true,
-          sensitivity: "base",
-        });
-        if (cmp !== 0) return s.dir === "asc" ? cmp : -cmp;
-      }
-      return 0;
-    });
-  })();
-
-  // ── Paginate ──
-  const totalItems = sorted.length;
+  // ── Sort and page: TanStack Table's row models ──
+  // The header buttons own the sort state (asc → desc → off, Shift adds a
+  // secondary sort); TanStack applies it with a typed comparison and pages
+  // the result. Ties keep the items' own order.
+  const sorting = useMemo<SortingState>(
+    () => sorts.map((s) => ({ id: s.key, desc: s.dir === "desc" })),
+    [sorts],
+  );
+  const tanstackColumns = useMemo<TanStackColumnDef<T>[]>(
+    () =>
+      columns.map((col) => ({
+        id: col.key,
+        accessorFn: (row: T) =>
+          col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key],
+        sortingFn: (a, b, id) => compareValues(a.getValue(id), b.getValue(id)),
+      })),
+    [columns],
+  );
+  const table = useReactTable<T>({
+    data: items,
+    columns: tanstackColumns,
+    getRowId: (row) => getKey(row),
+    state: {
+      sorting,
+      pagination: { pageIndex: currentPage, pageSize: currentPageSize },
+    },
+    enableMultiSort: true,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    ...(pagination ? { getPaginationRowModel: getPaginationRowModel() } : {}),
+  });
+  const totalItems = table.getPrePaginationRowModel().rows.length;
   const totalPages = pagination
     ? Math.max(1, Math.ceil(totalItems / currentPageSize))
     : 1;
-  const displayItems = pagination
-    ? sorted.slice(
-        currentPage * currentPageSize,
-        (currentPage + 1) * currentPageSize,
-      )
-    : sorted;
+  const displayItems = table.getRowModel().rows.map((row) => row.original);
+
+  // ── Virtualization (long, unpaged tables) ──
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  const virtualizing = !!virtualize && !pagination;
+  const virtualOptions = typeof virtualize === "object" ? virtualize : {};
+  const viewportHeight = virtualOptions.height ?? 600;
+  const rowVirtualizer = useVirtualizer({
+    count: virtualizing ? displayItems.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => virtualOptions.estimateRowHeight ?? ROW_HEIGHT[density],
+    overscan: 10,
+    initialRect: { width: 0, height: viewportHeight },
+  });
+  const virtualRows = virtualizing ? rowVirtualizer.getVirtualItems() : null;
+
+  /** Move the roving focus to row `index`, scrolling it into view first when virtualized. */
+  const focusRow = (index: number) => {
+    const last = displayItems.length - 1;
+    const target = Math.max(0, Math.min(last, index));
+    if (focusRowAt(bodyRef.current, target)) return;
+    if (!virtualizing) return;
+    rowVirtualizer.scrollToIndex(target);
+    requestAnimationFrame(() => focusRowAt(bodyRef.current, target));
+  };
 
   // The column whose cell opens the row, and the row that holds the tab stop.
   const openKey = !rowKeys
@@ -682,6 +844,122 @@ export function DataTable<T>({
 
   const totalCols =
     activeColumns.length + (selectable ? 1 : 0) + (renderActions ? 1 : 0);
+
+  const renderRow = (item: T, index: number, measure?: (el: HTMLTableRowElement | null) => void) => {
+            const id = getKey(item);
+            return (
+              <TableRow
+                key={id}
+                ref={measure}
+                data-index={index}
+                className={cn(
+                  onRowClick && "cursor-pointer",
+                  "focus-within:bg-muted/40",
+                )}
+                data-state={
+                  selected?.has(id) ? "selected" : undefined
+                }
+                onClick={
+                  onRowClick ? () => onRowClick(item) : undefined
+                }
+              >
+                {selectable && (
+                  <TableCell
+                    className={cn(cellDensity, pinProps("__select", false)?.className)}
+                    style={pinProps("__select", false)?.style}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      aria-label={`Select ${rowLabel(item, id)}`}
+                      checked={selected?.has(id)}
+                      onCheckedChange={() => onToggleSelect?.(id)}
+                    />
+                  </TableCell>
+                )}
+                {activeColumns.map((col, colIndex) => {
+                  const acc =
+                    col.accessor ||
+                    ((it: T) =>
+                      (it as Record<string, unknown>)[col.key]);
+                  const value = acc(item);
+                  const pin = pinProps(col.key, false);
+                  return (
+                    <TableCell
+                      key={col.key}
+                      className={cn(
+                        getCellClasses(
+                          col as DataTableColumn<unknown>,
+                        ),
+                        cellDensity,
+                        pin?.className,
+                      )}
+                      style={pin?.style}
+                    >
+                      {(() => {
+                        const content = col.editable ? (
+                          <EditableCell
+                            item={item}
+                            column={col}
+                            value={value}
+                          />
+                        ) : col.render ? (
+                          col.render(item, value)
+                        ) : (
+                          <span className="truncate block max-w-[300px]">
+                            {String(value ?? "\u2014")}
+                          </span>
+                        );
+                        if (col.key !== openKey) return content;
+                        // The row's named open action: a button the
+                        // screen reader announces, and the table's one
+                        // tab stop when this row holds it.
+                        return (
+                          <button
+                            type="button"
+                            {...{ [ROW_OPEN]: String(index) }}
+                            tabIndex={id === tabStopKey ? 0 : -1}
+                            className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                            onFocus={() => setActiveRowKey(id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRowClick?.(item);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.metaKey || e.ctrlKey || e.altKey) return;
+                              const move = (to: number) => {
+                                e.preventDefault();
+                                focusRow(to);
+                              };
+                              if (e.key === "ArrowDown" || e.key === "j") move(index + 1);
+                              else if (e.key === "ArrowUp" || e.key === "k") move(index - 1);
+                              else if (e.key === "Home") move(0);
+                              else if (e.key === "End") move(displayItems.length - 1);
+                              else if (e.key === "x" && selectable) {
+                                e.preventDefault();
+                                onToggleSelect?.(id);
+                              }
+                            }}
+                          >
+                            {content}
+                          </button>
+                        );
+                      })()}
+                    </TableCell>
+                  );
+                })}
+                {renderActions && (
+                  <TableCell
+                    className={cn(cellDensity, pinProps("__actions", false)?.className)}
+                    style={pinProps("__actions", false)?.style}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  >
+                    {renderActions(item)}
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+  };
+
 
   return (
     <div className="border rounded-lg animate-fade-in flex flex-col">
@@ -724,14 +1002,18 @@ export function DataTable<T>({
       )}
 
       {/* ── Table ── */}
-      <div className="overflow-x-auto">
+      <div
+        ref={scrollRef}
+        className={cn("overflow-x-auto", virtualizing && "overflow-y-auto")}
+        style={virtualizing ? { maxHeight: viewportHeight } : undefined}
+      >
         <Table style={{ tableLayout: "fixed" }}>
           {/* Fixed layout sizes columns from the first row: a <colgroup>
               gives each column its px width (the rest share what is left). */}
           <colgroup>
             {selectable && <col style={{ width: 40 }} />}
             {activeColumns.map((col) => {
-              const w = colWidths[col.key];
+              const w = colWidths[col.key] ?? (pinned[col.key] ? PINNED_WIDTH : undefined);
               return (
                 <col
                   key={col.key}
@@ -749,7 +1031,10 @@ export function DataTable<T>({
           >
             <TableRow>
               {selectable && (
-                <TableHead className={cn("w-10", headDensity)}>
+                <TableHead
+                  className={cn("w-10", headDensity, pinProps("__select", true)?.className)}
+                  style={pinProps("__select", true)?.style}
+                >
                   <Checkbox
                     aria-label="Select all rows"
                     checked={
@@ -764,7 +1049,9 @@ export function DataTable<T>({
                 const sortEntry =
                   sortIndex >= 0 ? sorts[sortIndex] : null;
                 const resizeWidth = colWidths[col.key];
-                const isFirstCol = colIndex === 0 && stickyFirstColumn;
+                const pin = pinProps(col.key, true);
+                // Unpinned columns can be dragged onto one another to reorder.
+                const draggable = reorderableColumns && !pin;
 
                 return (
                   <TableHead
@@ -775,14 +1062,40 @@ export function DataTable<T>({
                       col.sortable && "select-none",
                       "overflow-hidden",
                       resizableColumns && "relative",
-                      isFirstCol && "sticky left-0 bg-background",
-                      isFirstCol && stickyHeader ? "z-[15]" : isFirstCol ? "z-[5]" : undefined,
+                      pin?.className,
                     )}
-                    style={
-                      resizeWidth
-                        ? { width: resizeWidth, minWidth: resizeWidth }
+                    style={{
+                      ...(resizeWidth ? { width: resizeWidth, minWidth: resizeWidth } : {}),
+                      ...pin?.style,
+                    }}
+                    draggable={draggable || undefined}
+                    onDragStart={
+                      draggable
+                        ? (e: React.DragEvent) => {
+                            setDragKey(col.key);
+                            e.dataTransfer.effectAllowed = "move";
+                            // Firefox starts a drag only when it carries data.
+                            e.dataTransfer.setData("text/plain", col.key);
+                          }
                         : undefined
                     }
+                    onDragOver={
+                      draggable
+                        ? (e: React.DragEvent) => {
+                            if (dragKey && dragKey !== col.key) e.preventDefault();
+                          }
+                        : undefined
+                    }
+                    onDrop={
+                      draggable
+                        ? (e: React.DragEvent) => {
+                            e.preventDefault();
+                            if (dragKey && dragKey !== col.key) moveColumn(dragKey, { before: col.key });
+                            setDragKey(null);
+                          }
+                        : undefined
+                    }
+                    onDragEnd={draggable ? () => setDragKey(null) : undefined}
                     // Only the primary sort column carries aria-sort; a
                     // secondary sort is said in its button's name instead.
                     aria-sort={
@@ -830,6 +1143,17 @@ export function DataTable<T>({
                           type="button"
                           className="-mx-1 flex w-[calc(100%+0.5rem)] min-w-0 items-center rounded px-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={(e) => handleSort(col.key, e.shiftKey)}
+                          onKeyDown={(e) => {
+                            // Alt+←/→ moves the column past its visible neighbour.
+                            if (!draggable || !e.altKey) return;
+                            if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+                            const movable = activeColumns.filter((c) => !pinned[c.key]);
+                            const i = movable.findIndex((c) => c.key === col.key);
+                            const neighbour = movable[e.key === "ArrowLeft" ? i - 1 : i + 1];
+                            if (!neighbour) return;
+                            e.preventDefault();
+                            moveColumn(col.key, e.key === "ArrowLeft" ? { before: neighbour.key } : { after: neighbour.key });
+                          }}
                           aria-label={
                             sortEntry && sortIndex > 0
                               ? `${col.header}, sorted ${sortEntry.dir === "asc" ? "ascending" : "descending"}, sort ${sortIndex + 1}`
@@ -858,11 +1182,14 @@ export function DataTable<T>({
                 );
               })}
               {renderActions && (
-                <TableHead className={cn("w-10", headDensity)} />
+                <TableHead
+                  className={cn("w-10", headDensity, pinProps("__actions", true)?.className)}
+                  style={pinProps("__actions", true)?.style}
+                />
               )}
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody ref={bodyRef}>
             {displayItems.length === 0 ? (
               <TableRow>
                 <TableCell
@@ -873,115 +1200,21 @@ export function DataTable<T>({
                 </TableCell>
               </TableRow>
             ) : (
-              displayItems.map((item) => {
-                const id = getKey(item);
-                return (
-                  <TableRow
-                    key={id}
-                    className={cn(
-                      onRowClick && "cursor-pointer",
-                      "focus-within:bg-muted/40",
-                    )}
-                    data-state={
-                      selected?.has(id) ? "selected" : undefined
-                    }
-                    onClick={
-                      onRowClick ? () => onRowClick(item) : undefined
-                    }
-                  >
-                    {selectable && (
-                      <TableCell
-                        className={cellDensity}
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                      >
-                        <Checkbox
-                          aria-label={`Select ${rowLabel(item, id)}`}
-                          checked={selected?.has(id)}
-                          onCheckedChange={() => onToggleSelect?.(id)}
-                        />
-                      </TableCell>
-                    )}
-                    {activeColumns.map((col, colIndex) => {
-                      const acc =
-                        col.accessor ||
-                        ((it: T) =>
-                          (it as Record<string, unknown>)[col.key]);
-                      const value = acc(item);
-                      const isFirstCol = colIndex === 0 && stickyFirstColumn;
-                      return (
-                        <TableCell
-                          key={col.key}
-                          className={cn(
-                            getCellClasses(
-                              col as DataTableColumn<unknown>,
-                            ),
-                            cellDensity,
-                            isFirstCol && "sticky left-0 z-[1] bg-background",
-                          )}
-                        >
-                          {(() => {
-                            const content = col.editable ? (
-                              <EditableCell
-                                item={item}
-                                column={col}
-                                value={value}
-                              />
-                            ) : col.render ? (
-                              col.render(item, value)
-                            ) : (
-                              <span className="truncate block max-w-[300px]">
-                                {String(value ?? "\u2014")}
-                              </span>
-                            );
-                            if (col.key !== openKey) return content;
-                            // The row's named open action: a button the
-                            // screen reader announces, and the table's one
-                            // tab stop when this row holds it.
-                            return (
-                              <button
-                                type="button"
-                                {...{ [ROW_OPEN]: "" }}
-                                tabIndex={id === tabStopKey ? 0 : -1}
-                                className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                                onFocus={() => setActiveRowKey(id)}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onRowClick?.(item);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.metaKey || e.ctrlKey || e.altKey) return;
-                                  const move = (to: Parameters<typeof focusRow>[1]) => {
-                                    e.preventDefault();
-                                    focusRow(e.currentTarget, to);
-                                  };
-                                  if (e.key === "ArrowDown" || e.key === "j") move("next");
-                                  else if (e.key === "ArrowUp" || e.key === "k") move("prev");
-                                  else if (e.key === "Home") move("first");
-                                  else if (e.key === "End") move("last");
-                                  else if (e.key === "x" && selectable) {
-                                    e.preventDefault();
-                                    onToggleSelect?.(id);
-                                  }
-                                }}
-                              >
-                                {content}
-                              </button>
-                            );
-                          })()}
-                        </TableCell>
-                      );
-                    })}
-                    {renderActions && (
-                      <TableCell
-                        className={cellDensity}
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                      >
-                        {renderActions(item)}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })
+              virtualRows
+                ? [
+                    <tr key="__top" aria-hidden style={{ height: virtualRows[0]?.start ?? 0 }} />,
+                    ...virtualRows.map((vr) =>
+                      renderRow(displayItems[vr.index]!, vr.index, rowVirtualizer.measureElement),
+                    ),
+                    <tr
+                      key="__bottom"
+                      aria-hidden
+                      style={{
+                        height: rowVirtualizer.getTotalSize() - (virtualRows[virtualRows.length - 1]?.end ?? 0),
+                      }}
+                    />,
+                  ]
+                : displayItems.map((item, index) => renderRow(item, index))
             )}
           </TableBody>
         </Table>
