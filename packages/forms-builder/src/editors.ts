@@ -20,6 +20,13 @@ export interface FieldPanelProps {
   setProps: (props: Record<string, Json | undefined>, coalesce?: string) => void;
   /** Apply any edit to the definition. */
   apply: Apply;
+  /**
+   * True when the builder is `readOnly`. The panel renders inside a disabled
+   * `<fieldset>`, so native and Radix controls are already off and `set`,
+   * `setProps` and `apply` do nothing; use this to hide your own add/remove
+   * affordances or to swap an editor for a plain read-out.
+   */
+  readOnly?: boolean | undefined;
 }
 
 /** What a field type's own value editor in a logic condition gets. */
@@ -28,6 +35,8 @@ export interface ConditionValueProps {
   op: Operator;
   value: Json;
   onChange: (value: Json) => void;
+  /** True when the builder is `readOnly` (see `FieldPanelProps.readOnly`). */
+  readOnly?: boolean | undefined;
 }
 
 /**
@@ -71,6 +80,12 @@ export interface BuilderConfig {
   palette?: readonly string[] | undefined;
   fieldEditors?: readonly FieldTypeEditor[] | undefined;
   blockKinds?: BlockKinds | undefined;
+  /**
+   * Show the form without changing it: every panel stays visible, but its
+   * controls are off and add, remove, reorder and drag are hidden. Panels
+   * rendered on their own read it from `BuilderConfigContext`.
+   */
+  readOnly?: boolean | undefined;
 }
 
 export const BuilderConfigContext = createContext<BuilderConfig>({});

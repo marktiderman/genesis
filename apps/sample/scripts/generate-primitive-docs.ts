@@ -249,6 +249,11 @@ function deriveWebSubpath(filePath: string): string {
   // Experimental grid on its own subpath, kept out of the root and /data so
   // nobody else inherits its @tanstack/react-virtual peer.
   if (rel.startsWith("components/sheet-grid/")) return "@marktiderman/genesis-ui/sheet-grid";
+  // Router adapters: one subpath per router, never re-exported from the root
+  // (each router is an optional peer), so the root would be a broken import.
+  if (rel.startsWith("router/")) {
+    return `@marktiderman/genesis-ui/router/${basename(rel).replace(/\.(tsx|ts)$/, "")}`;
+  }
   return "@marktiderman/genesis-ui";
 }
 

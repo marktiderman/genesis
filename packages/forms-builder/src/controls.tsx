@@ -6,6 +6,31 @@ import { Switch } from "@marktiderman/genesis-ui/switch";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { cn } from "@marktiderman/genesis-ui/utils";
 
+/**
+ * The editing controls of a panel. In a `readOnly` builder it is a disabled
+ * `<fieldset>`, which turns off every input, select, switch and button inside
+ * it at once (also those of a host's own field-type panel), while the panel
+ * around it, such as the rows that open a question, stays usable.
+ */
+export function Editable({ readOnly, className, children }: { readOnly?: boolean | undefined; className?: string; children: ReactNode }) {
+  return (
+    <fieldset
+      disabled={!!readOnly}
+      className={cn(
+        "m-0 min-w-0 border-0 p-0",
+        // Disabled text fields fade to placeholder grey by default, which makes
+        // the content this mode exists to show hard to read. Keep the text at
+        // full contrast and mark the fields as off with a muted fill instead.
+        readOnly && "[&_:is(input,textarea):disabled]:bg-muted/50 [&_:is(input,textarea):disabled]:opacity-100",
+        className,
+      )}
+      data-readonly={readOnly ? "" : undefined}
+    >
+      {children}
+    </fieldset>
+  );
+}
+
 /** A labelled control. `hint` sits under the control. */
 export function Row({
   label,

@@ -78,6 +78,7 @@ report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 | Arrow-key list navigation                                     | `useKeyboardNavigation`                                                            | `/hooks/use-keyboard-navigation`                                  |
 | Reorderable list: drag, keyboard, row-menu moves             | `SortableList`                                                                     | `/sortable-list`                                                  |
 | Persisted page size / density                                 | `useViewSettings`                                                                  | `/hooks/use-view-settings`                                        |
+| Client-side links, navigate, URL filters on your router       | `ReactRouterLink` / `TanStackRouterLink` and their `use…Navigate`, `use…SearchParams`, `use…ActivePath` hooks | `/router/react-router`, `/router/tanstack-router`                 |
 
 ## Import rule
 
@@ -105,6 +106,17 @@ generated (`pnpm gen:component-reference`); do not edit it by hand.
 
 ## Wiring into an app
 
+**Data provider and query cache.** If the app already has a TanStack `QueryClientProvider`,
+mount `DataProviderRoot` inside it (or pass `queryClient` to `GenesisProvider`). Plain
+`GenesisProvider` creates its own `QueryClient`, a second cache that app invalidations never
+reach. On Supabase with RLS, configure `createSupabaseProvider(client, { binTables, resources,
+onWrite })` instead of writing a local adapter: zero-row updates/deletes and Postgres error codes
+come back as typed `DataWriteError` outcomes (`forbidden`, `gone`, `invalid`,
+`unauthenticated`), recycle-bin tables count "gone from view" as success, and per-resource
+`prepare` / `create` / `update` / `toFormValues` / `invalidates` cover RPC writes, form shapes and
+related query keys. Branch on `isDataWriteError(e) && e.outcome`, never on the message. Details:
+`packages/core/README.md`.
+
 **Tailwind class scanning.** Tailwind v4 skips git-ignored paths such as `node_modules`, so genesis-ui's classes
 are missing unless the app points at them. Import the shipped source entry — never hardcode an
 `@source` path into `node_modules`:
@@ -114,8 +126,35 @@ are missing unless the app points at them. Import the shipped source entry — n
 @import "@marktiderman/genesis-ui/styles.css"; /* = @source over the package's dist/ */
 ```
 
+**Router adapters.** genesis-ui never imports a router from its root or layer subpaths. Links default
+to a plain `<a>` and navigation to a full page load until you inject an adapter. Take the shipped one
+for your router; do not hand-write it. Each lives on its own subpath with its router as an optional
+peer, so the other router is never installed or bundled.
+
+```tsx
+// React Router v7
+import {
+  ReactRouterLink,
+  useReactRouterActivePath,
+  useReactRouterNavigate,
+  useReactRouterSearchParams,
+} from "@marktiderman/genesis-ui/router/react-router";
+// TanStack Router: the same four, named TanStackRouterLink / useTanStackRouter…,
+// from "@marktiderman/genesis-ui/router/tanstack-router".
+
+<AppShell linkComponent={ReactRouterLink} activePath={useReactRouterActivePath()} … />
+<ResourcePage detail="route" onNavigate={useReactRouterNavigate()} … />
+useDataFilters("orders", defs, { searchParams: useReactRouterSearchParams() });
+```
+
+The link takes Genesis's string `href` (`/admin?tab=users#top`) and keeps its query and hash; the
+TanStack one parses the query with the router's own `parseSearch`, so `validateSearch` sees what a
+typed `<Link search>` would give it. Genesis owns the active state: the adapters never add a
+router's own `aria-current` or `active` class. Absolute URLs leave the app as plain anchors or a
+document navigation. Next.js needs no adapter: pass `next/link` as `linkComponent`.
+
 **Active nav items with `?query` / `#hash`.** Pass the full location as `activePath`
-(`pathname + search + hash`). Plain items still match on the path; an item whose `to` carries a
+(`pathname + search + hash`, which `use…ActivePath()` above returns). Plain items still match on the path; an item whose `to` carries a
 query or hash (`/admin?tab=users`, `/settings#profile`) is active only when those match too.
 Do not write a custom `isActive` for this. `isPathActive(to, activePath, { end: true })` is the
 exact-path variant.

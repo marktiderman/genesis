@@ -6,6 +6,8 @@ export default defineConfig([
     entry: {
       index: "src/index.ts",
       scaffolder: "src/scaffolder.ts",
+      doctor: "src/doctor/index.ts",
+      vite: "src/vite.ts",
     },
     format: ["esm"],
     dts: true,
@@ -16,7 +18,7 @@ export default defineConfig([
     minify: false,
     target: "es2022",
     outExtension: () => ({ js: ".js" }),
-    external: ["commander", "postgres", "@marktiderman/genesis-studio-server"],
+    external: ["commander", "postgres", "@marktiderman/genesis-studio-server", "vite"],
   },
   {
     entry: {
@@ -32,6 +34,6 @@ export default defineConfig([
     target: "es2022",
     outExtension: () => ({ js: ".js" }),
     banner: { js: "#!/usr/bin/env node" },
-    external: ["commander", "postgres", "@marktiderman/genesis-studio-server"],
+    external: ["commander", "postgres", "@marktiderman/genesis-studio-server", "vite"],
   },
 ]);
