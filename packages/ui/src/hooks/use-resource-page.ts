@@ -68,6 +68,12 @@ export interface UseResourcePageProps<T> {
    * a table on desktops); only an explicit pick is persisted.
    */
   defaultView?: ViewModeDefault;
+  /**
+   * Where the table/cards/list choice is remembered. Default: `resource`,
+   * else one key shared by every keyless page — so pages without a
+   * `resource` (rows passed in) should each set their own.
+   */
+  viewKey?: string;
   /** Detail interaction mode. */
   detail?: "panel" | "modal" | "route" | "none";
   /** Field used for the detail title. Defaults to first column key. */
@@ -263,11 +269,12 @@ export function useResourcePage<T = Record<string, unknown>>(
     initialFilters,
     onFiltersChange,
     controlled = false,
+    viewKey,
   } = props;
 
   // -- View mode --
   const [viewMode, setViewMode] = useViewPreference(
-    resource ?? "resource-page",
+    viewKey ?? resource ?? "resource-page",
     defaultView,
   );
 
