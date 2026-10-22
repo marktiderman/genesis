@@ -46,10 +46,35 @@ export function setIdGenerator(fn?: IdGenerator | null): void {
   generateId = fn ?? randomId;
 }
 
-/** A new id from the current generator (random by default). */
+/** A new id from the current generator (random by default). It may repeat one already in a form: use `freshId` there. */
 export function newId(prefix: string): string {
   return generateId(prefix);
 }
+
+/** Every id in a form: blocks, rules, endings and the form's own. */
+export function formIds(def: FormDefinition): Set<string> {
+  return new Set([def.id, ...def.blocks.map((b) => b.id), ...(def.logic ?? []).map((r) => r.id), ...(def.endings ?? []).map((e) => e.id)]);
+}
+
+/**
+ * A new id not in `taken` (a form's ids, or any list). It asks the current
+ * generator again until it gets an unused one, so a host generator (a counter
+ * in tests) may restart; after 1000 repeats it falls back to random ids.
+ */
+export function freshId(prefix: string, taken: FormDefinition | Iterable<string>): string {
+  const used = isForm(taken) ? formIds(taken) : new Set(taken);
+  for (let i = 0; i < 1000; i++) {
+    const id = generateId(prefix);
+    if (!used.has(id) && !RESERVED.has(id)) return id;
+  }
+  for (;;) {
+    const id = randomId(prefix);
+    if (!used.has(id)) return id;
+  }
+}
+
+const isForm = (v: FormDefinition | Iterable<string>): v is FormDefinition =>
+  typeof v === "object" && v !== null && "blocks" in v && Array.isArray((v as FormDefinition).blocks);
 
 /** `"How was class?"` → `"how_was_class"`. Always a valid, non-empty key. */
 export function slugKey(text: string, fallback = "question"): string {
@@ -125,12 +150,7 @@ export function defaultProps(
       return { max: 5 };
     case "single-choice":
     case "multi-choice":
-      return {
-        options: [
-          { value: newOptionValue(), label: "Option 1" },
-          { value: newOptionValue(), label: "Option 2" },
-        ],
-      };
+      return { options: withOptionValues([{ label: "Option 1" }, { label: "Option 2" }]) };
     default:
       return undefined;
   }
@@ -149,7 +169,7 @@ export function createField(def: FormDefinition, spec: NewField, editors?: reado
   const label = spec.label ?? editorFor(editors, spec.type)?.label ?? getFieldType(spec.type)?.label ?? "Question";
   const block: FieldBlock = {
     kind: "field",
-    id: newId("q"),
+    id: freshId("q", def),
     key: uniqueName(spec.key ?? slugKey(label), fieldKeys(def)),
     type: spec.type,
     label,
@@ -160,12 +180,20 @@ export function createField(def: FormDefinition, spec: NewField, editors?: reado
   return block;
 }
 
-export function createContent(type: ContentBlock["type"], text = type === "heading" ? "Heading" : "Text"): ContentBlock {
-  return { kind: "content", id: newId(type === "heading" ? "h" : "t"), type, text };
+/** A heading or text block. Pass `def` so its id is unused there. */
+export function createContent(
+  type: ContentBlock["type"],
+  text = type === "heading" ? "Heading" : "Text",
+  def?: FormDefinition,
+): ContentBlock {
+  const prefix = type === "heading" ? "h" : "t";
+  return { kind: "content", id: def ? freshId(prefix, def) : newId(prefix), type, text };
 }
 
-export function createPageBreak(title?: string): PageBreakBlock {
-  return title ? { kind: "page-break", id: newId("page"), title } : { kind: "page-break", id: newId("page") };
+/** A page break. Pass `def` so its id is unused there. */
+export function createPageBreak(title?: string, def?: FormDefinition): PageBreakBlock {
+  const id = def ? freshId("page", def) : newId("page");
+  return title ? { kind: "page-break", id, title } : { kind: "page-break", id };
 }
 
 /** Insert `block` at `index` (default: the end). */
@@ -175,10 +203,13 @@ export function insertBlock(def: FormDefinition, block: Block, index = def.block
   return { ...def, blocks };
 }
 
+/** Optional members that also take `undefined` (meaning "remove it"), under exactOptionalPropertyTypes too. */
+type PatchOf<T> = { [K in keyof T]?: T[K] | undefined };
+
 export type BlockPatch =
-  | Partial<Omit<FieldBlock, "kind" | "id">>
-  | Partial<Omit<ContentBlock, "kind" | "id">>
-  | Partial<Omit<PageBreakBlock, "kind" | "id">>;
+  | PatchOf<Omit<FieldBlock, "kind" | "id">>
+  | PatchOf<Omit<ContentBlock, "kind" | "id">>
+  | PatchOf<Omit<PageBreakBlock, "kind" | "id">>;
 
 /**
  * Change a block. `undefined` in the patch removes that property, so an
@@ -256,14 +287,15 @@ export function blockIdPrefix(block: Block): string {
 
 /**
  * A copy right after the original, with a new id and key. Rules are not
- * copied. Pass `copyId` (from `newId(blockIdPrefix(block))`) to keep the edit
- * pure; without it a new id is made here.
+ * copied. Pass `copyId` (from `freshId(blockIdPrefix(block), def)`) to keep
+ * the edit pure; without it a new id is made here. A `copyId` already in the
+ * form changes nothing.
  */
 export function duplicateBlock(def: FormDefinition, id: string, copyId?: string): FormDefinition {
   const index = def.blocks.findIndex((b) => b.id === id);
   if (index === -1) return def;
   const original = def.blocks[index]!;
-  const newBlockId = copyId ?? newId(blockIdPrefix(original));
+  const newBlockId = copyId ?? freshId(blockIdPrefix(original), def);
   if (def.blocks.some((b) => b.id === newBlockId)) return def;
   let copy: Block;
   if (original.kind === "field") {
@@ -349,9 +381,15 @@ export function setOptions(
   );
 }
 
-/** `options` with a fresh `newOptionValue()` for each one that has none. Call it outside a reducer. */
+/** `options` with a new value, unused among them, for each one that has none. Call it outside a reducer. */
 export function withOptionValues<T extends { value?: string; label: string }>(options: readonly T[]): (T & { value: string })[] {
-  return options.map((o) => (o.value ? (o as T & { value: string }) : { ...o, value: newOptionValue() }));
+  const taken = new Set(options.flatMap((o) => (o.value ? [o.value] : [])));
+  return options.map((o) => {
+    if (o.value) return o as T & { value: string };
+    const value = freshId("opt", taken);
+    taken.add(value);
+    return { ...o, value };
+  });
 }
 
 /** Drop the values `gone` matches from the "is one of" lists that compare field `id`. */

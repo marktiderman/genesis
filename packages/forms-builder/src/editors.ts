@@ -8,8 +8,15 @@ export type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: s
 export interface FieldPanelProps {
   def: FormDefinition;
   field: FieldBlock;
-  /** Patch this field (`updateBlock`). Pass `coalesce` for keystroke edits, so they undo as one step. */
-  set: (patch: BlockPatch, coalesce?: string) => void;
+  /**
+   * Patch this field (`updateBlock`). Pass a function to build the patch from
+   * the field as it is when the edit runs: `field` is the rendered one, so two
+   * `set({ props: { ...field.props, … } })` calls in one handler would lose
+   * the first. Pass `coalesce` for keystroke edits, so they undo as one step.
+   */
+  set: (patch: BlockPatch | ((latest: FieldBlock) => BlockPatch), coalesce?: string) => void;
+  /** Merge into this field's latest props; `undefined` removes a prop. */
+  setProps: (props: Record<string, Json | undefined>, coalesce?: string) => void;
   /** Apply any edit to the definition. */
   apply: Apply;
 }
@@ -49,7 +56,7 @@ export interface FieldTypeEditor extends FieldTypeDefaults {
 /** Which non-question blocks the Add menu offers. Default: all of them. */
 export interface BlockKinds {
   /** Headings and text: `false` for none, or the content types to offer. */
-  content?: boolean | ContentBlock["type"][] | undefined;
+  content?: boolean | readonly ContentBlock["type"][] | undefined;
   pageBreak?: boolean | undefined;
 }
 

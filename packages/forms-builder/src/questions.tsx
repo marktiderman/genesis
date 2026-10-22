@@ -7,6 +7,7 @@ import {
   type Block,
   type FieldBlock,
   type FormDefinition,
+  type Json,
 } from "@marktiderman/genesis-forms";
 import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Button } from "@marktiderman/genesis-ui/button";
@@ -30,16 +31,15 @@ import {
   defaultProps,
   duplicateBlock,
   insertBlock,
-  newId,
+  freshId,
   moveBlock,
-  newOptionValue,
   removeBlock,
   setOptions,
   updateBlock,
   withOptionValues,
 } from "./ops";
 
-import { contentTypes, editorFor, useBuilderConfig, type Apply, type BuilderConfig } from "./editors";
+import { contentTypes, editorFor, useBuilderConfig, type Apply, type BuilderConfig, type FieldPanelProps } from "./editors";
 
 const TEXT_TYPES = new Set(["short-text", "long-text", "email", "phone"]);
 
@@ -132,10 +132,10 @@ export function AddBlockMenu({
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Layout</DropdownMenuLabel>
             {content.includes("heading") ? (
-              <DropdownMenuItem onSelect={() => onAdd(() => createContent("heading"))}>Heading</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onAdd((def) => createContent("heading", undefined, def))}>Heading</DropdownMenuItem>
             ) : null}
-            {content.includes("text") ? <DropdownMenuItem onSelect={() => onAdd(() => createContent("text"))}>Text</DropdownMenuItem> : null}
-            {pageBreak ? <DropdownMenuItem onSelect={() => onAdd(() => createPageBreak())}>Page break</DropdownMenuItem> : null}
+            {content.includes("text") ? <DropdownMenuItem onSelect={() => onAdd((def) => createContent("text", undefined, def))}>Text</DropdownMenuItem> : null}
+            {pageBreak ? <DropdownMenuItem onSelect={() => onAdd((def) => createPageBreak(undefined, def))}>Page break</DropdownMenuItem> : null}
           </>
         ) : null}
       </DropdownMenuContent>
@@ -261,7 +261,7 @@ export function QuestionsPanel({
                   </Button>
                   <Button variant="ghost" size="icon" aria-label={`Duplicate "${name}"`} onClick={() => {
                       // The id is made here, not in the edit: edits must stay pure.
-                      const copyId = newId(blockIdPrefix(block));
+                      const copyId = freshId(blockIdPrefix(block), def);
                       apply((d) => duplicateBlock(d, block.id, copyId));
                     }}
                   >
@@ -301,8 +301,22 @@ export function QuestionsPanel({
 }
 
 export function BlockInspector({ def, block, apply }: { def: FormDefinition; block: Block; apply: Apply }) {
-  const set = (patch: Parameters<typeof updateBlock>[2], coalesce?: string) =>
-    apply((d) => updateBlock(d, block.id, patch), coalesce);
+  // A function patch reads the block as it is when the edit runs, not as rendered.
+  const set: FieldPanelProps["set"] = (patch, coalesce) =>
+    apply((d) => {
+      if (typeof patch !== "function") return updateBlock(d, block.id, patch);
+      const latest = d.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === block.id);
+      return latest ? updateBlock(d, block.id, patch(latest)) : d;
+    }, coalesce);
+  const setProps: FieldPanelProps["setProps"] = (props, coalesce) =>
+    set((latest) => {
+      const next: Record<string, Json> = { ...latest.props };
+      for (const [k, v] of Object.entries(props)) {
+        if (v === undefined) delete next[k];
+        else next[k] = v;
+      }
+      return { props: Object.keys(next).length ? next : undefined };
+    }, coalesce);
 
   const config = useBuilderConfig();
   if (block.kind === "content") {
@@ -332,18 +346,20 @@ export function BlockInspector({ def, block, apply }: { def: FormDefinition; blo
       />
     );
   }
-  return <FieldInspector def={def} field={block} set={set} apply={apply} />;
+  return <FieldInspector def={def} field={block} set={set} setProps={setProps} apply={apply} />;
 }
 
 function FieldInspector({
   def,
   field,
   set,
+  setProps,
   apply,
 }: {
   def: FormDefinition;
   field: FieldBlock;
-  set: (patch: Parameters<typeof updateBlock>[2], coalesce?: string) => void;
+  set: FieldPanelProps["set"];
+  setProps: FieldPanelProps["setProps"];
   apply: Apply;
 }) {
   const config = useBuilderConfig();
@@ -393,7 +409,7 @@ function FieldInspector({
           onCommit={(key) => set({ key })}
         />
       </div>
-      {Panel ? <Panel def={def} field={field} set={set} apply={apply} /> : null}
+      {Panel ? <Panel def={def} field={field} set={set} setProps={setProps} apply={apply} /> : null}
       {!Panel && TEXT_TYPES.has(field.type) ? (
         <TextRow
           label="Placeholder"
@@ -510,7 +526,7 @@ function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
         variant="outline"
         size="sm"
         data-testid="builder-option-add"
-        onClick={() => save([...options, { value: newOptionValue(), label: `Option ${options.length + 1}` }])}
+        onClick={() => save([...options, { label: `Option ${options.length + 1}` }])}
       >
         <Plus /> Add option
       </Button>

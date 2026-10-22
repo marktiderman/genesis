@@ -46,11 +46,15 @@ import { FormBuilder, diffDefinitions, getTemplate } from "@marktiderman/genesis
 | `palette` | The field types authors can add, in this order (the Add menu and the Type select). |
 | `fieldEditors` | `FieldTypeEditor[]`: per type, `label`, `category`, `icon`, `defaultProps(def)`, a settings `Panel`, a logic `ConditionValue` editor and `starterValue(field, op)`. Each one is asked before the built-in behaviour. |
 | `blockKinds` | `{ content?: boolean \| ("heading" \| "text")[]; pageBreak?: boolean }`: which layout blocks the Add menu offers. |
-| `previewRegistry` | Renderers for the preview's `<Form>`, such as `defaultRegistry.extend([...])` for custom types. |
+| `previewRegistry` | The preview's `<Form registry>`. It replaces `defaultRegistry`, so pass `defaultRegistry.extend([...])` with your types, not a registry of your types alone. |
 | `previewValidators` | Custom validators by field id for the preview's engine. |
 
 The host still owns templates: pass the one it picked as `defaultValue`. `setIdGenerator(fn)`
 replaces the random id generator (for example with a counter in tests); `setIdGenerator()` restores it.
+New ids go through `freshId(prefix, def)`, which asks again while the id is already in the form, so
+a counter that restarts is fine. A generator that always returns the same id falls back to random ids.
+A field-type `Panel` gets `set(patch | (latest) => patch)` and `setProps(partial)`. Both read the field as
+it is when the edit runs, so several calls in one handler all apply.
 
 - **Questions:** add any registered field type, headings, text and page breaks; reorder by drag or
   arrows; duplicate; edit label, description, key, placeholder, options, required, identifying and

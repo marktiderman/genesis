@@ -37,7 +37,7 @@ export function Preview({
   brand?: FormBrand | undefined;
   /** Sample values for hidden inputs, so recall and logic on them can be tried. */
   hidden?: Record<string, string | number | boolean> | undefined;
-  /** Renderers for custom field types, passed to `<Form>`. */
+  /** Passed to `<Form registry>`, replacing `defaultRegistry`: extend it (`defaultRegistry.extend([...])`). */
   registry?: RendererRegistry | undefined;
   /** Custom validators by field id, for the preview's engine. Read when a response starts (or Restart). */
   validators?: Record<string, FieldValidator> | undefined;

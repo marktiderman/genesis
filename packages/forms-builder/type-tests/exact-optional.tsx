@@ -56,3 +56,38 @@ export const builder = (
 );
 
 export const findings = <FindingsList findings={[]} onJump={maybe.onJump} />;
+
+// Field-type editors, their panels and block patches: `undefined` means "leave out" or "remove".
+import type { BlockPatch, FieldPanelProps, BlockKinds as Kinds } from "@marktiderman/genesis-forms-builder";
+import type { FieldBlock, Json, Operator } from "@marktiderman/genesis-forms";
+
+declare const maybeEditor: {
+  label?: string;
+  category?: string;
+  icon?: ReactNode;
+  defaultProps?: (def: FormDefinition) => Record<string, Json> | undefined;
+  starterValue?: (field: FieldBlock, op: Operator) => Json;
+};
+
+export const editor: FieldTypeEditor = {
+  type: "rows",
+  label: maybeEditor.label,
+  category: maybeEditor.category,
+  icon: maybeEditor.icon,
+  defaultProps: maybeEditor.defaultProps,
+  starterValue: maybeEditor.starterValue,
+  Panel: undefined,
+  ConditionValue: undefined,
+};
+
+export const panel = ({ field, set, setProps }: FieldPanelProps) => {
+  set({ description: undefined });
+  set({ props: field.props });
+  set((latest) => ({ props: latest.props, required: undefined }));
+  setProps({ max: undefined, min: 1 });
+  return null;
+};
+
+const contentTypes = ["heading"] as const;
+export const kinds: Kinds = { content: contentTypes, pageBreak: undefined };
+export const patch: BlockPatch = { label: "Q", placeholder: undefined };

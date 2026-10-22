@@ -77,7 +77,11 @@ export interface FormBuilderProps {
   fieldEditors?: readonly FieldTypeEditor[] | undefined;
   /** Which non-question blocks authors may add. Default: headings, text and page breaks. */
   blockKinds?: BlockKinds | undefined;
-  /** Renderers for the preview's `<Form>`, for custom field types. */
+  /**
+   * The preview's renderers. It replaces `defaultRegistry` (it is `<Form registry>`),
+   * so extend that one rather than passing only your own types:
+   * `defaultRegistry.extend([{ type: "rows", Component: Rows }])`.
+   */
   previewRegistry?: RendererRegistry | undefined;
   /** Custom validators for the preview, by field id (as `createForm` takes them). */
   previewValidators?: Record<string, FieldValidator> | undefined;

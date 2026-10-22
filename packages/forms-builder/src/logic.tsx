@@ -26,7 +26,7 @@ import {
   defaultEndingId,
   HIDDEN_OPERATORS,
   moveRule,
-  newId,
+  freshId,
   operatorsFor,
   removeRule,
   starterCondition,
@@ -100,7 +100,7 @@ export function starterRule(
   const fields = fieldsOf(def);
   const source = fields[0];
   if (!source) return null;
-  const id = newId("rule");
+  const id = freshId("rule", def);
   if (effect === "jump") {
     const later = def.blocks.slice(def.blocks.indexOf(source) + 1).find((b) => b.kind !== "page-break");
     const ending = defaultEndingId(def);
@@ -118,6 +118,26 @@ export function starterRule(
   return { id, effect, when: starterCondition(source, editors), target: target.id };
 }
 
+/**
+ * The value a comparison keeps when its operator changes to `op`. Built-in
+ * types switch between a list ("is one of") and a single value. A type with a
+ * field editor owns its value shape: its `starterValue` for the new operator,
+ * else the current value as it is (a list stays a list).
+ */
+export function valueForOperator(
+  field: FieldBlock | undefined,
+  op: Operator,
+  current: Json | undefined,
+  editors?: readonly FieldTypeDefaults[],
+): Json {
+  const editor = field ? editors?.find((e) => e.type === field.type) : undefined;
+  if (field && editor) return editor.starterValue ? editor.starterValue(field, op) : (current ?? starterValue(field, op, editors));
+  let value: Json = current ?? (field ? starterValue(field, op, editors) : "");
+  if (op === "in" && !Array.isArray(value)) value = value === "" ? [] : [value];
+  if (op !== "in" && Array.isArray(value)) value = value[0] ?? "";
+  return value;
+}
+
 export function LogicPanel({ def, apply, findings }: { def: FormDefinition; apply: Apply; findings: Finding[] }) {
   const rules = def.logic ?? [];
   const [open, setOpen] = useState<string | null>(null);
@@ -129,6 +149,8 @@ export function LogicPanel({ def, apply, findings }: { def: FormDefinition; appl
     setOpen(rule.id);
   };
   const canAdd = fieldsOf(def).length > 0 && def.blocks.length > 1;
+  // A jump needs somewhere to go: a later step, or an ending.
+  const canJump = canAdd && starterRule(def, "jump", config.fieldEditors) !== null;
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
@@ -192,10 +214,15 @@ export function LogicPanel({ def, apply, findings }: { def: FormDefinition; appl
         <Button variant="outline" size="sm" disabled={!canAdd} onClick={() => add("show")} data-testid="builder-add-rule-show">
           <Plus /> Show/hide rule
         </Button>
-        <Button variant="outline" size="sm" disabled={!canAdd} onClick={() => add("jump")} data-testid="builder-add-rule-jump">
+        <Button variant="outline" size="sm" disabled={!canJump} onClick={() => add("jump")} data-testid="builder-add-rule-jump">
           <Plus /> Jump rule
         </Button>
       </div>
+      {canAdd && !canJump ? (
+        <p className="text-xs text-muted-foreground" data-testid="builder-jump-hint">
+          A jump needs a later question or an ending to go to. Add an ending (or a question after the first one) to make one.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -203,22 +230,30 @@ export function LogicPanel({ def, apply, findings }: { def: FormDefinition; appl
 export function RuleEditor({ def, rule, onChange }: { def: FormDefinition; rule: LogicRule; onChange: (rule: LogicRule) => void }) {
   const blocks = def.blocks;
   const steps = blocks.filter((b) => b.kind !== "page-break");
+  // Where a show/hide rule turned into a jump would go: the default ending, or
+  // with none (a form without endings) the next step. Null: nowhere, so it is not offered.
+  const jumpFrom = rule.effect === "jump" ? rule.from : (steps.find((b) => b.kind === "field")?.id ?? steps[0]?.id ?? "");
+  const defaultEnding = defaultEndingId(def);
+  const nextStep = steps[steps.findIndex((b) => b.id === jumpFrom) + 1];
+  const jumpTo: Extract<LogicRule, { effect: "jump" }>["to"] | null = defaultEnding ? { ending: defaultEnding } : (nextStep?.id ?? null);
   const effectOptions: Choice[] = [
     { value: "show", label: "Show a question only when…" },
     { value: "hide", label: "Hide a question when…" },
-    { value: "jump", label: "Jump after a question when…" },
+    ...(rule.effect === "jump" || jumpTo ? [{ value: "jump", label: "Jump after a question when…" }] : []),
   ];
+  const goTo: Choice[] =
+    rule.effect === "jump"
+      ? [
+          ...steps.slice(steps.findIndex((b) => b.id === rule.from) + 1).map((b) => ({ value: `block:${b.id}`, label: blockLabel(b) })),
+          ...(def.endings ?? []).map((e) => ({ value: `ending:${e.id}`, label: `End: ${e.title}` })),
+        ]
+      : [];
 
   const setEffect = (effect: string) => {
     if (effect === rule.effect) return;
     if (effect === "jump") {
-      const from = rule.effect === "jump" ? rule.from : (steps.find((b) => b.kind === "field")?.id ?? steps[0]?.id ?? "");
-      // The default ending, or with none (a form without endings) the next step.
-      const ending = defaultEndingId(def);
-      const next = steps[steps.findIndex((b) => b.id === from) + 1];
-      const to = ending ? { ending } : next?.id;
-      if (to === undefined) return;
-      onChange({ id: rule.id, effect: "jump", when: rule.when, from, to });
+      if (!jumpTo) return;
+      onChange({ id: rule.id, effect: "jump", when: rule.when, from: jumpFrom, to: jumpTo });
     } else {
       const target = rule.effect === "jump" ? (steps.at(-1)?.id ?? "") : rule.target;
       onChange({ id: rule.id, effect: effect as "show" | "hide", when: rule.when, target });
@@ -245,14 +280,17 @@ export function RuleEditor({ def, rule, onChange }: { def: FormDefinition; rule:
           />
         )}
       </div>
-      {rule.effect === "jump" ? (
+      {rule.effect === "jump" && !goTo.length ? (
+        <p className="rounded-md bg-warning/15 px-3 py-2 text-xs text-amber-800 dark:text-amber-200" data-testid="builder-jump-no-target">
+          Nothing comes after this question and the form has no ending, so this jump has nowhere to go. Pick an earlier
+          question above, or add an ending.
+        </p>
+      ) : null}
+      {rule.effect === "jump" && goTo.length ? (
         <SelectRow
           label="Go to"
           value={typeof rule.to === "string" ? `block:${rule.to}` : `ending:${rule.to.ending}`}
-          options={[
-            ...steps.slice(steps.findIndex((b) => b.id === rule.from) + 1).map((b) => ({ value: `block:${b.id}`, label: blockLabel(b) })),
-            ...(def.endings ?? []).map((e) => ({ value: `ending:${e.id}`, label: `End: ${e.title}` })),
-          ]}
+          options={goTo}
           hint="A jump only moves forward: earlier questions are not offered."
           onChange={(v) =>
             onChange({ ...rule, to: v.startsWith("ending:") ? { ending: v.slice("ending:".length) } : v.slice("block:".length) })
@@ -376,10 +414,7 @@ function ClauseEditor({
   const setOp = (op: Operator) => {
     if (UNARY_OPERATORS.has(op)) return onChange({ op, left: clause.left });
     const current = clause.right && "value" in clause.right ? clause.right.value : undefined;
-    let value: Json = current ?? (field ? starterValue(field, op, fieldEditors) : "");
-    if (op === "in" && !Array.isArray(value)) value = value === "" ? [] : [value];
-    if (op !== "in" && Array.isArray(value)) value = value[0] ?? "";
-    onChange({ op, left: clause.left, right: { value } });
+    onChange({ op, left: clause.left, right: { value: valueForOperator(field, op, current, fieldEditors) } });
   };
 
   return (
