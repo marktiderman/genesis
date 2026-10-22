@@ -1,0 +1,43 @@
+packages/ui/src/components/data/__tests__/resource-page-url-state.test.tsx
+  s_9bf81edc5cc904::t_c6d51bfdd2e01a 1-5,7-9,11-120,122-124,165-166
+  s_9bf81edc5cc904::t_bf9595e22af684 6,10,125-164
+  s_9bf81edc5cc904::t_c236ab8467e450 121
+.changeset/resource-url-state.md
+  s_9bf81edc5cc904::t_608a086a0326e9 1-13
+packages/ui/src/hooks/use-resource-url-state.ts
+  s_9bf81edc5cc904::t_6b360d500c9cfd 5
+  s_9bf81edc5cc904::t_20e9b633bb46c6 1-4,6-125
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_9bf81edc5cc904::t_608a086a0326e9 86-97
+packages/ui/SKILL.md
+  s_9bf81edc5cc904::t_5c1d92ea1645ed 139-141
+packages/core/src/hooks/use-resource.ts
+  s_9bf81edc5cc904::t_0ec3a825258a0d 40-43,128-129,150,152
+packages/ui/src/hooks/index.ts
+  s_9bf81edc5cc904::t_6b360d500c9cfd 15-20
+packages/ui/src/components/data/ResourcePage.tsx
+  s_9bf81edc5cc904::t_9ef3db7665615d 1099-1109,1171,1509,1522,1545,1959
+  s_9bf81edc5cc904::t_6b360d500c9cfd 57-60,69-73,687-698,814
+  s_9bf81edc5cc904::t_fff2729909125c 1172,1291-1301
+  s_9bf81edc5cc904::t_dfd42f1f5f0b2b 837-853,898-906,941-952,971-972,996
+  s_9bf81edc5cc904::t_afc5b51875ab0d 1302
+apps/sample/app/data/primitives.json
+  s_9bf81edc5cc904::t_5c1d92ea1645ed 12832-12837
+  s_9bf81edc5cc904::t_ceb02329883cc9 12831
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6bc315b3c9fba92698d13fc0446786a33faa5d14",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
