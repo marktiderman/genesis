@@ -7915,8 +7915,15 @@
               "name": "description",
               "type": "ReactNode",
               "required": false,
-              "defaultValue": "This can't be undone.",
-              "description": "Default \"This can't be undone.\""
+              "defaultValue": "kind === \"recycle\"\n    ? \"It moves to the recycle bin, where it can be restored.\"\n    : \"This can't be undone.\"",
+              "description": "Default by `kind`: \"This can't be undone.\", or \"It moves to the recycle\nbin, where it can be restored.\""
+            },
+            {
+              "name": "kind",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "permanent",
+              "description": "What happens to the record: `\"permanent\"` (default) or `\"recycle\"` when\na delete moves it to a recycle bin. Sets the default description."
             },
             {
               "name": "title",

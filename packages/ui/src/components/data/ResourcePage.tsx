@@ -66,7 +66,8 @@ import {
   type SortParam,
 } from "@marktiderman/genesis-core/provider";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
-import type { WizardStep } from "@marktiderman/genesis-core/hooks";
+import { useCapabilities, type WizardStep } from "@marktiderman/genesis-core/hooks";
+import { toast } from "../ui/sonner";
 import {
   defaultNavigate,
   type NavigateFn,
@@ -1204,6 +1205,11 @@ export function ResourcePage<
   const [pendingDelete, setPendingDelete] = useState<T | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const { remove: removeRecord } = resourceHook;
+  // A recycle-bin resource says so in the confirm step instead of "can't be undone".
+  const { data: providerCaps } = useCapabilities(resourceName, {
+    enabled: useBuiltInDelete && deleteConfirmed,
+  });
+  const deleteKind = providerCaps?.softDelete ? "recycle" : "permanent";
 
   const performDelete = useCallback(
     async (item: T) => {
@@ -1244,7 +1250,11 @@ export function ResourcePage<
       : useBuiltInDelete
         ? (item: T) => {
             performDelete(item).catch((err: unknown) => {
-              console.error("ResourcePage: delete failed", err);
+              // useResource has already handed the failure to
+              // `resourceOptions.onError`; without one, the user is told.
+              if (!resourceOptions?.onError) {
+                toast.error(err instanceof Error ? err.message : "The delete failed.");
+              }
             });
           }
         : // Unconfirmed `onDelete` keeps its original contract exactly:
@@ -2045,6 +2055,7 @@ export function ResourcePage<
             onOpenChange: setDeleteOpen,
             onConfirm: () =>
               pendingDelete ? performDelete(pendingDelete) : undefined,
+            kind: deleteKind,
             title:
               typeof deleteCopy?.title === "function"
                 ? pendingDelete

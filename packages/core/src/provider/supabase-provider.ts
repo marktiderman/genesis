@@ -457,7 +457,7 @@ export function createSupabaseProvider(
       return { data: result.data ?? [] } as never;
     },
 
-    async capabilities(): Promise<ProviderCapabilities> {
+    async capabilities(resource?: string): Promise<ProviderCapabilities> {
       return {
         search: true,
         sort: true,
@@ -469,6 +469,7 @@ export function createSupabaseProvider(
         create: true,
         delete: true,
         maxPerPage,
+        softDelete: resource ? isBinTable(resource) : false,
       };
     },
 
