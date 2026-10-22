@@ -28,7 +28,7 @@ export default function FormsBuilderRoute() {
         </p>
         <div className="flex flex-wrap gap-2">
           {TEMPLATES.map((t) => (
-            <Button key={t.id} size="sm" variant={t.id === template ? "default" : "outline"} onClick={() => load(t.id)}>
+            <Button key={t.id} testID={`template-${t.id}`} size="sm" variant={t.id === template ? "default" : "outline"} onClick={() => load(t.id)}>
               {t.name}
             </Button>
           ))}
@@ -39,6 +39,7 @@ export default function FormsBuilderRoute() {
         defaultValue={start}
         actions={(def, analysis) => (
           <Button
+            testID="builder-publish"
             size="sm"
             disabled={!analysis.canPublish}
             onClick={() => {
