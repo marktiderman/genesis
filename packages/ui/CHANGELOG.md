@@ -1,5 +1,102 @@
 # @marktiderman/genesis-ui
 
+## 2.9.0
+
+### Minor Changes
+
+- 0156f89: Follow-ups to #91 and #94 (data-table accessibility and URL state):
+
+  - **One tab stop per table:** a clickable row's open column (the first column that isn't `editable`, or the new `openColumn` prop) is a button named by its content. The table has a single tab stop (a roving tabindex), and ↑/↓, j/k and Home/End move it. Rows themselves are no longer tab stops. `openColumn={null}` makes no cell a button.
+  - **Sort announcements:** `aria-sort` is set on the primary sort column only. A secondary sort says its direction and priority in its button's name, and the priority digit is hidden from that name.
+  - **Checkboxes:** the select-all and row checkboxes are labelled ("Select all rows", "Select Ada").
+  - **Linked records:** with `urlState`, a linked record outside the loaded rows (another page, or outside the search) is fetched with `getOne`. One that's gone or unreadable opens a "Record not found" peek. A URL sort is used only when it names a sortable column, and `?id=` is ignored when `detail` is `"none"` or `"route"`.
+
+- 0156f89: **Forms: unsaved-changes guard, field-level server errors, and optimistic / undoable writes.** Additive; defaults keep today's behaviour.
+
+  - **`warnWhenUnsaved`** on `useResourceForm` and `ResourceForm` (default off). While the form is dirty, closing or reloading the tab prompts; `ResourceForm` asks before Cancel / Esc / outside click close it. `useResourceForm` returns `isDirty` and `confirmLeave()`, and `ResourceForm` reports them through `onDirtyChange`, for router blockers (SKILL.md "Unsaved changes" shows React Router and TanStack Router `useBlocker`). New core `useUnsavedChangesGuard({ when, message, confirm })`.
+  - **Field-level server errors.** `DataWriteError` gains optional `fields` (field → safe message), and `DataWriteErrorOptions.fields`. `useResourceForm` sets each on its field (`setError(field, { type: "server" })`), focuses the first, and keeps a summary in `errors.root`. The Supabase provider maps `23505` unique (column from PostgREST's `details`), `23502` not-null and `23503` missing foreign key to their columns via the new `fieldErrorsFromPostgrest`; when it does, the error's message becomes a plain sentence ("Email is already in use.") instead of the database's text, which stays on `cause`.
+  - **`mutationMode`** (`"pessimistic"` default | `"optimistic"` | `"undoable"`) on `useResource`'s `create` / `update` / `remove`, `useResourceForm`, `ResourceForm` and `ResourcePage`, with `undoDelayMs` (default 5000) and `onUndoable(write)`. Optimistic patches the TanStack Query list and detail caches at once and rolls back (reporting through `onError`) on failure. Undoable also offers an undo and sends after the delay, or at once with `provider.undo` when capabilities report `undo`. Waiting writes are sent when the hook unmounts or the tab closes. genesis-ui shows a sonner Undo toast and toasts background failures. New exports: `MutationMode`, `MutationModeOptions`, `UndoableWrite`, `DEFAULT_UNDO_DELAY_MS`, `pendingWriteCount`.
+  - `useResourceForm`'s `onSuccess` fires at once in optimistic / undoable modes (with the submitted values over the record); `useResource`'s `onCreateSuccess` / `onUpdateSuccess` / `onDeleteSuccess` still fire after the commit.
+
+- 0156f89: DataTable works by keyboard and screen reader:
+
+  - A sortable header is a real button (Tab, then Enter or Space; Shift adds a secondary sort), and its cell carries `aria-sort`.
+  - With `onRowClick`, rows are tab stops: Enter or Space opens one, ↑/↓ (or j/k) and Home/End move between rows, and x toggles selection when `selectable`. Keys typed into a control inside a row stay there.
+  - New `keyboardNavigation` prop (default true) turns the row keys off.
+
+  ResourcePage passes its `keyboardNavigation` through, so table view is keyboard-navigable too.
+
+- 0156f89: DataTable runs on TanStack Table, and every existing prop keeps working:
+
+  - **Typed sorting:** numbers, dates and booleans sort by value. Before, everything sorted as text, so "100" came before "2". Ties keep the items' order.
+  - **Virtualization:** `virtualize` (or `{ height, estimateRowHeight }`) renders only the rows in view for an unpaged table (`pagination={false}`). Row keyboard movement scrolls the next row into view.
+  - **Pinning:** `pinnedColumns={{ left, right }}` keeps columns in view when scrolling sideways, and the selection and actions columns pin with them. `stickyFirstColumn` is now shorthand for pinning the first column left.
+  - **Reordering:** drag a header, or press Alt+←/→ on its sort button. `columnOrderKey` keeps the order per device, and the Columns menu's "Reset to defaults" restores it. `reorderableColumns={false}` turns it off.
+
+  `@tanstack/react-table` and `@tanstack/react-virtual` are now dependencies. `react-virtual` was an optional peer before.
+
+- 0156f89: Deletes say what they do and never fail silently:
+
+  - `ProviderCapabilities.softDelete`: a delete moves the record to a recycle bin. The Supabase provider reports it per resource for `binTables`.
+  - New core hook `useCapabilities(resource)`: the provider's capabilities, cached per resource.
+  - `ConfirmDeleteDialog` `kind="recycle"` reads "It moves to the recycle bin, where it can be restored." instead of "This can't be undone." The default stays `"permanent"`.
+  - `ResourcePage` asks the provider in provider mode and picks the wording itself.
+  - An unconfirmed built-in delete that fails used to go only to `console.error`. It now goes to `resourceOptions.onError` when set, or to a toast otherwise.
+
+- 0156f89: The Supabase provider's reads are stable and fail in plain words:
+
+  - **Stable paging:** a sorted list also orders by the key column (`id`), so rows with equal sort values keep one order and none repeats or is skipped between pages. `resources[name].orderKey` names another column; set it to `false` for a table or view without `id`.
+  - **Safe read errors:** `getList`, `getOne` and `getMany` throw a `DataReadError`, a new export. Its `outcome` is `unauthenticated`, `forbidden`, `gone`, `invalid` or `error`. Its `message` is a sentence users can see ("These tasks couldn't be loaded."). The store's raw error is its `cause`. A new `onReadError` option sees every failed read, for logging. `readOutcomeFromCode` maps store codes.
+  - **Page cap:** `maxPerPage` (default 1000) is the largest page `getList` serves; a larger `perPage` is refused with an `invalid` `DataReadError`, and `capabilities()` reports the cap. The provider now implements `capabilities()`: search, sort, the filter operators it serves, create and delete. It reports no bulk, versioned or multi-sort writes.
+
+  ResourcePage shows a `DataReadError`'s message in its error panel when `errorMessage` isn't set.
+
+  Behaviour change: a sorted `getList` adds `.order("id")`. A resource without an `id` column needs `orderKey: false`. Read errors used to be thrown as plain `Error`s carrying the raw message.
+
+- 0156f89: `ResourcePage` takes one permission check, `can(action, item)`, with `action` being `"create"`, `"edit"` or `"delete"`. Returning false hides the New button, or that row's Edit or Delete, and the built-in edit form won't open for it. `ResourceAction` is exported.
+
+  `canEditItem`, `canEdit` and `canDelete` are deprecated. They still work alongside `can` (a row any of them refuses stays refused) and will be removed after one minor.
+
+- 0156f89: A list's state can live in the URL:
+
+  - `useResourceUrlState({ searchParams, params? })` reads and writes the open record (`id`), page, sort (`field:asc`) and search (`q`) through any `SearchParamsAdapter`: the browser's, React Router's or TanStack Router's. Opening a record adds a history entry, so Back closes it. Page, sort and search replace the entry, and default values leave the URL.
+  - `ResourcePage` takes `urlState` (an adapter, or `{ searchParams, params }` to rename keys):
+    - A copied link reopens the same record with the same search and sort.
+    - With `pagination="server"` it also restores the page.
+    - A server-controlled page owns its own page, sort and search, so it uses the hook directly.
+  - genesis-core: `useResource` gains `defaultPage` and `defaultSearch` for starting where a restored URL says.
+
+### Patch Changes
+
+- 0156f89: Release #92 review fixes:
+
+  - `ResourcePage` (client table view): a header sort is the page's sort, so `urlState` writes it to `sort`, and a link's `sort` shows in the table header on load. `DataTable` takes an optional controlled `sort` / `onSortChange` (new `DataTableSort` type) for this.
+  - `useResourceUrlState` reads `page` only as a positive safe integer; a page of hundreds of digits (`Infinity`) is ignored.
+  - `DataTable`: when the open column is `editable` or has a `render`, the row's open button sits beside the cell content (shown when focused, still the row's one tab stop) instead of wrapping it, so a rendered link or input is never nested in a button. The open button handles only its own keys, so typing j/k/x/Home/End/arrows in a cell editor is never swallowed.
+
+- 0156f89: - Supabase provider: a per-resource `searchFields` sets the columns a search covers. `[]` makes `capabilities(resource).search` false, so a UI hides the search box.
+  - ResourcePage: a caller's unconfirmed `onDelete` that rejects is reported to `resourceOptions.onError` or shown as a toast, instead of becoming an unhandled rejection.
+- 0156f89: DataTable follow-ups from the #105 review:
+
+  - A virtualized table tells screen readers the full row count and each row's position (`aria-rowcount`, `aria-rowindex`).
+  - Blank values sort last in both directions.
+  - Remembered column visibility, width and order no longer throw when storage is unavailable (Safari private mode, a full quota).
+  - A stored column order is used only when it's a list of column keys.
+
+- 0156f89: ResourcePage: column `width`, `minWidth` and `defaultVisible` now work when the page fetches its own rows (`resource=`), not only with `data`. `gen-exports.mjs` keeps the `./router/react-router` and `./router/tanstack-router` subpaths on regeneration and gains a `--check` mode.
+- 0156f89: Fix: every ResourcePage without a `resource` (rows passed in through `data`) shared one remembered table/cards choice, so picking cards on one list switched every other list to cards. The choice is now kept per page, under the same key as its density and page size (`viewSettingsKey`, else `resource`, else the title). `useResourcePage` gains a `viewKey` option.
+
+  A caller's unconfirmed `onDelete` is called right away again (#104 had deferred it by a tick). A throw or a rejection is still reported.
+
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+- Updated dependencies [0156f89]
+  - @marktiderman/genesis-core@1.5.0
+
 ## 2.8.0
 
 ### Minor Changes
