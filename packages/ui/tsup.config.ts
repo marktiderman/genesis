@@ -57,6 +57,11 @@ export default defineConfig({
     // Experimental spreadsheet grid, on its own subpath so nobody else
     // inherits its @tanstack/react-virtual peer (DATA-STUDIO.md decision 20).
     "src/components/sheet-grid/sheet-grid.tsx",
+    // Rich text, on its own subpaths so only apps that import the editor
+    // need the optional @tiptap/* peers. `/rich-text` (renderer + server-safe
+    // helpers) never imports Tiptap.
+    "src/components/rich-text/rich-text.tsx",
+    "src/components/rich-text/rich-text-editor.tsx",
   ],
   format: ["esm"],
   dts: true,
@@ -77,6 +82,7 @@ export default defineConfig({
     "@marktiderman/genesis-design-system",
     /^@radix-ui\//,
     /^@tanstack\//,
+    /^@tiptap\//,
     "@hookform/resolvers",
     "react-hook-form",
     "zod",

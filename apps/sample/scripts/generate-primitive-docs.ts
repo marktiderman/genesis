@@ -99,6 +99,10 @@ const NON_COMPONENT_FILES = new Set([
   "status-colors",
   "nativewind.d",
   "supabase-provider",
+  // Rich text's pure document helpers and its Tiptap node: no React
+  // components, but react-docgen reads every exported function as one.
+  "rich-text-doc",
+  "video-embed",
 ]);
 
 function findComponentFiles(rootDir: string): string[] {
@@ -249,6 +253,11 @@ function deriveWebSubpath(filePath: string): string {
   // Experimental grid on its own subpath, kept out of the root and /data so
   // nobody else inherits its @tanstack/react-virtual peer.
   if (rel.startsWith("components/sheet-grid/")) return "@marktiderman/genesis-ui/sheet-grid";
+  // Rich text: the editor (Tiptap peers) and the editor-free renderer are
+  // separate subpaths, so the file decides which one.
+  if (rel === "components/rich-text/rich-text-editor.tsx")
+    return "@marktiderman/genesis-ui/rich-text-editor";
+  if (rel.startsWith("components/rich-text/")) return "@marktiderman/genesis-ui/rich-text";
   return "@marktiderman/genesis-ui";
 }
 
@@ -261,7 +270,8 @@ function deriveNativeSubpath(filePath: string): string {
 function pickPrimaryComponent(components: ComponentDoc[]): ComponentDoc {
   // Heuristic: prefer the component whose name matches the file basename
   // (Card / Button / DataTable). Falls back to the first declared component.
-  const stem = basename(components[0].filePath).replace(/\.(tsx|ts)$/, "");
+  // Hyphens are ignored so `rich-text-editor.tsx` matches `RichTextEditor`.
+  const stem = basename(components[0].filePath).replace(/\.(tsx|ts)$/, "").replace(/-/g, "");
   const match = components.find(
     (c) => c.displayName.toLowerCase() === stem.toLowerCase() ||
       c.displayName.toLowerCase() === `native${stem}`.toLowerCase()
