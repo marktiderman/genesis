@@ -78,10 +78,11 @@ package npm doesn't trust yet, and the trust expires after 48 hours unused:
 
 Publish packages that others depend on first (for forms: `genesis-forms`, then
 `-react`, then `-web` and `-devtools`). Set the package's `version` to the first
-release (e.g. `0.1.0`) and leave it out of the changeset. A changeset bumping a
-`0.0.0` package puts its `workspace:^` dependents out of range, and changesets
-then gives them a major bump (`1.0.0`). Every later version goes through CI as
-usual.
+release (e.g. `0.1.0`) by hand, not with a changeset bump from `0.0.0`: that
+puts its `workspace:^` dependents out of range, and changesets then gives them
+a major bump (`1.0.0`). Its patch changeset (step 3) bumps that first version,
+so CI publishes the next one (e.g. `0.1.1`). Every later version goes through
+CI as usual.
 
 ## Forms packages and 0.x peer ranges
 
