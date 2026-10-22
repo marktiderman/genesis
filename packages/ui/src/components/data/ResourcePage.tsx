@@ -530,10 +530,8 @@ export interface ResourcePageProps<
   /**
    * Imperative navigation used only when `detail="route"` (navigates to
    * `/{resource}/{id}` on row click). Defaults to a full-page navigation.
-   * Router consumers pass their navigate fn: `useReactRouterNavigate()` from
-   * `@marktiderman/genesis-ui/router/react-router`,
-   * `useTanStackRouterNavigate()` from `/router/tanstack-router`, or Next
-   * `router.push`.
+   * Router consumers pass their navigate fn — e.g. RR `useNavigate()` or
+   * Next `router.push`.
    */
   onNavigate?: NavigateFn;
 

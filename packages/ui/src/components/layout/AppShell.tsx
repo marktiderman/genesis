@@ -191,9 +191,8 @@ export interface AppShellProps {
   onCollapsedChange?: (collapsed: boolean) => void;
   /**
    * Injectable link component. Defaults to a plain `<a>` (no router). Pass a
-   * router adapter to get client-side navigation: `ReactRouterLink` from
-   * `@marktiderman/genesis-ui/router/react-router`, `TanStackRouterLink` from
-   * `/router/tanstack-router`, or Next.js `next/link` as is.
+   * router adapter — e.g. React Router `({ href, ...p }) => <Link to={href} {...p} />`
+   * or Next.js `next/link` — to get client-side navigation.
    */
   linkComponent?: LinkComponent;
   /**

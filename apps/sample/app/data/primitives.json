@@ -5245,7 +5245,7 @@
               "type": "LinkComponent",
               "required": false,
               "defaultValue": "({\n  href,\n  children,\n  testID,\n  ...rest\n}) => (\n  <a href={href} data-testid={testID} {...rest}>\n    {children}\n  </a>\n)",
-              "description": "Injectable link component. Defaults to a plain `<a>` (no router). Pass a\nrouter adapter to get client-side navigation: `ReactRouterLink` from\n`@marktiderman/genesis-ui/router/react-router`, `TanStackRouterLink` from\n`/router/tanstack-router`, or Next.js `next/link` as is."
+              "description": "Injectable link component. Defaults to a plain `<a>` (no router). Pass a\nrouter adapter — e.g. React Router `({ href, ...p }) => <Link to={href} {...p} />`\nor Next.js `next/link` — to get client-side navigation."
             },
             {
               "name": "logo",
@@ -12311,7 +12311,7 @@
               "type": "NavigateFn",
               "required": false,
               "defaultValue": null,
-              "description": "Imperative navigation used only when `detail=\"route\"` (navigates to\n`/{resource}/{id}` on row click). Defaults to a full-page navigation.\nRouter consumers pass their navigate fn: `useReactRouterNavigate()` from\n`@marktiderman/genesis-ui/router/react-router`,\n`useTanStackRouterNavigate()` from `/router/tanstack-router`, or Next\n`router.push`."
+              "description": "Imperative navigation used only when `detail=\"route\"` (navigates to\n`/{resource}/{id}` on row click). Defaults to a full-page navigation.\nRouter consumers pass their navigate fn — e.g. RR `useNavigate()` or\nNext `router.push`."
             },
             {
               "name": "onPageChange",
