@@ -59,6 +59,7 @@ export {
   type Highlight,
   type RowsColumn,
   type TimestampNote,
+  WORKSHEET_FIELD_TYPES,
 } from "./worksheet";
 export { recall } from "./recall";
 export { validateField, REQUIRED_MESSAGE, type FieldValidator, type StandardSchemaV1 } from "./validate";

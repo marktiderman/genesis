@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { parseForm, type FieldBlock, type FormDefinition } from "@marktiderman/genesis-forms";
-import { createField, emptyForm, FormBuilder, paletteTypes, SMACTALK_COLUMNS, type FieldTypeEditor } from "../index";
+import { WORKSHEET_FIELD_TYPES } from "@marktiderman/genesis-forms";
+import { createField, defaultPalette, emptyForm, FormBuilder, paletteTypes, SMACTALK_COLUMNS, type FieldTypeEditor } from "../index";
 
-const WORKSHEET_TYPES = ["list", "rows", "timestamp-notes", "highlights"];
+const WORKSHEET_TYPES = [...WORKSHEET_FIELD_TYPES];
+const worksheetPalette = [...defaultPalette(), ...WORKSHEET_FIELD_TYPES];
 
 const withField = (field: Omit<FieldBlock, "kind" | "id" | "key">): FormDefinition => ({
   ...emptyForm("worksheet"),
@@ -11,8 +13,14 @@ const withField = (field: Omit<FieldBlock, "kind" | "id" | "key">): FormDefiniti
 });
 
 describe("worksheet field types in the builder", () => {
-  it("lists them in the palette, with icons", () => {
-    const entries = paletteTypes();
+  it("leaves them out of the default palette, so existing hosts don't change", () => {
+    const types = paletteTypes().map((e) => e.type);
+    expect(types).toContain("short-text");
+    for (const type of WORKSHEET_TYPES) expect(types, type).not.toContain(type);
+  });
+
+  it("lists them, with icons, for a host that opts in", () => {
+    const entries = paletteTypes({ palette: worksheetPalette });
     for (const type of WORKSHEET_TYPES) {
       const entry = entries.find((e) => e.type === type);
       expect(entry, type).toBeTruthy();
@@ -44,7 +52,7 @@ describe("worksheet field types in the builder", () => {
 
   it("lets a host editor replace the built-in one", () => {
     const host: FieldTypeEditor = { type: "rows", label: "Takeaways" };
-    const entry = paletteTypes({ fieldEditors: [host] }).find((e) => e.type === "rows");
+    const entry = paletteTypes({ palette: worksheetPalette, fieldEditors: [host] }).find((e) => e.type === "rows");
     expect(entry).toMatchObject({ label: "Takeaways" });
     expect(entry!.icon).toBeUndefined();
   });

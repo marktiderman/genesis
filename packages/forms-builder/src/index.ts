@@ -7,7 +7,7 @@ export {
   type FormBuilderProps,
 } from "./FormBuilder";
 export { Preview } from "./preview";
-export { QuestionsPanel, BlockInspector, AddBlockMenu, paletteTypes, type PaletteEntry } from "./questions";
+export { QuestionsPanel, BlockInspector, AddBlockMenu, defaultPalette, paletteTypes, type PaletteEntry } from "./questions";
 export { LogicPanel, RuleEditor, ConditionEditor, describeRule, jumpTarget, OPERATOR_LABEL, starterRule, valueForOperator } from "./logic";
 export { EndingsPanel, SettingsPanel, JsonPanel } from "./settings";
 export {

@@ -91,6 +91,13 @@ export const MAX_HIGHLIGHT_NOTE_LENGTH = 1000;
 export const HIGHLIGHT_NOTE_MESSAGE = "Add a note to each highlight.";
 const subjectText = (field: FieldBlock) => (typeof field.props?.text === "string" && field.props.text ? field.props.text : undefined);
 
+/**
+ * The worksheet field types. They're registered like any other, but the builder
+ * offers them only to a host that names them in its palette (`FormBuilder palette`),
+ * so forms that never had them don't change.
+ */
+export const WORKSHEET_FIELD_TYPES = ["list", "rows", "timestamp-notes", "highlights"] as const;
+
 export const worksheetFieldTypes: FieldTypeManifest[] = [
   {
     type: "list", label: "List", category: "text", value: { json: true },

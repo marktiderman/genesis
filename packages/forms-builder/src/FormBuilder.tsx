@@ -71,7 +71,7 @@ export interface FormBuilderProps {
   actions?: ((value: FormDefinition, analysis: Analysis, state: BuilderActionsState) => ReactNode) | undefined;
   /** Read the value synchronously, run the checks now, or commit pending drafts. */
   ref?: Ref<FormBuilderHandle> | undefined;
-  /** The field types authors may add, in this order (palette and Type select). Default: every registered type. */
+  /** The field types authors may add, in this order (palette and Type select). Default: `defaultPalette()`, every registered type except the worksheet types. */
   palette?: readonly string[] | undefined;
   /** How the builder edits particular field types: label, defaults, settings panel, logic value editor. */
   fieldEditors?: readonly FieldTypeEditor[] | undefined;
