@@ -218,6 +218,17 @@ const baseExports = {
     types: "./dist/components/rich-text/rich-text-editor.d.ts",
     import: "./dist/components/rich-text/rich-text-editor.js",
   },
+  // Router adapters, each on its own subpath so the root entry never imports
+  // `react-router` or `@tanstack/react-router` (optional peers). Each also
+  // needs its `tsup.config.ts` entry.
+  "./router/react-router": {
+    types: "./dist/router/react-router.d.ts",
+    import: "./dist/router/react-router.js",
+  },
+  "./router/tanstack-router": {
+    types: "./dist/router/tanstack-router.d.ts",
+    import: "./dist/router/tanstack-router.js",
+  },
   // Tailwind v4 `@source` entry — a CSS file, so a bare string target. It is
   // copied into dist/ by the `build` script, not emitted by tsup.
   "./styles.css": "./dist/styles.css",
@@ -240,9 +251,33 @@ for (const name of components) {
   };
 }
 
-const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+const before = readFileSync(pkgPath, "utf8");
+const pkg = JSON.parse(before);
 pkg.exports = { ...baseExports, ...componentExports };
-writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+const after = JSON.stringify(pkg, null, 2) + "\n";
+
+// `--check`: report drift without writing. A regeneration that would change
+// package.json (for example, drop a hand-added subpath missing from
+// `baseExports`) exits 1 and names the keys it would add or remove.
+if (process.argv.includes("--check")) {
+  if (after === before) {
+    console.log("[gen-exports] OK — package.json exports match the generator");
+    process.exit(0);
+  }
+  const had = Object.keys(JSON.parse(before).exports ?? {});
+  const has = Object.keys(pkg.exports);
+  const removed = had.filter((k) => !has.includes(k));
+  const added = has.filter((k) => !had.includes(k));
+  console.error(
+    `[gen-exports] package.json exports drift from the generator.` +
+      (removed.length ? ` Would remove: ${removed.join(", ")}.` : "") +
+      (added.length ? ` Would add: ${added.join(", ")}.` : "") +
+      (!removed.length && !added.length ? " Entries or order differ." : ""),
+  );
+  process.exit(1);
+}
+
+writeFileSync(pkgPath, after);
 
 console.log(
   `[gen-exports] wrote ${components.length} per-component subpaths + ${Object.keys(baseExports).length} curated subpaths`,
