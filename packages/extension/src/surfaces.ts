@@ -104,12 +104,18 @@ async function openFrame(
   if (options.mode === "bar") query.set("bar", "1");
   const src = api.runtime.getURL(`${options.page}?${query}`);
   const layout = options.mode === "bar" ? "bar" : "card";
+  // The open's secret, minted here and kept where only the extension's own
+  // pages can read it (session storage isn't open to content scripts by
+  // default), so the surface can tell it was opened by this extension and
+  // not framed by the page itself.
+  const nonce = crypto.randomUUID();
   try {
+    await api.storage.session?.set({ [surfaceKey(tab.id!)]: nonce });
     const run = () =>
       api.scripting!.executeScript({
         target: { tabId: tab.id! },
         func: mountSurfaceFrame,
-        args: [src, layout],
+        args: [src, layout, nonce],
       });
     const [first] = await run();
     if (options.open && first?.result === "closed") {
@@ -140,6 +146,7 @@ async function openFrame(
 export function mountSurfaceFrame(
   src: string,
   layout: "card" | "bar" = "card",
+  nonce: string = crypto.randomUUID(),
 ): "opened" | "closed" {
   const state = ((globalThis as Record<string, unknown>).__gxSurface ||=
     {}) as {
@@ -151,7 +158,6 @@ export function mountSurfaceFrame(
     state.close?.();
     return "closed";
   }
-  const nonce = crypto.randomUUID();
   // The origin the surface page really has. With use_dynamic_url, `src` is the
   // per-session address, but the page it loads is at the extension's own
   // origin, chrome-extension://<id> (checked in Chrome).
@@ -293,6 +299,19 @@ export interface Surface {
    * (panel and bar; always true elsewhere). Check it before a sensitive action.
    */
   visible(): boolean;
+  /**
+   * Panel and bar: resolves true once the page is confirmed to have been
+   * opened by this extension (the open's secret matches the one the service
+   * worker minted for this tab), false when a web page framed it itself.
+   * Until it's true the page stays hidden. Await it before reading the tab
+   * or doing anything for the user. Always true elsewhere.
+   */
+  ready: Promise<boolean>;
+}
+
+/** Where openSurface keeps a tab's current open secret (chrome.storage.session). */
+export function surfaceKey(tabId: number): string {
+  return `genesis-extension:surface:${tabId}`;
 }
 
 /**
@@ -322,13 +341,24 @@ export function connectSurface({
   const pageListeners = new Set<(url: string) => void>();
   const send = (message: unknown) =>
     port ? port.postMessage(message) : queue.push(message);
+  const tabId = params.has("tab") ? Number(params.get("tab")) : null;
+  let ready: Promise<boolean> = Promise.resolve(true);
   if (framed) {
     const nonce = surfaceSecret();
-    const onConnect = (e: MessageEvent) => {
+    // Hidden until confirmed: a page that frames the surface itself shows nothing.
+    document.documentElement.style.visibility = "hidden";
+    ready = verifySecret(tabId, nonce).then((ok) => {
+      if (ok) document.documentElement.style.visibility = "";
+      else document.documentElement.dataset.gxUntrusted = "";
+      return ok;
+    });
+    const onConnect = async (e: MessageEvent) => {
       if (e.source !== window.parent || e.data?.type !== "gx-connect") return;
       if (!nonce || e.data.nonce !== nonce || !e.ports[0]) return;
+      const offered = e.ports[0];
+      if (!(await ready) || port) return;
       window.removeEventListener("message", onConnect);
-      port = e.ports[0];
+      port = offered;
       port.onmessage = (m: MessageEvent) => {
         if (m.data?.type === "gx-page-changed") {
           for (const listener of pageListeners) listener(String(m.data.url));
@@ -368,7 +398,8 @@ export function connectSurface({
 
   const surface: Surface = {
     mode,
-    tabId: params.has("tab") ? Number(params.get("tab")) : null,
+    tabId,
+    ready,
     close() {
       if (framed) send({ type: "gx-close" });
       else if (mode === "side" && getChrome().sidePanel?.close) {
@@ -408,6 +439,20 @@ function surfaceSecret(): string {
     window.name = "";
   }
   return secret;
+}
+
+async function verifySecret(
+  tabId: number | null,
+  nonce: string,
+): Promise<boolean> {
+  if (!nonce || tabId === null || !Number.isInteger(tabId)) return false;
+  try {
+    const key = surfaceKey(tabId);
+    const stored = await getChrome().storage.session?.get(key);
+    return Boolean(stored) && stored![key] === nonce;
+  } catch {
+    return false;
+  }
 }
 
 function whenBody(run: (body: HTMLElement) => void) {
