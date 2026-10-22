@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Copy, GripVertical, Plus, Trash2, X } from "lucide-react";
 import {
   choiceOptions,
   getFieldType,
@@ -12,6 +12,7 @@ import {
 } from "@marktiderman/genesis-forms";
 import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Button } from "@marktiderman/genesis-ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@marktiderman/genesis-ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -218,7 +219,8 @@ export function QuestionsPanel({
                 setDragging(null);
               }}
             >
-              <div className="flex items-center gap-2 p-3">
+              {/* In a narrow column the actions wrap to a second line rather than squeeze the title away. */}
+              <div className="flex flex-wrap items-center gap-2 p-3">
                 {/* Only the handle drags, so selecting text in the row (or in its inspector) still works. */}
                 {readOnly ? null : (
                 <span
@@ -242,22 +244,25 @@ export function QuestionsPanel({
                 )}
                 <button
                   type="button"
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  // Badges wrap under the title before it shrinks below 5rem; past that it truncates.
+                  className="flex min-w-32 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-left"
                   aria-expanded={open}
                   onClick={() => onSelect(open ? null : block.id)}
                   data-testid={`builder-block-toggle-${block.id}`}
                 >
                   <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">{index + 1}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
+                  <span className="min-w-20 flex-1 truncate text-sm font-medium" title={name} data-testid={`builder-block-title-${block.id}`}>
+                    {name}
+                  </span>
                   <Badge variant="muted" className="shrink-0">
                     {block.kind === "field" ? typeLabel(block.type, config) : block.kind === "content" ? block.type : "page"}
                   </Badge>
-                  {block.kind === "field" && block.required ? <Badge variant="outline">Required</Badge> : null}
-                  {rules ? <Badge variant="info">{rules} rule{rules === 1 ? "" : "s"}</Badge> : null}
-                  {blockFindings.length ? <Badge variant="warning">{blockFindings.length}</Badge> : null}
+                  {block.kind === "field" && block.required ? <Badge variant="outline" className="shrink-0">Required</Badge> : null}
+                  {rules ? <Badge variant="info" className="shrink-0">{rules} rule{rules === 1 ? "" : "s"}</Badge> : null}
+                  {blockFindings.length ? <Badge variant="warning" className="shrink-0">{blockFindings.length}</Badge> : null}
                 </button>
                 {readOnly ? null : (
-                <div className="flex shrink-0 items-center">
+                <div className="ml-auto flex shrink-0 items-center">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -398,13 +403,13 @@ function FieldInspector({
     else set({ type, props: defaultProps(type, { def, editors: config.fieldEditors }) });
   };
   const anonymous = !!def.settings?.anonymous;
+  const flagged = [field.identifying && "Identifies the respondent", field.sensitive && "Sensitive"].filter(Boolean);
   return (
     <div className="space-y-4">
       <TextRow
         label="Question"
         value={field.label}
         testID="builder-field-label"
-        hint="Use {{field:key}} or {{hidden:name}} to repeat an earlier answer, with a fallback after |."
         onChange={(label) => set({ label }, `label:${field.id}`)}
       />
       <TextRow
@@ -413,22 +418,13 @@ function FieldInspector({
         value={field.description ?? ""}
         onChange={(description) => set({ description }, `description:${field.id}`)}
       />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SelectRow
-          label="Type"
-          value={field.type}
-          options={types}
-          hint="Changing the type resets its settings and removes rules that compare this question. Between single and multiple choice, the options and the rules that still fit stay."
-          onChange={setType}
-        />
-        <DraftRow
-          label="Key"
-          value={field.key}
-          testID="builder-field-key"
-          hint="The column name in exports and the name used in {{field:…}}. Renaming updates its uses."
-          onCommit={(key) => set({ key })}
-        />
-      </div>
+      <SelectRow
+        label="Type"
+        value={field.type}
+        options={types}
+        hint="Changing the type resets its settings and removes rules that compare this question. Between single and multiple choice, the options and the rules that still fit stay."
+        onChange={setType}
+      />
       {Panel ? <Panel def={def} field={field} set={set} setProps={setProps} apply={apply} readOnly={!!config.readOnly} /> : null}
       {!Panel && TEXT_TYPES.has(field.type) ? (
         <TextRow
@@ -462,30 +458,53 @@ function FieldInspector({
         />
       ) : null}
       {!Panel && isChoice ? <OptionsEditor field={field} apply={apply} /> : null}
-      <div className="space-y-3 rounded-md border p-3">
-        <SwitchRow
-          label="Required"
-          checked={!!field.required}
-          testID="builder-field-required"
-          onChange={(required) => set({ required })}
-        />
-        <SwitchRow
-          label="Identifies the respondent"
-          hint={
-            anonymous
-              ? "This form is anonymous, so this question is not asked."
-              : "Name, email, phone. Not asked when the form is anonymous."
-          }
-          checked={!!field.identifying}
-          onChange={(identifying) => set({ identifying })}
-        />
-        <SwitchRow
-          label="Sensitive"
-          hint="Masked in developer tools and left out of share links."
-          checked={!!field.sensitive}
-          onChange={(sensitive) => set({ sensitive })}
-        />
-      </div>
+      <SwitchRow
+        label="Required"
+        checked={!!field.required}
+        testID="builder-field-required"
+        onChange={(required) => set({ required })}
+      />
+      {/* Read-only viewers can't press the trigger (the fieldset is disabled), so they see it open. */}
+      <Collapsible className="rounded-md border" defaultOpen={!!config.readOnly}>
+        <CollapsibleTrigger
+          className="group flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          data-testid="builder-field-advanced"
+        >
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+          Advanced
+          {flagged.length ? (
+            <span className="min-w-0 truncate text-xs font-normal text-muted-foreground">{flagged.join(", ")}</span>
+          ) : null}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 border-t p-3">
+          <DraftRow
+            label="Answer name"
+            value={field.key}
+            testID="builder-field-key"
+            hint="Used as the column heading in exports. Changing it updates places that repeat this answer."
+            onCommit={(key) => set({ key })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional: to repeat an earlier answer in this question, type {"{{field:its-answer-name}}"}.
+          </p>
+          <SwitchRow
+            label="Identifies the respondent"
+            hint={
+              anonymous
+                ? "This form is anonymous, so this question is skipped."
+                : "Turn on for questions like name, email or phone. Skipped when the form is anonymous."
+            }
+            checked={!!field.identifying}
+            onChange={(identifying) => set({ identifying })}
+          />
+          <SwitchRow
+            label="Sensitive"
+            hint="Hidden from share links and support tools."
+            checked={!!field.sensitive}
+            onChange={(sensitive) => set({ sensitive })}
+          />
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

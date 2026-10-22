@@ -49,6 +49,8 @@ export function Preview({
   const [run, setRun] = useState(0);
   const parsed = useMemo(() => given ?? parseForm(def), [given, def]);
   const form = parsed.ok ? parsed.form : null;
+  // Headings and text alone ask nothing: the form would read "Question 1 of 0".
+  const empty = !!form && !form.blocks.some((b) => b.kind === "field");
   const hiddenKey = hidden ? canonicalJson(hidden) : "";
   const key = useMemo(
     () => (form ? `${structureFingerprint(form)}:${layout}:${run}:${hiddenKey}` : ""),
@@ -112,7 +114,12 @@ export function Preview({
       </div>
       <div className="mx-auto w-full max-w-sm overflow-hidden rounded-[1.75rem] border-4 border-foreground/10 bg-background shadow-sm">
         <div className="h-[36rem] overflow-y-auto p-4">
-          {form && engine ? (
+          {empty ? (
+            <div className="flex h-full flex-col items-center justify-center gap-1 p-4 text-center" data-testid="builder-preview-empty">
+              <p className="text-sm font-medium">Add a question to see it here.</p>
+              <p className="text-xs text-muted-foreground">The preview shows the form as people will fill it in.</p>
+            </div>
+          ) : form && engine ? (
             // No onSubmit: a completed engine then shows its ending, also after a wording edit remounts it.
             <Form form={form} engine={engine} layout={layout} brand={brand} {...(registry ? { registry } : {})} />
           ) : (

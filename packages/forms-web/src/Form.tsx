@@ -176,6 +176,7 @@ function DefaultBrand({ name, logo, className }: BrandSlotProps) {
 function DefaultProgress({ step, total, className }: ProgressSlotProps) {
   const { presentation } = useFormPresentation();
   const page = presentation === "page";
+  if (!total) return null;
   // In page mode the bar fills with questions answered (empty on the first), like Typeform.
   const percent = total ? Math.round(((page ? step - 1 : step) / total) * 100) : 0;
   // Not a live region: focus moving to the question is the announcement.
@@ -790,7 +791,8 @@ function FormBody({
         )
       : null;
   const progress =
-    layout === "focus"
+    // No questions on the path: no "Question 1 of 0".
+    layout === "focus" && path.length > 0
       ? renderSlot(DefaultProgress, slots?.progress, { step, total: path.length }, slotProps?.progress)
       : null;
   const fields = (
