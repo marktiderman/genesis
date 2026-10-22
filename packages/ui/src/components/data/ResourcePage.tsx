@@ -1251,6 +1251,9 @@ export function ResourcePage<
           header: col.header ?? col.key,
           sortable: col.sortable ?? true,
           hideBelow: col.hideBelow,
+          width: col.width,
+          minWidth: col.minWidth,
+          defaultVisible: col.defaultVisible,
           editable: col.editable,
           accessor: col.accessor,
           render: col.render
