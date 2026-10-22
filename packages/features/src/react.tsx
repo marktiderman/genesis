@@ -76,25 +76,32 @@ function facet(
   return { key, label, icon, options: unique(values).map((value) => ({ value })), selected, onChange };
 }
 
-function FeatureCard({ feature }: { feature: FeatureRecord }) {
+/** A card that opens the feature's detail. A button, so it works from the keyboard on the board too. */
+function FeatureCard({ feature, onOpen }: { feature: FeatureRecord; onOpen: () => void }) {
   return (
-    <div className="space-y-2 rounded-lg border bg-card p-3 text-card-foreground" data-feature-id={feature.id}>
-      <div className="flex items-start justify-between gap-2">
-        <p className="font-medium leading-tight">{feature.name}</p>
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Open ${feature.name}`}
+      data-feature-id={feature.id}
+      className="block w-full space-y-2 rounded-lg border bg-card p-3 text-left text-card-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="flex items-start justify-between gap-2">
+        <span className="font-medium leading-tight">{feature.name}</span>
         <FeatureStatusBadge status={feature.status} />
-      </div>
-      <p className="text-sm text-muted-foreground">{feature.summary}</p>
-      <p className="text-xs text-muted-foreground">
+      </span>
+      <span className="block text-sm text-muted-foreground">{feature.summary}</span>
+      <span className="block text-xs text-muted-foreground">
         {feature.owner} · {feature.apps.join(", ")} · {feature.audience.join(", ")}
-      </p>
-    </div>
+      </span>
+    </button>
   );
 }
 
 /** The page's grid view as a board, one column per status, over the rows ResourcePage has filtered. */
 function FeatureBoard(props: ComponentProps<typeof DataGrid<FeatureRecord>>) {
   if (props.viewMode !== "grid") return <DataGrid<FeatureRecord> {...props} />;
-  const { items, renderCard, onItemClick, getItemLabel } = props;
+  const { items, renderCard } = props;
   const columns = FEATURE_STATUSES.map((status) => ({
     key: status,
     label: LABEL[status],
@@ -106,21 +113,7 @@ function FeatureBoard(props: ComponentProps<typeof DataGrid<FeatureRecord>>) {
       columns={columns}
       getKey={(item) => item.id}
       emptyMessage="None"
-      renderCard={(item) => {
-        const card = renderCard(item, items.indexOf(item));
-        return onItemClick ? (
-          <button
-            type="button"
-            className="block w-full rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={getItemLabel?.(item)}
-            onClick={() => onItemClick(item)}
-          >
-            {card}
-          </button>
-        ) : (
-          card
-        );
-      }}
+      renderCard={(item) => renderCard(item, items.indexOf(item))}
     />
   );
 }
@@ -225,8 +218,8 @@ export function FeatureList({
       data={data}
       total={data.length}
       getKey={(r) => r.id}
-      getTitle={(r) => r.name}
-      getSubtitle={(r) => r.id}
+      titleField="name"
+      subtitleField="id"
       columns={[
         { key: "name", header: "Feature" },
         { key: "status", header: "Status", render: (r) => <FeatureStatusBadge status={r.status} /> },
@@ -241,8 +234,7 @@ export function FeatureList({
       filters={filters}
       detail="panel"
       renderDetail={(r) => <FeatureDetail feature={r} pathHref={pathHref} />}
-      renderCard={(r) => <FeatureCard feature={r} />}
-      openOnCardClick
+      renderCard={(r, _index, actions) => <FeatureCard feature={r} onOpen={actions.open} />}
       defaultView={defaultView === "board" ? "grid" : "table"}
       viewSettingsKey={viewSettingsKey}
       emptyMessage="No features match"
