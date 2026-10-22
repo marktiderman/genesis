@@ -67,6 +67,9 @@ import {
   stripBlockComments,
 } from './lib/color-literals.mjs';
 
+// Re-exported for checks that import it from here (check-navigation-reimplementation.mjs).
+export { stripBlockComments };
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
@@ -154,73 +157,85 @@ function isColorFnAllowlisted(relPath) {
   );
 }
 
-const args = process.argv.slice(2);
-const scanRoots = args.length > 0 ? args.map((a) => path.resolve(REPO_ROOT, a)) : [path.join(REPO_ROOT, 'apps')];
+// Exported helpers (stripBlockComments) are reused by other checks, so the
+// scan runs only when this file is executed, not when it is imported.
+function main() {
+  const args = process.argv.slice(2);
+  const scanRoots = args.length > 0 ? args.map((a) => path.resolve(REPO_ROOT, a)) : [path.join(REPO_ROOT, 'apps')];
 
-const violations = [];
+  const violations = [];
 
-for (const root of scanRoots) {
-  for (const file of walk(root)) {
-    const rel = toPosix(path.relative(REPO_ROOT, file));
-    const hexAllowed = isHexAllowlisted(rel);
-    const colorFnAllowed = isColorFnAllowlisted(rel);
-    // Only skip the file outright when BOTH detectors are exempt. A file on the
-    // color-function-only allowlist is still scanned for raw hex.
-    if (hexAllowed && colorFnAllowed) continue;
+  for (const root of scanRoots) {
+    for (const file of walk(root)) {
+      const rel = toPosix(path.relative(REPO_ROOT, file));
+      const hexAllowed = isHexAllowlisted(rel);
+      const colorFnAllowed = isColorFnAllowlisted(rel);
+      // Only skip the file outright when BOTH detectors are exempt. A file on the
+      // color-function-only allowlist is still scanned for raw hex.
+      if (hexAllowed && colorFnAllowed) continue;
 
-    const stat = fs.statSync(file);
-    if (stat.size > MAX_FILE_BYTES) continue;
+      const stat = fs.statSync(file);
+      if (stat.size > MAX_FILE_BYTES) continue;
 
-    const content = fs.readFileSync(file, 'utf8');
-    const lines = content.split('\n');
-    // Scan with block comments blanked out; report from the original lines.
-    // `//` line comments are only stripped for file types where `//` is a real
-    // line comment — never for plain CSS (see LINE_COMMENT_EXTS / stripBlockComments).
-    const hasLineComments = LINE_COMMENT_EXTS.has(path.extname(file));
-    const scanLines = stripBlockComments(content, hasLineComments).split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      // Scan the block-comment-stripped line (url()-aware; #250) through BOTH
-      // detectors (#253), each gated by its own allowlist.
-      const scanLine = scanLines[i] ?? line;
-      if (COMMENT_LINE_RE.test(scanLine)) continue;
-      const hits = [
-        ...(hexAllowed ? [] : findHexLiterals(scanLine)),
-        ...(colorFnAllowed ? [] : findColorFunctions(scanLine)),
-      ];
-      for (const hit of hits) {
-        violations.push({
-          file: rel,
-          line: i + 1,
-          column: hit.column,
-          literal: hit.literal,
-          content: line.trim(),
-        });
+      const content = fs.readFileSync(file, 'utf8');
+      const lines = content.split('\n');
+      // Scan with block comments blanked out; report from the original lines.
+      // `//` line comments are only stripped for file types where `//` is a real
+      // line comment — never for plain CSS (see LINE_COMMENT_EXTS / stripBlockComments).
+      const hasLineComments = LINE_COMMENT_EXTS.has(path.extname(file));
+      const scanLines = stripBlockComments(content, hasLineComments).split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Scan the block-comment-stripped line (url()-aware; #250) through BOTH
+        // detectors (#253), each gated by its own allowlist.
+        const scanLine = scanLines[i] ?? line;
+        if (COMMENT_LINE_RE.test(scanLine)) continue;
+        const hits = [
+          ...(hexAllowed ? [] : findHexLiterals(scanLine)),
+          ...(colorFnAllowed ? [] : findColorFunctions(scanLine)),
+        ];
+        for (const hit of hits) {
+          violations.push({
+            file: rel,
+            line: i + 1,
+            column: hit.column,
+            literal: hit.literal,
+            content: line.trim(),
+          });
+        }
       }
     }
   }
+
+  if (violations.length === 0) {
+    console.log('OK No raw color literals found. Token usage is clean.');
+    process.exit(0);
+  }
+
+  console.error(`FAIL Found ${violations.length} raw color literal(s):`);
+  console.error();
+  const printed = violations.slice(0, MAX_VIOLATIONS_PRINTED);
+  for (const v of printed) {
+    console.error(`  ${v.file}:${v.line}:${v.column}: raw color ${v.literal}`);
+    console.error(`    ${v.content}`);
+  }
+  if (violations.length > MAX_VIOLATIONS_PRINTED) {
+    console.error(`  ... and ${violations.length - MAX_VIOLATIONS_PRINTED} more.`);
+  }
+  console.error();
+  console.error('Use a token from @marktiderman/genesis-design-system or a brand');
+  console.error('extension instead of inlining a hex value. If a literal is');
+  console.error('legitimate (token definition, generated theme, test fixture),');
+  console.error('place the file under tokens/, themes/, __fixtures__/, or');
+  console.error('*.test.* — see ALLOWLIST');
+  console.error('in scripts/check-token-usage.mjs.');
+  process.exit(1);
 }
 
-if (violations.length === 0) {
-  console.log('OK No raw color literals found. Token usage is clean.');
-  process.exit(0);
-}
-
-console.error(`FAIL Found ${violations.length} raw color literal(s):`);
-console.error();
-const printed = violations.slice(0, MAX_VIOLATIONS_PRINTED);
-for (const v of printed) {
-  console.error(`  ${v.file}:${v.line}:${v.column}: raw color ${v.literal}`);
-  console.error(`    ${v.content}`);
-}
-if (violations.length > MAX_VIOLATIONS_PRINTED) {
-  console.error(`  ... and ${violations.length - MAX_VIOLATIONS_PRINTED} more.`);
-}
-console.error();
-console.error('Use a token from @marktiderman/genesis-design-system or a brand');
-console.error('extension instead of inlining a hex value. If a literal is');
-console.error('legitimate (token definition, generated theme, test fixture),');
-console.error('place the file under tokens/, themes/, __fixtures__/, or');
-console.error('*.test.* — see ALLOWLIST');
-console.error('in scripts/check-token-usage.mjs.');
-process.exit(1);
+// Run only when executed, not when imported. Compare REAL paths: through a
+// symlinked checkout (macOS /tmp -> /private/tmp) `process.argv[1]` differs
+// from `__filename` and the check would silently pass without scanning (see
+// verify-no-workspace-protocol.mjs).
+const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+const invoked = invokedPath && fs.existsSync(invokedPath) ? fs.realpathSync(invokedPath) : invokedPath;
+if (invoked === fs.realpathSync(__filename)) main();
