@@ -1,0 +1,63 @@
+packages/extension/src/surfaces.ts
+  s_18dd9cee35b819::t_8ace597a9c36b6 221,223-224
+  s_18dd9cee35b819::t_c12bf61c6f3487 139,233
+  s_18dd9cee35b819::t_19040caa376cb7 67,191-193,279-280,303-305
+  s_18dd9cee35b819::t_62056fe0d410de 1,14-26,31-32,42,60-65,71,74-83,85-93,99-100,105-107,128-129,183-190,194-209,218,227,248-252,273-278,281-302,306-316,321-323,325,329,332-333,335
+  s_18dd9cee35b819::t_491f1f26e417bf 146-147
+packages/extension/src/native.ts
+  s_18dd9cee35b819::t_86422d8337b4f2 63-72,84,89,91-92,97-104,107,113-116,119,123,137-140,150,154-162
+  s_18dd9cee35b819::t_6cc9390cb51c97 1,35,73
+  s_18dd9cee35b819::t_19040caa376cb7 85-88,93-96,129-136,151-152
+packages/extension/src/keys.ts
+  s_18dd9cee35b819::t_6cc9390cb51c97 1,45
+packages/extension/src/prefs.ts
+  s_18dd9cee35b819::t_c12bf61c6f3487 43-45
+  s_18dd9cee35b819::t_19040caa376cb7 38-40
+  s_18dd9cee35b819::t_6cc9390cb51c97 1,28,61-62
+  s_18dd9cee35b819::t_351ba5ec4995bf 5-10,36,41-42
+packages/extension/src/__tests__/core.test.ts
+  s_18dd9cee35b819::t_af8fc52843b061 1,4,7-8,16-17,27-31,40,45-46,70-83,102-109,114-116,120-124,144-145,156-158,171-172,191,199,201,205,217-218,224-254,259-266,317,321,325,334-339,341-343
+  s_18dd9cee35b819::t_72220a35924241 159-162,173-174,176-184,188-189,192-198
+  s_18dd9cee35b819::t_9ef5d33d755b4e 44,48-51,67-69,110-113,117-119,146-155,166-170,175,190,219-223,255-258,332-333
+  s_18dd9cee35b819::t_ac446125cdf2b9 185-187
+  s_18dd9cee35b819::t_ce613776618a54 200
+packages/extension/src/messaging.ts
+  s_18dd9cee35b819::t_6cc9390cb51c97 1,51,74,143
+  s_18dd9cee35b819::t_87d98dc01b22cc 32-33,38-41,43-44,95-99
+  s_18dd9cee35b819::t_19040caa376cb7 123-126
+packages/extension/src/react/index.tsx
+  s_18dd9cee35b819::t_d8d53853a47fa7 248-251,284-286,288,316
+  s_18dd9cee35b819::t_19040caa376cb7 263,270-278,287,292-293,298
+packages/extension/src/testing/index.ts
+  s_18dd9cee35b819::t_19040caa376cb7 140-142
+  s_18dd9cee35b819::t_aa5e5484ffd81e 134-135,137-139,143,186-191
+packages/extension/src/page-bar.ts
+  s_18dd9cee35b819::t_6cc9390cb51c97 1,49
+  s_18dd9cee35b819::t_86422d8337b4f2 161
+packages/extension/src/index.ts
+  s_18dd9cee35b819::t_86422d8337b4f2 6,30,32,35
+packages/extension/README.md
+  s_18dd9cee35b819::t_9985d6a1f412c3 14,16
+packages/extension/src/__tests__/types.test-d.ts
+  s_18dd9cee35b819::t_9985d6a1f412c3 1-38
+packages/extension/vitest.config.ts
+  s_18dd9cee35b819::t_9985d6a1f412c3 11-12
+packages/extension/src/chrome.ts
+  s_18dd9cee35b819::t_6cc9390cb51c97 3,11-12,120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4006fe18783ce0050ac0c1fe83907bdce5603a81",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
