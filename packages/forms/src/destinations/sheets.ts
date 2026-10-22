@@ -7,7 +7,7 @@
  * column keys and gains a column for any new key without moving the others,
  * and an `id` column holds the response id, so a redelivery is not appended
  * twice. Every write is `valueInputOption=RAW`, so Sheets stores text as
- * typed and never runs it as a formula: `@coach thanks` stays exactly that.
+ * typed and never runs it as a formula: `@team thanks` stays exactly that.
  * Text is therefore not escaped by default (a `'` would be stored literally).
  * Set `escapeFormulas` only when the sheet's text is exported and opened in
  * another spreadsheet that might run it (see `escapeFormula`).

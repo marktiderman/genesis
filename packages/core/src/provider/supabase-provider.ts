@@ -82,7 +82,7 @@ export interface SupabaseWriteContext {
 
 /** Per-resource rules for `createSupabaseProvider`. Every field is optional. */
 export interface SupabaseResourceConfig {
-  /** Singular noun for failure messages, e.g. "practice". Defaults to "record". */
+  /** Singular noun for failure messages, e.g. "project". Defaults to "record". */
   noun?: string;
   /**
    * `"bin"` for a table whose delete trigger moves the row to a recycle bin

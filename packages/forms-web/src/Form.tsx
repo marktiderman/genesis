@@ -46,7 +46,7 @@ export interface HeaderSlotProps {
   className?: string;
 }
 export interface BrandSlotProps {
-  /** The practice or business name, shown beside the logo. */
+  /** The organisation or business name, shown beside the logo. */
   name: string;
   /** An image URL or your own element. Without one, the name's initials are shown. */
   logo?: ReactNode;
@@ -406,7 +406,7 @@ export interface FormProps {
    * layout the questions are sections on one scrolling page.
    */
   presentation?: FormPresentation | undefined;
-  /** A practice's name and logo, shown small at the top of every step and on the ending. */
+  /** An organisation's or business's name and logo, shown small at the top of every step and on the ending. */
   brand?: FormBrand | undefined;
   registry?: RendererRegistry | undefined;
   /**
@@ -504,7 +504,7 @@ function FormBody({
   const errorsKey = useFormSelector(engine, (s) => JSON.stringify(s.errors));
   const ending = useFormSelector(engine, (s) => s.ending);
   const historyLength = useFormSelector(engine, (s) => s.history.length);
-  // The introduction recalls like endings do ({{field:name}}, {{hidden:coach}}), so it follows
+  // The introduction recalls like endings do ({{field:name}}, {{hidden:owner}}), so it follows
   // the answers; a string, so it re-renders only when the recalled text changes.
   const description = useFormSelector(engine, () => (def.description ? engine.text(def.description) : undefined));
   const path = JSON.parse(pathKey) as string[];

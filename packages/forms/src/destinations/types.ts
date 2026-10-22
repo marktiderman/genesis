@@ -23,14 +23,14 @@ export interface DeliverySubmission {
   answers: Record<string, Json>;
   /** Untrusted URL and host inputs. */
   hidden?: Record<string, Json> | undefined;
-  /** Trusted server inputs (class, coach…). */
+  /** Trusted server inputs (account id, location…). */
   context?: Record<string, Json> | undefined;
   ending?: string | null | undefined;
   /** When it was submitted, as the app wants it shown: an ISO time, or a day such as `2026-10-22`. */
   submittedAt?: string | undefined;
   /**
    * Extra leading columns the app adds, in order, after `id` and `submitted_at`:
-   * the form's slug and version, a class, a coach. Rows and emails show them;
+   * the form's slug and version, an account id, a location. Rows and emails show them;
    * the webhook sends them.
    */
   meta?: Record<string, Cell> | undefined;

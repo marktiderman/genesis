@@ -9,8 +9,8 @@ import { defineConfig } from "tsup";
 //   - CSS themes (dist/themes/*.css) are generated AFTER tsup, because tsup's
 //     clean:true wipes dist/.
 //
-// Per PRD-07 Phase A2 (v0.2.0): the 4 sibling brand presets
-// (brand-{acme,breakthrough,team-tiderman,gamify}) were stripped. Only
+// Per PRD-07 Phase A2 (v0.2.0): the sibling brand presets
+// were stripped. Only
 // brand-genesis remains as the OOTB fallback. Consumers ship their own
 // `@<consumer>/brand` workspace package satisfying the canonical schema.
 export default defineConfig({

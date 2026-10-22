@@ -42,10 +42,10 @@ export interface ByResourceOptions {
  * @example
  * byResource(
  *   {
- *     "public.clients": { read: true, update: ["notes", "status"] },
- *     "public.sessions": { read: true },
+ *     "public.customers": { read: true, update: ["notes", "status"] },
+ *     "public.orders": { read: true },
  *   },
- *   { who: (claims) => (claims.app_metadata as { role?: string } | undefined)?.role === "coach" },
+ *   { who: (claims) => (claims.app_metadata as { role?: string } | undefined)?.role === "editor" },
  * )
  */
 export function byResource(rules: Readonly<Record<string, ResourceRule>>, options: ByResourceOptions): Authorize {

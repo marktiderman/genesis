@@ -47,7 +47,7 @@ export interface FormPageProps
  * ```tsx
  * <FormPage
  *   title="New engagement"
- *   description="Both the coach and the client will be notified."
+ *   description="Both parties will be notified."
  *   errors={submitFailed ? "Fix the highlighted fields." : undefined}
  *   onSubmit={handleSubmit(onValid)}
  *   actions={
