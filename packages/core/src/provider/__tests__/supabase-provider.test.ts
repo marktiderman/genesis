@@ -15,7 +15,7 @@ let calls: { method: string; args: unknown[] }[] = [];
 
 function builder(): unknown {
   const b: Record<string, unknown> = {};
-  for (const m of ["update", "insert", "delete", "select", "eq", "in", "order", "range", "single"]) {
+  for (const m of ["update", "insert", "delete", "select", "eq", "in", "order", "range", "single", "or"]) {
     b[m] = (...args: unknown[]) => {
       calls.push({ method: m, args });
       return b;
@@ -568,5 +568,23 @@ describe("getList follow-ups (#96 review)", () => {
     queue.push(fail("boom"));
     const e = (await p.getList("categories", {}).catch((x) => x)) as DataReadError;
     expect(e.message).toBe("These categories couldn't be loaded. Try again.");
+  });
+});
+
+describe("searchFields config", () => {
+  it("reports search false for a resource with none, and searches the configured columns", async () => {
+    const p = provider({ resources: { logs: { searchFields: [] }, tasks: { searchFields: ["title"] } } });
+    expect((await p.capabilities!("logs")).search).toBe(false);
+    expect((await p.capabilities!("tasks")).search).toBe(true);
+    expect((await p.capabilities!("notes")).search).toBe(true);
+  });
+});
+
+describe("searchFields config: the query", () => {
+  it("searches the configured columns instead of the caller's", async () => {
+    const p = provider({ resources: { tasks: { searchFields: ["title"] } } });
+    queue.push({ ...ok([]), count: 0 } as Response);
+    await p.getList("tasks", { search: { query: "x", fields: ["title", "secret"] } });
+    expect(calls.find((c) => c.method === "or")?.args).toEqual(["title.ilike.%x%"]);
   });
 });
