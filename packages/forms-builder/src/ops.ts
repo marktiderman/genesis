@@ -135,6 +135,17 @@ export interface FieldTypeDefaults {
 const editorFor = (editors: readonly FieldTypeDefaults[] | undefined, type: string) => editors?.find((e) => e.type === type);
 
 /**
+ * The columns a new `rows` field starts with: SMACtalk (Say, Mean, Apply,
+ * Commit), the takeaway table coaching worksheets use most.
+ */
+export const SMACTALK_COLUMNS: readonly { key: string; label: string; long?: true }[] = [
+  { key: "say", label: "Say" },
+  { key: "mean", label: "Mean", long: true },
+  { key: "apply", label: "Apply", long: true },
+  { key: "commit", label: "Commit" },
+];
+
+/**
  * Default props for a new field, so it is valid as soon as it is added. A
  * matching editor in `editors` is asked first. Choice options get fresh
  * values from `newOptionValue()`, so a field retyped to choice never brings
@@ -152,6 +163,8 @@ export function defaultProps(
     case "single-choice":
     case "multi-choice":
       return { options: withOptionValues([{ label: "Option 1" }, { label: "Option 2" }]) };
+    case "rows":
+      return { columns: SMACTALK_COLUMNS.map((c) => ({ ...c })), minRows: 1, maxRows: 3 };
     default:
       return undefined;
   }

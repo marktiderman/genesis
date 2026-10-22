@@ -76,6 +76,7 @@ const version = afterClass.hash();         // content fingerprint for publishing
 | `isFormEvent(value)` | Guard for one well-formed event-log entry. |
 | `isSensitive(block)` | `sensitive: true` on a field, or the `props.sensitive` alias. Hidden inputs take `sensitive: true` too (`f.hidden.string({ source: "server", sensitive: true })`); devtools masks both. |
 | `/server` → `validateSubmission`, `publicDefinition` | Re-check a submission against the published definition: drops unknown and logic-hidden answers, ignores client values for server inputs, checks drafts by format only. Never throws on a malformed body. No IO. |
+| `/destinations` → `emailDestination` + `resendProvider`, `sheetsDestination`, `webhookDestination`, `responseRow` | Send a checked submission to an inbox, a Google Sheet or a signed webhook. fetch and WebCrypto only. See [Destinations](#destinations). |
 | `explain(engine, blockId)` | "Why is this hidden?": the path, the jump that skipped a block, each show/hide rule with its result in plain English, and the field's validation. |
 | `/testing` → `simulate`, `coverage`, `runScenario`, `recordScenario`, `compactEvents` | Walk a form by key, enumerate its paths, and run JSON scenarios. See [Testing](#testing). |
 
@@ -101,6 +102,74 @@ Errors are keyed by field id. The `""` key is for the whole submission: `"Malfor
 (default 10 000, counted after `compactEvents`). Events of an unknown type are dropped, so a newer
 client's log still replays. With `settings.clearHiddenValues: false`, a hidden field's value is kept
 only if its format is valid.
+
+## Destinations
+
+`@marktiderman/genesis-forms/destinations` sends a checked submission somewhere. No dependencies:
+fetch and WebCrypto only, so it runs on Node 20+, edge runtimes and Workers. Storage stays the
+app's (the outbox, claims, attempts, the retry schedule); a destination delivers once and reports
+what happened. It is a separate subpath, not part of `/server`, because `/server` does no IO and
+this does: it is the one entry that touches the network and credentials.
+
+```ts
+import { validateSubmission } from "@marktiderman/genesis-forms/server";
+import {
+  emailDestination,
+  resendProvider,
+  sheetsDestination,
+  webhookDestination,
+  type Destination,
+} from "@marktiderman/genesis-forms/destinations";
+
+const destinations: Record<string, Destination> = {
+  email: emailDestination({
+    provider: resendProvider({ apiKey: env.RESEND_API_KEY }),
+    from: "Feedback <feedback@send.example.com>",
+    replyTo: "email", // the key of an email field; only a single valid address is used
+  }),
+  sheet: sheetsDestination({
+    account: { clientEmail: env.GOOGLE_SERVICE_ACCOUNT_EMAIL, privateKey: env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY },
+  }),
+  webhook: webhookDestination({ secret: (config) => secretFor(config) }),
+};
+
+const checked = validateSubmission(definition, body);
+if (checked.ok) {
+  const submission = { id: savedId, ...checked.submission, submittedAt: "2026-10-22", meta: { form_version: 3 } };
+  const result = await destinations.sheet.deliver(submission, definition, { spreadsheetId: "1AbC…" }, {
+    deliveryId,         // stable across retries: the email idempotency key and the webhook-id
+    state: saved.state, // what the sheet cached last time
+    redelivery: claims > 1,
+  });
+  if (result.ok) saveState(result.state);
+  else if (result.retryable) retryLater(result.retryAfterSeconds); // else: needs a config fix
+}
+```
+
+**The contract.** `deliver(submission, definition, config, options?)` resolves a `DeliveryResult`
+and never throws. Failures carry `retryable` (`true` for 408, 425, 429, 5xx, timeouts and network
+errors; `false` for other statuses, bad config, a secret or account resolver that throws, and a
+`TypeError` from a bug), `retryAfterSeconds` when the service said when to come back
+(Retry-After as delta-seconds or an IMF-fixdate, else 60 s; at least 1 s, at most a day), the
+`status`, and an `error` that is safe to
+store and log: never a secret, an answer, contact details or the webhook URL. Config is plain JSON
+(recipients, a spreadsheet id, a URL); secrets go to the factory, never in config. Every request
+has a timeout (`timeoutMs`, default 10 s) and honours `options.signal`. `deliverBatch(items,
+config)` (the sheet) sends many in one request; all succeed or fail together. Write your own by
+implementing `Destination` and throwing `DeliveryError` inside; `deliveryFailure(error)` turns any
+error into a safe result.
+
+**Rows.** `responseRow(submission, definition)` flattens a submission: `id`, `submitted_at`, the
+app's `meta` columns, then one column per field key in form order. Numbers stay numbers, choices
+show their labels, lists join with `, `, yes/no reads `Yes`/`No`. Labels fill recall from the
+submission. On an anonymous form identifying fields get no column. `sensitive` fields:
+`"include"`, `"mask"` (`[sensitive]`) or `"omit"`; recall never leaks a masked value into a label.
+
+| Destination | Config | Notes |
+| --- | --- | --- |
+| `emailDestination({ provider, from, replyTo?, render?, sensitive? })` | `{ to: string \| string[], subject? }` | HTML and plain text from the definition (`renderEmail`), every value HTML-escaped. Subject, From, To and Reply-To are stripped of line breaks or refused, so no answer can add a header. At most 50 recipients. Sensitive fields masked by default. The idempotency key is the delivery id plus a hash of the recipients. `resendProvider({ apiKey })` is built in; any `EmailProvider` works. `render` and `emailBody(lines)` let an app write its own content and keep the escaping. |
+| `sheetsDestination({ account, escapeFormulas?, sensitive? })` | `{ spreadsheetId, sheetName? }` | Service-account JWT signed with WebCrypto (RS256), token cached per process. Creates the tab, writes and freezes the header, adds a column for a new key without moving others, appends with `valueInputOption=RAW`, so Sheets stores text exactly as typed and never runs it as a formula (`@coach thanks` stays `@coach thanks`). No `'` is added by default, since RAW would store it literally; `escapeFormulas: true` adds one (headers included) for a sheet that is exported and opened elsewhere. `escapeFormula(cell)` is the same opt-in guard for CSV you write yourself: text starting with `=`, `@`, tab or CR, or with `+`/`-` followed by anything but number punctuation, gets a leading `'`. Keeps the tab, header and last row in `state`, so a normal delivery is one request. On `redelivery`, skips ids already in the last 500 rows. A 403/404 says to share the sheet with the service account. |
+| `webhookDestination({ secret, allowInsecureUrls?, allowPrivateHosts?, sensitive? })` | `{ url }` | [Standard Webhooks](https://www.standardwebhooks.com): `webhook-id`, `webhook-timestamp`, `webhook-signature: v1,<HMAC-SHA256>`. The secret is base64 (at least 16 bytes decoded), usually `whsec_`-prefixed; as in every Standard Webhooks library the prefix is optional and the rest is always base64-decoded, so receivers verify with the same string. A secret that is not padded standard base64 (a raw passphrase, say) fails permanently rather than signing deliveries no receiver could verify. Generate one with `"whsec_" + btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))`. Body `{ type: "form.submitted", timestamp, data: { form, submission, row } }`. https only, no URL credentials, no localhost or private, loopback or link-local address literals, redirects not followed. A hostname that resolves to a private address is not caught: if untrusted users pick URLs, send from a network that cannot reach internal services. Receivers check with `verifyWebhook({ secret, headers, body })` (constant-time, five-minute tolerance). |
 
 ## Testing
 

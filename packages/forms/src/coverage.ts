@@ -118,6 +118,11 @@ function domainOf(field: FieldBlock, extra: Value[], maxOptions: number): Candid
       extra = extra.map((v) => (typeof v === "string" ? [v] : v));
       break;
     }
+    case "list":
+      base = getFieldType(field.type)?.samples?.(field) ?? [];
+      // `contains` compares with one item: try each as a one-item list.
+      extra = extra.map((v) => (typeof v === "string" ? [v] : v));
+      break;
     case "email":
       base = ["ada@example.com"];
       break;
