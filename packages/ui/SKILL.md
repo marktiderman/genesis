@@ -68,6 +68,49 @@ Reach for these before a slot. Each one replaced a slot workaround in a real app
 honours `maxLength` on text fields, adds no placeholder unless the field sets one (or
 `autoPlaceholder`), and takes `prefillFromUrl={false}` when the page's query string is not form data.
 
+`ResourceForm` also:
+
+- puts a provider's field-level errors (`DataWriteError.fields`; the Supabase provider maps
+  unique, not-null and foreign-key violations) on their inputs, with the summary in the alert;
+- takes `warnWhenUnsaved` (default off): Cancel / Esc / outside click ask before dropping
+  changes, and the tab's close or reload prompts;
+- takes `mutationMode="optimistic" | "undoable"` (default `"pessimistic"`): the form closes at
+  once and the cached list updates; `undoable` shows an Undo toast and sends the save after
+  `undoDelayMs` (5000) unless undone. A failure puts the list back and is toasted. Needs a
+  mounted `<Toaster />`. `ResourcePage` passes its own `mutationMode` to its form and deletes.
+
+## Unsaved changes
+
+Core never depends on a router. `useResourceForm` returns `isDirty` and `confirmLeave()`
+(true when leaving is fine); `ResourceForm` reports both through `onDirtyChange`. For any
+other state use `useUnsavedChangesGuard({ when })` from core. Wire `confirmLeave` to your
+router's blocker:
+
+```tsx
+// React Router (data router, v6.4+ / v7)
+import { useBlocker } from "react-router"; // "react-router-dom" on v6
+
+const { form, isDirty, confirmLeave } = useResourceForm({ …, warnWhenUnsaved: true });
+const blocker = useBlocker(isDirty);
+useEffect(() => {
+  if (blocker.state !== "blocked") return;
+  if (confirmLeave()) blocker.proceed();
+  else blocker.reset();
+}, [blocker, confirmLeave]);
+```
+
+```tsx
+// TanStack Router (v1)
+import { useBlocker } from "@tanstack/react-router";
+
+const { isDirty, confirmLeave } = useResourceForm({ …, warnWhenUnsaved: true });
+// The hook already handles beforeunload, so the router's own is off.
+useBlocker({ shouldBlockFn: () => !confirmLeave(), disabled: !isDirty, enableBeforeUnload: false });
+```
+
+With `ResourceForm`, keep the pair from `onDirtyChange={(dirty, confirmLeave) => …}` in state
+and use it the same way.
+
 ## The layer contract (docs/FRAMEWORK.md)
 
 1. Layers: tokens → primitives → patterns → layouts → data-bound; each depends downward only.

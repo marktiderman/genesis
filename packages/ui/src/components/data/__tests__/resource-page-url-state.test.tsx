@@ -61,6 +61,19 @@ describe("useResourceUrlState", () => {
     expect(r2.current).toMatchObject({ page: null, sort: null, q: "", detailId: null });
   });
 
+  it("reads only a positive safe integer as the page", () => {
+    const read = (query: string) => {
+      const { useAdapter } = memoryAdapter(query);
+      return renderHook(() => useResourceUrlState({ searchParams: useAdapter() })).result.current.page;
+    };
+    expect(read(`page=${"9".repeat(400)}`)).toBeNull(); // Number() gives Infinity
+    expect(read(`page=${Number.MAX_SAFE_INTEGER + 1}`)).toBeNull();
+    expect(read("page=0")).toBeNull();
+    expect(read("page=1.5")).toBeNull();
+    expect(read(`page=${Number.MAX_SAFE_INTEGER}`)).toBe(Number.MAX_SAFE_INTEGER);
+    expect(read("page=1")).toBe(1);
+  });
+
   it("pushes when opening a record and replaces when closing or writing state", () => {
     const { useAdapter, log } = memoryAdapter();
     const { result } = renderHook(() => useResourceUrlState({ searchParams: useAdapter() }));
@@ -126,6 +139,35 @@ describe("ResourcePage urlState", () => {
     expect(box.value).toBe("bo");
     fireEvent.change(box, { target: { value: "cy" } });
     expect(log.at(-1)).toEqual({ url: "q=cy", replace: true });
+  });
+
+  const nameHeader = () => screen.getByRole("columnheader", { name: /name/i });
+  const shownNames = () =>
+    screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) => within(r).getAllByRole("cell").map((c) => c.textContent ?? "").join("|"))
+      .map((t) => rows.find((row) => t.includes(row.name))?.name);
+
+  it("writes a header sort to the URL", () => {
+    const { useAdapter, log } = memoryAdapter();
+    render(<Page adapter={useAdapter} />);
+    fireEvent.click(within(nameHeader()).getByRole("button"));
+    expect(log.at(-1)).toEqual({ url: "sort=name%3Aasc", replace: true });
+    expect(nameHeader().getAttribute("aria-sort")).toBe("ascending");
+    fireEvent.click(within(nameHeader()).getByRole("button"));
+    expect(log.at(-1)).toEqual({ url: "sort=name%3Adesc", replace: true });
+    expect(shownNames()).toEqual(["Cy", "Bo", "Ada"]);
+    fireEvent.click(within(nameHeader()).getByRole("button"));
+    expect(log.at(-1)).toEqual({ url: "", replace: true });
+    expect(nameHeader().getAttribute("aria-sort")).toBeNull();
+  });
+
+  it("shows the URL's sort in the table header on load", () => {
+    const { useAdapter } = memoryAdapter("sort=name:desc");
+    render(<Page adapter={useAdapter} />);
+    expect(nameHeader().getAttribute("aria-sort")).toBe("descending");
+    expect(shownNames()).toEqual(["Cy", "Bo", "Ada"]);
   });
 });
 

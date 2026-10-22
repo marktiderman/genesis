@@ -30,7 +30,7 @@ import {
   type SavedViewItem,
   type DataFilterConfig,
 } from "./DataFilters";
-import { DataTable } from "./DataTable";
+import { DataTable, type DataTableSort } from "./DataTable";
 import { DataBulkBar } from "./DataBulkBar";
 import { DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
@@ -45,8 +45,10 @@ import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewModeDefault } from "../../hooks/use-view-preference";
 import {
   useResource,
+  type MutationMode,
   type UseResourceOptions,
 } from "@marktiderman/genesis-core/hooks";
+import { writeModeOptions } from "./undo-toast";
 import {
   useResourcePage,
   type ResourceColumnDef,
@@ -575,6 +577,13 @@ export interface ResourcePageProps<
   formSteps?: WizardStep[];
   /** Layout mode for the built-in form container. If not set, defaults to sheet for edit, dialog for create. */
   formLayout?: "dialog" | "sheet" | "page";
+  /**
+   * When the built-in form's saves and deletes reach the list: `"pessimistic"`
+   * (default, wait for the provider), `"optimistic"` or `"undoable"` (an Undo
+   * toast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`
+   * wins for deletes.
+   */
+  mutationMode?: MutationMode;
 
   // Bulk actions
   bulkActions?: Array<{
@@ -807,6 +816,7 @@ export function ResourcePage<
     formMode,
     formSteps,
     formLayout: formLayoutProp,
+    mutationMode: mutationModeProp,
     bulkActions,
     renderCard: renderCardProp,
     openOnCardClick = false,
@@ -927,6 +937,7 @@ export function ResourcePage<
                 ...(urlSeed.sort ? { defaultSort: urlSeed.sort } : {}),
               }
             : {}),
+          ...writeModeOptions(resourceOptions, mutationModeProp),
         }
       : { enabled: false },
   );
@@ -975,6 +986,9 @@ export function ResourcePage<
         : undefined),
     onFiltersChange,
     defaultView,
+    // Each page remembers its own table/cards choice, under the same key as
+    // its density and page size — not one key shared by every data page.
+    viewKey: viewSettingsKey,
     detail,
     titleField: titleFieldProp,
     subtitleField: subtitleFieldProp,
@@ -1287,15 +1301,19 @@ export function ResourcePage<
           // called straight from the peek, nothing closed for it.
           (item: T) => {
             // A throw or a rejected promise is reported, never left unhandled.
-            Promise.resolve()
-              .then(() => onDelete?.(item))
-              .catch((err: unknown) => {
+            const report = (err: unknown) => {
               if (resourceOptions?.onError) {
                 resourceOptions.onError(err instanceof Error ? err : new Error(String(err)));
               } else {
                 toast.error(err instanceof Error ? err.message : "The delete failed.");
               }
-            });
+            };
+            // Called right away, as before; a throw or a rejection is reported.
+            try {
+              Promise.resolve(onDelete?.(item)).catch(report);
+            } catch (err) {
+              report(err);
+            }
           };
 
   // Per-row rights, evaluated against the row the peek is showing.
@@ -1333,6 +1351,34 @@ export function ResourcePage<
     page.tableColumns,
     actions,
   ]);
+
+  // ── Client mode: DataTable's header sort is `page.sort` ──
+  // The primary header sort is the page's sort (and so the URL's); Shift-
+  // click tie-breakers are kept here while that primary still matches, and
+  // dropped when the sort changes elsewhere (the sort select, the URL).
+  const [tableTieBreaks, setTableTieBreaks] = useState<{
+    primary: string;
+    rest: DataTableSort[];
+  } | null>(null);
+  const pageSort = page.sort;
+  const setPageSort = page.setSort;
+  const tableSort = useMemo<DataTableSort[]>(() => {
+    if (!pageSort) return [];
+    const primary: DataTableSort = { key: pageSort.field, dir: pageSort.order };
+    const rest =
+      tableTieBreaks && tableTieBreaks.primary === `${primary.key}:${primary.dir}`
+        ? tableTieBreaks.rest
+        : [];
+    return [primary, ...rest];
+  }, [pageSort, tableTieBreaks]);
+  const handleTableSort = useCallback(
+    (next: DataTableSort[]) => {
+      const [primary, ...rest] = next;
+      setTableTieBreaks(primary ? { primary: `${primary.key}:${primary.dir}`, rest } : null);
+      setPageSort(primary ? { field: primary.key, order: primary.dir } : null);
+    },
+    [setPageSort],
+  );
 
   // ── Server-driven pager state, needed above for handleSearchChange's
   // already-on-page-1 check. ──
@@ -1898,6 +1944,11 @@ export function ResourcePage<
                 // The server already cut the page window; DataTable's own
                 // pagination would slice the slice.
                 pagination: isServerControlled ? false : undefined,
+                // Client mode: the header sort is the page's sort, so it
+                // reaches the URL and a link restores what the table shows.
+                ...(isServerControlled
+                  ? {}
+                  : { sort: tableSort, onSortChange: handleTableSort }),
               },
               slotProps?.table,
             )
@@ -2071,6 +2122,7 @@ export function ResourcePage<
               formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog"),
             mode: formMode,
             steps: formSteps,
+            mutationMode: mutationModeProp,
             item:
               formAction === "edit"
                 ? ((formItem as Record<string, unknown> | null) ?? undefined)

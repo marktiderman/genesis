@@ -41,6 +41,13 @@ export interface DataWriteErrorOptions {
    * `23505`, or a PostgREST code such as `PGRST301`).
    */
   code?: string;
+  /**
+   * Per-field messages, keyed by field (column) name, for a write the store
+   * rejected because of particular values. Each message is safe to show next
+   * to its input: plain words, never the store's raw text or the value.
+   * `useResourceForm` puts each one on its field.
+   */
+  fields?: Record<string, string>;
   /** The underlying error, kept for logging. */
   cause?: unknown;
 }
@@ -52,6 +59,11 @@ export class DataWriteError extends Error {
   readonly currentVersion?: string | null;
   /** The store's own error code, when it gave one. */
   readonly code?: string;
+  /**
+   * Per-field messages (field name → safe message), when the store said which
+   * values it rejected. See `DataWriteErrorOptions.fields`.
+   */
+  readonly fields?: Readonly<Record<string, string>>;
 
   constructor(outcome: WriteOutcome, message: string, options: DataWriteErrorOptions = {}) {
     super(message, options.cause === undefined ? undefined : { cause: options.cause });
@@ -60,6 +72,9 @@ export class DataWriteError extends Error {
     this.current = options.current;
     this.currentVersion = options.currentVersion;
     if (options.code !== undefined) this.code = options.code;
+    if (options.fields && Object.keys(options.fields).length > 0) {
+      this.fields = Object.freeze({ ...options.fields });
+    }
   }
 }
 

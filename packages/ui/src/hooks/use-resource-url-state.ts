@@ -84,7 +84,8 @@ export function useResourceUrlState(options: ResourceUrlStateOptions | undefined
   const detailId = sp?.get(names.detail) || null;
   const rawPage = sp?.get(names.page);
   const pageNum = rawPage && /^\d+$/.test(rawPage) ? Number(rawPage) : null;
-  const page = pageNum && pageNum > 0 ? pageNum : null;
+  // A positive safe integer only: hundreds of digits parse to Infinity.
+  const page = pageNum !== null && Number.isSafeInteger(pageNum) && pageNum > 0 ? pageNum : null;
   const sortRaw = sp?.get(names.sort) ?? null;
   const q = sp?.get(names.q) ?? "";
 

@@ -13,6 +13,7 @@ export {
   LinkCell,
   type DataTableColumn,
   type DataTableProps,
+  type DataTableSort,
 } from "./DataTable";
 export { DataBulkBar, type BulkAction } from "./DataBulkBar";
 export { FilterCombobox, type FilterOption } from "./FilterCombobox";

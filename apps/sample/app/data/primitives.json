@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 106
+      "count": 107
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -8959,6 +8959,13 @@
               "description": ""
             },
             {
+              "name": "onSortChange",
+              "type": "((sort: DataTableSort[]) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called with the next header sort whenever a header is clicked."
+            },
+            {
               "name": "onToggleAll",
               "type": "(() => void)",
               "required": false,
@@ -8977,7 +8984,7 @@
               "type": "string | null",
               "required": false,
               "defaultValue": null,
-              "description": "The column whose cell opens the row (as a button), by key. Default: the\nfirst visible column that isn't `editable`. Its `render` must not put a\nlink or button in the cell. `null` makes no cell a button (mouse only)."
+              "description": "The column whose cell opens the row (as a button), by key. Default: the\nfirst visible column that isn't `editable`. A plain-text cell is wrapped\nby the button; an `editable` or `render` cell keeps its own content (a\nlink or input stays usable) with the open button beside it, shown when\nfocused. `null` makes no cell a button (mouse only)."
             },
             {
               "name": "pageSize",
@@ -9048,6 +9055,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "sort",
+              "type": "readonly DataTableSort[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The header sort, controlled: the first entry is the primary sort, later\nones break ties (Shift-click adds one). Leave it unset and the table\nkeeps its own sort, starting unsorted."
             },
             {
               "name": "stickyFirstColumn",
@@ -12177,6 +12191,20 @@
               "description": "Form presentation mode. Default \"standard\"."
             },
             {
+              "name": "mutationMode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "When a save reaches the list. Default `\"pessimistic\"`: the form waits\nfor the provider. `\"optimistic\"` closes at once and updates the cached\nlist, putting it back (and toasting the error) if the save fails.\n`\"undoable\"` does the same and shows an Undo toast; the save is sent\nafter `undoDelayMs` unless undone (or at once, undone by the provider,\nwhen it serves `undo`). Needs a mounted `<Toaster />`."
+            },
+            {
+              "name": "onDirtyChange",
+              "type": "((isDirty: boolean, confirmLeave: () => boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called when the form becomes dirty or clean, with a `confirmLeave` that\nasks when needed: the hook for a router blocker (SKILL.md \"Unsaved\nchanges\")."
+            },
+            {
               "name": "onError",
               "type": "((error: Error) => void)",
               "required": false,
@@ -12189,6 +12217,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "onUndoable",
+              "type": "((write: UndoableWrite) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the undo toast."
             },
             {
               "name": "prefillFromUrl",
@@ -12217,6 +12252,20 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "undoDelayMs",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "How long an `undoable` save waits for an undo, in ms. Default 5000."
+            },
+            {
+              "name": "warnWhenUnsaved",
+              "type": "boolean | { message?: string; }",
+              "required": false,
+              "defaultValue": null,
+              "description": "Warn before unsaved changes are lost. Default false. While the form is\ndirty, Cancel / Esc / clicking outside asks first, and closing or\nreloading the tab shows the browser's prompt. Pass `{ message }` to\nchange the question. For router navigation, see `onDirtyChange`."
             }
           ]
         }
@@ -12589,6 +12638,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: the caller's fetch is in flight, so render the shell's\nloading skeleton instead of the (as yet meaningless) `data`. Ignored in\nclient-side mode, where `useResource`'s own loading state is used."
+            },
+            {
+              "name": "mutationMode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
             },
             {
               "name": "onCreate",
@@ -15101,6 +15157,83 @@
         {
           "name": "Muted",
           "summary": "",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "undo-toast",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/undo-toast.ts",
+      "stability": "stable",
+      "summary": "The undo toast for an `undoable` write (core's `onUndoable`): a sonner\ntoast with an Undo button, shown for as long as the undo is offered.\nNeeds a mounted `<Toaster />`.",
+      "primaryComponent": "showUndoToast",
+      "components": [
+        {
+          "name": "showUndoToast",
+          "summary": "The undo toast for an `undoable` write (core's `onUndoable`): a sonner\ntoast with an Undo button, shown for as long as the undo is offered.\nNeeds a mounted `<Toaster />`.",
+          "props": [
+            {
+              "name": "commit",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Send a `delay` write now."
+            },
+            {
+              "name": "delayMs",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": "How long the undo is offered, in ms (the toast's duration)."
+            },
+            {
+              "name": "kind",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "resource",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "strategy",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": "- `delay`: the write has not been sent. `undo()` discards it; `commit()`\n  sends it now instead of waiting.\n- `provider`: the write was sent at once, because the provider serves\n  `undo`. `undo()` asks the provider to reverse it; `commit()` does\n  nothing."
+            },
+            {
+              "name": "undo",
+              "type": "() => Promise<boolean>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Take the write back. Resolves true when it was undone, false when it\ncould not be: already sent under `delay` (the window closed, or the hook\nunmounted), already undone, or the provider's undo failed (reported\nthrough `onError`). Safe to call more than once."
+            },
+            {
+              "name": "id",
+              "type": "Identifier",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record's id; absent for a create (it has none until it is sent)."
+            }
+          ]
+        },
+        {
+          "name": "showWriteErrorToast",
+          "summary": "The default error report for writes that fail after the form has closed.",
+          "props": []
+        },
+        {
+          "name": "writeModeOptions",
+          "summary": "ResourcePage's write-mode options for its `useResource`: the page's\n`mutationMode` unless `resourceOptions` sets one, the undo toast, and an\nerror toast for a write that fails after it was shown as done.",
           "props": []
         }
       ]

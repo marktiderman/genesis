@@ -49,7 +49,13 @@ export {
   type SupabaseResourceConfig,
   type SupabaseWriteContext,
 } from "./supabase-provider";
-export { writeOutcomeFromCode, toDataWriteError, readOutcomeFromCode } from "./postgrest-errors";
+export {
+  writeOutcomeFromCode,
+  toDataWriteError,
+  readOutcomeFromCode,
+  fieldErrorsFromPostgrest,
+  type PostgrestFieldErrors,
+} from "./postgrest-errors";
 export {
   DataReadError,
   isDataReadError,

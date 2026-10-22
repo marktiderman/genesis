@@ -1,7 +1,7 @@
 // @feat:supabase-provider
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSupabaseProvider, type SupabaseProviderOptions } from "../supabase-provider";
-import { readOutcomeFromCode, toDataWriteError, writeOutcomeFromCode } from "../postgrest-errors";
+import { fieldErrorsFromPostgrest, readOutcomeFromCode, toDataWriteError, writeOutcomeFromCode } from "../postgrest-errors";
 import { isDataReadError, type DataReadError } from "../../schema/read-outcome";
 import { DataWriteError, isDataWriteError } from "../../schema/write-outcome";
 import { relatedKeys } from "../../hooks/related-keys";
@@ -9,7 +9,7 @@ import { relatedKeys } from "../../hooks/related-keys";
 // A stand-in Supabase client: each awaited query takes the next queued
 // response, and every chained call is recorded so tests can check what was
 // sent.
-type Response = { data: unknown; error: { message: string; code?: string } | null; count?: number };
+type Response = { data: unknown; error: { message: string; code?: string; details?: string } | null; count?: number };
 let queue: Response[] = [];
 let calls: { method: string; args: unknown[] }[] = [];
 
@@ -84,6 +84,79 @@ describe("writeOutcomeFromCode", () => {
     const own = new DataWriteError("conflict", "x");
     expect(toDataWriteError(own)).toBe(own);
     expect(toDataWriteError(new Error("network")).outcome).toBe("error");
+  });
+});
+
+describe("field-level write errors", () => {
+  it("maps a unique violation to the column PostgREST's details name, with safe messages", () => {
+    const raw = {
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "users_email_key"',
+      details: "Key (email)=(ann@example.com) already exists.",
+    };
+    const err = toDataWriteError(raw);
+    expect(err.outcome).toBe("invalid");
+    expect(err.fields).toEqual({ email: "This value is already in use." });
+    expect(err.message).toBe("Email is already in use.");
+    // Neither the value nor the constraint name reaches a message.
+    expect(JSON.stringify([err.message, err.fields])).not.toMatch(/ann@example|users_email_key/);
+    expect(err.cause).toBe(raw);
+  });
+
+  it("maps a composite unique key to each of its columns", () => {
+    const mapped = fieldErrorsFromPostgrest({
+      code: "23505",
+      details: "Key (org_id, slug)=(4, intro) already exists.",
+    });
+    expect(mapped?.fields).toEqual({
+      org_id: "This combination is already in use.",
+      slug: "This combination is already in use.",
+    });
+    expect(mapped?.message).toBe("This combination of Org Id and Slug is already in use.");
+  });
+
+  it("maps a not-null violation to its column", () => {
+    const err = toDataWriteError({
+      code: "23502",
+      message: 'null value in column "title" of relation "tasks" violates not-null constraint',
+      details: "Failing row contains (7, null, secret).",
+    });
+    expect(err.fields).toEqual({ title: "This field is required." });
+    expect(err.message).toBe("Title is required.");
+    expect(err.message).not.toMatch(/secret|relation/);
+  });
+
+  it("maps a missing foreign key on insert to its column", () => {
+    const mapped = fieldErrorsFromPostgrest({
+      code: "23503",
+      details: 'Key (owner_id)=(99) is not present in table "people".',
+    });
+    expect(mapped?.fields).toEqual({ owner_id: "The selected item doesn't exist." });
+  });
+
+  it("maps nothing it cannot read safely", () => {
+    // An expression index, a still-referenced delete, other codes, no details.
+    expect(fieldErrorsFromPostgrest({ code: "23505", details: "Key (lower(email::text))=(a) already exists." })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23503", details: 'Key (id)=(5) is still referenced from table "tasks".' })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23514", message: 'new row violates check constraint "x"' })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23505" })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23502", message: 'null value in column "we\"ird" of relation' })).toBeUndefined();
+    expect(toDataWriteError({ code: "23505", message: "dup" }).fields).toBeUndefined();
+  });
+
+  it("a provider create carries the mapped fields", async () => {
+    queue.push({
+      data: null,
+      error: { code: "23505", message: "duplicate key", details: "Key (slug)=(intro) already exists." },
+    });
+    const err = await failure(provider().create("questions", { data: { slug: "intro" } }));
+    expect(err.fields).toEqual({ slug: "This value is already in use." });
+    expect(err.code).toBe("23505");
+  });
+
+  it("a DataWriteError built with empty fields has none", () => {
+    expect(new DataWriteError("invalid", "x", { fields: {} }).fields).toBeUndefined();
+    expect(new DataWriteError("invalid", "x", { fields: { a: "b" } }).fields).toEqual({ a: "b" });
   });
 });
 
@@ -481,14 +554,26 @@ describe("getList ordering and page size", () => {
     expect(orders().map(([col]) => col)).toEqual(["title"]);
   });
 
-  it("caps a page at maxPerPage with a warning, and reports it in capabilities", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const p = provider({ maxPerPage: 100 });
-    await list(p, { pagination: { page: 1, perPage: 1000 } });
-    expect(calls.find((c) => c.method === "range")?.args).toEqual([0, 99]);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"tasks" asked for 1000 rows'));
+  it("refuses a page larger than maxPerPage, and reports the cap in capabilities", async () => {
+    const onReadError = vi.fn();
+    const p = provider({ maxPerPage: 100, onReadError });
+    const e = (await list(p, { pagination: { page: 1, perPage: 1000 } }).catch((x: unknown) => x)) as DataReadError;
+    expect(isDataReadError(e)).toBe(true);
+    expect(e.outcome).toBe("invalid");
+    expect((e.cause as Error).message).toContain('"tasks" asked for 1000 rows per page; the most is 100');
+    expect(onReadError).toHaveBeenCalledWith(e, { resource: "tasks", operation: "getList" });
+    expect(calls.some((c) => c.method === "range")).toBe(false);
     expect((await p.capabilities!()).maxPerPage).toBe(100);
-    warn.mockRestore();
+  });
+
+  it("pages at exactly maxPerPage with contiguous boundaries", async () => {
+    const p = provider({ maxPerPage: 100 });
+    await list(p, { pagination: { page: 1, perPage: 100 } });
+    await list(p, { pagination: { page: 2, perPage: 100 } });
+    expect(calls.filter((c) => c.method === "range").map((c) => c.args)).toEqual([
+      [0, 99],
+      [100, 199],
+    ]);
   });
 });
 
@@ -505,6 +590,28 @@ describe("read errors", () => {
     expect(e.message).not.toContain("relation");
     expect((e.cause as { message: string }).message).toContain("relation");
     expect(onReadError).toHaveBeenCalledWith(e, { resource: "tasks", operation: "getList" });
+  });
+
+  it("awaits an async onReadError and swallows its rejection, then throws the DataReadError", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      let settled = false;
+      const onReadError = vi.fn(async () => {
+        await Promise.resolve();
+        settled = true;
+        throw new Error("logger down");
+      });
+      const p = provider({ onReadError });
+      queue.push(fail("boom"));
+      const error = await p.getList("tasks", {}).catch((e: unknown) => e);
+      expect(isDataReadError(error)).toBe(true);
+      expect(settled).toBe(true);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
   });
 
   it("names an expired session, a refusal and a missing record plainly", async () => {
@@ -545,22 +652,42 @@ describe("getList follow-ups (#96 review)", () => {
     return p.getList(resource, params);
   };
 
+  it("reads a view without an id column as before: retries once without the key order, warns once", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const p = provider();
+    const orders = () => calls.filter((c) => c.method === "order").map((c) => c.args[0]);
+    queue.push(fail("column report_view.id does not exist", "42703"));
+    queue.push({ ...ok([{ name: "a" }]), count: 1 } as Response);
+    const result = await p.getList("report_view", { pagination: { page: 1, perPage: 10 } });
+    expect(result.data).toEqual([{ name: "a" }]);
+    expect(orders()).toEqual(["id"]); // the retry has no key order
+    expect(calls.filter((c) => c.method === "range")).toHaveLength(2);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain('"report_view" has no "id" column');
+    // Remembered: the next page is not tried with "id" again, and no new warning.
+    calls = [];
+    await list(p, { pagination: { page: 2, perPage: 10 }, sort: { field: "name", order: "asc" } }, "report_view");
+    expect(orders()).toEqual(["name"]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("does not retry a missing column other than the default key, or an explicit orderKey", async () => {
+    queue.push(fail("column tasks.titel does not exist", "42703"));
+    expect(isDataReadError(await provider().getList("tasks", { sort: { field: "titel", order: "asc" } }).catch((e) => e))).toBe(true);
+    queue.push(fail("column tasks.slug does not exist", "42703"));
+    const p = provider({ resources: { tasks: { orderKey: "slug" } } });
+    expect(isDataReadError(await p.getList("tasks", { pagination: { page: 1, perPage: 10 } }).catch((e) => e))).toBe(true);
+    expect(queue).toHaveLength(0);
+    expect(calls.filter((c) => c.method === "from")).toHaveLength(2);
+  });
+
   it("orders an unsorted page by the key column, and leaves an unpaged, unsorted list alone", async () => {
     await list(provider(), { pagination: { page: 1, perPage: 10 } });
     expect(calls.filter((c) => c.method === "order").map((c) => c.args)).toEqual([["id", { ascending: true }]]);
     calls = [];
     await list(provider(), {});
     expect(calls.some((c) => c.method === "order")).toBe(false);
-  });
-
-  it("warns about the page cap once per resource", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const p = provider({ maxPerPage: 10 });
-    await list(p, { pagination: { page: 1, perPage: 50 } });
-    await list(p, { pagination: { page: 2, perPage: 50 } });
-    await list(p, { pagination: { page: 1, perPage: 50 } }, "notes");
-    expect(warn).toHaveBeenCalledTimes(2);
-    warn.mockRestore();
   });
 
   it("uses nounPlural in list messages", async () => {

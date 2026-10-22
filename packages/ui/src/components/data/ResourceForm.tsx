@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useCallback, useEffect, useRef } from "react";
 import type { UseFormReturn, FieldErrors } from "react-hook-form";
 import { useWatch } from "react-hook-form";
 import {
@@ -21,7 +21,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
 import { useIsMobile } from "../../hooks/use-mobile";
-import { useResourceForm, type UseResourceFormOptions } from "@marktiderman/genesis-core/hooks";
+import {
+  useResourceForm,
+  type MutationMode,
+  type UndoableWrite,
+  type UseResourceFormOptions,
+} from "@marktiderman/genesis-core/hooks";
+import { showUndoToast, showWriteErrorToast } from "./undo-toast";
 import { ResourceFormFieldRenderer, type ResourceFormFieldDef } from "./ResourceFormField";
 import { WizardForm } from "./WizardForm";
 import type { WizardStep } from "@marktiderman/genesis-core/hooks";
@@ -71,6 +77,32 @@ export interface ResourceFormProps {
    * always shows. (Select fields keep their "Select…" prompt either way.)
    */
   autoPlaceholder?: boolean;
+  /**
+   * Warn before unsaved changes are lost. Default false. While the form is
+   * dirty, Cancel / Esc / clicking outside asks first, and closing or
+   * reloading the tab shows the browser's prompt. Pass `{ message }` to
+   * change the question. For router navigation, see `onDirtyChange`.
+   */
+  warnWhenUnsaved?: boolean | { message?: string };
+  /**
+   * Called when the form becomes dirty or clean, with a `confirmLeave` that
+   * asks when needed: the hook for a router blocker (SKILL.md "Unsaved
+   * changes").
+   */
+  onDirtyChange?: (isDirty: boolean, confirmLeave: () => boolean) => void;
+  /**
+   * When a save reaches the list. Default `"pessimistic"`: the form waits
+   * for the provider. `"optimistic"` closes at once and updates the cached
+   * list, putting it back (and toasting the error) if the save fails.
+   * `"undoable"` does the same and shows an Undo toast; the save is sent
+   * after `undoDelayMs` unless undone (or at once, undone by the provider,
+   * when it serves `undo`). Needs a mounted `<Toaster />`.
+   */
+  mutationMode?: MutationMode;
+  /** How long an `undoable` save waits for an undo, in ms. Default 5000. */
+  undoDelayMs?: number;
+  /** Replaces the undo toast. */
+  onUndoable?: (write: UndoableWrite) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -283,6 +315,11 @@ export function ResourceForm(props: ResourceFormProps) {
     columns = 1,
     prefillFromUrl,
     autoPlaceholder = false,
+    warnWhenUnsaved = false,
+    onDirtyChange,
+    mutationMode = "pessimistic",
+    undoDelayMs,
+    onUndoable,
   } = props;
 
   const isMobile = useIsMobile();
@@ -305,13 +342,37 @@ export function ResourceForm(props: ResourceFormProps) {
       onOpenChange(false);
       onSuccess?.(data);
     },
-    onError,
+    // The form is closed by the time an optimistic or undoable save fails,
+    // so the error has to reach the user some other way.
+    onError: onError ?? (mutationMode === "pessimistic" ? undefined : showWriteErrorToast),
     prefillFromUrl,
     autoPlaceholder,
+    warnWhenUnsaved,
+    mutationMode,
+    undoDelayMs,
+    onUndoable: onUndoable ?? showUndoToast,
   };
 
-  const { form, resolvedFields, handleSave, isSaving, isLoading } =
+  const { form, resolvedFields, handleSave, isSaving, isLoading, isDirty, confirmLeave } =
     useResourceForm(hookOptions);
+
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange;
+  });
+  useEffect(() => {
+    onDirtyChangeRef.current?.(isDirty, confirmLeave);
+  }, [isDirty, confirmLeave]);
+
+  // Cancel, Esc and clicking outside ask first when changes would be lost.
+  // A successful save closes through onSuccess above, unguarded.
+  const requestOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next && !confirmLeave()) return;
+      onOpenChange(next);
+    },
+    [confirmLeave, onOpenChange],
+  );
 
   const bodyProps = {
     form,
@@ -320,7 +381,7 @@ export function ResourceForm(props: ResourceFormProps) {
     action,
     isSaving,
     isLoading,
-    onOpenChange,
+    onOpenChange: requestOpenChange,
     handleSave,
     mode,
     steps,
@@ -330,7 +391,7 @@ export function ResourceForm(props: ResourceFormProps) {
   // ── Dialog layout ──
   if (effectiveLayout === "dialog") {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={requestOpenChange}>
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle>{formTitle}</DialogTitle>
@@ -347,7 +408,7 @@ export function ResourceForm(props: ResourceFormProps) {
   // ── Sheet layout ──
   if (effectiveLayout === "sheet") {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet open={open} onOpenChange={requestOpenChange}>
         <SheetContent side="right" className="sm:max-w-[480px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{formTitle}</SheetTitle>

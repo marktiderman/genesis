@@ -140,3 +140,84 @@ try {
 the root and `@marktiderman/genesis-core/schema`. Check with
 `isDataWriteError(error)` rather than `instanceof`, which fails when two copies
 of the package are installed.
+
+### Field-level errors
+
+A `DataWriteError` may carry `fields`: field (column) name → a message safe to
+show by that input. `useResourceForm` puts each one on its field
+(`setError(field, { type: "server" })`), focuses the first, and sets
+`errors.root` to the error's message as the summary; a field the form does not
+show appears only in the summary.
+
+`createSupabaseProvider` fills `fields` where Postgres says which column it
+means (`fieldErrorsFromPostgrest`), and replaces the error's message with a
+plain sentence (the raw text stays on `cause`):
+
+| Code | Read from | Field message | Error message |
+| --- | --- | --- | --- |
+| `23505` unique | `details`: `Key (email)=(…) already exists.` | "This value is already in use." (several columns: "This combination is already in use.") | "Email is already in use." |
+| `23502` not null | `message`: `null value in column "title" …` | "This field is required." | "Title is required." |
+| `23503` foreign key (insert/update) | `details`: `Key (owner_id)=(…) is not present in table …` | "The selected item doesn't exist." | "Owner Id: the selected item doesn't exist." |
+
+Only plain column names are taken from the store's text; the values it echoes
+and constraint names never reach a message. Anything else (expression indexes,
+check constraints) is left unmapped. Your own provider or `prepare` rule can
+throw `new DataWriteError("invalid", "…", { fields: { slug: "Pick another slug." } })`.
+
+## Mutation modes
+
+`useResource` (its `create`, `update`, `remove`) and `useResourceForm` take
+`mutationMode`:
+
+| Mode | Cache | Provider | Returned promise / `onSuccess` |
+| --- | --- | --- | --- |
+| `"pessimistic"` (default) | refetched after the write | at once | after the write |
+| `"optimistic"` | patched at once; put back if the write fails | at once | at once |
+| `"undoable"` | patched at once; put back on undo or failure | after `undoDelayMs` (default 5000) unless undone | at once |
+
+- **Failures** in `optimistic` / `undoable` mode go to `onError` (the caller
+  was already told it worked, and the cache has been put back). Show them
+  there. `useResourceForm` also puts them on the form, if it is still open.
+- **The undo control is yours.** Core has no UI: `onUndoable(write)` is called
+  with `{ resource, kind, id, strategy, delayMs, undo(), commit() }`.
+  genesis-ui's `ResourceForm` and `ResourcePage` show a sonner toast with an
+  Undo button.
+- **A provider that serves `undo`** (`capabilities().undo === true` and an
+  `undo` method) gets an `undoable` write at once; `undo()` then calls
+  `provider.undo(resource, { auditId })` with the audit id the write returned
+  (`strategy: "provider"`). Without an audit id no undo is offered.
+- **Leaving sends.** When the hook unmounts during the delay (the form closes,
+  the route changes), waiting writes are sent at once, as React Admin does.
+  Closing or reloading the tab also sends them, and holds the page with the
+  browser's prompt so the requests can finish.
+- **What is patched:** an update merges the values into the row in every
+  cached list (`[resource, "list", …]`) and detail (`[resource, "detail", id,
+  …]`); a delete removes the row and lowers `total`. A create patches nothing
+  (its id and place in a sorted list are the server's), so `optimistic` /
+  `undoable` only change when it is sent and when the caller moves on. A
+  rollback restores only the row it patched, so concurrent writes on other
+  rows survive.
+- **Refetching waits.** While an optimistic or undoable write on a resource is
+  pending, the hooks hold off invalidating `[resource]`; the last write to
+  settle refetches. Other code that invalidates the resource (or a window-focus
+  refetch) during the delay shows the server's rows until then.
+
+```ts
+const tasks = useResource("tasks", {
+  mutationMode: "undoable",
+  onUndoable: (write) => toast("Deleted.", { action: { label: "Undo", onClick: () => void write.undo() } }),
+  onError: (error) => toast.error(error.message),
+});
+await tasks.remove(id); // resolves at once; sent in 5 s unless undone
+```
+
+## Unsaved changes
+
+`useResourceForm({ warnWhenUnsaved: true })` (default off) warns while the
+form is dirty: the browser's prompt on closing or reloading the tab, and
+`confirmLeave()` for in-app navigation. It returns `isDirty` (false again once
+a save succeeds or is handed off) and `confirmLeave()` (true when it is fine to
+leave; asks with `window.confirm` otherwise). For other state,
+`useUnsavedChangesGuard({ when, message, confirm })` gives the same
+`confirmLeave` and `beforeunload` handling. Neither depends on a router; see
+genesis-ui's SKILL.md "Unsaved changes" for React Router and TanStack Router.

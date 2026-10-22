@@ -153,8 +153,10 @@ export interface DataTableProps<T> {
   keyboardNavigation?: boolean;
   /**
    * The column whose cell opens the row (as a button), by key. Default: the
-   * first visible column that isn't `editable`. Its `render` must not put a
-   * link or button in the cell. `null` makes no cell a button (mouse only).
+   * first visible column that isn't `editable`. A plain-text cell is wrapped
+   * by the button; an `editable` or `render` cell keeps its own content (a
+   * link or input stays usable) with the open button beside it, shown when
+   * focused. `null` makes no cell a button (mouse only).
    */
   openColumn?: string | null;
   /**
@@ -177,6 +179,36 @@ export interface DataTableProps<T> {
   reorderableColumns?: boolean;
   /** localStorage key for the user's column order. */
   columnOrderKey?: string;
+  /**
+   * The header sort, controlled: the first entry is the primary sort, later
+   * ones break ties (Shift-click adds one). Leave it unset and the table
+   * keeps its own sort, starting unsorted.
+   */
+  sort?: readonly DataTableSort[];
+  /** Called with the next header sort whenever a header is clicked. */
+  onSortChange?: (sort: DataTableSort[]) => void;
+}
+
+/** One column of a `DataTable` header sort. */
+export interface DataTableSort {
+  key: string;
+  dir: "asc" | "desc";
+}
+
+/** localStorage writes that never throw (Safari private mode, quota, blocked storage). */
+function storeSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // a remembered preference is a convenience; losing it is fine
+  }
+}
+function storeRemove(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // as above
+  }
 }
 
 /** Row height estimate per density, for virtualization. */
@@ -187,7 +219,7 @@ const PINNED_WIDTH = 160;
 /**
  * Typed comparison for sorting: numbers and dates by value, booleans false
  * before true, everything else as text with numbers in it ordered naturally.
- * Empty values sort first ascending.
+ * Empty values never reach it: they sort last (see `sortUndefined`).
  */
 function compareValues(a: unknown, b: unknown): number {
   const emptyA = a == null || a === "";
@@ -211,7 +243,24 @@ function focusRowAt(body: Element | null, index: number): boolean {
 
 /* ── Helpers ── */
 
-type SortEntry = { key: string; dir: "asc" | "desc" };
+type SortEntry = DataTableSort;
+
+/** The header sort after clicking `key`: asc, then desc, then off. */
+function nextSort(prev: readonly SortEntry[], key: string, shiftKey: boolean): SortEntry[] {
+  const existing = prev.findIndex((s) => s.key === key);
+  if (existing >= 0) {
+    const entry = prev[existing];
+    if (entry.dir === "asc") {
+      const next = [...prev];
+      next[existing] = { key, dir: "desc" };
+      return next;
+    }
+    // Remove on third click
+    return prev.filter((_, i) => i !== existing);
+  }
+  if (shiftKey) return [...prev, { key, dir: "asc" }];
+  return [{ key, dir: "asc" }];
+}
 
 function getCellClasses(col: DataTableColumn<unknown>) {
   const hide = col.hideBelow
@@ -500,6 +549,8 @@ export function DataTable<T>({
   pinnedColumns,
   reorderableColumns = true,
   columnOrderKey,
+  sort: sortProp,
+  onSortChange,
 }: DataTableProps<T>) {
   const rowKeys = keyboardNavigation && !!onRowClick;
   // Roving tabindex: one row's open button is the table's tab stop.
@@ -507,27 +558,18 @@ export function DataTable<T>({
   const cellDensity = DENSITY_CELL[density];
   const headDensity = DENSITY_HEAD[density];
   // ── Multi-column sort ──
-  const [sorts, setSorts] = useState<SortEntry[]>([]);
+  // Controlled through `sort` / `onSortChange`, or kept here. Either way it
+  // is what TanStack sorts by (see "Sort and page" below).
+  const [ownSorts, setOwnSorts] = useState<SortEntry[]>([]);
+  const sorts: readonly SortEntry[] = sortProp ?? ownSorts;
 
   const handleSort = useCallback(
     (key: string, shiftKey: boolean) => {
-      setSorts((prev) => {
-        const existing = prev.findIndex((s) => s.key === key);
-        if (existing >= 0) {
-          const entry = prev[existing];
-          if (entry.dir === "asc") {
-            const next = [...prev];
-            next[existing] = { key, dir: "desc" };
-            return next;
-          }
-          // Remove on third click
-          return prev.filter((_, i) => i !== existing);
-        }
-        if (shiftKey) return [...prev, { key, dir: "asc" }];
-        return [{ key, dir: "asc" }];
-      });
+      const next = nextSort(sorts, key, shiftKey);
+      if (sortProp === undefined) setOwnSorts(next);
+      onSortChange?.(next);
     },
-    [],
+    [sorts, sortProp, onSortChange],
   );
 
   // ── Column visibility ──
@@ -578,7 +620,7 @@ export function DataTable<T>({
 
   useEffect(() => {
     if (!visibilityHydrated || !columnVisibilityKey) return;
-    localStorage.setItem(
+    storeSet(
       `dt-vis-${columnVisibilityKey}`,
       JSON.stringify(visibleCols),
     );
@@ -596,7 +638,7 @@ export function DataTable<T>({
     setVisibleCols(defaults);
     setColOrder(null);
     if (columnVisibilityKey) {
-      localStorage.removeItem(`dt-vis-${columnVisibilityKey}`);
+      storeRemove(`dt-vis-${columnVisibilityKey}`);
     }
   }, [columns, columnVisibilityKey]);
 
@@ -624,7 +666,11 @@ export function DataTable<T>({
     if (columnOrderKey) {
       try {
         const saved = localStorage.getItem(`dt-order-${columnOrderKey}`);
-        if (saved) setColOrder(JSON.parse(saved) as string[]);
+        const parsed: unknown = saved ? JSON.parse(saved) : null;
+        // Only a list of column keys is an order; anything else is ignored.
+        if (Array.isArray(parsed) && parsed.every((k) => typeof k === "string")) {
+          setColOrder(parsed);
+        }
       } catch {
         // ignore corrupt prefs
       }
@@ -633,8 +679,8 @@ export function DataTable<T>({
   }, [columnOrderKey]);
   useEffect(() => {
     if (!orderHydrated || !columnOrderKey) return;
-    if (colOrder) localStorage.setItem(`dt-order-${columnOrderKey}`, JSON.stringify(colOrder));
-    else localStorage.removeItem(`dt-order-${columnOrderKey}`);
+    if (colOrder) storeSet(`dt-order-${columnOrderKey}`, JSON.stringify(colOrder));
+    else storeRemove(`dt-order-${columnOrderKey}`);
   }, [colOrder, columnOrderKey, orderHydrated]);
   const orderedColumns = useMemo(() => {
     if (!colOrder) return columns;
@@ -709,7 +755,7 @@ export function DataTable<T>({
 
   const handleResizeEnd = useCallback(() => {
     if (resizeKey) {
-      localStorage.setItem(`dt-resize-${resizeKey}`, JSON.stringify(colWidths));
+      storeSet(`dt-resize-${resizeKey}`, JSON.stringify(colWidths));
     }
   }, [resizeKey, colWidths]);
 
@@ -754,8 +800,8 @@ export function DataTable<T>({
   }, [items.length, currentPageSize]);
 
   // ── Sort and page: TanStack Table's row models ──
-  // The header buttons own the sort state (asc → desc → off, Shift adds a
-  // secondary sort); TanStack applies it with a typed comparison and pages
+  // The header buttons drive the sort state (asc → desc → off, Shift adds a
+  // secondary sort; held here or by the caller via `sort`); TanStack applies it with a typed comparison and pages
   // the result. Ties keep the items' own order.
   const sorting = useMemo<SortingState>(
     () => sorts.map((s) => ({ id: s.key, desc: s.dir === "desc" })),
@@ -765,8 +811,13 @@ export function DataTable<T>({
     () =>
       columns.map((col) => ({
         id: col.key,
-        accessorFn: (row: T) =>
-          col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key],
+        // Blanks read as undefined here, so `sortUndefined` keeps them last
+        // whichever way the column sorts.
+        accessorFn: (row: T) => {
+          const v = col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key];
+          return v == null || v === "" ? undefined : v;
+        },
+        sortUndefined: "last" as const,
         sortingFn: (a, b, id) => compareValues(a.getValue(id), b.getValue(id)),
       })),
     [columns],
@@ -852,6 +903,7 @@ export function DataTable<T>({
                 key={id}
                 ref={measure}
                 data-index={index}
+                aria-rowindex={virtualizing ? index + 2 : undefined}
                 className={cn(
                   onRowClick && "cursor-pointer",
                   "focus-within:bg-muted/40",
@@ -913,35 +965,60 @@ export function DataTable<T>({
                         // The row's named open action: a button the
                         // screen reader announces, and the table's one
                         // tab stop when this row holds it.
+                        const openProps = {
+                          type: "button" as const,
+                          [ROW_OPEN]: String(index),
+                          tabIndex: id === tabStopKey ? 0 : -1,
+                          onFocus: () => setActiveRowKey(id),
+                          onClick: (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onRowClick?.(item);
+                          },
+                          onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => {
+                            // Only the button's own keys: never those of
+                            // something inside the cell.
+                            if (e.target !== e.currentTarget) return;
+                            if (e.metaKey || e.ctrlKey || e.altKey) return;
+                            const move = (to: number) => {
+                              e.preventDefault();
+                              focusRow(to);
+                            };
+                            if (e.key === "ArrowDown" || e.key === "j") move(index + 1);
+                            else if (e.key === "ArrowUp" || e.key === "k") move(index - 1);
+                            else if (e.key === "Home") move(0);
+                            else if (e.key === "End") move(displayItems.length - 1);
+                            else if (e.key === "x" && selectable) {
+                              e.preventDefault();
+                              onToggleSelect?.(id);
+                            }
+                          },
+                        };
+                        // Plain text: the button wraps it and is named by it.
+                        if (!col.editable && !col.render) {
+                          return (
+                            <button
+                              {...openProps}
+                              className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                            >
+                              {content}
+                            </button>
+                          );
+                        }
+                        // An editor or a custom render may hold a link,
+                        // button or input, which must not sit inside a
+                        // button: the open button goes beside it instead,
+                        // hidden until focused, still the row's one tab stop.
                         return (
-                          <button
-                            type="button"
-                            {...{ [ROW_OPEN]: String(index) }}
-                            tabIndex={id === tabStopKey ? 0 : -1}
-                            className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                            onFocus={() => setActiveRowKey(id)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRowClick?.(item);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.metaKey || e.ctrlKey || e.altKey) return;
-                              const move = (to: number) => {
-                                e.preventDefault();
-                                focusRow(to);
-                              };
-                              if (e.key === "ArrowDown" || e.key === "j") move(index + 1);
-                              else if (e.key === "ArrowUp" || e.key === "k") move(index - 1);
-                              else if (e.key === "Home") move(0);
-                              else if (e.key === "End") move(displayItems.length - 1);
-                              else if (e.key === "x" && selectable) {
-                                e.preventDefault();
-                                onToggleSelect?.(id);
-                              }
-                            }}
-                          >
-                            {content}
-                          </button>
+                          <div className="flex min-w-0 items-center gap-1">
+                            <div className="min-w-0 flex-1">{content}</div>
+                            <button
+                              {...openProps}
+                              aria-label={`Open ${rowLabel(item, id)}`}
+                              className="sr-only shrink-0 rounded px-1 text-xs text-muted-foreground focus-visible:not-sr-only focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                            >
+                              Open
+                            </button>
+                          </div>
                         );
                       })()}
                     </TableCell>
@@ -1007,7 +1084,11 @@ export function DataTable<T>({
         className={cn("overflow-x-auto", virtualizing && "overflow-y-auto")}
         style={virtualizing ? { maxHeight: viewportHeight } : undefined}
       >
-        <Table style={{ tableLayout: "fixed" }}>
+        <Table
+          style={{ tableLayout: "fixed" }}
+          // A virtualized body holds only some rows; say how many there are.
+          aria-rowcount={virtualizing ? displayItems.length + 1 : undefined}
+        >
           {/* Fixed layout sizes columns from the first row: a <colgroup>
               gives each column its px width (the rest share what is left). */}
           <colgroup>
@@ -1029,7 +1110,7 @@ export function DataTable<T>({
               stickyHeader ? "sticky top-0 z-10 bg-background" : ""
             }
           >
-            <TableRow>
+            <TableRow aria-rowindex={virtualizing ? 1 : undefined}>
               {selectable && (
                 <TableHead
                   className={cn("w-10", headDensity, pinProps("__select", true)?.className)}
