@@ -6,8 +6,11 @@
  * genesis-ui does NOT depend on any router. Components that need to render a
  * link or navigate imperatively accept an injectable abstraction defined here,
  * and default to plain browser behavior (`<a>` / `window.location`). Consumers
- * on React Router or Next.js inject a thin adapter that maps these props to
- * their own `<Link>` / router.
+ * on a router inject an adapter that maps these props to their own `<Link>` /
+ * router. Ready-made ones ship on their own subpaths, each with its router as
+ * an optional peer: `@marktiderman/genesis-ui/router/react-router` and
+ * `@marktiderman/genesis-ui/router/tanstack-router`. Next.js passes
+ * `next/link` directly.
  */
 import {
   useCallback,

@@ -31,8 +31,10 @@ function parseArray(val: string | null): string[] {
 export interface UseDataFiltersOptions {
   /**
    * Injectable URL search-params adapter. Defaults to a browser History-API
-   * implementation (no router). Router consumers may pass their own — e.g.
-   * React Router's `useSearchParams()` result — for full SPA integration.
+   * implementation (no router). Router consumers pass their router's adapter
+   * for full SPA integration: `useReactRouterSearchParams()` from
+   * `@marktiderman/genesis-ui/router/react-router` or
+   * `useTanStackRouterSearchParams()` from `/router/tanstack-router`.
    */
   searchParams?: SearchParamsAdapter;
 }
