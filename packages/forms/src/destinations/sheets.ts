@@ -7,9 +7,10 @@
  * column keys and gains a column for any new key without moving the others,
  * and an `id` column holds the response id, so a redelivery is not appended
  * twice. Every write is `valueInputOption=RAW`, so Sheets stores text as
- * typed and never runs it as a formula; with `escapeFormulas` (default on),
- * text that a spreadsheet could run when exported and opened elsewhere gets
- * a leading `'` too (see `escapeFormula`).
+ * typed and never runs it as a formula: `@coach thanks` stays exactly that.
+ * Text is therefore not escaped by default (a `'` would be stored literally).
+ * Set `escapeFormulas` only when the sheet's text is exported and opened in
+ * another spreadsheet that might run it (see `escapeFormula`).
  *
  * Quota: Google allows a service account about 60 reads and 60 writes a
  * minute. So the tab id, header and last row are kept in the destination's
@@ -27,6 +28,7 @@ import {
   DeliveryError,
   discard,
   httpError,
+  resolveOption,
   timedFetch,
   type Cell,
   type DeliveryItem,
@@ -58,7 +60,14 @@ export interface SheetConfig {
 export interface SheetsDestinationOptions extends HttpDeps {
   /** The service account, or a function that finds the one for a destination's config. */
   account: GoogleServiceAccount | ((config: DestinationConfig) => GoogleServiceAccount | Promise<GoogleServiceAccount>);
-  /** Prefix text a spreadsheet could run as a formula with `'`. Default true. */
+  /**
+   * Prefix text a spreadsheet could run as a formula with `'` (see
+   * `escapeFormula`), headers included. Default false: writes are RAW, so
+   * Sheets never runs text as a formula, and the `'` would be stored as part
+   * of the text. Turn it on only if the sheet is exported as CSV and opened
+   * in another spreadsheet. Keep one setting per sheet: header keys are
+   * escaped too, so switching it later adds new columns for escaped keys.
+   */
   escapeFormulas?: boolean | undefined;
   /** Sensitive fields: `"include"` (default), `"mask"` or `"omit"`. */
   sensitive?: RowOptions["sensitive"];
@@ -80,8 +89,8 @@ export function mergeHeader(existing: readonly unknown[], keys: readonly string[
   return header;
 }
 
-/** One cell per header column, blank where the row has no value. */
-export function rowFor(header: readonly string[], row: Record<string, Cell>, escape = true): Cell[] {
+/** One cell per header column, blank where the row has no value; `escape` applies `escapeFormula` (default false). */
+export function rowFor(header: readonly string[], row: Record<string, Cell>, escape = false): Cell[] {
   return header.map((h) => {
     const cell = Object.prototype.hasOwnProperty.call(row, h) ? (row[h] ?? "") : "";
     return escape ? escapeFormula(cell) : cell;
@@ -162,11 +171,11 @@ export function sheetsDestination(options: SheetsDestinationOptions): Destinatio
   ): Promise<DeliveryResult> {
     if (!items.length) return { ok: true };
     const { spreadsheetId, sheetName } = configOf(config);
-    const account = typeof options.account === "function" ? await options.account(config) : options.account;
+    const account = await resolveOption("The sheet destination's account", options.account, config);
     const signal = deliveryOptions.signal;
     const token = await googleAccessToken(account, { ...options, signal });
     const base = `${SHEETS_API}/${encodeURIComponent(spreadsheetId)}`;
-    const escape = options.escapeFormulas !== false;
+    const escape = options.escapeFormulas === true;
 
     const call = async <T>(what: string, url: string, init: RequestInit = {}): Promise<T> => {
       const response = await timedFetch(

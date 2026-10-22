@@ -121,7 +121,9 @@ export function visibleInputs(
 
 /**
  * A cell that a spreadsheet will never run as a formula when the text is
- * opened elsewhere (a CSV export opened in Excel). Text starting with `=`,
+ * opened elsewhere (a CSV export opened in Excel). Opt-in: use it when
+ * writing CSV, not for the sheet destination, whose RAW writes are already
+ * safe and would store the `'` literally. Text starting with `=`,
  * `@`, a tab or a carriage return gets a leading `'`, as OWASP recommends;
  * so does text starting with `+` or `-` unless it is only digits and
  * number punctuation (a phone number such as `+1 (555) 010-0000`, `-2.5`),

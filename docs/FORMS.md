@@ -572,9 +572,11 @@ export interface FormStore {
   of throwing, and compacts the event log before enforcing `maxEvents` (default 10 000).
 - **Destinations (built, `/destinations`).** After the store has the response, the app hands it to
   destinations: `emailDestination` (any `EmailProvider`; `resendProvider` built in),
-  `sheetsDestination` (Google service-account JWT signed with WebCrypto, header management,
-  formula escaping, dedupe by response id) and `webhookDestination` (Standard Webhooks HMAC with
-  timestamp and replay protection; `verifyWebhook` for receivers). Each resolves a result that is
+  `sheetsDestination` (Google service-account JWT signed with WebCrypto, header management, RAW
+  writes so text is stored as typed and never run as a formula, opt-in `escapeFormulas` for
+  sheets exported elsewhere, dedupe by response id) and `webhookDestination` (Standard Webhooks
+  HMAC with timestamp and replay protection; the secret is base64-decoded with or without its
+  `whsec_` prefix, as the reference libraries do; `verifyWebhook` for receivers). Each resolves a result that is
   `retryable` or not, with `retryAfterSeconds` and a message safe to store; none throws or logs.
   The outbox, claims and retry schedule stay in the app's store (later, `FormStore`), so the
   destinations work with any backend. Upstreamed from Breakthrough's feedback delivery.

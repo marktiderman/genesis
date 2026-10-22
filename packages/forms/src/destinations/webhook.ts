@@ -27,6 +27,7 @@ import {
   discard,
   fromBase64,
   httpError,
+  resolveOption,
   timedFetch,
   type DeliveryOptions,
   type DeliveryResult,
@@ -44,9 +45,13 @@ export interface WebhookConfig {
 
 export interface WebhookDestinationOptions extends HttpDeps {
   /**
-   * The signing secret: a `whsec_`-prefixed base64 secret (as Standard
-   * Webhooks tools issue) or any string of at least 16 characters, or a
-   * function that finds the one for a destination's config. Never put it in config.
+   * The signing secret: base64 of at least 16 random bytes, usually with
+   * the `whsec_` prefix Standard Webhooks tools issue (`whsec_` plus base64
+   * of 24 to 64 bytes is what the spec recommends). The prefix is optional;
+   * the rest is always base64-decoded, as every Standard Webhooks library
+   * does, so a receiver verifies with the same string. A secret that is not
+   * base64 fails permanently. Or a function that finds the one for a
+   * destination's config. Never put it in config.
    */
   secret: string | ((config: DestinationConfig) => string | Promise<string>);
   /** Allow `http:` URLs. Default false. */
@@ -84,19 +89,23 @@ export interface WebhookPayload {
 }
 
 const MIN_SECRET_BYTES = 16;
+const STRICT_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
-/** The HMAC key bytes for a secret. Throws a `DeliveryError` for one too short or malformed. */
+/**
+ * The HMAC key bytes for a secret, decoded as the Standard Webhooks
+ * reference libraries do: an optional `whsec_` prefix is dropped and the
+ * rest is base64-decoded. Only padded standard base64 is accepted, the form
+ * every reference library decodes the same way. Throws a `DeliveryError` for
+ * a secret that is not base64 or is shorter than 16 bytes once decoded.
+ */
 function secretKey(secret: string): Uint8Array<ArrayBuffer> {
-  let bytes: Uint8Array<ArrayBuffer>;
-  if (secret.startsWith("whsec_")) {
-    try {
-      bytes = fromBase64(secret.slice(6));
-    } catch {
-      throw new DeliveryError("The webhook secret is not valid base64 after whsec_");
-    }
-  } else {
-    bytes = new TextEncoder().encode(secret);
+  const encoded = secret.startsWith("whsec_") ? secret.slice(6) : secret;
+  if (!encoded || !STRICT_BASE64.test(encoded)) {
+    throw new DeliveryError(
+      "The webhook secret must be base64, optionally prefixed with whsec_ (Standard Webhooks libraries base64-decode it)",
+    );
   }
+  const bytes = fromBase64(encoded);
   if (bytes.length < MIN_SECRET_BYTES) throw new DeliveryError(`The webhook secret is shorter than ${MIN_SECRET_BYTES} bytes`);
   return bytes;
 }
@@ -113,6 +122,7 @@ export async function signWebhook(secret: string, id: string, timestamp: number,
 }
 
 export interface VerifyWebhookInput {
+  /** The same secret the sender signs with (base64, optionally `whsec_`-prefixed). */
   secret: string;
   /** The request's headers: a `Headers` or a plain object. */
   headers: Headers | Record<string, string | string[] | undefined>;
@@ -273,7 +283,7 @@ export function webhookDestination(options: WebhookDestinationOptions): Destinat
     async deliver(submission, definition, config, deliveryOptions: DeliveryOptions = {}): Promise<DeliveryResult> {
       try {
         const url = checkWebhookUrl(configString(config, "url"), options);
-        const secret = typeof options.secret === "function" ? await options.secret(config) : options.secret;
+        const secret = await resolveOption("The webhook secret", options.secret, config);
         if (!secret) throw new DeliveryError("The webhook secret is not set");
         const now = options.now?.() ?? Date.now();
         const id = deliveryOptions.deliveryId ?? submission.id;

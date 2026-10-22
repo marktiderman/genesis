@@ -141,14 +141,23 @@ export class DeliveryError extends Error {
 /** Every outbound request gives up after this long, unless the destination is given another `timeoutMs`. */
 export const REQUEST_TIMEOUT_MS = 10_000;
 
-/** Seconds to wait from a Retry-After header (seconds or an HTTP date), else the fallback. Capped at a day. */
+const IMF_FIXDATE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT$/;
+
+/**
+ * Seconds to wait from a Retry-After header, else the fallback. Only the
+ * two forms RFC 9110 defines are read: delta-seconds (digits only) and an
+ * IMF-fixdate (`Wed, 21 Oct 2026 07:28:00 GMT`); anything else (`-5`,
+ * `1.5`, a loose date) gets the fallback. At least 1 second, at most a day.
+ */
 export function retryAfterSeconds(header: string | null | undefined, fallback = 60, now = Date.now()): number {
-  const cap = (s: number) => Math.min(86_400, s);
+  const clamp = (s: number) => Math.min(86_400, Math.max(1, s));
   if (header) {
     const trimmed = header.trim();
-    if (/^\d+(\.\d+)?$/.test(trimmed)) return cap(Math.ceil(Number(trimmed)));
-    const at = Date.parse(trimmed);
-    if (Number.isFinite(at)) return cap(Math.max(0, Math.ceil((at - now) / 1000)));
+    if (/^\d+$/.test(trimmed)) return clamp(Number(trimmed));
+    if (IMF_FIXDATE.test(trimmed)) {
+      const at = Date.parse(trimmed);
+      if (Number.isFinite(at)) return clamp(Math.ceil((at - now) / 1000));
+    }
   }
   return fallback;
 }
@@ -180,6 +189,10 @@ export function httpError(what: string, response: Response, detail?: string): De
  * Any error as a failed result with a safe message. A `DeliveryError` keeps
  * its message; anything else is reduced to its kind ("Timed out", "Network
  * error"), because a raw message may hold a URL with a token in it.
+ * Timeouts and aborts are retryable. A `TypeError` is permanent: it is
+ * almost always a bug that a retry would only repeat. `timedFetch` turns
+ * fetch's own network `TypeError` into a retryable `DeliveryError` first, so
+ * an app destination that calls `fetch` directly should do the same.
  */
 export function deliveryFailure(error: unknown): DeliveryFailure {
   if (error instanceof DeliveryError) {
@@ -194,7 +207,7 @@ export function deliveryFailure(error: unknown): DeliveryFailure {
   const name = error instanceof Error ? error.name : "";
   if (name === "TimeoutError") return { ok: false, retryable: true, error: "Timed out" };
   if (name === "AbortError") return { ok: false, retryable: true, error: "Aborted" };
-  if (name === "TypeError") return { ok: false, retryable: true, error: "Network error" };
+  if (name === "TypeError") return { ok: false, retryable: false, error: "Unexpected error" };
   return { ok: false, retryable: true, error: "Unexpected error" };
 }
 
@@ -206,8 +219,12 @@ export interface HttpDeps {
   timeoutMs?: number | undefined;
 }
 
-/** A request with a timeout, also aborted by the caller's signal. */
-export function timedFetch(
+/**
+ * A request with a timeout, also aborted by the caller's signal. A network
+ * failure (fetch rejects with a `TypeError`) becomes a retryable
+ * `DeliveryError("Network error")`; timeouts and aborts pass through.
+ */
+export async function timedFetch(
   deps: HttpDeps,
   url: string,
   init: RequestInit,
@@ -216,7 +233,33 @@ export function timedFetch(
   const timeout = AbortSignal.timeout(deps.timeoutMs ?? REQUEST_TIMEOUT_MS);
   const any = (AbortSignal as unknown as { any?: (signals: AbortSignal[]) => AbortSignal }).any;
   const combined = signal ? (any ? any([timeout, signal]) : signal.aborted ? signal : timeout) : timeout;
-  return (deps.fetch ?? fetch)(url, { ...init, signal: combined });
+  try {
+    return await (deps.fetch ?? fetch)(url, { ...init, signal: combined });
+  } catch (error) {
+    if (error instanceof Error && error.name === "TypeError") throw new DeliveryError("Network error", { retryable: true });
+    throw error;
+  }
+}
+
+/**
+ * A factory option that may be a value or a function of the config (an
+ * account, a secret). A function that throws fails the delivery
+ * permanently with "<what> could not be resolved", never retried and never
+ * echoing its message; to ask for a retry it can throw a retryable
+ * `DeliveryError` itself.
+ */
+export async function resolveOption<T>(
+  what: string,
+  option: T | ((config: DestinationConfig) => T | Promise<T>),
+  config: DestinationConfig,
+): Promise<T> {
+  if (typeof option !== "function") return option;
+  try {
+    return await (option as (config: DestinationConfig) => T | Promise<T>)(config);
+  } catch (error) {
+    if (error instanceof DeliveryError) throw error;
+    throw new DeliveryError(`${what} could not be resolved`);
+  }
 }
 
 /** Lets go of a body we will not read, so the connection is freed. */
