@@ -19,13 +19,13 @@ export interface InspectorTab {
 export interface InspectorProps {
   engine: FormEngine;
   /** Server-resolved context passed to the server check. */
-  context?: Record<string, Json>;
+  context?: Record<string, Json> | undefined;
   /** Restart the form from an event prefix (timeline "Continue from here"). */
-  onFork?: (events: FormEvent[]) => void;
+  onFork?: ((events: FormEvent[]) => void) | undefined;
   /** Extra tabs from the host: definition editor, flow map, coverage… */
-  extraTabs?: InspectorTab[];
-  defaultTab?: string;
-  className?: string;
+  extraTabs?: InspectorTab[] | undefined;
+  defaultTab?: string | undefined;
+  className?: string | undefined;
 }
 
 // A stable default, so the server check is not recomputed on every render.

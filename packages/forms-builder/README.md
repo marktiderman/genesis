@@ -81,8 +81,9 @@ Every edit is a function in `ops` (`updateBlock`, `setOptions`, `removeBlock`…
 valid definition: removing something removes the rules that pointed at it. Edits that need a new
 id or option value take it as an argument (`duplicateBlock(def, id, copyId)`, `withOptionValues`,
 `defaultProps`), so make it outside a reducer and the edit stays pure. Use them on a server or
-in scripts too. `TEMPLATES` has starting points (blank, after-class feedback, monthly pulse, new
+in scripts too: `@marktiderman/genesis-forms-builder/ops` has the same functions without
+`"use client"`, so a server component or route handler can import them. `TEMPLATES` has starting points (blank, after-class feedback, monthly pulse, new
 member intake).
 
-The package ships `"use client"` and needs Tailwind to see its classes: import `styles.css` (it
+The main entry ships `"use client"` and needs Tailwind to see its classes: import `styles.css` (it
 adds an `@source` for the package).
