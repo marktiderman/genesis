@@ -1,0 +1,74 @@
+packages/forms-web/src/subject.ts
+  s_03a3816737bc07::t_20a5cfe6019295 1-34
+packages/forms-builder/src/ops.ts
+  s_03a3816737bc07::t_9475081bbd7648 138-147,166-167
+  s_03a3816737bc07::t_1748d9b8c2bd42 137
+packages/forms/type-tests/exact-optional.ts
+  s_03a3816737bc07::t_0ff11e1f743946 20-23
+.changeset/forms-web-worksheet-renderers.md
+  s_03a3816737bc07::t_994af066a12cf3 1-5
+packages/forms/src/define.ts
+  s_03a3816737bc07::t_7c96f3fd0aadcf 66-69,108-158
+packages/forms-web/src/renderers.tsx
+  s_03a3816737bc07::t_380a47e6b3e3ea 1,11-12,14,414
+packages/forms-web/src/index.ts
+  s_03a3816737bc07::t_7d08b4bf6be1aa 16-22
+packages/forms-builder/src/FormBuilder.tsx
+  s_03a3816737bc07::t_b84f4a624a4dc7 83
+packages/forms-builder/src/__tests__/worksheet.test.tsx
+  s_03a3816737bc07::t_c7152ddac1e076 1-112
+packages/forms-builder/src/editors.ts
+  s_03a3816737bc07::t_435502789cfc15 4,82,84
+packages/forms/src/__tests__/worksheet.test.ts
+  s_03a3816737bc07::t_02ca95791c41ce 1-30,32-35,38-69,71-100,102-174,176-234
+  s_03a3816737bc07::t_2a845c5a8d4044 36,175
+  s_03a3816737bc07::t_79c10d83bccfbd 31,37
+  s_03a3816737bc07::t_ac9c4bb16c092c 70
+  s_03a3816737bc07::t_c90ca3cc7d1708 101
+packages/forms/src/parse.ts
+  s_03a3816737bc07::t_1160df289caa31 4,44,108-152,239
+packages/forms-web/src/__tests__/worksheet.test.tsx
+  s_03a3816737bc07::t_3daf0a01805d81 1-200
+packages/forms-builder/src/index.ts
+  s_03a3816737bc07::t_435502789cfc15 33
+packages/forms-web/type-tests/exact-optional.tsx
+  s_03a3816737bc07::t_0ff11e1f743946 4,30-38
+  s_03a3816737bc07::t_f79aa39f0c1966 39
+.changeset/forms-builder-worksheet-editors.md
+  s_03a3816737bc07::t_994af066a12cf3 1-5
+.changeset/forms-worksheet-field-types.md
+  s_03a3816737bc07::t_994af066a12cf3 1-5
+packages/forms-web/src/worksheet.tsx
+  s_03a3816737bc07::t_7d08b4bf6be1aa 182,280
+  s_03a3816737bc07::t_dacf0b7250042d 1-181,183-279,281-754
+packages/forms/src/worksheet.ts
+  s_03a3816737bc07::t_4ac1fd049f314e 1-14,23-98,100-118,120-161,163-186,188-221
+  s_03a3816737bc07::t_ac9c4bb16c092c 15-19,21-22,187
+  s_03a3816737bc07::t_6597fe454bc20b 20,99,119,162
+packages/forms-builder/src/worksheet-editors.tsx
+  s_03a3816737bc07::t_671c2403da4b9e 1-203
+packages/forms/src/coverage.ts
+  s_03a3816737bc07::t_e915e88ed6939b 121-125
+packages/forms/src/fields.ts
+  s_03a3816737bc07::t_e915e88ed6939b 2,291
+packages/forms-web/src/chrome.tsx
+  s_03a3816737bc07::t_380a47e6b3e3ea 1-137
+packages/forms/src/index.ts
+  s_03a3816737bc07::t_e915e88ed6939b 48-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5298fb7b904c86024ef9440ba450e025bb802aba",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
