@@ -1,0 +1,59 @@
+packages/ui/src/components/data/__tests__/undo-toast-exports.test.ts
+  s_a1b83c03f697d3::t_41a925e501bef4 1-28
+packages/ui/src/components/data/ResourceForm.tsx
+  s_a1b83c03f697d3::t_d533da061affd8 351-352
+packages/core/src/hooks/use-resource-form.ts
+  s_a1b83c03f697d3::t_7a90f1e9e07d5f 17,63-69,406,553-563,591-602,609,639-640,643-644
+  s_a1b83c03f697d3::t_5beceb22e87ab9 22-30,615-617,671,687
+  s_a1b83c03f697d3::t_d6359c55f7cd65 62
+packages/core/src/hooks/mutation-mode.ts
+  s_a1b83c03f697d3::t_e23f849db80c6c 186-187,203,234-240,242-243,305
+  s_a1b83c03f697d3::t_d07317ab0cb1a8 447-463,465-477,479-491
+  s_a1b83c03f697d3::t_438746a8913699 15-17,23,47-52,69,88-110,128-148,150-185,188-202,204-206,208-233,244-273,275-283,285-299,302-304,306-325,327-404,406-446,464,492-493,497-504,507-513,516-521,524-526,528,532-538,540,544-546,548,556-567,583-584,586,594-603,611,618-620,629-631,636,639,645-649,651-656,660-681,684-696,699,701-703,705-706,708-710,717,720-768,771,776-777,813-814,822,827
+  s_a1b83c03f697d3::t_fb1183d777b521 824-826,828-829
+packages/core/src/provider/postgrest-errors.ts
+  s_a1b83c03f697d3::t_c7422e6ed4b995 168-170
+  s_a1b83c03f697d3::t_702b5466622c6a 56-73,75-102,127,147-149,171,203
+  s_a1b83c03f697d3::t_52a4651cc19114 123-126
+packages/core/src/schema/types.ts
+  s_a1b83c03f697d3::t_6666553af1a268 287-294
+packages/core/src/provider/types.ts
+  s_a1b83c03f697d3::t_6666553af1a268 113-119,145-146,163-164
+packages/ui/src/components/data/index.ts
+  s_a1b83c03f697d3::t_de6bbddd20f2ce 54-56
+packages/core/src/hooks/use-resource.ts
+  s_a1b83c03f697d3::t_ccc79bbedb73d6 265,298-299,324-329,350-351
+packages/ui/src/hooks/__tests__/core-mutation-modes.test.tsx
+  s_a1b83c03f697d3::t_efad280dbb6c89 84-89,216,219,239-241
+  s_a1b83c03f697d3::t_173f09760fcba9 8-12,215,221,234,236-238,329-352,362,368,381-382,386-441,597-599,609,618-662,664-679,684-687,689-1003
+  s_a1b83c03f697d3::t_0d6ff6fd4e2e6f 663,680-683,688
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_a1b83c03f697d3::t_52a4651cc19114 136-168,170
+  s_a1b83c03f697d3::t_2e241e5a2a8a5b 77,80-81
+.changeset/undoable-fast-follows.md
+  s_a1b83c03f697d3::t_0546239c37ef9e 1-14
+apps/sample/app/data/primitives.json
+  s_a1b83c03f697d3::t_a08f1670f83889 15218
+docs/component-reference.md
+  s_a1b83c03f697d3::t_d7af73be9bfcc5 51,60
+packages/core/README.md
+  s_a1b83c03f697d3::t_83da71560b4502 163-167,192-211,219-224
+packages/ui/SKILL.md
+  s_a1b83c03f697d3::t_8251d1c5a16fd1 81-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b445fcbfeaf40f237de4baae32b217dcd6c7aeb3",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
