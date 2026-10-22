@@ -1,0 +1,62 @@
+.github/workflows/tarball-integrity.yml
+  s_18dd9cee35b819::t_9dc3d722112592 27,37
+docs/component-reference.md
+  s_18dd9cee35b819::t_9dc3d722112592 7,530-564,566
+  s_18dd9cee35b819::t_d5b14bcee6f133 565,567
+packages/ui/src/router/tanstack-router.tsx
+  s_18dd9cee35b819::t_9dc3d722112592 1-207
+packages/ui/src/navigation.tsx
+  s_18dd9cee35b819::t_9dc3d722112592 9-13
+scripts/gen-component-reference.mjs
+  s_18dd9cee35b819::t_9dc3d722112592 68-84,418-425
+packages/ui/src/hooks/use-data-filters.ts
+  s_18dd9cee35b819::t_9dc3d722112592 34-37
+packages/ui/package.json
+  s_18dd9cee35b819::t_9dc3d722112592 71-78,355,369,398,415,425-427,430-432
+.github/workflows/self-lint.yml
+  s_18dd9cee35b819::t_9dc3d722112592 26,44
+.github/workflows/claude-code-review.yml
+  s_18dd9cee35b819::t_9dc3d722112592 12
+.changeset/ui-router-adapters.md
+  s_18dd9cee35b819::t_9dc3d722112592 1-5
+apps/sample/app/data/primitives.json
+  s_18dd9cee35b819::t_9dc3d722112592 10,11475-11506,13813-13844
+packages/ui/SKILL.md
+  s_18dd9cee35b819::t_9dc3d722112592 81,129-155,157
+packages/ui/src/router/react-router.tsx
+  s_18dd9cee35b819::t_9dc3d722112592 1-116
+packages/ui/src/router/utils.ts
+  s_18dd9cee35b819::t_9dc3d722112592 1-36
+apps/sample/app/routes/_layout.tsx
+  s_18dd9cee35b819::t_9dc3d722112592 1-2,4-6,75-76,78,84-85
+docs/FRAMEWORK.md
+  s_18dd9cee35b819::t_9dc3d722112592 130
+.github/workflows/ci.yml
+  s_18dd9cee35b819::t_9dc3d722112592 7-8
+apps/sample/scripts/generate-primitive-docs.ts
+  s_18dd9cee35b819::t_9dc3d722112592 252-256
+packages/ui/src/router/__tests__/react-router.test.tsx
+  s_18dd9cee35b819::t_9dc3d722112592 1-168
+packages/ui/src/router/__tests__/tanstack-router.test.tsx
+  s_18dd9cee35b819::t_9dc3d722112592 1-260
+packages/ui/tsup.config.ts
+  s_18dd9cee35b819::t_9dc3d722112592 60-65
+pnpm-lock.yaml
+  s_18dd9cee35b819::t_c7e60be9378120 385,908-910,959-961,979,4339-4342,4351-4363,4377-4383,5385-5387,8310-8319,12756-12757,12765-12780,12793-12801,13211,13213,13976-13977,17540-17545
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6e6234e230ae76d875bb9fb8185defb40a0ebf27",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
