@@ -716,6 +716,25 @@ describe("coverage with a plugin field (CodeRabbit on #40)", () => {
     expect(report.endings.default?.reached).toBe(true);
   });
 
+  it("still tries an answer when the only valid compared value is empty", async () => {
+    const { registerFieldType } = await import("../index");
+    const { coverage } = await import("../testing");
+    registerFieldType({
+      type: "test-signature-empty", label: "Signature", category: "advanced", value: { json: true },
+      operators: ["answered", "empty", "eq"], a11y: { semantics: "control" },
+      validate: (v: unknown) => (typeof v === "string" && v.startsWith("sig:") ? null : "Sign here."),
+    } as never);
+    const form = defineForm({
+      id: "plug4", title: "Plug",
+      blocks: [f.custom("test-signature-empty", "sig", { label: "Sign" }), f.yesNo("after", { label: "After" })],
+      endings: [{ id: "default", title: "Done" }, { id: "signed", title: "Signed" }],
+      logic: [when("sig").is("").hide("after"), when("sig").isAnswered().jumpTo({ ending: "signed" })],
+    });
+    const report = coverage(form);
+    expect(report.rulesNeverFired).not.toContain(form.definition.logic![1]!.id);
+    expect(report.endings.signed?.needsSamples).toEqual(["sig"]);
+  });
+
   it("uses a plugin's samples to build a valid witness", async () => {
     const { registerFieldType } = await import("../index");
     const { coverage } = await import("../testing");

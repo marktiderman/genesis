@@ -5,7 +5,7 @@
  * combinations a respondent could actually produce are explored.
  */
 import { canonicalJson } from "./hash";
-import { choiceOptions, getFieldType } from "./fields";
+import { choiceOptions, getFieldType, isEmptyValue } from "./fields";
 import { evaluate, fieldMap, steps, walkPath, type EvalScope, type PathWalk } from "./logic";
 import type { Condition, FieldBlock, FormDefinition, Json } from "./types";
 import { validateField } from "./validate";
@@ -135,7 +135,7 @@ function domainOf(field: FieldBlock, extra: Value[], maxOptions: number): Candid
   const candidates = dedupe([undefined, ...base, ...extra]);
   const valid = candidates.filter((v) => validateField(field, v) === null);
   const domain: Candidate[] = valid.map((value) => ({ value }));
-  if (valid.some((v) => v !== undefined)) return domain;
+  if (valid.some((v) => !isEmptyValue(v, field))) return domain;
   // A type with no known valid answer (a plugin without samples) must neither
   // dead-end the search nor hide the branches an answer would take: also try
   // the values the logic compares it with and some answer, as placeholders.
