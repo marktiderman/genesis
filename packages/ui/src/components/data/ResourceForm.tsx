@@ -348,6 +348,8 @@ export function ResourceForm(props: ResourceFormProps) {
     prefillFromUrl,
     autoPlaceholder,
     warnWhenUnsaved,
+    // A closed dialog is not touched by a save that fails later.
+    visible: open,
     mutationMode,
     undoDelayMs,
     onUndoable: onUndoable ?? showUndoToast,

@@ -160,8 +160,11 @@ plain sentence (the raw text stays on `cause`):
 | `23503` foreign key (insert/update) | `details`: `Key (owner_id)=(…) is not present in table …` | "The selected item doesn't exist." | "Owner Id: the selected item doesn't exist." |
 
 Only plain column names are taken from the store's text; the values it echoes
-and constraint names never reach a message. Anything else (expression indexes,
-check constraints) is left unmapped. Your own provider or `prepare` rule can
+and constraint names never reach a message. A unique index on one column in a
+simple expression (`lower(email::text)`) maps to that column; a unique
+violation whose columns cannot be read still gets the safe sentence "This value
+is already in use." with no field. Anything else (check constraints) is left
+unmapped. Your own provider or `prepare` rule can
 throw `new DataWriteError("invalid", "…", { fields: { slug: "Pick another slug." } })`.
 
 ## Mutation modes
@@ -186,10 +189,26 @@ throw `new DataWriteError("invalid", "…", { fields: { slug: "Pick another slug
   `undo` method) gets an `undoable` write at once; `undo()` then calls
   `provider.undo(resource, { auditId })` with the audit id the write returned
   (`strategy: "provider"`). Without an audit id no undo is offered.
-- **Leaving sends.** When the hook unmounts during the delay (the form closes,
-  the route changes), waiting writes are sent at once, as React Admin does.
-  Closing or reloading the tab also sends them, and holds the page with the
-  browser's prompt so the requests can finish.
+- **Undo outlives the form.** Pending writes belong to the `QueryClient`, not
+  to the hook: a form or page that unmounts during the delay (a dialog that
+  closes on success, a route change) leaves its writes waiting, and the undo
+  toast still works. They are sent when the delay ends.
+- **Closing the tab sends.** On `beforeunload` and `pagehide`, waiting writes
+  are sent at once with `keepalive: true` in their params (`CreateParams`,
+  `UpdateParams`, `DeleteParams`). A fetch-based provider should pass it to
+  `fetch` and report `keepaliveWrites: true` in its capabilities. The
+  "Leave site?" prompt shows only while a write is being sent without that
+  guarantee (the built-in Supabase provider cannot pass keepalive through
+  supabase-js, so it prompts while a write is in flight).
+- **Writes on one record compose.** They are sent in the order they were
+  made, one after another; sending a later one (its delay ended, `commit()`)
+  first sends the earlier ones still waiting, which can then no longer be
+  undone. Undoing (or a failure of) an earlier edit takes only its own fields
+  out of the cache, keeping later pending edits shown. A later pending edit
+  that kept the earlier edit's values unchanged (a form opened from the
+  patched cache) has them put back before it is sent, so it never sends the
+  undone values; one whose values are not row-shaped (`toFormValues`) cannot
+  be fixed, so it is dropped and reported through `onError`.
 - **What is patched:** an update merges the values into the row in every
   cached list (`[resource, "list", …]`) and detail (`[resource, "detail", id,
   …]`); a delete removes the row and lowers `total`. A create patches nothing
@@ -197,10 +216,12 @@ throw `new DataWriteError("invalid", "…", { fields: { slug: "Pick another slug
   `undoable` only change when it is sent and when the caller moves on. A
   rollback restores only the row it patched, so concurrent writes on other
   rows survive.
-- **Refetching waits.** While an optimistic or undoable write on a resource is
-  pending, the hooks hold off invalidating `[resource]`; the last write to
-  settle refetches. Other code that invalidates the resource (or a window-focus
-  refetch) during the delay shows the server's rows until then.
+- **Refetches keep the patch.** While a write is pending, its patch is
+  re-applied to any `[resource, "list", …]` or `[resource, "detail", …]` data
+  that lands in the cache: a refetch, a window-focus refetch, a new page,
+  filter or search. A deleted row stays gone and an edit stays shown until the
+  write settles; then the server's rows win. A fetch already in flight is not
+  cancelled. Each write refetches `[resource]` when it settles.
 
 ```ts
 const tasks = useResource("tasks", {

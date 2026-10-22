@@ -23,7 +23,6 @@ import {
   cachedRecord,
   executeWrite,
   invalidateResource,
-  useDelayedWrites,
   type MutationModeOptions,
 } from "./mutation-mode";
 
@@ -263,7 +262,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
 
   const invalidateAfter = useCallback(
     (event: WriteEvent) => {
-      // Waits while an optimistic/undoable write on the resource is pending.
+      // Pending optimistic/undoable patches are re-applied to the refetch.
       void invalidateResource(queryClient, resource);
       for (const queryKey of relatedKeys(provider, event, invalidates)) {
         void queryClient.invalidateQueries({ queryKey: [...queryKey] });
@@ -280,7 +279,6 @@ export function useResource<T extends BaseRecord = BaseRecord>(
   );
   const reportError = onError ?? defaultOnError;
 
-  const delayed = useDelayedWrites();
   const modeArgs = {
     queryClient,
     provider,
@@ -288,7 +286,6 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     mode: mutationMode,
     undoDelayMs,
     onUndoable,
-    delayed,
     failedLater: reportError,
   };
 
@@ -298,8 +295,8 @@ export function useResource<T extends BaseRecord = BaseRecord>(
         ...modeArgs,
         kind: "create",
         data: data as Record<string, unknown>,
-        send: async () => {
-          const result = await provider.create<T>(resource, { data });
+        send: async ({ keepalive }) => {
+          const result = await provider.create<T>(resource, { data, ...(keepalive ? { keepalive } : {}) });
           return { record: result.data, audit: result.audit };
         },
         committed: (record) => {
@@ -324,8 +321,12 @@ export function useResource<T extends BaseRecord = BaseRecord>(
         kind: "update",
         id,
         data: data as Record<string, unknown>,
-        send: async () => {
-          const result = await provider.update<T>(resource, { id, data });
+        send: async (ctx) => {
+          const result = await provider.update<T>(resource, {
+            id,
+            data: (ctx.data ?? data) as Partial<T>,
+            ...(ctx.keepalive ? { keepalive: true } : {}),
+          });
           return { record: result.data, audit: result.audit };
         },
         committed: (record) => {
@@ -346,8 +347,8 @@ export function useResource<T extends BaseRecord = BaseRecord>(
         ...modeArgs,
         kind: "delete",
         id,
-        send: async () => {
-          const result = await provider.deleteOne(resource, { id });
+        send: async ({ keepalive }) => {
+          const result = await provider.deleteOne(resource, { id, ...(keepalive ? { keepalive } : {}) });
           return { record: undefined, audit: result?.audit };
         },
         committed: () => {

@@ -48,7 +48,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DEFAULT_UNDO_DELAY_MS`](../packages/core/src/hooks/mutation-mode.ts) | const | — | How long an `undoable` write waits for an undo before it is sent. |
 | [`DEFAULT_UNSAVED_CHANGES_MESSAGE`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | const | — | _(no summary)_ |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
-| [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. Returns `un... |
+| [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
@@ -57,7 +57,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
-| [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
+| [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
