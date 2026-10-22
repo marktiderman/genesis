@@ -1,0 +1,42 @@
+# Claude reviews each pull request once, when it opens or leaves draft, with
+# Anthropic's code-review plugin (parallel reviewers, findings posted as a PR
+# comment). For another pass after new pushes, comment "@claude review"
+# (claude.yml). Reviewing every push would bill a full review per push.
+#
+# Needs the Claude GitHub app on the repo and the CLAUDE_CODE_OAUTH_TOKEN
+# secret (`claude setup-token`). To change the model, edit --model below.
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Drafts wait for ready_for_review; forks can't read the secret.
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    # ci.yml BILLING CONTRACT rule 3: every job is bounded.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: https://github.com/anthropics/claude-code.git
+          plugins: code-review@claude-code-plugins
+          prompt: /code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+          claude_args: --model claude-opus-5-5
