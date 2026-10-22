@@ -178,7 +178,9 @@ describe("surfaces", () => {
     const wrap = state.frame.parentElement as HTMLElement;
     expect(wrap.style.visibility).toBe("hidden"); // blank until the surface answers
     // ...and lets the page's clicks through until then.
-    expect(state.host.getAttribute("style")).toContain("pointer-events: none !important");
+    expect(state.host.getAttribute("style")).toContain(
+      "pointer-events: none !important",
+    );
     const frameWindow = {
       postMessage: (
         m: { type: string; nonce?: string },
@@ -207,7 +209,9 @@ describe("surfaces", () => {
     offered!.postMessage({ type: "gx-hello" });
     await new Promise((r) => setTimeout(r, 20));
     expect(wrap.style.visibility).toBe("visible");
-    expect(state.host.getAttribute("style")).toContain("pointer-events: auto !important");
+    expect(state.host.getAttribute("style")).toContain(
+      "pointer-events: auto !important",
+    );
     // The page sets frames[0].location: a second load closes the frame.
     const host = state.host;
     state.frame.dispatchEvent(new Event("load"));
@@ -390,6 +394,30 @@ describe("surface secret", () => {
     const state = (globalThis as { __gxSurface?: { frame: HTMLIFrameElement } })
       .__gxSurface!;
     expect(state.frame.name).toBe(""); // never put on the frame
+  });
+});
+
+describe("fallback window", () => {
+  it("a window with ?tab= is trusted only with the secret openSurface gave it", async () => {
+    vi.spyOn(window, "top", "get").mockReturnValue(window);
+    await fake.storage.session!.set({
+      "genesis-extension:surface:7:minted": { at: Date.now() },
+    });
+    history.replaceState(null, "", "/popup.html?tab=7#gx=guess");
+    resetSurfaceForTests();
+    const forged = connectSurface({ autoResize: false });
+    expect(forged.mode).toBe("popup");
+    expect(await forged.ready).toBe(false);
+    expect(location.hash).toBe(""); // the fragment is cleared once read
+    history.replaceState(null, "", "/popup.html?tab=7#gx=minted");
+    resetSurfaceForTests();
+    const real = connectSurface({ autoResize: false });
+    expect(await real.ready).toBe(true);
+    expect(document.documentElement.style.visibility).toBe("");
+    history.replaceState(null, "", "/popup.html");
+    resetSurfaceForTests();
+    expect(await connectSurface({ autoResize: false }).ready).toBe(true); // a toolbar popup
+    delete document.documentElement.dataset.gxUntrusted;
   });
 });
 
