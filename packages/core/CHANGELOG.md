@@ -1,5 +1,60 @@
 # @marktiderman/genesis-core
 
+## 1.5.0
+
+### Minor Changes
+
+- 0156f89: **Forms: unsaved-changes guard, field-level server errors, and optimistic / undoable writes.** Additive; defaults keep today's behaviour.
+
+  - **`warnWhenUnsaved`** on `useResourceForm` and `ResourceForm` (default off). While the form is dirty, closing or reloading the tab prompts; `ResourceForm` asks before Cancel / Esc / outside click close it. `useResourceForm` returns `isDirty` and `confirmLeave()`, and `ResourceForm` reports them through `onDirtyChange`, for router blockers (SKILL.md "Unsaved changes" shows React Router and TanStack Router `useBlocker`). New core `useUnsavedChangesGuard({ when, message, confirm })`.
+  - **Field-level server errors.** `DataWriteError` gains optional `fields` (field → safe message), and `DataWriteErrorOptions.fields`. `useResourceForm` sets each on its field (`setError(field, { type: "server" })`), focuses the first, and keeps a summary in `errors.root`. The Supabase provider maps `23505` unique (column from PostgREST's `details`), `23502` not-null and `23503` missing foreign key to their columns via the new `fieldErrorsFromPostgrest`; when it does, the error's message becomes a plain sentence ("Email is already in use.") instead of the database's text, which stays on `cause`.
+  - **`mutationMode`** (`"pessimistic"` default | `"optimistic"` | `"undoable"`) on `useResource`'s `create` / `update` / `remove`, `useResourceForm`, `ResourceForm` and `ResourcePage`, with `undoDelayMs` (default 5000) and `onUndoable(write)`. Optimistic patches the TanStack Query list and detail caches at once and rolls back (reporting through `onError`) on failure. Undoable also offers an undo and sends after the delay, or at once with `provider.undo` when capabilities report `undo`. Waiting writes are sent when the hook unmounts or the tab closes. genesis-ui shows a sonner Undo toast and toasts background failures. New exports: `MutationMode`, `MutationModeOptions`, `UndoableWrite`, `DEFAULT_UNDO_DELAY_MS`, `pendingWriteCount`.
+  - `useResourceForm`'s `onSuccess` fires at once in optimistic / undoable modes (with the submitted values over the record); `useResource`'s `onCreateSuccess` / `onUpdateSuccess` / `onDeleteSuccess` still fire after the commit.
+
+- 0156f89: Deletes say what they do and never fail silently:
+
+  - `ProviderCapabilities.softDelete`: a delete moves the record to a recycle bin. The Supabase provider reports it per resource for `binTables`.
+  - New core hook `useCapabilities(resource)`: the provider's capabilities, cached per resource.
+  - `ConfirmDeleteDialog` `kind="recycle"` reads "It moves to the recycle bin, where it can be restored." instead of "This can't be undone." The default stays `"permanent"`.
+  - `ResourcePage` asks the provider in provider mode and picks the wording itself.
+  - An unconfirmed built-in delete that fails used to go only to `console.error`. It now goes to `resourceOptions.onError` when set, or to a toast otherwise.
+
+- 0156f89: The Supabase provider's reads are stable and fail in plain words:
+
+  - **Stable paging:** a sorted list also orders by the key column (`id`), so rows with equal sort values keep one order and none repeats or is skipped between pages. `resources[name].orderKey` names another column; set it to `false` for a table or view without `id`.
+  - **Safe read errors:** `getList`, `getOne` and `getMany` throw a `DataReadError`, a new export. Its `outcome` is `unauthenticated`, `forbidden`, `gone`, `invalid` or `error`. Its `message` is a sentence users can see ("These tasks couldn't be loaded."). The store's raw error is its `cause`. A new `onReadError` option sees every failed read, for logging. `readOutcomeFromCode` maps store codes.
+  - **Page cap:** `maxPerPage` (default 1000) is the largest page `getList` serves; a larger `perPage` is refused with an `invalid` `DataReadError`, and `capabilities()` reports the cap. The provider now implements `capabilities()`: search, sort, the filter operators it serves, create and delete. It reports no bulk, versioned or multi-sort writes.
+
+  ResourcePage shows a `DataReadError`'s message in its error panel when `errorMessage` isn't set.
+
+  Behaviour change: a sorted `getList` adds `.order("id")`. A resource without an `id` column needs `orderKey: false`. Read errors used to be thrown as plain `Error`s carrying the raw message.
+
+- 0156f89: A list's state can live in the URL:
+
+  - `useResourceUrlState({ searchParams, params? })` reads and writes the open record (`id`), page, sort (`field:asc`) and search (`q`) through any `SearchParamsAdapter`: the browser's, React Router's or TanStack Router's. Opening a record adds a history entry, so Back closes it. Page, sort and search replace the entry, and default values leave the URL.
+  - `ResourcePage` takes `urlState` (an adapter, or `{ searchParams, params }` to rename keys):
+    - A copied link reopens the same record with the same search and sort.
+    - With `pagination="server"` it also restores the page.
+    - A server-controlled page owns its own page, sort and search, so it uses the hook directly.
+  - genesis-core: `useResource` gains `defaultPage` and `defaultSearch` for starting where a restored URL says.
+
+### Patch Changes
+
+- 0156f89: Release #92 review fixes:
+
+  - `useCapabilities` keys its cache by the provider as well as the resource, so swapping `GenesisProvider`'s `provider` (another tenant or store) asks the new provider instead of reusing the old one's answer.
+  - Supabase `onReadError` may be async: it is awaited and its rejection swallowed, then the original `DataReadError` is thrown, so a failing logger never leaves an unhandled rejection.
+  - Supabase `getList` refuses a `perPage` above `maxPerPage` with an `invalid` `DataReadError` (its `cause` names the cap) instead of silently serving a shorter page, which shifted later page boundaries and skipped or repeated rows.
+  - Supabase `getList` keeps reading a table or view without an `id` column when `orderKey` is left at its default: on PostgREST `42703` naming `id` it retries once without the key order, remembers that for the resource, and warns once in development.
+
+- 0156f89: - Supabase provider: a per-resource `searchFields` sets the columns a search covers. `[]` makes `capabilities(resource).search` false, so a UI hides the search box.
+  - ResourcePage: a caller's unconfirmed `onDelete` that rejects is reported to `resourceOptions.onError` or shown as a toast, instead of becoming an unhandled rejection.
+- 0156f89: Supabase provider follow-ups to #96:
+
+  - An unsorted page is ordered by the key column, so pages come back in a stable order.
+  - New per-resource `nounPlural` for list messages ("categories", not "categorys").
+  - `readFailureMessage` takes an optional plural.
+
 ## 1.4.0
 
 ### Minor Changes
