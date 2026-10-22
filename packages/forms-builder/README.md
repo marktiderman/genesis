@@ -44,7 +44,7 @@ import { FormBuilder, diffDefinitions, getTemplate } from "@marktiderman/genesis
 | Prop | What it does |
 | --- | --- |
 | `palette` | The field types authors can add, in this order (the Add menu and the Type select). |
-| `fieldEditors` | `FieldTypeEditor[]`: per type, `label`, `category`, `icon`, `defaultProps(def)`, a settings `Panel`, a logic `ConditionValue` editor and `starterValue(field, op)`. Each one is asked before the built-in behaviour. |
+| `fieldEditors` | `FieldTypeEditor[]`: per type, `label`, `category`, `icon`, `defaultProps(def)`, a settings `Panel`, a logic `ConditionValue` editor and `starterValue(field, op)`. Each one is asked before the built-in behaviour. A type whose value is a list must define `starterValue`: without it, changing a condition's operator uses the built-in rule (a list for `in`, one value otherwise). |
 | `blockKinds` | `{ content?: boolean \| ("heading" \| "text")[]; pageBreak?: boolean }`: which layout blocks the Add menu offers. |
 | `previewRegistry` | The preview's `<Form registry>`. It replaces `defaultRegistry`, so pass `defaultRegistry.extend([...])` with your types, not a registry of your types alone. |
 | `previewValidators` | Custom validators by field id for the preview's engine. |

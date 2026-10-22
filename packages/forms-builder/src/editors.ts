@@ -49,7 +49,12 @@ export interface FieldTypeEditor extends FieldTypeDefaults {
   Panel?: ComponentType<FieldPanelProps> | undefined;
   /** Edits the value a logic condition compares this field with. */
   ConditionValue?: ComponentType<ConditionValueProps> | undefined;
-  /** The value a new condition on this field starts with. */
+  /**
+   * The value a new condition on this field starts with, and the value it gets
+   * when its operator changes. Without it, the built-in rule applies: a list
+   * for `in`, one value otherwise (so a list is cut to its first item on `eq`).
+   * A type whose value is itself a list must define it.
+   */
   starterValue?: ((field: FieldBlock, op: Operator) => Json) | undefined;
 }
 
