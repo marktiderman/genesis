@@ -1,6 +1,6 @@
 # Releasing Genesis packages
 
-All thirteen public `@marktiderman/*` packages (every `packages/*` without
+All public `@marktiderman/*` packages (every `packages/*` without
 `"private": true`) are published by CI, from `.github/workflows/release.yml` on
 `main`, with npm Trusted Publishing (OIDC). No npm token is stored anywhere.
 npm attaches an SLSA provenance attestation to every trusted publish, even
@@ -69,9 +69,9 @@ package npm doesn't trust yet, and the trust expires after 48 hours unused:
 
    Run `trust` right after the publish. Right after a first publish npm can
    answer 404 for a few minutes (seen on 2026-10-22, about 5 minutes) while
-   its CDN catches up: wait and run `trust` again. `trust` with
-   `--allow-stage-publish` also creates a `0.0.0-stage` placeholder version;
-   it is outside every range we write and never `latest`.
+   its CDN catches up: wait and run `trust` again. Each first-published
+   package also shows a `0.0.0-stage` version on npm, created around the same
+   time; it is outside every range we write and never `latest`.
 3. Merge the version PR within 48 hours. Give the new package a patch
    changeset in the same release, so CI publishes it once and its trust is
    used before it expires.
