@@ -111,6 +111,8 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
   keyboard-reachable button that opens the detail. On a bare `DataGrid`, use `onItemClick` and
   `getItemLabel`. Never wrap a card in a `div role="button"`.
 - **Per-row rights:** `canEditItem(item)` hides Edit and Delete for rows the user can't change.
+- **Names and empty state:** `getTitle` / `getSubtitle` when a record's name spans fields;
+  `emptyIcon`, `emptyMessage`, `emptyDescription` and `emptyState` (its action) for the empty list.
 - **A list inside tabs:** `slotProps={{ shell: { headerOptions: { showTitle: false } } }}` drops
   the title block and keeps the count, view toggle, filters and create button.
 - **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays

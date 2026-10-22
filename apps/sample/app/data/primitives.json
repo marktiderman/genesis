@@ -2463,7 +2463,7 @@
             },
             {
               "name": "resourceOptions",
-              "type": "UseResourceOptions<T>",
+              "type": "any",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -8587,6 +8587,13 @@
               "description": ""
             },
             {
+              "name": "emptyDescription",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A line under the empty-state title, e.g. what to add first."
+            },
+            {
               "name": "emptyIcon",
               "type": "LucideIcon",
               "required": false,
@@ -11827,7 +11834,7 @@
             },
             {
               "name": "id",
-              "type": "Identifier | null | undefined",
+              "type": "any",
               "required": true,
               "defaultValue": null,
               "description": "Record id. Nullish means \"not resolved yet\" — no request goes out and the\npage shows its loading state, which is what a route param that hasn't\narrived should look like. It is deliberately NOT the not-found state:\nnothing has been asked, so nothing is missing."
@@ -12209,11 +12216,32 @@
               "description": ""
             },
             {
+              "name": "emptyDescription",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A line under the empty-state title."
+            },
+            {
+              "name": "emptyIcon",
+              "type": "LucideIcon",
+              "required": false,
+              "defaultValue": null,
+              "description": "The empty state's icon."
+            },
+            {
+              "name": "emptyMessage",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The empty state's title, e.g. \"No tasks yet\"."
+            },
+            {
               "name": "emptyState",
               "type": "ReactNode",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "The empty state's action, e.g. the create button."
             },
             {
               "name": "error",
@@ -12270,6 +12298,20 @@
               "required": false,
               "defaultValue": null,
               "description": "A row's identity, for React keys and bulk selection. Defaults to\n`String(item.id)`. Supply it for rows keyed some other way — a composite\nkey (`encodeRecordKey` from `@marktiderman/genesis-core/schema`), or a\ntable whose key column isn't called `id`. Detail `route` mode still\nnavigates by `item.id`."
+            },
+            {
+              "name": "getSubtitle",
+              "type": "((item: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The detail subtitle from more than one field. Wins over `subtitleField`."
+            },
+            {
+              "name": "getTitle",
+              "type": "((item: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Name a record from more than one field (`${first} ${last}`). Wins over\n`titleField` for the detail title and the card's accessible name."
             },
             {
               "name": "gridCols",
@@ -12392,7 +12434,7 @@
             },
             {
               "name": "onSortChange",
-              "type": "((sort: SortParam | null) => void)",
+              "type": "((sort: any) => void)",
               "required": false,
               "defaultValue": null,
               "description": "Called when the user changes the sort, with `null` when the sort is cleared."
@@ -12476,7 +12518,7 @@
             },
             {
               "name": "resourceOptions",
-              "type": "UseResourceOptions<T>",
+              "type": "any",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -15028,7 +15070,7 @@
             },
             {
               "name": "renderField",
-              "type": "((field: ResourceFormFieldDef, control: Control<Record<string, unknown>, any, Record<string, unknown>>, action: \"create\" | \"edit\", watchedValues: Record<...>) => ReactNode)",
+              "type": "((field: ResourceFormFieldDef, control: Control<Record<string, unknown>, any, Record<string, unknown>>, action: \"create\" | \"edit\", watchedValues: Record<string, unknown>) => ReactNode)",
               "required": false,
               "defaultValue": null,
               "description": ""

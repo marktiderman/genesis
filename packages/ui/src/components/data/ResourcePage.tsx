@@ -205,6 +205,13 @@ export interface ResourcePageProps<
   detailWidth?: "sm" | "md" | "lg";
   titleField?: string;
   subtitleField?: string;
+  /**
+   * Name a record from more than one field (`${first} ${last}`). Wins over
+   * `titleField` for the detail title and the card's accessible name.
+   */
+  getTitle?: (item: T) => string;
+  /** The detail subtitle from more than one field. Wins over `subtitleField`. */
+  getSubtitle?: (item: T) => string | undefined;
   renderDetail?: (item: T) => ReactNode;
   detailFields?: Array<{
     key: string;
@@ -539,7 +546,14 @@ export interface ResourcePageProps<
 
   // Slots
   toolbar?: ReactNode;
+  /** The empty state's action, e.g. the create button. */
   emptyState?: ReactNode;
+  /** The empty state's icon. */
+  emptyIcon?: LucideIcon;
+  /** The empty state's title, e.g. "No tasks yet". */
+  emptyMessage?: string;
+  /** A line under the empty-state title. */
+  emptyDescription?: string;
 
   /**
    * Imperative navigation used only when `detail="route"` (navigates to
@@ -594,6 +608,8 @@ export function ResourcePage<
     detailWidth = "md",
     titleField: titleFieldProp,
     subtitleField: subtitleFieldProp,
+    getTitle,
+    getSubtitle,
     renderDetail: renderDetailProp,
     detailFields,
     statusFilter,
@@ -646,6 +662,9 @@ export function ResourcePage<
     capabilities,
     toolbar,
     emptyState,
+    emptyIcon,
+    emptyMessage,
+    emptyDescription,
     resourceOptions,
     defaultView = "table",
     onNavigate = defaultNavigate,
@@ -984,18 +1003,28 @@ export function ResourcePage<
   const rangeTo = rangeFrom === 0 ? 0 : rangeFrom + page.data.length - 1;
 
   // ── Detail title/subtitle values ──
-  const detailTitle = page.selectedItem
-    ? String(
-        (page.selectedItem as Record<string, unknown>)[page.titleField] ?? "",
-      )
-    : "";
-  const detailSubtitle =
-    page.selectedItem && page.subtitleField
-      ? String(
-          (page.selectedItem as Record<string, unknown>)[page.subtitleField] ??
-            "",
-        )
-      : undefined;
+  const titleOf = (item: T): string =>
+    getTitle
+      ? getTitle(item)
+      : String((item as Record<string, unknown>)[page.titleField] ?? "");
+  // The open record as it is NOW, looked up by key in the current rows: after
+  // an edit the detail shows the new values, and a record that was deleted
+  // (or is no longer in the rows) closes the detail instead of lingering.
+  const selectedKey = page.selectedItem ? keyOf(page.selectedItem) : null;
+  const detailItem =
+    selectedKey == null
+      ? null
+      : (displayData.find((row) => keyOf(row) === selectedKey) ?? null);
+  const detailTitle = detailItem ? titleOf(detailItem) : "";
+  const detailSubtitle = !detailItem
+    ? undefined
+    : getSubtitle
+      ? getSubtitle(detailItem)
+      : page.subtitleField
+        ? String(
+            (detailItem as Record<string, unknown>)[page.subtitleField] ?? "",
+          )
+        : undefined;
 
   // ── Row click handler (route mode navigates) ──
   const handleRowClick = (item: T) => {
@@ -1241,6 +1270,9 @@ export function ResourcePage<
       hasActiveFilters={page.hasActiveFilters}
       onClearFilters={handleClearFilters}
       emptyAction={emptyState}
+      emptyIcon={emptyIcon}
+      emptyMessage={emptyMessage}
+      emptyDescription={emptyDescription}
       filters={renderSlot(
         DataFilters,
         slots?.filters,
@@ -1337,8 +1369,7 @@ export function ResourcePage<
           ...(openOnCardClick && renderCardProp && detail !== "none"
             ? {
                 onItemClick: handleRowClick,
-                getItemLabel: (item: T) =>
-                  `Open ${String((item as Record<string, unknown>)[page.titleField] ?? "")}`.trim(),
+                getItemLabel: (item: T) => `Open ${titleOf(item)}`.trim(),
               }
             : {}),
           renderCard: (item: T, index: number) =>
@@ -1440,15 +1471,15 @@ export function ResourcePage<
           DetailPanel<T>,
           slots?.detail,
           {
-            item: page.selectedItem,
-            open: page.detailOpen,
+            item: detailItem,
+            open: page.detailOpen && detailItem !== null,
             onClose: () => {
               page.setDetailOpen(false);
               page.setSelectedItem(null);
             },
             title: detailTitle,
             subtitle: detailSubtitle,
-            ...(page.selectedItem && canEditItem && !canEditItem(page.selectedItem)
+            ...(detailItem && canEditItem && !canEditItem(detailItem)
               ? {}
               : {
                   onEdit: onEdit ?? (useBuiltInEdit ? handleEdit : undefined),
