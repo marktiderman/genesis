@@ -104,7 +104,7 @@ against that column:
 
 ```sql
 create extension if not exists moddatetime schema extensions;
-create trigger clients_updated_at before update on public.clients
+create trigger customers_updated_at before update on public.customers
   for each row execute function extensions.moddatetime(updated_at);
 ```
 
@@ -122,10 +122,10 @@ const studio = createStudioHandler({
   auth: supabaseAuth({ url: process.env.NEXT_PUBLIC_SUPABASE_URL! }),
   authorize: byResource(
     {
-      "public.clients": { read: true, update: ["goals", "status"] },
-      "public.plans": { read: true },
+      "public.customers": { read: true, update: ["notes", "status"] },
+      "public.orders": { read: true },
     },
-    { who: (claims) => (claims.app_metadata as { role?: string } | undefined)?.role === "coach" },
+    { who: (claims) => (claims.app_metadata as { role?: string } | undefined)?.role === "editor" },
   ),
   audit: { sink: "table" },
 });

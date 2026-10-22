@@ -1,6 +1,6 @@
 # @marktiderman/genesis-extension
 
-Build Chrome extensions (Manifest V3) with Genesis. Each extension writes only its own screens and actions; this package supplies the parts every one of them needs, done once and tested. Breakthrough's Resource Saver is the first extension built on it.
+Build Chrome extensions (Manifest V3) with Genesis. Each extension writes only its own screens and actions; this package supplies the parts every one of them needs, done once and tested.
 
 | Entry                                     | For                                                       |
 | ----------------------------------------- | --------------------------------------------------------- |
