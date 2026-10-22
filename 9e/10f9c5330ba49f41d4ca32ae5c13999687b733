@@ -1,0 +1,115 @@
+.github/workflows/ci.yml
+  s_2c334912fcb08f::t_3d4be3393b9bca 7-8
+.github/workflows/claude-code-review.yml
+  s_2c334912fcb08f::t_5ad61ce0048061 12
+.github/workflows/self-lint.yml
+  s_2c334912fcb08f::t_2ce0eff0524969 26,44
+.github/workflows/tarball-integrity.yml
+  s_2c334912fcb08f::t_7d5614f1ee47b0 27,37
+README.md
+  s_2c334912fcb08f::t_7edd0c5ab04f52 67-86,97
+apps/sample/app/routes/forms-builder.tsx
+  s_2c334912fcb08f::t_52e6223831433d 4-5,15,38-41,47-48
+docs/FORMS.md
+  s_2c334912fcb08f::t_48446f8c79dcc5 3-5,131-132,158,568,573-582,682,828
+docs/component-reference.md
+  s_2c334912fcb08f::t_0a469297eb2dde 7,31,33,44,51,58,60,90,114-116,128
+packages/core/src/hooks/use-resource-form.ts
+  s_2c334912fcb08f::t_b0b71dcfe97fdd 10-11,33-37,317,339-349,352-353,364,390,437,442,457-458,460-470,483
+packages/core/src/hooks/use-resource.ts
+  s_2c334912fcb08f::t_1a105d61d0d4a0 17-18,20,45-50,119,220-227,243,258-259,269-270
+packages/core/src/provider/context.tsx
+  s_2c334912fcb08f::t_bcb4b89560c5e0 24-30,77-84,96-97,102-107,113,130,133,141
+packages/core/src/provider/index.ts
+  s_2c334912fcb08f::t_c2c35611007729 30-31,48-50,52
+packages/core/src/provider/supabase-provider.ts
+  s_2c334912fcb08f::t_16e1e34292084f 2,5-7,9-10,75-152,157-181,246-341,412-442,446-481,485-510,512-524
+packages/core/src/provider/types.ts
+  s_2c334912fcb08f::t_60afea3ddfa409 205-219,318-331
+packages/core/src/schema/write-outcome.ts
+  s_2c334912fcb08f::t_ff78a4970bf1da 39-45,53-54,57,62
+packages/forms-builder/README.md
+  s_2c334912fcb08f::t_5244c0d5455421 10,46-62
+packages/forms-builder/src/FormBuilder.tsx
+  s_2c334912fcb08f::t_a15cf067f97b93 4,14,25,75,84,93-100,107-109,144,160-167,199,228-233,239-241,243-256,271-276,291,299,302,305,309
+packages/forms-builder/src/controls.tsx
+  s_2c334912fcb08f::t_8e132dd0ddb1f7 9-33
+packages/forms-builder/src/editors.ts
+  s_2c334912fcb08f::t_9bc5729e5def1f 4,23-29,38-39,83-88,97,99
+packages/forms-builder/src/index.ts
+  s_2c334912fcb08f::t_9187f746f5741f 10,33
+packages/forms-builder/src/logic.tsx
+  s_2c334912fcb08f::t_e7ded89f151d10 22,149,187-188,204-205,214-216,226-227,241-242,343,351,372,382,385,478
+packages/forms-builder/src/ops.ts
+  s_2c334912fcb08f::t_2fa7127f3aff4e 137-147,166-167
+packages/forms-builder/src/questions.tsx
+  s_2c334912fcb08f::t_9a82f4e749e1db 7,25,68-81,84,176,189-190,213,217,223,242,259,300,309-311,318,432,494,521-522,545-546,550-559
+packages/forms-builder/src/settings.tsx
+  s_2c334912fcb08f::t_c4e50301c989bf 9-10,28,44-54,56,64,69-73,79,81,123-124,134,173-182,200-204,220,243-247,252-253,261,279
+packages/forms-builder/type-tests/exact-optional.tsx
+  s_2c334912fcb08f::t_b7a52eea97772e 33,54
+packages/forms-web/src/index.ts
+  s_2c334912fcb08f::t_40b80e5b54267b 16-22
+packages/forms-web/src/renderers.tsx
+  s_2c334912fcb08f::t_9f5c130037859a 1,11-12,14,414
+packages/forms-web/type-tests/exact-optional.tsx
+  s_2c334912fcb08f::t_2de7076ade9ffb 4,30-39
+packages/forms/README.md
+  s_2c334912fcb08f::t_6bd5905466890d 79,106-173
+packages/forms/package.json
+  s_2c334912fcb08f::t_85bf0419c4d065 12-14,52-61
+packages/forms/src/coverage.ts
+  s_2c334912fcb08f::t_8b8d603987e3f5 121-125
+packages/forms/src/define.ts
+  s_2c334912fcb08f::t_8b13c0eb883b69 66-69,108-158
+packages/forms/src/fields.ts
+  s_2c334912fcb08f::t_22d35c73105583 2,143,291
+packages/forms/src/index.ts
+  s_2c334912fcb08f::t_868266a99df84e 48-64
+packages/forms/src/parse.ts
+  s_2c334912fcb08f::t_26d6bd3a7bc429 4,44,108-152,239
+packages/forms/tsup.config.ts
+  s_2c334912fcb08f::t_c2736089eff3aa 10
+packages/forms/type-tests/exact-optional.ts
+  s_2c334912fcb08f::t_c61292b134e7a5 20-23
+packages/forms/type-tests/tsconfig.json
+  s_2c334912fcb08f::t_6f2e0d27717c2a 17-19
+packages/genesis-cli/README.md
+  s_2c334912fcb08f::t_f8fc5357a01a0b 9-14,69-239
+packages/genesis-cli/package.json
+  s_2c334912fcb08f::t_f16a12c7ec555b 6,31-38,61-70
+packages/genesis-cli/src/cli.ts
+  s_2c334912fcb08f::t_d3bca6ea22115d 10,133-162
+packages/genesis-cli/src/index.ts
+  s_2c334912fcb08f::t_b1d8bd58bb1f82 45-57
+packages/genesis-cli/tsup.config.ts
+  s_2c334912fcb08f::t_88a72ef8e9411a 9-10,21,37
+packages/genesis/README.md
+  s_2c334912fcb08f::t_ad80dd2b031ff6 28
+packages/genesis/package.json
+  s_2c334912fcb08f::t_bfadbe251d8157 7,99-102
+packages/genesis/tsup.config.ts
+  s_2c334912fcb08f::t_13d96bff1b59d9 37
+packages/ui/SKILL.md
+  s_2c334912fcb08f::t_314bfe917782de 108-118
+pnpm-lock.yaml
+  s_2c334912fcb08f::t_ef0c78b24b3bab 741-743
+scripts/check-token-usage.mjs
+  s_2c334912fcb08f::t_353a3bc9f96a49 54-57,63-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9e10f9c5330ba49f41d4ca32ae5c13999687b733",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
