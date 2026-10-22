@@ -99,7 +99,7 @@ export function CoveragePanel({ definition, onFork, autoRunFields = 12, maxState
                 ) : null}
                 {e.needsSamples ? (
                   <p className="text-xs text-muted-foreground">
-                    Only reachable through {e.needsSamples.join(", ")}, whose field type has no sample answers.
+                    Coverage could not verify reachability without sample answers for {e.needsSamples.join(", ")}.
                   </p>
                 ) : null}
               </li>

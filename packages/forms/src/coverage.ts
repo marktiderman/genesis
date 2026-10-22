@@ -26,9 +26,9 @@ export interface EndingCoverage {
   /** Hidden inputs that witness needs, when the logic reads any. */
   witnessHidden?: Record<string, Json>;
   /**
-   * Set when this ending is reached only through required fields that have no
-   * sample value (a plugin type without `samples`), so no completed response
-   * could be built: the keys of those fields. `reached` stays false.
+   * Set when coverage found this ending only on paths through required fields
+   * with no sample value (a plugin type without `samples`), so it could not
+   * build a completed response: the keys of those fields. `reached` stays false.
    */
   needsSamples?: string[];
 }
@@ -39,7 +39,7 @@ export interface CoverageReport {
   unreachableBlocks: string[];
   /** Rules whose condition never held in a completed response (a jump also needs its `from` on the path). */
   rulesNeverFired: string[];
-  /** Keys of required fields coverage could not answer: give their type `samples`. */
+  /** Keys of fields coverage had no valid answer for: give their type `samples`. */
   unsampledFields: string[];
   /** Completed responses explored. */
   pathsExplored: number;
@@ -48,9 +48,18 @@ export interface CoverageReport {
 
 type Value = Json | undefined;
 
-/** Stands in for an answer to a required field that has no known valid value. */
-const UNSAMPLED = Symbol("unsampled");
-type Candidate = Value | typeof UNSAMPLED;
+/**
+ * One value to try for a field. `placeholder` marks a stand-in for a required
+ * answer with no known valid value: it steers the logic down each branch, but
+ * a path through it is not a response anyone could submit.
+ */
+interface Candidate {
+  value: Value;
+  placeholder?: true;
+}
+
+/** A non-empty stand-in answer, so `answered` branches are explored too. */
+const SOME_ANSWER: Json = { "genesis-forms/unsampled": true };
 
 /** Values each field or hidden input is compared with, anywhere in the logic. */
 function boundaries(def: FormDefinition) {
@@ -125,9 +134,13 @@ function domainOf(field: FieldBlock, extra: Value[], maxOptions: number): Candid
   // Unanswered first, so witnesses stay as short as possible.
   const candidates = dedupe([undefined, ...base, ...extra]);
   const valid = candidates.filter((v) => validateField(field, v) === null);
-  // A required field with no known valid value (a plugin without samples)
-  // must not dead-end the search, but no completed response can go through it.
-  return valid.length ? valid : [UNSAMPLED];
+  const domain: Candidate[] = valid.map((value) => ({ value }));
+  if (valid.some((v) => v !== undefined)) return domain;
+  // A type with no known valid answer (a plugin without samples) must neither
+  // dead-end the search nor hide the branches an answer would take: also try
+  // the values the logic compares it with and some answer, as placeholders.
+  const invalid = dedupe([...candidates, SOME_ANSWER]).filter((v) => !valid.includes(v));
+  return [...domain, ...invalid.map((value): Candidate => ({ value, placeholder: true }))];
 }
 
 export function coverage(form: FormDefinition | { definition: FormDefinition }, opts: CoverageOptions = {}): CoverageReport {
@@ -151,8 +164,8 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
 
   const terminal = (scope: EvalScope, walk: PathWalk, placeholders: Set<string>) => {
     const { path, ending } = walk;
-    // Blocks and rules depend only on the logic, which never reads a
-    // placeholder (it would have offered the compared values as candidates).
+    // Placeholders try every branch the logic can take on them, so blocks
+    // and rules count as reachable, assuming a valid answer takes that branch.
     for (const id of path) reachedBlocks.add(id);
     for (const rule of def.logic ?? []) {
       if (fired.has(rule.id)) continue;
@@ -202,9 +215,8 @@ export function coverage(form: FormDefinition | { definition: FormDefinition }, 
     const next = walk.path.find((id) => fields.has(id) && !assigned.has(id));
     if (next === undefined) return terminal(scope, walk, placeholders);
     const nextAssigned = new Set(assigned).add(next);
-    for (const value of domains.get(next) ?? [undefined]) {
-      if (value === UNSAMPLED) explore({ ...values, [next]: undefined }, nextAssigned, hidden, new Set(placeholders).add(next));
-      else explore({ ...values, [next]: value }, nextAssigned, hidden, placeholders);
+    for (const { value, placeholder } of domains.get(next) ?? [{ value: undefined }]) {
+      explore({ ...values, [next]: value }, nextAssigned, hidden, placeholder ? new Set(placeholders).add(next) : placeholders);
       if (truncated) return;
     }
   };

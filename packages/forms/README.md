@@ -118,8 +118,9 @@ expect(report.endings.default.reached).toBe(true); // witness: answers that reac
 the logic compares it with, and a depth-first search answers fields in path order. It stops at
 `maxStates` (default 5000) and then reports `truncated: true`. A completed response with no jump to
 an ending reaches the default ending. A plugin type gives coverage its answers through the manifest's
-`samples(field)`; a required field without any valid sample is listed in `unsampledFields`, and an
-ending reached only through it stays `reached: false` with `needsSamples` naming the fields.
+`samples(field)`. A field with no valid sample answer is listed in `unsampledFields`; coverage
+still steers the logic down each branch on it (unanswered, the compared values, some answer), so its
+blocks and rules count, but an ending found only that way stays `reached: false` with `needsSamples`.
 
 **Scenarios** are versioned JSON (`scenarioVersion: 1`): a definition, hidden inputs, server
 `context`, an event log and the expected `path`, `visible`, `current`, `status`, `ending`,
