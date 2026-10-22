@@ -36,6 +36,13 @@ export interface DataWriteErrorOptions {
   current?: DataRow;
   /** The row's current version token, for a `conflict`. */
   currentVersion?: string | null;
+  /**
+   * The store's own error code, when it gave one (a Postgres SQLSTATE such as
+   * `23505`, or a PostgREST code such as `PGRST301`).
+   */
+  code?: string;
+  /** The underlying error, kept for logging. */
+  cause?: unknown;
 }
 
 /** Thrown by a provider when a write did not commit. */
@@ -43,13 +50,16 @@ export class DataWriteError extends Error {
   readonly outcome: WriteOutcome;
   readonly current?: DataRow;
   readonly currentVersion?: string | null;
+  /** The store's own error code, when it gave one. */
+  readonly code?: string;
 
   constructor(outcome: WriteOutcome, message: string, options: DataWriteErrorOptions = {}) {
-    super(message);
+    super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = "DataWriteError";
     this.outcome = outcome;
     this.current = options.current;
     this.currentVersion = options.currentVersion;
+    if (options.code !== undefined) this.code = options.code;
   }
 }
 

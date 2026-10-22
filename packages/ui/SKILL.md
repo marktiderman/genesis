@@ -104,6 +104,17 @@ generated (`pnpm gen:component-reference`); do not edit it by hand.
 
 ## Wiring into an app
 
+**Data provider and query cache.** If the app already has a TanStack `QueryClientProvider`,
+mount `DataProviderRoot` inside it (or pass `queryClient` to `GenesisProvider`). Plain
+`GenesisProvider` creates its own `QueryClient`, a second cache that app invalidations never
+reach. On Supabase with RLS, configure `createSupabaseProvider(client, { binTables, resources,
+onWrite })` instead of writing a local adapter: zero-row updates/deletes and Postgres error codes
+come back as typed `DataWriteError` outcomes (`forbidden`, `gone`, `invalid`,
+`unauthenticated`), recycle-bin tables count "gone from view" as success, and per-resource
+`prepare` / `create` / `update` / `toFormValues` / `invalidates` cover RPC writes, form shapes and
+related query keys. Branch on `isDataWriteError(e) && e.outcome`, never on the message. Details:
+`packages/core/README.md`.
+
 **Tailwind class scanning.** Tailwind v4 skips git-ignored paths such as `node_modules`, so genesis-ui's classes
 are missing unless the app points at them. Import the shipped source entry — never hardcode an
 `@source` path into `node_modules`:

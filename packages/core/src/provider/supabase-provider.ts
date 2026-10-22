@@ -1,7 +1,13 @@
 import type {
+  BaseRecord,
   DataProvider,
   FilterParam,
+  Identifier,
+  InvalidationKey,
+  WriteEvent,
 } from "./types";
+import { DataWriteError } from "../schema/write-outcome";
+import { toDataWriteError } from "./postgrest-errors";
 
 // ---------------------------------------------------------------------------
 // Minimal Supabase client shape — no hard dependency on @supabase/supabase-js
@@ -66,11 +72,113 @@ export interface SupabaseClientInput {
 // Provider factory
 // ---------------------------------------------------------------------------
 
+/** What a write hook is told about the write it is part of. */
+export interface SupabaseWriteContext {
+  resource: string;
+  action: "create" | "update";
+  /** The row's id, for an update. */
+  id?: Identifier;
+}
+
+/** Per-resource rules for `createSupabaseProvider`. Every field is optional. */
+export interface SupabaseResourceConfig {
+  /** Singular noun for failure messages, e.g. "practice". Defaults to "record". */
+  noun?: string;
+  /**
+   * `"bin"` for a table whose delete trigger moves the row to a recycle bin
+   * instead of removing it (see `SupabaseProviderOptions.binTables`).
+   * `"hard"` forces a plain delete even when `binTables` lists the table.
+   */
+  deleteMode?: "hard" | "bin";
+  /**
+   * Turns submitted values into the row to write: trim, drop read-only keys,
+   * validate. Runs before every create and update, including the `create`
+   * and `update` overrides. Throw (ideally `DataWriteError("invalid", ...)`)
+   * to refuse the write; nothing is sent.
+   */
+  prepare?: (
+    values: Record<string, unknown>,
+    context: SupabaseWriteContext,
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>;
+  /**
+   * Creates the row some other way than an insert, e.g. a security-definer
+   * RPC. Return the new row, or its id and the provider reads the row back
+   * (if the read-back fails, the create is still reported as saved, with
+   * just the id, so the user does not retry and make a second one). Throw to
+   * fail; a Supabase `{ message, code }` error is mapped like any other.
+   */
+  create?: (row: Record<string, unknown>) => Promise<BaseRecord | Identifier>;
+  /**
+   * Updates the row some other way than an update, e.g. an RPC. Return the
+   * updated row, or its id (or `true`) and the provider reads it back.
+   * Returning nothing (`undefined`/`null`/`false`) means no row changed: the provider then reads the
+   * row to say why (`forbidden` or `gone`), exactly as for a plain update,
+   * so a function that silently skips a row never reports a save.
+   */
+  update?: (
+    id: Identifier,
+    row: Record<string, unknown>,
+  ) => Promise<BaseRecord | Identifier | boolean | null | undefined | void>;
+  /** Maps a stored row to edit-form values; see `DataProvider.toFormValues`. */
+  toFormValues?: (record: Record<string, unknown>) => Record<string, unknown>;
+  /**
+   * Other cache keys a committed write to this resource makes stale, e.g.
+   * `[["staff"], ["me"]]`. Served through `DataProvider.invalidates`, which
+   * `useResource` and `useResourceForm` invalidate after their writes.
+   */
+  invalidates?: InvalidationKey[] | ((event: WriteEvent) => InvalidationKey[]);
+}
+
+/** Options for `createSupabaseProvider`. All optional; none changes reads. */
+export interface SupabaseProviderOptions {
+  /**
+   * Recycle-bin tables: their delete trigger turns a delete into a "binned"
+   * mark and the binned row drops out of the caller's view (RLS or a view
+   * filter). The database reports such a delete as zero rows, so for these
+   * the provider checks the row is visible, deletes it, and reads it back:
+   * gone from view is success, still visible is `forbidden`. A row that was
+   * not visible beforehand is `gone`.
+   */
+  binTables?: readonly string[] | ((resource: string) => boolean);
+  /** Per-resource rules, keyed by resource (table) name. */
+  resources?: Record<string, SupabaseResourceConfig>;
+  /**
+   * Called after every committed create, update and delete, e.g. to
+   * invalidate caches the Genesis hooks don't know about. Awaited, but a
+   * failure is logged and never turns a committed write into a failed one.
+   */
+  onWrite?: (event: WriteEvent) => void | Promise<void>;
+}
+
 function escapeIlike(value: string): string {
   return value.replace(/[%_\\]/g, (char) => `\\${char}`);
 }
 
-export function createSupabaseProvider(client: SupabaseClientInput): DataProvider {
+function isIdentifier(value: unknown): value is Identifier {
+  return typeof value === "string" || typeof value === "number";
+}
+
+/**
+ * The Supabase data provider. Reads and writes go through the client you
+ * pass, under that client's session and RLS.
+ *
+ * Writes never report a save that did not happen:
+ * - `update` and `deleteOne` ask for the affected rows. Zero rows is a
+ *   `DataWriteError`: the row is read back, and still visible means
+ *   `forbidden` (RLS or a trigger refused the change), no longer visible
+ *   means `gone`.
+ * - Database errors on writes are thrown as `DataWriteError` with the
+ *   outcome their code means (`writeOutcomeFromCode`) and the code kept on
+ *   `error.code`.
+ * - Recycle-bin tables (`binTables`) succeed when the row leaves the
+ *   caller's view.
+ *
+ * Reads are unchanged: errors are thrown as an `Error` carrying `code`.
+ */
+export function createSupabaseProvider(
+  client: SupabaseClientInput,
+  options: SupabaseProviderOptions = {},
+): DataProvider {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
@@ -132,6 +240,102 @@ export function createSupabaseProvider(client: SupabaseClientInput): DataProvide
       const err = new Error(message, { cause: result.error });
       Object.assign(err, { code: pgError.code, hint: pgError.hint });
       throw err;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Write helpers
+  // ---------------------------------------------------------------------------
+
+  const from = (resource: string) => client.from(resource) as SupabaseQueryBuilder;
+  const configFor = (resource: string): SupabaseResourceConfig =>
+    options.resources?.[resource] ?? {};
+  const nounFor = (resource: string) => configFor(resource).noun ?? "record";
+
+  function isBinTable(resource: string): boolean {
+    const mode = configFor(resource).deleteMode;
+    if (mode) return mode === "bin";
+    const bin = options.binTables;
+    if (!bin) return false;
+    return typeof bin === "function" ? bin(resource) : bin.includes(resource);
+  }
+
+  /** Awaits a write-path query: its rows, or a `DataWriteError`. */
+  async function run(query: SupabaseQueryBuilder): Promise<unknown[]> {
+    let result: { data: unknown; error: unknown };
+    try {
+      result = (await query) as { data: unknown; error: unknown };
+    } catch (error) {
+      throw toDataWriteError(error);
+    }
+    if (result.error) throw toDataWriteError(result.error);
+    if (Array.isArray(result.data)) return result.data;
+    return result.data == null ? [] : [result.data];
+  }
+
+  async function isVisible(resource: string, id: Identifier): Promise<boolean> {
+    return (await run(from(resource).select("id").eq("id", id))).length > 0;
+  }
+
+  async function readBack(resource: string, id: Identifier): Promise<BaseRecord | undefined> {
+    return (await run(from(resource).select("*").eq("id", id)))[0] as BaseRecord | undefined;
+  }
+
+  function goneError(resource: string): DataWriteError {
+    return new DataWriteError(
+      "gone",
+      `This ${nounFor(resource)} no longer exists, or you can no longer see it.`,
+    );
+  }
+
+  /**
+   * A write matched no rows: read the row back to say why. Still visible
+   * means the change was refused; not visible means it is gone (deleted, or
+   * hidden from this user — the two can't be told apart under RLS).
+   */
+  async function noRowsError(
+    resource: string,
+    id: Identifier,
+    verb: "change" | "delete",
+  ): Promise<DataWriteError> {
+    let visible: boolean;
+    try {
+      visible = await isVisible(resource, id);
+    } catch (error) {
+      const cause = toDataWriteError(error);
+      return new DataWriteError(
+        cause.outcome === "unauthenticated" ? "unauthenticated" : "error",
+        `This ${nounFor(resource)} was not ${verb === "change" ? "changed" : "deleted"}, and reading it back failed (${cause.message}).`,
+        { code: cause.code, cause: error },
+      );
+    }
+    if (visible) {
+      return new DataWriteError("forbidden", `You can't ${verb} this ${nounFor(resource)}.`);
+    }
+    return goneError(resource);
+  }
+
+  async function prepare(
+    resource: string,
+    values: Record<string, unknown>,
+    context: SupabaseWriteContext,
+  ): Promise<Record<string, unknown>> {
+    const rule = configFor(resource).prepare;
+    if (!rule) return values;
+    try {
+      return await rule({ ...values }, context);
+    } catch (error) {
+      throw toDataWriteError(error);
+    }
+  }
+
+  /** After a committed write. Never turns it into a failure. */
+  async function committed(event: WriteEvent): Promise<void> {
+    if (!options.onWrite) return;
+    try {
+      await options.onWrite(event);
+    } catch (error) {
+      console.error(`[SupabaseProvider] onWrite failed for "${event.resource}":`, error);
     }
   }
 
@@ -205,35 +409,119 @@ export function createSupabaseProvider(client: SupabaseClientInput): DataProvide
     },
 
     async create(resource, params) {
-      const result = (await (client.from(resource) as SupabaseQueryBuilder)
-        .insert(params.data as Record<string, unknown>)
-        .select("*")
-        .single()) as { data: unknown; error: unknown };
-      throwIfError(result);
-      return { data: result.data } as never;
+      const row = await prepare(resource, params.data as Record<string, unknown>, {
+        resource,
+        action: "create",
+      });
+      const override = configFor(resource).create;
+      let record: BaseRecord;
+      if (override) {
+        let returned: BaseRecord | Identifier;
+        try {
+          returned = await override(row);
+        } catch (error) {
+          throw toDataWriteError(error);
+        }
+        if (isIdentifier(returned)) {
+          // The row exists from here on. A failed read-back must not report
+          // the create as failed: the user would retry and make a second one.
+          record = (await readBack(resource, returned).catch(() => undefined)) ?? { id: returned };
+        } else if (returned && typeof returned === "object" && isIdentifier(returned.id)) {
+          record = returned;
+        } else {
+          throw new DataWriteError(
+            "error",
+            `[SupabaseProvider] The create rule for "${resource}" returned neither the new row nor its id.`,
+          );
+        }
+      } else {
+        const rows = await run(from(resource).insert(row).select("*").single());
+        record = rows[0] as BaseRecord;
+      }
+      await committed({ resource, kind: "create", id: record.id, record });
+      return { data: record } as never;
     },
 
     async update(resource, params) {
-      const result = (await (client.from(resource) as SupabaseQueryBuilder)
-        .update(params.data as Record<string, unknown>)
-        .eq("id", params.id)
-        .select("*")
-        .single()) as { data: unknown; error: unknown };
-      throwIfError(result);
-      return { data: result.data } as never;
+      const { id } = params;
+      const row = await prepare(resource, params.data as Record<string, unknown>, {
+        resource,
+        action: "update",
+        id,
+      });
+      const override = configFor(resource).update;
+      let record: BaseRecord;
+      if (override) {
+        let returned: BaseRecord | Identifier | boolean | null | undefined | void;
+        try {
+          returned = await override(id, row);
+        } catch (error) {
+          throw toDataWriteError(error);
+        }
+        const result: unknown = returned;
+        if (result == null || result === false) throw await noRowsError(resource, id, "change");
+        if (isIdentifier(result) || result === true) {
+          // The change committed; a failed read-back still reports it saved.
+          const readId = result === true ? id : result;
+          record = (await readBack(resource, readId).catch(() => undefined)) ?? { ...row, id: readId };
+        } else if (typeof result === "object") {
+          record = { id, ...(result as Record<string, unknown>) } as BaseRecord;
+        } else {
+          throw new DataWriteError(
+            "error",
+            `[SupabaseProvider] The update rule for "${resource}" returned neither the row, its id, nor nothing.`,
+          );
+        }
+      } else {
+        const rows = await run(from(resource).update(row).eq("id", id).select("*"));
+        if (rows.length === 0) throw await noRowsError(resource, id, "change");
+        record = rows[0] as BaseRecord;
+      }
+      await committed({ resource, kind: "update", id, record });
+      return { data: record } as never;
     },
 
     async deleteOne(resource, params) {
-      const result = (await (client.from(resource) as SupabaseQueryBuilder)
-        .delete()
-        .eq("id", params.id)
-        .select("id")
-        .single()) as { data: { id: string | number } | null; error: unknown };
-      throwIfError(result);
-      if (!result.data) {
-        throw new Error(`[SupabaseProvider] Delete failed: no row found with id "${params.id}" in "${resource}"`);
+      const { id } = params;
+      let deletedId: Identifier = id;
+      if (isBinTable(resource)) {
+        // A binned delete reports zero rows whether or not it worked, so the
+        // answer comes from visibility before and after.
+        if (!(await isVisible(resource, id))) throw goneError(resource);
+        await run(from(resource).delete().eq("id", id));
+        let stillVisible: boolean;
+        try {
+          stillVisible = await isVisible(resource, id);
+        } catch (error) {
+          const cause = toDataWriteError(error);
+          throw new DataWriteError(
+            "error",
+            `The ${nounFor(resource)} may not have been deleted: checking it failed (${cause.message}).`,
+            { code: cause.code, cause: error },
+          );
+        }
+        if (stillVisible) {
+          throw new DataWriteError("forbidden", `You can't delete this ${nounFor(resource)}.`);
+        }
+      } else {
+        const rows = await run(from(resource).delete().eq("id", id).select("id"));
+        if (rows.length === 0) throw await noRowsError(resource, id, "delete");
+        const returnedId = (rows[0] as { id?: unknown }).id;
+        if (isIdentifier(returnedId)) deletedId = returnedId;
       }
-      return { data: result.data };
+      await committed({ resource, kind: "delete", id: deletedId });
+      return { data: { id: deletedId } };
+    },
+
+    toFormValues(resource, record) {
+      const map = configFor(resource).toFormValues;
+      return map ? map(record) : record;
+    },
+
+    invalidates(event) {
+      const keys = configFor(event.resource).invalidates;
+      if (!keys) return [];
+      return typeof keys === "function" ? keys(event) : keys;
     },
   };
 
