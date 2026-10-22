@@ -1,7 +1,7 @@
 // Compiled against the built .d.ts with exactOptionalPropertyTypes on: a
 // consumer's own optional props pass straight through to <Form>.
 import type { FormDefinition, FormState } from "@marktiderman/genesis-forms";
-import { Form, SubjectTextContext, SubjectTimeContext, type FormBrand, type FormPresentation, type SubjectTime } from "@marktiderman/genesis-forms-web";
+import { Form, SourceTextContext, MediaTimeContext, type FormBrand, type FormPresentation, type MediaTime } from "@marktiderman/genesis-forms-web";
 
 declare const definition: FormDefinition;
 declare const maybe: {
@@ -29,11 +29,11 @@ export const page = (
 );
 
 declare const player: { time?: () => number | undefined; seek?: (s: number) => void };
-const subject: SubjectTime = { currentTime: player.time, seek: player.seek };
+const subject: MediaTime = { currentTime: player.time, seek: player.seek };
 export const worksheet = (
-  <SubjectTimeContext.Provider value={subject}>
-    <SubjectTextContext.Provider value={null}>
+  <MediaTimeContext.Provider value={subject}>
+    <SourceTextContext.Provider value={null}>
       <Form form={definition} />
-    </SubjectTextContext.Provider>
-  </SubjectTimeContext.Provider>
+    </SourceTextContext.Provider>
+  </MediaTimeContext.Provider>
 );

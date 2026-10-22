@@ -1,7 +1,7 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from "react";
 import type { ContentBlock, FieldBlock, FormDefinition, Json, Operator } from "@marktiderman/genesis-forms";
 import type { BlockPatch, FieldTypeDefaults } from "./ops";
-import { BUILT_IN_FIELD_EDITORS } from "./worksheet-editors";
+import { BUILT_IN_FIELD_EDITORS } from "./structured-editors";
 
 export type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) => void;
 

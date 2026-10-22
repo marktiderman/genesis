@@ -1,6 +1,6 @@
 /**
- * Renderers for the worksheet field types: `list`, `rows`, `timestamp-notes`
- * and `highlights`. Each is a group (FieldChrome draws the fieldset and
+ * Renderers for the structured field types: `list`, `table`, `media-notes`
+ * and `text-highlights`. Each is a group (FieldChrome draws the fieldset and
  * legend); every control inside has its own visible or accessible name.
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
@@ -15,15 +15,15 @@ import {
   formatTimestamp,
   listLimits,
   parseTimestamp,
-  rowsColumns,
-  rowsLimits,
+  tableColumns,
+  tableLimits,
   type Highlight,
   type Json,
-  type TimestampNote,
+  type MediaNote,
 } from "@marktiderman/genesis-forms";
 import type { FieldRendererProps, RendererEntry } from "@marktiderman/genesis-forms-react";
 import { FieldChrome } from "./chrome";
-import { useSubjectText, useSubjectTime } from "./subject";
+import { useSourceText, useMediaTime } from "./source";
 
 // ── Shared ───────────────────────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ function AddButton({ children, onClick, disabled }: { children: ReactNode; onCli
   );
 }
 
-/** A short form of a passage, for labels ("Remove highlight “Iron sharpens…”"). */
+/** A short form of a passage, for labels ("Remove highlight “The quick brown…”"). */
 function excerpt(text: string, max = 40): string {
   const t = text.replace(/\s+/g, " ").trim();
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
@@ -216,7 +216,7 @@ function ListField(props: FieldRendererProps) {
   );
 }
 
-// ── rows ─────────────────────────────────────────────────────────────────────
+// ── table ────────────────────────────────────────────────────────────────────
 
 type Row = Record<string, string>;
 
@@ -225,10 +225,10 @@ function toRow(value: Json | undefined): Row {
   return Object.fromEntries(Object.entries(value).filter((e): e is [string, string] => typeof e[1] === "string"));
 }
 
-function RowsField(props: FieldRendererProps) {
+function TableField(props: FieldRendererProps) {
   const { binding, inputId } = props;
-  const columns = rowsColumns(binding.field);
-  const { minRows, maxRows } = rowsLimits(binding.field);
+  const columns = tableColumns(binding.field);
+  const { minRows, maxRows } = tableLimits(binding.field);
   const stored = Array.isArray(binding.value) ? binding.value.map(toRow) : [];
   // Show at least the rows asked for (one when none are), never more than allowed.
   const shown = Math.min(Math.max(stored.length, minRows, 1), Math.max(maxRows, 1));
@@ -341,22 +341,22 @@ function RowsField(props: FieldRendererProps) {
   );
 }
 
-// ── timestamp-notes ──────────────────────────────────────────────────────────
+// ── media-notes ──────────────────────────────────────────────────────────────
 
-function toNote(value: Json): TimestampNote {
+function toNote(value: Json): MediaNote {
   if (!value || typeof value !== "object" || Array.isArray(value)) return { at: 0, text: "" };
   return { at: typeof value.at === "number" ? value.at : 0, text: typeof value.text === "string" ? value.text : "" };
 }
 
-function TimestampNotesField(props: FieldRendererProps) {
+function MediaNotesField(props: FieldRendererProps) {
   const { binding, inputId } = props;
-  const subject = useSubjectTime();
+  const media = useMediaTime();
   const maxNotes = typeof binding.field.props?.maxNotes === "number" ? binding.field.props.maxNotes : 20;
   const textMaxLength = typeof binding.field.props?.textMaxLength === "number" ? binding.field.props.textMaxLength : 1000;
   const notes = Array.isArray(binding.value) ? binding.value.map(toNote) : [];
   const entries = useEntryKeys(notes.length);
   const now = () => {
-    const t = subject?.currentTime?.();
+    const t = media?.currentTime?.();
     return typeof t === "number" && Number.isFinite(t) && t >= 0 ? formatTimestamp(t) : "";
   };
   const [time, setTime] = useState(now);
@@ -365,10 +365,10 @@ function TimestampNotesField(props: FieldRendererProps) {
   const [text, setText] = useState("");
   const [timeError, setTimeError] = useState<string | null>(null);
   const textRef = useRef<HTMLInputElement>(null);
-  const save = (next: TimestampNote[]) => binding.setValue(next.length ? (next as unknown as Json) : undefined);
+  const save = (next: MediaNote[]) => binding.setValue(next.length ? (next as unknown as Json) : undefined);
   const full = notes.length >= maxNotes;
   const follow = () => {
-    if (timeTouched || !subject?.currentTime) return;
+    if (timeTouched || !media?.currentTime) return;
     const t = now();
     if (t) setTime(t);
   };
@@ -376,7 +376,7 @@ function TimestampNotesField(props: FieldRendererProps) {
   const parsed = parseTimestamp(time);
   const add = () => {
     if (full || !text.trim()) return;
-    const at = time.trim() === "" && !subject?.currentTime ? 0 : parsed;
+    const at = time.trim() === "" && !media?.currentTime ? 0 : parsed;
     if (at === null) {
       setTimeError("Enter a time like 1:23 or 1:02:03.");
       return;
@@ -399,7 +399,7 @@ function TimestampNotesField(props: FieldRendererProps) {
     add();
   };
   const addLabel =
-    subject?.currentTime && parsed !== null ? `Add note at ${formatTimestamp(parsed)}` : "Add note";
+    media?.currentTime && parsed !== null ? `Add note at ${formatTimestamp(parsed)}` : "Add note";
   const timeId = `${inputId}-time`;
   const textId = `${inputId}-text`;
 
@@ -413,14 +413,14 @@ function TimestampNotesField(props: FieldRendererProps) {
               return (
                 <li key={entries.keys[index]}>
                   <Stack direction="row" align="center" gap="sm">
-                    {subject?.seek ? (
+                    {media?.seek ? (
                       <Button
                         type="button"
                         variant="link"
                         size="sm"
                         className="shrink-0 px-0 tabular-nums"
                         aria-label={`Play from ${at}`}
-                        onClick={() => subject.seek?.(note.at)}
+                        onClick={() => media.seek?.(note.at)}
                       >
                         {at}
                       </Button>
@@ -503,7 +503,7 @@ function TimestampNotesField(props: FieldRendererProps) {
   );
 }
 
-// ── highlights ───────────────────────────────────────────────────────────────
+// ── text-highlights ──────────────────────────────────────────────────────────
 
 function toHighlight(value: Json): Highlight | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -540,9 +540,9 @@ function textOffset(root: Node, node: Node, offset: number): number {
   return range.toString().length;
 }
 
-function HighlightsField(props: FieldRendererProps) {
+function TextHighlightsField(props: FieldRendererProps) {
   const { binding, inputId } = props;
-  const hosted = useSubjectText();
+  const hosted = useSourceText();
   const own = typeof binding.field.props?.text === "string" ? binding.field.props.text : "";
   const text = hosted ?? own;
   const maxHighlights =
@@ -746,9 +746,9 @@ function HighlightsField(props: FieldRendererProps) {
   );
 }
 
-export const worksheetRenderers: RendererEntry[] = [
+export const structuredRenderers: RendererEntry[] = [
   { type: "list", Component: ListField },
-  { type: "rows", Component: RowsField },
-  { type: "timestamp-notes", Component: TimestampNotesField },
-  { type: "highlights", Component: HighlightsField },
+  { type: "table", Component: TableField },
+  { type: "media-notes", Component: MediaNotesField },
+  { type: "text-highlights", Component: TextHighlightsField },
 ];

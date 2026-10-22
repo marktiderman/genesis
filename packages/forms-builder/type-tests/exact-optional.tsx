@@ -72,7 +72,7 @@ declare const maybeEditor: {
 };
 
 export const editor: FieldTypeEditor = {
-  type: "rows",
+  type: "table",
   label: maybeEditor.label,
   category: maybeEditor.category,
   icon: maybeEditor.icon,

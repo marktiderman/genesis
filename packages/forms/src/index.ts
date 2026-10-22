@@ -51,17 +51,17 @@ export {
   listLimits,
   MAX_HIGHLIGHT_NOTE_LENGTH,
   MAX_HIGHLIGHT_QUOTE_LENGTH,
-  MAX_ROWS_CELL_LENGTH,
-  MAX_ROWS_COLUMNS,
+  MAX_TABLE_CELL_LENGTH,
+  MAX_TABLE_COLUMNS,
   MAX_TIMESTAMP_SECONDS,
   parseTimestamp,
-  rowsColumns,
-  rowsLimits,
+  tableColumns,
+  tableLimits,
   type Highlight,
-  type RowsColumn,
-  type TimestampNote,
-  WORKSHEET_FIELD_TYPES,
-} from "./worksheet";
+  type TableColumn,
+  type MediaNote,
+  STRUCTURED_FIELD_TYPES,
+} from "./structured";
 export { recall } from "./recall";
 export { validateField, REQUIRED_MESSAGE, type FieldValidator, type StandardSchemaV1 } from "./validate";
 export { canonicalJson, fingerprint } from "./hash";

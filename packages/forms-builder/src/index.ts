@@ -30,5 +30,5 @@ export {
   type History,
 } from "./history";
 export { BLANK_TEMPLATE, TEMPLATES, getTemplate, type FormTemplate } from "./templates";
-export { BUILT_IN_FIELD_EDITORS } from "./worksheet-editors";
+export { BUILT_IN_FIELD_EDITORS } from "./structured-editors";
 export * from "./ops";

@@ -77,8 +77,8 @@ describe("list", () => {
   });
 });
 
-describe("rows", () => {
-  const rows = field("rows", { ...smac, minRows: 1, maxRows: 2 });
+describe("table", () => {
+  const rows = field("table", { ...smac, minRows: 1, maxRows: 2 });
 
   it("is empty without a row that has an answer", () => {
     expect(isEmptyValue([], rows)).toBe(true);
@@ -87,13 +87,13 @@ describe("rows", () => {
   });
 
   it("validates columns, cells and row count", () => {
-    expect(validateField(field("rows"), [{ say: "x" }])).toMatch(/no columns/);
+    expect(validateField(field("table"), [{ say: "x" }])).toMatch(/no columns/);
     expect(validateField(rows, [["x"]] as Json)).toMatch(/Fill in the rows/);
     expect(validateField(rows, [{ other: "x" }])).toMatch(/column/);
     expect(validateField(rows, [{ say: 1 }] as Json)).toMatch(/text/);
     expect(validateField(rows, [{ say: "x".repeat(2001) }])).toMatch(/2000/);
     expect(validateField(rows, [{ say: "a" }, { say: "b" }, { say: "c" }])).toMatch(/at most 2 rows/);
-    expect(validateField(field("rows", { ...smac, minRows: 2 }), [{ say: "a" }, {}])).toMatch(/at least 2 rows/);
+    expect(validateField(field("table", { ...smac, minRows: 2 }), [{ say: "a" }, {}])).toMatch(/at least 2 rows/);
     expect(validateField(rows, [{ say: "a", mean: "b" }, { say: "" }])).toBeNull();
   });
 
@@ -104,8 +104,8 @@ describe("rows", () => {
   });
 });
 
-describe("timestamp-notes", () => {
-  const notes = field("timestamp-notes", { maxNotes: 2, textMaxLength: 10 });
+describe("media-notes", () => {
+  const notes = field("media-notes", { maxNotes: 2, textMaxLength: 10 });
 
   it("formats and parses times", () => {
     expect(formatTimestamp(83.9)).toBe("1:23");
@@ -137,9 +137,9 @@ describe("timestamp-notes", () => {
   });
 });
 
-describe("highlights", () => {
+describe("text-highlights", () => {
   const text = "Iron sharpens iron.";
-  const hl = field("highlights", { text, maxHighlights: 2 });
+  const hl = field("text-highlights", { text, maxHighlights: 2 });
   const iron = { start: 0, end: 4, quote: "Iron", note: "me" };
 
   it("needs a note on each highlight", () => {
@@ -154,12 +154,12 @@ describe("highlights", () => {
     expect(validateField(hl, [{ ...iron, note: "x".repeat(1001) }])).toMatch(/1000/);
     expect(validateField(hl, [iron, iron, iron])).toMatch(/at most 2/);
     // Without a text, only the shape is checked.
-    expect(validateField(field("highlights"), [{ ...iron, quote: "Wxyz" }])).toBeNull();
-    expect(validateField(field("highlights"), [{ ...iron, quote: "Wx" }])).toMatch(/passage/);
+    expect(validateField(field("text-highlights"), [{ ...iron, quote: "Wxyz" }])).toBeNull();
+    expect(validateField(field("text-highlights"), [{ ...iron, quote: "Wx" }])).toMatch(/passage/);
     // ...and the length, so an unchecked quote can't be huge.
     const long = { start: 0, end: 2001, quote: "x".repeat(2001), note: "n" };
-    expect(validateField(field("highlights"), [long])).toMatch(/under 2000/);
-    expect(validateField(field("highlights"), [{ ...long, end: 2000, quote: "x".repeat(2000) }])).toBeNull();
+    expect(validateField(field("text-highlights"), [long])).toMatch(/under 2000/);
+    expect(validateField(field("text-highlights"), [{ ...long, end: 2000, quote: "x".repeat(2000) }])).toBeNull();
   });
 
   it("normalizes and summarizes", () => {
@@ -176,9 +176,9 @@ describe("worksheet forms", () => {
     title: "Worksheet",
     blocks: [
       f.list("kalm", { label: "KALM", required: true, max: 4 }),
-      f.rows("smac", { label: "SMACtalk", columns: smacColumns, maxRows: 3 }),
-      f.timestampNotes("moments", { label: "Moments" }),
-      f.highlights("verse", { label: "Verse", text: "Iron sharpens iron." }),
+      f.table("smac", { label: "SMACtalk", columns: smacColumns, maxRows: 3 }),
+      f.mediaNotes("moments", { label: "Moments" }),
+      f.textHighlights("verse", { label: "Verse", text: "Iron sharpens iron." }),
     ],
     endings: [{ id: "default", title: "Done" }],
   });

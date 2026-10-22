@@ -4,7 +4,7 @@ import {
   choiceOptions,
   getFieldType,
   listFieldTypes,
-  WORKSHEET_FIELD_TYPES,
+  STRUCTURED_FIELD_TYPES,
   type Block,
   type FieldBlock,
   type FormDefinition,
@@ -68,10 +68,10 @@ export interface PaletteEntry {
 /**
  * The palette when the host names none: every registered type except the
  * worksheet types, which a host opts into by naming them, e.g.
- * `palette={[...defaultPalette(), ...WORKSHEET_FIELD_TYPES]}`.
+ * `palette={[...defaultPalette(), ...STRUCTURED_FIELD_TYPES]}`.
  */
 export function defaultPalette(): string[] {
-  const optIn = new Set<string>(WORKSHEET_FIELD_TYPES);
+  const optIn = new Set<string>(STRUCTURED_FIELD_TYPES);
   return listFieldTypes()
     .map((t) => t.type)
     .filter((type) => !optIn.has(type));

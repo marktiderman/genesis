@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { parseForm, type FieldBlock, type FormDefinition } from "@marktiderman/genesis-forms";
-import { WORKSHEET_FIELD_TYPES } from "@marktiderman/genesis-forms";
+import { STRUCTURED_FIELD_TYPES } from "@marktiderman/genesis-forms";
 import { createField, defaultPalette, emptyForm, FormBuilder, paletteTypes, SMACTALK_COLUMNS, type FieldTypeEditor } from "../index";
 
-const WORKSHEET_TYPES = [...WORKSHEET_FIELD_TYPES];
-const worksheetPalette = [...defaultPalette(), ...WORKSHEET_FIELD_TYPES];
+const WORKSHEET_TYPES = [...STRUCTURED_FIELD_TYPES];
+const worksheetPalette = [...defaultPalette(), ...STRUCTURED_FIELD_TYPES];
 
 const withField = (field: Omit<FieldBlock, "kind" | "id" | "key">): FormDefinition => ({
   ...emptyForm("worksheet"),
@@ -26,13 +26,13 @@ describe("worksheet field types in the builder", () => {
       expect(entry, type).toBeTruthy();
       expect(entry!.icon).toBeTruthy();
     }
-    expect(entries.find((e) => e.type === "rows")).toMatchObject({ label: "Rows", category: "advanced" });
-    expect(entries.find((e) => e.type === "highlights")).toMatchObject({ category: "media" });
+    expect(entries.find((e) => e.type === "table")).toMatchObject({ label: "Rows", category: "advanced" });
+    expect(entries.find((e) => e.type === "text-highlights")).toMatchObject({ category: "media" });
   });
 
   it("gives a new rows field the SMACtalk columns, and every new field a valid form", () => {
     const def = emptyForm("f");
-    const rows = createField(def, { type: "rows" });
+    const rows = createField(def, { type: "table" });
     expect(rows.props).toEqual({
       columns: [
         { key: "say", label: "Say" },
@@ -51,15 +51,15 @@ describe("worksheet field types in the builder", () => {
   });
 
   it("lets a host editor replace the built-in one", () => {
-    const host: FieldTypeEditor = { type: "rows", label: "Takeaways" };
-    const entry = paletteTypes({ palette: worksheetPalette, fieldEditors: [host] }).find((e) => e.type === "rows");
+    const host: FieldTypeEditor = { type: "table", label: "Takeaways" };
+    const entry = paletteTypes({ palette: worksheetPalette, fieldEditors: [host] }).find((e) => e.type === "table");
     expect(entry).toMatchObject({ label: "Takeaways" });
     expect(entry!.icon).toBeUndefined();
   });
 
   it("edits a rows field's columns and limits", () => {
     let last: FormDefinition | undefined;
-    const def = withField({ type: "rows", label: "Takeaways", props: { columns: [{ key: "say", label: "Say" }], maxRows: 3 } });
+    const def = withField({ type: "table", label: "Takeaways", props: { columns: [{ key: "say", label: "Say" }], maxRows: 3 } });
     render(<FormBuilder defaultValue={def} onChange={(d) => (last = d)} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_w"));
     fireEvent.click(screen.getByTestId("builder-column-add"));
@@ -89,8 +89,8 @@ describe("worksheet field types in the builder", () => {
       ...emptyForm("worksheet"),
       blocks: [
         { kind: "field", id: "q_l", key: "l", type: "list", label: "Keep doing" },
-        { kind: "field", id: "q_t", key: "t", type: "timestamp-notes", label: "Moments" },
-        { kind: "field", id: "q_h", key: "h", type: "highlights", label: "Verse" },
+        { kind: "field", id: "q_t", key: "t", type: "media-notes", label: "Moments" },
+        { kind: "field", id: "q_h", key: "h", type: "text-highlights", label: "Verse" },
       ],
       layout: { mode: "classic" },
     };

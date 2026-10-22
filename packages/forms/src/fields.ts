@@ -1,5 +1,5 @@
 import type { Block, FieldBlock, Json, Operator } from "./types";
-import { worksheetFieldTypes } from "./worksheet";
+import { structuredFieldTypes } from "./structured";
 
 /**
  * A field type, without any UI. Renderers are registered separately per
@@ -288,4 +288,4 @@ const builtins: FieldTypeManifest[] = [
   },
 ];
 
-for (const manifest of [...builtins, ...worksheetFieldTypes]) registerFieldType(manifest);
+for (const manifest of [...builtins, ...structuredFieldTypes]) registerFieldType(manifest);

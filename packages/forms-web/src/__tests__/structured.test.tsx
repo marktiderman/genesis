@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { createForm, defineForm, f, type FormEngine } from "@marktiderman/genesis-forms";
-import { Form, SubjectTextContext, SubjectTimeContext } from "../index";
+import { Form, SourceTextContext, MediaTimeContext } from "../index";
 
 const worksheet = defineForm({
   id: "worksheet",
@@ -9,7 +9,7 @@ const worksheet = defineForm({
   layout: { mode: "classic" },
   blocks: [
     f.list("kalm", { label: "Keep doing", max: 3, itemPlaceholder: "One thing" }),
-    f.rows("smac", {
+    f.table("smac", {
       label: "SMACtalk",
       columns: [
         { key: "say", label: "Say" },
@@ -17,8 +17,8 @@ const worksheet = defineForm({
       ],
       maxRows: 2,
     }),
-    f.timestampNotes("moments", { label: "Moments" }),
-    f.highlights("verse", { label: "Verse", text: "Iron sharpens iron, and one person sharpens another." }),
+    f.mediaNotes("moments", { label: "Moments" }),
+    f.textHighlights("verse", { label: "Verse", text: "Iron sharpens iron, and one person sharpens another." }),
   ],
 });
 
@@ -128,7 +128,7 @@ describe("timestamp-notes renderer", () => {
   it("starts at the host player's time and seeks from a note", () => {
     const seek = vi.fn();
     const engine = renderForm((node) => (
-      <SubjectTimeContext.Provider value={{ currentTime: () => 83.4, seek }}>{node}</SubjectTimeContext.Provider>
+      <MediaTimeContext.Provider value={{ currentTime: () => 83.4, seek }}>{node}</MediaTimeContext.Provider>
     ));
     const group = screen.getByRole("group", { name: "Moments" });
     expect(within(group).getByRole("textbox", { name: "Time" })).toHaveProperty("value", "1:23");
@@ -167,7 +167,7 @@ describe("highlights renderer", () => {
 
   it("maps a text selection to offsets, also across existing marks", () => {
     const engine = renderForm((node) => (
-      <SubjectTextContext.Provider value="Iron sharpens iron.">{node}</SubjectTextContext.Provider>
+      <SourceTextContext.Provider value="Iron sharpens iron.">{node}</SourceTextContext.Provider>
     ));
     act(() => engine.setValue("verse", [{ start: 0, end: 4, quote: "Iron", note: "n" }]));
     const group = screen.getByRole("group", { name: "Verse" });

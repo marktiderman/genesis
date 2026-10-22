@@ -1,10 +1,10 @@
 /**
- * The builder's own editors for the worksheet field types (list, rows,
- * timestamp-notes, highlights): a palette icon and a settings panel each.
+ * The builder's own editors for the structured field types (list, table,
+ * media-notes, text-highlights): a palette icon and a settings panel each.
  * A host's `fieldEditors` entry for the same type replaces these.
  */
 import { Clock, Highlighter, List, Plus, Rows3, X } from "lucide-react";
-import { MAX_ROWS_COLUMNS, rowsColumns, type Json, type RowsColumn } from "@marktiderman/genesis-forms";
+import { MAX_TABLE_COLUMNS, tableColumns, type Json, type TableColumn } from "@marktiderman/genesis-forms";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { SortableList } from "@marktiderman/genesis-ui/sortable-list";
@@ -53,11 +53,11 @@ function ListPanel({ field, setProps }: FieldPanelProps) {
   );
 }
 
-function RowsPanel({ field, setProps }: FieldPanelProps) {
-  const columns = rowsColumns(field);
+function TablePanel({ field, setProps }: FieldPanelProps) {
+  const columns = tableColumns(field);
   const minRows = intProp(field.props, "minRows");
   const maxRows = intProp(field.props, "maxRows");
-  const save = (next: RowsColumn[], coalesce?: string) =>
+  const save = (next: TableColumn[], coalesce?: string) =>
     setProps({ columns: next.map((c): Json => (c.long ? { key: c.key, label: c.label, long: true } : { key: c.key, label: c.label })) }, coalesce);
   const keysExcept = (i: number) => columns.filter((_, j) => j !== i).map((c) => c.key);
   return (
@@ -127,7 +127,7 @@ function RowsPanel({ field, setProps }: FieldPanelProps) {
           variant="outline"
           size="sm"
           data-testid="builder-column-add"
-          disabled={columns.length >= MAX_ROWS_COLUMNS}
+          disabled={columns.length >= MAX_TABLE_COLUMNS}
           onClick={() => {
             const n = columns.length + 1;
             save([...columns, { key: uniqueName(`column_${n}`, columns.map((c) => c.key)), label: `Column ${n}` }]);
@@ -136,7 +136,7 @@ function RowsPanel({ field, setProps }: FieldPanelProps) {
           <Plus /> Add column
         </Button>
         <p className="text-xs text-muted-foreground">
-          {`Up to ${MAX_ROWS_COLUMNS} columns. Answers are stored by key, so renaming a key on a live form leaves earlier answers under the old one.`}
+          {`Up to ${MAX_TABLE_COLUMNS} columns. Answers are stored by key, so renaming a key on a live form leaves earlier answers under the old one.`}
         </p>
       </fieldset>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -159,19 +159,19 @@ function RowsPanel({ field, setProps }: FieldPanelProps) {
   );
 }
 
-function TimestampNotesPanel({ field, setProps }: FieldPanelProps) {
+function MediaNotesPanel({ field, setProps }: FieldPanelProps) {
   return (
     <NumberRow
       label="Most notes"
       commitOnBlur
       value={intProp(field.props, "maxNotes")}
-      hint="Leave empty for 20. The app hosting the form links notes to its video player."
+      hint="Leave empty for 20. The app hosting the form links notes to its media player."
       onChange={(n) => setProps({ maxNotes: atLeast(n, 1) })}
     />
   );
 }
 
-function HighlightsPanel({ field, setProps }: FieldPanelProps) {
+function TextHighlightsPanel({ field, setProps }: FieldPanelProps) {
   return (
     <div className="space-y-4">
       <TextRow
@@ -194,10 +194,10 @@ function HighlightsPanel({ field, setProps }: FieldPanelProps) {
 
 const icon = "size-4 text-muted-foreground";
 
-/** The builder's editors for the built-in worksheet types. */
+/** The builder's editors for the built-in structured types. */
 export const BUILT_IN_FIELD_EDITORS: readonly FieldTypeEditor[] = [
   { type: "list", icon: <List className={icon} aria-hidden="true" />, Panel: ListPanel },
-  { type: "rows", icon: <Rows3 className={icon} aria-hidden="true" />, Panel: RowsPanel },
-  { type: "timestamp-notes", icon: <Clock className={icon} aria-hidden="true" />, Panel: TimestampNotesPanel },
-  { type: "highlights", icon: <Highlighter className={icon} aria-hidden="true" />, Panel: HighlightsPanel },
+  { type: "table", icon: <Rows3 className={icon} aria-hidden="true" />, Panel: TablePanel },
+  { type: "media-notes", icon: <Clock className={icon} aria-hidden="true" />, Panel: MediaNotesPanel },
+  { type: "text-highlights", icon: <Highlighter className={icon} aria-hidden="true" />, Panel: TextHighlightsPanel },
 ];
