@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { parseForm, replay, type FormEvent } from "@marktiderman/genesis-forms";
 import { ErrorBoundary } from "@marktiderman/genesis-forms-devtools";
 import { Form } from "@marktiderman/genesis-forms-web";
+import { demoBrand } from "../lib/forms";
 import { isShellMessage, type FrameToShell, type ShellToFrame } from "../lib/forms-frame-protocol";
 
 /**
@@ -48,9 +49,10 @@ export default function FormsFrame() {
   if (load && !engine) return <p className="p-6 text-destructive">This form could not be loaded.</p>;
   if (!load || !engine) return <p className="p-6 text-muted-foreground">Waiting for the playground…</p>;
   return (
-    <main className="min-h-screen bg-background p-4 sm:p-8">
+    // Page presentation, so the device frame shows exactly what a respondent sees.
+    <main className="min-h-dvh bg-background">
       <ErrorBoundary resetKey={load} label="The form">
-        <Form form={load.definition} engine={engine} layout={load.layout} />
+        <Form form={load.definition} engine={engine} layout={load.layout} presentation="page" brand={demoBrand} />
       </ErrorBoundary>
     </main>
   );

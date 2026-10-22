@@ -26,6 +26,7 @@ export default function FormsScenario() {
   const { hash } = useLocation();
   const scenario = scenarios.find((s) => s.id === id) ?? scenarios[0]!;
   const frameSrc = useHref("/forms-frame");
+  const previewHref = useHref(`/preview/${scenario.id}`);
 
   const [definition, setDefinition] = useState<FormDefinition>(scenario.form.definition);
   const [context, setContext] = useState<Record<string, JsonValue>>(scenario.context);
@@ -163,6 +164,13 @@ export default function FormsScenario() {
         </Button>
         <Button variant="outline" onClick={() => void share()}>
           Copy share link
+        </Button>
+        {/* Full screen, as a member sees it after scanning the QR code. "Exit preview" there comes back here. */}
+        <Button asChild>
+          <a href={`${previewHref}${layout === (scenario.form.definition.layout?.mode ?? "focus") ? "" : `?layout=${layout}`}`} target="_blank" rel="noopener">
+            Respondent preview
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
         </Button>
         {shareStatus ? (
           <span className="max-w-xs truncate text-sm text-muted-foreground" role="status">

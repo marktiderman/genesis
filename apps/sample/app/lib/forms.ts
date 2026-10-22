@@ -62,7 +62,10 @@ export const monthlyPulse = defineForm({
   settings: { anonymous: true },
 });
 
-export const playgroundForms = { "after-class": afterClass, "monthly-pulse": monthlyPulse } as const;
+/** The practice shown on the respondent's screen: initials stand in for a logo. */
+export const demoBrand = { name: "CrossFit Fairfield" };
+
+export const playgroundForms ={ "after-class": afterClass, "monthly-pulse": monthlyPulse } as const;
 
 export interface PlaygroundScenario {
   id: string;
