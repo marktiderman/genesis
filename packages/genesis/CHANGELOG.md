@@ -1,5 +1,12 @@
 # @marktiderman/genesis
 
+## 0.6.1
+
+### Patch Changes
+
+- Updated dependencies [ef7eb56]
+  - @marktiderman/genesis-forms@0.1.1
+
 ## 0.6.0
 
 ### Minor Changes
