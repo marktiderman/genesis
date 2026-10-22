@@ -1,10 +1,9 @@
-import { Outlet, Link, useLocation } from "react-router";
+import { Outlet } from "react-router";
+import { AppShell, type NavigationNode, type NavItem } from "@marktiderman/genesis-ui/layout";
 import {
-  AppShell,
-  type LinkComponent,
-  type NavigationNode,
-  type NavItem,
-} from "@marktiderman/genesis-ui/layout";
+  ReactRouterLink,
+  useReactRouterActivePath,
+} from "@marktiderman/genesis-ui/router/react-router";
 import { LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler, SwatchBook, Shapes, LayoutTemplate, ScrollText } from "lucide-react";
 
 const globalItems: NavItem[] = [
@@ -73,23 +72,17 @@ const navigation: NavigationNode<NavItem> = {
   ],
 };
 
-// React Router adapter for genesis-ui's router-agnostic link contract.
-// Map `testID` → `data-testid` (as DefaultLink does) so automation selectors
-// survive on the RR path — React Router forwards `data-testid` to the anchor,
-// but drops the non-standard `testID` prop.
-const RouterLink: LinkComponent = ({ href, testID, ...props }) => (
-  <Link to={href} data-testid={testID} {...props} />
-);
-
+// genesis-ui ships the React Router adapter (link + full-location active
+// path), so the app no longer hand-writes one.
 export default function Layout() {
-  const { pathname, search, hash } = useLocation();
+  const activePath = useReactRouterActivePath();
   return (
     <AppShell
       appName="Genesis Showcase"
       appLogo="G"
       navigation={navigation}
-      linkComponent={RouterLink}
-      activePath={`${pathname}${search}${hash}`}
+      linkComponent={ReactRouterLink}
+      activePath={activePath}
     >
       <Outlet />
     </AppShell>
