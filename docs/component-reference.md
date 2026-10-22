@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 126 components · 373 other exports · 222 standalone types across 7 packages.
+**Totals:** 128 components · 390 other exports · 237 standalone types across 9 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -562,6 +562,94 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useTanStackRouterActivePath`](../packages/ui/src/router/tanstack-router.tsx) | function | Beta | The current location as `pathname + search + hash`, the shape `AppShell`'s `activePath` expects, so nav items whose `to` names a query or hash (`/admin?tab=users`, `/settings#profile`) highlight correctly. Paths are the router's (basepat... |
 | [`useTanStackRouterNavigate`](../packages/ui/src/router/tanstack-router.tsx) | function | Beta | {@link NavigateFn} backed by the TanStack router. Pass it as `ResourcePage`'s `onNavigate` (or anywhere a `NavigateFn` is accepted) for client-side navigation instead of a full page load. Absolute URLs (`https://…`, `mailto:…`, `//host/…... |
 | [`useTanStackRouterSearchParams`](../packages/ui/src/router/tanstack-router.tsx) | function | Beta | {@link SearchParamsAdapter} backed by the TanStack router's location. Pass it as `useDataFilters(key, defs, { searchParams })` so URL-synced filters go through the router (loaders and `validateSearch` run, back/forward stays in sync) ins... |
+
+---
+
+## @marktiderman/genesis-ui/rich-text
+
+Read-only rich text renderer and server-safe helpers (sanitize, HTML, plain text). No editor dependency; usable in server components and on the server.
+
+**Barrel:** [`packages/ui/src/components/rich-text/rich-text.tsx`](../packages/ui/src/components/rich-text/rich-text.tsx)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`RichText`](../packages/ui/src/components/rich-text/rich-text.tsx) | `RichTextProps` | Beta | RichText — renders a rich text document as React elements. |
+
+### Other exports (16)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`emptyRichTextDoc`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | An empty document: one empty paragraph, which is what the editor produces. |
+| [`escapeHtml`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Escape text for use in HTML element content and quoted attributes. |
+| [`isRichTextDoc`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | True when `value` is shaped like a rich text document (`{ type: "doc" }`). |
+| [`isRichTextEmpty`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | True when the document has no visible text and no embeds. |
+| [`isSafeUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | True when `url` is safe to put in an `href`: an absolute http(s), mailto or tel URL, a root-relative path (`/lessons/1`) or a fragment (`#notes`). |
+| [`normalizeLinkUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Turn what a person typed into the link field into a safe href, or `null`. `example.com/page` becomes `https://example.com/page`; an email address becomes a `mailto:` link. |
+| [`parseVideoUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Recognise a YouTube, Vimeo or Loom video URL (watch, share, short and embed forms) and reduce it to its provider and id. Returns `null` for anything else, including other hosts that merely look similar. |
+| [`richTextClassName`](../packages/ui/src/components/rich-text/rich-text.tsx) | const | — | Typography for rendered rich text, shared by `RichText` and the editor's editable area so a document looks the same while writing and reading. Exported for apps that render stored HTML themselves. |
+| [`richTextToHtml`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Serialize a document to HTML. The input is sanitized first, so this is safe to call on untrusted JSON; the output contains only the tags listed in this file's header, with every value escaped. |
+| [`richTextToPlainText`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Plain text for search indexes, previews and notifications. Blocks are separated by blank lines; embeds become "Title (url)". |
+| [`sanitizeRichTextDoc`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Validate an untrusted value as a rich text document and return a clean copy that contains only allow-listed nodes, marks and attributes. |
+| [`sanitizeVideoEmbedAttrs`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Validate untrusted embed attributes, returning a clean copy or `null`. |
+| [`VIDEO_IFRAME_ATTRS`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | const | — | Attributes for an embed's `<iframe>`. Shared by the HTML serializer, the React renderer and the editor so all three emit the same frame. |
+| [`videoEmbedSrc`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | The player URL for an embed. Built from validated parts only. |
+| [`videoEmbedTitle`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Accessible name for an embed's frame: its title, or "YouTube video" etc. |
+| [`videoWatchUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | The page URL for an embed (what a viewer would open in a new tab). |
+
+### Types (8)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { RichTextDoc };
+export type { RichTextHeadingLevel };
+export type { RichTextMark };
+export type { RichTextNode };
+export type { RichTextToHtmlOptions };
+export type { SanitizeRichTextOptions };
+export type { VideoEmbedAttrs };
+export type { VideoProvider };
+```
+
+---
+
+## @marktiderman/genesis-ui/rich-text-editor
+
+Rich text editor (Tiptap 3) with a Genesis toolbar. Needs the optional `@tiptap/*` peers.
+
+**Barrel:** [`packages/ui/src/components/rich-text/rich-text-editor.tsx`](../packages/ui/src/components/rich-text/rich-text-editor.tsx)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`RichTextEditor`](../packages/ui/src/components/rich-text/rich-text-editor.tsx) | `RichTextEditorProps` | Beta | RichTextEditor — formatted text input for lessons, notes and other long-form content. |
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`VideoEmbed`](../packages/ui/src/components/rich-text/video-embed.ts) | const | Beta | Tiptap node for YouTube, Vimeo and Loom players, stored as `{ provider, id, hash?, title? }` and rebuilt from those parts on render. Adds the `setVideoEmbed({ url, title })` command. |
+
+### Types (7)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { RichTextChangeDetails };
+export type { RichTextDoc };
+export type { RichTextEditorHandle };
+export type { RichTextEditorLabels };
+export type { RichTextEditorValue };
+export type { RichTextHeadingLevel };
+export type { RichTextToolbarItem };
+```
 
 ---
 

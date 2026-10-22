@@ -77,6 +77,7 @@ report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 | Cmd-K palette                                                 | `CommandPalette`, `useCommandPaletteHotkey`                                        | `/command-palette`                                                |
 | Arrow-key list navigation                                     | `useKeyboardNavigation`                                                            | `/hooks/use-keyboard-navigation`                                  |
 | Reorderable list: drag, keyboard, row-menu moves             | `SortableList`                                                                     | `/sortable-list`                                                  |
+| Formatted text (lessons, notes): editor and read-only view    | `RichTextEditor`, `RichText` (+ `sanitizeRichTextDoc`, `richTextToHtml` on the server) | `/rich-text-editor`, `/rich-text`                                 |
 | Persisted page size / density                                 | `useViewSettings`                                                                  | `/hooks/use-view-settings`                                        |
 | Client-side links, navigate, URL filters on your router       | `ReactRouterLink` / `TanStackRouterLink` and their `use…Navigate`, `use…SearchParams`, `use…ActivePath` hooks | `/router/react-router`, `/router/tanstack-router`                 |
 
@@ -119,6 +120,32 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
 
 `docs/component-reference.md` lists every export with its props and stability tag. It is
 generated (`pnpm gen:component-reference`); do not edit it by hand.
+
+## Rich text
+
+`RichTextEditor` (`/rich-text-editor`, Tiptap 3) needs the optional peers
+`@tiptap/core @tiptap/pm @tiptap/react @tiptap/starter-kit @tiptap/extensions` (`^3`). `RichText` and the
+helpers on `/rich-text` need nothing beyond React and run on a server.
+
+- **Store JSON, derive HTML.** `onChange(doc, details)` gives the document JSON (canonical) and lazy
+  `details.html` / `details.text`. Persist `doc` (Postgres `jsonb`). If you also need HTML or text (email,
+  search, previews), derive them on the server; never trust HTML or JSON a client posts.
+- **Sanitize on the server on every write:** `const doc = sanitizeRichTextDoc(body.doc)` keeps only the
+  allow-listed nodes (paragraph, h2-h4, lists, blockquote, bold/italic/underline, http(s)/mailto/tel/relative
+  links, YouTube/Vimeo/Loom embeds by id). Then `richTextToHtml(doc)` (`{ embedAs: "link" }` for email) and
+  `richTextToPlainText(doc)`. Both run without a DOM and escape every value.
+- **Render with `<RichText value={doc} />`**, not `dangerouslySetInnerHTML`. It re-sanitizes and works in
+  server components. If you must inject stored HTML, inject only HTML you produced with `richTextToHtml`.
+- The editor adds roughly 135 KB gzipped (ProseMirror + Tiptap), so load it only where people write:
+  `const RichTextEditor = lazy(() => import("@marktiderman/genesis-ui/rich-text-editor").then((m) => ({ default: m.RichTextEditor })))`.
+  Reading pages use `RichText`, which pulls in no editor code.
+- Embeds are off by default: `<RichTextEditor embeds />`. A CSP needs `frame-src` for
+  `https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com`.
+
+```tsx
+<RichTextEditor aria-label="Lesson text" value={doc} onChange={setDoc} placeholder="Write the lesson…" embeds maxLength={20000} />
+<RichText value={lesson.body} />
+```
 
 ## Wiring into an app
 
