@@ -1,0 +1,60 @@
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_a1b83c03f697d3::t_3ca5ae0df2ef16 1-78,81-85
+  s_a1b83c03f697d3::t_bb6c69c2986da7 79-80
+docs/component-reference.md
+  s_a1b83c03f697d3::t_4c18c4f0ce3af8 7,31,33,44,51,58,60,90,114-116,128
+.changeset/core-supabase-write-outcomes.md
+  s_a1b83c03f697d3::t_4c18c4f0ce3af8 1-16
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_a1b83c03f697d3::t_1fe7a122e0278b 377-386
+  s_a1b83c03f697d3::t_d51214ba03fe6a 1-376,387-454
+packages/core/src/hooks/related-keys.ts
+  s_a1b83c03f697d3::t_9cb977657a4029 1-20
+packages/core/src/hooks/use-resource-form.ts
+  s_a1b83c03f697d3::t_d51f70229f89df 342,352-353,364,390
+  s_a1b83c03f697d3::t_2b993dfde3d35e 10-11,33-37,317,339-341,343-349,437,442,457-458,460-470,483
+packages/core/src/provider/index.ts
+  s_a1b83c03f697d3::t_4797336ded0a33 30-31,48-50,52
+packages/core/src/provider/context.tsx
+  s_a1b83c03f697d3::t_1e022ad7fd7f9a 24-30,77-84,96-97,102-107,113,130,133,141
+packages/core/src/hooks/use-resource.ts
+  s_a1b83c03f697d3::t_2b993dfde3d35e 17-18,20,45-50,119,220-227,243,258-259,269-270
+packages/core/src/provider/types.ts
+  s_a1b83c03f697d3::t_d2beceaab7c6b5 205-219
+  s_a1b83c03f697d3::t_0ed9f967caf20e 318-331
+.changeset/ui-skill-data-provider.md
+  s_a1b83c03f697d3::t_ecb4cf6aebc48d 1-5
+packages/core/src/provider/supabase-provider.ts
+  s_a1b83c03f697d3::t_87d182e4b534ca 2,5-7,9-10
+  s_a1b83c03f697d3::t_1fe7a122e0278b 455
+  s_a1b83c03f697d3::t_ce0e955e3d1ba1 113-114
+  s_a1b83c03f697d3::t_346a3959cedc51 118-121
+  s_a1b83c03f697d3::t_851e9ad31eb334 246-341,412-442,446-454,456-460,464,469,474-481,485-510,512-524
+  s_a1b83c03f697d3::t_226c42add58626 75-112,115-117,122-152,157-181
+  s_a1b83c03f697d3::t_a500ca1e7d77c7 461-463,465-468,470-473
+packages/core/README.md
+  s_a1b83c03f697d3::t_ecb4cf6aebc48d 100
+  s_a1b83c03f697d3::t_35b954280e7925 1-99,101-142
+packages/ui/SKILL.md
+  s_a1b83c03f697d3::t_8a7658a10c4db7 107-117
+packages/core/src/provider/postgrest-errors.ts
+  s_a1b83c03f697d3::t_2405f62c3a6992 1-55
+packages/core/src/schema/write-outcome.ts
+  s_a1b83c03f697d3::t_d89d2da39a9862 39-45,53-54,57,62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d07a966e52ba1307acfd70b2ba25d839245a41c8",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
