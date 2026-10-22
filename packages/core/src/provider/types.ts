@@ -202,6 +202,21 @@ export interface HistoryParams {
   limit?: number;
 }
 
+/** A write that committed, as passed to a provider's `onWrite` and `invalidates`. */
+export interface WriteEvent {
+  resource: string;
+  kind: "create" | "update" | "delete";
+  id: Identifier;
+  /** The row as written, when the provider has it (not for a delete). */
+  record?: BaseRecord;
+}
+
+/**
+ * A cache key to invalidate after a write. Shaped like a TanStack Query
+ * `QueryKey` (`readonly unknown[]`), matched by prefix.
+ */
+export type InvalidationKey = readonly unknown[];
+
 // ---------------------------------------------------------------------------
 // The DataProvider interface — six required methods, plus optional ones a
 // provider implements when it can (Refine's required-versus-optional split).
@@ -300,4 +315,18 @@ export interface DataProvider {
 
   /** Add a comment to a record, as the signed-in user. */
   addComment?(resource: string, params: { id: Identifier; body: string }): Promise<RecordComment>;
+
+  /**
+   * Maps a stored row to the values an edit form starts from, for a resource
+   * whose form shape differs from its table (the reverse of a write's
+   * `prepare`). `useResourceForm` applies it in edit mode.
+   */
+  toFormValues?(resource: string, record: Record<string, unknown>): Record<string, unknown>;
+
+  /**
+   * Other cache keys a committed write makes stale, beyond the resource's
+   * own `[resource]` keys. `useResource` and `useResourceForm` invalidate
+   * them after their writes.
+   */
+  invalidates?(event: WriteEvent): InvalidationKey[];
 }

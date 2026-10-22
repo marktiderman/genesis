@@ -27,6 +27,8 @@ export type {
   BulkResult,
   RowFailure,
   ImportParams,
+  WriteEvent,
+  InvalidationKey,
 } from "./types";
 
 // Write outcomes — also exported from `@marktiderman/genesis-core/schema`.
@@ -43,7 +45,11 @@ export {
   createSupabaseProvider,
   type SupabaseClient,
   type SupabaseClientInput,
+  type SupabaseProviderOptions,
+  type SupabaseResourceConfig,
+  type SupabaseWriteContext,
 } from "./supabase-provider";
+export { writeOutcomeFromCode, toDataWriteError } from "./postgrest-errors";
 
 // React context
 export {
