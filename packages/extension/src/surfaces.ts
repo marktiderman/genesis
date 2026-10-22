@@ -15,10 +15,13 @@ import { getChrome, type Tab } from "./chrome";
  * own style (a page script can't hide or move it). The frame and the host talk
  * over a MessageChannel. The host offers the frame a fresh channel every
  * 200ms, addressed to the extension's own origin (chrome-extension://<id>,
- * where a use_dynamic_url page really loads) with a per-open secret that also
- * travels in the frame's name, which the page can't read. The surface page
- * takes the first offer carrying its secret once `connectSurface()` runs,
- * however late, and answers on it. Nothing is posted to the page. Until that
+ * where a use_dynamic_url page really loads) with a per-open secret the
+ * service worker minted and kept in chrome.storage.session. The surface page,
+ * once `connectSurface()` runs (however late), takes the first offer whose
+ * secret matches what the worker kept for its tab, uses the secret up, and
+ * answers on it. Nothing is posted to the page, and the secret is never put
+ * on the frame. Any page in a frame must be confirmed this way, so one a
+ * web page framed itself stays hidden. Until that
  * answer the panel is blank (no answer in 30s: it closes), so whatever else
  * the frame shows first is never seen, and any later load of the frame (the
  * page navigating it, or the surface reloading itself) closes it.
@@ -110,7 +113,9 @@ async function openFrame(
   // not framed by the page itself.
   const nonce = crypto.randomUUID();
   try {
-    await api.storage.session?.set({ [surfaceKey(tab.id!)]: nonce });
+    await api.storage.session?.set({
+      [surfaceKey(tab.id!)]: { nonce, at: Date.now() },
+    });
     const run = () =>
       api.scripting!.executeScript({
         target: { tabId: tab.id! },
@@ -201,10 +206,9 @@ export function mountSurfaceFrame(
   // shows first (a look-alike the page navigated it to) is never seen.
   wrap.style.visibility = "hidden";
   const frame = document.createElement("iframe");
-  // The secret goes in the frame's name: the page can't read a cross-origin
-  // frame's name, nor reach this one (closed shadow root), and unlike the
-  // address it isn't in the page's Resource Timing.
-  frame.name = nonce;
+  // The secret is never put on the frame (its name or address): it goes only
+  // in the host's offers, which reach the extension's own origin, and the
+  // surface checks it against what the service worker kept.
   frame.src = src;
   wrap.append(frame);
   shadow.append(css, wrap);
@@ -323,13 +327,15 @@ export function connectSurface({
 }: { autoResize?: boolean } = {}): Surface {
   if (current) return current;
   const params = new URLSearchParams(location.search);
-  const framed = params.has("panel") && window.top !== window;
-  const mode: Surface["mode"] = params.has("side")
-    ? "side"
-    : framed
-      ? params.has("bar")
-        ? "bar"
-        : "panel"
+  // Any page in a frame is a panel or bar and must be confirmed, whatever its
+  // address says: a page can frame the surface with any parameters.
+  const framed = window.top !== window;
+  const mode: Surface["mode"] = framed
+    ? params.has("bar")
+      ? "bar"
+      : "panel"
+    : params.has("side")
+      ? "side"
       : "popup";
   document.documentElement.dataset.gxSurface = mode;
 
@@ -344,19 +350,30 @@ export function connectSurface({
   const tabId = params.has("tab") ? Number(params.get("tab")) : null;
   let ready: Promise<boolean> = Promise.resolve(true);
   if (framed) {
-    const nonce = surfaceSecret();
     // Hidden until confirmed: a page that frames the surface itself shows nothing.
     document.documentElement.style.visibility = "hidden";
-    ready = verifySecret(tabId, nonce).then((ok) => {
-      if (ok) document.documentElement.style.visibility = "";
-      else document.documentElement.dataset.gxUntrusted = "";
-      return ok;
-    });
+    let confirm: (ok: boolean) => void = () => undefined;
+    ready = new Promise<boolean>((resolve) => (confirm = resolve)).then(
+      (ok) => {
+        if (ok) document.documentElement.style.visibility = "";
+        else document.documentElement.dataset.gxUntrusted = "";
+        return ok;
+      },
+    );
+    // No offer with the secret the service worker minted for this open, in
+    // 30s (the host stops offering by then): it wasn't opened by this extension.
+    const giveUp = setTimeout(() => confirm(false), 30_000);
+    let checking = false;
     const onConnect = async (e: MessageEvent) => {
       if (e.source !== window.parent || e.data?.type !== "gx-connect") return;
-      if (!nonce || e.data.nonce !== nonce || !e.ports[0]) return;
       const offered = e.ports[0];
-      if (!(await ready) || port) return;
+      if (!offered || port || checking || typeof e.data.nonce !== "string")
+        return;
+      checking = true;
+      const ok = await takeSecret(tabId, e.data.nonce);
+      checking = false;
+      if (!ok || port) return;
+      clearTimeout(giveUp);
       window.removeEventListener("message", onConnect);
       port = offered;
       port.onmessage = (m: MessageEvent) => {
@@ -366,6 +383,7 @@ export function connectSurface({
       };
       port.postMessage({ type: "gx-hello" });
       for (const message of queue.splice(0)) port.postMessage(message);
+      confirm(true);
     };
     window.addEventListener("message", onConnect);
   }
@@ -428,28 +446,34 @@ export function connectSurface({
   return surface;
 }
 
-// One surface per page: the secret is read from the frame's name once (then
-// cleared, so nothing the frame later navigates to inherits it), and every
-// connectSurface() call (a remount, two components) gets the same surface.
+// One surface per page: every connectSurface() call (a remount, two
+// components) gets the same surface.
 let current: Surface | null = null;
-let secret: string | null = null;
-function surfaceSecret(): string {
-  if (secret === null) {
-    secret = window.name;
-    window.name = "";
-  }
-  return secret;
-}
 
-async function verifySecret(
+/** How long an open's secret stays good: the host stops offering after 30s. */
+const SECRET_TTL_MS = 60_000;
+
+/**
+ * Whether `nonce` is the secret the service worker minted for this tab's
+ * current open, and fresh. It's used up either way it matches, so the same
+ * secret never confirms a second page.
+ */
+async function takeSecret(
   tabId: number | null,
   nonce: string,
 ): Promise<boolean> {
   if (!nonce || tabId === null || !Number.isInteger(tabId)) return false;
   try {
+    const area = getChrome().storage.session;
+    if (!area) return false;
     const key = surfaceKey(tabId);
-    const stored = await getChrome().storage.session?.get(key);
-    return Boolean(stored) && stored![key] === nonce;
+    const stored = (await area.get(key))[key] as
+      { nonce?: unknown; at?: unknown } | undefined;
+    if (!stored || stored.nonce !== nonce) return false;
+    await area.remove(key);
+    return (
+      typeof stored.at === "number" && Date.now() - stored.at < SECRET_TTL_MS
+    );
   } catch {
     return false;
   }
@@ -466,5 +490,4 @@ function whenBody(run: (body: HTMLElement) => void) {
 /** Tests only: forget the page's surface, as a fresh page would. */
 export function resetSurfaceForTests(): void {
   current = null;
-  secret = null;
 }
