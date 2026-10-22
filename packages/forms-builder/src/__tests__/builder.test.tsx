@@ -18,9 +18,9 @@ describe("<FormBuilder>", () => {
     render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
     expect(onChange).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Form title"), { target: { value: "After class" } });
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ title: "After class" }), expect.anything());
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ title: "After class" }));
     fireEvent.click(screen.getByTestId("builder-undo"));
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ title: "How was class?" }), expect.anything());
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ title: "How was class?" }));
   });
 
   it("passes the current value and analysis to host actions", () => {

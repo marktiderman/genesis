@@ -26,10 +26,29 @@ import {
 } from "@marktiderman/genesis-forms";
 
 /** A short random id: unique enough within one form, readable in JSON. */
-export function newId(prefix: string): string {
+function randomId(prefix: string): string {
   const bytes = new Uint8Array(6);
   globalThis.crypto.getRandomValues(bytes);
   return `${prefix}_${Array.from(bytes, (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 8)}`;
+}
+
+/** Makes every new id: `prefix` is `q`, `opt`, `rule`, `form`, `page`, `h` or `t`. */
+export type IdGenerator = (prefix: string) => string;
+
+let generateId: IdGenerator = randomId;
+
+/**
+ * Replace the id generator (block, option, rule and form ids), for example
+ * with a counter so tests and snapshots are stable. Pass nothing to go back
+ * to random ids. It is process-wide; ids must stay unique within a form.
+ */
+export function setIdGenerator(fn?: IdGenerator | null): void {
+  generateId = fn ?? randomId;
+}
+
+/** A new id from the current generator (random by default). */
+export function newId(prefix: string): string {
+  return generateId(prefix);
 }
 
 /** `"How was class?"` → `"how_was_class"`. Always a valid, non-empty key. */
@@ -76,8 +95,31 @@ export function emptyForm(id = newId("form"), title = "Untitled form"): FormDefi
 
 // ── Blocks ───────────────────────────────────────────────────────────────────
 
-/** Default props for a new field of a built-in type, so it is valid as soon as it is added. */
-export function defaultProps(type: string): Record<string, Json> | undefined {
+/**
+ * What `createField`, `defaultProps` and `starterValue` may ask of a host's
+ * field-type editor (see `FieldTypeEditor`): the data parts, without UI.
+ */
+export interface FieldTypeDefaults {
+  type: string;
+  label?: string | undefined;
+  defaultProps?: ((def: FormDefinition) => Record<string, Json> | undefined) | undefined;
+  starterValue?: ((field: FieldBlock, op: Operator) => Json) | undefined;
+}
+
+const editorFor = (editors: readonly FieldTypeDefaults[] | undefined, type: string) => editors?.find((e) => e.type === type);
+
+/**
+ * Default props for a new field, so it is valid as soon as it is added. A
+ * matching editor in `editors` is asked first. Choice options get fresh
+ * values from `newOptionValue()`, so a field retyped to choice never brings
+ * back a value earlier answers used; call it outside a reducer.
+ */
+export function defaultProps(
+  type: string,
+  opts: { def?: FormDefinition; editors?: readonly FieldTypeDefaults[] } = {},
+): Record<string, Json> | undefined {
+  const editor = editorFor(opts.editors, type);
+  if (editor?.defaultProps) return editor.defaultProps(opts.def ?? emptyForm("form"));
   switch (type) {
     case "rating":
       return { max: 5 };
@@ -85,8 +127,8 @@ export function defaultProps(type: string): Record<string, Json> | undefined {
     case "multi-choice":
       return {
         options: [
-          { value: "option_1", label: "Option 1" },
-          { value: "option_2", label: "Option 2" },
+          { value: newOptionValue(), label: "Option 1" },
+          { value: newOptionValue(), label: "Option 2" },
         ],
       };
     default:
@@ -102,9 +144,9 @@ export interface NewField {
   props?: Record<string, Json>;
 }
 
-/** A new field block with a fresh id and a key unique in `def`. */
-export function createField(def: FormDefinition, spec: NewField): FieldBlock {
-  const label = spec.label ?? getFieldType(spec.type)?.label ?? "Question";
+/** A new field block with a fresh id and a key unique in `def`. A matching editor in `editors` gives its label and props. */
+export function createField(def: FormDefinition, spec: NewField, editors?: readonly FieldTypeDefaults[]): FieldBlock {
+  const label = spec.label ?? editorFor(editors, spec.type)?.label ?? getFieldType(spec.type)?.label ?? "Question";
   const block: FieldBlock = {
     kind: "field",
     id: newId("q"),
@@ -113,7 +155,7 @@ export function createField(def: FormDefinition, spec: NewField): FieldBlock {
     label,
   };
   if (spec.required) block.required = true;
-  const props = spec.props ?? defaultProps(spec.type);
+  const props = spec.props ?? defaultProps(spec.type, { def, editors });
   if (props) block.props = props;
   return block;
 }
@@ -145,7 +187,9 @@ export type BlockPatch =
  * default props and loses the rules that compare it, since their operators
  * and values belong to the old type. Between single and multiple choice the
  * options stay, and so do rules whose operators the new type offers. An edit
- * that changes nothing returns `def` itself.
+ * that changes nothing returns `def` itself. Default props are made here
+ * when the patch has none (new option values are random): pass `props` from
+ * `defaultProps()` to keep the edit pure.
  */
 export function updateBlock(def: FormDefinition, id: string, patch: BlockPatch): FormDefinition {
   let typeChanged: { from: string; to: string } | undefined;
@@ -205,22 +249,31 @@ export function moveBlock(def: FormDefinition, id: string, toIndex: number): For
   return { ...def, blocks };
 }
 
-/** A copy right after the original, with a new id and key. Rules are not copied. */
-export function duplicateBlock(def: FormDefinition, id: string): FormDefinition {
+/** The id prefix new blocks like `block` get. */
+export function blockIdPrefix(block: Block): string {
+  return block.kind === "field" ? "q" : block.kind === "content" ? (block.type === "heading" ? "h" : "t") : "page";
+}
+
+/**
+ * A copy right after the original, with a new id and key. Rules are not
+ * copied. Pass `copyId` (from `newId(blockIdPrefix(block))`) to keep the edit
+ * pure; without it a new id is made here.
+ */
+export function duplicateBlock(def: FormDefinition, id: string, copyId?: string): FormDefinition {
   const index = def.blocks.findIndex((b) => b.id === id);
   if (index === -1) return def;
   const original = def.blocks[index]!;
+  const newBlockId = copyId ?? newId(blockIdPrefix(original));
+  if (def.blocks.some((b) => b.id === newBlockId)) return def;
   let copy: Block;
   if (original.kind === "field") {
     copy = {
       ...structuredClone(original),
-      id: newId("q"),
+      id: newBlockId,
       key: uniqueName(`${original.key}_copy`, fieldKeys(def)),
       label: `${original.label} (copy)`,
     };
-  } else if (original.kind === "content") {
-    copy = { ...original, id: newId(original.type === "heading" ? "h" : "t") };
-  } else copy = { ...original, id: newId("page") };
+  } else copy = { ...original, id: newBlockId };
   return insertBlock(def, copy, index + 1);
 }
 
@@ -234,13 +287,21 @@ export function removeBlock(def: FormDefinition, id: string): FormDefinition {
   if (index === -1) return def;
   const removed = def.blocks[index]!;
   const nextStep = def.blocks.slice(index + 1).find((b) => b.kind !== "page-break");
-  const retarget: Extract<LogicRule, { effect: "jump" }>["to"] = nextStep ? nextStep.id : { ending: def.endings?.[0]?.id ?? "default" };
+  // With no step after it, the jump goes to the default ending. A form without
+  // endings has none to name: the form ends there anyway, so the jump goes.
+  const ending = defaultEndingId(def);
+  const retarget: Extract<LogicRule, { effect: "jump" }>["to"] | null = nextStep ? nextStep.id : ending ? { ending } : null;
   let out: FormDefinition = { ...def, blocks: def.blocks.filter((b) => b.id !== id) };
-  if (out.logic) {
+  if (out.logic && retarget) {
     out.logic = out.logic.map((r) => (r.effect === "jump" && r.to === id && r.from !== id ? { ...r, to: retarget } : r));
   }
   if (removed.kind === "field") out = rewriteRecall(out, "field", removed.key, null);
   return removeRulesWhere(out, (rule) => ruleRefs(rule).has(id));
+}
+
+/** The ending a form finishes at when no jump names one, as the engine picks it: `"default"`, else the first. */
+export function defaultEndingId(def: FormDefinition): string | null {
+  return def.endings?.find((e) => e.id === "default")?.id ?? def.endings?.[0]?.id ?? null;
 }
 
 // ── Choice options ───────────────────────────────────────────────────────────
@@ -255,7 +316,7 @@ export const newOptionValue = () => newId("opt");
 /**
  * Set a choice field's options. Existing values are kept (answers store
  * values) and made unique; an option without one gets `newOptionValue()`
- * (pass values in to keep the edit pure). A removed value leaves the "is one
+ * here, so pass values in (see `withOptionValues`) to keep the edit pure. A removed value leaves the "is one
  * of" lists that name it; rules that compare with it otherwise, or whose list
  * becomes empty, are removed.
  */
@@ -286,6 +347,11 @@ export function setOptions(
       return Array.isArray(v) ? (c.op === "in" && !v.length) || v.some(gone) : gone(v);
     }),
   );
+}
+
+/** `options` with a fresh `newOptionValue()` for each one that has none. Call it outside a reducer. */
+export function withOptionValues<T extends { value?: string; label: string }>(options: readonly T[]): (T & { value: string })[] {
+  return options.map((o) => (o.value ? (o as T & { value: string }) : { ...o, value: newOptionValue() }));
 }
 
 /** Drop the values `gone` matches from the "is one of" lists that compare field `id`. */
@@ -405,13 +471,16 @@ export const UNARY_OPERATORS: ReadonlySet<Operator> = new Set<Operator>(["answer
  * A starter rule for a field: the first operator its type offers, compared
  * with a sensible first value. Callers edit it from there.
  */
-export function starterCondition(field: FieldBlock): Condition {
+export function starterCondition(field: FieldBlock, editors?: readonly FieldTypeDefaults[]): Condition {
   const op = operatorsFor(field.type)[0] ?? "answered";
   if (UNARY_OPERATORS.has(op)) return { op, left: { field: field.id } };
-  return { op, left: { field: field.id }, right: { value: starterValue(field, op) } };
+  return { op, left: { field: field.id }, right: { value: starterValue(field, op, editors) } };
 }
 
-export function starterValue(field: FieldBlock, op: Operator): Json {
+/** A first value to compare `field` with. A matching editor in `editors` is asked first. */
+export function starterValue(field: FieldBlock, op: Operator, editors?: readonly FieldTypeDefaults[]): Json {
+  const custom = editorFor(editors, field.type)?.starterValue;
+  if (custom) return custom(field, op);
   const one = starterScalar(field);
   // "is one of" compares with a list.
   return op === "in" ? (one === "" ? [] : [one]) : one;

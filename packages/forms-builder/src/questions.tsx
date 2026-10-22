@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2, X } from "lucide-react";
 import {
   choiceOptions,
@@ -26,16 +26,20 @@ import {
   createContent,
   createField,
   createPageBreak,
+  blockIdPrefix,
+  defaultProps,
   duplicateBlock,
   insertBlock,
+  newId,
   moveBlock,
   newOptionValue,
   removeBlock,
   setOptions,
   updateBlock,
+  withOptionValues,
 } from "./ops";
 
-type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) => void;
+import { contentTypes, editorFor, useBuilderConfig, type Apply, type BuilderConfig } from "./editors";
 
 const TEXT_TYPES = new Set(["short-text", "long-text", "email", "phone"]);
 
@@ -48,8 +52,37 @@ const CATEGORY_LABEL: Record<string, string> = {
   advanced: "Advanced",
 };
 
-export function typeLabel(type: string): string {
-  return getFieldType(type)?.label ?? type;
+export function typeLabel(type: string, config: BuilderConfig = {}): string {
+  return editorFor(config, type)?.label ?? getFieldType(type)?.label ?? type;
+}
+
+export interface PaletteEntry {
+  type: string;
+  label: string;
+  category: string;
+  icon?: ReactNode;
+}
+
+/**
+ * The field types authors may add: `palette` in its order, else every
+ * registered type. A type needs a registered manifest or an editor.
+ */
+export function paletteTypes(config: BuilderConfig = {}): PaletteEntry[] {
+  const types = config.palette ?? listFieldTypes().map((t) => t.type);
+  const out: PaletteEntry[] = [];
+  for (const type of new Set(types)) {
+    const manifest = getFieldType(type);
+    const editor = editorFor(config, type);
+    if (!manifest && !editor) continue;
+    const entry: PaletteEntry = {
+      type,
+      label: editor?.label ?? manifest?.label ?? type,
+      category: editor?.category ?? manifest?.category ?? "advanced",
+    };
+    if (editor?.icon !== undefined) entry.icon = editor.icon;
+    out.push(entry);
+  }
+  return out;
 }
 
 function blockTitle(block: Block): string {
@@ -70,8 +103,11 @@ export function AddBlockMenu({
   testID?: string;
   variant?: "default" | "outline" | "ghost";
 }) {
-  const byCategory = new Map<string, ReturnType<typeof listFieldTypes>>();
-  for (const t of listFieldTypes()) byCategory.set(t.category, [...(byCategory.get(t.category) ?? []), t]);
+  const config = useBuilderConfig();
+  const byCategory = new Map<string, PaletteEntry[]>();
+  for (const t of paletteTypes(config)) byCategory.set(t.category, [...(byCategory.get(t.category) ?? []), t]);
+  const content = contentTypes(config.blockKinds);
+  const pageBreak = config.blockKinds?.pageBreak ?? true;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -84,17 +120,24 @@ export function AddBlockMenu({
           <div key={category}>
             <DropdownMenuLabel>{CATEGORY_LABEL[category] ?? category}</DropdownMenuLabel>
             {types.map((t) => (
-              <DropdownMenuItem key={t.type} onSelect={() => onAdd((def) => createField(def, { type: t.type }))}>
+              <DropdownMenuItem key={t.type} onSelect={() => onAdd((def) => createField(def, { type: t.type }, config.fieldEditors))}>
+                {t.icon ?? null}
                 {t.label}
               </DropdownMenuItem>
             ))}
           </div>
         ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Layout</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={() => onAdd(() => createContent("heading"))}>Heading</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onAdd(() => createContent("text"))}>Text</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onAdd(() => createPageBreak())}>Page break</DropdownMenuItem>
+        {content.length || pageBreak ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Layout</DropdownMenuLabel>
+            {content.includes("heading") ? (
+              <DropdownMenuItem onSelect={() => onAdd(() => createContent("heading"))}>Heading</DropdownMenuItem>
+            ) : null}
+            {content.includes("text") ? <DropdownMenuItem onSelect={() => onAdd(() => createContent("text"))}>Text</DropdownMenuItem> : null}
+            {pageBreak ? <DropdownMenuItem onSelect={() => onAdd(() => createPageBreak())}>Page break</DropdownMenuItem> : null}
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -116,6 +159,7 @@ export function QuestionsPanel({
   ruleCount: (blockId: string) => number;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
+  const config = useBuilderConfig();
 
   const add = (make: (def: FormDefinition) => Block) => {
     // Made here, not in the edit: edits run in the reducer and must stay pure.
@@ -190,7 +234,7 @@ export function QuestionsPanel({
                   <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">{index + 1}</span>
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
                   <Badge variant="muted" className="shrink-0">
-                    {block.kind === "field" ? typeLabel(block.type) : block.kind === "content" ? block.type : "page"}
+                    {block.kind === "field" ? typeLabel(block.type, config) : block.kind === "content" ? block.type : "page"}
                   </Badge>
                   {block.kind === "field" && block.required ? <Badge variant="outline">Required</Badge> : null}
                   {rules ? <Badge variant="info">{rules} rule{rules === 1 ? "" : "s"}</Badge> : null}
@@ -215,7 +259,12 @@ export function QuestionsPanel({
                   >
                     <ArrowDown />
                   </Button>
-                  <Button variant="ghost" size="icon" aria-label={`Duplicate "${name}"`} onClick={() => apply((d) => duplicateBlock(d, block.id))}>
+                  <Button variant="ghost" size="icon" aria-label={`Duplicate "${name}"`} onClick={() => {
+                      // The id is made here, not in the edit: edits must stay pure.
+                      const copyId = newId(blockIdPrefix(block));
+                      apply((d) => duplicateBlock(d, block.id, copyId));
+                    }}
+                  >
                     <Copy />
                   </Button>
                   <Button
@@ -255,7 +304,9 @@ export function BlockInspector({ def, block, apply }: { def: FormDefinition; blo
   const set = (patch: Parameters<typeof updateBlock>[2], coalesce?: string) =>
     apply((d) => updateBlock(d, block.id, patch), coalesce);
 
+  const config = useBuilderConfig();
   if (block.kind === "content") {
+    const allowed = new Set<string>([...contentTypes(config.blockKinds), block.type]);
     return (
       <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
         <SelectRow
@@ -264,7 +315,7 @@ export function BlockInspector({ def, block, apply }: { def: FormDefinition; blo
           options={[
             { value: "heading", label: "Heading" },
             { value: "text", label: "Text" },
-          ]}
+          ].filter((o) => allowed.has(o.value))}
           onChange={(type) => set({ type: type as "heading" | "text" })}
         />
         <TextRow label="Text" multiline value={block.text} onChange={(text) => set({ text }, `text:${block.id}`)} />
@@ -295,8 +346,21 @@ function FieldInspector({
   set: (patch: Parameters<typeof updateBlock>[2], coalesce?: string) => void;
   apply: Apply;
 }) {
-  const types = listFieldTypes().map((t) => ({ value: t.type, label: t.label }));
+  const config = useBuilderConfig();
+  const types = paletteTypes(config).map((t) => ({ value: t.type, label: t.label }));
+  // The current type stays selectable, also when the palette leaves it out.
+  if (!types.some((t) => t.value === field.type)) types.unshift({ value: field.type, label: typeLabel(field.type, config) });
   const isChoice = field.type === "single-choice" || field.type === "multi-choice";
+  const editor = editorFor(config, field.type);
+  const Panel = editor?.Panel;
+  const setType = (type: string) => {
+    if (type === field.type) return;
+    // Between single and multiple choice the options stay; otherwise the new
+    // type's default props are made here (new option values are random), so the edit stays pure.
+    const keepsOptions = isChoice && (type === "single-choice" || type === "multi-choice") && !editorFor(config, type)?.defaultProps;
+    if (keepsOptions) set({ type });
+    else set({ type, props: defaultProps(type, { def, editors: config.fieldEditors }) });
+  };
   const anonymous = !!def.settings?.anonymous;
   return (
     <div className="space-y-4">
@@ -319,7 +383,7 @@ function FieldInspector({
           value={field.type}
           options={types}
           hint="Changing the type resets its settings and removes rules that compare this question. Between single and multiple choice, the options and the rules that still fit stay."
-          onChange={(type) => set({ type })}
+          onChange={setType}
         />
         <DraftRow
           label="Key"
@@ -329,14 +393,15 @@ function FieldInspector({
           onCommit={(key) => set({ key })}
         />
       </div>
-      {TEXT_TYPES.has(field.type) ? (
+      {Panel ? <Panel def={def} field={field} set={set} apply={apply} /> : null}
+      {!Panel && TEXT_TYPES.has(field.type) ? (
         <TextRow
           label="Placeholder"
           value={field.placeholder ?? ""}
           onChange={(placeholder) => set({ placeholder }, `placeholder:${field.id}`)}
         />
       ) : null}
-      {field.type === "rating" ? (
+      {!Panel && field.type === "rating" ? (
         <NumberRow
           label="Highest rating"
           commitOnBlur
@@ -346,7 +411,7 @@ function FieldInspector({
           onChange={(max) => set({ props: { ...field.props, max: Math.min(10, Math.max(2, max ?? 5)) } })}
         />
       ) : null}
-      {field.type === "short-text" || field.type === "long-text" ? (
+      {!Panel && (field.type === "short-text" || field.type === "long-text") ? (
         <NumberRow
           label="Longest answer (characters)"
           min={1}
@@ -360,7 +425,7 @@ function FieldInspector({
           }}
         />
       ) : null}
-      {isChoice ? <OptionsEditor field={field} apply={apply} /> : null}
+      {!Panel && isChoice ? <OptionsEditor field={field} apply={apply} /> : null}
       <div className="space-y-3 rounded-md border p-3">
         <SwitchRow
           label="Required"
@@ -391,8 +456,11 @@ function FieldInspector({
 
 function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
   const options = choiceOptions(field).map((o) => ({ value: o.value, label: o.label ?? o.value }));
-  const save = (next: { value?: string; label: string }[], coalesce?: string) =>
-    apply((d) => setOptions(d, field.id, next), coalesce);
+  const save = (next: { value?: string; label: string }[], coalesce?: string) => {
+    // Values are made here, not in the edit: edits must stay pure.
+    const filled = withOptionValues(next);
+    apply((d) => setOptions(d, field.id, filled), coalesce);
+  };
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium">Options</legend>

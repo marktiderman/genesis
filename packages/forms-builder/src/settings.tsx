@@ -100,7 +100,7 @@ export function SettingsPanel({ def, apply }: { def: FormDefinition; apply: Appl
         <SwitchRow
           label="Anonymous responses"
           testID="builder-anonymous"
-          hint="Questions and hidden inputs marked “identifies the respondent” are not asked or stored."
+          hint="Questions marked “identifies the respondent” are not asked or stored. Hidden inputs marked so are not stored (logic can still read them)."
           checked={!!def.settings?.anonymous}
           onChange={(anonymous) => apply((d) => updateSettings(d, { anonymous }))}
         />

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
@@ -78,17 +78,65 @@ export function DraftRow(props: {
   );
 }
 
+/** Where pending drafts register, so the builder can commit them on demand (`flush`) and when it unmounts. */
+export interface DraftRegistry {
+  add(flush: () => void): () => void;
+}
+
+export const DraftsContext = createContext<DraftRegistry | null>(null);
+
+/** A registry of draft flushers, for a builder's `flush()`. */
+export function createDraftRegistry(): DraftRegistry & { flush(): void } {
+  const all = new Set<() => void>();
+  return {
+    add(flush) {
+      all.add(flush);
+      return () => void all.delete(flush);
+    },
+    flush() {
+      for (const f of [...all]) f();
+    },
+  };
+}
+
 /**
  * Text kept as typed until blur or Enter. Then `onCommit` gets it if it
  * changed, and the field shows the value again (normalized by the commit).
+ * Text still pending is committed when the builder flushes, and when the
+ * input unmounts.
  */
 export function useDraft(value: string, onCommit: (value: string) => void) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  const commit = () => {
-    if (draft !== value) onCommit(draft);
-    setDraft(value);
-  };
+  const [draft, setDraftState] = useState(value);
+  const pending = useRef<string | null>(null);
+  const valueRef = useRef(value);
+  const onCommitRef = useRef(onCommit);
+  useLayoutEffect(() => {
+    onCommitRef.current = onCommit;
+  });
+  useLayoutEffect(() => {
+    valueRef.current = value;
+    // A new value from outside (a commit, undo) replaces what was typed.
+    pending.current = null;
+    setDraftState(value);
+  }, [value]);
+  const commit = useCallback(() => {
+    const typed = pending.current;
+    pending.current = null;
+    if (typed !== null && typed !== valueRef.current) onCommitRef.current(typed);
+    setDraftState(valueRef.current);
+  }, []);
+  const drafts = useContext(DraftsContext);
+  useLayoutEffect(() => {
+    const off = drafts?.add(commit);
+    return () => {
+      off?.();
+      commit();
+    };
+  }, [drafts, commit]);
+  const setDraft = useCallback((next: string) => {
+    pending.current = next;
+    setDraftState(next);
+  }, []);
   return { draft, setDraft, commit };
 }
 

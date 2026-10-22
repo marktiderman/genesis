@@ -5,10 +5,13 @@ import {
   createForm,
   parseForm,
   replay,
+  type CreateFormOptions,
+  type FieldValidator,
   type FormDefinition,
   type FormEngine,
   type ParseResult,
 } from "@marktiderman/genesis-forms";
+import type { RendererRegistry } from "@marktiderman/genesis-forms-react";
 import { Form, type FormBrand } from "@marktiderman/genesis-forms-web";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@marktiderman/genesis-ui/toggle-group";
@@ -25,13 +28,19 @@ export function Preview({
   parsed: given,
   brand,
   hidden,
+  registry,
+  validators,
 }: {
   def: FormDefinition;
   /** `parseForm(def)`, when the caller already has it. */
-  parsed?: ParseResult;
-  brand?: FormBrand;
+  parsed?: ParseResult | undefined;
+  brand?: FormBrand | undefined;
   /** Sample values for hidden inputs, so recall and logic on them can be tried. */
-  hidden?: Record<string, string | number | boolean>;
+  hidden?: Record<string, string | number | boolean> | undefined;
+  /** Renderers for custom field types, passed to `<Form>`. */
+  registry?: RendererRegistry | undefined;
+  /** Custom validators by field id, for the preview's engine. Read when a response starts (or Restart). */
+  validators?: Record<string, FieldValidator> | undefined;
 }) {
   const mode = def.layout?.mode ?? "focus";
   const [layout, setLayout] = useState<"focus" | "classic">(mode);
@@ -48,15 +57,20 @@ export function Preview({
 
   const root = useRef<HTMLDivElement>(null);
   const refocus = useRef<Element | null>(null);
+  // Focus inside the preview when its body remounted: given back to the same control in the new body.
+  const lostFocus = useRef<{ el: Element; find: (root: HTMLElement) => HTMLElement | null } | null>(null);
   // The engine is held here, not by <Form>: a new definition there would start a new response.
   const [held, setHeld] = useState<{ key: string; form: FormDefinition; engine: FormEngine } | null>(null);
   let engine = held && held.form === form && held.key === key ? held.engine : null;
   if (form && !engine) {
-    const options = hidden ? { hidden } : {};
+    const options: Omit<CreateFormOptions, "clock" | "initialValues"> = {};
+    if (hidden) options.hidden = hidden;
+    if (validators) options.validators = validators;
+    const active = typeof document === "undefined" ? null : document.activeElement;
+    if (active && root.current?.contains(active)) lostFocus.current = { el: active, find: finder(active) };
     if (held && held.key === key) {
       // Same questions, new wording: carry the response over by replaying its events.
       engine = replay(form, held.engine.getState().events, options);
-      const active = typeof document === "undefined" ? null : document.activeElement;
       if (active && !root.current?.contains(active)) refocus.current = active;
     } else engine = createForm(form, options);
     setHeld({ key, form, engine });
@@ -67,10 +81,18 @@ export function Preview({
     const el = refocus.current;
     refocus.current = null;
     if (el instanceof HTMLElement && el.isConnected && document.activeElement !== el) el.focus();
+    // Focus was in the form body that just remounted (Ctrl+Z on a preview button, say):
+    // give it to the same control in the new body, else to the preview itself, never to <body>.
+    const lost = lostFocus.current;
+    lostFocus.current = null;
+    if (!lost || lost.el.isConnected || !root.current) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && root.current.contains(active)) return;
+    (lost.find(root.current) ?? root.current).focus();
   }, [engine]);
 
   return (
-    <div className="space-y-2" data-testid="builder-preview" ref={root}>
+    <div className="space-y-2 outline-none" data-testid="builder-preview" ref={root} tabIndex={-1}>
       <div className="flex items-center gap-2">
         <ToggleGroup
           type="single"
@@ -92,7 +114,7 @@ export function Preview({
         <div className="h-[36rem] overflow-y-auto p-4">
           {form && engine ? (
             // No onSubmit: a completed engine then shows its ending, also after a wording edit remounts it.
-            <Form form={form} engine={engine} layout={layout} brand={brand} />
+            <Form form={form} engine={engine} layout={layout} brand={brand} {...(registry ? { registry } : {})} />
           ) : (
             <div className="space-y-2 p-4 text-sm">
               <p className="font-medium">The preview starts once the form is valid.</p>
@@ -105,4 +127,20 @@ export function Preview({
       </div>
     </div>
   );
+}
+
+/** Finds the control like `el` after a remount: by id, by name (and value, for radios), or by role and text. */
+function finder(el: Element): (root: HTMLElement) => HTMLElement | null {
+  const tag = el.tagName;
+  const id = el.id;
+  const name = el.getAttribute("name");
+  const value = el.getAttribute("value");
+  const text = el.textContent?.trim() ?? "";
+  const label = el.getAttribute("aria-label");
+  return (root) => {
+    const all = Array.from(root.querySelectorAll<HTMLElement>(tag));
+    if (id) return all.find((x) => x.id === id) ?? null;
+    if (name) return all.find((x) => x.getAttribute("name") === name && x.getAttribute("value") === value) ?? null;
+    return all.find((x) => x.getAttribute("aria-label") === label && (x.textContent?.trim() ?? "") === text) ?? null;
+  };
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormDefinition } from "@marktiderman/genesis-forms";
 
 /** Most undo steps kept. Older ones are dropped. */
@@ -48,10 +48,17 @@ function reducer(state: State, action: Action): State {
 }
 
 export interface BuilderHistory {
+  /** The value as rendered. */
   value: FormDefinition;
   /**
+   * The value with every edit applied so far, also those not rendered yet
+   * (an edit made a moment ago, or while unmounting).
+   */
+  get: () => FormDefinition;
+  /**
    * Apply an edit. Pass `coalesce` (for example `"label:q_ab12"`) for edits
-   * made keystroke by keystroke, so they undo as one step.
+   * made keystroke by keystroke, so they undo as one step. The edit runs at
+   * once, outside React's render, so `get()` sees it straight away.
    */
   apply: (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) => void;
   undo: () => void;
@@ -62,20 +69,41 @@ export interface BuilderHistory {
   reset: (value: FormDefinition) => void;
 }
 
+export interface BuilderHistoryOptions {
+  /** Called with the new value after each edit, undo or redo that changes it (not after `reset`). */
+  onChange?: (value: FormDefinition) => void;
+}
+
 /** Undoable editing state for a definition. */
-export function useBuilderHistory(initial: FormDefinition): BuilderHistory {
-  const [state, dispatch] = useReducer(reducer, initial, (value): State => ({ past: [], present: value, future: [] }));
+export function useBuilderHistory(initial: FormDefinition, options: BuilderHistoryOptions = {}): BuilderHistory {
+  const [state, setState] = useState((): State => ({ past: [], present: initial, future: [] }));
+  // The latest state, ahead of the render: edits chain on it and `get()` reads it.
+  const latest = useRef(state);
+  const onChange = useRef(options.onChange);
+  useEffect(() => {
+    onChange.current = options.onChange;
+  });
+  const dispatch = useCallback((action: Action) => {
+    const before = latest.current;
+    const next = reducer(before, action);
+    if (next === before) return;
+    latest.current = next;
+    setState(next);
+    if (action.type !== "reset" && next.present !== before.present) onChange.current?.(next.present);
+  }, []);
   const apply = useCallback(
     (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) =>
       dispatch(coalesce === undefined ? { type: "apply", edit } : { type: "apply", edit, coalesce }),
-    [],
+    [dispatch],
   );
-  const undo = useCallback(() => dispatch({ type: "undo" }), []);
-  const redo = useCallback(() => dispatch({ type: "redo" }), []);
-  const reset = useCallback((value: FormDefinition) => dispatch({ type: "reset", value }), []);
+  const undo = useCallback(() => dispatch({ type: "undo" }), [dispatch]);
+  const redo = useCallback(() => dispatch({ type: "redo" }), [dispatch]);
+  const reset = useCallback((value: FormDefinition) => dispatch({ type: "reset", value }), [dispatch]);
+  const get = useCallback(() => latest.current.present, []);
   return useMemo(
     () => ({
       value: state.present,
+      get,
       apply,
       undo,
       redo,
@@ -83,7 +111,7 @@ export function useBuilderHistory(initial: FormDefinition): BuilderHistory {
       canUndo: state.past.length > 0,
       canRedo: state.future.length > 0,
     }),
-    [state, apply, undo, redo, reset],
+    [state, get, apply, undo, redo, reset],
   );
 }
 

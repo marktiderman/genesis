@@ -3,7 +3,16 @@
  * structural problems (`parseForm`), likely mistakes (its warnings) and path
  * problems found by exploring every branch (`coverage`).
  */
-import { choiceOptions, fingerprint, parseForm, type FormDefinition, type FormIssue, type ParseResult } from "@marktiderman/genesis-forms";
+import {
+  choiceOptions,
+  fingerprint,
+  listFieldTypes,
+  parseForm,
+  type FieldTypeManifest,
+  type FormDefinition,
+  type FormIssue,
+  type ParseResult,
+} from "@marktiderman/genesis-forms";
 import { coverage, type CoverageReport } from "@marktiderman/genesis-forms/testing";
 
 export type FindingLevel = "error" | "warning" | "info";
@@ -67,8 +76,15 @@ export function structureFingerprint(def: FormDefinition): string {
       if (b.kind === "content") return { kind: b.kind, id: b.id, type: b.type };
       if (b.kind === "page-break") return { kind: b.kind, id: b.id };
       const { label: _l, description: _ds, placeholder: _p, ...field } = b;
-      const options = choiceOptions(b);
-      return options.length ? { ...field, props: { ...b.props, options: options.map((o) => o.value) } } : field;
+      const raw = b.props?.options;
+      if (!choiceOptions(b).length || !Array.isArray(raw)) return field;
+      // Every option prop but its label: a type's samples() may read others (such as `exclusive`).
+      const options = raw.map((o) => {
+        if (!o || typeof o !== "object" || Array.isArray(o)) return o;
+        const { label: _ol, ...rest } = o;
+        return rest;
+      });
+      return { ...field, props: { ...b.props, options } };
     }),
     endings: (def.endings ?? []).map((e) => e.id),
   });
@@ -78,8 +94,23 @@ export function structureFingerprint(def: FormDefinition): string {
 const COVERAGE_CACHE_SIZE = 8;
 const coverageCache = new Map<string, CoverageReport>();
 
+// Coverage also reads the field-type registry (samples, operators): a type
+// registered or replaced later must not reuse a report made without it.
+const manifestIds = new WeakMap<FieldTypeManifest, number>();
+let nextManifestId = 0;
+/** Changes whenever a field type is registered or replaced. */
+export function registryVersion(): string {
+  return listFieldTypes()
+    .map((m) => {
+      let id = manifestIds.get(m);
+      if (id === undefined) manifestIds.set(m, (id = nextManifestId++));
+      return id;
+    })
+    .join(",");
+}
+
 function cachedCoverage(def: FormDefinition, maxStates: number): CoverageReport {
-  const key = `${maxStates}:${structureFingerprint(def)}`;
+  const key = `${maxStates}:${registryVersion()}:${structureFingerprint(def)}`;
   const hit = coverageCache.get(key);
   if (hit) {
     coverageCache.delete(key);

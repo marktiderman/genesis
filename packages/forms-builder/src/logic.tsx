@@ -19,10 +19,11 @@ import { Button } from "@marktiderman/genesis-ui/button";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import { DraftInput, Pick, SelectRow, type Choice } from "./controls";
+import { DraftInput, Pick, SelectRow, useDraft, type Choice } from "./controls";
 import type { Finding } from "./analyze";
 import {
   addRule,
+  defaultEndingId,
   HIDDEN_OPERATORS,
   moveRule,
   newId,
@@ -32,9 +33,10 @@ import {
   starterValue,
   UNARY_OPERATORS,
   updateRule,
+  type FieldTypeDefaults,
 } from "./ops";
 
-type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) => void;
+import { editorFor, useBuilderConfig, type Apply } from "./editors";
 
 export const OPERATOR_LABEL: Record<Operator, string> = {
   eq: "is",
@@ -85,32 +87,43 @@ export function describeRule(rule: LogicRule, def: FormDefinition): string {
   return rule.effect === "show" ? `Show ${name(rule.target)} only when ${when}` : `Hide ${name(rule.target)} when ${when}`;
 }
 
-/** A new show rule: show the last field when the first one is answered a certain way. */
-export function starterRule(def: FormDefinition, effect: LogicRule["effect"] = "show"): LogicRule | null {
+/**
+ * A new show rule: show the last field when the first one is answered a
+ * certain way. A jump goes to the next step, else the default ending; null
+ * when there is nothing to jump to.
+ */
+export function starterRule(
+  def: FormDefinition,
+  effect: LogicRule["effect"] = "show",
+  editors?: readonly FieldTypeDefaults[],
+): LogicRule | null {
   const fields = fieldsOf(def);
   const source = fields[0];
   if (!source) return null;
   const id = newId("rule");
   if (effect === "jump") {
     const later = def.blocks.slice(def.blocks.indexOf(source) + 1).find((b) => b.kind !== "page-break");
+    const ending = defaultEndingId(def);
+    if (!later && !ending) return null;
     return {
       id,
       effect: "jump",
-      when: starterCondition(source),
+      when: starterCondition(source, editors),
       from: source.id,
-      to: later ? later.id : { ending: def.endings?.[0]?.id ?? "default" },
+      to: later ? later.id : { ending: ending! },
     };
   }
   const target = fields.at(-1) !== source ? fields.at(-1)! : def.blocks.find((b) => b.id !== source.id && b.kind !== "page-break");
   if (!target) return null;
-  return { id, effect, when: starterCondition(source), target: target.id };
+  return { id, effect, when: starterCondition(source, editors), target: target.id };
 }
 
 export function LogicPanel({ def, apply, findings }: { def: FormDefinition; apply: Apply; findings: Finding[] }) {
   const rules = def.logic ?? [];
   const [open, setOpen] = useState<string | null>(null);
+  const config = useBuilderConfig();
   const add = (effect: LogicRule["effect"]) => {
-    const rule = starterRule(def, effect);
+    const rule = starterRule(def, effect, config.fieldEditors);
     if (!rule) return;
     apply((d) => addRule(d, rule));
     setOpen(rule.id);
@@ -200,7 +213,12 @@ export function RuleEditor({ def, rule, onChange }: { def: FormDefinition; rule:
     if (effect === rule.effect) return;
     if (effect === "jump") {
       const from = rule.effect === "jump" ? rule.from : (steps.find((b) => b.kind === "field")?.id ?? steps[0]?.id ?? "");
-      onChange({ id: rule.id, effect: "jump", when: rule.when, from, to: { ending: def.endings?.[0]?.id ?? "default" } });
+      // The default ending, or with none (a form without endings) the next step.
+      const ending = defaultEndingId(def);
+      const next = steps[steps.findIndex((b) => b.id === from) + 1];
+      const to = ending ? { ending } : next?.id;
+      if (to === undefined) return;
+      onChange({ id: rule.id, effect: "jump", when: rule.when, from, to });
     } else {
       const target = rule.effect === "jump" ? (steps.at(-1)?.id ?? "") : rule.target;
       onChange({ id: rule.id, effect: effect as "show" | "hide", when: rule.when, target });
@@ -267,6 +285,7 @@ export function ConditionEditor({
   condition: Condition;
   onChange: (condition: Condition) => void;
 }) {
+  const { fieldEditors } = useBuilderConfig();
   const flat = flatten(condition);
   const fields = readableFields(def, rule);
   const hidden = def.hidden ?? [];
@@ -306,7 +325,7 @@ export function ConditionEditor({
         </div>
       ))}
       {first ? (
-        <Button variant="ghost" size="sm" onClick={() => onChange(join(mode, [...clauses, starterCondition(first) as Comparison]))}>
+        <Button variant="ghost" size="sm" onClick={() => onChange(join(mode, [...clauses, starterCondition(first, fieldEditors) as Comparison]))}>
           <Plus /> Add condition
         </Button>
       ) : null}
@@ -334,6 +353,7 @@ function ClauseEditor({
   const field = "field" in clause.left ? def.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === (clause.left as { field: string }).field) : undefined;
   const input = "hidden" in clause.left ? hidden.find((h) => h.name === (clause.left as { hidden: string }).hidden) : undefined;
   const ops: Operator[] = field ? operatorsFor(field.type) : input ? HIDDEN_OPERATORS[input.type] : ["answered", "empty"];
+  const { fieldEditors } = useBuilderConfig();
 
   const leftOptions: Choice[] = [
     ...fields.map((f) => ({ value: `field:${f.id}`, label: f.label || f.key })),
@@ -344,7 +364,7 @@ function ClauseEditor({
   const setLeft = (v: string) => {
     if (v.startsWith("field:")) {
       const f = fields.find((x) => x.id === v.slice(6));
-      if (f) onChange(starterCondition(f) as Comparison);
+      if (f) onChange(starterCondition(f, fieldEditors) as Comparison);
     } else {
       const h = hidden.find((x) => x.name === v.slice(7));
       if (h) {
@@ -356,7 +376,7 @@ function ClauseEditor({
   const setOp = (op: Operator) => {
     if (UNARY_OPERATORS.has(op)) return onChange({ op, left: clause.left });
     const current = clause.right && "value" in clause.right ? clause.right.value : undefined;
-    let value: Json = current ?? (field ? starterValue(field, op) : "");
+    let value: Json = current ?? (field ? starterValue(field, op, fieldEditors) : "");
     if (op === "in" && !Array.isArray(value)) value = value === "" ? [] : [value];
     if (op !== "in" && Array.isArray(value)) value = value[0] ?? "";
     onChange({ op, left: clause.left, right: { value } });
@@ -398,6 +418,9 @@ function ValueEditor({
   value: Json;
   onChange: (value: Json) => void;
 }) {
+  const config = useBuilderConfig();
+  const Custom = field ? editorFor(config, field.type)?.ConditionValue : undefined;
+  if (field && Custom) return <Custom field={field} op={op} value={value} onChange={onChange} />;
   const boolean = field?.type === "yes-no" || input?.type === "boolean";
   if (boolean) {
     return (
@@ -493,8 +516,7 @@ function ValueEditor({
 
 /** Comma-separated values, kept as typed until blur so "1, " isn't cut back to "1". */
 function ListInput({ value, numeric, onChange }: { value: string; numeric: boolean; onChange: (text: string) => void }) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
+  const { draft, setDraft, commit } = useDraft(value, onChange);
   return (
     <Input
       aria-label="Values"
@@ -503,7 +525,7 @@ function ListInput({ value, numeric, onChange }: { value: string; numeric: boole
       placeholder={numeric ? "1, 2, 3" : "a, b, c"}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => onChange(draft)}
+      onBlur={commit}
     />
   );
 }

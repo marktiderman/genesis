@@ -37,12 +37,19 @@ export default function FormsBuilderRoute() {
       <FormBuilder
         key={start.id}
         defaultValue={start}
-        actions={(def, analysis) => (
+        actions={(_def, analysis, builder) => (
           <Button
             testID="builder-publish"
             size="sm"
-            disabled={!analysis.canPublish}
+            // The analysis shown can be a keystroke behind; the click checks the current value.
+            disabled={!analysis.canPublish && !builder.analysing}
             onClick={() => {
+              // Commit a key still being typed, then gate on the checks of exactly that value.
+              const def = builder.flush();
+              if (!builder.getAnalysis().canPublish) {
+                setNote("Fix the problems listed before publishing.");
+                return;
+              }
               const changes = diffDefinitions(published, def);
               const breaking = changes.filter((c) => c.breaking).length;
               setNote(changes.length ? `${changes.length} change(s), ${breaking} breaking.` : "No changes.");
