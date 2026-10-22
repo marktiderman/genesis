@@ -9,6 +9,8 @@ export default [
   index("routes/_index.tsx"),
   // The playground's device frame: the form alone, outside the app shell.
   route("forms-frame", "routes/forms-frame.tsx"),
+  // What a respondent sees: the form full screen, no app nav.
+  route("preview/:scenario", "routes/preview.$scenario.tsx"),
   layout("routes/_layout.tsx", [
     route("dashboard", "routes/dashboard.tsx"),
     route("items", "routes/items.tsx"),
