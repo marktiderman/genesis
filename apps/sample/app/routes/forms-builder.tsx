@@ -3,14 +3,17 @@ import { Button } from "@marktiderman/genesis-ui/button";
 import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Switch } from "@marktiderman/genesis-ui/switch";
-import { FormBuilder, diffDefinitions, getTemplate } from "@marktiderman/genesis-forms-builder";
-import type { FormDefinition } from "@marktiderman/genesis-forms";
+import { FormBuilder, defaultPalette, diffDefinitions, getTemplate } from "@marktiderman/genesis-forms-builder";
+import { STRUCTURED_FIELD_TYPES, type FormDefinition } from "@marktiderman/genesis-forms";
 import { SAMPLE_TEMPLATES } from "../lib/form-templates";
+
+/** The starter templates use the structured types, so authors can add them too. */
+const palette = [...defaultPalette(), ...STRUCTURED_FIELD_TYPES];
 
 /** The form builder on its own. Nothing is stored: "Publish" only shows what would change. */
 export default function FormsBuilderRoute() {
-  const [template, setTemplate] = useState("after-class");
-  const [start, setStart] = useState<FormDefinition>(() => getTemplate("after-class", SAMPLE_TEMPLATES)!.create());
+  const [template, setTemplate] = useState("event-feedback");
+  const [start, setStart] = useState<FormDefinition>(() => getTemplate("event-feedback", SAMPLE_TEMPLATES)!.create());
   const [published, setPublished] = useState<FormDefinition>(start);
   const [note, setNote] = useState<string | null>(null);
   const [readOnly, setReadOnly] = useState(false);
@@ -45,6 +48,7 @@ export default function FormsBuilderRoute() {
       <FormBuilder
         key={start.id}
         defaultValue={start}
+        palette={palette}
         readOnly={readOnly}
         actions={(_def, analysis, builder) => readOnly ? null : (
           <Button
