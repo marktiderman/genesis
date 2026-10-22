@@ -1,0 +1,275 @@
+.changeset/core-supabase-write-outcomes.md
+  s_2c334912fcb08f::t_70a0013d39b4b8 1-16
+.changeset/forms-builder-readonly.md
+  s_2c334912fcb08f::t_bc68bd59a92b45 1-5
+.changeset/forms-builder-worksheet-editors.md
+  s_2c334912fcb08f::t_955f2d0759921c 1-5
+.changeset/forms-destinations.md
+  s_2c334912fcb08f::t_8b240a25038f6f 1-6
+.changeset/forms-web-worksheet-renderers.md
+  s_2c334912fcb08f::t_9281be8aa5240d 1-5
+.changeset/forms-worksheet-field-types.md
+  s_2c334912fcb08f::t_79de82b248b974 1-5
+.changeset/genesis-doctor.md
+  s_2c334912fcb08f::t_554f14a9fce1dd 1-14
+.changeset/ui-skill-data-provider.md
+  s_2c334912fcb08f::t_6af2e3cae5b8c5 1-5
+.github/workflows/ci.yml
+  s_2c334912fcb08f::t_0d7b2d25426936 7-8
+.github/workflows/claude-code-review.yml
+  s_2c334912fcb08f::t_991313c74175b4 12
+.github/workflows/self-lint.yml
+  s_2c334912fcb08f::t_00cde3982e2ec1 26,44
+.github/workflows/tarball-integrity.yml
+  s_2c334912fcb08f::t_1aae29c678ad01 27,37
+README.md
+  s_2c334912fcb08f::t_48245c3e0bbb07 67-86,97
+apps/sample/app/routes/forms-builder.tsx
+  s_2c334912fcb08f::t_64770b124c636b 4-5,15,38-41,47-48
+docs/FORMS.md
+  s_2c334912fcb08f::t_4b67bfb5e9763c 3-5,131-132,158,568,573-582,682,828
+docs/component-reference.md
+  s_2c334912fcb08f::t_db3d797b9834b9 7,31,33,44,51,58,60,90,114-116,128
+packages/core/README.md
+  s_2c334912fcb08f::t_c50e864fcf92b7 1-142
+packages/core/src/hooks/related-keys.ts
+  s_2c334912fcb08f::t_a44c45200b1d2b 1-20
+packages/core/src/hooks/use-resource-form.ts
+  s_2c334912fcb08f::t_7ee3c48d7bfe16 10-11,33-37,317,339-349,352-353,364,390,437,442,457-458,460-470,483
+packages/core/src/hooks/use-resource.ts
+  s_2c334912fcb08f::t_6c21a4e8062243 17-18,20,45-50,119,220-227,243,258-259,269-270
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_2c334912fcb08f::t_4981a6b01638d5 1-454
+packages/core/src/provider/context.tsx
+  s_2c334912fcb08f::t_f326568995c167 24-30,77-84,96-97,102-107,113,130,133,141
+packages/core/src/provider/index.ts
+  s_2c334912fcb08f::t_f799befad0112e 30-31,48-50,52
+packages/core/src/provider/postgrest-errors.ts
+  s_2c334912fcb08f::t_83f9704467a0d0 1-55
+packages/core/src/provider/supabase-provider.ts
+  s_2c334912fcb08f::t_c2a0a00569564c 2,5-7,9-10,75-152,157-181,246-341,412-442,446-481,485-510,512-524
+packages/core/src/provider/types.ts
+  s_2c334912fcb08f::t_9bba5802d25683 205-219,318-331
+packages/core/src/schema/write-outcome.ts
+  s_2c334912fcb08f::t_d654cc3b9e0812 39-45,53-54,57,62
+packages/extension/README.md
+  s_2c334912fcb08f::t_ba4ea5156881fc 16-17
+packages/extension/src/__tests__/core.test.ts
+  s_2c334912fcb08f::t_0221480fdcfdd6 16,158,175-191,193-194,197-198,205-207,228-230,232-235,237-239,277,284-299
+packages/extension/src/prefs.ts
+  s_2c334912fcb08f::t_e68d75a455deb9 11-16
+packages/extension/src/surfaces.ts
+  s_2c334912fcb08f::t_48e73d468bc543 16-24,40-44,155-162,194-196,198-202,206-232,236-240,242,246,251,260,267,269-270,305,318-319,326,337,343-348,351,362-363,390-394,396,399-425
+packages/forms-builder/README.md
+  s_2c334912fcb08f::t_7b7b52446cff49 10,46-62
+packages/forms-builder/src/FormBuilder.tsx
+  s_2c334912fcb08f::t_55c9a5c9cfaa82 4,14,25,75,84,93-100,107-109,144,160-167,199,228-233,239-241,243-256,271-276,291,299,302,305,309
+packages/forms-builder/src/__tests__/readonly.test.tsx
+  s_2c334912fcb08f::t_cc5c9b5b4f611f 1-144
+packages/forms-builder/src/__tests__/worksheet.test.tsx
+  s_2c334912fcb08f::t_775d342ca97cfd 1-120
+packages/forms-builder/src/controls.tsx
+  s_2c334912fcb08f::t_b176e14e3680ff 9-33
+packages/forms-builder/src/editors.ts
+  s_2c334912fcb08f::t_fa0306a932c197 4,23-29,38-39,83-88,97,99
+packages/forms-builder/src/index.ts
+  s_2c334912fcb08f::t_7d2eb29b4a819b 10,33
+packages/forms-builder/src/logic.tsx
+  s_2c334912fcb08f::t_26a30a7019b294 22,149,187-188,204-205,214-216,226-227,241-242,343,351,372,382,385,478
+packages/forms-builder/src/ops.ts
+  s_2c334912fcb08f::t_3cc38ee1b277f2 137-147,166-167
+packages/forms-builder/src/questions.tsx
+  s_2c334912fcb08f::t_a4abf10b81c61e 7,25,68-81,84,176,189-190,213,217,223,242,259,300,309-311,318,432,494,521-522,545-546,550-559
+packages/forms-builder/src/settings.tsx
+  s_2c334912fcb08f::t_71c4a6297bba28 9-10,28,44-54,56,64,69-73,79,81,123-124,134,173-182,200-204,220,243-247,252-253,261,279
+packages/forms-builder/src/worksheet-editors.tsx
+  s_2c334912fcb08f::t_e716b57acb0d10 1-203
+packages/forms-builder/type-tests/exact-optional.tsx
+  s_2c334912fcb08f::t_1417d982cc41ea 33,54
+packages/forms-web/src/__tests__/worksheet.test.tsx
+  s_2c334912fcb08f::t_dad220bfaf3e39 1-200
+packages/forms-web/src/chrome.tsx
+  s_2c334912fcb08f::t_146da80b1993aa 1-137
+packages/forms-web/src/index.ts
+  s_2c334912fcb08f::t_df1bc8abcc9b96 16-22
+packages/forms-web/src/renderers.tsx
+  s_2c334912fcb08f::t_4622bb6af21ea0 1,11-12,14,414
+packages/forms-web/src/subject.ts
+  s_2c334912fcb08f::t_32c1350abfb84c 1-34
+packages/forms-web/src/worksheet.tsx
+  s_2c334912fcb08f::t_7a834fb30b82db 1-754
+packages/forms-web/type-tests/exact-optional.tsx
+  s_2c334912fcb08f::t_392984cd36820c 4,30-39
+packages/forms/README.md
+  s_2c334912fcb08f::t_01ac9decda32af 79,106-173
+packages/forms/package.json
+  s_2c334912fcb08f::t_26bc2a756389c4 12-14,52-61
+packages/forms/src/__tests__/destinations.test.ts
+  s_2c334912fcb08f::t_ec15966af62fa4 1-834
+packages/forms/src/__tests__/worksheet.test.ts
+  s_2c334912fcb08f::t_7ef8372ecade62 1-238
+packages/forms/src/coverage.ts
+  s_2c334912fcb08f::t_6364ad0c4708ff 121-125
+packages/forms/src/define.ts
+  s_2c334912fcb08f::t_252481d0e7da1f 66-69,108-158
+packages/forms/src/destinations.ts
+  s_2c334912fcb08f::t_24033439ac1d60 1-79
+packages/forms/src/destinations/email.ts
+  s_2c334912fcb08f::t_c6ec244f4f2db0 1-301
+packages/forms/src/destinations/google-auth.ts
+  s_2c334912fcb08f::t_27ba42a6ce9646 1-95
+packages/forms/src/destinations/row.ts
+  s_2c334912fcb08f::t_ba15a158444261 1-139
+packages/forms/src/destinations/sheets.ts
+  s_2c334912fcb08f::t_539cd185533bb3 1-335
+packages/forms/src/destinations/types.ts
+  s_2c334912fcb08f::t_8f796d200a19b2 1-308
+packages/forms/src/destinations/webhook.ts
+  s_2c334912fcb08f::t_f98bca29c1ecdd 1-325
+packages/forms/src/fields.ts
+  s_2c334912fcb08f::t_2e69fdd6f98d41 2,143,291
+packages/forms/src/index.ts
+  s_2c334912fcb08f::t_be9bdb598564b5 48-64
+packages/forms/src/parse.ts
+  s_2c334912fcb08f::t_9f7e518df6104f 4,44,108-152,239
+packages/forms/src/worksheet.ts
+  s_2c334912fcb08f::t_42ffe476b23042 1-231
+packages/forms/tsup.config.ts
+  s_2c334912fcb08f::t_b5c0f1f42785e3 10
+packages/forms/type-tests/destinations.ts
+  s_2c334912fcb08f::t_3dfe93b05a2688 1-33
+packages/forms/type-tests/exact-optional.ts
+  s_2c334912fcb08f::t_17e958b441b145 20-23
+packages/forms/type-tests/tsconfig.json
+  s_2c334912fcb08f::t_9b6cf3677d6fcb 17-19
+packages/genesis-cli/README.md
+  s_2c334912fcb08f::t_83c72388250626 9-14,69-239
+packages/genesis-cli/package.json
+  s_2c334912fcb08f::t_c2bf1e9c53806d 6,31-38,61-70
+packages/genesis-cli/src/cli.ts
+  s_2c334912fcb08f::t_9e102d91e2c0f4 10,133-162
+packages/genesis-cli/src/doctor/build.ts
+  s_2c334912fcb08f::t_84ad6d4643ccb6 1-54
+packages/genesis-cli/src/doctor/config.ts
+  s_2c334912fcb08f::t_fe1308537289e0 1-156
+packages/genesis-cli/src/doctor/genesis.ts
+  s_2c334912fcb08f::t_1750b7d26a33a8 1-226
+packages/genesis-cli/src/doctor/glob.ts
+  s_2c334912fcb08f::t_e2fe8c34143099 1-32
+packages/genesis-cli/src/doctor/index.ts
+  s_2c334912fcb08f::t_74b797cd81c3c3 1-182
+packages/genesis-cli/src/doctor/patterns.ts
+  s_2c334912fcb08f::t_2df585768f8a03 1-124
+packages/genesis-cli/src/doctor/plugins.ts
+  s_2c334912fcb08f::t_a5587e8e34cf72 1-56
+packages/genesis-cli/src/doctor/rules.ts
+  s_2c334912fcb08f::t_63761237225535 1-185
+packages/genesis-cli/src/doctor/scan.ts
+  s_2c334912fcb08f::t_28c6523109c7d8 1-65
+packages/genesis-cli/src/doctor/types.ts
+  s_2c334912fcb08f::t_71b9fec957ecb6 1-170
+packages/genesis-cli/src/index.ts
+  s_2c334912fcb08f::t_a0dbe350e87ba9 45-57
+packages/genesis-cli/src/vite.ts
+  s_2c334912fcb08f::t_0f377052c8ff9f 1-127
+packages/genesis-cli/test/doctor-helpers.ts
+  s_2c334912fcb08f::t_58eceac1d6384d 1-44
+packages/genesis-cli/test/doctor-vite.test.ts
+  s_2c334912fcb08f::t_f82241e4dbef2c 1-82
+packages/genesis-cli/test/doctor.test.ts
+  s_2c334912fcb08f::t_f7bcdc1a51d8db 1-305
+packages/genesis-cli/test/fixtures/doctor/_genesis/design-system/genesis-tailwind4.css
+  s_2c334912fcb08f::t_2f63dc8870778a 1-3
+packages/genesis-cli/test/fixtures/doctor/_genesis/design-system/genesis.css
+  s_2c334912fcb08f::t_cd4f2d86b22d9a 1-4
+packages/genesis-cli/test/fixtures/doctor/_genesis/design-system/package.json
+  s_2c334912fcb08f::t_1ed210dde0345b 1
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-core/index.d.ts
+  s_2c334912fcb08f::t_c3e68d0f1cb917 1-2
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-core/package.json
+  s_2c334912fcb08f::t_dbb98422eec828 1
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui/data.d.ts
+  s_2c334912fcb08f::t_94529983cbe784 1-2
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui/index.d.ts
+  s_2c334912fcb08f::t_ba829be2f7275c 1-15
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui/package.json
+  s_2c334912fcb08f::t_d68b1499e6789e 1-10
+packages/genesis-cli/test/fixtures/doctor/rules/arbitrary-color/src/banner.tsx
+  s_2c334912fcb08f::t_c7544aaeda9141 1-3
+packages/genesis-cli/test/fixtures/doctor/rules/clean/src/page.tsx
+  s_2c334912fcb08f::t_71ea5c71fd90ae 1-13
+packages/genesis-cli/test/fixtures/doctor/rules/clean/src/styles.css
+  s_2c334912fcb08f::t_2f53f2fa284418 1-4
+packages/genesis-cli/test/fixtures/doctor/rules/forbidden-import/src/app.tsx
+  s_2c334912fcb08f::t_954643a599cfdf 1-8
+packages/genesis-cli/test/fixtures/doctor/rules/local-primitives/components.json
+  s_2c334912fcb08f::t_8d16e6012dfd26 1
+packages/genesis-cli/test/fixtures/doctor/rules/local-primitives/src/components/ui/button.tsx
+  s_2c334912fcb08f::t_5f61dd030cfc3b 1
+packages/genesis-cli/test/fixtures/doctor/rules/palette-color/src/badge.tsx
+  s_2c334912fcb08f::t_d3d2c156387558 1-4
+packages/genesis-cli/test/fixtures/doctor/rules/patterns/DESIGN_RULES.md
+  s_2c334912fcb08f::t_7ea97cd77c84f2 1-13
+packages/genesis-cli/test/fixtures/doctor/rules/patterns/src/routes/about.tsx
+  s_2c334912fcb08f::t_60d20a84869d81 1-3
+packages/genesis-cli/test/fixtures/doctor/rules/patterns/src/routes/home.tsx
+  s_2c334912fcb08f::t_e42704ab704f26 1
+packages/genesis-cli/test/fixtures/doctor/rules/plugin/rules/no-todo.mjs
+  s_2c334912fcb08f::t_8534118ca2019d 1-17
+packages/genesis-cli/test/fixtures/doctor/rules/plugin/src/page.tsx
+  s_2c334912fcb08f::t_0fdf1ff438b823 1
+packages/genesis-cli/test/fixtures/doctor/rules/raw-color/src/chart.ts
+  s_2c334912fcb08f::t_97a23d2dd5f0e5 1-3
+packages/genesis-cli/test/fixtures/doctor/rules/raw-color/src/styles.css
+  s_2c334912fcb08f::t_64cf05e58abbf4 1-5
+packages/genesis-cli/test/fixtures/doctor/rules/raw-tag/src/error-page.ts
+  s_2c334912fcb08f::t_66b7d6bc976832 1
+packages/genesis-cli/test/fixtures/doctor/rules/raw-tag/src/form.tsx
+  s_2c334912fcb08f::t_632ccb37b68433 1-16
+packages/genesis-cli/test/fixtures/doctor/rules/shadowed-export/src/button.tsx
+  s_2c334912fcb08f::t_207c186c7b764c 1-9
+packages/genesis-cli/test/fixtures/doctor/rules/undefined-token/src/meter.tsx
+  s_2c334912fcb08f::t_843b4e7a3549b3 1-3
+packages/genesis-cli/test/fixtures/doctor/rules/undefined-token/src/styles.css
+  s_2c334912fcb08f::t_6ca99f460b9b85 1-10
+packages/genesis-cli/tsup.config.ts
+  s_2c334912fcb08f::t_fc0ccda95d6b5a 9-10,21,37
+packages/genesis/README.md
+  s_2c334912fcb08f::t_7ec09c59ed31a6 28
+packages/genesis/package.json
+  s_2c334912fcb08f::t_02a6b9a476964e 7,99-102
+packages/genesis/src/forms-destinations.ts
+  s_2c334912fcb08f::t_29adb57d3d0c94 1
+packages/genesis/tsup.config.ts
+  s_2c334912fcb08f::t_78e12dde0d1944 37
+packages/ui/SKILL.md
+  s_2c334912fcb08f::t_3ba1c2af03afeb 109-119
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_2c334912fcb08f::t_611d834d8b35b8 1-85
+pnpm-lock.yaml
+  s_2c334912fcb08f::t_76dbf3fd569f6d 741-743
+scripts/__tests__/color-literals.test.mjs
+  s_2c334912fcb08f::t_0c5383aedb2f67 1-32
+scripts/check-token-usage.mjs
+  s_2c334912fcb08f::t_a1fa2cabadcc6d 54-57,63-71
+scripts/lib/color-literals.d.mts
+  s_2c334912fcb08f::t_eb88a5e9f1207c 1-20
+scripts/lib/color-literals.mjs
+  s_2c334912fcb08f::t_0c942b7b3dec77 1-270
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "11c42b695f8e1ba99f6db8f45115bcdc42147da2",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
