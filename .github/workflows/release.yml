@@ -276,4 +276,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # NPM_TOKEN intentionally omitted — OIDC Trusted Publishing handles auth.
-          # Sigstore provenance attestations work natively via id-token: write above.
+          # No provenance attestations: every package sets
+          # publishConfig.provenance: false. id-token: write above is for the
+          # OIDC publish token only.

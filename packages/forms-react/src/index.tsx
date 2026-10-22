@@ -31,7 +31,7 @@ const definitionOf = (form: FormLike) => ("definition" in form ? form.definition
  * scope, `useMemo`) so a re-render doesn't start over. `options` are read when
  * an engine is created.
  */
-export function useForm(form: FormLike, options?: CreateFormOptions): FormEngine {
+export function useForm(form: FormLike, options?: CreateFormOptions | undefined): FormEngine {
   const definition = definitionOf(form);
   // Held in state, not a ref: a discarded render's new engine is thrown away
   // with it instead of leaking into the next render.
@@ -99,16 +99,16 @@ export interface FieldRendererProps {
    * that arrow keys made while moving through a group. The layout ignores it
    * on the last question, so a pick never submits.
    */
-  onAdvance?: () => void;
+  onAdvance?: (() => void) | undefined;
 }
 
 export interface RendererEntry {
   /** Match by field type… */
-  type?: string;
+  type?: string | undefined;
   /** …or by any test on the block. */
-  test?: (block: FieldBlock) => boolean;
+  test?: ((block: FieldBlock) => boolean) | undefined;
   /** Highest rank wins. Built-ins use 1; override with a higher rank. */
-  rank?: number;
+  rank?: number | undefined;
   Component: ComponentType<FieldRendererProps>;
 }
 

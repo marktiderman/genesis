@@ -1,4 +1,4 @@
-import { normalizeValue } from "./fields";
+import { isEmptyValue, normalizeValue } from "./fields";
 import { coerceHidden } from "./hidden";
 import { computePath, fieldMap, own, type EvalScope } from "./logic";
 import { recall } from "./recall";
@@ -25,12 +25,12 @@ export interface FormState {
 
 export interface CreateFormOptions {
   /** Prefilled answers by field id. Logged as leading `answer` events with `source: "prefill"`. */
-  initialValues?: Record<string, Json>;
+  initialValues?: Record<string, Json> | undefined;
   /** Hidden inputs by name. Declared ones are typed with `coerceHidden`, as the server types them. */
-  hidden?: Record<string, Json | undefined>;
-  validators?: Record<string, FieldValidator>;
+  hidden?: Record<string, Json | undefined> | undefined;
+  validators?: Record<string, FieldValidator> | undefined;
   /** Timestamps on events. Pass `() => undefined` to record none (anonymous forms). */
-  clock?: () => number | undefined;
+  clock?: (() => number | undefined) | undefined;
 }
 
 export interface FormEngine {
@@ -55,7 +55,7 @@ export interface FormEngine {
   submit(): boolean;
   /** Text with `{{recall}}` tokens resolved. */
   text(template: string): string;
-  /** Visible field values only, keyed by id: what a submit stores. */
+  /** Visible, non-empty field values only, keyed by id: what a submit stores. */
   answers(): Record<string, Json>;
 }
 
@@ -220,7 +220,8 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
       for (const id of state.path) {
         const field = fields.get(id);
         const value = own(state.values, id);
-        if (field && value !== undefined) out[id] = normalizeValue(value, field);
+        // An empty answer (`""`, blank text, `[]`) is stored as no answer.
+        if (field && !isEmptyValue(value, field)) out[id] = normalizeValue(value as Json, field);
       }
       return out;
     },
