@@ -233,7 +233,13 @@ describe("surfaces", () => {
     vi.spyOn(window, "postMessage").mockImplementation((m: unknown) => {
       asked.push(m);
     });
+    // What openSurface minted for tab 3 in the service worker.
+    await fake.storage.session!.set({
+      "genesis-extension:surface:3": "secret-nonce",
+    });
     const surface = connectSurface({ autoResize: false });
+    expect(await surface.ready).toBe(true);
+    expect(document.documentElement.style.visibility).toBe("");
     expect(asked).toEqual([]); // nothing goes to the page
     expect(window.name).toBe(""); // cleared once read
     expect(connectSurface()).toBe(surface); // one surface per page
@@ -278,6 +284,47 @@ describe("surfaces", () => {
       { type: "gx-resize", height: 200 },
       { type: "gx-close" },
     ]);
+  });
+});
+
+describe("surface secret", () => {
+  it("a surface a web page framed itself stays hidden and never connects", async () => {
+    history.replaceState(null, "", "/popup.html?tab=3&panel=1");
+    window.name = "page-chosen"; // the page framed it, with a secret of its own
+    resetSurfaceForTests();
+    await fake.storage.session!.set({
+      "genesis-extension:surface:3": "minted",
+    });
+    vi.spyOn(window, "top", "get").mockReturnValue({} as Window);
+    const surface = connectSurface({ autoResize: false });
+    expect(await surface.ready).toBe(false);
+    expect(document.documentElement.style.visibility).toBe("hidden");
+    const line = new MessageChannel();
+    const fromFrame: unknown[] = [];
+    line.port1.onmessage = (e) => fromFrame.push(e.data);
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { type: "gx-connect", nonce: "page-chosen" },
+        source: window.parent,
+        ports: [line.port2],
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fromFrame).toEqual([]);
+    document.documentElement.style.visibility = "";
+  });
+
+  it("openSurface mints the open's secret where only the extension reads it", async () => {
+    await openSurface(
+      { id: 9, windowId: 1 },
+      { page: "popup.html", mode: "panel" },
+    );
+    const stored = await fake.storage.session!.get(
+      "genesis-extension:surface:9",
+    );
+    const state = (globalThis as { __gxSurface?: { frame: HTMLIFrameElement } })
+      .__gxSurface!;
+    expect(stored["genesis-extension:surface:9"]).toBe(state.frame.name);
   });
 });
 
