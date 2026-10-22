@@ -122,4 +122,6 @@ placed inside page content. `AppShell` now derives all of them from one
    outside AppShell.
 
 Do not copy `resolveNavigation` or `NavigationNode` into an app, and do not
-put a back row in page content or call `history.back()`.
+put a back row in page content or call `history.back()`. genesis-lint
+(`scripts/check-navigation-reimplementation.mjs`) fails a local declaration of
+either.
