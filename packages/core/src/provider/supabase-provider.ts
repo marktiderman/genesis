@@ -89,6 +89,13 @@ export interface SupabaseResourceConfig {
   /** Plural for list messages, when it isn't `noun` + "s" ("categories"). */
   nounPlural?: string;
   /**
+   * The columns a search covers. `[]` means the resource can't be searched,
+   * and `capabilities(resource).search` reports false so a UI hides the box.
+   * Set, they replace the caller's `search.fields`; omitted, those are used
+   * as given.
+   */
+  searchFields?: readonly string[];
+  /**
    * The column a sorted list orders by last, so rows with equal sort values
    * keep one order from page to page (none repeats, none is skipped).
    * Default `"id"`; `false` for a table or view without one.
@@ -407,11 +414,13 @@ export function createSupabaseProvider(
 
       query = applyFilters(query, params.filters);
 
-      // Search — convert to OR of ilike.
-      if (params.search && params.search.query && params.search.fields.length > 0) {
+      // Search — convert to OR of ilike. A resource's configured
+      // `searchFields` win over the caller's.
+      const searchFields = configFor(resource).searchFields ?? params.search?.fields ?? [];
+      if (params.search && params.search.query && searchFields.length > 0) {
         const escaped = escapeIlike(params.search.query);
         const safeFieldPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
-        const clauses = params.search.fields
+        const clauses = searchFields
           .filter((f) => safeFieldPattern.test(f))
           .map((f) => `${f}.ilike.%${escaped}%`)
           .join(",");
@@ -489,7 +498,7 @@ export function createSupabaseProvider(
 
     async capabilities(resource?: string): Promise<ProviderCapabilities> {
       return {
-        search: true,
+        search: resource ? configFor(resource).searchFields?.length !== 0 : true,
         sort: true,
         filterOperators: SERVED_OPERATORS,
         bulkWrites: false,

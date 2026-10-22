@@ -1286,7 +1286,23 @@ export function ResourcePage<
         : // Unconfirmed `onDelete` keeps its original contract exactly:
           // called straight from the peek, nothing closed for it.
           (item: T) => {
-            void onDelete?.(item);
+            // A throw or a rejected promise is reported, never left unhandled.
+            const report = (err: unknown) => {
+              if (resourceOptions?.onError) {
+                resourceOptions.onError(err instanceof Error ? err : new Error(String(err)));
+              } else {
+                toast.error(err instanceof Error ? err.message : "The delete failed.");
+              }
+            };
+            // Called synchronously, in the click, as it always was.
+            let result: void | Promise<void>;
+            try {
+              result = onDelete?.(item);
+            } catch (err) {
+              report(err);
+              return;
+            }
+            Promise.resolve(result).catch(report);
           };
 
   // Per-row rights, evaluated against the row the peek is showing.
