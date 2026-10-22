@@ -289,9 +289,6 @@ function fillItems(items: NavItem[], params: Record<string, string>): NavItem[] 
   });
 }
 
-const exactPathActive = (to: string, activePath?: string) =>
-  isPathActive(to, activePath, { end: true });
-
 function ThemeToggle({ testId }: { testId: string }) {
   const [dark, setDark] = useState(false);
 
@@ -352,6 +349,7 @@ function NavLinkRow({
   linkComponent: LinkComp,
   activePath,
   isActive,
+  notCurrent = false,
 }: {
   item: NavItem;
   collapsed: boolean;
@@ -360,6 +358,8 @@ function NavLinkRow({
   linkComponent: LinkComponent;
   activePath?: string;
   isActive: (to: string, activePath?: string) => boolean;
+  /** Highlight as usual but never claim `aria-current` (another section holds it). */
+  notCurrent?: boolean;
 }) {
   const active = itemIsActive(item, activePath, isActive);
   const pad = density === "compact" ? "px-2.5 py-1.5" : "px-3 py-2";
@@ -387,7 +387,7 @@ function NavLinkRow({
       onClick={onNavClick}
       title={collapsed ? item.label : undefined}
       aria-label={collapsed ? item.label : undefined}
-      aria-current={active ? "page" : undefined}
+      aria-current={active && !notCurrent ? "page" : undefined}
       className={cn(
         "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
         pad,
@@ -420,6 +420,7 @@ function NavGroup({
   linkComponent,
   activePath,
   isActive,
+  notCurrent = false,
 }: {
   item: NavItem;
   collapsed: boolean;
@@ -428,6 +429,8 @@ function NavGroup({
   linkComponent: LinkComponent;
   activePath?: string;
   isActive: (to: string, activePath?: string) => boolean;
+  /** Highlight as usual but never claim `aria-current` (another section holds it). */
+  notCurrent?: boolean;
 }) {
   const children = item.children ?? [];
   const childActive = children.some((c) =>
@@ -449,6 +452,7 @@ function NavGroup({
         linkComponent={linkComponent}
         activePath={activePath}
         isActive={isActive}
+        notCurrent={notCurrent}
       />
     );
   }
@@ -467,6 +471,7 @@ function NavGroup({
         linkComponent={linkComponent}
         activePath={activePath}
         isActive={isActive}
+        notCurrent={notCurrent}
       />
     );
   }
@@ -503,7 +508,7 @@ function NavGroup({
             <LinkComp
               href={item.to}
               onClick={onNavClick}
-              aria-current={selfExact ? "page" : undefined}
+              aria-current={selfExact && !notCurrent ? "page" : undefined}
               className={parentClass}
             >
               <item.icon className="h-4 w-4 shrink-0" />
@@ -556,6 +561,7 @@ function NavGroup({
                 linkComponent={linkComponent}
                 activePath={activePath}
                 isActive={isActive}
+                notCurrent={notCurrent}
               />
             ))}
           </div>
@@ -593,12 +599,12 @@ function SidebarNav({
   isActive: (to: string, activePath?: string) => boolean;
 }) {
   const contextualLabelId = useId();
-  // While a contextual item is the current page, global items match their own
-  // path exactly, so "Clients" and "Tasks" are never both `aria-current`.
+  // While a contextual item is the current page, global items keep their
+  // highlight (the section you are in) but leave `aria-current` to it, so
+  // "Showcase" and "Overview" are never both the current page.
   const contextualActive = Boolean(
     contextualNavItems?.some((item) => itemIsActive(item, activePath, isActive)),
   );
-  const globalIsActive = contextualActive ? exactPathActive : isActive;
   return (
     <nav
       className={cn(
@@ -616,7 +622,8 @@ function SidebarNav({
           onNavClick={onNavClick}
           linkComponent={linkComponent}
           activePath={activePath}
-          isActive={globalIsActive}
+          isActive={isActive}
+          notCurrent={contextualActive}
         />
       ))}
 
@@ -907,14 +914,12 @@ export function AppShell({
     mobileNavItems ??
     (contextualLeaves.length > 0 ? contextualLeaves : leaves(navItems))
   ).filter((i) => !i.disabled);
-  // The tab bar marks a global item active only on its exact path while it
-  // shows contextual items elsewhere (see SidebarNav).
-  const bottomIsActive =
+  // Global tabs shown as a fallback keep their highlight, but leave
+  // `aria-current` to the contextual item that is the current page (see SidebarNav).
+  const bottomNotCurrent =
     !mobileNavItems &&
     contextualLeaves.length === 0 &&
-    contextualNavItems.some((i) => itemIsActive(i, activePath, isActive))
-      ? exactPathActive
-      : isActive;
+    contextualNavItems.some((i) => itemIsActive(i, activePath, isActive));
 
   const toggles: ToggleDef[] = (
     [
@@ -1259,14 +1264,14 @@ export function AppShell({
           >
             {bottomItems.map((item) => {
               const LinkComp = linkComponent;
-              const active = itemIsActive(item, activePath, bottomIsActive);
+              const active = itemIsActive(item, activePath, isActive);
               return (
                 <LinkComp
                   key={item.to + item.label}
                   href={item.to}
                   title={item.label}
                   aria-label={item.label}
-                  aria-current={active ? "page" : undefined}
+                  aria-current={active && !bottomNotCurrent ? "page" : undefined}
                   className={cn(
                     "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors",
                     active ? "text-primary" : "text-muted-foreground",

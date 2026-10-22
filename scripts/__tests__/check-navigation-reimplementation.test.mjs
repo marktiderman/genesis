@@ -58,6 +58,13 @@ describe("findNavigationReimplementations", () => {
     ).toEqual([]);
   });
 
+  it("ignores declare global, and only exempts a NavigationNode alias", () => {
+    expect(names("declare global {\n  interface NavigationNode { x: 1 }\n}")).toEqual([]);
+    expect(
+      names('export function resolveNavigation() {} // like @marktiderman/genesis-ui/layout'),
+    ).toEqual(["resolveNavigation"]);
+  });
+
   it("reports the line", () => {
     expect(findNavigationReimplementations("// x\nfunction resolveNavigation() {}")[0]?.line).toBe(2);
   });

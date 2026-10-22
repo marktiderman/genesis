@@ -162,13 +162,29 @@ describe("AppShell navigation tree", () => {
     expect(contextual.getByRole("link", { name: "Billing" }).getAttribute("href")).toBe("/clients/c1#billing");
   });
 
-  it("marks only one sidebar link current when a contextual item matches", () => {
-    renderShell("/clients/c1/tasks");
-    const current = within(screen.getByTestId("app-shell-sidebar"))
+  const currentLinks = () =>
+    sidebar()
       .getAllByRole("link")
       .filter((a) => a.getAttribute("aria-current") === "page")
       .map((a) => a.textContent);
-    expect(current).toEqual(["Tasks"]);
+  const highlighted = (name: string) =>
+    sidebar().getByRole("link", { name }).className.includes("text-sidebar-primary");
+
+  it("marks only the contextual link current on a deeper page, and keeps the section highlighted", () => {
+    renderShell("/clients/c1/tasks");
+    expect(currentLinks()).toEqual(["Tasks"]);
+    expect(highlighted("Clients")).toBe(true);
+  });
+
+  it("marks only the contextual Overview current when it shares the page's path", () => {
+    renderShell("/clients/c1");
+    expect(currentLinks()).toEqual(["Overview"]);
+    expect(highlighted("Clients")).toBe(true);
+  });
+
+  it("keeps the global item current where no contextual item matches", () => {
+    renderShell("/dashboard");
+    expect(currentLinks()).toEqual(["Dashboard"]);
   });
 
   it("labels the contextual section as a group", () => {
@@ -198,6 +214,10 @@ describe("AppShell navigation tree", () => {
     };
     renderShell("/clients/c1", { navigation: grouped });
     expect(bottomBar().getAllByRole("link").map((a) => a.textContent)).toEqual(["Dashboard", "Clients"]);
+    // The section stays highlighted; the current page is the contextual item, not this tab.
+    const clients = bottomBar().getByRole("link", { name: "Clients" });
+    expect(clients.className).toContain("text-primary");
+    expect(clients.getAttribute("aria-current")).toBeNull();
   });
 
   it("renders `parentNavigation` without a tree", () => {

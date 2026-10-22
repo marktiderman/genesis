@@ -59,13 +59,13 @@ const DECLARATIONS = [
 ];
 
 // An alias of the Genesis type is a use of it, not a copy.
-const GENESIS_ALIAS_RE = /@marktiderman\/genesis-ui/;
+const GENESIS_ALIAS_RE = /\btype\s+NavigationNode\b[^=]*=.*@marktiderman\/genesis-ui/;
 
-/** Blank every line inside a `declare module "…" { … }` block (augmentations). */
+/** Blank every line inside a `declare module "…"` / `declare global` block (augmentations). */
 function blankDeclareModules(lines) {
   let depth = 0;
   return lines.map((line) => {
-    if (depth === 0 && !/\bdeclare\s+module\b/.test(line)) return line;
+    if (depth === 0 && !/\bdeclare\s+(module|global)\b/.test(line)) return line;
     for (const ch of line) {
       if (ch === '{') depth++;
       else if (ch === '}') depth--;
@@ -110,13 +110,13 @@ function* walk(dir) {
 function main() {
   const args = process.argv.slice(2);
   const roots = args.length > 0
-    ? args.map((a) => path.resolve(REPO_ROOT, a))
+    ? args.map((a) => path.resolve(REPO_ROOT, a.replace(/\/\*\*?$/, '')))
     : ['apps', 'packages', 'src'].map((d) => path.join(REPO_ROOT, d)).filter((d) => fs.existsSync(d));
 
   const missing = roots.filter((r) => !fs.existsSync(r));
   if (missing.length > 0) {
     for (const r of missing) console.error(`FAIL Scan path does not exist: ${toPosix(path.relative(REPO_ROOT, r)) || r}`);
-    console.error('Pass directories or files (globs are not expanded).');
+    console.error('Pass directories or files. A trailing /** is accepted; other globs are not expanded.');
     process.exit(1);
   }
 
@@ -147,4 +147,10 @@ function main() {
   process.exit(1);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) main();
+// Run only when executed, not when imported. Compare REAL paths: through a
+// symlinked checkout (macOS /tmp -> /private/tmp) `process.argv[1]` differs
+// from `__filename` and the check would silently pass without scanning (see
+// verify-no-workspace-protocol.mjs).
+const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+const invoked = invokedPath && fs.existsSync(invokedPath) ? fs.realpathSync(invokedPath) : invokedPath;
+if (invoked === fs.realpathSync(__filename)) main();

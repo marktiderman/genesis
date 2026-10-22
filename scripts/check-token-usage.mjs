@@ -479,4 +479,10 @@ function main() {
   process.exit(1);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) main();
+// Run only when executed, not when imported. Compare REAL paths: through a
+// symlinked checkout (macOS /tmp -> /private/tmp) `process.argv[1]` differs
+// from `__filename` and the check would silently pass without scanning (see
+// verify-no-workspace-protocol.mjs).
+const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+const invoked = invokedPath && fs.existsSync(invokedPath) ? fs.realpathSync(invokedPath) : invokedPath;
+if (invoked === fs.realpathSync(__filename)) main();
