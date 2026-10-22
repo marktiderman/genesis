@@ -117,9 +117,14 @@ export function SortableList<T>({
   // a committed move until its promise settles.
   const [preview, setPreview] = React.useState<string[] | null>(null);
   const [pending, setPending] = React.useState(false);
+  // The same, readable within one tick: two moves fired back to back must
+  // not both start from the old order.
+  const pendingRef = React.useRef(false);
   const [announcement, setAnnouncement] = React.useState("");
   const handles = React.useRef(new Map<string, HTMLButtonElement>());
-  const refocus = React.useRef<string | null>(null);
+  // The element that had focus when a move started, to put focus back on if
+  // the DOM move drops it to the body. Cleared after every commit.
+  const restoreFocus = React.useRef<HTMLElement | null>(null);
   const instructionsId = React.useId();
 
   const byKey = new Map(items.map((item) => [getKey(item), item] as const));
@@ -136,21 +141,20 @@ export function SortableList<T>({
   const announce = (message: string) =>
     setAnnouncement((previous) => (previous === message ? `${message} ` : message));
 
-  // Only follow the moved item with focus when its handle had focus (or the
-  // DOM move dropped focus to the body); a row menu keeps its own focus.
-  const keepFocus = (key: string) => {
+  // Moving a focused element in the DOM drops focus to the body in real
+  // browsers. Remember what had focus, the handle or a row's own button, and
+  // put it back after the commit.
+  const keepFocus = () => {
     const active = typeof document === "undefined" ? null : document.activeElement;
-    refocus.current = active === handles.current.get(key) || active === document.body || active === null ? key : null;
+    restoreFocus.current = active instanceof HTMLElement && active !== document.body ? active : null;
   };
-  const keysSignature = keys.join("\u0000");
   useIsomorphicLayoutEffect(() => {
-    const key = refocus.current;
-    refocus.current = null;
-    if (!key) return;
-    const handle = handles.current.get(key);
+    const element = restoreFocus.current;
+    restoreFocus.current = null;
+    if (!element || !element.isConnected) return;
     const active = document.activeElement;
-    if (handle && (active === document.body || active === null || active === handle)) handle.focus();
-  }, [keysSignature]);
+    if (active !== element && (active === null || active === document.body)) element.focus();
+  });
 
   // An item that disappears mid-gesture, or the list turning disabled, ends
   // the gesture.
@@ -160,7 +164,7 @@ export function SortableList<T>({
       setArmed(null);
       setDragging(null);
       setDropAt(null);
-      if (!pending) setPreview(null);
+      if (!pendingRef.current) setPreview(null);
       return;
     }
     if (dragging && !byKey.has(dragging)) {
@@ -176,6 +180,7 @@ export function SortableList<T>({
 
   const commit = (key: string, from: number, to: number, message: string) => {
     if (from === to) return;
+    pendingRef.current = true;
     setPending(true);
     setPreview(moved(itemKeys, from, to));
     // Called synchronously, so a synchronous handler updates `items` in the
@@ -192,23 +197,26 @@ export function SortableList<T>({
         () => announce(`Couldn’t move ${nameOf(key)}.`),
       )
       .finally(() => {
+        // A rejected move reverts the order, which moves rows again.
+        keepFocus();
+        pendingRef.current = false;
         setPending(false);
         setPreview(null);
       });
   };
 
   const move = (key: string, to: number) => {
-    if (disabled || pending || grabbed) return;
+    if (disabled || pendingRef.current || grabbed) return;
     if (!Number.isFinite(to)) return;
     const from = itemKeys.indexOf(key);
     const target = Math.max(0, Math.min(total - 1, Math.round(to)));
     if (from < 0 || target === from) return;
-    keepFocus(key);
+    keepFocus();
     commit(key, from, target, `${nameOf(key)} moved to position ${target + 1} of ${total}.`);
   };
 
   const pickUp = (key: string) => {
-    if (disabled || pending) return;
+    if (disabled || pendingRef.current) return;
     const from = itemKeys.indexOf(key);
     if (from < 0) return;
     setGrabbed({ key, from });
@@ -228,14 +236,14 @@ export function SortableList<T>({
       announce(`${nameOf(key)} dropped at position ${to + 1} of ${total}.`);
       return;
     }
-    keepFocus(key);
+    keepFocus();
     commit(key, from, to, `${nameOf(key)} dropped at position ${to + 1} of ${total}.`);
   };
 
   const cancel = (key: string) => {
     if (!grabbed) return;
     const from = grabbed.from;
-    keepFocus(key);
+    keepFocus();
     setGrabbed(null);
     setPreview(null);
     announce(`Move cancelled. ${nameOf(key)} is back at position ${from + 1} of ${total}.`);
@@ -245,7 +253,7 @@ export function SortableList<T>({
     const index = keys.indexOf(key);
     const target = Math.max(0, Math.min(total - 1, to));
     if (index < 0 || target === index) return;
-    keepFocus(key);
+    keepFocus();
     setPreview(moved(keys, index, target));
     announce(`${nameOf(key)} moved to position ${target + 1} of ${total}.`);
   };
@@ -269,11 +277,11 @@ export function SortableList<T>({
   React.useEffect(() => {
     if (!armed || dragging) return;
     const disarm = () => setArmed(null);
-    window.addEventListener("pointerup", disarm, { once: true });
-    window.addEventListener("pointercancel", disarm, { once: true });
+    // A context menu or a release outside the window never sends pointerup.
+    const events = ["pointerup", "pointercancel", "contextmenu", "blur"] as const;
+    for (const type of events) window.addEventListener(type, disarm, { once: true });
     return () => {
-      window.removeEventListener("pointerup", disarm);
-      window.removeEventListener("pointercancel", disarm);
+      for (const type of events) window.removeEventListener(type, disarm);
     };
   }, [armed, dragging]);
 
@@ -326,7 +334,7 @@ export function SortableList<T>({
     const key = event.dataTransfer.getData(DRAG_TYPE) || dragging;
     const target = dropAt;
     endDrag();
-    if (!key || !target || pending || grabbed) return;
+    if (!key || !target || pendingRef.current || grabbed) return;
     const from = itemKeys.indexOf(key);
     const over = itemKeys.indexOf(target.key);
     if (from < 0 || over < 0) return;
@@ -360,7 +368,7 @@ export function SortableList<T>({
                 isGrabbed && "bg-accent text-foreground",
               )}
               onPointerDown={() => {
-                if (!pending && !grabbed) setArmed(key);
+                if (!pendingRef.current && !grabbed) setArmed(key);
               }}
               onPointerCancel={() => setArmed(null)}
               onClick={(event) => onHandleClick(event, key)}
@@ -368,7 +376,7 @@ export function SortableList<T>({
               onBlur={() => {
                 // A DOM move during the pick-up blurs the handle for a moment;
                 // that is not the user leaving.
-                if (isGrabbed && refocus.current !== key) cancel(key);
+                if (isGrabbed && restoreFocus.current !== handles.current.get(key)) cancel(key);
               }}
             >
               <GripVertical className="h-4 w-4" aria-hidden />
