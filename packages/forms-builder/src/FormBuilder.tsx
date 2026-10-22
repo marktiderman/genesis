@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { AlertTriangle, CircleCheck, Info, Redo2, Undo2, XCircle } from "lucide-react";
-import type { FormDefinition } from "@marktiderman/genesis-forms";
+import { parseForm, type FormDefinition, type ParseResult } from "@marktiderman/genesis-forms";
 import type { FormBrand } from "@marktiderman/genesis-forms-web";
 import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Button } from "@marktiderman/genesis-ui/button";
@@ -20,9 +20,13 @@ export type BuilderTab = "questions" | "logic" | "endings" | "settings" | "json"
 export interface FormBuilderProps {
   /** The definition to start from. Later changes to this prop are ignored; remount with a new `key` to load another form. */
   defaultValue: FormDefinition;
-  /** Called after every edit (debounce it before saving a draft). */
+  /**
+   * Called after edits, with the value and its analysis (debounce it before
+   * saving a draft). Analysis runs behind fast typing, so a burst of
+   * keystrokes may report only its last value.
+   */
   onChange?: (value: FormDefinition, analysis: Analysis) => void;
-  /** The host's own buttons (Save draft, Publish…), shown in the toolbar. They get the current value. */
+  /** The host's own buttons (Save draft, Publish…), shown in the toolbar. They get the latest analysed value and its analysis. */
   actions?: (value: FormDefinition, analysis: Analysis) => ReactNode;
   /** A practice's name and logo for the preview. */
   brand?: FormBrand;
@@ -35,6 +39,14 @@ export interface FormBuilderProps {
 }
 
 const LEVEL_ICON = { error: XCircle, warning: AlertTriangle, info: Info } as const;
+
+// One parse per definition value, shared by the preview and the analysis.
+const parses = new WeakMap<FormDefinition, ParseResult>();
+function parseOnce(def: FormDefinition): ParseResult {
+  let result = parses.get(def);
+  if (!result) parses.set(def, (result = parseForm(def)));
+  return result;
+}
 
 /**
  * A visual editor for one form definition: questions, logic, endings,
@@ -53,7 +65,10 @@ export function FormBuilder({
 }: FormBuilderProps) {
   const history = useBuilderHistory(defaultValue);
   const def = history.value;
-  const analysis = useMemo(() => analyze(def), [def]);
+  const parsed = parseOnce(def);
+  // Checks follow the edits at their own pace, so typing never waits for them.
+  const analysed = useDeferredValue(def);
+  const analysis = useMemo(() => analyze(analysed, { parsed: parseOnce(analysed) }), [analysed]);
   const [tab, setTab] = useState<BuilderTab>(defaultTab);
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -64,24 +79,22 @@ export function FormBuilder({
     onChangeRef.current = onChange;
   });
   useEffect(() => {
-    if (reported.current === def) return;
+    // Wait until the analysis is of this value.
+    if (analysed !== def || reported.current === def) return;
     reported.current = def;
     onChangeRef.current?.(def, analysis);
-  }, [def, analysis]);
+  }, [def, analysed, analysis]);
 
-  // Ctrl/Cmd+Z and Shift+Ctrl/Cmd+Z, except while typing in a text box (its own undo wins there).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      e.preventDefault();
-      if (e.shiftKey) history.redo();
-      else history.undo();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [history]);
+  // Ctrl/Cmd+Z and Shift+Ctrl/Cmd+Z inside the builder, except while typing in
+  // a text box (its own undo wins there). The host page keeps its own shortcuts.
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+    const t = e.target as HTMLElement;
+    if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) return;
+    e.preventDefault();
+    if (e.shiftKey) history.redo();
+    else history.undo();
+  };
 
   const ruleCount = useMemo(() => {
     const counts = new Map<string, number>();
@@ -101,7 +114,7 @@ export function FormBuilder({
   };
 
   return (
-    <div className={cn("flex flex-col gap-4", className)} data-testid="form-builder">
+    <div className={cn("flex flex-col gap-4", className)} data-testid="form-builder" onKeyDown={onKeyDown}>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           aria-label="Form title"
@@ -124,7 +137,7 @@ export function FormBuilder({
             <CircleCheck className="mr-1 size-3" /> Ready
           </Badge>
         )}
-        {actions ? <div className="flex items-center gap-2">{actions(def, analysis)}</div> : null}
+        {actions ? <div className="flex items-center gap-2">{actions(analysed, analysis)}</div> : null}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -165,7 +178,7 @@ export function FormBuilder({
         </Tabs>
 
         <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start" aria-label="Preview and checks">
-          <Preview def={def} brand={brand} hidden={previewHidden} />
+          <Preview def={def} parsed={parsed} brand={brand} hidden={previewHidden} />
           <FindingsList findings={analysis.findings} onJump={jumpTo} />
         </aside>
       </div>

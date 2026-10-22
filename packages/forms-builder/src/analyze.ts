@@ -3,7 +3,7 @@
  * structural problems (`parseForm`), likely mistakes (its warnings) and path
  * problems found by exploring every branch (`coverage`).
  */
-import { parseForm, type FormDefinition, type FormIssue } from "@marktiderman/genesis-forms";
+import { choiceOptions, fingerprint, parseForm, type FormDefinition, type FormIssue, type ParseResult } from "@marktiderman/genesis-forms";
 import { coverage, type CoverageReport } from "@marktiderman/genesis-forms/testing";
 
 export type FindingLevel = "error" | "warning" | "info";
@@ -55,11 +55,51 @@ const finding = (def: FormDefinition, level: FindingLevel, issue: FormIssue): Fi
 };
 
 /**
- * Analyse a definition. Coverage only runs on a definition that parses, and
- * stops after `maxStates` explored states so a large form stays responsive.
+ * A fingerprint of everything but wording: labels, descriptions, titles,
+ * placeholders, option labels and content text. Two definitions with the same
+ * structure take the same paths and keep a preview's answers valid.
  */
-export function analyze(def: FormDefinition, opts: { maxStates?: number } = {}): Analysis {
-  const parsed = parseForm(def);
+export function structureFingerprint(def: FormDefinition): string {
+  const { title: _t, description: _d, ...rest } = def;
+  return fingerprint({
+    ...rest,
+    blocks: def.blocks.map((b) => {
+      if (b.kind === "content") return { kind: b.kind, id: b.id, type: b.type };
+      if (b.kind === "page-break") return { kind: b.kind, id: b.id };
+      const { label: _l, description: _ds, placeholder: _p, ...field } = b;
+      const options = choiceOptions(b);
+      return options.length ? { ...field, props: { ...b.props, options: options.map((o) => o.value) } } : field;
+    }),
+    endings: (def.endings ?? []).map((e) => e.id),
+  });
+}
+
+// Coverage reads only structure, so typing a label reuses the last report.
+const COVERAGE_CACHE_SIZE = 8;
+const coverageCache = new Map<string, CoverageReport>();
+
+function cachedCoverage(def: FormDefinition, maxStates: number): CoverageReport {
+  const key = `${maxStates}:${structureFingerprint(def)}`;
+  const hit = coverageCache.get(key);
+  if (hit) {
+    coverageCache.delete(key);
+    coverageCache.set(key, hit);
+    return hit;
+  }
+  const report = coverage(def, { maxStates });
+  coverageCache.set(key, report);
+  if (coverageCache.size > COVERAGE_CACHE_SIZE) coverageCache.delete(coverageCache.keys().next().value!);
+  return report;
+}
+
+/**
+ * Analyse a definition. Coverage only runs on a definition that parses, and
+ * stops after `maxStates` explored states so a large form stays responsive;
+ * when it stops early, its path warnings are left out (they would be guesses).
+ * Pass `parsed` when `parseForm(def)` already ran.
+ */
+export function analyze(def: FormDefinition, opts: { maxStates?: number; parsed?: ParseResult } = {}): Analysis {
+  const parsed = opts.parsed ?? parseForm(def);
   const findings: Finding[] = [];
   if (!parsed.ok) {
     findings.push(...parsed.issues.map((i) => finding(def, "error", i)));
@@ -71,8 +111,30 @@ export function analyze(def: FormDefinition, opts: { maxStates?: number } = {}):
   if (!def.blocks.some((b) => b.kind === "field")) {
     findings.push({ level: "error", message: "Add at least one question." });
   }
+  for (const b of def.blocks) {
+    if (b.kind !== "field") continue;
+    if (!b.label.trim()) findings.push({ level: "warning", message: `Question "${b.key}" has no wording.`, ref: { kind: "block", id: b.id } });
+    const blank = choiceOptions(b).filter((o) => !(o.label ?? o.value).trim()).length;
+    if (blank) {
+      findings.push({
+        level: "warning",
+        message: `${blank === 1 ? "An option" : `${blank} options`} of "${b.label || b.key}" ${blank === 1 ? "has" : "have"} no label.`,
+        ref: { kind: "block", id: b.id },
+      });
+    }
+  }
+  for (const e of def.endings ?? []) {
+    if (!e.title.trim()) findings.push({ level: "warning", message: `The ending "${e.id}" has no title.`, ref: { kind: "ending", id: e.id } });
+  }
 
-  const report = coverage(def, { maxStates: opts.maxStates ?? 2000 });
+  const report = cachedCoverage(def, opts.maxStates ?? 2000);
+  if (report.truncated) {
+    findings.push({
+      level: "info",
+      message: "The form has too many paths to check them all, so unreachable questions, endings and rules are not reported.",
+    });
+    return { findings, canPublish: !findings.some((f) => f.level === "error"), coverage: report };
+  }
   const idByKey = new Map(def.blocks.map((b) => [b.kind === "field" ? b.key : b.id, b.id]));
   for (const key of report.unreachableBlocks) {
     const id = idByKey.get(key) ?? key;
@@ -85,9 +147,6 @@ export function analyze(def: FormDefinition, opts: { maxStates?: number } = {}):
     if (!e.reached && !e.needsSamples) {
       findings.push({ level: "warning", message: `No respondent can reach the ending "${def.endings?.find((x) => x.id === id)?.title ?? id}".`, ref: { kind: "ending", id } });
     }
-  }
-  if (report.truncated) {
-    findings.push({ level: "info", message: "The form has too many paths to check them all; the path warnings above may be incomplete." });
   }
   return { findings, canPublish: !findings.some((f) => f.level === "error"), coverage: report };
 }

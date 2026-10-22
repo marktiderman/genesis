@@ -29,6 +29,7 @@ import {
   duplicateBlock,
   insertBlock,
   moveBlock,
+  newOptionValue,
   removeBlock,
   setOptions,
   updateBlock,
@@ -140,6 +141,7 @@ export function QuestionsPanel({
           const open = selected === block.id;
           const blockFindings = findings.filter((f) => f.ref?.kind === "block" && f.ref.id === block.id);
           const rules = ruleCount(block.id);
+          const name = blockTitle(block);
           return (
             <li
               key={block.id}
@@ -149,14 +151,6 @@ export function QuestionsPanel({
                 open ? "ring-2 ring-ring" : "hover:shadow-sm",
                 dragging === block.id && "opacity-50",
               )}
-              draggable
-              onDragStart={(e) => {
-                setDragging(block.id);
-                e.dataTransfer.effectAllowed = "move";
-                // Firefox starts a drag only when it carries data.
-                e.dataTransfer.setData("text/plain", block.id);
-              }}
-              onDragEnd={() => setDragging(null)}
               onDragOver={(e) => {
                 if (dragging && dragging !== block.id) e.preventDefault();
               }}
@@ -167,7 +161,25 @@ export function QuestionsPanel({
               }}
             >
               <div className="flex items-center gap-2 p-3">
-                <GripVertical aria-hidden className="size-4 shrink-0 cursor-grab text-muted-foreground" />
+                {/* Only the handle drags, so selecting text in the row (or in its inspector) still works. */}
+                <span
+                  aria-hidden
+                  draggable
+                  title="Drag to reorder"
+                  className="shrink-0 cursor-grab text-muted-foreground"
+                  data-testid={`builder-block-grip-${block.id}`}
+                  onDragStart={(e) => {
+                    setDragging(block.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    // Firefox starts a drag only when it carries data.
+                    e.dataTransfer.setData("text/plain", block.id);
+                    const row = e.currentTarget.closest("li");
+                    if (row) e.dataTransfer.setDragImage?.(row, 16, 16);
+                  }}
+                  onDragEnd={() => setDragging(null)}
+                >
+                  <GripVertical className="size-4" />
+                </span>
                 <button
                   type="button"
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -176,7 +188,7 @@ export function QuestionsPanel({
                   data-testid={`builder-block-toggle-${block.id}`}
                 >
                   <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">{index + 1}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{blockTitle(block)}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
                   <Badge variant="muted" className="shrink-0">
                     {block.kind === "field" ? typeLabel(block.type) : block.kind === "content" ? block.type : "page"}
                   </Badge>
@@ -188,7 +200,7 @@ export function QuestionsPanel({
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Move up"
+                    aria-label={`Move "${name}" up`}
                     disabled={index === 0}
                     onClick={() => apply((d) => moveBlock(d, block.id, index - 1))}
                   >
@@ -197,19 +209,19 @@ export function QuestionsPanel({
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Move down"
+                    aria-label={`Move "${name}" down`}
                     disabled={index === def.blocks.length - 1}
                     onClick={() => apply((d) => moveBlock(d, block.id, index + 1))}
                   >
                     <ArrowDown />
                   </Button>
-                  <Button variant="ghost" size="icon" aria-label="Duplicate" onClick={() => apply((d) => duplicateBlock(d, block.id))}>
+                  <Button variant="ghost" size="icon" aria-label={`Duplicate "${name}"`} onClick={() => apply((d) => duplicateBlock(d, block.id))}>
                     <Copy />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Delete"
+                    aria-label={`Delete "${name}"`}
                     data-testid={`builder-block-delete-${block.id}`}
                     onClick={() => {
                       apply((d) => removeBlock(d, block.id));
@@ -306,7 +318,7 @@ function FieldInspector({
           label="Type"
           value={field.type}
           options={types}
-          hint="Changing the type resets its options and removes rules that compare this question."
+          hint="Changing the type resets its settings and removes rules that compare this question. Between single and multiple choice, the options and the rules that still fit stay."
           onChange={(type) => set({ type })}
         />
         <DraftRow
@@ -327,10 +339,11 @@ function FieldInspector({
       {field.type === "rating" ? (
         <NumberRow
           label="Highest rating"
+          commitOnBlur
           min={2}
           max={10}
           value={typeof field.props?.max === "number" ? field.props.max : 5}
-          onChange={(max) => set({ props: { ...field.props, max: Math.min(10, Math.max(2, max ?? 5)) } }, `max:${field.id}`)}
+          onChange={(max) => set({ props: { ...field.props, max: Math.min(10, Math.max(2, max ?? 5)) } })}
         />
       ) : null}
       {field.type === "short-text" || field.type === "long-text" ? (
@@ -429,13 +442,13 @@ function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
         variant="outline"
         size="sm"
         data-testid="builder-option-add"
-        onClick={() => save([...options, { label: `Option ${options.length + 1}` }])}
+        onClick={() => save([...options, { value: newOptionValue(), label: `Option ${options.length + 1}` }])}
       >
         <Plus /> Add option
       </Button>
       <p className="text-xs text-muted-foreground">
-        Answers store the value on the right, so relabelling an option keeps earlier answers. Removing an option removes
-        the rules that compare with it.
+        Answers store the value on the right, so a relabelled option keeps its earlier answers (they show the new label).
+        Removing an option takes it out of “is one of” lists and removes the other rules that compare with it.
       </p>
     </fieldset>
   );

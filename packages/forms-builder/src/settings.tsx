@@ -1,12 +1,24 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { parseForm, type FormDefinition, type HiddenInput } from "@marktiderman/genesis-forms";
+import { Label } from "@marktiderman/genesis-ui/label";
+import { Switch } from "@marktiderman/genesis-ui/switch";
 import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { DraftInput, Pick, SelectRow, SwitchRow, TextRow } from "./controls";
 import type { Finding } from "./analyze";
-import { addEnding, addHidden, removeEnding, removeHidden, updateEnding, updateForm, updateHidden, updateSettings } from "./ops";
+import {
+  addEnding,
+  addHidden,
+  removeEnding,
+  removeHidden,
+  updateEnding,
+  updateForm,
+  updateHidden,
+  updateSettings,
+  type HiddenSpec,
+} from "./ops";
 
 type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) => void;
 
@@ -88,7 +100,7 @@ export function SettingsPanel({ def, apply }: { def: FormDefinition; apply: Appl
         <SwitchRow
           label="Anonymous responses"
           testID="builder-anonymous"
-          hint="Questions marked “identifies the respondent” are not asked, and nothing identifying is stored."
+          hint="Questions and hidden inputs marked “identifies the respondent” are not asked or stored."
           checked={!!def.settings?.anonymous}
           onChange={(anonymous) => apply((d) => updateSettings(d, { anonymous }))}
         />
@@ -111,7 +123,7 @@ const SOURCE_LABEL: Record<HiddenInput["source"], string> = {
 };
 
 function HiddenInputsSection({ def, apply }: { def: FormDefinition; apply: Apply }) {
-  const hidden = def.hidden ?? [];
+  const hidden: HiddenSpec[] = def.hidden ?? [];
   return (
     <section className="space-y-3">
       <div>
@@ -128,7 +140,8 @@ function HiddenInputsSection({ def, apply }: { def: FormDefinition; apply: Apply
             <li key={i} className="flex flex-wrap items-end gap-2 rounded-md border p-3">
               <div className="min-w-32 flex-1 space-y-1.5">
                 <span className="text-xs text-muted-foreground">Name</span>
-                <HiddenName name={h.name} onCommit={(name) => apply((d) => updateHidden(d, h.name, { name }))} />
+                {/* Renamed on blur or Enter: renaming normalizes it and rewrites its uses. */}
+                <DraftInput ariaLabel="Name" value={h.name} onCommit={(name) => apply((d) => updateHidden(d, h.name, { name }))} />
               </div>
               <Pick
                 ariaLabel="Type"
@@ -148,9 +161,27 @@ function HiddenInputsSection({ def, apply }: { def: FormDefinition; apply: Apply
                 options={(Object.keys(SOURCE_LABEL) as HiddenInput["source"][]).map((s) => ({ value: s, label: SOURCE_LABEL[s] }))}
                 onChange={(source) => apply((d) => updateHidden(d, h.name, { source: source as HiddenInput["source"] }))}
               />
-              <Button variant="ghost" size="icon" aria-label="Delete hidden input" onClick={() => apply((d) => removeHidden(d, h.name))}>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Delete hidden input ${h.name}`}
+                onClick={() => apply((d) => removeHidden(d, h.name))}
+              >
                 <Trash2 />
               </Button>
+              <div className="flex w-full flex-wrap gap-4">
+                <InlineSwitch
+                  label="Sensitive"
+                  checked={!!h.sensitive}
+                  onChange={(sensitive) => apply((d) => updateHidden(d, h.name, { sensitive }))}
+                />
+                <InlineSwitch
+                  label="Identifies the respondent"
+                  checked={!!h.identifying}
+                  testID={`builder-hidden-identifying-${i}`}
+                  onChange={(identifying) => apply((d) => updateHidden(d, h.name, { identifying }))}
+                />
+              </div>
             </li>
           ))}
         </ul>
@@ -162,20 +193,12 @@ function HiddenInputsSection({ def, apply }: { def: FormDefinition; apply: Apply
   );
 }
 
-/** A hidden input's name, renamed on blur or Enter: renaming normalizes it and rewrites its uses. */
-function HiddenName({ name, onCommit }: { name: string; onCommit: (name: string) => void }) {
-  const [draft, setDraft] = useState(name);
-  useEffect(() => setDraft(name), [name]);
+function InlineSwitch(props: { label: string; checked: boolean; onChange: (checked: boolean) => void; testID?: string }) {
   return (
-    <DraftInput
-      ariaLabel="Name"
-      value={draft}
-      onChange={setDraft}
-      onCommit={() => {
-        if (draft !== name) onCommit(draft);
-        setDraft(name);
-      }}
-    />
+    <Label className="flex items-center gap-2 text-xs font-normal">
+      <Switch checked={props.checked} onCheckedChange={props.onChange} data-testid={props.testID} />
+      {props.label}
+    </Label>
   );
 }
 

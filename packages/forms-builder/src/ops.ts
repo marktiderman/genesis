@@ -8,6 +8,7 @@
  * it, so an edit never leaves a dangling reference for `parseForm` to reject.
  */
 import {
+  canonicalJson,
   choiceOptions,
   getFieldType,
   type Block,
@@ -45,12 +46,18 @@ export function slugKey(text: string, fallback = "question"): string {
   return /^[0-9]/.test(key) ? `q_${key}` : key;
 }
 
-/** `base`, or `base_2`, `base_3`… whichever is not in `taken`. */
+/** Names `parseForm` rejects as ids, keys and hidden names: they collide with `Object.prototype`. */
+const RESERVED: ReadonlySet<string> = new Set(Object.getOwnPropertyNames(Object.prototype));
+
+/** `base`, or `base_2`, `base_3`… whichever is not in `taken` (nor an `Object.prototype` name). */
 export function uniqueName(base: string, taken: Iterable<string>): string {
-  const used = new Set(taken);
+  const used = new Set([...taken, ...RESERVED]);
   if (!used.has(base)) return base;
   for (let n = 2; ; n++) if (!used.has(`${base}_${n}`)) return `${base}_${n}`;
 }
+
+/** Deep equality of JSON values, ignoring key order. */
+const sameJson = (a: unknown, b: unknown) => canonicalJson(a ?? null) === canonicalJson(b ?? null);
 
 const fieldKeys = (def: FormDefinition, except?: string) =>
   def.blocks.flatMap((b) => (b.kind === "field" && b.id !== except ? [b.key] : []));
@@ -136,10 +143,13 @@ export type BlockPatch =
  * optional flag goes away instead of being stored as `false` or `undefined`.
  * A key is made unique if it clashes; a changed field type gets that type's
  * default props and loses the rules that compare it, since their operators
- * and values belong to the old type.
+ * and values belong to the old type. Between single and multiple choice the
+ * options stay, and so do rules whose operators the new type offers. An edit
+ * that changes nothing returns `def` itself.
  */
 export function updateBlock(def: FormDefinition, id: string, patch: BlockPatch): FormDefinition {
-  let typeChanged = false;
+  let typeChanged: { from: string; to: string } | undefined;
+  let changed = false;
   let renamed: { from: string; to: string } | undefined;
   const blocks = def.blocks.map((block): Block => {
     if (block.id !== id) return block;
@@ -158,28 +168,40 @@ export function updateBlock(def: FormDefinition, id: string, patch: BlockPatch):
         if (next.key !== block.key) renamed = { from: block.key, to: next.key as string };
       }
       if (typeof next.type === "string" && next.type !== block.type) {
-        typeChanged = true;
-        if (!("props" in patch)) {
+        typeChanged = { from: block.type, to: next.type };
+        if (!("props" in patch) && !(CHOICE_TYPES.has(block.type) && CHOICE_TYPES.has(next.type))) {
           const props = defaultProps(next.type);
           if (props) next.props = props;
           else delete next.props;
         }
       }
     }
+    if (sameJson(next, block)) return block;
+    changed = true;
     return next as unknown as Block;
   });
+  if (!changed) return def;
   let out: FormDefinition = { ...def, blocks };
   if (renamed) out = rewriteRecall(out, "field", renamed.from, renamed.to);
-  return typeChanged ? removeRulesWhere(out, (rule) => conditionFields(rule.when).has(id)) : out;
+  if (!typeChanged) return out;
+  const { from, to } = typeChanged;
+  if (CHOICE_TYPES.has(from) && CHOICE_TYPES.has(to)) {
+    const allowed = new Set(operatorsFor(to));
+    return removeRulesWhere(out, (rule) => comparisons(rule.when, id).some((c) => !allowed.has(c.op)));
+  }
+  return removeRulesWhere(out, (rule) => conditionFields(rule.when).has(id));
 }
+
+const CHOICE_TYPES: ReadonlySet<string> = new Set(["single-choice", "multi-choice"]);
 
 /** Move a block to `toIndex` (clamped). Rules keep working: they point at ids. */
 export function moveBlock(def: FormDefinition, id: string, toIndex: number): FormDefinition {
   const from = def.blocks.findIndex((b) => b.id === id);
-  if (from === -1) return def;
+  const to = Math.max(0, Math.min(toIndex, def.blocks.length - 1));
+  if (from === -1 || from === to) return def;
   const blocks = [...def.blocks];
   const [block] = blocks.splice(from, 1);
-  blocks.splice(Math.max(0, Math.min(toIndex, blocks.length)), 0, block!);
+  blocks.splice(to, 0, block!);
   return { ...def, blocks };
 }
 
@@ -203,23 +225,39 @@ export function duplicateBlock(def: FormDefinition, id: string): FormDefinition 
 }
 
 /**
- * Remove a block, every rule that reads, targets or jumps from or to it, and its
- * recall tokens (they become their fallback text).
+ * Remove a block, its recall tokens (they become their fallback text) and
+ * every rule that reads it, shows or hides it, or jumps from it. A jump *to*
+ * it goes to the next step after it instead, or the default ending.
  */
 export function removeBlock(def: FormDefinition, id: string): FormDefinition {
-  const removed = def.blocks.find((b) => b.id === id);
+  const index = def.blocks.findIndex((b) => b.id === id);
+  if (index === -1) return def;
+  const removed = def.blocks[index]!;
+  const nextStep = def.blocks.slice(index + 1).find((b) => b.kind !== "page-break");
+  const retarget: Extract<LogicRule, { effect: "jump" }>["to"] = nextStep ? nextStep.id : { ending: def.endings?.[0]?.id ?? "default" };
   let out: FormDefinition = { ...def, blocks: def.blocks.filter((b) => b.id !== id) };
-  if (removed?.kind === "field") out = rewriteRecall(out, "field", removed.key, null);
+  if (out.logic) {
+    out.logic = out.logic.map((r) => (r.effect === "jump" && r.to === id && r.from !== id ? { ...r, to: retarget } : r));
+  }
+  if (removed.kind === "field") out = rewriteRecall(out, "field", removed.key, null);
   return removeRulesWhere(out, (rule) => ruleRefs(rule).has(id));
 }
 
 // ── Choice options ───────────────────────────────────────────────────────────
 
 /**
- * Set a choice field's options. Values are derived from labels for new
- * options and kept for existing ones (answers store values), and are made
- * unique. Rules comparing the field with a value that no longer exists are
- * removed.
+ * A value for a new choice option. Random, not derived from the label, so it
+ * never repeats a value a removed option had: earlier answers that chose that
+ * option must not read as the new one. Call it outside a reducer.
+ */
+export const newOptionValue = () => newId("opt");
+
+/**
+ * Set a choice field's options. Existing values are kept (answers store
+ * values) and made unique; an option without one gets `newOptionValue()`
+ * (pass values in to keep the edit pure). A removed value leaves the "is one
+ * of" lists that name it; rules that compare with it otherwise, or whose list
+ * becomes empty, are removed.
  */
 export function setOptions(
   def: FormDefinition,
@@ -229,14 +267,35 @@ export function setOptions(
   const field = def.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id);
   if (!field) return def;
   const taken: string[] = [];
-  const next = options.map((o, i) => {
-    const value = uniqueName(o.value || slugKey(o.label, `option_${i + 1}`), taken);
+  const next = options.map((o) => {
+    const value = uniqueName(o.value || newOptionValue(), taken);
     taken.push(value);
     return { value, label: o.label };
   });
-  const out = updateBlock(def, id, { props: { ...field.props, options: next } });
+  let out = updateBlock(def, id, { props: { ...field.props, options: next } });
   const allowed = new Set(taken);
-  return removeRulesWhere(out, (rule) => comparedValues(rule.when, id).some((v) => typeof v === "string" && !allowed.has(v)));
+  const gone = (v: Json) => typeof v === "string" && !allowed.has(v);
+  const inList = (c: Comparison) => c.op === "in" && c.right !== undefined && "value" in c.right && Array.isArray(c.right.value);
+  if (out.logic?.some((r) => comparisons(r.when, id).some((c) => inList(c) && (c.right as { value: Json[] }).value.some(gone)))) {
+    out = { ...out, logic: out.logic.map((r) => ({ ...r, when: pruneInLists(r.when, id, gone) })) };
+  }
+  return removeRulesWhere(out, (rule) =>
+    comparisons(rule.when, id).some((c) => {
+      const v = c.right && "value" in c.right ? c.right.value : undefined;
+      if (v === undefined) return false;
+      return Array.isArray(v) ? (c.op === "in" && !v.length) || v.some(gone) : gone(v);
+    }),
+  );
+}
+
+/** Drop the values `gone` matches from the "is one of" lists that compare field `id`. */
+function pruneInLists(condition: Condition, id: string, gone: (v: Json) => boolean): Condition {
+  if ("all" in condition) return { all: condition.all.map((c) => pruneInLists(c, id, gone)) };
+  if ("any" in condition) return { any: condition.any.map((c) => pruneInLists(c, id, gone)) };
+  if ("not" in condition) return { not: pruneInLists(condition.not, id, gone) };
+  const v = condition.right && "value" in condition.right ? condition.right.value : undefined;
+  if (condition.op !== "in" || !("field" in condition.left) || condition.left.field !== id || !Array.isArray(v)) return condition;
+  return v.some(gone) ? { ...condition, right: { value: v.filter((x) => !gone(x)) } } : condition;
 }
 
 // ── Logic ────────────────────────────────────────────────────────────────────
@@ -269,18 +328,16 @@ export function conditionHidden(condition: Condition): Set<string> {
   return names;
 }
 
-/** The literal values a condition compares field `id` with. */
-function comparedValues(condition: Condition, id: string): Json[] {
-  const out: Json[] = [];
+type Comparison = Extract<Condition, { op: Operator }>;
+
+/** The comparisons in a condition whose left side is field `id` (or, with `hidden`, that hidden input). */
+function comparisons(condition: Condition, id: string, kind: "field" | "hidden" = "field"): Comparison[] {
+  const out: Comparison[] = [];
   const visit = (c: Condition) => {
     if ("all" in c) return c.all.forEach(visit);
     if ("any" in c) return c.any.forEach(visit);
     if ("not" in c) return visit(c.not);
-    if ("field" in c.left && c.left.field === id && c.right && "value" in c.right) {
-      const v = c.right.value;
-      if (Array.isArray(v)) out.push(...v);
-      else out.push(v);
-    }
+    if (kind === "field" ? "field" in c.left && c.left.field === id : "hidden" in c.left && c.left.hidden === id) out.push(c);
   };
   visit(condition);
   return out;
@@ -296,6 +353,13 @@ export function ruleRefs(rule: LogicRule): Set<string> {
   return ids;
 }
 
+/** The operators a hidden input of each type offers in logic. */
+export const HIDDEN_OPERATORS: Record<HiddenInput["type"], Operator[]> = {
+  string: ["eq", "neq", "in", "answered", "empty"],
+  number: ["eq", "neq", "lt", "lte", "gt", "gte", "answered", "empty"],
+  boolean: ["eq", "neq", "answered", "empty"],
+};
+
 function removeRulesWhere(def: FormDefinition, drop: (rule: LogicRule) => boolean): FormDefinition {
   if (!def.logic?.length) return def;
   const logic = def.logic.filter((r) => !drop(r));
@@ -310,6 +374,8 @@ export function addRule(def: FormDefinition, rule: LogicRule): FormDefinition {
 }
 
 export function updateRule(def: FormDefinition, id: string, rule: LogicRule): FormDefinition {
+  const current = def.logic?.find((r) => r.id === id);
+  if (!current || sameJson(current, { ...rule, id })) return def;
   return { ...def, logic: (def.logic ?? []).map((r) => (r.id === id ? { ...rule, id } : r)) };
 }
 
@@ -320,9 +386,10 @@ export function removeRule(def: FormDefinition, id: string): FormDefinition {
 export function moveRule(def: FormDefinition, id: string, toIndex: number): FormDefinition {
   const logic = [...(def.logic ?? [])];
   const from = logic.findIndex((r) => r.id === id);
-  if (from === -1) return def;
+  const to = Math.max(0, Math.min(toIndex, logic.length - 1));
+  if (from === -1 || from === to) return def;
   const [rule] = logic.splice(from, 1);
-  logic.splice(Math.max(0, Math.min(toIndex, logic.length)), 0, rule!);
+  logic.splice(to, 0, rule!);
   return { ...def, logic };
 }
 
@@ -366,15 +433,16 @@ export function addEnding(def: FormDefinition, title = "Thanks!"): FormDefinitio
 }
 
 export function updateEnding(def: FormDefinition, id: string, patch: Partial<Omit<Ending, "id">>): FormDefinition {
-  return {
-    ...def,
-    endings: (def.endings ?? []).map((e) => {
-      if (e.id !== id) return e;
-      const next = { ...e, ...patch };
-      if (!next.description) delete next.description;
-      return next;
-    }),
-  };
+  let changed = false;
+  const endings = (def.endings ?? []).map((e) => {
+    if (e.id !== id) return e;
+    const next = { ...e, ...patch };
+    if (!next.description) delete next.description;
+    if (sameJson(next, e)) return e;
+    changed = true;
+    return next;
+  });
+  return changed ? { ...def, endings } : def;
 }
 
 /** Remove an ending and the jumps that go to it. The first ending is the default and stays. */
@@ -387,26 +455,46 @@ export function removeEnding(def: FormDefinition, id: string): FormDefinition {
 
 // ── Hidden inputs ────────────────────────────────────────────────────────────
 
-export function addHidden(def: FormDefinition, input: Partial<HiddenInput> = {}): FormDefinition {
+/**
+ * A hidden input as the builder edits it. `identifying` (the respondent's own
+ * details: not asked or stored when the form is anonymous) is declared here
+ * too, so this compiles against a forms release from before it existed.
+ */
+export type HiddenSpec = HiddenInput & { identifying?: boolean };
+
+export function addHidden(def: FormDefinition, input: Partial<HiddenSpec> = {}): FormDefinition {
   const name = uniqueName(slugKey(input.name ?? "input", "input"), (def.hidden ?? []).map((h) => h.name));
-  const next: HiddenInput = { name, type: input.type ?? "string", source: input.source ?? "url" };
+  const next: HiddenSpec = { name, type: input.type ?? "string", source: input.source ?? "url" };
   if (input.sensitive) next.sensitive = true;
+  if (input.identifying) next.identifying = true;
   return { ...def, hidden: [...(def.hidden ?? []), next] };
 }
 
 /**
  * Change a hidden input. Renaming it updates the conditions and the recall
- * placeholders (`{{hidden:name}}`) that use it.
+ * placeholders (`{{hidden:name}}`) that use it; a new type removes the rules
+ * whose operator or value no longer fits it.
  */
-export function updateHidden(def: FormDefinition, name: string, patch: Partial<HiddenInput>): FormDefinition {
+export function updateHidden(def: FormDefinition, name: string, patch: Partial<HiddenSpec>): FormDefinition {
   const hidden = def.hidden ?? [];
   const current = hidden.find((h) => h.name === name);
   if (!current) return def;
   const others = hidden.filter((h) => h.name !== name).map((h) => h.name);
   const newName = patch.name !== undefined ? uniqueName(slugKey(patch.name, name), others) : name;
-  const next: HiddenInput = { ...current, ...patch, name: newName };
+  const next: HiddenSpec = { ...current, ...patch, name: newName };
   if (!next.sensitive) delete next.sensitive;
+  if (!next.identifying) delete next.identifying;
+  if (sameJson(next, current)) return def;
   let out: FormDefinition = { ...def, hidden: hidden.map((h) => (h.name === name ? next : h)) };
+  if (next.type !== current.type) {
+    const ops = new Set(HIDDEN_OPERATORS[next.type]);
+    const fits = (v: Json): boolean => (Array.isArray(v) ? v.every(fits) : typeof v === next.type);
+    out = removeRulesWhere(out, (rule) =>
+      comparisons(rule.when, name, "hidden").some(
+        (c) => !ops.has(c.op) || (c.right !== undefined && "value" in c.right && !fits(c.right.value)),
+      ),
+    );
+  }
   if (newName !== name) out = renameHiddenRefs(out, name, newName);
   return out;
 }
@@ -435,8 +523,8 @@ function renameHiddenRefs(def: FormDefinition, from: string, to: string): FormDe
 
 /**
  * Point `{{field:from}}` / `{{hidden:from}}` recall tokens at `to`, or, with `to`
- * null, replace them with their fallback text, so labels, descriptions and content
- * never recall something that no longer exists.
+ * null, replace them with their fallback text, so labels, descriptions, content,
+ * endings and the introduction never recall something that no longer exists.
  */
 function rewriteRecall(def: FormDefinition, kind: "field" | "hidden", from: string, to: string | null): FormDefinition {
   const token = new RegExp(`\\{\\{\\s*${kind}:${from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*(?:\\|([^}]*))?\\}\\}`, "g");
@@ -444,7 +532,7 @@ function rewriteRecall(def: FormDefinition, kind: "field" | "hidden", from: stri
     s.replace(token, (_m, fallback: string | undefined) =>
       to === null ? (fallback ?? "").trim() : `{{${kind}:${to}${fallback !== undefined ? `|${fallback}` : ""}}}`,
     );
-  return {
+  const out: FormDefinition = {
     ...def,
     blocks: def.blocks.map((b) => {
       if (b.kind === "field") {
@@ -456,6 +544,15 @@ function rewriteRecall(def: FormDefinition, kind: "field" | "hidden", from: stri
       return b;
     }),
   };
+  if (def.description) out.description = text(def.description);
+  if (def.endings) {
+    out.endings = def.endings.map((e) => {
+      const next = { ...e, title: text(e.title) };
+      if (e.description) next.description = text(e.description);
+      return next;
+    });
+  }
+  return out;
 }
 
 // ── Form ─────────────────────────────────────────────────────────────────────
@@ -466,7 +563,7 @@ export function updateForm(
 ): FormDefinition {
   const next = { ...def, ...patch };
   if (!next.description) delete next.description;
-  return next;
+  return sameJson(next, def) ? def : next;
 }
 
 export function updateSettings(def: FormDefinition, patch: Partial<FormSettings>): FormDefinition {
@@ -478,5 +575,5 @@ export function updateSettings(def: FormDefinition, patch: Partial<FormSettings>
   }
   const out: FormDefinition = { ...def, settings };
   if (!Object.keys(settings).length) delete out.settings;
-  return out;
+  return sameJson(out.settings, def.settings) ? def : out;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
 import {
   choiceOptions,
@@ -19,9 +19,20 @@ import { Button } from "@marktiderman/genesis-ui/button";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import { Pick, SelectRow, type Choice } from "./controls";
+import { DraftInput, Pick, SelectRow, type Choice } from "./controls";
 import type { Finding } from "./analyze";
-import { addRule, moveRule, newId, operatorsFor, removeRule, starterCondition, starterValue, UNARY_OPERATORS, updateRule } from "./ops";
+import {
+  addRule,
+  HIDDEN_OPERATORS,
+  moveRule,
+  newId,
+  operatorsFor,
+  removeRule,
+  starterCondition,
+  starterValue,
+  UNARY_OPERATORS,
+  updateRule,
+} from "./ops";
 
 type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) => void;
 
@@ -36,12 +47,6 @@ export const OPERATOR_LABEL: Record<Operator, string> = {
   contains: "includes",
   answered: "is answered",
   empty: "is not answered",
-};
-
-const HIDDEN_OPERATORS: Record<HiddenInput["type"], Operator[]> = {
-  string: ["eq", "neq", "in", "answered", "empty"],
-  number: ["eq", "neq", "lt", "lte", "gt", "gte", "answered", "empty"],
-  boolean: ["eq", "neq", "answered", "empty"],
 };
 
 type Comparison = Extract<Condition, { op: Operator }>;
@@ -462,14 +467,17 @@ function ValueEditor({
     );
   }
   if (numeric) {
+    // Committed on blur: clearing the box to type another number leaves the rule as it was.
     return (
-      <Input
-        aria-label="Value"
+      <DraftInput
+        ariaLabel="Value"
         type="number"
-        inputMode="numeric"
         className="h-9 w-24"
-        value={typeof value === "number" ? value : ""}
-        onChange={(e) => onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+        value={typeof value === "number" ? String(value) : ""}
+        onCommit={(raw) => {
+          const n = Number(raw);
+          if (raw.trim() !== "" && Number.isFinite(n)) onChange(n);
+        }}
       />
     );
   }
@@ -512,8 +520,21 @@ function ConditionJson({
   condition: Condition;
   onChange: (c: Condition) => void;
 }) {
-  const [text, setText] = useState(() => JSON.stringify(condition, null, 2));
+  const pretty = JSON.stringify(condition, null, 2);
+  const [text, setText] = useState(pretty);
   const [error, setError] = useState<string | null>(null);
+  // Text not applied yet (not valid JSON or not a valid condition): an outside change must not wipe it.
+  const [dirty, setDirty] = useState(false);
+  // The condition this box last showed or sent; anything else came from outside (undo, redo).
+  const known = useRef(pretty);
+  useEffect(() => {
+    if (pretty === known.current) return;
+    known.current = pretty;
+    if (!dirty) {
+      setText(pretty);
+      setError(null);
+    }
+  }, [dirty, pretty]);
   return (
     <div className="space-y-1.5">
       <p className="text-sm font-medium">When (advanced)</p>
@@ -524,6 +545,7 @@ function ConditionJson({
         value={text}
         onChange={(e) => {
           setText(e.target.value);
+          setDirty(true);
           try {
             const raw: unknown = JSON.parse(e.target.value);
             // A condition is an object; null, a number or a list would crash the clause editor.
@@ -536,7 +558,11 @@ function ConditionJson({
             const check = parseForm({ ...def, logic: [{ ...rule, when: parsed }] });
             const conditionIssue = !check.ok && check.issues.find((i) => i.path.startsWith("logic[0]"));
             setError(conditionIssue ? conditionIssue.message : null);
-            if (!conditionIssue) onChange(parsed);
+            if (!conditionIssue) {
+              known.current = JSON.stringify(parsed, null, 2);
+              setDirty(false);
+              onChange(parsed);
+            }
           } catch {
             setError("Not valid JSON yet.");
           }

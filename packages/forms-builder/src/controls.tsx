@@ -71,43 +71,57 @@ export function DraftRow(props: {
   testID?: string;
 }) {
   const id = useId();
-  const [draft, setDraft] = useState(props.value);
-  useEffect(() => setDraft(props.value), [props.value]);
-  const commit = () => {
-    if (draft !== props.value) props.onCommit(draft);
-    setDraft(props.value);
-  };
   return (
     <Row label={props.label} hint={props.hint} htmlFor={id}>
-      <DraftInput id={id} value={draft} onChange={setDraft} onCommit={commit} testID={props.testID} />
+      <DraftInput id={id} value={props.value} onCommit={props.onCommit} testID={props.testID} />
     </Row>
   );
+}
+
+/**
+ * Text kept as typed until blur or Enter. Then `onCommit` gets it if it
+ * changed, and the field shows the value again (normalized by the commit).
+ */
+export function useDraft(value: string, onCommit: (value: string) => void) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const commit = () => {
+    if (draft !== value) onCommit(draft);
+    setDraft(value);
+  };
+  return { draft, setDraft, commit };
 }
 
 /** The input of a DraftRow, without its label. */
 export function DraftInput(props: {
   value: string;
-  onChange: (value: string) => void;
-  onCommit: () => void;
+  onCommit: (value: string) => void;
   id?: string;
   ariaLabel?: string;
   testID?: string;
+  className?: string;
+  type?: "text" | "number";
 }) {
+  const { draft, setDraft, commit } = useDraft(props.value, props.onCommit);
   return (
     <Input
       id={props.id}
+      type={props.type}
+      inputMode={props.type === "number" ? "numeric" : undefined}
       aria-label={props.ariaLabel}
       data-testid={props.testID}
-      value={props.value}
-      onChange={(e) => props.onChange(e.target.value)}
-      onBlur={props.onCommit}
+      className={props.className}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
       onKeyDown={(e) => {
-        if (e.key === "Enter") props.onCommit();
+        if (e.key === "Enter") commit();
       }}
     />
   );
 }
 
+/** A whole number. With `commitOnBlur`, it is kept as typed until blur or Enter (for values that get clamped). */
 export function NumberRow(props: {
   label: string;
   value: number | undefined;
@@ -116,8 +130,30 @@ export function NumberRow(props: {
   max?: number;
   hint?: ReactNode;
   testID?: string;
+  commitOnBlur?: boolean;
 }) {
   const id = useId();
+  const toNumber = (raw: string) => {
+    if (raw.trim() === "") return undefined;
+    const n = Math.trunc(Number(raw));
+    return Number.isFinite(n) ? n : null;
+  };
+  if (props.commitOnBlur) {
+    return (
+      <Row label={props.label} hint={props.hint} htmlFor={id}>
+        <DraftInput
+          id={id}
+          type="number"
+          testID={props.testID}
+          value={props.value === undefined ? "" : String(props.value)}
+          onCommit={(raw) => {
+            const n = toNumber(raw);
+            if (n !== null) props.onChange(n);
+          }}
+        />
+      </Row>
+    );
+  }
   return (
     <Row label={props.label} hint={props.hint} htmlFor={id}>
       <Input
@@ -129,10 +165,8 @@ export function NumberRow(props: {
         value={props.value ?? ""}
         data-testid={props.testID}
         onChange={(e) => {
-          const raw = e.target.value;
-          if (raw === "") return props.onChange(undefined);
-          const n = Math.trunc(Number(raw));
-          if (Number.isFinite(n)) props.onChange(n);
+          const n = toNumber(e.target.value);
+          if (n !== null) props.onChange(n);
         }}
       />
     </Row>

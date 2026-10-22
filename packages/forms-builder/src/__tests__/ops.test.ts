@@ -86,7 +86,7 @@ describe("ops", () => {
   it("keeps option values and drops rules comparing a removed one", () => {
     let def = addRule(sample(), { id: "r2", effect: "hide", target: "q_why", when: { op: "eq", left: { field: "q_pick" }, right: { value: "b" } } });
     def = setOptions(def, "q_pick", [{ value: "a", label: "Apple" }, { label: "Cherry" }]);
-    expect(field(def, "q_pick").props?.options).toEqual([{ value: "a", label: "Apple" }, { value: "cherry", label: "Cherry" }]);
+    expect(field(def, "q_pick").props?.options).toEqual([{ value: "a", label: "Apple" }, { value: expect.stringMatching(/^opt_/), label: "Cherry" }]);
     expect(def.logic?.map((r) => r.id)).toEqual(["r1"]);
   });
 
@@ -164,7 +164,7 @@ describe("diff", () => {
   it("reports wording-only changes as safe", () => {
     const before = sample();
     const after = updateBlock(before, "q_why", { placeholder: "Tell us" });
-    expect(diffDefinitions(before, after)).toEqual([{ kind: "text-changed", breaking: false, message: "Wording or details changed." }]);
+    expect(diffDefinitions(before, after)).toEqual([{ kind: "text-changed", breaking: false, message: "Wording changed in placeholders." }]);
     expect(isUnchanged(before, structuredClone(before))).toBe(true);
   });
 });
