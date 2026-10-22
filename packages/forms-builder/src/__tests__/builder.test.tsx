@@ -147,4 +147,14 @@ describe("<Preview>", () => {
     rerender(<Preview def={required} />);
     expect((within(preview).getByLabelText(/Your full name/) as HTMLInputElement).value).toBe("");
   });
+
+  it("keeps showing the ending through a wording edit", async () => {
+    const { rerender } = render(<Preview def={def("Your name")} />);
+    const preview = screen.getByTestId("builder-preview");
+    fireEvent.click(within(preview).getByRole("button", { name: /submit/i }));
+    expect(await within(preview).findByText("Thanks")).toBeTruthy();
+    rerender(<Preview def={def("Your full name")} />);
+    expect(within(preview).getByText("Thanks")).toBeTruthy();
+    expect(within(preview).queryByLabelText("Your full name")).toBeNull();
+  });
 });

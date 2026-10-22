@@ -91,7 +91,8 @@ export function Preview({
       <div className="mx-auto w-full max-w-sm overflow-hidden rounded-[1.75rem] border-4 border-foreground/10 bg-background shadow-sm">
         <div className="h-[36rem] overflow-y-auto p-4">
           {form && engine ? (
-            <Form form={form} engine={engine} layout={layout} brand={brand} onSubmit={() => undefined} />
+            // No onSubmit: a completed engine then shows its ending, also after a wording edit remounts it.
+            <Form form={form} engine={engine} layout={layout} brand={brand} />
           ) : (
             <div className="space-y-2 p-4 text-sm">
               <p className="font-medium">The preview starts once the form is valid.</p>
