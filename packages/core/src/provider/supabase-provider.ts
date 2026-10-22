@@ -86,6 +86,8 @@ export interface SupabaseWriteContext {
 export interface SupabaseResourceConfig {
   /** Singular noun for failure messages, e.g. "project". Defaults to "record". */
   noun?: string;
+  /** Plural for list messages, when it isn't `noun` + "s" ("categories"). */
+  nounPlural?: string;
   /**
    * The column a sorted list orders by last, so rows with equal sort values
    * keep one order from page to page (none repeats, none is skipped).
@@ -258,6 +260,8 @@ export function createSupabaseProvider(
   }
 
   const maxPerPage = options.maxPerPage ?? 1000;
+  // The cap warns once per resource, not on every page.
+  const cappedWarned = new Set<string>();
 
   /** A failed read, as a `DataReadError` with a message users can be shown. */
   function throwIfReadError(
@@ -271,7 +275,7 @@ export function createSupabaseProvider(
     const outcome = readOutcomeFromCode(code);
     const error = new DataReadError(
       outcome,
-      readFailureMessage(outcome, nounFor(resource), operation === "getOne"),
+      readFailureMessage(outcome, nounFor(resource), operation === "getOne", configFor(resource).nounPlural),
       { code, cause: result.error },
     );
     try {
@@ -406,12 +410,16 @@ export function createSupabaseProvider(
 
       // Sort, then the key column, so equal sort values keep one order
       // across pages (otherwise a row can repeat on page 2 or be skipped).
+      // An unsorted page is ordered by the key alone: without an ORDER BY
+      // the database may return pages in any order.
+      const key = configFor(resource).orderKey ?? "id";
       if (params.sort) {
         query = query.order(params.sort.field, {
           ascending: params.sort.order === "asc",
         });
-        const key = configFor(resource).orderKey ?? "id";
         if (key && key !== params.sort.field) query = query.order(key, { ascending: true });
+      } else if (params.pagination && key) {
+        query = query.order(key, { ascending: true });
       }
 
       // Pagination (offset), never past what one page may return.
@@ -419,9 +427,12 @@ export function createSupabaseProvider(
         const { page } = params.pagination;
         let { perPage } = params.pagination;
         if (perPage > maxPerPage) {
-          console.warn(
-            `[SupabaseProvider] "${resource}" asked for ${perPage} rows per page; capped at ${maxPerPage} (maxPerPage). Page through the rest.`,
-          );
+          if (!cappedWarned.has(resource)) {
+            cappedWarned.add(resource);
+            console.warn(
+              `[SupabaseProvider] "${resource}" asked for ${perPage} rows per page; capped at ${maxPerPage} (maxPerPage). Page through the rest.`,
+            );
+          }
           perPage = maxPerPage;
         }
         const from = (page - 1) * perPage;
@@ -457,7 +468,7 @@ export function createSupabaseProvider(
       return { data: result.data ?? [] } as never;
     },
 
-    async capabilities(): Promise<ProviderCapabilities> {
+    async capabilities(resource?: string): Promise<ProviderCapabilities> {
       return {
         search: true,
         sort: true,
@@ -469,6 +480,7 @@ export function createSupabaseProvider(
         create: true,
         delete: true,
         maxPerPage,
+        softDelete: resource ? isBinTable(resource) : false,
       };
     },
 

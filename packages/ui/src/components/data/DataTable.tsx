@@ -134,21 +134,35 @@ export interface DataTableProps<T> {
    */
   density?: Density;
   /**
-   * Keyboard use of rows when `onRowClick` is set: rows are tab stops,
-   * Enter or Space opens one, ↑/↓ (or j/k) and Home/End move between rows,
-   * and x toggles the row's selection when `selectable`. Default true.
+   * Keyboard use of rows when `onRowClick` is set. Each row's open column
+   * (see `openColumn`) is a button named by its content, and the table is
+   * one tab stop: Tab reaches the current row's button, Enter or Space
+   * opens it, ↑/↓ (or j/k) and Home/End move between rows, and x toggles
+   * the row's selection when `selectable`. Default true.
    */
   keyboardNavigation?: boolean;
+  /**
+   * The column whose cell opens the row (as a button), by key. Default: the
+   * first visible column that isn't `editable`. Its `render` must not put a
+   * link or button in the cell. `null` makes no cell a button (mouse only).
+   */
+  openColumn?: string | null;
 }
 
-/** Focus the row `step` rows away (or the first/last), staying in this table body. */
+const ROW_OPEN = "data-row-open";
+
+/** Focus the open button `to` rows away (or the first/last), staying in this table body. */
 function focusRow(from: HTMLElement, to: "next" | "prev" | "first" | "last") {
-  const body = from.parentElement;
+  const body = from.closest("tbody");
   if (!body) return;
-  const rows = Array.from(body.querySelectorAll<HTMLElement>(":scope > tr[tabindex]"));
-  const i = rows.indexOf(from);
+  const buttons = Array.from(body.querySelectorAll<HTMLElement>(`[${ROW_OPEN}]`));
+  const i = buttons.indexOf(from);
   const target =
-    to === "first" ? rows[0] : to === "last" ? rows[rows.length - 1] : rows[to === "next" ? i + 1 : i - 1];
+    to === "first"
+      ? buttons[0]
+      : to === "last"
+        ? buttons[buttons.length - 1]
+        : buttons[to === "next" ? i + 1 : i - 1];
   target?.focus();
 }
 
@@ -438,8 +452,11 @@ export function DataTable<T>({
   stickyFirstColumn,
   density = "comfortable",
   keyboardNavigation = true,
+  openColumn,
 }: DataTableProps<T>) {
   const rowKeys = keyboardNavigation && !!onRowClick;
+  // Roving tabindex: one row's open button is the table's tab stop.
+  const [activeRowKey, setActiveRowKey] = useState<string | null>(null);
   const cellDensity = DENSITY_CELL[density];
   const headDensity = DENSITY_HEAD[density];
   // ── Multi-column sort ──
@@ -635,6 +652,27 @@ export function DataTable<T>({
         (currentPage + 1) * currentPageSize,
       )
     : sorted;
+
+  // The column whose cell opens the row, and the row that holds the tab stop.
+  const openKey = !rowKeys
+    ? null
+    : openColumn !== undefined
+      ? openColumn
+      : (activeColumns.find((c) => !c.editable)?.key ?? null);
+  const tabStopKey =
+    activeRowKey && displayItems.some((it) => getKey(it) === activeRowKey)
+      ? activeRowKey
+      : displayItems[0]
+        ? getKey(displayItems[0])
+        : null;
+  /** A row's name for its checkbox: the open column's text, or its key. */
+  const rowLabel = (item: T, id: string) => {
+    const col = activeColumns.find((c) => c.key === (openKey ?? activeColumns[0]?.key));
+    const value = col
+      ? (col.accessor ?? ((it: T) => (it as Record<string, unknown>)[col.key]))(item)
+      : undefined;
+    return typeof value === "string" || typeof value === "number" ? String(value) : id;
+  };
   const showingFrom =
     totalItems === 0 ? 0 : currentPage * currentPageSize + 1;
   const showingTo = Math.min(
@@ -713,6 +751,7 @@ export function DataTable<T>({
               {selectable && (
                 <TableHead className={cn("w-10", headDensity)}>
                   <Checkbox
+                    aria-label="Select all rows"
                     checked={
                       items.length > 0 && selected?.size === items.length
                     }
@@ -744,13 +783,13 @@ export function DataTable<T>({
                         ? { width: resizeWidth, minWidth: resizeWidth }
                         : undefined
                     }
+                    // Only the primary sort column carries aria-sort; a
+                    // secondary sort is said in its button's name instead.
                     aria-sort={
-                      col.sortable
-                        ? sortEntry
-                          ? sortEntry.dir === "asc"
-                            ? "ascending"
-                            : "descending"
-                          : "none"
+                      sortEntry && sortIndex === 0
+                        ? sortEntry.dir === "asc"
+                          ? "ascending"
+                          : "descending"
                         : undefined
                     }
                   >
@@ -770,7 +809,10 @@ export function DataTable<T>({
                               <ArrowDown className="h-3 w-3 shrink-0 text-foreground" />
                             )}
                             {sorts.length > 1 && (
-                              <span className="text-[10px] text-muted-foreground font-mono">
+                              <span
+                                aria-hidden="true"
+                                className="text-[10px] text-muted-foreground font-mono"
+                              >
                                 {sortIndex + 1}
                               </span>
                             )}
@@ -788,6 +830,11 @@ export function DataTable<T>({
                           type="button"
                           className="-mx-1 flex w-[calc(100%+0.5rem)] min-w-0 items-center rounded px-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={(e) => handleSort(col.key, e.shiftKey)}
+                          aria-label={
+                            sortEntry && sortIndex > 0
+                              ? `${col.header}, sorted ${sortEntry.dir === "asc" ? "ascending" : "descending"}, sort ${sortIndex + 1}`
+                              : undefined
+                          }
                         >
                           {label}
                         </button>
@@ -833,8 +880,7 @@ export function DataTable<T>({
                     key={id}
                     className={cn(
                       onRowClick && "cursor-pointer",
-                      rowKeys &&
-                        "focus-visible:outline-none focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                      "focus-within:bg-muted/40",
                     )}
                     data-state={
                       selected?.has(id) ? "selected" : undefined
@@ -842,32 +888,6 @@ export function DataTable<T>({
                     onClick={
                       onRowClick ? () => onRowClick(item) : undefined
                     }
-                    {...(rowKeys
-                      ? {
-                          tabIndex: 0,
-                          onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
-                            // Keys typed into a control inside the row stay there.
-                            if (e.target !== e.currentTarget) return;
-                            if (e.metaKey || e.ctrlKey || e.altKey) return;
-                            const row = e.currentTarget;
-                            const move = (to: Parameters<typeof focusRow>[1]) => {
-                              e.preventDefault();
-                              focusRow(row, to);
-                            };
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              onRowClick?.(item);
-                            } else if (e.key === "ArrowDown" || e.key === "j") move("next");
-                            else if (e.key === "ArrowUp" || e.key === "k") move("prev");
-                            else if (e.key === "Home") move("first");
-                            else if (e.key === "End") move("last");
-                            else if (e.key === "x" && selectable) {
-                              e.preventDefault();
-                              onToggleSelect?.(id);
-                            }
-                          },
-                        }
-                      : {})}
                   >
                     {selectable && (
                       <TableCell
@@ -875,6 +895,7 @@ export function DataTable<T>({
                         onClick={(e: React.MouseEvent) => e.stopPropagation()}
                       >
                         <Checkbox
+                          aria-label={`Select ${rowLabel(item, id)}`}
                           checked={selected?.has(id)}
                           onCheckedChange={() => onToggleSelect?.(id)}
                         />
@@ -898,19 +919,55 @@ export function DataTable<T>({
                             isFirstCol && "sticky left-0 z-[1] bg-background",
                           )}
                         >
-                          {col.editable ? (
-                            <EditableCell
-                              item={item}
-                              column={col}
-                              value={value}
-                            />
-                          ) : col.render ? (
-                            col.render(item, value)
-                          ) : (
-                            <span className="truncate block max-w-[300px]">
-                              {String(value ?? "\u2014")}
-                            </span>
-                          )}
+                          {(() => {
+                            const content = col.editable ? (
+                              <EditableCell
+                                item={item}
+                                column={col}
+                                value={value}
+                              />
+                            ) : col.render ? (
+                              col.render(item, value)
+                            ) : (
+                              <span className="truncate block max-w-[300px]">
+                                {String(value ?? "\u2014")}
+                              </span>
+                            );
+                            if (col.key !== openKey) return content;
+                            // The row's named open action: a button the
+                            // screen reader announces, and the table's one
+                            // tab stop when this row holds it.
+                            return (
+                              <button
+                                type="button"
+                                {...{ [ROW_OPEN]: "" }}
+                                tabIndex={id === tabStopKey ? 0 : -1}
+                                className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                                onFocus={() => setActiveRowKey(id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRowClick?.(item);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.metaKey || e.ctrlKey || e.altKey) return;
+                                  const move = (to: Parameters<typeof focusRow>[1]) => {
+                                    e.preventDefault();
+                                    focusRow(e.currentTarget, to);
+                                  };
+                                  if (e.key === "ArrowDown" || e.key === "j") move("next");
+                                  else if (e.key === "ArrowUp" || e.key === "k") move("prev");
+                                  else if (e.key === "Home") move("first");
+                                  else if (e.key === "End") move("last");
+                                  else if (e.key === "x" && selectable) {
+                                    e.preventDefault();
+                                    onToggleSelect?.(id);
+                                  }
+                                }}
+                              >
+                                {content}
+                              </button>
+                            );
+                          })()}
                         </TableCell>
                       );
                     })}

@@ -49,17 +49,17 @@ export function isDataReadError(error: unknown): error is DataReadError {
 }
 
 /** The plain sentence for a failed read of `noun` records (one, or a list). */
-export function readFailureMessage(outcome: ReadOutcome, noun: string, one: boolean): string {
+export function readFailureMessage(outcome: ReadOutcome, noun: string, one: boolean, plural = `${noun}s`): string {
   switch (outcome) {
     case "unauthenticated":
       return "Your session has ended. Sign in again to continue.";
     case "forbidden":
-      return one ? `You don't have access to this ${noun}.` : `You don't have access to these ${noun}s.`;
+      return one ? `You don't have access to this ${noun}.` : `You don't have access to these ${plural}.`;
     case "gone":
       return `This ${noun} doesn't exist, or you can't see it.`;
     case "invalid":
-      return one ? `This ${noun} couldn't be loaded.` : `These ${noun}s couldn't be loaded.`;
+      return one ? `This ${noun} couldn't be loaded.` : `These ${plural} couldn't be loaded.`;
     default:
-      return one ? `This ${noun} couldn't be loaded. Try again.` : `These ${noun}s couldn't be loaded. Try again.`;
+      return one ? `This ${noun} couldn't be loaded. Try again.` : `These ${plural} couldn't be loaded. Try again.`;
   }
 }

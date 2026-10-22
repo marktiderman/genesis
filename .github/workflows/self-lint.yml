@@ -64,6 +64,8 @@ permissions:
 jobs:
   self-lint:
     name: genesis-lint (self, enforcing)
+    # Version-packages PRs only bump versions and changelogs; the code already passed CI on the release PR.
+    if: github.head_ref != 'changeset-release/main'
     uses: ./.github/workflows/genesis-lint.yml
     with:
       paths: 'apps'

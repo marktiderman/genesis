@@ -7915,8 +7915,15 @@
               "name": "description",
               "type": "ReactNode",
               "required": false,
-              "defaultValue": "This can't be undone.",
-              "description": "Default \"This can't be undone.\""
+              "defaultValue": "kind === \"recycle\"\n    ? \"It moves to the recycle bin, where it can be restored.\"\n    : \"This can't be undone.\"",
+              "description": "Default by `kind`: \"This can't be undone.\", or \"It moves to the recycle\nbin, where it can be restored.\""
+            },
+            {
+              "name": "kind",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "permanent",
+              "description": "What happens to the record: `\"permanent\"` (default) or `\"recycle\"` when\na delete moves it to a recycle bin. Sets the default description."
             },
             {
               "name": "title",
@@ -8935,7 +8942,7 @@
               "type": "boolean",
               "required": false,
               "defaultValue": "true",
-              "description": "Keyboard use of rows when `onRowClick` is set: rows are tab stops,\nEnter or Space opens one, ↑/↓ (or j/k) and Home/End move between rows,\nand x toggles the row's selection when `selectable`. Default true."
+              "description": "Keyboard use of rows when `onRowClick` is set. Each row's open column\n(see `openColumn`) is a button named by its content, and the table is\none tab stop: Tab reaches the current row's button, Enter or Space\nopens it, ↑/↓ (or j/k) and Home/End move between rows, and x toggles\nthe row's selection when `selectable`. Default true."
             },
             {
               "name": "onRowClick",
@@ -8957,6 +8964,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "openColumn",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "The column whose cell opens the row (as a button), by key. Default: the\nfirst visible column that isn't `editable`. Its `render` must not put a\nlink or button in the cell. `null` makes no cell a button (mouse only)."
             },
             {
               "name": "pageSize",
@@ -12283,25 +12297,32 @@
               "description": ""
             },
             {
+              "name": "can",
+              "type": "((action: ResourceAction, item?: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": "What the signed-in user may do: `can(\"create\")`, `can(\"edit\", item)`,\n`can(\"delete\", item)`. Return false to hide the New button, or a row's\nEdit or Delete (and the built-in edit form won't open for it). Omitted,\neverything the handlers allow is offered. A UI gate only: the server\nmust still refuse the write."
+            },
+            {
               "name": "canDelete",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether this row may be deleted. The peek's Delete button is hidden for\na row that returns `false`. Omitted, every row is deletable. A UI gate\nonly: the server must still refuse the write."
+              "description": "@deprecated Use `can` — `can={(action, item) => action !== \"delete\" || !item || mayDelete(item)}`.\nStill honoured: a row it refuses gets no Delete."
             },
             {
               "name": "canEdit",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether this row may be edited. The peek's Edit button is hidden for a\nrow that returns `false` (and the built-in edit form will not open for\nit). Omitted, every row is editable, as before. A UI gate only: the\nserver must still refuse the write."
+              "description": "@deprecated Use `can` — `can={(action, item) => action !== \"edit\" || !item || mayEdit(item)}`.\nStill honoured: a row it refuses gets no Edit."
             },
             {
               "name": "canEditItem",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether the signed-in user may change this record at all: shorthand for\n`canEdit` and `canDelete` together. When it returns false the peek\noffers neither Edit nor Delete.\n\nPrecedence: `canEditItem` is checked first. A row it refuses gets no Edit\nand no Delete, whatever `canEdit` / `canDelete` say. A row it allows is\nthen gated by `canEdit` (Edit) and `canDelete` (Delete) when given. Use\n`canEditItem` alone for one owner rule, or the pair for separate rules."
+              "description": "@deprecated Use `can` — `can={(action, item) => !item || mayChange(item)}`.\nRemoved in the next minor after one deprecation window. Still honoured:\na row it refuses gets no Edit and no Delete."
             },
             {
               "name": "canSaveViews",
