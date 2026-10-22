@@ -228,3 +228,40 @@ describe("finding 12: timeline list cap", () => {
     expect(items().length).toBe(250);
   });
 });
+
+describe("sensitive hidden inputs (CodeRabbit round 4)", () => {
+  const withMember = defineForm({
+    id: "member-hidden",
+    title: "Member",
+    hidden: {
+      member: f.hidden.string({ source: "server", sensitive: true }),
+      ref: f.hidden.string({ source: "url", sensitive: true }),
+      coach: f.hidden.string({ source: "server" }),
+    },
+    blocks: [f.rating("overall", { label: "How was it?", required: true })],
+  });
+  const done = () =>
+    replay(withMember.definition, [{ type: "answer", field: "overall", value: 4 }, { type: "submit" }], {
+      hidden: { member: "user-42", ref: "flyer-7", coach: "Sam" },
+    });
+
+  it("masks them in the state and server panels, hidden and context alike", () => {
+    for (const panel of [
+      <StatePanel key="s" engine={done()} />,
+      <ServerPanel key="v" engine={done()} context={{ member: "user-42", coach: "Sam" }} />,
+    ]) {
+      const { container, unmount } = render(panel);
+      const text = container.textContent ?? "";
+      expect(text).not.toMatch(/user-42|flyer-7/);
+      expect(text).toMatch(/Sam/);
+      unmount();
+    }
+  });
+
+  it("shows the reveal switch for a form whose only sensitive data is a hidden input", () => {
+    render(<Inspector engine={done()} context={{ member: "user-42" }} />);
+    expect(screen.getByTestId("devtools-state").textContent).not.toMatch(/user-42/);
+    fireEvent.click(screen.getByRole("switch", { name: "Reveal sensitive values" }));
+    expect(screen.getByTestId("devtools-state").textContent).toMatch(/user-42/);
+  });
+});

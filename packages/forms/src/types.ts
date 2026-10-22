@@ -59,6 +59,8 @@ export interface HiddenInput {
   name: string;
   type: "string" | "number" | "boolean";
   source: "url" | "host" | "server";
+  /** Masked in devtools unless revealed, like a sensitive field. */
+  sensitive?: boolean;
 }
 
 export type Operator =

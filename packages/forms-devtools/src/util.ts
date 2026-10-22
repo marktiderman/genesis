@@ -8,6 +8,10 @@ export { isFormEvent, isSensitive };
 export const sensitiveIds = (definition: FormDefinition): Set<string> =>
   new Set(definition.blocks.filter((b) => b.kind === "field" && isSensitive(b)).map((b) => b.id));
 
+/** Names of the hidden inputs marked `sensitive`. */
+export const sensitiveHiddenNames = (definition: FormDefinition): Set<string> =>
+  new Set((definition.hidden ?? []).filter((h) => h.sensitive === true).map((h) => h.name));
+
 /** What the inspector shows in place of a sensitive value. */
 export const SENSITIVE_MASK = "•••• (sensitive)";
 

@@ -67,6 +67,17 @@ const choiceProps = (options: readonly { value: string; label?: string }[]): Rec
   options: options.map((o): Json => (o.label ? { value: o.value, label: o.label } : { value: o.value })),
 });
 
+interface HiddenOptions {
+  source?: HiddenInput["source"];
+  sensitive?: boolean;
+}
+
+const hiddenSpec = <T extends HiddenInput["type"]>(type: T, o: HiddenOptions) => ({
+  type,
+  source: o.source ?? "url",
+  ...(o.sensitive ? { sensitive: true as const } : {}),
+});
+
 export const f = {
   shortText: <K extends string>(key: K, o: FieldOptions & { maxLength?: number }) =>
     field<K, string>("short-text", key, o, o.maxLength ? { maxLength: o.maxLength } : undefined),
@@ -92,9 +103,9 @@ export const f = {
     title ? { kind: "page-break", id, title } : { kind: "page-break", id },
 
   hidden: {
-    string: (o: { source?: HiddenInput["source"] } = {}) => ({ type: "string" as const, source: o.source ?? "url" }),
-    number: (o: { source?: HiddenInput["source"] } = {}) => ({ type: "number" as const, source: o.source ?? "url" }),
-    boolean: (o: { source?: HiddenInput["source"] } = {}) => ({ type: "boolean" as const, source: o.source ?? "url" }),
+    string: (o: HiddenOptions = {}) => hiddenSpec("string" as const, o),
+    number: (o: HiddenOptions = {}) => hiddenSpec("number" as const, o),
+    boolean: (o: HiddenOptions = {}) => hiddenSpec("boolean" as const, o),
   },
 };
 
@@ -179,7 +190,7 @@ function resolveCondition(c: Condition, r: KeyResolver): Condition {
 
 // ── defineForm ───────────────────────────────────────────────────────────────
 
-type HiddenSpec = { type: HiddenInput["type"]; source: HiddenInput["source"] };
+type HiddenSpec = { type: HiddenInput["type"]; source: HiddenInput["source"]; sensitive?: boolean };
 type HiddenValue<T extends HiddenSpec["type"]> = T extends "number" ? number : T extends "boolean" ? boolean : string;
 
 type AnyBlock = FieldSpec<string, unknown> | ContentBlock | PageBreakBlock;
@@ -252,6 +263,7 @@ export function defineForm<
       name,
       type: spec.type,
       source: spec.source,
+      ...(spec.sensitive ? { sensitive: true } : {}),
     }));
   }
   if (input.logic?.length) definition.logic = input.logic.map((rule, i) => rule.build(resolve, `r${i + 1}`));

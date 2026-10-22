@@ -8,7 +8,7 @@ import type { FormEngine, FormEvent, Json } from "@marktiderman/genesis-forms";
 import { useFormSelector } from "@marktiderman/genesis-forms-react";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ServerPanel, StatePanel, TimelinePanel } from "./panels";
-import { sensitiveIds } from "./util";
+import { sensitiveHiddenNames, sensitiveIds } from "./util";
 
 export interface InspectorTab {
   id: string;
@@ -40,7 +40,10 @@ const EMPTY: Record<string, Json> = {};
 export function Inspector({ engine, context = EMPTY, onFork, extraTabs = [], defaultTab = "state", className }: InspectorProps) {
   const status = useFormSelector(engine, (s) => s.status);
   const count = useFormSelector(engine, (s) => s.events.length);
-  const hasSensitive = useMemo(() => sensitiveIds(engine.definition).size > 0, [engine.definition]);
+  const hasSensitive = useMemo(
+    () => sensitiveIds(engine.definition).size > 0 || sensitiveHiddenNames(engine.definition).size > 0,
+    [engine.definition],
+  );
   const [reveal, setReveal] = useState(false);
   const guard = (content: ReactNode) => (
     <ErrorBoundary resetKey={engine} label="This panel">

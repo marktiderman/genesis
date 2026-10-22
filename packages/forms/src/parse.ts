@@ -82,6 +82,24 @@ export function parseForm(input: unknown): ParseResult {
   text(input.id, "id", true);
   text(input.title, "title");
   optionalText(input.description, "description");
+  // Settings change privacy behaviour (anonymous, clearHiddenValues), so a
+  // mistyped one is an issue, not a silent default.
+  if (input.layout !== undefined) {
+    if (!isObject(input.layout)) issue("layout", "Must be an object.");
+    else if (input.layout.mode !== "focus" && input.layout.mode !== "classic") {
+      issue("layout.mode", "Must be focus or classic.");
+    }
+  }
+  if (input.settings !== undefined) {
+    if (!isObject(input.settings)) issue("settings", "Must be an object.");
+    else {
+      optionalBoolean(input.settings.anonymous, "settings.anonymous");
+      optionalBoolean(input.settings.clearHiddenValues, "settings.clearHiddenValues");
+    }
+  }
+  if (input.meta !== undefined && (!isObject(input.meta) || !isJson(input.meta))) {
+    issue("meta", "Must be a JSON object.");
+  }
   if (!Array.isArray(input.blocks)) {
     issue("blocks", "Must be an array.");
     return fail();
@@ -157,6 +175,7 @@ export function parseForm(input: unknown): ParseResult {
     if (typeof h.type !== "string" || !["string", "number", "boolean"].includes(h.type)) {
       issue(`hidden[${i}].type`, "Must be string, number or boolean.");
     }
+    optionalBoolean(h.sensitive, `hidden[${i}].sensitive`);
     hiddenNames.add(h.name);
   });
 

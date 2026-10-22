@@ -609,3 +609,41 @@ describe("D. anonymous forms withhold identifying fields", () => {
     expect(parseForm(raw([{ ...field("x", "short-text"), identifying: 1 as never }])).ok).toBe(false);
   });
 });
+
+describe("settings, layout and meta are checked (CodeRabbit round 4)", () => {
+  const base = { schemaVersion: 1, id: "s", title: "S", blocks: [] };
+  it("rejects a mistyped anonymous setting instead of collecting identifying fields", () => {
+    const r = parseForm({ ...base, settings: { anonymous: "true" } });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.issues.map((i) => i.path)).toContain("settings.anonymous");
+  });
+  it("rejects an unknown layout mode, a non-object settings and non-JSON meta", () => {
+    expect(parseForm({ ...base, layout: { mode: "paged" } }).ok).toBe(false);
+    expect(parseForm({ ...base, layout: {} }).ok).toBe(false);
+    expect(parseForm({ ...base, settings: [] }).ok).toBe(false);
+    expect(parseForm({ ...base, meta: "x" }).ok).toBe(false);
+    expect(parseForm({ ...base, hidden: [{ name: "n", type: "string", source: "url", sensitive: "yes" }] }).ok).toBe(false);
+  });
+  it("accepts well-typed settings, layout, meta and a sensitive hidden input", () => {
+    const r = parseForm({
+      ...base,
+      layout: { mode: "focus" },
+      settings: { anonymous: true, clearHiddenValues: false },
+      meta: { owner: "x" },
+      hidden: [{ name: "member", type: "string", source: "server", sensitive: true }],
+    });
+    expect(r.ok).toBe(true);
+  });
+  it("defineForm carries sensitive hidden inputs", () => {
+    const form = defineForm({
+      id: "h",
+      title: "H",
+      hidden: { member: f.hidden.string({ source: "server", sensitive: true }), coach: f.hidden.string({ source: "server" }) },
+      blocks: [f.rating("r", { label: "R" })],
+    });
+    expect(form.definition.hidden).toEqual([
+      { name: "member", type: "string", source: "server", sensitive: true },
+      { name: "coach", type: "string", source: "server" },
+    ]);
+  });
+});

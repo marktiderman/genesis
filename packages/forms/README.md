@@ -70,15 +70,15 @@ const version = afterClass.hash();         // content fingerprint for publishing
 | `registerFieldType` | Add a field type. Non-JSON values must provide `serialize` and `deserialize`; `normalize` sets the stored form (email trims). A field whose type is not registered accepts no answer. |
 | `coerceHidden(def, raw, { sources })` | Type hidden inputs by their declarations; reports dropped names in `ignored`. |
 | `isFormEvent(value)` | Guard for one well-formed event-log entry. |
-| `isSensitive(block)` | `sensitive: true` on a field, or the `props.sensitive` alias. |
+| `isSensitive(block)` | `sensitive: true` on a field, or the `props.sensitive` alias. Hidden inputs take `sensitive: true` too (`f.hidden.string({ source: "server", sensitive: true })`); devtools masks both. |
+| `/server` → `validateSubmission`, `publicDefinition` | Re-check a submission against the published definition: drops unknown and logic-hidden answers, ignores client values for server inputs, checks drafts by format only. Never throws on a malformed body. No IO. |
+| `explain(engine, blockId)` | "Why is this hidden?": the path, the jump that skipped a block, each show/hide rule with its result in plain English, and the field's validation. |
+| `/testing` → `simulate`, `coverage`, `runScenario`, `recordScenario`, `compactEvents` | Walk a form by key, enumerate its paths, and run JSON scenarios. See [Testing](#testing). |
 
 `f.phone(key, opts)` stores a string: trimmed, an optional leading `+`, digits and the separators
 space, `-`, `(`, `)` and `.`, 7 to 15 digits, at most 32 characters. Operators: `eq`, `neq`,
 `answered`, `empty`. Its manifest carries `autocomplete: "tel"` and `inputMode: "tel"` (email:
 `"email"` for both).
-| `/server` → `validateSubmission`, `publicDefinition` | Re-check a submission against the published definition: drops unknown and logic-hidden answers, ignores client values for server inputs, checks drafts by format only. Never throws on a malformed body. No IO. |
-| `explain(engine, blockId)` | "Why is this hidden?": the path, the jump that skipped a block, each show/hide rule with its result in plain English, and the field's validation. |
-| `/testing` → `simulate`, `coverage`, `runScenario`, `recordScenario`, `compactEvents` | Walk a form by key, enumerate its paths, and run JSON scenarios. See [Testing](#testing). |
 
 ## On the server
 

@@ -8,7 +8,7 @@ import { cn } from "@marktiderman/genesis-ui/utils";
 import { replay, type FormEngine, type FormEvent, type Json } from "@marktiderman/genesis-forms";
 import { validateSubmission } from "@marktiderman/genesis-forms/server";
 import { useFormSelector } from "@marktiderman/genesis-forms-react";
-import { SENSITIVE_MASK, isPrefix, maskRecord, sensitiveIds } from "./util";
+import { SENSITIVE_MASK, isPrefix, maskRecord, sensitiveHiddenNames, sensitiveIds } from "./util";
 
 export interface PrettyOptions {
   /** Objects and arrays deeper than this are shown as a placeholder. Default 24. */
@@ -78,6 +78,8 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 const keyOf = (engine: FormEngine, id: string) => engine.field(id)?.key ?? id;
 
 const useSensitive = (engine: FormEngine) => useMemo(() => sensitiveIds(engine.definition), [engine.definition]);
+const useSensitiveHidden = (engine: FormEngine) =>
+  useMemo(() => sensitiveHiddenNames(engine.definition), [engine.definition]);
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -88,7 +90,9 @@ const useSensitive = (engine: FormEngine) => useMemo(() => sensitiveIds(engine.d
 export function StatePanel({ engine, reveal = false }: { engine: FormEngine; reveal?: boolean }) {
   const state = useFormSelector(engine, (s) => s);
   const sensitive = useSensitive(engine);
+  const sensitiveHidden = useSensitiveHidden(engine);
   const values = reveal ? state.values : maskRecord(state.values, sensitive);
+  const hidden = reveal ? state.hidden : maskRecord(state.hidden, sensitiveHidden);
   const byKey = Object.fromEntries(
     Object.entries(values).map(([id, v]) => [keyOf(engine, id), v === undefined ? null : v]),
   );
@@ -102,7 +106,7 @@ export function StatePanel({ engine, reveal = false }: { engine: FormEngine; rev
           .join(", ") || "—"}
       </Row>
       <Row label="On screen">{state.current ? keyOf(engine, state.current) : "—"}</Row>
-      <JsonView value={{ status: state.status, ending: state.ending, values: byKey, errors: state.errors, hidden: state.hidden }} />
+      <JsonView value={{ status: state.status, ending: state.ending, values: byKey, errors: state.errors, hidden }} />
     </div>
   );
 }
@@ -245,6 +249,7 @@ export function ServerPanel({
 }) {
   const state = useFormSelector(engine, (s) => s);
   const sensitive = useSensitive(engine);
+  const sensitiveHidden = useSensitiveHidden(engine);
   const [tamper, setTamper] = useState(false);
   const result = useMemo(() => {
     const serverInputs = (engine.definition.hidden ?? []).filter((h) => h.source === "server");
@@ -267,7 +272,15 @@ export function ServerPanel({
   const shown =
     reveal || !result.ok
       ? result
-      : { ...result, submission: { ...result.submission, answers: maskRecord(result.submission.answers, sensitive) } };
+      : {
+          ...result,
+          submission: {
+            ...result.submission,
+            answers: maskRecord(result.submission.answers, sensitive),
+            hidden: maskRecord(result.submission.hidden, sensitiveHidden),
+            context: maskRecord(result.submission.context, sensitiveHidden),
+          },
+        };
 
   return (
     <div className="space-y-3" data-testid="devtools-server">
@@ -303,7 +316,9 @@ export function ContextEditor({
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const latest = useRef(onChange);
-  latest.current = onChange;
+  useEffect(() => {
+    latest.current = onChange;
+  });
   useEffect(() => () => clearTimeout(timer.current), []);
   return (
     <div className="space-y-1">
