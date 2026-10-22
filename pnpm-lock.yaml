@@ -11,6 +11,12 @@ importers:
       '@changesets/cli':
         specifier: ~2.30.0
         version: 2.30.0(@types/node@22.20.1)
+      '@marktiderman/genesis-cli':
+        specifier: workspace:*
+        version: link:packages/genesis-cli
+      '@marktiderman/genesis-features':
+        specifier: workspace:*
+        version: link:packages/features
       vitest:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@20.11.1)(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
@@ -26,6 +32,9 @@ importers:
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../../packages/design-system
+      '@marktiderman/genesis-features':
+        specifier: workspace:^
+        version: link:../../packages/features
       '@marktiderman/genesis-forms':
         specifier: workspace:^
         version: link:../../packages/forms

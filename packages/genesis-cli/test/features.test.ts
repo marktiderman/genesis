@@ -1,3 +1,4 @@
+// @feat:feature-registry
 /**
  * `genesis features build|check` against a throwaway repo. The registry is
  * TypeScript (type annotations included) to prove the loader strips types;
@@ -7,7 +8,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { runFeaturesBuild, runFeaturesCheck } from "../src/features";
+import { formatFeature, runFeaturesBuild, runFeaturesCheck, runFeaturesFind } from "../src/features";
 
 const created: string[] = [];
 afterEach(() => {
@@ -28,49 +29,54 @@ const registry = (status: string) => `
 type Status = "live" | "beta";
 const status: Status = "${status}" as Status;
 export const features = {
-  tasks: { name: "Tasks", summary: "Next steps.", status, owner: "mark", apps: ["web"], audience: ["client"], links: { code: ["src/tasks.ts"] } },
+  tasks: { name: "Tasks", summary: "Next steps.", status, owner: "mark", apps: ["web"], audience: ["client"], acceptance: ["Ticks off."], reviewedAt: "2026-10-22", links: { code: ["src/tasks.ts"] } },
 };
 `;
+const off = { agents: false as const, json: false as const, skill: false as const, claude: false as const };
 
 describe("genesis features", () => {
   it("builds the AGENTS.md block, then checks it, from src/features.ts", async () => {
     const root = repo({ "src/features.ts": registry("live"), "src/tasks.ts": "", "AGENTS.md": "# Agents\n" });
-    const options = { dir: root, agents: "AGENTS.md" as const };
+    const options = { dir: root };
     expect((await runFeaturesCheck(options)).ok).toBe(false);
-    expect(await runFeaturesBuild(options)).toEqual(["AGENTS.md"]);
+    expect(await runFeaturesBuild(options)).toEqual(["AGENTS.md", "features.json", ".claude/skills/features/SKILL.md", "CLAUDE.md"]);
     const doc = readFileSync(path.join(root, "AGENTS.md"), "utf8");
-    expect(doc).toContain("Generated from `src/features.ts`");
-    expect(doc).toContain("| `tasks` | Tasks |");
+    expect(doc).toContain("Every feature is in `src/features.ts`: 1 features (1 live).");
     expect(await runFeaturesCheck(options)).toMatchObject({ ok: true, errors: [] });
 
     writeFileSync(path.join(root, "src/features.ts"), registry("beta"));
-    expect((await runFeaturesCheck(options)).errors).toEqual([
-      "AGENTS.md is stale. Run `genesis features build` and commit the result.",
-    ]);
+    expect((await runFeaturesCheck(options)).stale).toEqual(["AGENTS.md", "features.json"]);
   });
 
-  it("reads flags from a separate file and writes the JSON copy", async () => {
+  it("reads settings from package.json, flags from a separate file, and writes the OpenFeature manifest", async () => {
     const root = repo({
       "features.ts": registry("live"),
-      "src/tasks.ts": "",
-      "src/flags.ts": `export const flags = { tasks_v2: { feature: "tasks", owner: "mark", kind: "ops" } };`,
+      "src/tasks.ts": "useFlag('tasks.v2')",
+      "src/flags.ts": `export const flags = { "tasks.v2": { feature: "tasks", owner: "mark", kind: "ops", default: false, scopes: ["platform"], runbook: "https://x.test/r" } };`,
+      "package.json": JSON.stringify({ genesisFeatures: { flagsFile: "src/flags.ts", agents: false, skill: false, claude: false, json: "out/features.json" } }),
     });
-    const options = { dir: root, agents: false as const, flags: "src/flags.ts", json: "features.json" };
-    expect(await runFeaturesBuild(options)).toEqual(["features.json"]);
-    const json = JSON.parse(readFileSync(path.join(root, "features.json"), "utf8"));
+    expect(await runFeaturesBuild({ dir: root })).toEqual(["out/features.json", "flags.json"]);
+    const json = JSON.parse(readFileSync(path.join(root, "out/features.json"), "utf8"));
     expect(json.generatedFrom).toBe("features.ts");
-    expect(json.features[0].flags).toEqual(["tasks_v2"]);
-    expect((await runFeaturesCheck(options)).ok).toBe(true);
+    expect(json.features[0].flags).toEqual(["tasks.v2"]);
+    expect(JSON.parse(readFileSync(path.join(root, "flags.json"), "utf8")).flags["tasks.v2"].flagType).toBe("boolean");
+    expect((await runFeaturesCheck({ dir: root })).ok).toBe(true);
+    expect((await runFeaturesCheck({ dir: root, labels: ["feature:nope"] })).errors).toEqual(["PR label feature:nope: nope is not a feature"]);
+  });
+
+  it("finds features by term", async () => {
+    const root = repo({ "src/features.ts": registry("live"), "src/tasks.ts": "" });
+    expect((await runFeaturesFind({ dir: root }, "next steps")).map((r) => r.id)).toEqual(["tasks"]);
+    expect(formatFeature((await runFeaturesFind({ dir: root }, "tasks"))[0]!)).toBe("tasks — Tasks [live] (mark)\n  Next steps.\n  code: src/tasks.ts");
   });
 
   it("fails on a missing code path", async () => {
     const root = repo({ "src/features.ts": registry("live") });
-    const options = { dir: root, agents: false as const };
-    expect((await runFeaturesCheck(options)).errors).toEqual(["tasks.links.code: src/tasks.ts doesn't exist"]);
+    expect((await runFeaturesCheck({ dir: root, ...off })).errors).toEqual(["tasks.links.code: src/tasks.ts doesn't exist"]);
   });
 
   it("says where it looked when there is no registry", async () => {
     const root = repo({ "README.md": "" });
-    await expect(runFeaturesCheck({ dir: root, agents: false })).rejects.toThrow(/src\/features\.ts and features\.ts/);
+    await expect(runFeaturesCheck({ dir: root, ...off })).rejects.toThrow(/src\/features\.ts and features\.ts/);
   });
 });

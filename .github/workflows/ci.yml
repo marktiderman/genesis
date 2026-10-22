@@ -57,6 +57,13 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # features.ts against the repo: generated files, code paths, ids, tags. On a PR it also
+      # checks feature:<id> labels; the labels go through env, never into the script text.
+      - name: Feature registry
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: pnpm features check --labels "$LABELS"
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

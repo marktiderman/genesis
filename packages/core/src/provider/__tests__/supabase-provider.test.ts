@@ -1,3 +1,4 @@
+// @feat:supabase-provider
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSupabaseProvider, type SupabaseProviderOptions } from "../supabase-provider";
 import { readOutcomeFromCode, toDataWriteError, writeOutcomeFromCode } from "../postgrest-errors";

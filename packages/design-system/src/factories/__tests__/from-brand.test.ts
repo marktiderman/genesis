@@ -1,3 +1,4 @@
+// @feat:design-tokens
 /**
  * Cross-platform factory divergence tests — PRD-07 Phase A4.0 spike.
  *

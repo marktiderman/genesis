@@ -1,3 +1,4 @@
+// @feat:data-provider
 /**
  * genesis-core's write hooks, driven through a real React tree (core has no
  * DOM test setup, so this lives with genesis-ui's happy-dom suite).

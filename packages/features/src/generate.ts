@@ -1,18 +1,27 @@
-import { FEATURE_STATUSES, toRecords, type Features, type Flags } from "./model";
+import { FEATURE_STATUSES, toRecords, type FeatureRecord, type Features, type Flags, type FlagValue } from "./model";
 
 /** Marks the start of the generated block in AGENTS.md. */
 export const AGENTS_BLOCK_START = "<!-- genesis-features:start -->";
 /** Marks the end of the generated block in AGENTS.md. */
 export const AGENTS_BLOCK_END = "<!-- genesis-features:end -->";
+/** Marks the start of the generated marketing block (e.g. in README.md). */
+export const MARKETING_BLOCK_START = "<!-- genesis-features:marketing:start -->";
+/** Marks the end of the generated marketing block. */
+export const MARKETING_BLOCK_END = "<!-- genesis-features:marketing:end -->";
 
 export interface GenerateOptions {
-  /** The file the registry lives in, named in the "generated from" note. Default `src/features.ts`. */
+  /** The file the registry lives in, named in the "generated from" notes. Default `src/features.ts`. */
   source?: string;
+  /** How agents run the CLI here, e.g. `genesis features` or `bun run features`. Default `genesis features`. */
+  command?: string;
+  /** Where the skill lives, named in the AGENTS.md pointer. Default `.claude/skills/features/SKILL.md`. */
+  skill?: string | false;
 }
 
 /**
  * The registry as JSON, for tools that can't import TypeScript. Stable: no
- * timestamps, features in declaration order, so `check` can compare it.
+ * timestamps, features in declaration order, so `check` can compare it. It is
+ * also the record of every id ever used, which keeps ids permanent.
  *
  * @stability Beta
  */
@@ -25,68 +34,189 @@ export function toJson(features: Features, flags?: Flags, options: GenerateOptio
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
 
-const cell = (value: string) => value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
-const code = (value: string) => `\`${value.replace(/`/g, "'")}\``;
+function flagType(value: FlagValue): string {
+  if (typeof value === "boolean") return "boolean";
+  if (typeof value === "string") return "string";
+  if (typeof value === "number") return Number.isInteger(value) ? "integer" : "float";
+  return "object";
+}
+
+/** The schema an OpenFeature CLI flag manifest points at. */
+export const OPENFEATURE_MANIFEST_SCHEMA =
+  "https://raw.githubusercontent.com/open-feature/cli/refs/heads/main/schema/v0/flag-manifest.json";
 
 /**
- * The marker-delimited block for AGENTS.md: every feature, grouped by status,
- * with its owner, apps, audience, flags and code paths. Write it with
- * {@link replaceAgentsBlock}; never edit it by hand.
+ * The flags as an OpenFeature CLI flag manifest (`flags.json`), so
+ * `openfeature generate` can make typed accessors from the same registry.
+ *
+ * @stability Beta
+ */
+export function toOpenFeatureManifest(flags: Flags, features?: Features): string {
+  const manifest = {
+    $schema: OPENFEATURE_MANIFEST_SCHEMA,
+    flags: Object.fromEntries(
+      Object.entries(flags).map(([key, flag]) => [
+        key,
+        {
+          flagType: flagType(flag.default),
+          defaultValue: flag.default,
+          description: flag.description ?? `${flag.kind} flag for ${features?.[flag.feature]?.name ?? flag.feature}`,
+        },
+      ]),
+    ),
+  };
+  return `${JSON.stringify(manifest, null, 2)}\n`;
+}
+
+const cell = (value: string) => value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+
+/**
+ * The marker-delimited block for AGENTS.md: deliberately short. It points
+ * agents at `find` and the skill and gives counts, never the whole list, so
+ * AGENTS.md stays small however many features there are.
  *
  * @stability Beta
  */
 export function toAgentsMarkdown(features: Features, flags?: Flags, options: GenerateOptions = {}): string {
   const source = options.source ?? "src/features.ts";
+  const command = options.command ?? "genesis features";
+  const skill = options.skill === undefined ? ".claude/skills/features/SKILL.md" : options.skill;
   const records = toRecords(features, flags);
+  const counts = FEATURE_STATUSES.map((s) => [s, records.filter((r) => r.status === s).length] as const)
+    .filter(([, n]) => n > 0)
+    .map(([s, n]) => `${n} ${s}`)
+    .join(", ");
+  const flagCount = flags ? Object.keys(flags).length : 0;
   const lines = [
     AGENTS_BLOCK_START,
     "## Features",
     "",
-    `Generated from \`${source}\` by \`genesis features build\`. Don't edit this block: change \`${source}\` and run the build. \`genesis features check\` fails when it is stale.`,
+    `Every feature is in \`${source}\`: ${records.length} features (${counts})${flagCount ? `, ${flagCount} flag${flagCount === 1 ? "" : "s"}` : ""}.`,
     "",
+    `- Before adding UI, routes or flags, run \`${command} find <term>\` to see whether a feature already covers it.`,
+    `- New work starts as an entry in \`${source}\`; then run \`${command} build\`. \`${command} check\` runs in CI.`,
+    ...(skill ? [`- Finding, adding and retiring features: \`${skill}\`.`] : []),
+    "",
+    `Generated by \`${command} build\`. Don't edit this block.`,
+    AGENTS_BLOCK_END,
   ];
-  for (const status of FEATURE_STATUSES) {
-    const group = records.filter((r) => r.status === status);
-    if (group.length === 0) continue;
-    lines.push(`### ${status[0]!.toUpperCase()}${status.slice(1)}`, "");
-    lines.push("| id | name | summary | owner | apps | audience | flags | code |", "|---|---|---|---|---|---|---|---|");
-    for (const r of group) {
-      lines.push(
-        `| ${[
-          code(r.id),
-          cell(r.name),
-          cell(r.summary),
-          cell(r.owner),
-          cell(r.apps.join(", ")),
-          cell(r.audience.join(", ")),
-          r.flags.map(code).join(", "),
-          (r.links?.code ?? []).map(code).join(", "),
-        ].join(" | ")} |`,
-      );
-    }
-    lines.push("");
-  }
-  lines.push(AGENTS_BLOCK_END);
   return lines.join("\n");
 }
 
-/** The generated block inside `doc`, markers included, or null when there is none. */
-export function readAgentsBlock(doc: string): string | null {
-  const start = doc.indexOf(AGENTS_BLOCK_START);
-  const end = doc.indexOf(AGENTS_BLOCK_END, start);
-  if (start === -1 || end === -1) return null;
-  return doc.slice(start, end + AGENTS_BLOCK_END.length);
+/** The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. */
+export function marketingRecords(features: Features): FeatureRecord[] {
+  return toRecords(features)
+    .filter((r) => r.visibility === "public" && r.tagline && (r.status === "live" || r.status === "beta"))
+    .sort((a, b) => Number(Boolean(b.highlight)) - Number(Boolean(a.highlight)));
 }
 
 /**
- * `doc` with its generated block replaced by `block`, or with `block` appended
- * when it has none yet. Everything outside the markers is left as it was.
+ * A benefit-led feature list for a README or a marketing page: public, shipped
+ * features with a tagline, highlights first, grouped by category.
  *
  * @stability Beta
  */
-export function replaceAgentsBlock(doc: string, block: string): string {
-  const current = readAgentsBlock(doc);
+export function toMarketingMarkdown(features: Features, options: { heading?: string; source?: string } = {}): string {
+  const records = marketingRecords(features);
+  const lines = [MARKETING_BLOCK_START, `## ${options.heading ?? "Features"}`, ""];
+  const highlights = records.filter((r) => r.highlight);
+  for (const r of highlights) lines.push(`- **${cell(r.name)}** — ${cell(r.tagline!)}`);
+  if (highlights.length) lines.push("");
+  const categories = [...new Set(records.filter((r) => !r.highlight).map((r) => r.category ?? "More"))];
+  for (const category of categories) {
+    lines.push(`### ${category}`, "");
+    for (const r of records.filter((x) => !x.highlight && (x.category ?? "More") === category)) {
+      lines.push(`- **${cell(r.name)}**${r.status === "beta" ? " (beta)" : ""} — ${cell(r.tagline!)}`);
+    }
+    lines.push("");
+  }
+  lines.push(`<sub>Generated from \`${options.source ?? "src/features.ts"}\`.</sub>`, MARKETING_BLOCK_END);
+  return lines.join("\n");
+}
+
+/** The block between `start` and `end` inside `doc`, markers included, or null when there is none. */
+export function readBlock(doc: string, start: string, end: string): string | null {
+  const from = doc.indexOf(start);
+  const to = doc.indexOf(end, from);
+  if (from === -1 || to === -1) return null;
+  return doc.slice(from, to + end.length);
+}
+
+/**
+ * `doc` with the block between `start` and `end` replaced by `block`, or with
+ * `block` appended when it has none yet. Everything outside the markers is
+ * left as it was.
+ */
+export function replaceBlock(doc: string, block: string, start: string, end: string): string {
+  const current = readBlock(doc, start, end);
   if (current !== null) return doc.replace(current, () => block);
   const base = doc.length === 0 || doc.endsWith("\n") ? doc : `${doc}\n`;
   return `${base}${base.length ? "\n" : ""}${block}\n`;
+}
+
+/** The generated AGENTS.md block inside `doc`, or null. */
+export const readAgentsBlock = (doc: string) => readBlock(doc, AGENTS_BLOCK_START, AGENTS_BLOCK_END);
+
+/**
+ * `doc` with its generated AGENTS.md block replaced by `block`, or with
+ * `block` appended when it has none yet.
+ *
+ * @stability Beta
+ */
+export const replaceAgentsBlock = (doc: string, block: string) => replaceBlock(doc, block, AGENTS_BLOCK_START, AGENTS_BLOCK_END);
+
+/**
+ * The agent skill for working with the registry, written to
+ * `.claude/skills/features/SKILL.md` by `genesis features build`.
+ *
+ * @stability Beta
+ */
+export function toSkillMarkdown(options: GenerateOptions = {}): string {
+  const source = options.source ?? "src/features.ts";
+  const command = options.command ?? "genesis features";
+  return `---
+name: features
+description: Find, add, change and retire this repo's features in ${source}, and their flags. Use before adding UI, a route, a server function or a flag, when someone asks what the product does, or when shipping, deprecating or removing something.
+---
+
+<!-- Generated by \`${command} build\`. Don't edit; it is rewritten. -->
+
+# Features
+
+\`${source}\` is the one list of what this product does. Running code imports it, and every
+other copy (the AGENTS.md block, JSON, the flags manifest, the admin page) is generated from it.
+
+## Find
+- \`${command} find <term>\` searches ids, aliases, names, summaries and code paths. Run it before
+  building anything new: extend the feature that already covers it rather than adding a second one.
+
+## Add
+1. Add an entry to \`${source}\`. The key is the id: lowercase, permanent, never reused.
+   Required: \`name\`, \`summary\` (internal, one sentence), \`status\`, \`owner\`, \`apps\`, \`audience\`.
+   - \`planned\` needs a \`horizon\` (now, next, later). No dates on the roadmap.
+   - \`building\`: set \`claimedBy\` to your name or session while you work on it.
+   - \`beta\` and \`live\` need \`acceptance\`: one testable sentence each. Tag the tests that prove
+     them with \`@feat:<id>\` in a comment or the test name.
+   - \`links.code\`: the files or folders that implement it. \`check\` fails when one is missing.
+   - \`visibility\` (internal, customer, public, client:<name>) and \`access\` ("all" or { plan }).
+     Paid access is \`access\`, never a flag. The id is the billing entitlement's lookup key.
+   - For a public page: \`tagline\` (the customer benefit), \`category\`, \`media\`, \`highlight\`.
+2. Flags go in the flags registry with \`feature: <id>\`. One flag per feature; a second needs a
+   \`splitReason\`. \`release\` and \`experiment\` flags need \`expires\`, \`ops\` flags a \`runbook\`.
+   Read flags only through the typed accessor with a literal key, never a computed one.
+3. Run \`${command} build\` and commit what it writes. Tag the changeset (a \`Features: <id>\` line in
+   its body) or the PR (a \`feature:<id>\` label).
+
+## Change
+- Move \`status\` as it ships: planned, building, beta, live, deprecated, retired.
+- Set \`reviewedAt\` (today) whenever you check an entry against the product; \`check\` warns after 90 days.
+- Rename by giving the feature a new id and putting the old one in \`aliases\`. Never delete an id.
+
+## Retire
+1. Remove the code first: the UI, routes, server functions and tests.
+2. Then remove its flags from the flags registry (the code that read them is gone, so \`check\`
+   would flag them as unused).
+3. Set \`status: "retired"\`, keep the entry, and drop \`links.code\` paths that no longer exist.
+4. Run \`${command} build\` and \`${command} check\`.
+`;
 }

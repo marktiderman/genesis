@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 129 components · 410 other exports · 249 standalone types across 10 packages and entry points.
+**Totals:** 129 components · 426 other exports · 256 standalone types across 10 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -30,7 +30,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 
-### Other exports (20)
+### Other exports (24)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -42,11 +42,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createMockProvider`](../packages/core/src/provider/mock-provider.ts) | function | — | _(no summary)_ |
 | [`createNoopStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | No-op adapter — all operations silently do nothing. |
 | [`createSupabaseProvider`](../packages/core/src/provider/supabase-provider.ts) | function | — | The Supabase data provider. Reads and writes go through the client you pass, under that client's session and RLS. |
+| [`DataReadError`](../packages/core/src/schema/read-outcome.ts) | class | — | Thrown by a provider when a read failed. Its `message` is safe to show. |
 | [`DataWriteError`](../packages/core/src/schema/write-outcome.ts) | class | — | Thrown by a provider when a write did not commit. |
 | [`decodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | The inverse of {@link encodeRecordKey}: field name → value. |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
+| [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
+| [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
+| [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
@@ -57,7 +61,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (65)
+### Types (67)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -70,6 +74,7 @@ export type { BulkResult };
 export type { CreateParams };
 export type { CreateResult };
 export type { DataProvider };
+export type { DataReadErrorOptions };
 export type { DataRow };
 export type { DataWriteErrorOptions };
 export type { DeleteParams };
@@ -95,6 +100,7 @@ export type { NullFilter };
 export type { PaginationParam };
 export type { ProviderCapabilities };
 export type { RangeFilter };
+export type { ReadOutcome };
 export type { RecordComment };
 export type { ResourceAccess };
 export type { ResourceContract };
@@ -1042,7 +1048,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (16)
+### Other exports (25)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1051,33 +1057,47 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`AGENTS_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated block in AGENTS.md. |
 | [`AGENTS_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated block in AGENTS.md. |
 | [`defineFeatures`](../packages/features/src/model.ts) | function | Beta | The one source of truth for a repo's features. Validates every entry and returns the same object, so running code reads it directly and the key type becomes the repo's `FeatureId`: |
-| [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner` and a `kind`; - a `release` flag needs an `expires` date; - a feature's second (third, …) flag needs a `spli... |
-| [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Release flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): candidates to remove. |
+| [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner`, a `kind`, a `default` and its `scopes`; - `release` and `experiment` flags need an `expires` date, `ops` fl... |
+| [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
+| [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
 | [`FEATURE_STATUSES`](../packages/features/src/model.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
-| [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}. |
-| [`FLAG_KINDS`](../packages/features/src/model.ts) | const | Beta | Why a flag exists. `release` flags are temporary and need an `expires` date. |
+| [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
+| [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, summary, tagline, category or code paths, best matches (id and name) first. |
+| [`FLAG_KINDS`](../packages/features/src/model.ts) | const | Beta | Why a flag exists. `release` and `experiment` flags need `expires`, `ops` flags need a `runbook`, and `permission` flags fail `check`: paid access belongs in entitlements (`access`), not flags. |
 | [`flagSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FlagDef}. Cross-flag rules live in {@link defineFlags}. |
 | [`flagsForFeature`](../packages/features/src/model.ts) | function | Beta | The names of the flags that belong to a feature, in declaration order. |
-| [`readAgentsBlock`](../packages/features/src/generate.ts) | function | — | The generated block inside `doc`, markers included, or null when there is none. |
-| [`replaceAgentsBlock`](../packages/features/src/generate.ts) | function | Beta | `doc` with its generated block replaced by `block`, or with `block` appended when it has none yet. Everything outside the markers is left as it was. |
-| [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: every feature, grouped by status, with its owner, apps, audience, flags and code paths. Write it with {@link replaceAgentsBlock}; never edit it by hand. |
-| [`toJson`](../packages/features/src/generate.ts) | function | Beta | The registry as JSON, for tools that can't import TypeScript. Stable: no timestamps, features in declaration order, so `check` can compare it. |
+| [`MARKETING_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated marketing block. |
+| [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
+| [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
+| [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
+| [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
+| [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
+| [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: deliberately short. It points agents at `find` and the skill and gives counts, never the whole list, so AGENTS.md stays small however many features there are. |
+| [`toJson`](../packages/features/src/generate.ts) | function | Beta | The registry as JSON, for tools that can't import TypeScript. Stable: no timestamps, features in declaration order, so `check` can compare it. It is also the record of every id ever used, which keeps ids permanent. |
+| [`toMarketingMarkdown`](../packages/features/src/generate.ts) | function | Beta | A benefit-led feature list for a README or a marketing page: public, shipped features with a tagline, highlights first, grouped by category. |
+| [`toOpenFeatureManifest`](../packages/features/src/generate.ts) | function | Beta | The flags as an OpenFeature CLI flag manifest (`flags.json`), so `openfeature generate` can make typed accessors from the same registry. |
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
+| [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. |
 
-### Types (10)
+### Types (15)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { FeatureAccess };
 export type { FeatureDef };
+export type { FeatureHorizon };
 export type { FeatureIdOf };
 export type { FeatureLinks };
+export type { FeatureMedia };
 export type { FeatureRecord };
 export type { FeatureStatus };
+export type { FeatureVisibility };
 export type { Features };
 export type { FlagDef };
 export type { FlagKind };
+export type { FlagValue };
 export type { Flags };
 export type { GenerateOptions };
 ```
@@ -1094,7 +1114,7 @@ export type { GenerateOptions };
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
-| [`FeatureList`](../packages/features/src/react.tsx) | `FeatureListProps` | Beta | A repo's features as a ResourcePage over static data: a table, and a board grouped by status in the grid view, with status chips, filters by app and audience, search, and a detail panel with the feature's links and flags. |
+| [`FeatureList`](../packages/features/src/react.tsx) | `FeatureListProps` | Beta | A repo's features as a page. The default (`variant="admin"`) is a ResourcePage over static data: a table, and in its grid view a board grouped by status, with status chips, filters by app, audience and visibility, search, and a detail pa... |
 
 ### Other exports (1)
 
@@ -1102,7 +1122,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`FeatureStatusBadge`](../packages/features/src/react.tsx) | function | Beta | A feature's status as a badge. `StatusBadge` covers the active states; planned and retired have no status there, so they use the muted and outline `Badge`. |
+| [`FeatureStatusBadge`](../packages/features/src/react.tsx) | function | Beta | A feature's status as a badge. `StatusBadge` covers the active states and deprecated; planned and retired have no status there, so they use the secondary and outline `Badge`. |
 
 ---
 
@@ -1112,14 +1132,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 **Barrel:** [`packages/features/src/node.ts`](../packages/features/src/node.ts)
 
-### Other exports (2)
+### Other exports (5)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`buildFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Writes every generated output (the AGENTS.md block, and the JSON when asked) and returns the paths it changed. |
-| [`checkFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Compares each generated output with what the generator makes now, and checks that every `links.code` path (and every repo-relative `links.docs` path) exists. It only ever compares generated output with the generator, never two hand-writt... |
+| [`buildFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Writes every generated output (the AGENTS.md block, the JSON, the flag manifest, the skill, the marketing block) and adds `@AGENTS.md` to CLAUDE.md when it's missing. Refuses, writing nothing, when an id recorded in the JSON has disappea... |
+| [`checkFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Checks the registry against the repo. Errors (exit 1): generated output that is stale, `links.code` paths that don't exist, the flag rules (a permission flag, an expired flag, a dynamic key, a key read but not defined or defined but neve... |
+| [`globToRegExp`](../packages/features/src/node.ts) | function | — | A glob (`*`, `**`, `?`, `{a,b}`) as a RegExp over `/`-separated relative paths. |
+| [`scanFlagReads`](../packages/features/src/node.ts) | function | — | Flag reads in `text`: each key read through an accessor with a literal, and each read whose key isn't a literal (`dynamic`), as `path:line`. |
+| [`summarizeCheck`](../packages/features/src/node.ts) | function | Beta | A few lines for a session's start: counts, stale output, expired flags and open claims. Meant for a SessionStart hook (`genesis features check --summary`). |
 
 ### Types (2)
 
@@ -1127,6 +1150,6 @@ Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { FeatureCheckResult };
-export type { FeatureOutputOptions };
+export type { FeatureProjectOptions };
 ```
 
