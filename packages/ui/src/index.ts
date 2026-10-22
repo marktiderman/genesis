@@ -35,7 +35,7 @@ export { Label } from "./components/ui/label";
 export { Textarea } from "./components/ui/textarea";
 export { Switch } from "./components/ui/switch";
 export { SettingsRow, type SettingsRowProps } from "./components/patterns/settings-row";
-export { SortableList, type SortableListProps, type SortableListItemContext } from "./components/patterns/sortable-list";
+export { SortableList, type SortableListProps, type SortableListItemContext, type SortableListReorder } from "./components/patterns/sortable-list";
 export { ToggleRow, type ToggleRowProps } from "./components/patterns/toggle-row";
 export { RadioGroup, RadioGroupItem } from "./components/ui/radio-group";
 export { Alert, AlertTitle, AlertDescription, alertVariants } from "./components/ui/alert";

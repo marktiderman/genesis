@@ -175,6 +175,39 @@ describe("SortableList keyboard pick-up", () => {
     expect(live()).toBe("Move cancelled. Week 1 is back at position 1 of 3.");
   });
 
+  it("lets go once focus leaves after a cancel or a drop that moved nothing", async () => {
+    const onReorder = vi.fn();
+    render(<Harness onReorder={onReorder} />);
+    const elsewhere = screen.getByRole("button", { name: "Elsewhere" });
+
+    // Space, Escape, Space, Tab away.
+    let h = handle("Week 1");
+    h.focus();
+    press(h);
+    fireEvent.keyDown(h, { key: "Escape" });
+    press(h);
+    act(() => elsewhere.focus());
+    expect(handle("Week 1").getAttribute("data-grabbed")).toBeNull();
+
+    // Space, ArrowDown, Space (drop), Space, Tab away.
+    h = handle("Week 1");
+    h.focus();
+    press(h);
+    fireEvent.keyDown(h, { key: "ArrowDown" });
+    press(h);
+    await settle();
+    h = handle("Week 1");
+    press(h);
+    act(() => elsewhere.focus());
+    expect(handle("Week 1").getAttribute("data-grabbed")).toBeNull();
+    expect(onReorder).toHaveBeenCalledTimes(1);
+
+    // Nothing is left grabbed, so other moves work again.
+    fireEvent.click(screen.getByRole("button", { name: "Down Week 2" }));
+    await settle();
+    expect(onReorder).toHaveBeenCalledTimes(2);
+  });
+
   it("doesn't close a surrounding dialog on Escape while an item is picked up", () => {
     const onOpenChange = vi.fn();
     render(
@@ -276,6 +309,18 @@ describe("SortableList single moves", () => {
     expect(rows()[0]!.getAttribute("draggable")).toBeNull();
   });
 
+  it("disarms a row on a context menu or when the window loses focus", () => {
+    render(<Harness />);
+    for (const type of ["contextmenu", "blur"]) {
+      fireEvent.pointerDown(handle("Week 1"));
+      expect(rows()[0]!.getAttribute("draggable")).toBe("true");
+      act(() => {
+        window.dispatchEvent(new Event(type));
+      });
+      expect(rows()[0]!.getAttribute("draggable")).toBeNull();
+    }
+  });
+
   it("moves from the built-in Move menu and leaves focus off the handle", async () => {
     const onReorder = vi.fn();
     render(<Harness onReorder={onReorder} />);
@@ -340,6 +385,21 @@ describe("SortableList async moves", () => {
     fireEvent.keyDown(handle("Week 1"), { key: "ArrowDown", altKey: true });
     expect(onReorder).toHaveBeenCalledTimes(2);
     expect(onReorder).toHaveBeenLastCalledWith(1, 2, { key: "a" });
+  });
+
+  it("starts only the first of two moves fired in the same tick", async () => {
+    const onReorder = vi.fn();
+    const deferred: Array<() => void> = [];
+    render(<Harness mode="defer" deferred={deferred} onReorder={onReorder} />);
+    const down = screen.getByRole("button", { name: "Down Week 1" });
+    act(() => {
+      down.click();
+      down.click();
+    });
+    expect(onReorder).toHaveBeenCalledTimes(1);
+    expect(onReorder).toHaveBeenCalledWith(0, 1, { key: "a" });
+    await act(async () => deferred[0]!());
+    expect(order()).toEqual(["b", "a", "c"]);
   });
 
   it("puts the old order back when onReorder rejects, and says so each time", async () => {
