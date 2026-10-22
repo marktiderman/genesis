@@ -1,0 +1,59 @@
+.changeset/ui-router-adapters.md
+  s_2c334912fcb08f::t_2f3ce43648f4f7 1-5
+apps/sample/app/data/primitives.json
+  s_2c334912fcb08f::t_a353740a48a0ed 11475-11506,14252-14283
+apps/sample/app/routes/_layout.tsx
+  s_2c334912fcb08f::t_dae583ed1f3cc6 1-2,4-6,75-76,78,84-85
+apps/sample/scripts/generate-primitive-docs.ts
+  s_2c334912fcb08f::t_853c2fa95cc88e 261-265
+docs/FRAMEWORK.md
+  s_2c334912fcb08f::t_3fe7482b19e055 130
+docs/component-reference.md
+  s_2c334912fcb08f::t_dc061bd4c2cfce 7,530-567
+packages/extension/README.md
+  s_2c334912fcb08f::t_775624e9d2fad4 16
+packages/extension/src/__tests__/core.test.ts
+  s_2c334912fcb08f::t_fe94a79377005d 236-239,241-242,290-330
+packages/extension/src/surfaces.ts
+  s_2c334912fcb08f::t_7c154f7bb75d60 107-111,113,118,149,302-314,344-345,348-355,358-359,361,401-402,444-457
+packages/ui/SKILL.md
+  s_2c334912fcb08f::t_ddb4233065ea33 82,156-182,184
+packages/ui/package.json
+  s_2c334912fcb08f::t_d824ae7c51a78e 83-90,363,382,411,433,443-445,463-465
+packages/ui/src/hooks/use-data-filters.ts
+  s_2c334912fcb08f::t_a0af496f090653 34-37
+packages/ui/src/navigation.tsx
+  s_2c334912fcb08f::t_f920549536dbd7 9-13
+packages/ui/src/router/__tests__/react-router.test.tsx
+  s_2c334912fcb08f::t_f8781bae470cc1 1-168
+packages/ui/src/router/__tests__/tanstack-router.test.tsx
+  s_2c334912fcb08f::t_4ff52487f210e8 1-260
+packages/ui/src/router/react-router.tsx
+  s_2c334912fcb08f::t_6535f89bcee8c2 1-116
+packages/ui/src/router/tanstack-router.tsx
+  s_2c334912fcb08f::t_c37c2befd41ce5 1-207
+packages/ui/src/router/utils.ts
+  s_2c334912fcb08f::t_d453c34e1f9f23 1-36
+packages/ui/tsup.config.ts
+  s_2c334912fcb08f::t_6b1acd5905262c 65-70
+pnpm-lock.yaml
+  s_2c334912fcb08f::t_60a520e33d576c 400,923-925,989-991,1009,4369-4372,4381-4393,4407-4413,5565-5567,8538-8547,12987-12988,12996-13011,13024-13032,13615,13617,14380-14381,18024-18029
+scripts/gen-component-reference.mjs
+  s_2c334912fcb08f::t_2dd9bad4c96f68 68-84,434-441
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "303fb156b0157a161effca58feb7350b8d8f5e69",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
