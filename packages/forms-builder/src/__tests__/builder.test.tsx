@@ -2,25 +2,25 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { FormDefinition } from "@marktiderman/genesis-forms";
 import { FormBuilder, getTemplate, Preview } from "../index";
-import { afterClass } from "./fixtures";
+import { visitFeedback } from "./fixtures";
 
 
 describe("<FormBuilder>", () => {
   it("renders the questions, the preview and no blocking findings", () => {
-    render(<FormBuilder defaultValue={afterClass()} />);
-    expect(screen.getByLabelText("Form title")).toHaveProperty("value", "How was class?");
+    render(<FormBuilder defaultValue={visitFeedback()} />);
+    expect(screen.getByLabelText("Form title")).toHaveProperty("value", "How was your visit?");
     expect(screen.getByTestId("builder-preview")).toBeTruthy();
     expect(screen.queryByText(/to fix/)).toBeNull();
   });
 
   it("reports edits through onChange and undoes them", () => {
     const onChange = vi.fn<(def: FormDefinition) => void>();
-    render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
+    render(<FormBuilder defaultValue={visitFeedback()} onChange={onChange} />);
     expect(onChange).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText("Form title"), { target: { value: "After class" } });
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ title: "After class" }));
+    fireEvent.change(screen.getByLabelText("Form title"), { target: { value: "Visit feedback" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ title: "Visit feedback" }));
     fireEvent.click(screen.getByTestId("builder-undo"));
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ title: "How was class?" }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ title: "How was your visit?" }));
   });
 
   it("passes the current value and analysis to host actions", () => {
@@ -38,7 +38,7 @@ describe("<FormBuilder>", () => {
 describe("<FormBuilder> editing", () => {
   it("commits a key on blur, not on every keystroke", () => {
     const onChange = vi.fn<(def: FormDefinition) => void>();
-    render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
+    render(<FormBuilder defaultValue={visitFeedback()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     fireEvent.click(screen.getByTestId("builder-field-advanced"));
     const key = screen.getByTestId("builder-field-key") as HTMLInputElement;
@@ -63,7 +63,7 @@ describe("<FormBuilder> builder polish", () => {
   });
 
   it("keeps the answer name and privacy switches in a closed Advanced section", () => {
-    render(<FormBuilder defaultValue={afterClass()} />);
+    render(<FormBuilder defaultValue={visitFeedback()} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     expect(screen.getByTestId("builder-field-label")).toBeTruthy();
     expect(screen.getByTestId("builder-field-required")).toBeTruthy();
@@ -80,7 +80,7 @@ describe("<FormBuilder> builder polish", () => {
   });
 
   it("truncates a long question title instead of letting it collapse", () => {
-    render(<FormBuilder defaultValue={afterClass()} />);
+    render(<FormBuilder defaultValue={visitFeedback()} />);
     const title = screen.getByTestId("builder-block-title-q_rating");
     expect(title.className).toMatch(/\btruncate\b/);
     expect(title.className).toMatch(/\bflex-1\b/);
@@ -92,7 +92,7 @@ describe("<FormBuilder> builder polish", () => {
 
 describe("<FormBuilder> review fixes", () => {
   it("resyncs the condition JSON after undo", () => {
-    const def = afterClass();
+    const def = visitFeedback();
     def.logic![0]!.when = { not: { op: "gte", left: { field: "q_rating" }, right: { value: 4 } } };
     let last: FormDefinition | undefined;
     render(<FormBuilder defaultValue={def} defaultTab="logic" onChange={(d) => (last = d)} />);
@@ -106,7 +106,7 @@ describe("<FormBuilder> review fixes", () => {
   });
 
   it("keeps a half-typed condition through an outside change", () => {
-    const def = afterClass();
+    const def = visitFeedback();
     def.logic![0]!.when = { not: { op: "gte", left: { field: "q_rating" }, right: { value: 4 } } };
     render(<FormBuilder defaultValue={def} defaultTab="logic" />);
     fireEvent.click(screen.getByTestId("builder-rule-r_better").querySelector("button[aria-expanded]")!);
@@ -121,27 +121,27 @@ describe("<FormBuilder> review fixes", () => {
     render(
       <div>
         <button data-testid="host-btn">host</button>
-        <FormBuilder defaultValue={afterClass()} onChange={(d) => (last = d)} />
+        <FormBuilder defaultValue={visitFeedback()} onChange={(d) => (last = d)} />
       </div>,
     );
     fireEvent.change(screen.getByLabelText("Form title"), { target: { value: "Edited" } });
     fireEvent.keyDown(screen.getByTestId("host-btn"), { key: "z", ctrlKey: true });
     expect(last?.title).toBe("Edited");
     fireEvent.keyDown(screen.getByTestId("builder-redo"), { key: "z", ctrlKey: true });
-    expect(last?.title).toBe("How was class?");
+    expect(last?.title).toBe("How was your visit?");
   });
 
   it("drags by the handle only and names the block in its buttons", () => {
-    render(<FormBuilder defaultValue={afterClass()} />);
+    render(<FormBuilder defaultValue={visitFeedback()} />);
     const row = screen.getByTestId("builder-block-q_rating");
     expect(row.getAttribute("draggable")).toBeNull();
     expect(screen.getByTestId("builder-block-grip-q_rating").getAttribute("draggable")).toBe("true");
-    expect(within(row).getByRole("button", { name: 'Delete "How was class today?"' })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: 'Delete "How was your visit today?"' })).toBeTruthy();
   });
 
   it("commits the highest rating on blur", () => {
     let last: FormDefinition | undefined;
-    render(<FormBuilder defaultValue={afterClass()} onChange={(d) => (last = d)} />);
+    render(<FormBuilder defaultValue={visitFeedback()} onChange={(d) => (last = d)} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     const max = screen.getByLabelText("Highest rating") as HTMLInputElement;
     fireEvent.change(max, { target: { value: "1" } });
@@ -153,7 +153,7 @@ describe("<FormBuilder> review fixes", () => {
   });
 
   it("marks a hidden input as identifying", () => {
-    const def = afterClass();
+    const def = visitFeedback();
     def.hidden = [{ name: "member", type: "string", source: "server" }];
     let last: FormDefinition | undefined;
     render(<FormBuilder defaultValue={def} defaultTab="settings" onChange={(d) => (last = d)} />);

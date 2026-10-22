@@ -31,7 +31,7 @@ import {
   type FieldTypeEditor,
   type FormBuilderHandle,
 } from "../index";
-import { afterClass } from "./fixtures";
+import { visitFeedback } from "./fixtures";
 
 
 const counter = () => {
@@ -110,7 +110,7 @@ describe("1. actions get the current value, not the deferred one", () => {
 describe("2. the value is reported at once, kept on unmount and readable through a ref", () => {
   it("reports an edit even when the builder unmounts before it renders again", () => {
     const onChange = vi.fn<(def: FormDefinition) => void>();
-    const { unmount } = render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
+    const { unmount } = render(<FormBuilder defaultValue={visitFeedback()} onChange={onChange} />);
     act(() => {
       fireEvent.change(screen.getByLabelText("Form title"), { target: { value: "Last edit" } });
       unmount();
@@ -121,7 +121,7 @@ describe("2. the value is reported at once, kept on unmount and readable through
 
   it("commits a key still being typed when the builder unmounts", () => {
     const onChange = vi.fn<(def: FormDefinition) => void>();
-    const { unmount } = render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
+    const { unmount } = render(<FormBuilder defaultValue={visitFeedback()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     fireEvent.click(screen.getByTestId("builder-field-advanced"));
     fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "overall_score" } });
@@ -132,7 +132,7 @@ describe("2. the value is reported at once, kept on unmount and readable through
 
   it("commits a draft when its inspector closes", () => {
     let last: FormDefinition | undefined;
-    render(<FormBuilder defaultValue={afterClass()} onChange={(d) => (last = d)} />);
+    render(<FormBuilder defaultValue={visitFeedback()} onChange={(d) => (last = d)} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     fireEvent.click(screen.getByTestId("builder-field-advanced"));
     fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "closed_key" } });
@@ -172,7 +172,7 @@ describe("2. the value is reported at once, kept on unmount and readable through
   it("stays silent for the initial value under StrictMode, and reports the analysis once", async () => {
     const onChange = vi.fn();
     const onAnalysis = vi.fn<(a: Analysis, d: FormDefinition) => void>();
-    const start = afterClass();
+    const start = visitFeedback();
     render(
       <StrictMode>
         <FormBuilder defaultValue={start} onChange={onChange} onAnalysis={onAnalysis} />
