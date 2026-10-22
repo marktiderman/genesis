@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 107
+      "count": 108
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -10662,12 +10662,12 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/KanbanBoard.tsx",
       "stability": "stable",
-      "summary": "Columns of cards, optionally movable between columns.\n\nWhy the keyboard path isn't Radix (docs/FRAMEWORK.md rule 3): Radix has no\ndrag and drop, and native drag and drop can't be done from a keyboard. The\n\"Move to…\" menu (a Radix DropdownMenu) is the equivalent path for keyboard\nand screen-reader users, so dragging is never the only way to move a card.",
+      "summary": "Columns of cards, optionally movable between columns.\n\nMoving uses the same engine as SortableList: native drag and drop for the\nmouse, pointer events on the handle for touch, a keyboard pick-up on the\nhandle, and a \"Move to…\" menu, with every finished move announced in a\npolite live region. Radix has no drag and drop and native drag and drop\ncan't be done from a keyboard or a touch screen (docs/FRAMEWORK.md rule 3),\nso dragging is never the only way to move a card.",
       "primaryComponent": "KanbanBoard",
       "components": [
         {
           "name": "KanbanBoard",
-          "summary": "Columns of cards, optionally movable between columns.\n\nWhy the keyboard path isn't Radix (docs/FRAMEWORK.md rule 3): Radix has no\ndrag and drop, and native drag and drop can't be done from a keyboard. The\n\"Move to…\" menu (a Radix DropdownMenu) is the equivalent path for keyboard\nand screen-reader users, so dragging is never the only way to move a card.",
+          "summary": "Columns of cards, optionally movable between columns.\n\nMoving uses the same engine as SortableList: native drag and drop for the\nmouse, pointer events on the handle for touch, a keyboard pick-up on the\nhandle, and a \"Move to…\" menu, with every finished move announced in a\npolite live region. Radix has no drag and drop and native drag and drop\ncan't be done from a keyboard or a touch screen (docs/FRAMEWORK.md rule 3),\nso dragging is never the only way to move a card.",
           "props": [
             {
               "name": "columns",
@@ -10702,7 +10702,7 @@
               "type": "((item: T) => string)",
               "required": false,
               "defaultValue": null,
-              "description": "A name for an item, for the move menu's label (\"Move Ana Ruiz\")."
+              "description": "A name for an item, for its handle, menu and announcements (\"Move Ana Ruiz\")."
             },
             {
               "name": "getKey",
@@ -10716,7 +10716,7 @@
               "type": "((item: T, toColumn: string) => void | Promise<void>)",
               "required": false,
               "defaultValue": null,
-              "description": "Move an item to another column. When set, cards can be dragged between\ncolumns, and each card gets a \"Move to…\" menu that does the same from\nthe keyboard. A rejected promise leaves the card where it was."
+              "description": "Move an item to another column. When set (with `getKey`), every card can\nbe moved four ways: dragged with a mouse; dragged by its handle on a\ntouch screen; picked up from the keyboard with its handle (Space, then\n←/→ to choose a column, Space to drop, Escape to cancel; Alt+←/→ moves\nstraight away); or from its \"Move to…\" menu. A finished move is\nannounced to screen readers. A rejected promise leaves the card where it\nwas and announces that the move failed."
             },
             {
               "name": "renderColumnFooter",
@@ -12192,7 +12192,7 @@
             },
             {
               "name": "mutationMode",
-              "type": "any",
+              "type": "enum",
               "required": false,
               "defaultValue": null,
               "description": "When a save reaches the list. Default `\"pessimistic\"`: the form waits\nfor the provider. `\"optimistic\"` closes at once and updates the cached\nlist, putting it back (and toasting the error) if the save fails.\n`\"undoable\"` does the same and shows an Undo toast; the save is sent\nafter `undoDelayMs` unless undone (or at once, undone by the provider,\nwhen it serves `undo`). Needs a mounted `<Toaster />`."
@@ -12641,7 +12641,7 @@
             },
             {
               "name": "mutationMode",
-              "type": "any",
+              "type": "enum",
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
@@ -13256,7 +13256,7 @@
             },
             {
               "name": "mutationMode",
-              "type": "any",
+              "type": "enum",
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
@@ -15789,7 +15789,57 @@
         {
           "name": "showUndoToast",
           "summary": "The undo toast for an `undoable` write (core's `onUndoable`): a sonner\ntoast with an Undo button, shown for as long as the undo is offered.\nNeeds a mounted `<Toaster />`.",
-          "props": []
+          "props": [
+            {
+              "name": "commit",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Send a `delay` write now."
+            },
+            {
+              "name": "delayMs",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": "How long the undo is offered, in ms (the toast's duration)."
+            },
+            {
+              "name": "kind",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "resource",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "strategy",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": "- `delay`: the write has not been sent. `undo()` discards it; `commit()`\n  sends it now instead of waiting.\n- `provider`: the write was sent at once, because the provider serves\n  `undo`. `undo()` asks the provider to reverse it; `commit()` does\n  nothing."
+            },
+            {
+              "name": "undo",
+              "type": "() => Promise<boolean>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Take the write back. Resolves true when it was undone, false when it\ncould not be: already sent under `delay` (the window closed, or the hook\nunmounted), already undone, or the provider's undo failed (reported\nthrough `onError`). Safe to call more than once."
+            },
+            {
+              "name": "id",
+              "type": "Identifier",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record's id; absent for a create (it has none until it is sent)."
+            }
+          ]
         },
         {
           "name": "showWriteErrorToast",
@@ -15799,6 +15849,23 @@
         {
           "name": "writeModeOptions",
           "summary": "ResourcePage's write-mode options for its `useResource`: the page's\n`mutationMode` unless `resourceOptions` sets one, the undo toast, and an\nerror toast for a write that fails after it was shown as done.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "use-announcer",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/use-announcer.ts",
+      "stability": "stable",
+      "summary": "A polite live-region message for drag and drop (SortableList,\nKanbanBoard). Render `message` in an `aria-live=\"polite\"` element.\n\nA live region only speaks when its text changes, so the same message\ntwice in a row is told apart by a trailing no-break space.",
+      "primaryComponent": "useAnnouncer",
+      "components": [
+        {
+          "name": "useAnnouncer",
+          "summary": "A polite live-region message for drag and drop (SortableList,\nKanbanBoard). Render `message` in an `aria-live=\"polite\"` element.\n\nA live region only speaks when its text changes, so the same message\ntwice in a row is told apart by a trailing no-break space.",
           "props": []
         }
       ]

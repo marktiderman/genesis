@@ -4,6 +4,7 @@ import * as React from "react";
 import { GripVertical, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { cn } from "../../utils";
+import { useAnnouncer } from "./use-announcer";
 
 export interface SortableListItemContext {
   /** The item's position as shown, from 0. */
@@ -120,7 +121,7 @@ export function SortableList<T>({
   // The same, readable within one tick: two moves fired back to back must
   // not both start from the old order.
   const pendingRef = React.useRef(false);
-  const [announcement, setAnnouncement] = React.useState("");
+  const { message: announcement, announce } = useAnnouncer();
   const handles = React.useRef(new Map<string, HTMLButtonElement>());
   // The element that had focus when a move started, to put focus back on if
   // the DOM move drops it to the body. Cleared after every commit.
@@ -135,11 +136,6 @@ export function SortableList<T>({
     const item = byKey.get(key);
     return item === undefined ? "Item" : getItemLabel(item);
   };
-
-  // A live region only speaks when its text changes, so the same message
-  // twice in a row is told apart by a trailing no-break space.
-  const announce = (message: string) =>
-    setAnnouncement((previous) => (previous === message ? `${message} ` : message));
 
   // Moving a focused element in the DOM drops focus to the body in real
   // browsers. Remember what had focus, the handle or a row's own button, and
