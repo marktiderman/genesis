@@ -4,7 +4,7 @@ import { defineConfig } from "tsup";
 const DIRECTIVE = '"use client";';
 
 /**
- * The builder holds state and effects, so the dist entry must open with
+ * The builder holds state and effects, so the `index` entry must open with
  * `"use client"` for a React Server Component to import it. A tsup `banner`
  * does not survive `treeshake` (rollup drops module-level directives), so the
  * directive is prepended after the build, as `genesis-ui`'s `stamp-use-client`
@@ -26,7 +26,8 @@ function stampUseClient(file: string) {
 }
 
 export default defineConfig({
-  entry: { index: "src/index.ts" },
+  // `ops` is pure (no React), so it ships unstamped for server code.
+  entry: { index: "src/index.ts", ops: "src/ops.ts" },
   format: ["esm"],
   dts: true,
   sourcemap: true,
@@ -34,5 +35,11 @@ export default defineConfig({
   treeshake: true,
   target: "es2022",
   external: [/^@marktiderman\//, "react", "react-dom", "radix-ui", "lucide-react"],
-  onSuccess: async () => stampUseClient("dist/index.js"),
+  onSuccess: async () => {
+    stampUseClient("dist/index.js");
+    // `ops` is for server code too: a directive there would make it a client module.
+    if (readFileSync("dist/ops.js", "utf8").startsWith(DIRECTIVE)) {
+      throw new Error(`dist/ops.js must not start with ${DIRECTIVE}`);
+    }
+  },
 });
