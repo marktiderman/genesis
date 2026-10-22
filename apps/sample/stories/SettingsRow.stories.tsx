@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { SettingsRow, Switch, Badge, Button } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof SettingsRow> = {

@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { defineForm, f, when } from "@marktiderman/genesis-forms";
 import { Form } from "@marktiderman/genesis-forms-web";
 
