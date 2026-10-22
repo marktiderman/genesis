@@ -3,10 +3,10 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 export interface ErrorBoundaryProps {
   children: ReactNode;
   /** What failed, for the message: "This panel", "The form". */
-  label?: string;
+  label?: string | undefined;
   /** When this value changes, the boundary clears its error and renders children again. */
   resetKey?: unknown;
-  onError?: (error: Error, info: ErrorInfo) => void;
+  onError?: ((error: Error, info: ErrorInfo) => void) | undefined;
 }
 
 interface ErrorBoundaryState {

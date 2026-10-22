@@ -321,7 +321,7 @@ let nextLayoutKey = 0;
  * blocks hidden by rules are dimmed. Needs `@xyflow/react/dist/base.css`
  * (the devtools stylesheet imports it).
  */
-export function FlowMapPanel({ engine, height = 600, className }: { engine: FormEngine; height?: number; className?: string }) {
+export function FlowMapPanel({ engine, height = 600, className }: { engine: FormEngine; height?: number | undefined; className?: string | undefined }) {
   const definition = engine.definition;
   const state = useFormSelector(engine, (s) => s);
   const graph = useMemo(() => buildFlowGraph(definition, state), [definition, state]);
