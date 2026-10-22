@@ -1,5 +1,11 @@
 # @marktiderman/genesis-forms
 
+## 0.1.1
+
+### Patch Changes
+
+- ef7eb56: `f.hidden.string/number/boolean` now type `sensitive` as `sensitive?: true`, not `sensitive?: true | undefined`, so their specs type-check in `defineForm({ hidden })` under `exactOptionalPropertyTypes`. The build also compiles a consumer file against the published types with that flag on.
+
 ## 0.1.0
 
 ### Minor Changes
