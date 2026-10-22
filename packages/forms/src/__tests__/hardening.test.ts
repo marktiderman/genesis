@@ -870,6 +870,20 @@ describe("forms review fixes", () => {
       expect(warns({ op: "in", left: { field: "r" } })).toHaveLength(1);
     });
 
+    it("without throwing on literals JSON can't show", () => {
+      let deep: unknown = 1;
+      for (let i = 0; i < 20000; i++) deep = [deep];
+      const def = (value: unknown) => ({
+        schemaVersion: 1,
+        id: "f",
+        title: "F",
+        blocks: [field("r", "rating"), field("last", "short-text")],
+        logic: [{ id: "x", when: { op: "eq", left: { field: "r" }, right: { value } }, effect: "show", target: "last" }],
+      });
+      expect(() => parseForm(def(1n))).not.toThrow();
+      expect(() => parseForm(def(deep))).not.toThrow();
+    });
+
     it("not for literals that fit, or operands known only at run time", () => {
       const fine: Cond[] = [
         { op: "eq", left: { field: "r" }, right: { value: 5 } },

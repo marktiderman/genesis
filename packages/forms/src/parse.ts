@@ -3,6 +3,18 @@ import { getFieldType } from "./fields";
 import { recallRefs } from "./recall";
 import type { Condition, FormDefinition, Operator } from "./types";
 
+/** A value for a message. Never throws: parseForm accepts any input, including BigInts, cycles and deep nesting. */
+function shown(v: unknown): string {
+  let text: string | undefined;
+  try {
+    text = JSON.stringify(v);
+  } catch {
+    text = undefined;
+  }
+  text ??= typeof v === "bigint" ? `${v}n` : typeof v;
+  return text.length > 60 ? `${text.slice(0, 57)}...` : text;
+}
+
 export interface FormIssue {
   path: string;
   message: string;
@@ -305,9 +317,9 @@ export function parseForm(input: unknown): ParseResult {
     for (const v of values) {
       const message =
         type !== undefined && typeof v !== type
-          ? `${what} holds a ${type}, but ${JSON.stringify(v)} is not one; this comparison is ${outcome}.`
+          ? `${what} holds a ${type}, but ${shown(v)} is not one; this comparison is ${outcome}.`
           : options && typeof v === "string" && !options.has(v)
-            ? `${JSON.stringify(v)} is not an option of ${what}; this comparison is ${outcome}.`
+            ? `${shown(v)} is not an option of ${what}; this comparison is ${outcome}.`
             : null;
       if (message) warnings.push({ path: `${path}.right`, message });
     }
