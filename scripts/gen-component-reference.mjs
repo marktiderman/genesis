@@ -65,6 +65,39 @@ const PACKAGES = [
     dir: "packages/ui",
     barrel: "packages/ui/src/index.ts",
     description: "Shadcn-based web components. Use in Vite / RR7 / Next surfaces.",
+    // Subpath-only entries that the root barrel deliberately does NOT
+    // re-export (each pulls in an optional peer), so they need their own
+    // section or they never reach this reference.
+    subpaths: [
+      {
+        name: "@marktiderman/genesis-ui/router/react-router",
+        barrel: "packages/ui/src/router/react-router.tsx",
+        description:
+          "React Router adapters for genesis-ui's navigation contract: a `LinkComponent`, a `NavigateFn`, a `SearchParamsAdapter` and the full-location `activePath`. `react-router` is an optional peer, loaded only by this subpath.",
+      },
+      {
+        name: "@marktiderman/genesis-ui/router/tanstack-router",
+        barrel: "packages/ui/src/router/tanstack-router.tsx",
+        description:
+          "TanStack Router adapters for genesis-ui's navigation contract: a `LinkComponent`, a `NavigateFn`, a `SearchParamsAdapter` and the full-location `activePath`. `@tanstack/react-router` is an optional peer, loaded only by this subpath.",
+      },
+    ],
+  },
+  // Subpath-only entry points: kept out of the genesis-ui root barrel so
+  // nobody inherits their optional peers, so they are listed on their own.
+  {
+    name: "@marktiderman/genesis-ui/rich-text",
+    dir: "packages/ui",
+    barrel: "packages/ui/src/components/rich-text/rich-text.tsx",
+    description:
+      "Read-only rich text renderer and server-safe helpers (sanitize, HTML, plain text). No editor dependency; usable in server components and on the server.",
+  },
+  {
+    name: "@marktiderman/genesis-ui/rich-text-editor",
+    dir: "packages/ui",
+    barrel: "packages/ui/src/components/rich-text/rich-text-editor.tsx",
+    description:
+      "Rich text editor (Tiptap 3) with a Genesis toolbar. Needs the optional `@tiptap/*` peers.",
   },
   {
     name: "@marktiderman/genesis-ui-native",
@@ -398,6 +431,14 @@ function main() {
     totalTypes += classified.standaloneTypes.length;
 
     sections.push(renderPackageSection(pkg, classified));
+
+    for (const sub of pkg.subpaths ?? []) {
+      const subClassified = classifyExports(parseBarrel(resolve(REPO_ROOT, sub.barrel)));
+      totalComponents += subClassified.components.length;
+      totalOther += subClassified.otherValues.length;
+      totalTypes += subClassified.standaloneTypes.length;
+      sections.push(renderPackageSection(sub, subClassified));
+    }
   }
 
   const header = [
@@ -407,7 +448,7 @@ function main() {
     "",
     "> **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.",
     "",
-    `**Totals:** ${totalComponents} components · ${totalOther} other exports · ${totalTypes} standalone types across ${PACKAGES.length} packages.`,
+    `**Totals:** ${totalComponents} components · ${totalOther} other exports · ${totalTypes} standalone types across ${PACKAGES.length} packages and entry points.`,
     "",
     "**Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.",
     "",

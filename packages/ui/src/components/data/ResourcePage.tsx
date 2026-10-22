@@ -487,6 +487,12 @@ export interface ResourcePageProps<
    * rejects, and closes the peek when it resolves.
    */
   onDelete?: (item: T) => void | Promise<void>;
+  /**
+   * Whether the signed-in user may change this record at all. When it
+   * returns false the peek offers neither Edit nor Delete for it. Shorthand
+   * for the pair below; when both are given, a row needs to pass each.
+   */
+  canEditItem?: (item: T) => boolean;
   createLabel?: string;
   /**
    * Whether this row may be edited. The peek's Edit button is hidden for a
@@ -597,6 +603,14 @@ export interface ResourcePageProps<
    * Omitted, the default `DataTable` render is used unchanged.
    */
   renderTable?: (items: T[]) => ReactNode;
+  /**
+   * With a custom `renderCard`: make each whole card (and list row) one
+   * keyboard-reachable button that opens the detail, so the card needs no
+   * `actions.open()` wiring and no hand-rolled `div role="button"`. Links and
+   * buttons inside the card keep their own clicks. Off by default, because
+   * an existing card that already calls `open()` would fire it twice.
+   */
+  openOnCardClick?: boolean;
   /**
    * Tailwind grid-column classes for the card grid, passed through to
    * `DataGrid`'s `gridCols` — e.g. `"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"`.
@@ -735,6 +749,7 @@ export function ResourcePage<
     onCreate,
     onEdit,
     onDelete,
+    canEditItem,
     createLabel = "New",
     canEdit,
     canDelete,
@@ -751,6 +766,7 @@ export function ResourcePage<
     formLayout: formLayoutProp,
     bulkActions,
     renderCard: renderCardProp,
+    openOnCardClick = false,
     renderTable: renderTableProp,
     gridCols: gridColsProp,
     keyboardNavigation = true,
@@ -1059,6 +1075,7 @@ export function ResourcePage<
   const handleEdit = useCallback(
     (item: T) => {
       if (canEdit && !canEdit(item)) return;
+      if (canEditItem && !canEditItem(item)) return;
       if (useBuiltInEdit) {
         setFormAction("edit");
         setFormItem(item);
@@ -1067,7 +1084,7 @@ export function ResourcePage<
         onEdit(item);
       }
     },
-    [useBuiltInEdit, onEdit, canEdit],
+    [useBuiltInEdit, onEdit, canEdit, canEditItem],
   );
 
   const closeDetail = useCallback(() => {
@@ -1137,10 +1154,15 @@ export function ResourcePage<
           };
 
   // Per-row rights, evaluated against the row the peek is showing.
+  const mayChange = (item: T) => (canEditItem ? canEditItem(item) : true);
   const selectedEditable =
-    !!selectedItem && (canEdit ? canEdit(selectedItem) : true);
+    !!selectedItem &&
+    mayChange(selectedItem) &&
+    (canEdit ? canEdit(selectedItem) : true);
   const selectedDeletable =
-    !!selectedItem && (canDelete ? canDelete(selectedItem) : true);
+    !!selectedItem &&
+    mayChange(selectedItem) &&
+    (canDelete ? canDelete(selectedItem) : true);
 
   // ── Patch tableColumns to use real actions (client-side mode) ──
   const tableColumns = useMemo(() => {
@@ -1723,6 +1745,13 @@ export function ResourcePage<
             )
           )
           ,
+          ...(openOnCardClick && renderCardProp && detail !== "none"
+            ? {
+                onItemClick: handleRowClick,
+                getItemLabel: (item: T) =>
+                  `Open ${String((item as Record<string, unknown>)[page.titleField] ?? "")}`.trim(),
+              }
+            : {}),
           renderCard: (item: T, index: number) =>
             renderCardProp
               ? renderCardProp(item, index, cardActionsFor(item))

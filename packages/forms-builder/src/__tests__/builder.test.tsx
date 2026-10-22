@@ -40,6 +40,7 @@ describe("<FormBuilder> editing", () => {
     const onChange = vi.fn<(def: FormDefinition) => void>();
     render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
+    fireEvent.click(screen.getByTestId("builder-field-advanced"));
     const key = screen.getByTestId("builder-field-key") as HTMLInputElement;
     fireEvent.change(key, { target: { value: "overall_" } });
     expect(key.value).toBe("overall_");
@@ -48,6 +49,44 @@ describe("<FormBuilder> editing", () => {
     fireEvent.blur(key);
     const last = onChange.mock.lastCall![0];
     expect(last.blocks.find((b) => b.id === "q_rating")).toMatchObject({ key: "overall_score" });
+  });
+});
+
+describe("<FormBuilder> builder polish", () => {
+  it("previews a form with no questions as an empty state, not \"Question 1 of 0\"", () => {
+    const def: FormDefinition = { ...getTemplate("blank")!.create() };
+    def.blocks = [{ kind: "content", id: "c_intro", type: "heading", text: "Welcome" }];
+    render(<Preview def={def} />);
+    expect(screen.getByText("Add a question to see it here.")).toBeTruthy();
+    expect(screen.queryByText(/of 0/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "OK" })).toBeNull();
+  });
+
+  it("keeps the answer name and privacy switches in a closed Advanced section", () => {
+    render(<FormBuilder defaultValue={afterClass()} />);
+    fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
+    expect(screen.getByTestId("builder-field-label")).toBeTruthy();
+    expect(screen.getByTestId("builder-field-required")).toBeTruthy();
+    expect(screen.queryByTestId("builder-field-key")).toBeNull();
+    expect(screen.queryByText("Sensitive")).toBeNull();
+    expect(screen.queryByText(/\{\{field:/)).toBeNull();
+    const advanced = screen.getByTestId("builder-field-advanced");
+    expect(advanced.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(advanced);
+    expect(screen.getByLabelText("Answer name")).toBe(screen.getByTestId("builder-field-key"));
+    expect(screen.getByText("Sensitive")).toBeTruthy();
+    expect(screen.getByText("Identifies the respondent")).toBeTruthy();
+    expect(screen.getByText("Hidden from share links and support tools.")).toBeTruthy();
+  });
+
+  it("truncates a long question title instead of letting it collapse", () => {
+    render(<FormBuilder defaultValue={afterClass()} />);
+    const title = screen.getByTestId("builder-block-title-q_rating");
+    expect(title.className).toMatch(/\btruncate\b/);
+    expect(title.className).toMatch(/\bflex-1\b/);
+    expect(title.className).toMatch(/\bmin-w-20\b/);
+    expect(title.getAttribute("title")).toBe(title.textContent);
+    expect(screen.getByTestId("builder-block-toggle-q_rating").className).toMatch(/\bmin-w-32\b/);
   });
 });
 

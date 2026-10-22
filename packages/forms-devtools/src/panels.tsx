@@ -12,13 +12,13 @@ import { SENSITIVE_MASK, isPrefix, maskRecord, sensitiveHiddenNames, sensitiveId
 
 export interface PrettyOptions {
   /** Objects and arrays deeper than this are shown as a placeholder. Default 24. */
-  maxDepth?: number;
+  maxDepth?: number | undefined;
   /** Items shown per array or object. Default 1,000. */
-  maxItems?: number;
+  maxItems?: number | undefined;
   /** Characters of output before it is cut. Default 100,000. */
-  maxChars?: number;
+  maxChars?: number | undefined;
   /** JSON indentation. Default 2. */
-  indent?: number;
+  indent?: number | undefined;
 }
 
 function cap(value: unknown, depth: number, o: Required<PrettyOptions>, ancestors: Set<object>): unknown {
@@ -63,7 +63,7 @@ export const pretty = (value: unknown, options: PrettyOptions = {}): string => {
   return text;
 };
 
-export function JsonView({ value, className }: { value: unknown; className?: string }) {
+export function JsonView({ value, className }: { value: unknown; className?: string | undefined }) {
   return <pre className={cn("max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs", className)}>{pretty(value)}</pre>;
 }
 
@@ -87,7 +87,7 @@ const useSensitiveHidden = (engine: FormEngine) =>
  * Live path, visibility, values and errors. Values are shown by field key;
  * sensitive values are masked unless `reveal` is set.
  */
-export function StatePanel({ engine, reveal = false }: { engine: FormEngine; reveal?: boolean }) {
+export function StatePanel({ engine, reveal = false }: { engine: FormEngine; reveal?: boolean | undefined }) {
   const state = useFormSelector(engine, (s) => s);
   const sensitive = useSensitive(engine);
   const sensitiveHidden = useSensitiveHidden(engine);
@@ -138,8 +138,8 @@ export function TimelinePanel({
   reveal = false,
 }: {
   engine: FormEngine;
-  onFork?: (events: FormEvent[]) => void;
-  reveal?: boolean;
+  onFork?: ((events: FormEvent[]) => void) | undefined;
+  reveal?: boolean | undefined;
 }) {
   const events = useFormSelector(engine, (s) => s.events);
   const sensitive = useSensitive(engine);
@@ -245,7 +245,7 @@ export function ServerPanel({
 }: {
   engine: FormEngine;
   context: Record<string, Json>;
-  reveal?: boolean;
+  reveal?: boolean | undefined;
 }) {
   const state = useFormSelector(engine, (s) => s);
   const sensitive = useSensitive(engine);
@@ -310,7 +310,7 @@ export function ContextEditor({
 }: {
   value: Record<string, Json>;
   onChange: (next: Record<string, Json>) => void;
-  debounceMs?: number;
+  debounceMs?: number | undefined;
 }) {
   const [text, setText] = useState(() => pretty(value));
   const [error, setError] = useState<string | null>(null);

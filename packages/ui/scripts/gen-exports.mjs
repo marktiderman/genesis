@@ -67,6 +67,7 @@ const PATTERN_SUBPATH_COMPONENTS = [
   "form-field",
   "page-loading",
   "settings-row",
+  "sortable-list",
   "status-badge",
   "toggle-row",
   "user-avatar",
@@ -198,6 +199,24 @@ const baseExports = {
   "./provider": {
     types: "./dist/provider/index.d.ts",
     import: "./dist/provider/index.js",
+  },
+  // Components on their OWN folder and subpath because they bring an optional
+  // peer nobody else should inherit: the sheet grid (@tanstack/react-virtual,
+  // DATA-STUDIO.md decision 20) and rich text (@tiptap/*). `/rich-text` is
+  // the editor-free renderer and server-safe helpers; `/rich-text-editor` is
+  // the only entry that imports Tiptap. Listed here so a regeneration keeps
+  // them; each also needs its `tsup.config.ts` entry.
+  "./sheet-grid": {
+    types: "./dist/components/sheet-grid/sheet-grid.d.ts",
+    import: "./dist/components/sheet-grid/sheet-grid.js",
+  },
+  "./rich-text": {
+    types: "./dist/components/rich-text/rich-text.d.ts",
+    import: "./dist/components/rich-text/rich-text.js",
+  },
+  "./rich-text-editor": {
+    types: "./dist/components/rich-text/rich-text-editor.d.ts",
+    import: "./dist/components/rich-text/rich-text-editor.js",
   },
   // Tailwind v4 `@source` entry — a CSS file, so a bare string target. It is
   // copied into dist/ by the `build` script, not emitted by tsup.

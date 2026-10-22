@@ -42,3 +42,16 @@ export {
   type InitPlan,
   type PlannedFile,
 } from "./studio/init.js";
+
+export {
+  runDoctor,
+  formatReport,
+  defineDoctorPlugin,
+  DoctorConfigError,
+  type RunDoctorOptions,
+  type DoctorConfig,
+  type DoctorPlugin,
+  type DoctorContext,
+  type DoctorResult,
+  type Finding,
+} from "./doctor/index.js";

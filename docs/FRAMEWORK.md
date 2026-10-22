@@ -127,7 +127,7 @@ Naming the exclusions matters as much as the inclusions — scope creep is how o
 |---|---|---|
 | **Business domain** | EOS, coaching, engagements are one company's vocabulary | consuming apps |
 | **Auth** | every org's is different | app; Genesis provides slots |
-| **Routing** | router-agnostic is already a contribution gate | app |
+| **Routing** | router-agnostic is already a contribution gate | app; genesis-ui ships thin per-router adapters on their own subpaths (`/router/react-router`, `/router/tanstack-router`), each router an optional peer |
 | **Server-state config** | consumers own cache policy | app, via TanStack Query |
 | **The data source** | this is the whole point of adapters | switchboard adapters |
 

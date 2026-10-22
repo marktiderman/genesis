@@ -3,7 +3,7 @@
   "version": "1.1.1",
   "private": false,
   "type": "module",
-  "description": "Genesis CLI — `genesis init` scaffolds a Genesis app; `genesis studio init` turns the Data Studio on in an existing app; `genesis introspect` writes a checked-in contract.",
+  "description": "Genesis CLI \u2014 `genesis init` scaffolds a Genesis app; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on in an existing app; `genesis introspect` writes a checked-in contract.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -28,6 +28,14 @@
     "./scaffolder": {
       "types": "./dist/scaffolder.d.ts",
       "import": "./dist/scaffolder.js"
+    },
+    "./doctor": {
+      "types": "./dist/doctor.d.ts",
+      "import": "./dist/doctor.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js"
     }
   },
   "files": [
@@ -50,6 +58,15 @@
     "@types/node": "^22.9.0",
     "tsup": "^8.3.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.12"
+    "vitest": "^4.1.12",
+    "vite": "^8.0.3"
+  },
+  "peerDependencies": {
+    "vite": ">=5"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
   }
 }

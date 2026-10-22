@@ -15,7 +15,10 @@ import type {
   FilterParam,
   ListParams,
   ListResult,
+  InvalidationKey,
+  WriteEvent,
 } from "../provider/types";
+import { relatedKeys } from "./related-keys";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -40,6 +43,12 @@ export interface UseResourceOptions<T> {
   searchFields?: string[];
   /** Disable auto-fetching. */
   enabled?: boolean;
+  /**
+   * Other query keys to invalidate after a create, update or delete, on top
+   * of `[resource]` and the provider's own `invalidates` (e.g. `[["me"]]`
+   * when a write changes the signed-in user's roles).
+   */
+  invalidates?: InvalidationKey[];
   /**
    * While the next page / sort / search is loading, keep returning the
    * previous result (`list.isPlaceholderData` is true meanwhile) instead of
@@ -115,6 +124,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     select,
     searchFields: searchFieldsOption,
     enabled = true,
+    invalidates,
     keepPreviousData = false,
     onCreateSuccess,
     onUpdateSuccess,
@@ -217,9 +227,14 @@ export function useResource<T extends BaseRecord = BaseRecord>(
   // Mutations
   // -------------------------------------------------------------------------
 
-  const invalidateResource = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: [resource] }),
-    [queryClient, resource],
+  const invalidateAfter = useCallback(
+    (event: WriteEvent) => {
+      void queryClient.invalidateQueries({ queryKey: [resource] });
+      for (const queryKey of relatedKeys(provider, event, invalidates)) {
+        void queryClient.invalidateQueries({ queryKey: [...queryKey] });
+      }
+    },
+    [queryClient, resource, provider, invalidates],
   );
 
   const defaultOnError = useCallback(
@@ -235,7 +250,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
       return result.data;
     },
     onSuccess: (data) => {
-      invalidateResource();
+      invalidateAfter({ resource, kind: "create", id: data.id, record: data });
       onCreateSuccess?.(data);
     },
     onError: onError ?? defaultOnError,
@@ -250,8 +265,8 @@ export function useResource<T extends BaseRecord = BaseRecord>(
       const result = await provider.update<T>(resource, { id, data });
       return result.data;
     },
-    onSuccess: (data) => {
-      invalidateResource();
+    onSuccess: (data, { id }) => {
+      invalidateAfter({ resource, kind: "update", id, record: data });
       onUpdateSuccess?.(data);
     },
     onError: onError ?? defaultOnError,
@@ -261,8 +276,8 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     mutationFn: async (id) => {
       await provider.deleteOne(resource, { id });
     },
-    onSuccess: () => {
-      invalidateResource();
+    onSuccess: (_data, id) => {
+      invalidateAfter({ resource, kind: "delete", id });
       onDeleteSuccess?.();
     },
     onError: onError ?? defaultOnError,

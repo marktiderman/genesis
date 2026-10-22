@@ -1,0 +1,3 @@
+@theme inline {
+  --color-border: hsl(var(--background));
+}

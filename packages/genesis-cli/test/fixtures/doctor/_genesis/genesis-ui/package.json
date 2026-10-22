@@ -1,0 +1,10 @@
+{
+  "name": "@marktiderman/genesis-ui",
+  "version": "9.9.9",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./data": { "types": "./dist/components/data/index.d.ts", "import": "./dist/components/data/index.js" },
+    "./hooks/*": { "types": "./dist/hooks/*.d.ts", "import": "./dist/hooks/*.js" }
+  }
+}

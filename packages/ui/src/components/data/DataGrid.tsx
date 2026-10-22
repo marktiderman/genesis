@@ -4,6 +4,8 @@ import {
   useState,
   useEffect,
   useRef,
+  type KeyboardEvent,
+  type MouseEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -34,7 +36,49 @@ interface DataGridProps<T> {
   focusedIndex?: number;
   /** Keyboard navigation: container ref for scroll management */
   keyboardContainerRef?: RefObject<HTMLDivElement | null>;
+  /**
+   * Open an item. Makes each card (and list row) one keyboard-reachable
+   * button: click, Enter or Space activates it, with a focus ring. Clicks on
+   * a link, button or input inside the card are left to that control, so a
+   * card can still carry its own actions. Use this instead of wrapping cards
+   * in a hand-rolled `div role="button"`.
+   */
+  onItemClick?: ((item: T) => void) | undefined;
+  /** Accessible name for an activatable item, e.g. `Open ${item.name}`. Used with `onItemClick`. */
+  getItemLabel?: ((item: T) => string) | undefined;
 }
+
+const NESTED_CONTROL =
+  "a,button,input,select,textarea,label,[role=button],[role=link],[role=checkbox],[role=switch],[role=menuitem],[contenteditable=true]";
+
+/** Props that make one grid/list item activatable, or none without `onItemClick`. */
+function activation<T>(
+  item: T,
+  onItemClick: ((item: T) => void) | undefined,
+  getItemLabel: ((item: T) => string) | undefined,
+) {
+  if (!onItemClick) return {};
+  return {
+    role: "button",
+    tabIndex: 0,
+    "aria-label": getItemLabel?.(item),
+    onClick: (e: MouseEvent<HTMLDivElement>) => {
+      const control = (e.target as HTMLElement).closest(NESTED_CONTROL);
+      if (control && control !== e.currentTarget) return;
+      onItemClick(item);
+    },
+    onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+      if (e.target !== e.currentTarget) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onItemClick(item);
+      }
+    },
+  } as const;
+}
+
+const ACTIVATABLE =
+  "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 export function DataGrid<T>({
   items,
@@ -48,6 +92,8 @@ export function DataGrid<T>({
   getKey,
   focusedIndex = -1,
   keyboardContainerRef,
+  onItemClick,
+  getItemLabel,
 }: DataGridProps<T>) {
   const [visibleCount, setVisibleCount] = useState(batchSize);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -91,8 +137,10 @@ export function DataGrid<T>({
           <div
             key={keyFnList(item)}
             data-nav-item
+            {...activation(item, onItemClick, getItemLabel)}
             className={cn(
               "px-4 py-3 transition-colors hover:bg-accent/50",
+              onItemClick && ACTIVATABLE,
               focusedIndex === i &&
                 "ring-2 ring-inset ring-primary bg-accent/50",
             )}
@@ -116,8 +164,10 @@ export function DataGrid<T>({
           <div
             key={keyFn(item)}
             data-nav-item
+            {...activation(item, onItemClick, getItemLabel)}
             className={cn(
               staggerAnimation && "animate-fade-in",
+              onItemClick && cn(ACTIVATABLE, "h-full rounded-xl"),
               focusedIndex === i &&
                 "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-xl transition-shadow duration-150",
             )}

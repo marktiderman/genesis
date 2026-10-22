@@ -81,6 +81,19 @@ describe("ResourcePage — canEdit / canDelete", () => {
     expect(deleteButton()).toBeTruthy();
   });
 
+  it("lets canEditItem veto both, whatever canEdit / canDelete say", async () => {
+    renderPage({
+      onEdit: () => {},
+      onDelete: () => {},
+      canEditItem: (p) => !p.locked,
+      canEdit: () => true,
+      canDelete: () => true,
+    });
+    await openPeek("Southside");
+    expect(editButton()).toBeNull();
+    expect(deleteButton()).toBeNull();
+  });
+
   it("gates each independently", async () => {
     renderPage({ onEdit: () => {}, onDelete: () => {}, canDelete: () => false });
     await openPeek("Northside");

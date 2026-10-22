@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 126 components · 363 other exports · 217 standalone types across 7 packages.
+**Totals:** 128 components · 390 other exports · 237 standalone types across 9 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -28,9 +28,9 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
-| [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | _(no summary)_ |
+| [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 
-### Other exports (18)
+### Other exports (20)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -41,21 +41,23 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createMemoryStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | In-memory adapter for testing and SSR. |
 | [`createMockProvider`](../packages/core/src/provider/mock-provider.ts) | function | — | _(no summary)_ |
 | [`createNoopStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | No-op adapter — all operations silently do nothing. |
-| [`createSupabaseProvider`](../packages/core/src/provider/supabase-provider.ts) | function | — | _(no summary)_ |
+| [`createSupabaseProvider`](../packages/core/src/provider/supabase-provider.ts) | function | — | The Supabase data provider. Reads and writes go through the client you pass, under that client's session and RLS. |
 | [`DataWriteError`](../packages/core/src/schema/write-outcome.ts) | class | — | Thrown by a provider when a write did not commit. |
 | [`decodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | The inverse of {@link encodeRecordKey}: field name → value. |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
+| [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
+| [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (60)
+### Types (65)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -85,6 +87,7 @@ export type { GetOneResult };
 export type { HistoryParams };
 export type { Identifier };
 export type { ImportParams };
+export type { InvalidationKey };
 export type { ListParams };
 export type { ListResult };
 export type { MockProviderOptions };
@@ -108,6 +111,9 @@ export type { StorageAdapter };
 export type { StorageType };
 export type { SupabaseClient };
 export type { SupabaseClientInput };
+export type { SupabaseProviderOptions };
+export type { SupabaseResourceConfig };
+export type { SupabaseWriteContext };
 export type { UpdateParams };
 export type { UpdateResult };
 export type { UseOneOptions };
@@ -119,6 +125,7 @@ export type { UseWizardReturn };
 export type { VersionField };
 export type { WidgetHint };
 export type { WizardStep };
+export type { WriteEvent };
 export type { WriteOutcome };
 ```
 
@@ -516,6 +523,132 @@ export type { SpaceToken };
 export type { SplitBreakpoint };
 export type { SplitRatio };
 export type { StatusBadgeStatus };
+```
+
+---
+
+## @marktiderman/genesis-ui/router/react-router
+
+React Router adapters for genesis-ui's navigation contract: a `LinkComponent`, a `NavigateFn`, a `SearchParamsAdapter` and the full-location `activePath`. `react-router` is an optional peer, loaded only by this subpath.
+
+**Barrel:** [`packages/ui/src/router/react-router.tsx`](../packages/ui/src/router/react-router.tsx)
+
+### Other exports (4)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`ReactRouterLink`](../packages/ui/src/router/react-router.tsx) | const | Beta | {@link LinkComponent} for React Router. Pass it as `linkComponent` to `AppShell`, `StatCard` and anything else that takes one. `href` maps to React Router's `to` (query and hash included), and `testID` is forwarded as `data-testid`, as `... |
+| [`useReactRouterActivePath`](../packages/ui/src/router/react-router.tsx) | function | Beta | The current location as `pathname + search + hash`, the shape `AppShell`'s `activePath` expects, so nav items whose `to` names a query or hash (`/admin?tab=users`, `/settings#profile`) highlight correctly. |
+| [`useReactRouterNavigate`](../packages/ui/src/router/react-router.tsx) | function | Beta | {@link NavigateFn} backed by React Router's `useNavigate()`. Pass it as `ResourcePage`'s `onNavigate` (or anywhere a `NavigateFn` is accepted) for client-side navigation instead of a full page load. Absolute URLs (`https://…`, `mailto:…`... |
+| [`useReactRouterSearchParams`](../packages/ui/src/router/react-router.tsx) | function | Beta | {@link SearchParamsAdapter} backed by React Router's location. Pass it as `useDataFilters(key, defs, { searchParams })` so URL-synced filters go through the router (loaders re-run, back/forward stays in sync) instead of the raw History A... |
+
+---
+
+## @marktiderman/genesis-ui/router/tanstack-router
+
+TanStack Router adapters for genesis-ui's navigation contract: a `LinkComponent`, a `NavigateFn`, a `SearchParamsAdapter` and the full-location `activePath`. `@tanstack/react-router` is an optional peer, loaded only by this subpath.
+
+**Barrel:** [`packages/ui/src/router/tanstack-router.tsx`](../packages/ui/src/router/tanstack-router.tsx)
+
+### Other exports (4)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`TanStackRouterLink`](../packages/ui/src/router/tanstack-router.tsx) | const | Beta | {@link LinkComponent} for TanStack Router. Pass it as `linkComponent` to `AppShell`, `StatCard` and anything else that takes one. In-app hrefs navigate client-side (query and hash included, parsed by the router's `parseSearch`); absolute... |
+| [`useTanStackRouterActivePath`](../packages/ui/src/router/tanstack-router.tsx) | function | Beta | The current location as `pathname + search + hash`, the shape `AppShell`'s `activePath` expects, so nav items whose `to` names a query or hash (`/admin?tab=users`, `/settings#profile`) highlight correctly. Paths are the router's (basepat... |
+| [`useTanStackRouterNavigate`](../packages/ui/src/router/tanstack-router.tsx) | function | Beta | {@link NavigateFn} backed by the TanStack router. Pass it as `ResourcePage`'s `onNavigate` (or anywhere a `NavigateFn` is accepted) for client-side navigation instead of a full page load. Absolute URLs (`https://…`, `mailto:…`, `//host/…... |
+| [`useTanStackRouterSearchParams`](../packages/ui/src/router/tanstack-router.tsx) | function | Beta | {@link SearchParamsAdapter} backed by the TanStack router's location. Pass it as `useDataFilters(key, defs, { searchParams })` so URL-synced filters go through the router (loaders and `validateSearch` run, back/forward stays in sync) ins... |
+
+---
+
+## @marktiderman/genesis-ui/rich-text
+
+Read-only rich text renderer and server-safe helpers (sanitize, HTML, plain text). No editor dependency; usable in server components and on the server.
+
+**Barrel:** [`packages/ui/src/components/rich-text/rich-text.tsx`](../packages/ui/src/components/rich-text/rich-text.tsx)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`RichText`](../packages/ui/src/components/rich-text/rich-text.tsx) | `RichTextProps` | Beta | RichText — renders a rich text document as React elements. |
+
+### Other exports (16)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`emptyRichTextDoc`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | An empty document: one empty paragraph, which is what the editor produces. |
+| [`escapeHtml`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Escape text for use in HTML element content and quoted attributes. |
+| [`isRichTextDoc`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | True when `value` is shaped like a rich text document (`{ type: "doc" }`). |
+| [`isRichTextEmpty`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | True when the document has no visible text and no embeds. |
+| [`isSafeUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | True when `url` is safe to put in an `href`: an absolute http(s), mailto or tel URL, a root-relative path (`/lessons/1`) or a fragment (`#notes`). |
+| [`normalizeLinkUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Turn what a person typed into the link field into a safe href, or `null`. `example.com/page` becomes `https://example.com/page`; an email address becomes a `mailto:` link. |
+| [`parseVideoUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Recognise a YouTube, Vimeo or Loom video URL (watch, share, short and embed forms) and reduce it to its provider and id. Returns `null` for anything else, including other hosts that merely look similar. |
+| [`richTextClassName`](../packages/ui/src/components/rich-text/rich-text.tsx) | const | — | Typography for rendered rich text, shared by `RichText` and the editor's editable area so a document looks the same while writing and reading. Exported for apps that render stored HTML themselves. |
+| [`richTextToHtml`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Serialize a document to HTML. The input is sanitized first, so this is safe to call on untrusted JSON; the output contains only the tags listed in this file's header, with every value escaped. |
+| [`richTextToPlainText`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Plain text for search indexes, previews and notifications. Blocks are separated by blank lines; embeds become "Title (url)". |
+| [`sanitizeRichTextDoc`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Validate an untrusted value as a rich text document and return a clean copy that contains only allow-listed nodes, marks and attributes. |
+| [`sanitizeVideoEmbedAttrs`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Validate untrusted embed attributes, returning a clean copy or `null`. |
+| [`VIDEO_IFRAME_ATTRS`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | const | — | Attributes for an embed's `<iframe>`. Shared by the HTML serializer, the React renderer and the editor so all three emit the same frame. |
+| [`videoEmbedSrc`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | The player URL for an embed. Built from validated parts only. |
+| [`videoEmbedTitle`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Accessible name for an embed's frame: its title, or "YouTube video" etc. |
+| [`videoWatchUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | The page URL for an embed (what a viewer would open in a new tab). |
+
+### Types (8)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { RichTextDoc };
+export type { RichTextHeadingLevel };
+export type { RichTextMark };
+export type { RichTextNode };
+export type { RichTextToHtmlOptions };
+export type { SanitizeRichTextOptions };
+export type { VideoEmbedAttrs };
+export type { VideoProvider };
+```
+
+---
+
+## @marktiderman/genesis-ui/rich-text-editor
+
+Rich text editor (Tiptap 3) with a Genesis toolbar. Needs the optional `@tiptap/*` peers.
+
+**Barrel:** [`packages/ui/src/components/rich-text/rich-text-editor.tsx`](../packages/ui/src/components/rich-text/rich-text-editor.tsx)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`RichTextEditor`](../packages/ui/src/components/rich-text/rich-text-editor.tsx) | `RichTextEditorProps` | Beta | RichTextEditor — formatted text input for lessons, notes and other long-form content. |
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`VideoEmbed`](../packages/ui/src/components/rich-text/video-embed.ts) | const | Beta | Tiptap node for YouTube, Vimeo and Loom players, stored as `{ provider, id, hash?, title? }` and rebuilt from those parts on render. Adds the `setVideoEmbed({ url, title })` command. |
+
+### Types (7)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { RichTextChangeDetails };
+export type { RichTextDoc };
+export type { RichTextEditorHandle };
+export type { RichTextEditorLabels };
+export type { RichTextEditorValue };
+export type { RichTextHeadingLevel };
+export type { RichTextToolbarItem };
 ```
 
 ---

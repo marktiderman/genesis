@@ -36,12 +36,10 @@ import {
  */
 export interface PageHeaderOptions {
   /**
-   * Render the title block (icon, `<h1>`, subtitle). Default true. `false`
-   * leaves only the actions cluster — count, view toggle, view settings,
-   * create, overflow — right-aligned, for a list embedded in a tab or card
-   * whose page already owns the heading (a second `<h1>` there would break
-   * the page outline). Not offered as a user toggle: whether the page has a
-   * heading is the developer's call, not a viewing preference.
+   * The icon, title and subtitle block. Turn it off where the surrounding
+   * page already names the content (a list inside a tab), keeping only the
+   * actions row: count, view toggle, filters, create. Default true. A
+   * developer setting, not offered in the user's Header options.
    */
   showTitle?: boolean;
   showIcon?: boolean;
@@ -100,6 +98,8 @@ const OPTION_DEFAULTS: Required<
   configurable: undefined,
 };
 
+// `showTitle` is left out on purpose: it is a developer setting, so a stored
+// user override must never hide the title.
 const BOOLEAN_OPTION_KEYS: PageHeaderOptionKey[] = [
   "showIcon",
   "showSubtitle",

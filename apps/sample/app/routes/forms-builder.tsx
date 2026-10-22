@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Badge } from "@marktiderman/genesis-ui/badge";
+import { Label } from "@marktiderman/genesis-ui/label";
+import { Switch } from "@marktiderman/genesis-ui/switch";
 import { FormBuilder, TEMPLATES, diffDefinitions, getTemplate } from "@marktiderman/genesis-forms-builder";
 import type { FormDefinition } from "@marktiderman/genesis-forms";
 
@@ -10,6 +12,7 @@ export default function FormsBuilderRoute() {
   const [start, setStart] = useState<FormDefinition>(() => getTemplate("after-class")!.create());
   const [published, setPublished] = useState<FormDefinition>(start);
   const [note, setNote] = useState<string | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
 
   const load = (id: string) => {
     const def = getTemplate(id)!.create();
@@ -32,12 +35,17 @@ export default function FormsBuilderRoute() {
               {t.name}
             </Button>
           ))}
+          <Label className="ml-auto flex items-center gap-2 text-sm font-normal">
+            <Switch checked={readOnly} onCheckedChange={setReadOnly} data-testid="builder-sample-readonly" />
+            Read only (a viewer without edit access)
+          </Label>
         </div>
       </div>
       <FormBuilder
         key={start.id}
         defaultValue={start}
-        actions={(_def, analysis, builder) => (
+        readOnly={readOnly}
+        actions={(_def, analysis, builder) => readOnly ? null : (
           <Button
             testID="builder-publish"
             size="sm"
