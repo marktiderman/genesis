@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@marktiderman/genesis-design-system/themes/genesis.css";
 @import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
+@import "@marktiderman/genesis-forms-devtools/styles.css";
 @source "../../../packages/ui/src";
 @source "../../../packages/studio/src";
 @source "../../../packages/forms-web/src";

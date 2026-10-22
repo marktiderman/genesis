@@ -6,7 +6,7 @@
   "sideEffects": [
     "*.css"
   ],
-  "description": "Developer tools for Genesis Forms: an inspector with live state, a time-travel event timeline and a server-check panel with tamper mode. Mount it in a playground or in an app during development. Part of the Genesis framework.",
+  "description": "Developer tools for Genesis Forms: an inspector with live state, a time-travel event timeline and a server-check panel with tamper mode, a flow map, a logic trace and path coverage. Mount it in a playground or in an app during development. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -61,5 +61,9 @@
     "tsup": "^8.3.0",
     "typescript": "^5.9.3",
     "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^3.1.1",
+    "@xyflow/react": "^12.12.0"
   }
 }
