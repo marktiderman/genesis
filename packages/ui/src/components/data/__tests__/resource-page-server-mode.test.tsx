@@ -1,3 +1,4 @@
+// @feat:resource-page
 /**
  * ResourcePage — server-controlled list mode and the level-2 / level-3
  * passthroughs.

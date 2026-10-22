@@ -1,3 +1,4 @@
+// @feat:data-views
 /**
  * KanbanBoard moving cards between columns.
  *

@@ -126,6 +126,26 @@ const PACKAGES = [
     description:
       "Data Studio server handler (Request → Response) that acts as the signed-in user over Postgres/Supabase. The only package that touches database credentials. See packages/studio-server/README.md.",
   },
+  {
+    name: "@marktiderman/genesis-features",
+    dir: "packages/features",
+    barrel: "packages/features/src/index.ts",
+    description:
+      "A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts` that running code imports, plus the AGENTS.md and JSON generators. `genesis features build|check` keeps the generated output in step. See packages/features/README.md.",
+    subpaths: [
+      {
+        name: "@marktiderman/genesis-features/react",
+        barrel: "packages/features/src/react.tsx",
+        description:
+          "`FeatureList`: the registry as a genesis-ui ResourcePage — a table, a board grouped by status, filters by app and audience. genesis-ui, React and lucide-react are optional peers, loaded only by this subpath.",
+      },
+      {
+        name: "@marktiderman/genesis-features/node",
+        barrel: "packages/features/src/node.ts",
+        description: "`buildFeatureOutputs` and `checkFeatureOutputs`, the file-system half that `genesis features build|check` runs.",
+      },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------

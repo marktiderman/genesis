@@ -1,3 +1,4 @@
+// @feat:native-components
 /**
  * NativeBadge status-contrast guard (WS-G / C18).
  *

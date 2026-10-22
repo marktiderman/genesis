@@ -1,3 +1,4 @@
+// @feat:data-studio
 /**
  * DataStudio against an in-memory provider that behaves like the studio
  * handler: per-user schema, version-checked updates, audit entries, and the

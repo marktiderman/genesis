@@ -1,3 +1,4 @@
+// @feat:studio-init
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { detectHost, planStudioInit, type ProjectFacts } from "../src/studio/init.js";

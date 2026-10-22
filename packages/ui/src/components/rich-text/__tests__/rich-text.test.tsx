@@ -1,3 +1,4 @@
+// @feat:rich-text
 /**
  * RichText renders stored JSON as React elements. It must render the same
  * structure the HTML serializer writes, render on the server (no hooks), and

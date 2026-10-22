@@ -35,6 +35,42 @@ import { Button } from "@marktiderman/genesis-ui";
 </GenesisProvider>;
 ```
 
+<!-- genesis-features:marketing:start -->
+## Features
+
+- **Design tokens and brands** — Bring your brand once; every component follows it.
+- **ResourcePage** — A working list, detail and edit page from a few lines of config.
+- **Data Studio** — A spreadsheet over your own database, as the signed-in user.
+- **Forms engine** — Forms as data: logic, validation and a server check that can't be tampered with.
+
+### Design system
+
+- **UI primitives** — Accessible, themeable components you don't have to hand-roll.
+- **Page layouts** — Pages that look consistent without a designer on every screen.
+- **AppShell navigation** — One navigation tree drives the sidebar, mobile nav and command palette.
+- **React Native components** — The same components on iOS and Android.
+
+### Data
+
+- **Data views** — Tables, cards, boards and filters that share one set of conventions.
+- **DataProvider and hooks** — One data contract for every backend, with hooks for lists, records and forms.
+- **Supabase provider** — Supabase under row-level security, with honest write results.
+- **Switchboard** — Move a resource between backends without a rewrite.
+
+### Forms
+
+- **Form renderer** — Beautiful, accessible forms, one question at a time or all at once.
+- **Form builder** — Build forms visually, with logic, and see problems as you go.
+- **Form destinations** — Send every response to email, Google Sheets or your own webhook.
+
+### Tooling
+
+- **genesis doctor** — Your app stays on the design system, checked on every build.
+- **Chrome extension kit** — Chrome extensions with the same components and tests as your app.
+
+<sub>Generated from `features.ts`.</sub>
+<!-- genesis-features:marketing:end -->
+
 ## Extending
 
 Genesis is a starting point. If it ever becomes a ceiling, that is a bug in genesis, not a reason to fork it — **REUSE > EXTEND > INVENT** only holds if extending is actually available.

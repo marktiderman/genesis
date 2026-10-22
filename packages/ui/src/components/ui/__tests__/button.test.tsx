@@ -1,3 +1,4 @@
+// @feat:ui-primitives
 /**
  * Button — `asChild` composition + disabled semantics.
  *
