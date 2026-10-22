@@ -8,6 +8,7 @@
  * `FeatureProjectOptions` field that is a path, a list or a switch, plus
  * `registry` and `flagsFile`); command-line options win.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { createJiti } from "jiti";
@@ -16,11 +17,15 @@ import {
   checkFeatureOutputs,
   summarizeCheck,
   type FeatureCheckResult,
+  type FeaturePrEvidence,
   type FeatureProjectOptions,
 } from "@marktiderman/genesis-features/node";
 import { findFeatures, type FeatureRecord, type Features, type Flags } from "@marktiderman/genesis-features";
 
-type Settings = Omit<FeatureProjectOptions, "root" | "features" | "flags" | "labels" | "today">;
+type Settings = Omit<FeatureProjectOptions, "root" | "features" | "flags" | "labels" | "today" | "evidence">;
+
+/** Runs `gh` with these arguments in `cwd` and returns its stdout; throws when it can't. */
+export type GhRunner = (args: string[], cwd: string) => string;
 
 export interface FeaturesCommandOptions extends Settings {
   /** The repo root. */
@@ -31,6 +36,10 @@ export interface FeaturesCommandOptions extends Settings {
   flagsFile?: string;
   /** The PR's labels, for `check`. */
   labels?: string[];
+  /** `check`: also read merged PRs labelled `feature:<id>` for planned features, with `gh`. */
+  prs?: boolean;
+  /** How `--prs` runs `gh`. Tests pass a fake. */
+  gh?: GhRunner;
 }
 
 const DEFAULT_REGISTRIES = ["src/features.ts", "features.ts"];
@@ -69,7 +78,7 @@ export async function loadRegistry(input: FeaturesCommandOptions) {
   if (flags !== undefined && !isObject(flags)) {
     throw new Error(`${options.flagsFile ?? registry}'s \`flags\` export must be an object (from defineFlags).`);
   }
-  const { dir: _dir, registry: _registry, flagsFile: _flagsFile, ...rest } = options;
+  const { dir: _dir, registry: _registry, flagsFile: _flagsFile, prs: _prs, gh: _gh, ...rest } = options;
   const project: FeatureProjectOptions = {
     ...rest,
     root,
@@ -84,9 +93,37 @@ export async function runFeaturesBuild(options: FeaturesCommandOptions): Promise
   return buildFeatureOutputs(await loadRegistry(options));
 }
 
+const runGh: GhRunner = (args, cwd) => execFileSync("gh", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+
+/**
+ * Merged PRs labelled `feature:<id>`, for each planned feature's id and
+ * aliases. Only planned features are asked about: that is all the evidence
+ * is for. When `gh` is missing or fails, stops and says so once.
+ */
+export function gatherPrEvidence(project: FeatureProjectOptions, gh: GhRunner = runGh): { prs: Record<string, FeaturePrEvidence[]>; warning?: string } {
+  const prs: Record<string, FeaturePrEvidence[]> = {};
+  const names = Object.entries(project.features)
+    .filter(([, f]) => f.status === "planned")
+    .flatMap(([id, f]) => [id, ...(f.aliases ?? [])]);
+  for (const name of names) {
+    try {
+      const out = gh(["pr", "list", "--state", "merged", "--label", `feature:${name}`, "--limit", "100", "--json", "number,title"], project.root);
+      const list = JSON.parse(out) as FeaturePrEvidence[];
+      if (list.length) prs[name] = list.map(({ number, title }) => ({ number, title }));
+    } catch (error) {
+      const missing = (error as NodeJS.ErrnoException)?.code === "ENOENT";
+      const why = missing ? "gh is not installed" : String(error instanceof Error ? error.message : error).split("\n")[0];
+      return { prs, warning: `--prs: couldn't read merged PRs with gh (${why}), so only changesets were checked for shipped work` };
+    }
+  }
+  return { prs };
+}
+
 export async function runFeaturesCheck(options: FeaturesCommandOptions): Promise<FeatureCheckResult & { summary: string }> {
   const project = await loadRegistry(options);
-  const result = checkFeatureOutputs(project);
+  const evidence = options.prs ? gatherPrEvidence(project, options.gh) : undefined;
+  const result = checkFeatureOutputs({ ...project, evidence: evidence && { prs: evidence.prs } });
+  if (evidence?.warning) result.warnings.push(evidence.warning);
   return { ...result, summary: summarizeCheck(result, project.features) };
 }
 

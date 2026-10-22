@@ -67,6 +67,32 @@ export interface FeatureProjectOptions {
   reviewDays?: number;
   /** `YYYY-MM-DD`. Default today (UTC). */
   today?: string;
+  /**
+   * Shipped work gathered elsewhere (the CLI's `--prs` reads it with `gh`).
+   * A planned feature with any of it gets a warning, as do changesets that
+   * name it.
+   */
+  evidence?: FeatureEvidence;
+}
+
+/** A merged PR labelled `feature:<id>`. @stability Beta */
+export interface FeaturePrEvidence {
+  number: number;
+  title: string;
+}
+
+/** @stability Beta */
+export interface FeatureEvidence {
+  /** Merged PRs by the feature id (or alias) on their `feature:<id>` label. */
+  prs?: Record<string, readonly FeaturePrEvidence[]>;
+}
+
+/** A feature still marked planned that already has shipped work tagged with it. @stability Beta */
+export interface PlannedButShipped {
+  id: string;
+  /** Changeset files with a `Features: <id>` line. */
+  changesets: string[];
+  prs: FeaturePrEvidence[];
 }
 
 /** @stability Beta */
@@ -81,6 +107,8 @@ export interface FeatureCheckResult {
   expiredFlags: string[];
   /** Building features with someone on them: `[id, claimedBy]`. */
   claims: [string, string][];
+  /** Planned features with shipped work; each is also a warning. */
+  plannedButShipped: PlannedButShipped[];
 }
 
 const CODE = "{ts,tsx,js,jsx,mjs,cjs}";
@@ -208,6 +236,13 @@ function removedIds(options: FeatureProjectOptions): string[] {
   return previous.filter((id) => !now.has(id));
 }
 
+/** Each id and alias, mapped to its feature's id. */
+const canonical = (features: Features) =>
+  new Map(Object.entries(features).flatMap(([id, f]) => [id, ...(f.aliases ?? [])].map((name) => [name, id] as const)));
+
+/** "a", "a and b", "a, b and c". */
+const and = (items: string[]) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`);
+
 const removedMessage = (id: string) =>
   `the feature id "${id}" was removed. Ids are permanent: keep the entry with status "retired", or list "${id}" in the new entry's aliases`;
 
@@ -297,7 +332,8 @@ export function buildFeatureOutputs(options: FeatureProjectOptions): string[] {
  * flag, an expired flag, a dynamic key, a key read but not defined or defined
  * but never read, a missing runbook), an id that disappeared, an unknown id in
  * a test, changeset or PR tag, and a CLAUDE.md without `@AGENTS.md`.
- * Warnings: reviews due, live features without tagged tests, route and
+ * Warnings: reviews due, live features without tagged tests, planned features
+ * with shipped work (changesets, and `evidence.prs`), route and
  * server-function files no feature covers, missing docs.
  *
  * It only ever compares generated output with the generator, never two
@@ -393,6 +429,13 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
     }
   }
 
+  const idOf = canonical(features);
+  const shippedIn = new Map<string, { changesets: string[]; prs: FeaturePrEvidence[] }>();
+  const shipped = (name: string) => {
+    const id = idOf.get(name)!;
+    if (!shippedIn.has(id)) shippedIn.set(id, { changesets: [], prs: [] });
+    return shippedIn.get(id)!;
+  };
   const changesets = options.changesets === undefined ? ".changeset" : options.changesets;
   if (changesets) {
     for (const path of listChangesets(root, changesets)) {
@@ -400,9 +443,23 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
       for (const m of text.matchAll(/^features:[ \t]*\[?([^\]\n]*)\]?[ \t]*$/gim)) {
         for (const id of m[1]!.split(/[\s,]+/).filter(Boolean)) {
           if (!known.has(id)) errors.push(`${path}: Features: ${id} is not a feature`);
+          else if (!shipped(id).changesets.includes(path)) shipped(id).changesets.push(path);
         }
       }
     }
+  }
+  for (const [name, prs] of Object.entries(options.evidence?.prs ?? {})) {
+    if (!known.has(name)) continue;
+    const list = shipped(name).prs;
+    for (const pr of prs) if (!list.some((p) => p.number === pr.number)) list.push(pr);
+  }
+  const plannedButShipped: PlannedButShipped[] = [];
+  for (const [id, def] of Object.entries(features)) {
+    const found = shippedIn.get(id);
+    if (def.status !== "planned" || !found || (!found.changesets.length && !found.prs.length)) continue;
+    const prs = [...found.prs].sort((a, b) => a.number - b.number);
+    plannedButShipped.push({ id, changesets: found.changesets, prs });
+    warnings.push(`${id} is still planned, but ${and([...found.changesets, ...prs.map((p) => `PR #${p.number}`)])} shipped work for it`);
   }
   for (const label of options.labels ?? []) {
     const id = /^feature:(.+)$/.exec(label.trim())?.[1];
@@ -418,7 +475,7 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
     }
   }
 
-  return { ok: errors.length === 0, errors, warnings, stale, expiredFlags: expired, claims };
+  return { ok: errors.length === 0, errors, warnings, stale, expiredFlags: expired, claims, plannedButShipped };
 }
 
 function listChangesets(root: string, dir: string): string[] {
@@ -432,8 +489,8 @@ function listChangesets(root: string, dir: string): string[] {
 }
 
 /**
- * A few lines for a session's start: counts, stale output, expired flags and
- * open claims. Meant for a SessionStart hook (`genesis features check --summary`).
+ * A few lines for a session's start: counts, stale output, expired flags,
+ * planned features with shipped work and open claims. Meant for a SessionStart hook (`genesis features check --summary`).
  *
  * @stability Beta
  */
@@ -444,6 +501,10 @@ export function summarizeCheck(result: FeatureCheckResult, features: Features): 
   ];
   if (result.stale.length) lines.push(`- Stale generated files: ${result.stale.join(", ")}. Run the features build.`);
   if (result.expiredFlags.length) lines.push(`- Expired flags: ${result.expiredFlags.join(", ")}. Remove the code path, then the flag.`);
+  if (result.plannedButShipped.length) {
+    const n = result.plannedButShipped.length;
+    lines.push(`- ${n} planned feature${n === 1 ? " has" : "s have"} shipped work: ${result.plannedButShipped.map((s) => s.id).join(", ")}. Move ${n === 1 ? "its" : "their"} status on.`);
+  }
   if (result.claims.length) lines.push(`- Being built: ${result.claims.map(([id, by]) => `${id} (${by})`).join(", ")}.`);
   const other = result.errors.length - result.stale.length - result.expiredFlags.length;
   if (other > 0) lines.push(`- ${other} other error${other === 1 ? "" : "s"}: run the features check for details.`);

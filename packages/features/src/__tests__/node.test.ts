@@ -156,6 +156,30 @@ describe("build and check", () => {
     expect(errors.join("\n")).not.toMatch(/Features: tasks|feature:wins/);
   });
 
+  it("warns when a planned feature already has shipped work, without failing", () => {
+    const root = repo({
+      ".changeset/b.md": "---\n\"pkg\": patch\n---\n\nSeats.\n\nFeatures: billing\n",
+      ".changeset/a.md": "---\n\"pkg\": patch\n---\n\nTasks.\n\nFeatures: tasks\n",
+    });
+    const prs = { billing: [{ number: 123, title: "Seats" }, { number: 9, title: "Plans" }], tasks: [{ number: 5, title: "Tick" }], ghost: [{ number: 1, title: "?" }] };
+    const result = checkFeatureOutputs(opts(root, { evidence: { prs } }));
+    const shipped = result.warnings.filter((w) => w.includes("still planned"));
+    expect(shipped).toEqual(["billing is still planned, but .changeset/b.md, PR #9 and PR #123 shipped work for it"]);
+    expect(result.plannedButShipped).toEqual([{ id: "billing", changesets: [".changeset/b.md"], prs: [{ number: 9, title: "Plans" }, { number: 123, title: "Seats" }] }]);
+    expect(result.errors.join("\n")).not.toMatch(/still planned/);
+
+    expect(checkFeatureOutputs(opts(root, { changesets: false })).plannedButShipped).toEqual([]);
+    const viaChangeset = checkFeatureOutputs(opts(root)).warnings.filter((w) => w.includes("still planned"));
+    expect(viaChangeset).toEqual(["billing is still planned, but .changeset/b.md shipped work for it"]);
+  });
+
+  it("counts evidence tagged with an alias for its feature", () => {
+    const root = repo();
+    const aliased = { ...features, billing: { ...features.billing, aliases: ["payments"] } };
+    const result = checkFeatureOutputs(opts(root, { features: aliased, evidence: { prs: { payments: [{ number: 7, title: "Pay" }] } } }));
+    expect(result.warnings).toContain("billing is still planned, but PR #7 shipped work for it");
+  });
+
   it("warns about route and server-function files no feature covers", () => {
     const root = repo({ "src/routes/admin.tsx": "", "src/routes/__root.tsx": "", "src/lib/page.functions.ts": "", "src/routes/tasks/index.tsx": "" });
     const covered = { ...features, tasks: { ...features.tasks, links: { code: ["src/tasks.ts", "src/routes/tasks/"] } } };
@@ -175,6 +199,13 @@ describe("build and check", () => {
     expect(summary).toContain("- Stale generated files: AGENTS.md, features.json, flags.json, .claude/skills/features/SKILL.md.");
     expect(summary).toContain("- Expired flags: wins.v2.");
     expect(summary).toContain("- Being built: billing (less).");
+    expect(summary).not.toContain("planned feature");
+  });
+
+  it("counts planned features with shipped work in the summary", () => {
+    const root = repo();
+    const result = checkFeatureOutputs(opts(root, { evidence: { prs: { billing: [{ number: 4, title: "Seats" }] } } }));
+    expect(summarizeCheck(result, features)).toContain("- 1 planned feature has shipped work: billing. Move its status on.");
   });
 });
 
