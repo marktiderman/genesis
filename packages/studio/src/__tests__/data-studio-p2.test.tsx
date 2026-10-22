@@ -4,7 +4,7 @@
  * import with a dry run, and code-configured form sections and conditions.
  */
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BaseRecord, BulkChange, DataProvider, ListParams } from "@marktiderman/genesis-core/provider";
 import { type AuditEntry, type ResourceSchema } from "@marktiderman/genesis-core/schema";
 import { DataStudio } from "../DataStudio";
@@ -145,6 +145,11 @@ async function openSheet(provider: DataProvider) {
 }
 
 describe("DataStudio P2", () => {
+  // A test that stubs `confirm` must not leak it into the next one, even on failure.
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("saves a multi-row paste in one bulk transaction, at each row's version", async () => {
     const { provider, calls, db } = makeProvider();
     const grid = await openSheet(provider);
@@ -271,7 +276,6 @@ describe("DataStudio P2", () => {
     await waitFor(() => expect(calls.find((c) => c.op === "deleteMany")).toBeTruthy());
     expect(calls.find((c) => c.op === "deleteMany")!.args).toEqual([{ id: "c2", expectedVersion: "v1" }]);
     expect(db.map((r) => r.id)).toEqual(["c1", "c3"]);
-    vi.unstubAllGlobals();
   });
 
   it("imports a CSV: maps columns, lists failing rows on a dry run, then imports", async () => {
@@ -410,6 +414,5 @@ describe("DataStudio P2", () => {
     expect(await screen.findByText("Cy Lam")).toBeTruthy();
     expect(calls.filter((c) => c.op === "undo")).toHaveLength(2);
     expect(screen.queryByTestId("studio-activity-undo")).toBeNull();
-    vi.unstubAllGlobals();
   });
 });
