@@ -261,6 +261,10 @@
       "types": "./dist/components/patterns/settings-row.d.ts",
       "import": "./dist/components/patterns/settings-row.js"
     },
+    "./sortable-list": {
+      "types": "./dist/components/patterns/sortable-list.d.ts",
+      "import": "./dist/components/patterns/sortable-list.js"
+    },
     "./sheet": {
       "types": "./dist/components/ui/sheet.d.ts",
       "import": "./dist/components/ui/sheet.js"
