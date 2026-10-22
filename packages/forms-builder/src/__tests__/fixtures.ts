@@ -4,7 +4,7 @@
  */
 import type { FormDefinition } from "@marktiderman/genesis-forms";
 import { newId } from "../ops";
-import { BLANK_TEMPLATE, type FormTemplate } from "../templates";
+import { BLANK_TEMPLATE, STARTER_TEMPLATES, type FormTemplate } from "../templates";
 
 const contact = [
   { kind: "field", id: "q_name", key: "name", type: "short-text", label: "Your name", identifying: true },
@@ -107,7 +107,7 @@ export const COACHING_TEMPLATES: readonly FormTemplate[] = [
 
 
 /** Every fixture template, blank included. */
-export const ALL_TEMPLATES: readonly FormTemplate[] = [BLANK_TEMPLATE, ...COACHING_TEMPLATES];
+export const ALL_TEMPLATES: readonly FormTemplate[] = [BLANK_TEMPLATE, ...STARTER_TEMPLATES, ...COACHING_TEMPLATES];
 
 export const fixtureTemplate = (id: string): FormTemplate => {
   const t = ALL_TEMPLATES.find((x) => x.id === id);
