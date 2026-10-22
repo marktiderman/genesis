@@ -1,0 +1,69 @@
+.changeset/undoable-fast-follows.md
+  s_03a3816737bc07::t_ad8b63b6636a3d 6-14
+apps/sample/app/data/primitives.json
+  s_03a3816737bc07::t_4bb272afd897a8 15833
+docs/component-reference.md
+  s_03a3816737bc07::t_9aa9af162c6c2a 51
+packages/core/CHANGELOG.md
+  s_03a3816737bc07::t_11e4cbbaa6e54e 3-57
+packages/core/README.md
+  s_03a3816737bc07::t_be1fd3d1e10655 163-167,192-211,219-224
+packages/core/package.json
+  s_03a3816737bc07::t_9f40ff7a8a8ee0 3
+packages/core/src/hooks/mutation-mode.ts
+  s_03a3816737bc07::t_62e3d5620ebd5c 15-17,47-52,69,88-110,128-148,150-206,208-240,242-273,275-283,285-299,302-325,327-404,406-477,479-493,497-504,507-513,516-521,524-526,528,532-538,540,544-546,548,556-567,583-584,586,594-603,605-607,617,624-626,635-637,642,645,651-655,657-662,666-687,690-702,705,707-709,711-712,714-716,723,726-774,777,782-783,819-820,828,830-835
+packages/core/src/hooks/use-resource-form.ts
+  s_03a3816737bc07::t_9a906d9e58c1ed 17,22-30,62-69,406,553-563,591-602,609,615-617,639-640,643-644,671,687
+packages/core/src/hooks/use-resource.ts
+  s_03a3816737bc07::t_a89ef5f97a6912 265,298-299,324-329,350-351
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_03a3816737bc07::t_561d98267c5413 77,80-81,136-168,170
+packages/core/src/provider/postgrest-errors.ts
+  s_03a3816737bc07::t_4bb00a67b384e6 56-73,75-102,123-127,147-149,168-171,203
+packages/core/src/provider/types.ts
+  s_03a3816737bc07::t_b80f6c11864567 113-119,145-146,163-164
+packages/core/src/schema/types.ts
+  s_03a3816737bc07::t_b9f4a213dd2fde 287-294
+packages/extension/CHANGELOG.md
+  s_03a3816737bc07::t_438ebef545cf26 1-9
+packages/extension/package.json
+  s_03a3816737bc07::t_8ab4ce62790030 3
+packages/forms/CHANGELOG.md
+  s_03a3816737bc07::t_dd5faaf872ad78 3-9
+packages/forms/package.json
+  s_03a3816737bc07::t_ad20fa2d90223e 3
+packages/genesis/CHANGELOG.md
+  s_03a3816737bc07::t_274267af304938 3-27
+packages/genesis/package.json
+  s_03a3816737bc07::t_5b0e929eadf62d 3
+packages/ui/CHANGELOG.md
+  s_03a3816737bc07::t_02f181e539e46b 3-99
+packages/ui/SKILL.md
+  s_03a3816737bc07::t_fafffa01de339c 81-83
+packages/ui/package.json
+  s_03a3816737bc07::t_f66d8bc2a81af1 3
+packages/ui/src/components/data/ResourceForm.tsx
+  s_03a3816737bc07::t_0b2ac652cff468 351-352
+packages/ui/src/components/data/__tests__/undo-toast-exports.test.ts
+  s_03a3816737bc07::t_dc80385d9ff3a8 1-28
+packages/ui/src/components/data/index.ts
+  s_03a3816737bc07::t_cd9a76becaa3b7 56-58
+packages/ui/src/hooks/__tests__/core-mutation-modes.test.tsx
+  s_03a3816737bc07::t_c18c8328c338cf 8-12,84-89,215-216,219,221,234,236-241,329-352,362,368,381-382,386-441,597-599,609,618-1003
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "02c9015c7ef13d383a53d92dcb3961441752821c",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
