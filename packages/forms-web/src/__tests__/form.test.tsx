@@ -65,6 +65,13 @@ describe("<Form> introduction", () => {
 });
 
 describe("<Form> focus layout", () => {
+  it("never shows \"Question 1 of 0\" for a form with nothing to ask", () => {
+    const empty = defineForm({ id: "empty", title: "Empty", layout: { mode: "focus" }, blocks: [] });
+    render(<Form form={empty} />);
+    expect(screen.queryByText(/of 0/)).toBeNull();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
   it("walks one question at a time, showing progress and moving focus", async () => {
     const onSubmit = vi.fn();
     render(<Form form={afterClass} autoAdvance={false} onSubmit={onSubmit} options={{ hidden: { coach: "Sam" } }} />);
