@@ -160,8 +160,10 @@ export interface SupabaseProviderOptions {
   onWrite?: (event: WriteEvent) => void | Promise<void>;
   /**
    * The most rows one list page may ask for (PostgREST's `max-rows` caps
-   * reads anyway; default 1000). A larger request is cut to this with a
-   * console warning, and `capabilities().maxPerPage` reports it.
+   * reads anyway; default 1000). A larger request is refused with an
+   * `invalid` `DataReadError` (its `cause` says why) rather than cut short,
+   * so page boundaries never disagree with the caller's `perPage`.
+   * `capabilities().maxPerPage` reports it.
    */
   maxPerPage?: number;
   /**
@@ -169,7 +171,10 @@ export interface SupabaseProviderOptions {
    * `DataReadError` carries a plain message for users; the store's own
    * error (its raw text and code) is its `cause`, for logging here.
    */
-  onReadError?: (error: DataReadError, context: { resource: string; operation: "getList" | "getOne" | "getMany" }) => void;
+  onReadError?: (
+    error: DataReadError,
+    context: { resource: string; operation: "getList" | "getOne" | "getMany" },
+  ) => void | Promise<void>;
 }
 
 const SERVED_OPERATORS: readonly FilterOperator[] = [
@@ -260,15 +265,27 @@ export function createSupabaseProvider(
   }
 
   const maxPerPage = options.maxPerPage ?? 1000;
-  // The cap warns once per resource, not on every page.
-  const cappedWarned = new Set<string>();
+
+  /** Tell `onReadError` (sync or async; its failure is swallowed), then throw. */
+  async function reportReadError(
+    error: DataReadError,
+    resource: string,
+    operation: "getList" | "getOne" | "getMany",
+  ): Promise<never> {
+    try {
+      await Promise.resolve(options.onReadError?.(error, { resource, operation }));
+    } catch {
+      // A logging hook never changes what the caller is told.
+    }
+    throw error;
+  }
 
   /** A failed read, as a `DataReadError` with a message users can be shown. */
-  function throwIfReadError(
+  async function throwIfReadError(
     result: { error: unknown },
     resource: string,
     operation: "getList" | "getOne" | "getMany",
-  ): void {
+  ): Promise<void> {
     if (!result.error) return;
     const raw = result.error as { message?: string; code?: string };
     const code = typeof raw.code === "string" ? raw.code : undefined;
@@ -278,12 +295,7 @@ export function createSupabaseProvider(
       readFailureMessage(outcome, nounFor(resource), operation === "getOne", configFor(resource).nounPlural),
       { code, cause: result.error },
     );
-    try {
-      options.onReadError?.(error, { resource, operation });
-    } catch {
-      // A logging hook never changes what the caller is told.
-    }
-    throw error;
+    await reportReadError(error, resource, operation);
   }
 
   // ---------------------------------------------------------------------------
@@ -424,16 +436,23 @@ export function createSupabaseProvider(
 
       // Pagination (offset), never past what one page may return.
       if (params.pagination) {
-        const { page } = params.pagination;
-        let { perPage } = params.pagination;
+        const { page, perPage } = params.pagination;
+        // Refused, not cut short: a shorter page than the caller asked for
+        // would shift every later page's boundary and skip or repeat rows.
         if (perPage > maxPerPage) {
-          if (!cappedWarned.has(resource)) {
-            cappedWarned.add(resource);
-            console.warn(
-              `[SupabaseProvider] "${resource}" asked for ${perPage} rows per page; capped at ${maxPerPage} (maxPerPage). Page through the rest.`,
-            );
-          }
-          perPage = maxPerPage;
+          await reportReadError(
+            new DataReadError(
+              "invalid",
+              readFailureMessage("invalid", nounFor(resource), false, configFor(resource).nounPlural),
+              {
+                cause: new Error(
+                  `[SupabaseProvider] "${resource}" asked for ${perPage} rows per page; the most is ${maxPerPage} (maxPerPage). Ask for at most ${maxPerPage} and page through the rest.`,
+                ),
+              },
+            ),
+            resource,
+            "getList",
+          );
         }
         const from = (page - 1) * perPage;
         const to = from + perPage - 1;
@@ -445,7 +464,7 @@ export function createSupabaseProvider(
         error: unknown;
         count?: number | null;
       };
-      throwIfReadError(result, resource, "getList");
+      await throwIfReadError(result, resource, "getList");
 
       return { data: result.data ?? [], total: result.count ?? 0 } as never;
     },
@@ -455,7 +474,7 @@ export function createSupabaseProvider(
         .select(params.select ?? "*")
         .eq("id", params.id)
         .single()) as { data: unknown; error: unknown };
-      throwIfReadError(result, resource, "getOne");
+      await throwIfReadError(result, resource, "getOne");
       return { data: result.data } as never;
     },
 
@@ -464,7 +483,7 @@ export function createSupabaseProvider(
       const result = (await (client.from(resource) as SupabaseQueryBuilder)
         .select("*")
         .in("id", params.ids)) as { data: unknown[]; error: unknown };
-      throwIfReadError(result, resource, "getMany");
+      await throwIfReadError(result, resource, "getMany");
       return { data: result.data ?? [] } as never;
     },
 

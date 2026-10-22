@@ -30,7 +30,7 @@ import {
   type SavedViewItem,
   type DataFilterConfig,
 } from "./DataFilters";
-import { DataTable } from "./DataTable";
+import { DataTable, type DataTableSort } from "./DataTable";
 import { DataBulkBar } from "./DataBulkBar";
 import { DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
@@ -1325,6 +1325,34 @@ export function ResourcePage<
     actions,
   ]);
 
+  // ── Client mode: DataTable's header sort is `page.sort` ──
+  // The primary header sort is the page's sort (and so the URL's); Shift-
+  // click tie-breakers are kept here while that primary still matches, and
+  // dropped when the sort changes elsewhere (the sort select, the URL).
+  const [tableTieBreaks, setTableTieBreaks] = useState<{
+    primary: string;
+    rest: DataTableSort[];
+  } | null>(null);
+  const pageSort = page.sort;
+  const setPageSort = page.setSort;
+  const tableSort = useMemo<DataTableSort[]>(() => {
+    if (!pageSort) return [];
+    const primary: DataTableSort = { key: pageSort.field, dir: pageSort.order };
+    const rest =
+      tableTieBreaks && tableTieBreaks.primary === `${primary.key}:${primary.dir}`
+        ? tableTieBreaks.rest
+        : [];
+    return [primary, ...rest];
+  }, [pageSort, tableTieBreaks]);
+  const handleTableSort = useCallback(
+    (next: DataTableSort[]) => {
+      const [primary, ...rest] = next;
+      setTableTieBreaks(primary ? { primary: `${primary.key}:${primary.dir}`, rest } : null);
+      setPageSort(primary ? { field: primary.key, order: primary.dir } : null);
+    },
+    [setPageSort],
+  );
+
   // ── Server-driven pager state, needed above for handleSearchChange's
   // already-on-page-1 check. ──
   // The pager's inputs: the caller's controlled props, or — for
@@ -1889,6 +1917,11 @@ export function ResourcePage<
                 // The server already cut the page window; DataTable's own
                 // pagination would slice the slice.
                 pagination: isServerControlled ? false : undefined,
+                // Client mode: the header sort is the page's sort, so it
+                // reaches the URL and a link restores what the table shows.
+                ...(isServerControlled
+                  ? {}
+                  : { sort: tableSort, onSortChange: handleTableSort }),
               },
               slotProps?.table,
             )

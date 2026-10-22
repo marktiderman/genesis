@@ -147,6 +147,20 @@ export interface DataTableProps<T> {
    * link or button in the cell. `null` makes no cell a button (mouse only).
    */
   openColumn?: string | null;
+  /**
+   * The header sort, controlled: the first entry is the primary sort, later
+   * ones break ties (Shift-click adds one). Leave it unset and the table
+   * keeps its own sort, starting unsorted.
+   */
+  sort?: readonly DataTableSort[];
+  /** Called with the next header sort whenever a header is clicked. */
+  onSortChange?: (sort: DataTableSort[]) => void;
+}
+
+/** One column of a `DataTable` header sort. */
+export interface DataTableSort {
+  key: string;
+  dir: "asc" | "desc";
 }
 
 const ROW_OPEN = "data-row-open";
@@ -168,7 +182,24 @@ function focusRow(from: HTMLElement, to: "next" | "prev" | "first" | "last") {
 
 /* ── Helpers ── */
 
-type SortEntry = { key: string; dir: "asc" | "desc" };
+type SortEntry = DataTableSort;
+
+/** The header sort after clicking `key`: asc, then desc, then off. */
+function nextSort(prev: readonly SortEntry[], key: string, shiftKey: boolean): SortEntry[] {
+  const existing = prev.findIndex((s) => s.key === key);
+  if (existing >= 0) {
+    const entry = prev[existing];
+    if (entry.dir === "asc") {
+      const next = [...prev];
+      next[existing] = { key, dir: "desc" };
+      return next;
+    }
+    // Remove on third click
+    return prev.filter((_, i) => i !== existing);
+  }
+  if (shiftKey) return [...prev, { key, dir: "asc" }];
+  return [{ key, dir: "asc" }];
+}
 
 function getCellClasses(col: DataTableColumn<unknown>) {
   const hide = col.hideBelow
@@ -453,6 +484,8 @@ export function DataTable<T>({
   density = "comfortable",
   keyboardNavigation = true,
   openColumn,
+  sort: sortProp,
+  onSortChange,
 }: DataTableProps<T>) {
   const rowKeys = keyboardNavigation && !!onRowClick;
   // Roving tabindex: one row's open button is the table's tab stop.
@@ -460,27 +493,16 @@ export function DataTable<T>({
   const cellDensity = DENSITY_CELL[density];
   const headDensity = DENSITY_HEAD[density];
   // ── Multi-column sort ──
-  const [sorts, setSorts] = useState<SortEntry[]>([]);
+  const [ownSorts, setOwnSorts] = useState<SortEntry[]>([]);
+  const sorts: readonly SortEntry[] = sortProp ?? ownSorts;
 
   const handleSort = useCallback(
     (key: string, shiftKey: boolean) => {
-      setSorts((prev) => {
-        const existing = prev.findIndex((s) => s.key === key);
-        if (existing >= 0) {
-          const entry = prev[existing];
-          if (entry.dir === "asc") {
-            const next = [...prev];
-            next[existing] = { key, dir: "desc" };
-            return next;
-          }
-          // Remove on third click
-          return prev.filter((_, i) => i !== existing);
-        }
-        if (shiftKey) return [...prev, { key, dir: "asc" }];
-        return [{ key, dir: "asc" }];
-      });
+      const next = nextSort(sorts, key, shiftKey);
+      if (sortProp === undefined) setOwnSorts(next);
+      onSortChange?.(next);
     },
-    [],
+    [sorts, sortProp, onSortChange],
   );
 
   // ── Column visibility ──

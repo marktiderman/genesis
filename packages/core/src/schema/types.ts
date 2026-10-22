@@ -274,8 +274,9 @@ export interface ProviderCapabilities {
   /** `comments` and `addComment` are served. */
   readonly comments?: boolean;
   /**
-   * The most rows one `getList` page returns. A request for more is cut to
-   * this (and the provider warns), so a client that wants every row must page.
+   * The most rows one `getList` page may ask for. A request for more is
+   * refused (it is not cut short, which would shift later page boundaries),
+   * so a client that wants every row must page at this size or less.
    */
   readonly maxPerPage?: number;
   /**

@@ -114,8 +114,17 @@ async function openFrame(
   const nonce = crypto.randomUUID();
   try {
     const key = surfaceKey(tab.id!);
-    const mint = () =>
-      api.storage.session?.set({ [key]: { nonce, at: Date.now() } });
+    // Each open's secret has a key of its own, so using one up never touches
+    // another. A new open supersedes the tab's earlier ones: their keys go.
+    const mint = async () => {
+      const area = api.storage.session;
+      if (!area) return;
+      const stale = Object.keys(await area.get(null)).filter(
+        (k) => k === key || k.startsWith(`${key}:`),
+      );
+      if (stale.length) await area.remove(stale);
+      await area.set({ [surfaceSecretKey(tab.id!, nonce)]: { at: Date.now() } });
+    };
     // Under the lock takeSecret uses up a nonce under (see there).
     const locks = (globalThis.navigator as Navigator | undefined)?.locks;
     if (locks) await locks.request(key, mint);
@@ -325,9 +334,17 @@ export interface Surface {
   ready: Promise<boolean>;
 }
 
-/** Where openSurface keeps a tab's current open secret (chrome.storage.session). */
+/**
+ * The prefix of a tab's open secrets in chrome.storage.session, and the
+ * name of the Web Lock they are minted and used up under.
+ */
 export function surfaceKey(tabId: number): string {
   return `genesis-extension:surface:${tabId}`;
+}
+
+/** Where openSurface keeps one open's secret: `<surfaceKey>:<nonce>`. */
+export function surfaceSecretKey(tabId: number, nonce: string): string {
+  return `${surfaceKey(tabId)}:${nonce}`;
 }
 
 /**
@@ -478,26 +495,24 @@ async function takeSecret(
   try {
     const area = getChrome().storage.session;
     if (!area) return false;
-    const key = surfaceKey(tabId);
-    type Stored = { nonce?: unknown; at?: unknown } | undefined;
+    const key = surfaceSecretKey(tabId, nonce);
+    type Stored = { at?: unknown } | undefined;
     const take = async () => {
       const stored = (await area.get(key))[key] as Stored;
-      if (!stored || stored.nonce !== nonce) return false;
-      // Re-read just before removing: an `openSurface(…, { open: true })` may
-      // have minted the next open's nonce since the read above, and removing
-      // that would leave the new frame blank until it gives up. Only a key
-      // still holding the nonce this frame matched is used up.
-      const again = (await area.get(key))[key] as Stored;
-      if (again?.nonce === nonce) await area.remove(key);
+      if (!stored) return false;
+      // Only this nonce's own key is used up: a newer open's secret, minted
+      // under a key of its own meanwhile, is never touched.
+      await area.remove(key);
       return (
         typeof stored.at === "number" && Date.now() - stored.at < SECRET_TTL_MS
       );
     };
     // Under the same Web Lock openFrame mints under, where this page shares
     // the extension's locks (a frame inside a web page may be partitioned
-    // away from them; the re-read above still narrows that case).
+    // away from them; per-nonce keys keep that case safe too).
+    const lockName = surfaceKey(tabId);
     const locks = (globalThis.navigator as Navigator | undefined)?.locks;
-    return locks ? await locks.request(key, take) : await take();
+    return locks ? await locks.request(lockName, take) : await take();
   } catch {
     return false;
   }

@@ -480,14 +480,26 @@ describe("getList ordering and page size", () => {
     expect(orders().map(([col]) => col)).toEqual(["title"]);
   });
 
-  it("caps a page at maxPerPage with a warning, and reports it in capabilities", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const p = provider({ maxPerPage: 100 });
-    await list(p, { pagination: { page: 1, perPage: 1000 } });
-    expect(calls.find((c) => c.method === "range")?.args).toEqual([0, 99]);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"tasks" asked for 1000 rows'));
+  it("refuses a page larger than maxPerPage, and reports the cap in capabilities", async () => {
+    const onReadError = vi.fn();
+    const p = provider({ maxPerPage: 100, onReadError });
+    const e = (await list(p, { pagination: { page: 1, perPage: 1000 } }).catch((x: unknown) => x)) as DataReadError;
+    expect(isDataReadError(e)).toBe(true);
+    expect(e.outcome).toBe("invalid");
+    expect((e.cause as Error).message).toContain('"tasks" asked for 1000 rows per page; the most is 100');
+    expect(onReadError).toHaveBeenCalledWith(e, { resource: "tasks", operation: "getList" });
+    expect(calls.some((c) => c.method === "range")).toBe(false);
     expect((await p.capabilities!()).maxPerPage).toBe(100);
-    warn.mockRestore();
+  });
+
+  it("pages at exactly maxPerPage with contiguous boundaries", async () => {
+    const p = provider({ maxPerPage: 100 });
+    await list(p, { pagination: { page: 1, perPage: 100 } });
+    await list(p, { pagination: { page: 2, perPage: 100 } });
+    expect(calls.filter((c) => c.method === "range").map((c) => c.args)).toEqual([
+      [0, 99],
+      [100, 199],
+    ]);
   });
 });
 
@@ -504,6 +516,28 @@ describe("read errors", () => {
     expect(e.message).not.toContain("relation");
     expect((e.cause as { message: string }).message).toContain("relation");
     expect(onReadError).toHaveBeenCalledWith(e, { resource: "tasks", operation: "getList" });
+  });
+
+  it("awaits an async onReadError and swallows its rejection, then throws the DataReadError", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      let settled = false;
+      const onReadError = vi.fn(async () => {
+        await Promise.resolve();
+        settled = true;
+        throw new Error("logger down");
+      });
+      const p = provider({ onReadError });
+      queue.push(fail("boom"));
+      const error = await p.getList("tasks", {}).catch((e: unknown) => e);
+      expect(isDataReadError(error)).toBe(true);
+      expect(settled).toBe(true);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
   });
 
   it("names an expired session, a refusal and a missing record plainly", async () => {
@@ -550,16 +584,6 @@ describe("getList follow-ups (#96 review)", () => {
     calls = [];
     await list(provider(), {});
     expect(calls.some((c) => c.method === "order")).toBe(false);
-  });
-
-  it("warns about the page cap once per resource", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const p = provider({ maxPerPage: 10 });
-    await list(p, { pagination: { page: 1, perPage: 50 } });
-    await list(p, { pagination: { page: 2, perPage: 50 } });
-    await list(p, { pagination: { page: 1, perPage: 50 } }, "notes");
-    expect(warn).toHaveBeenCalledTimes(2);
-    warn.mockRestore();
   });
 
   it("uses nounPlural in list messages", async () => {
