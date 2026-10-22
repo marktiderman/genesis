@@ -1,0 +1,34 @@
+packages/forms/src/index.ts
+  s_03a3816737bc07::t_1b38e685dcda3c 62
+packages/forms-builder/src/FormBuilder.tsx
+  s_03a3816737bc07::t_1b38e685dcda3c 74
+packages/forms-builder/src/index.ts
+  s_03a3816737bc07::t_1b38e685dcda3c 10
+packages/forms-builder/src/questions.tsx
+  s_03a3816737bc07::t_1b38e685dcda3c 7
+  s_03a3816737bc07::t_17a31c3ac8269f 68-81,84
+.changeset/forms-worksheet-field-types.md
+  s_03a3816737bc07::t_5b8b4cccc121d6 5
+.changeset/forms-builder-worksheet-editors.md
+  s_03a3816737bc07::t_5b8b4cccc121d6 5
+packages/forms-builder/src/__tests__/worksheet.test.tsx
+  s_03a3816737bc07::t_1dfdc8fb2cbf12 4-5,7-8,16-23,55
+packages/forms/src/worksheet.ts
+  s_03a3816737bc07::t_17a31c3ac8269f 94-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8a1387e827b6711e2ce361275726e24d7ce54cd9",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
