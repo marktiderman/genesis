@@ -4,7 +4,17 @@
  * trade it at Google's token endpoint. No googleapis dependency, so it runs
  * on Node 20+, edge runtimes and Workers alike.
  */
-import { base64url, DeliveryError, discard, fromBase64, httpError, timedFetch, type HttpDeps, type WebCryptoKey } from "./types";
+import {
+  base64url,
+  DeliveryError,
+  discard,
+  fromBase64,
+  httpError,
+  sha256Hex,
+  timedFetch,
+  type HttpDeps,
+  type WebCryptoKey,
+} from "./types";
 
 export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
@@ -67,7 +77,11 @@ export async function googleAccessToken(account: GoogleServiceAccount, options: 
   if (!clientEmail || !privateKey) throw new DeliveryError("The Google service account email or private key is not set");
   const scope = options.scope ?? SHEETS_SCOPE;
   const now = options.now?.() ?? Date.now();
-  const cacheKey = `${clientEmail} ${scope}`;
+  // The key's digest is part of the cache key: a hit returns a token without
+  // signing anything, so email + scope alone would hand one tenant's live
+  // token to any config naming that email with any key, and keep a rotated
+  // or wrong key working until the token expires.
+  const cacheKey = `${clientEmail} ${scope} ${await sha256Hex(privateKey.replace(/\\n/g, "\n").trim())}`;
   const hit = cache.get(cacheKey);
   if (hit && hit.expiresAt - 60_000 > now) return hit.token;
 

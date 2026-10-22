@@ -360,6 +360,24 @@ describe("resendProvider", () => {
     expect(JSON.stringify([limited, down])).not.toContain("re_SECRET_KEY");
   });
 
+  it("fails a malformed header value permanently, but retries a network error", async () => {
+    // A newline in the key can never be sent: retrying would fail forever.
+    const mock = mockFetch(() => json({ id: "email-1" }));
+    const bad = await emailDestination({
+      provider: resendProvider({ apiKey: "re_SECRET\nKEY", fetch: mock.fetch }),
+      from: "forms@example.com",
+    }).deliver(submission, def, { to: "owner@example.com" });
+    expect(bad).toMatchObject({ ok: false, retryable: false });
+    expect(JSON.stringify(bad)).not.toContain("SECRET");
+    expect(mock.calls).toHaveLength(0);
+
+    const offline = (async () => {
+      throw new TypeError("fetch failed");
+    }) as typeof fetch;
+    const down = await destination(offline).deliver(submission, def, { to: "owner@example.com" });
+    expect(down).toMatchObject({ ok: false, retryable: true, error: "Network error" });
+  });
+
   it("fails a validation error permanently, keeping only Resend's error name", async () => {
     const mock = mockFetch(() => json({ name: "validation_error", message: "Invalid `to` ada@example.com" }, 422));
     const result = await destination(mock.fetch).deliver(submission, def, { to: "owner@example.com" });
@@ -470,8 +488,20 @@ describe("sheetsDestination", () => {
   });
 
   /** A Google that holds one sheet in memory. */
-  function fakeGoogle(options: { tab?: boolean; header?: string[]; ids?: string[]; fail?: (call: Call) => Response | null } = {}) {
+  function fakeGoogle(
+    options: {
+      tab?: boolean;
+      header?: string[];
+      ids?: string[];
+      fail?: (call: Call) => Response | null;
+      /** Another worker adds the tab first: this addSheet answers 400 but the tab exists. */
+      addSheetRace?: boolean;
+      /** Another worker's header write lands right after this one's first write. */
+      headerRace?: string[];
+    } = {},
+  ) {
     let header = options.header ?? [];
+    let headerRace = options.headerRace;
     let tab = options.tab ?? false;
     const appended: unknown[][] = [];
     const mock = mockFetch((call) => {
@@ -484,6 +514,7 @@ describe("sheetsDestination", () => {
         const body = JSON.parse(call.body) as { requests: Record<string, unknown>[] };
         if (body.requests[0]!["addSheet"]) {
           tab = true;
+          if (options.addSheetRace) return json({ error: { message: "A sheet with the name already exists" } }, 400);
           return json({ replies: [{ addSheet: { properties: { sheetId: 7, title: "Responses" } } }] });
         }
         return json({});
@@ -491,6 +522,10 @@ describe("sheetsDestination", () => {
       if (url.includes("majorDimension=COLUMNS")) return json({ values: header.map((h) => [h]) });
       if (call.init.method === "PUT") {
         header = (JSON.parse(call.body) as { values: string[][] }).values[0]!;
+        if (headerRace) {
+          header = headerRace;
+          headerRace = undefined;
+        }
         return json({});
       }
       if (url.includes(":append")) {
@@ -565,6 +600,44 @@ describe("sheetsDestination", () => {
     const calls = google.calls.slice(before);
     expect(calls).toHaveLength(1);
     expect(calls[0]!.url).toContain(":append");
+  });
+
+  it("never serves a cached token to the same email with a different private key", async () => {
+    const tokenCalls = (g: ReturnType<typeof fakeGoogle>) => g.calls.filter((c) => c.url === GOOGLE_TOKEN_URL).length;
+    const google = fakeGoogle({ tab: true });
+    await sheetsDestination({ account, fetch: google.fetch }).deliver(submission, def, config);
+    expect(tokenCalls(google)).toBe(1);
+    // Same key again: a cache hit, no new token request.
+    await sheetsDestination({ account, fetch: google.fetch }).deliver({ ...submission, id: "resp-2" }, def, config);
+    expect(tokenCalls(google)).toBe(1);
+    // Same email, another key: must sign (and here fail) rather than reuse the token.
+    const other = { clientEmail: account.clientEmail, privateKey: "-----BEGIN PRIVATE KEY-----\nTOPSECRETbm90IGEga2V5\n-----END PRIVATE KEY-----" };
+    const result = await sheetsDestination({ account: other, fetch: google.fetch }).deliver({ ...submission, id: "resp-3" }, def, config);
+    expect(result).toMatchObject({ ok: false, retryable: false });
+    expect(tokenCalls(google)).toBe(1);
+    expect(google.appended.map((r) => r[0])).toEqual(["resp-1", "resp-2"]);
+  });
+
+  it("reuses the tab when a concurrent first delivery added it first", async () => {
+    const google = fakeGoogle({ addSheetRace: true });
+    const result = await sheetsDestination({ account, fetch: google.fetch }).deliver(submission, def, config);
+    expect(result.ok).toBe(true);
+    expect(google.appended).toHaveLength(1);
+  });
+
+  it("merges again when a concurrent header write drops its columns", async () => {
+    // Another form's first delivery overwrites the header right after ours.
+    const google = fakeGoogle({ headerRace: ["id", "other"] });
+    const result = await sheetsDestination({ account, fetch: google.fetch }).deliver(submission, def, config);
+    expect(result.ok).toBe(true);
+    const header = google.header();
+    expect(header.slice(0, 2)).toEqual(["id", "other"]);
+    for (const key of ["overall", "improve", "email"]) expect(header).toContain(key);
+    // The row maps onto the header as it really is.
+    const row = google.appended[0]!;
+    expect(row[header.indexOf("id")]).toBe("resp-1");
+    expect(row[header.indexOf("other")]).toBe("");
+    expect(row[header.indexOf("overall")]).toBe(4);
   });
 
   it("adds a column for a new key without moving the others", async () => {
