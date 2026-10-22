@@ -1286,8 +1286,10 @@ export function ResourcePage<
         : // Unconfirmed `onDelete` keeps its original contract exactly:
           // called straight from the peek, nothing closed for it.
           (item: T) => {
-            // A rejected promise is reported, never left unhandled.
-            Promise.resolve(onDelete?.(item)).catch((err: unknown) => {
+            // A throw or a rejected promise is reported, never left unhandled.
+            Promise.resolve()
+              .then(() => onDelete?.(item))
+              .catch((err: unknown) => {
               if (resourceOptions?.onError) {
                 resourceOptions.onError(err instanceof Error ? err : new Error(String(err)));
               } else {

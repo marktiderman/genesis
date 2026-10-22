@@ -99,3 +99,19 @@ describe("ResourcePage caller onDelete rejections", () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("Couldn't delete it."));
   });
 });
+
+describe("ResourcePage caller onDelete that throws synchronously", () => {
+  it("toasts it too", async () => {
+    const provider = createMockProvider({ tasks: [{ id: "1", title: "Write" }] });
+    renderTasks(
+      {
+        onDelete: () => {
+          throw new Error("Nope.");
+        },
+      },
+      provider,
+    );
+    await askToDelete("Write");
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("Nope."));
+  });
+});
