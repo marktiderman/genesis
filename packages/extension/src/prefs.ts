@@ -8,6 +8,12 @@ import { getChrome } from "./chrome";
  * two pages can't overwrite each other. Where Web Locks are missing, writes
  * from one page still run one after another. One failed write doesn't block
  * later ones.
+ *
+ * A frame of the extension inside a web page may not share those locks:
+ * Chrome can partition its storage by the page (checked unpartitioned with
+ * host access to the page; with only activeTab it may be). Its writes still
+ * merge the latest saved values, so at worst two writes at the same moment
+ * from a frame and another page can lose one of them.
  */
 export interface Prefs<T extends Record<string, unknown>> {
   readonly key: string;
