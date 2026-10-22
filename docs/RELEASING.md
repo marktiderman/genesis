@@ -76,6 +76,11 @@ package npm doesn't trust yet, and the trust expires after 48 hours unused:
    changeset in the same release, so CI publishes it once and its trust is
    used before it expires.
 
+If the version PR merges before the hand publish, CI fails closed (the verify
+step refuses a package npm doesn't have). To recover: hand-publish the version
+`main` now holds, trust it, then re-run Release (Run workflow on `main`). If
+the package's next CI release is more than 48 hours away, re-trust it first.
+
 Publish packages that others depend on first (for forms: `genesis-forms`, then
 `-react`, then `-web` and `-devtools`). Set the package's `version` to the first
 release (e.g. `0.1.0`) by hand, not with a changeset bump from `0.0.0`: that

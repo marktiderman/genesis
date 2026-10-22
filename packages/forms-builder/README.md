@@ -1,9 +1,13 @@
 # @marktiderman/genesis-forms-builder
 
-A visual editor for [Genesis Forms](../forms/README.md) definitions, the Typeform / Google Forms
+A visual editor for [Genesis Forms](https://www.npmjs.com/package/@marktiderman/genesis-forms) definitions, the Typeform / Google Forms
 style: questions and choices, show/hide and jump logic, endings, hidden inputs and settings, with
 live checks and a live preview. It edits a `FormDefinition` and stores nothing, so any app can host
 it and decide where drafts and published versions live.
+
+> **Use with `@marktiderman/genesis-forms` 0.2.0 or later.** Earlier versions store identifying hidden inputs on anonymous forms, which the builder's anonymous setting promises not to.
+>
+> **Stability (0.x):** the supported API is `FormBuilder` (its props and `FormBuilderHandle`), `analyze`, `diffDefinitions`, the form operations, `TEMPLATES` / `getTemplate`, and the editor types. The individual panels and other exports may change in minor releases.
 
 ```tsx
 import "@marktiderman/genesis-forms-builder/styles.css";
