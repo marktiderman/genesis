@@ -28,6 +28,8 @@ export interface DataPageShellProps {
   isEmpty?: boolean;
   emptyIcon?: LucideIcon;
   emptyMessage?: string;
+  /** A line under the empty-state title, e.g. what to add first. */
+  emptyDescription?: string;
   emptyAction?: ReactNode;
   /** Error state */
   hasError?: boolean;
@@ -98,6 +100,7 @@ export function DataPageShell({
   isEmpty = false,
   emptyIcon,
   emptyMessage,
+  emptyDescription,
   emptyAction,
   hasError = false,
   errorMessage,
@@ -219,6 +222,7 @@ export function DataPageShell({
         <EmptyState
           icon={emptyIcon}
           title={emptyMessage}
+          {...(emptyDescription ? { description: emptyDescription } : {})}
           action={emptyAction}
           hasFilters={hasActiveFilters}
           onClearFilters={onClearFilters}
