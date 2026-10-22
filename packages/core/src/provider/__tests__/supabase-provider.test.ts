@@ -1,19 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSupabaseProvider, type SupabaseProviderOptions } from "../supabase-provider";
-import { toDataWriteError, writeOutcomeFromCode } from "../postgrest-errors";
+import { fieldErrorsFromPostgrest, readOutcomeFromCode, toDataWriteError, writeOutcomeFromCode } from "../postgrest-errors";
+import { isDataReadError, type DataReadError } from "../../schema/read-outcome";
 import { DataWriteError, isDataWriteError } from "../../schema/write-outcome";
 import { relatedKeys } from "../../hooks/related-keys";
 
 // A stand-in Supabase client: each awaited query takes the next queued
 // response, and every chained call is recorded so tests can check what was
 // sent.
-type Response = { data: unknown; error: { message: string; code?: string } | null };
+type Response = { data: unknown; error: { message: string; code?: string; details?: string } | null; count?: number };
 let queue: Response[] = [];
 let calls: { method: string; args: unknown[] }[] = [];
 
 function builder(): unknown {
   const b: Record<string, unknown> = {};
-  for (const m of ["update", "insert", "delete", "select", "eq", "in", "order", "range", "single"]) {
+  for (const m of ["update", "insert", "delete", "select", "eq", "in", "order", "range", "single", "or"]) {
     b[m] = (...args: unknown[]) => {
       calls.push({ method: m, args });
       return b;
@@ -82,6 +83,79 @@ describe("writeOutcomeFromCode", () => {
     const own = new DataWriteError("conflict", "x");
     expect(toDataWriteError(own)).toBe(own);
     expect(toDataWriteError(new Error("network")).outcome).toBe("error");
+  });
+});
+
+describe("field-level write errors", () => {
+  it("maps a unique violation to the column PostgREST's details name, with safe messages", () => {
+    const raw = {
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "users_email_key"',
+      details: "Key (email)=(ann@example.com) already exists.",
+    };
+    const err = toDataWriteError(raw);
+    expect(err.outcome).toBe("invalid");
+    expect(err.fields).toEqual({ email: "This value is already in use." });
+    expect(err.message).toBe("Email is already in use.");
+    // Neither the value nor the constraint name reaches a message.
+    expect(JSON.stringify([err.message, err.fields])).not.toMatch(/ann@example|users_email_key/);
+    expect(err.cause).toBe(raw);
+  });
+
+  it("maps a composite unique key to each of its columns", () => {
+    const mapped = fieldErrorsFromPostgrest({
+      code: "23505",
+      details: "Key (org_id, slug)=(4, intro) already exists.",
+    });
+    expect(mapped?.fields).toEqual({
+      org_id: "This combination is already in use.",
+      slug: "This combination is already in use.",
+    });
+    expect(mapped?.message).toBe("This combination of Org Id and Slug is already in use.");
+  });
+
+  it("maps a not-null violation to its column", () => {
+    const err = toDataWriteError({
+      code: "23502",
+      message: 'null value in column "title" of relation "tasks" violates not-null constraint',
+      details: "Failing row contains (7, null, secret).",
+    });
+    expect(err.fields).toEqual({ title: "This field is required." });
+    expect(err.message).toBe("Title is required.");
+    expect(err.message).not.toMatch(/secret|relation/);
+  });
+
+  it("maps a missing foreign key on insert to its column", () => {
+    const mapped = fieldErrorsFromPostgrest({
+      code: "23503",
+      details: 'Key (owner_id)=(99) is not present in table "people".',
+    });
+    expect(mapped?.fields).toEqual({ owner_id: "The selected item doesn't exist." });
+  });
+
+  it("maps nothing it cannot read safely", () => {
+    // An expression index, a still-referenced delete, other codes, no details.
+    expect(fieldErrorsFromPostgrest({ code: "23505", details: "Key (lower(email::text))=(a) already exists." })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23503", details: 'Key (id)=(5) is still referenced from table "tasks".' })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23514", message: 'new row violates check constraint "x"' })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23505" })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23502", message: 'null value in column "we\"ird" of relation' })).toBeUndefined();
+    expect(toDataWriteError({ code: "23505", message: "dup" }).fields).toBeUndefined();
+  });
+
+  it("a provider create carries the mapped fields", async () => {
+    queue.push({
+      data: null,
+      error: { code: "23505", message: "duplicate key", details: "Key (slug)=(intro) already exists." },
+    });
+    const err = await failure(provider().create("questions", { data: { slug: "intro" } }));
+    expect(err.fields).toEqual({ slug: "This value is already in use." });
+    expect(err.code).toBe("23505");
+  });
+
+  it("a DataWriteError built with empty fields has none", () => {
+    expect(new DataWriteError("invalid", "x", { fields: {} }).fields).toBeUndefined();
+    expect(new DataWriteError("invalid", "x", { fields: { a: "b" } }).fields).toEqual({ a: "b" });
   });
 });
 
@@ -450,5 +524,193 @@ describe("reads are unchanged", () => {
     expect(methods()).toContain("single");
     expect(isDataWriteError(err)).toBe(false);
     expect((err as { code?: string }).code).toBe("PGRST116");
+  });
+});
+
+describe("getList ordering and page size", () => {
+  const list = (p: ReturnType<typeof provider>, params: Parameters<ReturnType<typeof provider>["getList"]>[1]) => {
+    queue.push({ ...ok([]), count: 0 } as Response);
+    return p.getList("tasks", params);
+  };
+  const orders = () => calls.filter((c) => c.method === "order").map((c) => c.args);
+
+  it("orders by the key column after the sort, so equal values keep one order across pages", async () => {
+    await list(provider(), { sort: { field: "status", order: "desc" }, pagination: { page: 2, perPage: 10 } });
+    expect(orders()).toEqual([
+      ["status", { ascending: false }],
+      ["id", { ascending: true }],
+    ]);
+  });
+
+  it("doesn't repeat the key when sorting by it, and honours orderKey", async () => {
+    await list(provider(), { sort: { field: "id", order: "asc" } });
+    expect(orders()).toEqual([["id", { ascending: true }]]);
+    calls = [];
+    await list(provider({ resources: { tasks: { orderKey: "slug" } } }), { sort: { field: "title", order: "asc" } });
+    expect(orders().map(([col]) => col)).toEqual(["title", "slug"]);
+    calls = [];
+    await list(provider({ resources: { tasks: { orderKey: false } } }), { sort: { field: "title", order: "asc" } });
+    expect(orders().map(([col]) => col)).toEqual(["title"]);
+  });
+
+  it("refuses a page larger than maxPerPage, and reports the cap in capabilities", async () => {
+    const onReadError = vi.fn();
+    const p = provider({ maxPerPage: 100, onReadError });
+    const e = (await list(p, { pagination: { page: 1, perPage: 1000 } }).catch((x: unknown) => x)) as DataReadError;
+    expect(isDataReadError(e)).toBe(true);
+    expect(e.outcome).toBe("invalid");
+    expect((e.cause as Error).message).toContain('"tasks" asked for 1000 rows per page; the most is 100');
+    expect(onReadError).toHaveBeenCalledWith(e, { resource: "tasks", operation: "getList" });
+    expect(calls.some((c) => c.method === "range")).toBe(false);
+    expect((await p.capabilities!()).maxPerPage).toBe(100);
+  });
+
+  it("pages at exactly maxPerPage with contiguous boundaries", async () => {
+    const p = provider({ maxPerPage: 100 });
+    await list(p, { pagination: { page: 1, perPage: 100 } });
+    await list(p, { pagination: { page: 2, perPage: 100 } });
+    expect(calls.filter((c) => c.method === "range").map((c) => c.args)).toEqual([
+      [0, 99],
+      [100, 199],
+    ]);
+  });
+});
+
+describe("read errors", () => {
+  it("throw a DataReadError with a message users can see; the raw error is the cause", async () => {
+    const onReadError = vi.fn();
+    const p = provider({ onReadError, resources: { tasks: { noun: "task" } } });
+    queue.push(fail('relation "public.tasks" does not exist', "42P01"));
+    const error = await p.getList("tasks", {}).catch((e: unknown) => e);
+    expect(isDataReadError(error)).toBe(true);
+    const e = error as DataReadError;
+    expect(e.outcome).toBe("invalid");
+    expect(e.message).toBe("These tasks couldn't be loaded.");
+    expect(e.message).not.toContain("relation");
+    expect((e.cause as { message: string }).message).toContain("relation");
+    expect(onReadError).toHaveBeenCalledWith(e, { resource: "tasks", operation: "getList" });
+  });
+
+  it("awaits an async onReadError and swallows its rejection, then throws the DataReadError", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      let settled = false;
+      const onReadError = vi.fn(async () => {
+        await Promise.resolve();
+        settled = true;
+        throw new Error("logger down");
+      });
+      const p = provider({ onReadError });
+      queue.push(fail("boom"));
+      const error = await p.getList("tasks", {}).catch((e: unknown) => e);
+      expect(isDataReadError(error)).toBe(true);
+      expect(settled).toBe(true);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
+  });
+
+  it("names an expired session, a refusal and a missing record plainly", async () => {
+    const p = provider({ resources: { tasks: { noun: "task" } } });
+    queue.push(fail("JWT expired", "PGRST301"));
+    expect(((await p.getList("tasks", {}).catch((e) => e)) as DataReadError).message).toBe(
+      "Your session has ended. Sign in again to continue.",
+    );
+    queue.push(fail("permission denied for table tasks", "42501"));
+    expect(((await p.getMany("tasks", { ids: ["1"] }).catch((e) => e)) as DataReadError).outcome).toBe("forbidden");
+    queue.push(fail("JSON object requested, multiple (or no) rows returned", "PGRST116"));
+    const gone = (await p.getOne("tasks", { id: "1" }).catch((e) => e)) as DataReadError;
+    expect([gone.outcome, gone.message]).toEqual(["gone", "This task doesn't exist, or you can't see it."]);
+  });
+
+  it("maps codes to read outcomes", () => {
+    expect(readOutcomeFromCode("42703")).toBe("invalid");
+    expect(readOutcomeFromCode("PGRST100")).toBe("invalid");
+    expect(readOutcomeFromCode("PGRST116")).toBe("gone");
+    expect(readOutcomeFromCode("42501")).toBe("forbidden");
+    expect(readOutcomeFromCode("XX000")).toBe("error");
+    expect(readOutcomeFromCode(undefined)).toBe("error");
+  });
+});
+
+describe("capabilities softDelete", () => {
+  it("is true for recycle-bin tables only", async () => {
+    const p = provider({ binTables: ["tasks"] });
+    expect((await p.capabilities!("tasks")).softDelete).toBe(true);
+    expect((await p.capabilities!("notes")).softDelete).toBe(false);
+    expect((await p.capabilities!()).softDelete).toBe(false);
+  });
+});
+
+describe("getList follow-ups (#96 review)", () => {
+  const list = (p: ReturnType<typeof provider>, params: Parameters<ReturnType<typeof provider>["getList"]>[1], resource = "tasks") => {
+    queue.push({ ...ok([]), count: 0 } as Response);
+    return p.getList(resource, params);
+  };
+
+  it("reads a view without an id column as before: retries once without the key order, warns once", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const p = provider();
+    const orders = () => calls.filter((c) => c.method === "order").map((c) => c.args[0]);
+    queue.push(fail("column report_view.id does not exist", "42703"));
+    queue.push({ ...ok([{ name: "a" }]), count: 1 } as Response);
+    const result = await p.getList("report_view", { pagination: { page: 1, perPage: 10 } });
+    expect(result.data).toEqual([{ name: "a" }]);
+    expect(orders()).toEqual(["id"]); // the retry has no key order
+    expect(calls.filter((c) => c.method === "range")).toHaveLength(2);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain('"report_view" has no "id" column');
+    // Remembered: the next page is not tried with "id" again, and no new warning.
+    calls = [];
+    await list(p, { pagination: { page: 2, perPage: 10 }, sort: { field: "name", order: "asc" } }, "report_view");
+    expect(orders()).toEqual(["name"]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("does not retry a missing column other than the default key, or an explicit orderKey", async () => {
+    queue.push(fail("column tasks.titel does not exist", "42703"));
+    expect(isDataReadError(await provider().getList("tasks", { sort: { field: "titel", order: "asc" } }).catch((e) => e))).toBe(true);
+    queue.push(fail("column tasks.slug does not exist", "42703"));
+    const p = provider({ resources: { tasks: { orderKey: "slug" } } });
+    expect(isDataReadError(await p.getList("tasks", { pagination: { page: 1, perPage: 10 } }).catch((e) => e))).toBe(true);
+    expect(queue).toHaveLength(0);
+    expect(calls.filter((c) => c.method === "from")).toHaveLength(2);
+  });
+
+  it("orders an unsorted page by the key column, and leaves an unpaged, unsorted list alone", async () => {
+    await list(provider(), { pagination: { page: 1, perPage: 10 } });
+    expect(calls.filter((c) => c.method === "order").map((c) => c.args)).toEqual([["id", { ascending: true }]]);
+    calls = [];
+    await list(provider(), {});
+    expect(calls.some((c) => c.method === "order")).toBe(false);
+  });
+
+  it("uses nounPlural in list messages", async () => {
+    const p = provider({ resources: { categories: { noun: "category", nounPlural: "categories" } } });
+    queue.push(fail("boom"));
+    const e = (await p.getList("categories", {}).catch((x) => x)) as DataReadError;
+    expect(e.message).toBe("These categories couldn't be loaded. Try again.");
+  });
+});
+
+describe("searchFields config", () => {
+  it("reports search false for a resource with none, and searches the configured columns", async () => {
+    const p = provider({ resources: { logs: { searchFields: [] }, tasks: { searchFields: ["title"] } } });
+    expect((await p.capabilities!("logs")).search).toBe(false);
+    expect((await p.capabilities!("tasks")).search).toBe(true);
+    expect((await p.capabilities!("notes")).search).toBe(true);
+  });
+});
+
+describe("searchFields config: the query", () => {
+  it("searches the configured columns instead of the caller's", async () => {
+    const p = provider({ resources: { tasks: { searchFields: ["title"] } } });
+    queue.push({ ...ok([]), count: 0 } as Response);
+    await p.getList("tasks", { search: { query: "x", fields: ["title", "secret"] } });
+    expect(calls.find((c) => c.method === "or")?.args).toEqual(["title.ilike.%x%"]);
   });
 });

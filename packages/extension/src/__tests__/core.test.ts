@@ -177,6 +177,10 @@ describe("surfaces", () => {
     expect(state.frame.src).not.toContain("#");
     const wrap = state.frame.parentElement as HTMLElement;
     expect(wrap.style.visibility).toBe("hidden"); // blank until the surface answers
+    // ...and lets the page's clicks through until then.
+    expect(state.host.getAttribute("style")).toContain(
+      "pointer-events: none !important",
+    );
     const frameWindow = {
       postMessage: (
         m: { type: string; nonce?: string },
@@ -205,6 +209,9 @@ describe("surfaces", () => {
     offered!.postMessage({ type: "gx-hello" });
     await new Promise((r) => setTimeout(r, 20));
     expect(wrap.style.visibility).toBe("visible");
+    expect(state.host.getAttribute("style")).toContain(
+      "pointer-events: auto !important",
+    );
     // The page sets frames[0].location: a second load closes the frame.
     const host = state.host;
     state.frame.dispatchEvent(new Event("load"));
@@ -234,7 +241,7 @@ describe("surfaces", () => {
     });
     // What openSurface minted for tab 3 in the service worker.
     await fake.storage.session!.set({
-      "genesis-extension:surface:3": { nonce: "secret-nonce", at: Date.now() },
+      "genesis-extension:surface:3:secret-nonce": { at: Date.now() },
     });
     const surface = connectSurface({ autoResize: false });
     expect(document.documentElement.style.visibility).toBe("hidden"); // until confirmed
@@ -274,7 +281,7 @@ describe("surfaces", () => {
     expect(document.documentElement.style.visibility).toBe("");
     // Used up: the same secret can't confirm a second page.
     expect(
-      await fake.storage.session!.get("genesis-extension:surface:3"),
+      await fake.storage.session!.get("genesis-extension:surface:3:secret-nonce"),
     ).toEqual({});
     line.port1.postMessage({
       type: "gx-page-changed",
@@ -297,7 +304,7 @@ describe("surface secret", () => {
     history.replaceState(null, "", "/popup.html?tab=3");
     resetSurfaceForTests();
     await fake.storage.session!.set({
-      "genesis-extension:surface:3": { nonce: "minted", at: Date.now() },
+      "genesis-extension:surface:3:minted": { at: Date.now() },
     });
     vi.spyOn(window, "top", "get").mockReturnValue({} as Window);
     vi.useFakeTimers({ toFake: ["setTimeout"] });
@@ -323,21 +330,94 @@ describe("surface secret", () => {
     document.documentElement.style.visibility = "";
   });
 
+  it("never removes a newer open's secret minted while it was checking its own", async () => {
+    history.replaceState(null, "", "/popup.html?tab=3&panel=1");
+    resetSurfaceForTests();
+    vi.spyOn(window, "top", "get").mockReturnValue({} as Window);
+    const area = fake.storage.session!;
+    await area.set({
+      "genesis-extension:surface:3:old-nonce": { at: Date.now() },
+    });
+    // After this frame's reads (the first and any later one), and before its
+    // remove, a reopen mints the next nonce.
+    const realGet = area.get.bind(area);
+    vi.spyOn(area, "get").mockImplementation((async (keys: unknown) => {
+      const result = await realGet(keys as string);
+      await area.set({
+        "genesis-extension:surface:3:new-nonce": { at: Date.now() },
+      });
+      return result;
+    }) as typeof area.get);
+    const surface = connectSurface({ autoResize: false });
+    const line = new MessageChannel();
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { type: "gx-connect", nonce: "old-nonce" },
+        source: window.parent,
+        ports: [line.port2],
+      }),
+    );
+    expect(await surface.ready).toBe(true);
+    vi.mocked(area.get).mockRestore();
+    expect(await area.get(null)).toEqual({
+      "genesis-extension:surface:3:new-nonce": { at: expect.any(Number) },
+    });
+    surface.close();
+    document.documentElement.style.visibility = "";
+  });
+
+  it("a new open clears the tab's earlier secrets, and only that tab's", async () => {
+    const area = fake.storage.session!;
+    await area.set({
+      "genesis-extension:surface:9:earlier": { at: Date.now() },
+      "genesis-extension:surface:9": { nonce: "legacy", at: Date.now() },
+      "genesis-extension:surface:90:other-tab": { at: Date.now() },
+    });
+    await openSurface({ id: 9, windowId: 1 }, { page: "popup.html", mode: "panel" });
+    const keys = Object.keys(await area.get(null));
+    expect(keys).toHaveLength(2);
+    expect(keys).toContain("genesis-extension:surface:90:other-tab");
+    expect(keys.find((k) => k !== "genesis-extension:surface:90:other-tab")).toMatch(
+      /^genesis-extension:surface:9:[0-9a-f-]{36}$/,
+    );
+  });
+
   it("openSurface mints the open's secret where only the extension reads it", async () => {
     await openSurface(
       { id: 9, windowId: 1 },
       { page: "popup.html", mode: "panel" },
     );
-    const stored = await fake.storage.session!.get(
-      "genesis-extension:surface:9",
-    );
-    expect(stored["genesis-extension:surface:9"]).toEqual({
-      nonce: expect.stringMatching(/^[0-9a-f-]{36}$/),
-      at: expect.any(Number),
-    });
+    const stored = await fake.storage.session!.get(null);
+    const [key] = Object.keys(stored);
+    expect(key).toMatch(/^genesis-extension:surface:9:[0-9a-f-]{36}$/);
+    expect(stored[key!]).toEqual({ at: expect.any(Number) });
     const state = (globalThis as { __gxSurface?: { frame: HTMLIFrameElement } })
       .__gxSurface!;
     expect(state.frame.name).toBe(""); // never put on the frame
+  });
+});
+
+describe("fallback window", () => {
+  it("a window with ?tab= is trusted only with the secret openSurface gave it", async () => {
+    vi.spyOn(window, "top", "get").mockReturnValue(window);
+    await fake.storage.session!.set({
+      "genesis-extension:surface:7:minted": { at: Date.now() },
+    });
+    history.replaceState(null, "", "/popup.html?tab=7#gx=guess");
+    resetSurfaceForTests();
+    const forged = connectSurface({ autoResize: false });
+    expect(forged.mode).toBe("popup");
+    expect(await forged.ready).toBe(false);
+    expect(location.hash).toBe(""); // the fragment is cleared once read
+    history.replaceState(null, "", "/popup.html?tab=7#gx=minted");
+    resetSurfaceForTests();
+    const real = connectSurface({ autoResize: false });
+    expect(await real.ready).toBe(true);
+    expect(document.documentElement.style.visibility).toBe("");
+    history.replaceState(null, "", "/popup.html");
+    resetSurfaceForTests();
+    expect(await connectSurface({ autoResize: false }).ready).toBe(true); // a toolbar popup
+    delete document.documentElement.dataset.gxUntrusted;
   });
 });
 

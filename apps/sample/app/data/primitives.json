@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 106
+      "count": 107
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -7915,8 +7915,15 @@
               "name": "description",
               "type": "ReactNode",
               "required": false,
-              "defaultValue": "This can't be undone.",
-              "description": "Default \"This can't be undone.\""
+              "defaultValue": "kind === \"recycle\"\n    ? \"It moves to the recycle bin, where it can be restored.\"\n    : \"This can't be undone.\"",
+              "description": "Default by `kind`: \"This can't be undone.\", or \"It moves to the recycle\nbin, where it can be restored.\""
+            },
+            {
+              "name": "kind",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "permanent",
+              "description": "What happens to the record: `\"permanent\"` (default) or `\"recycle\"` when\na delete moves it to a recycle bin. Sets the default description."
             },
             {
               "name": "title",
@@ -8903,6 +8910,13 @@
               "description": ""
             },
             {
+              "name": "columnOrderKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "localStorage key for the user's column order."
+            },
+            {
               "name": "columnVisibility",
               "type": "boolean",
               "required": false,
@@ -8931,11 +8945,25 @@
               "description": ""
             },
             {
+              "name": "keyboardNavigation",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Keyboard use of rows when `onRowClick` is set. Each row's open column\n(see `openColumn`) is a button named by its content, and the table is\none tab stop: Tab reaches the current row's button, Enter or Space\nopens it, ↑/↓ (or j/k) and Home/End move between rows, and x toggles\nthe row's selection when `selectable`. Default true."
+            },
+            {
               "name": "onRowClick",
               "type": "((item: T) => void)",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "onSortChange",
+              "type": "((sort: DataTableSort[]) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called with the next header sort whenever a header is clicked."
             },
             {
               "name": "onToggleAll",
@@ -8950,6 +8978,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "openColumn",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "The column whose cell opens the row (as a button), by key. Default: the\nfirst visible column that isn't `editable`. A plain-text cell is wrapped\nby the button; an `editable` or `render` cell keeps its own content (a\nlink or input stays usable) with the open button beside it, shown when\nfocused. `null` makes no cell a button (mouse only)."
             },
             {
               "name": "pageSize",
@@ -8973,11 +9008,25 @@
               "description": "Enable pagination"
             },
             {
+              "name": "pinnedColumns",
+              "type": "{ left?: string[]; right?: string[]; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "Columns that stay in view when the table scrolls sideways, by key, on\nthe left and right. `stickyFirstColumn` is shorthand for pinning the\nfirst visible column left."
+            },
+            {
               "name": "renderActions",
               "type": "((item: T) => ReactNode)",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "reorderableColumns",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Let users reorder columns: drag a header, or press Alt+←/→ on its sort\nbutton. Default true; the order is kept per device under\n`columnOrderKey`, and \"Reset to defaults\" in the Columns menu restores it."
             },
             {
               "name": "resizableColumns",
@@ -9008,6 +9057,13 @@
               "description": ""
             },
             {
+              "name": "sort",
+              "type": "readonly DataTableSort[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The header sort, controlled: the first entry is the primary sort, later\nones break ties (Shift-click adds one). Leave it unset and the table\nkeeps its own sort, starting unsorted."
+            },
+            {
               "name": "stickyFirstColumn",
               "type": "boolean",
               "required": false,
@@ -9020,6 +9076,13 @@
               "required": false,
               "defaultValue": "true",
               "description": "Sticky header on scroll"
+            },
+            {
+              "name": "virtualize",
+              "type": "boolean | { height?: number; estimateRowHeight?: number; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "Render only the rows in view, for a long table without pagination\n(`pagination={false}`). The table scrolls inside a box of `height` px\n(default 600). Ignored while paginated."
             }
           ]
         },
@@ -12128,6 +12191,20 @@
               "description": "Form presentation mode. Default \"standard\"."
             },
             {
+              "name": "mutationMode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "When a save reaches the list. Default `\"pessimistic\"`: the form waits\nfor the provider. `\"optimistic\"` closes at once and updates the cached\nlist, putting it back (and toasting the error) if the save fails.\n`\"undoable\"` does the same and shows an Undo toast; the save is sent\nafter `undoDelayMs` unless undone (or at once, undone by the provider,\nwhen it serves `undo`). Needs a mounted `<Toaster />`."
+            },
+            {
+              "name": "onDirtyChange",
+              "type": "((isDirty: boolean, confirmLeave: () => boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called when the form becomes dirty or clean, with a `confirmLeave` that\nasks when needed: the hook for a router blocker (SKILL.md \"Unsaved\nchanges\")."
+            },
+            {
               "name": "onError",
               "type": "((error: Error) => void)",
               "required": false,
@@ -12140,6 +12217,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "onUndoable",
+              "type": "((write: UndoableWrite) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the undo toast."
             },
             {
               "name": "prefillFromUrl",
@@ -12168,6 +12252,20 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "undoDelayMs",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "How long an `undoable` save waits for an undo, in ms. Default 5000."
+            },
+            {
+              "name": "warnWhenUnsaved",
+              "type": "boolean | { message?: string; }",
+              "required": false,
+              "defaultValue": null,
+              "description": "Warn before unsaved changes are lost. Default false. While the form is\ndirty, Cancel / Esc / clicking outside asks first, and closing or\nreloading the tab shows the browser's prompt. Pass `{ message }` to\nchange the question. For router navigation, see `onDirtyChange`."
             }
           ]
         }
@@ -12276,25 +12374,32 @@
               "description": ""
             },
             {
+              "name": "can",
+              "type": "((action: ResourceAction, item?: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": "What the signed-in user may do: `can(\"create\")`, `can(\"edit\", item)`,\n`can(\"delete\", item)`. Return false to hide the New button, or a row's\nEdit or Delete (and the built-in edit form won't open for it). Omitted,\neverything the handlers allow is offered. A UI gate only: the server\nmust still refuse the write."
+            },
+            {
               "name": "canDelete",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether this row may be deleted. The peek's Delete button is hidden for\na row that returns `false`. Omitted, every row is deletable. A UI gate\nonly: the server must still refuse the write."
+              "description": "@deprecated Use `can` — `can={(action, item) => action !== \"delete\" || !item || mayDelete(item)}`.\nStill honoured: a row it refuses gets no Delete."
             },
             {
               "name": "canEdit",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether this row may be edited. The peek's Edit button is hidden for a\nrow that returns `false` (and the built-in edit form will not open for\nit). Omitted, every row is editable, as before. A UI gate only: the\nserver must still refuse the write."
+              "description": "@deprecated Use `can` — `can={(action, item) => action !== \"edit\" || !item || mayEdit(item)}`.\nStill honoured: a row it refuses gets no Edit."
             },
             {
               "name": "canEditItem",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether the signed-in user may change this record at all: shorthand for\n`canEdit` and `canDelete` together. When it returns false the peek\noffers neither Edit nor Delete.\n\nPrecedence: `canEditItem` is checked first. A row it refuses gets no Edit\nand no Delete, whatever `canEdit` / `canDelete` say. A row it allows is\nthen gated by `canEdit` (Edit) and `canDelete` (Delete) when given. Use\n`canEditItem` alone for one owner rule, or the pair for separate rules."
+              "description": "@deprecated Use `can` — `can={(action, item) => !item || mayChange(item)}`.\nRemoved in the next minor after one deprecation window. Still honoured:\na row it refuses gets no Edit and no Delete."
             },
             {
               "name": "canSaveViews",
@@ -12525,7 +12630,7 @@
               "type": "boolean",
               "required": false,
               "defaultValue": null,
-              "description": "Built-in list keyboard navigation via `useKeyboardNavigation`: j/k (or\nArrow Up/Down) move a focus cursor, Enter opens the focused item,\nBackspace (⌫) closes an open detail view, and x toggles the focused\nitem's selection when `bulkActions` are configured. Set to `false` to\nopt out.\n\nDefault-on, and scoped so that being on by default stays safe:\n- Only while the grid or list view is showing. Table view keeps its own\n  independent sort/pagination, so a flat focus index can't reliably map\n  onto its visible rows.\n- Cursor keys suspend while a detail panel/modal or the built-in form\n  is open, so they can't drive the list behind the overlay; ⌫ stays\n  live there so it can close it.\n- Backspace is only intercepted while there's an open detail to close.\n- Modified chords (Ctrl/Cmd/Alt) are never captured, so an app's\n  Cmd+K-style shortcuts keep working."
+              "description": "Built-in list keyboard navigation via `useKeyboardNavigation`: j/k (or\nArrow Up/Down) move a focus cursor, Enter opens the focused item,\nBackspace (⌫) closes an open detail view, and x toggles the focused\nitem's selection when `bulkActions` are configured. Set to `false` to\nopt out.\n\nDefault-on, and scoped so that being on by default stays safe:\n- The j/k cursor runs while the grid or list view is showing. Table view\n  keeps its own sort/pagination, so there `DataTable` handles the keys on\n  its focusable rows instead (↑/↓ or j/k, Home/End, Enter, x); this prop\n  turns that off too.\n- Cursor keys suspend while a detail panel/modal or the built-in form\n  is open, so they can't drive the list behind the overlay; ⌫ stays\n  live there so it can close it.\n- Backspace is only intercepted while there's an open detail to close.\n- Modified chords (Ctrl/Cmd/Alt) are never captured, so an app's\n  Cmd+K-style shortcuts keep working."
             },
             {
               "name": "loading",
@@ -12533,6 +12638,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: the caller's fetch is in flight, so render the shell's\nloading skeleton instead of the (as yet meaningless) `data`. Ignored in\nclient-side mode, where `useResource`'s own loading state is used."
+            },
+            {
+              "name": "mutationMode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
             },
             {
               "name": "onCreate",
@@ -12820,6 +12932,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
+            },
+            {
+              "name": "urlState",
+              "type": "SearchParamsAdapter | ResourceUrlStateOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Keep the list's state in the URL: the open record (`?id=`), the search\n(`q`), the sort (`sort=field:asc`) and, with `pagination=\"server\"`, the\npage. Pass your router's search-params adapter\n(`useReactRouterSearchParams()`, `useTanStackRouterSearchParams()`, or\n`useBrowserSearchParams()` with no router), or `{ searchParams, params }`\nto rename the keys. A copied link reopens the same record, and Back\ncloses one that was opened. Search and sort are read when the page\nmounts and written as they change. A server-controlled page owns its\nown page, sort and search: use `useResourceUrlState` there."
             },
             {
               "name": "viewSettingsKey",
@@ -15038,6 +15157,83 @@
         {
           "name": "Muted",
           "summary": "",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "undo-toast",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/undo-toast.ts",
+      "stability": "stable",
+      "summary": "The undo toast for an `undoable` write (core's `onUndoable`): a sonner\ntoast with an Undo button, shown for as long as the undo is offered.\nNeeds a mounted `<Toaster />`.",
+      "primaryComponent": "showUndoToast",
+      "components": [
+        {
+          "name": "showUndoToast",
+          "summary": "The undo toast for an `undoable` write (core's `onUndoable`): a sonner\ntoast with an Undo button, shown for as long as the undo is offered.\nNeeds a mounted `<Toaster />`.",
+          "props": [
+            {
+              "name": "commit",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Send a `delay` write now."
+            },
+            {
+              "name": "delayMs",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": "How long the undo is offered, in ms (the toast's duration)."
+            },
+            {
+              "name": "kind",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "resource",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "strategy",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": "- `delay`: the write has not been sent. `undo()` discards it; `commit()`\n  sends it now instead of waiting.\n- `provider`: the write was sent at once, because the provider serves\n  `undo`. `undo()` asks the provider to reverse it; `commit()` does\n  nothing."
+            },
+            {
+              "name": "undo",
+              "type": "() => Promise<boolean>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Take the write back. Resolves true when it was undone, false when it\ncould not be: already sent under `delay` (the window closed, or the hook\nunmounted), already undone, or the provider's undo failed (reported\nthrough `onError`). Safe to call more than once."
+            },
+            {
+              "name": "id",
+              "type": "Identifier",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record's id; absent for a create (it has none until it is sent)."
+            }
+          ]
+        },
+        {
+          "name": "showWriteErrorToast",
+          "summary": "The default error report for writes that fail after the form has closed.",
+          "props": []
+        },
+        {
+          "name": "writeModeOptions",
+          "summary": "ResourcePage's write-mode options for its `useResource`: the page's\n`mutationMode` unless `resourceOptions` sets one, the undo toast, and an\nerror toast for a write that fails after it was shown as done.",
           "props": []
         }
       ]

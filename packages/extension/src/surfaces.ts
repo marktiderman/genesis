@@ -113,9 +113,22 @@ async function openFrame(
   // not framed by the page itself.
   const nonce = crypto.randomUUID();
   try {
-    await api.storage.session?.set({
-      [surfaceKey(tab.id!)]: { nonce, at: Date.now() },
-    });
+    const key = surfaceKey(tab.id!);
+    // Each open's secret has a key of its own, so using one up never touches
+    // another. A new open supersedes the tab's earlier ones: their keys go.
+    const mint = async () => {
+      const area = api.storage.session;
+      if (!area) return;
+      const stale = Object.keys(await area.get(null)).filter(
+        (k) => k === key || k.startsWith(`${key}:`),
+      );
+      if (stale.length) await area.remove(stale);
+      await area.set({ [surfaceSecretKey(tab.id!, nonce)]: { at: Date.now() } });
+    };
+    // Under the lock takeSecret uses up a nonce under (see there).
+    const locks = (globalThis.navigator as Navigator | undefined)?.locks;
+    if (locks) await locks.request(key, mint);
+    else await mint();
     const run = () =>
       api.scripting!.executeScript({
         target: { tabId: tab.id! },
@@ -133,8 +146,10 @@ async function openFrame(
       tab: String(tab.id),
       ...options.params,
     });
+    // The window gets the open's secret in its fragment (no web page sees a
+    // window's address), so it too can show it was opened by this extension.
     await api.windows?.create({
-      url: api.runtime.getURL(`${options.page}?${fallback}`),
+      url: api.runtime.getURL(`${options.page}?${fallback}#gx=${nonce}`),
       type: "popup",
       width: 400,
       height: 760,
@@ -178,13 +193,19 @@ export function mountSurfaceFrame(
         ` height: ${height}px !important;`
       : " top: 12px !important; right: 12px !important; width: 380px !important;" +
         " height: min(780px, calc(100vh - 24px)) !important;";
-  const style = (height: number) =>
+  // Until the surface answers, the host is blank and must not eat the page's
+  // clicks either: pointer-events stay off until it's confirmed.
+  let live = false;
+  // A bar starts as one row and follows its content (gx-resize); a card has its own size.
+  let height = layout === "bar" ? 32 : 120;
+  const style = () =>
     "all: initial !important; display: block !important; position: fixed !important;" +
     " z-index: 2147483647 !important;" +
     place(height) +
     " opacity: 1 !important; visibility: visible !important; transform: none !important;" +
-    " filter: none !important; clip-path: none !important; pointer-events: auto !important;";
-  let pinned = style(120);
+    " filter: none !important; clip-path: none !important;" +
+    ` pointer-events: ${live ? "auto" : "none"} !important;`;
+  let pinned = style();
   host.setAttribute("style", pinned);
   const keepPinned = new MutationObserver(() => {
     if (host.getAttribute("style") !== pinned)
@@ -198,7 +219,7 @@ export function mountSurfaceFrame(
   const css = document.createElement("style");
   css.textContent = `
     .wrap { width: 100%; height: 100%; overflow: hidden; border-radius: ${layout === "bar" ? "0" : "12px"};
-      box-shadow: 0 16px 48px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(15, 23, 42, 0.12); }
+      box-shadow: ${layout === "bar" ? "0 1px 4px rgba(15, 23, 42, 0.25)" : "0 16px 48px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(15, 23, 42, 0.12)"}; }
     iframe { display: block; width: 100%; height: 100%; border: 0; }`;
   const wrap = document.createElement("div");
   wrap.className = "wrap";
@@ -233,6 +254,9 @@ export function mountSurfaceFrame(
       offered.length = 0;
       port.onmessage = onPortMessage;
       wrap.style.visibility = "visible";
+      live = true;
+      pinned = style();
+      host.setAttribute("style", pinned);
     };
     offered.push(channel.port1);
     frame.contentWindow?.postMessage({ type: "gx-connect", nonce }, origin, [
@@ -252,10 +276,10 @@ export function mountSurfaceFrame(
   function onPortMessage(e: MessageEvent) {
     if (e.data?.type === "gx-close") close();
     if (e.data?.type === "gx-resize" && layout === "bar") {
-      const height = Math.round(
+      height = Math.round(
         Math.min(Math.max(Number(e.data.height) || 0, 32), innerHeight * 0.8),
       );
-      pinned = style(height);
+      pinned = style();
       host.setAttribute("style", pinned);
     }
   }
@@ -304,18 +328,29 @@ export interface Surface {
    */
   visible(): boolean;
   /**
-   * Panel and bar: resolves true once the page is confirmed to have been
+   * Panel, bar, and the small window openSurface falls back to (a popup
+   * with `?tab=`): resolves true once the page is confirmed to have been
    * opened by this extension (the open's secret matches the one the service
-   * worker minted for this tab), false when a web page framed it itself.
-   * Until it's true the page stays hidden. Await it before reading the tab
-   * or doing anything for the user. Always true elsewhere.
+   * worker minted for this tab), false otherwise (a web page framed it
+   * itself, or something opened it with a `tab` of its choosing). Until it's
+   * true the page stays hidden. Await it before reading the tab or doing
+   * anything for the user. Always true for the side panel and a toolbar
+   * popup without `?tab=`.
    */
   ready: Promise<boolean>;
 }
 
-/** Where openSurface keeps a tab's current open secret (chrome.storage.session). */
+/**
+ * The prefix of a tab's open secrets in chrome.storage.session, and the
+ * name of the Web Lock they are minted and used up under.
+ */
 export function surfaceKey(tabId: number): string {
   return `genesis-extension:surface:${tabId}`;
+}
+
+/** Where openSurface keeps one open's secret: `<surfaceKey>:<nonce>`. */
+export function surfaceSecretKey(tabId: number, nonce: string): string {
+  return `${surfaceKey(tabId)}:${nonce}`;
 }
 
 /**
@@ -386,6 +421,19 @@ export function connectSurface({
       confirm(true);
     };
     window.addEventListener("message", onConnect);
+  } else if (mode === "popup" && tabId !== null) {
+    // The small window openSurface opens for a tab it can't draw on. It acts on
+    // that tab, so it must have been opened by this extension: its fragment
+    // carries the open's secret, checked like a frame's (and used up).
+    const nonce = new URLSearchParams(location.hash.slice(1)).get("gx") ?? "";
+    if (location.hash)
+      history.replaceState(null, "", location.pathname + location.search);
+    document.documentElement.style.visibility = "hidden";
+    ready = takeSecret(tabId, nonce).then((ok) => {
+      if (ok) document.documentElement.style.visibility = "";
+      else document.documentElement.dataset.gxUntrusted = "";
+      return ok;
+    });
   }
 
   // Where Chrome can tell, the frame counts as hidden until it says otherwise.
@@ -438,7 +486,9 @@ export function connectSurface({
   if (mode === "bar" && autoResize && typeof ResizeObserver !== "undefined") {
     whenBody((body) =>
       new ResizeObserver(() =>
-        surface.reportHeight(document.documentElement.scrollHeight),
+        // The body's own height: the document's scroll height is never less than
+        // the frame, so a bar sized by it could grow but never shrink.
+        surface.reportHeight(Math.ceil(body.getBoundingClientRect().height)),
       ).observe(body),
     );
   }
@@ -466,14 +516,24 @@ async function takeSecret(
   try {
     const area = getChrome().storage.session;
     if (!area) return false;
-    const key = surfaceKey(tabId);
-    const stored = (await area.get(key))[key] as
-      { nonce?: unknown; at?: unknown } | undefined;
-    if (!stored || stored.nonce !== nonce) return false;
-    await area.remove(key);
-    return (
-      typeof stored.at === "number" && Date.now() - stored.at < SECRET_TTL_MS
-    );
+    const key = surfaceSecretKey(tabId, nonce);
+    type Stored = { at?: unknown } | undefined;
+    const take = async () => {
+      const stored = (await area.get(key))[key] as Stored;
+      if (!stored) return false;
+      // Only this nonce's own key is used up: a newer open's secret, minted
+      // under a key of its own meanwhile, is never touched.
+      await area.remove(key);
+      return (
+        typeof stored.at === "number" && Date.now() - stored.at < SECRET_TTL_MS
+      );
+    };
+    // Under the same Web Lock openFrame mints under, where this page shares
+    // the extension's locks (a frame inside a web page may be partitioned
+    // away from them; per-nonce keys keep that case safe too).
+    const lockName = surfaceKey(tabId);
+    const locks = (globalThis.navigator as Navigator | undefined)?.locks;
+    return locks ? await locks.request(lockName, take) : await take();
   } catch {
     return false;
   }

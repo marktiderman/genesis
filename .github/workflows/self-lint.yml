@@ -64,6 +64,9 @@ permissions:
 jobs:
   self-lint:
     name: genesis-lint (self, enforcing)
+    # Version-packages PRs only bump versions and changelogs; the code already passed CI on the release PR.
+    # Skip only the trusted Version Packages PR; a fork branch of the same name always runs.
+    if: github.head_ref != 'changeset-release/main' || github.event.pull_request.head.repo.full_name != github.repository
     uses: ./.github/workflows/genesis-lint.yml
     with:
       paths: 'apps'

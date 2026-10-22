@@ -22,7 +22,7 @@ permissions: {}
 jobs:
   review:
     # Drafts wait for ready_for_review; forks can't read the secret.
-    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    if: (github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository) && github.head_ref != 'changeset-release/main'
     runs-on: ubuntu-latest
     # ci.yml BILLING CONTRACT rule 3: every job is bounded.
     timeout-minutes: 30

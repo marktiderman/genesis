@@ -273,6 +273,17 @@ export interface ProviderCapabilities {
   readonly actions?: boolean;
   /** `comments` and `addComment` are served. */
   readonly comments?: boolean;
+  /**
+   * The most rows one `getList` page may ask for. A request for more is
+   * refused (it is not cut short, which would shift later page boundaries),
+   * so a client that wants every row must page at this size or less.
+   */
+  readonly maxPerPage?: number;
+  /**
+   * A delete moves the record to a recycle bin (it can be restored) instead
+   * of removing it. Asked per resource: `capabilities(resource)`.
+   */
+  readonly softDelete?: boolean;
 }
 
 /** One audit record, as committed alongside the edit it describes. */

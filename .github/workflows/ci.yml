@@ -14,6 +14,9 @@ concurrency:
 jobs:
   build-typecheck-test:
     name: Build, typecheck, test
+    # Version-packages PRs only bump versions and changelogs; the code already passed CI on the release PR.
+    # Skip only the trusted Version Packages PR; a fork branch of the same name always runs.
+    if: github.head_ref != 'changeset-release/main' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # A throwaway Postgres for genesis-studio-server's integration tests,
@@ -84,6 +87,9 @@ jobs:
 
   storybook-browser-tests:
     name: Storybook browser tests
+    # Version-packages PRs only bump versions and changelogs; the code already passed CI on the release PR.
+    # Skip only the trusted Version Packages PR; a fork branch of the same name always runs.
+    if: github.head_ref != 'changeset-release/main' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

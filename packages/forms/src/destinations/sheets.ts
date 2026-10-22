@@ -49,6 +49,8 @@ export const DEDUPE_WINDOW = 500;
  * of responses is never read whole just to learn its header.
  */
 export const HEADER_SCAN_ROWS = 100;
+/** Header writes tried before a concurrent writer is reported as a retryable failure. */
+const HEADER_WRITE_ATTEMPTS = 3;
 
 /** What the sheet destination reads from a destination's config. */
 export interface SheetConfig {
@@ -220,40 +222,63 @@ export function sheetsDestination(options: SheetsDestinationOptions): Destinatio
 
     /** Reads the tab and header, adds what is missing, and returns the fresh state. */
     async function setUp(previous: SheetState | null): Promise<SheetState> {
-      const meta = await call<{ sheets?: { properties?: SheetProps }[] }>(
-        "read",
-        `${base}?fields=${encodeURIComponent("sheets.properties(sheetId,title,gridProperties.columnCount)")}`,
-      );
-      let sheet = meta.sheets?.map((s) => s.properties).find((p) => p?.title === sheetName);
+      const readTabs = async () => {
+        const meta = await call<{ sheets?: { properties?: SheetProps }[] }>(
+          "read",
+          `${base}?fields=${encodeURIComponent("sheets.properties(sheetId,title,gridProperties.columnCount)")}`,
+        );
+        return meta.sheets?.map((s) => s.properties).find((p) => p?.title === sheetName);
+      };
+      let sheet = await readTabs();
       if (!sheet) {
-        const added = await batchUpdate("add tab", [{ addSheet: { properties: { title: sheetName } } }]);
-        sheet = added.replies?.[0]?.addSheet?.properties ?? { sheetId: 0, title: sheetName };
+        try {
+          const added = await batchUpdate("add tab", [{ addSheet: { properties: { title: sheetName } } }]);
+          sheet = added.replies?.[0]?.addSheet?.properties ?? { sheetId: 0, title: sheetName };
+        } catch (error) {
+          // Two first deliveries race: both saw no tab, and the loser's
+          // addSheet answers 400 ("already exists"). Use the winner's tab.
+          if (!(error instanceof DeliveryError) || error.status !== 400) throw error;
+          sheet = await readTabs();
+          if (!sheet) throw error;
+        }
       }
       // Read by column: the values API drops trailing blank cells, so the header
       // row alone can look narrower than the responses under it (a column added
       // by hand). Column by column, the number returned is the width in use.
-      const read = await call<{ values?: unknown[][] }>(
-        "read header",
-        `${range(`A1:ZZZ${HEADER_SCAN_ROWS}`)}?majorDimension=COLUMNS`,
-      );
-      const used = read.values ?? [];
-      const existing = used.map((column) => column[0] ?? "");
-      const header = mergeHeader(existing, keys, used.length);
-      // A new tab starts with the id column; one already in use gets it at the
-      // end, so the columns already holding responses don't move.
-      if (!header.includes("id")) {
-        if (used.length) header.push("id");
-        else header.unshift("id");
-      }
+      const readHeader = async () => {
+        const read = await call<{ values?: unknown[][] }>(
+          "read header",
+          `${range(`A1:ZZZ${HEADER_SCAN_ROWS}`)}?majorDimension=COLUMNS`,
+        );
+        const used = read.values ?? [];
+        return { used: used.length, existing: used.map((column) => column[0] ?? "") };
+      };
       let columns = sheet.gridProperties?.columnCount ?? 26;
-      if (header.length > columns) {
-        await batchUpdate("add columns", [
-          { appendDimension: { sheetId: sheet.sheetId, dimension: "COLUMNS", length: header.length - columns } },
-        ]);
-        columns = header.length;
-      }
-      const changed = header.length !== existing.length || header.some((h, i) => h !== String(existing[i] ?? ""));
-      if (changed) {
+      let { used, existing } = await readHeader();
+      let header: string[] = [];
+      // The header row is written whole, so two deliveries merging different
+      // keys at once can overwrite each other. After a write, read it back: if
+      // a key of ours is missing, merge onto what is there and write again.
+      // The state keeps the header as read, so rows map onto the real columns.
+      for (let attempt = 0; ; attempt++) {
+        header = mergeHeader(existing, keys, used);
+        // A new tab starts with the id column; one already in use gets it at the
+        // end, so the columns already holding responses don't move.
+        if (!header.includes("id")) {
+          if (used) header.push("id");
+          else header.unshift("id");
+        }
+        const changed = header.length !== existing.length || header.some((h, i) => h !== String(existing[i] ?? ""));
+        if (!changed) break;
+        if (attempt >= HEADER_WRITE_ATTEMPTS) {
+          throw new DeliveryError("Google Sheets header kept changing while it was written", { retryable: true });
+        }
+        if (header.length > columns) {
+          await batchUpdate("add columns", [
+            { appendDimension: { sheetId: sheet.sheetId, dimension: "COLUMNS", length: header.length - columns } },
+          ]);
+          columns = header.length;
+        }
         await call("write header", `${range("A1")}?valueInputOption=RAW`, {
           method: "PUT",
           body: JSON.stringify({ values: [header] }),
@@ -268,6 +293,7 @@ export function sheetsDestination(options: SheetsDestinationOptions): Destinatio
             },
           ]);
         }
+        ({ used, existing } = await readHeader());
       }
       return {
         spreadsheet_id: spreadsheetId,

@@ -13,6 +13,7 @@ export {
   LinkCell,
   type DataTableColumn,
   type DataTableProps,
+  type DataTableSort,
 } from "./DataTable";
 export { DataBulkBar, type BulkAction } from "./DataBulkBar";
 export { FilterCombobox, type FilterOption } from "./FilterCombobox";
@@ -27,6 +28,7 @@ export { DetailPanel, type DetailPanelProps } from "./DetailPanel";
 export {
   ResourcePage,
   type ResourcePageProps,
+  type ResourceAction,
   type ResourceCardActions,
   type ResourcePageSlotMap,
   type ResourcePageSlots,

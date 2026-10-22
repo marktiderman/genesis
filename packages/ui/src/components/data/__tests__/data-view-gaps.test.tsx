@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DataTable, type DataTableColumn } from "../DataTable";
 import { DataGrid } from "../DataGrid";
-import { GenesisProvider } from "../../../provider";
+import { GenesisProvider, createMockProvider } from "../../../provider";
 import { ResourcePage } from "../ResourcePage";
 import { PageHeader } from "../../layout/PageHeader";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogTitle } from "../../ui/alert-dialog";
@@ -239,5 +239,62 @@ describe("ResourcePage empty state", () => {
     expect(screen.getByText("No tasks yet")).toBeTruthy();
     expect(screen.getByText("Add one small, doable next step.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "New task" })).toBeTruthy();
+  });
+});
+
+describe("ResourcePage resource= mode passes column layout through", () => {
+  it("applies width, minWidth and defaultVisible when the page fetches its own rows", async () => {
+    const { container } = render(
+      <GenesisProvider provider={createMockProvider({ people: rows })}>
+        <ResourcePage<Row>
+          resource="people"
+          title="People"
+          detail="none"
+          keyboardNavigation={false}
+          columns={[
+            { key: "name", header: "Name", width: 180, minWidth: 120 },
+            { key: "notes", header: "Notes", defaultVisible: false },
+          ]}
+        />
+      </GenesisProvider>,
+    );
+    await screen.findByText("Ada");
+    expect(screen.queryByRole("columnheader", { name: /notes/i })).toBeNull();
+    expect(screen.queryByText("first")).toBeNull();
+    const widths = Array.from(container.querySelectorAll("colgroup col")).map(
+      (c) => (c as HTMLElement).style.width,
+    );
+    expect(widths).toContain("180px");
+  });
+});
+
+describe("ResourcePage detail for rows without an id", () => {
+  // No `id` and no `getKey`: every row keys as "". The peek must show the
+  // row that was clicked, not the first keyless row.
+  const keyless = [
+    { name: "Ada", notes: "first" },
+    { name: "Linus", notes: "second" },
+  ] as unknown as Row[];
+  const page = (data: Row[]) => (
+    <GenesisProvider mock={{ datasets: {} }}>
+      <ResourcePage<Row> data={data} title="People" columns={["name", "notes"]} titleField="name" defaultView="table" />
+    </GenesisProvider>
+  );
+
+  it("opens the clicked record, not the first one", () => {
+    render(page(keyless));
+    fireEvent.click(screen.getByText("Linus"));
+    const detail = screen.getByRole("dialog");
+    expect(within(detail).getAllByText("Linus").length).toBeGreaterThan(0);
+    expect(within(detail).queryByText("Ada")).toBeNull();
+  });
+
+  it("keeps the clicked record across a refetch with new row objects", () => {
+    const { rerender } = render(page(keyless));
+    fireEvent.click(screen.getByText("Linus"));
+    rerender(page(keyless.map((r) => ({ ...r }))));
+    const detail = screen.getByRole("dialog");
+    expect(within(detail).getAllByText("Linus").length).toBeGreaterThan(0);
+    expect(within(detail).queryByText("Ada")).toBeNull();
   });
 });

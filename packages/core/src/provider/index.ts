@@ -49,7 +49,20 @@ export {
   type SupabaseResourceConfig,
   type SupabaseWriteContext,
 } from "./supabase-provider";
-export { writeOutcomeFromCode, toDataWriteError } from "./postgrest-errors";
+export {
+  writeOutcomeFromCode,
+  toDataWriteError,
+  readOutcomeFromCode,
+  fieldErrorsFromPostgrest,
+  type PostgrestFieldErrors,
+} from "./postgrest-errors";
+export {
+  DataReadError,
+  isDataReadError,
+  readFailureMessage,
+  type ReadOutcome,
+  type DataReadErrorOptions,
+} from "../schema/read-outcome";
 
 // React context
 export {

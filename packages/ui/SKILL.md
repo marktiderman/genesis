@@ -56,7 +56,7 @@ Reach for these before a slot. Each one replaced a slot workaround in a real app
 | You need | Prop |
 | --- | --- |
 | Every row reachable in `resource` mode | default `pagination="client"` fetches up to `clientRowLimit` (1000) and says so past it; `pagination="server"` pages through the provider (give it `searchFields`) |
-| Per-row rights in the peek | `canEditItem(item)` for both, or `canEdit(item)` / `canDelete(item)` separately (UI gate only; the server still decides) |
+| Who may create, edit, delete | `can(action, item)` (UI gate only; the server still decides) |
 | A confirmed delete | `allowDelete` (built in, `resource` mode), or `onDelete` + `confirmDelete`; copy via `confirmDelete={{ title: (item) => … }}`, toast via `onDeleted` |
 | A computed peek subtitle | `getSubtitle(item)`; the peek stays open after an edit and shows the saved row |
 | A list inside a tab (no page title) | `header="toolbar"` (also on `DataPageShell`) |
@@ -67,6 +67,49 @@ Reach for these before a slot. Each one replaced a slot workaround in a real app
 `ResourceForm` ties labels to inputs (`getByLabelText` works), shows a failed save as an alert,
 honours `maxLength` on text fields, adds no placeholder unless the field sets one (or
 `autoPlaceholder`), and takes `prefillFromUrl={false}` when the page's query string is not form data.
+
+`ResourceForm` also:
+
+- puts a provider's field-level errors (`DataWriteError.fields`; the Supabase provider maps
+  unique, not-null and foreign-key violations) on their inputs, with the summary in the alert;
+- takes `warnWhenUnsaved` (default off): Cancel / Esc / outside click ask before dropping
+  changes, and the tab's close or reload prompts;
+- takes `mutationMode="optimistic" | "undoable"` (default `"pessimistic"`): the form closes at
+  once and the cached list updates; `undoable` shows an Undo toast and sends the save after
+  `undoDelayMs` (5000) unless undone. A failure puts the list back and is toasted. Needs a
+  mounted `<Toaster />`. `ResourcePage` passes its own `mutationMode` to its form and deletes.
+
+## Unsaved changes
+
+Core never depends on a router. `useResourceForm` returns `isDirty` and `confirmLeave()`
+(true when leaving is fine); `ResourceForm` reports both through `onDirtyChange`. For any
+other state use `useUnsavedChangesGuard({ when })` from core. Wire `confirmLeave` to your
+router's blocker:
+
+```tsx
+// React Router (data router, v6.4+ / v7)
+import { useBlocker } from "react-router"; // "react-router-dom" on v6
+
+const { form, isDirty, confirmLeave } = useResourceForm({ …, warnWhenUnsaved: true });
+const blocker = useBlocker(isDirty);
+useEffect(() => {
+  if (blocker.state !== "blocked") return;
+  if (confirmLeave()) blocker.proceed();
+  else blocker.reset();
+}, [blocker, confirmLeave]);
+```
+
+```tsx
+// TanStack Router (v1)
+import { useBlocker } from "@tanstack/react-router";
+
+const { isDirty, confirmLeave } = useResourceForm({ …, warnWhenUnsaved: true });
+// The hook already handles beforeunload, so the router's own is off.
+useBlocker({ shouldBlockFn: () => !confirmLeave(), disabled: !isDirty, enableBeforeUnload: false });
+```
+
+With `ResourceForm`, keep the pair from `onDirtyChange={(dirty, confirmLeave) => …}` in state
+and use it the same way.
 
 ## The layer contract (docs/FRAMEWORK.md)
 
@@ -129,15 +172,26 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
 - **Clickable cards:** with a custom `renderCard`, `openOnCardClick` makes the whole card one
   keyboard-reachable button that opens the detail. On a bare `DataGrid`, use `onItemClick` and
   `getItemLabel`. Never wrap a card in a `div role="button"`.
-- **Per-row rights:** `canEditItem(item)` hides Edit and Delete for rows the user can't change;
-  `canEdit(item)` / `canDelete(item)` gate each one separately. `canEditItem` is checked first: a row it
-  refuses gets neither button, whatever the pair says.
+- **Permissions:** `can(action, item)` with `"create"`, `"edit"` or `"delete"` hides the New button or
+  a row's Edit / Delete (a UI gate; the server still decides). `canEditItem`, `canEdit` and `canDelete`
+  are deprecated aliases, still honoured.
 - **Names and empty state:** `getTitle` / `getSubtitle` when a record's name spans fields;
   `emptyIcon`, `emptyMessage`, `emptyDescription` and `emptyState` (its action) for the empty list.
 - **A list inside tabs:** `header="toolbar"` (on `ResourcePage` or `DataPageShell`) drops the title
   block and keeps the count, view toggle, filters and create button.
+- **Shareable state:** `urlState={useReactRouterSearchParams()}` (or the TanStack / browser adapter) keeps
+  the open record (`?id=`), search, sort and, with `pagination="server"`, the page in the URL. Back
+  closes a record that was opened. A page that owns its own paging uses `useResourceUrlState`.
 - **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays
   the default for deletes.
+
+## Big tables
+
+`DataTable` runs on TanStack Table. Sorting compares numbers, dates and booleans by value. For a long
+list without pages, `pagination={false} virtualize` renders only the rows in view (`virtualize={{ height }}`
+sets the scroll box). `pinnedColumns={{ left: ["name"], right: ["actions"] }}` keeps columns in view
+when scrolling sideways. Users can reorder columns by dragging a header or with Alt+←/→, and the order
+is kept per device with `columnOrderKey`.
 
 ## Full inventory
 

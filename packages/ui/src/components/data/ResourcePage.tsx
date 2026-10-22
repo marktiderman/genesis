@@ -30,7 +30,7 @@ import {
   type SavedViewItem,
   type DataFilterConfig,
 } from "./DataFilters";
-import { DataTable } from "./DataTable";
+import { DataTable, type DataTableSort } from "./DataTable";
 import { DataBulkBar } from "./DataBulkBar";
 import { DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
@@ -45,8 +45,10 @@ import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewModeDefault } from "../../hooks/use-view-preference";
 import {
   useResource,
+  type MutationMode,
   type UseResourceOptions,
 } from "@marktiderman/genesis-core/hooks";
+import { writeModeOptions } from "./undo-toast";
 import {
   useResourcePage,
   type ResourceColumnDef,
@@ -54,19 +56,36 @@ import {
 } from "../../hooks/use-resource-page";
 import { useViewSettings } from "../../hooks/use-view-settings";
 import { useKeyboardNavigation } from "../../hooks/use-keyboard-navigation";
-import type {
-  BaseRecord,
-  FilterParam,
-  Identifier,
-  SortParam,
+import {
+  useResourceUrlState,
+  type ResourceUrlStateOptions,
+} from "../../hooks/use-resource-url-state";
+import {
+  isDataReadError,
+  type BaseRecord,
+  type FilterParam,
+  type Identifier,
+  type SortParam,
 } from "@marktiderman/genesis-core/provider";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
-import type { WizardStep } from "@marktiderman/genesis-core/hooks";
-import { defaultNavigate, type NavigateFn } from "../../navigation";
+import { useCapabilities, useOne, type WizardStep } from "@marktiderman/genesis-core/hooks";
+import { toast } from "../ui/sonner";
+import {
+  defaultNavigate,
+  type NavigateFn,
+  type SearchParamsAdapter,
+} from "../../navigation";
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
+
+/**
+ * What a user may do with a list's records, for ResourcePage's `can`.
+ *
+ * @stability Beta
+ */
+export type ResourceAction = "create" | "edit" | "delete";
 
 /**
  * Row-bound actions handed to `renderCard`, on top of the resource-wide
@@ -493,28 +512,28 @@ export interface ResourcePageProps<
    */
   onDelete?: (item: T) => void | Promise<void>;
   /**
-   * Whether the signed-in user may change this record at all: shorthand for
-   * `canEdit` and `canDelete` together. When it returns false the peek
-   * offers neither Edit nor Delete.
-   *
-   * Precedence: `canEditItem` is checked first. A row it refuses gets no Edit
-   * and no Delete, whatever `canEdit` / `canDelete` say. A row it allows is
-   * then gated by `canEdit` (Edit) and `canDelete` (Delete) when given. Use
-   * `canEditItem` alone for one owner rule, or the pair for separate rules.
+   * What the signed-in user may do: `can("create")`, `can("edit", item)`,
+   * `can("delete", item)`. Return false to hide the New button, or a row's
+   * Edit or Delete (and the built-in edit form won't open for it). Omitted,
+   * everything the handlers allow is offered. A UI gate only: the server
+   * must still refuse the write.
+   */
+  can?: (action: ResourceAction, item?: T) => boolean;
+  /**
+   * @deprecated Use `can` — `can={(action, item) => !item || mayChange(item)}`.
+   * Removed in the next minor after one deprecation window. Still honoured:
+   * a row it refuses gets no Edit and no Delete.
    */
   canEditItem?: (item: T) => boolean;
   createLabel?: string;
   /**
-   * Whether this row may be edited. The peek's Edit button is hidden for a
-   * row that returns `false` (and the built-in edit form will not open for
-   * it). Omitted, every row is editable, as before. A UI gate only: the
-   * server must still refuse the write.
+   * @deprecated Use `can` — `can={(action, item) => action !== "edit" || !item || mayEdit(item)}`.
+   * Still honoured: a row it refuses gets no Edit.
    */
   canEdit?: (item: T) => boolean;
   /**
-   * Whether this row may be deleted. The peek's Delete button is hidden for
-   * a row that returns `false`. Omitted, every row is deletable. A UI gate
-   * only: the server must still refuse the write.
+   * @deprecated Use `can` — `can={(action, item) => action !== "delete" || !item || mayDelete(item)}`.
+   * Still honoured: a row it refuses gets no Delete.
    */
   canDelete?: (item: T) => boolean;
   /**
@@ -558,6 +577,13 @@ export interface ResourcePageProps<
   formSteps?: WizardStep[];
   /** Layout mode for the built-in form container. If not set, defaults to sheet for edit, dialog for create. */
   formLayout?: "dialog" | "sheet" | "page";
+  /**
+   * When the built-in form's saves and deletes reach the list: `"pessimistic"`
+   * (default, wait for the provider), `"optimistic"` or `"undoable"` (an Undo
+   * toast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`
+   * wins for deletes.
+   */
+  mutationMode?: MutationMode;
 
   // Bulk actions
   bulkActions?: Array<{
@@ -635,9 +661,10 @@ export interface ResourcePageProps<
    * opt out.
    *
    * Default-on, and scoped so that being on by default stays safe:
-   * - Only while the grid or list view is showing. Table view keeps its own
-   *   independent sort/pagination, so a flat focus index can't reliably map
-   *   onto its visible rows.
+   * - The j/k cursor runs while the grid or list view is showing. Table view
+   *   keeps its own sort/pagination, so there `DataTable` handles the keys on
+   *   its focusable rows instead (↑/↓ or j/k, Home/End, Enter, x); this prop
+   *   turns that off too.
    * - Cursor keys suspend while a detail panel/modal or the built-in form
    *   is open, so they can't drive the list behind the overlay; ⌫ stays
    *   live there so it can close it.
@@ -675,6 +702,18 @@ export interface ResourcePageProps<
 
   // Data options (client-side mode only)
   resourceOptions?: UseResourceOptions<T>;
+  /**
+   * Keep the list's state in the URL: the open record (`?id=`), the search
+   * (`q`), the sort (`sort=field:asc`) and, with `pagination="server"`, the
+   * page. Pass your router's search-params adapter
+   * (`useReactRouterSearchParams()`, `useTanStackRouterSearchParams()`, or
+   * `useBrowserSearchParams()` with no router), or `{ searchParams, params }`
+   * to rename the keys. A copied link reopens the same record, and Back
+   * closes one that was opened. Search and sort are read when the page
+   * mounts and written as they change. A server-controlled page owns its
+   * own page, sort and search: use `useResourceUrlState` there.
+   */
+  urlState?: SearchParamsAdapter | ResourceUrlStateOptions;
   /**
    * The view shown until the user picks one with the view toggle. Default
    * `"table"`. Pass `{ mobile: "grid", desktop: "table" }` for cards on
@@ -761,6 +800,7 @@ export function ResourcePage<
     onCreate,
     onEdit,
     onDelete,
+    can,
     canEditItem,
     createLabel = "New",
     canEdit,
@@ -776,6 +816,7 @@ export function ResourcePage<
     formMode,
     formSteps,
     formLayout: formLayoutProp,
+    mutationMode: mutationModeProp,
     bulkActions,
     renderCard: renderCardProp,
     openOnCardClick = false,
@@ -790,6 +831,7 @@ export function ResourcePage<
     emptyDescription,
     header: headerMode = "page",
     resourceOptions,
+    urlState: urlStateProp,
     defaultView = "table",
     onNavigate = defaultNavigate,
     viewSettingsKey: viewSettingsKeyProp,
@@ -811,6 +853,36 @@ export function ResourcePage<
   // (no client-side transform, the pager under the list) with useResource's
   // setters standing in for the caller's callbacks.
   const resourceServerPaging = isClientMode && pagination === "server";
+
+  // ── URL state (`urlState`): the open record, search, sort and page ──
+  // An adapter has `setSearchParams`; the options object wraps one.
+  const url = useResourceUrlState(
+    urlStateProp
+      ? "setSearchParams" in urlStateProp
+        ? { searchParams: urlStateProp }
+        : urlStateProp
+      : undefined,
+  );
+  // Read once: the URL seeds the list when it mounts, then follows it.
+  const [urlSeed] = useState(() => {
+    if (!url) return null;
+    // A URL sort only counts when it names a sortable column: a hand-edited
+    // or stale link must not send an arbitrary field to the provider.
+    const sortable =
+      !url.sort || !columnsProp
+        ? true
+        : columnsProp.some((col) =>
+            typeof col === "string"
+              ? col === url.sort!.field
+              : col.key === url.sort!.field && col.sortable !== false,
+          );
+    return { q: url.q, sort: sortable ? url.sort : null, page: url.page };
+  });
+  // The URL names the open record only where there is a peek to open.
+  const urlPeek = detail === "panel" || detail === "modal" ? url : undefined;
+  const urlSortKey = urlSeed?.sort
+    ? `${urlSeed.sort.field}:${urlSeed.sort.order}`
+    : "";
 
   const isServerControlled =
     resourceServerPaging ||
@@ -856,6 +928,16 @@ export function ResourcePage<
           // current page on screen while the next one loads.
           keepPreviousData:
             resourceOptions?.keepPreviousData ?? resourceServerPaging,
+          // Start where the URL says, so restoring a link doesn't push a
+          // search or sort that resets the page to 1.
+          ...(resourceServerPaging && urlSeed
+            ? {
+                defaultSearch: urlSeed.q,
+                ...(urlSeed.page ? { defaultPage: urlSeed.page } : {}),
+                ...(urlSeed.sort ? { defaultSort: urlSeed.sort } : {}),
+              }
+            : {}),
+          ...writeModeOptions(resourceOptions, mutationModeProp),
         }
       : { enabled: false },
   );
@@ -890,9 +972,23 @@ export function ResourcePage<
     columns: columnsProp,
     statusFilter,
     searchFields,
-    initialFilters,
+    initialFilters:
+      initialFilters ??
+      (urlSeed && (urlSeed.q || urlSeed.sort)
+        ? [
+            ...(urlSeed.q
+              ? [{ field: "__search__", operator: "contains" as const, value: urlSeed.q }]
+              : []),
+            ...(urlSeed.sort
+              ? [{ field: "__sort__", operator: "eq" as const, value: urlSortKey }]
+              : []),
+          ]
+        : undefined),
     onFiltersChange,
     defaultView,
+    // Each page remembers its own table/cards choice, under the same key as
+    // its density and page size — not one key shared by every data page.
+    viewKey: viewSettingsKey,
     detail,
     titleField: titleFieldProp,
     subtitleField: subtitleFieldProp,
@@ -909,7 +1005,8 @@ export function ResourcePage<
     setSort: setResourceSort,
     setFilters: setResourceFilters,
   } = resourceHook;
-  const pushedSearchRef = useRef("");
+  // Seeded from the URL, which useResource already starts on (see above).
+  const pushedSearchRef = useRef(resourceServerPaging ? (urlSeed?.q ?? "") : "");
   const searchEffectRanRef = useRef(false);
   useEffect(() => {
     if (!resourceServerPaging) return;
@@ -933,7 +1030,7 @@ export function ResourcePage<
   }, [resourceServerPaging, page.search, setResourceSearch]);
 
   const defaultSort = resourceOptions?.defaultSort;
-  const pushedSortRef = useRef<string>("");
+  const pushedSortRef = useRef<string>(resourceServerPaging ? urlSortKey : "");
   useEffect(() => {
     if (!resourceServerPaging) return;
     const key = page.sort ? `${page.sort.field}:${page.sort.order}` : "";
@@ -1036,13 +1133,30 @@ export function ResourcePage<
   // peek itself (`performDelete`).
   // An empty key (rows with no `id` and no `getKey`) identifies nothing, so
   // it keeps the snapshot rather than matching the first keyless row.
-  const selectedKey = page.selectedItem ? keyOf(page.selectedItem) : null;
-  const selectedItem: T | null = !page.selectedItem
-    ? null
-    : selectedKey
-      ? (displayData.find((row) => keyOf(row) === selectedKey) ??
-        page.selectedItem)
-      : page.selectedItem;
+  // With `urlState` the URL names the open record (`?id=`): a link opens it,
+  // and Back closes it. The click-time snapshot still covers a record that
+  // isn't in the current rows.
+  const snapshotKey = page.selectedItem ? keyOf(page.selectedItem) : null;
+  const selectedKey = urlPeek ? urlPeek.detailId : snapshotKey;
+  const snapshot =
+    page.selectedItem && snapshotKey === selectedKey ? page.selectedItem : null;
+  const rowOrSnapshot: T | null = !selectedKey
+    ? snapshot
+    : (displayData.find((row) => keyOf(row) === selectedKey) ?? snapshot);
+  // A linked record that isn't in the loaded rows (another page, outside the
+  // search) is fetched on its own; one that can't be read shows as missing.
+  const linkedId = urlPeek && selectedKey && !rowOrSnapshot ? selectedKey : null;
+  const linked = useOne<T & BaseRecord>(resourceName ?? "__noop__", linkedId, {
+    enabled: isClientMode && !!linkedId,
+  });
+  const selectedItem: T | null =
+    rowOrSnapshot ?? (linkedId && linked.data ? (linked.data as T) : null);
+  const linkMissing =
+    !!linkedId &&
+    !selectedItem &&
+    !isLoading &&
+    (isClientMode ? linked.isError : true);
+  const detailOpen = urlPeek ? selectedItem !== null || linkMissing : page.detailOpen;
 
   // ── Bulk selection ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1086,10 +1200,22 @@ export function ResourcePage<
     }
   }, [useBuiltInCreate, onCreate]);
 
+  // One permission check: `can`, then the deprecated per-row predicates.
+  const allows = useCallback(
+    (action: ResourceAction, item?: T): boolean => {
+      if (can && !can(action, item)) return false;
+      if (!item) return true;
+      if (canEditItem && !canEditItem(item)) return false;
+      if (action === "edit" && canEdit && !canEdit(item)) return false;
+      if (action === "delete" && canDelete && !canDelete(item)) return false;
+      return true;
+    },
+    [can, canEditItem, canEdit, canDelete],
+  );
+
   const handleEdit = useCallback(
     (item: T) => {
-      if (canEdit && !canEdit(item)) return;
-      if (canEditItem && !canEditItem(item)) return;
+      if (!allows("edit", item)) return;
       if (useBuiltInEdit) {
         setFormAction("edit");
         setFormItem(item);
@@ -1098,13 +1224,14 @@ export function ResourcePage<
         onEdit(item);
       }
     },
-    [useBuiltInEdit, onEdit, canEdit, canEditItem],
+    [useBuiltInEdit, onEdit, allows],
   );
 
   const closeDetail = useCallback(() => {
     page.setDetailOpen(false);
     page.setSelectedItem(null);
-  }, [page]);
+    urlPeek?.setDetailId(null);
+  }, [page, urlPeek]);
 
   // ── Delete: built-in, confirmed, or the caller's as-is ──
   const useBuiltInDelete = !!allowDelete && !onDelete && isClientMode;
@@ -1118,6 +1245,11 @@ export function ResourcePage<
   const [pendingDelete, setPendingDelete] = useState<T | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const { remove: removeRecord } = resourceHook;
+  // A recycle-bin resource says so in the confirm step instead of "can't be undone".
+  const { data: providerCaps } = useCapabilities(resourceName, {
+    enabled: useBuiltInDelete && deleteConfirmed,
+  });
+  const deleteKind = providerCaps?.softDelete ? "recycle" : "permanent";
 
   const performDelete = useCallback(
     async (item: T) => {
@@ -1158,25 +1290,35 @@ export function ResourcePage<
       : useBuiltInDelete
         ? (item: T) => {
             performDelete(item).catch((err: unknown) => {
-              console.error("ResourcePage: delete failed", err);
+              // useResource has already handed the failure to
+              // `resourceOptions.onError`; without one, the user is told.
+              if (!resourceOptions?.onError) {
+                toast.error(err instanceof Error ? err.message : "The delete failed.");
+              }
             });
           }
         : // Unconfirmed `onDelete` keeps its original contract exactly:
           // called straight from the peek, nothing closed for it.
           (item: T) => {
-            void onDelete?.(item);
+            // A throw or a rejected promise is reported, never left unhandled.
+            const report = (err: unknown) => {
+              if (resourceOptions?.onError) {
+                resourceOptions.onError(err instanceof Error ? err : new Error(String(err)));
+              } else {
+                toast.error(err instanceof Error ? err.message : "The delete failed.");
+              }
+            };
+            // Called right away, as before; a throw or a rejection is reported.
+            try {
+              Promise.resolve(onDelete?.(item)).catch(report);
+            } catch (err) {
+              report(err);
+            }
           };
 
   // Per-row rights, evaluated against the row the peek is showing.
-  const mayChange = (item: T) => (canEditItem ? canEditItem(item) : true);
-  const selectedEditable =
-    !!selectedItem &&
-    mayChange(selectedItem) &&
-    (canEdit ? canEdit(selectedItem) : true);
-  const selectedDeletable =
-    !!selectedItem &&
-    mayChange(selectedItem) &&
-    (canDelete ? canDelete(selectedItem) : true);
+  const selectedEditable = !!selectedItem && allows("edit", selectedItem);
+  const selectedDeletable = !!selectedItem && allows("delete", selectedItem);
 
   // ── Patch tableColumns to use real actions (client-side mode) ──
   const tableColumns = useMemo(() => {
@@ -1186,6 +1328,9 @@ export function ResourcePage<
           header: col.header ?? col.key,
           sortable: col.sortable ?? true,
           hideBelow: col.hideBelow,
+          width: col.width,
+          minWidth: col.minWidth,
+          defaultVisible: col.defaultVisible,
           editable: col.editable,
           accessor: col.accessor,
           render: col.render
@@ -1207,6 +1352,34 @@ export function ResourcePage<
     actions,
   ]);
 
+  // ── Client mode: DataTable's header sort is `page.sort` ──
+  // The primary header sort is the page's sort (and so the URL's); Shift-
+  // click tie-breakers are kept here while that primary still matches, and
+  // dropped when the sort changes elsewhere (the sort select, the URL).
+  const [tableTieBreaks, setTableTieBreaks] = useState<{
+    primary: string;
+    rest: DataTableSort[];
+  } | null>(null);
+  const pageSort = page.sort;
+  const setPageSort = page.setSort;
+  const tableSort = useMemo<DataTableSort[]>(() => {
+    if (!pageSort) return [];
+    const primary: DataTableSort = { key: pageSort.field, dir: pageSort.order };
+    const rest =
+      tableTieBreaks && tableTieBreaks.primary === `${primary.key}:${primary.dir}`
+        ? tableTieBreaks.rest
+        : [];
+    return [primary, ...rest];
+  }, [pageSort, tableTieBreaks]);
+  const handleTableSort = useCallback(
+    (next: DataTableSort[]) => {
+      const [primary, ...rest] = next;
+      setTableTieBreaks(primary ? { primary: `${primary.key}:${primary.dir}`, rest } : null);
+      setPageSort(primary ? { field: primary.key, order: primary.dir } : null);
+    },
+    [setPageSort],
+  );
+
   // ── Server-driven pager state, needed above for handleSearchChange's
   // already-on-page-1 check. ──
   // The pager's inputs: the caller's controlled props, or — for
@@ -1222,6 +1395,18 @@ export function ResourcePage<
     ? resourceHook.setPage
     : onPageChange;
   const currentPage = pagerPage ?? 1;
+
+  // ── `urlState`: write search, sort and (server paging) page back ──
+  // Replace-only, so Back steps through opened records rather than every
+  // keystroke; an unchanged URL is not rewritten.
+  const writeUrl = url?.write;
+  useEffect(() => {
+    writeUrl?.({
+      q: page.search,
+      sort: page.sort,
+      ...(resourceServerPaging ? { page: currentPage } : {}),
+    });
+  }, [writeUrl, page.search, page.sort, currentPage, resourceServerPaging]);
 
   // ── Filter changes: keep the controlled UI state, and tell the server ──
   // In client-side mode these are exactly the hook's own setters; in
@@ -1429,6 +1614,7 @@ export function ResourcePage<
       return;
     }
     page.handleRowClick(item);
+    urlPeek?.setDetailId(keyOf(item));
   };
 
   // ── Keyboard navigation (j/k, Enter, Backspace, x) ──
@@ -1441,7 +1627,7 @@ export function ResourcePage<
   // keys suspend (they'd otherwise drive the list behind the overlay, and
   // Enter would re-open the row instead of activating the focused control);
   // ⌫ stays live so it can dismiss the overlay.
-  const overlayOpen = page.detailOpen || formOpen || deleteOpen;
+  const overlayOpen = detailOpen || formOpen || deleteOpen;
   const keyboardNav = useKeyboardNavigation({
     itemCount: page.data.length,
     enabled: keyboardNavigation && page.viewMode !== "table",
@@ -1464,16 +1650,11 @@ export function ResourcePage<
     // every grid/list page (including detail="none" and detail="route",
     // which never open one). `detailOpen` is only ever true for the panel
     // and modal modes, so it is the precise precondition here.
-    onBack: page.detailOpen
-      ? () => {
-          page.setDetailOpen(false);
-          page.setSelectedItem(null);
-        }
-      : undefined,
+    onBack: detailOpen ? closeDetail : undefined,
   });
 
   // ── Create button ──
-  const showCreateButton = onCreate || useBuiltInCreate;
+  const showCreateButton = (onCreate || useBuiltInCreate) && allows("create");
   const createButton = showCreateButton ? (
     <Button size="sm" onClick={handleCreate}>
       <Plus className="h-4 w-4 mr-1" />
@@ -1649,7 +1830,13 @@ export function ResourcePage<
       isLoading={isLoading}
       hasError={hasError}
       isEmpty={isEmpty}
-      errorMessage={errorMessage}
+      errorMessage={
+        errorMessage ??
+        // A provider's read error carries a sentence users can be shown.
+        (isClientMode && isDataReadError(resourceHook.list.error)
+          ? resourceHook.list.error.message
+          : undefined)
+      }
       onRetry={isClientMode ? () => resourceHook.list.refetch() : onRetryProp}
       viewMode={page.viewMode}
       onViewModeChange={page.setViewMode}
@@ -1753,9 +1940,15 @@ export function ResourcePage<
                 resizeKey,
                 stickyHeader,
                 stickyFirstColumn,
+                keyboardNavigation,
                 // The server already cut the page window; DataTable's own
                 // pagination would slice the slice.
                 pagination: isServerControlled ? false : undefined,
+                // Client mode: the header sort is the page's sort, so it
+                // reaches the URL and a link restores what the table shows.
+                ...(isServerControlled
+                  ? {}
+                  : { sort: tableSort, onSortChange: handleTableSort }),
               },
               slotProps?.table,
             )
@@ -1880,9 +2073,26 @@ export function ResourcePage<
         renderSlot(
           DetailPanel<T>,
           slots?.detail,
-          {
+          linkMissing
+            ? {
+                // A linked record this user can't read, or that's gone.
+                item: {} as T,
+                open: detailOpen,
+                onClose: closeDetail,
+                title: "Record not found",
+                width: detailWidth,
+                layout: detail === "modal" ? "dialog" : "sheet",
+                children: () => (
+                  <p className="text-sm text-muted-foreground" data-testid="resource-page-link-missing">
+                    {isDataReadError(linked.error) && linked.error.outcome === "forbidden"
+                      ? linked.error.message
+                      : "This record doesn't exist, or you don't have access to it."}
+                  </p>
+                ),
+              }
+            : {
             item: selectedItem,
-            open: page.detailOpen,
+            open: detailOpen,
             onClose: closeDetail,
             title: detailTitle,
             subtitle: detailSubtitle,
@@ -1912,6 +2122,7 @@ export function ResourcePage<
               formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog"),
             mode: formMode,
             steps: formSteps,
+            mutationMode: mutationModeProp,
             item:
               formAction === "edit"
                 ? ((formItem as Record<string, unknown> | null) ?? undefined)
@@ -1948,6 +2159,7 @@ export function ResourcePage<
             onOpenChange: setDeleteOpen,
             onConfirm: () =>
               pendingDelete ? performDelete(pendingDelete) : undefined,
+            kind: deleteKind,
             title:
               typeof deleteCopy?.title === "function"
                 ? pendingDelete

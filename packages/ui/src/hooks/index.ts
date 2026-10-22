@@ -12,6 +12,12 @@ export { useViewPreference, type ResponsiveViewMode, type ViewModeDefault } from
 export { useViewSettings, type Density, type ViewSettings } from "./use-view-settings";
 export { useSavedViews, type UseSavedViewsReturn } from "./use-saved-views";
 export { createPrefetch, type RouteMap } from "./use-prefetch";
+export {
+  useResourceUrlState,
+  type ResourceUrlParams,
+  type ResourceUrlState,
+  type ResourceUrlStateOptions,
+} from "./use-resource-url-state";
 export { useResourcePage, type UseResourcePageProps, type UseResourcePageReturn, type ResourceColumnDef, type ResourceActions } from "./use-resource-page";
 export {
   useCommandPaletteHotkey,

@@ -23,5 +23,19 @@
 
 export { useResource, type UseResourceOptions, type UseResourceReturn } from "./use-resource";
 export { useOne, type UseOneOptions } from "./use-one";
+export { useCapabilities } from "./use-capabilities";
 export { useResourceForm, buildArrayItemDefaults, type UseResourceFormOptions, type UseResourceFormReturn } from "./use-resource-form";
 export { useWizard, type WizardStep, type UseWizardReturn } from "./use-wizard";
+export {
+  DEFAULT_UNDO_DELAY_MS,
+  pendingWriteCount,
+  type MutationMode,
+  type MutationModeOptions,
+  type UndoableWrite,
+} from "./mutation-mode";
+export {
+  useUnsavedChangesGuard,
+  DEFAULT_UNSAVED_CHANGES_MESSAGE,
+  type UseUnsavedChangesGuardOptions,
+  type UseUnsavedChangesGuardReturn,
+} from "./use-unsaved-changes-guard";

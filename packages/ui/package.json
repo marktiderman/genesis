@@ -361,7 +361,6 @@
   "peerDependencies": {
     "@marktiderman/genesis-design-system": "workspace:^",
     "@tanstack/react-router": "^1.0.0",
-    "@tanstack/react-virtual": "^3.14.0",
     "@tiptap/core": "^3.31.0",
     "@tiptap/extensions": "^3.31.0",
     "@tiptap/pm": "^3.31.0",
@@ -386,6 +385,8 @@
   },
   "dependencies": {
     "@marktiderman/genesis-core": "workspace:^",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.14.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.5.0"
@@ -409,8 +410,6 @@
     "@radix-ui/react-toggle-group": "^1.1.0",
     "@tanstack/react-query": "^5.75.0",
     "@tanstack/react-router": "1.170.41",
-    "@tanstack/react-table": "^8.21.3",
-    "@tanstack/react-virtual": "3.14.13",
     "@testing-library/react": "^16.3.2",
     "@tiptap/core": "3.31.4",
     "@tiptap/extensions": "3.31.4",
@@ -441,9 +440,6 @@
   },
   "peerDependenciesMeta": {
     "@tanstack/react-router": {
-      "optional": true
-    },
-    "@tanstack/react-virtual": {
       "optional": true
     },
     "@tiptap/core": {
