@@ -53,12 +53,53 @@ export function writeOutcomeFromCode(code: string | null | undefined): WriteOutc
 /** A column name as Postgres reports it unquoted; anything else is not mapped. */
 const COLUMN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-/** The columns of a `Key (a, b)=(...)` detail line, or none when any is not a plain column. */
+/**
+ * One index expression as Postgres prints it: a plain column, or one column
+ * wrapped in a function, optionally cast (`lower(email::text)`,
+ * `lower((email)::text)`). Anything else is not mapped.
+ */
+const WRAPPED_COLUMN = /^[A-Za-z_][A-Za-z0-9_]*\(\(?([A-Za-z_][A-Za-z0-9_]*)\)?(?:::[A-Za-z_][A-Za-z0-9_ ]*)?\)$/;
+
+function columnOf(expression: string): string | undefined {
+  if (COLUMN.test(expression)) return expression;
+  return WRAPPED_COLUMN.exec(expression)?.[1];
+}
+
+/**
+ * The columns of a `Key (a, b)=(...)` detail line, or none when any is not a
+ * plain column (or one column in a simple expression index). The key list is
+ * read with its parentheses balanced, so an expression index such as
+ * `Key (lower(email::text))=(…)` is recognised.
+ */
 function keyColumns(details: string, tail: RegExp): string[] {
-  const match = /^Key \(([^()]*)\)=\(/.exec(details);
-  if (!match || !tail.test(details)) return [];
-  const columns = match[1]!.split(",").map((c) => c.trim());
-  return columns.length > 0 && columns.every((c) => COLUMN.test(c)) ? columns : [];
+  if (!details.startsWith("Key (") || !tail.test(details)) return [];
+  let depth = 1;
+  let end = -1;
+  for (let i = "Key (".length; i < details.length; i++) {
+    const ch = details[i];
+    if (ch === "(") depth++;
+    else if (ch === ")" && --depth === 0) {
+      end = i;
+      break;
+    }
+  }
+  if (end < 0 || details.slice(end + 1, end + 3) !== "=(") return [];
+  const parts: string[] = [];
+  let level = 0;
+  let current = "";
+  for (const ch of details.slice("Key (".length, end)) {
+    if (ch === "(") level++;
+    else if (ch === ")") level--;
+    if (ch === "," && level === 0) {
+      parts.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current.trim());
+  const columns = parts.map(columnOf);
+  return columns.length > 0 && columns.every((c): c is string => !!c) ? columns : [];
 }
 
 function listLabels(columns: string[]): string {
@@ -79,7 +120,11 @@ export interface PostgrestFieldErrors {
  * Reads which columns a Postgres constraint error is about, from PostgREST's
  * `message` / `details`, and gives safe messages for them. Only plain column
  * names are taken from the store's text; the values it echoes are never
- * used. Returns `undefined` when nothing can be mapped safely.
+ * used. A unique violation whose columns cannot be read (a complex
+ * expression index, no details), or an insert/update foreign-key violation
+ * whose key is an expression, gets the safe sentence with no `fields`, so the
+ * store's raw text (constraint name, echoed value) never reaches the user.
+ * Returns `undefined` for anything else.
  *
  * - `23505` unique violation, `Key (email)=(…) already exists.` → each
  *   column: "This value is already in use." (several columns: "This
@@ -99,7 +144,9 @@ export function fieldErrorsFromPostgrest(error: {
   const message = typeof error.message === "string" ? error.message : "";
   if (code === "23505") {
     const columns = keyColumns(details, /\) already exists\.?$/);
-    if (columns.length === 0) return undefined;
+    // Not mappable to a column: still never show the store's raw text (it
+    // names the constraint and echoes the value).
+    if (columns.length === 0) return { fields: {}, message: "This value is already in use." };
     const each = columns.length === 1 ? "This value is already in use." : "This combination is already in use.";
     return {
       fields: Object.fromEntries(columns.map((c) => [c, each])),
@@ -118,8 +165,10 @@ export function fieldErrorsFromPostgrest(error: {
     };
   }
   if (code === "23503") {
-    const columns = keyColumns(details, /\) is not present in table "[^"]*"\.?$/);
-    if (columns.length === 0) return undefined;
+    const tail = /\) is not present in table "[^"]*"\.?$/;
+    if (!tail.test(details)) return undefined;
+    const columns = keyColumns(details, tail);
+    if (columns.length === 0) return { fields: {}, message: "The selected item doesn't exist." };
     return {
       fields: Object.fromEntries(columns.map((c) => [c, "The selected item doesn't exist."])),
       message: `${listLabels(columns)}: the selected item doesn't exist.`,
@@ -151,7 +200,7 @@ export function toDataWriteError(error: unknown): DataWriteError {
   if (mapped) {
     return new DataWriteError(writeOutcomeFromCode(code), mapped.message, {
       code,
-      fields: mapped.fields,
+      fields: Object.keys(mapped.fields).length > 0 ? mapped.fields : undefined,
       cause: error,
     });
   }

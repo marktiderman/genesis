@@ -53,6 +53,9 @@ export {
   type ResourceDetailPageProps,
 } from "./ResourceDetailPage";
 export { ResourceForm, type ResourceFormProps } from "./ResourceForm";
+// The undo / write-error toasts ResourceForm and ResourcePage use, for a
+// direct `useResource({ mutationMode: "undoable", onUndoable: showUndoToast })`.
+export { showUndoToast, showWriteErrorToast } from "./undo-toast";
 export { type ResourceFormFieldDef, type FieldType, type SelectOption } from "./ResourceFormField";
 export { RelationField } from "./RelationField";
 export { FileUploadField } from "./FileUploadField";

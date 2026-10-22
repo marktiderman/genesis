@@ -78,6 +78,9 @@ honours `maxLength` on text fields, adds no placeholder unless the field sets on
   once and the cached list updates; `undoable` shows an Undo toast and sends the save after
   `undoDelayMs` (5000) unless undone. A failure puts the list back and is toasted. Needs a
   mounted `<Toaster />`. `ResourcePage` passes its own `mutationMode` to its form and deletes.
+  The undo still works after the dialog closes. For a direct
+  `useResource({ mutationMode: "undoable" })`, pass `onUndoable: showUndoToast` and
+  `onError: showWriteErrorToast` (both exported from `/data`).
 
 ## Unsaved changes
 
