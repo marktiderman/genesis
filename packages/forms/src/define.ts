@@ -72,7 +72,12 @@ interface HiddenOptions {
   sensitive?: boolean;
 }
 
-const hiddenSpec = <T extends HiddenInput["type"]>(type: T, o: HiddenOptions) => ({
+// Typed explicitly: the inferred `sensitive?: true | undefined` from the
+// conditional spread breaks consumers with exactOptionalPropertyTypes on.
+const hiddenSpec = <T extends HiddenInput["type"]>(
+  type: T,
+  o: HiddenOptions,
+): { type: T; source: HiddenInput["source"]; sensitive?: true } => ({
   type,
   source: o.source ?? "url",
   ...(o.sensitive ? { sensitive: true as const } : {}),

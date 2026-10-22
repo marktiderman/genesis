@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": false,
+    "noEmit": true,
+    "paths": {
+      "@marktiderman/genesis-forms": [
+        "../dist/index.d.ts"
+      ]
+    },
+    "types": []
+  },
+  "include": [
+    "*.ts"
+  ]
+}
