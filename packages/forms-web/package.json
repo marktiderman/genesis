@@ -33,14 +33,14 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup && cp src/styles.css dist/styles.css && node ../../scripts/check-exports-resolve.mjs",
+    "build": "tsup && cp src/styles.css dist/styles.css && node ../../scripts/check-exports-resolve.mjs && tsc -p type-tests",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-forms": "workspace:^",
-    "@marktiderman/genesis-forms-react": "workspace:^",
+    "@marktiderman/genesis-forms": "workspace:>=0.1.1 <1.0.0",
+    "@marktiderman/genesis-forms-react": "workspace:>=0.1.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

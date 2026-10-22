@@ -1,11 +1,15 @@
 # Releasing Genesis packages
 
-All seven `@marktiderman/*` packages are published by CI, from
-`.github/workflows/release.yml` on `main`, with npm Trusted Publishing (OIDC).
-No npm token is stored anywhere. Do not publish by hand (except a brand-new
+All public `@marktiderman/*` packages (every `packages/*` without
+`"private": true`) are published by CI, from `.github/workflows/release.yml` on
+`main`, with npm Trusted Publishing (OIDC). No npm token is stored anywhere.
+npm attaches an SLSA provenance attestation to every trusted publish, even
+though each package sets `publishConfig.provenance: false` (e.g.
+`npm view @marktiderman/genesis-forms@0.1.1 dist.attestations`); the commit that
+shipped is also in the release tag and the Actions run. Do not publish by hand (except a brand-new
 package's first version, below): a manual `npm publish`
-skips the `workspace:` rewrite (the 2.1.0 incident) and leaves no provenance
-of which commit shipped.
+skips the `workspace:` rewrite (the 2.1.0 incident) and leaves no record of
+which commit shipped.
 
 ## Normal release (nothing to do on npm)
 
@@ -37,7 +41,9 @@ A workflow on any other branch is refused by npm or by GitHub.
 
 npm **binds** a Trusted Publisher to the repository's immutable id on its first
 successful publish. A new Trusted Publisher **expires after 48 hours** if no
-publish uses it.
+publish uses it. So after trusting a package by hand, get a CI publish of it out
+within 48 hours (merge its next version PR), or the "Verify npm Trusted
+Publishing" step fails for it and it needs the fix below.
 
 ## A brand-new package
 
@@ -46,20 +52,51 @@ new package's **first** version is published once by hand, from a clean `main`
 checkout, with `pnpm publish` (it rewrites `workspace:` ranges; `npm publish`
 does not):
 
-```bash
-git checkout main && git pull
-pnpm install --frozen-lockfile && pnpm build:packages
-pnpm --filter @marktiderman/<pkg> publish --access public --no-git-checks   # asks for 2FA
-npm trust github @marktiderman/<pkg> --file release.yml --repo marktiderman/genesis \
-  --env npm --allow-publish --allow-stage-publish -y
-```
+Order matters, because CI's verify step refuses a release that would publish a
+package npm doesn't trust yet, and the trust expires after 48 hours unused:
+
+1. Land the package on `main` (the staging PR), but **don't merge the version
+   PR yet**: it would try to publish the new package through CI and fail.
+2. Publish it by hand and trust it, one package at a time:
+
+   ```bash
+   git checkout main && git pull
+   pnpm install --frozen-lockfile && pnpm build:packages
+   pnpm --filter @marktiderman/<pkg> publish --access public --no-git-checks   # asks for 2FA
+   npx -y npm@latest trust github @marktiderman/<pkg> --file release.yml --repo marktiderman/genesis \
+     --env npm --allow-publish --allow-stage-publish -y
+   ```
+
+   Run `trust` right after the publish. Right after a first publish npm can
+   answer 404 for a few minutes (seen on 2026-10-22, about 5 minutes) while
+   its CDN catches up: wait and run `trust` again. Each first-published
+   package also shows a `0.0.0-stage` version on npm, created around the same
+   time; it is outside every range we write and never `latest`.
+3. Merge the version PR within 48 hours. Give the new package a patch
+   changeset in the same release, so CI publishes it once and its trust is
+   used before it expires.
 
 Publish packages that others depend on first (for forms: `genesis-forms`, then
 `-react`, then `-web` and `-devtools`). Set the package's `version` to the first
-release (e.g. `0.1.0`) and leave it out of the changeset. A changeset bumping a
-`0.0.0` package puts its `workspace:^` dependents out of range, and changesets
-then gives them a major bump (`1.0.0`). Every later version goes through CI as
-usual.
+release (e.g. `0.1.0`) by hand, not with a changeset bump from `0.0.0`: that
+puts its `workspace:^` dependents out of range, and changesets then gives them
+a major bump (`1.0.0`). Its patch changeset (step 3) bumps that first version,
+so CI publishes the next one (e.g. `0.1.1`). Every later version goes through
+CI as usual.
+
+## Forms packages and 0.x peer ranges
+
+With `workspace:^` on a 0.x package, every minor of `genesis-forms` would leave
+`^0.1.x`, and changesets gives a dependent a **major** bump when a new version
+leaves its peer range: `-react`, `-web` and `-devtools` would go to `1.0.0`. So
+their peer ranges on other forms packages are written as
+`workspace:>=0.1.1 <1.0.0` (any 0.x from that floor), and changesets leaves a
+dependent alone while the new version stays in range. That relies on
+`onlyUpdatePeerDependentsWhenOutOfRange: true` in `.changeset/config.json`;
+without it, changesets majors a dependent on any non-patch peer release, in
+range or not, so keep it on. Raise a floor by hand when a dependent starts
+needing a newer forms API. Each forms package is versioned on its own (no
+`linked` group). Check a release plan with `pnpm changeset status --verbose`.
 
 ## When the "Verify npm Trusted Publishing" step fails
 

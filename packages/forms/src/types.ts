@@ -61,6 +61,12 @@ export interface HiddenInput {
   source: "url" | "host" | "server";
   /** Masked in devtools unless revealed, like a sensitive field. */
   sensitive?: boolean;
+  /**
+   * Identifies the respondent (a member id, an email). When the form's
+   * `settings.anonymous` is true, `validateSubmission` leaves it out of the
+   * stored `hidden` and `context`. Logic still reads it.
+   */
+  identifying?: boolean;
 }
 
 export type Operator =
@@ -96,7 +102,8 @@ export interface Ending {
 export interface FormSettings {
   /**
    * A per-form admin setting, off by default. When true, fields marked
-   * `identifying` are not asked or stored, events carry no timestamps, and
+   * `identifying` are not asked or stored, identifying hidden inputs are
+   * not stored, events carry no timestamps, and
    * the app's store keeps no identifying metadata with responses.
    */
   anonymous?: boolean;

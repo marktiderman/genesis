@@ -82,7 +82,7 @@ async function pipe(
 /**
  * Encode a payload for a URL hash (deflate-raw + base64url). Keystroke-level
  * answers are compacted (consecutive answers to one field keep the last),
- * answers to sensitive fields are blanked, and `at` timestamps, the server
+ * answers to sensitive and identifying fields are blanked, and `at` timestamps, the server
  * context and `definition.meta` are left out unless asked for. Throws when
  * the JSON is larger than `MAX_SHARE_BYTES`, since `decodeShare` would refuse it.
  */
