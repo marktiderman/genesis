@@ -99,6 +99,11 @@ Forms → `react-hook-form` + `zod`. Server state → `@tanstack/react-query`. D
 Genesis's value is **composition and opinion**, not reimplementation. Every library we
 re-implement is code we own across every consumer, forever.
 
+The one exception is form *products* (feedback, surveys, worksheets, onboarding, intake):
+`@marktiderman/genesis-forms` owns its state, because values, visibility, navigation and
+validation there are one reactive graph that must also run on the server. CRUD forms
+(`ResourceForm`) stay on `react-hook-form` + `zod`. See [FORMS.md](./FORMS.md).
+
 ### 5. Additive by default, one deprecation window
 
 At many consumers a breaking change is many migrations. New capability ships additively;

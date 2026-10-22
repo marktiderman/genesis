@@ -32,6 +32,10 @@ const ENTRY = [
   "src/switchboard-gitdata.ts",
   "src/switchboard-data-provider.ts",
   "src/native.ts",
+  "src/forms.ts",
+  "src/forms-server.ts",
+  "src/forms-react.ts",
+  "src/forms-web.ts",
 ];
 
 export default defineConfig({

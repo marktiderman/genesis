@@ -1,0 +1,54 @@
+{
+  "name": "@marktiderman/genesis-forms-react",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "React bindings for Genesis Forms: useForm, useField with one-field re-renders, a ranked renderer registry and a headless FormRuntime. Works in React DOM and React Native. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/forms-react"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-forms": "workspace:^",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-forms": "workspace:^",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.9.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
+  }
+}

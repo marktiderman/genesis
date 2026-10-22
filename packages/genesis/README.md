@@ -23,11 +23,30 @@ import { tokens } from "@marktiderman/genesis/design-system/tokens";
 | `.../design-system/theme`    | `@marktiderman/genesis-design-system/theme` |
 | `.../switchboard`            | `@marktiderman/genesis-switchboard`    |
 | `.../native`                 | `@marktiderman/genesis-ui-native`      |
+| `.../forms`                  | `@marktiderman/genesis-forms`          |
+| `.../forms/server`           | `@marktiderman/genesis-forms/server`   |
+| `.../forms/react`            | `@marktiderman/genesis-forms-react`    |
+| `.../forms/web`              | `@marktiderman/genesis-forms-web`      |
 
 Web bundlers never pull in React Native code unless a consumer explicitly
 imports `@marktiderman/genesis/native` — `react-native` is an optional peer
 dependency. Each granular package remains independently installable as an
 escape hatch for rare subpaths not mirrored here.
+
+Every umbrella subpath is ESM-only (an `import` condition, no `require`), the
+same as `/ui`. If you need CommonJS for the forms engine, install
+`@marktiderman/genesis-forms` directly: it ships CJS builds of `.`, `/server`
+and `/testing`.
+
+The umbrella re-exports code, not stylesheets. To style `/forms/web`, also
+install `@marktiderman/genesis-forms-web` (the version the umbrella pins) and
+import its styles after genesis-ui's, in your Tailwind v4 entry:
+
+```css
+@import "tailwindcss";
+@import "@marktiderman/genesis-ui/styles.css";
+@import "@marktiderman/genesis-forms-web/styles.css";
+```
 
 ## The Genesis version coordinate
 
@@ -35,7 +54,8 @@ escape hatch for rare subpaths not mirrored here.
 the whole Genesis system — the one number that answers "which Genesis am I
 on?" for a consuming repo. Pin one umbrella version and the entire set is
 determined: the umbrella depends on `@marktiderman/genesis-{core,ui,
-design-system,switchboard,ui-native}` via `workspace:*`, which pnpm replaces
+design-system,switchboard,ui-native,forms,forms-react,forms-web}` via
+`workspace:*`, which pnpm replaces
 with the **exact** published version at pack time. So `@marktiderman/genesis@X`
 resolves one reproducible, pinned set — not a caret range that drifts. Each
 granular package keeps its own independent semver train; the umbrella version

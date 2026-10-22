@@ -23,6 +23,10 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-forms": "workspace:^",
+    "@marktiderman/genesis-forms-devtools": "workspace:^",
+    "@marktiderman/genesis-forms-react": "workspace:^",
+    "@marktiderman/genesis-forms-web": "workspace:^",
     "@marktiderman/genesis-studio": "workspace:^",
     "@marktiderman/genesis-studio-server": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",

@@ -1,0 +1,12 @@
+/*
+ * Tailwind v4 source entry for @marktiderman/genesis-forms-devtools.
+ *
+ *   @import "tailwindcss";
+ *   @import "@marktiderman/genesis-ui/styles.css";
+ *   @import "@marktiderman/genesis-forms-devtools/styles.css";
+ *
+ * React Flow's base styles go in the base layer, so the flow map's token
+ * utilities win over them.
+ */
+@import "@xyflow/react/dist/base.css" layer(base);
+@source "./";
