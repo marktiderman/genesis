@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 128 components · 390 other exports · 237 standalone types across 9 packages and entry points.
+**Totals:** 128 components · 391 other exports · 237 standalone types across 9 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -577,7 +577,7 @@ Read-only rich text renderer and server-safe helpers (sanitize, HTML, plain text
 | --- | --- | --- | --- |
 | [`RichText`](../packages/ui/src/components/rich-text/rich-text.tsx) | `RichTextProps` | Beta | RichText — renders a rich text document as React elements. |
 
-### Other exports (16)
+### Other exports (17)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -591,6 +591,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`normalizeLinkUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Turn what a person typed into the link field into a safe href, or `null`. `example.com/page` becomes `https://example.com/page`; an email address becomes a `mailto:` link. |
 | [`parseVideoUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Recognise a YouTube, Vimeo or Loom video URL (watch, share, short and embed forms) and reduce it to its provider and id. Returns `null` for anything else, including other hosts that merely look similar. |
 | [`richTextClassName`](../packages/ui/src/components/rich-text/rich-text.tsx) | const | — | Typography for rendered rich text, shared by `RichText` and the editor's editable area so a document looks the same while writing and reading. Exported for apps that render stored HTML themselves. |
+| [`RichTextLimitError`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | class | — | Thrown by `sanitizeRichTextDoc` when a document breaks a limit it was given. |
 | [`richTextToHtml`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Serialize a document to HTML. The input is sanitized first, so this is safe to call on untrusted JSON; the output contains only the tags listed in this file's header, with every value escaped. |
 | [`richTextToPlainText`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Plain text for search indexes, previews and notifications. Blocks are separated by blank lines; embeds become "Title (url)". |
 | [`sanitizeRichTextDoc`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Validate an untrusted value as a rich text document and return a clean copy that contains only allow-listed nodes, marks and attributes. |

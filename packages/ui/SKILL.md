@@ -126,15 +126,18 @@ generated (`pnpm gen:component-reference`); do not edit it by hand.
 ## Rich text
 
 `RichTextEditor` (`/rich-text-editor`, Tiptap 3) needs the optional peers
-`@tiptap/core @tiptap/pm @tiptap/react @tiptap/starter-kit @tiptap/extensions` (`^3`). `RichText` and the
+`@tiptap/core @tiptap/pm @tiptap/react @tiptap/starter-kit @tiptap/extensions` (`^3.31`). `RichText` and the
 helpers on `/rich-text` need nothing beyond React and run on a server.
 
 - **Store JSON, derive HTML.** `onChange(doc, details)` gives the document JSON (canonical) and lazy
   `details.html` / `details.text`. Persist `doc` (Postgres `jsonb`). If you also need HTML or text (email,
   search, previews), derive them on the server; never trust HTML or JSON a client posts.
-- **Sanitize on the server on every write:** `const doc = sanitizeRichTextDoc(body.doc)` keeps only the
-  allow-listed nodes (paragraph, h2-h4, lists, blockquote, bold/italic/underline, http(s)/mailto/tel/relative
-  links, YouTube/Vimeo/Loom embeds by id). Then `richTextToHtml(doc)` (`{ embedAs: "link" }` for email) and
+- **Sanitize on the server on every write, with limits:**
+  `const doc = sanitizeRichTextDoc(body.doc, { maxCharacters: 50_000, maxNodes: 5_000, onTooDeep: "throw" })`
+  keeps only the allow-listed nodes (paragraph, h2-h4, lists, blockquote, bold/italic/underline,
+  http(s)/mailto/tel/relative links, YouTube/Vimeo/Loom embeds by id). Over a limit, or nested more than 32
+  levels, it throws `RichTextLimitError` (`reason`: `"characters" | "nodes" | "depth"`), so answer 413/422
+  instead of storing it. Then `richTextToHtml(doc)` (`{ embedAs: "link" }` for email) and
   `richTextToPlainText(doc)`. Both run without a DOM and escape every value.
 - **Render with `<RichText value={doc} />`**, not `dangerouslySetInnerHTML`. It re-sanitizes and works in
   server components. If you must inject stored HTML, inject only HTML you produced with `richTextToHtml`.
@@ -142,7 +145,8 @@ helpers on `/rich-text` need nothing beyond React and run on a server.
   `const RichTextEditor = lazy(() => import("@marktiderman/genesis-ui/rich-text-editor").then((m) => ({ default: m.RichTextEditor })))`.
   Reading pages use `RichText`, which pulls in no editor code.
 - Embeds are off by default: `<RichTextEditor embeds />`. A CSP needs `frame-src` for
-  `https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com`.
+  `https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com`. The editor injects no
+  `<style>` tag (Tiptap's base rules are classes), so `style-src` needs no `'unsafe-inline'` for it.
 
 ```tsx
 <RichTextEditor aria-label="Lesson text" value={doc} onChange={setDoc} placeholder="Write the lesson…" embeds maxLength={20000} />

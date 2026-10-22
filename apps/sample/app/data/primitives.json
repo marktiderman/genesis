@@ -2463,7 +2463,7 @@
             },
             {
               "name": "resourceOptions",
-              "type": "any",
+              "type": "UseResourceOptions<T>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -11834,7 +11834,7 @@
             },
             {
               "name": "id",
-              "type": "any",
+              "type": "Identifier | null | undefined",
               "required": true,
               "defaultValue": null,
               "description": "Record id. Nullish means \"not resolved yet\" — no request goes out and the\npage shows its loading state, which is what a route param that hasn't\narrived should look like. It is deliberately NOT the not-found state:\nnothing has been asked, so nothing is missing."
@@ -12434,7 +12434,7 @@
             },
             {
               "name": "onSortChange",
-              "type": "((sort: any) => void)",
+              "type": "((sort: SortParam | null) => void)",
               "required": false,
               "defaultValue": null,
               "description": "Called when the user changes the sort, with `null` when the sort is cleared."
@@ -12518,7 +12518,7 @@
             },
             {
               "name": "resourceOptions",
-              "type": "any",
+              "type": "UseResourceOptions<T>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -12712,6 +12712,11 @@
           "props": []
         },
         {
+          "name": "RichTextLimitError",
+          "summary": "Thrown by `sanitizeRichTextDoc` when a document breaks a limit it was given.",
+          "props": []
+        },
+        {
           "name": "richTextToHtml",
           "summary": "Serialize a document to HTML. The input is sanitized first, so this is\nsafe to call on untrusted JSON; the output contains only the tags listed\nin this file's header, with every value escaped.",
           "props": []
@@ -12723,7 +12728,7 @@
         },
         {
           "name": "sanitizeRichTextDoc",
-          "summary": "Validate an untrusted value as a rich text document and return a clean\ncopy that contains only allow-listed nodes, marks and attributes.\n\nNever throws: `null`, a string or a malformed object becomes an empty\ndocument. Run this on the server on every write, before storing the JSON\nor deriving HTML from it.",
+          "summary": "Validate an untrusted value as a rich text document and return a clean\ncopy that contains only allow-listed nodes, marks and attributes.\n\n`null`, a string or a malformed object becomes an empty document. Run\nthis on the server on every write, before storing the JSON or deriving\nHTML from it, with limits so a client cannot store an oversized or\npathologically nested document:\n\n```ts\nsanitizeRichTextDoc(body, { maxCharacters: 50_000, maxNodes: 5_000, onTooDeep: \"throw\" });\n```\n\nWithout limits it never throws; with them it throws `RichTextLimitError`.",
           "props": []
         },
         {
@@ -15065,7 +15070,7 @@
             },
             {
               "name": "renderField",
-              "type": "((field: ResourceFormFieldDef, control: Control<Record<string, unknown>, any, Record<string, unknown>>, action: \"create\" | \"edit\", watchedValues: Record<string, unknown>) => ReactNode)",
+              "type": "((field: ResourceFormFieldDef, control: Control<Record<string, unknown>, any, Record<string, unknown>>, action: \"create\" | \"edit\", watchedValues: Record<...>) => ReactNode)",
               "required": false,
               "defaultValue": null,
               "description": ""

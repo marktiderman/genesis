@@ -68,6 +68,44 @@ export interface SanitizeRichTextOptions {
   headingLevels?: readonly RichTextHeadingLevel[];
   /** Keep `videoEmbed` nodes. Default `true`. When false they are dropped. */
   embeds?: boolean;
+  /**
+   * Reject documents whose text is longer than this (characters, counted
+   * after sanitizing). Throws `RichTextLimitError`. Off by default; set it on
+   * the server for every write that accepts rich text from a client.
+   */
+  maxCharacters?: number;
+  /**
+   * Reject documents with more nodes than this (every node except the root,
+   * text included, counted after sanitizing). Throws `RichTextLimitError`.
+   * Off by default; set it on the server alongside `maxCharacters`.
+   */
+  maxNodes?: number;
+  /**
+   * What to do with content nested deeper than 32 levels. `"drop"` (default)
+   * leaves it out, which suits rendering stored documents; `"throw"` rejects
+   * the whole document with `RichTextLimitError`, which suits server writes,
+   * so nothing an author wrote disappears without them being told.
+   */
+  onTooDeep?: "drop" | "throw";
+}
+
+/** Thrown by `sanitizeRichTextDoc` when a document breaks a limit it was given. */
+export class RichTextLimitError extends Error {
+  readonly reason: "characters" | "nodes" | "depth";
+  readonly limit: number;
+  /** The measured size; for `"depth"`, the limit plus one. */
+  readonly actual: number;
+  constructor(reason: "characters" | "nodes" | "depth", limit: number, actual: number) {
+    super(
+      reason === "depth"
+        ? `Rich text is nested more than ${limit} levels deep`
+        : `Rich text has ${actual} ${reason}; the limit is ${limit}`,
+    );
+    this.name = "RichTextLimitError";
+    this.reason = reason;
+    this.limit = limit;
+    this.actual = actual;
+  }
 }
 
 export interface RichTextToHtmlOptions extends SanitizeRichTextOptions {
@@ -294,6 +332,23 @@ const BLOCK_TYPES = new Set([
 interface Ctx {
   levels: readonly RichTextHeadingLevel[];
   embeds: boolean;
+  throwTooDeep: boolean;
+}
+
+/** True when `depth` is past the limit; throws instead when the caller asked for that. */
+function tooDeep(depth: number, ctx: Ctx): boolean {
+  if (depth <= MAX_DEPTH) return false;
+  if (ctx.throwTooDeep) throw new RichTextLimitError("depth", MAX_DEPTH, depth);
+  return true;
+}
+
+function measure(nodes: RichTextNode[] | undefined, size = { nodes: 0, characters: 0 }) {
+  for (const node of nodes ?? []) {
+    size.nodes += 1;
+    if (typeof node.text === "string") size.characters += node.text.length;
+    measure(node.content, size);
+  }
+  return size;
 }
 
 function sanitizeMarks(marks: unknown): RichTextMark[] | undefined {
@@ -318,8 +373,8 @@ function sanitizeMarks(marks: unknown): RichTextMark[] | undefined {
   return out.length > 0 ? out : undefined;
 }
 
-function sanitizeInline(nodes: unknown, depth: number): RichTextNode[] {
-  if (!Array.isArray(nodes) || depth > MAX_DEPTH) return [];
+function sanitizeInline(nodes: unknown, depth: number, ctx: Ctx): RichTextNode[] {
+  if (!Array.isArray(nodes) || tooDeep(depth, ctx)) return [];
   const out: RichTextNode[] = [];
   for (const node of nodes) {
     if (!node || typeof node !== "object") continue;
@@ -332,7 +387,7 @@ function sanitizeInline(nodes: unknown, depth: number): RichTextNode[] {
       out.push({ type: "hardBreak" });
     } else if (Array.isArray(n.content)) {
       // An inline wrapper we do not know: keep its text, drop the wrapper.
-      for (const child of sanitizeInline(n.content, depth + 1)) out.push(child);
+      for (const child of sanitizeInline(n.content, depth + 1, ctx)) out.push(child);
     }
   }
   return out;
@@ -360,7 +415,7 @@ function nearestLevel(
 }
 
 function sanitizeListItems(nodes: unknown, ctx: Ctx, depth: number): RichTextNode[] {
-  if (!Array.isArray(nodes) || depth > MAX_DEPTH) return [];
+  if (!Array.isArray(nodes) || tooDeep(depth, ctx)) return [];
   const items: RichTextNode[] = [];
   for (const node of nodes) {
     if (!node || typeof node !== "object") continue;
@@ -378,7 +433,7 @@ function sanitizeListItems(nodes: unknown, ctx: Ctx, depth: number): RichTextNod
 }
 
 function sanitizeBlocks(nodes: unknown, ctx: Ctx, depth: number): RichTextNode[] {
-  if (!Array.isArray(nodes) || depth > MAX_DEPTH) return [];
+  if (!Array.isArray(nodes) || tooDeep(depth, ctx)) return [];
   const out: RichTextNode[] = [];
   let pendingInline: RichTextNode[] = [];
   const flushInline = () => {
@@ -391,17 +446,17 @@ function sanitizeBlocks(nodes: unknown, ctx: Ctx, depth: number): RichTextNode[]
     const n = node as RichTextNode;
     if (n.type === "text" || n.type === "hardBreak") {
       // Stray inline content at block level: gather it into a paragraph.
-      for (const child of sanitizeInline([n], depth)) pendingInline.push(child);
+      for (const child of sanitizeInline([n], depth, ctx)) pendingInline.push(child);
       continue;
     }
     flushInline();
     switch (n.type) {
       case "paragraph":
-        out.push(withContent("paragraph", sanitizeInline(n.content, depth + 1)));
+        out.push(withContent("paragraph", sanitizeInline(n.content, depth + 1, ctx)));
         break;
       case "heading":
         out.push(
-          withContent("heading", sanitizeInline(n.content, depth + 1), {
+          withContent("heading", sanitizeInline(n.content, depth + 1, ctx), {
             level: nearestLevel(n.attrs?.level, ctx.levels),
           }),
         );
@@ -445,7 +500,7 @@ function sanitizeBlocks(nodes: unknown, ctx: Ctx, depth: number): RichTextNode[]
           );
           if (nested) for (const child of sanitizeBlocks(n.content, ctx, depth + 1)) out.push(child);
           else {
-            const inline = sanitizeInline(n.content, depth + 1);
+            const inline = sanitizeInline(n.content, depth + 1, ctx);
             if (inline.length > 0) out.push(withContent("paragraph", inline));
           }
         }
@@ -459,9 +514,16 @@ function sanitizeBlocks(nodes: unknown, ctx: Ctx, depth: number): RichTextNode[]
  * Validate an untrusted value as a rich text document and return a clean
  * copy that contains only allow-listed nodes, marks and attributes.
  *
- * Never throws: `null`, a string or a malformed object becomes an empty
- * document. Run this on the server on every write, before storing the JSON
- * or deriving HTML from it.
+ * `null`, a string or a malformed object becomes an empty document. Run
+ * this on the server on every write, before storing the JSON or deriving
+ * HTML from it, with limits so a client cannot store an oversized or
+ * pathologically nested document:
+ *
+ * ```ts
+ * sanitizeRichTextDoc(body, { maxCharacters: 50_000, maxNodes: 5_000, onTooDeep: "throw" });
+ * ```
+ *
+ * Without limits it never throws; with them it throws `RichTextLimitError`.
  */
 export function sanitizeRichTextDoc(
   input: unknown,
@@ -471,7 +533,7 @@ export function sanitizeRichTextDoc(
     options.headingLevels && options.headingLevels.length > 0
       ? options.headingLevels
       : ([2, 3, 4] as const);
-  const ctx: Ctx = { levels, embeds: options.embeds ?? true };
+  const ctx: Ctx = { levels, embeds: options.embeds ?? true, throwTooDeep: options.onTooDeep === "throw" };
   const root = input && typeof input === "object" ? (input as RichTextNode) : null;
   const content = root && root.type === "doc" ? sanitizeBlocks(root.content, ctx, 0) : [];
   // Trailing empty paragraphs carry no meaning (the editor keeps one after
@@ -481,6 +543,15 @@ export function sanitizeRichTextDoc(
     const last = content[content.length - 1]!;
     if (last.type !== "paragraph" || last.content) break;
     content.pop();
+  }
+  if (options.maxCharacters !== undefined || options.maxNodes !== undefined) {
+    const size = measure(content);
+    if (options.maxCharacters !== undefined && size.characters > options.maxCharacters) {
+      throw new RichTextLimitError("characters", options.maxCharacters, size.characters);
+    }
+    if (options.maxNodes !== undefined && size.nodes > options.maxNodes) {
+      throw new RichTextLimitError("nodes", options.maxNodes, size.nodes);
+    }
   }
   return { type: "doc", content: content.length > 0 ? content : [{ type: "paragraph" }] };
 }

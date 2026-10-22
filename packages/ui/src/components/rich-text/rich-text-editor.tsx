@@ -307,7 +307,19 @@ const BLOCKS: ToggleDef[] = [
 
 const ALL_TOGGLES = [...MARKS, ...BLOCKS];
 
-const PRESSED_CLASS = "h-8 w-8 px-0 aria-pressed:bg-accent aria-pressed:text-accent-foreground";
+// The rules Tiptap would inject as a <style> tag (`injectCSS: false` turns
+// that off for strict CSPs), as classes on the editable element. The gap
+// cursor uses the foreground token instead of black and does not blink.
+const PROSEMIRROR_BASE = cn(
+  "relative break-words whitespace-break-spaces [font-variant-ligatures:none] [font-feature-settings:'liga'_0]",
+  "[&_[contenteditable=false]]:whitespace-normal [&_[contenteditable=false]_[contenteditable=true]]:whitespace-pre-wrap [&_pre]:whitespace-pre-wrap",
+  "[&_img.ProseMirror-separator]:!inline [&_img.ProseMirror-separator]:!m-0 [&_img.ProseMirror-separator]:!h-0 [&_img.ProseMirror-separator]:!w-0 [&_img.ProseMirror-separator]:!border-0",
+  "[&_.ProseMirror-gapcursor]:pointer-events-none [&_.ProseMirror-gapcursor]:absolute [&_.ProseMirror-gapcursor]:m-0 [&_.ProseMirror-gapcursor]:hidden [&.ProseMirror-focused_.ProseMirror-gapcursor]:block",
+  "[&_.ProseMirror-gapcursor]:after:absolute [&_.ProseMirror-gapcursor]:after:-top-0.5 [&_.ProseMirror-gapcursor]:after:block [&_.ProseMirror-gapcursor]:after:w-5 [&_.ProseMirror-gapcursor]:after:border-t [&_.ProseMirror-gapcursor]:after:border-foreground [&_.ProseMirror-gapcursor]:after:content-['']",
+  "[&.ProseMirror-hideselection_*]:caret-transparent [&.ProseMirror-hideselection_*]:selection:bg-transparent",
+);
+
+const PRESSED_CLASS ="h-8 w-8 px-0 aria-pressed:bg-accent aria-pressed:text-accent-foreground";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -511,6 +523,9 @@ export const RichTextEditor = React.forwardRef<RichTextEditorHandle, RichTextEdi
       extensions,
       content: initial,
       immediatelyRender: false,
+      // Tiptap's base styles are in PROSEMIRROR_BASE instead of an injected
+      // <style> tag, so the editor works under a strict style-src CSP.
+      injectCSS: false,
       shouldRerenderOnTransaction: false,
       editable: !readOnly && !disabled,
       autofocus: autoFocus ? "end" : false,
@@ -609,6 +624,7 @@ export const RichTextEditor = React.forwardRef<RichTextEditorHandle, RichTextEdi
     const describedBy = [ariaDescribedBy, countVisible ? countId : null].filter(Boolean).join(" ") || undefined;
     const contentClasses = cn(
       richTextClassName,
+      PROSEMIRROR_BASE,
       "min-h-32 px-3 py-2 outline-none",
       // Placeholder (Tiptap marks the empty first node with data-placeholder).
       "[&_.is-editor-empty:first-child]:before:pointer-events-none [&_.is-editor-empty:first-child]:before:float-left [&_.is-editor-empty:first-child]:before:h-0 [&_.is-editor-empty:first-child]:before:text-muted-foreground [&_.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]",
