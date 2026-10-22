@@ -9,7 +9,9 @@
     "./dist/server.js",
     "./dist/server.cjs",
     "./dist/testing.js",
-    "./dist/testing.cjs"
+    "./dist/testing.cjs",
+    "./dist/destinations.js",
+    "./dist/destinations.cjs"
   ],
   "description": "Genesis Forms engine: a serializable form definition, logic, navigation, validation and server-side checking. Zero dependencies; runs in browsers, React Native, Node and edge runtimes. Part of the Genesis framework.",
   "repository": {
@@ -45,6 +47,16 @@
       "require": {
         "types": "./dist/server.d.cts",
         "default": "./dist/server.cjs"
+      }
+    },
+    "./destinations": {
+      "import": {
+        "types": "./dist/destinations.d.ts",
+        "default": "./dist/destinations.js"
+      },
+      "require": {
+        "types": "./dist/destinations.d.cts",
+        "default": "./dist/destinations.cjs"
       }
     },
     "./testing": {

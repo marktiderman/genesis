@@ -1,0 +1,10 @@
+:root {
+  --brand-accent: var(--primary);
+}
+.card {
+  background: var(--background);
+  border-color: var(--color-border);
+  color: var(--brand-accent);
+  outline-color: var(--nope);
+  box-shadow: var(--tw-ring-shadow);
+}
