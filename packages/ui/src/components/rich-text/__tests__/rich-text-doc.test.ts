@@ -210,6 +210,18 @@ describe("sanitizeRichTextDoc", () => {
     expect(() => sanitizeRichTextDoc(input, { maxNodes: 4 })).toThrow(
       expect.objectContaining({ reason: "nodes", limit: 4, actual: 5 }),
     );
+    // A payload far over the limit is refused before sanitizing, without
+    // walking all of it (a getter on a node past the budget never runs).
+    let walkedPastBudget = false;
+    const huge = Array.from({ length: 50 }, () => p(t("x")));
+    Object.defineProperty(huge, 40, { get: () => ((walkedPastBudget = true), p(t("x"))) });
+    expect(() => sanitizeRichTextDoc({ type: "doc", content: huge }, { maxNodes: 5 })).toThrow(
+      expect.objectContaining({ reason: "nodes", limit: 5 }),
+    );
+    expect(walkedPastBudget).toBe(false);
+    expect(() => sanitizeRichTextDoc(doc(p(t("y".repeat(100)))), { maxCharacters: 10 })).toThrow(
+      expect.objectContaining({ reason: "characters", limit: 10 }),
+    );
     // Content the allow-list drops does not count toward the limits.
     const dropped = doc(p(t("ok")), { type: "script", attrs: { src: "x".repeat(1000) } });
     expect(() => sanitizeRichTextDoc(dropped, { maxCharacters: 2, maxNodes: 2 })).not.toThrow();

@@ -351,6 +351,37 @@ function measure(nodes: RichTextNode[] | undefined, size = { nodes: 0, character
   return size;
 }
 
+/**
+ * A cheap check on the raw input before sanitizing, so an oversized payload
+ * is refused without walking all of it. It runs only when a limit is set,
+ * iterates without recursion, and stops as soon as the input is clearly over:
+ * more than 4x `maxNodes` raw nodes (the sanitizer drops wrappers and
+ * unknown nodes) or 2x `maxCharacters` of raw text. Inputs within those
+ * margins get the exact check after sanitizing.
+ */
+function precheckRawSize(root: RichTextNode, options: SanitizeRichTextOptions): void {
+  const nodeBudget = options.maxNodes !== undefined ? options.maxNodes * 4 : Infinity;
+  const charBudget = options.maxCharacters !== undefined ? options.maxCharacters * 2 : Infinity;
+  let nodes = 0;
+  let characters = 0;
+  const stack: unknown[] = [root.content];
+  while (stack.length > 0) {
+    const list = stack.pop();
+    if (!Array.isArray(list)) continue;
+    for (const node of list) {
+      if (!node || typeof node !== "object") continue;
+      nodes += 1;
+      const text = (node as RichTextNode).text;
+      if (typeof text === "string") characters += text.length;
+      if (nodes > nodeBudget) throw new RichTextLimitError("nodes", options.maxNodes!, nodes);
+      if (characters > charBudget) {
+        throw new RichTextLimitError("characters", options.maxCharacters!, characters);
+      }
+      stack.push((node as RichTextNode).content);
+    }
+  }
+}
+
 function sanitizeMarks(marks: unknown): RichTextMark[] | undefined {
   if (!Array.isArray(marks)) return undefined;
   const out: RichTextMark[] = [];
@@ -535,6 +566,9 @@ export function sanitizeRichTextDoc(
       : ([2, 3, 4] as const);
   const ctx: Ctx = { levels, embeds: options.embeds ?? true, throwTooDeep: options.onTooDeep === "throw" };
   const root = input && typeof input === "object" ? (input as RichTextNode) : null;
+  if (root && (options.maxCharacters !== undefined || options.maxNodes !== undefined)) {
+    precheckRawSize(root, options);
+  }
   const content = root && root.type === "doc" ? sanitizeBlocks(root.content, ctx, 0) : [];
   // Trailing empty paragraphs carry no meaning (the editor keeps one after
   // the last block so there is always somewhere to type); drop them so

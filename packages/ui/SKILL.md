@@ -130,7 +130,8 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
   keyboard-reachable button that opens the detail. On a bare `DataGrid`, use `onItemClick` and
   `getItemLabel`. Never wrap a card in a `div role="button"`.
 - **Per-row rights:** `canEditItem(item)` hides Edit and Delete for rows the user can't change;
-  `canEdit(item)` / `canDelete(item)` gate each one separately.
+  `canEdit(item)` / `canDelete(item)` gate each one separately. `canEditItem` is checked first: a row it
+  refuses gets neither button, whatever the pair says.
 - **Names and empty state:** `getTitle` / `getSubtitle` when a record's name spans fields;
   `emptyIcon`, `emptyMessage`, `emptyDescription` and `emptyState` (its action) for the empty list.
 - **A list inside tabs:** `header="toolbar"` (on `ResourcePage` or `DataPageShell`) drops the title

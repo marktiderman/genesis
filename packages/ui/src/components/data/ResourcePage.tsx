@@ -493,9 +493,14 @@ export interface ResourcePageProps<
    */
   onDelete?: (item: T) => void | Promise<void>;
   /**
-   * Whether the signed-in user may change this record at all. When it
-   * returns false the peek offers neither Edit nor Delete for it. Shorthand
-   * for the pair below; when both are given, a row needs to pass each.
+   * Whether the signed-in user may change this record at all: shorthand for
+   * `canEdit` and `canDelete` together. When it returns false the peek
+   * offers neither Edit nor Delete.
+   *
+   * Precedence: `canEditItem` is checked first. A row it refuses gets no Edit
+   * and no Delete, whatever `canEdit` / `canDelete` say. A row it allows is
+   * then gated by `canEdit` (Edit) and `canDelete` (Delete) when given. Use
+   * `canEditItem` alone for one owner rule, or the pair for separate rules.
    */
   canEditItem?: (item: T) => boolean;
   createLabel?: string;
@@ -1026,9 +1031,9 @@ export function ResourcePage<
   // `page.selectedItem` is a snapshot taken at click time. Re-resolving it by
   // key against the current rows means a save (which refetches) shows its
   // new values in the open peek instead of the pre-edit copy. A row missing
-  // from the rows has been deleted, so the peek closes, except with server
-  // paging, where it may only have left the current page or search; there
-  // the snapshot stays.
+  // from the current rows keeps the snapshot: paging, sorting, search and
+  // filters all drop rows that still exist. A confirmed delete closes the
+  // peek itself (`performDelete`).
   // An empty key (rows with no `id` and no `getKey`) identifies nothing, so
   // it keeps the snapshot rather than matching the first keyless row.
   const selectedKey = page.selectedItem ? keyOf(page.selectedItem) : null;
@@ -1036,7 +1041,7 @@ export function ResourcePage<
     ? null
     : selectedKey
       ? (displayData.find((row) => keyOf(row) === selectedKey) ??
-        (resourceServerPaging ? page.selectedItem : null))
+        page.selectedItem)
       : page.selectedItem;
 
   // ── Bulk selection ──
@@ -1877,7 +1882,7 @@ export function ResourcePage<
           slots?.detail,
           {
             item: selectedItem,
-            open: page.detailOpen && selectedItem !== null,
+            open: page.detailOpen,
             onClose: closeDetail,
             title: detailTitle,
             subtitle: detailSubtitle,

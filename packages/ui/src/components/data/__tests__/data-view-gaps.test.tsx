@@ -212,12 +212,13 @@ describe("ResourcePage detail follows the current rows", () => {
     expect(within(screen.getByRole("dialog")).getAllByText("Ada L.").length).toBeGreaterThan(0);
   });
 
-  it("closes when the open record is gone", () => {
+  it("keeps the last copy when the open record leaves the rows", () => {
+    // Paging, sorting, search and filters drop rows that still exist; only a
+    // confirmed delete closes the peek.
     const { rerender } = render(page(rows));
     fireEvent.click(screen.getByText("Ada"));
-    expect(screen.getByRole("dialog")).toBeTruthy();
     rerender(page([rows[1]!]));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(within(screen.getByRole("dialog")).getAllByText("Ada").length).toBeGreaterThan(0);
   });
 });
 
