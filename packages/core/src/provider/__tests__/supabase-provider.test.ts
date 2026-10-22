@@ -528,3 +528,12 @@ describe("read errors", () => {
     expect(readOutcomeFromCode(undefined)).toBe("error");
   });
 });
+
+describe("capabilities softDelete", () => {
+  it("is true for recycle-bin tables only", async () => {
+    const p = provider({ binTables: ["tasks"] });
+    expect((await p.capabilities!("tasks")).softDelete).toBe(true);
+    expect((await p.capabilities!("notes")).softDelete).toBe(false);
+    expect((await p.capabilities!()).softDelete).toBe(false);
+  });
+});

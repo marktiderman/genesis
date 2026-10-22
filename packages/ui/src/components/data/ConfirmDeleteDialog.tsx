@@ -30,7 +30,15 @@ export interface ConfirmDeleteDialogProps {
   onConfirm: () => void | Promise<void>;
   /** Default "Delete this record?". */
   title?: string;
-  /** Default "This can't be undone." */
+  /**
+   * What happens to the record: `"permanent"` (default) or `"recycle"` when
+   * a delete moves it to a recycle bin. Sets the default description.
+   */
+  kind?: "permanent" | "recycle";
+  /**
+   * Default by `kind`: "This can't be undone.", or "It moves to the recycle
+   * bin, where it can be restored."
+   */
   description?: ReactNode;
   /** Default "Delete". */
   confirmLabel?: string;
@@ -51,7 +59,10 @@ export function ConfirmDeleteDialog({
   onOpenChange,
   onConfirm,
   title = "Delete this record?",
-  description = "This can't be undone.",
+  kind = "permanent",
+  description = kind === "recycle"
+    ? "It moves to the recycle bin, where it can be restored."
+    : "This can't be undone.",
   confirmLabel = "Delete",
   cancelLabel = "Cancel",
 }: ConfirmDeleteDialogProps) {
