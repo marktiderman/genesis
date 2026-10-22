@@ -243,7 +243,7 @@ export function DataPageShell({
         <EmptyState
           icon={emptyIcon}
           title={emptyMessage}
-          description={emptyDescription}
+          {...(emptyDescription ? { description: emptyDescription } : {})}
           action={emptyAction}
           hasFilters={hasActiveFilters}
           onClearFilters={onClearFilters}

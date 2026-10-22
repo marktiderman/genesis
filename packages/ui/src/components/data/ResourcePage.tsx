@@ -265,6 +265,11 @@ export interface ResourcePageProps<
   titleField?: string;
   subtitleField?: string;
   /**
+   * Name a record from more than one field (`${first} ${last}`). Wins over
+   * `titleField` for the detail title and the card's accessible name.
+   */
+  getTitle?: (item: T) => string;
+  /**
    * The detail peek's subtitle, computed from the row ("2 staff", "Due
    * Friday"). Wins over `subtitleField`, which can only show one column
    * verbatim.
@@ -639,13 +644,14 @@ export interface ResourcePageProps<
 
   // Slots
   toolbar?: ReactNode;
+  /** The empty state's action, e.g. the create button. */
   emptyState?: ReactNode;
-  /** Empty-state heading. Default "No results found". */
-  emptyTitle?: string;
-  /** A sentence under the empty-state heading — forwarded to `DataPageShell`. */
-  emptyDescription?: string;
-  /** Empty-state icon. */
+  /** The empty state's icon. */
   emptyIcon?: LucideIcon;
+  /** The empty state's title, e.g. "No tasks yet". Default "No results found". */
+  emptyMessage?: string;
+  /** A sentence under the empty-state title — forwarded to `DataPageShell`. */
+  emptyDescription?: string;
   /**
    * `"page"` (default) renders the full header with the title. `"toolbar"`
    * keeps the header's actions (count, view toggle, settings, create) and
@@ -715,6 +721,7 @@ export function ResourcePage<
     detailWidth = "md",
     titleField: titleFieldProp,
     subtitleField: subtitleFieldProp,
+    getTitle,
     getSubtitle,
     renderDetail: renderDetailProp,
     detailFields,
@@ -773,9 +780,9 @@ export function ResourcePage<
     capabilities,
     toolbar,
     emptyState,
-    emptyTitle,
-    emptyDescription,
     emptyIcon,
+    emptyMessage,
+    emptyDescription,
     header: headerMode = "page",
     resourceOptions,
     defaultView = "table",
@@ -1018,8 +1025,10 @@ export function ResourcePage<
   // ── The peek's row, kept live ──
   // `page.selectedItem` is a snapshot taken at click time. Re-resolving it by
   // key against the current rows means a save (which refetches) shows its
-  // new values in the open peek instead of the pre-edit copy. The snapshot
-  // stays as a fallback for a row that left the current result set.
+  // new values in the open peek instead of the pre-edit copy. A row missing
+  // from the rows has been deleted, so the peek closes, except with server
+  // paging, where it may only have left the current page or search; there
+  // the snapshot stays.
   // An empty key (rows with no `id` and no `getKey`) identifies nothing, so
   // it keeps the snapshot rather than matching the first keyless row.
   const selectedKey = page.selectedItem ? keyOf(page.selectedItem) : null;
@@ -1027,7 +1036,7 @@ export function ResourcePage<
     ? null
     : selectedKey
       ? (displayData.find((row) => keyOf(row) === selectedKey) ??
-        page.selectedItem)
+        (resourceServerPaging ? page.selectedItem : null))
       : page.selectedItem;
 
   // ── Bulk selection ──
@@ -1389,9 +1398,11 @@ export function ResourcePage<
   }, [resourceServerPaging, settledPage, currentPage, totalPages, setResourcePage]);
 
   // ── Detail title/subtitle values ──
-  const detailTitle = selectedItem
-    ? String((selectedItem as Record<string, unknown>)[page.titleField] ?? "")
-    : "";
+  const titleOf = (item: T): string =>
+    getTitle
+      ? getTitle(item)
+      : String((item as Record<string, unknown>)[page.titleField] ?? "");
+  const detailTitle = selectedItem ? titleOf(selectedItem) : "";
   const detailSubtitle = !selectedItem
     ? undefined
     : getSubtitle
@@ -1646,9 +1657,9 @@ export function ResourcePage<
       hasActiveFilters={page.hasActiveFilters}
       onClearFilters={handleClearFilters}
       emptyAction={emptyState}
-      emptyMessage={emptyTitle}
-      emptyDescription={emptyDescription}
       emptyIcon={emptyIcon}
+      emptyMessage={emptyMessage}
+      emptyDescription={emptyDescription}
       {...(headerMode === "toolbar" ? { header: "toolbar" as const } : {})}
       filters={renderSlot(
         DataFilters,
@@ -1748,8 +1759,7 @@ export function ResourcePage<
           ...(openOnCardClick && renderCardProp && detail !== "none"
             ? {
                 onItemClick: handleRowClick,
-                getItemLabel: (item: T) =>
-                  `Open ${String((item as Record<string, unknown>)[page.titleField] ?? "")}`.trim(),
+                getItemLabel: (item: T) => `Open ${titleOf(item)}`.trim(),
               }
             : {}),
           renderCard: (item: T, index: number) =>
@@ -1867,7 +1877,7 @@ export function ResourcePage<
           slots?.detail,
           {
             item: selectedItem,
-            open: page.detailOpen,
+            open: page.detailOpen && selectedItem !== null,
             onClose: closeDetail,
             title: detailTitle,
             subtitle: detailSubtitle,

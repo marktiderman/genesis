@@ -4,7 +4,7 @@ import { analyze, structureFingerprint } from "../analyze";
 import { diffDefinitions } from "../diff";
 import { historyReducer } from "../history";
 import * as ops from "../ops";
-import { getTemplate } from "../templates";
+import { afterClass } from "./fixtures";
 
 const field = (def: FormDefinition, id: string) => def.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id)!;
 const options = (def: FormDefinition, id: string) => field(def, id).props!.options as { value: string; label: string }[];
@@ -30,7 +30,7 @@ const base = (): FormDefinition => ({
 
 describe("analyze when coverage is truncated", () => {
   it("reports one info and no path warnings", () => {
-    let d = getTemplate("after-class")!.create();
+    let d = afterClass();
     for (let i = 0; i < 2; i++) d = ops.insertBlock(d, ops.createField(d, { type: i % 2 ? "yes-no" : "rating", label: `Extra ${i}` }));
     const a = analyze(d);
     expect(a.coverage?.truncated).toBe(true);
@@ -40,7 +40,7 @@ describe("analyze when coverage is truncated", () => {
   });
 
   it("reuses coverage while only wording changes", () => {
-    const d = getTemplate("after-class")!.create();
+    const d = afterClass();
     const first = analyze(d).coverage;
     const reworded = ops.updateBlock(d, "q_rating", { label: "How was it?" });
     expect(structureFingerprint(reworded)).toBe(structureFingerprint(d));

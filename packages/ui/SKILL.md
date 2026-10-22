@@ -60,7 +60,7 @@ Reach for these before a slot. Each one replaced a slot workaround in a real app
 | A confirmed delete | `allowDelete` (built in, `resource` mode), or `onDelete` + `confirmDelete`; copy via `confirmDelete={{ title: (item) => … }}`, toast via `onDeleted` |
 | A computed peek subtitle | `getSubtitle(item)`; the peek stays open after an edit and shows the saved row |
 | A list inside a tab (no page title) | `header="toolbar"` (also on `DataPageShell`) |
-| Empty-state copy | `emptyTitle`, `emptyDescription`, `emptyIcon` |
+| Empty-state copy | `emptyMessage`, `emptyDescription`, `emptyIcon` |
 | Cards on phones, table on desktop | `defaultView={{ mobile: "grid", desktop: "table" }}`; only an explicit toggle is stored |
 | Typed slot maps | `ResourcePageSlots<T>`, `ResourcePageSlotProps<T>`, `ResourcePageSlotMap<T>` from `/data` |
 
@@ -131,6 +131,8 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
   `getItemLabel`. Never wrap a card in a `div role="button"`.
 - **Per-row rights:** `canEditItem(item)` hides Edit and Delete for rows the user can't change;
   `canEdit(item)` / `canDelete(item)` gate each one separately.
+- **Names and empty state:** `getTitle` / `getSubtitle` when a record's name spans fields;
+  `emptyIcon`, `emptyMessage`, `emptyDescription` and `emptyState` (its action) for the empty list.
 - **A list inside tabs:** `header="toolbar"` (on `ResourcePage` or `DataPageShell`) drops the title
   block and keeps the count, view toggle, filters and create button.
 - **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays
@@ -144,15 +146,18 @@ generated (`pnpm gen:component-reference`); do not edit it by hand.
 ## Rich text
 
 `RichTextEditor` (`/rich-text-editor`, Tiptap 3) needs the optional peers
-`@tiptap/core @tiptap/pm @tiptap/react @tiptap/starter-kit @tiptap/extensions` (`^3`). `RichText` and the
+`@tiptap/core @tiptap/pm @tiptap/react @tiptap/starter-kit @tiptap/extensions` (`^3.31`). `RichText` and the
 helpers on `/rich-text` need nothing beyond React and run on a server.
 
 - **Store JSON, derive HTML.** `onChange(doc, details)` gives the document JSON (canonical) and lazy
   `details.html` / `details.text`. Persist `doc` (Postgres `jsonb`). If you also need HTML or text (email,
   search, previews), derive them on the server; never trust HTML or JSON a client posts.
-- **Sanitize on the server on every write:** `const doc = sanitizeRichTextDoc(body.doc)` keeps only the
-  allow-listed nodes (paragraph, h2-h4, lists, blockquote, bold/italic/underline, http(s)/mailto/tel/relative
-  links, YouTube/Vimeo/Loom embeds by id). Then `richTextToHtml(doc)` (`{ embedAs: "link" }` for email) and
+- **Sanitize on the server on every write, with limits:**
+  `const doc = sanitizeRichTextDoc(body.doc, { maxCharacters: 50_000, maxNodes: 5_000, onTooDeep: "throw" })`
+  keeps only the allow-listed nodes (paragraph, h2-h4, lists, blockquote, bold/italic/underline,
+  http(s)/mailto/tel/relative links, YouTube/Vimeo/Loom embeds by id). Over a limit, or nested more than 32
+  levels, it throws `RichTextLimitError` (`reason`: `"characters" | "nodes" | "depth"`), so answer 413/422
+  instead of storing it. Then `richTextToHtml(doc)` (`{ embedAs: "link" }` for email) and
   `richTextToPlainText(doc)`. Both run without a DOM and escape every value.
 - **Render with `<RichText value={doc} />`**, not `dangerouslySetInnerHTML`. It re-sanitizes and works in
   server components. If you must inject stored HTML, inject only HTML you produced with `richTextToHtml`.
@@ -160,7 +165,8 @@ helpers on `/rich-text` need nothing beyond React and run on a server.
   `const RichTextEditor = lazy(() => import("@marktiderman/genesis-ui/rich-text-editor").then((m) => ({ default: m.RichTextEditor })))`.
   Reading pages use `RichText`, which pulls in no editor code.
 - Embeds are off by default: `<RichTextEditor embeds />`. A CSP needs `frame-src` for
-  `https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com`.
+  `https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com`. The editor injects no
+  `<style>` tag (Tiptap's base rules are classes), so `style-src` needs no `'unsafe-inline'` for it.
 
 ```tsx
 <RichTextEditor aria-label="Lesson text" value={doc} onChange={setDoc} placeholder="Write the lesson…" embeds maxLength={20000} />

@@ -19,7 +19,6 @@ import {
   createField,
   defaultProps,
   FormBuilder,
-  getTemplate,
   newId,
   newOptionValue,
   paletteTypes,
@@ -32,8 +31,8 @@ import {
   type FieldTypeEditor,
   type FormBuilderHandle,
 } from "../index";
+import { afterClass } from "./fixtures";
 
-const afterClass = () => getTemplate("after-class")!.create();
 
 const counter = () => {
   let n = 0;

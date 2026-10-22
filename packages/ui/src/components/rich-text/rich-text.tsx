@@ -34,6 +34,7 @@ export {
   isSafeUrl,
   normalizeLinkUrl,
   parseVideoUrl,
+  RichTextLimitError,
   richTextToHtml,
   richTextToPlainText,
   sanitizeRichTextDoc,

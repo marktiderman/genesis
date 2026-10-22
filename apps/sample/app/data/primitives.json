@@ -12399,28 +12399,28 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "A sentence under the empty-state heading — forwarded to `DataPageShell`."
+              "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
             },
             {
               "name": "emptyIcon",
               "type": "LucideIcon",
               "required": false,
               "defaultValue": null,
-              "description": "Empty-state icon."
+              "description": "The empty state's icon."
+            },
+            {
+              "name": "emptyMessage",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The empty state's title, e.g. \"No tasks yet\". Default \"No results found\"."
             },
             {
               "name": "emptyState",
               "type": "ReactNode",
               "required": false,
               "defaultValue": null,
-              "description": ""
-            },
-            {
-              "name": "emptyTitle",
-              "type": "string",
-              "required": false,
-              "defaultValue": null,
-              "description": "Empty-state heading. Default \"No results found\"."
+              "description": "The empty state's action, e.g. the create button."
             },
             {
               "name": "error",
@@ -12484,6 +12484,13 @@
               "required": false,
               "defaultValue": null,
               "description": "The detail peek's subtitle, computed from the row (\"2 staff\", \"Due\nFriday\"). Wins over `subtitleField`, which can only show one column\nverbatim."
+            },
+            {
+              "name": "getTitle",
+              "type": "((item: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Name a record from more than one field (`${first} ${last}`). Wins over\n`titleField` for the detail title and the card's accessible name."
             },
             {
               "name": "gridCols",
@@ -12905,6 +12912,11 @@
           "props": []
         },
         {
+          "name": "RichTextLimitError",
+          "summary": "Thrown by `sanitizeRichTextDoc` when a document breaks a limit it was given.",
+          "props": []
+        },
+        {
           "name": "richTextToHtml",
           "summary": "Serialize a document to HTML. The input is sanitized first, so this is\nsafe to call on untrusted JSON; the output contains only the tags listed\nin this file's header, with every value escaped.",
           "props": []
@@ -12916,7 +12928,7 @@
         },
         {
           "name": "sanitizeRichTextDoc",
-          "summary": "Validate an untrusted value as a rich text document and return a clean\ncopy that contains only allow-listed nodes, marks and attributes.\n\nNever throws: `null`, a string or a malformed object becomes an empty\ndocument. Run this on the server on every write, before storing the JSON\nor deriving HTML from it.",
+          "summary": "Validate an untrusted value as a rich text document and return a clean\ncopy that contains only allow-listed nodes, marks and attributes.\n\n`null`, a string or a malformed object becomes an empty document. Run\nthis on the server on every write, before storing the JSON or deriving\nHTML from it, with limits so a client cannot store an oversized or\npathologically nested document:\n\n```ts\nsanitizeRichTextDoc(body, { maxCharacters: 50_000, maxNodes: 5_000, onTooDeep: \"throw\" });\n```\n\nWithout limits it never throws; with them it throws `RichTextLimitError`.",
           "props": []
         },
         {

@@ -78,7 +78,7 @@ describe('DataPageShell — header="toolbar"', () => {
 });
 
 describe("ResourcePage — header / empty props", () => {
-  it("forwards header, emptyTitle and emptyDescription to the shell", async () => {
+  it("forwards header, emptyMessage and emptyDescription to the shell", async () => {
     render(
       <GenesisProvider mock={{ datasets: {} }}>
         <ResourcePage
@@ -86,7 +86,7 @@ describe("ResourcePage — header / empty props", () => {
           data={[]}
           total={0}
           header="toolbar"
-          emptyTitle="No staff yet"
+          emptyMessage="No staff yet"
           emptyDescription="Invite your first colleague."
           onCreate={() => {}}
           createLabel="New staff"

@@ -63,7 +63,7 @@ export const EmbeddedWithConfirmedDelete: Story = {
           allowDelete
           canDelete={(p) => !p.locked}
           confirmDelete={{ title: (p) => `Delete ${p.name}?` }}
-          emptyTitle="No practices yet"
+          emptyMessage="No practices yet"
           emptyDescription="Add your first practice to start inviting staff."
           viewSettingsKey="story-practices-embedded"
           keyboardNavigation={false}
