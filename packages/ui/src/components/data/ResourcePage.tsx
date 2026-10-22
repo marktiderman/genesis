@@ -416,6 +416,12 @@ export interface ResourcePageProps<
   onCreate?: () => void;
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
+  /**
+   * Whether the signed-in user may change this record. When it returns
+   * false, the detail view shows no Edit or Delete for it, while other rows
+   * keep theirs. Omitted, every row offers what `onEdit` / `onDelete` allow.
+   */
+  canEditItem?: (item: T) => boolean;
   createLabel?: string;
   /**
    * Extra header actions beyond the create button, in one overflow menu.
@@ -497,6 +503,14 @@ export interface ResourcePageProps<
    * Omitted, the default `DataTable` render is used unchanged.
    */
   renderTable?: (items: T[]) => ReactNode;
+  /**
+   * With a custom `renderCard`: make each whole card (and list row) one
+   * keyboard-reachable button that opens the detail, so the card needs no
+   * `actions.open()` wiring and no hand-rolled `div role="button"`. Links and
+   * buttons inside the card keep their own clicks. Off by default, because
+   * an existing card that already calls `open()` would fire it twice.
+   */
+  openOnCardClick?: boolean;
   /**
    * Tailwind grid-column classes for the card grid, passed through to
    * `DataGrid`'s `gridCols` — e.g. `"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"`.
@@ -613,6 +627,7 @@ export function ResourcePage<
     onCreate,
     onEdit,
     onDelete,
+    canEditItem,
     createLabel = "New",
     secondaryActions,
     allowCreate,
@@ -624,6 +639,7 @@ export function ResourcePage<
     formLayout: formLayoutProp,
     bulkActions,
     renderCard: renderCardProp,
+    openOnCardClick = false,
     renderTable: renderTableProp,
     gridCols: gridColsProp,
     keyboardNavigation = true,
@@ -1318,6 +1334,13 @@ export function ResourcePage<
             )
           )
           ,
+          ...(openOnCardClick && renderCardProp && detail !== "none"
+            ? {
+                onItemClick: handleRowClick,
+                getItemLabel: (item: T) =>
+                  `Open ${String((item as Record<string, unknown>)[page.titleField] ?? "")}`.trim(),
+              }
+            : {}),
           renderCard: (item: T, index: number) =>
             renderCardProp
               ? renderCardProp(item, index, cardActionsFor(item))
@@ -1425,8 +1448,12 @@ export function ResourcePage<
             },
             title: detailTitle,
             subtitle: detailSubtitle,
-            onEdit: onEdit ?? (useBuiltInEdit ? handleEdit : undefined),
-            onDelete,
+            ...(page.selectedItem && canEditItem && !canEditItem(page.selectedItem)
+              ? {}
+              : {
+                  onEdit: onEdit ?? (useBuiltInEdit ? handleEdit : undefined),
+                  onDelete,
+                }),
             fields: detailFields,
             width: detailWidth,
             layout: detail === "modal" ? "dialog" : "sheet",

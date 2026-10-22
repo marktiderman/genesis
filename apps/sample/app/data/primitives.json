@@ -5130,13 +5130,20 @@
         },
         {
           "name": "AlertDialogAction",
-          "summary": "",
+          "summary": "The confirming button. `variant` defaults to `\"destructive\"` (red), the\nright colour for deleting; pass `\"default\"` when the action is not\ndangerous (publish, send, continue).",
           "props": [
             {
               "name": "asChild",
               "type": "boolean",
               "required": false,
               "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "destructive",
               "description": ""
             }
           ]
@@ -8411,6 +8418,13 @@
               "description": "Keyboard navigation: focused item index (-1 = none)"
             },
             {
+              "name": "getItemLabel",
+              "type": "((item: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name for an activatable item, e.g. `Open ${item.name}`. Used with `onItemClick`."
+            },
+            {
               "name": "getKey",
               "type": "((item: T) => string)",
               "required": false,
@@ -8430,6 +8444,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Keyboard navigation: container ref for scroll management"
+            },
+            {
+              "name": "onItemClick",
+              "type": "((item: T) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Open an item. Makes each card (and list row) one keyboard-reachable\nbutton: click, Enter or Space activates it, with a focus ring. Clicks on\na link, button or input inside the card are left to that control, so a\ncard can still carry its own actions. Use this instead of wrapping cards\nin a hand-rolled `div role=\"button\"`."
             },
             {
               "name": "renderListItem",
@@ -12065,6 +12086,13 @@
               "description": ""
             },
             {
+              "name": "canEditItem",
+              "type": "((item: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Whether the signed-in user may change this record. When it returns\nfalse, the detail view shows no Edit or Delete for it, while other rows\nkeep theirs. Omitted, every row offers what `onEdit` / `onDelete` allow."
+            },
+            {
               "name": "canSaveViews",
               "type": "boolean",
               "required": false,
@@ -12336,6 +12364,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Called when the user changes the sort, with `null` when the sort is cleared."
+            },
+            {
+              "name": "openOnCardClick",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "With a custom `renderCard`: make each whole card (and list row) one\nkeyboard-reachable button that opens the detail, so the card needs no\n`actions.open()` wiring and no hand-rolled `div role=\"button\"`. Links and\nbuttons inside the card keep their own clicks. Off by default, because\nan existing card that already calls `open()` would fire it twice."
             },
             {
               "name": "page",

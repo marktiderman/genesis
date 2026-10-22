@@ -66,7 +66,13 @@ const DENSITY_HEAD: Record<Density, string> = {
 export interface DataTableColumn<T> {
   key: string;
   header: string;
-  width?: string;
+  /**
+   * Starting width. A number is pixels: the column gets exactly that width
+   * (until the user resizes it) and the rest share what is left. A string is
+   * a class name for the cell, as before (`"w-48"`); a bare px string
+   * (`"180"`, `"180px"`) also sets the width in pixels.
+   */
+  width?: string | number;
   hideBelow?: "sm" | "md" | "lg" | "xl";
   sortable?: boolean;
   render?: (item: T, value: unknown) => ReactNode;
@@ -143,7 +149,32 @@ function getCellClasses(col: DataTableColumn<unknown>) {
           ? "hidden lg:table-cell"
           : "hidden xl:table-cell"
     : "";
-  return cn(col.width, hide);
+  return cn(typeof col.width === "string" && !PX_WIDTH.test(col.width) ? col.width : undefined, hide);
+}
+
+/** A width string that means pixels: `180` or `180px`. Other strings are class names. */
+const PX_WIDTH = /^\s*\d+(\.\d+)?(px)?\s*$/;
+
+/** The column's starting width in px, when it names one. */
+function pxWidth(width: string | number | undefined): number | undefined {
+  if (typeof width === "number") return width > 0 ? width : undefined;
+  if (width && PX_WIDTH.test(width)) {
+    const px = parseFloat(width);
+    return px > 0 ? px : undefined;
+  }
+  return undefined;
+}
+
+/** `<col>` visibility matching a cell's `hideBelow`, so hidden cells don't shift widths. */
+function colHideClass(hideBelow: DataTableColumn<unknown>["hideBelow"]) {
+  if (!hideBelow) return undefined;
+  return hideBelow === "sm"
+    ? "hidden sm:table-column"
+    : hideBelow === "md"
+      ? "hidden md:table-column"
+      : hideBelow === "lg"
+        ? "hidden lg:table-column"
+        : "hidden xl:table-column";
 }
 
 /* ── Inline edit cell ── */
@@ -515,13 +546,12 @@ export function DataTable<T>({
         // ignore
       }
     }
-    // Initialize from column width definitions (parse px/rem values to px numbers)
+    // Initialize from column widths that name pixels (a class name like
+    // "w-48" or "12rem" is not a pixel count, so it is left to CSS).
     const initial: Record<string, number> = {};
     columns.forEach((c) => {
-      if (c.width) {
-        const px = parseInt(c.width, 10);
-        if (!isNaN(px) && px > 0) initial[c.key] = px;
-      }
+      const px = pxWidth(c.width);
+      if (px) initial[c.key] = px;
     });
     return initial;
   });
@@ -639,6 +669,22 @@ export function DataTable<T>({
       {/* ── Table ── */}
       <div className="overflow-x-auto">
         <Table style={{ tableLayout: "fixed" }}>
+          {/* Fixed layout sizes columns from the first row: a <colgroup>
+              gives each column its px width (the rest share what is left). */}
+          <colgroup>
+            {selectable && <col style={{ width: 40 }} />}
+            {activeColumns.map((col) => {
+              const w = colWidths[col.key];
+              return (
+                <col
+                  key={col.key}
+                  className={colHideClass(col.hideBelow)}
+                  style={w ? { width: w } : undefined}
+                />
+              );
+            })}
+            {renderActions && <col style={{ width: 40 }} />}
+          </colgroup>
           <TableHeader
             className={
               stickyHeader ? "sticky top-0 z-10 bg-background" : ""
@@ -669,6 +715,7 @@ export function DataTable<T>({
                       getCellClasses(col as DataTableColumn<unknown>),
                       headDensity,
                       col.sortable && "cursor-pointer select-none",
+                      "overflow-hidden",
                       resizableColumns && "relative",
                       isFirstCol && "sticky left-0 bg-background",
                       isFirstCol && stickyHeader ? "z-[15]" : isFirstCol ? "z-[5]" : undefined,
@@ -684,15 +731,18 @@ export function DataTable<T>({
                         : undefined
                     }
                   >
-                    <span className="inline-flex items-center gap-1">
-                      {col.header}
+                    <span className="flex min-w-0 items-center gap-1">
+                      {/* Long headers truncate; the full text stays in the tooltip. */}
+                      <span className="truncate" title={col.header}>
+                        {col.header}
+                      </span>
                       {col.sortable &&
                         (sortEntry ? (
                           <>
                             {sortEntry.dir === "asc" ? (
-                              <ArrowUp className="h-3 w-3 text-foreground" />
+                              <ArrowUp className="h-3 w-3 shrink-0 text-foreground" />
                             ) : (
-                              <ArrowDown className="h-3 w-3 text-foreground" />
+                              <ArrowDown className="h-3 w-3 shrink-0 text-foreground" />
                             )}
                             {sorts.length > 1 && (
                               <span className="text-[10px] text-muted-foreground font-mono">
@@ -701,7 +751,7 @@ export function DataTable<T>({
                             )}
                           </>
                         ) : (
-                          <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+                          <ArrowUpDown className="h-3 w-3 shrink-0 text-muted-foreground/50" />
                         ))}
                     </span>
                     {resizableColumns && (
