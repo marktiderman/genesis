@@ -284,6 +284,14 @@ export interface ProviderCapabilities {
    * of removing it. Asked per resource: `capabilities(resource)`.
    */
   readonly softDelete?: boolean;
+  /**
+   * `create`, `update` and `deleteOne` honour `keepalive: true` in their
+   * params (e.g. `fetch(url, { keepalive: true })`), so a write sent while
+   * the page unloads still reaches the server. Without it, closing the tab
+   * while an optimistic or undoable write is being sent shows the browser's
+   * "Leave site?" prompt.
+   */
+  readonly keepaliveWrites?: boolean;
 }
 
 /** One audit record, as committed alongside the edit it describes. */

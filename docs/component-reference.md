@@ -48,7 +48,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DEFAULT_UNDO_DELAY_MS`](../packages/core/src/hooks/mutation-mode.ts) | const | — | How long an `undoable` write waits for an undo before it is sent. |
 | [`DEFAULT_UNSAVED_CHANGES_MESSAGE`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | const | — | _(no summary)_ |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
-| [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. Returns `un... |
+| [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
