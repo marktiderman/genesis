@@ -4,6 +4,7 @@ import {
   choiceOptions,
   getFieldType,
   listFieldTypes,
+  WORKSHEET_FIELD_TYPES,
   type Block,
   type FieldBlock,
   type FormDefinition,
@@ -64,11 +65,23 @@ export interface PaletteEntry {
 }
 
 /**
- * The field types authors may add: `palette` in its order, else every
- * registered type. A type needs a registered manifest or an editor.
+ * The palette when the host names none: every registered type except the
+ * worksheet types, which a host opts into by naming them, e.g.
+ * `palette={[...defaultPalette(), ...WORKSHEET_FIELD_TYPES]}`.
+ */
+export function defaultPalette(): string[] {
+  const optIn = new Set<string>(WORKSHEET_FIELD_TYPES);
+  return listFieldTypes()
+    .map((t) => t.type)
+    .filter((type) => !optIn.has(type));
+}
+
+/**
+ * The field types authors may add: `palette` in its order, else the default
+ * palette. A type needs a registered manifest or an editor.
  */
 export function paletteTypes(config: BuilderConfig = {}): PaletteEntry[] {
-  const types = config.palette ?? listFieldTypes().map((t) => t.type);
+  const types = config.palette ?? defaultPalette();
   const out: PaletteEntry[] = [];
   for (const type of new Set(types)) {
     const manifest = getFieldType(type);

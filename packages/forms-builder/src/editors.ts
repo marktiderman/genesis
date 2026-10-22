@@ -1,6 +1,7 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from "react";
 import type { ContentBlock, FieldBlock, FormDefinition, Json, Operator } from "@marktiderman/genesis-forms";
 import type { BlockPatch, FieldTypeDefaults } from "./ops";
+import { BUILT_IN_FIELD_EDITORS } from "./worksheet-editors";
 
 export type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) => void;
 
@@ -78,8 +79,9 @@ export function useBuilderConfig(): BuilderConfig {
   return useContext(BuilderConfigContext);
 }
 
+/** The host's editor for a type, else the builder's own (the worksheet types have one). */
 export function editorFor(config: BuilderConfig, type: string): FieldTypeEditor | undefined {
-  return config.fieldEditors?.find((e) => e.type === type);
+  return config.fieldEditors?.find((e) => e.type === type) ?? BUILT_IN_FIELD_EDITORS.find((e) => e.type === type);
 }
 
 /** The content types the Add menu and the Style select offer. */

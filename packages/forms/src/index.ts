@@ -45,6 +45,23 @@ export {
   type ChoiceOption,
   type FieldTypeManifest,
 } from "./fields";
+export {
+  formatTimestamp,
+  HIGHLIGHT_NOTE_MESSAGE,
+  listLimits,
+  MAX_HIGHLIGHT_NOTE_LENGTH,
+  MAX_HIGHLIGHT_QUOTE_LENGTH,
+  MAX_ROWS_CELL_LENGTH,
+  MAX_ROWS_COLUMNS,
+  MAX_TIMESTAMP_SECONDS,
+  parseTimestamp,
+  rowsColumns,
+  rowsLimits,
+  type Highlight,
+  type RowsColumn,
+  type TimestampNote,
+  WORKSHEET_FIELD_TYPES,
+} from "./worksheet";
 export { recall } from "./recall";
 export { validateField, REQUIRED_MESSAGE, type FieldValidator, type StandardSchemaV1 } from "./validate";
 export { canonicalJson, fingerprint } from "./hash";
