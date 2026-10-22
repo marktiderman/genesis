@@ -113,9 +113,13 @@ async function openFrame(
   // not framed by the page itself.
   const nonce = crypto.randomUUID();
   try {
-    await api.storage.session?.set({
-      [surfaceKey(tab.id!)]: { nonce, at: Date.now() },
-    });
+    const key = surfaceKey(tab.id!);
+    const mint = () =>
+      api.storage.session?.set({ [key]: { nonce, at: Date.now() } });
+    // Under the lock takeSecret uses up a nonce under (see there).
+    const locks = (globalThis.navigator as Navigator | undefined)?.locks;
+    if (locks) await locks.request(key, mint);
+    else await mint();
     const run = () =>
       api.scripting!.executeScript({
         target: { tabId: tab.id! },
@@ -178,13 +182,18 @@ export function mountSurfaceFrame(
         ` height: ${height}px !important;`
       : " top: 12px !important; right: 12px !important; width: 380px !important;" +
         " height: min(780px, calc(100vh - 24px)) !important;";
-  const style = (height: number) =>
+  // Until the surface answers, the host is blank and must not eat the page's
+  // clicks either: pointer-events stay off until it's confirmed.
+  let live = false;
+  let height = 120;
+  const style = () =>
     "all: initial !important; display: block !important; position: fixed !important;" +
     " z-index: 2147483647 !important;" +
     place(height) +
     " opacity: 1 !important; visibility: visible !important; transform: none !important;" +
-    " filter: none !important; clip-path: none !important; pointer-events: auto !important;";
-  let pinned = style(120);
+    " filter: none !important; clip-path: none !important;" +
+    ` pointer-events: ${live ? "auto" : "none"} !important;`;
+  let pinned = style();
   host.setAttribute("style", pinned);
   const keepPinned = new MutationObserver(() => {
     if (host.getAttribute("style") !== pinned)
@@ -233,6 +242,9 @@ export function mountSurfaceFrame(
       offered.length = 0;
       port.onmessage = onPortMessage;
       wrap.style.visibility = "visible";
+      live = true;
+      pinned = style();
+      host.setAttribute("style", pinned);
     };
     offered.push(channel.port1);
     frame.contentWindow?.postMessage({ type: "gx-connect", nonce }, origin, [
@@ -252,10 +264,10 @@ export function mountSurfaceFrame(
   function onPortMessage(e: MessageEvent) {
     if (e.data?.type === "gx-close") close();
     if (e.data?.type === "gx-resize" && layout === "bar") {
-      const height = Math.round(
+      height = Math.round(
         Math.min(Math.max(Number(e.data.height) || 0, 32), innerHeight * 0.8),
       );
-      pinned = style(height);
+      pinned = style();
       host.setAttribute("style", pinned);
     }
   }
@@ -467,13 +479,25 @@ async function takeSecret(
     const area = getChrome().storage.session;
     if (!area) return false;
     const key = surfaceKey(tabId);
-    const stored = (await area.get(key))[key] as
-      { nonce?: unknown; at?: unknown } | undefined;
-    if (!stored || stored.nonce !== nonce) return false;
-    await area.remove(key);
-    return (
-      typeof stored.at === "number" && Date.now() - stored.at < SECRET_TTL_MS
-    );
+    type Stored = { nonce?: unknown; at?: unknown } | undefined;
+    const take = async () => {
+      const stored = (await area.get(key))[key] as Stored;
+      if (!stored || stored.nonce !== nonce) return false;
+      // Re-read just before removing: an `openSurface(…, { open: true })` may
+      // have minted the next open's nonce since the read above, and removing
+      // that would leave the new frame blank until it gives up. Only a key
+      // still holding the nonce this frame matched is used up.
+      const again = (await area.get(key))[key] as Stored;
+      if (again?.nonce === nonce) await area.remove(key);
+      return (
+        typeof stored.at === "number" && Date.now() - stored.at < SECRET_TTL_MS
+      );
+    };
+    // Under the same Web Lock openFrame mints under, where this page shares
+    // the extension's locks (a frame inside a web page may be partitioned
+    // away from them; the re-read above still narrows that case).
+    const locks = (globalThis.navigator as Navigator | undefined)?.locks;
+    return locks ? await locks.request(key, take) : await take();
   } catch {
     return false;
   }
