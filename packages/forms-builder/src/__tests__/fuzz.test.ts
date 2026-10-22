@@ -4,7 +4,7 @@ import { parseForm, listFieldTypes, type FormDefinition, type FieldBlock, type L
 import { coverage } from "@marktiderman/genesis-forms/testing";
 import * as ops from "../ops";
 import { starterRule } from "../logic";
-import { TEMPLATES } from "../templates";
+import { ALL_TEMPLATES } from "./fixtures";
 
 const TYPES = listFieldTypes().map((t) => t.type);
 const WORDS = ["How was it", "", "  ", "Rating!", "q", "1st", "Éclair", "option 1", "Option 2", "name"];
@@ -117,7 +117,7 @@ const opArb: fc.Arbitrary<{ name: string; f: Op }> = fc
 describe("fuzz ops", () => {
   it("every UI-reachable edit sequence keeps a definition that parses", () => {
     fc.assert(
-      fc.property(fc.constantFrom(...TEMPLATES), fc.array(opArb, { maxLength: 40 }), (t, seq) => {
+      fc.property(fc.constantFrom(...ALL_TEMPLATES), fc.array(opArb, { maxLength: 40 }), (t, seq) => {
         let d = t.create();
         expect(parseForm(d).ok).toBe(true);
         const trail: string[] = [];

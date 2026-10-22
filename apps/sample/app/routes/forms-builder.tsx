@@ -3,19 +3,20 @@ import { Button } from "@marktiderman/genesis-ui/button";
 import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Switch } from "@marktiderman/genesis-ui/switch";
-import { FormBuilder, TEMPLATES, diffDefinitions, getTemplate } from "@marktiderman/genesis-forms-builder";
+import { FormBuilder, diffDefinitions, getTemplate } from "@marktiderman/genesis-forms-builder";
 import type { FormDefinition } from "@marktiderman/genesis-forms";
+import { SAMPLE_TEMPLATES } from "../lib/form-templates";
 
 /** The form builder on its own. Nothing is stored: "Publish" only shows what would change. */
 export default function FormsBuilderRoute() {
   const [template, setTemplate] = useState("after-class");
-  const [start, setStart] = useState<FormDefinition>(() => getTemplate("after-class")!.create());
+  const [start, setStart] = useState<FormDefinition>(() => getTemplate("after-class", SAMPLE_TEMPLATES)!.create());
   const [published, setPublished] = useState<FormDefinition>(start);
   const [note, setNote] = useState<string | null>(null);
   const [readOnly, setReadOnly] = useState(false);
 
   const load = (id: string) => {
-    const def = getTemplate(id)!.create();
+    const def = getTemplate(id, SAMPLE_TEMPLATES)!.create();
     setTemplate(id);
     setStart(def);
     setPublished(def);
@@ -30,7 +31,7 @@ export default function FormsBuilderRoute() {
           Start from a template, edit questions and logic, and watch the preview. Nothing is stored.
         </p>
         <div className="flex flex-wrap gap-2">
-          {TEMPLATES.map((t) => (
+          {SAMPLE_TEMPLATES.map((t) => (
             <Button key={t.id} testID={`template-${t.id}`} size="sm" variant={t.id === template ? "default" : "outline"} onClick={() => load(t.id)}>
               {t.name}
             </Button>
