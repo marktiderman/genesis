@@ -1,0 +1,71 @@
+packages/forms/conformance/event-feedback-server-ignores-a-client-sent-owner.scenario.json
+  s_03a3816737bc07::t_6d74b405edafeb 1-219
+packages/forms/src/__tests__/conformance.test.ts
+  s_03a3816737bc07::t_070508d5968f0d 86,92
+  s_03a3816737bc07::t_9d08a73b51e433 8,14
+packages/forms/conformance/monthly-check-in-default-ending.scenario.json
+  s_03a3816737bc07::t_6d74b405edafeb 1-148
+.changeset/forms-neutral-conformance.md
+  s_03a3816737bc07::t_55fcb379bcde04 1-5
+packages/forms/conformance/event-feedback-low-rating-skips-went-well.scenario.json
+  s_03a3816737bc07::t_6d74b405edafeb 1-223
+packages/forms/conformance/event-feedback-server-drops-unknown-and-hidden-answers.scenario.json
+  s_03a3816737bc07::t_6d74b405edafeb 1-236
+packages/forms/conformance/event-feedback-back-after-a-jump.scenario.json
+  s_03a3816737bc07::t_6d74b405edafeb 1-217
+packages/forms/src/__tests__/destinations.test.ts
+  s_03a3816737bc07::t_aadfd52e5e331c 251,343
+  s_03a3816737bc07::t_5dfd4a05ff3207 40-41,43,46,48,63,69,71,152,158,226,255,514,521,544,548,554,640,698-699,820,824
+packages/forms/conformance/event-feedback-contact-yes-completed.scenario.json
+  s_03a3816737bc07::t_6d74b405edafeb 1-230
+packages/forms/conformance/event-feedback-happy-path.scenario.json
+  s_03a3816737bc07::t_6d74b405edafeb 1-237
+packages/forms/src/__tests__/engine.test.ts
+  s_03a3816737bc07::t_9d08a73b51e433 4,8,20-21,91,104,115,117,128,133,141,163
+  s_03a3816737bc07::t_070508d5968f0d 10-11,90,98,126-127,129
+packages/forms/src/__tests__/fixtures.ts
+  s_03a3816737bc07::t_9455a4db0dd333 3-5,8-9,13,16,19,28
+packages/forms/src/__tests__/sample-forms.ts
+  s_03a3816737bc07::t_9455a4db0dd333 4-7,10-11,14,18-19,21-22,27,36,40-42,46,49,61
+packages/forms/README.md
+  s_03a3816737bc07::t_41b7e46c9db807 15-17,19,21,23,30-32,94,171,180,183,210
+packages/forms/src/__tests__/properties.test.ts
+  s_03a3816737bc07::t_9d08a73b51e433 5,7,65
+  s_03a3816737bc07::t_070508d5968f0d 8,15-16
+packages/forms/conformance/event-feedback-invalid-email-rejected.scenario.json
+  s_03a3816737bc07::t_6d74b405edafeb 1-227
+packages/forms/src/__tests__/explain.test.ts
+  s_03a3816737bc07::t_9d08a73b51e433 4,8,21,34,41,46,50-52,58,67,72,75
+packages/forms/src/__tests__/hardening.test.ts
+  s_03a3816737bc07::t_9d08a73b51e433 26,234
+  s_03a3816737bc07::t_c8bd003fc564f3 777,780,787
+  s_03a3816737bc07::t_57aa71b0481d14 766,781,843,860-861,916-917
+  s_03a3816737bc07::t_f71d4a19d7706e 197,213,215,637,645,649-650
+packages/forms/src/__tests__/server.test.ts
+  s_03a3816737bc07::t_9d08a73b51e433 4,6
+  s_03a3816737bc07::t_070508d5968f0d 12-13,17,19,24
+packages/forms/conformance/event-feedback-contact-yes-requires-name-and-email.scenario.json
+  s_03a3816737bc07::t_6d74b405edafeb 1-218
+packages/forms/conformance/monthly-check-in-promoter-ending-via-jump.scenario.json
+  s_03a3816737bc07::t_6d74b405edafeb 1-128
+packages/forms/src/__tests__/coverage.test.ts
+  s_03a3816737bc07::t_9d08a73b51e433 4-5,8-9,19-20,25,79
+packages/forms/scripts/build-conformance.ts
+  s_03a3816737bc07::t_eec383041c222b 18,21,42-43,49,54,56,68,70,79,81,92,94,105,107,112-113,117-120,130,137,139,155,157,166,168,180,182
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8245da168cf8f47c8052f50b634e1f51aaac0a8c",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

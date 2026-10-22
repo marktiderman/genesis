@@ -1,0 +1,23 @@
+packages/forms-devtools/src/__tests__/panels.test.tsx
+  s_03a3816737bc07::t_a4ac33a288df69 14-16,23-24,45,49,57,80,82,96,100,134,145,158,166,216,223,232
+packages/forms-devtools/src/__tests__/hardening.test.tsx
+  s_03a3816737bc07::t_a4ac33a288df69 105,239,245,251,273,277,279,287,297,303,307
+packages/forms-devtools/src/__tests__/inspector.test.tsx
+  s_03a3816737bc07::t_a4ac33a288df69 9,22,54,60,62,87,93,97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9879ddfdbe90200657ecae375070ded2fe13e7c9",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
