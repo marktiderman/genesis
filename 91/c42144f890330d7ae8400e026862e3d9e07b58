@@ -1,0 +1,267 @@
+packages/genesis-cli/src/doctor/genesis.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-226
+packages/genesis-cli/src/doctor/scan.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-65
+packages/forms-builder/src/worksheet-editors.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-203
+packages/genesis-cli/test/fixtures/doctor/rules/forbidden-import/src/app.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-8
+.changeset/forms-builder-worksheet-editors.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-5
+packages/ui/SKILL.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 108-118
+packages/forms/type-tests/exact-optional.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 20-23
+packages/genesis-cli/src/doctor/plugins.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-56
+packages/genesis-cli/test/fixtures/doctor/rules/local-primitives/src/components/ui/button.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1
+scripts/lib/color-literals.mjs
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-270
+packages/genesis-cli/test/fixtures/doctor/rules/raw-tag/src/form.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-16
+packages/forms-web/src/index.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 16-22
+packages/forms/src/__tests__/worksheet.test.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-238
+packages/forms/src/define.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 66-69,108-158
+packages/genesis/README.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 28
+packages/genesis-cli/test/doctor-vite.test.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-82
+packages/genesis-cli/test/fixtures/doctor/rules/plugin/rules/no-todo.mjs
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-17
+packages/genesis-cli/test/fixtures/doctor/rules/arbitrary-color/src/banner.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-3
+packages/genesis-cli/test/fixtures/doctor/rules/clean/src/styles.css
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-4
+packages/genesis-cli/src/cli.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 10,133-160
+  s_18dd9cee35b819::t_77b8e882c37b08 161-162
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-core/package.json
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1
+packages/forms/package.json
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 12-14,52-59
+  s_18dd9cee35b819::t_07be1c1212ce5f 60-61
+packages/forms-builder/type-tests/exact-optional.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 33,54
+packages/forms/src/destinations/row.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-139
+packages/forms-builder/src/__tests__/worksheet.test.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-120
+.changeset/ui-skill-data-provider.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-5
+packages/forms/src/destinations/webhook.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-325
+packages/genesis-cli/test/fixtures/doctor/rules/plugin/src/page.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1
+packages/forms-web/src/worksheet.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-754
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-core/index.d.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-2
+packages/forms-builder/src/FormBuilder.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 4,14,25,75,84,93-100,107-109,144,160-167,199,228-233,239-241,243-256,271-276,291,299,302,305,309
+packages/forms-web/src/__tests__/worksheet.test.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-200
+packages/core/src/provider/postgrest-errors.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-55
+packages/genesis-cli/src/doctor/patterns.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-124
+packages/genesis-cli/test/fixtures/doctor/rules/raw-tag/src/error-page.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui/data.d.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-2
+packages/forms-web/src/subject.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-34
+packages/core/src/provider/types.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 205-219,318-331
+packages/genesis-cli/test/fixtures/doctor/rules/raw-color/src/chart.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-3
+packages/forms-builder/src/controls.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 9-33
+.changeset/core-supabase-write-outcomes.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-16
+packages/forms/src/index.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 48-64
+packages/genesis-cli/package.json
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 6,31-38,61-70
+packages/forms-web/type-tests/exact-optional.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 4,30-38
+  s_18dd9cee35b819::t_f242e17ae20655 39
+packages/genesis-cli/test/fixtures/doctor/rules/clean/src/page.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-13
+packages/forms-builder/src/ops.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 138-147,166-167
+  s_18dd9cee35b819::t_235dd15bfafd7f 137
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui/package.json
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-10
+packages/forms/src/coverage.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 121-125
+packages/genesis-cli/src/doctor/rules.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-185
+packages/core/src/hooks/use-resource.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 17-18,20,45-50,119,220-227,243,258-259,269-270
+packages/forms/src/worksheet.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-231
+packages/forms-web/src/renderers.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1,11-12,14,414
+packages/genesis/package.json
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 7,99-101
+  s_18dd9cee35b819::t_d21b6b346a3e5a 102
+packages/genesis/tsup.config.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 37
+packages/forms-builder/src/__tests__/readonly.test.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-144
+packages/forms/src/__tests__/destinations.test.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-834
+packages/forms/src/destinations/types.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-308
+packages/genesis-cli/src/doctor/types.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-170
+packages/core/src/hooks/use-resource-form.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 10-11,33-37,317,339-349,352-353,364,390,437,442,457-458,460-470,483
+packages/forms/src/fields.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 2,143,291
+scripts/lib/color-literals.d.mts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-20
+packages/forms/src/destinations/google-auth.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-95
+packages/genesis-cli/test/fixtures/doctor/_genesis/design-system/genesis.css
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-4
+apps/sample/app/routes/forms-builder.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 4-5,15,38-41,47-48
+packages/forms-web/src/chrome.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-137
+packages/genesis-cli/test/fixtures/doctor/_genesis/design-system/genesis-tailwind4.css
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-3
+packages/genesis-cli/src/doctor/glob.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-32
+packages/genesis-cli/test/fixtures/doctor/_genesis/design-system/package.json
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1
+packages/genesis-cli/test/fixtures/doctor/rules/patterns/DESIGN_RULES.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-13
+packages/core/README.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-142
+packages/genesis-cli/test/fixtures/doctor/rules/patterns/src/routes/home.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1
+packages/genesis-cli/test/fixtures/doctor/rules/raw-color/src/styles.css
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-5
+packages/genesis-cli/tsup.config.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 9-10,21,37
+docs/component-reference.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 7,31,33,44,51,58,60,90,114-116,128
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-85
+packages/core/src/provider/context.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 24-30,77-84,96-97,102-107,113,130,133,141
+scripts/check-token-usage.mjs
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 54-57,63-71
+packages/genesis-cli/test/doctor.test.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-305
+packages/forms-builder/src/logic.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 22,149,187-188,204-205,214-216,226-227,241-242,343,351,372,382,385,478
+docs/FORMS.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 3-5,131-132,158,568,573-582,682,828
+packages/core/src/hooks/related-keys.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-20
+packages/forms/README.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 79,106-172
+  s_18dd9cee35b819::t_61481dce009fac 173
+packages/genesis-cli/README.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 10-14,69-239
+  s_18dd9cee35b819::t_09146f42c78970 9
+packages/core/src/provider/supabase-provider.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 2,5-7,9-10,75-152,157-181,246-341,412-442,446-481,485-510,512-524
+packages/genesis-cli/src/index.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 45-57
+packages/genesis-cli/test/doctor-helpers.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-44
+packages/genesis-cli/test/fixtures/doctor/rules/undefined-token/src/meter.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-3
+packages/forms/src/parse.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 4,44,108-152,239
+README.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 67-86,97
+packages/forms-builder/src/index.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 10,33
+packages/core/src/schema/write-outcome.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 39-45,53-54,57,62
+packages/forms/type-tests/destinations.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-33
+.changeset/forms-builder-readonly.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-5
+.changeset/forms-web-worksheet-renderers.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-5
+packages/genesis-cli/test/fixtures/doctor/rules/patterns/src/routes/about.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-3
+.changeset/forms-destinations.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-6
+packages/forms/src/destinations/email.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-301
+packages/genesis-cli/src/vite.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-127
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui/index.d.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-15
+packages/forms-builder/src/settings.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 9-10,28,44-54,56,64,69-73,79,81,123-124,134,173-182,200-204,220,243-247,252-253,261,279
+packages/genesis-cli/src/doctor/config.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-156
+packages/genesis-cli/test/fixtures/doctor/rules/undefined-token/src/styles.css
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-10
+packages/core/src/provider/index.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 30-31,48-50,52
+packages/forms/src/destinations.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-79
+.changeset/forms-worksheet-field-types.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-5
+packages/forms/tsup.config.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 10
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-454
+packages/forms-builder/README.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 10,46-61
+  s_18dd9cee35b819::t_f33635aaa2e678 62
+.changeset/genesis-doctor.md
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-14
+packages/genesis/src/forms-destinations.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1
+packages/forms/src/destinations/sheets.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-335
+packages/genesis-cli/test/fixtures/doctor/rules/palette-color/src/badge.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-4
+scripts/__tests__/color-literals.test.mjs
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-32
+packages/genesis-cli/src/doctor/build.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-54
+packages/forms-builder/src/questions.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 7,25,68-81,84,176,189-190,213,217,223,242,259,300,309-311,318,432,494,521-522,545-546,550-559
+packages/forms/type-tests/tsconfig.json
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 17-19
+packages/genesis-cli/src/doctor/index.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-182
+packages/forms-builder/src/editors.ts
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 4,23-29,38-39,83-88,97,99
+packages/genesis-cli/test/fixtures/doctor/rules/local-primitives/components.json
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1
+packages/genesis-cli/test/fixtures/doctor/rules/shadowed-export/src/button.tsx
+  s_18dd9cee35b819::t_7bb245f0bc6c5b 1-9
+pnpm-lock.yaml
+  s_18dd9cee35b819::t_7512476c759d84 741-743
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "91c42144f890330d7ae8400e026862e3d9e07b58",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
