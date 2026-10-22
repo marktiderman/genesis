@@ -30,7 +30,7 @@ export const page = (
 
 declare const player: { time?: () => number | undefined; seek?: (s: number) => void };
 const subject: MediaTime = { currentTime: player.time, seek: player.seek };
-export const worksheet = (
+export const structured = (
   <MediaTimeContext.Provider value={subject}>
     <SourceTextContext.Provider value={null}>
       <Form form={definition} />

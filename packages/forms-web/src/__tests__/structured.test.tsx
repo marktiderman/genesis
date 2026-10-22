@@ -3,28 +3,28 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { createForm, defineForm, f, type FormEngine } from "@marktiderman/genesis-forms";
 import { Form, SourceTextContext, MediaTimeContext } from "../index";
 
-const worksheet = defineForm({
-  id: "worksheet",
-  title: "Worksheet",
+const structured = defineForm({
+  id: "structured",
+  title: "Structured",
   layout: { mode: "classic" },
   blocks: [
-    f.list("kalm", { label: "Keep doing", max: 3, itemPlaceholder: "One thing" }),
-    f.table("smac", {
-      label: "SMACtalk",
+    f.list("goals", { label: "Keep doing", max: 3, itemPlaceholder: "One thing" }),
+    f.table("plan", {
+      label: "Plan",
       columns: [
-        { key: "say", label: "Say" },
-        { key: "mean", label: "Mean", long: true },
+        { key: "what", label: "What" },
+        { key: "why", label: "Why", long: true },
       ],
       maxRows: 2,
     }),
     f.mediaNotes("moments", { label: "Moments" }),
-    f.textHighlights("verse", { label: "Verse", text: "Iron sharpens iron, and one person sharpens another." }),
+    f.textHighlights("article", { label: "Article", text: "Team supports team, and one person supports another." }),
   ],
 });
 
 function renderForm(wrap?: (node: React.ReactNode) => React.ReactNode) {
-  const engine: FormEngine = createForm(worksheet.definition);
-  const node = <Form form={worksheet} engine={engine} />;
+  const engine: FormEngine = createForm(structured.definition);
+  const node = <Form form={structured} engine={engine} />;
   render(wrap ? wrap(node) : node);
   return engine;
 }
@@ -38,16 +38,16 @@ describe("list renderer", () => {
     const first = within(group).getByRole("textbox", { name: "Item 1" });
     expect(first.getAttribute("placeholder")).toBe("One thing");
     fireEvent.change(first, { target: { value: "Stretch" } });
-    expect(value(engine, "kalm")).toEqual(["Stretch"]);
+    expect(value(engine, "goals")).toEqual(["Stretch"]);
 
     fireEvent.click(within(group).getByRole("button", { name: "Add item" }));
     const second = within(group).getByRole("textbox", { name: "Item 2" });
     expect(document.activeElement).toBe(second);
     fireEvent.change(second, { target: { value: "Sleep" } });
-    expect(value(engine, "kalm")).toEqual(["Stretch", "Sleep"]);
+    expect(value(engine, "goals")).toEqual(["Stretch", "Sleep"]);
 
     fireEvent.click(within(group).getByRole("button", { name: "Remove item 1" }));
-    expect(value(engine, "kalm")).toEqual(["Sleep"]);
+    expect(value(engine, "goals")).toEqual(["Sleep"]);
     expect(within(group).getByRole("textbox", { name: "Item 1" })).toHaveProperty("value", "Sleep");
   });
 
@@ -60,38 +60,38 @@ describe("list renderer", () => {
     fireEvent.keyDown(within(group).getByRole("textbox", { name: "Item 2" }), { key: "Enter" });
     expect(within(group).getAllByRole("textbox")).toHaveLength(3);
     expect(within(group).getByRole("button", { name: "Add item" })).toHaveProperty("disabled", true);
-    expect(value(engine, "kalm")).toEqual(["a", "", ""]);
+    expect(value(engine, "goals")).toEqual(["a", "", ""]);
   });
 
   it("reorders items from the keyboard with SortableList", () => {
     const engine = renderForm();
-    act(() => engine.setValue("kalm", ["one", "two"]));
+    act(() => engine.setValue("goals", ["one", "two"]));
     const group = screen.getByRole("group", { name: "Keep doing" });
     fireEvent.keyDown(within(group).getByRole("button", { name: "Reorder two" }), { key: "ArrowUp", altKey: true });
-    expect(value(engine, "kalm")).toEqual(["two", "one"]);
+    expect(value(engine, "goals")).toEqual(["two", "one"]);
   });
 });
 
-describe("rows renderer", () => {
+describe("table renderer", () => {
   it("labels every cell within a fieldset per row, and adds and removes rows", () => {
     const engine = renderForm();
-    const group = screen.getByRole("group", { name: "SMACtalk" });
+    const group = screen.getByRole("group", { name: "Plan" });
     const row1 = within(group).getByRole("group", { name: "Row 1" });
-    fireEvent.change(within(row1).getByRole("textbox", { name: "Say" }), { target: { value: "Hi" } });
-    fireEvent.change(within(row1).getByRole("textbox", { name: "Mean" }), { target: { value: "Hello" } });
-    expect(value(engine, "smac")).toEqual([{ say: "Hi", mean: "Hello" }]);
-    expect(within(row1).getByRole("textbox", { name: "Mean" }).tagName).toBe("TEXTAREA");
+    fireEvent.change(within(row1).getByRole("textbox", { name: "What" }), { target: { value: "Hi" } });
+    fireEvent.change(within(row1).getByRole("textbox", { name: "Why" }), { target: { value: "Hello" } });
+    expect(value(engine, "plan")).toEqual([{ what: "Hi", why: "Hello" }]);
+    expect(within(row1).getByRole("textbox", { name: "Why" }).tagName).toBe("TEXTAREA");
 
     fireEvent.click(within(group).getByRole("button", { name: "Add row" }));
     expect(within(group).getByRole("group", { name: "Row 2" })).toBeTruthy();
     expect(within(group).getByRole("button", { name: "Add row" })).toHaveProperty("disabled", true);
     fireEvent.click(within(group).getByRole("button", { name: "Remove row 1" }));
-    expect(value(engine, "smac")).toEqual([{}]);
+    expect(value(engine, "plan")).toEqual([{}]);
     expect(within(group).queryByRole("group", { name: "Row 2" })).toBeNull();
   });
 });
 
-describe("timestamp-notes renderer", () => {
+describe("media-notes renderer", () => {
   it("adds a note at a typed time and keeps notes in time order", () => {
     const engine = renderForm();
     const group = screen.getByRole("group", { name: "Moments" });
@@ -140,25 +140,25 @@ describe("timestamp-notes renderer", () => {
   });
 });
 
-describe("highlights renderer", () => {
+describe("text-highlights renderer", () => {
   it("highlights a typed passage once it has a note", () => {
     const engine = renderForm();
-    const group = screen.getByRole("group", { name: "Verse" });
+    const group = screen.getByRole("group", { name: "Article" });
     fireEvent.click(within(group).getByRole("button", { name: "Highlight a passage" }));
-    fireEvent.change(within(group).getByRole("textbox", { name: "Passage" }), { target: { value: "sharpens iron" } });
+    fireEvent.change(within(group).getByRole("textbox", { name: "Passage" }), { target: { value: "supports team" } });
     const highlight = within(group).getByRole("button", { name: "Highlight" });
     expect(highlight).toHaveProperty("disabled", true);
     fireEvent.change(within(group).getByRole("textbox", { name: "Your note" }), { target: { value: "Friends" } });
     fireEvent.click(highlight);
-    expect(value(engine, "verse")).toEqual([{ start: 5, end: 18, quote: "sharpens iron", note: "Friends" }]);
-    expect(group.querySelector("mark")?.textContent).toBe("sharpens iron");
-    fireEvent.click(within(group).getByRole("button", { name: "Remove highlight “sharpens iron”" }));
-    expect(value(engine, "verse")).toBeUndefined();
+    expect(value(engine, "article")).toEqual([{ start: 5, end: 18, quote: "supports team", note: "Friends" }]);
+    expect(group.querySelector("mark")?.textContent).toBe("supports team");
+    fireEvent.click(within(group).getByRole("button", { name: "Remove highlight “supports team”" }));
+    expect(value(engine, "article")).toBeUndefined();
   });
 
   it("says when a typed passage isn't in the text", () => {
     renderForm();
-    const group = screen.getByRole("group", { name: "Verse" });
+    const group = screen.getByRole("group", { name: "Article" });
     fireEvent.click(within(group).getByRole("button", { name: "Highlight a passage" }));
     fireEvent.change(within(group).getByRole("textbox", { name: "Passage" }), { target: { value: "copper" } });
     expect(within(group).getByText(/Not found in the passage/)).toBeTruthy();
@@ -167,12 +167,12 @@ describe("highlights renderer", () => {
 
   it("maps a text selection to offsets, also across existing marks", () => {
     const engine = renderForm((node) => (
-      <SourceTextContext.Provider value="Iron sharpens iron.">{node}</SourceTextContext.Provider>
+      <SourceTextContext.Provider value="Team supports team.">{node}</SourceTextContext.Provider>
     ));
-    act(() => engine.setValue("verse", [{ start: 0, end: 4, quote: "Iron", note: "n" }]));
-    const group = screen.getByRole("group", { name: "Verse" });
+    act(() => engine.setValue("article", [{ start: 0, end: 4, quote: "Team", note: "n" }]));
+    const group = screen.getByRole("group", { name: "Article" });
     const paragraph = group.querySelector("p")!;
-    // Select " sharpens " (with the spaces, which are trimmed), in the span after the mark.
+    // Select " supports " (with the spaces, which are trimmed), in the span after the mark.
     const span = paragraph.querySelector("span")!.firstChild!;
     const range = document.createRange();
     range.setStart(span, 0);
@@ -183,18 +183,18 @@ describe("highlights renderer", () => {
     fireEvent.mouseUp(paragraph);
     fireEvent.change(within(group).getByRole("textbox", { name: "Your note" }), { target: { value: "verb" } });
     fireEvent.click(within(group).getByRole("button", { name: "Highlight" }));
-    expect(value(engine, "verse")).toEqual([
-      { start: 0, end: 4, quote: "Iron", note: "n" },
-      { start: 5, end: 13, quote: "sharpens", note: "verb" },
+    expect(value(engine, "article")).toEqual([
+      { start: 0, end: 4, quote: "Team", note: "n" },
+      { start: 5, end: 13, quote: "supports", note: "verb" },
     ]);
   });
 
   it("flags a highlight without a note", () => {
     const engine = renderForm();
-    act(() => engine.setValue("verse", [{ start: 0, end: 4, quote: "Iron", note: "" }]));
-    expect(engine.getState().errors.verse ?? null).toBeNull();
+    act(() => engine.setValue("article", [{ start: 0, end: 4, quote: "Team", note: "" }]));
+    expect(engine.getState().errors.article ?? null).toBeNull();
     act(() => void engine.submit());
-    expect(engine.getState().errors.verse).toBe("Add a note to each highlight.");
-    expect(screen.getByRole("textbox", { name: "Note on “Iron”" }).getAttribute("aria-invalid")).toBe("true");
+    expect(engine.getState().errors.article).toBe("Add a note to each highlight.");
+    expect(screen.getByRole("textbox", { name: "Note on “Team”" }).getAttribute("aria-invalid")).toBe("true");
   });
 });
