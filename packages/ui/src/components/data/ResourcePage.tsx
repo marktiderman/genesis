@@ -1286,7 +1286,14 @@ export function ResourcePage<
         : // Unconfirmed `onDelete` keeps its original contract exactly:
           // called straight from the peek, nothing closed for it.
           (item: T) => {
-            void onDelete?.(item);
+            // A rejected promise is reported, never left unhandled.
+            Promise.resolve(onDelete?.(item)).catch((err: unknown) => {
+              if (resourceOptions?.onError) {
+                resourceOptions.onError(err instanceof Error ? err : new Error(String(err)));
+              } else {
+                toast.error(err instanceof Error ? err.message : "The delete failed.");
+              }
+            });
           };
 
   // Per-row rights, evaluated against the row the peek is showing.
