@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { defineForm, f, when } from "../index";
 import { coverage, simulate } from "../testing";
-import { afterClass as fixtureAfterClass } from "./fixtures";
-import { afterClass, monthlyPulse } from "./sample-forms";
+import { eventFeedback as fixtureEventFeedback } from "./fixtures";
+import { eventFeedback, monthlyCheckIn } from "./sample-forms";
 
 describe("coverage", () => {
-  it("reaches every block of the after-class form and its default ending", () => {
-    for (const form of [afterClass, fixtureAfterClass]) {
+  it("reaches every block of the event-feedback form and its default ending", () => {
+    for (const form of [eventFeedback, fixtureEventFeedback]) {
       const report = coverage(form);
       expect(report.truncated).toBe(false);
       expect(report.unreachableBlocks).toEqual([]);
@@ -16,13 +16,13 @@ describe("coverage", () => {
     }
   });
 
-  it("reaches both monthly-pulse endings, with witnesses that replay", () => {
-    const report = coverage(monthlyPulse);
+  it("reaches both monthly-check-in endings, with witnesses that replay", () => {
+    const report = coverage(monthlyCheckIn);
     expect(report.endings.default?.reached).toBe(true);
     expect(report.endings.promoter?.reached).toBe(true);
     expect(report.unreachableBlocks).toEqual([]);
     for (const [ending, { witness }] of Object.entries(report.endings)) {
-      expect(simulate(monthlyPulse).answer(witness!).submit()).toBe(ending);
+      expect(simulate(monthlyCheckIn).answer(witness!).submit()).toBe(ending);
     }
     expect(report.endings.promoter?.witness?.recommend).toBeGreaterThanOrEqual(9);
   });
@@ -76,7 +76,7 @@ describe("coverage", () => {
   });
 
   it("stops at maxStates and says so", () => {
-    const report = coverage(afterClass, { maxStates: 10 });
+    const report = coverage(eventFeedback, { maxStates: 10 });
     expect(report.truncated).toBe(true);
     expect(report.pathsExplored).toBeLessThan(10);
   });

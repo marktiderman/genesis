@@ -1,23 +1,23 @@
 {
   "scenarioVersion": 1,
-  "name": "after-class: server ignores a client-sent coach",
-  "description": "coach is a server input. A value sent by the client is dropped and reported in ignored; the server's own value is stored.",
+  "name": "event-feedback: contact yes requires name and email",
+  "description": "Answering Yes to contact_me reveals name and email, and both are required on submit and on the server.",
   "tags": [
-    "after-class",
-    "server",
-    "security"
+    "event-feedback",
+    "show-hide",
+    "validation"
   ],
   "definition": {
     "schemaVersion": 1,
-    "id": "after-class",
-    "title": "How was class?",
+    "id": "event-feedback",
+    "title": "How was the event?",
     "blocks": [
       {
         "kind": "field",
         "id": "overall",
         "key": "overall",
         "type": "rating",
-        "label": "How was today's class?",
+        "label": "How was today's event?",
         "required": true,
         "props": {
           "max": 5
@@ -32,24 +32,24 @@
         "props": {
           "options": [
             {
-              "value": "coaching",
-              "label": "Coaching"
+              "value": "hosting",
+              "label": "Hosting"
             },
             {
-              "value": "workout",
-              "label": "The workout"
+              "value": "content",
+              "label": "The content"
             },
             {
               "value": "community",
               "label": "Community"
             },
             {
-              "value": "scaling",
-              "label": "Scaling options"
+              "value": "pacing",
+              "label": "Pacing"
             },
             {
-              "value": "equipment",
-              "label": "Equipment"
+              "value": "venue",
+              "label": "The venue"
             },
             {
               "value": "cleanliness",
@@ -70,7 +70,7 @@
         "id": "contact_me",
         "key": "contact_me",
         "type": "yes-no",
-        "label": "Want {{hidden:coach|a coach}} to follow up with you?"
+        "label": "Want {{hidden:owner|someone}} to follow up with you?"
       },
       {
         "kind": "field",
@@ -94,12 +94,12 @@
     },
     "hidden": [
       {
-        "name": "class",
+        "name": "session",
         "type": "string",
         "source": "server"
       },
       {
-        "name": "coach",
+        "name": "owner",
         "type": "string",
         "source": "server"
       }
@@ -152,19 +152,16 @@
     "endings": [
       {
         "id": "default",
-        "title": "Thanks! See you at the next class."
+        "title": "Thanks! See you next time."
       }
     ],
     "settings": {
       "anonymous": true
     }
   },
-  "hidden": {
-    "coach": "Mallory"
-  },
   "context": {
-    "class": "6:00 AM CrossFit",
-    "coach": "Sam"
+    "session": "Tuesday 6 PM workshop",
+    "owner": "Sam"
   },
   "events": [
     {
@@ -175,7 +172,7 @@
     {
       "type": "answer",
       "field": "contact_me",
-      "value": false
+      "value": true
     },
     {
       "type": "submit"
@@ -186,33 +183,35 @@
       "overall",
       "went_well",
       "improve",
-      "contact_me"
+      "contact_me",
+      "name",
+      "email"
     ],
     "visible": [
       "overall",
       "went_well",
       "improve",
-      "contact_me"
+      "contact_me",
+      "name",
+      "email"
     ],
-    "current": "overall",
-    "status": "completed",
-    "ending": "default",
+    "current": "name",
+    "status": "in_progress",
+    "ending": null,
     "answers": {
       "overall": 5,
-      "contact_me": false
+      "contact_me": true
     },
+    "errors": [
+      "name",
+      "email"
+    ],
     "server": {
-      "ok": true,
-      "answers": {
-        "overall": 5,
-        "contact_me": false
-      },
-      "context": {
-        "class": "6:00 AM CrossFit",
-        "coach": "Sam"
-      },
-      "ignored": [
-        "hidden.coach"
+      "ok": false,
+      "complete": true,
+      "errors": [
+        "name",
+        "email"
       ]
     }
   }

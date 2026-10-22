@@ -1,23 +1,23 @@
 {
   "scenarioVersion": 1,
-  "name": "after-class: server drops unknown and hidden answers",
+  "name": "event-feedback: server drops unknown and hidden answers",
   "description": "The server replays the log: unknown fields are ignored, and answers to fields jumped over or hidden by logic are not stored.",
   "tags": [
-    "after-class",
+    "event-feedback",
     "server",
     "security"
   ],
   "definition": {
     "schemaVersion": 1,
-    "id": "after-class",
-    "title": "How was class?",
+    "id": "event-feedback",
+    "title": "How was the event?",
     "blocks": [
       {
         "kind": "field",
         "id": "overall",
         "key": "overall",
         "type": "rating",
-        "label": "How was today's class?",
+        "label": "How was today's event?",
         "required": true,
         "props": {
           "max": 5
@@ -32,24 +32,24 @@
         "props": {
           "options": [
             {
-              "value": "coaching",
-              "label": "Coaching"
+              "value": "hosting",
+              "label": "Hosting"
             },
             {
-              "value": "workout",
-              "label": "The workout"
+              "value": "content",
+              "label": "The content"
             },
             {
               "value": "community",
               "label": "Community"
             },
             {
-              "value": "scaling",
-              "label": "Scaling options"
+              "value": "pacing",
+              "label": "Pacing"
             },
             {
-              "value": "equipment",
-              "label": "Equipment"
+              "value": "venue",
+              "label": "The venue"
             },
             {
               "value": "cleanliness",
@@ -70,7 +70,7 @@
         "id": "contact_me",
         "key": "contact_me",
         "type": "yes-no",
-        "label": "Want {{hidden:coach|a coach}} to follow up with you?"
+        "label": "Want {{hidden:owner|someone}} to follow up with you?"
       },
       {
         "kind": "field",
@@ -94,12 +94,12 @@
     },
     "hidden": [
       {
-        "name": "class",
+        "name": "session",
         "type": "string",
         "source": "server"
       },
       {
-        "name": "coach",
+        "name": "owner",
         "type": "string",
         "source": "server"
       }
@@ -152,7 +152,7 @@
     "endings": [
       {
         "id": "default",
-        "title": "Thanks! See you at the next class."
+        "title": "Thanks! See you next time."
       }
     ],
     "settings": {
@@ -160,8 +160,8 @@
     }
   },
   "context": {
-    "class": "6:00 AM CrossFit",
-    "coach": "Sam"
+    "session": "Tuesday 6 PM workshop",
+    "owner": "Sam"
   },
   "events": [
     {
@@ -173,7 +173,7 @@
       "type": "answer",
       "field": "went_well",
       "value": [
-        "workout"
+        "content"
       ]
     },
     {
@@ -225,8 +225,8 @@
         "contact_me": false
       },
       "context": {
-        "class": "6:00 AM CrossFit",
-        "coach": "Sam"
+        "session": "Tuesday 6 PM workshop",
+        "owner": "Sam"
       },
       "ignored": [
         "bogus"

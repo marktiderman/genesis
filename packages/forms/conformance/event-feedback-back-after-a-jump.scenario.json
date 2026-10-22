@@ -1,23 +1,23 @@
 {
   "scenarioVersion": 1,
-  "name": "after-class: contact yes requires name and email",
-  "description": "Answering Yes to contact_me reveals name and email, and both are required on submit and on the server.",
+  "name": "event-feedback: back after a jump",
+  "description": "Back from a jump target returns to the block the jump came from; raising the rating puts went_well back on the path.",
   "tags": [
-    "after-class",
-    "show-hide",
-    "validation"
+    "event-feedback",
+    "jump",
+    "navigation"
   ],
   "definition": {
     "schemaVersion": 1,
-    "id": "after-class",
-    "title": "How was class?",
+    "id": "event-feedback",
+    "title": "How was the event?",
     "blocks": [
       {
         "kind": "field",
         "id": "overall",
         "key": "overall",
         "type": "rating",
-        "label": "How was today's class?",
+        "label": "How was today's event?",
         "required": true,
         "props": {
           "max": 5
@@ -32,24 +32,24 @@
         "props": {
           "options": [
             {
-              "value": "coaching",
-              "label": "Coaching"
+              "value": "hosting",
+              "label": "Hosting"
             },
             {
-              "value": "workout",
-              "label": "The workout"
+              "value": "content",
+              "label": "The content"
             },
             {
               "value": "community",
               "label": "Community"
             },
             {
-              "value": "scaling",
-              "label": "Scaling options"
+              "value": "pacing",
+              "label": "Pacing"
             },
             {
-              "value": "equipment",
-              "label": "Equipment"
+              "value": "venue",
+              "label": "The venue"
             },
             {
               "value": "cleanliness",
@@ -70,7 +70,7 @@
         "id": "contact_me",
         "key": "contact_me",
         "type": "yes-no",
-        "label": "Want {{hidden:coach|a coach}} to follow up with you?"
+        "label": "Want {{hidden:owner|someone}} to follow up with you?"
       },
       {
         "kind": "field",
@@ -94,12 +94,12 @@
     },
     "hidden": [
       {
-        "name": "class",
+        "name": "session",
         "type": "string",
         "source": "server"
       },
       {
-        "name": "coach",
+        "name": "owner",
         "type": "string",
         "source": "server"
       }
@@ -152,7 +152,7 @@
     "endings": [
       {
         "id": "default",
-        "title": "Thanks! See you at the next class."
+        "title": "Thanks! See you next time."
       }
     ],
     "settings": {
@@ -160,22 +160,28 @@
     }
   },
   "context": {
-    "class": "6:00 AM CrossFit",
-    "coach": "Sam"
+    "session": "Tuesday 6 PM workshop",
+    "owner": "Sam"
   },
   "events": [
+    {
+      "type": "answer",
+      "field": "overall",
+      "value": 2
+    },
+    {
+      "type": "next"
+    },
+    {
+      "type": "back"
+    },
     {
       "type": "answer",
       "field": "overall",
       "value": 5
     },
     {
-      "type": "answer",
-      "field": "contact_me",
-      "value": true
-    },
-    {
-      "type": "submit"
+      "type": "next"
     }
   ],
   "expect": {
@@ -183,36 +189,29 @@
       "overall",
       "went_well",
       "improve",
-      "contact_me",
-      "name",
-      "email"
+      "contact_me"
     ],
     "visible": [
       "overall",
       "went_well",
       "improve",
-      "contact_me",
-      "name",
-      "email"
+      "contact_me"
     ],
-    "current": "name",
+    "current": "went_well",
     "status": "in_progress",
     "ending": null,
     "answers": {
-      "overall": 5,
-      "contact_me": true
+      "overall": 5
     },
-    "errors": [
-      "name",
-      "email"
-    ],
     "server": {
-      "ok": false,
-      "complete": true,
-      "errors": [
-        "name",
-        "email"
-      ]
+      "ok": true,
+      "answers": {
+        "overall": 5
+      },
+      "context": {
+        "session": "Tuesday 6 PM workshop",
+        "owner": "Sam"
+      }
     }
   }
 }
