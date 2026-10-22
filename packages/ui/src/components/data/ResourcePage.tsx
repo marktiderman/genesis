@@ -255,7 +255,9 @@ export interface ResourcePageProps<
   pagination?: "client" | "server";
   /**
    * `pagination="client"` only: the most rows fetched. Default 1000. An
-   * explicit `resourceOptions.defaultPerPage` wins.
+   * explicit `resourceOptions.defaultPerPage` wins. Keep it at or under the
+   * provider's `maxPerPage` (`capabilities().maxPerPage`; 1000 by default for
+   * Supabase): a larger page is refused, not cut short.
    */
   clientRowLimit?: number;
 
@@ -747,7 +749,19 @@ export interface ResourcePageProps<
 // Component
 // ---------------------------------------------------------------------------
 
-export function ResourcePage<
+/**
+ * The list behind {@link ResourcePage}, without any markup: where the rows
+ * come from (a `resource` through the data provider, or `data` you pass),
+ * search, sort, status filter and paging, selection, the open record (and
+ * its URL state), the built-in create/edit form and confirmed delete, and
+ * the row/keyboard handlers. Takes the same options as `ResourcePage`.
+ *
+ * Use it to build a different layout over the same behaviour; `ResourcePage`
+ * itself is this hook plus Genesis's markup.
+ *
+ * @stability Beta
+ */
+export function useResourceTable<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(props: ResourcePageProps<T>) {
   const {
@@ -1083,7 +1097,8 @@ export function ResourcePage<
     warnedTruncatedRef.current = true;
     console.warn(
       `ResourcePage: "${resourceName}" has ${displayTotal} rows but only ${displayData.length} were fetched. ` +
-        `Pass \`pagination="server"\` to page through all of them, or raise \`clientRowLimit\`.`,
+        `Pass \`pagination="server"\` to page through all of them, or raise \`clientRowLimit\` ` +
+        `(no higher than the provider's \`maxPerPage\`, which refuses a larger page).`,
     );
   }, [clientTruncated, resourceName, displayTotal, displayData.length]);
   // ── Build ResourceActions for column render functions ──
@@ -1151,11 +1166,14 @@ export function ResourcePage<
   });
   const selectedItem: T | null =
     rowOrSnapshot ?? (linkedId && linked.data ? (linked.data as T) : null);
+  // Missing only when that is known: the fetch failed (resource mode), or
+  // `data` is the whole set (data mode without server paging). A record
+  // absent from one server-controlled page may be on another.
   const linkMissing =
     !!linkedId &&
     !selectedItem &&
     !isLoading &&
-    (isClientMode ? linked.isError : true);
+    (isClientMode ? linked.isError : !isServerControlled);
   const detailOpen = urlPeek ? selectedItem !== null || linkMissing : page.detailOpen;
 
   // ── Bulk selection ──
@@ -1249,7 +1267,7 @@ export function ResourcePage<
   const { data: providerCaps } = useCapabilities(resourceName, {
     enabled: useBuiltInDelete && deleteConfirmed,
   });
-  const deleteKind = providerCaps?.softDelete ? "recycle" : "permanent";
+  const deleteKind: "recycle" | "permanent" = providerCaps?.softDelete ? "recycle" : "permanent";
 
   const performDelete = useCallback(
     async (item: T) => {
@@ -1300,13 +1318,19 @@ export function ResourcePage<
         : // Unconfirmed `onDelete` keeps its original contract exactly:
           // called straight from the peek, nothing closed for it.
           (item: T) => {
-            // A throw or a rejected promise is reported, never left unhandled.
+            // A throw or a rejected promise is reported, never left unhandled,
+            // even when `onError` itself throws (the toast is the fallback).
             const report = (err: unknown) => {
+              const error = err instanceof Error ? err : new Error(String(err));
               if (resourceOptions?.onError) {
-                resourceOptions.onError(err instanceof Error ? err : new Error(String(err)));
-              } else {
-                toast.error(err instanceof Error ? err.message : "The delete failed.");
+                try {
+                  resourceOptions.onError(error);
+                  return;
+                } catch {
+                  // fall through to the toast
+                }
               }
+              toast.error(error.message || "The delete failed.");
             };
             // Called right away, as before; a throw or a rejection is reported.
             try {
@@ -1369,8 +1393,11 @@ export function ResourcePage<
       tableTieBreaks && tableTieBreaks.primary === `${primary.key}:${primary.dir}`
         ? tableTieBreaks.rest
         : [];
-    return [primary, ...rest];
-  }, [pageSort, tableTieBreaks]);
+    // Only the table's own columns: a sort-select option or a URL sort on a
+    // field the table doesn't show still orders the rows (page.sort), but is
+    // not a header sort.
+    return [primary, ...rest].filter((s) => tableColumns.some((c) => c.key === s.key));
+  }, [pageSort, tableTieBreaks, tableColumns]);
   const handleTableSort = useCallback(
     (next: DataTableSort[]) => {
       const [primary, ...rest] = next;
@@ -1654,6 +1681,213 @@ export function ResourcePage<
   });
 
   // ── Create button ──
+  return {
+    actions,
+    allows,
+    clientTruncated,
+    closeDetail,
+    currentPage,
+    deleteConfirmed,
+    deleteCopy,
+    deleteHandler,
+    deleteKind,
+    deleteOpen,
+    detailOpen,
+    detailSubtitle,
+    detailTitle,
+    displayData,
+    displayTotal,
+    effectivePageSize,
+    formAction,
+    formItem,
+    formOpen,
+    handleClearFilters,
+    handleClearSelection,
+    handleCreate,
+    handleEdit,
+    handlePageSizeChange,
+    handleRowClick,
+    handleSearchChange,
+    handleSortSelect,
+    handleTableSort,
+    handleToggleAll,
+    handleToggleSelect,
+    hasError,
+    isClientMode,
+    isLoading,
+    isServerControlled,
+    keyOf,
+    keyboardNav,
+    linkMissing,
+    linked,
+    missingPagerProps,
+    page,
+    pagerMisconfigured,
+    pagerOnPageChange,
+    pendingDelete,
+    performDelete,
+    rangeFrom,
+    rangeTo,
+    resourceHook,
+    resourceServerPaging,
+    selectedDeletable,
+    selectedEditable,
+    selectedIds,
+    selectedItem,
+    serverSearchFields,
+    setDeleteOpen,
+    setFormOpen,
+    settings,
+    statusChipsConfig,
+    tableColumns,
+    tableSort,
+    titleOf,
+    totalPages,
+    updateSetting,
+    useBuiltInCreate,
+    useBuiltInDelete,
+    useBuiltInEdit,
+  };
+}
+
+/**
+ * What {@link useResourceTable} returns.
+ *
+ * @stability Beta
+ */
+export type ResourceTableState<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = ReturnType<typeof useResourceTable<T>>;
+
+export function ResourcePage<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(props: ResourcePageProps<T>) {
+  const {
+    bulkActions,
+    can,
+    canSaveViews,
+    capabilities,
+    className,
+    columnVisibility,
+    columnVisibilityKey,
+    createLabel = "New",
+    detail = "panel",
+    detailFields,
+    detailWidth = "md",
+    emptyDescription,
+    emptyIcon,
+    emptyMessage,
+    emptyState,
+    errorMessage,
+    filters: filtersProp,
+    formFields,
+    formLayout: formLayoutProp,
+    formMode,
+    formSteps,
+    gridCols: gridColsProp,
+    header: headerMode = "page",
+    icon,
+    keyboardNavigation = true,
+    mutationMode: mutationModeProp,
+    onCreate,
+    onDelete,
+    onDeleteView,
+    onEdit,
+    onLoadView,
+    onPageChange,
+    onRetry: onRetryProp,
+    onSaveView,
+    onSearchChange,
+    onSortChange,
+    openOnCardClick = false,
+    pageSizeOptions,
+    pagination = "client",
+    renderCard: renderCardProp,
+    renderDetail: renderDetailProp,
+    renderForm: renderFormProp,
+    renderTable: renderTableProp,
+    resizableColumns,
+    resizeKey,
+    resource: resourceName,
+    savedViews,
+    searchPlaceholder,
+    secondaryActions,
+    slotProps,
+    slots,
+    stickyFirstColumn,
+    stickyHeader,
+    subtitle,
+    title,
+    toolbar,
+  } = props;
+  const {
+    actions,
+    allows,
+    clientTruncated,
+    closeDetail,
+    currentPage,
+    deleteConfirmed,
+    deleteCopy,
+    deleteHandler,
+    deleteKind,
+    deleteOpen,
+    detailOpen,
+    detailSubtitle,
+    detailTitle,
+    displayData,
+    displayTotal,
+    effectivePageSize,
+    formAction,
+    formItem,
+    formOpen,
+    handleClearFilters,
+    handleClearSelection,
+    handleCreate,
+    handleEdit,
+    handlePageSizeChange,
+    handleRowClick,
+    handleSearchChange,
+    handleSortSelect,
+    handleTableSort,
+    handleToggleAll,
+    handleToggleSelect,
+    hasError,
+    isClientMode,
+    isLoading,
+    isServerControlled,
+    keyOf,
+    keyboardNav,
+    linkMissing,
+    linked,
+    missingPagerProps,
+    page,
+    pagerMisconfigured,
+    pagerOnPageChange,
+    pendingDelete,
+    performDelete,
+    rangeFrom,
+    rangeTo,
+    resourceHook,
+    resourceServerPaging,
+    selectedDeletable,
+    selectedEditable,
+    selectedIds,
+    selectedItem,
+    serverSearchFields,
+    setDeleteOpen,
+    setFormOpen,
+    settings,
+    statusChipsConfig,
+    tableColumns,
+    tableSort,
+    titleOf,
+    totalPages,
+    updateSetting,
+    useBuiltInCreate,
+    useBuiltInDelete,
+    useBuiltInEdit,
+  } = useResourceTable<T>(props);
+
   const showCreateButton = (onCreate || useBuiltInCreate) && allows("create");
   const createButton = showCreateButton ? (
     <Button size="sm" onClick={handleCreate}>

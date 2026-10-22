@@ -9,7 +9,7 @@ import { useState } from "react";
 import type React from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { DataReadError } from "@marktiderman/genesis-core/provider";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GenesisProvider, createMockProvider } from "../../../provider";
 import { ResourcePage } from "../ResourcePage";
@@ -226,6 +226,36 @@ describe("ResourcePage urlState follow-ups", () => {
     render(<Page adapter={useAdapter} />);
     expect(screen.getByTestId("resource-page-link-missing")).toBeTruthy();
     expect(within(screen.getByRole("dialog")).getAllByText("Record not found").length).toBeGreaterThan(0);
+  });
+
+  it("doesn't call a linked record missing when data is one server-controlled page", () => {
+    const { useAdapter } = memoryAdapter("id=99");
+    render(<Page adapter={useAdapter} page={1} perPage={3} total={10} onPageChange={() => {}} />);
+    expect(screen.queryByTestId("resource-page-link-missing")).toBeNull();
+    expect(screen.queryByText("Record not found")).toBeNull();
+  });
+
+  it("orders by a URL sort on a field the table doesn't show without TanStack errors", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { useAdapter } = memoryAdapter("sort=missing:desc");
+    function NoColumns() {
+      const searchParams = useAdapter();
+      return (
+        <GenesisProvider mock={{ datasets: {} }}>
+          <ResourcePage<Row>
+            data={rows}
+            title="People"
+            titleField="name"
+            defaultView="table"
+            urlState={searchParams}
+          />
+        </GenesisProvider>
+      );
+    }
+    render(<NoColumns />);
+    expect(screen.getAllByRole("row").length).toBeGreaterThan(1);
+    expect(error.mock.calls.filter((c) => String(c[0]).includes("does not exist"))).toEqual([]);
+    error.mockRestore();
   });
 
   it("ignores ?id= when there is no peek (detail none)", () => {

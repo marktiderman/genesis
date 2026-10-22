@@ -27,6 +27,8 @@ export { DataList, type DataListProps } from "./DataList";
 export { DetailPanel, type DetailPanelProps } from "./DetailPanel";
 export {
   ResourcePage,
+  useResourceTable,
+  type ResourceTableState,
   type ResourcePageProps,
   type ResourceAction,
   type ResourceCardActions,
