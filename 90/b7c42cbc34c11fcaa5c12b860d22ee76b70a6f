@@ -1,0 +1,37 @@
+packages/core/CHANGELOG.md
+  s_2c334912fcb08f::t_c0ce530ced0498 3-57
+packages/core/package.json
+  s_2c334912fcb08f::t_09136eebe3862b 3
+packages/extension/CHANGELOG.md
+  s_2c334912fcb08f::t_855050f9c4cc30 1-9
+packages/extension/package.json
+  s_2c334912fcb08f::t_f92373afb418fe 3
+packages/forms/CHANGELOG.md
+  s_2c334912fcb08f::t_ddeac4bf0f7317 3-9
+packages/forms/package.json
+  s_2c334912fcb08f::t_05829365d7d3cf 3
+packages/genesis/CHANGELOG.md
+  s_2c334912fcb08f::t_80da6b91be57ad 3-27
+packages/genesis/package.json
+  s_2c334912fcb08f::t_7dc7027746a69f 3
+packages/ui/CHANGELOG.md
+  s_2c334912fcb08f::t_fe0f1a8fe39670 3-99
+packages/ui/package.json
+  s_2c334912fcb08f::t_e6feae6f8b878d 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "90b7c42cbc34c11fcaa5c12b860d22ee76b70a6f",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
