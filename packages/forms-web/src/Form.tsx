@@ -770,7 +770,8 @@ function FormBody({
   const header = renderSlot(
     DefaultHeader,
     slots?.header,
-    { title: def.title, description: def.description },
+    // The introduction recalls like endings do ({{hidden:coach}}); unanswered fields show their fallback.
+    { title: def.title, description: def.description ? engine.text(def.description) : undefined },
     slotProps?.header,
   );
   const errorSummary =
