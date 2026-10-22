@@ -276,6 +276,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # NPM_TOKEN intentionally omitted — OIDC Trusted Publishing handles auth.
-          # No provenance attestations: every package sets
-          # publishConfig.provenance: false. id-token: write above is for the
-          # OIDC publish token only.
+          # id-token: write above is for the OIDC publish token. npm still adds
+          # an SLSA provenance attestation to trusted publishes, despite
+          # publishConfig.provenance: false (see docs/RELEASING.md).
