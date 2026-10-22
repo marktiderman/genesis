@@ -25,6 +25,7 @@ import { tokens } from "@marktiderman/genesis/design-system/tokens";
 | `.../native`                 | `@marktiderman/genesis-ui-native`      |
 | `.../forms`                  | `@marktiderman/genesis-forms`          |
 | `.../forms/server`           | `@marktiderman/genesis-forms/server`   |
+| `.../forms/destinations`     | `@marktiderman/genesis-forms/destinations` |
 | `.../forms/react`            | `@marktiderman/genesis-forms-react`    |
 | `.../forms/web`              | `@marktiderman/genesis-forms-web`      |
 

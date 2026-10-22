@@ -139,7 +139,7 @@ const MAX_EMAIL_LENGTH = 254;
  * `local@domain.tld`: no spaces, exactly one `@`, and a dot inside the domain.
  * A linear scan rather than a regex, so a hostile value cannot backtrack.
  */
-function isEmailAddress(value: string): boolean {
+export function isEmailAddress(value: string): boolean {
   if (value.length > MAX_EMAIL_LENGTH || /\s/.test(value)) return false;
   const at = value.indexOf("@");
   if (at < 1 || value.indexOf("@", at + 1) !== -1) return false;

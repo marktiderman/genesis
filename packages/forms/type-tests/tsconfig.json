@@ -14,6 +14,9 @@
       ],
       "@marktiderman/genesis-forms/server": [
         "../dist/server.d.ts"
+      ],
+      "@marktiderman/genesis-forms/destinations": [
+        "../dist/destinations.d.ts"
       ]
     },
     "types": []
