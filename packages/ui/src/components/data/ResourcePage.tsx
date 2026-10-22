@@ -55,6 +55,10 @@ import {
 import { useViewSettings } from "../../hooks/use-view-settings";
 import { useKeyboardNavigation } from "../../hooks/use-keyboard-navigation";
 import {
+  useResourceUrlState,
+  type ResourceUrlStateOptions,
+} from "../../hooks/use-resource-url-state";
+import {
   isDataReadError,
   type BaseRecord,
   type FilterParam,
@@ -63,7 +67,11 @@ import {
 } from "@marktiderman/genesis-core/provider";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
 import type { WizardStep } from "@marktiderman/genesis-core/hooks";
-import { defaultNavigate, type NavigateFn } from "../../navigation";
+import {
+  defaultNavigate,
+  type NavigateFn,
+  type SearchParamsAdapter,
+} from "../../navigation";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -678,6 +686,18 @@ export interface ResourcePageProps<
   // Data options (client-side mode only)
   resourceOptions?: UseResourceOptions<T>;
   /**
+   * Keep the list's state in the URL: the open record (`?id=`), the search
+   * (`q`), the sort (`sort=field:asc`) and, with `pagination="server"`, the
+   * page. Pass your router's search-params adapter
+   * (`useReactRouterSearchParams()`, `useTanStackRouterSearchParams()`, or
+   * `useBrowserSearchParams()` with no router), or `{ searchParams, params }`
+   * to rename the keys. A copied link reopens the same record, and Back
+   * closes one that was opened. Search and sort are read when the page
+   * mounts and written as they change. A server-controlled page owns its
+   * own page, sort and search: use `useResourceUrlState` there.
+   */
+  urlState?: SearchParamsAdapter | ResourceUrlStateOptions;
+  /**
    * The view shown until the user picks one with the view toggle. Default
    * `"table"`. Pass `{ mobile: "grid", desktop: "table" }` for cards on
    * phones and a table on desktops. Only an explicit pick is persisted, so
@@ -792,6 +812,7 @@ export function ResourcePage<
     emptyDescription,
     header: headerMode = "page",
     resourceOptions,
+    urlState: urlStateProp,
     defaultView = "table",
     onNavigate = defaultNavigate,
     viewSettingsKey: viewSettingsKeyProp,
@@ -813,6 +834,23 @@ export function ResourcePage<
   // (no client-side transform, the pager under the list) with useResource's
   // setters standing in for the caller's callbacks.
   const resourceServerPaging = isClientMode && pagination === "server";
+
+  // ── URL state (`urlState`): the open record, search, sort and page ──
+  // An adapter has `setSearchParams`; the options object wraps one.
+  const url = useResourceUrlState(
+    urlStateProp
+      ? "setSearchParams" in urlStateProp
+        ? { searchParams: urlStateProp }
+        : urlStateProp
+      : undefined,
+  );
+  // Read once: the URL seeds the list when it mounts, then follows it.
+  const [urlSeed] = useState(() =>
+    url ? { q: url.q, sort: url.sort, page: url.page } : null,
+  );
+  const urlSortKey = urlSeed?.sort
+    ? `${urlSeed.sort.field}:${urlSeed.sort.order}`
+    : "";
 
   const isServerControlled =
     resourceServerPaging ||
@@ -858,6 +896,15 @@ export function ResourcePage<
           // current page on screen while the next one loads.
           keepPreviousData:
             resourceOptions?.keepPreviousData ?? resourceServerPaging,
+          // Start where the URL says, so restoring a link doesn't push a
+          // search or sort that resets the page to 1.
+          ...(resourceServerPaging && urlSeed
+            ? {
+                defaultSearch: urlSeed.q,
+                ...(urlSeed.page ? { defaultPage: urlSeed.page } : {}),
+                ...(urlSeed.sort ? { defaultSort: urlSeed.sort } : {}),
+              }
+            : {}),
         }
       : { enabled: false },
   );
@@ -892,7 +939,18 @@ export function ResourcePage<
     columns: columnsProp,
     statusFilter,
     searchFields,
-    initialFilters,
+    initialFilters:
+      initialFilters ??
+      (urlSeed && (urlSeed.q || urlSeed.sort)
+        ? [
+            ...(urlSeed.q
+              ? [{ field: "__search__", operator: "contains" as const, value: urlSeed.q }]
+              : []),
+            ...(urlSeed.sort
+              ? [{ field: "__sort__", operator: "eq" as const, value: urlSortKey }]
+              : []),
+          ]
+        : undefined),
     onFiltersChange,
     defaultView,
     detail,
@@ -911,7 +969,8 @@ export function ResourcePage<
     setSort: setResourceSort,
     setFilters: setResourceFilters,
   } = resourceHook;
-  const pushedSearchRef = useRef("");
+  // Seeded from the URL, which useResource already starts on (see above).
+  const pushedSearchRef = useRef(resourceServerPaging ? (urlSeed?.q ?? "") : "");
   const searchEffectRanRef = useRef(false);
   useEffect(() => {
     if (!resourceServerPaging) return;
@@ -935,7 +994,7 @@ export function ResourcePage<
   }, [resourceServerPaging, page.search, setResourceSearch]);
 
   const defaultSort = resourceOptions?.defaultSort;
-  const pushedSortRef = useRef<string>("");
+  const pushedSortRef = useRef<string>(resourceServerPaging ? urlSortKey : "");
   useEffect(() => {
     if (!resourceServerPaging) return;
     const key = page.sort ? `${page.sort.field}:${page.sort.order}` : "";
@@ -1038,13 +1097,17 @@ export function ResourcePage<
   // peek itself (`performDelete`).
   // An empty key (rows with no `id` and no `getKey`) identifies nothing, so
   // it keeps the snapshot rather than matching the first keyless row.
-  const selectedKey = page.selectedItem ? keyOf(page.selectedItem) : null;
-  const selectedItem: T | null = !page.selectedItem
-    ? null
-    : selectedKey
-      ? (displayData.find((row) => keyOf(row) === selectedKey) ??
-        page.selectedItem)
-      : page.selectedItem;
+  // With `urlState` the URL names the open record (`?id=`): a link opens it,
+  // and Back closes it. The click-time snapshot still covers a record that
+  // isn't in the current rows.
+  const snapshotKey = page.selectedItem ? keyOf(page.selectedItem) : null;
+  const selectedKey = url ? url.detailId : snapshotKey;
+  const snapshot =
+    page.selectedItem && snapshotKey === selectedKey ? page.selectedItem : null;
+  const selectedItem: T | null = !selectedKey
+    ? snapshot
+    : (displayData.find((row) => keyOf(row) === selectedKey) ?? snapshot);
+  const detailOpen = url ? selectedItem !== null : page.detailOpen;
 
   // ── Bulk selection ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1106,7 +1169,8 @@ export function ResourcePage<
   const closeDetail = useCallback(() => {
     page.setDetailOpen(false);
     page.setSelectedItem(null);
-  }, [page]);
+    url?.setDetailId(null);
+  }, [page, url]);
 
   // ── Delete: built-in, confirmed, or the caller's as-is ──
   const useBuiltInDelete = !!allowDelete && !onDelete && isClientMode;
@@ -1188,6 +1252,9 @@ export function ResourcePage<
           header: col.header ?? col.key,
           sortable: col.sortable ?? true,
           hideBelow: col.hideBelow,
+          width: col.width,
+          minWidth: col.minWidth,
+          defaultVisible: col.defaultVisible,
           editable: col.editable,
           accessor: col.accessor,
           render: col.render
@@ -1224,6 +1291,18 @@ export function ResourcePage<
     ? resourceHook.setPage
     : onPageChange;
   const currentPage = pagerPage ?? 1;
+
+  // ── `urlState`: write search, sort and (server paging) page back ──
+  // Replace-only, so Back steps through opened records rather than every
+  // keystroke; an unchanged URL is not rewritten.
+  const writeUrl = url?.write;
+  useEffect(() => {
+    writeUrl?.({
+      q: page.search,
+      sort: page.sort,
+      ...(resourceServerPaging ? { page: currentPage } : {}),
+    });
+  }, [writeUrl, page.search, page.sort, currentPage, resourceServerPaging]);
 
   // ── Filter changes: keep the controlled UI state, and tell the server ──
   // In client-side mode these are exactly the hook's own setters; in
@@ -1431,6 +1510,7 @@ export function ResourcePage<
       return;
     }
     page.handleRowClick(item);
+    if (url && (detail === "panel" || detail === "modal")) url.setDetailId(keyOf(item));
   };
 
   // ── Keyboard navigation (j/k, Enter, Backspace, x) ──
@@ -1443,7 +1523,7 @@ export function ResourcePage<
   // keys suspend (they'd otherwise drive the list behind the overlay, and
   // Enter would re-open the row instead of activating the focused control);
   // ⌫ stays live so it can dismiss the overlay.
-  const overlayOpen = page.detailOpen || formOpen || deleteOpen;
+  const overlayOpen = detailOpen || formOpen || deleteOpen;
   const keyboardNav = useKeyboardNavigation({
     itemCount: page.data.length,
     enabled: keyboardNavigation && page.viewMode !== "table",
@@ -1466,12 +1546,7 @@ export function ResourcePage<
     // every grid/list page (including detail="none" and detail="route",
     // which never open one). `detailOpen` is only ever true for the panel
     // and modal modes, so it is the precise precondition here.
-    onBack: page.detailOpen
-      ? () => {
-          page.setDetailOpen(false);
-          page.setSelectedItem(null);
-        }
-      : undefined,
+    onBack: detailOpen ? closeDetail : undefined,
   });
 
   // ── Create button ──
@@ -1891,7 +1966,7 @@ export function ResourcePage<
           slots?.detail,
           {
             item: selectedItem,
-            open: page.detailOpen,
+            open: detailOpen,
             onClose: closeDetail,
             title: detailTitle,
             subtitle: detailSubtitle,

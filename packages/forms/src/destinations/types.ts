@@ -233,6 +233,16 @@ export async function timedFetch(
   const timeout = AbortSignal.timeout(deps.timeoutMs ?? REQUEST_TIMEOUT_MS);
   const any = (AbortSignal as unknown as { any?: (signals: AbortSignal[]) => AbortSignal }).any;
   const combined = signal ? (any ? any([timeout, signal]) : signal.aborted ? signal : timeout) : timeout;
+  // fetch rejects with a TypeError both for a network failure and for a
+  // request that can never be sent (a newline in a header value, a bad URL).
+  // Building the Request first separates the two: that one fails for good,
+  // without echoing the value that broke it.
+  try {
+    // Without the body, so a stream body is never locked by the check.
+    new Request(url, { method: init.method ?? "GET", headers: init.headers ?? {} });
+  } catch {
+    throw new DeliveryError("Invalid request (a header value or the URL is malformed)", { retryable: false });
+  }
   try {
     return await (deps.fetch ?? fetch)(url, { ...init, signal: combined });
   } catch (error) {

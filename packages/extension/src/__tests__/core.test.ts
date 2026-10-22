@@ -177,6 +177,8 @@ describe("surfaces", () => {
     expect(state.frame.src).not.toContain("#");
     const wrap = state.frame.parentElement as HTMLElement;
     expect(wrap.style.visibility).toBe("hidden"); // blank until the surface answers
+    // ...and lets the page's clicks through until then.
+    expect(state.host.getAttribute("style")).toContain("pointer-events: none !important");
     const frameWindow = {
       postMessage: (
         m: { type: string; nonce?: string },
@@ -205,6 +207,7 @@ describe("surfaces", () => {
     offered!.postMessage({ type: "gx-hello" });
     await new Promise((r) => setTimeout(r, 20));
     expect(wrap.style.visibility).toBe("visible");
+    expect(state.host.getAttribute("style")).toContain("pointer-events: auto !important");
     // The page sets frames[0].location: a second load closes the frame.
     const host = state.host;
     state.frame.dispatchEvent(new Event("load"));
@@ -320,6 +323,45 @@ describe("surface secret", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(fromFrame).toEqual([]);
     expect(document.documentElement.style.visibility).toBe("hidden");
+    document.documentElement.style.visibility = "";
+  });
+
+  it("never removes a newer open's secret minted while it was checking its own", async () => {
+    history.replaceState(null, "", "/popup.html?tab=3&panel=1");
+    resetSurfaceForTests();
+    vi.spyOn(window, "top", "get").mockReturnValue({} as Window);
+    const area = fake.storage.session!;
+    await area.set({
+      "genesis-extension:surface:3": { nonce: "old-nonce", at: Date.now() },
+    });
+    // Between this frame's read and its remove, a reopen mints the next nonce.
+    const realGet = area.get.bind(area);
+    let reads = 0;
+    vi.spyOn(area, "get").mockImplementation((async (keys: unknown) => {
+      const result = await realGet(keys as string);
+      reads += 1;
+      if (reads === 1) {
+        await area.set({
+          "genesis-extension:surface:3": { nonce: "new-nonce", at: Date.now() },
+        });
+      }
+      return result;
+    }) as typeof area.get);
+    const surface = connectSurface({ autoResize: false });
+    const line = new MessageChannel();
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { type: "gx-connect", nonce: "old-nonce" },
+        source: window.parent,
+        ports: [line.port2],
+      }),
+    );
+    expect(await surface.ready).toBe(true);
+    vi.mocked(area.get).mockRestore();
+    expect(await area.get("genesis-extension:surface:3")).toEqual({
+      "genesis-extension:surface:3": { nonce: "new-nonce", at: expect.any(Number) },
+    });
+    surface.close();
     document.documentElement.style.visibility = "";
   });
 
