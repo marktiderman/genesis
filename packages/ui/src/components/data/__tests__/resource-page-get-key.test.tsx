@@ -11,14 +11,14 @@ import { ResourcePage } from "../ResourcePage";
 
 interface Membership {
   [key: string]: unknown;
-  coach_id: string;
-  client_id: string;
+  owner_id: string;
+  customer_id: string;
   label: string;
 }
 
 const rows: Membership[] = [
-  { coach_id: "c1", client_id: "u1", label: "primary" },
-  { coach_id: "c1", client_id: "u2", label: "backup" },
+  { owner_id: "c1", customer_id: "u1", label: "primary" },
+  { owner_id: "c1", customer_id: "u2", label: "backup" },
 ];
 
 describe("ResourcePage getKey", () => {
@@ -32,7 +32,7 @@ describe("ResourcePage getKey", () => {
           total={rows.length}
           columns={["label"]}
           detail="none"
-          getKey={(r) => JSON.stringify([r.coach_id, r.client_id])}
+          getKey={(r) => JSON.stringify([r.owner_id, r.customer_id])}
           bulkActions={[{ label: "Export", onAction, testId: "export" }]}
         />
       </GenesisProvider>,
@@ -53,7 +53,7 @@ describe("ResourcePage getKey", () => {
           data={rows}
           total={rows.length}
           detail="none"
-          getKey={(r) => `${r.coach_id}/${r.client_id}`}
+          getKey={(r) => `${r.owner_id}/${r.customer_id}`}
           columns={[{ key: "label", editable: { type: "text", onSave } }]}
         />
       </GenesisProvider>,

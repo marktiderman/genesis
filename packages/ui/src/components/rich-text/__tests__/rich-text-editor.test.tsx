@@ -23,7 +23,7 @@ import type { RichTextDoc } from "../rich-text-doc";
 
 const hello: RichTextDoc = {
   type: "doc",
-  content: [{ type: "paragraph", content: [{ type: "text", text: "Hello coach" }] }],
+  content: [{ type: "paragraph", content: [{ type: "text", text: "Hello there" }] }],
 };
 
 async function mounted() {
@@ -37,13 +37,13 @@ async function mounted() {
 describe("RichTextEditor", () => {
   it("server-renders the content read-only, then mounts the editor", async () => {
     const html = renderToString(<RichTextEditor aria-label="Lesson text" defaultValue={hello} />);
-    expect(html).toContain("Hello coach");
+    expect(html).toContain("Hello there");
     expect(html).not.toContain("contenteditable");
 
     render(<RichTextEditor aria-label="Lesson text" defaultValue={hello} />);
     const box = await mounted();
     expect(box.getAttribute("aria-multiline")).toBe("true");
-    expect(box.textContent).toBe("Hello coach");
+    expect(box.textContent).toBe("Hello there");
     expect(screen.getByRole("toolbar", { name: "Formatting" })).toBeTruthy();
   });
 
@@ -72,10 +72,10 @@ describe("RichTextEditor", () => {
     const [doc, details] = onChange.mock.lastCall!;
     expect(doc).toEqual({
       type: "doc",
-      content: [{ type: "paragraph", content: [{ type: "text", text: "Hello coach", marks: [{ type: "bold" }] }] }],
+      content: [{ type: "paragraph", content: [{ type: "text", text: "Hello there", marks: [{ type: "bold" }] }] }],
     });
-    expect(details.html).toBe("<p><strong>Hello coach</strong></p>");
-    expect(details.text).toBe("Hello coach");
+    expect(details.html).toBe("<p><strong>Hello there</strong></p>");
+    expect(details.text).toBe("Hello there");
     expect(details.isEmpty).toBe(false);
     await waitFor(() => expect(screen.getByRole("button", { name: "Bold" }).getAttribute("aria-pressed")).toBe("true"));
   });
