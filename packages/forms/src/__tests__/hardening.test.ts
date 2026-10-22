@@ -884,6 +884,27 @@ describe("forms review fixes", () => {
       expect(() => parseForm(def(deep))).not.toThrow();
     });
 
+    it("once, as an error, for an operator that doesn't apply", () => {
+      const def = {
+        schemaVersion: 1, id: "f", title: "F",
+        blocks: [field("t", "short-text"), field("last", "short-text")],
+        logic: [{ id: "x", when: { op: "lt", left: { field: "t" }, right: { value: 3 } }, effect: "show", target: "last" }],
+      };
+      const p = parseForm(def);
+      expect(p.ok).toBe(false);
+      expect(p.warnings).toEqual([]);
+    });
+
+    it("for recall in endings and the introduction that names nothing", () => {
+      const p = parseForm({
+        schemaVersion: 1, id: "f", title: "F", description: "Hi {{hidden:who}}",
+        blocks: [field("a", "short-text")],
+        endings: [{ id: "default", title: "Thanks {{field:a}}", description: "Bye {{field:gone|friend}}" }],
+      });
+      expect(p.ok).toBe(true);
+      expect(p.warnings.map((w) => w.path)).toEqual(["description", "endings[0]"]);
+    });
+
     it("not for literals that fit, or operands known only at run time", () => {
       const fine: Cond[] = [
         { op: "eq", left: { field: "r" }, right: { value: 5 } },

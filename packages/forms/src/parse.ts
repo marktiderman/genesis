@@ -276,7 +276,8 @@ export function parseForm(input: unknown): ParseResult {
     if (typeof c.left.field === "string") {
       const manifest = getFieldType(fieldTypes.get(c.left.field) ?? "");
       if (manifest && OPERATORS.has(c.op) && !manifest.operators.includes(c.op as Operator)) {
-        issue(`${path}.op`, `"${c.op}" does not apply to a ${manifest.type} field.`);
+        // Already wrong; a literal warning on top would only repeat it.
+        return issue(`${path}.op`, `"${c.op}" does not apply to a ${manifest.type} field.`);
       }
     }
     checkLiterals(c.op, c.left, c.right, path);
@@ -405,6 +406,21 @@ export function parseForm(input: unknown): ParseResult {
       }
     }
   });
+
+  // Endings and the introduction recall too. Only warnings: a stale token here shows as
+  // its fallback text, and earlier releases accepted these definitions.
+  const extra: [string, unknown][] = [["description", input.description]];
+  (Array.isArray(input.endings) ? input.endings : []).forEach((e: unknown, i) => {
+    if (isObject(e)) extra.push([`endings[${i}]`, e.title], [`endings[${i}]`, e.description]);
+  });
+  for (const [path, t] of extra) {
+    if (typeof t !== "string") continue;
+    for (const ref of recallRefs(t)) {
+      if (ref.kind === "hidden" ? !hiddenNames.has(ref.name) : !keys.has(ref.name)) {
+        warnings.push({ path, message: `Recalls unknown ${ref.kind === "hidden" ? "hidden input" : "field"} "${ref.name}"; it shows its fallback text.` });
+      }
+    }
+  }
 
   return issues.length ? fail() : { ok: true, form: input as unknown as FormDefinition, warnings };
 }

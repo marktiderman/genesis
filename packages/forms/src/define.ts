@@ -201,8 +201,8 @@ function resolveCondition(c: Condition, r: KeyResolver): Condition {
 type HiddenSpec = {
   type: HiddenInput["type"];
   source: HiddenInput["source"];
-  sensitive?: boolean;
-  identifying?: boolean;
+  sensitive?: boolean | undefined;
+  identifying?: boolean | undefined;
 };
 type HiddenValue<T extends HiddenSpec["type"]> = T extends "number" ? number : T extends "boolean" ? boolean : string;
 

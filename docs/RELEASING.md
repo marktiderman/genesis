@@ -66,17 +66,17 @@ usual.
 
 ## Forms packages and 0.x peer ranges
 
-changesets gives a package a **major** bump whenever a new version of one of
-its peer dependencies leaves the peer range, and there is no option to turn
-that off. With `workspace:^` on a 0.x package, every minor of
-`genesis-forms` would leave `^0.1.x` and push `-react`, `-web` and `-devtools`
-to `1.0.0`. So their peer ranges on other forms packages are written as
-`workspace:>=0.1.1 <1.0.0` (any 0.x from that floor). Raise the floor by hand
-when a dependent starts needing a newer forms API; changesets leaves in-range
-peer ranges alone. The forms packages are also a `linked` group in
-`.changeset/config.json` (`@marktiderman/genesis-forms` and
-`@marktiderman/genesis-forms-*`), so packages released together get the same
-version. Check a release plan with `pnpm changeset status --verbose`.
+With `workspace:^` on a 0.x package, every minor of `genesis-forms` would leave
+`^0.1.x`, and changesets gives a dependent a **major** bump when a new version
+leaves its peer range: `-react`, `-web` and `-devtools` would go to `1.0.0`. So
+their peer ranges on other forms packages are written as
+`workspace:>=0.1.1 <1.0.0` (any 0.x from that floor), and changesets leaves a
+dependent alone while the new version stays in range. That relies on
+`onlyUpdatePeerDependentsWhenOutOfRange: true` in `.changeset/config.json`;
+without it, changesets majors a dependent on any non-patch peer release, in
+range or not, so keep it on. Raise a floor by hand when a dependent starts
+needing a newer forms API. Each forms package is versioned on its own (no
+`linked` group). Check a release plan with `pnpm changeset status --verbose`.
 
 ## When the "Verify npm Trusted Publishing" step fails
 
