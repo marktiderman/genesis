@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 128 components · 391 other exports · 237 standalone types across 9 packages and entry points.
+**Totals:** 128 components · 395 other exports · 239 standalone types across 9 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -30,7 +30,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 
-### Other exports (20)
+### Other exports (24)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -42,11 +42,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createMockProvider`](../packages/core/src/provider/mock-provider.ts) | function | — | _(no summary)_ |
 | [`createNoopStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | No-op adapter — all operations silently do nothing. |
 | [`createSupabaseProvider`](../packages/core/src/provider/supabase-provider.ts) | function | — | The Supabase data provider. Reads and writes go through the client you pass, under that client's session and RLS. |
+| [`DataReadError`](../packages/core/src/schema/read-outcome.ts) | class | — | Thrown by a provider when a read failed. Its `message` is safe to show. |
 | [`DataWriteError`](../packages/core/src/schema/write-outcome.ts) | class | — | Thrown by a provider when a write did not commit. |
 | [`decodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | The inverse of {@link encodeRecordKey}: field name → value. |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
+| [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
+| [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
+| [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
@@ -57,7 +61,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (65)
+### Types (67)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -70,6 +74,7 @@ export type { BulkResult };
 export type { CreateParams };
 export type { CreateResult };
 export type { DataProvider };
+export type { DataReadErrorOptions };
 export type { DataRow };
 export type { DataWriteErrorOptions };
 export type { DeleteParams };
@@ -95,6 +100,7 @@ export type { NullFilter };
 export type { PaginationParam };
 export type { ProviderCapabilities };
 export type { RangeFilter };
+export type { ReadOutcome };
 export type { RecordComment };
 export type { ResourceAccess };
 export type { ResourceContract };

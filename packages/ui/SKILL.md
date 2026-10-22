@@ -56,7 +56,7 @@ Reach for these before a slot. Each one replaced a slot workaround in a real app
 | You need | Prop |
 | --- | --- |
 | Every row reachable in `resource` mode | default `pagination="client"` fetches up to `clientRowLimit` (1000) and says so past it; `pagination="server"` pages through the provider (give it `searchFields`) |
-| Per-row rights in the peek | `canEditItem(item)` for both, or `canEdit(item)` / `canDelete(item)` separately (UI gate only; the server still decides) |
+| Who may create, edit, delete | `can(action, item)` (UI gate only; the server still decides) |
 | A confirmed delete | `allowDelete` (built in, `resource` mode), or `onDelete` + `confirmDelete`; copy via `confirmDelete={{ title: (item) => … }}`, toast via `onDeleted` |
 | A computed peek subtitle | `getSubtitle(item)`; the peek stays open after an edit and shows the saved row |
 | A list inside a tab (no page title) | `header="toolbar"` (also on `DataPageShell`) |
@@ -129,9 +129,9 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
 - **Clickable cards:** with a custom `renderCard`, `openOnCardClick` makes the whole card one
   keyboard-reachable button that opens the detail. On a bare `DataGrid`, use `onItemClick` and
   `getItemLabel`. Never wrap a card in a `div role="button"`.
-- **Per-row rights:** `canEditItem(item)` hides Edit and Delete for rows the user can't change;
-  `canEdit(item)` / `canDelete(item)` gate each one separately. `canEditItem` is checked first: a row it
-  refuses gets neither button, whatever the pair says.
+- **Permissions:** `can(action, item)` with `"create"`, `"edit"` or `"delete"` hides the New button or
+  a row's Edit / Delete (a UI gate; the server still decides). `canEditItem`, `canEdit` and `canDelete`
+  are deprecated aliases, still honoured.
 - **Names and empty state:** `getTitle` / `getSubtitle` when a record's name spans fields;
   `emptyIcon`, `emptyMessage`, `emptyDescription` and `emptyState` (its action) for the empty list.
 - **A list inside tabs:** `header="toolbar"` (on `ResourcePage` or `DataPageShell`) drops the title

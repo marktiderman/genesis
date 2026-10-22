@@ -78,6 +78,13 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
+ * What a user may do with a list's records, for ResourcePage's `can`.
+ *
+ * @stability Beta
+ */
+export type ResourceAction = "create" | "edit" | "delete";
+
+/**
  * Row-bound actions handed to `renderCard`, on top of the resource-wide
  * `ResourceActions`. `open` is per-row, which is why it lives here rather
  * than on `ResourceActions` — that object is built once and shared by every
@@ -502,28 +509,28 @@ export interface ResourcePageProps<
    */
   onDelete?: (item: T) => void | Promise<void>;
   /**
-   * Whether the signed-in user may change this record at all: shorthand for
-   * `canEdit` and `canDelete` together. When it returns false the peek
-   * offers neither Edit nor Delete.
-   *
-   * Precedence: `canEditItem` is checked first. A row it refuses gets no Edit
-   * and no Delete, whatever `canEdit` / `canDelete` say. A row it allows is
-   * then gated by `canEdit` (Edit) and `canDelete` (Delete) when given. Use
-   * `canEditItem` alone for one owner rule, or the pair for separate rules.
+   * What the signed-in user may do: `can("create")`, `can("edit", item)`,
+   * `can("delete", item)`. Return false to hide the New button, or a row's
+   * Edit or Delete (and the built-in edit form won't open for it). Omitted,
+   * everything the handlers allow is offered. A UI gate only: the server
+   * must still refuse the write.
+   */
+  can?: (action: ResourceAction, item?: T) => boolean;
+  /**
+   * @deprecated Use `can` — `can={(action, item) => !item || mayChange(item)}`.
+   * Removed in the next minor after one deprecation window. Still honoured:
+   * a row it refuses gets no Edit and no Delete.
    */
   canEditItem?: (item: T) => boolean;
   createLabel?: string;
   /**
-   * Whether this row may be edited. The peek's Edit button is hidden for a
-   * row that returns `false` (and the built-in edit form will not open for
-   * it). Omitted, every row is editable, as before. A UI gate only: the
-   * server must still refuse the write.
+   * @deprecated Use `can` — `can={(action, item) => action !== "edit" || !item || mayEdit(item)}`.
+   * Still honoured: a row it refuses gets no Edit.
    */
   canEdit?: (item: T) => boolean;
   /**
-   * Whether this row may be deleted. The peek's Delete button is hidden for
-   * a row that returns `false`. Omitted, every row is deletable. A UI gate
-   * only: the server must still refuse the write.
+   * @deprecated Use `can` — `can={(action, item) => action !== "delete" || !item || mayDelete(item)}`.
+   * Still honoured: a row it refuses gets no Delete.
    */
   canDelete?: (item: T) => boolean;
   /**
@@ -783,6 +790,7 @@ export function ResourcePage<
     onCreate,
     onEdit,
     onDelete,
+    can,
     canEditItem,
     createLabel = "New",
     canEdit,
@@ -1151,10 +1159,22 @@ export function ResourcePage<
     }
   }, [useBuiltInCreate, onCreate]);
 
+  // One permission check: `can`, then the deprecated per-row predicates.
+  const allows = useCallback(
+    (action: ResourceAction, item?: T): boolean => {
+      if (can && !can(action, item)) return false;
+      if (!item) return true;
+      if (canEditItem && !canEditItem(item)) return false;
+      if (action === "edit" && canEdit && !canEdit(item)) return false;
+      if (action === "delete" && canDelete && !canDelete(item)) return false;
+      return true;
+    },
+    [can, canEditItem, canEdit, canDelete],
+  );
+
   const handleEdit = useCallback(
     (item: T) => {
-      if (canEdit && !canEdit(item)) return;
-      if (canEditItem && !canEditItem(item)) return;
+      if (!allows("edit", item)) return;
       if (useBuiltInEdit) {
         setFormAction("edit");
         setFormItem(item);
@@ -1163,7 +1183,7 @@ export function ResourcePage<
         onEdit(item);
       }
     },
-    [useBuiltInEdit, onEdit, canEdit, canEditItem],
+    [useBuiltInEdit, onEdit, allows],
   );
 
   const closeDetail = useCallback(() => {
@@ -1234,15 +1254,8 @@ export function ResourcePage<
           };
 
   // Per-row rights, evaluated against the row the peek is showing.
-  const mayChange = (item: T) => (canEditItem ? canEditItem(item) : true);
-  const selectedEditable =
-    !!selectedItem &&
-    mayChange(selectedItem) &&
-    (canEdit ? canEdit(selectedItem) : true);
-  const selectedDeletable =
-    !!selectedItem &&
-    mayChange(selectedItem) &&
-    (canDelete ? canDelete(selectedItem) : true);
+  const selectedEditable = !!selectedItem && allows("edit", selectedItem);
+  const selectedDeletable = !!selectedItem && allows("delete", selectedItem);
 
   // ── Patch tableColumns to use real actions (client-side mode) ──
   const tableColumns = useMemo(() => {
@@ -1550,7 +1563,7 @@ export function ResourcePage<
   });
 
   // ── Create button ──
-  const showCreateButton = onCreate || useBuiltInCreate;
+  const showCreateButton = (onCreate || useBuiltInCreate) && allows("create");
   const createButton = showCreateButton ? (
     <Button size="sm" onClick={handleCreate}>
       <Plus className="h-4 w-4 mr-1" />
