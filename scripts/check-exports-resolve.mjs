@@ -24,8 +24,9 @@
  *
  * WHAT IT CHECKS
  *
- * Every target in the `exports` map — both the `types` and the `import`
- * condition — resolves to a file that actually exists under `dist/`.
+ * Every target in the `exports` map — every condition, including nested
+ * ones such as `require: { types, default }` — resolves to a file that
+ * actually exists under `dist/`.
  *
  * WILDCARDS
  *
@@ -33,7 +34,8 @@
  * exist" is the wrong question. For those the check asserts the pattern
  * matches AT LEAST ONE emitted file, which catches a whole directory failing
  * to emit while still allowing the pattern's open-ended set. A wildcard that
- * matches nothing is reported as a failure.
+ * matches nothing is reported as a failure. A wildcard outside `dist/` (such
+ * as committed fixtures) is matched against its own top-level directory.
  *
  * Usage:  node ../../scripts/check-exports-resolve.mjs [packageDir]
  *         (packageDir defaults to cwd, which is the package dir under `pnpm run`)
@@ -88,19 +90,28 @@ let concrete = 0;
 let wildcard = 0;
 
 for (const [subpath, conditions] of Object.entries(pkg.exports ?? {})) {
-  const targets =
-    typeof conditions === "string"
-      ? { default: conditions }
-      : (conditions ?? {});
+  // Conditions may nest (`import: { types, default }`); flatten them to
+  // `import.types`-style labels so nested targets are checked too.
+  const targets = {};
+  const flatten = (value, label) => {
+    if (typeof value === "string") targets[label] = value;
+    else if (value && typeof value === "object") {
+      for (const [k, v] of Object.entries(value)) flatten(v, label ? `${label}.${k}` : k);
+    }
+  };
+  flatten(conditions, typeof conditions === "string" ? "default" : "");
 
   for (const [condition, target] of Object.entries(targets)) {
-    if (typeof target !== "string") continue;
 
     if (target.includes("*")) {
       // Wildcard: require at least one emitted file to match.
       wildcard++;
       const re = patternToRegExp(target);
-      if (!distFiles.some((f) => re.test(f))) {
+      // Non-dist targets (e.g. `./conformance/*`, committed fixtures) are
+      // matched against their own top-level directory.
+      const top = target.replace(/^\.\//, "").split("/")[0];
+      const candidates = top === "dist" ? distFiles : walk(join(pkgRoot, top));
+      if (!candidates.some((f) => re.test(f))) {
         failures.push(
           `${subpath} [${condition}] -> ${target} : pattern matched no emitted file`,
         );
