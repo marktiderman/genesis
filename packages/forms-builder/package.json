@@ -1,0 +1,70 @@
+{
+  "name": "@marktiderman/genesis-forms-builder",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "description": "A visual builder for Genesis Forms definitions: questions, choices, show/hide and jump logic, endings, hidden inputs and settings, with live validation, path coverage, a live preview and a breaking-change diff between versions. It edits a definition and nothing else, so any app can host it. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/forms-builder"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && cp src/styles.css dist/styles.css && node ../../scripts/check-exports-resolve.mjs && tsc -p type-tests",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "lucide-react": "^1.0.0"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-forms": "workspace:>=0.1.1 <1.0.0",
+    "@marktiderman/genesis-forms-react": "workspace:>=0.1.0 <1.0.0",
+    "@marktiderman/genesis-forms-web": "workspace:>=0.1.0 <1.0.0",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-forms": "workspace:^",
+    "@marktiderman/genesis-forms-react": "workspace:^",
+    "@marktiderman/genesis-forms-web": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "fast-check": "^4.10.2",
+    "happy-dom": "^20.9.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
+  }
+}

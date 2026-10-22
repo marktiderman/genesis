@@ -46,6 +46,9 @@ type Pages = {
   "/forms-playground": {
     params: {};
   };
+  "/forms-builder": {
+    params: {};
+  };
   "/forms": {
     params: {};
   };
@@ -95,7 +98,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/forms-frame" | "/preview/:scenario" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms" | "/forms/:scenario" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/" | "/forms-frame" | "/preview/:scenario" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/_index.tsx": {
     id: "routes/_index";
@@ -111,7 +114,7 @@ type RouteFiles = {
   };
   "routes/_layout.tsx": {
     id: "routes/_layout";
-    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms" | "/forms/:scenario" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/studio" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -144,6 +147,10 @@ type RouteFiles = {
   "routes/forms-playground.tsx": {
     id: "routes/forms-playground";
     page: "/forms-playground";
+  };
+  "routes/forms-builder.tsx": {
+    id: "routes/forms-builder";
+    page: "/forms-builder";
   };
   "routes/forms.tsx": {
     id: "routes/forms";
@@ -213,6 +220,7 @@ type RouteModules = {
   "routes/design-system": typeof import("./app/routes/design-system.tsx");
   "routes/sandbox": typeof import("./app/routes/sandbox.tsx");
   "routes/forms-playground": typeof import("./app/routes/forms-playground.tsx");
+  "routes/forms-builder": typeof import("./app/routes/forms-builder.tsx");
   "routes/forms": typeof import("./app/routes/forms.tsx");
   "routes/forms._index": typeof import("./app/routes/forms._index.tsx");
   "routes/forms.$scenario": typeof import("./app/routes/forms.$scenario.tsx");

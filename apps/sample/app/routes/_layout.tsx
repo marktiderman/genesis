@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router";
 import { AppShell, type LinkComponent } from "@marktiderman/genesis-ui/data";
-import { LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler } from "lucide-react";
 
 const navItems = [
   { to: "/showcase", icon: Sparkles, label: "Showcase" },
@@ -12,6 +12,7 @@ const navItems = [
   { to: "/design-system", icon: Palette, label: "Design System" },
   { to: "/sandbox", icon: SlidersHorizontal, label: "Sandbox" },
   { to: "/forms", icon: ClipboardList, label: "Forms playground" },
+  { to: "/forms-builder", icon: PencilRuler, label: "Form builder" },
   { to: "/studio", icon: Database, label: "Data Studio" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
