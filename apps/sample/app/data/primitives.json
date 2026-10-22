@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 103
+      "count": 105
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -2677,8 +2677,8 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/notifications-page.tsx",
       "stability": "beta",
-      "summary": "Compose `<Stack.Screen options={...}>` for a NotificationsPage. Wires\na \"Mark all read\" action via `headerRight` when `onMarkAllRead` is\npassed.",
-      "primaryComponent": "getNotificationsPageStackOptions",
+      "summary": "NotificationsPage — feed-style notifications list.\n\nComposes:\n  - SectionList grouped by relative date (Today / Yesterday / Earlier)\n  - Pull-to-refresh\n  - Empty state slot (auto-rendered when `items` is empty)\n  - Mark-all-read action surfaced via `headerRight` helper\n  - Per-row \"mark read\" action exposed via the consumer's row press\n    (swipe-to-mark-read is documented as Maestro / E2E only because it\n    requires gesture-handler — consumers wire it via their own row\n    wrapper; this layout exposes the unread state via row props).\n\nLayer-3 customization: `headerTitle`, `headerLeft`, `headerRight`,\n`headerOptions`. Use `getNotificationsPageStackOptions()` to wire a\n\"Mark all read\" action via `headerRight` automatically.",
+      "primaryComponent": "NotificationsPage",
       "components": [
         {
           "name": "getNotificationsPageStackOptions",
@@ -3317,8 +3317,8 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/screen-container.tsx",
       "stability": "beta",
-      "summary": "Compose a `<Stack.Screen options={...}>` object from Layer-3 named\nprops + a direct `headerOptions` passthrough. Layouts call this and\npass the result to `<Stack.Screen>` so the host's expo-router stack\nrenders a platform-native large title / scroll-edge appearance.\n\nUsage (in a layout primitive):\n\n  const opts = composeHeaderOptions({\n    headerTitle: \"Settings\",\n    large: true,\n    scrollEdgeBehavior: \"match\",\n    headerOptions: rest.headerOptions,\n  });\n  return <><Stack.Screen options={opts} /><ScreenContainer>...</ScreenContainer></>;",
-      "primaryComponent": "composeHeaderOptions",
+      "summary": "ScreenContainer — Layer-2 page primitive.\n\nWires the chrome every layout needs without imposing layout structure:\n  - Safe-area edges (configurable via `safeAreaEdges`)\n  - StatusBar style (light / dark / auto)\n  - Scroll vs static body\n  - Tokens-aware background (`bg-background`)\n\nHeader customization is delegated: pass `headerLeft`, `headerRight`,\n`large`, `scrollEdgeBehavior`, `safeAreaEdges`, plus any direct\n`headerOptions` passthrough to `<Stack.Screen options={...} />`. We\n**do not** render the navigation header ourselves — Expo Router /\nReact Navigation render the platform-native header. Consumer either:\n\n  (a) Wraps the screen in `<ScreenContainer>` and ALSO declares\n      `<Stack.Screen options={headerOptionsFromProps(props)} />` at the\n      top of the screen (we export a helper `composeHeaderOptions` for\n      this), OR\n  (b) Imports `<NavBarTitle>` / `<NavBarSearchBar>` / `<NavBarSaveButton>`\n      sub-primitives and threads them through `headerLeft` / `headerRight`\n      options manually.\n\nThe Layer-3/4 layouts (SettingsPage, etc.) compose ScreenContainer + a\nhelper that wires Stack.Screen so consumers get the 3-line ergonomics.",
+      "primaryComponent": "ScreenContainer",
       "components": [
         {
           "name": "composeHeaderOptions",
@@ -3778,8 +3778,8 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/settings-page.tsx",
       "stability": "beta",
-      "summary": "Convenience helper for callers that want to wire `<Stack.Screen options={...}>`\nwithout re-importing composeHeaderOptions. Defaults `large: true` and\n`scrollEdgeBehavior: \"match\"` to match the Apple HIG large-title settings\npattern out of the box.",
-      "primaryComponent": "getSettingsPageStackOptions",
+      "summary": "SettingsPage — top-level settings layout.\n\nComposes `<ScreenContainer scroll>` underneath, renders a sectioned\n`ListItem` list, and surfaces an optional dangerous-action footer\n(e.g., \"Sign out\", \"Delete account\") in destructive tone.\n\nWhy ship a layout: every consumer rebuilds this list with the same\nthree pieces (sections → rows → footer). Genesis ships the assembly so\nconsumers compose, not rebuild.\n\nLayer-3 customization: pass `headerTitle`, `headerLeft`, `headerRight`,\n`large`, `scrollEdgeBehavior`, OR a direct `headerOptions={...}`\npassthrough. The composed options are rendered via the consumer's own\n`<Stack.Screen options={...}>` — see `getStackScreenOptions()` helper.\n\nLayer-2 escape hatch: drop down to `<ScreenContainer>` if the layout\nstructure doesn't fit (see standards/usage-doctrine.md).",
+      "primaryComponent": "SettingsPage",
       "components": [
         {
           "name": "getSettingsPageStackOptions",
@@ -3921,8 +3921,8 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/settings-sub-page.tsx",
       "stability": "beta",
-      "summary": "Default leave-guard helper. Pops a native Alert with Discard / Keep\nEditing buttons; calls `proceed()` only if the user opts to discard.\n\n  <SettingsSubPage onConfirmLeave={confirmDiscardChanges} ... />",
-      "primaryComponent": "confirmDiscardChanges",
+      "summary": "SettingsSubPage — drill-in detail layout.\n\nComposes a KeyboardAvoidingView + scroll + dirty-form leave warning +\noptimistic-save pattern. The save action is surfaced in the nav bar via\na `<NavBarSaveButton>` rendered through `headerRight`.\n\nWhy ship: the recurring shape is \"form fields + nav-bar Save + leave\nguard\"; consumers re-implement this every time. Genesis ships the\nshape so consumers focus on the form fields themselves.\n\nLayer-3 customization: pass `headerTitle`, `headerLeft`, OR a direct\n`headerOptions={...}`. Use `getSettingsSubPageStackOptions()` to get a\n`<Stack.Screen options={...}>` object (with the save button wired via\n`headerRight`).",
+      "primaryComponent": "SettingsSubPage",
       "components": [
         {
           "name": "confirmDiscardChanges",
@@ -8587,6 +8587,13 @@
               "description": ""
             },
             {
+              "name": "emptyDescription",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A line under the empty-state title, e.g. what to add first."
+            },
+            {
               "name": "emptyIcon",
               "type": "LucideIcon",
               "required": false,
@@ -12209,11 +12216,32 @@
               "description": ""
             },
             {
+              "name": "emptyDescription",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A line under the empty-state title."
+            },
+            {
+              "name": "emptyIcon",
+              "type": "LucideIcon",
+              "required": false,
+              "defaultValue": null,
+              "description": "The empty state's icon."
+            },
+            {
+              "name": "emptyMessage",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The empty state's title, e.g. \"No tasks yet\"."
+            },
+            {
               "name": "emptyState",
               "type": "ReactNode",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "The empty state's action, e.g. the create button."
             },
             {
               "name": "error",
@@ -12270,6 +12298,20 @@
               "required": false,
               "defaultValue": null,
               "description": "A row's identity, for React keys and bulk selection. Defaults to\n`String(item.id)`. Supply it for rows keyed some other way — a composite\nkey (`encodeRecordKey` from `@marktiderman/genesis-core/schema`), or a\ntable whose key column isn't called `id`. Detail `route` mode still\nnavigates by `item.id`."
+            },
+            {
+              "name": "getSubtitle",
+              "type": "((item: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The detail subtitle from more than one field. Wins over `subtitleField`."
+            },
+            {
+              "name": "getTitle",
+              "type": "((item: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Name a record from more than one field (`${first} ${last}`). Wins over\n`titleField` for the detail title and the card's accessible name."
             },
             {
               "name": "gridCols",
@@ -12585,6 +12627,450 @@
               "required": false,
               "defaultValue": null,
               "description": "Persist key for density / page size via `useViewSettings`.\nDefaults to `resource` or a slug of `title`."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "rich-text",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/rich-text",
+      "filePath": "packages/ui/src/components/rich-text/rich-text.tsx",
+      "stability": "beta",
+      "summary": "RichText — renders a rich text document as React elements.\n\nThe document is passed through `sanitizeRichTextDoc` first, and rendering\nnever uses `dangerouslySetInnerHTML`: text is React-escaped, links keep\nonly http(s)/mailto/tel/relative URLs, and the only iframes are YouTube,\nVimeo and Loom players rebuilt from a validated id. That makes it safe for\nstored or user-supplied JSON.\n\nServer-component safe (no hooks, no `\"use client\"`).",
+      "primaryComponent": "RichText",
+      "components": [
+        {
+          "name": "RichText",
+          "summary": "RichText — renders a rich text document as React elements.\n\nThe document is passed through `sanitizeRichTextDoc` first, and rendering\nnever uses `dangerouslySetInnerHTML`: text is React-escaped, links keep\nonly http(s)/mailto/tel/relative URLs, and the only iframes are YouTube,\nVimeo and Loom players rebuilt from a validated id. That makes it safe for\nstored or user-supplied JSON.\n\nServer-component safe (no hooks, no `\"use client\"`).",
+          "props": [
+            {
+              "name": "value",
+              "type": "RichTextDoc | null | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": "The document to render (the editor's JSON). Untrusted input is fine: it\nis sanitized before rendering, and nothing is set as raw HTML.\n`null`/`undefined` render an empty container."
+            },
+            {
+              "name": "embeds",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Render video embeds as players (`true`, default) or as plain links."
+            },
+            {
+              "name": "headingLevels",
+              "type": "readonly RichTextHeadingLevel[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Heading levels to keep; others move to the nearest kept level. Default `[2, 3, 4]`."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Stable test/automation selector (emitted as `data-testid`)."
+            }
+          ]
+        },
+        {
+          "name": "emptyRichTextDoc",
+          "summary": "An empty document: one empty paragraph, which is what the editor produces.",
+          "props": []
+        },
+        {
+          "name": "escapeHtml",
+          "summary": "Escape text for use in HTML element content and quoted attributes.",
+          "props": []
+        },
+        {
+          "name": "isRichTextDoc",
+          "summary": "True when `value` is shaped like a rich text document (`{ type: \"doc\" }`).",
+          "props": []
+        },
+        {
+          "name": "isRichTextEmpty",
+          "summary": "True when the document has no visible text and no embeds.",
+          "props": []
+        },
+        {
+          "name": "isSafeUrl",
+          "summary": "True when `url` is safe to put in an `href`: an absolute http(s), mailto or\ntel URL, a root-relative path (`/lessons/1`) or a fragment (`#notes`).\n\nRejects `javascript:`, `data:`, `vbscript:` and every other scheme, as well\nas protocol-relative `//host` URLs and anything containing whitespace or\ncontrol characters (browsers strip those, which is how `java\\tscript:`\nslips past naive checks).",
+          "props": []
+        },
+        {
+          "name": "normalizeLinkUrl",
+          "summary": "Turn what a person typed into the link field into a safe href, or `null`.\n`example.com/page` becomes `https://example.com/page`; an email address\nbecomes a `mailto:` link.",
+          "props": []
+        },
+        {
+          "name": "parseVideoUrl",
+          "summary": "Recognise a YouTube, Vimeo or Loom video URL (watch, share, short and embed\nforms) and reduce it to its provider and id. Returns `null` for anything\nelse, including other hosts that merely look similar.",
+          "props": []
+        },
+        {
+          "name": "RichTextLimitError",
+          "summary": "Thrown by `sanitizeRichTextDoc` when a document breaks a limit it was given.",
+          "props": []
+        },
+        {
+          "name": "richTextToHtml",
+          "summary": "Serialize a document to HTML. The input is sanitized first, so this is\nsafe to call on untrusted JSON; the output contains only the tags listed\nin this file's header, with every value escaped.",
+          "props": []
+        },
+        {
+          "name": "richTextToPlainText",
+          "summary": "Plain text for search indexes, previews and notifications. Blocks are\nseparated by blank lines; embeds become \"Title (url)\".",
+          "props": []
+        },
+        {
+          "name": "sanitizeRichTextDoc",
+          "summary": "Validate an untrusted value as a rich text document and return a clean\ncopy that contains only allow-listed nodes, marks and attributes.\n\n`null`, a string or a malformed object becomes an empty document. Run\nthis on the server on every write, before storing the JSON or deriving\nHTML from it, with limits so a client cannot store an oversized or\npathologically nested document:\n\n```ts\nsanitizeRichTextDoc(body, { maxCharacters: 50_000, maxNodes: 5_000, onTooDeep: \"throw\" });\n```\n\nWithout limits it never throws; with them it throws `RichTextLimitError`.",
+          "props": []
+        },
+        {
+          "name": "sanitizeVideoEmbedAttrs",
+          "summary": "Validate untrusted embed attributes, returning a clean copy or `null`.",
+          "props": []
+        },
+        {
+          "name": "videoEmbedSrc",
+          "summary": "The player URL for an embed. Built from validated parts only.",
+          "props": [
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The host's video id (YouTube 11 chars, Vimeo digits, Loom alphanumeric)."
+            },
+            {
+              "name": "provider",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "hash",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Vimeo's privacy hash for unlisted videos (`vimeo.com/123/abcdef`)."
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name for the player frame."
+            }
+          ]
+        },
+        {
+          "name": "videoEmbedTitle",
+          "summary": "Accessible name for an embed's frame: its title, or \"YouTube video\" etc.",
+          "props": [
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The host's video id (YouTube 11 chars, Vimeo digits, Loom alphanumeric)."
+            },
+            {
+              "name": "provider",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "hash",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Vimeo's privacy hash for unlisted videos (`vimeo.com/123/abcdef`)."
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name for the player frame."
+            }
+          ]
+        },
+        {
+          "name": "videoWatchUrl",
+          "summary": "The page URL for an embed (what a viewer would open in a new tab).",
+          "props": [
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The host's video id (YouTube 11 chars, Vimeo digits, Loom alphanumeric)."
+            },
+            {
+              "name": "provider",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "hash",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Vimeo's privacy hash for unlisted videos (`vimeo.com/123/abcdef`)."
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name for the player frame."
+            }
+          ]
+        },
+        {
+          "name": "RichTextDoc",
+          "summary": "The root node of a rich text document.",
+          "props": []
+        },
+        {
+          "name": "RichTextHeadingLevel",
+          "summary": "Heading levels a document may contain. `h1` is left to the page title.",
+          "props": []
+        },
+        {
+          "name": "RichTextMark",
+          "summary": "A mark on a text node. `link` carries its URL in `attrs.href`.",
+          "props": []
+        },
+        {
+          "name": "RichTextNode",
+          "summary": "One node of a rich text document. Structurally the same as Tiptap's\n`JSONContent`, so editor output can be passed straight in.",
+          "props": []
+        },
+        {
+          "name": "VideoEmbedAttrs",
+          "summary": "A video reference, reduced to what is needed to rebuild its player URL.",
+          "props": []
+        },
+        {
+          "name": "VideoProvider",
+          "summary": "Video hosts the `videoEmbed` node accepts.",
+          "props": []
+        },
+        {
+          "name": "richTextClassName",
+          "summary": "Typography for rendered rich text, shared by `RichText` and the editor's\neditable area so a document looks the same while writing and reading.\nExported for apps that render stored HTML themselves.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "rich-text-editor",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/rich-text-editor",
+      "filePath": "packages/ui/src/components/rich-text/rich-text-editor.tsx",
+      "stability": "beta",
+      "summary": "RichTextEditor — formatted text input for lessons, notes and other\nlong-form content.\n\n- **Value:** JSON is canonical (`RichTextDoc`). `onChange` hands you the\n  sanitized document plus lazily derived `html`/`text`. Store the JSON;\n  on the server re-run `sanitizeRichTextDoc` and derive HTML with\n  `richTextToHtml` (both from `/rich-text`, no DOM needed).\n- **Security:** output goes through the same allow-list as `RichText`;\n  links keep only http(s)/mailto/tel/relative URLs; embeds are rebuilt\n  from a validated YouTube/Vimeo/Loom id.\n- **SSR:** the editor mounts on the client only (Tiptap\n  `immediatelyRender: false`). Until then a JSON value renders read-only,\n  so server HTML shows the content instead of an empty box.\n- **Keyboard:** standard shortcuts (⌘/Ctrl+B, I, U, K for link,\n  ⌘/Ctrl+Alt+2/3 for headings, ⌘/Ctrl+Shift+7/8 for lists, ⌘/Ctrl+Shift+B\n  for quote, ⌘/Ctrl+Z / Shift+Z), shown in each toolbar tooltip. The\n  toolbar is one tab stop with arrow-key navigation (Radix Toolbar).",
+      "primaryComponent": "RichTextEditor",
+      "components": [
+        {
+          "name": "Node",
+          "summary": "The Node class is used to create custom node extensions.",
+          "props": []
+        },
+        {
+          "name": "RichTextDoc",
+          "summary": "The root node of a rich text document.",
+          "props": []
+        },
+        {
+          "name": "RichTextHeadingLevel",
+          "summary": "Heading levels a document may contain. `h1` is left to the page title.",
+          "props": []
+        },
+        {
+          "name": "RichTextEditor",
+          "summary": "RichTextEditor — formatted text input for lessons, notes and other\nlong-form content.\n\n- **Value:** JSON is canonical (`RichTextDoc`). `onChange` hands you the\n  sanitized document plus lazily derived `html`/`text`. Store the JSON;\n  on the server re-run `sanitizeRichTextDoc` and derive HTML with\n  `richTextToHtml` (both from `/rich-text`, no DOM needed).\n- **Security:** output goes through the same allow-list as `RichText`;\n  links keep only http(s)/mailto/tel/relative URLs; embeds are rebuilt\n  from a validated YouTube/Vimeo/Loom id.\n- **SSR:** the editor mounts on the client only (Tiptap\n  `immediatelyRender: false`). Until then a JSON value renders read-only,\n  so server HTML shows the content instead of an empty box.\n- **Keyboard:** standard shortcuts (⌘/Ctrl+B, I, U, K for link,\n  ⌘/Ctrl+Alt+2/3 for headings, ⌘/Ctrl+Shift+7/8 for lists, ⌘/Ctrl+Shift+B\n  for quote, ⌘/Ctrl+Z / Shift+Z), shown in each toolbar tooltip. The\n  toolbar is one tab stop with arrow-key navigation (Radix Toolbar).",
+          "props": [
+            {
+              "name": "aria-describedby",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aria-label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aria-labelledby",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "autoFocus",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the outer frame."
+            },
+            {
+              "name": "contentClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the editable area (for example a taller `min-h-*`)."
+            },
+            {
+              "name": "defaultValue",
+              "type": "RichTextEditorValue",
+              "required": false,
+              "defaultValue": null,
+              "description": "Initial value for an uncontrolled editor."
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Not editable, toolbar disabled, dimmed."
+            },
+            {
+              "name": "embeds",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Enable YouTube / Vimeo / Loom embeds (toolbar button and schema). Default `false`. Read at mount."
+            },
+            {
+              "name": "headingLevels",
+              "type": "readonly RichTextHeadingLevel[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Heading levels offered in the toolbar and kept in the document. Default `[2, 3]`. Read at mount."
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "`id` of the editable element. A `<label htmlFor={id}>` names the editor\n(wired as `aria-labelledby`, since a contenteditable is not a labelable\nelement) and clicking it focuses the editor."
+            },
+            {
+              "name": "invalid",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Marks the field invalid (`aria-invalid`, destructive border)."
+            },
+            {
+              "name": "labels",
+              "type": "Partial<RichTextEditorLabels>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Override any user-facing string (for translation)."
+            },
+            {
+              "name": "maxLength",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Maximum characters. Typing and pasting stop at the limit. Read at mount."
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Form field name. When set, a hidden input carries the document as JSON\nso a native `<form>` submission includes it."
+            },
+            {
+              "name": "onBlur",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onChange",
+              "type": "((doc: RichTextDoc, details: RichTextChangeDetails) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called on every edit with the sanitized document. `details` derives HTML\nand text lazily, so reading only `doc` costs no serialization."
+            },
+            {
+              "name": "onFocus",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "placeholder",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Placeholder shown while the document is empty."
+            },
+            {
+              "name": "readOnly",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Content is visible and selectable but not editable; the toolbar is hidden."
+            },
+            {
+              "name": "showCharacterCount",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Show the character count under the editor. On by default when `maxLength` is set."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Stable test/automation selector (emitted as `data-testid` on the frame)."
+            },
+            {
+              "name": "toolbar",
+              "type": "false | readonly RichTextToolbarItem[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Toolbar items, in groups as listed. `false` hides the toolbar (shortcuts still work)."
+            },
+            {
+              "name": "value",
+              "type": "RichTextEditorValue",
+              "required": false,
+              "defaultValue": null,
+              "description": "Controlled value. Pass back the `doc` from `onChange` synchronously; any\nother document (including an older one from a debounced or deferred\nparent) replaces the content and resets the selection."
             }
           ]
         }

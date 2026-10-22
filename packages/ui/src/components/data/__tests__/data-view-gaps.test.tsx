@@ -183,9 +183,60 @@ describe("ResourcePage openOnCardClick and canEditItem", () => {
     expect(within(ada).queryByRole("button", { name: /delete/i })).toBeNull();
   });
 
+  it("names records with getTitle / getSubtitle in the card label and the detail", () => {
+    renderPage({ getTitle: (r) => `${r.name}!`, getSubtitle: (r) => `Note: ${r.notes}` });
+    fireEvent.click(screen.getByRole("button", { name: "Open Ada!" }));
+    const detail = screen.getByRole("dialog");
+    expect(within(detail).getByText("Ada!")).toBeTruthy();
+    expect(within(detail).getByText("Note: first")).toBeTruthy();
+  });
+
   it("keeps Edit for a row the user can change", () => {
     renderPage({ canEditItem: (r) => r.id !== "1" });
     fireEvent.click(screen.getByRole("button", { name: "Open Linus" }));
     expect(within(screen.getByRole("dialog")).getByRole("button", { name: /edit/i })).toBeTruthy();
+  });
+});
+
+describe("ResourcePage detail follows the current rows", () => {
+  const page = (data: Row[]) => (
+    <GenesisProvider mock={{ datasets: {} }}>
+      <ResourcePage<Row> data={data} title="People" columns={["name", "notes"]} titleField="name" defaultView="table" />
+    </GenesisProvider>
+  );
+
+  it("shows an edited record's new values without reopening", () => {
+    const { rerender } = render(page(rows));
+    fireEvent.click(screen.getByText("Ada"));
+    rerender(page([{ ...rows[0]!, name: "Ada L." }, rows[1]!]));
+    expect(within(screen.getByRole("dialog")).getAllByText("Ada L.").length).toBeGreaterThan(0);
+  });
+
+  it("closes when the open record is gone", () => {
+    const { rerender } = render(page(rows));
+    fireEvent.click(screen.getByText("Ada"));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    rerender(page([rows[1]!]));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("ResourcePage empty state", () => {
+  it("shows the caller's title, description and action", () => {
+    render(
+      <GenesisProvider mock={{ datasets: {} }}>
+        <ResourcePage<Row>
+          data={[]}
+          title="Tasks"
+          columns={["name"]}
+          emptyMessage="No tasks yet"
+          emptyDescription="Add one small, doable next step."
+          emptyState={<button type="button">New task</button>}
+        />
+      </GenesisProvider>,
+    );
+    expect(screen.getByText("No tasks yet")).toBeTruthy();
+    expect(screen.getByText("Add one small, doable next step.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "New task" })).toBeTruthy();
   });
 });

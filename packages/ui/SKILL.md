@@ -77,6 +77,7 @@ report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 | Cmd-K palette                                                 | `CommandPalette`, `useCommandPaletteHotkey`                                        | `/command-palette`                                                |
 | Arrow-key list navigation                                     | `useKeyboardNavigation`                                                            | `/hooks/use-keyboard-navigation`                                  |
 | Reorderable list: drag, keyboard, row-menu moves             | `SortableList`                                                                     | `/sortable-list`                                                  |
+| Formatted text (lessons, notes): editor and read-only view    | `RichTextEditor`, `RichText` (+ `sanitizeRichTextDoc`, `richTextToHtml` on the server) | `/rich-text-editor`, `/rich-text`                                 |
 | Persisted page size / density                                 | `useViewSettings`                                                                  | `/hooks/use-view-settings`                                        |
 | Client-side links, navigate, URL filters on your router       | `ReactRouterLink` / `TanStackRouterLink` and their `use…Navigate`, `use…SearchParams`, `use…ActivePath` hooks | `/router/react-router`, `/router/tanstack-router`                 |
 
@@ -110,6 +111,8 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
   keyboard-reachable button that opens the detail. On a bare `DataGrid`, use `onItemClick` and
   `getItemLabel`. Never wrap a card in a `div role="button"`.
 - **Per-row rights:** `canEditItem(item)` hides Edit and Delete for rows the user can't change.
+- **Names and empty state:** `getTitle` / `getSubtitle` when a record's name spans fields;
+  `emptyIcon`, `emptyMessage`, `emptyDescription` and `emptyState` (its action) for the empty list.
 - **A list inside tabs:** `slotProps={{ shell: { headerOptions: { showTitle: false } } }}` drops
   the title block and keeps the count, view toggle, filters and create button.
 - **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays
@@ -119,6 +122,36 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
 
 `docs/component-reference.md` lists every export with its props and stability tag. It is
 generated (`pnpm gen:component-reference`); do not edit it by hand.
+
+## Rich text
+
+`RichTextEditor` (`/rich-text-editor`, Tiptap 3) needs the optional peers
+`@tiptap/core @tiptap/pm @tiptap/react @tiptap/starter-kit @tiptap/extensions` (`^3.31`). `RichText` and the
+helpers on `/rich-text` need nothing beyond React and run on a server.
+
+- **Store JSON, derive HTML.** `onChange(doc, details)` gives the document JSON (canonical) and lazy
+  `details.html` / `details.text`. Persist `doc` (Postgres `jsonb`). If you also need HTML or text (email,
+  search, previews), derive them on the server; never trust HTML or JSON a client posts.
+- **Sanitize on the server on every write, with limits:**
+  `const doc = sanitizeRichTextDoc(body.doc, { maxCharacters: 50_000, maxNodes: 5_000, onTooDeep: "throw" })`
+  keeps only the allow-listed nodes (paragraph, h2-h4, lists, blockquote, bold/italic/underline,
+  http(s)/mailto/tel/relative links, YouTube/Vimeo/Loom embeds by id). Over a limit, or nested more than 32
+  levels, it throws `RichTextLimitError` (`reason`: `"characters" | "nodes" | "depth"`), so answer 413/422
+  instead of storing it. Then `richTextToHtml(doc)` (`{ embedAs: "link" }` for email) and
+  `richTextToPlainText(doc)`. Both run without a DOM and escape every value.
+- **Render with `<RichText value={doc} />`**, not `dangerouslySetInnerHTML`. It re-sanitizes and works in
+  server components. If you must inject stored HTML, inject only HTML you produced with `richTextToHtml`.
+- The editor adds roughly 135 KB gzipped (ProseMirror + Tiptap), so load it only where people write:
+  `const RichTextEditor = lazy(() => import("@marktiderman/genesis-ui/rich-text-editor").then((m) => ({ default: m.RichTextEditor })))`.
+  Reading pages use `RichText`, which pulls in no editor code.
+- Embeds are off by default: `<RichTextEditor embeds />`. A CSP needs `frame-src` for
+  `https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com`. The editor injects no
+  `<style>` tag (Tiptap's base rules are classes), so `style-src` needs no `'unsafe-inline'` for it.
+
+```tsx
+<RichTextEditor aria-label="Lesson text" value={doc} onChange={setDoc} placeholder="Write the lesson…" embeds maxLength={20000} />
+<RichText value={lesson.body} />
+```
 
 ## Wiring into an app
 

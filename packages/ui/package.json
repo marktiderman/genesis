@@ -68,6 +68,18 @@
       "types": "./dist/provider/index.d.ts",
       "import": "./dist/provider/index.js"
     },
+    "./sheet-grid": {
+      "types": "./dist/components/sheet-grid/sheet-grid.d.ts",
+      "import": "./dist/components/sheet-grid/sheet-grid.js"
+    },
+    "./rich-text": {
+      "types": "./dist/components/rich-text/rich-text.d.ts",
+      "import": "./dist/components/rich-text/rich-text.js"
+    },
+    "./rich-text-editor": {
+      "types": "./dist/components/rich-text/rich-text-editor.d.ts",
+      "import": "./dist/components/rich-text/rich-text-editor.js"
+    },
     "./router/react-router": {
       "types": "./dist/router/react-router.d.ts",
       "import": "./dist/router/react-router.js"
@@ -269,17 +281,9 @@
       "types": "./dist/components/patterns/settings-row.d.ts",
       "import": "./dist/components/patterns/settings-row.js"
     },
-    "./sortable-list": {
-      "types": "./dist/components/patterns/sortable-list.d.ts",
-      "import": "./dist/components/patterns/sortable-list.js"
-    },
     "./sheet": {
       "types": "./dist/components/ui/sheet.d.ts",
       "import": "./dist/components/ui/sheet.js"
-    },
-    "./sheet-grid": {
-      "types": "./dist/components/sheet-grid/sheet-grid.d.ts",
-      "import": "./dist/components/sheet-grid/sheet-grid.js"
     },
     "./skeleton": {
       "types": "./dist/components/ui/skeleton.d.ts",
@@ -292,6 +296,10 @@
     "./sonner": {
       "types": "./dist/components/ui/sonner.d.ts",
       "import": "./dist/components/ui/sonner.js"
+    },
+    "./sortable-list": {
+      "types": "./dist/components/patterns/sortable-list.d.ts",
+      "import": "./dist/components/patterns/sortable-list.js"
     },
     "./spinner": {
       "types": "./dist/components/ui/spinner.d.ts",
@@ -354,6 +362,11 @@
     "@marktiderman/genesis-design-system": "workspace:^",
     "@tanstack/react-router": "^1.0.0",
     "@tanstack/react-virtual": "^3.14.0",
+    "@tiptap/core": "^3.31.0",
+    "@tiptap/extensions": "^3.31.0",
+    "@tiptap/pm": "^3.31.0",
+    "@tiptap/react": "^3.31.0",
+    "@tiptap/starter-kit": "^3.31.0",
     "cmdk": "^1.0.0",
     "date-fns": "^4.0.0",
     "embla-carousel-react": "^8.0.0",
@@ -399,6 +412,11 @@
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "3.14.13",
     "@testing-library/react": "^16.3.2",
+    "@tiptap/core": "3.31.4",
+    "@tiptap/extensions": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/react": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "date-fns": "^4.1.0",
@@ -426,6 +444,21 @@
       "optional": true
     },
     "@tanstack/react-virtual": {
+      "optional": true
+    },
+    "@tiptap/core": {
+      "optional": true
+    },
+    "@tiptap/extensions": {
+      "optional": true
+    },
+    "@tiptap/pm": {
+      "optional": true
+    },
+    "@tiptap/react": {
+      "optional": true
+    },
+    "@tiptap/starter-kit": {
       "optional": true
     },
     "react-router": {
