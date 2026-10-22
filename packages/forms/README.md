@@ -85,6 +85,37 @@ space, `-`, `(`, `)` and `.`, 7 to 15 digits, at most 32 characters. Operators: 
 `answered`, `empty`. Its manifest carries `autocomplete: "tel"` and `inputMode: "tel"` (email:
 `"email"` for both).
 
+### Structured field types
+
+Four built-in types collect more than one value for a question. `STRUCTURED_FIELD_TYPES` lists
+them (`["list", "table", "media-notes", "text-highlights"]`), for a builder palette or a check.
+
+| Type and builder | Value | Use it for |
+| --- | --- | --- |
+| `list`, `f.list(key, { min, max, itemMaxLength, itemPlaceholder })` | `string[]` | Several short answers: goals, action items, three wins this week. Supports `contains`. |
+| `table`, `f.table(key, { columns, minRows, maxRows })` | `Record<column, string>[]` | Rows with fixed columns (up to `MAX_TABLE_COLUMNS`, 6): an action plan (What / Who / By when), pros and cons. |
+| `media-notes`, `f.mediaNotes(key, { maxNotes, textMaxLength })` | `{ at, text }[]`, `at` in seconds | Notes pinned to moments of a video or audio: lecture notes, reviewing a recorded call. |
+| `text-highlights`, `f.textHighlights(key, { text, maxHighlights })` | `{ start, end, quote, note }[]` | Highlight passages of a text and note on each: annotating an article, a policy or a contract. Every highlight needs a note. |
+
+```ts
+const plan = defineForm({
+  id: "action-plan",
+  title: "Action plan",
+  blocks: [
+    f.list("goals", { label: "Your goals for this quarter", max: 3 }),
+    f.table("actions", {
+      label: "Actions",
+      columns: [{ key: "what", label: "What", long: true }, { key: "who", label: "Who" }, { key: "when", label: "By when" }],
+      maxRows: 5,
+    }),
+  ],
+});
+```
+
+Each type validates, normalizes (trimmed, blanks dropped, notes in time order), summarizes and has
+samples for `coverage()`. Helpers: `listLimits`, `tableColumns`, `tableLimits`, `formatTimestamp`
+and `parseTimestamp`; types `TableColumn`, `MediaNote` and `Highlight`.
+
 ## On the server
 
 ```ts
