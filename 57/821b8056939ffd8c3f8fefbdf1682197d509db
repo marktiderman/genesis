@@ -1,0 +1,101 @@
+packages/core/src/hooks/use-capabilities.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 5-28,31-32,40,43-44
+packages/core/src/hooks/mutation-mode.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-474
+packages/core/src/provider/index.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 52-58
+packages/ui/src/hooks/use-resource-page.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 71-76,272,277
+packages/ui/src/components/data/__tests__/resource-page-view-key.test.tsx
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-38
+packages/core/src/provider/supabase-provider.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 101-103,172-175,183-194,285-300,303,307,317,422-439,441-462,465-476,478-482,485-489,491-505,515,524
+.changeset/data-forms-phase2.md
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-11
+packages/ui/src/components/data/ResourcePage.tsx
+  s_f5a91deb5a46ce::t_ed73191a129dc5 33,48,51,580-586,819,940,989-991,1304,1310-1316,1355-1382,1947-1951,2125
+.changeset/provider-read-correctness.md
+  s_f5a91deb5a46ce::t_ed73191a129dc5 10
+docs/component-reference.md
+  s_f5a91deb5a46ce::t_ed73191a129dc5 7,33,48-49,51,55,60,66,70,105-106,109,132,140-141
+packages/ui/src/components/data/undo-toast.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-52
+.changeset/pr92-coderabbit-extension.md
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-5
+packages/core/src/hooks/__tests__/use-capabilities.test.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-25
+packages/core/src/provider/postgrest-errors.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 11,53-130,136-140,147,150-157
+apps/sample/app/data/primitives.json
+  s_f5a91deb5a46ce::t_ed73191a129dc5 10,8961-8967,8987,9059-9065,12193-12206,12221-12227,12255-12268,12642-12648,15164-15237
+  s_f5a91deb5a46ce::t_6568f1dc8dbf12 15238-15240
+packages/ui/src/components/data/__tests__/data-table-engine.test.tsx
+  s_f5a91deb5a46ce::t_ed73191a129dc5 133-141,147-172
+  s_f5a91deb5a46ce::t_4c539ff9884ac8 173
+packages/ui/SKILL.md
+  s_f5a91deb5a46ce::t_ed73191a129dc5 71-113
+packages/extension/src/surfaces.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 117-127,343-346,351-355,519-520,523-526,533-534,536
+packages/extension/src/__tests__/core.test.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 245,285,308,340,342-343,347-349,363-364,370-385,391-394,405
+packages/ui/src/hooks/__tests__/core-mutation-modes.test.tsx
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-529
+packages/ui/src/components/data/ResourceForm.tsx
+  s_f5a91deb5a46ce::t_ed73191a129dc5 3,24-30,80-105,318-322,345-347,350-353,356,359-376,384,394,411
+packages/ui/src/components/data/index.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 16
+.changeset/view-choice-key.md
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-7
+packages/ui/src/components/data/__tests__/resource-page-url-state.test.tsx
+  s_f5a91deb5a46ce::t_ed73191a129dc5 64-76,143-171
+packages/core/README.md
+  s_f5a91deb5a46ce::t_ed73191a129dc5 143-223
+packages/ui/src/components/data/DataTable.tsx
+  s_f5a91deb5a46ce::t_ed73191a129dc5 156-159,182-211,222,246-263,552-553,561-564,568-570,572,623,641,669-673,682-683,758,803-804,814-820,906,968-1010,1012-1021,1087-1091,1113
+.changeset/table-review-followups.md
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-10
+.github/workflows/ci.yml
+  s_f5a91deb5a46ce::t_ed73191a129dc5 18-19,98-99
+.github/workflows/self-lint.yml
+  s_f5a91deb5a46ce::t_ed73191a129dc5 68-69
+packages/core/src/hooks/index.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 29-41
+packages/core/src/schema/write-outcome.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 44-50,62-66,75-77
+packages/ui/src/components/data/__tests__/data-table-a11y.test.tsx
+  s_f5a91deb5a46ce::t_ed73191a129dc5 140-191
+packages/ui/src/components/data/__tests__/resource-form-guard-server-errors.test.tsx
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-199
+packages/core/src/hooks/use-resource.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 22-28,34,70-74,78-82,100-104,106-110,112,164-166,266-267,281-293,297-310,312,321-338,340,345-357,359
+packages/core/src/hooks/use-unsaved-changes-guard.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-70
+packages/core/src/schema/types.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 277-279
+packages/core/src/hooks/use-resource-form.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1,12-20,26,34-38,40-44,46-52,86-96,385-388,503-576,582,588-590,592-607,609-637,639-643,645-646,649,666-667
+.changeset/pr92-coderabbit-ui.md
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-9
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 4,12,90-162,557-565,567-576,595-616,655-684
+.changeset/pr92-coderabbit-core.md
+  s_f5a91deb5a46ce::t_ed73191a129dc5 1-10
+packages/ui/src/hooks/use-resource-url-state.ts
+  s_f5a91deb5a46ce::t_ed73191a129dc5 87-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "57821b8056939ffd8c3f8fefbdf1682197d509db",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
