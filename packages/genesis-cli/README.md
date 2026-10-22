@@ -51,6 +51,14 @@ from the live database.
 
 The output is deterministic: a re-run with no schema change writes the same bytes.
 
+```bash
+npx @marktiderman/genesis-cli features build   # or: features check (for CI)
+```
+
+Writes the marked feature block in `AGENTS.md` (and a JSON copy with `--json <file>`) from the
+repo's `src/features.ts`; `check` exits 1 when that output is stale or a feature's `links.code`
+path doesn't exist. See [genesis-features](../features/README.md) for the registry and the options.
+
 ## Settings in comments
 
 Put labels and widgets next to the schema, in table and column comments:

@@ -1,0 +1,83 @@
+{
+  "name": "@marktiderman/genesis-features",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "A typed feature registry: defineFeatures and defineFlags in one code file that running code imports, generators for AGENTS.md and JSON, a stale-output check, and a FeatureList page. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/features"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.25.0 || ^4.0.0"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-ui": "workspace:^",
+    "lucide-react": "^1.0.0",
+    "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@marktiderman/genesis-ui": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.9.0",
+    "lucide-react": "^1.0.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12",
+    "zod": "^4.4.3"
+  }
+}

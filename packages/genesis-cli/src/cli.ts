@@ -8,6 +8,7 @@
  * Usage:
  *   npx @marktiderman/genesis-cli init <consumer-name> [--target <dir>] [--emit-conflicts]
  *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>]
+ *   npx @marktiderman/genesis-cli features build|check [--registry <file>] [--flags <file>] [--json <file>]
  */
 import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
@@ -159,6 +160,40 @@ program
       process.exitCode = 2;
     }
   });
+
+const features = program.command("features").description("The feature registry: one typed features.ts, everything else generated from it");
+
+function featureOptions(command: Command) {
+  return command
+    .option("-d, --dir <dir>", "The repo root", process.cwd())
+    .option("-r, --registry <file>", "The registry (default: src/features.ts, then features.ts)")
+    .option("--flags <file>", "A flags file exporting `flags` (default: the registry's own `flags` export)")
+    .option("--agents <file>", "The AGENTS.md that holds the generated block", "AGENTS.md")
+    .option("--no-agents", "Don't keep a block in AGENTS.md")
+    .option("--json <file>", "Also keep a JSON copy at this path");
+}
+
+type FeatureCliOptions = { dir: string; registry?: string; flags?: string; agents: string | boolean; json?: string };
+const toFeatureOptions = (opts: FeatureCliOptions) => ({ ...opts, agents: opts.agents === true ? "AGENTS.md" : opts.agents });
+
+featureOptions(features.command("build").description("Write the AGENTS.md block (and the JSON copy) from the registry")).action(
+  async (opts: FeatureCliOptions) => {
+    const { runFeaturesBuild } = await import("./features.js");
+    const changed = await runFeaturesBuild(toFeatureOptions(opts));
+    console.log(changed.length ? changed.map((f) => `~ ${f}`).join("\n") : "✔ Generated feature files are up to date.");
+  },
+);
+
+featureOptions(
+  features.command("check").description("Fail when generated feature files are stale or a links.code path doesn't exist (for CI)"),
+).action(async (opts: FeatureCliOptions) => {
+  const { runFeaturesCheck } = await import("./features.js");
+  const result = await runFeaturesCheck(toFeatureOptions(opts));
+  for (const warning of result.warnings) console.warn(`! ${warning}`);
+  for (const error of result.errors) console.error(`✗ ${error}`);
+  if (result.ok) console.log("✔ The feature registry and its generated files agree.");
+  process.exitCode = result.ok ? 0 : 1;
+});
 
 const studio = program.command("studio").description("The Genesis Data Studio");
 

@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 128 components · 391 other exports · 237 standalone types across 9 packages and entry points.
+**Totals:** 129 components · 410 other exports · 249 standalone types across 10 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1032,5 +1032,101 @@ export type { SupabaseAuthOptions };
 export type { SupabaseStudioOptions };
 export type { UndoResponse };
 export type { UpdateResponse };
+```
+
+---
+
+## @marktiderman/genesis-features
+
+A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts` that running code imports, plus the AGENTS.md and JSON generators. `genesis features build|check` keeps the generated output in step. See packages/features/README.md.
+
+**Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
+
+### Other exports (16)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`AGENTS_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated block in AGENTS.md. |
+| [`AGENTS_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated block in AGENTS.md. |
+| [`defineFeatures`](../packages/features/src/model.ts) | function | Beta | The one source of truth for a repo's features. Validates every entry and returns the same object, so running code reads it directly and the key type becomes the repo's `FeatureId`: |
+| [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner` and a `kind`; - a `release` flag needs an `expires` date; - a feature's second (third, …) flag needs a `spli... |
+| [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Release flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): candidates to remove. |
+| [`FEATURE_STATUSES`](../packages/features/src/model.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. |
+| [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
+| [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}. |
+| [`FLAG_KINDS`](../packages/features/src/model.ts) | const | Beta | Why a flag exists. `release` flags are temporary and need an `expires` date. |
+| [`flagSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FlagDef}. Cross-flag rules live in {@link defineFlags}. |
+| [`flagsForFeature`](../packages/features/src/model.ts) | function | Beta | The names of the flags that belong to a feature, in declaration order. |
+| [`readAgentsBlock`](../packages/features/src/generate.ts) | function | — | The generated block inside `doc`, markers included, or null when there is none. |
+| [`replaceAgentsBlock`](../packages/features/src/generate.ts) | function | Beta | `doc` with its generated block replaced by `block`, or with `block` appended when it has none yet. Everything outside the markers is left as it was. |
+| [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: every feature, grouped by status, with its owner, apps, audience, flags and code paths. Write it with {@link replaceAgentsBlock}; never edit it by hand. |
+| [`toJson`](../packages/features/src/generate.ts) | function | Beta | The registry as JSON, for tools that can't import TypeScript. Stable: no timestamps, features in declaration order, so `check` can compare it. |
+| [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
+
+### Types (10)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { FeatureDef };
+export type { FeatureIdOf };
+export type { FeatureLinks };
+export type { FeatureRecord };
+export type { FeatureStatus };
+export type { Features };
+export type { FlagDef };
+export type { FlagKind };
+export type { Flags };
+export type { GenerateOptions };
+```
+
+---
+
+## @marktiderman/genesis-features/react
+
+`FeatureList`: the registry as a genesis-ui ResourcePage — a table, a board grouped by status, filters by app and audience. genesis-ui, React and lucide-react are optional peers, loaded only by this subpath.
+
+**Barrel:** [`packages/features/src/react.tsx`](../packages/features/src/react.tsx)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`FeatureList`](../packages/features/src/react.tsx) | `FeatureListProps` | Beta | A repo's features as a ResourcePage over static data: a table, and a board grouped by status in the grid view, with status chips, filters by app and audience, search, and a detail panel with the feature's links and flags. |
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`FeatureStatusBadge`](../packages/features/src/react.tsx) | function | Beta | A feature's status as a badge. `StatusBadge` covers the active states; planned and retired have no status there, so they use the muted and outline `Badge`. |
+
+---
+
+## @marktiderman/genesis-features/node
+
+`buildFeatureOutputs` and `checkFeatureOutputs`, the file-system half that `genesis features build|check` runs.
+
+**Barrel:** [`packages/features/src/node.ts`](../packages/features/src/node.ts)
+
+### Other exports (2)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`buildFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Writes every generated output (the AGENTS.md block, and the JSON when asked) and returns the paths it changed. |
+| [`checkFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Compares each generated output with what the generator makes now, and checks that every `links.code` path (and every repo-relative `links.docs` path) exists. It only ever compares generated output with the generator, never two hand-writt... |
+
+### Types (2)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { FeatureCheckResult };
+export type { FeatureOutputOptions };
 ```
 
