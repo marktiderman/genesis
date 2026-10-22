@@ -130,8 +130,44 @@ describe("DataTable virtualization", () => {
     expect(rendered.length).toBeLessThan(60);
   });
 
+  it("tells screen readers the full row count and each row's index", () => {
+    render(
+      <DataTable items={many} columns={columns} getKey={(r) => r.id} pagination={false} virtualize={{ height: 400 }} columnVisibility={false} />,
+    );
+    expect(screen.getByRole("table").getAttribute("aria-rowcount")).toBe("501");
+    const first = screen.getAllByRole("row").find((r) => r.getAttribute("data-index") === "0");
+    expect(first?.getAttribute("aria-rowindex")).toBe("2");
+  });
+
   it("renders every row when paginated, ignoring virtualize", () => {
     render(<DataTable items={many} columns={columns} getKey={(r) => r.id} pageSize={25} virtualize columnVisibility={false} />);
     expect(screen.getAllByRole("row").length - 1).toBe(25);
+  });
+});
+
+describe("DataTable follow-ups (#105 review)", () => {
+  it("sorts blanks last in both directions", () => {
+    const withBlank = [...rows, { id: "4", name: "Dee", count: undefined as unknown as number, joined: new Date(), active: false }];
+    render(<DataTable items={withBlank} columns={columns} getKey={(r) => r.id} columnVisibility={false} />);
+    sortBy("count");
+    expect(firstColumn().at(-1)).toBe("Dee");
+    sortBy("count");
+    expect(firstColumn().at(-1)).toBe("Dee");
+  });
+
+  it("ignores a stored column order that isn't a list of keys", () => {
+    localStorage.setItem("dt-order-bad", JSON.stringify({ not: "an order" }));
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} columnOrderKey="bad" columnVisibility={false} />);
+    expect(headers()).toEqual(["Name", "Count", "Joined", "Active"]);
+  });
+
+  it("keeps working when storage throws", () => {
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} columnOrderKey="x" columnVisibility={false} />);
+    fireEvent.keyDown(within(screen.getByRole("columnheader", { name: /name/i })).getByRole("button"), { key: "ArrowRight", altKey: true });
+    expect(headers()).toEqual(["Count", "Name", "Joined", "Active"]);
+    set.mockRestore();
   });
 });

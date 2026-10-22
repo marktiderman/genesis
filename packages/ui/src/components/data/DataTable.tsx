@@ -179,6 +179,22 @@ export interface DataTableProps<T> {
   columnOrderKey?: string;
 }
 
+/** localStorage writes that never throw (Safari private mode, quota, blocked storage). */
+function storeSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // a remembered preference is a convenience; losing it is fine
+  }
+}
+function storeRemove(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // as above
+  }
+}
+
 /** Row height estimate per density, for virtualization. */
 const ROW_HEIGHT: Record<Density, number> = { compact: 33, comfortable: 41, spacious: 49 };
 /** Width assumed for a pinned column with no width of its own (pinning needs offsets). */
@@ -187,7 +203,7 @@ const PINNED_WIDTH = 160;
 /**
  * Typed comparison for sorting: numbers and dates by value, booleans false
  * before true, everything else as text with numbers in it ordered naturally.
- * Empty values sort first ascending.
+ * Empty values never reach it: they sort last (see `sortUndefined`).
  */
 function compareValues(a: unknown, b: unknown): number {
   const emptyA = a == null || a === "";
@@ -578,7 +594,7 @@ export function DataTable<T>({
 
   useEffect(() => {
     if (!visibilityHydrated || !columnVisibilityKey) return;
-    localStorage.setItem(
+    storeSet(
       `dt-vis-${columnVisibilityKey}`,
       JSON.stringify(visibleCols),
     );
@@ -596,7 +612,7 @@ export function DataTable<T>({
     setVisibleCols(defaults);
     setColOrder(null);
     if (columnVisibilityKey) {
-      localStorage.removeItem(`dt-vis-${columnVisibilityKey}`);
+      storeRemove(`dt-vis-${columnVisibilityKey}`);
     }
   }, [columns, columnVisibilityKey]);
 
@@ -624,7 +640,11 @@ export function DataTable<T>({
     if (columnOrderKey) {
       try {
         const saved = localStorage.getItem(`dt-order-${columnOrderKey}`);
-        if (saved) setColOrder(JSON.parse(saved) as string[]);
+        const parsed: unknown = saved ? JSON.parse(saved) : null;
+        // Only a list of column keys is an order; anything else is ignored.
+        if (Array.isArray(parsed) && parsed.every((k) => typeof k === "string")) {
+          setColOrder(parsed);
+        }
       } catch {
         // ignore corrupt prefs
       }
@@ -633,8 +653,8 @@ export function DataTable<T>({
   }, [columnOrderKey]);
   useEffect(() => {
     if (!orderHydrated || !columnOrderKey) return;
-    if (colOrder) localStorage.setItem(`dt-order-${columnOrderKey}`, JSON.stringify(colOrder));
-    else localStorage.removeItem(`dt-order-${columnOrderKey}`);
+    if (colOrder) storeSet(`dt-order-${columnOrderKey}`, JSON.stringify(colOrder));
+    else storeRemove(`dt-order-${columnOrderKey}`);
   }, [colOrder, columnOrderKey, orderHydrated]);
   const orderedColumns = useMemo(() => {
     if (!colOrder) return columns;
@@ -709,7 +729,7 @@ export function DataTable<T>({
 
   const handleResizeEnd = useCallback(() => {
     if (resizeKey) {
-      localStorage.setItem(`dt-resize-${resizeKey}`, JSON.stringify(colWidths));
+      storeSet(`dt-resize-${resizeKey}`, JSON.stringify(colWidths));
     }
   }, [resizeKey, colWidths]);
 
@@ -765,8 +785,13 @@ export function DataTable<T>({
     () =>
       columns.map((col) => ({
         id: col.key,
-        accessorFn: (row: T) =>
-          col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key],
+        // Blanks read as undefined here, so `sortUndefined` keeps them last
+        // whichever way the column sorts.
+        accessorFn: (row: T) => {
+          const v = col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key];
+          return v == null || v === "" ? undefined : v;
+        },
+        sortUndefined: "last" as const,
         sortingFn: (a, b, id) => compareValues(a.getValue(id), b.getValue(id)),
       })),
     [columns],
@@ -852,6 +877,7 @@ export function DataTable<T>({
                 key={id}
                 ref={measure}
                 data-index={index}
+                aria-rowindex={virtualizing ? index + 2 : undefined}
                 className={cn(
                   onRowClick && "cursor-pointer",
                   "focus-within:bg-muted/40",
@@ -1007,7 +1033,11 @@ export function DataTable<T>({
         className={cn("overflow-x-auto", virtualizing && "overflow-y-auto")}
         style={virtualizing ? { maxHeight: viewportHeight } : undefined}
       >
-        <Table style={{ tableLayout: "fixed" }}>
+        <Table
+          style={{ tableLayout: "fixed" }}
+          // A virtualized body holds only some rows; say how many there are.
+          aria-rowcount={virtualizing ? displayItems.length + 1 : undefined}
+        >
           {/* Fixed layout sizes columns from the first row: a <colgroup>
               gives each column its px width (the rest share what is left). */}
           <colgroup>
@@ -1029,7 +1059,7 @@ export function DataTable<T>({
               stickyHeader ? "sticky top-0 z-10 bg-background" : ""
             }
           >
-            <TableRow>
+            <TableRow aria-rowindex={virtualizing ? 1 : undefined}>
               {selectable && (
                 <TableHead
                   className={cn("w-10", headDensity, pinProps("__select", true)?.className)}
