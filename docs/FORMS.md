@@ -1,7 +1,8 @@
 # Genesis Forms
 
-Plan v0.3, 2026-10-21. Status: **R1 built** (see [Releases](#releases-current)); later releases
-are the plan. Where this document describes something beyond R1, it is not built yet.
+Plan v0.3, 2026-10-21. Status: **R1 built** (see [Releases](#releases-current)), plus delivery
+destinations (`/destinations`, 2026-10-22); later releases are the plan. Where this document
+describes something beyond those, it is not built yet.
 
 > **Revised 2026-10-21, at the maintainer's direction.**
 >
@@ -127,7 +128,8 @@ Apache-2.0.
   ┌──────────────── @marktiderman/genesis-forms ── zero dependencies, no React ─────────────────┐
   │ definition + its schema · typed DSL · migrations · expression/logic engine · navigation      │
   │ reactive store (signals) · validation (Standard Schema) · recall · scoring · i18n           │
-  │ /server  validate + submit handler, webhook signing      /testing  path simulation, coverage │
+  │ /server  validate + submit handler    /destinations  email, Sheets, signed webhooks          │
+  │ /testing  path simulation, coverage                                                         │
   └───────────────────────────────────────────────────────────────────────────────────────────────┘
                                    │
                   ┌────────────────▼─────────────────┐
@@ -153,7 +155,7 @@ so every Genesis app gets it, not just forms.
 
 | Package | Contents | Notes |
 | --- | --- | --- |
-| `@marktiderman/genesis-forms` | Definition types and their schema, `defineForm` DSL, migrations, expression evaluator, logic graph, navigation, reactive store, validation, recall, scoring, i18n, `toJsonSchema`. Subpaths: `/server` (`validateSubmission`, `createSubmitHandler` as web-standard `Request → Response`, webhook signing), `/testing` (simulation, branch coverage), `/stores/memory`, `/stores/local`, `/stores/rest`. | No dependencies. Runs in browsers, React Native, Node, Deno, Workers. Budget: ≤ 15 kB gzipped for the root entry. |
+| `@marktiderman/genesis-forms` | Definition types and their schema, `defineForm` DSL, migrations, expression evaluator, logic graph, navigation, reactive store, validation, recall, scoring, i18n, `toJsonSchema`. Subpaths: `/server` (`validateSubmission`, `createSubmitHandler` as web-standard `Request → Response`), `/destinations` (email with a Resend provider, Google Sheets, Standard Webhooks signing and verifying; built), `/testing` (simulation, branch coverage), `/stores/memory`, `/stores/local`, `/stores/rest`. | No dependencies. Runs in browsers, React Native, Node, Deno, Workers. Budget: ≤ 15 kB gzipped for the root entry. |
 | `@marktiderman/genesis-forms-react` | `useForm`, `useField`, `useNavigation`, `useResponse`; field and layout registries; `<FormRuntime>` (headless) | Fine-grained subscriptions via `useSyncExternalStore`: typing in one field re-renders one field. |
 | `@marktiderman/genesis-forms-web` | Web renderer kit: field renderers, layouts, chrome | Built on `genesis-ui` and `genesis-design-system`. Each field renderer on its own subpath and lazy-loaded. |
 | `@marktiderman/genesis-forms-native` | React Native renderer kit | Built on `genesis-ui-native` (NativeWind). Same vocabulary as the web kit. |
@@ -563,12 +565,19 @@ export interface FormStore {
   holds file references, never file bytes.
 - **The server decides.** `createSubmitHandler()` loads the pinned version, replays the answers
   through the same engine, clears values of fields hidden by logic, resolves server-sourced context, recomputes variables and the ending, and only then
-  writes. It also signs outgoing webhooks (HMAC, with timestamp and replay protection) and supports
-  idempotency keys so double submits don't create duplicates. The R1 `validateSubmission` already
+  writes. It supports idempotency keys so double submits don't create duplicates. The R1 `validateSubmission` already
   runs `parseForm` on the definition (cached per definition object) and refuses one that fails,
   returns `{ ok: false, errors: { "": "Malformed submission." } }` for a body of the wrong shape
   (events that fail `isFormEvent`, answers or hidden inputs that are not plain JSON objects) instead
   of throwing, and compacts the event log before enforcing `maxEvents` (default 10 000).
+- **Destinations (built, `/destinations`).** After the store has the response, the app hands it to
+  destinations: `emailDestination` (any `EmailProvider`; `resendProvider` built in),
+  `sheetsDestination` (Google service-account JWT signed with WebCrypto, header management,
+  formula escaping, dedupe by response id) and `webhookDestination` (Standard Webhooks HMAC with
+  timestamp and replay protection; `verifyWebhook` for receivers). Each resolves a result that is
+  `retryable` or not, with `retryAfterSeconds` and a message safe to store; none throws or logs.
+  The outbox, claims and retry schedule stay in the app's store (later, `FormStore`), so the
+  destinations work with any backend. Upstreamed from Breakthrough's feedback delivery.
 - **Supabase adapter.** Ships SQL for `forms`, `form_versions` and `form_responses`, RLS policies,
   storage bucket policies, and an edge-function submit handler. **Clients never write response
   tables directly**: anon and authenticated roles get no `INSERT` or `UPDATE` on `form_responses`.
@@ -668,7 +677,7 @@ Two deliverables, one codebase of mechanics:
 | Renderer kits, layouts, field types | Hosted builder app, form library, templates gallery |
 | Builder component | Publishing to hosted URLs, custom domains |
 | `FormStore` contract + Supabase adapter + SQL | Its own Supabase project, using that adapter |
-| Server submit handler, webhook signing | Integrations catalogue (CRM, Slack, email), notification rules |
+| Server submit handler; destinations (email, Google Sheets, signed webhooks) | Integrations catalogue (CRM, Slack), notification rules, the destination admin UI |
 | Analytics event stream | Results dashboards, exports, drop-off reports |
 | Embed bundle | Embed code generator |
 
@@ -814,7 +823,7 @@ layer.
 | --- | --- | --- |
 | **F0 · Core** | `genesis-forms`: definition + schema, `defineForm` with inference, `parseForm` + analyser, logic engine, navigation, store, validation, recall, variables, `/testing`. | Conformance suite passes in Node, Workers and React Native's JS engine; size budget met. |
 | **F1 · Web** | `genesis-forms-react`, registries, `genesis-forms-web` with text, choice, scale, date and file types; classic, paged and focus layouts; keyboard model; a11y suite; new primitives in `genesis-ui`. | A branching, scoring feedback form works with keyboard and screen reader only; axe clean in CI. **First client project adopts it.** |
-| **F2 · Responses** | `FormStore`, `genesis-forms-supabase`, partials, resume, uploads, `/server` submit handler, webhooks, analytics events. | An onboarding form resumes on another device; a lead form is re-validated server-side and fires a signed webhook. |
+| **F2 · Responses** | `FormStore`, `genesis-forms-supabase`, partials, resume, uploads, `/server` submit handler, analytics events. Built: `/destinations` (email, Google Sheets, signed webhooks). | An onboarding form resumes on another device; a lead form is re-validated server-side and fires a signed webhook. |
 | **F3 · Builder** | `genesis-forms-builder`: document editor, `/` menu, inspector from `propsSchema`, logic panel and flow map, preview, publish/versioning, translations. **The product's builder app ships on it.** | A non-developer builds and publishes a branching form; a plugin field type appears in the builder with no builder changes. |
 | **F4 · Assessment** | Answer keys, `publicDefinition`, auto + manual grading, rubrics, attempts, assignments, `<ResponseReview>`, `<GradingQueue>`, print layout, `fillBlanks`, matching, ordering. | A worksheet is assigned, completed over two sessions, auto- and manually graded, with no answer key in the browser bundle or network traffic. |
 | **F5 · Native + embed** | `genesis-forms-native`, `genesis-forms-embed` (devtools shipped in R1). | The same definition runs in an Expo app and in an embed on a marketing site. |
