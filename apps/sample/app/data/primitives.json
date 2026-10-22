@@ -13237,12 +13237,12 @@
       "subpath": "@marktiderman/genesis-ui/patterns",
       "filePath": "packages/ui/src/components/patterns/sortable-list.tsx",
       "stability": "beta",
-      "summary": "An ordered list the user can rearrange: course steps, lesson blocks, form\nfields.\n\nThree equivalent ways to move an item, so dragging is never the only one\n(the same stance as KanbanBoard's \"Move to…\" menu):\n- drag the handle with a pointer;\n- focus the handle, Space or Enter to pick up, ↑/↓ (Home/End) to move,\n  Space or Enter to drop, Escape to put it back; Alt+↑/↓ moves one step\n  without picking up;\n- `moveUp` / `moveDown` / `moveTo` from the render context, for a row menu.\n\nEvery move is announced in a polite live region. Native drag and drop needs\nno dependency and Radix has none to offer (docs/FRAMEWORK.md rule 3).",
+      "summary": "A vertical list the user can rearrange: course steps, lesson blocks, form\nfields.\n\nEvery way to move an item is equivalent, so dragging is never the only one\n(the same stance as KanbanBoard's \"Move to…\" menu):\n- drag the handle with a pointer;\n- focus the handle, Space or Enter to pick up, ↑/↓ and Home/End to move,\n  Space or Enter to drop, Escape to put it back (tabbing away also puts it\n  back); Alt+↑/↓ moves one step without picking up;\n- the row's \"Move\" menu, or `moveUp` / `moveDown` / `moveTo` from the render\n  context.\n\nMoves are announced in a polite live region once they succeed. Native drag\nand drop needs no dependency and Radix has none to offer (docs/FRAMEWORK.md\nrule 3).",
       "primaryComponent": "SortableList",
       "components": [
         {
           "name": "SortableList",
-          "summary": "An ordered list the user can rearrange: course steps, lesson blocks, form\nfields.\n\nThree equivalent ways to move an item, so dragging is never the only one\n(the same stance as KanbanBoard's \"Move to…\" menu):\n- drag the handle with a pointer;\n- focus the handle, Space or Enter to pick up, ↑/↓ (Home/End) to move,\n  Space or Enter to drop, Escape to put it back; Alt+↑/↓ moves one step\n  without picking up;\n- `moveUp` / `moveDown` / `moveTo` from the render context, for a row menu.\n\nEvery move is announced in a polite live region. Native drag and drop needs\nno dependency and Radix has none to offer (docs/FRAMEWORK.md rule 3).",
+          "summary": "A vertical list the user can rearrange: course steps, lesson blocks, form\nfields.\n\nEvery way to move an item is equivalent, so dragging is never the only one\n(the same stance as KanbanBoard's \"Move to…\" menu):\n- drag the handle with a pointer;\n- focus the handle, Space or Enter to pick up, ↑/↓ and Home/End to move,\n  Space or Enter to drop, Escape to put it back (tabbing away also puts it\n  back); Alt+↑/↓ moves one step without picking up;\n- the row's \"Move\" menu, or `moveUp` / `moveDown` / `moveTo` from the render\n  context.\n\nMoves are announced in a polite live region once they succeed. Native drag\nand drop needs no dependency and Radix has none to offer (docs/FRAMEWORK.md\nrule 3).",
           "props": [
             {
               "name": "getItemLabel",
@@ -13260,7 +13260,7 @@
             },
             {
               "name": "items",
-              "type": "T[]",
+              "type": "readonly T[]",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -13274,10 +13274,10 @@
             },
             {
               "name": "onReorder",
-              "type": "(from: number, to: number) => void | Promise<void>",
+              "type": "(from: number, to: number, move: SortableListReorder) => void | Promise<void>",
               "required": true,
               "defaultValue": null,
-              "description": "Move the item at `from` to `to` (both from 0, `to` counted after the item\nis taken out). The list is controlled: it shows the new order only once\n`items` changes, so a rejected promise simply leaves everything in place."
+              "description": "Move the item at `from` to `to` (both from 0, `to` counted after the item\nis taken out). Each finished move calls this once: a keyboard pick-up\nthat wanders and comes back calls nothing.\n\nThe list shows the new order straight away and keeps showing it until the\nreturned promise settles; by then `items` must be in the new order. A\nsynchronous handler must update `items` in the same tick. A rejected\npromise puts the old order back and announces that the move failed. Other\nmoves wait until this one settles."
             },
             {
               "name": "renderItem",
@@ -13298,7 +13298,7 @@
               "type": "boolean",
               "required": false,
               "defaultValue": null,
-              "description": "Turns off dragging and the keyboard and menu moves."
+              "description": "Turns off dragging and every kind of move."
             },
             {
               "name": "itemClassName",
@@ -13306,6 +13306,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "moveMenu",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "A \"Move\" menu on each row (up, down, to top, to bottom), on by default so\ntouch and screen-reader users always have a way to move an item. Turn it\noff only when the row offers `moveUp` / `moveDown` / `moveTo` itself."
             }
           ]
         }
