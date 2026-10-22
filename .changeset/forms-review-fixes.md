@@ -3,6 +3,7 @@
 "@marktiderman/genesis-forms-react": patch
 "@marktiderman/genesis-forms-web": patch
 "@marktiderman/genesis-forms-devtools": patch
+"@marktiderman/genesis": minor
 ---
 
 Review fixes for the forms packages.
