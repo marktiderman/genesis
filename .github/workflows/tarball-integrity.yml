@@ -24,6 +24,7 @@ name: Tarball Integrity
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - "packages/**"
       - ".changeset/**"
@@ -33,6 +34,7 @@ on:
       - "pnpm-workspace.yaml"
       - "pnpm-lock.yaml"
       - "package.json"
+  workflow_dispatch:
 
 permissions:
   contents: read
