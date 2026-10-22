@@ -27,8 +27,6 @@ export { DataList, type DataListProps } from "./DataList";
 export { DetailPanel, type DetailPanelProps } from "./DetailPanel";
 export {
   ResourcePage,
-  useResourceTable,
-  type ResourceTableState,
   type ResourcePageProps,
   type ResourceAction,
   type ResourceCardActions,
@@ -37,6 +35,7 @@ export {
   type ResourcePageSlotProps,
   type ResourceDeleteConfirmCopy,
 } from "./ResourcePage";
+export { useResourceTable, type ResourceTableState } from "./use-resource-table";
 export {
   ConfirmDeleteDialog,
   type ConfirmDeleteDialogProps,

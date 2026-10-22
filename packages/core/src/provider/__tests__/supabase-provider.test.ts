@@ -691,6 +691,7 @@ describe("getList follow-ups (#96 review)", () => {
       "column profiles_1.id does not exist",
       'column "author_id" does not exist',
       "column tasks.id_old does not exist",
+      'column "Other-Table".id does not exist',
     ]) {
       queue.push(fail(message, "42703"));
       expect(isDataReadError(await p.getList("tasks", page).catch((e) => e))).toBe(true);
@@ -706,12 +707,14 @@ describe("getList follow-ups (#96 review)", () => {
     for (const [resource, message] of [
       ["plain_view", 'column "id" does not exist'],
       ["reports.summary", "column summary.id does not exist"],
+      // A quoted table name (mixed case, a hyphen) is still the resource's own.
+      ["Report-View", 'column "Report-View".id does not exist'],
     ] as const) {
       queue.push(fail(message, "42703"));
       queue.push({ ...ok([]), count: 0 } as Response);
       expect(await p.getList(resource, page)).toEqual({ data: [], total: 0 });
     }
-    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledTimes(3);
     warn.mockRestore();
   });
 

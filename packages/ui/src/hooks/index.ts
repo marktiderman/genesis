@@ -15,7 +15,7 @@ export { createPrefetch, type RouteMap } from "./use-prefetch";
 export {
   useResourceTable,
   type ResourceTableState,
-} from "../components/data/ResourcePage";
+} from "../components/data/use-resource-table";
 export {
   useResourceUrlState,
   type ResourceUrlParams,
