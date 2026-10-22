@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSupabaseProvider, type SupabaseProviderOptions } from "../supabase-provider";
-import { toDataWriteError, writeOutcomeFromCode } from "../postgrest-errors";
+import { readOutcomeFromCode, toDataWriteError, writeOutcomeFromCode } from "../postgrest-errors";
+import { isDataReadError, type DataReadError } from "../../schema/read-outcome";
 import { DataWriteError, isDataWriteError } from "../../schema/write-outcome";
 import { relatedKeys } from "../../hooks/related-keys";
 
 // A stand-in Supabase client: each awaited query takes the next queued
 // response, and every chained call is recorded so tests can check what was
 // sent.
-type Response = { data: unknown; error: { message: string; code?: string } | null };
+type Response = { data: unknown; error: { message: string; code?: string } | null; count?: number };
 let queue: Response[] = [];
 let calls: { method: string; args: unknown[] }[] = [];
 
@@ -450,5 +451,80 @@ describe("reads are unchanged", () => {
     expect(methods()).toContain("single");
     expect(isDataWriteError(err)).toBe(false);
     expect((err as { code?: string }).code).toBe("PGRST116");
+  });
+});
+
+describe("getList ordering and page size", () => {
+  const list = (p: ReturnType<typeof provider>, params: Parameters<ReturnType<typeof provider>["getList"]>[1]) => {
+    queue.push({ ...ok([]), count: 0 } as Response);
+    return p.getList("tasks", params);
+  };
+  const orders = () => calls.filter((c) => c.method === "order").map((c) => c.args);
+
+  it("orders by the key column after the sort, so equal values keep one order across pages", async () => {
+    await list(provider(), { sort: { field: "status", order: "desc" }, pagination: { page: 2, perPage: 10 } });
+    expect(orders()).toEqual([
+      ["status", { ascending: false }],
+      ["id", { ascending: true }],
+    ]);
+  });
+
+  it("doesn't repeat the key when sorting by it, and honours orderKey", async () => {
+    await list(provider(), { sort: { field: "id", order: "asc" } });
+    expect(orders()).toEqual([["id", { ascending: true }]]);
+    calls = [];
+    await list(provider({ resources: { tasks: { orderKey: "slug" } } }), { sort: { field: "title", order: "asc" } });
+    expect(orders().map(([col]) => col)).toEqual(["title", "slug"]);
+    calls = [];
+    await list(provider({ resources: { tasks: { orderKey: false } } }), { sort: { field: "title", order: "asc" } });
+    expect(orders().map(([col]) => col)).toEqual(["title"]);
+  });
+
+  it("caps a page at maxPerPage with a warning, and reports it in capabilities", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const p = provider({ maxPerPage: 100 });
+    await list(p, { pagination: { page: 1, perPage: 1000 } });
+    expect(calls.find((c) => c.method === "range")?.args).toEqual([0, 99]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"tasks" asked for 1000 rows'));
+    expect((await p.capabilities!()).maxPerPage).toBe(100);
+    warn.mockRestore();
+  });
+});
+
+describe("read errors", () => {
+  it("throw a DataReadError with a message users can see; the raw error is the cause", async () => {
+    const onReadError = vi.fn();
+    const p = provider({ onReadError, resources: { tasks: { noun: "task" } } });
+    queue.push(fail('relation "public.tasks" does not exist', "42P01"));
+    const error = await p.getList("tasks", {}).catch((e: unknown) => e);
+    expect(isDataReadError(error)).toBe(true);
+    const e = error as DataReadError;
+    expect(e.outcome).toBe("invalid");
+    expect(e.message).toBe("These tasks couldn't be loaded.");
+    expect(e.message).not.toContain("relation");
+    expect((e.cause as { message: string }).message).toContain("relation");
+    expect(onReadError).toHaveBeenCalledWith(e, { resource: "tasks", operation: "getList" });
+  });
+
+  it("names an expired session, a refusal and a missing record plainly", async () => {
+    const p = provider({ resources: { tasks: { noun: "task" } } });
+    queue.push(fail("JWT expired", "PGRST301"));
+    expect(((await p.getList("tasks", {}).catch((e) => e)) as DataReadError).message).toBe(
+      "Your session has ended. Sign in again to continue.",
+    );
+    queue.push(fail("permission denied for table tasks", "42501"));
+    expect(((await p.getMany("tasks", { ids: ["1"] }).catch((e) => e)) as DataReadError).outcome).toBe("forbidden");
+    queue.push(fail("JSON object requested, multiple (or no) rows returned", "PGRST116"));
+    const gone = (await p.getOne("tasks", { id: "1" }).catch((e) => e)) as DataReadError;
+    expect([gone.outcome, gone.message]).toEqual(["gone", "This task doesn't exist, or you can't see it."]);
+  });
+
+  it("maps codes to read outcomes", () => {
+    expect(readOutcomeFromCode("42703")).toBe("invalid");
+    expect(readOutcomeFromCode("PGRST100")).toBe("invalid");
+    expect(readOutcomeFromCode("PGRST116")).toBe("gone");
+    expect(readOutcomeFromCode("42501")).toBe("forbidden");
+    expect(readOutcomeFromCode("XX000")).toBe("error");
+    expect(readOutcomeFromCode(undefined)).toBe("error");
   });
 });

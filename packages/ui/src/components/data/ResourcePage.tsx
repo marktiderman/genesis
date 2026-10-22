@@ -58,11 +58,12 @@ import {
   useResourceUrlState,
   type ResourceUrlStateOptions,
 } from "../../hooks/use-resource-url-state";
-import type {
-  BaseRecord,
-  FilterParam,
-  Identifier,
-  SortParam,
+import {
+  isDataReadError,
+  type BaseRecord,
+  type FilterParam,
+  type Identifier,
+  type SortParam,
 } from "@marktiderman/genesis-core/provider";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
 import type { WizardStep } from "@marktiderman/genesis-core/hooks";
@@ -1725,7 +1726,13 @@ export function ResourcePage<
       isLoading={isLoading}
       hasError={hasError}
       isEmpty={isEmpty}
-      errorMessage={errorMessage}
+      errorMessage={
+        errorMessage ??
+        // A provider's read error carries a sentence users can be shown.
+        (isClientMode && isDataReadError(resourceHook.list.error)
+          ? resourceHook.list.error.message
+          : undefined)
+      }
       onRetry={isClientMode ? () => resourceHook.list.refetch() : onRetryProp}
       viewMode={page.viewMode}
       onViewModeChange={page.setViewMode}
