@@ -41,8 +41,8 @@ export {
   type BrandFactoryOptions,
 } from "./factories/from-brand";
 
-// Brand-genesis OOTB fallback. The 4 sibling brand presets that used to live
-// here (acme / breakthrough / team-tiderman / gamify) were stripped in
+// Brand-genesis OOTB fallback. The sibling brand presets that used to live
+// here were stripped in
 // v0.2.0 — consumers now ship their own `@<consumer>/brand` workspace package
 // declaring brand-specific scales via the `extensions` slot. See MIGRATION.md.
 export { genesisTheme, genesisColors, genesisBrand } from "./presets/brand-genesis";

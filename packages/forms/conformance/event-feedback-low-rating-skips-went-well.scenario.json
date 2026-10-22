@@ -1,23 +1,22 @@
 {
   "scenarioVersion": 1,
-  "name": "after-class: back after a jump",
-  "description": "Back from a jump target returns to the block the jump came from; raising the rating puts went_well back on the path.",
+  "name": "event-feedback: low rating skips went_well",
+  "description": "A rating under 4 jumps from overall to improve; went_well is off the path. Keystrokes in improve are compacted.",
   "tags": [
-    "after-class",
-    "jump",
-    "navigation"
+    "event-feedback",
+    "jump"
   ],
   "definition": {
     "schemaVersion": 1,
-    "id": "after-class",
-    "title": "How was class?",
+    "id": "event-feedback",
+    "title": "How was the event?",
     "blocks": [
       {
         "kind": "field",
         "id": "overall",
         "key": "overall",
         "type": "rating",
-        "label": "How was today's class?",
+        "label": "How was today's event?",
         "required": true,
         "props": {
           "max": 5
@@ -32,24 +31,24 @@
         "props": {
           "options": [
             {
-              "value": "coaching",
-              "label": "Coaching"
+              "value": "hosting",
+              "label": "Hosting"
             },
             {
-              "value": "workout",
-              "label": "The workout"
+              "value": "content",
+              "label": "The content"
             },
             {
               "value": "community",
               "label": "Community"
             },
             {
-              "value": "scaling",
-              "label": "Scaling options"
+              "value": "pacing",
+              "label": "Pacing"
             },
             {
-              "value": "equipment",
-              "label": "Equipment"
+              "value": "venue",
+              "label": "The venue"
             },
             {
               "value": "cleanliness",
@@ -70,7 +69,7 @@
         "id": "contact_me",
         "key": "contact_me",
         "type": "yes-no",
-        "label": "Want {{hidden:coach|a coach}} to follow up with you?"
+        "label": "Want {{hidden:owner|someone}} to follow up with you?"
       },
       {
         "kind": "field",
@@ -94,12 +93,12 @@
     },
     "hidden": [
       {
-        "name": "class",
+        "name": "session",
         "type": "string",
         "source": "server"
       },
       {
-        "name": "coach",
+        "name": "owner",
         "type": "string",
         "source": "server"
       }
@@ -152,7 +151,7 @@
     "endings": [
       {
         "id": "default",
-        "title": "Thanks! See you at the next class."
+        "title": "Thanks! See you next time."
       }
     ],
     "settings": {
@@ -160,8 +159,8 @@
     }
   },
   "context": {
-    "class": "6:00 AM CrossFit",
-    "coach": "Sam"
+    "session": "Tuesday 6 PM workshop",
+    "owner": "Sam"
   },
   "events": [
     {
@@ -173,44 +172,51 @@
       "type": "next"
     },
     {
-      "type": "back"
-    },
-    {
       "type": "answer",
-      "field": "overall",
-      "value": 5
+      "field": "improve",
+      "value": "Music too loud"
     },
     {
       "type": "next"
+    },
+    {
+      "type": "answer",
+      "field": "contact_me",
+      "value": false
+    },
+    {
+      "type": "submit"
     }
   ],
   "expect": {
     "path": [
       "overall",
-      "went_well",
       "improve",
       "contact_me"
     ],
     "visible": [
       "overall",
-      "went_well",
       "improve",
       "contact_me"
     ],
-    "current": "went_well",
-    "status": "in_progress",
-    "ending": null,
+    "current": "contact_me",
+    "status": "completed",
+    "ending": "default",
     "answers": {
-      "overall": 5
+      "overall": 2,
+      "improve": "Music too loud",
+      "contact_me": false
     },
     "server": {
       "ok": true,
       "answers": {
-        "overall": 5
+        "overall": 2,
+        "improve": "Music too loud",
+        "contact_me": false
       },
       "context": {
-        "class": "6:00 AM CrossFit",
-        "coach": "Sam"
+        "session": "Tuesday 6 PM workshop",
+        "owner": "Sam"
       }
     }
   }

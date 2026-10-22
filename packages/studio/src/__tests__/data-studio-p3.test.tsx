@@ -97,7 +97,7 @@ function makeProvider(count = 3) {
       return [...comments];
     },
     async addComment(_r: string, params: { id: unknown; body: string }) {
-      const c = { id: `m${comments.length + 1}`, author: "coach-a", body: params.body, createdAt: "2026-10-19 10:00:00+00" };
+      const c = { id: `m${comments.length + 1}`, author: "owner-a", body: params.body, createdAt: "2026-10-19 10:00:00+00" };
       comments.push(c);
       return c;
     },
@@ -240,6 +240,6 @@ describe("DataStudio P3: row actions and comments", () => {
     fireEvent.change(within(comments).getByRole("textbox", { name: "New comment" }), { target: { value: "Called today." } });
     fireEvent.click(within(comments).getByTestId("studio-comment-post"));
     await within(comments).findByText("Called today.");
-    expect(within(comments).getByText("coach-a")).toBeTruthy();
+    expect(within(comments).getByText("owner-a")).toBeTruthy();
   });
 });

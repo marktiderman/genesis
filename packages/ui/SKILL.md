@@ -242,10 +242,10 @@ import { AppShell, type NavigationNode, type NavItem } from "@marktiderman/genes
 
 const navigation: NavigationNode<NavItem> = {
   id: "app", path: "/", label: "Home", items: globalItems, children: [
-    { id: "clients", path: "/clients", label: "Clients", items: [], children: [
-      { id: "client", path: "/clients/$clientId", label: "Client", items: [
-        { to: "/clients/$clientId", icon: FileText, label: "Overview", end: true },
-        { to: "/clients/$clientId/tasks", icon: CheckSquare, label: "Tasks" },
+    { id: "projects", path: "/projects", label: "Projects", items: [], children: [
+      { id: "project", path: "/projects/$projectId", label: "Project", items: [
+        { to: "/projects/$projectId", icon: FileText, label: "Overview", end: true },
+        { to: "/projects/$projectId/tasks", icon: CheckSquare, label: "Tasks" },
       ] },
     ] },
   ],
@@ -262,12 +262,12 @@ every path interpolated from the URL's params.
 ```ts
 const nav = resolveNavigation(
   { id: "app", path: "/app", label: "Home", items: globalItems, children: [
-    { id: "clients", path: "/dashboard", label: "Clients", items: [], children: [
-      { id: "client", path: "/clients/$clientId", label: "Client", items: clientItems },
+    { id: "projects", path: "/dashboard", label: "Projects", items: [], children: [
+      { id: "project", path: "/projects/$projectId", label: "Project", items: projectItems },
     ] },
   ] },
   pathname,
 );
-// pathname "/clients/c1/tasks" → nav.current.id "client", nav.parent.path "/dashboard",
-// nav.params { clientId: "c1" }
+// pathname "/projects/p1/tasks" → nav.current.id "project", nav.parent.path "/dashboard",
+// nav.params { projectId: "p1" }
 ```

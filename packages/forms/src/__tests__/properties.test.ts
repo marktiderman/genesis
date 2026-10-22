@@ -2,18 +2,18 @@ import { fc, test } from "@fast-check/vitest";
 import { expect } from "vitest";
 import { createForm, replay, validateField, type FormEngine, type Json } from "../index";
 import { validateSubmission } from "../server";
-import { afterClass } from "./sample-forms";
+import { eventFeedback } from "./sample-forms";
 
-const def = afterClass.definition;
-const hidden = { coach: "Sam", class: "6:00 AM" };
+const def = eventFeedback.definition;
+const hidden = { owner: "Sam", session: "6:00 PM" };
 type Model = Record<string, never>;
 
 /** Values a respondent (or a tampered client) could send: valid, invalid and empty. */
 const valuesFor: Record<string, fc.Arbitrary<Json | undefined>> = {
   overall: fc.oneof(fc.integer({ min: 0, max: 7 }), fc.constantFrom<Json | undefined>(undefined, null, "5", 3.5)),
   went_well: fc.oneof(
-    fc.subarray(["coaching", "workout", "community", "scaling", "equipment", "cleanliness"]),
-    fc.constantFrom<Json | undefined>(undefined, ["bogus"], "coaching"),
+    fc.subarray(["hosting", "content", "community", "pacing", "venue", "cleanliness"]),
+    fc.constantFrom<Json | undefined>(undefined, ["bogus"], "hosting"),
   ),
   improve: fc.oneof(fc.string({ maxLength: 6 }), fc.constant(undefined)),
   contact_me: fc.constantFrom<Json | undefined>(true, false, undefined, "yes"),
@@ -62,7 +62,7 @@ const commands = [
 ];
 
 test.prop([fc.commands(commands, { maxCommands: 40 })], { numRuns: 200 })(
-  "after-class: any sequence of answers and navigation keeps the engine, replay and server in agreement",
+  "event-feedback: any sequence of answers and navigation keeps the engine, replay and server in agreement",
   (cmds) => {
     let engine!: FormEngine;
     fc.modelRun(() => {

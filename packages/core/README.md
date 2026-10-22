@@ -66,19 +66,19 @@ const provider = createSupabaseProvider(supabase, {
   binTables: ["notes", "commitments"], // or (resource) => boolean
   onWrite: async (event) => { /* { resource, kind, id, record? } after every committed write */ },
   resources: {
-    practices: {
-      noun: "practice", // "You can't change this practice."
+    projects: {
+      noun: "project", // "You can't change this project."
       prepare: (values, { action, id }) => ({ name: String(values.name ?? "").trim() }),
       create: async (row) => {
-        const { data, error } = await supabase.rpc("create_practice", { _name: row.name });
+        const { data, error } = await supabase.rpc("create_project", { _name: row.name });
         if (error) throw error; // mapped by its code
         return data; // the new id (read back) or the new row
       },
       invalidates: [["staff"], ["me"]],
     },
-    clients: {
+    customers: {
       update: async (id, row) => {
-        const { data, error } = await supabase.rpc("update_client", { _id: id, ...row });
+        const { data, error } = await supabase.rpc("update_customer", { _id: id, ...row });
         if (error) throw error;
         return data; // the row, its id, or nothing when no row changed
       },
@@ -109,7 +109,7 @@ Both hooks also take an `invalidates` option for keys one screen cares about:
 
 ```ts
 try {
-  await provider.update("practices", { id, data });
+  await provider.update("projects", { id, data });
 } catch (error) {
   if (isDataWriteError(error)) {
     switch (error.outcome) {

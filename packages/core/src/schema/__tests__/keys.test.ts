@@ -5,7 +5,7 @@ import { DataWriteError, isDataWriteError } from "../write-outcome";
 describe("keyFields", () => {
   it("reads a single key and a composite key as a list", () => {
     expect(keyFields({ key: "id" })).toEqual(["id"]);
-    expect(keyFields({ key: ["coach_id", "client_id"] })).toEqual(["coach_id", "client_id"]);
+    expect(keyFields({ key: ["owner_id", "customer_id"] })).toEqual(["owner_id", "customer_id"]);
   });
 });
 
@@ -17,10 +17,10 @@ describe("encodeRecordKey / decodeRecordKey", () => {
   });
 
   it("round-trips a composite key in key order", () => {
-    const contract = { key: ["coach_id", "client_id"] as const };
-    const id = encodeRecordKey(contract, { client_id: 2, coach_id: "c-1", note: "n" });
+    const contract = { key: ["owner_id", "customer_id"] as const };
+    const id = encodeRecordKey(contract, { customer_id: 2, owner_id: "c-1", note: "n" });
     expect(id).toBe('["c-1",2]');
-    expect(decodeRecordKey(contract, id)).toEqual({ coach_id: "c-1", client_id: 2 });
+    expect(decodeRecordKey(contract, id)).toEqual({ owner_id: "c-1", customer_id: 2 });
   });
 
   it("refuses a null key value instead of addressing the wrong row", () => {

@@ -1,15 +1,15 @@
 {
   "scenarioVersion": 1,
-  "name": "monthly-pulse: promoter ending via jump",
+  "name": "monthly-check-in: promoter ending via jump",
   "description": "NPS 9 or more jumps straight to the promoter ending; why and frequency are never asked.",
   "tags": [
-    "monthly-pulse",
+    "monthly-check-in",
     "jump",
     "ending"
   ],
   "definition": {
     "schemaVersion": 1,
-    "id": "monthly-pulse",
+    "id": "monthly-check-in",
     "title": "Monthly check-in",
     "blocks": [
       {
@@ -17,7 +17,7 @@
         "id": "recommend",
         "key": "recommend",
         "type": "nps",
-        "label": "How likely are you to recommend CrossFit Fairfield to a friend?",
+        "label": "How likely are you to recommend us to a friend?",
         "required": true
       },
       {
@@ -32,7 +32,7 @@
         "id": "frequency",
         "key": "frequency",
         "type": "single-choice",
-        "label": "How often did you train with us this month?",
+        "label": "How often did you use the service this month?",
         "props": {
           "options": [
             {
@@ -84,7 +84,7 @@
       },
       {
         "id": "promoter",
-        "title": "Thank you! Bring a friend to a free class anytime."
+        "title": "Thank you! Tell a friend about us anytime."
       }
     ],
     "settings": {

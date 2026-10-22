@@ -12,24 +12,24 @@ server. Zero dependencies.
 ```ts
 import { defineForm, f, when } from "@marktiderman/genesis-forms";
 
-export const afterClass = defineForm({
-  id: "after-class",
-  title: "How was class?",
+export const eventFeedback = defineForm({
+  id: "event-feedback",
+  title: "How was the event?",
   layout: { mode: "focus" },
-  hidden: { coach: f.hidden.string({ source: "server" }) },
+  hidden: { owner: f.hidden.string({ source: "server" }) },
   blocks: [
-    f.rating("overall", { label: "How was today's class?", required: true }),
+    f.rating("overall", { label: "How was today's event?", required: true }),
     f.longText("improve", { label: "Anything we could do better?" }),
-    f.yesNo("contact_me", { label: "Want {{hidden:coach|a coach}} to follow up?" }),
+    f.yesNo("contact_me", { label: "Want {{hidden:owner|someone}} to follow up?" }),
     f.email("email", { label: "Best email to reach you", required: true }),
   ],
   logic: [when("contact_me").isNot(true).hide("email")],
   endings: [{ id: "default", title: "Thanks!" }],
 });
 
-type Answers = typeof afterClass.$answers; // { overall?: number; improve?: string; … }
-const json = afterClass.toJSON();          // the canonical definition
-const version = afterClass.hash();         // content fingerprint for publishing
+type Answers = typeof eventFeedback.$answers; // { overall?: number; improve?: string; … }
+const json = eventFeedback.toJSON();          // the canonical definition
+const version = eventFeedback.hash();         // content fingerprint for publishing
 ```
 
 ## The rules it keeps
@@ -85,13 +85,44 @@ space, `-`, `(`, `)` and `.`, 7 to 15 digits, at most 32 characters. Operators: 
 `answered`, `empty`. Its manifest carries `autocomplete: "tel"` and `inputMode: "tel"` (email:
 `"email"` for both).
 
+### Structured field types
+
+Four built-in types collect more than one value for a question. `STRUCTURED_FIELD_TYPES` lists
+them (`["list", "table", "media-notes", "text-highlights"]`), for a builder palette or a check.
+
+| Type and builder | Value | Use it for |
+| --- | --- | --- |
+| `list`, `f.list(key, { min, max, itemMaxLength, itemPlaceholder })` | `string[]` | Several short answers: goals, action items, three wins this week. Supports `contains`. |
+| `table`, `f.table(key, { columns, minRows, maxRows })` | `Record<column, string>[]` | Rows with fixed columns (up to `MAX_TABLE_COLUMNS`, 6): an action plan (What / Who / By when), pros and cons. |
+| `media-notes`, `f.mediaNotes(key, { maxNotes, textMaxLength })` | `{ at, text }[]`, `at` in seconds | Notes pinned to moments of a video or audio: lecture notes, reviewing a recorded call. |
+| `text-highlights`, `f.textHighlights(key, { text, maxHighlights })` | `{ start, end, quote, note }[]` | Highlight passages of a text and note on each: annotating an article, a policy or a contract. Every highlight needs a note. |
+
+```ts
+const plan = defineForm({
+  id: "action-plan",
+  title: "Action plan",
+  blocks: [
+    f.list("goals", { label: "Your goals for this quarter", max: 3 }),
+    f.table("actions", {
+      label: "Actions",
+      columns: [{ key: "what", label: "What", long: true }, { key: "who", label: "Who" }, { key: "when", label: "By when" }],
+      maxRows: 5,
+    }),
+  ],
+});
+```
+
+Each type validates, normalizes (trimmed, blanks dropped, notes in time order), summarizes and has
+samples for `coverage()`. Helpers: `listLimits`, `tableColumns`, `tableLimits`, `formatTimestamp`
+and `parseTimestamp`; types `TableColumn`, `MediaNote` and `Highlight`.
+
 ## On the server
 
 ```ts
 import { validateSubmission } from "@marktiderman/genesis-forms/server";
 
 const result = validateSubmission(publishedDefinition, await request.json(), {
-  context: { coach: coachForNow() }, // server inputs, resolved here
+  context: { owner: ownerForNow() }, // server inputs, resolved here
 });
 if (!result.ok) return Response.json({ errors: result.errors }, { status: 422 });
 await store(result.submission); // answers, hidden, context, ending
@@ -168,7 +199,7 @@ submission. On an anonymous form identifying fields get no column. `sensitive` f
 | Destination | Config | Notes |
 | --- | --- | --- |
 | `emailDestination({ provider, from, replyTo?, render?, sensitive? })` | `{ to: string \| string[], subject? }` | HTML and plain text from the definition (`renderEmail`), every value HTML-escaped. Subject, From, To and Reply-To are stripped of line breaks or refused, so no answer can add a header. At most 50 recipients. Sensitive fields masked by default. The idempotency key is the delivery id plus a hash of the recipients. `resendProvider({ apiKey })` is built in; any `EmailProvider` works. `render` and `emailBody(lines)` let an app write its own content and keep the escaping. |
-| `sheetsDestination({ account, escapeFormulas?, sensitive? })` | `{ spreadsheetId, sheetName? }` | Service-account JWT signed with WebCrypto (RS256), token cached per process. Creates the tab, writes and freezes the header, adds a column for a new key without moving others, appends with `valueInputOption=RAW`, so Sheets stores text exactly as typed and never runs it as a formula (`@coach thanks` stays `@coach thanks`). No `'` is added by default, since RAW would store it literally; `escapeFormulas: true` adds one (headers included) for a sheet that is exported and opened elsewhere. `escapeFormula(cell)` is the same opt-in guard for CSV you write yourself: text starting with `=`, `@`, tab or CR, or with `+`/`-` followed by anything but number punctuation, gets a leading `'`. Keeps the tab, header and last row in `state`, so a normal delivery is one request. On `redelivery`, skips ids already in the last 500 rows. A 403/404 says to share the sheet with the service account. |
+| `sheetsDestination({ account, escapeFormulas?, sensitive? })` | `{ spreadsheetId, sheetName? }` | Service-account JWT signed with WebCrypto (RS256), token cached per process. Creates the tab, writes and freezes the header, adds a column for a new key without moving others, appends with `valueInputOption=RAW`, so Sheets stores text exactly as typed and never runs it as a formula (`@team thanks` stays `@team thanks`). No `'` is added by default, since RAW would store it literally; `escapeFormulas: true` adds one (headers included) for a sheet that is exported and opened elsewhere. `escapeFormula(cell)` is the same opt-in guard for CSV you write yourself: text starting with `=`, `@`, tab or CR, or with `+`/`-` followed by anything but number punctuation, gets a leading `'`. Keeps the tab, header and last row in `state`, so a normal delivery is one request. On `redelivery`, skips ids already in the last 500 rows. A 403/404 says to share the sheet with the service account. |
 | `webhookDestination({ secret, allowInsecureUrls?, allowPrivateHosts?, sensitive? })` | `{ url }` | [Standard Webhooks](https://www.standardwebhooks.com): `webhook-id`, `webhook-timestamp`, `webhook-signature: v1,<HMAC-SHA256>`. The secret is base64 (at least 16 bytes decoded), usually `whsec_`-prefixed; as in every Standard Webhooks library the prefix is optional and the rest is always base64-decoded, so receivers verify with the same string. A secret that is not padded standard base64 (a raw passphrase, say) fails permanently rather than signing deliveries no receiver could verify. Generate one with `"whsec_" + btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))`. Body `{ type: "form.submitted", timestamp, data: { form, submission, row } }`. https only, no URL credentials, no localhost or private, loopback or link-local address literals, redirects not followed. A hostname that resolves to a private address is not caught: if untrusted users pick URLs, send from a network that cannot reach internal services. Receivers check with `verifyWebhook({ secret, headers, body })` (constant-time, five-minute tolerance). |
 
 ## Testing
@@ -177,10 +208,10 @@ submission. On an anonymous form identifying fields get no column. `sensitive` f
 import { coverage, recordScenario, runScenario, simulate } from "@marktiderman/genesis-forms/testing";
 
 // Walk a form by key.
-expect(simulate(afterClass).answer({ overall: 2 }).pathKeys()).toEqual(["overall", "improve", "contact_me"]);
+expect(simulate(eventFeedback).answer({ overall: 2 }).pathKeys()).toEqual(["overall", "improve", "contact_me"]);
 
 // Every block reachable, every rule able to fire, every ending reached.
-const report = coverage(afterClass);
+const report = coverage(eventFeedback);
 expect(report.unreachableBlocks).toEqual([]);
 expect(report.rulesNeverFired).toEqual([]);
 expect(report.endings.default.reached).toBe(true); // witness: answers that reach it
@@ -207,7 +238,7 @@ to the same field, keeping the last value; the result replays to the same state 
 depends on values alone, not on how they were typed. `recordScenario` compacts by default (`compact: false` keeps every event).
 
 The **conformance suite** ships in the package: `@marktiderman/genesis-forms/conformance/*.scenario.json`
-(the R1 sample forms: after-class and monthly-pulse). Run each file through `runScenario` to hold
+(the R1 sample forms: event-feedback and monthly-check-in). Run each file through `runScenario` to hold
 another runtime, a renderer or an app's CI to the same behaviour. The fixtures are generated by
 `pnpm --filter @marktiderman/genesis-forms conformance:build`; review the diff before committing.
 

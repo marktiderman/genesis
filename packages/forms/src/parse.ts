@@ -1,7 +1,7 @@
 import { isJson } from "./events";
 import { getFieldType } from "./fields";
 import { recallRefs } from "./recall";
-import { MAX_ROWS_COLUMNS } from "./worksheet";
+import { MAX_TABLE_COLUMNS } from "./structured";
 import type { Condition, FormDefinition, Operator } from "./types";
 
 /** A value for a message. Never throws: parseForm accepts any input, including BigInts, cycles and deep nesting. */
@@ -113,18 +113,18 @@ export function parseForm(input: unknown): ParseResult {
   const ordered = (low: unknown, high: unknown, path: string, what: string) => {
     if (isInt(low) && isInt(high) && low > high) issue(path, `Can't be more than the ${what}.`);
   };
-  /** The props of the worksheet types (list, rows, timestamp-notes, highlights). */
-  const worksheetProps = (type: string, props: Record<string, unknown>, path: string) => {
+  /** The props of the structured types (list, table, media-notes, text-highlights). */
+  const structuredProps = (type: string, props: Record<string, unknown>, path: string) => {
     if (type === "list") {
       optionalInt(props.min, `${path}.min`, 0);
       optionalInt(props.max, `${path}.max`, 1);
       optionalInt(props.itemMaxLength, `${path}.itemMaxLength`, 1);
       optionalText(props.placeholder, `${path}.placeholder`);
       ordered(props.min, props.max ?? 10, `${path}.min`, "most items");
-    } else if (type === "rows") {
+    } else if (type === "table") {
       const columns = props.columns;
-      if (!Array.isArray(columns) || columns.length < 1 || columns.length > MAX_ROWS_COLUMNS) {
-        issue(`${path}.columns`, `Must be a list of 1 to ${MAX_ROWS_COLUMNS} columns.`);
+      if (!Array.isArray(columns) || columns.length < 1 || columns.length > MAX_TABLE_COLUMNS) {
+        issue(`${path}.columns`, `Must be a list of 1 to ${MAX_TABLE_COLUMNS} columns.`);
       } else {
         const seen = new Set<string>();
         columns.forEach((c, j) => {
@@ -141,10 +141,10 @@ export function parseForm(input: unknown): ParseResult {
       optionalInt(props.minRows, `${path}.minRows`, 0);
       optionalInt(props.maxRows, `${path}.maxRows`, 1);
       ordered(props.minRows, props.maxRows ?? 3, `${path}.minRows`, "most rows");
-    } else if (type === "timestamp-notes") {
+    } else if (type === "media-notes") {
       optionalInt(props.maxNotes, `${path}.maxNotes`, 1);
       optionalInt(props.textMaxLength, `${path}.textMaxLength`, 1);
-    } else if (type === "highlights") {
+    } else if (type === "text-highlights") {
       optionalText(props.text, `${path}.text`);
       optionalInt(props.maxHighlights, `${path}.maxHighlights`, 1);
     }
@@ -236,7 +236,7 @@ export function parseForm(input: unknown): ParseResult {
         if (maxLength !== undefined && !(isInt(maxLength) && maxLength > 0)) {
           issue(`${path}.props.maxLength`, "Must be a whole number above 0.");
         }
-        if (isObject(block.props) && typeof block.type === "string") worksheetProps(block.type, block.props, `${path}.props`);
+        if (isObject(block.props) && typeof block.type === "string") structuredProps(block.type, block.props, `${path}.props`);
       }
       if (validKey) {
         if (keys.has(block.key as string)) issue(`${path}.key`, `Duplicate key "${String(block.key)}".`);

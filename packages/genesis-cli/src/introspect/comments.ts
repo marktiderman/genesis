@@ -1,9 +1,9 @@
 // Per-table and per-column settings kept in Postgres comments:
 //
-//   comment on table public.clients is
-//     'People in a program. @genesis {"label": "Clients", "labelField": "name"}';
-//   comment on column public.clients.notes is
-//     'Private to the coach. @genesis {"label": "Coach notes", "widget": "textarea"}';
+//   comment on table public.customers is
+//     'Customers of the business. @genesis {"label": "Customers", "labelField": "name"}';
+//   comment on column public.customers.notes is
+//     'Private to staff. @genesis {"label": "Internal notes", "widget": "textarea"}';
 //
 // The text before `@genesis` stays the description. Settings are a generator
 // input only: the checked-in contract is what the app reviews and ships.

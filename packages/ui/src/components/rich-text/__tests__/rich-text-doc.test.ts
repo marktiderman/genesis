@@ -25,7 +25,7 @@ describe("isSafeUrl", () => {
   it.each([
     "https://example.com",
     "http://example.com/a?b=c#d",
-    "mailto:coach@example.com",
+    "mailto:team@example.com",
     "tel:+15551234",
     "/lessons/1",
     "#notes",
@@ -55,7 +55,7 @@ describe("isSafeUrl", () => {
 describe("normalizeLinkUrl", () => {
   it("adds https to bare hosts and mailto to emails", () => {
     expect(normalizeLinkUrl("example.com/page")).toBe("https://example.com/page");
-    expect(normalizeLinkUrl("coach@example.com")).toBe("mailto:coach@example.com");
+    expect(normalizeLinkUrl("team@example.com")).toBe("mailto:team@example.com");
     expect(normalizeLinkUrl("  https://example.com ")).toBe("https://example.com");
   });
   it("refuses unsafe or meaningless input", () => {

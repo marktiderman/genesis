@@ -83,7 +83,7 @@ function makeProvider() {
 
 function Harness({ provider, initial }: { provider: DataProvider; initial?: StudioLocation }) {
   const router = useMemoryRouter(initial);
-  return <DataStudio provider={provider} router={router} title="Coaching" />;
+  return <DataStudio provider={provider} router={router} title="Admin" />;
 }
 
 beforeEach(() => localStorage.clear());

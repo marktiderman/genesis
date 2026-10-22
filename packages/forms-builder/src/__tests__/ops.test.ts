@@ -27,7 +27,7 @@ import {
   updateSettings,
   useBuilderHistory,
 } from "../index";
-import { ALL_TEMPLATES, COACHING_TEMPLATES } from "./fixtures";
+import { ALL_TEMPLATES, FIXTURE_TEMPLATES } from "./fixtures";
 
 const field = (def: FormDefinition, id: string) => def.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id)!;
 
@@ -48,7 +48,7 @@ function sample(): FormDefinition {
 
 describe("ops", () => {
   it("slugs keys", () => {
-    expect(slugKey("How was class?")).toBe("how_was_class");
+    expect(slugKey("How was the event?")).toBe("how_was_the_event");
     expect(slugKey("Café — déjà vu")).toBe("cafe_deja_vu");
     expect(slugKey("1st")).toBe("q_1st");
     expect(slugKey("???")).toBe("question");
@@ -103,15 +103,15 @@ describe("ops", () => {
   });
 
   it("renames hidden inputs everywhere they are used", () => {
-    let def = addHidden(sample(), { name: "coach" });
-    def = updateBlock(def, "q_why", { label: "Why, {{hidden:coach|friend}}?" });
-    def = addRule(def, { id: "h", effect: "hide", target: "q_pick", when: { op: "eq", left: { hidden: "coach" }, right: { value: "x" } } });
-    def = updateHidden(def, "coach", { name: "Coach Name" });
-    expect(def.hidden?.[0]?.name).toBe("coach_name");
-    expect(field(def, "q_why").label).toBe("Why, {{hidden:coach_name|friend}}?");
-    expect(JSON.stringify(def.logic)).toContain('"hidden":"coach_name"');
+    let def = addHidden(sample(), { name: "owner" });
+    def = updateBlock(def, "q_why", { label: "Why, {{hidden:owner|friend}}?" });
+    def = addRule(def, { id: "h", effect: "hide", target: "q_pick", when: { op: "eq", left: { hidden: "owner" }, right: { value: "x" } } });
+    def = updateHidden(def, "owner", { name: "Owner Name" });
+    expect(def.hidden?.[0]?.name).toBe("owner_name");
+    expect(field(def, "q_why").label).toBe("Why, {{hidden:owner_name|friend}}?");
+    expect(JSON.stringify(def.logic)).toContain('"hidden":"owner_name"');
     expect(parseForm(def).ok).toBe(true);
-    def = removeHidden(def, "coach_name");
+    def = removeHidden(def, "owner_name");
     expect(def.hidden).toBeUndefined();
     expect(def.logic?.map((r) => r.id)).toEqual(["r1"]);
   });
@@ -135,12 +135,12 @@ describe("templates", () => {
   it("ships only the blank template", () => {
     expect(TEMPLATES).toEqual([BLANK_TEMPLATE]);
     expect(getTemplate("blank")).toBe(BLANK_TEMPLATE);
-    expect(getTemplate("after-class")).toBeUndefined();
+    expect(getTemplate("visit-feedback")).toBeUndefined();
   });
 
   it("finds a host's own template", () => {
-    const mine = [...TEMPLATES, ...COACHING_TEMPLATES];
-    expect(getTemplate("after-class", mine)?.name).toBe("After-class feedback");
+    const mine = [...TEMPLATES, ...FIXTURE_TEMPLATES];
+    expect(getTemplate("visit-feedback", mine)?.name).toBe("Visit feedback");
     expect(getTemplate("blank", mine)).toBe(BLANK_TEMPLATE);
     expect(getTemplate("missing", mine)).toBeUndefined();
   });
@@ -212,9 +212,9 @@ describe("recall stays valid", () => {
   });
 
   it("drops a removed hidden input's tokens", () => {
-    let def = addHidden(sample(), { name: "coach" });
-    def = updateBlock(def, "q_why", { label: "Hi {{hidden:coach}}" });
-    def = removeHidden(def, "coach");
+    let def = addHidden(sample(), { name: "owner" });
+    def = updateBlock(def, "q_why", { label: "Hi {{hidden:owner}}" });
+    def = removeHidden(def, "owner");
     expect(field(def, "q_why").label).toBe("Hi ");
     expect(parseForm(def).ok).toBe(true);
   });

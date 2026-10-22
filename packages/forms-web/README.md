@@ -6,9 +6,9 @@ The web renderer for [Genesis Forms](../forms/README.md), built on Genesis UI co
 import { Form } from "@marktiderman/genesis-forms-web";
 
 <Form
-  form={afterClass}                    // a defineForm result or a canonical definition
+  form={eventFeedback}                 // a defineForm result or a canonical definition
   layout="focus"                       // one question at a time; or "classic"
-  options={{ hidden: { coach: "Sam" } }}
+  options={{ hidden: { owner: "Sam" } }}
   onChange={(state) => saveDraft(state)}
   onSubmit={(engine) => submit(engine.getState().events)}
 />
@@ -41,13 +41,13 @@ import { Form } from "@marktiderman/genesis-forms-web";
   `prefers-reduced-motion`). The ending is centred and large. In classic layout, page mode is one
   scrolling page, Google Forms style: a header card with the title and description, each question
   in its own card (red-edged while invalid), Submit at the end.
-  `brand={{ name: "CrossFit Fairfield", logo }}` shows a practice's logo (an image URL or an
+  `brand={{ name: "Acme", logo }}` shows an organisation's or business's logo (an image URL or an
   element; its initials without one) and name small at the top of every step and on the ending.
   Custom slots and renderers can match with `useFormPresentation()`, which returns
   `{ presentation, layout }`.
 
   ```tsx
-  <Form form={afterClass} presentation="page" brand={{ name: "CrossFit Fairfield" }} onSubmit={send} />
+  <Form form={eventFeedback} presentation="page" brand={{ name: "Acme" }} onSubmit={send} />
   ```
 
 - **Accessible by default:** group questions are a `fieldset` with a `legend`, and rating, NPS and
@@ -74,7 +74,27 @@ import { Form } from "@marktiderman/genesis-forms-web";
   `defaultRegistry.register(entry)` mutates the shared registry in place, for every form in the app.
 
 Renderers: short and long text, email, phone (`type="tel"`), rating, NPS, single choice, multiple
-choice, yes/no.
+choice, yes/no, and the structured types:
+
+- **`list`** (goals, action items, three wins) and **`table`** (an action plan with What / Who /
+  By when, pros and cons) add, remove and reorder entries (SortableList: drag, keyboard and a Move
+  menu).
+- **`media-notes`** (lecture notes, reviewing a recorded call) takes a typed time (`m:ss`,
+  `h:mm:ss` or seconds). Wrap the form in `MediaTimeContext` to link it to your video or audio
+  player: `currentTime` prefills "Add note at 1:23" and `seek` plays from a note.
+- **`text-highlights`** (annotating an article, a policy or a contract) takes highlights by
+  selecting words in the passage or typing them. The passage is the field's `text` prop, or the
+  value of `SourceTextContext` around the form.
+
+```tsx
+<MediaTimeContext.Provider value={{ currentTime: () => player.currentTime, seek: (s) => player.seek(s) }}>
+  <SourceTextContext.Provider value={article.body}>
+    <Form form={videoNotes} onSubmit={send} />
+  </SourceTextContext.Provider>
+</MediaTimeContext.Provider>
+```
+
+`useMediaTime()` and `useSourceText()` read them in a custom renderer.
 
 ## License
 

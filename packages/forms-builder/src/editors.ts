@@ -1,7 +1,7 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from "react";
 import type { ContentBlock, FieldBlock, FormDefinition, Json, Operator } from "@marktiderman/genesis-forms";
 import type { BlockPatch, FieldTypeDefaults } from "./ops";
-import { BUILT_IN_FIELD_EDITORS } from "./worksheet-editors";
+import { BUILT_IN_FIELD_EDITORS } from "./structured-editors";
 
 export type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) => void;
 
@@ -41,7 +41,7 @@ export interface ConditionValueProps {
 
 /**
  * How the builder edits one field type, for types the builder does not know
- * (a worksheet's own types) or to replace its built-in editing of one. Each
+ * (a host's own types) or to replace its built-in editing of one. Each
  * part is optional; what is left out falls back to the built-in behaviour.
  */
 export interface FieldTypeEditor extends FieldTypeDefaults {
@@ -68,6 +68,41 @@ export interface FieldTypeEditor extends FieldTypeDefaults {
   starterValue?: ((field: FieldBlock, op: Operator) => Json) | undefined;
 }
 
+/**
+ * A named variant of a field type in the Add menu: the type with settings
+ * already made. Picking it adds an ordinary field of `type` (the Type select
+ * and the saved definition know only the base type), whose props are the
+ * type's defaults with `props` laid over them, and whose label, description,
+ * placeholder and required come from `field` (the label defaults to `label`).
+ *
+ * @example
+ * // A table with fixed columns, and a short list:
+ * const presets: FieldPreset[] = [
+ *   { id: "action-plan", type: "table", label: "Action plan",
+ *     props: { columns: [{ key: "what", label: "What" }, { key: "who", label: "Who" }, { key: "when", label: "By when" }] } },
+ *   { id: "top-three", type: "list", label: "Top three", props: { max: 3 }, field: { label: "Your top three" } },
+ * ];
+ * <FormBuilder presets={presets} … />
+ */
+export interface FieldPreset {
+  /** Unique among the presets. */
+  id: string;
+  /** The base field type. A preset whose type is not registered (and has no editor) is left out. */
+  type: string;
+  /** The name in the Add menu, and the new field's label unless `field.label` is given. */
+  label: string;
+  /** A hint shown on hover in the Add menu. */
+  description?: string | undefined;
+  /** Shown before the label. Default: the base type's editor icon. */
+  icon?: ReactNode | undefined;
+  /** The Add menu group. Default: the base type's category. */
+  category?: string | undefined;
+  /** Laid over the base type's default props (top-level keys replace). */
+  props?: Record<string, Json> | undefined;
+  /** Settings for the new field. */
+  field?: Partial<Pick<FieldBlock, "label" | "description" | "placeholder" | "required">> | undefined;
+}
+
 /** Which non-question blocks the Add menu offers. Default: all of them. */
 export interface BlockKinds {
   /** Headings and text: `false` for none, or the content types to offer. */
@@ -79,6 +114,8 @@ export interface BlockKinds {
 export interface BuilderConfig {
   palette?: readonly string[] | undefined;
   fieldEditors?: readonly FieldTypeEditor[] | undefined;
+  /** Named variants of field types the Add menu offers after the palette's types. */
+  presets?: readonly FieldPreset[] | undefined;
   blockKinds?: BlockKinds | undefined;
   /**
    * Show the form without changing it: every panel stays visible, but its
@@ -94,7 +131,7 @@ export function useBuilderConfig(): BuilderConfig {
   return useContext(BuilderConfigContext);
 }
 
-/** The host's editor for a type, else the builder's own (the worksheet types have one). */
+/** The host's editor for a type, else the builder's own (the structured types have one). */
 export function editorFor(config: BuilderConfig, type: string): FieldTypeEditor | undefined {
   return config.fieldEditors?.find((e) => e.type === type) ?? BUILT_IN_FIELD_EDITORS.find((e) => e.type === type);
 }

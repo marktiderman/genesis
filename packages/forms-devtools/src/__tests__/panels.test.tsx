@@ -11,17 +11,17 @@ import {
   witnessEvents,
 } from "../index";
 
-const afterClass = defineForm({
-  id: "after-class",
-  title: "After class",
+const eventFeedback = defineForm({
+  id: "event-feedback",
+  title: "Event feedback",
   layout: { mode: "focus" },
   blocks: [
     f.rating("overall", { label: "Overall", required: true }),
     f.multiChoice("went_well", {
       label: "Went well",
       options: [
-        { value: "coaching", label: "Coaching" },
-        { value: "workout", label: "Workout" },
+        { value: "hosting", label: "Hosting" },
+        { value: "content", label: "Content" },
       ],
     }),
     f.longText("improve", { label: "Improve" }),
@@ -42,11 +42,11 @@ const pulse = defineForm({
   logic: [when("recommend").atLeast(9).jumpTo({ ending: "promoter" })],
   endings: [
     { id: "default", title: "Thanks." },
-    { id: "promoter", title: "Bring a friend!" },
+    { id: "promoter", title: "Tell a friend!" },
   ],
 });
 
-const engineFor = (form: typeof afterClass | typeof pulse) => createForm(form.definition, { clock: () => undefined });
+const engineFor = (form: typeof eventFeedback | typeof pulse) => createForm(form.definition, { clock: () => undefined });
 const status = (graph: ReturnType<typeof buildFlowGraph>) =>
   Object.fromEntries(graph.nodes.map((n) => [n.id, n.status]));
 const activeEdges = (graph: ReturnType<typeof buildFlowGraph>) =>
@@ -54,7 +54,7 @@ const activeEdges = (graph: ReturnType<typeof buildFlowGraph>) =>
 
 describe("buildFlowGraph", () => {
   it("has a node per step and ending, next edges, and jump edges labelled by their condition", () => {
-    const graph = buildFlowGraph(afterClass.definition);
+    const graph = buildFlowGraph(eventFeedback.definition);
     expect(graph.nodes.map((n) => n.id)).toEqual([
       "overall",
       "went_well",
@@ -77,9 +77,9 @@ describe("buildFlowGraph", () => {
   });
 
   it("follows the respondent's path: a low rating takes the jump and skips went_well", () => {
-    const engine = engineFor(afterClass);
+    const engine = engineFor(eventFeedback);
     engine.setValue("overall", 2);
-    const graph = buildFlowGraph(afterClass.definition, engine.getState());
+    const graph = buildFlowGraph(eventFeedback.definition, engine.getState());
     expect(status(graph)).toEqual({
       overall: "current",
       went_well: "skipped",
@@ -93,11 +93,11 @@ describe("buildFlowGraph", () => {
   });
 
   it("takes the next edges for a high rating, and moves with the block on screen", () => {
-    const engine = engineFor(afterClass);
+    const engine = engineFor(eventFeedback);
     engine.setValue("overall", 5);
     engine.setValue("contact_me", true);
     engine.next();
-    const graph = buildFlowGraph(afterClass.definition, engine.getState());
+    const graph = buildFlowGraph(eventFeedback.definition, engine.getState());
     expect(status(graph)).toMatchObject({ overall: "path", went_well: "current", email: "path" });
     expect(activeEdges(graph)).toEqual(["next:overall", "next:went_well", "next:improve", "next:contact_me", "next:email"]);
   });
@@ -131,7 +131,7 @@ describe("buildFlowGraph", () => {
 
 describe("layoutFlowGraph", () => {
   it("lays blocks out top to bottom and routes every edge", () => {
-    const graph = buildFlowGraph(afterClass.definition);
+    const graph = buildFlowGraph(eventFeedback.definition);
     const placed = layoutFlowGraph(graph);
     const ys = ["overall", "went_well", "improve", "contact_me", "email", "ending:default"].map((id) => placed.nodes[id]!.y);
     expect([...ys].sort((a, b) => a - b)).toEqual(ys);
@@ -142,7 +142,7 @@ describe("layoutFlowGraph", () => {
 
 describe("FlowMapPanel", () => {
   it("renders the graph and updates as the respondent answers", () => {
-    const engine = engineFor(afterClass);
+    const engine = engineFor(eventFeedback);
     render(<FlowMapPanel engine={engine} />);
     expect(screen.getByTestId("devtools-flow").textContent).toMatch(/Now at overall/);
     act(() => {
@@ -155,7 +155,7 @@ describe("FlowMapPanel", () => {
 
 describe("LogicTracePanel", () => {
   it("explains the block on screen by default", () => {
-    const engine = engineFor(afterClass);
+    const engine = engineFor(eventFeedback);
     render(<LogicTracePanel engine={engine} />);
     expect(screen.getByTestId("devtools-trace-summary").textContent).toBe("Visible: no rule hides it.");
     expect(screen.getByTestId("devtools-trace").textContent).toMatch(/No rule shows or hides overall/);
@@ -163,7 +163,7 @@ describe("LogicTracePanel", () => {
   });
 
   it("lists each rule with its result, and the jump that skipped a block", () => {
-    const engine = engineFor(afterClass);
+    const engine = engineFor(eventFeedback);
     engine.setValue("overall", 2);
     const { unmount } = render(<LogicTracePanel engine={engine} blockId="email" />);
     const text = screen.getByTestId("devtools-trace").textContent ?? "";
@@ -213,14 +213,14 @@ describe("CoveragePanel", () => {
   });
 
   it("waits for Run on large forms and shows when the search was truncated", () => {
-    render(<CoveragePanel definition={afterClass.definition} autoRunFields={2} maxStates={3} />);
+    render(<CoveragePanel definition={eventFeedback.definition} autoRunFields={2} maxStates={3} />);
     expect(screen.queryByTestId("coverage-ending-default")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Run coverage" }));
     expect(screen.getByText(/Truncated/)).toBeTruthy();
   });
 
   it("turns a witness into answer events by field id", () => {
-    expect(witnessEvents(afterClass.definition, { overall: 2 })).toEqual([
+    expect(witnessEvents(eventFeedback.definition, { overall: 2 })).toEqual([
       { type: "answer", field: "overall", value: 2 },
       { type: "submit" },
     ]);
@@ -229,7 +229,7 @@ describe("CoveragePanel", () => {
 
 describe("Inspector extraTabs", () => {
   it("hosts the new panels", () => {
-    const engine = engineFor(afterClass);
+    const engine = engineFor(eventFeedback);
     render(
       <Inspector
         engine={engine}

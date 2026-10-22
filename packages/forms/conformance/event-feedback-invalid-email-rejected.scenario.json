@@ -1,22 +1,22 @@
 {
   "scenarioVersion": 1,
-  "name": "after-class: happy path",
-  "description": "Five stars, no follow-up wanted. Name and email stay hidden and are not required.",
+  "name": "event-feedback: invalid email rejected",
+  "description": "A malformed email blocks submit on the client and is rejected by the server.",
   "tags": [
-    "after-class",
-    "happy-path"
+    "event-feedback",
+    "validation"
   ],
   "definition": {
     "schemaVersion": 1,
-    "id": "after-class",
-    "title": "How was class?",
+    "id": "event-feedback",
+    "title": "How was the event?",
     "blocks": [
       {
         "kind": "field",
         "id": "overall",
         "key": "overall",
         "type": "rating",
-        "label": "How was today's class?",
+        "label": "How was today's event?",
         "required": true,
         "props": {
           "max": 5
@@ -31,24 +31,24 @@
         "props": {
           "options": [
             {
-              "value": "coaching",
-              "label": "Coaching"
+              "value": "hosting",
+              "label": "Hosting"
             },
             {
-              "value": "workout",
-              "label": "The workout"
+              "value": "content",
+              "label": "The content"
             },
             {
               "value": "community",
               "label": "Community"
             },
             {
-              "value": "scaling",
-              "label": "Scaling options"
+              "value": "pacing",
+              "label": "Pacing"
             },
             {
-              "value": "equipment",
-              "label": "Equipment"
+              "value": "venue",
+              "label": "The venue"
             },
             {
               "value": "cleanliness",
@@ -69,7 +69,7 @@
         "id": "contact_me",
         "key": "contact_me",
         "type": "yes-no",
-        "label": "Want {{hidden:coach|a coach}} to follow up with you?"
+        "label": "Want {{hidden:owner|someone}} to follow up with you?"
       },
       {
         "kind": "field",
@@ -93,12 +93,12 @@
     },
     "hidden": [
       {
-        "name": "class",
+        "name": "session",
         "type": "string",
         "source": "server"
       },
       {
-        "name": "coach",
+        "name": "owner",
         "type": "string",
         "source": "server"
       }
@@ -151,7 +151,7 @@
     "endings": [
       {
         "id": "default",
-        "title": "Thanks! See you at the next class."
+        "title": "Thanks! See you next time."
       }
     ],
     "settings": {
@@ -159,36 +159,29 @@
     }
   },
   "context": {
-    "class": "6:00 AM CrossFit",
-    "coach": "Sam"
+    "session": "Tuesday 6 PM workshop",
+    "owner": "Sam"
   },
   "events": [
     {
       "type": "answer",
       "field": "overall",
-      "value": 5
-    },
-    {
-      "type": "next"
-    },
-    {
-      "type": "answer",
-      "field": "went_well",
-      "value": [
-        "coaching",
-        "community"
-      ]
-    },
-    {
-      "type": "next"
-    },
-    {
-      "type": "next"
+      "value": 4
     },
     {
       "type": "answer",
       "field": "contact_me",
-      "value": false
+      "value": true
+    },
+    {
+      "type": "answer",
+      "field": "name",
+      "value": "Ada"
+    },
+    {
+      "type": "answer",
+      "field": "email",
+      "value": "ada@"
     },
     {
       "type": "submit"
@@ -199,39 +192,36 @@
       "overall",
       "went_well",
       "improve",
-      "contact_me"
+      "contact_me",
+      "name",
+      "email"
     ],
     "visible": [
       "overall",
       "went_well",
       "improve",
-      "contact_me"
+      "contact_me",
+      "name",
+      "email"
     ],
-    "current": "contact_me",
-    "status": "completed",
-    "ending": "default",
+    "current": "email",
+    "status": "in_progress",
+    "ending": null,
     "answers": {
-      "overall": 5,
-      "went_well": [
-        "coaching",
-        "community"
-      ],
-      "contact_me": false
+      "overall": 4,
+      "contact_me": true,
+      "name": "Ada",
+      "email": "ada@"
     },
+    "errors": [
+      "email"
+    ],
     "server": {
-      "ok": true,
-      "answers": {
-        "overall": 5,
-        "went_well": [
-          "coaching",
-          "community"
-        ],
-        "contact_me": false
-      },
-      "context": {
-        "class": "6:00 AM CrossFit",
-        "coach": "Sam"
-      }
+      "ok": false,
+      "complete": true,
+      "errors": [
+        "email"
+      ]
     }
   }
 }

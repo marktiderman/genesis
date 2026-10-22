@@ -22,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@marktiderman/genesis-
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { analyze, type Analysis, type Finding } from "./analyze";
 import { createDraftRegistry, DraftsContext } from "./controls";
-import { BuilderConfigContext, type Apply, type BlockKinds, type BuilderConfig, type FieldTypeEditor } from "./editors";
+import { BuilderConfigContext, type Apply, type BlockKinds, type BuilderConfig, type FieldPreset, type FieldTypeEditor } from "./editors";
 import { useBuilderHistory } from "./history";
 import { LogicPanel } from "./logic";
 import { updateForm, ruleRefs } from "./ops";
@@ -72,10 +72,16 @@ export interface FormBuilderProps {
   actions?: ((value: FormDefinition, analysis: Analysis, state: BuilderActionsState) => ReactNode) | undefined;
   /** Read the value synchronously, run the checks now, or commit pending drafts. */
   ref?: Ref<FormBuilderHandle> | undefined;
-  /** The field types authors may add, in this order (palette and Type select). Default: `defaultPalette()`, every registered type except the worksheet types. */
+  /** The field types authors may add, in this order (palette and Type select). Default: `defaultPalette()`, every registered type except the structured types (`STRUCTURED_FIELD_TYPES`), which a host opts into. */
   palette?: readonly string[] | undefined;
   /** How the builder edits particular field types: label, defaults, settings panel, logic value editor. */
   fieldEditors?: readonly FieldTypeEditor[] | undefined;
+  /**
+   * Named variants of field types for the Add menu, e.g. a table with fixed
+   * columns or a list capped at three items (see `FieldPreset`). Each adds an
+   * ordinary field of its base type; the Type select lists base types only.
+   */
+  presets?: readonly FieldPreset[] | undefined;
   /** Which non-question blocks authors may add. Default: headings, text and page breaks. */
   blockKinds?: BlockKinds | undefined;
   /**
@@ -86,7 +92,7 @@ export interface FormBuilderProps {
   previewRegistry?: RendererRegistry | undefined;
   /** Custom validators for the preview, by field id (as `createForm` takes them). */
   previewValidators?: Record<string, FieldValidator> | undefined;
-  /** A practice's name and logo for the preview. */
+  /** An organisation or business's name and logo for the preview. */
   brand?: FormBrand | undefined;
   /** Sample hidden-input values for the preview. */
   previewHidden?: Record<string, string | number | boolean> | undefined;
@@ -136,6 +142,7 @@ export function FormBuilder({
   ref,
   palette,
   fieldEditors,
+  presets,
   blockKinds,
   previewRegistry,
   previewValidators,
@@ -159,8 +166,8 @@ export function FormBuilder({
   const [drafts] = useState(createDraftRegistry);
   const readOnlyNoteId = useId();
   const config = useMemo<BuilderConfig>(
-    () => ({ palette, fieldEditors, blockKinds, readOnly }),
-    [palette, fieldEditors, blockKinds, readOnly],
+    () => ({ palette, fieldEditors, presets, blockKinds, readOnly }),
+    [palette, fieldEditors, presets, blockKinds, readOnly],
   );
   // Every edit goes through `apply`, so a read-only builder cannot change the
   // value (or call onChange) even from a control the panels forgot to hide.

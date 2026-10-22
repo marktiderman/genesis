@@ -28,13 +28,13 @@ const field = (type: string, props?: Record<string, Json>): FieldBlock => ({
   ...(props ? { props } : {}),
 });
 
-const smacColumns: { key: string; label: string; long?: boolean }[] = [
-  { key: "say", label: "Say" },
-  { key: "mean", label: "Mean", long: true },
-  { key: "apply", label: "Apply", long: true },
-  { key: "commit", label: "Commit" },
+const planColumns: { key: string; label: string; long?: boolean }[] = [
+  { key: "what", label: "What" },
+  { key: "why", label: "Why", long: true },
+  { key: "how", label: "How", long: true },
+  { key: "when", label: "When" },
 ];
-const smac: Record<string, Json> = { columns: smacColumns as Json };
+const plan: Record<string, Json> = { columns: planColumns as Json };
 
 describe("list", () => {
   const list = field("list", { min: 2, max: 3, itemMaxLength: 5 });
@@ -64,8 +64,8 @@ describe("list", () => {
   it("supports contains like multi-choice", () => {
     expect(getFieldType("list")!.operators).toContain("contains");
     const def = defineForm({
-      id: "kalm",
-      title: "KALM",
+      id: "goals",
+      title: "Goals",
       blocks: [f.list("keep", { label: "Keep" }), f.shortText("why", { label: "Why?" })],
       logic: [when("keep").includes("coffee").show("why")],
     });
@@ -77,35 +77,35 @@ describe("list", () => {
   });
 });
 
-describe("rows", () => {
-  const rows = field("rows", { ...smac, minRows: 1, maxRows: 2 });
+describe("table", () => {
+  const rows = field("table", { ...plan, minRows: 1, maxRows: 2 });
 
   it("is empty without a row that has an answer", () => {
     expect(isEmptyValue([], rows)).toBe(true);
-    expect(isEmptyValue([{ say: " " }, {}], rows)).toBe(true);
-    expect(isEmptyValue([{ say: "x" }], rows)).toBe(false);
+    expect(isEmptyValue([{ what: " " }, {}], rows)).toBe(true);
+    expect(isEmptyValue([{ what: "x" }], rows)).toBe(false);
   });
 
   it("validates columns, cells and row count", () => {
-    expect(validateField(field("rows"), [{ say: "x" }])).toMatch(/no columns/);
+    expect(validateField(field("table"), [{ what: "x" }])).toMatch(/no columns/);
     expect(validateField(rows, [["x"]] as Json)).toMatch(/Fill in the rows/);
     expect(validateField(rows, [{ other: "x" }])).toMatch(/column/);
-    expect(validateField(rows, [{ say: 1 }] as Json)).toMatch(/text/);
-    expect(validateField(rows, [{ say: "x".repeat(2001) }])).toMatch(/2000/);
-    expect(validateField(rows, [{ say: "a" }, { say: "b" }, { say: "c" }])).toMatch(/at most 2 rows/);
-    expect(validateField(field("rows", { ...smac, minRows: 2 }), [{ say: "a" }, {}])).toMatch(/at least 2 rows/);
-    expect(validateField(rows, [{ say: "a", mean: "b" }, { say: "" }])).toBeNull();
+    expect(validateField(rows, [{ what: 1 }] as Json)).toMatch(/text/);
+    expect(validateField(rows, [{ what: "x".repeat(2001) }])).toMatch(/2000/);
+    expect(validateField(rows, [{ what: "a" }, { what: "b" }, { what: "c" }])).toMatch(/at most 2 rows/);
+    expect(validateField(field("table", { ...plan, minRows: 2 }), [{ what: "a" }, {}])).toMatch(/at least 2 rows/);
+    expect(validateField(rows, [{ what: "a", why: "b" }, { what: "" }])).toBeNull();
   });
 
   it("normalizes and summarizes", () => {
-    const value: Json = [{ say: " Hi ", mean: "", apply: "x" }, { say: " " }];
-    expect(normalizeValue(value, rows)).toEqual([{ say: "Hi", mean: "", apply: "x" }]);
-    expect(summarizeValue([{ say: "A", mean: "B" }, { apply: "C" }], rows)).toBe("Say: A · Mean: B / Apply: C");
+    const value: Json = [{ what: " Hi ", why: "", how: "x" }, { what: " " }];
+    expect(normalizeValue(value, rows)).toEqual([{ what: "Hi", why: "", how: "x" }]);
+    expect(summarizeValue([{ what: "A", why: "B" }, { how: "C" }], rows)).toBe("What: A · Why: B / How: C");
   });
 });
 
-describe("timestamp-notes", () => {
-  const notes = field("timestamp-notes", { maxNotes: 2, textMaxLength: 10 });
+describe("media-notes", () => {
+  const notes = field("media-notes", { maxNotes: 2, textMaxLength: 10 });
 
   it("formats and parses times", () => {
     expect(formatTimestamp(83.9)).toBe("1:23");
@@ -137,61 +137,61 @@ describe("timestamp-notes", () => {
   });
 });
 
-describe("highlights", () => {
-  const text = "Iron sharpens iron.";
-  const hl = field("highlights", { text, maxHighlights: 2 });
-  const iron = { start: 0, end: 4, quote: "Iron", note: "me" };
+describe("text-highlights", () => {
+  const text = "Team supports team.";
+  const hl = field("text-highlights", { text, maxHighlights: 2 });
+  const team = { start: 0, end: 4, quote: "Team", note: "me" };
 
   it("needs a note on each highlight", () => {
-    expect(validateField(hl, [{ ...iron, note: " " }])).toBe("Add a note to each highlight.");
+    expect(validateField(hl, [{ ...team, note: " " }])).toBe("Add a note to each highlight.");
   });
 
   it("checks offsets and quotes against the text, when known", () => {
-    expect(validateField(hl, [iron])).toBeNull();
-    expect(validateField(hl, [{ ...iron, quote: "iron" }])).toMatch(/match/);
+    expect(validateField(hl, [team])).toBeNull();
+    expect(validateField(hl, [{ ...team, quote: "team" }])).toMatch(/match/);
     expect(validateField(hl, [{ start: 18, end: 22, quote: "x!!!", note: "n" }])).toMatch(/match/);
-    expect(validateField(hl, [{ ...iron, end: 0 }])).toMatch(/passage/);
-    expect(validateField(hl, [{ ...iron, note: "x".repeat(1001) }])).toMatch(/1000/);
-    expect(validateField(hl, [iron, iron, iron])).toMatch(/at most 2/);
+    expect(validateField(hl, [{ ...team, end: 0 }])).toMatch(/passage/);
+    expect(validateField(hl, [{ ...team, note: "x".repeat(1001) }])).toMatch(/1000/);
+    expect(validateField(hl, [team, team, team])).toMatch(/at most 2/);
     // Without a text, only the shape is checked.
-    expect(validateField(field("highlights"), [{ ...iron, quote: "Wxyz" }])).toBeNull();
-    expect(validateField(field("highlights"), [{ ...iron, quote: "Wx" }])).toMatch(/passage/);
+    expect(validateField(field("text-highlights"), [{ ...team, quote: "Wxyz" }])).toBeNull();
+    expect(validateField(field("text-highlights"), [{ ...team, quote: "Wx" }])).toMatch(/passage/);
     // ...and the length, so an unchecked quote can't be huge.
     const long = { start: 0, end: 2001, quote: "x".repeat(2001), note: "n" };
-    expect(validateField(field("highlights"), [long])).toMatch(/under 2000/);
-    expect(validateField(field("highlights"), [{ ...long, end: 2000, quote: "x".repeat(2000) }])).toBeNull();
+    expect(validateField(field("text-highlights"), [long])).toMatch(/under 2000/);
+    expect(validateField(field("text-highlights"), [{ ...long, end: 2000, quote: "x".repeat(2000) }])).toBeNull();
   });
 
   it("normalizes and summarizes", () => {
-    const later = { start: 14, end: 18, quote: "iron", note: " you " };
-    expect(normalizeValue([later, iron], hl)).toEqual([iron, { ...later, note: "you" }]);
-    expect(summarizeValue([iron, later], hl)).toBe('"Iron" — me; "iron" — you');
+    const later = { start: 14, end: 18, quote: "team", note: " you " };
+    expect(normalizeValue([later, team], hl)).toEqual([team, { ...later, note: "you" }]);
+    expect(summarizeValue([team, later], hl)).toBe('"Team" — me; "team" — you');
     expect(isEmptyValue([], hl)).toBe(true);
   });
 });
 
-describe("worksheet forms", () => {
-  const worksheet = defineForm({
-    id: "worksheet",
-    title: "Worksheet",
+describe("structured forms", () => {
+  const structured = defineForm({
+    id: "structured",
+    title: "Structured",
     blocks: [
-      f.list("kalm", { label: "KALM", required: true, max: 4 }),
-      f.rows("smac", { label: "SMACtalk", columns: smacColumns, maxRows: 3 }),
-      f.timestampNotes("moments", { label: "Moments" }),
-      f.highlights("verse", { label: "Verse", text: "Iron sharpens iron." }),
+      f.list("goals", { label: "Goals", required: true, max: 4 }),
+      f.table("plan", { label: "Plan", columns: planColumns, maxRows: 3 }),
+      f.mediaNotes("moments", { label: "Moments" }),
+      f.textHighlights("article", { label: "Article", text: "Team supports team." }),
     ],
     endings: [{ id: "default", title: "Done" }],
   });
 
   it("parses and fingerprints", () => {
-    const parsed = parseForm(worksheet.definition);
+    const parsed = parseForm(structured.definition);
     expect(parsed.ok).toBe(true);
     expect(parsed.warnings).toEqual([]);
-    expect(fingerprint(worksheet.definition)).toMatch(/^[0-9a-f]{14}$/);
+    expect(fingerprint(structured.definition)).toMatch(/^[0-9a-f]{14}$/);
   });
 
   it("reports malformed props", () => {
-    const def = structuredClone(worksheet.definition) as { blocks: { props?: Record<string, Json> }[] };
+    const def = structuredClone(structured.definition) as { blocks: { props?: Record<string, Json> }[] };
     def.blocks[0]!.props = { min: 5, max: 2 };
     def.blocks[1]!.props = { columns: [{ key: "a", label: "A" }, { key: "a", label: "B" }, { key: "__proto__", label: "C" }] };
     def.blocks[2]!.props = { maxNotes: 0 };
@@ -205,33 +205,33 @@ describe("worksheet forms", () => {
     expect(messages).toMatch(/reserved/);
     expect(messages).toMatch(/maxNotes/);
     expect(messages).toMatch(/props\.text: Must be text/);
-    const noColumns = structuredClone(worksheet.definition) as { blocks: { props?: Record<string, Json> }[] };
+    const noColumns = structuredClone(structured.definition) as { blocks: { props?: Record<string, Json> }[] };
     noColumns.blocks[1]!.props = { columns: [] };
     expect(parseForm(noColumns).ok).toBe(false);
   });
 
   it("round-trips through the engine and validateSubmission", () => {
-    const form = createForm(worksheet.definition);
-    form.setValue("kalm", [" Keep going ", ""]);
-    form.setValue("smac", [{ say: "S", mean: "M" }, { say: "" }]);
+    const form = createForm(structured.definition);
+    form.setValue("goals", [" Keep going ", ""]);
+    form.setValue("plan", [{ what: "S", why: "M" }, { what: "" }]);
     form.setValue("moments", [{ at: 70, text: "b" }, { at: 3, text: " a " }]);
-    form.setValue("verse", [{ start: 0, end: 4, quote: "Iron", note: "n" }]);
+    form.setValue("article", [{ start: 0, end: 4, quote: "Team", note: "n" }]);
     expect(form.submit()).toBe(true);
     const answers = form.answers();
     expect(answers).toEqual({
-      kalm: ["Keep going"],
-      smac: [{ say: "S", mean: "M" }],
+      goals: ["Keep going"],
+      plan: [{ what: "S", why: "M" }],
       moments: [{ at: 3, text: "a" }, { at: 70, text: "b" }],
-      verse: [{ start: 0, end: 4, quote: "Iron", note: "n" }],
+      article: [{ start: 0, end: 4, quote: "Team", note: "n" }],
     });
-    const result = validateSubmission(worksheet.definition, { events: form.getState().events });
+    const result = validateSubmission(structured.definition, { events: form.getState().events });
     expect(result.ok && result.submission.answers).toEqual(answers);
-    const bad = validateSubmission(worksheet.definition, { answers: { kalm: ["x"], verse: [{ start: 0, end: 4, quote: "Iron", note: "" }] } });
+    const bad = validateSubmission(structured.definition, { answers: { goals: ["x"], article: [{ start: 0, end: 4, quote: "Team", note: "" }] } });
     expect(bad.ok).toBe(false);
   });
 
   it("has samples, so coverage reaches the ending", () => {
-    const report = coverage(worksheet.definition);
+    const report = coverage(structured.definition);
     expect(report.unsampledFields).toEqual([]);
     expect(report.endings.default?.reached).toBe(true);
   });

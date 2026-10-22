@@ -56,10 +56,10 @@ The output is deterministic: a re-run with no schema change writes the same byte
 Put labels and widgets next to the schema, in table and column comments:
 
 ```sql
-comment on table public.clients is
-  'People in a program. @genesis {"label": "Clients", "labelField": "name"}';
-comment on column public.clients.notes is
-  'Private to the coach. @genesis {"label": "Coach notes", "widget": "textarea"}';
+comment on table public.customers is
+  'Customers of the business. @genesis {"label": "Customers", "labelField": "name"}';
+comment on column public.customers.notes is
+  'Private to staff. @genesis {"label": "Internal notes", "widget": "textarea"}';
 ```
 
 The text before `@genesis` stays the description. Tables take `label`, `labelField` and

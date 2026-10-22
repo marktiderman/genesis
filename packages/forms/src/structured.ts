@@ -28,30 +28,30 @@ export function listLimits(field: FieldBlock) {
 const listItems = (value: Json | undefined): string[] =>
   Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && v.trim() !== "") : [];
 
-export interface RowsColumn { key: string; label: string; long?: boolean }
-export const MAX_ROWS_COLUMNS = 6;
-export const MAX_ROWS_CELL_LENGTH = 2000;
-export function rowsColumns(field: FieldBlock): RowsColumn[] {
+export interface TableColumn { key: string; label: string; long?: boolean }
+export const MAX_TABLE_COLUMNS = 6;
+export const MAX_TABLE_CELL_LENGTH = 2000;
+export function tableColumns(field: FieldBlock): TableColumn[] {
   const raw = field.props?.columns;
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
-  const out: RowsColumn[] = [];
+  const out: TableColumn[] = [];
   for (const c of raw) {
     if (!isObject(c) || typeof c.key !== "string" || !c.key || seen.has(c.key)) continue;
     seen.add(c.key);
-    const column: RowsColumn = { key: c.key, label: typeof c.label === "string" ? c.label : c.key };
+    const column: TableColumn = { key: c.key, label: typeof c.label === "string" ? c.label : c.key };
     if (c.long === true) column.long = true;
     out.push(column);
   }
   return out;
 }
-export function rowsLimits(field: FieldBlock) {
+export function tableLimits(field: FieldBlock) {
   return { minRows: optionalIntProp(field, "minRows") ?? 0, maxRows: intProp(field, "maxRows", 3) };
 }
 const filledRows = (value: Json | undefined): JsonObject[] =>
   Array.isArray(value) ? value.filter((r): r is JsonObject => isObject(r) && Object.values(r).some((c) => !blank(c))) : [];
 
-export interface TimestampNote { at: number; text: string }
+export interface MediaNote { at: number; text: string }
 export const MAX_TIMESTAMP_SECONDS = 86400;
 export function formatTimestamp(seconds: number): string {
   const total = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
@@ -91,16 +91,26 @@ export const MAX_HIGHLIGHT_NOTE_LENGTH = 1000;
 /** The longest passage one highlight may quote; also bounds a quote the server can't check against `props.text`. */
 export const MAX_HIGHLIGHT_QUOTE_LENGTH = 2000;
 export const HIGHLIGHT_NOTE_MESSAGE = "Add a note to each highlight.";
-const subjectText = (field: FieldBlock) => (typeof field.props?.text === "string" && field.props.text ? field.props.text : undefined);
+const sourceText = (field: FieldBlock) => (typeof field.props?.text === "string" && field.props.text ? field.props.text : undefined);
 
 /**
- * The worksheet field types. They're registered like any other, but the builder
- * offers them only to a host that names them in its palette (`FormBuilder palette`),
- * so forms that never had them don't change.
+ * The structured field types, whose answers are lists or records rather than one
+ * value:
+ * - `list`: several short answers, e.g. goals, action items, three things that went well.
+ * - `table`: a small table each answer fills row by row, e.g. an action plan
+ *   (What / Who / By when), pros and cons.
+ * - `media-notes`: notes pinned to times in a video or audio, e.g. lecture notes,
+ *   a recorded call review.
+ * - `text-highlights`: highlight passages of a text and note on each, e.g.
+ *   annotating an article, a policy or a contract.
+ *
+ * They are registered like any other, but the builder offers them only to a
+ * host that names them in its palette (`FormBuilder palette`), so forms that
+ * never had them don't change.
  */
-export const WORKSHEET_FIELD_TYPES = ["list", "rows", "timestamp-notes", "highlights"] as const;
+export const STRUCTURED_FIELD_TYPES = ["list", "table", "media-notes", "text-highlights"] as const;
 
-export const worksheetFieldTypes: FieldTypeManifest[] = [
+export const structuredFieldTypes: FieldTypeManifest[] = [
   {
     type: "list", label: "List", category: "text", value: { json: true },
     // logic.ts `contains` on an array is exact item equality, same as multi-choice, so it is offered.
@@ -123,11 +133,11 @@ export const worksheetFieldTypes: FieldTypeManifest[] = [
     },
   },
   {
-    type: "rows", label: "Rows", category: "advanced", value: { json: true },
+    type: "table", label: "Table", category: "advanced", value: { json: true },
     operators: ["answered", "empty"], a11y: { semantics: "group" },
     isEmpty: (value) => emptyList(value, (r) => isObject(r) && Object.values(r).every(blankText)),
     validate: (value, field) => {
-      const columns = rowsColumns(field);
+      const columns = tableColumns(field);
       if (!columns.length) return "This question has no columns.";
       if (!Array.isArray(value) || !value.every(isObject)) return "Fill in the rows.";
       const keys = new Set(columns.map((c) => c.key));
@@ -135,10 +145,10 @@ export const worksheetFieldTypes: FieldTypeManifest[] = [
         for (const [key, cell] of Object.entries(row)) {
           if (!keys.has(key)) return "An answer names a column this question doesn't have.";
           if (typeof cell !== "string") return "Fill in the rows with text.";
-          if (cell.trim().length > MAX_ROWS_CELL_LENGTH) return `Keep each answer under ${MAX_ROWS_CELL_LENGTH} characters.`;
+          if (cell.trim().length > MAX_TABLE_CELL_LENGTH) return `Keep each answer under ${MAX_TABLE_CELL_LENGTH} characters.`;
         }
       }
-      const { minRows, maxRows } = rowsLimits(field);
+      const { minRows, maxRows } = tableLimits(field);
       const count = filledRows(value).length;
       if (count < minRows) return `Fill in at least ${plural(minRows, "row")}.`;
       if (count > maxRows) return `Fill in at most ${plural(maxRows, "row")}.`;
@@ -152,21 +162,21 @@ export const worksheetFieldTypes: FieldTypeManifest[] = [
         })
       : value,
     summarize: (value, field) => {
-      const columns = rowsColumns(field);
+      const columns = tableColumns(field);
       return filledRows(value)
         .map((row) => columns.filter((c) => !blank(row[c.key])).map((c) => `${c.label}: ${(row[c.key] as string).trim()}`).join(" · "))
         .join(" / ");
     },
     samples: (field) => {
-      const columns = rowsColumns(field);
+      const columns = tableColumns(field);
       if (!columns.length) return [];
-      const { minRows, maxRows } = rowsLimits(field);
+      const { minRows, maxRows } = tableLimits(field);
       const row = Object.fromEntries(columns.map((c) => [c.key, "sample"]));
       return [Array.from({ length: Math.min(Math.max(1, minRows), maxRows) }, () => ({ ...row }))];
     },
   },
   {
-    type: "timestamp-notes", label: "Notes at moments", category: "media", value: { json: true },
+    type: "media-notes", label: "Notes at moments", category: "media", value: { json: true },
     operators: ["answered", "empty"], a11y: { semantics: "group" },
     isEmpty: (value) => emptyList(value, (n) => isObject(n) && blankText(n.text)),
     validate: (value, field) => {
@@ -174,7 +184,7 @@ export const worksheetFieldTypes: FieldTypeManifest[] = [
       const textMaxLength = intProp(field, "textMaxLength", 1000);
       for (const note of value) {
         if (!isObject(note) || typeof note.text !== "string") return "Add notes.";
-        if (!isTimestamp(note.at)) return "Each note needs a time in the video.";
+        if (!isTimestamp(note.at)) return "Each note needs a time.";
         if (note.text.trim().length > textMaxLength) return `Keep each note under ${textMaxLength} characters.`;
       }
       const maxNotes = intProp(field, "maxNotes", 20);
@@ -191,14 +201,14 @@ export const worksheetFieldTypes: FieldTypeManifest[] = [
     samples: () => [[{ at: 0, text: "sample" }]],
   },
   {
-    type: "highlights", label: "Highlights", category: "media", value: { json: true },
+    type: "text-highlights", label: "Highlights", category: "media", value: { json: true },
     operators: ["answered", "empty"], a11y: { semantics: "group" },
     isEmpty: (value) => emptyList(value, () => false),
     validate: (value, field) => {
       if (!Array.isArray(value)) return "Highlight a passage.";
       const maxHighlights = intProp(field, "maxHighlights", 20);
       if (value.length > maxHighlights) return `Add at most ${plural(maxHighlights, "highlight")}.`;
-      const text = subjectText(field);
+      const text = sourceText(field);
       for (const h of value) {
         if (!isObject(h) || !Number.isInteger(h.start) || !Number.isInteger(h.end) || typeof h.quote !== "string" || typeof h.note !== "string") {
           return "Highlight a passage of the text.";
@@ -222,7 +232,7 @@ export const worksheetFieldTypes: FieldTypeManifest[] = [
       ? value.filter(isObject).map((h) => `"${String(h.quote)}" — ${String(h.note).trim()}`).join("; ")
       : "",
     samples: (field) => {
-      const text = subjectText(field);
+      const text = sourceText(field);
       if (text === undefined) return [[{ start: 0, end: 6, quote: "sample", note: "sample" }]];
       const end = Math.min(text.length, 20);
       return [[{ start: 0, end, quote: text.slice(0, end), note: "sample" }]];

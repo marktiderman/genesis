@@ -1,27 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { createForm } from "../index";
 import { validateSubmission } from "../server";
-import { afterClass } from "./fixtures";
+import { eventFeedback } from "./fixtures";
 
-const def = afterClass.definition;
+const def = eventFeedback.definition;
 
 describe("validateSubmission", () => {
   it("never trusts client values for server inputs", () => {
     const result = validateSubmission(
       def,
-      { answers: { overall: 1 }, hidden: { coach: "someone-else", utm: "poster" } },
-      { context: { coach: "Sam", class: "06:00" } },
+      { answers: { overall: 1 }, hidden: { owner: "someone-else", utm: "poster" } },
+      { context: { owner: "Sam", session: "06:00" } },
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.submission.context).toEqual({ coach: "Sam", class: "06:00" });
+    expect(result.submission.context).toEqual({ owner: "Sam", session: "06:00" });
     expect(result.submission.hidden).toEqual({ utm: "poster" });
-    expect(result.submission.ignored).toContain("hidden.coach");
+    expect(result.submission.ignored).toContain("hidden.owner");
   });
 
   it("drops answers to fields hidden by logic and unknown fields", () => {
     const result = validateSubmission(def, {
-      answers: { overall: 2, went_well: ["coaching"], name: "Ada", hacked: "x" },
+      answers: { overall: 2, went_well: ["hosting"], name: "Ada", hacked: "x" },
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;

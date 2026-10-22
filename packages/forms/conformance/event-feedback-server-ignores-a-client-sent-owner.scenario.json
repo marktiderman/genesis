@@ -1,22 +1,23 @@
 {
   "scenarioVersion": 1,
-  "name": "after-class: low rating skips went_well",
-  "description": "A rating under 4 jumps from overall to improve; went_well is off the path. Keystrokes in improve are compacted.",
+  "name": "event-feedback: server ignores a client-sent owner",
+  "description": "owner is a server input. A value sent by the client is dropped and reported in ignored; the server's own value is stored.",
   "tags": [
-    "after-class",
-    "jump"
+    "event-feedback",
+    "server",
+    "security"
   ],
   "definition": {
     "schemaVersion": 1,
-    "id": "after-class",
-    "title": "How was class?",
+    "id": "event-feedback",
+    "title": "How was the event?",
     "blocks": [
       {
         "kind": "field",
         "id": "overall",
         "key": "overall",
         "type": "rating",
-        "label": "How was today's class?",
+        "label": "How was today's event?",
         "required": true,
         "props": {
           "max": 5
@@ -31,24 +32,24 @@
         "props": {
           "options": [
             {
-              "value": "coaching",
-              "label": "Coaching"
+              "value": "hosting",
+              "label": "Hosting"
             },
             {
-              "value": "workout",
-              "label": "The workout"
+              "value": "content",
+              "label": "The content"
             },
             {
               "value": "community",
               "label": "Community"
             },
             {
-              "value": "scaling",
-              "label": "Scaling options"
+              "value": "pacing",
+              "label": "Pacing"
             },
             {
-              "value": "equipment",
-              "label": "Equipment"
+              "value": "venue",
+              "label": "The venue"
             },
             {
               "value": "cleanliness",
@@ -69,7 +70,7 @@
         "id": "contact_me",
         "key": "contact_me",
         "type": "yes-no",
-        "label": "Want {{hidden:coach|a coach}} to follow up with you?"
+        "label": "Want {{hidden:owner|someone}} to follow up with you?"
       },
       {
         "kind": "field",
@@ -93,12 +94,12 @@
     },
     "hidden": [
       {
-        "name": "class",
+        "name": "session",
         "type": "string",
         "source": "server"
       },
       {
-        "name": "coach",
+        "name": "owner",
         "type": "string",
         "source": "server"
       }
@@ -151,33 +152,25 @@
     "endings": [
       {
         "id": "default",
-        "title": "Thanks! See you at the next class."
+        "title": "Thanks! See you next time."
       }
     ],
     "settings": {
       "anonymous": true
     }
   },
+  "hidden": {
+    "owner": "Mallory"
+  },
   "context": {
-    "class": "6:00 AM CrossFit",
-    "coach": "Sam"
+    "session": "Tuesday 6 PM workshop",
+    "owner": "Sam"
   },
   "events": [
     {
       "type": "answer",
       "field": "overall",
-      "value": 2
-    },
-    {
-      "type": "next"
-    },
-    {
-      "type": "answer",
-      "field": "improve",
-      "value": "Music too loud"
-    },
-    {
-      "type": "next"
+      "value": 5
     },
     {
       "type": "answer",
@@ -191,33 +184,36 @@
   "expect": {
     "path": [
       "overall",
+      "went_well",
       "improve",
       "contact_me"
     ],
     "visible": [
       "overall",
+      "went_well",
       "improve",
       "contact_me"
     ],
-    "current": "contact_me",
+    "current": "overall",
     "status": "completed",
     "ending": "default",
     "answers": {
-      "overall": 2,
-      "improve": "Music too loud",
+      "overall": 5,
       "contact_me": false
     },
     "server": {
       "ok": true,
       "answers": {
-        "overall": 2,
-        "improve": "Music too loud",
+        "overall": 5,
         "contact_me": false
       },
       "context": {
-        "class": "6:00 AM CrossFit",
-        "coach": "Sam"
-      }
+        "session": "Tuesday 6 PM workshop",
+        "owner": "Sam"
+      },
+      "ignored": [
+        "hidden.owner"
+      ]
     }
   }
 }

@@ -4,12 +4,12 @@ import type { FormDefinition } from "@marktiderman/genesis-forms";
 import { FormBuilder, type FieldPanelProps, type FieldTypeEditor } from "../index";
 import { fixtureTemplate } from "./fixtures";
 
-const afterClass = (): FormDefinition => {
-  const def = fixtureTemplate("after-class").create();
+const visitFeedback = (): FormDefinition => {
+  const def = fixtureTemplate("visit-feedback").create();
   return {
     ...def,
     endings: [...(def.endings ?? []), { id: "early", title: "See you soon" }],
-    hidden: [{ name: "coach", type: "string", source: "host" }],
+    hidden: [{ name: "owner", type: "string", source: "host" }],
   };
 };
 
@@ -22,7 +22,7 @@ const tab = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${nam
 
 describe("<FormBuilder readOnly>", () => {
   it("keeps every panel, marks itself read only and hides undo/redo", () => {
-    render(<FormBuilder defaultValue={afterClass()} readOnly />);
+    render(<FormBuilder defaultValue={visitFeedback()} readOnly />);
     for (const name of ["Questions", "Logic", "Endings", "Settings", "JSON"]) expect(tab(name)).toBeTruthy();
     expect(screen.getByTestId("builder-readonly").textContent).toContain("Read only");
     expect(screen.getByTestId("form-builder").hasAttribute("data-readonly")).toBe(true);
@@ -36,7 +36,7 @@ describe("<FormBuilder readOnly>", () => {
 
   it("lets a question be opened and read, but not changed, moved, copied or removed", () => {
     const onChange = vi.fn();
-    render(<FormBuilder defaultValue={afterClass()} readOnly onChange={onChange} />);
+    render(<FormBuilder defaultValue={visitFeedback()} readOnly onChange={onChange} />);
     expect(screen.queryByTestId("builder-add-block")).toBeNull();
     expect(screen.queryByTestId("builder-block-grip-q_rating")).toBeNull();
     expect(screen.queryByTestId("builder-block-delete-q_rating")).toBeNull();
@@ -44,7 +44,7 @@ describe("<FormBuilder readOnly>", () => {
 
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     const label = screen.getByTestId("builder-field-label") as HTMLInputElement;
-    expect(label.value).toBe("How was class today?");
+    expect(label.value).toBe("How was your visit today?");
     expect(isDisabled(label)).toBe(true);
     expect(isDisabled(screen.getByTestId("builder-field-key"))).toBe(true);
     expect(isDisabled(screen.getByTestId("builder-field-required"))).toBe(true);
@@ -55,19 +55,19 @@ describe("<FormBuilder readOnly>", () => {
 
   it("never changes the value or calls onChange, even if an edit gets through", () => {
     const onChange = vi.fn();
-    render(<FormBuilder defaultValue={afterClass()} readOnly onChange={onChange} />);
+    render(<FormBuilder defaultValue={visitFeedback()} readOnly onChange={onChange} />);
     const title = screen.getByLabelText("Form title") as HTMLInputElement;
     fireEvent.change(title, { target: { value: "Changed" } });
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     fireEvent.change(screen.getByTestId("builder-field-label"), { target: { value: "Changed" } });
     fireEvent.keyDown(screen.getByTestId("builder-block-toggle-q_rating"), { key: "z", ctrlKey: true });
     expect(onChange).not.toHaveBeenCalled();
-    expect(title.value).toBe("How was class?");
+    expect(title.value).toBe("How was your visit?");
   });
 
   it("does not report pending drafts on unmount", () => {
     const onChange = vi.fn();
-    const { unmount } = render(<FormBuilder defaultValue={afterClass()} readOnly onChange={onChange} />);
+    const { unmount } = render(<FormBuilder defaultValue={visitFeedback()} readOnly onChange={onChange} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "typed" } });
     unmount();
@@ -75,7 +75,7 @@ describe("<FormBuilder readOnly>", () => {
   });
 
   it("shows rules without add, move or delete, and with their editor disabled", () => {
-    render(<FormBuilder defaultValue={afterClass()} readOnly defaultTab="logic" />);
+    render(<FormBuilder defaultValue={visitFeedback()} readOnly defaultTab="logic" />);
     expect(screen.queryByTestId("builder-add-rule-show")).toBeNull();
     expect(screen.queryByTestId("builder-add-rule-jump")).toBeNull();
     expect(screen.queryByRole("button", { name: /rule (up|down)|Delete rule/ })).toBeNull();
@@ -88,7 +88,7 @@ describe("<FormBuilder readOnly>", () => {
   });
 
   it("shows endings without add or delete, and their fields disabled", () => {
-    render(<FormBuilder defaultValue={afterClass()} readOnly defaultTab="endings" />);
+    render(<FormBuilder defaultValue={visitFeedback()} readOnly defaultTab="endings" />);
     expect(screen.queryByTestId("builder-add-ending")).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete ending" })).toBeNull();
     const early = screen.getByTestId("builder-ending-early");
@@ -96,7 +96,7 @@ describe("<FormBuilder readOnly>", () => {
   });
 
   it("shows settings and hidden inputs disabled, without add or delete", () => {
-    render(<FormBuilder defaultValue={afterClass()} readOnly defaultTab="settings" />);
+    render(<FormBuilder defaultValue={visitFeedback()} readOnly defaultTab="settings" />);
     expect(isDisabled(screen.getByTestId("builder-anonymous"))).toBe(true);
     expect(isDisabled(screen.getByTestId("builder-form-title"))).toBe(true);
     expect(isDisabled(screen.getByLabelText("Name"))).toBe(true);
@@ -105,7 +105,7 @@ describe("<FormBuilder readOnly>", () => {
   });
 
   it("shows the JSON as selectable read-only text with no Apply", () => {
-    render(<FormBuilder defaultValue={afterClass()} readOnly defaultTab="json" />);
+    render(<FormBuilder defaultValue={visitFeedback()} readOnly defaultTab="json" />);
     const json = screen.getByTestId("builder-json") as HTMLTextAreaElement;
     expect(json.readOnly).toBe(true);
     expect(isDisabled(json)).toBe(false);
@@ -126,7 +126,7 @@ describe("<FormBuilder readOnly>", () => {
         );
       },
     };
-    render(<FormBuilder defaultValue={afterClass()} readOnly onChange={onChange} fieldEditors={[editor]} />);
+    render(<FormBuilder defaultValue={visitFeedback()} readOnly onChange={onChange} fieldEditors={[editor]} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     expect(seen?.readOnly).toBe(true);
     expect(isDisabled(screen.getByTestId("custom-edit"))).toBe(true);
@@ -136,7 +136,7 @@ describe("<FormBuilder readOnly>", () => {
 
   it("still edits normally without readOnly", () => {
     const onChange = vi.fn();
-    render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
+    render(<FormBuilder defaultValue={visitFeedback()} onChange={onChange} />);
     expect(screen.queryByTestId("builder-readonly")).toBeNull();
     expect(screen.getByTestId("builder-undo")).toBeTruthy();
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));

@@ -62,7 +62,7 @@ export interface HiddenInput {
   /** Masked in devtools unless revealed, like a sensitive field. */
   sensitive?: boolean;
   /**
-   * Identifies the respondent (a member id, an email). When the form's
+   * Identifies the respondent (a user id, an email). When the form's
    * `settings.anonymous` is true, `validateSubmission` leaves it out of the
    * stored `hidden` and `context`. Logic still reads it.
    */

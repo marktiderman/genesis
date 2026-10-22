@@ -138,7 +138,7 @@ function HiddenInputsSection({ def, apply, readOnly }: { def: FormDefinition; ap
       <div>
         <h3 className="text-sm font-semibold">Hidden inputs</h3>
         <p className="text-xs text-muted-foreground">
-          Values the respondent doesn't type, such as the class or coach. Use them in logic, or in wording with{" "}
+          Values the respondent doesn't type, such as a location, a staff member or an account id. Use them in logic, or in wording with{" "}
           <code>{"{{hidden:name}}"}</code>. Only server inputs can be trusted.
         </p>
       </div>

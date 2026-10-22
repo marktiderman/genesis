@@ -102,7 +102,7 @@ describe("finding 1: hostile depth", () => {
 describe("finding 2: long answers in share links", () => {
   it("a 2,000-character comment typed keystroke by keystroke round-trips", async () => {
     const engine = createForm(comment.definition, { clock: () => undefined });
-    const text = "The 6am class was great but the warm-up felt rushed and ".repeat(50).slice(0, 2000);
+    const text = "The 6pm session was great but the intro felt rushed and ".repeat(50).slice(0, 2000);
     for (let i = 1; i <= text.length; i++) engine.setValue("improve", text.slice(0, i));
     const events = engine.getState().events;
     expect(events.length).toBe(2000);
@@ -236,19 +236,19 @@ describe("sensitive hidden inputs (CodeRabbit round 4)", () => {
     hidden: {
       member: f.hidden.string({ source: "server", sensitive: true }),
       ref: f.hidden.string({ source: "url", sensitive: true }),
-      coach: f.hidden.string({ source: "server" }),
+      owner: f.hidden.string({ source: "server" }),
     },
     blocks: [f.rating("overall", { label: "How was it?", required: true })],
   });
   const done = () =>
     replay(withMember.definition, [{ type: "answer", field: "overall", value: 4 }, { type: "submit" }], {
-      hidden: { member: "user-42", ref: "flyer-7", coach: "Sam" },
+      hidden: { member: "user-42", ref: "flyer-7", owner: "Sam" },
     });
 
   it("masks them in the state and server panels, hidden and context alike", () => {
     for (const panel of [
       <StatePanel key="s" engine={done()} />,
-      <ServerPanel key="v" engine={done()} context={{ member: "user-42", coach: "Sam" }} />,
+      <ServerPanel key="v" engine={done()} context={{ member: "user-42", owner: "Sam" }} />,
     ]) {
       const { container, unmount } = render(panel);
       const text = container.textContent ?? "";
@@ -270,13 +270,13 @@ describe("share links blank sensitive hidden inputs in context (CodeRabbit on #4
   it("nulls a sensitive context entry even with includeContext", async () => {
     const def = defineForm({
       id: "ctx", title: "Ctx",
-      hidden: { member: f.hidden.string({ source: "server", sensitive: true }), coach: f.hidden.string({ source: "server" }) },
+      hidden: { member: f.hidden.string({ source: "server", sensitive: true }), owner: f.hidden.string({ source: "server" }) },
       blocks: [f.rating("r", { label: "R" })],
     }).definition;
     const back = await decodeShare(
-      await encodeShare({ v: 1, definition: def, context: { member: "user-42", coach: "Sam" } }, { includeContext: true }),
+      await encodeShare({ v: 1, definition: def, context: { member: "user-42", owner: "Sam" } }, { includeContext: true }),
     );
-    expect(back?.context).toEqual({ member: null, coach: "Sam" });
+    expect(back?.context).toEqual({ member: null, owner: "Sam" });
   });
 });
 
@@ -284,7 +284,7 @@ describe("identifying fields and hidden inputs are masked like sensitive ones", 
   const def = defineForm({
     id: "ident",
     title: "Ident",
-    hidden: { member: f.hidden.string({ source: "server", identifying: true }), coach: f.hidden.string({ source: "server" }) },
+    hidden: { member: f.hidden.string({ source: "server", identifying: true }), owner: f.hidden.string({ source: "server" }) },
     blocks: [f.email("email", { label: "Email", identifying: true }), f.longText("notes", { label: "Notes" })],
   }).definition;
   const events: FormEvent[] = [
@@ -294,17 +294,17 @@ describe("identifying fields and hidden inputs are masked like sensitive ones", 
 
   it("encodeShare blanks them", async () => {
     const back = await decodeShare(
-      await encodeShare({ v: 1, definition: def, events, context: { member: "user-42", coach: "Sam" } }, { includeContext: true }),
+      await encodeShare({ v: 1, definition: def, events, context: { member: "user-42", owner: "Sam" } }, { includeContext: true }),
     );
     expect(back?.events).toEqual([
       { type: "answer", field: "email", value: null },
       { type: "answer", field: "notes", value: "fine" },
     ]);
-    expect(back?.context).toEqual({ member: null, coach: "Sam" });
+    expect(back?.context).toEqual({ member: null, owner: "Sam" });
   });
 
   it("the state and timeline panels mask them until revealed", () => {
-    const filled = () => replay(def, events, { hidden: { member: "user-42", coach: "Sam" } });
+    const filled = () => replay(def, events, { hidden: { member: "user-42", owner: "Sam" } });
     for (const panel of [<StatePanel key="s" engine={filled()} />, <TimelinePanel key="t" engine={filled()} />]) {
       const { container, unmount } = render(panel);
       const text = container.textContent ?? "";

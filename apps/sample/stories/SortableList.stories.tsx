@@ -6,9 +6,9 @@ import { SortableList } from "@marktiderman/genesis-ui";
 type Step = { id: string; name: string; detail: string };
 
 const STEPS: Step[] = [
-  { id: "w1", name: "Week 1 · Habits compound", detail: "Clip · reading · SMACtalk · habit" },
-  { id: "w2", name: "Week 2 · Systems over goals", detail: "Video · reading · worksheet" },
-  { id: "w3", name: "Week 3 · The four laws", detail: "Video · reading · KALM" },
+  { id: "w1", name: "Week 1 · Getting started", detail: "Clip · reading · checklist" },
+  { id: "w2", name: "Week 2 · Planning ahead", detail: "Video · reading · action plan" },
+  { id: "w3", name: "Week 3 · Review", detail: "Video · reading · quiz" },
 ];
 
 function CourseSteps({ moveMenu = true }: { moveMenu?: boolean }) {
@@ -65,7 +65,7 @@ export const RowButtonKeepsFocus: Story = {
   args: { moveMenu: false },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const down = canvas.getByRole("button", { name: "Move Week 1 · Habits compound down" });
+    const down = canvas.getByRole("button", { name: "Move Week 1 · Getting started down" });
     await userEvent.click(down);
     const names = canvas.getAllByRole("listitem").map((li) => li.getAttribute("data-sortable-key"));
     await expect(names).toEqual(["w2", "w1", "w3"]);
@@ -77,7 +77,7 @@ export const RowButtonKeepsFocus: Story = {
 export const KeyboardMove: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const handle = canvas.getByRole("button", { name: "Reorder Week 1 · Habits compound" });
+    const handle = canvas.getByRole("button", { name: "Reorder Week 1 · Getting started" });
     handle.focus();
     await userEvent.keyboard(" ");
     await userEvent.keyboard("{ArrowDown}");

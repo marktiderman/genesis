@@ -1,29 +1,29 @@
 import { defineForm, f, when } from "@marktiderman/genesis-forms";
 
-/** CrossFit Fairfield after-class feedback: the R1 reference form. */
-export const afterClass = defineForm({
-  id: "after-class",
-  title: "How was class?",
+/** Post-event feedback: the R1 reference form. */
+export const eventFeedback = defineForm({
+  id: "event-feedback",
+  title: "How was the event?",
   layout: { mode: "focus" },
   hidden: {
-    class: f.hidden.string({ source: "server" }),
-    coach: f.hidden.string({ source: "server" }),
+    session: f.hidden.string({ source: "server" }),
+    owner: f.hidden.string({ source: "server" }),
   },
   blocks: [
-    f.rating("overall", { label: "How was today's class?", required: true }),
+    f.rating("overall", { label: "How was today's event?", required: true }),
     f.multiChoice("went_well", {
       label: "What went well?",
       options: [
-        { value: "coaching", label: "Coaching" },
-        { value: "workout", label: "The workout" },
+        { value: "hosting", label: "Hosting" },
+        { value: "content", label: "The content" },
         { value: "community", label: "Community" },
-        { value: "scaling", label: "Scaling options" },
-        { value: "equipment", label: "Equipment" },
+        { value: "pacing", label: "Pacing" },
+        { value: "venue", label: "The venue" },
         { value: "cleanliness", label: "Cleanliness" },
       ],
     }),
     f.longText("improve", { label: "Anything we could do better?" }),
-    f.yesNo("contact_me", { label: "Want {{hidden:coach|a coach}} to follow up with you?" }),
+    f.yesNo("contact_me", { label: "Want {{hidden:owner|someone}} to follow up with you?" }),
     f.shortText("name", { label: "Your name", required: true }),
     f.email("email", { label: "Best email to reach you", required: true }),
   ],
@@ -32,20 +32,20 @@ export const afterClass = defineForm({
     when("contact_me").isNot(true).hide("email"),
     when("overall").lessThan(4).jumpTo("improve"),
   ],
-  endings: [{ id: "default", title: "Thanks! See you at the next class." }],
+  endings: [{ id: "default", title: "Thanks! See you next time." }],
   settings: { anonymous: true },
 });
 
-/** Monthly pulse with an NPS question. */
-export const monthlyPulse = defineForm({
-  id: "monthly-pulse",
+/** Monthly check-in with an NPS question. */
+export const monthlyCheckIn = defineForm({
+  id: "monthly-check-in",
   title: "Monthly check-in",
   layout: { mode: "focus" },
   blocks: [
-    f.nps("recommend", { label: "How likely are you to recommend CrossFit Fairfield to a friend?", required: true }),
+    f.nps("recommend", { label: "How likely are you to recommend us to a friend?", required: true }),
     f.longText("why", { label: "What's the main reason for your score?" }),
     f.singleChoice("frequency", {
-      label: "How often did you train with us this month?",
+      label: "How often did you use the service this month?",
       options: [
         { value: "1-4", label: "1–4 times" },
         { value: "5-8", label: "5–8 times" },
@@ -57,21 +57,21 @@ export const monthlyPulse = defineForm({
   logic: [when("recommend").atLeast(9).jumpTo({ ending: "promoter" })],
   endings: [
     { id: "default", title: "Thanks for the honest feedback." },
-    { id: "promoter", title: "Thank you! Bring a friend to a free class anytime." },
+    { id: "promoter", title: "Thank you! Tell a friend about us anytime." },
   ],
   settings: { anonymous: true },
 });
 
-/** The practice shown on the respondent's screen: initials stand in for a logo. */
-export const demoBrand = { name: "CrossFit Fairfield" };
+/** The organisation shown on the respondent's screen: initials stand in for a logo. */
+export const demoBrand = { name: "Acme Events" };
 
-export const playgroundForms ={ "after-class": afterClass, "monthly-pulse": monthlyPulse } as const;
+export const playgroundForms ={ "event-feedback": eventFeedback, "monthly-check-in": monthlyCheckIn } as const;
 
 export interface PlaygroundScenario {
   id: string;
   title: string;
   description: string;
-  form: typeof afterClass | typeof monthlyPulse;
+  form: typeof eventFeedback | typeof monthlyCheckIn;
   context: Record<string, string>;
   tags: string[];
 }
@@ -79,18 +79,18 @@ export interface PlaygroundScenario {
 /** The scenario library shown in the playground sidebar. */
 export const scenarios: PlaygroundScenario[] = [
   {
-    id: "after-class",
-    title: "After class",
+    id: "event-feedback",
+    title: "Event feedback",
     description: "Rating, optional follow-up; a low rating skips “what went well”.",
-    form: afterClass,
-    context: { coach: "Sam", class: "06:00 CrossFit" },
+    form: eventFeedback,
+    context: { owner: "Sam", session: "Tuesday 6 PM workshop" },
     tags: ["R1", "jump", "show/hide", "recall", "server context"],
   },
   {
-    id: "monthly-pulse",
-    title: "Monthly pulse",
+    id: "monthly-check-in",
+    title: "Monthly check-in",
     description: "NPS; promoters jump to their own ending.",
-    form: monthlyPulse,
+    form: monthlyCheckIn,
     context: {},
     tags: ["R1", "nps", "endings"],
   },

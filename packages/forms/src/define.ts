@@ -105,7 +105,7 @@ export const f = {
   multiChoice: <K extends string, O extends string>(key: K, o: ChoiceFieldOptions<O>) =>
     field<K, O[]>("multi-choice", key, o, choiceProps(o.options)),
   yesNo: <K extends string>(key: K, o: FieldOptions) => field<K, boolean>("yes-no", key, o),
-  /** Several short answers, one per line (KALM lists). */
+  /** Several short answers, one per line: goals, action items, three things that went well. */
   list: <K extends string>(
     key: K,
     o: FieldOptions & {
@@ -121,8 +121,11 @@ export const f = {
       o,
       props({ min: o.min, max: o.max, itemMaxLength: o.itemMaxLength, placeholder: o.itemPlaceholder }),
     ),
-  /** A table: one row per entry, one answer per column (SMACtalk takeaways). */
-  rows: <K extends string, C extends string>(
+  /**
+   * A small table each answer fills row by row, one answer per column: an
+   * action plan (What / Who / By when), pros and cons.
+   */
+  table: <K extends string, C extends string>(
     key: K,
     o: FieldOptions & {
       columns: readonly { key: C; label: string; long?: boolean | undefined }[];
@@ -130,28 +133,34 @@ export const f = {
       maxRows?: number | undefined;
     },
   ) =>
-    field<K, Partial<Record<C, string>>[]>("rows", key, o, {
+    field<K, Partial<Record<C, string>>[]>("table", key, o, {
       columns: o.columns.map((c): Json => (c.long ? { key: c.key, label: c.label, long: true } : { key: c.key, label: c.label })),
       ...props({ minRows: o.minRows, maxRows: o.maxRows }),
     }),
-  /** Notes at moments of a video: `at` is seconds from its start. */
-  timestampNotes: <K extends string>(
+  /**
+   * Notes pinned to times in a video or audio (lecture notes, a recorded call
+   * review): `at` is seconds from its start.
+   */
+  mediaNotes: <K extends string>(
     key: K,
     o: FieldOptions & { maxNotes?: number | undefined; textMaxLength?: number | undefined },
   ) =>
     field<K, { at: number; text: string }[]>(
-      "timestamp-notes",
+      "media-notes",
       key,
       o,
       props({ maxNotes: o.maxNotes, textMaxLength: o.textMaxLength }),
     ),
-  /** Notes on passages of a text: `text` here, or supplied by the host app. */
-  highlights: <K extends string>(
+  /**
+   * Highlight passages of a text and note on each (annotating an article, a
+   * policy or a contract): `text` here, or supplied by the host app.
+   */
+  textHighlights: <K extends string>(
     key: K,
     o: FieldOptions & { text?: string | undefined; maxHighlights?: number | undefined },
   ) =>
     field<K, { start: number; end: number; quote: string; note: string }[]>(
-      "highlights",
+      "text-highlights",
       key,
       o,
       props({ text: o.text, maxHighlights: o.maxHighlights }),

@@ -4,10 +4,10 @@ import type { StudioHandlerOptions } from "../src/index";
 
 // A trimmed copy of generated output (see packages/genesis-cli/src/introspect/emit.ts).
 const contracts = {
-  "public.clients": {
-    name: "public.clients",
+  "public.customers": {
+    name: "public.customers",
     key: "id",
-    label: "Coaching clients",
+    label: "Customer accounts",
     labelField: "name",
     description: "People in a program.",
     fields: [
@@ -19,5 +19,5 @@ const contracts = {
 
 it("type-checks as the handler's contracts option", () => {
   const option: StudioHandlerOptions["contracts"] = contracts;
-  expect(option?.["public.clients"]?.label).toBe("Coaching clients");
+  expect(option?.["public.customers"]?.label).toBe("Customer accounts");
 });
