@@ -986,6 +986,9 @@ export function ResourcePage<
         : undefined),
     onFiltersChange,
     defaultView,
+    // Each page remembers its own table/cards choice, under the same key as
+    // its density and page size — not one key shared by every data page.
+    viewKey: viewSettingsKey,
     detail,
     titleField: titleFieldProp,
     subtitleField: subtitleFieldProp,
@@ -1298,8 +1301,6 @@ export function ResourcePage<
           // called straight from the peek, nothing closed for it.
           (item: T) => {
             // A throw or a rejected promise is reported, never left unhandled.
-            // Called synchronously, so the caller's contract (called straight
-            // away) holds; a sync throw is caught here, a rejection below.
             const report = (err: unknown) => {
               if (resourceOptions?.onError) {
                 resourceOptions.onError(err instanceof Error ? err : new Error(String(err)));
@@ -1307,6 +1308,7 @@ export function ResourcePage<
                 toast.error(err instanceof Error ? err.message : "The delete failed.");
               }
             };
+            // Called right away, as before; a throw or a rejection is reported.
             try {
               Promise.resolve(onDelete?.(item)).catch(report);
             } catch (err) {
