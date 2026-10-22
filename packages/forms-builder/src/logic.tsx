@@ -88,6 +88,18 @@ export function describeRule(rule: LogicRule, def: FormDefinition): string {
 }
 
 /**
+ * Where a new jump after block `from` goes: the next step, else the default
+ * ending; null when there is neither. Pure: it makes no ids.
+ */
+export function jumpTarget(def: FormDefinition, from: string): Extract<LogicRule, { effect: "jump" }>["to"] | null {
+  const at = def.blocks.findIndex((b) => b.id === from);
+  const later = at === -1 ? undefined : def.blocks.slice(at + 1).find((b) => b.kind !== "page-break");
+  if (later) return later.id;
+  const ending = defaultEndingId(def);
+  return ending ? { ending } : null;
+}
+
+/**
  * A new show rule: show the last field when the first one is answered a
  * certain way. A jump goes to the next step, else the default ending; null
  * when there is nothing to jump to.
@@ -100,29 +112,21 @@ export function starterRule(
   const fields = fieldsOf(def);
   const source = fields[0];
   if (!source) return null;
-  const id = freshId("rule", def);
   if (effect === "jump") {
-    const later = def.blocks.slice(def.blocks.indexOf(source) + 1).find((b) => b.kind !== "page-break");
-    const ending = defaultEndingId(def);
-    if (!later && !ending) return null;
-    return {
-      id,
-      effect: "jump",
-      when: starterCondition(source, editors),
-      from: source.id,
-      to: later ? later.id : { ending: ending! },
-    };
+    const to = jumpTarget(def, source.id);
+    if (!to) return null;
+    return { id: freshId("rule", def), effect: "jump", when: starterCondition(source, editors), from: source.id, to };
   }
   const target = fields.at(-1) !== source ? fields.at(-1)! : def.blocks.find((b) => b.id !== source.id && b.kind !== "page-break");
   if (!target) return null;
-  return { id, effect, when: starterCondition(source, editors), target: target.id };
+  return { id: freshId("rule", def), effect, when: starterCondition(source, editors), target: target.id };
 }
 
 /**
  * The value a comparison keeps when its operator changes to `op`. Built-in
- * types switch between a list ("is one of") and a single value. A type with a
- * field editor owns its value shape: its `starterValue` for the new operator,
- * else the current value as it is (a list stays a list).
+ * types switch between a list ("is one of") and a single value. A type whose
+ * field editor defines `starterValue` owns its value shape and gets that for
+ * the new operator; any other editor (a Panel only, say) gets the switch.
  */
 export function valueForOperator(
   field: FieldBlock | undefined,
@@ -131,7 +135,7 @@ export function valueForOperator(
   editors?: readonly FieldTypeDefaults[],
 ): Json {
   const editor = field ? editors?.find((e) => e.type === field.type) : undefined;
-  if (field && editor) return editor.starterValue ? editor.starterValue(field, op) : (current ?? starterValue(field, op, editors));
+  if (field && editor?.starterValue) return editor.starterValue(field, op);
   let value: Json = current ?? (field ? starterValue(field, op, editors) : "");
   if (op === "in" && !Array.isArray(value)) value = value === "" ? [] : [value];
   if (op !== "in" && Array.isArray(value)) value = value[0] ?? "";
@@ -150,7 +154,9 @@ export function LogicPanel({ def, apply, findings }: { def: FormDefinition; appl
   };
   const canAdd = fieldsOf(def).length > 0 && def.blocks.length > 1;
   // A jump needs somewhere to go: a later step, or an ending.
-  const canJump = canAdd && starterRule(def, "jump", config.fieldEditors) !== null;
+  // Checked without building a rule, so a render never asks the host's id generator.
+  const firstField = fieldsOf(def)[0];
+  const canJump = canAdd && !!firstField && jumpTarget(def, firstField.id) !== null;
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">

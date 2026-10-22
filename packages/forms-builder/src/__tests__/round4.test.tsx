@@ -10,15 +10,17 @@ import { defaultRegistry } from "@marktiderman/genesis-forms-web";
 import {
   createContent,
   createField,
+  createPageBreak,
   defaultProps,
   FormBuilder,
   freshId,
   RuleEditor,
   setIdGenerator,
+  starterRule,
   withOptionValues,
   type FieldTypeEditor,
 } from "../index";
-import { valueForOperator } from "../logic";
+import { valueForOperator } from "../index";
 
 afterEach(() => setIdGenerator());
 
@@ -64,6 +66,26 @@ describe("1. a host id generator never makes a duplicate id", () => {
     expect(freshId("opt", ["opt_4", "opt_5"])).toBe("opt_6");
   });
 
+  it("makes starter rule and page break ids that are unused in the form", () => {
+    const def = form();
+    def.logic = [{ id: "rule_1", effect: "show", target: "q_2", when: { op: "answered", left: { field: "q_1" } } }];
+    def.blocks.push({ kind: "page-break", id: "page_1" });
+    setIdGenerator(counter());
+    expect(starterRule(def, "show")?.id).toBe("rule_2");
+    setIdGenerator(counter());
+    expect(starterRule(def, "jump")?.id).toBe("rule_2");
+    setIdGenerator(counter());
+    expect(createPageBreak(undefined, def).id).toBe("page_2");
+    expect(createPageBreak("Two", def)).toMatchObject({ id: "page_3", title: "Two" });
+  });
+
+  it("never falls back to an Object.prototype name", () => {
+    setIdGenerator(() => "constructor");
+    const id = freshId("constructor", []);
+    expect(id).not.toBe("constructor");
+    expect(Object.getOwnPropertyNames(Object.prototype)).not.toContain(id);
+  });
+
   it("keeps option values unique among themselves", () => {
     setIdGenerator(() => "opt_same");
     const filled = withOptionValues([{ value: "opt_same", label: "A" }, { label: "B" }]);
@@ -87,19 +109,45 @@ describe("2. changing the operator keeps a custom type's list value", () => {
   const field: FieldBlock = { kind: "field", id: "q_r", key: "r", type: "test-rows", label: "Rows" };
   const editor: FieldTypeEditor = { type: "test-rows", starterValue: () => ["starter"] };
 
-  it("asks the type's starterValue for the new operator", () => {
-    expect(valueForOperator(field, "contains", ["starter"], [editor])).toEqual(["starter"]);
+  it("asks the type's starterValue for the new operator, keeping its list", () => {
+    // The current value differs from the starter, so a kept value can't pass for it.
+    expect(valueForOperator(field, "contains", ["kept", "value"], [editor])).toEqual(["starter"]);
     expect(valueForOperator(field, "eq", undefined, [editor])).toEqual(["starter"]);
   });
 
-  it("keeps the current value as it is when the editor has no starterValue", () => {
-    expect(valueForOperator(field, "eq", ["a", "b"], [{ type: "test-rows" }])).toEqual(["a", "b"]);
+  it("gives a Panel-only editor the built-in list/single-value switch", () => {
+    const choice: FieldBlock = {
+      kind: "field",
+      id: "q_c",
+      key: "c",
+      type: "single-choice",
+      label: "C",
+      props: { options: [{ value: "x" }, { value: "y" }] },
+    };
+    const panelOnly: FieldTypeEditor = { type: "single-choice", Panel: () => null };
+    expect(valueForOperator(choice, "in", "x", [panelOnly])).toEqual(["x"]);
+    expect(valueForOperator(choice, "eq", ["y", "x"], [panelOnly])).toBe("y");
+    expect(valueForOperator(choice, "in", undefined, [panelOnly])).toEqual(["x"]);
   });
 
   it("still switches built-in values between a list and one value", () => {
     const choice: FieldBlock = { kind: "field", id: "q_c", key: "c", type: "single-choice", label: "C" };
     expect(valueForOperator(choice, "eq", ["x"], [editor])).toBe("x");
     expect(valueForOperator(choice, "in", "x", [editor])).toEqual(["x"]);
+  });
+});
+
+describe("canJump makes no ids", () => {
+  it("does not call the host's generator when the logic tab renders again", () => {
+    let calls = 0;
+    setIdGenerator((prefix) => `${prefix}_${++calls}_x`);
+    render(<FormBuilder defaultValue={form()} defaultTab="logic" />);
+    const before = calls;
+    expect(screen.getByTestId("builder-add-rule-jump")).toHaveProperty("disabled", false);
+    fireEvent.change(screen.getByLabelText("Form title"), { target: { value: "Again" } });
+    fireEvent.change(screen.getByLabelText("Form title"), { target: { value: "And again" } });
+    expect(calls).toBe(before);
+    expect(before).toBe(0);
   });
 });
 

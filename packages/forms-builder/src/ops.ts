@@ -60,6 +60,7 @@ export function formIds(def: FormDefinition): Set<string> {
  * A new id not in `taken` (a form's ids, or any list). It asks the current
  * generator again until it gets an unused one, so a host generator (a counter
  * in tests) may restart; after 1000 repeats it falls back to random ids.
+ * `Object.prototype` names (which `parseForm` rejects) are skipped too.
  */
 export function freshId(prefix: string, taken: FormDefinition | Iterable<string>): string {
   const used = isForm(taken) ? formIds(taken) : new Set(taken);
@@ -69,7 +70,7 @@ export function freshId(prefix: string, taken: FormDefinition | Iterable<string>
   }
   for (;;) {
     const id = randomId(prefix);
-    if (!used.has(id)) return id;
+    if (!used.has(id) && !RESERVED.has(id)) return id;
   }
 }
 

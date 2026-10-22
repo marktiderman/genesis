@@ -8,7 +8,7 @@ export {
 } from "./FormBuilder";
 export { Preview } from "./preview";
 export { QuestionsPanel, BlockInspector, AddBlockMenu, paletteTypes, type PaletteEntry } from "./questions";
-export { LogicPanel, RuleEditor, ConditionEditor, describeRule, OPERATOR_LABEL } from "./logic";
+export { LogicPanel, RuleEditor, ConditionEditor, describeRule, jumpTarget, OPERATOR_LABEL, starterRule, valueForOperator } from "./logic";
 export { EndingsPanel, SettingsPanel, JsonPanel } from "./settings";
 export {
   BuilderConfigContext,
