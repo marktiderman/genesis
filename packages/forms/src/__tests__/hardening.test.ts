@@ -14,6 +14,7 @@ import {
   isSensitive,
   parseForm,
   replay,
+  summarizeValue,
   validateField,
   when,
   type FieldBlock,
@@ -645,5 +646,49 @@ describe("settings, layout and meta are checked (CodeRabbit round 4)", () => {
       { name: "member", type: "string", source: "server", sensitive: true },
       { name: "coach", type: "string", source: "server" },
     ]);
+  });
+});
+
+describe("release review (CodeRabbit on #40)", () => {
+  it("rejects jumps from or to a page break", () => {
+    const def = {
+      schemaVersion: 1, id: "pb", title: "PB",
+      blocks: [
+        { kind: "field", id: "a", key: "a", type: "yes-no", label: "A" },
+        { kind: "page-break", id: "s2" },
+        { kind: "field", id: "b", key: "b", type: "yes-no", label: "B" },
+      ],
+      logic: [{ id: "j1", effect: "jump", from: "a", to: "s2", when: { op: "eq", left: { field: "a" }, right: { value: true } } }],
+    };
+    const r = parseForm(def);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.issues.map((i) => i.path)).toContain("logic[0].to");
+    const r2 = parseForm({ ...def, logic: [{ ...def.logic[0], from: "s2", to: "b" }] });
+    expect(r2.ok).toBe(false);
+  });
+  it("summarizes a non-array multi-choice value without throwing", () => {
+    const field = { kind: "field", id: "m", key: "m", type: "multi-choice", label: "M", props: { options: ["x"] } } as never;
+    expect(summarizeValue("x" as never, field)).toBe("x");
+  });
+});
+
+describe("coverage with a plugin field (CodeRabbit on #40)", () => {
+  it("doesn't dead-end at a required field whose type has no sample values", async () => {
+    const { registerFieldType } = await import("../index");
+    const { coverage } = await import("../testing");
+    registerFieldType({
+      type: "test-signature", label: "Signature", category: "advanced", value: { json: true },
+      operators: ["answered", "empty"], a11y: { semantics: "control" },
+      validate: (v) => (typeof v === "string" && v.startsWith("sig:") ? null : "Sign here."),
+      summarize: (v) => String(v),
+    } as never);
+    const form = defineForm({
+      id: "plug", title: "Plug",
+      blocks: [f.custom("test-signature", "sig", { label: "Sign", required: true }), f.yesNo("after", { label: "After" })],
+      endings: [{ id: "default", title: "Done" }],
+    });
+    const report = coverage(form);
+    expect(report.unreachableBlocks).toEqual([]);
+    expect(report.endings.default?.reached).toBe(true);
   });
 });

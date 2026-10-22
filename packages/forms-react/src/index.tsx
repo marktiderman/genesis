@@ -3,7 +3,7 @@ import {
   useContext,
   useId,
   useMemo,
-  useRef,
+  useState,
   useSyncExternalStore,
   type ComponentType,
   type ReactNode,
@@ -33,11 +33,15 @@ const definitionOf = (form: FormLike) => ("definition" in form ? form.definition
  */
 export function useForm(form: FormLike, options?: CreateFormOptions): FormEngine {
   const definition = definitionOf(form);
-  const ref = useRef<{ definition: FormDefinition; engine: FormEngine } | null>(null);
-  if (!ref.current || ref.current.definition !== definition) {
-    ref.current = { definition, engine: createForm(definition, options) };
+  // Held in state, not a ref: a discarded render's new engine is thrown away
+  // with it instead of leaking into the next render.
+  const [held, setHeld] = useState(() => ({ definition, engine: createForm(definition, options) }));
+  if (held.definition !== definition) {
+    const next = { definition, engine: createForm(definition, options) };
+    setHeld(next);
+    return next.engine;
   }
-  return ref.current.engine;
+  return held.engine;
 }
 
 /**

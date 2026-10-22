@@ -5,7 +5,7 @@ import {
   type Json,
 } from "@marktiderman/genesis-forms";
 import { compactEvents } from "@marktiderman/genesis-forms/testing";
-import { MAX_VALUE_DEPTH, exceedsDepth, isFormEvent, sensitiveIds } from "./util";
+import { MAX_VALUE_DEPTH, exceedsDepth, isFormEvent, sensitiveHiddenNames, sensitiveIds } from "./util";
 
 /** What a share link carries. It lives in the URL hash, so it never reaches a server. */
 export interface SharePayload {
@@ -111,7 +111,12 @@ export async function encodeShare(
     events,
     layout: payload.layout,
   };
-  if (options.includeContext && payload.context) out.context = payload.context;
+  if (options.includeContext && payload.context) {
+    const secret = sensitiveHiddenNames(payload.definition);
+    out.context = Object.fromEntries(
+      Object.entries(payload.context).map(([name, value]) => [name, secret.has(name) ? null : value]),
+    );
+  }
   const json = new TextEncoder().encode(JSON.stringify(out));
   if (json.byteLength > MAX_SHARE_BYTES) {
     throw new Error(

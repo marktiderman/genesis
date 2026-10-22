@@ -265,3 +265,17 @@ describe("sensitive hidden inputs (CodeRabbit round 4)", () => {
     expect(screen.getByTestId("devtools-state").textContent).toMatch(/user-42/);
   });
 });
+
+describe("share links blank sensitive hidden inputs in context (CodeRabbit on #40)", () => {
+  it("nulls a sensitive context entry even with includeContext", async () => {
+    const def = defineForm({
+      id: "ctx", title: "Ctx",
+      hidden: { member: f.hidden.string({ source: "server", sensitive: true }), coach: f.hidden.string({ source: "server" }) },
+      blocks: [f.rating("r", { label: "R" })],
+    }).definition;
+    const back = await decodeShare(
+      await encodeShare({ v: 1, definition: def, context: { member: "user-42", coach: "Sam" } }, { includeContext: true }),
+    );
+    expect(back?.context).toEqual({ member: null, coach: "Sam" });
+  });
+});
