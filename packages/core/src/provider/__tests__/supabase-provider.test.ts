@@ -14,7 +14,7 @@ let calls: { method: string; args: unknown[] }[] = [];
 
 function builder(): unknown {
   const b: Record<string, unknown> = {};
-  for (const m of ["update", "insert", "delete", "select", "eq", "in", "order", "range", "single"]) {
+  for (const m of ["update", "insert", "delete", "select", "eq", "in", "order", "range", "single", "or"]) {
     b[m] = (...args: unknown[]) => {
       calls.push({ method: m, args });
       return b;
@@ -608,5 +608,55 @@ describe("capabilities softDelete", () => {
     expect((await p.capabilities!("tasks")).softDelete).toBe(true);
     expect((await p.capabilities!("notes")).softDelete).toBe(false);
     expect((await p.capabilities!()).softDelete).toBe(false);
+  });
+});
+
+describe("getList follow-ups (#96 review)", () => {
+  const list = (p: ReturnType<typeof provider>, params: Parameters<ReturnType<typeof provider>["getList"]>[1], resource = "tasks") => {
+    queue.push({ ...ok([]), count: 0 } as Response);
+    return p.getList(resource, params);
+  };
+
+  it("orders an unsorted page by the key column, and leaves an unpaged, unsorted list alone", async () => {
+    await list(provider(), { pagination: { page: 1, perPage: 10 } });
+    expect(calls.filter((c) => c.method === "order").map((c) => c.args)).toEqual([["id", { ascending: true }]]);
+    calls = [];
+    await list(provider(), {});
+    expect(calls.some((c) => c.method === "order")).toBe(false);
+  });
+
+  it("warns about the page cap once per resource", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const p = provider({ maxPerPage: 10 });
+    await list(p, { pagination: { page: 1, perPage: 50 } });
+    await list(p, { pagination: { page: 2, perPage: 50 } });
+    await list(p, { pagination: { page: 1, perPage: 50 } }, "notes");
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it("uses nounPlural in list messages", async () => {
+    const p = provider({ resources: { categories: { noun: "category", nounPlural: "categories" } } });
+    queue.push(fail("boom"));
+    const e = (await p.getList("categories", {}).catch((x) => x)) as DataReadError;
+    expect(e.message).toBe("These categories couldn't be loaded. Try again.");
+  });
+});
+
+describe("searchFields config", () => {
+  it("reports search false for a resource with none, and searches the configured columns", async () => {
+    const p = provider({ resources: { logs: { searchFields: [] }, tasks: { searchFields: ["title"] } } });
+    expect((await p.capabilities!("logs")).search).toBe(false);
+    expect((await p.capabilities!("tasks")).search).toBe(true);
+    expect((await p.capabilities!("notes")).search).toBe(true);
+  });
+});
+
+describe("searchFields config: the query", () => {
+  it("searches the configured columns instead of the caller's", async () => {
+    const p = provider({ resources: { tasks: { searchFields: ["title"] } } });
+    queue.push({ ...ok([]), count: 0 } as Response);
+    await p.getList("tasks", { search: { query: "x", fields: ["title", "secret"] } });
+    expect(calls.find((c) => c.method === "or")?.args).toEqual(["title.ilike.%x%"]);
   });
 });
