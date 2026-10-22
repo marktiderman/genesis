@@ -133,6 +133,23 @@ export interface DataTableProps<T> {
    * - spacious: taller (py-3)
    */
   density?: Density;
+  /**
+   * Keyboard use of rows when `onRowClick` is set: rows are tab stops,
+   * Enter or Space opens one, ↑/↓ (or j/k) and Home/End move between rows,
+   * and x toggles the row's selection when `selectable`. Default true.
+   */
+  keyboardNavigation?: boolean;
+}
+
+/** Focus the row `step` rows away (or the first/last), staying in this table body. */
+function focusRow(from: HTMLElement, to: "next" | "prev" | "first" | "last") {
+  const body = from.parentElement;
+  if (!body) return;
+  const rows = Array.from(body.querySelectorAll<HTMLElement>(":scope > tr[tabindex]"));
+  const i = rows.indexOf(from);
+  const target =
+    to === "first" ? rows[0] : to === "last" ? rows[rows.length - 1] : rows[to === "next" ? i + 1 : i - 1];
+  target?.focus();
 }
 
 /* ── Helpers ── */
@@ -420,7 +437,9 @@ export function DataTable<T>({
   resizeKey,
   stickyFirstColumn,
   density = "comfortable",
+  keyboardNavigation = true,
 }: DataTableProps<T>) {
+  const rowKeys = keyboardNavigation && !!onRowClick;
   const cellDensity = DENSITY_CELL[density];
   const headDensity = DENSITY_HEAD[density];
   // ── Multi-column sort ──
@@ -714,7 +733,7 @@ export function DataTable<T>({
                     className={cn(
                       getCellClasses(col as DataTableColumn<unknown>),
                       headDensity,
-                      col.sortable && "cursor-pointer select-none",
+                      col.sortable && "select-none",
                       "overflow-hidden",
                       resizableColumns && "relative",
                       isFirstCol && "sticky left-0 bg-background",
@@ -725,12 +744,18 @@ export function DataTable<T>({
                         ? { width: resizeWidth, minWidth: resizeWidth }
                         : undefined
                     }
-                    onClick={
+                    aria-sort={
                       col.sortable
-                        ? (e: React.MouseEvent) => handleSort(col.key, e.shiftKey)
+                        ? sortEntry
+                          ? sortEntry.dir === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : "none"
                         : undefined
                     }
                   >
+                    {(() => {
+                      const label = (
                     <span className="flex min-w-0 items-center gap-1">
                       {/* Long headers truncate; the full text stays in the tooltip. */}
                       <span className="truncate" title={col.header}>
@@ -754,6 +779,22 @@ export function DataTable<T>({
                           <ArrowUpDown className="h-3 w-3 shrink-0 text-muted-foreground/50" />
                         ))}
                     </span>
+                      );
+                      // A sortable header is a real button: Tab reaches it, Enter
+                      // or Space sorts (Shift adds a secondary sort), and the
+                      // cell's aria-sort says which way.
+                      return col.sortable ? (
+                        <button
+                          type="button"
+                          className="-mx-1 flex w-[calc(100%+0.5rem)] min-w-0 items-center rounded px-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={(e) => handleSort(col.key, e.shiftKey)}
+                        >
+                          {label}
+                        </button>
+                      ) : (
+                        label
+                      );
+                    })()}
                     {resizableColumns && (
                       <ResizeHandle
                         onResize={(delta) =>
@@ -790,13 +831,43 @@ export function DataTable<T>({
                 return (
                   <TableRow
                     key={id}
-                    className={cn(onRowClick && "cursor-pointer")}
+                    className={cn(
+                      onRowClick && "cursor-pointer",
+                      rowKeys &&
+                        "focus-visible:outline-none focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                    )}
                     data-state={
                       selected?.has(id) ? "selected" : undefined
                     }
                     onClick={
                       onRowClick ? () => onRowClick(item) : undefined
                     }
+                    {...(rowKeys
+                      ? {
+                          tabIndex: 0,
+                          onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
+                            // Keys typed into a control inside the row stay there.
+                            if (e.target !== e.currentTarget) return;
+                            if (e.metaKey || e.ctrlKey || e.altKey) return;
+                            const row = e.currentTarget;
+                            const move = (to: Parameters<typeof focusRow>[1]) => {
+                              e.preventDefault();
+                              focusRow(row, to);
+                            };
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              onRowClick?.(item);
+                            } else if (e.key === "ArrowDown" || e.key === "j") move("next");
+                            else if (e.key === "ArrowUp" || e.key === "k") move("prev");
+                            else if (e.key === "Home") move("first");
+                            else if (e.key === "End") move("last");
+                            else if (e.key === "x" && selectable) {
+                              e.preventDefault();
+                              onToggleSelect?.(id);
+                            }
+                          },
+                        }
+                      : {})}
                   >
                     {selectable && (
                       <TableCell

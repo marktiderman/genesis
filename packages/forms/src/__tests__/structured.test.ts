@@ -208,6 +208,9 @@ describe("structured forms", () => {
     const noColumns = structuredClone(structured.definition) as { blocks: { props?: Record<string, Json> }[] };
     noColumns.blocks[1]!.props = { columns: [] };
     expect(parseForm(noColumns).ok).toBe(false);
+    // A table with no props at all has no columns either.
+    delete noColumns.blocks[1]!.props;
+    expect(parseForm(noColumns).ok).toBe(false);
   });
 
   it("round-trips through the engine and validateSubmission", () => {

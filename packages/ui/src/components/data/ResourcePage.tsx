@@ -635,9 +635,10 @@ export interface ResourcePageProps<
    * opt out.
    *
    * Default-on, and scoped so that being on by default stays safe:
-   * - Only while the grid or list view is showing. Table view keeps its own
-   *   independent sort/pagination, so a flat focus index can't reliably map
-   *   onto its visible rows.
+   * - The j/k cursor runs while the grid or list view is showing. Table view
+   *   keeps its own sort/pagination, so there `DataTable` handles the keys on
+   *   its focusable rows instead (↑/↓ or j/k, Home/End, Enter, x); this prop
+   *   turns that off too.
    * - Cursor keys suspend while a detail panel/modal or the built-in form
    *   is open, so they can't drive the list behind the overlay; ⌫ stays
    *   live there so it can close it.
@@ -1756,6 +1757,7 @@ export function ResourcePage<
                 resizeKey,
                 stickyHeader,
                 stickyFirstColumn,
+                keyboardNavigation,
                 // The server already cut the page window; DataTable's own
                 // pagination would slice the slice.
                 pagination: isServerControlled ? false : undefined,
