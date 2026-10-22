@@ -28,6 +28,12 @@ export interface DataPageShellProps {
   isEmpty?: boolean;
   emptyIcon?: LucideIcon;
   emptyMessage?: string;
+  /**
+   * A sentence under the empty-state title — what this list is for, or what
+   * to do first. Forwarded to `EmptyState`'s `description`; hidden while
+   * filters are active, where "no results" is the whole story.
+   */
+  emptyDescription?: string;
   emptyAction?: ReactNode;
   /** Error state */
   hasError?: boolean;
@@ -83,8 +89,13 @@ export interface DataPageShellProps {
    * menu, a status strip, a second row — rather than a reimplementation.
    *
    * `null` ejects it: shell layout, states and filter row, no header.
+   *
+   * `"toolbar"` keeps the header's actions — count, view toggle, view
+   * settings, create, overflow menu — and drops the title block, for a list
+   * embedded in a tab or card whose page already has the heading. `title`
+   * still feeds the generated copy ("Failed to load …", the count's noun).
    */
-  header?: ComponentType<ComponentProps<typeof PageHeader>> | null;
+  header?: ComponentType<ComponentProps<typeof PageHeader>> | null | "toolbar";
 }
 
 export function DataPageShell({
@@ -98,6 +109,7 @@ export function DataPageShell({
   isEmpty = false,
   emptyIcon,
   emptyMessage,
+  emptyDescription,
   emptyAction,
   hasError = false,
   errorMessage,
@@ -137,11 +149,19 @@ export function DataPageShell({
   const collapseFilters =
     filtersCollapsible && filters != null && header !== null;
 
+  // Toolbar mode is PageHeader without its title block, not a second header
+  // implementation: the count, toggles, settings and overflow menu keep one
+  // home. A caller's own `headerOptions.showTitle` still wins.
+  const toolbarOnly = header === "toolbar";
+  const baseHeaderOptions: PageHeaderOptions | undefined = toolbarOnly
+    ? { showTitle: false, ...headerOptions }
+    : headerOptions;
+
   const mergedOptions: PageHeaderOptions = {
     defaultDetailsOpen: defaultFiltersOpen,
     detailsLabel: filtersLabel,
     subtitleInDetails: collapseFilters ? true : undefined,
-    ...headerOptions,
+    ...baseHeaderOptions,
   };
 
   const sharedHeaderProps = {
@@ -165,7 +185,11 @@ export function DataPageShell({
   };
 
   const Header =
-    header === null ? (() => null) : (header ?? PageHeader);
+    header === null
+      ? () => null
+      : header === "toolbar" || header === undefined
+        ? PageHeader
+        : header;
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -181,7 +205,7 @@ export function DataPageShell({
         />
       ) : (
         <>
-          <Header {...sharedHeaderProps} options={headerOptions} />
+          <Header {...sharedHeaderProps} options={baseHeaderOptions} />
           {filters}
         </>
       )}
@@ -219,6 +243,7 @@ export function DataPageShell({
         <EmptyState
           icon={emptyIcon}
           title={emptyMessage}
+          description={emptyDescription}
           action={emptyAction}
           hasFilters={hasActiveFilters}
           onClearFilters={onClearFilters}

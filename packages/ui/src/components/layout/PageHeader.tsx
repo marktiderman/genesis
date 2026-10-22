@@ -35,6 +35,15 @@ import {
  * @stability Beta
  */
 export interface PageHeaderOptions {
+  /**
+   * Render the title block (icon, `<h1>`, subtitle). Default true. `false`
+   * leaves only the actions cluster — count, view toggle, view settings,
+   * create, overflow — right-aligned, for a list embedded in a tab or card
+   * whose page already owns the heading (a second `<h1>` there would break
+   * the page outline). Not offered as a user toggle: whether the page has a
+   * heading is the developer's call, not a viewing preference.
+   */
+  showTitle?: boolean;
   showIcon?: boolean;
   showSubtitle?: boolean;
   showCount?: boolean;
@@ -75,6 +84,7 @@ const OPTION_DEFAULTS: Required<
   Omit<PageHeaderOptions, "detailsLabel" | "defaultDetailsOpen" | "subtitleInDetails" | "configurable">
 > &
   Pick<PageHeaderOptions, "detailsLabel" | "defaultDetailsOpen" | "subtitleInDetails" | "configurable"> = {
+  showTitle: true,
   showIcon: true,
   showSubtitle: true,
   showCount: true,
@@ -515,7 +525,14 @@ export function PageHeader({
     </div>
   );
 
-  const titleRow = (
+  const titleRow = resolved.showTitle === false ? (
+    <div
+      data-testid="page-header-toolbar"
+      className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+    >
+      {actionsCluster}
+    </div>
+  ) : (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3 min-w-0">
         {Icon && resolved.showIcon !== false ? (

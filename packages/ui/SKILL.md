@@ -49,6 +49,25 @@ already right; that re-derivation is where forks come from. Reach for rung 2
 first. When the app hand-builds something Genesis nearly had, that is a bug
 report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 
+## ResourcePage knobs a real screen needs
+
+Reach for these before a slot. Each one replaced a slot workaround in a real app.
+
+| You need | Prop |
+| --- | --- |
+| Every row reachable in `resource` mode | default `pagination="client"` fetches up to `clientRowLimit` (1000) and says so past it; `pagination="server"` pages through the provider (give it `searchFields`) |
+| Per-row rights in the peek | `canEdit(item)`, `canDelete(item)` (UI gate only; the server still decides) |
+| A confirmed delete | `allowDelete` (built in, `resource` mode), or `onDelete` + `confirmDelete`; copy via `confirmDelete={{ title: (item) => … }}`, toast via `onDeleted` |
+| A computed peek subtitle | `getSubtitle(item)`; the peek stays open after an edit and shows the saved row |
+| A list inside a tab (no page title) | `header="toolbar"` (also on `DataPageShell`) |
+| Empty-state copy | `emptyTitle`, `emptyDescription`, `emptyIcon` |
+| Cards on phones, table on desktop | `defaultView={{ mobile: "grid", desktop: "table" }}`; only an explicit toggle is stored |
+| Typed slot maps | `ResourcePageSlots<T>`, `ResourcePageSlotProps<T>`, `ResourcePageSlotMap<T>` from `/data` |
+
+`ResourceForm` ties labels to inputs (`getByLabelText` works), shows a failed save as an alert,
+honours `maxLength` on text fields, adds no placeholder unless the field sets one (or
+`autoPlaceholder`), and takes `prefillFromUrl={false}` when the page's query string is not form data.
+
 ## The layer contract (docs/FRAMEWORK.md)
 
 1. Layers: tokens → primitives → patterns → layouts → data-bound; each depends downward only.

@@ -26,6 +26,7 @@ import { ResourceFormFieldRenderer, type ResourceFormFieldDef } from "./Resource
 import { WizardForm } from "./WizardForm";
 import type { WizardStep } from "@marktiderman/genesis-core/hooks";
 import { titleCase } from "../../hooks/use-resource-page";
+import { AlertTriangle } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -55,6 +56,21 @@ export interface ResourceFormProps {
   steps?: WizardStep[];
   /** Number of columns for the form layout. Default 1. */
   columns?: 1 | 2;
+  /**
+   * Pre-fill a create form from the page URL: a query param named like a
+   * field (`?status=draft`) becomes that field's starting value. Default
+   * `true`, as before. Pass `false` when the page's query string means
+   * something else — a list's own filters, say — and must not leak into the
+   * new record.
+   */
+  prefillFromUrl?: boolean;
+  /**
+   * Generate a placeholder ("Enter name") for fields whose `placeholder` is
+   * unset. Default `false`: a placeholder that restates the label adds noise,
+   * and reads as a filled value at a glance. A field's own `placeholder`
+   * always shows. (Select fields keep their "Select…" prompt either way.)
+   */
+  autoPlaceholder?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +109,21 @@ function FormBody({
     disabled: !hasConditionalFields,
   }) as Record<string, unknown>;
 
+  // A failed save lands in `errors.root` (useResourceForm sets it from the
+  // provider's error). Without this the Save button just stops spinning and
+  // the user is left guessing; `role="alert"` makes it announce as well.
+  const rootError = form.formState.errors.root?.message;
+  const rootErrorBanner = rootError ? (
+    <div
+      role="alert"
+      data-testid="resource-form-error"
+      className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+    >
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      <span>{rootError}</span>
+    </div>
+  ) : null;
+
   const onInvalid = (errors: FieldErrors) => {
     const firstErrorKey = Object.keys(errors)[0];
     if (firstErrorKey) form.setFocus(firstErrorKey);
@@ -109,6 +140,8 @@ function FormBody({
   // Wizard mode
   if (mode === "wizard" && steps) {
     return (
+      <div className="space-y-4">
+      {rootErrorBanner}
       <WizardForm
         steps={steps}
         form={form}
@@ -118,6 +151,7 @@ function FormBody({
         action={action}
         onInvalid={onInvalid}
       />
+      </div>
     );
   }
 
@@ -173,6 +207,11 @@ function FormBody({
 
   return (
     <form
+      // Validation is the schema's job, and its messages are wired to the
+      // inputs (aria-describedby). Native constraint checks (`type="email"`,
+      // `maxLength`) would otherwise block submit with a browser bubble that
+      // bypasses them.
+      noValidate
       onSubmit={(e) => {
         e.preventDefault();
         void form.handleSubmit(handleSave, onInvalid)(e);
@@ -200,6 +239,8 @@ function FormBody({
           </div>
         )}
       </div>
+
+      {rootErrorBanner}
 
       <div className="flex justify-end gap-2">
         <Button
@@ -240,6 +281,8 @@ export function ResourceForm(props: ResourceFormProps) {
     mode = "standard",
     steps,
     columns = 1,
+    prefillFromUrl,
+    autoPlaceholder = false,
   } = props;
 
   const isMobile = useIsMobile();
@@ -263,6 +306,8 @@ export function ResourceForm(props: ResourceFormProps) {
       onSuccess?.(data);
     },
     onError,
+    prefillFromUrl,
+    autoPlaceholder,
   };
 
   const { form, resolvedFields, handleSave, isSaving, isLoading } =

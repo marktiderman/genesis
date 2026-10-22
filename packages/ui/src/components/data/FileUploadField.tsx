@@ -47,6 +47,16 @@ export interface FileUploadFieldProps {
   value: File | File[] | null;
   onChange: (value: File | File[] | null) => void;
   disabled?: boolean;
+  /** Id for the file input, so a `<label htmlFor>` names it. */
+  id?: string;
+  /**
+   * The label's id. The drop zone is what takes keyboard focus (the input
+   * is hidden), so it is named by `aria-labelledby` rather than `htmlFor`.
+   */
+  "aria-labelledby"?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+  "aria-required"?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,6 +68,11 @@ export function FileUploadField({
   value,
   onChange,
   disabled,
+  id,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  "aria-required": ariaRequired,
 }: FileUploadFieldProps) {
   const multiple = field.multiple ?? false;
   const maxSize = field.maxSize ?? DEFAULT_MAX_SIZE;
@@ -145,7 +160,16 @@ export function FileUploadField({
     <div className="space-y-2">
       {/* Drop zone */}
       <div
-        {...getRootProps()}
+        {...getRootProps({
+          // The focusable drop zone carries the field's name, description
+          // and state; react-dropzone's default `role="presentation"` would
+          // leave a keyboard user on an unnamed tab stop.
+          role: "button",
+          "aria-labelledby": ariaLabelledBy,
+          "aria-describedby": ariaDescribedBy,
+          "aria-invalid": ariaInvalid,
+          "aria-disabled": disabled || undefined,
+        })}
         className={cn(
           "flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 text-center transition-colors",
           isDragActive
@@ -155,7 +179,14 @@ export function FileUploadField({
           hasFiles && "py-4",
         )}
       >
-        <input {...getInputProps()} />
+        <input
+          {...getInputProps({
+            id,
+            "aria-describedby": ariaDescribedBy,
+            "aria-invalid": ariaInvalid,
+            "aria-required": ariaRequired,
+          })}
+        />
         {isImage ? (
           <ImageIcon className="mb-2 h-8 w-8 text-muted-foreground" />
         ) : (

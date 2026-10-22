@@ -37,6 +37,12 @@ export interface ResourceFormFieldDef {
   min?: number;
   max?: number;
   rows?: number;
+  /**
+   * Longest value accepted by a text-like field (text, email, url, textarea).
+   * Validated on save, and the web renderer also sets the input's
+   * `maxLength` so the user cannot type past it.
+   */
+  maxLength?: number;
   /** Relation field configuration. */
   relation?: {
     resource: string;
