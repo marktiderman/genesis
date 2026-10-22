@@ -19,10 +19,10 @@ export interface CoveragePanelProps {
    * Restart the playground from a witness (the same hook as the timeline's
    * "Continue from here"). `hidden` is set when the witness needs hidden inputs.
    */
-  onFork?: (events: FormEvent[], hidden?: Record<string, Json>) => void;
+  onFork?: ((events: FormEvent[], hidden?: Record<string, Json>) => void) | undefined;
   /** Run automatically for forms with at most this many fields; larger ones wait for "Run". Default 12. */
-  autoRunFields?: number;
-  maxStates?: number;
+  autoRunFields?: number | undefined;
+  maxStates?: number | undefined;
 }
 
 /**

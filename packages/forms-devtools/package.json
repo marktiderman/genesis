@@ -33,7 +33,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup && cp src/styles.css dist/styles.css && node ../../scripts/check-exports-resolve.mjs",
+    "build": "tsup && cp src/styles.css dist/styles.css && node ../../scripts/check-exports-resolve.mjs && tsc -p type-tests",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
