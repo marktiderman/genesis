@@ -173,6 +173,16 @@ describe("build and check", () => {
     expect(viaChangeset).toEqual(["billing is still planned, but .changeset/b.md shipped work for it"]);
   });
 
+  it("reads a changeset's Features line from its body, with CRLF and a bracketed list", () => {
+    const root = repo({
+      ".changeset/c.md": "---\r\n\"pkg\": patch\r\n---\r\n\r\nSeats.\r\n\r\nFeatures: [billing, tasks]\r\n",
+      ".changeset/d.md": "---\nfeatures: ghost\n---\n\nNo tag.\n",
+    });
+    const result = checkFeatureOutputs(opts(root));
+    expect(result.plannedButShipped).toEqual([{ id: "billing", changesets: [".changeset/c.md"], prs: [] }]);
+    expect(result.errors.join("\n")).not.toMatch(/ghost/);
+  });
+
   it("counts evidence tagged with an alias for its feature", () => {
     const root = repo();
     const aliased = { ...features, billing: { ...features.billing, aliases: ["payments"] } };

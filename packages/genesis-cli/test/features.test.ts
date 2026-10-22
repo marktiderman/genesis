@@ -69,14 +69,18 @@ describe("genesis features", () => {
     const calls: string[][] = [];
     const gh: GhRunner = (args) => {
       calls.push(args);
-      return JSON.stringify(args.includes("feature:billing") ? [{ number: 123, title: "Seats", url: "x" }] : []);
+      return JSON.stringify([
+        { number: 123, title: "Seats", url: "x", labels: [{ name: "feature:billing" }, { name: "bug" }] },
+        { number: 124, title: "Pay", labels: [{ name: "feature:payments" }, { name: "feature:tasks" }] },
+      ]);
     };
     const result = await runFeaturesCheck({ dir: root, ...off, prs: true, gh });
-    expect(calls.map((a) => a[a.indexOf("--label") + 1])).toEqual(["feature:billing", "feature:payments"]);
-    expect(calls[0]).toEqual(expect.arrayContaining(["pr", "list", "--state", "merged", "--json", "number,title"]));
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![calls[0]!.indexOf("--search") + 1]).toBe(`label:"feature:billing","feature:payments"`);
+    expect(calls[0]).toEqual(expect.arrayContaining(["pr", "list", "--state", "merged", "--json", "number,title,labels"]));
     expect(result.ok).toBe(true);
-    expect(result.warnings).toContain("billing is still planned, but PR #123 shipped work for it");
-    expect(result.plannedButShipped).toEqual([{ id: "billing", changesets: [], prs: [{ number: 123, title: "Seats" }] }]);
+    expect(result.warnings).toContain("billing is still planned, but PR #123 and PR #124 shipped work for it");
+    expect(result.plannedButShipped).toEqual([{ id: "billing", changesets: [], prs: [{ number: 123, title: "Seats" }, { number: 124, title: "Pay" }] }]);
     expect(result.summary).toContain("- 1 planned feature has shipped work: billing.");
 
     expect((await runFeaturesCheck({ dir: root, ...off, gh })).plannedButShipped).toEqual([]);
@@ -91,12 +95,17 @@ describe("genesis features", () => {
     expect(result.ok).toBe(true);
     const gh = (warnings: string[]) => warnings.filter((w) => w.startsWith("--prs"));
     expect(gh(result.warnings)).toEqual(["--prs: couldn't read merged PRs with gh (gh is not installed), so only changesets were checked for shipped work"]);
+    expect(result.summary).toContain("\n- --prs: couldn't read merged PRs with gh (gh is not installed), so only changesets were checked for shipped work.");
     const failing: GhRunner = () => {
-      throw new Error("Command failed: gh pr list\nHTTP 401");
+      throw Object.assign(new Error("Command failed: gh pr list"), { stderr: "HTTP 401: Bad credentials\nmore" });
     };
     expect(gh((await runFeaturesCheck({ dir: root, ...off, prs: true, gh: failing })).warnings)).toEqual([
-      "--prs: couldn't read merged PRs with gh (Command failed: gh pr list), so only changesets were checked for shipped work",
+      "--prs: couldn't read merged PRs with gh (HTTP 401: Bad credentials), so only changesets were checked for shipped work",
     ]);
+    const slow: GhRunner = () => {
+      throw Object.assign(new Error("spawnSync gh ETIMEDOUT"), { code: "ETIMEDOUT" });
+    };
+    expect(gh((await runFeaturesCheck({ dir: root, ...off, prs: true, gh: slow })).warnings)[0]).toContain("(gh timed out)");
   });
 
   it("finds features by term", async () => {

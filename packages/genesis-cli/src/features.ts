@@ -93,27 +93,45 @@ export async function runFeaturesBuild(options: FeaturesCommandOptions): Promise
   return buildFeatureOutputs(await loadRegistry(options));
 }
 
-const runGh: GhRunner = (args, cwd) => execFileSync("gh", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+const runGh: GhRunner = (args, cwd) =>
+  execFileSync("gh", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 15_000 });
+
+/** Labels per `gh` search: a comma list is an OR, and GitHub caps a query's length. */
+const LABELS_PER_SEARCH = 10;
+
+/** Why `gh` failed, in one line: not installed, timed out, or the first line it printed. */
+function ghFailure(error: unknown): string {
+  const e = error as NodeJS.ErrnoException & { stderr?: string | Buffer; signal?: string };
+  if (e?.code === "ENOENT") return "gh is not installed";
+  if (e?.code === "ETIMEDOUT" || e?.signal === "SIGTERM") return "gh timed out";
+  const stderr = e?.stderr?.toString().trim();
+  return (stderr || String(error instanceof Error ? error.message : error)).split("\n")[0]!;
+}
 
 /**
  * Merged PRs labelled `feature:<id>`, for each planned feature's id and
- * aliases. Only planned features are asked about: that is all the evidence
- * is for. When `gh` is missing or fails, stops and says so once.
+ * aliases, read with one `gh` search per ten labels. Only planned features
+ * are asked about: that is all the evidence is for. When `gh` is missing or
+ * fails, stops and says so once.
  */
 export function gatherPrEvidence(project: FeatureProjectOptions, gh: GhRunner = runGh): { prs: Record<string, FeaturePrEvidence[]>; warning?: string } {
   const prs: Record<string, FeaturePrEvidence[]> = {};
   const names = Object.entries(project.features)
     .filter(([, f]) => f.status === "planned")
     .flatMap(([id, f]) => [id, ...(f.aliases ?? [])]);
-  for (const name of names) {
+  for (let i = 0; i < names.length; i += LABELS_PER_SEARCH) {
+    const batch = names.slice(i, i + LABELS_PER_SEARCH);
+    const search = `label:${batch.map((n) => `"feature:${n}"`).join(",")}`;
     try {
-      const out = gh(["pr", "list", "--state", "merged", "--label", `feature:${name}`, "--limit", "100", "--json", "number,title"], project.root);
-      const list = JSON.parse(out) as FeaturePrEvidence[];
-      if (list.length) prs[name] = list.map(({ number, title }) => ({ number, title }));
+      const out = gh(["pr", "list", "--state", "merged", "--search", search, "--limit", "1000", "--json", "number,title,labels"], project.root);
+      for (const { number, title, labels } of JSON.parse(out) as (FeaturePrEvidence & { labels: { name: string }[] })[]) {
+        for (const { name: label } of labels) {
+          const name = label.startsWith("feature:") ? label.slice("feature:".length) : null;
+          if (name && batch.includes(name)) (prs[name] ??= []).push({ number, title });
+        }
+      }
     } catch (error) {
-      const missing = (error as NodeJS.ErrnoException)?.code === "ENOENT";
-      const why = missing ? "gh is not installed" : String(error instanceof Error ? error.message : error).split("\n")[0];
-      return { prs, warning: `--prs: couldn't read merged PRs with gh (${why}), so only changesets were checked for shipped work` };
+      return { prs, warning: `--prs: couldn't read merged PRs with gh (${ghFailure(error)}), so only changesets were checked for shipped work` };
     }
   }
   return { prs };
@@ -123,8 +141,12 @@ export async function runFeaturesCheck(options: FeaturesCommandOptions): Promise
   const project = await loadRegistry(options);
   const evidence = options.prs ? gatherPrEvidence(project, options.gh) : undefined;
   const result = checkFeatureOutputs({ ...project, evidence: evidence && { prs: evidence.prs } });
-  if (evidence?.warning) result.warnings.push(evidence.warning);
-  return { ...result, summary: summarizeCheck(result, project.features) };
+  let summary = summarizeCheck(result, project.features);
+  if (evidence?.warning) {
+    result.warnings.push(evidence.warning);
+    summary = `${summarizeCheck(result, project.features)}\n- ${evidence.warning}.`;
+  }
+  return { ...result, summary };
 }
 
 export async function runFeaturesFind(options: FeaturesCommandOptions, term: string): Promise<FeatureRecord[]> {

@@ -439,7 +439,8 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
   const changesets = options.changesets === undefined ? ".changeset" : options.changesets;
   if (changesets) {
     for (const path of listChangesets(root, changesets)) {
-      const text = readFileSync(join(root, path), "utf8");
+      // The body only, so frontmatter never counts; CRLF read as LF.
+      const text = read(join(root, path))!.replace(/^---\n[\s\S]*?\n---\n/, "");
       for (const m of text.matchAll(/^features:[ \t]*\[?([^\]\n]*)\]?[ \t]*$/gim)) {
         for (const id of m[1]!.split(/[\s,]+/).filter(Boolean)) {
           if (!known.has(id)) errors.push(`${path}: Features: ${id} is not a feature`);
