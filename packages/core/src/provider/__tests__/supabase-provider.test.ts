@@ -741,12 +741,14 @@ describe("getList follow-ups (#96 review)", () => {
       ["reports.summary", "column summary.id does not exist"],
       // A quoted table name (mixed case, a hyphen) is still the resource's own.
       ["Report-View", 'column "Report-View".id does not exist'],
+      // PostgreSQL allows `$` in identifiers.
+      ["sales$summary", "column sales$summary.id does not exist"],
     ] as const) {
       queue.push(fail(message, "42703"));
       queue.push({ ...ok([]), count: 0 } as Response);
       expect(await p.getList(resource, page)).toEqual({ data: [], total: 0 });
     }
-    expect(warn).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenCalledTimes(4);
     warn.mockRestore();
   });
 
