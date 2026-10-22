@@ -1,0 +1,32 @@
+packages/ui/src/components/data/DataTable.tsx
+  s_9bf81edc5cc904::t_7a6416a1918508 182-197,206,597,615,643-647,656-657,732,788-794
+  s_9bf81edc5cc904::t_b4d4d8538e094c 880,1036-1040,1062
+.changeset/table-review-followups.md
+  s_3daa86e3ae6031::t_7fc503cc865149 1-10
+packages/ui/src/components/data/__tests__/data-table-engine.test.tsx
+  s_9bf81edc5cc904::t_723ede5b2d5376 133-141,147-173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4cb6dfdecc8faaaa6de22ad88e1caaf73d6b2539",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
