@@ -17,7 +17,7 @@ const VALIDATION: Record<FieldValidation["status"], string> = {
  * `explain()` in plain English: visibility, the jump that skipped it, each
  * show/hide rule with its result, and validation.
  */
-export function LogicTracePanel({ engine, blockId }: { engine: FormEngine; blockId?: string }) {
+export function LogicTracePanel({ engine, blockId }: { engine: FormEngine; blockId?: string | undefined }) {
   const state = useFormSelector(engine, (s) => s);
   const blocks = useMemo(() => steps(engine.definition), [engine.definition]);
   const [picked, setPicked] = useState<string | null>(blockId ?? null);

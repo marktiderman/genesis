@@ -5185,13 +5185,6 @@
               "description": "Page content"
             },
             {
-              "name": "navItems",
-              "type": "NavItem[]",
-              "required": true,
-              "defaultValue": null,
-              "description": "Primary navigation items"
-            },
-            {
               "name": "activePath",
               "type": "string",
               "required": false,
@@ -5262,6 +5255,20 @@
               "description": "Items for the mobile bottom tab bar. Defaults to top-level `navItems`\n(no children). Pass a short list for apps with large sidebars; pass `[]`\nand set `options.showMobileBottomNav: false` to hide."
             },
             {
+              "name": "navigation",
+              "type": "NavigationNode<NavItem>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The app's logical navigation hierarchy. AppShell resolves it against\n`activePath` (see `resolveNavigation`) and derives:\n- the sidebar's global items from the root's `items` (unless `navItems`),\n- a contextual section from the current node's `items`, labelled with\n  the node's `label` (`$param` segments in `to` filled from the URL),\n- the mobile tab bar: the contextual items when there are any, else the\n  global top-level items (unless `mobileNavItems`),\n- a back link to the current node's logical parent (unless\n  `parentNavigation`).\n@stability Beta"
+            },
+            {
+              "name": "navItems",
+              "type": "NavItem[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Primary navigation items. Optional when `navigation` is set: the tree\nroot's `items` are the global nav then."
+            },
+            {
               "name": "onCollapsedChange",
               "type": "((collapsed: boolean) => void)",
               "required": false,
@@ -5281,6 +5288,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Persist user sidebar-option overrides + collapse state (localStorage)"
+            },
+            {
+              "name": "parentNavigation",
+              "type": "ParentNavigation | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "Back-to-parent link rendered in the content header, above `children`, on\nmobile and desktop. Derived from `navigation` when omitted; `null` hides\nit. Use this instead of placing a back row inside page content.\n@stability Beta"
             },
             {
               "name": "secondaryNavItems",

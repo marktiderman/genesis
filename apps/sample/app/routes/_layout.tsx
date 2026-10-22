@@ -1,12 +1,12 @@
 import { Outlet } from "react-router";
-import { AppShell } from "@marktiderman/genesis-ui/data";
+import { AppShell, type NavigationNode, type NavItem } from "@marktiderman/genesis-ui/layout";
 import {
   ReactRouterLink,
   useReactRouterActivePath,
 } from "@marktiderman/genesis-ui/router/react-router";
-import { LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler } from "lucide-react";
+import { LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler, SwatchBook, Shapes, LayoutTemplate, ScrollText } from "lucide-react";
 
-const navItems = [
+const globalItems: NavItem[] = [
   { to: "/showcase", icon: Sparkles, label: "Showcase" },
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/items", icon: Package, label: "Items (L1)" },
@@ -21,6 +21,57 @@ const navItems = [
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
+// Contextual nav while anywhere in the showcase.
+const showcaseItems: NavItem[] = [
+  { to: "/showcase", icon: Sparkles, label: "Overview", end: true },
+  { to: "/showcase/tokens", icon: SwatchBook, label: "Tokens" },
+  { to: "/showcase/primitives", icon: Shapes, label: "Primitives" },
+  { to: "/showcase/layouts", icon: LayoutTemplate, label: "Layouts" },
+  { to: "/showcase/standards", icon: ScrollText, label: "Standards" },
+];
+
+// The app's logical hierarchy, declared once. AppShell derives the sidebar,
+// the contextual section, the mobile tab bar and the back-to-parent link
+// from it (`/showcase/layouts/auth` → back to Layouts).
+const navigation: NavigationNode<NavItem> = {
+  id: "home",
+  path: "/",
+  label: "Home",
+  items: globalItems,
+  children: [
+    {
+      id: "showcase",
+      path: "/showcase",
+      label: "Showcase",
+      items: showcaseItems,
+      children: [
+        {
+          id: "tokens",
+          path: "/showcase/tokens",
+          label: "Tokens",
+          items: showcaseItems,
+          children: [{ id: "token-category", path: "/showcase/tokens/$category", label: "Token category", items: showcaseItems }],
+        },
+        {
+          id: "primitives",
+          path: "/showcase/primitives",
+          label: "Primitives",
+          items: showcaseItems,
+          children: [{ id: "primitive", path: "/showcase/primitives/$slug", label: "Primitive", items: showcaseItems }],
+        },
+        {
+          id: "layouts",
+          path: "/showcase/layouts",
+          label: "Layouts",
+          items: showcaseItems,
+          children: [{ id: "layout", path: "/showcase/layouts/$slug", label: "Layout", items: showcaseItems }],
+        },
+        { id: "standards", path: "/showcase/standards", label: "Standards", items: showcaseItems },
+      ],
+    },
+  ],
+};
+
 // genesis-ui ships the React Router adapter (link + full-location active
 // path), so the app no longer hand-writes one.
 export default function Layout() {
@@ -29,7 +80,7 @@ export default function Layout() {
     <AppShell
       appName="Genesis Showcase"
       appLogo="G"
-      navItems={navItems}
+      navigation={navigation}
       linkComponent={ReactRouterLink}
       activePath={activePath}
     >
