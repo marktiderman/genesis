@@ -13,11 +13,14 @@ import { getChrome, type Tab } from "./chrome";
  * Panel and bar are the page in an iframe, inside a closed shadow root (the
  * page's styles and scripts can't reach into it), whose host element pins its
  * own style (a page script can't hide or move it). The frame and the host talk
- * over a MessageChannel handed to the frame once, addressed to the
- * extension's origin and checked by a per-open secret in the frame's
- * #fragment; nothing is ever posted through `window.parent`, which the page's
- * own scripts could read. If the page navigates the frame anywhere else, the
- * host closes it.
+ * over a MessageChannel: when the surface page is ready (`connectSurface()`,
+ * however late) it says so to the host, which hands it the channel, addressed
+ * to the extension's origin and checked by a per-open secret carried in the
+ * frame's name (not its address, which the page can see in its Resource
+ * Timing). Nothing but that "ready" is posted through `window.parent`, where
+ * the page's own scripts could read it. If the page navigates the frame
+ * anywhere else, the host closes it; so does the surface page reloading
+ * itself.
  *
  * What this can't stop: the page can still draw over the frame to trick a
  * click into it. `connectSurface()` reports whether Chrome sees the frame as
@@ -33,6 +36,11 @@ import { getChrome, type Tab } from "./chrome";
  * click, and a service worker that has just woken can't read its settings in
  * time. Declare `"side_panel": { "default_path": "<page>?side=1" }` and the
  * `sidePanel` permission in the manifest.
+ *
+ * `params` reach a side panel through its path, set just before it opens;
+ * Chrome may show a panel that's opening for the first time with the
+ * previous path. Pass anything a side panel must have this time (which item
+ * to edit, say) through `chrome.storage.session` instead.
  */
 
 export type SurfaceMode = "panel" | "bar" | "side";
@@ -177,25 +185,35 @@ export function mountSurfaceFrame(
   const wrap = document.createElement("div");
   wrap.className = "wrap";
   const frame = document.createElement("iframe");
-  frame.src = `${src}#${nonce}`;
+  // The secret goes in the frame's name: the page can't read a cross-origin
+  // frame's name, nor reach this one (closed shadow root), and unlike the
+  // address it isn't in the page's Resource Timing.
+  frame.name = nonce;
+  frame.src = src;
   wrap.append(frame);
   shadow.append(css, wrap);
 
-  // The frame's own line: handed over once, to the extension's origin only.
+  // The frame's own line: handed over once, when the surface page says it's
+  // ready (it may connect late), to the extension's origin only.
   const channel = new MessageChannel();
   const port = channel.port1;
+  let handed = false;
+  const onReady = (e: MessageEvent) => {
+    if (handed || e.data?.type !== "gx-ready") return;
+    if (e.source !== frame.contentWindow || e.origin !== origin) return;
+    handed = true;
+    frame.contentWindow?.postMessage({ type: "gx-connect", nonce }, origin, [
+      channel.port2,
+    ]);
+  };
+  window.addEventListener("message", onReady);
   let loads = 0;
   frame.addEventListener("load", () => {
     loads += 1;
-    if (loads === 1) {
-      frame.contentWindow?.postMessage({ type: "gx-connect", nonce }, origin, [
-        channel.port2,
-      ]);
-    } else {
-      // Navigated again: by the page (frames[i].location = …), perhaps to a
-      // look-alike. Close rather than show whatever it is.
-      close();
-    }
+    // Navigated again: by the page (frames[i].location = …), perhaps to a
+    // look-alike, or the surface reloading itself. Close rather than show
+    // whatever it is.
+    if (loads > 1) close();
   });
   port.onmessage = (e: MessageEvent) => {
     if (e.data?.type === "gx-close") close();
@@ -224,6 +242,7 @@ export function mountSurfaceFrame(
     closed = true;
     clearInterval(timer);
     keepPinned.disconnect();
+    window.removeEventListener("message", onReady);
     port.close();
     host.remove();
     state.host = null;
@@ -268,7 +287,10 @@ export function connectSurface({
         ? "bar"
         : "panel"
       : "popup";
-  const nonce = framed ? location.hash.slice(1) : "";
+  // The host's secret, from this frame's name; cleared, so nothing this frame
+  // later navigates to inherits it.
+  const nonce = framed ? window.name : "";
+  if (framed) window.name = "";
   document.documentElement.dataset.gxSurface = mode;
 
   // The host's line, once it arrives with this page's secret; until then,
@@ -292,9 +314,17 @@ export function connectSurface({
       for (const message of queue.splice(0)) port.postMessage(message);
     };
     window.addEventListener("message", onConnect);
+    // Ask for the line: the host answers only this frame, from its origin.
+    const parentOrigin = location.ancestorOrigins?.[0] || "*";
+    window.parent.postMessage({ type: "gx-ready" }, parentOrigin);
   }
 
-  let seen = true;
+  // Where Chrome can tell, the frame counts as hidden until it says otherwise.
+  const tracked =
+    framed &&
+    typeof IntersectionObserverEntry !== "undefined" &&
+    "isVisible" in IntersectionObserverEntry.prototype;
+  let seen = !tracked;
   if (framed && "IntersectionObserver" in window) {
     try {
       new IntersectionObserver(

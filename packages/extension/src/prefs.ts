@@ -4,7 +4,9 @@ import { getChrome } from "./chrome";
  * An extension's settings in `chrome.storage.local`, under one key, with
  * defaults. Each write reads the latest saved values and merges into them
  * under a Web Lock (`navigator.locks`) named for the key, which every page
- * and the service worker of the extension share, so two quick changes from
+ * and the service worker of the extension share (frames of the extension
+ * inside web pages too: Chrome doesn't partition an extension's locks by the
+ * page it's embedded in), so two quick changes from
  * two pages can't overwrite each other. Where Web Locks are missing, writes
  * from one page still run one after another. One failed write doesn't block
  * later ones.

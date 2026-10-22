@@ -130,7 +130,6 @@ export function installChromeFake({
     runtime: {
       id,
       getURL: (path) => base + path.replace(/^\//, ""),
-      // From an extension page by default.
       // From an extension page by default. Like Chrome, it fails when
       // nothing is listening at all.
       sendMessage: (message) =>

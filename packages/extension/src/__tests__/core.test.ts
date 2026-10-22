@@ -172,23 +172,33 @@ describe("surfaces", () => {
     expect(state.host.getAttribute("style")).toContain("top: 0 !important");
     // Plain values only: a MessagePort held by a mock trips vitest's formatter.
     let got: { type?: string; origin?: string; port?: boolean } = {};
-    Object.defineProperty(state.frame, "contentWindow", {
-      value: {
-        postMessage: (
-          m: { type: string },
-          origin: string,
-          transfer: unknown[],
-        ) =>
-          (got = {
-            type: m.type,
-            origin,
-            port:
-              typeof (transfer?.[0] as MessagePort | undefined)?.postMessage ===
-              "function",
-          }),
-      },
-    });
+    expect(state.frame.name).not.toBe(""); // the secret, not in the address
+    expect(state.frame.src).not.toContain("#");
+    const frameWindow = {
+      postMessage: (m: { type: string }, origin: string, transfer: unknown[]) =>
+        (got = {
+          type: m.type,
+          origin,
+          port:
+            typeof (transfer?.[0] as MessagePort | undefined)?.postMessage ===
+            "function",
+        }),
+    };
+    Object.defineProperty(state.frame, "contentWindow", { value: frameWindow });
     state.frame.dispatchEvent(new Event("load"));
+    expect(got).toEqual({}); // nothing until the surface page asks
+    const ready = (source: unknown, origin: string) =>
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: { type: "gx-ready" },
+          source: source as Window,
+          origin,
+        }),
+      );
+    ready(window, "chrome-extension://testextensionid"); // the page's own script
+    ready(frameWindow, "https://evil.example"); // not the extension
+    expect(got).toEqual({});
+    ready(frameWindow, "chrome-extension://testextensionid"); // however late
     window.postMessage = realPost;
     expect(got).toEqual({
       type: "gx-connect",
@@ -216,13 +226,16 @@ describe("surfaces", () => {
   });
 
   it("in the page, listens only on the line its secret came with", async () => {
-    history.replaceState(
-      null,
-      "",
-      "/popup.html?tab=3&panel=1&bar=1#secret-nonce",
-    );
+    history.replaceState(null, "", "/popup.html?tab=3&panel=1&bar=1");
+    window.name = "secret-nonce";
     vi.spyOn(window, "top", "get").mockReturnValue({} as Window);
+    const asked: unknown[] = [];
+    vi.spyOn(window, "postMessage").mockImplementation((m: unknown) => {
+      asked.push(m);
+    });
     const surface = connectSurface({ autoResize: false });
+    expect(asked).toEqual([{ type: "gx-ready" }]); // asks its host for the line
+    expect(window.name).toBe(""); // cleared once read
     expect(surface.mode).toBe("bar");
     const seen: string[] = [];
     surface.onPageChanged((url) => seen.push(url));
@@ -263,6 +276,20 @@ describe("surfaces", () => {
       { type: "gx-resize", height: 200 },
       { type: "gx-close" },
     ]);
+  });
+});
+
+describe("surface visibility", () => {
+  it("counts as hidden until Chrome says it's visible, where Chrome can tell", () => {
+    history.replaceState(null, "", "/popup.html?tab=3&panel=1");
+    vi.spyOn(window, "top", "get").mockReturnValue({} as Window);
+    vi.spyOn(window, "postMessage").mockImplementation(() => undefined);
+    class Entry {}
+    Object.defineProperty(Entry.prototype, "isVisible", { value: false });
+    vi.stubGlobal("IntersectionObserverEntry", Entry);
+    expect(connectSurface({ autoResize: false }).visible()).toBe(false);
+    vi.unstubAllGlobals();
+    expect(connectSurface({ autoResize: false }).visible()).toBe(true);
   });
 });
 
