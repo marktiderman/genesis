@@ -236,7 +236,10 @@ export function parseForm(input: unknown): ParseResult {
         if (maxLength !== undefined && !(isInt(maxLength) && maxLength > 0)) {
           issue(`${path}.props.maxLength`, "Must be a whole number above 0.");
         }
-        if (isObject(block.props) && typeof block.type === "string") structuredProps(block.type, block.props, `${path}.props`);
+      }
+      // Checked with or without props: a table with no columns would block every submission.
+      if (typeof block.type === "string" && (block.props === undefined || isObject(block.props))) {
+        structuredProps(block.type, block.props ?? {}, `${path}.props`);
       }
       if (validKey) {
         if (keys.has(block.key as string)) issue(`${path}.key`, `Duplicate key "${String(block.key)}".`);
