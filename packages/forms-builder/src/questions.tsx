@@ -41,7 +41,15 @@ import {
   withOptionValues,
 } from "./ops";
 
-import { contentTypes, editorFor, useBuilderConfig, type Apply, type BuilderConfig, type FieldPanelProps } from "./editors";
+import {
+  contentTypes,
+  editorFor,
+  useBuilderConfig,
+  type Apply,
+  type BuilderConfig,
+  type FieldPanelProps,
+  type FieldPreset,
+} from "./editors";
 
 const TEXT_TYPES = new Set(["short-text", "long-text", "email", "phone"]);
 
@@ -67,8 +75,8 @@ export interface PaletteEntry {
 
 /**
  * The palette when the host names none: every registered type except the
- * worksheet types, which a host opts into by naming them, e.g.
- * `palette={[...defaultPalette(), ...STRUCTURED_FIELD_TYPES]}`.
+ * structured types (`STRUCTURED_FIELD_TYPES`), which a host opts into by
+ * naming them, e.g. `palette={[...defaultPalette(), ...STRUCTURED_FIELD_TYPES]}`.
  */
 export function defaultPalette(): string[] {
   const optIn = new Set<string>(STRUCTURED_FIELD_TYPES);
@@ -99,6 +107,60 @@ export function paletteTypes(config: BuilderConfig = {}): PaletteEntry[] {
   return out;
 }
 
+/** One of the host's presets as the Add menu lists it: a named variant of `type`. */
+export interface PresetEntry extends PaletteEntry {
+  preset: FieldPreset;
+}
+
+/**
+ * The host's presets the Add menu offers, in their order. A preset whose base
+ * type has no registered manifest and no editor is left out. It is listed in
+ * its own `category`, else in its base type's. Its base type need not be in
+ * the palette: a host may offer a table only as its own named variants.
+ */
+export function palettePresets(config: BuilderConfig = {}): PresetEntry[] {
+  const out: PresetEntry[] = [];
+  const seen = new Set<string>();
+  for (const preset of config.presets ?? []) {
+    if (seen.has(preset.id)) continue;
+    const manifest = getFieldType(preset.type);
+    const editor = editorFor(config, preset.type);
+    if (!manifest && !editor) continue;
+    seen.add(preset.id);
+    const entry: PresetEntry = {
+      type: preset.type,
+      label: preset.label,
+      category: preset.category ?? editor?.category ?? manifest?.category ?? "advanced",
+      preset,
+    };
+    const icon = preset.icon ?? editor?.icon;
+    if (icon !== undefined) entry.icon = icon;
+    out.push(entry);
+  }
+  return out;
+}
+
+/**
+ * A new field from a preset: its base type's default props with the preset's
+ * `props` laid over them (top-level keys replace), then the preset's `field`
+ * settings. The label is `field.label`, else the preset's label.
+ */
+export function createPresetField(def: FormDefinition, preset: FieldPreset, config: BuilderConfig = {}): FieldBlock {
+  const base = defaultProps(preset.type, { def, ...(config.fieldEditors ? { editors: config.fieldEditors } : {}) });
+  // Copied, so fields made from one preset never share arrays or objects.
+  const own = preset.props ? (JSON.parse(JSON.stringify(preset.props)) as Record<string, Json>) : undefined;
+  const props = base || own ? { ...base, ...own } : undefined;
+  const block = createField(
+    def,
+    { type: preset.type, label: preset.field?.label ?? preset.label, ...(props ? { props } : {}) },
+    config.fieldEditors,
+  );
+  if (preset.field?.required) block.required = true;
+  if (preset.field?.description) block.description = preset.field.description;
+  if (preset.field?.placeholder) block.placeholder = preset.field.placeholder;
+  return block;
+}
+
 function blockTitle(block: Block): string {
   if (block.kind === "field") return block.label || block.key;
   if (block.kind === "content") return block.text || (block.type === "heading" ? "Heading" : "Text");
@@ -119,7 +181,8 @@ export function AddBlockMenu({
 }) {
   const config = useBuilderConfig();
   const byCategory = new Map<string, PaletteEntry[]>();
-  for (const t of paletteTypes(config)) byCategory.set(t.category, [...(byCategory.get(t.category) ?? []), t]);
+  // Presets follow the base types, so in a shared category they come after them.
+  for (const t of [...paletteTypes(config), ...palettePresets(config)]) byCategory.set(t.category, [...(byCategory.get(t.category) ?? []), t]);
   const content = contentTypes(config.blockKinds);
   const pageBreak = config.blockKinds?.pageBreak ?? true;
   return (
@@ -133,12 +196,22 @@ export function AddBlockMenu({
         {[...byCategory].map(([category, types]) => (
           <div key={category}>
             <DropdownMenuLabel>{CATEGORY_LABEL[category] ?? category}</DropdownMenuLabel>
-            {types.map((t) => (
-              <DropdownMenuItem key={t.type} onSelect={() => onAdd((def) => createField(def, { type: t.type }, config.fieldEditors))}>
-                {t.icon ?? null}
-                {t.label}
-              </DropdownMenuItem>
-            ))}
+            {types.map((t) => {
+              const preset = "preset" in t ? (t as PresetEntry).preset : undefined;
+              return (
+                <DropdownMenuItem
+                  key={preset ? `preset:${preset.id}` : t.type}
+                  title={preset?.description}
+                  data-testid={preset ? `builder-add-preset-${preset.id}` : undefined}
+                  onSelect={() =>
+                    onAdd((def) => (preset ? createPresetField(def, preset, config) : createField(def, { type: t.type }, config.fieldEditors)))
+                  }
+                >
+                  {t.icon ?? null}
+                  {t.label}
+                </DropdownMenuItem>
+              );
+            })}
           </div>
         ))}
         {content.length || pageBreak ? (
