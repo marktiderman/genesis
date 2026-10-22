@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 103
+      "count": 105
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -8587,6 +8587,13 @@
               "description": ""
             },
             {
+              "name": "emptyDescription",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A line under the empty-state title, e.g. what to add first."
+            },
+            {
               "name": "emptyIcon",
               "type": "LucideIcon",
               "required": false,
@@ -12209,11 +12216,32 @@
               "description": ""
             },
             {
+              "name": "emptyDescription",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A line under the empty-state title."
+            },
+            {
+              "name": "emptyIcon",
+              "type": "LucideIcon",
+              "required": false,
+              "defaultValue": null,
+              "description": "The empty state's icon."
+            },
+            {
+              "name": "emptyMessage",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The empty state's title, e.g. \"No tasks yet\"."
+            },
+            {
               "name": "emptyState",
               "type": "ReactNode",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "The empty state's action, e.g. the create button."
             },
             {
               "name": "error",
@@ -12270,6 +12298,20 @@
               "required": false,
               "defaultValue": null,
               "description": "A row's identity, for React keys and bulk selection. Defaults to\n`String(item.id)`. Supply it for rows keyed some other way — a composite\nkey (`encodeRecordKey` from `@marktiderman/genesis-core/schema`), or a\ntable whose key column isn't called `id`. Detail `route` mode still\nnavigates by `item.id`."
+            },
+            {
+              "name": "getSubtitle",
+              "type": "((item: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The detail subtitle from more than one field. Wins over `subtitleField`."
+            },
+            {
+              "name": "getTitle",
+              "type": "((item: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Name a record from more than one field (`${first} ${last}`). Wins over\n`titleField` for the detail title and the card's accessible name."
             },
             {
               "name": "gridCols",
