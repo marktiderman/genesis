@@ -36,6 +36,11 @@ import { DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
 import { ResourceForm } from "./ResourceForm";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
+import { toast } from "sonner";
+import {
+  resolveCan,
+  type ResourcePermissionAction,
+} from "./resource-permissions";
 import {
   renderSlot,
   type Slots,
@@ -44,6 +49,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewModeDefault } from "../../hooks/use-view-preference";
 import {
+  useCapabilities,
   useResource,
   type UseResourceOptions,
 } from "@marktiderman/genesis-core/hooks";
@@ -191,9 +197,14 @@ export type ResourcePageSlotProps<
  * @stability Beta
  */
 export interface ResourceDeleteConfirmCopy<T> {
-  /** Default "Delete this record?". A function receives the row. */
+  /** Singular noun for the default copy, e.g. "project". Default "record". */
+  noun?: string;
+  /** Default "Delete this {noun}?". A function receives the row. */
   title?: string | ((item: T) => string);
-  /** Default "This can't be undone." */
+  /**
+   * Default "This can't be undone.", or "The {noun} moves to the recycle
+   * bin." when the resource soft-deletes (see `capabilities.softDelete`).
+   */
   description?: ReactNode | ((item: T) => ReactNode);
   /** Default "Delete". */
   confirmLabel?: string;
@@ -468,8 +479,13 @@ export interface ResourcePageProps<
    * than left to error (DATA-STUDIO.md decision 9): `search: false` hides the
    * search box, `sort: false` the sort select. Pass a provider's
    * `capabilities()` straight in. Omitted, both show, as before.
+   *
+   * `softDelete: true` says a delete moves the record to a recycle bin, and
+   * the confirm step says so instead of "This can't be undone." In
+   * `resource` mode the built-in delete (`allowDelete`) also reads it from
+   * the provider's `capabilities(resource)`; a value here wins.
    */
-  capabilities?: { search?: boolean; sort?: boolean };
+  capabilities?: { search?: boolean; sort?: boolean; softDelete?: boolean };
 
   // ── Table chrome — passed straight through to DataTable ──
   /** Show the column-visibility dropdown. DataTable's default is `true`. */
@@ -502,6 +518,20 @@ export interface ResourcePageProps<
    */
   onDelete?: (item: T) => void | Promise<void>;
   /**
+   * Whether the signed-in user may take `action` on this row: `"edit"` gates
+   * the peek's Edit button (and the built-in edit form), `"delete"` its
+   * Delete button. Omitted, every row allows both. A UI gate only: the
+   * server must still refuse the write.
+   *
+   * ```tsx
+   * can={(action, row) => row.owner_id === me.id && (action !== "delete" || !row.locked)}
+   * ```
+   *
+   * Replaces `canEditItem`, `canEdit` and `canDelete`. Those still work; when
+   * any of them is given alongside `can`, a row must pass all of them.
+   */
+  can?: (action: ResourcePermissionAction, item: T) => boolean;
+  /**
    * Whether the signed-in user may change this record at all: shorthand for
    * `canEdit` and `canDelete` together. When it returns false the peek
    * offers neither Edit nor Delete.
@@ -510,6 +540,9 @@ export interface ResourcePageProps<
    * and no Delete, whatever `canEdit` / `canDelete` say. A row it allows is
    * then gated by `canEdit` (Edit) and `canDelete` (Delete) when given. Use
    * `canEditItem` alone for one owner rule, or the pair for separate rules.
+   *
+   * @deprecated Use `can`: `canEditItem={f}` is `can={(_action, item) => f(item)}`.
+   * Still honoured, on top of `can` when both are given.
    */
   canEditItem?: (item: T) => boolean;
   createLabel?: string;
@@ -518,12 +551,20 @@ export interface ResourcePageProps<
    * row that returns `false` (and the built-in edit form will not open for
    * it). Omitted, every row is editable, as before. A UI gate only: the
    * server must still refuse the write.
+   *
+   * @deprecated Use `can`: `canEdit={f}` is
+   * `can={(action, item) => action !== "edit" || f(item)}`. Still honoured,
+   * after `canEditItem` and on top of `can` when given.
    */
   canEdit?: (item: T) => boolean;
   /**
    * Whether this row may be deleted. The peek's Delete button is hidden for
    * a row that returns `false`. Omitted, every row is deletable. A UI gate
    * only: the server must still refuse the write.
+   *
+   * @deprecated Use `can`: `canDelete={f}` is
+   * `can={(action, item) => action !== "delete" || f(item)}`. Still honoured,
+   * after `canEditItem` and on top of `can` when given.
    */
   canDelete?: (item: T) => boolean;
   /**
@@ -531,7 +572,9 @@ export interface ResourcePageProps<
    * provided): the peek's Delete button opens a confirm dialog, then calls
    * `useResource`'s `remove` with the row's `getKey` (when supplied) or its
    * `id` — which invalidates the list — and closes the peek. A failure shows
-   * in the dialog.
+   * in the dialog (or, with `confirmDelete={false}`, as an error toast). For
+   * a provider whose `capabilities(resource)` reports `softDelete`, the
+   * dialog says the record moves to the recycle bin.
    */
   allowDelete?: boolean;
   /**
@@ -783,6 +826,7 @@ export function ResourcePage<
     onCreate,
     onEdit,
     onDelete,
+    can,
     canEditItem,
     createLabel = "New",
     canEdit,
@@ -1151,10 +1195,15 @@ export function ResourcePage<
     }
   }, [useBuiltInCreate, onCreate]);
 
+  // Per-row rights: `can` and its deprecated aliases, folded into one check.
+  const allowed = useMemo(
+    () => resolveCan<T>({ can, canEditItem, canEdit, canDelete }),
+    [can, canEditItem, canEdit, canDelete],
+  );
+
   const handleEdit = useCallback(
     (item: T) => {
-      if (canEdit && !canEdit(item)) return;
-      if (canEditItem && !canEditItem(item)) return;
+      if (!allowed("edit", item)) return;
       if (useBuiltInEdit) {
         setFormAction("edit");
         setFormItem(item);
@@ -1163,7 +1212,7 @@ export function ResourcePage<
         onEdit(item);
       }
     },
-    [useBuiltInEdit, onEdit, canEdit, canEditItem],
+    [useBuiltInEdit, onEdit, allowed],
   );
 
   const closeDetail = useCallback(() => {
@@ -1184,6 +1233,26 @@ export function ResourcePage<
   const [pendingDelete, setPendingDelete] = useState<T | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const { remove: removeRecord } = resourceHook;
+  // A recycle-bin delete is reversible, so the confirm step must not say it
+  // can't be undone. The caller's `capabilities` wins; otherwise the built-in
+  // delete asks the provider (a caller's own `onDelete` may delete anywhere).
+  const askProviderSoftDelete =
+    useBuiltInDelete && capabilities?.softDelete === undefined;
+  const providerCapabilities = useCapabilities(resourceName, {
+    enabled: askProviderSoftDelete,
+  }).data;
+  const softDelete =
+    capabilities?.softDelete ??
+    (askProviderSoftDelete ? providerCapabilities?.softDelete === true : false);
+
+  // A delete with no dialog to show its failure in still has to tell the
+  // user it failed, not just the console.
+  const reportDeleteFailure = useCallback((err: unknown) => {
+    console.error("ResourcePage: delete failed", err);
+    toast.error(
+      err instanceof Error && err.message ? err.message : "The delete failed. Try again.",
+    );
+  }, []);
 
   const performDelete = useCallback(
     async (item: T) => {
@@ -1223,26 +1292,21 @@ export function ResourcePage<
         }
       : useBuiltInDelete
         ? (item: T) => {
-            performDelete(item).catch((err: unknown) => {
-              console.error("ResourcePage: delete failed", err);
-            });
+            performDelete(item).catch(reportDeleteFailure);
           }
-        : // Unconfirmed `onDelete` keeps its original contract exactly:
-          // called straight from the peek, nothing closed for it.
+        : // Unconfirmed `onDelete` keeps its original contract: called
+          // straight from the peek, nothing closed for it. A promise it
+          // returns that rejects is reported rather than left unhandled.
           (item: T) => {
-            void onDelete?.(item);
+            const result = onDelete?.(item);
+            if (result && typeof result.then === "function") {
+              result.then(undefined, reportDeleteFailure);
+            }
           };
 
   // Per-row rights, evaluated against the row the peek is showing.
-  const mayChange = (item: T) => (canEditItem ? canEditItem(item) : true);
-  const selectedEditable =
-    !!selectedItem &&
-    mayChange(selectedItem) &&
-    (canEdit ? canEdit(selectedItem) : true);
-  const selectedDeletable =
-    !!selectedItem &&
-    mayChange(selectedItem) &&
-    (canDelete ? canDelete(selectedItem) : true);
+  const selectedEditable = !!selectedItem && allowed("edit", selectedItem);
+  const selectedDeletable = !!selectedItem && allowed("delete", selectedItem);
 
   // ── Patch tableColumns to use real actions (client-side mode) ──
   const tableColumns = useMemo(() => {
@@ -2032,6 +2096,8 @@ export function ResourcePage<
             onOpenChange: setDeleteOpen,
             onConfirm: () =>
               pendingDelete ? performDelete(pendingDelete) : undefined,
+            softDelete,
+            noun: deleteCopy?.noun,
             title:
               typeof deleteCopy?.title === "function"
                 ? pendingDelete

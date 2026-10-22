@@ -528,3 +528,23 @@ describe("read errors", () => {
     expect(readOutcomeFromCode(undefined)).toBe("error");
   });
 });
+
+describe("capabilities: softDelete", () => {
+  it("is true per resource for binTables and deleteMode bin, false otherwise", async () => {
+    const p = provider({
+      binTables: ["practices", "people"],
+      resources: { people: { deleteMode: "hard" }, notes: { deleteMode: "bin" } },
+    });
+    expect((await p.capabilities!("practices")).softDelete).toBe(true);
+    expect((await p.capabilities!("people")).softDelete).toBe(false);
+    expect((await p.capabilities!("notes")).softDelete).toBe(true);
+    expect((await p.capabilities!("tasks")).softDelete).toBe(false);
+    expect((await p.capabilities!()).softDelete).toBe(false);
+  });
+
+  it("accepts a binTables predicate", async () => {
+    const p = provider({ binTables: (r) => r.startsWith("bin_") });
+    expect((await p.capabilities!("bin_notes")).softDelete).toBe(true);
+    expect((await p.capabilities!("notes")).softDelete).toBe(false);
+  });
+});

@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 106
+      "count": 107
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -7915,15 +7915,29 @@
               "name": "description",
               "type": "ReactNode",
               "required": false,
-              "defaultValue": "This can't be undone.",
-              "description": "Default \"This can't be undone.\""
+              "defaultValue": "softDelete\n    ? `The ${noun} moves to the recycle bin.`\n    : \"This can't be undone.\"",
+              "description": "Default \"This can't be undone.\", or \"The {noun} moves to the recycle\nbin.\" for a `softDelete`."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": "record",
+              "description": "Singular noun for the default copy, e.g. \"project\". Default \"record\"."
+            },
+            {
+              "name": "softDelete",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The delete moves the record to a recycle bin rather than removing it\n(a provider's `softDelete` capability). The default description then\nsays so instead of \"This can't be undone.\""
             },
             {
               "name": "title",
               "type": "string",
               "required": false,
-              "defaultValue": "Delete this record?",
-              "description": "Default \"Delete this record?\"."
+              "defaultValue": "`Delete this ${noun}?`",
+              "description": "Default \"Delete this {noun}?\"."
             }
           ]
         }
@@ -12266,7 +12280,7 @@
               "type": "boolean",
               "required": false,
               "defaultValue": null,
-              "description": "Built-in delete for `resource` mode (ignored if `onDelete` is\nprovided): the peek's Delete button opens a confirm dialog, then calls\n`useResource`'s `remove` with the row's `getKey` (when supplied) or its\n`id` — which invalidates the list — and closes the peek. A failure shows\nin the dialog."
+              "description": "Built-in delete for `resource` mode (ignored if `onDelete` is\nprovided): the peek's Delete button opens a confirm dialog, then calls\n`useResource`'s `remove` with the row's `getKey` (when supplied) or its\n`id` — which invalidates the list — and closes the peek. A failure shows\nin the dialog (or, with `confirmDelete={false}`, as an error toast). For\na provider whose `capabilities(resource)` reports `softDelete`, the\ndialog says the record moves to the recycle bin."
             },
             {
               "name": "allowEdit",
@@ -12283,25 +12297,32 @@
               "description": ""
             },
             {
+              "name": "can",
+              "type": "((action: ResourcePermissionAction, item: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Whether the signed-in user may take `action` on this row: `\"edit\"` gates\nthe peek's Edit button (and the built-in edit form), `\"delete\"` its\nDelete button. Omitted, every row allows both. A UI gate only: the\nserver must still refuse the write.\n\n```tsx\ncan={(action, row) => row.owner_id === me.id && (action !== \"delete\" || !row.locked)}\n```\n\nReplaces `canEditItem`, `canEdit` and `canDelete`. Those still work; when\nany of them is given alongside `can`, a row must pass all of them."
+            },
+            {
               "name": "canDelete",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether this row may be deleted. The peek's Delete button is hidden for\na row that returns `false`. Omitted, every row is deletable. A UI gate\nonly: the server must still refuse the write."
+              "description": "Whether this row may be deleted. The peek's Delete button is hidden for\na row that returns `false`. Omitted, every row is deletable. A UI gate\nonly: the server must still refuse the write.\n@deprecated Use `can`: `canDelete={f}` is\n`can={(action, item) => action !== \"delete\" || f(item)}`. Still honoured,\nafter `canEditItem` and on top of `can` when given."
             },
             {
               "name": "canEdit",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether this row may be edited. The peek's Edit button is hidden for a\nrow that returns `false` (and the built-in edit form will not open for\nit). Omitted, every row is editable, as before. A UI gate only: the\nserver must still refuse the write."
+              "description": "Whether this row may be edited. The peek's Edit button is hidden for a\nrow that returns `false` (and the built-in edit form will not open for\nit). Omitted, every row is editable, as before. A UI gate only: the\nserver must still refuse the write.\n@deprecated Use `can`: `canEdit={f}` is\n`can={(action, item) => action !== \"edit\" || f(item)}`. Still honoured,\nafter `canEditItem` and on top of `can` when given."
             },
             {
               "name": "canEditItem",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether the signed-in user may change this record at all: shorthand for\n`canEdit` and `canDelete` together. When it returns false the peek\noffers neither Edit nor Delete.\n\nPrecedence: `canEditItem` is checked first. A row it refuses gets no Edit\nand no Delete, whatever `canEdit` / `canDelete` say. A row it allows is\nthen gated by `canEdit` (Edit) and `canDelete` (Delete) when given. Use\n`canEditItem` alone for one owner rule, or the pair for separate rules."
+              "description": "Whether the signed-in user may change this record at all: shorthand for\n`canEdit` and `canDelete` together. When it returns false the peek\noffers neither Edit nor Delete.\n\nPrecedence: `canEditItem` is checked first. A row it refuses gets no Edit\nand no Delete, whatever `canEdit` / `canDelete` say. A row it allows is\nthen gated by `canEdit` (Edit) and `canDelete` (Delete) when given. Use\n`canEditItem` alone for one owner rule, or the pair for separate rules.\n@deprecated Use `can`: `canEditItem={f}` is `can={(_action, item) => f(item)}`.\nStill honoured, on top of `can` when both are given."
             },
             {
               "name": "canSaveViews",
@@ -12312,10 +12333,10 @@
             },
             {
               "name": "capabilities",
-              "type": "{ search?: boolean; sort?: boolean; } | undefined",
+              "type": "{ search?: boolean; sort?: boolean; softDelete?: boolean | undefined; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before."
+              "description": "What the data source can do. A control it can't serve is hidden rather\nthan left to error (DATA-STUDIO.md decision 9): `search: false` hides the\nsearch box, `sort: false` the sort select. Pass a provider's\n`capabilities()` straight in. Omitted, both show, as before.\n\n`softDelete: true` says a delete moves the record to a recycle bin, and\nthe confirm step says so instead of \"This can't be undone.\" In\n`resource` mode the built-in delete (`allowDelete`) also reads it from\nthe provider's `capabilities(resource)`; a value here wins."
             },
             {
               "name": "className",
@@ -12841,6 +12862,52 @@
               "required": false,
               "defaultValue": null,
               "description": "Persist key for density / page size via `useViewSettings`.\nDefaults to `resource` or a slug of `title`."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "resource-permissions",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-permissions.ts",
+      "stability": "beta",
+      "summary": "Folds `can` and the deprecated `canEditItem` / `canEdit` / `canDelete` into\none `(action, item) => boolean`. A row may take an action only when EVERY\npredicate given for it allows it:\n- `can(action, item)`\n- `canEditItem(item)`, for both actions\n- `canEdit(item)` for \"edit\", `canDelete(item)` for \"delete\"\n\nSo `can` alone, the aliases alone, or both (all must pass) give the same\nanswer for the same rule. None given allows everything.",
+      "primaryComponent": "resolveCan",
+      "components": [
+        {
+          "name": "resolveCan",
+          "summary": "Folds `can` and the deprecated `canEditItem` / `canEdit` / `canDelete` into\none `(action, item) => boolean`. A row may take an action only when EVERY\npredicate given for it allows it:\n- `can(action, item)`\n- `canEditItem(item)`, for both actions\n- `canEdit(item)` for \"edit\", `canDelete(item)` for \"delete\"\n\nSo `can` alone, the aliases alone, or both (all must pass) give the same\nanswer for the same rule. None given allows everything.",
+          "props": [
+            {
+              "name": "can",
+              "type": "((action: ResourcePermissionAction, item: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "canDelete",
+              "type": "((item: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "canEdit",
+              "type": "((item: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "canEditItem",
+              "type": "((item: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
             }
           ]
         }

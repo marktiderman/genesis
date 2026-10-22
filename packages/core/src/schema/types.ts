@@ -278,6 +278,13 @@ export interface ProviderCapabilities {
    * this (and the provider warns), so a client that wants every row must page.
    */
   readonly maxPerPage?: number;
+  /**
+   * For `capabilities(resource)`: a delete of this resource is reversible
+   * (it moves the row to a recycle bin instead of removing it). A UI says so
+   * in its confirm step instead of "This can't be undone." Omitted or false
+   * means a delete is permanent. Asked without a resource, it is false.
+   */
+  readonly softDelete?: boolean;
 }
 
 /** One audit record, as committed alongside the edit it describes. */

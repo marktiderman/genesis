@@ -145,7 +145,9 @@ export interface SupabaseProviderOptions {
    * filter). The database reports such a delete as zero rows, so for these
    * the provider checks the row is visible, deletes it, and reads it back:
    * gone from view is success, still visible is `forbidden`. A row that was
-   * not visible beforehand is `gone`.
+   * not visible beforehand is `gone`. `capabilities(resource)` reports
+   * these resources as `softDelete`, so a UI's confirm step can say the row
+   * goes to the recycle bin.
    */
   binTables?: readonly string[] | ((resource: string) => boolean);
   /** Per-resource rules, keyed by resource (table) name. */
@@ -457,7 +459,7 @@ export function createSupabaseProvider(
       return { data: result.data ?? [] } as never;
     },
 
-    async capabilities(): Promise<ProviderCapabilities> {
+    async capabilities(resource?: string): Promise<ProviderCapabilities> {
       return {
         search: true,
         sort: true,
@@ -469,6 +471,8 @@ export function createSupabaseProvider(
         create: true,
         delete: true,
         maxPerPage,
+        // A recycle-bin delete is reversible; a UI's confirm step says so.
+        softDelete: resource === undefined ? false : isBinTable(resource),
       };
     },
 

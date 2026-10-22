@@ -28,9 +28,20 @@ export interface ConfirmDeleteDialogProps {
    * can retry or cancel) when it rejects.
    */
   onConfirm: () => void | Promise<void>;
-  /** Default "Delete this record?". */
+  /**
+   * The delete moves the record to a recycle bin rather than removing it
+   * (a provider's `softDelete` capability). The default description then
+   * says so instead of "This can't be undone."
+   */
+  softDelete?: boolean;
+  /** Singular noun for the default copy, e.g. "project". Default "record". */
+  noun?: string;
+  /** Default "Delete this {noun}?". */
   title?: string;
-  /** Default "This can't be undone." */
+  /**
+   * Default "This can't be undone.", or "The {noun} moves to the recycle
+   * bin." for a `softDelete`.
+   */
   description?: ReactNode;
   /** Default "Delete". */
   confirmLabel?: string;
@@ -50,8 +61,12 @@ export function ConfirmDeleteDialog({
   open,
   onOpenChange,
   onConfirm,
-  title = "Delete this record?",
-  description = "This can't be undone.",
+  softDelete = false,
+  noun = "record",
+  title = `Delete this ${noun}?`,
+  description = softDelete
+    ? `The ${noun} moves to the recycle bin.`
+    : "This can't be undone.",
   confirmLabel = "Delete",
   cancelLabel = "Cancel",
 }: ConfirmDeleteDialogProps) {

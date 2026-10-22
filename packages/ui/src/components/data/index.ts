@@ -33,6 +33,7 @@ export {
   type ResourcePageSlotProps,
   type ResourceDeleteConfirmCopy,
 } from "./ResourcePage";
+export type { ResourcePermissionAction } from "./resource-permissions";
 export {
   ConfirmDeleteDialog,
   type ConfirmDeleteDialogProps,
