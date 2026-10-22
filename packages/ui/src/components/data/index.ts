@@ -27,6 +27,7 @@ export { DetailPanel, type DetailPanelProps } from "./DetailPanel";
 export {
   ResourcePage,
   type ResourcePageProps,
+  type ResourceAction,
   type ResourceCardActions,
   type ResourcePageSlotMap,
   type ResourcePageSlots,

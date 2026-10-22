@@ -12290,25 +12290,32 @@
               "description": ""
             },
             {
+              "name": "can",
+              "type": "((action: ResourceAction, item?: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": "What the signed-in user may do: `can(\"create\")`, `can(\"edit\", item)`,\n`can(\"delete\", item)`. Return false to hide the New button, or a row's\nEdit or Delete (and the built-in edit form won't open for it). Omitted,\neverything the handlers allow is offered. A UI gate only: the server\nmust still refuse the write."
+            },
+            {
               "name": "canDelete",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether this row may be deleted. The peek's Delete button is hidden for\na row that returns `false`. Omitted, every row is deletable. A UI gate\nonly: the server must still refuse the write."
+              "description": "@deprecated Use `can` — `can={(action, item) => action !== \"delete\" || !item || mayDelete(item)}`.\nStill honoured: a row it refuses gets no Delete."
             },
             {
               "name": "canEdit",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether this row may be edited. The peek's Edit button is hidden for a\nrow that returns `false` (and the built-in edit form will not open for\nit). Omitted, every row is editable, as before. A UI gate only: the\nserver must still refuse the write."
+              "description": "@deprecated Use `can` — `can={(action, item) => action !== \"edit\" || !item || mayEdit(item)}`.\nStill honoured: a row it refuses gets no Edit."
             },
             {
               "name": "canEditItem",
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether the signed-in user may change this record at all: shorthand for\n`canEdit` and `canDelete` together. When it returns false the peek\noffers neither Edit nor Delete.\n\nPrecedence: `canEditItem` is checked first. A row it refuses gets no Edit\nand no Delete, whatever `canEdit` / `canDelete` say. A row it allows is\nthen gated by `canEdit` (Edit) and `canDelete` (Delete) when given. Use\n`canEditItem` alone for one owner rule, or the pair for separate rules."
+              "description": "@deprecated Use `can` — `can={(action, item) => !item || mayChange(item)}`.\nRemoved in the next minor after one deprecation window. Still honoured:\na row it refuses gets no Edit and no Delete."
             },
             {
               "name": "canSaveViews",
