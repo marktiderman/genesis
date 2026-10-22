@@ -1,9 +1,9 @@
 {
   "name": "@marktiderman/genesis-cli",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "private": false,
   "type": "module",
-  "description": "Genesis CLI \u2014 `genesis init` scaffolds a Genesis app; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on in an existing app; `genesis introspect` writes a checked-in contract.",
+  "description": "Genesis CLI — `genesis init` scaffolds a Genesis app; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on in an existing app; `genesis introspect` writes a checked-in contract.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

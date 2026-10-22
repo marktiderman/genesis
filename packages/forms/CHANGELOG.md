@@ -1,5 +1,20 @@
 # @marktiderman/genesis-forms
 
+## 0.3.0
+
+### Minor Changes
+
+- 9453f10: New `@marktiderman/genesis-forms/destinations` subpath (and the umbrella's `@marktiderman/genesis/forms/destinations`): send a checked submission to an inbox (`emailDestination` with a built-in `resendProvider`), a Google Sheet (`sheetsDestination`, service-account JWT signed with WebCrypto, header management, RAW writes with opt-in formula escaping, dedupe by response id) or a URL (`webhookDestination`, Standard Webhooks HMAC signing with a base64 `whsec_` secret, with `verifyWebhook` for receivers). Each `deliver` resolves a result that is `retryable` or permanent, with `retryAfterSeconds` and a message safe to store; nothing throws or logs, every request has a timeout, and secrets stay out of config. `responseRow` flattens a submission into labelled cells. Still no dependencies: fetch and WebCrypto only, so it runs on Node 20+, edge runtimes and Workers.
+- 9453f10: **Breaking for conformance consumers: the shipped scenarios use neutral sample forms.** The `after-class` form is now `event-feedback` (hidden inputs `session` and `owner` instead of `class` and `coach`), and `monthly-pulse` is now `monthly-check-in`. The scenario files are renamed to match (`conformance/event-feedback-*.scenario.json`, `conformance/monthly-check-in-*.scenario.json`; `…-server-ignores-a-client-sent-coach` is now `…-server-ignores-a-client-sent-owner`). Each scenario covers the same logic as before; only ids, keys and copy changed. If you load the files by name, update the names.
+- 9453f10: Four built-in structured field types, for questions that collect more than one value:
+
+  - `list`: several short answers, `string[]` (goals, action items, three wins this week). Supports `contains`. Builder `f.list`.
+  - `table`: rows with fixed columns, up to `MAX_TABLE_COLUMNS` (6) text columns, `Record<string, string>[]` (an action plan with What / Who / By when, pros and cons). Builder `f.table`.
+  - `media-notes`: notes pinned to moments of a video or audio, `{ at, text }[]` with `at` in seconds (lecture notes, reviewing a recorded call). Builder `f.mediaNotes`.
+  - `text-highlights`: notes on passages of a text, `{ start, end, quote, note }[]` (annotating an article, a policy or a contract). Every highlight needs a note, and quotes are at most `MAX_HIGHLIGHT_QUOTE_LENGTH` (2000) characters. Builder `f.textHighlights`.
+
+  Each validates, normalizes (trimmed, blanks dropped, notes in time order), summarizes and has samples for `coverage()`; `parseForm` checks their props. New helpers `formatTimestamp`, `parseTimestamp`, `tableColumns`, `tableLimits` and `listLimits`, the `STRUCTURED_FIELD_TYPES` list, and the `TableColumn`, `MediaNote` and `Highlight` types.
+
 ## 0.2.0
 
 ### Minor Changes
