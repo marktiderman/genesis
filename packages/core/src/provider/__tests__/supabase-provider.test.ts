@@ -578,6 +578,36 @@ describe("getList follow-ups (#96 review)", () => {
     return p.getList(resource, params);
   };
 
+  it("reads a view without an id column as before: retries once without the key order, warns once", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const p = provider();
+    const orders = () => calls.filter((c) => c.method === "order").map((c) => c.args[0]);
+    queue.push(fail("column report_view.id does not exist", "42703"));
+    queue.push({ ...ok([{ name: "a" }]), count: 1 } as Response);
+    const result = await p.getList("report_view", { pagination: { page: 1, perPage: 10 } });
+    expect(result.data).toEqual([{ name: "a" }]);
+    expect(orders()).toEqual(["id"]); // the retry has no key order
+    expect(calls.filter((c) => c.method === "range")).toHaveLength(2);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain('"report_view" has no "id" column');
+    // Remembered: the next page is not tried with "id" again, and no new warning.
+    calls = [];
+    await list(p, { pagination: { page: 2, perPage: 10 }, sort: { field: "name", order: "asc" } }, "report_view");
+    expect(orders()).toEqual(["name"]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("does not retry a missing column other than the default key, or an explicit orderKey", async () => {
+    queue.push(fail("column tasks.titel does not exist", "42703"));
+    expect(isDataReadError(await provider().getList("tasks", { sort: { field: "titel", order: "asc" } }).catch((e) => e))).toBe(true);
+    queue.push(fail("column tasks.slug does not exist", "42703"));
+    const p = provider({ resources: { tasks: { orderKey: "slug" } } });
+    expect(isDataReadError(await p.getList("tasks", { pagination: { page: 1, perPage: 10 } }).catch((e) => e))).toBe(true);
+    expect(queue).toHaveLength(0);
+    expect(calls.filter((c) => c.method === "from")).toHaveLength(2);
+  });
+
   it("orders an unsorted page by the key column, and leaves an unpaged, unsorted list alone", async () => {
     await list(provider(), { pagination: { page: 1, perPage: 10 } });
     expect(calls.filter((c) => c.method === "order").map((c) => c.args)).toEqual([["id", { ascending: true }]]);

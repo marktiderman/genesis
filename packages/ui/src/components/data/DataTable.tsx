@@ -153,8 +153,10 @@ export interface DataTableProps<T> {
   keyboardNavigation?: boolean;
   /**
    * The column whose cell opens the row (as a button), by key. Default: the
-   * first visible column that isn't `editable`. Its `render` must not put a
-   * link or button in the cell. `null` makes no cell a button (mouse only).
+   * first visible column that isn't `editable`. A plain-text cell is wrapped
+   * by the button; an `editable` or `render` cell keeps its own content (a
+   * link or input stays usable) with the open button beside it, shown when
+   * focused. `null` makes no cell a button (mouse only).
    */
   openColumn?: string | null;
   /**
@@ -937,35 +939,60 @@ export function DataTable<T>({
                         // The row's named open action: a button the
                         // screen reader announces, and the table's one
                         // tab stop when this row holds it.
+                        const openProps = {
+                          type: "button" as const,
+                          [ROW_OPEN]: String(index),
+                          tabIndex: id === tabStopKey ? 0 : -1,
+                          onFocus: () => setActiveRowKey(id),
+                          onClick: (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onRowClick?.(item);
+                          },
+                          onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => {
+                            // Only the button's own keys: never those of
+                            // something inside the cell.
+                            if (e.target !== e.currentTarget) return;
+                            if (e.metaKey || e.ctrlKey || e.altKey) return;
+                            const move = (to: number) => {
+                              e.preventDefault();
+                              focusRow(to);
+                            };
+                            if (e.key === "ArrowDown" || e.key === "j") move(index + 1);
+                            else if (e.key === "ArrowUp" || e.key === "k") move(index - 1);
+                            else if (e.key === "Home") move(0);
+                            else if (e.key === "End") move(displayItems.length - 1);
+                            else if (e.key === "x" && selectable) {
+                              e.preventDefault();
+                              onToggleSelect?.(id);
+                            }
+                          },
+                        };
+                        // Plain text: the button wraps it and is named by it.
+                        if (!col.editable && !col.render) {
+                          return (
+                            <button
+                              {...openProps}
+                              className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                            >
+                              {content}
+                            </button>
+                          );
+                        }
+                        // An editor or a custom render may hold a link,
+                        // button or input, which must not sit inside a
+                        // button: the open button goes beside it instead,
+                        // hidden until focused, still the row's one tab stop.
                         return (
-                          <button
-                            type="button"
-                            {...{ [ROW_OPEN]: String(index) }}
-                            tabIndex={id === tabStopKey ? 0 : -1}
-                            className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                            onFocus={() => setActiveRowKey(id)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRowClick?.(item);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.metaKey || e.ctrlKey || e.altKey) return;
-                              const move = (to: number) => {
-                                e.preventDefault();
-                                focusRow(to);
-                              };
-                              if (e.key === "ArrowDown" || e.key === "j") move(index + 1);
-                              else if (e.key === "ArrowUp" || e.key === "k") move(index - 1);
-                              else if (e.key === "Home") move(0);
-                              else if (e.key === "End") move(displayItems.length - 1);
-                              else if (e.key === "x" && selectable) {
-                                e.preventDefault();
-                                onToggleSelect?.(id);
-                              }
-                            }}
-                          >
-                            {content}
-                          </button>
+                          <div className="flex min-w-0 items-center gap-1">
+                            <div className="min-w-0 flex-1">{content}</div>
+                            <button
+                              {...openProps}
+                              aria-label={`Open ${rowLabel(item, id)}`}
+                              className="sr-only shrink-0 rounded px-1 text-xs text-muted-foreground focus-visible:not-sr-only focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                            >
+                              Open
+                            </button>
+                          </div>
                         );
                       })()}
                     </TableCell>
