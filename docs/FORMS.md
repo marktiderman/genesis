@@ -426,6 +426,7 @@ export interface FieldTypeManifest<TValue, TProps> {
   value: { json: true }                           // TValue is already plain JSON
        | { json: false; serialize: (v: TValue) => Json; deserialize: (j: Json) => TValue };
   summarize: (v: TValue, props: TProps, locale: string) => string; // recall, exports, emails
+  samples?: (field: FieldBlock) => Json[];        // valid answers coverage() and test tools explore
   toJsonSchema?: (props: TProps) => JSONSchema;
   a11y: { semantics: "control" | "group"; autocomplete?: string };
   keyboard?: { shortcuts?: "letters" | "numbers" };  // planned; letter/number shortcuts are not built yet

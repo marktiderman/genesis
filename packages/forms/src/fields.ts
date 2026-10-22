@@ -30,6 +30,8 @@ export interface FieldTypeManifest {
    * without surrounding spaces. Applied by `engine.answers()` and the server.
    */
   normalize?: (value: Json, field: FieldBlock) => Json;
+  /** Valid example answers, used by `coverage()` and other test tools to explore a path. */
+  samples?: (field: FieldBlock) => Json[];
 }
 
 // One registry per process, shared by every entry point (index, server,
