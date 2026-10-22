@@ -28,7 +28,6 @@ import {
   Small,
   Muted,
 } from "@marktiderman/genesis-ui";
-import { ArrowLeft } from "lucide-react";
 import { TOKEN_CATEGORIES } from "../lib/portfolio-data";
 
 function ColorRow({
@@ -355,9 +354,6 @@ export default function TokenCategory() {
 
   return (
     <div className="mx-auto max-w-4xl p-6 space-y-6">
-      <Link to="/showcase/tokens" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-3 w-3" /> Tokens
-      </Link>
       <header>
         <h1 className="text-3xl font-bold tracking-tight">
           {meta?.label ?? "Unknown"}
