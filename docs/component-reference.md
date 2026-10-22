@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 126 components · 363 other exports · 216 standalone types across 7 packages.
+**Totals:** 126 components · 363 other exports · 217 standalone types across 7 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -490,7 +490,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 
-### Types (20)
+### Types (21)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -511,6 +511,7 @@ export type { SlotOverride };
 export type { SlotPropsFor };
 export type { Slots };
 export type { SortableListItemContext };
+export type { SortableListReorder };
 export type { SpaceToken };
 export type { SplitBreakpoint };
 export type { SplitRatio };
