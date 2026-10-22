@@ -153,8 +153,10 @@ export interface DataTableProps<T> {
   keyboardNavigation?: boolean;
   /**
    * The column whose cell opens the row (as a button), by key. Default: the
-   * first visible column that isn't `editable`. Its `render` must not put a
-   * link or button in the cell. `null` makes no cell a button (mouse only).
+   * first visible column that isn't `editable`. A plain-text cell is wrapped
+   * by the button; an `editable` or `render` cell keeps its own content (a
+   * link or input stays usable) with the open button beside it, shown when
+   * focused. `null` makes no cell a button (mouse only).
    */
   openColumn?: string | null;
   /**
@@ -177,6 +179,20 @@ export interface DataTableProps<T> {
   reorderableColumns?: boolean;
   /** localStorage key for the user's column order. */
   columnOrderKey?: string;
+  /**
+   * The header sort, controlled: the first entry is the primary sort, later
+   * ones break ties (Shift-click adds one). Leave it unset and the table
+   * keeps its own sort, starting unsorted.
+   */
+  sort?: readonly DataTableSort[];
+  /** Called with the next header sort whenever a header is clicked. */
+  onSortChange?: (sort: DataTableSort[]) => void;
+}
+
+/** One column of a `DataTable` header sort. */
+export interface DataTableSort {
+  key: string;
+  dir: "asc" | "desc";
 }
 
 /** Row height estimate per density, for virtualization. */
@@ -211,7 +227,24 @@ function focusRowAt(body: Element | null, index: number): boolean {
 
 /* ── Helpers ── */
 
-type SortEntry = { key: string; dir: "asc" | "desc" };
+type SortEntry = DataTableSort;
+
+/** The header sort after clicking `key`: asc, then desc, then off. */
+function nextSort(prev: readonly SortEntry[], key: string, shiftKey: boolean): SortEntry[] {
+  const existing = prev.findIndex((s) => s.key === key);
+  if (existing >= 0) {
+    const entry = prev[existing];
+    if (entry.dir === "asc") {
+      const next = [...prev];
+      next[existing] = { key, dir: "desc" };
+      return next;
+    }
+    // Remove on third click
+    return prev.filter((_, i) => i !== existing);
+  }
+  if (shiftKey) return [...prev, { key, dir: "asc" }];
+  return [{ key, dir: "asc" }];
+}
 
 function getCellClasses(col: DataTableColumn<unknown>) {
   const hide = col.hideBelow
@@ -500,6 +533,8 @@ export function DataTable<T>({
   pinnedColumns,
   reorderableColumns = true,
   columnOrderKey,
+  sort: sortProp,
+  onSortChange,
 }: DataTableProps<T>) {
   const rowKeys = keyboardNavigation && !!onRowClick;
   // Roving tabindex: one row's open button is the table's tab stop.
@@ -507,27 +542,18 @@ export function DataTable<T>({
   const cellDensity = DENSITY_CELL[density];
   const headDensity = DENSITY_HEAD[density];
   // ── Multi-column sort ──
-  const [sorts, setSorts] = useState<SortEntry[]>([]);
+  // Controlled through `sort` / `onSortChange`, or kept here. Either way it
+  // is what TanStack sorts by (see "Sort and page" below).
+  const [ownSorts, setOwnSorts] = useState<SortEntry[]>([]);
+  const sorts: readonly SortEntry[] = sortProp ?? ownSorts;
 
   const handleSort = useCallback(
     (key: string, shiftKey: boolean) => {
-      setSorts((prev) => {
-        const existing = prev.findIndex((s) => s.key === key);
-        if (existing >= 0) {
-          const entry = prev[existing];
-          if (entry.dir === "asc") {
-            const next = [...prev];
-            next[existing] = { key, dir: "desc" };
-            return next;
-          }
-          // Remove on third click
-          return prev.filter((_, i) => i !== existing);
-        }
-        if (shiftKey) return [...prev, { key, dir: "asc" }];
-        return [{ key, dir: "asc" }];
-      });
+      const next = nextSort(sorts, key, shiftKey);
+      if (sortProp === undefined) setOwnSorts(next);
+      onSortChange?.(next);
     },
-    [],
+    [sorts, sortProp, onSortChange],
   );
 
   // ── Column visibility ──
@@ -754,8 +780,8 @@ export function DataTable<T>({
   }, [items.length, currentPageSize]);
 
   // ── Sort and page: TanStack Table's row models ──
-  // The header buttons own the sort state (asc → desc → off, Shift adds a
-  // secondary sort); TanStack applies it with a typed comparison and pages
+  // The header buttons drive the sort state (asc → desc → off, Shift adds a
+  // secondary sort; held here or by the caller via `sort`); TanStack applies it with a typed comparison and pages
   // the result. Ties keep the items' own order.
   const sorting = useMemo<SortingState>(
     () => sorts.map((s) => ({ id: s.key, desc: s.dir === "desc" })),
@@ -913,35 +939,60 @@ export function DataTable<T>({
                         // The row's named open action: a button the
                         // screen reader announces, and the table's one
                         // tab stop when this row holds it.
+                        const openProps = {
+                          type: "button" as const,
+                          [ROW_OPEN]: String(index),
+                          tabIndex: id === tabStopKey ? 0 : -1,
+                          onFocus: () => setActiveRowKey(id),
+                          onClick: (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onRowClick?.(item);
+                          },
+                          onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => {
+                            // Only the button's own keys: never those of
+                            // something inside the cell.
+                            if (e.target !== e.currentTarget) return;
+                            if (e.metaKey || e.ctrlKey || e.altKey) return;
+                            const move = (to: number) => {
+                              e.preventDefault();
+                              focusRow(to);
+                            };
+                            if (e.key === "ArrowDown" || e.key === "j") move(index + 1);
+                            else if (e.key === "ArrowUp" || e.key === "k") move(index - 1);
+                            else if (e.key === "Home") move(0);
+                            else if (e.key === "End") move(displayItems.length - 1);
+                            else if (e.key === "x" && selectable) {
+                              e.preventDefault();
+                              onToggleSelect?.(id);
+                            }
+                          },
+                        };
+                        // Plain text: the button wraps it and is named by it.
+                        if (!col.editable && !col.render) {
+                          return (
+                            <button
+                              {...openProps}
+                              className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                            >
+                              {content}
+                            </button>
+                          );
+                        }
+                        // An editor or a custom render may hold a link,
+                        // button or input, which must not sit inside a
+                        // button: the open button goes beside it instead,
+                        // hidden until focused, still the row's one tab stop.
                         return (
-                          <button
-                            type="button"
-                            {...{ [ROW_OPEN]: String(index) }}
-                            tabIndex={id === tabStopKey ? 0 : -1}
-                            className="-mx-1 block w-[calc(100%+0.5rem)] min-w-0 rounded px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                            onFocus={() => setActiveRowKey(id)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRowClick?.(item);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.metaKey || e.ctrlKey || e.altKey) return;
-                              const move = (to: number) => {
-                                e.preventDefault();
-                                focusRow(to);
-                              };
-                              if (e.key === "ArrowDown" || e.key === "j") move(index + 1);
-                              else if (e.key === "ArrowUp" || e.key === "k") move(index - 1);
-                              else if (e.key === "Home") move(0);
-                              else if (e.key === "End") move(displayItems.length - 1);
-                              else if (e.key === "x" && selectable) {
-                                e.preventDefault();
-                                onToggleSelect?.(id);
-                              }
-                            }}
-                          >
-                            {content}
-                          </button>
+                          <div className="flex min-w-0 items-center gap-1">
+                            <div className="min-w-0 flex-1">{content}</div>
+                            <button
+                              {...openProps}
+                              aria-label={`Open ${rowLabel(item, id)}`}
+                              className="sr-only shrink-0 rounded px-1 text-xs text-muted-foreground focus-visible:not-sr-only focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                            >
+                              Open
+                            </button>
+                          </div>
                         );
                       })()}
                     </TableCell>

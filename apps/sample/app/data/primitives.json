@@ -8959,6 +8959,13 @@
               "description": ""
             },
             {
+              "name": "onSortChange",
+              "type": "((sort: DataTableSort[]) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called with the next header sort whenever a header is clicked."
+            },
+            {
               "name": "onToggleAll",
               "type": "(() => void)",
               "required": false,
@@ -8977,7 +8984,7 @@
               "type": "string | null",
               "required": false,
               "defaultValue": null,
-              "description": "The column whose cell opens the row (as a button), by key. Default: the\nfirst visible column that isn't `editable`. Its `render` must not put a\nlink or button in the cell. `null` makes no cell a button (mouse only)."
+              "description": "The column whose cell opens the row (as a button), by key. Default: the\nfirst visible column that isn't `editable`. A plain-text cell is wrapped\nby the button; an `editable` or `render` cell keeps its own content (a\nlink or input stays usable) with the open button beside it, shown when\nfocused. `null` makes no cell a button (mouse only)."
             },
             {
               "name": "pageSize",
@@ -9048,6 +9055,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "sort",
+              "type": "readonly DataTableSort[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The header sort, controlled: the first entry is the primary sort, later\nones break ties (Shift-click adds one). Leave it unset and the table\nkeeps its own sort, starting unsorted."
             },
             {
               "name": "stickyFirstColumn",

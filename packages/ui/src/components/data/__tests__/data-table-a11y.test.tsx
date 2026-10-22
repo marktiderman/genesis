@@ -137,3 +137,55 @@ describe("DataTable row open action", () => {
     expect(onRowClick).toHaveBeenCalledWith(rows[2]);
   });
 });
+
+describe("DataTable open button beside interactive cell content", () => {
+  it("never nests a rendered link inside the row's open button, keeping one tab stop per row", () => {
+    const onRowClick = vi.fn();
+    render(
+      <DataTable
+        items={rows}
+        columns={[{ key: "name", header: "Name", render: (r: Row) => <a href={`#${r.id}`}>{r.name}</a> }, columns[1]!]}
+        getKey={(r) => r.id}
+        onRowClick={onRowClick}
+        columnVisibility={false}
+      />,
+    );
+    for (const row of bodyRows()) {
+      expect(within(row).getByRole("link").closest("button")).toBeNull();
+    }
+    const opens = bodyRows().map((r) => within(r).getByRole("button", { name: /^Open / }));
+    expect(opens.map((b) => b.getAttribute("aria-label"))).toEqual(["Open Cara", "Open Ada", "Open Bo"]);
+    expect(opens.map((b) => b.tabIndex)).toEqual([0, -1, -1]);
+    fireEvent.click(opens[1]!);
+    expect(onRowClick).toHaveBeenCalledWith(rows[1]);
+    opens[0]!.focus();
+    fireEvent.keyDown(opens[0]!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(opens[1]);
+  });
+
+  it("leaves keys typed in the open column's editor to the editor", () => {
+    render(
+      <DataTable
+        items={rows}
+        columns={[
+          {
+            key: "name",
+            header: "Name",
+            render: (r: Row) => <input aria-label={`Edit ${r.name}`} defaultValue={r.name} />,
+          },
+        ]}
+        getKey={(r) => r.id}
+        onRowClick={() => {}}
+        selectable
+        onToggleSelect={vi.fn()}
+        columnVisibility={false}
+      />,
+    );
+    const input = screen.getByRole("textbox", { name: "Edit Cara" });
+    for (const key of ["j", "k", "x", "Home", "End", "ArrowDown"]) {
+      const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      input.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+  });
+});

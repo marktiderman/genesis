@@ -98,7 +98,9 @@ export interface SupabaseResourceConfig {
   /**
    * The column a sorted list orders by last, so rows with equal sort values
    * keep one order from page to page (none repeats, none is skipped).
-   * Default `"id"`; `false` for a table or view without one.
+   * Default `"id"`; `false` for a table or view without one. With the
+   * default, a view that turns out to have no `id` column is read as before
+   * (without the key order) and a development warning suggests setting this.
    */
   orderKey?: string | false;
   /**
@@ -167,8 +169,10 @@ export interface SupabaseProviderOptions {
   onWrite?: (event: WriteEvent) => void | Promise<void>;
   /**
    * The most rows one list page may ask for (PostgREST's `max-rows` caps
-   * reads anyway; default 1000). A larger request is cut to this with a
-   * console warning, and `capabilities().maxPerPage` reports it.
+   * reads anyway; default 1000). A larger request is refused with an
+   * `invalid` `DataReadError` (its `cause` says why) rather than cut short,
+   * so page boundaries never disagree with the caller's `perPage`.
+   * `capabilities().maxPerPage` reports it.
    */
   maxPerPage?: number;
   /**
@@ -176,7 +180,18 @@ export interface SupabaseProviderOptions {
    * `DataReadError` carries a plain message for users; the store's own
    * error (its raw text and code) is its `cause`, for logging here.
    */
-  onReadError?: (error: DataReadError, context: { resource: string; operation: "getList" | "getOne" | "getMany" }) => void;
+  onReadError?: (
+    error: DataReadError,
+    context: { resource: string; operation: "getList" | "getOne" | "getMany" },
+  ) => void | Promise<void>;
+}
+
+/** A PostgREST "undefined column" error (42703) naming `column`. */
+function isMissingColumn(error: unknown, column: string): boolean {
+  if (!error || typeof error !== "object") return false;
+  const { code, message } = error as { code?: unknown; message?: unknown };
+  if (code !== "42703" || typeof message !== "string") return false;
+  return new RegExp(`(^|[^A-Za-z0-9_])${column}([^A-Za-z0-9_]|$)`).test(message);
 }
 
 const SERVED_OPERATORS: readonly FilterOperator[] = [
@@ -267,15 +282,29 @@ export function createSupabaseProvider(
   }
 
   const maxPerPage = options.maxPerPage ?? 1000;
-  // The cap warns once per resource, not on every page.
-  const cappedWarned = new Set<string>();
+  // Resources found to have no "id" column for the default orderKey.
+  const keylessResources = new Set<string>();
+
+  /** Tell `onReadError` (sync or async; its failure is swallowed), then throw. */
+  async function reportReadError(
+    error: DataReadError,
+    resource: string,
+    operation: "getList" | "getOne" | "getMany",
+  ): Promise<never> {
+    try {
+      await Promise.resolve(options.onReadError?.(error, { resource, operation }));
+    } catch {
+      // A logging hook never changes what the caller is told.
+    }
+    throw error;
+  }
 
   /** A failed read, as a `DataReadError` with a message users can be shown. */
-  function throwIfReadError(
+  async function throwIfReadError(
     result: { error: unknown },
     resource: string,
     operation: "getList" | "getOne" | "getMany",
-  ): void {
+  ): Promise<void> {
     if (!result.error) return;
     const raw = result.error as { message?: string; code?: string };
     const code = typeof raw.code === "string" ? raw.code : undefined;
@@ -285,12 +314,7 @@ export function createSupabaseProvider(
       readFailureMessage(outcome, nounFor(resource), operation === "getOne", configFor(resource).nounPlural),
       { code, cause: result.error },
     );
-    try {
-      options.onReadError?.(error, { resource, operation });
-    } catch {
-      // A logging hook never changes what the caller is told.
-    }
-    throw error;
+    await reportReadError(error, resource, operation);
   }
 
   // ---------------------------------------------------------------------------
@@ -395,66 +419,90 @@ export function createSupabaseProvider(
 
   const provider: DataProvider = {
     async getList(resource, params) {
-      let query = (client.from(resource) as SupabaseQueryBuilder).select(
-        params.select ?? "*",
-        { count: "exact" },
-      );
-
-      query = applyFilters(query, params.filters);
-
-      // Search — convert to OR of ilike. A resource's configured
-      // `searchFields` win over the caller's.
-      const searchFields = configFor(resource).searchFields ?? params.search?.fields ?? [];
-      if (params.search && params.search.query && searchFields.length > 0) {
-        const escaped = escapeIlike(params.search.query);
-        const safeFieldPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
-        const clauses = searchFields
-          .filter((f) => safeFieldPattern.test(f))
-          .map((f) => `${f}.ilike.%${escaped}%`)
-          .join(",");
-        if (clauses) {
-          query = query.or(clauses);
-        }
+      // Refused, not cut short: a shorter page than the caller asked for
+      // would shift every later page's boundary and skip or repeat rows.
+      if (params.pagination && params.pagination.perPage > maxPerPage) {
+        const { perPage } = params.pagination;
+        await reportReadError(
+          new DataReadError(
+            "invalid",
+            readFailureMessage("invalid", nounFor(resource), false, configFor(resource).nounPlural),
+            {
+              cause: new Error(
+                `[SupabaseProvider] "${resource}" asked for ${perPage} rows per page; the most is ${maxPerPage} (maxPerPage). Ask for at most ${maxPerPage} and page through the rest.`,
+              ),
+            },
+          ),
+          resource,
+          "getList",
+        );
       }
 
-      // Sort, then the key column, so equal sort values keep one order
-      // across pages (otherwise a row can repeat on page 2 or be skipped).
-      // An unsorted page is ordered by the key alone: without an ORDER BY
-      // the database may return pages in any order.
-      const key = configFor(resource).orderKey ?? "id";
-      if (params.sort) {
-        query = query.order(params.sort.field, {
-          ascending: params.sort.order === "asc",
-        });
-        if (key && key !== params.sort.field) query = query.order(key, { ascending: true });
-      } else if (params.pagination && key) {
-        query = query.order(key, { ascending: true });
-      }
+      const configuredKey = configFor(resource).orderKey;
+      const run = (key: string | false) => {
+        let query = (client.from(resource) as SupabaseQueryBuilder).select(
+          params.select ?? "*",
+          { count: "exact" },
+        );
 
-      // Pagination (offset), never past what one page may return.
-      if (params.pagination) {
-        const { page } = params.pagination;
-        let { perPage } = params.pagination;
-        if (perPage > maxPerPage) {
-          if (!cappedWarned.has(resource)) {
-            cappedWarned.add(resource);
-            console.warn(
-              `[SupabaseProvider] "${resource}" asked for ${perPage} rows per page; capped at ${maxPerPage} (maxPerPage). Page through the rest.`,
-            );
+        query = applyFilters(query, params.filters);
+
+        // Search — convert to OR of ilike. A resource's configured
+        // `searchFields` win over the caller's.
+        const searchFields = configFor(resource).searchFields ?? params.search?.fields ?? [];
+        if (params.search && params.search.query && searchFields.length > 0) {
+          const escaped = escapeIlike(params.search.query);
+          const safeFieldPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
+          const clauses = searchFields
+            .filter((f) => safeFieldPattern.test(f))
+            .map((f) => `${f}.ilike.%${escaped}%`)
+            .join(",");
+          if (clauses) {
+            query = query.or(clauses);
           }
-          perPage = maxPerPage;
         }
-        const from = (page - 1) * perPage;
-        const to = from + perPage - 1;
-        query = query.range(from, to);
-      }
 
-      const result = (await query) as {
-        data: unknown[];
-        error: unknown;
-        count?: number | null;
+        // Sort, then the key column, so equal sort values keep one order
+        // across pages (otherwise a row can repeat on page 2 or be skipped).
+        // An unsorted page is ordered by the key alone: without an ORDER BY
+        // the database may return pages in any order.
+        if (params.sort) {
+          query = query.order(params.sort.field, {
+            ascending: params.sort.order === "asc",
+          });
+          if (key && key !== params.sort.field) query = query.order(key, { ascending: true });
+        } else if (params.pagination && key) {
+          query = query.order(key, { ascending: true });
+        }
+
+        if (params.pagination) {
+          const { page, perPage } = params.pagination;
+          const from = (page - 1) * perPage;
+          const to = from + perPage - 1;
+          query = query.range(from, to);
+        }
+
+        return query as unknown as Promise<{
+          data: unknown[];
+          error: unknown;
+          count?: number | null;
+        }>;
       };
-      throwIfReadError(result, resource, "getList");
+
+      // The default key ("id") is a guess: a view without that column reads
+      // as before, without the key order, and is not ordered by it again.
+      const guessKey = configuredKey === undefined && !keylessResources.has(resource);
+      let result = await run(configuredKey ?? (keylessResources.has(resource) ? false : "id"));
+      if (guessKey && isMissingColumn(result.error, "id")) {
+        keylessResources.add(resource);
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            `[SupabaseProvider] "${resource}" has no "id" column, so its pages have no stable order. Set resources.${resource}.orderKey to a unique column (or false to silence this).`,
+          );
+        }
+        result = await run(false);
+      }
+      await throwIfReadError(result, resource, "getList");
 
       return { data: result.data ?? [], total: result.count ?? 0 } as never;
     },
@@ -464,7 +512,7 @@ export function createSupabaseProvider(
         .select(params.select ?? "*")
         .eq("id", params.id)
         .single()) as { data: unknown; error: unknown };
-      throwIfReadError(result, resource, "getOne");
+      await throwIfReadError(result, resource, "getOne");
       return { data: result.data } as never;
     },
 
@@ -473,7 +521,7 @@ export function createSupabaseProvider(
       const result = (await (client.from(resource) as SupabaseQueryBuilder)
         .select("*")
         .in("id", params.ids)) as { data: unknown[]; error: unknown };
-      throwIfReadError(result, resource, "getMany");
+      await throwIfReadError(result, resource, "getMany");
       return { data: result.data ?? [] } as never;
     },
 
