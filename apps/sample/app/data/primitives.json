@@ -8910,6 +8910,13 @@
               "description": ""
             },
             {
+              "name": "columnOrderKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "localStorage key for the user's column order."
+            },
+            {
               "name": "columnVisibility",
               "type": "boolean",
               "required": false,
@@ -8994,11 +9001,25 @@
               "description": "Enable pagination"
             },
             {
+              "name": "pinnedColumns",
+              "type": "{ left?: string[]; right?: string[]; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "Columns that stay in view when the table scrolls sideways, by key, on\nthe left and right. `stickyFirstColumn` is shorthand for pinning the\nfirst visible column left."
+            },
+            {
               "name": "renderActions",
               "type": "((item: T) => ReactNode)",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "reorderableColumns",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Let users reorder columns: drag a header, or press Alt+←/→ on its sort\nbutton. Default true; the order is kept per device under\n`columnOrderKey`, and \"Reset to defaults\" in the Columns menu restores it."
             },
             {
               "name": "resizableColumns",
@@ -9041,6 +9062,13 @@
               "required": false,
               "defaultValue": "true",
               "description": "Sticky header on scroll"
+            },
+            {
+              "name": "virtualize",
+              "type": "boolean | { height?: number; estimateRowHeight?: number; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "Render only the rows in view, for a long table without pagination\n(`pagination={false}`). The table scrolls inside a box of `height` px\n(default 600). Ignored while paginated."
             }
           ]
         },
