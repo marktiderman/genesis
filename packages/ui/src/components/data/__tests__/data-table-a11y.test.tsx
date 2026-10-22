@@ -1,7 +1,7 @@
 /**
- * DataTable keyboard and screen-reader use: sortable headers are buttons
- * with aria-sort on the cell, and clickable rows are tab stops that open on
- * Enter/Space and move with ↑/↓, j/k, Home/End.
+ * DataTable keyboard and screen-reader use: sortable headers are buttons,
+ * aria-sort sits on the primary sort column only, and each clickable row has
+ * a named open button with a roving tabindex (the table is one tab stop).
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -11,56 +11,72 @@ import { DataTable, type DataTableColumn } from "../DataTable";
 interface Row {
   id: string;
   name: string;
+  team: string;
 }
 
 const rows: Row[] = [
-  { id: "1", name: "Cara" },
-  { id: "2", name: "Ada" },
-  { id: "3", name: "Bo" },
+  { id: "1", name: "Cara", team: "b" },
+  { id: "2", name: "Ada", team: "a" },
+  { id: "3", name: "Bo", team: "a" },
 ];
-const columns: DataTableColumn<Row>[] = [{ key: "name", header: "Name", sortable: true }];
+const columns: DataTableColumn<Row>[] = [
+  { key: "name", header: "Name", sortable: true },
+  { key: "team", header: "Team", sortable: true },
+];
 
 const bodyRows = () => screen.getAllByRole("row").slice(1);
+const openButtons = () => bodyRows().map((r) => within(r).getByRole("button"));
 
 describe("DataTable sortable headers", () => {
-  it("is a button that sorts, with aria-sort on the header cell", () => {
+  it("is a button that sorts; aria-sort only on the sorted (primary) column", () => {
     render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} />);
-    const header = screen.getByRole("columnheader", { name: /name/i });
-    expect(header.getAttribute("aria-sort")).toBe("none");
-    const button = within(header).getByRole("button", { name: /name/i });
-    fireEvent.click(button);
-    expect(header.getAttribute("aria-sort")).toBe("ascending");
-    expect(bodyRows().map((r) => r.textContent)).toEqual(["Ada", "Bo", "Cara"]);
-    fireEvent.click(button);
-    expect(header.getAttribute("aria-sort")).toBe("descending");
+    const name = screen.getByRole("columnheader", { name: /name/i });
+    const team = screen.getByRole("columnheader", { name: /team/i });
+    expect(name.hasAttribute("aria-sort")).toBe(false);
+    fireEvent.click(within(name).getByRole("button"));
+    expect(name.getAttribute("aria-sort")).toBe("ascending");
+    expect(team.hasAttribute("aria-sort")).toBe(false);
+    expect(bodyRows().map((r) => r.cells[0]!.textContent)).toEqual(["Ada", "Bo", "Cara"]);
+    fireEvent.click(within(name).getByRole("button"));
+    expect(name.getAttribute("aria-sort")).toBe("descending");
   });
 
-  it("leaves a non-sortable header as plain text without aria-sort", () => {
+  it("says a secondary sort in its button's name, not with aria-sort or a bare digit", () => {
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} />);
+    const team = screen.getByRole("columnheader", { name: /team/i });
+    const name = screen.getByRole("columnheader", { name: /name/i });
+    fireEvent.click(within(team).getByRole("button"));
+    fireEvent.click(within(name).getByRole("button"), { shiftKey: true });
+    expect(team.getAttribute("aria-sort")).toBe("ascending");
+    expect(name.hasAttribute("aria-sort")).toBe(false);
+    expect(within(name).getByRole("button").getAttribute("aria-label")).toBe("Name, sorted ascending, sort 2");
+    expect(bodyRows().map((r) => r.cells[0]!.textContent)).toEqual(["Ada", "Bo", "Cara"]);
+  });
+
+  it("leaves a non-sortable header as plain text", () => {
     render(<DataTable items={rows} columns={[{ key: "name", header: "Name" }]} getKey={(r) => r.id} />);
-    const header = screen.getByRole("columnheader", { name: "Name" });
-    expect(header.hasAttribute("aria-sort")).toBe(false);
-    expect(within(header).queryByRole("button")).toBeNull();
+    expect(within(screen.getByRole("columnheader", { name: "Name" })).queryByRole("button")).toBeNull();
   });
 });
 
-describe("DataTable row keys", () => {
-  it("makes clickable rows tab stops that open on Enter and Space", () => {
+describe("DataTable row open action", () => {
+  it("names each row's open action by its title cell, and opens it", () => {
     const onRowClick = vi.fn();
     render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} onRowClick={onRowClick} />);
-    const [first] = bodyRows();
-    expect(first!.tabIndex).toBe(0);
-    fireEvent.keyDown(first!, { key: "Enter" });
-    fireEvent.keyDown(first!, { key: " " });
-    expect(onRowClick).toHaveBeenCalledTimes(2);
-    expect(onRowClick).toHaveBeenCalledWith(rows[0]);
+    const open = screen.getByRole("button", { name: "Ada" });
+    fireEvent.click(open);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    expect(onRowClick).toHaveBeenCalledWith(rows[1]);
   });
 
-  it("moves focus with arrows, j/k and Home/End", () => {
+  it("makes the table one tab stop that moves with arrows, j/k and Home/End", () => {
     render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} onRowClick={() => {}} />);
-    const [a, b, c] = bodyRows();
+    const [a, b, c] = openButtons();
+    expect([a!.tabIndex, b!.tabIndex, c!.tabIndex]).toEqual([0, -1, -1]);
     a!.focus();
     fireEvent.keyDown(a!, { key: "ArrowDown" });
     expect(document.activeElement).toBe(b);
+    expect(openButtons().map((x) => x.tabIndex)).toEqual([-1, 0, -1]);
     fireEvent.keyDown(b!, { key: "j" });
     expect(document.activeElement).toBe(c);
     fireEvent.keyDown(c!, { key: "k" });
@@ -71,7 +87,16 @@ describe("DataTable row keys", () => {
     expect(document.activeElement).toBe(c);
   });
 
-  it("toggles selection with x when selectable", () => {
+  it("ignores modifier chords, so app shortcuts keep working", () => {
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} onRowClick={() => {}} />);
+    const [a] = openButtons();
+    a!.focus();
+    const event = fireEvent.keyDown(a!, { key: "ArrowDown", metaKey: true });
+    expect(event).toBe(true); // not prevented
+    expect(document.activeElement).toBe(a);
+  });
+
+  it("toggles selection with x, and labels the checkboxes", () => {
     const onToggleSelect = vi.fn();
     render(
       <DataTable
@@ -84,31 +109,31 @@ describe("DataTable row keys", () => {
         onToggleSelect={onToggleSelect}
       />,
     );
-    fireEvent.keyDown(bodyRows()[1]!, { key: "x" });
+    expect(screen.getByRole("checkbox", { name: "Select all rows" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Select Ada" })).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Ada" }), { key: "x" });
     expect(onToggleSelect).toHaveBeenCalledWith("2");
   });
 
-  it("leaves keys typed in a control inside the row alone", () => {
-    const onRowClick = vi.fn();
-    render(
-      <DataTable
-        items={rows}
-        columns={[{ key: "name", header: "Name", render: (r) => <input aria-label={`edit ${r.name}`} /> }]}
-        getKey={(r) => r.id}
-        onRowClick={onRowClick}
-      />,
+  it("uses openColumn, and makes no button with keyboardNavigation off or openColumn null", () => {
+    const { unmount } = render(
+      <DataTable items={rows} columns={columns} getKey={(r) => r.id} onRowClick={() => {}} openColumn="team" />,
     );
-    fireEvent.keyDown(screen.getByLabelText("edit Ada"), { key: "Enter" });
-    expect(onRowClick).not.toHaveBeenCalled();
-  });
-
-  it("adds no tab stops without onRowClick, or with keyboardNavigation off", () => {
-    const { unmount } = render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} />);
-    expect(bodyRows().every((r) => !r.hasAttribute("tabindex"))).toBe(true);
+    expect(within(bodyRows()[0]!).getByRole("button").textContent).toBe("b");
     unmount();
-    render(
+    const { unmount: u2 } = render(
       <DataTable items={rows} columns={columns} getKey={(r) => r.id} onRowClick={() => {}} keyboardNavigation={false} />,
     );
-    expect(bodyRows().every((r) => !r.hasAttribute("tabindex"))).toBe(true);
+    expect(bodyRows().every((r) => within(r).queryByRole("button") === null)).toBe(true);
+    u2();
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} onRowClick={() => {}} openColumn={null} />);
+    expect(bodyRows().every((r) => within(r).queryByRole("button") === null)).toBe(true);
+  });
+
+  it("keeps the row clickable with the mouse", () => {
+    const onRowClick = vi.fn();
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} onRowClick={onRowClick} />);
+    fireEvent.click(bodyRows()[2]!.cells[1]!);
+    expect(onRowClick).toHaveBeenCalledWith(rows[2]);
   });
 });

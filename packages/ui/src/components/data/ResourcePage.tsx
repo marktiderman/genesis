@@ -66,7 +66,7 @@ import {
   type SortParam,
 } from "@marktiderman/genesis-core/provider";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
-import { useCapabilities, type WizardStep } from "@marktiderman/genesis-core/hooks";
+import { useCapabilities, useOne, type WizardStep } from "@marktiderman/genesis-core/hooks";
 import { toast } from "../ui/sonner";
 import {
   defaultNavigate,
@@ -854,9 +854,22 @@ export function ResourcePage<
       : undefined,
   );
   // Read once: the URL seeds the list when it mounts, then follows it.
-  const [urlSeed] = useState(() =>
-    url ? { q: url.q, sort: url.sort, page: url.page } : null,
-  );
+  const [urlSeed] = useState(() => {
+    if (!url) return null;
+    // A URL sort only counts when it names a sortable column: a hand-edited
+    // or stale link must not send an arbitrary field to the provider.
+    const sortable =
+      !url.sort || !columnsProp
+        ? true
+        : columnsProp.some((col) =>
+            typeof col === "string"
+              ? col === url.sort!.field
+              : col.key === url.sort!.field && col.sortable !== false,
+          );
+    return { q: url.q, sort: sortable ? url.sort : null, page: url.page };
+  });
+  // The URL names the open record only where there is a peek to open.
+  const urlPeek = detail === "panel" || detail === "modal" ? url : undefined;
   const urlSortKey = urlSeed?.sort
     ? `${urlSeed.sort.field}:${urlSeed.sort.order}`
     : "";
@@ -1110,13 +1123,26 @@ export function ResourcePage<
   // and Back closes it. The click-time snapshot still covers a record that
   // isn't in the current rows.
   const snapshotKey = page.selectedItem ? keyOf(page.selectedItem) : null;
-  const selectedKey = url ? url.detailId : snapshotKey;
+  const selectedKey = urlPeek ? urlPeek.detailId : snapshotKey;
   const snapshot =
     page.selectedItem && snapshotKey === selectedKey ? page.selectedItem : null;
-  const selectedItem: T | null = !selectedKey
+  const rowOrSnapshot: T | null = !selectedKey
     ? snapshot
     : (displayData.find((row) => keyOf(row) === selectedKey) ?? snapshot);
-  const detailOpen = url ? selectedItem !== null : page.detailOpen;
+  // A linked record that isn't in the loaded rows (another page, outside the
+  // search) is fetched on its own; one that can't be read shows as missing.
+  const linkedId = urlPeek && selectedKey && !rowOrSnapshot ? selectedKey : null;
+  const linked = useOne<T & BaseRecord>(resourceName ?? "__noop__", linkedId, {
+    enabled: isClientMode && !!linkedId,
+  });
+  const selectedItem: T | null =
+    rowOrSnapshot ?? (linkedId && linked.data ? (linked.data as T) : null);
+  const linkMissing =
+    !!linkedId &&
+    !selectedItem &&
+    !isLoading &&
+    (isClientMode ? linked.isError : true);
+  const detailOpen = urlPeek ? selectedItem !== null || linkMissing : page.detailOpen;
 
   // ── Bulk selection ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1190,8 +1216,8 @@ export function ResourcePage<
   const closeDetail = useCallback(() => {
     page.setDetailOpen(false);
     page.setSelectedItem(null);
-    url?.setDetailId(null);
-  }, [page, url]);
+    urlPeek?.setDetailId(null);
+  }, [page, urlPeek]);
 
   // ── Delete: built-in, confirmed, or the caller's as-is ──
   const useBuiltInDelete = !!allowDelete && !onDelete && isClientMode;
@@ -1533,7 +1559,7 @@ export function ResourcePage<
       return;
     }
     page.handleRowClick(item);
-    if (url && (detail === "panel" || detail === "modal")) url.setDetailId(keyOf(item));
+    urlPeek?.setDetailId(keyOf(item));
   };
 
   // ── Keyboard navigation (j/k, Enter, Backspace, x) ──
@@ -1987,7 +2013,24 @@ export function ResourcePage<
         renderSlot(
           DetailPanel<T>,
           slots?.detail,
-          {
+          linkMissing
+            ? {
+                // A linked record this user can't read, or that's gone.
+                item: {} as T,
+                open: detailOpen,
+                onClose: closeDetail,
+                title: "Record not found",
+                width: detailWidth,
+                layout: detail === "modal" ? "dialog" : "sheet",
+                children: () => (
+                  <p className="text-sm text-muted-foreground" data-testid="resource-page-link-missing">
+                    {isDataReadError(linked.error) && linked.error.outcome === "forbidden"
+                      ? linked.error.message
+                      : "This record doesn't exist, or you don't have access to it."}
+                  </p>
+                ),
+              }
+            : {
             item: selectedItem,
             open: detailOpen,
             onClose: closeDetail,

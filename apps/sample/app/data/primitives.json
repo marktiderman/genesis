@@ -8942,7 +8942,7 @@
               "type": "boolean",
               "required": false,
               "defaultValue": "true",
-              "description": "Keyboard use of rows when `onRowClick` is set: rows are tab stops,\nEnter or Space opens one, ↑/↓ (or j/k) and Home/End move between rows,\nand x toggles the row's selection when `selectable`. Default true."
+              "description": "Keyboard use of rows when `onRowClick` is set. Each row's open column\n(see `openColumn`) is a button named by its content, and the table is\none tab stop: Tab reaches the current row's button, Enter or Space\nopens it, ↑/↓ (or j/k) and Home/End move between rows, and x toggles\nthe row's selection when `selectable`. Default true."
             },
             {
               "name": "onRowClick",
@@ -8964,6 +8964,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "openColumn",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "The column whose cell opens the row (as a button), by key. Default: the\nfirst visible column that isn't `editable`. Its `render` must not put a\nlink or button in the cell. `null` makes no cell a button (mouse only)."
             },
             {
               "name": "pageSize",
