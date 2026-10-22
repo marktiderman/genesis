@@ -883,11 +883,20 @@ export function DataTable<T>({
   const renderedItems = virtualRows
     ? virtualRows.map((vr) => displayItems[vr.index]!).filter(Boolean)
     : displayItems;
+  // Without a focused row, the first row in view: the overscan rows above
+  // the viewport are rendered too, and tabbing to one would scroll back.
+  const scrollTop = rowVirtualizer.scrollOffset ?? 0;
+  const firstInView = virtualRows
+    ? (virtualRows.find((vr) => vr.start >= scrollTop) ??
+      virtualRows.find((vr) => vr.end > scrollTop) ??
+      virtualRows[0])
+    : undefined;
+  const fallbackItem = firstInView ? displayItems[firstInView.index] : renderedItems[0];
   const tabStopKey =
     activeRowKey && renderedItems.some((it) => getKey(it) === activeRowKey)
       ? activeRowKey
-      : renderedItems[0]
-        ? getKey(renderedItems[0])
+      : fallbackItem
+        ? getKey(fallbackItem)
         : null;
   /** A row's name for its checkbox: the open column's text, or its key. */
   const rowLabel = (item: T, id: string) => {

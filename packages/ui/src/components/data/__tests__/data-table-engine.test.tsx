@@ -163,6 +163,9 @@ describe("DataTable virtualization", () => {
     expect(document.querySelector('[data-row-open="0"]')).toBeNull();
     const stops = Array.from(document.querySelectorAll<HTMLElement>("[data-row-open]")).filter((b) => b.tabIndex === 0);
     expect(stops).toHaveLength(1);
+    // The first row in view, not one of the 10 overscan rows rendered above it.
+    const rendered = Array.from(document.querySelectorAll<HTMLElement>("[data-row-open]")).map((b) => Number(b.dataset.rowOpen));
+    expect(Number(stops[0]!.dataset.rowOpen)).toBeGreaterThanOrEqual(Math.min(...rendered) + 10);
   });
 
   it("renders every row when paginated, ignoring virtualize", () => {

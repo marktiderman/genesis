@@ -196,9 +196,9 @@ function isMissingColumn(error: unknown, table: string, column: string): boolean
   if (!error || typeof error !== "object") return false;
   const { code, message } = error as { code?: unknown; message?: unknown };
   if (code !== "42703" || typeof message !== "string") return false;
-  const match = /^column (?:"?([A-Za-z0-9_]+)"?\.)?"?([A-Za-z0-9_]+)"? does not exist$/.exec(message.trim());
+  const match = /^column (?:"?([^."\s]+)"?\.)?"?([^."\s]+)"? does not exist$/.exec(message.trim());
   if (!match || match[2] !== column) return false;
-  const ownTable = table.split(".").pop();
+  const ownTable = table.split(".").pop()?.replace(/"/g, "");
   return match[1] === undefined || match[1] === ownTable;
 }
 
