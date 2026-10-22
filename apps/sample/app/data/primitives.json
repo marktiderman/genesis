@@ -2463,7 +2463,7 @@
             },
             {
               "name": "resourceOptions",
-              "type": "any",
+              "type": "UseResourceOptions<T>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -11834,7 +11834,7 @@
             },
             {
               "name": "id",
-              "type": "any",
+              "type": "Identifier | null | undefined",
               "required": true,
               "defaultValue": null,
               "description": "Record id. Nullish means \"not resolved yet\" — no request goes out and the\npage shows its loading state, which is what a route param that hasn't\narrived should look like. It is deliberately NOT the not-found state:\nnothing has been asked, so nothing is missing."
@@ -12434,7 +12434,7 @@
             },
             {
               "name": "onSortChange",
-              "type": "((sort: any) => void)",
+              "type": "((sort: SortParam | null) => void)",
               "required": false,
               "defaultValue": null,
               "description": "Called when the user changes the sort, with `null` when the sort is cleared."
@@ -12518,7 +12518,7 @@
             },
             {
               "name": "resourceOptions",
-              "type": "any",
+              "type": "UseResourceOptions<T>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -15070,7 +15070,7 @@
             },
             {
               "name": "renderField",
-              "type": "((field: ResourceFormFieldDef, control: Control<Record<string, unknown>, any, Record<string, unknown>>, action: \"create\" | \"edit\", watchedValues: Record<string, unknown>) => ReactNode)",
+              "type": "((field: ResourceFormFieldDef, control: Control<Record<string, unknown>, any, Record<string, unknown>>, action: \"create\" | \"edit\", watchedValues: Record<...>) => ReactNode)",
               "required": false,
               "defaultValue": null,
               "description": ""
