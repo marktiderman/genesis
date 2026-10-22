@@ -1,0 +1,68 @@
+packages/ui/src/components/data/ResourcePage.tsx
+  s_a1b83c03f697d3::t_f654b024421b81 48,51,580-586,819,927,2033
+packages/core/src/schema/write-outcome.ts
+  s_a1b83c03f697d3::t_f80e6b6eee531b 44-50,62-66,75-77
+packages/core/src/hooks/mutation-mode.ts
+  s_a1b83c03f697d3::t_4e2acc11450db4 1-16,18-43,48,50-263,267,272-283,288-320,324-420,422,424-426,428-430,432-461,463-468,470-474
+  s_a1b83c03f697d3::t_ccbb6faccc25f8 17,264-266,268-271
+  s_a1b83c03f697d3::t_ad63f3a50f43fc 44-47,49,284-287,321-323,421,423,427,431,462,469
+packages/core/src/hooks/use-resource.ts
+  s_a1b83c03f697d3::t_ccbb6faccc25f8 22-28,34,70-74,78-82,100-104,106-110,112,164-166,266-267,281-293,297-310,312,321-337,340,345-357,359
+  s_a1b83c03f697d3::t_ad63f3a50f43fc 338
+packages/core/src/hooks/use-unsaved-changes-guard.ts
+  s_a1b83c03f697d3::t_3d699d0e51e157 1-70
+packages/ui/src/components/data/__tests__/resource-form-guard-server-errors.test.tsx
+  s_a1b83c03f697d3::t_76dbe7fb466c59 1-38,40-41,49-116,118-129,131-156,158-199
+  s_a1b83c03f697d3::t_1e3ff5a13fc1dc 39,42-48,117,130,157
+packages/ui/src/components/data/undo-toast.ts
+  s_a1b83c03f697d3::t_bd9c104701bc55 2-20,27-34,52
+  s_a1b83c03f697d3::t_ad63f3a50f43fc 21-26
+  s_a1b83c03f697d3::t_f654b024421b81 1,35-51
+packages/core/src/provider/postgrest-errors.ts
+  s_a1b83c03f697d3::t_bad34adaa9e891 113
+  s_a1b83c03f697d3::t_4fffc00533ef33 11,53-112,114-130,136-140,147,150-157
+packages/core/README.md
+  s_a1b83c03f697d3::t_cfb5fb586fae46 143-223
+packages/core/src/hooks/use-resource-form.ts
+  s_a1b83c03f697d3::t_6811920e6431e6 1,12-20,26,34-38,40-44,46-52,86-96,385-388,503-563,567-576,582,588-590,592-594,598-607,609-637,639-643,645-646,666-667
+  s_a1b83c03f697d3::t_ad63f3a50f43fc 564-566,595-597,649
+apps/sample/app/data/primitives.json
+  s_a1b83c03f697d3::t_8336dc10eb93f9 15166,15169
+  s_a1b83c03f697d3::t_5494d6544096fa 10,12144-12157,12172-12178,12206-12219,12593-12599,15115-15165,15167-15168,15170-15188
+  s_a1b83c03f697d3::t_b97bd02d6e900c 15189-15191
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_a1b83c03f697d3::t_7f5750769c1aec 3,11,89-159
+  s_a1b83c03f697d3::t_99b2c3d1ff61da 160-161
+packages/ui/SKILL.md
+  s_a1b83c03f697d3::t_cfb5fb586fae46 71-90,92-113
+  s_a1b83c03f697d3::t_9387af193bf17a 91
+.changeset/data-forms-phase2.md
+  s_a1b83c03f697d3::t_cfb5fb586fae46 1-11
+packages/ui/src/components/data/ResourceForm.tsx
+  s_a1b83c03f697d3::t_bd9c104701bc55 3,24-30,80-105,318-322,345-347,350-353,356,359-376,384,394,411
+packages/ui/src/hooks/__tests__/core-mutation-modes.test.tsx
+  s_a1b83c03f697d3::t_e8a7aadf5df164 1-252,259-279,281,283,285-529
+  s_a1b83c03f697d3::t_a55b5b1fd86ae9 253-258,280,282,284
+packages/core/src/provider/index.ts
+  s_a1b83c03f697d3::t_4fffc00533ef33 52-58
+docs/component-reference.md
+  s_a1b83c03f697d3::t_e6b3448a065023 7,33,48-49,51,55,60,66,70,105-106,109,132,140-141
+packages/core/src/hooks/index.ts
+  s_a1b83c03f697d3::t_e4f1e8e48de36f 29-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3e371320329b0469b2fbc77b0b993d460d6a1b30",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

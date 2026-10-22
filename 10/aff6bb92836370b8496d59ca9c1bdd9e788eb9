@@ -1,0 +1,33 @@
+.changeset/pr92-coderabbit-core.md
+  s_2c334912fcb08f::t_715da4fb6acc76 10
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_2c334912fcb08f::t_3b09a7bc2ca7ac 581-610
+packages/ui/src/components/data/DataTable.tsx
+  s_2c334912fcb08f::t_61b6ed9d208451 942-984,986-995
+  s_2c334912fcb08f::t_122a12d61d8730 156-159
+.changeset/pr92-coderabbit-ui.md
+  s_2c334912fcb08f::t_715da4fb6acc76 9
+apps/sample/app/data/primitives.json
+  s_2c334912fcb08f::t_bc603ee5293098 8987
+packages/ui/src/components/data/__tests__/data-table-a11y.test.tsx
+  s_2c334912fcb08f::t_c25e012167ad66 140-191
+packages/core/src/provider/supabase-provider.ts
+  s_2c334912fcb08f::t_a14a0fbc1adca7 101-103
+  s_2c334912fcb08f::t_2cc1d6589e4dfe 189-196,285-286,422-439,441-462,465-476,478-482,485-489,491-504
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "10aff6bb92836370b8496d59ca9c1bdd9e788eb9",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

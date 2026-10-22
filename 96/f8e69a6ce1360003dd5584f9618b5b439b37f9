@@ -1,0 +1,145 @@
+packages/genesis-cli/src/features.ts
+  s_f5a91deb5a46ce::t_dcd3c4966b55e1 2-9,11,17,19,21,23-25,31-33,42-57,68,70,72-74,76,80,84-95,98-104
+packages/data-switchboard/src/__tests__/reconcile.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/studio/src/__tests__/data-studio.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/ui/src/router/__tests__/react-router.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/ui/src/components/layout/__tests__/app-shell-navigation.test.tsx
+  s_f5a91deb5a46ce::t_10021b9bec71cd 1
+packages/ui/src/components/rich-text/__tests__/rich-text.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/forms/src/__tests__/destinations.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/genesis-cli/src/cli.ts
+  s_f5a91deb5a46ce::t_dfd4c9aaa472a6 201
+  s_f5a91deb5a46ce::t_dcd3c4966b55e1 11,164-166,172-175,178,180,183,188-200,202-211
+packages/genesis-cli/test/features.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+  s_f5a91deb5a46ce::t_525f0779b4ecde 11,32,35,40,42,44,48,51,54-56,58-59,61-70,75,80
+apps/sample/.react-router/types/+routes.ts
+  s_f5a91deb5a46ce::t_05df6146f87944 66-68,104,120,178-181,236
+packages/forms-react/src/__tests__/hooks.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/features/src/__tests__/generate.test.ts
+  s_f5a91deb5a46ce::t_4e0671c8176f55 2-12,21-31,36,38,41-45,55,59-77
+AGENTS.md
+  s_f5a91deb5a46ce::t_377702605661c9 1-22
+packages/genesis-cli/test/introspect.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/ui/src/components/data/__tests__/kanban-board-move.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+.changeset/genesis-cli-features.md
+  s_f5a91deb5a46ce::t_edba0a1ff810ac 6-7
+  s_f5a91deb5a46ce::t_29e071a6793c6b 5
+apps/sample/app/routes.ts
+  s_f5a91deb5a46ce::t_05df6146f87944 30
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+apps/sample/package.json
+  s_f5a91deb5a46ce::t_05df6146f87944 26
+packages/features/src/model.ts
+  s_f5a91deb5a46ce::t_39a8c0bce61aa4 8,13-39,55-61,63-64,70,79-92,96-102,106-108,117-119,130-133,135,137-138,155,162,167,169,174,179-184,193-199,202-208,212-213,219-221,223-224,241-254,262-263,272,274,276-285,294-295,299-301,318-321,344-345,357-358,365-366,376-405
+packages/features/src/__tests__/fixture.ts
+  s_f5a91deb5a46ce::t_4e0671c8176f55 11-16,27-31,37,41-42,49-58
+.claude/skills/features/SKILL.md
+  s_f5a91deb5a46ce::t_377702605661c9 1-44
+packages/forms/src/__tests__/engine.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/forms-builder/src/__tests__/builder.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/genesis-cli/test/scaffolder.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/ui/src/components/ui/__tests__/button.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/ui/src/components/layout/__tests__/page-templates.test.tsx
+  s_f5a91deb5a46ce::t_10021b9bec71cd 1
+packages/forms-web/src/__tests__/form.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+package.json
+  s_f5a91deb5a46ce::t_377702605661c9 20-22,33-34,37-45
+.changeset/genesis-features.md
+  s_f5a91deb5a46ce::t_edba0a1ff810ac 5-7
+packages/ui/src/components/data/__tests__/resource-page-server-mode.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/features/src/index.ts
+  s_f5a91deb5a46ce::t_f2e7f0f032c004 2,10,14,16,19,22,26,32-35,40-42
+packages/extension/src/__tests__/core.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+README.md
+  s_f5a91deb5a46ce::t_936002e056d338 38-73
+packages/forms-devtools/src/__tests__/inspector.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+features.ts
+  s_f5a91deb5a46ce::t_2eb424d566c8db 1-29,31-43,45-165,167-227,229-303,305-403
+  s_f5a91deb5a46ce::t_377702605661c9 30,44,166,228
+  s_f5a91deb5a46ce::t_a7b97ce9d345b2 304
+apps/sample/.react-router/types/app/routes/+types/features.ts
+  s_f5a91deb5a46ce::t_05df6146f87944 1-74
+.github/workflows/ci.yml
+  s_f5a91deb5a46ce::t_61048d8a99cc2d 60-66
+features.json
+  s_f5a91deb5a46ce::t_377702605661c9 1-594,596-804
+  s_f5a91deb5a46ce::t_10021b9bec71cd 595
+packages/features/README.md
+  s_f5a91deb5a46ce::t_29e071a6793c6b 3-6,8,19-20,24-30,32,38-48,57-59,63-70,72,75-78,81-99,101,103-118,126,129-138
+packages/features/src/react.tsx
+  s_f5a91deb5a46ce::t_19f4a842298a3e 2-3,12-22,29,38,42-46,48-50,58-59,79-86,138
+  s_f5a91deb5a46ce::t_0f70be3e170171 195-209,227,229-241,243-285,287-292,304-305,312,317,319-320,322,324-330,334,336,339-371
+  s_f5a91deb5a46ce::t_65c609e928d07b 105-108,117-129,228,242
+packages/design-system/src/factories/__tests__/from-brand.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/features/src/__tests__/model.test.ts
+  s_f5a91deb5a46ce::t_4e0671c8176f55 2,5-6,27,33,45,54-82,84,93,98,101-104,111,116,118,123-139
+packages/ui/src/components/data/__tests__/resource-page-url-state.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+.claude/settings.json
+  s_f5a91deb5a46ce::t_61048d8a99cc2d 1-14
+packages/features/src/__tests__/react.test.tsx
+  s_f5a91deb5a46ce::t_855aebe05b74f9 15-16,18,21,23-26,30,33-34,37,40-41,50-57
+  s_f5a91deb5a46ce::t_3179fb8cd8a9d0 58
+packages/genesis-cli/test/doctor.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+docs/component-reference.md
+  s_f5a91deb5a46ce::t_edba0a1ff810ac 7,33,45,49,52-53,64,77,103,1051,1060-1062,1065-1067,1070-1079,1081,1083,1088,1090,1093,1096,1100,1117,1125,1135,1141-1145,1153
+packages/features/src/node.ts
+  s_f5a91deb5a46ce::t_e20abfd177ad5c 1-15,19-21,25,30,32-34,36-67,74,76,78-82,85-92,97-251,253-256,260-262,265-266,270-282,287-296,300-302,305-306,308-313,315-319,321-322,328-333,336-377,379-381,383-434
+  s_f5a91deb5a46ce::t_5ce41a6180cfc6 382
+CLAUDE.md
+  s_f5a91deb5a46ce::t_377702605661c9 1
+apps/sample/app/routes/_layout.tsx
+  s_f5a91deb5a46ce::t_05df6146f87944 7,21
+packages/features/src/generate.ts
+  s_f5a91deb5a46ce::t_d97569a7b6c45b 1,7-10,13,15-18,23-24,37-70,74-76,82-83,85-89,94-98,100-101,103-129,133,137-142,146-148,150-151,156-222
+apps/sample/app/routes/features.tsx
+  s_f5a91deb5a46ce::t_05df6146f87944 1-20
+packages/ui-native/src/components/__tests__/badge.test.tsx
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+packages/features/src/__tests__/node.test.ts
+  s_f5a91deb5a46ce::t_a7b97ce9d345b2 9-11,17,98,124,130
+  s_f5a91deb5a46ce::t_855aebe05b74f9 43
+  s_f5a91deb5a46ce::t_3b6d33bbe81b3a 3,5-6,12,14-16,18-24,28-33,37-38,40-42,44,46-47,50,52,55-71,74,76-97,101-123,125-129,131-189
+packages/genesis-cli/test/studio-init.test.ts
+  s_f5a91deb5a46ce::t_f3c2a0e997be3a 1
+pnpm-lock.yaml
+  s_f5a91deb5a46ce::t_2c5ad122695bbf 14-19,35-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "96f8e69a6ce1360003dd5584f9618b5b439b37f9",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

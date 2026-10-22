@@ -1,0 +1,42 @@
+packages/ui/src/components/data/DataTable.tsx
+  s_9bf81edc5cc904::t_ac8e2332845748 137-141,144-149,152-154,156,158-159,161-165,455,458-459,754,786-787,789-792,812-815,833-837
+  s_9bf81edc5cc904::t_e28fea3af20ee2 655-675,883,898,922-970
+packages/ui/src/components/data/__tests__/data-table-a11y.test.tsx
+  s_9bf81edc5cc904::t_431ad5f9157bec 2-4,14,18-24,28,31-44,46-53,56,58,62-63,66-69,72,74-75,79,90-99,112-114,118-120,122,124,127-137
+packages/ui/src/components/data/__tests__/resource-page-url-state.test.tsx
+  s_9bf81edc5cc904::t_984051739acd13 185
+  s_9bf81edc5cc904::t_c93742cc6251b0 8-10,170-184,186-239
+packages/ui/src/components/data/ResourcePage.tsx
+  s_9bf81edc5cc904::t_8140d1f38d6599 69
+  s_9bf81edc5cc904::t_966f779889b821 857-872,1126,1129,1132-1145,1219-1220,1562,2016-2033
+.changeset/a11y-fast-follow.md
+  s_9bf81edc5cc904::t_6e0b37710b93fb 1-10
+apps/sample/app/data/primitives.json
+  s_18dd9cee35b819::t_9a4a6b76ae9ed5 8945,8968-8974
+docs/component-reference.md
+  s_18dd9cee35b819::t_0334dddd422ebc 7,33,56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "60856d70793e7cfa4b128181c2233ee629a4e3c5",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
