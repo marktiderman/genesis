@@ -1,6 +1,7 @@
 import {
   useDeferredValue,
   useEffect,
+  useId,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -10,7 +11,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { AlertTriangle, CircleCheck, Info, Redo2, Undo2, XCircle } from "lucide-react";
+import { AlertTriangle, CircleCheck, Eye, Info, Redo2, Undo2, XCircle } from "lucide-react";
 import { parseForm, type FieldValidator, type FormDefinition, type ParseResult } from "@marktiderman/genesis-forms";
 import type { RendererRegistry } from "@marktiderman/genesis-forms-react";
 import type { FormBrand } from "@marktiderman/genesis-forms-web";
@@ -21,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@marktiderman/genesis-
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { analyze, type Analysis, type Finding } from "./analyze";
 import { createDraftRegistry, DraftsContext } from "./controls";
-import { BuilderConfigContext, type BlockKinds, type BuilderConfig, type FieldTypeEditor } from "./editors";
+import { BuilderConfigContext, type Apply, type BlockKinds, type BuilderConfig, type FieldPreset, type FieldTypeEditor } from "./editors";
 import { useBuilderHistory } from "./history";
 import { LogicPanel } from "./logic";
 import { updateForm, ruleRefs } from "./ops";
@@ -71,29 +72,46 @@ export interface FormBuilderProps {
   actions?: ((value: FormDefinition, analysis: Analysis, state: BuilderActionsState) => ReactNode) | undefined;
   /** Read the value synchronously, run the checks now, or commit pending drafts. */
   ref?: Ref<FormBuilderHandle> | undefined;
-  /** The field types authors may add, in this order (palette and Type select). Default: every registered type. */
+  /** The field types authors may add, in this order (palette and Type select). Default: `defaultPalette()`, every registered type except the structured types (`STRUCTURED_FIELD_TYPES`), which a host opts into. */
   palette?: readonly string[] | undefined;
   /** How the builder edits particular field types: label, defaults, settings panel, logic value editor. */
   fieldEditors?: readonly FieldTypeEditor[] | undefined;
+  /**
+   * Named variants of field types for the Add menu, e.g. a table with fixed
+   * columns or a list capped at three items (see `FieldPreset`). Each adds an
+   * ordinary field of its base type; the Type select lists base types only.
+   */
+  presets?: readonly FieldPreset[] | undefined;
   /** Which non-question blocks authors may add. Default: headings, text and page breaks. */
   blockKinds?: BlockKinds | undefined;
   /**
    * The preview's renderers. It replaces `defaultRegistry` (it is `<Form registry>`),
    * so extend that one rather than passing only your own types:
-   * `defaultRegistry.extend([{ type: "rows", Component: Rows }])`.
+   * `defaultRegistry.extend([{ type: "acme/signature", Component: Signature }])`.
    */
   previewRegistry?: RendererRegistry | undefined;
   /** Custom validators for the preview, by field id (as `createForm` takes them). */
   previewValidators?: Record<string, FieldValidator> | undefined;
-  /** A practice's name and logo for the preview. */
+  /** An organisation or business's name and logo for the preview. */
   brand?: FormBrand | undefined;
   /** Sample hidden-input values for the preview. */
   previewHidden?: Record<string, string | number | boolean> | undefined;
+  /**
+   * Show the form without letting anyone change it, for people who may read
+   * it but not edit it. Every panel stays visible and openable; inputs,
+   * selects and switches are disabled; add, remove, reorder, duplicate and
+   * drag are hidden; undo/redo are hidden; and `onChange` is never called.
+   * The preview, checks and `actions` still work. Default false.
+   */
+  readOnly?: boolean | undefined;
   /** Hide the JSON tab from non-technical authors. Default true (shown). */
   showJson?: boolean | undefined;
   defaultTab?: BuilderTab | undefined;
   className?: string | undefined;
 }
+
+// The edit sink of a read-only builder: panels may still call it, nothing changes.
+const IGNORE_EDIT: Apply = () => {};
 
 const LEVEL_ICON = { error: XCircle, warning: AlertTriangle, info: Info } as const;
 
@@ -124,11 +142,13 @@ export function FormBuilder({
   ref,
   palette,
   fieldEditors,
+  presets,
   blockKinds,
   previewRegistry,
   previewValidators,
   brand,
   previewHidden,
+  readOnly = false,
   showJson = true,
   defaultTab = "questions",
   className,
@@ -144,7 +164,14 @@ export function FormBuilder({
   const [selected, setSelected] = useState<string | null>(null);
 
   const [drafts] = useState(createDraftRegistry);
-  const config = useMemo<BuilderConfig>(() => ({ palette, fieldEditors, blockKinds }), [palette, fieldEditors, blockKinds]);
+  const readOnlyNoteId = useId();
+  const config = useMemo<BuilderConfig>(
+    () => ({ palette, fieldEditors, presets, blockKinds, readOnly }),
+    [palette, fieldEditors, presets, blockKinds, readOnly],
+  );
+  // Every edit goes through `apply`, so a read-only builder cannot change the
+  // value (or call onChange) even from a control the panels forgot to hide.
+  const apply = readOnly ? IGNORE_EDIT : history.apply;
 
   const handle = useMemo<FormBuilderHandle>(
     () => ({
@@ -176,6 +203,7 @@ export function FormBuilder({
   // Ctrl/Cmd+Z and Shift+Ctrl/Cmd+Z inside the builder, except while typing in
   // a text box (its own undo wins there). The host page keeps its own shortcuts.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (readOnly) return;
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
     const t = e.target as HTMLElement;
     if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) return;
@@ -204,20 +232,35 @@ export function FormBuilder({
   return (
     <BuilderConfigContext.Provider value={config}>
     <DraftsContext.Provider value={drafts}>
-    <div className={cn("flex flex-col gap-4", className)} data-testid="form-builder" onKeyDown={onKeyDown}>
+    <div
+      className={cn("flex flex-col gap-4", className)}
+      data-testid="form-builder"
+      data-readonly={readOnly ? "" : undefined}
+      onKeyDown={onKeyDown}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <Input
           aria-label="Form title"
           className="h-10 min-w-48 flex-1 text-base font-semibold"
           value={def.title}
-          onChange={(e) => history.apply((d) => updateForm(d, { title: e.target.value }), "form-title")}
+          readOnly={readOnly}
+          aria-describedby={readOnly ? readOnlyNoteId : undefined}
+          onChange={(e) => apply((d) => updateForm(d, { title: e.target.value }), "form-title")}
         />
-        <Button variant="ghost" size="icon" aria-label="Undo" disabled={!history.canUndo} onClick={history.undo} data-testid="builder-undo">
-          <Undo2 />
-        </Button>
-        <Button variant="ghost" size="icon" aria-label="Redo" disabled={!history.canRedo} onClick={history.redo} data-testid="builder-redo">
-          <Redo2 />
-        </Button>
+        {readOnly ? (
+          <Badge variant="muted" data-testid="builder-readonly">
+            <Eye className="mr-1 size-3" aria-hidden /> Read only
+          </Badge>
+        ) : (
+          <>
+            <Button variant="ghost" size="icon" aria-label="Undo" disabled={!history.canUndo} onClick={history.undo} data-testid="builder-undo">
+              <Undo2 />
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Redo" disabled={!history.canRedo} onClick={history.redo} data-testid="builder-redo">
+              <Redo2 />
+            </Button>
+          </>
+        )}
         {errors ? (
           <Badge variant="destructive">{errors} to fix</Badge>
         ) : warnings ? (
@@ -231,6 +274,12 @@ export function FormBuilder({
           <div className="flex items-center gap-2">{actions(def, analysis, { ...handle, analysing: analysed !== def })}</div>
         ) : null}
       </div>
+
+      {readOnly ? (
+        <p id={readOnlyNoteId} className="text-sm text-muted-foreground" data-testid="builder-readonly-note">
+          You can look through every question, rule and ending, but not change them.
+        </p>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <Tabs defaultValue={defaultTab} value={tab} onValueChange={(v) => setTab(v as BuilderTab)} className="min-w-0">
@@ -246,7 +295,7 @@ export function FormBuilder({
           <TabsContent value="questions" className="mt-4">
             <QuestionsPanel
               def={def}
-              apply={history.apply}
+              apply={apply}
               selected={selected}
               onSelect={setSelected}
               findings={analysis.findings}
@@ -254,17 +303,17 @@ export function FormBuilder({
             />
           </TabsContent>
           <TabsContent value="logic" className="mt-4">
-            <LogicPanel def={def} apply={history.apply} findings={analysis.findings} />
+            <LogicPanel def={def} apply={apply} findings={analysis.findings} />
           </TabsContent>
           <TabsContent value="endings" className="mt-4">
-            <EndingsPanel def={def} apply={history.apply} findings={analysis.findings} />
+            <EndingsPanel def={def} apply={apply} findings={analysis.findings} />
           </TabsContent>
           <TabsContent value="settings" className="mt-4">
-            <SettingsPanel def={def} apply={history.apply} />
+            <SettingsPanel def={def} apply={apply} />
           </TabsContent>
           {showJson ? (
             <TabsContent value="json" className="mt-4">
-              <JsonPanel def={def} apply={history.apply} />
+              <JsonPanel def={def} apply={apply} />
             </TabsContent>
           ) : null}
         </Tabs>

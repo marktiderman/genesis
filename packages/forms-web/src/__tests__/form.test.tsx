@@ -4,19 +4,19 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { createForm, defineForm, f, getFieldType, registerFieldType, when } from "@marktiderman/genesis-forms";
 import { Form } from "../index";
 
-const afterClass = defineForm({
-  id: "after-class",
-  title: "How was class?",
+const eventFeedback = defineForm({
+  id: "event-feedback",
+  title: "How was the event?",
   layout: { mode: "focus" },
-  hidden: { coach: f.hidden.string({ source: "server" }) },
+  hidden: { owner: f.hidden.string({ source: "server" }) },
   blocks: [
-    f.rating("overall", { label: "How was today's class?", required: true }),
+    f.rating("overall", { label: "How was today's event?", required: true }),
     f.longText("improve", { label: "Anything we could do better?" }),
-    f.yesNo("contact_me", { label: "Want {{hidden:coach|a coach}} to follow up with you?" }),
+    f.yesNo("contact_me", { label: "Want {{hidden:owner|someone}} to follow up with you?" }),
     f.email("email", { label: "Best email to reach you", required: true }),
   ],
   logic: [when("contact_me").isNot(true).hide("email")],
-  endings: [{ id: "default", title: "Thanks, see you next class." }],
+  endings: [{ id: "default", title: "Thanks, see you next time." }],
 });
 
 const choices = defineForm({
@@ -40,13 +40,13 @@ describe("<Form> introduction", () => {
     const intro = defineForm({
       id: "intro",
       title: "Hi",
-      description: "Coached by {{hidden:coach|us}}",
+      description: "Hosted by {{hidden:owner|us}}",
       layout: { mode: "classic" },
-      hidden: { coach: f.hidden.string({ source: "server" }) },
+      hidden: { owner: f.hidden.string({ source: "server" }) },
       blocks: [f.shortText("x", { label: "X" })],
     });
-    render(<Form form={intro} options={{ hidden: { coach: "Sam" } }} />);
-    expect(screen.getByText("Coached by Sam")).toBeTruthy();
+    render(<Form form={intro} options={{ hidden: { owner: "Sam" } }} />);
+    expect(screen.getByText("Hosted by Sam")).toBeTruthy();
   });
 
   it("updates a description that recalls an answer as it changes", () => {
@@ -65,13 +65,20 @@ describe("<Form> introduction", () => {
 });
 
 describe("<Form> focus layout", () => {
+  it("never shows \"Question 1 of 0\" for a form with nothing to ask", () => {
+    const empty = defineForm({ id: "empty", title: "Empty", layout: { mode: "focus" }, blocks: [] });
+    render(<Form form={empty} />);
+    expect(screen.queryByText(/of 0/)).toBeNull();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
   it("walks one question at a time, showing progress and moving focus", async () => {
     const onSubmit = vi.fn();
-    render(<Form form={afterClass} autoAdvance={false} onSubmit={onSubmit} options={{ hidden: { coach: "Sam" } }} />);
+    render(<Form form={eventFeedback} autoAdvance={false} onSubmit={onSubmit} options={{ hidden: { owner: "Sam" } }} />);
 
     // Rating is a real group: fieldset + legend, and a radiogroup named by it.
-    expect(screen.getByRole("group", { name: /How was today's class\?/ })).toBeTruthy();
-    expect(screen.getByRole("radiogroup", { name: /How was today's class\?/ })).toBeTruthy();
+    expect(screen.getByRole("group", { name: /How was today's event\?/ })).toBeTruthy();
+    expect(screen.getByRole("radiogroup", { name: /How was today's event\?/ })).toBeTruthy();
     expect(screen.getByText("Question 1 of 3")).toBeTruthy();
 
     submit();
@@ -88,20 +95,20 @@ describe("<Form> focus layout", () => {
 
     await act(async () => submit());
     expect(onSubmit).toHaveBeenCalledOnce();
-    expect(screen.getByRole("heading", { name: /Thanks, see you next class/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Thanks, see you next time/ })).toBeTruthy();
   });
 
   it("goes back along the path", () => {
-    render(<Form form={afterClass} autoAdvance={false} />);
+    render(<Form form={eventFeedback} autoAdvance={false} />);
     fireEvent.click(screen.getByRole("radio", { name: "5" }));
     submit();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(screen.getByRole("group", { name: /How was today's class\?/ })).toBeTruthy();
+    expect(screen.getByRole("group", { name: /How was today's event\?/ })).toBeTruthy();
   });
 
   it("moves on by itself after a single pick", () => {
     vi.useFakeTimers();
-    render(<Form form={afterClass} />);
+    render(<Form form={eventFeedback} />);
     fireEvent.click(screen.getByRole("radio", { name: "3" }));
     act(() => vi.advanceTimersByTime(300));
     expect(screen.getByLabelText("Anything we could do better?")).toBeTruthy();
@@ -110,7 +117,7 @@ describe("<Form> focus layout", () => {
 
 describe("<Form> focus management", () => {
   it("focuses a text field's input, and a group's visible question, never a hidden heading", () => {
-    render(<Form form={afterClass} autoAdvance={false} />);
+    render(<Form form={eventFeedback} autoAdvance={false} />);
     fireEvent.click(screen.getByRole("radio", { name: "4" }));
     submit();
     expect(document.activeElement).toBe(screen.getByLabelText("Anything we could do better?"));
@@ -124,28 +131,28 @@ describe("<Form> focus management", () => {
   });
 
   it("announces progress once: the counter is not a live region", () => {
-    render(<Form form={afterClass} />);
+    render(<Form form={eventFeedback} />);
     expect(screen.getByText("Question 1 of 3").closest("[aria-live]")).toBeNull();
   });
 
   it("doesn't steal focus on first mount under StrictMode", () => {
     render(
       <StrictMode>
-        <Form form={afterClass} />
+        <Form form={eventFeedback} />
       </StrictMode>,
     );
     expect(document.activeElement).toBe(document.body);
   });
 
   it("focuses the ending heading, and keeps one live region from the form to the ending", async () => {
-    render(<Form form={afterClass} autoAdvance={false} />);
+    render(<Form form={eventFeedback} autoAdvance={false} />);
     const live = liveRegion();
     fireEvent.click(screen.getByRole("radio", { name: "4" }));
     submit();
     submit();
     fireEvent.click(screen.getByRole("radio", { name: "No" }));
     await act(async () => submit());
-    const heading = screen.getByRole("heading", { name: /Thanks, see you next class/ });
+    const heading = screen.getByRole("heading", { name: /Thanks, see you next time/ });
     expect(document.activeElement).toBe(heading);
     expect(heading.getAttribute("tabindex")).toBe("-1");
     expect(liveRegion()).toBe(live);
@@ -156,7 +163,7 @@ describe("<Form> auto-advance", () => {
   it("never auto-advances from the last question: the respondent presses Submit", async () => {
     vi.useFakeTimers();
     const onSubmit = vi.fn();
-    render(<Form form={afterClass} onSubmit={onSubmit} />);
+    render(<Form form={eventFeedback} onSubmit={onSubmit} />);
     fireEvent.click(screen.getByRole("radio", { name: "4" }));
     act(() => vi.advanceTimersByTime(300));
     submit();
@@ -168,7 +175,7 @@ describe("<Form> auto-advance", () => {
 
   it("cancels a pending auto-advance on Back", () => {
     vi.useFakeTimers();
-    render(<Form form={afterClass} />);
+    render(<Form form={eventFeedback} />);
     fireEvent.click(screen.getByRole("radio", { name: "4" }));
     act(() => vi.advanceTimersByTime(300));
     submit();
@@ -198,7 +205,7 @@ describe("<Form> auto-advance", () => {
   });
 
   it("selects a rating with arrow keys without advancing", async () => {
-    render(<Form form={afterClass} />);
+    render(<Form form={eventFeedback} />);
     const three = screen.getByRole("radio", { name: "3" });
     await act(async () => {
       three.focus();
@@ -207,12 +214,12 @@ describe("<Form> auto-advance", () => {
     });
     expect(screen.getByRole("radio", { name: "4" }).getAttribute("aria-checked")).toBe("true");
     await act(() => new Promise((r) => setTimeout(r, 400)));
-    expect(screen.getByRole("radiogroup", { name: /How was today's class\?/ })).toBeTruthy();
+    expect(screen.getByRole("radiogroup", { name: /How was today's event\?/ })).toBeTruthy();
   });
 
   it("advances when the already-selected rating is picked again after Back", () => {
     vi.useFakeTimers();
-    render(<Form form={afterClass} />);
+    render(<Form form={eventFeedback} />);
     fireEvent.click(screen.getByRole("radio", { name: "4" }));
     act(() => vi.advanceTimersByTime(300));
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -223,7 +230,7 @@ describe("<Form> auto-advance", () => {
   });
 
   it("continues on Enter from a radio, like the OK button", () => {
-    render(<Form form={afterClass} autoAdvance={false} />);
+    render(<Form form={eventFeedback} autoAdvance={false} />);
     fireEvent.click(screen.getByRole("radio", { name: "2" }));
     fireEvent.keyDown(screen.getByRole("radio", { name: "2" }), { key: "Enter" });
     expect(screen.getByLabelText("Anything we could do better?")).toBeTruthy();
@@ -232,21 +239,21 @@ describe("<Form> auto-advance", () => {
 
 describe("<Form> field semantics", () => {
   it("puts aria-describedby on the group, and aria-required and aria-invalid on the radiogroup", () => {
-    render(<Form form={afterClass} />);
+    render(<Form form={eventFeedback} />);
     submit();
-    const group = screen.getByRole("group", { name: /How was today's class\?/ });
+    const group = screen.getByRole("group", { name: /How was today's event\?/ });
     expect(group.tagName).toBe("FIELDSET");
     // ARIA 1.2 doesn't allow aria-invalid on a group; the radiogroup carries it.
     expect(group.hasAttribute("aria-invalid")).toBe(false);
     const error = document.getElementById(group.getAttribute("aria-describedby")!);
     expect(error?.textContent).toMatch(/needs an answer/);
-    const radios = screen.getByRole("radiogroup", { name: /How was today's class\?/ });
+    const radios = screen.getByRole("radiogroup", { name: /How was today's event\?/ });
     expect(radios.getAttribute("aria-required")).toBe("true");
     expect(radios.getAttribute("aria-invalid")).toBe("true");
   });
 
   it("announces a failed Next exactly once, through the live region", () => {
-    render(<Form form={afterClass} />);
+    render(<Form form={eventFeedback} />);
     submit();
     expect(screen.queryAllByRole("alert")).toHaveLength(0);
     expect(liveRegion().textContent).toMatch(/needs an answer/);
@@ -283,8 +290,8 @@ describe("<Form> field semantics", () => {
   it("keeps ids unique with two forms on a page", () => {
     const { container } = render(
       <>
-        <Form form={afterClass} layout="classic" />
-        <Form form={afterClass} layout="classic" />
+        <Form form={eventFeedback} layout="classic" />
+        <Form form={eventFeedback} layout="classic" />
       </>,
     );
     const ids = Array.from(container.querySelectorAll("[id]"), (e) => e.id);
@@ -293,7 +300,7 @@ describe("<Form> field semantics", () => {
   });
 
   it("respects reduced motion on the progress bar and the spinner", () => {
-    render(<Form form={afterClass} />);
+    render(<Form form={eventFeedback} />);
     expect(screen.getByRole("progressbar").className).toMatch(/motion-reduce:/);
     expect(screen.getByRole("button", { name: "OK" }).className).toMatch(/motion-reduce:/);
   });
@@ -301,7 +308,7 @@ describe("<Form> field semantics", () => {
 
 describe("<Form> classic layout and slots", () => {
   it("shows every visible question and a focused error summary above them, linking to each field", () => {
-    render(<Form form={afterClass} layout="classic" />);
+    render(<Form form={eventFeedback} layout="classic" />);
     expect(screen.queryByLabelText("Best email to reach you")).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: "Yes" }));
     expect(screen.getByLabelText(/Best email to reach you/)).toBeTruthy();
@@ -310,7 +317,7 @@ describe("<Form> classic layout and slots", () => {
     const summary = screen.getByRole("group", { name: "2 answers need attention." });
     expect(document.activeElement).toBe(summary);
     expect(summary.getAttribute("tabindex")).toBe("-1");
-    const firstField = screen.getByRole("group", { name: /How was today's class\?/ });
+    const firstField = screen.getByRole("group", { name: /How was today's event\?/ });
     const order = Array.from(document.querySelectorAll("[data-gf-error-summary], fieldset"));
     expect(order.indexOf(summary)).toBeLessThan(order.indexOf(firstField));
     const links = Array.from(summary.querySelectorAll("a"));
@@ -328,7 +335,7 @@ describe("<Form> classic layout and slots", () => {
   it("lets slots replace and eject parts, and slotProps feed them", () => {
     render(
       <Form
-        form={afterClass}
+        form={eventFeedback}
         slots={{ header: null, ending: ({ title }) => <p>custom: {title}</p> }}
         slotProps={{ navigation: { nextLabel: "Next" } }}
         autoAdvance={false}
@@ -346,7 +353,7 @@ describe("<Form> submission", () => {
       attempts++;
       if (attempts === 1) throw new Error("offline");
     });
-    render(<Form form={afterClass} layout="classic" onSubmit={onSubmit} />);
+    render(<Form form={eventFeedback} layout="classic" onSubmit={onSubmit} />);
     fireEvent.click(screen.getByRole("radio", { name: "5" }));
     fireEvent.click(screen.getByRole("radio", { name: "No" }));
     await act(async () => submit());
@@ -354,14 +361,14 @@ describe("<Form> submission", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/couldn't send/);
     await act(async () => submit());
     expect(onSubmit).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole("heading", { name: /Thanks, see you next class/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Thanks, see you next time/ })).toBeTruthy();
   });
 
   it("after a failed send, shows the answers read-only, hides Back and offers Try again", async () => {
     const onSubmit = vi.fn(async () => {
       throw new Error("offline");
     });
-    render(<Form form={afterClass} autoAdvance={false} onSubmit={onSubmit} />);
+    render(<Form form={eventFeedback} autoAdvance={false} onSubmit={onSubmit} />);
     fireEvent.click(screen.getByRole("radio", { name: "4" }));
     submit();
     submit();
@@ -381,31 +388,31 @@ describe("<Form> submission", () => {
 
 describe("<Form> engines", () => {
   it("uses the engine it's given without building one from `form`", () => {
-    const engine = createForm(afterClass.definition);
+    const engine = createForm(eventFeedback.definition);
     // A bogus `form` would throw if <Form> built its own engine from it.
     render(<Form form={{} as never} engine={engine} />);
-    expect(screen.getByRole("group", { name: /How was today's class\?/ })).toBeTruthy();
+    expect(screen.getByRole("group", { name: /How was today's event\?/ })).toBeTruthy();
   });
 
   it("starts over when the engine changes", async () => {
     const onSubmit = vi.fn(async () => {
       throw new Error("offline");
     });
-    const first = createForm(afterClass.definition);
-    const { rerender } = render(<Form form={afterClass} engine={first} layout="classic" onSubmit={onSubmit} />);
+    const first = createForm(eventFeedback.definition);
+    const { rerender } = render(<Form form={eventFeedback} engine={first} layout="classic" onSubmit={onSubmit} />);
     fireEvent.click(screen.getByRole("radio", { name: "5" }));
     fireEvent.click(screen.getByRole("radio", { name: "No" }));
     await act(async () => submit());
     expect(screen.getByRole("alert")).toBeTruthy();
 
-    rerender(<Form form={afterClass} engine={createForm(afterClass.definition)} layout="classic" onSubmit={onSubmit} />);
+    rerender(<Form form={eventFeedback} engine={createForm(eventFeedback.definition)} layout="classic" onSubmit={onSubmit} />);
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("radio", { name: "5" }).getAttribute("aria-checked")).toBe("false");
   });
 
   it("builds a new engine when the `form` definition changes", () => {
     const other = defineForm({ id: "other", title: "Another form", blocks: [f.shortText("name", { label: "Name" })] });
-    const { rerender } = render(<Form form={afterClass} layout="classic" />);
+    const { rerender } = render(<Form form={eventFeedback} layout="classic" />);
     rerender(<Form form={other} layout="classic" />);
     expect(screen.getByRole("heading", { name: "Another form" })).toBeTruthy();
     expect(screen.getByLabelText("Name")).toBeTruthy();

@@ -1,7 +1,7 @@
 // Compiled against the built .d.ts with exactOptionalPropertyTypes on: a
 // consumer's own optional props pass straight through to <Form>.
 import type { FormDefinition, FormState } from "@marktiderman/genesis-forms";
-import { Form, type FormBrand, type FormPresentation } from "@marktiderman/genesis-forms-web";
+import { Form, SourceTextContext, MediaTimeContext, type FormBrand, type FormPresentation, type MediaTime } from "@marktiderman/genesis-forms-web";
 
 declare const definition: FormDefinition;
 declare const maybe: {
@@ -26,4 +26,14 @@ export const page = (
     options={{ hidden: undefined }}
     className={undefined}
   />
+);
+
+declare const player: { time?: () => number | undefined; seek?: (s: number) => void };
+const subject: MediaTime = { currentTime: player.time, seek: player.seek };
+export const structured = (
+  <MediaTimeContext.Provider value={subject}>
+    <SourceTextContext.Provider value={null}>
+      <Form form={definition} />
+    </SourceTextContext.Provider>
+  </MediaTimeContext.Provider>
 );

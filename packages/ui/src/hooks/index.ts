@@ -8,7 +8,7 @@ export { useWizard, type WizardStep, type UseWizardReturn } from "@marktiderman/
 export { useDataFilters, type FilterDef, type FilterDefs, type FilterValues, type UseDataFiltersOptions } from "./use-data-filters";
 export { useKeyboardNavigation, type KeyboardNavOptions, type KeyboardNavResult } from "./use-keyboard-navigation";
 export { useIsMobile } from "./use-mobile";
-export { useViewPreference } from "./use-view-preference";
+export { useViewPreference, type ResponsiveViewMode, type ViewModeDefault } from "./use-view-preference";
 export { useViewSettings, type Density, type ViewSettings } from "./use-view-settings";
 export { useSavedViews, type UseSavedViewsReturn } from "./use-saved-views";
 export { createPrefetch, type RouteMap } from "./use-prefetch";

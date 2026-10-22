@@ -1,0 +1,223 @@
+{
+  "scenarioVersion": 1,
+  "name": "event-feedback: low rating skips went_well",
+  "description": "A rating under 4 jumps from overall to improve; went_well is off the path. Keystrokes in improve are compacted.",
+  "tags": [
+    "event-feedback",
+    "jump"
+  ],
+  "definition": {
+    "schemaVersion": 1,
+    "id": "event-feedback",
+    "title": "How was the event?",
+    "blocks": [
+      {
+        "kind": "field",
+        "id": "overall",
+        "key": "overall",
+        "type": "rating",
+        "label": "How was today's event?",
+        "required": true,
+        "props": {
+          "max": 5
+        }
+      },
+      {
+        "kind": "field",
+        "id": "went_well",
+        "key": "went_well",
+        "type": "multi-choice",
+        "label": "What went well?",
+        "props": {
+          "options": [
+            {
+              "value": "hosting",
+              "label": "Hosting"
+            },
+            {
+              "value": "content",
+              "label": "The content"
+            },
+            {
+              "value": "community",
+              "label": "Community"
+            },
+            {
+              "value": "pacing",
+              "label": "Pacing"
+            },
+            {
+              "value": "venue",
+              "label": "The venue"
+            },
+            {
+              "value": "cleanliness",
+              "label": "Cleanliness"
+            }
+          ]
+        }
+      },
+      {
+        "kind": "field",
+        "id": "improve",
+        "key": "improve",
+        "type": "long-text",
+        "label": "Anything we could do better?"
+      },
+      {
+        "kind": "field",
+        "id": "contact_me",
+        "key": "contact_me",
+        "type": "yes-no",
+        "label": "Want {{hidden:owner|someone}} to follow up with you?"
+      },
+      {
+        "kind": "field",
+        "id": "name",
+        "key": "name",
+        "type": "short-text",
+        "label": "Your name",
+        "required": true
+      },
+      {
+        "kind": "field",
+        "id": "email",
+        "key": "email",
+        "type": "email",
+        "label": "Best email to reach you",
+        "required": true
+      }
+    ],
+    "layout": {
+      "mode": "focus"
+    },
+    "hidden": [
+      {
+        "name": "session",
+        "type": "string",
+        "source": "server"
+      },
+      {
+        "name": "owner",
+        "type": "string",
+        "source": "server"
+      }
+    ],
+    "logic": [
+      {
+        "id": "r1",
+        "when": {
+          "op": "neq",
+          "left": {
+            "field": "contact_me"
+          },
+          "right": {
+            "value": true
+          }
+        },
+        "effect": "hide",
+        "target": "name"
+      },
+      {
+        "id": "r2",
+        "when": {
+          "op": "neq",
+          "left": {
+            "field": "contact_me"
+          },
+          "right": {
+            "value": true
+          }
+        },
+        "effect": "hide",
+        "target": "email"
+      },
+      {
+        "id": "r3",
+        "when": {
+          "op": "lt",
+          "left": {
+            "field": "overall"
+          },
+          "right": {
+            "value": 4
+          }
+        },
+        "effect": "jump",
+        "from": "overall",
+        "to": "improve"
+      }
+    ],
+    "endings": [
+      {
+        "id": "default",
+        "title": "Thanks! See you next time."
+      }
+    ],
+    "settings": {
+      "anonymous": true
+    }
+  },
+  "context": {
+    "session": "Tuesday 6 PM workshop",
+    "owner": "Sam"
+  },
+  "events": [
+    {
+      "type": "answer",
+      "field": "overall",
+      "value": 2
+    },
+    {
+      "type": "next"
+    },
+    {
+      "type": "answer",
+      "field": "improve",
+      "value": "Music too loud"
+    },
+    {
+      "type": "next"
+    },
+    {
+      "type": "answer",
+      "field": "contact_me",
+      "value": false
+    },
+    {
+      "type": "submit"
+    }
+  ],
+  "expect": {
+    "path": [
+      "overall",
+      "improve",
+      "contact_me"
+    ],
+    "visible": [
+      "overall",
+      "improve",
+      "contact_me"
+    ],
+    "current": "contact_me",
+    "status": "completed",
+    "ending": "default",
+    "answers": {
+      "overall": 2,
+      "improve": "Music too loud",
+      "contact_me": false
+    },
+    "server": {
+      "ok": true,
+      "answers": {
+        "overall": 2,
+        "improve": "Music too loud",
+        "contact_me": false
+      },
+      "context": {
+        "session": "Tuesday 6 PM workshop",
+        "owner": "Sam"
+      }
+    }
+  }
+}

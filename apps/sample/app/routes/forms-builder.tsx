@@ -1,18 +1,25 @@
 import { useState } from "react";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Badge } from "@marktiderman/genesis-ui/badge";
-import { FormBuilder, TEMPLATES, diffDefinitions, getTemplate } from "@marktiderman/genesis-forms-builder";
-import type { FormDefinition } from "@marktiderman/genesis-forms";
+import { Label } from "@marktiderman/genesis-ui/label";
+import { Switch } from "@marktiderman/genesis-ui/switch";
+import { FormBuilder, defaultPalette, diffDefinitions, getTemplate } from "@marktiderman/genesis-forms-builder";
+import { STRUCTURED_FIELD_TYPES, type FormDefinition } from "@marktiderman/genesis-forms";
+import { SAMPLE_TEMPLATES } from "../lib/form-templates";
+
+/** The starter templates use the structured types, so authors can add them too. */
+const palette = [...defaultPalette(), ...STRUCTURED_FIELD_TYPES];
 
 /** The form builder on its own. Nothing is stored: "Publish" only shows what would change. */
 export default function FormsBuilderRoute() {
-  const [template, setTemplate] = useState("after-class");
-  const [start, setStart] = useState<FormDefinition>(() => getTemplate("after-class")!.create());
+  const [template, setTemplate] = useState("event-feedback");
+  const [start, setStart] = useState<FormDefinition>(() => getTemplate("event-feedback", SAMPLE_TEMPLATES)!.create());
   const [published, setPublished] = useState<FormDefinition>(start);
   const [note, setNote] = useState<string | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
 
   const load = (id: string) => {
-    const def = getTemplate(id)!.create();
+    const def = getTemplate(id, SAMPLE_TEMPLATES)!.create();
     setTemplate(id);
     setStart(def);
     setPublished(def);
@@ -27,17 +34,23 @@ export default function FormsBuilderRoute() {
           Start from a template, edit questions and logic, and watch the preview. Nothing is stored.
         </p>
         <div className="flex flex-wrap gap-2">
-          {TEMPLATES.map((t) => (
+          {SAMPLE_TEMPLATES.map((t) => (
             <Button key={t.id} testID={`template-${t.id}`} size="sm" variant={t.id === template ? "default" : "outline"} onClick={() => load(t.id)}>
               {t.name}
             </Button>
           ))}
+          <Label className="ml-auto flex items-center gap-2 text-sm font-normal">
+            <Switch checked={readOnly} onCheckedChange={setReadOnly} data-testid="builder-sample-readonly" />
+            Read only (a viewer without edit access)
+          </Label>
         </div>
       </div>
       <FormBuilder
         key={start.id}
         defaultValue={start}
-        actions={(_def, analysis, builder) => (
+        palette={palette}
+        readOnly={readOnly}
+        actions={(_def, analysis, builder) => readOnly ? null : (
           <Button
             testID="builder-publish"
             size="sm"

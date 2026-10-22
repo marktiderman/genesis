@@ -11,9 +11,9 @@ import { MAX_VALUE_DEPTH, exceedsDepth, isFormEvent, sensitiveHiddenNames, sensi
 export interface SharePayload {
   v: 1;
   definition: FormDefinition;
-  events?: FormEvent[];
-  context?: Record<string, Json>;
-  layout?: "focus" | "classic";
+  events?: FormEvent[] | undefined;
+  context?: Record<string, Json> | undefined;
+  layout?: "focus" | "classic" | undefined;
 }
 
 export interface EncodeShareOptions {
@@ -21,14 +21,14 @@ export interface EncodeShareOptions {
    * Include the server context (it can hold names or ids). Off by default:
    * a link still ends up in browser history, clipboards and chats.
    */
-  includeContext?: boolean;
+  includeContext?: boolean | undefined;
   /** Include `definition.meta`. Off by default for the same reason. */
-  includeMeta?: boolean;
+  includeMeta?: boolean | undefined;
   /**
    * Keep each event's `at` timestamp. Off by default: timestamps say when and
    * how fast someone answered, and replay ignores them anyway.
    */
-  includeTimestamps?: boolean;
+  includeTimestamps?: boolean | undefined;
 }
 
 /**

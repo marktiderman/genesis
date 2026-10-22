@@ -138,6 +138,16 @@ jobs:
       - name: Check for forbidden react-native imports
         run: node scripts/check-forbidden-imports.mjs ${{ inputs.paths }}
 
+      # Skipped in a caller repo that hasn't vendored this script yet, so
+      # adding the gate here can't break existing consumers' lint runs.
+      - name: Check for local resolveNavigation / NavigationNode copies
+        run: |
+          if [ -f scripts/check-navigation-reimplementation.mjs ]; then
+            node scripts/check-navigation-reimplementation.mjs ${{ inputs.paths }}
+          else
+            echo "scripts/check-navigation-reimplementation.mjs not present; skipping."
+          fi
+
   peer-deps:
     name: Peer-dep compliance
     runs-on: ubuntu-latest

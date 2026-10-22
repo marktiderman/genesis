@@ -3,12 +3,12 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { defineForm, f, when } from "@marktiderman/genesis-forms";
 import { Form, useFormPresentation } from "../index";
 
-const afterClass = defineForm({
-  id: "after-class",
-  title: "How was class?",
+const eventFeedback = defineForm({
+  id: "event-feedback",
+  title: "How was the event?",
   layout: { mode: "focus" },
   blocks: [
-    f.rating("overall", { label: "How was today's class?", required: true }),
+    f.rating("overall", { label: "How was today's event?", required: true }),
     f.singleChoice("plan", {
       label: "Which plan?",
       options: [
@@ -18,13 +18,13 @@ const afterClass = defineForm({
       ],
     }),
     f.longText("improve", { label: "Anything we could do better?" }),
-    f.yesNo("contact_me", { label: "Want a coach to follow up?" }),
+    f.yesNo("contact_me", { label: "Want someone to follow up?" }),
   ],
   logic: [when("overall").lessThan(1).hide("plan")],
-  endings: [{ id: "default", title: "Thanks, see you next class." }],
+  endings: [{ id: "default", title: "Thanks, see you next time." }],
 });
 
-const brand = { name: "CrossFit Fairfield" };
+const brand = { name: "Acme Events" };
 const submit = () => fireEvent.submit(document.querySelector("form")!);
 const liveRegion = () => document.querySelector("[data-gf-live]")!;
 
@@ -32,7 +32,7 @@ afterEach(() => vi.useRealTimers());
 
 describe('<Form presentation="page">', () => {
   it("fills the viewport with a thin progress bar, no card chrome, and the brand", () => {
-    render(<Form form={afterClass} presentation="page" brand={brand} autoAdvance={false} />);
+    render(<Form form={eventFeedback} presentation="page" brand={brand} autoAdvance={false} />);
     const form = document.querySelector("form")!;
     expect(form.dataset.presentation).toBe("page");
     expect(form.className).toMatch(/min-h-dvh/);
@@ -47,29 +47,29 @@ describe('<Form presentation="page">', () => {
 
     // The brand shows its initials (decorative) and its name.
     const brandEl = document.querySelector("[data-gf-brand]")!;
-    expect(brandEl.textContent).toContain("CrossFit Fairfield");
-    expect(brandEl.textContent).toContain("CF");
+    expect(brandEl.textContent).toContain("Acme Events");
+    expect(brandEl.textContent).toContain("AE");
 
     // The form title is introduced once, then kept for assistive tech only.
-    const title = screen.getByRole("heading", { level: 1, name: "How was class?" });
+    const title = screen.getByRole("heading", { level: 1, name: "How was the event?" });
     expect(title.closest(".sr-only")).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: "4" }));
     submit();
-    expect(screen.getByRole("heading", { level: 1, name: "How was class?" }).closest(".sr-only")).not.toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "How was the event?" }).closest(".sr-only")).not.toBeNull();
     expect(document.querySelector("[data-gf-brand]")).not.toBeNull();
   });
 
   it("keeps the embedded look by default", () => {
-    render(<Form form={afterClass} autoAdvance={false} />);
+    render(<Form form={eventFeedback} autoAdvance={false} />);
     expect(document.querySelector("form")!.dataset.presentation).toBe("embedded");
     expect(screen.getByText("Question 1 of 4")).toBeTruthy();
     expect(screen.getByRole("button", { name: "OK" })).toBeTruthy();
   });
 
   it("keeps radio semantics, moves focus to each question, and announces a failed OK", () => {
-    render(<Form form={afterClass} presentation="page" brand={brand} autoAdvance={false} />);
-    expect(screen.getByRole("group", { name: /How was today's class\?/ })).toBeTruthy();
-    expect(screen.getByRole("radiogroup", { name: /How was today's class\?/ })).toBeTruthy();
+    render(<Form form={eventFeedback} presentation="page" brand={brand} autoAdvance={false} />);
+    expect(screen.getByRole("group", { name: /How was today's event\?/ })).toBeTruthy();
+    expect(screen.getByRole("radiogroup", { name: /How was today's event\?/ })).toBeTruthy();
     expect(screen.getAllByRole("radio")).toHaveLength(5);
 
     submit();
@@ -91,7 +91,7 @@ describe('<Form presentation="page">', () => {
   });
 
   it("picks an option with its letter key while focus is in the group", () => {
-    render(<Form form={afterClass} presentation="page" autoAdvance={false} />);
+    render(<Form form={eventFeedback} presentation="page" autoAdvance={false} />);
     fireEvent.click(screen.getByRole("radio", { name: "5" }));
     submit();
     const basic = screen.getByRole("radio", { name: "Basic" });
@@ -103,7 +103,7 @@ describe('<Form presentation="page">', () => {
   it("never auto-submits from the last question; the ending is centred with the brand", async () => {
     vi.useFakeTimers();
     const onSubmit = vi.fn();
-    render(<Form form={afterClass} presentation="page" brand={brand} onSubmit={onSubmit} />);
+    render(<Form form={eventFeedback} presentation="page" brand={brand} onSubmit={onSubmit} />);
     fireEvent.click(screen.getByRole("radio", { name: "5" }));
     act(() => vi.advanceTimersByTime(300));
     fireEvent.click(screen.getByRole("radio", { name: "Plus" }));
@@ -117,13 +117,13 @@ describe('<Form presentation="page">', () => {
 
     await act(async () => submit());
     expect(onSubmit).toHaveBeenCalledOnce();
-    const heading = screen.getByRole("heading", { name: /Thanks, see you next class/ });
+    const heading = screen.getByRole("heading", { name: /Thanks, see you next time/ });
     expect(document.activeElement).toBe(heading);
     expect(document.querySelector("[data-presentation=page] [data-gf-brand]")).not.toBeNull();
   });
 
   it("shows the continue hint, and Ctrl/Cmd+Enter in long text", () => {
-    render(<Form form={afterClass} presentation="page" autoAdvance={false} />);
+    render(<Form form={eventFeedback} presentation="page" autoAdvance={false} />);
     expect(document.querySelector("[data-gf-key-hint]")!.textContent).toMatch(/Enter ↵/);
     expect(document.querySelector("[data-gf-key-hint]")!.className).toMatch(/pointer-fine:inline/);
     fireEvent.click(screen.getByRole("radio", { name: "5" }));
@@ -137,7 +137,7 @@ describe('<Form presentation="page">', () => {
       const { presentation, layout } = useFormPresentation();
       return <h1>{`${presentation} ${layout}`}</h1>;
     }
-    render(<Form form={afterClass} presentation="page" layout="classic" slots={{ header: Header }} />);
+    render(<Form form={eventFeedback} presentation="page" layout="classic" slots={{ header: Header }} />);
     expect(screen.getByRole("heading", { name: "page classic" })).toBeTruthy();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(document.querySelectorAll("[data-block]").length).toBe(4);

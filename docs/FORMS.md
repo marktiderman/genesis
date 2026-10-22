@@ -1,7 +1,8 @@
 # Genesis Forms
 
-Plan v0.3, 2026-10-21. Status: **R1 built** (see [Releases](#releases-current)); later releases
-are the plan. Where this document describes something beyond R1, it is not built yet.
+Plan v0.3, 2026-10-21. Status: **R1 built** (see [Releases](#releases-current)), plus delivery
+destinations (`/destinations`, 2026-10-22); later releases are the plan. Where this document
+describes something beyond those, it is not built yet.
 
 > **Revised 2026-10-21, at the maintainer's direction.**
 >
@@ -9,15 +10,15 @@ are the plan. Where this document describes something beyond R1, it is not built
 >   best form system we can build today. The engine owes nothing to existing Genesis code or
 >   doctrine; Genesis's design system comes in only at the renderer layer.
 > - **Home and consumers.** The mechanics live in the Genesis monorepo as open-source packages that
->   every client and internal project (Breakthrough, Conversation Cards, Gamify, …) can install
->   today. A dedicated client project, the forms product with hosted builder, workspaces and
->   results, is built on top of the same packages. See
+>   every consuming app can install today. A dedicated app, the forms product with hosted builder,
+>   workspaces and results, is built on top of the same packages. See
 >   [Packages vs the product](#packages-vs-the-product).
-> - **Use cases.** Worksheets, feedback forms, onboarding, intake and marketing qualification. See
+> - **Use cases.** Exercises and assessments, feedback forms, onboarding, intake and marketing
+>   qualification. See
 >   [Use cases](#use-cases).
-> - **First consumer: CrossFit Fairfield.** A member feedback system for the gym, live as soon as
->   possible and improved from there. It is milestone M1, a thin slice through the whole design.
->   See [M1: CrossFit Fairfield feedback](#m1-crossfit-fairfield-feedback).
+> - **First consumer: session feedback.** A feedback system for a small business that runs
+>   scheduled sessions, live as soon as possible and improved from there. It is milestone M1, a
+>   thin slice through the whole design. See [M1: session feedback](#m1-session-feedback).
 
 A reusable, extensible form system for React and React Native apps, released as open source. A form
 is defined once, as data or as typed code. It renders as a classic form, a paged wizard, or one
@@ -62,10 +63,10 @@ the packages, not in one app, so every project gets all of them.
 
 | Use case | Typical shape | What it needs beyond a basic form |
 | --- | --- | --- |
-| **Worksheets** (learning, coaching, reflection) | Rich content interleaved with questions; done by a signed-in user, often over several sessions; reviewed by a teacher or coach | Content blocks (rich text, image, video) between questions; inline fill-in-the-blank, matching, ordering; **answer keys that never reach the browser**; auto-grading plus manual grading with feedback per question; attempts; assignment to a user; save and resume across devices; print/PDF. See [Scoring, grading and worksheets](#scoring-grading-and-worksheets). |
+| **Exercises and assessments** (learning, training, reflection) | Rich content interleaved with questions; done by a signed-in user, often over several sessions; reviewed by a teacher or reviewer | Content blocks (rich text, image, video) between questions; inline fill-in-the-blank, matching, ordering; **answer keys that never reach the browser**; auto-grading plus manual grading with feedback per question; attempts; assignment to a user; save and resume across devices; print/PDF. See [Scoring, grading and assessments](#scoring-grading-and-assessments). |
 | **Feedback forms** (NPS, CSAT, post-session, product) | Short, often one at a time, often embedded or sent by link; high volume | `nps`, `rating`, `scale`; focus layout; hidden context (session id, user id, product area) passed by URL or host app; follow-up questions branching on the score; drop-off analytics; anonymous or identified. |
 | **Onboarding forms** | Multi-step, inside an app, signed-in user | Prefill from the user's existing record; answers written back into app records (profile, preferences) via the store adapter; paged layout with progress; save and resume; branching by role or plan; native renderer for mobile onboarding. |
-| **Intake forms** (clients, patients, applicants) | Long, sectioned, sensitive | `repeat` groups (dependants, previous employers); file uploads and signature; `sensitive` fields with encryption at rest and no analytics; conditional sections; review page before submit; server-side validation; retention settings; routing to a person or queue by answer (webhooks). |
+| **Intake forms** (customers, patients, applicants) | Long, sectioned, sensitive | `repeat` groups (dependants, previous employers); file uploads and signature; `sensitive` fields with encryption at rest and no analytics; conditional sections; review page before submit; server-side validation; retention settings; routing to a person or queue by answer (webhooks). |
 | **Marketing qualification** (lead capture, demo requests) | Embedded on marketing sites; one at a time; short | Hidden UTM and referrer inputs; **lead scoring** with variables; branching to different endings (book a call for high scores, resources for low); a scheduling plugin on the ending; CRM webhooks; embeds (inline, popup, slider); partials, so an abandoned lead is still a lead; per-question drop-off. |
 
 Capabilities shared by all five, and therefore non-negotiable in the core: branching, variables,
@@ -127,7 +128,8 @@ Apache-2.0.
   ┌──────────────── @marktiderman/genesis-forms ── zero dependencies, no React ─────────────────┐
   │ definition + its schema · typed DSL · migrations · expression/logic engine · navigation      │
   │ reactive store (signals) · validation (Standard Schema) · recall · scoring · i18n           │
-  │ /server  validate + submit handler, webhook signing      /testing  path simulation, coverage │
+  │ /server  validate + submit handler    /destinations  email, Sheets, signed webhooks          │
+  │ /testing  path simulation, coverage                                                         │
   └───────────────────────────────────────────────────────────────────────────────────────────────┘
                                    │
                   ┌────────────────▼─────────────────┐
@@ -153,12 +155,12 @@ so every Genesis app gets it, not just forms.
 
 | Package | Contents | Notes |
 | --- | --- | --- |
-| `@marktiderman/genesis-forms` | Definition types and their schema, `defineForm` DSL, migrations, expression evaluator, logic graph, navigation, reactive store, validation, recall, scoring, i18n, `toJsonSchema`. Subpaths: `/server` (`validateSubmission`, `createSubmitHandler` as web-standard `Request → Response`, webhook signing), `/testing` (simulation, branch coverage), `/stores/memory`, `/stores/local`, `/stores/rest`. | No dependencies. Runs in browsers, React Native, Node, Deno, Workers. Budget: ≤ 15 kB gzipped for the root entry. |
+| `@marktiderman/genesis-forms` | Definition types and their schema, `defineForm` DSL, migrations, expression evaluator, logic graph, navigation, reactive store, validation, recall, scoring, i18n, `toJsonSchema`. Subpaths: `/server` (`validateSubmission`, `createSubmitHandler` as web-standard `Request → Response`), `/destinations` (email with a Resend provider, Google Sheets, Standard Webhooks signing and verifying; built), `/testing` (simulation, branch coverage), `/stores/memory`, `/stores/local`, `/stores/rest`. | No dependencies. Runs in browsers, React Native, Node, Deno, Workers. Budget: ≤ 15 kB gzipped for the root entry. |
 | `@marktiderman/genesis-forms-react` | `useForm`, `useField`, `useNavigation`, `useResponse`; field and layout registries; `<FormRuntime>` (headless) | Fine-grained subscriptions via `useSyncExternalStore`: typing in one field re-renders one field. |
 | `@marktiderman/genesis-forms-web` | Web renderer kit: field renderers, layouts, chrome | Built on `genesis-ui` and `genesis-design-system`. Each field renderer on its own subpath and lazy-loaded. |
 | `@marktiderman/genesis-forms-native` | React Native renderer kit | Built on `genesis-ui-native` (NativeWind). Same vocabulary as the web kit. |
-| `@marktiderman/genesis-forms-supabase` | `FormStore` for Supabase: SQL for forms, versions, responses, grades; RLS; storage policies; edge-function submit handler | The backend most client projects already use. |
-| `@marktiderman/genesis-forms-builder` | Visual builder | Edits a definition; no storage of its own. The product hosts it; any app can embed it (e.g. teachers authoring worksheets inside Gamify). |
+| `@marktiderman/genesis-forms-supabase` | `FormStore` for Supabase: SQL for forms, versions, responses, grades; RLS; storage policies; edge-function submit handler | The backend most consuming apps already use. |
+| `@marktiderman/genesis-forms-builder` | Visual builder | Edits a definition; no storage of its own. The product hosts it; any app can embed it (e.g. teachers authoring exercises inside a learning app). |
 | `@marktiderman/genesis-forms-devtools` (R1) | `<Inspector>` (state, event-log time travel, server check with tamper mode), share links, and the flow map, logic trace and coverage panels | Development only; powers the `/forms` playground in `apps/sample`. Sensitive values are masked unless revealed. |
 | Later: `-embed`, `-mcp`, field plugins | Web component and iframe embeds (inline, full page, popup, slider, side tab, `postMessage` events); MCP server for agents; payments, scheduling, signature, captcha | |
 
@@ -329,9 +331,9 @@ export type LogicRule =
   type-checked by the analyser and must be installed wherever the form is evaluated, including on
   the server; `parseForm` reports a missing function instead of failing at runtime.
 
-## Scoring, grading and worksheets
+## Scoring, grading and assessments
 
-Worksheets and quizzes are the use case most form tools handle worst (Google Forms quizzes are the
+Exercises and quizzes are the use case most form tools handle worst (Google Forms quizzes are the
 usual baseline), and the one where a naive design leaks answers. So assessment is a first-class
 module of the core, not a plugin.
 
@@ -364,7 +366,7 @@ f.longText("reflection", {
 - **Attempts and modes:** `settings.assessment = { attempts, showFeedback: "never" | "after-each" |
   "after-submit" | "after-release", timeLimit?, shuffle?, passMark? }`.
 - **Assignment:** a response can belong to an assignment (`assignmentId`, `assigneeId`, due date),
-  which is what turns a form into a worksheet given to a class or a client. The core stores the
+  which is what turns a form into an exercise given to a group or a person. The core stores the
   ids; the app decides what an assignment is.
 - **Grading view:** `genesis-forms-web` ships `<ResponseReview>` (one response, with the key, the
   rubric and comment boxes) and `<GradingQueue>` (responses awaiting manual grading).
@@ -535,7 +537,7 @@ export interface FormResponse {
   status: "draft" | "completed" | "abandoned";
   answers: Record<string, Json>;     // keyed by block id, serialized
   hidden: Record<string, Json>;     // untrusted inputs (URL, host app)
-  context: Record<string, Json>;    // server-resolved inputs, e.g. class and coach; never client-supplied
+  context: Record<string, Json>;    // server-resolved inputs, e.g. session and owner; never client-supplied
   variables: Record<string, Json>;
   ending?: string;
   cursor?: { pageId?: string; blockId?: string; history: string[] };
@@ -563,12 +565,21 @@ export interface FormStore {
   holds file references, never file bytes.
 - **The server decides.** `createSubmitHandler()` loads the pinned version, replays the answers
   through the same engine, clears values of fields hidden by logic, resolves server-sourced context, recomputes variables and the ending, and only then
-  writes. It also signs outgoing webhooks (HMAC, with timestamp and replay protection) and supports
-  idempotency keys so double submits don't create duplicates. The R1 `validateSubmission` already
+  writes. It supports idempotency keys so double submits don't create duplicates. The R1 `validateSubmission` already
   runs `parseForm` on the definition (cached per definition object) and refuses one that fails,
   returns `{ ok: false, errors: { "": "Malformed submission." } }` for a body of the wrong shape
   (events that fail `isFormEvent`, answers or hidden inputs that are not plain JSON objects) instead
   of throwing, and compacts the event log before enforcing `maxEvents` (default 10 000).
+- **Destinations (built, `/destinations`).** After the store has the response, the app hands it to
+  destinations: `emailDestination` (any `EmailProvider`; `resendProvider` built in),
+  `sheetsDestination` (Google service-account JWT signed with WebCrypto, header management, RAW
+  writes so text is stored as typed and never run as a formula, opt-in `escapeFormulas` for
+  sheets exported elsewhere, dedupe by response id) and `webhookDestination` (Standard Webhooks
+  HMAC with timestamp and replay protection; the secret is base64-decoded with or without its
+  `whsec_` prefix, as the reference libraries do; `verifyWebhook` for receivers). Each resolves a result that is
+  `retryable` or not, with `retryAfterSeconds` and a message safe to store; none throws or logs.
+  The outbox, claims and retry schedule stay in the app's store (later, `FormStore`), so the
+  destinations work with any backend. Upstreamed from the first consumer's feedback delivery.
 - **Supabase adapter.** Ships SQL for `forms`, `form_versions` and `form_responses`, RLS policies,
   storage bucket policies, and an edge-function submit handler. **Clients never write response
   tables directly**: anon and authenticated roles get no `INSERT` or `UPDATE` on `form_responses`.
@@ -638,8 +649,8 @@ trace ("why is this field hidden?", built in R1 on `explain()`); and `genesis-fo
   on, fields marked `identifying: true` (name, email, phone) are treated as hidden: off the path,
   not validated, and never stored. `validateSubmission` drops client-sent values for them and lists
   them in `ignored`, and the engine records no event timestamps whatever clock it is given. Fields
-  not marked `identifying` are unaffected, so an opt-in follow-up (like the gym's "want a coach to
-  follow up?") keeps working on an anonymous form.
+  not marked `identifying` are unaffected, so an opt-in follow-up (like the feedback form's "want
+  someone to follow up?") keeps working on an anonymous form.
 - `sensitive` fields: excluded from analytics, masked in devtools by default (with a "Reveal
   sensitive values" switch), blanked in share links, optionally encrypted at rest by
   the store adapter. In R1 it is a top-level `FieldBlock` property (`f.shortText("ssn", { label,
@@ -662,25 +673,25 @@ trace ("why is this field hidden?", built in R1 on `explain()`); and `genesis-fo
 
 Two deliverables, one codebase of mechanics:
 
-| In the open-source packages (Genesis monorepo) | In the dedicated client project (the forms product) |
+| In the open-source packages (Genesis monorepo) | In the dedicated forms product |
 | --- | --- |
 | Definition, engine, store, logic, scoring, grading | Workspaces, teams, roles, billing |
 | Renderer kits, layouts, field types | Hosted builder app, form library, templates gallery |
 | Builder component | Publishing to hosted URLs, custom domains |
 | `FormStore` contract + Supabase adapter + SQL | Its own Supabase project, using that adapter |
-| Server submit handler, webhook signing | Integrations catalogue (CRM, Slack, email), notification rules |
+| Server submit handler; destinations (email, Google Sheets, signed webhooks) | Integrations catalogue (CRM, Slack), notification rules, the destination admin UI |
 | Analytics event stream | Results dashboards, exports, drop-off reports |
 | Embed bundle | Embed code generator |
 
-The test for where something goes: **if two client projects would both want it, it belongs in the
+The test for where something goes: **if two consuming apps would both want it, it belongs in the
 packages.** The product is then just the first and largest consumer, and it can't accumulate private
-mechanics that Breakthrough, Conversation Cards or Gamify would have to rebuild. This is the Genesis
+mechanics that other apps would have to rebuild. This is the Genesis
 rule ("when a downstream app hand-builds something genesis nearly had, that is the bug report")
 applied to forms.
 
-### Adopting in client projects today
+### Adopting in apps today
 
-A client project doesn't need the product or the builder to start. After F0–F2 it can:
+An app doesn't need the product or the builder to start. After F0–F2 it can:
 
 ```tsx
 // forms/onboarding.ts: authored in code, versioned with the app
@@ -691,7 +702,7 @@ export const onboarding = defineForm({ … });
 ```
 
 Forms authored in code can later be opened in the builder (they are the same JSON), and forms built
-in the product can be loaded by id into any app. Each project keeps its own Supabase tables, from
+in the product can be loaded by id into any app. Each app keeps its own Supabase tables, from
 the same migration.
 
 ## Fitting into Genesis
@@ -700,7 +711,7 @@ The engine is greenfield; these are the seams where it meets existing Genesis co
 
 | Genesis piece | How it connects |
 | --- | --- |
-| `genesis-design-system` tokens and themes | The kits use the semantic variables (`--primary`, `--radius`, …) plus a few new form tokens added to the design system (`--form-question-size`, `--form-choice-radius`, `--form-progress`), mapped to NativeWind by `themeFromBrand`. Each client's brand themes its forms with no extra work. |
+| `genesis-design-system` tokens and themes | The kits use the semantic variables (`--primary`, `--radius`, …) plus a few new form tokens added to the design system (`--form-question-size`, `--form-choice-radius`, `--form-progress`), mapped to NativeWind by `themeFromBrand`. Each app's brand themes its forms with no extra work. |
 | `genesis-ui` / `genesis-ui-native` primitives | The kits render with them. New primitives the kits need (rating, date range, time, signature, sortable list, matrix) are added there first. |
 | Extension ladder (`slots`/`slotProps`, `className`) | `<Form>` follows it exactly, with a `FormSlotMap`. The field registry is a finer rung below it. |
 | `DataProvider` (`genesis-core`) | `genesisStore(provider)` implements `FormStore` on any provider, for apps not on Supabase. Lives in `genesis-forms-react` behind an optional peer, so the core stays dependency-free. |
@@ -709,39 +720,40 @@ The engine is greenfield; these are the seams where it meets existing Genesis co
 | FRAMEWORK.md rule 4 ("Forms → react-hook-form + zod") | The one real conflict, because the forms engine owns its state. Proposed amendment: rule 4 covers CRUD forms; form *products* use `genesis-forms`. Decision 2. |
 | Conventions | Changesets, subpath exports, `"use client"` stamping, `check-exports-resolve`, token lint, `testID` → `data-testid`, Storybook stories in `apps/sample`. All apply unchanged. |
 
-## M1: CrossFit Fairfield feedback
+## M1: session feedback
 
-The first real consumer is a member feedback system for CrossFit Fairfield. It has to be live fast
-and then improve continuously. So M1 is a **thin vertical slice** through F0–F2: every layer exists,
-each with only what the gym needs. The definition format, ids, store contract and server
+The first real consumer is a feedback system for a small business that runs scheduled sessions
+(events, workshops, appointments) with a staff member hosting each one. It has to be live fast and
+then improve continuously. So M1 is a **thin vertical slice** through F0–F2: every layer exists,
+each with only what that consumer needs. The definition format, ids, store contract and server
 validation are built properly from day one, because those are the things that can't be changed
 later without migrating data. Everything else is deliberately minimal.
 
-### What members see
+### What respondents see
 
-One permanent QR code on the whiteboard and in the post-class message links to the form
-(`/f/after-class`). Members never type the class or coach, and can't change them. The server works
-them out from the submission time and a small `class_schedule` table, and stores them in
+One permanent QR code at the venue and in the follow-up message links to the form
+(`/f/event-feedback`). Respondents never type the session or its host, and can't change them. The
+server works them out from the submission time and a small schedule table, and stores them in
 `response.context`.
 
 ```ts
-export const afterClass = defineForm({
-  id: "after-class",
-  title: "How was class?",
+export const eventFeedback = defineForm({
+  id: "event-feedback",
+  title: "How was the event?",
   layout: { mode: "focus" },                       // one question at a time, thumb-friendly
   hidden: {                                         // resolved by the server, never from the URL
-    class: f.hidden.string({ source: "server" }),
-    coach: f.hidden.string({ source: "server" }),
+    session: f.hidden.string({ source: "server" }),
+    owner: f.hidden.string({ source: "server" }),
   },
   blocks: [
-    f.rating("overall", { label: "How was today's class?", max: 5, required: true }),
+    f.rating("overall", { label: "How was today's event?", max: 5, required: true }),
     f.multiChoice("went_well", {
       label: "What went well?",
-      options: [{ value: "coaching" }, { value: "workout" }, { value: "community" },
-                { value: "scaling" }, { value: "equipment" }, { value: "cleanliness" }],
+      options: [{ value: "hosting" }, { value: "content" }, { value: "community" },
+                { value: "pacing" }, { value: "venue" }, { value: "cleanliness" }],
     }),
     f.longText("improve", { label: "Anything we could do better?" }),
-    f.yesNo("contact_me", { label: "Want {{hidden:coach|a coach}} to follow up with you?" }),
+    f.yesNo("contact_me", { label: "Want {{hidden:owner|someone}} to follow up with you?" }),
     f.shortText("name", { label: "Your name", required: true }),
     f.email("email", { label: "Best email to reach you", required: true }),
   ],
@@ -750,21 +762,21 @@ export const afterClass = defineForm({
     when("contact_me").isNot(true).hide("email"),
     when("overall").lessThan(4).jumpTo("improve"),  // low score: skip straight to "what could be better"
   ],
-  endings: [{ id: "default", title: "Thanks! See you at the next class 💪" }],
+  endings: [{ id: "default", title: "Thanks! See you next time." }],
   settings: { anonymous: true },                    // anonymous unless they ask for follow-up
 });
 ```
 
-A second, monthly form (`monthly-pulse`) adds an `nps` question and is sent by email or text.
-Members can always open it anonymously; anything identifying is opt-in.
+A second, monthly form (`monthly-check-in`) adds an `nps` question and is sent by email or text.
+Respondents can always open it anonymously; anything identifying is opt-in.
 
-### What the owner and coaches see
+### What the owner and staff see
 
 - **Responses list:** Genesis's existing `ResourcePage` on the `form_responses` table through the
-  Supabase provider, with filters by form, coach, class time and score. Nothing new to build.
+  Supabase provider, with filters by form, host, session time and score. Nothing new to build.
 - **Alerts:** a low rating, or any "follow up with me", sends an email (or Slack/text) to the owner
   through a Supabase database webhook and a small edge function.
-- **Weekly summary:** average rating by coach and class time, NPS trend, and the free-text
+- **Weekly summary:** average rating by host and session time, NPS trend, and the free-text
   comments. A Genesis page reading a SQL view to start.
 
 ### M1 scope
@@ -773,24 +785,23 @@ Members can always open it anonymously; anything identifying is opt-in.
 | --- | --- | --- |
 | Core | Definition format and schema, `defineForm`, `parseForm` (structure checks), show/hide, jump, recall with fallback, typed hidden inputs from the URL, validation | Variables and calculations, repeat groups, full static analysis, i18n |
 | Fields | `rating`, `nps`, `single-choice`, `multi-choice`, `yes-no`, `short-text`, `long-text`, `email` | Everything else |
-| Layouts | `focus` (members on phones) and `classic` | `paged`, print |
-| Store | Supabase: `forms`, `form_versions`, `form_responses` tables. No client role can write `form_responses`; the submit handler is the only writer. Only staff can read. | Partials, resume, uploads |
+| Layouts | `focus` (respondents on phones) and `classic` | `paged`, print |
+| Store | Supabase: `forms`, `form_versions`, `form_responses` tables. No browser role can write `form_responses`; the submit handler is the only writer. Only staff can read. | Partials, resume, uploads |
 | Server | Edge-function submit handler that re-validates against the pinned version; honeypot and rate limit | Signed webhooks to third parties |
 | Admin | `ResourcePage` responses list, alert function, summary view | Builder, dashboards in the product |
 | Analytics | `form_view`, `form_start`, `submit_success` | Per-question drop-off |
 
-Forms are authored in code for M1; the gym owner asks for a change and it ships. The builder (F3)
+Forms are authored in code for M1; the owner asks for a change and it ships. The builder (F3)
 later opens exactly these definitions.
 
-### After M1, driven by what the gym asks for
+### After M1, driven by what the first consumer asks for
 
-Likely next steps, in order of value to the gym: per-question drop-off (are people quitting the
-form?), partials, a coach dashboard, the monthly NPS trend, a builder so staff can edit questions
-themselves, then onboarding (new-member intake with waiver signature and injury history:
+Likely next steps, in order of value: per-question drop-off (are people quitting the form?),
+partials, a staff dashboard, the monthly NPS trend, a builder so staff can edit questions
+themselves, then onboarding (new-customer intake with a signed agreement and sensitive details:
 `sensitive` fields, uploads, signature).
 
-Each step lands in the packages first, so Breakthrough, Conversation Cards, Gamify and the forms
-product get it too.
+Each step lands in the packages first, so every consuming app and the forms product get it too.
 
 ## Releases (current)
 
@@ -799,24 +810,24 @@ breakdown and maps onto them.
 
 | Release | Ships |
 | --- | --- |
-| **R1 · Gym launch** (built) | `genesis-forms`, `genesis-forms-react`, `genesis-forms-web` 0.1: definition, `defineForm`, `parseForm`, show/hide and jump logic, recall, typed hidden inputs, event log and `replay`, nine field types (with `phone`), `validateSubmission`, focus and classic layouts, `identifying` fields and the anonymous setting. `/testing`: `simulate`, `coverage`, `runScenario`, `recordScenario`, `compactEvents` and the conformance suite; `explain()`. `genesis-forms-devtools` 0.1 and the `/forms` playground. Umbrella subpaths `@marktiderman/genesis/forms`, `/forms/server`, `/forms/react`, `/forms/web`. First consumer: CrossFit Fairfield feedback in Breakthrough. |
+| **R1 · First consumer** (built) | `genesis-forms`, `genesis-forms-react`, `genesis-forms-web` 0.1: definition, `defineForm`, `parseForm`, show/hide and jump logic, recall, typed hidden inputs, event log and `replay`, nine field types (with `phone`), `validateSubmission`, focus and classic layouts, `identifying` fields and the anonymous setting. `/testing`: `simulate`, `coverage`, `runScenario`, `recordScenario`, `compactEvents` and the conformance suite; `explain()`. `genesis-forms-devtools` 0.1 and the `/forms` playground. Umbrella subpaths `@marktiderman/genesis/forms`, `/forms/server`, `/forms/react`, `/forms/web`. First consumer: session feedback (M1). |
 | **R2 · Packages for every app** | Complete logic (calculations, endings by score), checks and tests, field plugins, paged layout, accessibility and translations, theming, partials and resume, uploads, privacy, webhooks, analytics. |
 | **R3 · Builder + AI** | Visual builder, publishing and versions, agent access (MCP and API) and AI assist. |
-| **R4 · Reach** | Worksheets (answer keys, grading, attempts, print), embeds and React Native, collaboration. |
+| **R4 · Reach** | Assessments (answer keys, grading, attempts, print), embeds and React Native, collaboration. |
 
 ## Roadmap
 
-Ordered so client projects can use it as early as possible, and so the product's builder lands on a
+Ordered so consuming apps can use it as early as possible, and so the product's builder lands on a
 proven engine. M1 (above) is a slice through F0–F2 that ships first; each phase then completes its
 layer.
 
 | Phase | Ships | Done when |
 | --- | --- | --- |
 | **F0 · Core** | `genesis-forms`: definition + schema, `defineForm` with inference, `parseForm` + analyser, logic engine, navigation, store, validation, recall, variables, `/testing`. | Conformance suite passes in Node, Workers and React Native's JS engine; size budget met. |
-| **F1 · Web** | `genesis-forms-react`, registries, `genesis-forms-web` with text, choice, scale, date and file types; classic, paged and focus layouts; keyboard model; a11y suite; new primitives in `genesis-ui`. | A branching, scoring feedback form works with keyboard and screen reader only; axe clean in CI. **First client project adopts it.** |
-| **F2 · Responses** | `FormStore`, `genesis-forms-supabase`, partials, resume, uploads, `/server` submit handler, webhooks, analytics events. | An onboarding form resumes on another device; a lead form is re-validated server-side and fires a signed webhook. |
+| **F1 · Web** | `genesis-forms-react`, registries, `genesis-forms-web` with text, choice, scale, date and file types; classic, paged and focus layouts; keyboard model; a11y suite; new primitives in `genesis-ui`. | A branching, scoring feedback form works with keyboard and screen reader only; axe clean in CI. **The first consuming app adopts it.** |
+| **F2 · Responses** | `FormStore`, `genesis-forms-supabase`, partials, resume, uploads, `/server` submit handler, analytics events. Built: `/destinations` (email, Google Sheets, signed webhooks). | An onboarding form resumes on another device; a lead form is re-validated server-side and fires a signed webhook. |
 | **F3 · Builder** | `genesis-forms-builder`: document editor, `/` menu, inspector from `propsSchema`, logic panel and flow map, preview, publish/versioning, translations. **The product's builder app ships on it.** | A non-developer builds and publishes a branching form; a plugin field type appears in the builder with no builder changes. |
-| **F4 · Assessment** | Answer keys, `publicDefinition`, auto + manual grading, rubrics, attempts, assignments, `<ResponseReview>`, `<GradingQueue>`, print layout, `fillBlanks`, matching, ordering. | A worksheet is assigned, completed over two sessions, auto- and manually graded, with no answer key in the browser bundle or network traffic. |
+| **F4 · Assessment** | Answer keys, `publicDefinition`, auto + manual grading, rubrics, attempts, assignments, `<ResponseReview>`, `<GradingQueue>`, print layout, `fillBlanks`, matching, ordering. | An exercise is assigned, completed over two sessions, auto- and manually graded, with no answer key in the browser bundle or network traffic. |
 | **F5 · Native + embed** | `genesis-forms-native`, `genesis-forms-embed` (devtools shipped in R1). | The same definition runs in an Expo app and in an embed on a marketing site. |
 | **F6 · Ecosystem** | Plugins (payments, scheduling, signature, captcha), AI assist, MCP server, collaboration, Genesis `ResourceForm` and Data Studio integration. | Third-party field packages exist outside the repo. |
 
@@ -840,7 +851,7 @@ Decided: the builder (F3) ships before assessment (F4).
 5. **Assessment in the core** rather than a plugin. *Recommended*, because answer-key stripping has
    to be enforced by the store and server, and a plugin can't guarantee that.
 6. **The product's name and repository**, which this plan deliberately leaves open: it consumes the
-   packages like any other client project.
+   packages like any other app.
 
 ## Appendix A: what we learn from each alternative
 

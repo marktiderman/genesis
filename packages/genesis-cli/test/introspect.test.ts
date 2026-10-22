@@ -24,16 +24,16 @@ function compileErrors(source: string): string[] {
 
 describe("@genesis comment settings", () => {
   it("splits the description from the settings", () => {
-    expect(parseTableComment('People in a program. @genesis {"label": "Clients", "labelField": "name"}', "t")).toEqual({
+    expect(parseTableComment('People in a program. @genesis {"label": "Customers", "labelField": "name"}', "t")).toEqual({
       description: "People in a program.",
-      settings: { label: "Clients", labelField: "name" },
+      settings: { label: "Customers", labelField: "name" },
     });
     expect(parseColumnComment("Just a note.", "c")).toEqual({ description: "Just a note." });
     expect(parseColumnComment(null, "c")).toEqual({});
   });
 
   it("refuses malformed or unknown settings, naming where", () => {
-    expect(() => parseColumnComment("@genesis {nope", "public.clients.notes")).toThrow(/public\.clients\.notes/);
+    expect(() => parseColumnComment("@genesis {nope", "public.customers.notes")).toThrow(/public\.customers\.notes/);
     expect(() => parseColumnComment('@genesis {"color": "red"}', "c")).toThrow(CommentSettingsError);
     expect(() => parseTableComment('@genesis {"label": 3}', "t")).toThrow(/must be a string/);
   });
@@ -42,13 +42,13 @@ describe("@genesis comment settings", () => {
 const OPENAPI = {
   swagger: "2.0",
   definitions: {
-    clients: {
-      description: 'People in a program. @genesis {"label": "Clients"}',
+    customers: {
+      description: 'People in a program. @genesis {"label": "Customers"}',
       required: ["id", "name", "status"],
       properties: {
         id: { format: "uuid", type: "string", default: "gen_random_uuid()", description: "Note:\nThis is a Primary Key.<pk/>" },
         name: { format: "text", type: "string" },
-        status: { format: "public.client_status", type: "string", enum: ["active", "paused"] },
+        status: { format: "public.customer_status", type: "string", enum: ["active", "paused"] },
         program_id: {
           format: "integer",
           type: "integer",
@@ -64,10 +64,10 @@ const OPENAPI = {
 
 describe("introspect from OpenAPI (PostgREST / Supabase)", () => {
   it("reads keys, links, enums, arrays and comment settings", () => {
-    const [clients, programs] = introspectOpenApi(OPENAPI);
-    expect(clients).toMatchObject({ name: "public.clients", key: ["id"], description: "People in a program.", settings: { label: "Clients" } });
+    const [customers, programs] = introspectOpenApi(OPENAPI);
+    expect(customers).toMatchObject({ name: "public.customers", key: ["id"], description: "People in a program.", settings: { label: "Customers" } });
     expect(programs!.key).toEqual(["id"]);
-    const col = (n: string) => clients!.columns.find((c) => c.name === n)!;
+    const col = (n: string) => customers!.columns.find((c) => c.name === n)!;
     expect(col("id")).toMatchObject({ type: "string", dbType: "uuid", hasDefault: true, nullable: false });
     expect(col("id").description).toBeUndefined();
     expect(col("status")).toMatchObject({ enumValues: ["active", "paused"] });
@@ -93,7 +93,7 @@ describe("the emitted contract", () => {
 
   it("compiles under strict TypeScript, with row types", () => {
     expect(compileErrors(source)).toEqual([]);
-    expect(source).toContain("export interface PublicClientsRow {");
+    expect(source).toContain("export interface PublicCustomersRow {");
     expect(source).toContain('  status: "active" | "paused";');
     expect(source).toContain("  program_id: number | null;");
     expect(source).toContain("  tags: string[] | null;");
@@ -141,22 +141,22 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
     url.pathname = `/${DB}`;
     sql = postgres(url.toString(), { max: 1, onnotice: () => {} });
     await sql.unsafe(`
-      create type public.client_status as enum ('active', 'paused', 'done');
+      create type public.customer_status as enum ('active', 'paused', 'done');
       create table public.programs (id int primary key, name text not null);
-      create table public.clients (
+      create table public.customers (
         id uuid primary key default gen_random_uuid(),
         program_id int references public.programs (id),
         name text not null,
-        status public.client_status not null default 'active',
+        status public.customer_status not null default 'active',
         tags text[],
         score numeric(5, 2),
         starts_on date,
         seq bigint generated always as identity,
         updated_at timestamptz(6) not null default now()
       );
-      create table public.coach_clients (coach_id uuid, client_id uuid references public.clients (id), primary key (coach_id, client_id));
-      comment on table public.clients is 'People in a program. @genesis {"label": "Coaching clients", "labelField": "name"}';
-      comment on column public.clients.tags is 'Free-form tags. @genesis {"label": "Tags"}';
+      create table public.owner_customers (owner_id uuid, customer_id uuid references public.customers (id), primary key (owner_id, customer_id));
+      comment on table public.customers is 'People in a program. @genesis {"label": "Customer accounts", "labelField": "name"}';
+      comment on column public.customers.tags is 'Free-form tags. @genesis {"label": "Tags"}';
       create schema private;
       create table private.hidden (id int primary key);
     `);
@@ -169,17 +169,17 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
 
   it("reads tables, keys, types, links and comment settings from the catalog", async () => {
     const tables = await introspectPostgres(sql, ["public"]);
-    expect(tables.map((t) => t.name)).toEqual(["public.clients", "public.coach_clients", "public.programs"]);
-    const clients = tables[0]!;
-    expect(clients).toMatchObject({ key: ["id"], description: "People in a program.", settings: { label: "Coaching clients", labelField: "name" } });
-    const col = (n: string) => clients.columns.find((c) => c.name === n)!;
-    expect(col("status")).toMatchObject({ dbType: "client_status", enumValues: ["active", "paused", "done"], hasDefault: true, nullable: false });
+    expect(tables.map((t) => t.name)).toEqual(["public.customers", "public.owner_customers", "public.programs"]);
+    const customers = tables[0]!;
+    expect(customers).toMatchObject({ key: ["id"], description: "People in a program.", settings: { label: "Customer accounts", labelField: "name" } });
+    const col = (n: string) => customers.columns.find((c) => c.name === n)!;
+    expect(col("status")).toMatchObject({ dbType: "customer_status", enumValues: ["active", "paused", "done"], hasDefault: true, nullable: false });
     expect(col("program_id").references).toEqual({ resource: "public.programs", field: "id" });
     expect(col("tags")).toMatchObject({ array: true, type: "string", settings: { label: "Tags" }, description: "Free-form tags." });
     expect(col("score")).toMatchObject({ type: "number", dbType: "numeric(5,2)" });
     expect(col("starts_on")).toMatchObject({ type: "datetime", dbType: "date" });
     expect(col("seq")).toMatchObject({ generated: true, hasDefault: true });
-    expect(tables[1]!.key).toEqual(["coach_id", "client_id"]);
+    expect(tables[1]!.key).toEqual(["owner_id", "customer_id"]);
     expect(compileErrors(emitContracts(tables, { source: "Postgres (public)" }))).toEqual([]);
   });
 });

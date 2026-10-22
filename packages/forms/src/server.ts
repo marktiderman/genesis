@@ -22,7 +22,7 @@ export interface SubmissionInput {
 }
 
 export interface SubmissionOptions {
-  /** Values for `source: "server"` inputs, resolved by the server (class, coach, user id…). */
+  /** Values for `source: "server"` inputs, resolved by the server (account id, location, user id…). */
   context?: Record<string, Json> | undefined;
   /** `false` checks a draft: formats only, nothing required. Default true. */
   complete?: boolean | undefined;

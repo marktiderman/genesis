@@ -26,6 +26,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./ops": {
+      "types": "./dist/ops.d.ts",
+      "import": "./dist/ops.js"
+    },
     "./styles.css": "./dist/styles.css"
   },
   "files": [
@@ -42,7 +46,7 @@
     "lucide-react": "^1.0.0"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-forms": "workspace:>=0.1.1 <1.0.0",
+    "@marktiderman/genesis-forms": "workspace:>=0.3.0 <1.0.0",
     "@marktiderman/genesis-forms-react": "workspace:>=0.1.0 <1.0.0",
     "@marktiderman/genesis-forms-web": "workspace:>=0.1.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:^",

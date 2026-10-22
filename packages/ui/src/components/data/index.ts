@@ -28,7 +28,22 @@ export {
   ResourcePage,
   type ResourcePageProps,
   type ResourceCardActions,
+  type ResourcePageSlotMap,
+  type ResourcePageSlots,
+  type ResourcePageSlotProps,
+  type ResourceDeleteConfirmCopy,
 } from "./ResourcePage";
+export {
+  ConfirmDeleteDialog,
+  type ConfirmDeleteDialogProps,
+} from "./ConfirmDeleteDialog";
+// The generic slot contract, so an app typing a slot map from `/data` does
+// not have to reach into the package root for it.
+export type { Slots, SlotOverride, SlotPropsFor } from "../../slots";
+export type {
+  ResponsiveViewMode,
+  ViewModeDefault,
+} from "../../hooks/use-view-preference";
 export {
   ResourceDetailPage,
   type ResourceDetailPageProps,
@@ -58,6 +73,7 @@ import {
   type AppShellProps,
   type AppShellOptions,
   type NavItem,
+  type ParentNavigation,
 } from "../layout/AppShell";
 import {
   PageHeader as PageHeaderImpl,
@@ -79,7 +95,7 @@ export const AppShell = AppShellImpl;
  * @stability Deprecated
  */
 export const PageHeader = PageHeaderImpl;
-export type { AppShellProps, AppShellOptions, NavItem };
+export type { AppShellProps, AppShellOptions, NavItem, ParentNavigation };
 export type { PageHeaderProps, PageHeaderOptions };
 
 // Router-agnostic navigation primitives (re-exported for `/data` consumers)

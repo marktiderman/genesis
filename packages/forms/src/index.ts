@@ -45,6 +45,23 @@ export {
   type ChoiceOption,
   type FieldTypeManifest,
 } from "./fields";
+export {
+  formatTimestamp,
+  HIGHLIGHT_NOTE_MESSAGE,
+  listLimits,
+  MAX_HIGHLIGHT_NOTE_LENGTH,
+  MAX_HIGHLIGHT_QUOTE_LENGTH,
+  MAX_TABLE_CELL_LENGTH,
+  MAX_TABLE_COLUMNS,
+  MAX_TIMESTAMP_SECONDS,
+  parseTimestamp,
+  tableColumns,
+  tableLimits,
+  type Highlight,
+  type TableColumn,
+  type MediaNote,
+  STRUCTURED_FIELD_TYPES,
+} from "./structured";
 export { recall } from "./recall";
 export { validateField, REQUIRED_MESSAGE, type FieldValidator, type StandardSchemaV1 } from "./validate";
 export { canonicalJson, fingerprint } from "./hash";

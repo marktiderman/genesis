@@ -6,7 +6,8 @@ import { Switch } from "@marktiderman/genesis-ui/switch";
 import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
-import { DraftInput, Pick, SelectRow, SwitchRow, TextRow } from "./controls";
+import { DraftInput, Editable, Pick, SelectRow, SwitchRow, TextRow } from "./controls";
+import { useBuilderConfig } from "./editors";
 import type { Finding } from "./analyze";
 import {
   addEnding,
@@ -24,6 +25,7 @@ type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) 
 
 export function EndingsPanel({ def, apply, findings }: { def: FormDefinition; apply: Apply; findings: Finding[] }) {
   const endings = def.endings ?? [];
+  const readOnly = !!useBuilderConfig().readOnly;
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
@@ -39,16 +41,19 @@ export function EndingsPanel({ def, apply, findings }: { def: FormDefinition; ap
                 <code className="text-xs text-muted-foreground">{e.id}</code>
                 {warn.length ? <Badge variant="warning">Unreachable</Badge> : null}
                 <span className="flex-1" />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Delete ending"
-                  disabled={i === 0}
-                  onClick={() => apply((d) => removeEnding(d, e.id))}
-                >
-                  <Trash2 />
-                </Button>
+                {readOnly ? null : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Delete ending"
+                    disabled={i === 0}
+                    onClick={() => apply((d) => removeEnding(d, e.id))}
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
               </div>
+              <Editable readOnly={readOnly} className="space-y-3">
               <TextRow label="Title" value={e.title} onChange={(title) => apply((d) => updateEnding(d, e.id, { title }), `ending-title:${e.id}`)} />
               <TextRow
                 label="Message"
@@ -56,20 +61,24 @@ export function EndingsPanel({ def, apply, findings }: { def: FormDefinition; ap
                 value={e.description ?? ""}
                 onChange={(description) => apply((d) => updateEnding(d, e.id, { description }), `ending-desc:${e.id}`)}
               />
+              </Editable>
             </li>
           );
         })}
       </ol>
-      <Button variant="outline" size="sm" onClick={() => apply((d) => addEnding(d))} data-testid="builder-add-ending">
-        <Plus /> Add ending
-      </Button>
+      {readOnly ? null : (
+        <Button variant="outline" size="sm" onClick={() => apply((d) => addEnding(d))} data-testid="builder-add-ending">
+          <Plus /> Add ending
+        </Button>
+      )}
     </div>
   );
 }
 
 export function SettingsPanel({ def, apply }: { def: FormDefinition; apply: Apply }) {
+  const readOnly = !!useBuilderConfig().readOnly;
   return (
-    <div className="space-y-6">
+    <Editable readOnly={readOnly} className="space-y-6">
       <section className="space-y-4">
         <h3 className="text-sm font-semibold">Form</h3>
         <TextRow
@@ -111,8 +120,8 @@ export function SettingsPanel({ def, apply }: { def: FormDefinition; apply: Appl
           onChange={(clearHiddenValues) => apply((d) => updateSettings(d, { clearHiddenValues }))}
         />
       </section>
-      <HiddenInputsSection def={def} apply={apply} />
-    </div>
+      <HiddenInputsSection def={def} apply={apply} readOnly={readOnly} />
+    </Editable>
   );
 }
 
@@ -122,14 +131,14 @@ const SOURCE_LABEL: Record<HiddenInput["source"], string> = {
   server: "Set by the server (trusted)",
 };
 
-function HiddenInputsSection({ def, apply }: { def: FormDefinition; apply: Apply }) {
+function HiddenInputsSection({ def, apply, readOnly }: { def: FormDefinition; apply: Apply; readOnly: boolean }) {
   const hidden: HiddenSpec[] = def.hidden ?? [];
   return (
     <section className="space-y-3">
       <div>
         <h3 className="text-sm font-semibold">Hidden inputs</h3>
         <p className="text-xs text-muted-foreground">
-          Values the respondent doesn't type, such as the class or coach. Use them in logic, or in wording with{" "}
+          Values the respondent doesn't type, such as a location, a staff member or an account id. Use them in logic, or in wording with{" "}
           <code>{"{{hidden:name}}"}</code>. Only server inputs can be trusted.
         </p>
       </div>
@@ -161,14 +170,16 @@ function HiddenInputsSection({ def, apply }: { def: FormDefinition; apply: Apply
                 options={(Object.keys(SOURCE_LABEL) as HiddenInput["source"][]).map((s) => ({ value: s, label: SOURCE_LABEL[s] }))}
                 onChange={(source) => apply((d) => updateHidden(d, h.name, { source: source as HiddenInput["source"] }))}
               />
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`Delete hidden input ${h.name}`}
-                onClick={() => apply((d) => removeHidden(d, h.name))}
-              >
-                <Trash2 />
-              </Button>
+              {readOnly ? null : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Delete hidden input ${h.name}`}
+                  onClick={() => apply((d) => removeHidden(d, h.name))}
+                >
+                  <Trash2 />
+                </Button>
+              )}
               <div className="flex w-full flex-wrap gap-4">
                 <InlineSwitch
                   label="Sensitive"
@@ -186,9 +197,11 @@ function HiddenInputsSection({ def, apply }: { def: FormDefinition; apply: Apply
           ))}
         </ul>
       ) : null}
-      <Button variant="outline" size="sm" onClick={() => apply((d) => addHidden(d))}>
-        <Plus /> Add hidden input
-      </Button>
+      {readOnly ? null : (
+        <Button variant="outline" size="sm" onClick={() => apply((d) => addHidden(d))}>
+          <Plus /> Add hidden input
+        </Button>
+      )}
     </section>
   );
 }
@@ -204,6 +217,7 @@ function InlineSwitch(props: { label: string; checked: boolean; onChange: (check
 
 /** The whole definition as JSON, editable. Applied only when it parses and passes `parseForm`. */
 export function JsonPanel({ def, apply }: { def: FormDefinition; apply: Apply }) {
+  const readOnly = !!useBuilderConfig().readOnly;
   const pretty = JSON.stringify(def, null, 2);
   const [text, setText] = useState(pretty);
   const [error, setError] = useState<string | null>(null);
@@ -226,11 +240,17 @@ export function JsonPanel({ def, apply }: { def: FormDefinition; apply: Apply })
   };
   return (
     <div className="space-y-2">
-      <p className="text-sm text-muted-foreground">The exact definition that is stored and served. Paste a definition here to replace this one.</p>
+      <p className="text-sm text-muted-foreground">
+        {readOnly
+          ? "The exact definition that is stored and served."
+          : "The exact definition that is stored and served. Paste a definition here to replace this one."}
+      </p>
       <Textarea
         aria-label="Definition JSON"
         data-testid="builder-json"
         className="min-h-96 font-mono text-xs"
+        // Read-only, not disabled, so it can still be selected and copied.
+        readOnly={readOnly}
         value={text}
         onChange={(e) => {
           setText(e.target.value);
@@ -238,6 +258,7 @@ export function JsonPanel({ def, apply }: { def: FormDefinition; apply: Apply })
         }}
       />
       {error ? <pre className="whitespace-pre-wrap text-xs text-destructive">{error}</pre> : null}
+      {readOnly ? null : (
       <div className="flex gap-2">
         <Button size="sm" disabled={!dirty} onClick={commit} data-testid="builder-json-apply">
           Apply JSON
@@ -255,6 +276,7 @@ export function JsonPanel({ def, apply }: { def: FormDefinition; apply: Apply })
           Discard
         </Button>
       </div>
+      )}
     </div>
   );
 }

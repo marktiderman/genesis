@@ -13,15 +13,15 @@ const node = (
   items: Item[] = [],
 ): NavigationNode<Item> => ({ id, path, label: id, items, children });
 
-// Mirrors the tree mindful-coach-pro's navigationFor() builds for an owner who
-// is coach + admin + client: a root at /app with logical children whose URLs
-// share no prefix with it.
+// Mirrors the tree a host app's navigationFor() builds for a user with three
+// roles (staff + admin + customer): a root at /app with logical children whose
+// URLs share no prefix with it.
 const appTree = node("app", "/app", [
   node("home", "/my", [], [{ to: "/my/tasks", label: "Tasks" }]),
-  node("clients", "/dashboard", [node("client", "/clients/$clientId")]),
+  node("customers", "/dashboard", [node("customer", "/customers/$customerId")]),
   node("admin", "/admin", [], [
     { to: "/admin?tab=users", label: "Users" },
-    { to: "/admin?tab=clients", label: "Clients" },
+    { to: "/admin?tab=customers", label: "Customers" },
   ]),
   node("settings", "/settings", [], [
     { to: "/settings#profile", label: "Profile" },
@@ -30,30 +30,30 @@ const appTree = node("app", "/app", [
 ]);
 
 describe("resolveNavigation", () => {
-  // Ported from mindful-coach-pro src/test/navigation-tree.test.ts.
+  // Ported from a host app's navigation-tree test.
   it("returns Home to the app parent rather than browser history", () => {
     expect(resolveNavigation(appTree, "/my/tasks").parent?.path).toBe("/app");
   });
 
-  it("returns client views to Clients across different URL prefixes", () => {
-    const result = resolveNavigation(appTree, "/clients/client-123/tasks");
-    expect(result.current.id).toBe("client");
+  it("returns customer views to Customers across different URL prefixes", () => {
+    const result = resolveNavigation(appTree, "/customers/customer-123/tasks");
+    expect(result.current.id).toBe("customer");
     expect(result.parent?.path).toBe("/dashboard");
-    expect(result.params).toEqual({ clientId: "client-123" });
+    expect(result.params).toEqual({ customerId: "customer-123" });
   });
 
   it("supports repeated nesting with interpolated logical parents", () => {
     const tree = node("app", "/app", [
-      node("clients", "/dashboard", [
-        node("client", "/clients/$clientId", [
-          node("task", "/clients/$clientId/tasks/$taskId", [], [
+      node("customers", "/dashboard", [
+        node("customer", "/customers/$customerId", [
+          node("task", "/customers/$customerId/tasks/$taskId", [], [
             { to: "details", label: "Details" },
           ]),
         ]),
       ]),
     ]);
-    const result = resolveNavigation(tree, "/clients/123/tasks/456");
-    expect(result.parent?.path).toBe("/clients/123");
+    const result = resolveNavigation(tree, "/customers/123/tasks/456");
+    expect(result.parent?.path).toBe("/customers/123");
     expect(result.items).toEqual([{ to: "details", label: "Details" }]);
   });
 
@@ -64,7 +64,7 @@ describe("resolveNavigation", () => {
   it("gives Admin its own record views", () => {
     expect(
       resolveNavigation(appTree, "/admin").items.map((item) => item.to),
-    ).toEqual(["/admin?tab=users", "/admin?tab=clients"]);
+    ).toEqual(["/admin?tab=users", "/admin?tab=customers"]);
   });
 
   it("gives Settings its own section navigation", () => {
@@ -85,12 +85,12 @@ describe("resolveNavigation", () => {
   });
 
   it.each([
-    ["static first", [node("new", "/clients/new"), node("client", "/clients/$clientId")]],
-    ["param first", [node("client", "/clients/$clientId"), node("new", "/clients/new")]],
+    ["static first", [node("new", "/customers/new"), node("customer", "/customers/$customerId")]],
+    ["param first", [node("customer", "/customers/$customerId"), node("new", "/customers/new")]],
   ])("prefers a static segment over a $param on a tie (%s)", (_, children) => {
     const tree = node("app", "/", children);
-    expect(resolveNavigation(tree, "/clients/new").current.id).toBe("new");
-    expect(resolveNavigation(tree, "/clients/c1").current.id).toBe("client");
+    expect(resolveNavigation(tree, "/customers/new").current.id).toBe("new");
+    expect(resolveNavigation(tree, "/customers/c1").current.id).toBe("customer");
   });
 
   it("ranks by position before length, like the routers do", () => {
@@ -151,35 +151,35 @@ describe("resolveNavigation", () => {
 describe("isPathActive", () => {
   it("keeps the path-only behavior", () => {
     expect(isPathActive("/", "/")).toBe(true);
-    expect(isPathActive("/", "/clients")).toBe(false);
-    expect(isPathActive("/clients", "/clients/1")).toBe(true);
-    expect(isPathActive("/clients", "/clients-archive")).toBe(false);
-    expect(isPathActive("/clients", undefined)).toBe(false);
+    expect(isPathActive("/", "/customers")).toBe(false);
+    expect(isPathActive("/customers", "/customers/1")).toBe(true);
+    expect(isPathActive("/customers", "/customers-archive")).toBe(false);
+    expect(isPathActive("/customers", undefined)).toBe(false);
   });
 
   it("compares a plain item against the path part of activePath", () => {
     expect(isPathActive("/admin", "/admin?tab=users")).toBe(true);
     expect(isPathActive("/settings", "/settings#profile")).toBe(true);
-    expect(isPathActive("/clients", "/clients/1?view=board")).toBe(true);
+    expect(isPathActive("/customers", "/customers/1?view=board")).toBe(true);
   });
 
   it("supports exact matching with end", () => {
-    expect(isPathActive("/clients", "/clients/1", { end: true })).toBe(false);
-    expect(isPathActive("/clients", "/clients?page=2", { end: true })).toBe(true);
+    expect(isPathActive("/customers", "/customers/1", { end: true })).toBe(false);
+    expect(isPathActive("/customers", "/customers?page=2", { end: true })).toBe(true);
   });
 
   it("ignores a trailing slash", () => {
-    expect(isPathActive("/clients", "/clients/", { end: true })).toBe(true);
-    expect(isPathActive("/clients/", "/clients")).toBe(true);
+    expect(isPathActive("/customers", "/customers/", { end: true })).toBe(true);
+    expect(isPathActive("/customers/", "/customers")).toBe(true);
     expect(isPathActive("/settings#profile", "/settings/#profile")).toBe(true);
-    expect(isPathActive("/", "/clients/")).toBe(false);
+    expect(isPathActive("/", "/customers/")).toBe(false);
   });
 
   it("requires a query item's params to match", () => {
     expect(isPathActive("/admin?tab=users", "/admin?tab=users")).toBe(true);
     expect(isPathActive("/admin?tab=users", "/admin?tab=users&page=2")).toBe(true);
     expect(isPathActive("/admin?tab=users", "/admin?page=2&tab=users")).toBe(true);
-    expect(isPathActive("/admin?tab=users", "/admin?tab=clients")).toBe(false);
+    expect(isPathActive("/admin?tab=users", "/admin?tab=customers")).toBe(false);
     expect(isPathActive("/admin?tab=users", "/admin")).toBe(false);
     expect(isPathActive("/admin?tab=users", "/admin/sub?tab=users")).toBe(false);
   });

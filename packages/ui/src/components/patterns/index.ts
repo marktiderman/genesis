@@ -25,6 +25,7 @@ export {
   SortableList,
   type SortableListProps,
   type SortableListItemContext,
+  type SortableListReorder,
 } from "./sortable-list";
 export {
   StatusBadge,

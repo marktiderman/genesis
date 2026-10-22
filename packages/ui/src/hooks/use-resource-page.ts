@@ -6,7 +6,7 @@ import type { DataTableColumn } from "../components/data/DataTable";
 import type { DataFilterConfig } from "../components/data/DataFilters";
 import type { ViewMode } from "../components/patterns/view-toggle";
 import type { Identifier, FilterParam, SortParam } from "@marktiderman/genesis-core/provider";
-import { useViewPreference } from "./use-view-preference";
+import { useViewPreference, type ViewModeDefault } from "./use-view-preference";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -25,6 +25,12 @@ export interface ResourceColumnDef<T> {
   header?: string;
   sortable?: boolean;
   hideBelow?: "sm" | "md" | "lg" | "xl";
+  /** Starting width, passed straight through to `DataTable` (a number is px). */
+  width?: DataTableColumn<T>["width"];
+  /** Smallest width the user can resize to, in px. Passed through to `DataTable`. */
+  minWidth?: number;
+  /** Whether the column shows before the user picks columns. Default true. */
+  defaultVisible?: boolean;
   render?: (
     item: T,
     value: unknown,
@@ -56,8 +62,12 @@ export interface UseResourcePageProps<T> {
   initialFilters?: FilterParam[];
   /** Callback when filters change. */
   onFiltersChange?: (filters: FilterParam[]) => void;
-  /** Default view mode. */
-  defaultView?: ViewMode;
+  /**
+   * Default view mode, used until the user picks one. Pass
+   * `{ mobile, desktop }` for a viewport-dependent default (cards on phones,
+   * a table on desktops); only an explicit pick is persisted.
+   */
+  defaultView?: ViewModeDefault;
   /** Detail interaction mode. */
   detail?: "panel" | "modal" | "route" | "none";
   /** Field used for the detail title. Defaults to first column key. */
@@ -409,6 +419,9 @@ export function useResourcePage<T = Record<string, unknown>>(
         header: col.header ?? titleCase(col.key),
         sortable: col.sortable ?? true,
         hideBelow: col.hideBelow,
+        width: col.width,
+        minWidth: col.minWidth,
+        defaultVisible: col.defaultVisible,
         editable: col.editable,
         accessor: col.accessor,
         render: col.render

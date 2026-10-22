@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { Controller, type Control } from "react-hook-form";
 import type { ResourceFormFieldDef } from "@marktiderman/genesis-core";
 import { Input } from "../ui/input";
@@ -43,6 +44,15 @@ export function ResourceFormFieldRenderer({
   watchedValues?: Record<string, unknown>;
 }) {
   const label = field.label ?? titleCase(field.key);
+  // Ids come from `useId`, not from `field.key`: two forms on one page (a
+  // create dialog over an edit sheet, or two resources) would otherwise mint
+  // the same `title-error` id twice and point each input at the other's
+  // message. `useId` is also stable across server and client renders.
+  const baseId = useId();
+  const inputId = `${baseId}-input`;
+  const errorId = `${baseId}-error`;
+  const descId = `${baseId}-desc`;
+  const labelId = `${baseId}-label`;
   const fieldType = field.type ?? "text";
   const isReadOnly = action === "edit" && field.readOnlyOnEdit;
   const isDisabled = isReadOnly || (watchedValues ? field.disabled?.(watchedValues) === true : false);
@@ -75,13 +85,16 @@ export function ResourceFormFieldRenderer({
       control={control}
       render={({ field: f, fieldState }) => {
         const errorMessage = fieldState.error?.message;
+        // The description stays referenced while an error shows: the error
+        // says what is wrong, the description often says what is right.
+        const describedBy =
+          [field.description ? descId : null, errorMessage ? errorId : null]
+            .filter(Boolean)
+            .join(" ") || undefined;
         const ariaProps = {
+          id: inputId,
           "aria-invalid": !!errorMessage || undefined,
-          "aria-describedby": errorMessage
-            ? `${field.key}-error`
-            : field.description
-              ? `${field.key}-desc`
-              : undefined,
+          "aria-describedby": describedBy,
           "aria-required": field.required || undefined,
         };
 
@@ -90,7 +103,9 @@ export function ResourceFormFieldRenderer({
           return (
             <FormField className="flex flex-row items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <FormLabel error={!!errorMessage}>{label}</FormLabel>
+                <FormLabel htmlFor={inputId} error={!!errorMessage}>{label}</FormLabel>
+                {field.description && <FormDescription id={descId}>{field.description}</FormDescription>}
+                <FormError id={errorId}>{errorMessage}</FormError>
               </div>
               <Switch
                 checked={!!f.value}
@@ -113,8 +128,9 @@ export function ResourceFormFieldRenderer({
                 {...ariaProps}
               />
               <div className="space-y-1 leading-none">
-                <FormLabel error={!!errorMessage}>{label}</FormLabel>
-                <FormError id={`${field.key}-error`}>{errorMessage}</FormError>
+                <FormLabel htmlFor={inputId} error={!!errorMessage}>{label}</FormLabel>
+                {field.description && <FormDescription id={descId}>{field.description}</FormDescription>}
+                <FormError id={errorId}>{errorMessage}</FormError>
               </div>
             </FormField>
           );
@@ -124,7 +140,7 @@ export function ResourceFormFieldRenderer({
         if (fieldType === "select" && field.options) {
           return (
             <FormField>
-              <FormLabel error={!!errorMessage} required={field.required}>
+              <FormLabel htmlFor={inputId} error={!!errorMessage} required={field.required}>
                 {label}
               </FormLabel>
               <Select
@@ -145,8 +161,8 @@ export function ResourceFormFieldRenderer({
                   ))}
                 </SelectContent>
               </Select>
-              {field.description && <FormDescription id={`${field.key}-desc`}>{field.description}</FormDescription>}
-              <FormError id={`${field.key}-error`}>{errorMessage}</FormError>
+              {field.description && <FormDescription id={descId}>{field.description}</FormDescription>}
+              <FormError id={errorId}>{errorMessage}</FormError>
             </FormField>
           );
         }
@@ -155,7 +171,7 @@ export function ResourceFormFieldRenderer({
         if (fieldType === "relation" && field.relation) {
           return (
             <FormField>
-              <FormLabel error={!!errorMessage} required={field.required}>
+              <FormLabel htmlFor={inputId} error={!!errorMessage} required={field.required}>
                 {label}
               </FormLabel>
               <RelationField
@@ -163,9 +179,10 @@ export function ResourceFormFieldRenderer({
                 value={f.value != null ? String(f.value) : ""}
                 onChange={f.onChange}
                 disabled={isDisabled}
+                {...ariaProps}
               />
-              {field.description && <FormDescription id={`${field.key}-desc`}>{field.description}</FormDescription>}
-              <FormError id={`${field.key}-error`}>{errorMessage}</FormError>
+              {field.description && <FormDescription id={descId}>{field.description}</FormDescription>}
+              <FormError id={errorId}>{errorMessage}</FormError>
             </FormField>
           );
         }
@@ -174,17 +191,19 @@ export function ResourceFormFieldRenderer({
         if (fieldType === "file" || fieldType === "image") {
           return (
             <FormField>
-              <FormLabel error={!!errorMessage} required={field.required}>
+              <FormLabel id={labelId} htmlFor={inputId} error={!!errorMessage} required={field.required}>
                 {label}
               </FormLabel>
               <FileUploadField
+                aria-labelledby={labelId}
                 field={field}
                 value={f.value as File | File[] | null}
                 onChange={f.onChange}
                 disabled={isDisabled}
+                {...ariaProps}
               />
-              {field.description && <FormDescription id={`${field.key}-desc`}>{field.description}</FormDescription>}
-              <FormError id={`${field.key}-error`}>{errorMessage}</FormError>
+              {field.description && <FormDescription id={descId}>{field.description}</FormDescription>}
+              <FormError id={errorId}>{errorMessage}</FormError>
             </FormField>
           );
         }
@@ -193,11 +212,12 @@ export function ResourceFormFieldRenderer({
         if (fieldType === "textarea") {
           return (
             <FormField>
-              <FormLabel error={!!errorMessage} required={field.required}>
+              <FormLabel htmlFor={inputId} error={!!errorMessage} required={field.required}>
                 {label}
               </FormLabel>
               <Textarea
                 placeholder={field.placeholder}
+                maxLength={field.maxLength}
                 rows={field.rows ?? 3}
                 value={f.value != null ? String(f.value) : ""}
                 onChange={(e) => f.onChange(e.target.value)}
@@ -205,8 +225,8 @@ export function ResourceFormFieldRenderer({
                 autoFocus={autoFocus}
                 {...ariaProps}
               />
-              {field.description && <FormDescription id={`${field.key}-desc`}>{field.description}</FormDescription>}
-              <FormError id={`${field.key}-error`}>{errorMessage}</FormError>
+              {field.description && <FormDescription id={descId}>{field.description}</FormDescription>}
+              <FormError id={errorId}>{errorMessage}</FormError>
             </FormField>
           );
         }
@@ -215,7 +235,7 @@ export function ResourceFormFieldRenderer({
         if (fieldType === "number") {
           return (
             <FormField>
-              <FormLabel error={!!errorMessage} required={field.required}>
+              <FormLabel htmlFor={inputId} error={!!errorMessage} required={field.required}>
                 {label}
               </FormLabel>
               <Input
@@ -232,8 +252,8 @@ export function ResourceFormFieldRenderer({
                 autoFocus={autoFocus}
                 {...ariaProps}
               />
-              {field.description && <FormDescription id={`${field.key}-desc`}>{field.description}</FormDescription>}
-              <FormError id={`${field.key}-error`}>{errorMessage}</FormError>
+              {field.description && <FormDescription id={descId}>{field.description}</FormDescription>}
+              <FormError id={errorId}>{errorMessage}</FormError>
             </FormField>
           );
         }
@@ -241,20 +261,21 @@ export function ResourceFormFieldRenderer({
         // Text, email, url, date
         return (
           <FormField>
-            <FormLabel error={!!errorMessage} required={field.required}>
+            <FormLabel htmlFor={inputId} error={!!errorMessage} required={field.required}>
               {label}
             </FormLabel>
             <Input
               type={fieldType}
               placeholder={field.placeholder}
+              maxLength={field.maxLength}
               value={f.value != null ? String(f.value) : ""}
               onChange={(e) => f.onChange(e.target.value)}
               disabled={isDisabled}
               autoFocus={autoFocus}
               {...ariaProps}
             />
-            {field.description && <FormDescription id={`${field.key}-desc`}>{field.description}</FormDescription>}
-            <FormError id={`${field.key}-error`}>{errorMessage}</FormError>
+            {field.description && <FormDescription id={descId}>{field.description}</FormDescription>}
+            <FormError id={errorId}>{errorMessage}</FormError>
           </FormField>
         );
       }}

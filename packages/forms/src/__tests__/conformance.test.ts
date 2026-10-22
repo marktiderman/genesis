@@ -5,13 +5,13 @@ import { describe, expect, it } from "vitest";
 import { createForm, replay } from "../index";
 import { compactEvents, recordScenario, runScenario, type Scenario } from "../testing";
 import { contactAnonymous, contactNamed } from "./conformance-forms";
-import { afterClass, monthlyPulse } from "./sample-forms";
+import { eventFeedback, monthlyCheckIn } from "./sample-forms";
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "conformance");
 const files = readdirSync(dir).filter((f) => f.endsWith(".scenario.json")).sort();
 const load = (file: string) => JSON.parse(readFileSync(join(dir, file), "utf8")) as Scenario;
 const definitions = Object.fromEntries(
-  [afterClass, monthlyPulse, contactNamed, contactAnonymous].map((form) => [form.definition.id, form.definition]),
+  [eventFeedback, monthlyCheckIn, contactNamed, contactAnonymous].map((form) => [form.definition.id, form.definition]),
 );
 
 /** Drive the engine through its public API, the way a renderer does. */
@@ -83,13 +83,13 @@ describe("runScenario", () => {
 
 describe("recordScenario and compactEvents", () => {
   it("records a live engine as a scenario that passes", () => {
-    const engine = createForm(afterClass.definition, { hidden: { coach: "Sam" } });
+    const engine = createForm(eventFeedback.definition, { hidden: { owner: "Sam" } });
     engine.setValue("overall", 4);
     for (const text of ["G", "Gr", "Gre", "Great"]) engine.setValue("improve", text);
     engine.setValue("contact_me", false);
     engine.submit();
     const scenario = recordScenario(engine, "recorded");
-    expect(scenario.context).toEqual({ coach: "Sam" });
+    expect(scenario.context).toEqual({ owner: "Sam" });
     expect(scenario.events).toEqual([
       { type: "answer", field: "overall", value: 4 },
       { type: "answer", field: "improve", value: "Great" },

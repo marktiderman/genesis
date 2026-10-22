@@ -48,7 +48,23 @@ already right, change the one part that was not.
 Every interior part a pattern composes is named in its slot map
 (`ResourcePageSlotMap`). That map is the contract: **a part added to the
 render tree gets added to the map in the same change**, otherwise the next
-surface that needs it forks the page instead.
+surface that needs it forks the page instead. (The delete confirmation,
+`deleteDialog`, joined the map with the built-in delete.)
+
+Type your slots with the exported types rather than reaching into the props:
+
+```tsx
+import type { ResourcePageSlots, ResourcePageSlotProps } from "@marktiderman/genesis-ui/data";
+
+const slots: ResourcePageSlots<Practice> = { filters: null };
+const slotProps: ResourcePageSlotProps<Practice> = { table: { stickyHeader: true } };
+```
+
+**Before writing a slot, check for the prop.** A slot that exists only to
+compute a subtitle, gate Edit per row, confirm a delete, drop the title or
+add an empty-state sentence is a slot genesis now owes you as a prop
+(`getSubtitle`, `canEdit` / `canDelete`, `allowDelete` / `confirmDelete`,
+`header="toolbar"`, `emptyDescription`) — and those exist.
 
 ### 3 · The primitives
 
@@ -102,3 +118,26 @@ from. Reach for rung 2 first.
 5. **When a downstream app hand-builds something genesis nearly had, that is
    the bug report.** `ListPage`, a hand-rolled bulk bar and a forked header
    were each a missing prop away from not existing.
+
+## Navigation: declare the tree, not the chrome
+
+Rule 5 in practice. Apps kept re-deriving the same three things by hand: the
+contextual nav for "where am I", the mobile tab bar for it, and a back row
+placed inside page content. `AppShell` now derives all of them from one
+`NavigationNode` tree, so the ladder for app navigation is:
+
+1. **`navigation`** — pass the tree and `activePath`. The root's `items` are
+   the global sidebar; the current node's `items` become a contextual section
+   (and the mobile tab bar); its logical parent becomes the back link in the
+   content header. `$param` segments in paths and item `to`s are filled from
+   the URL, and a static segment beats a `$param` sibling.
+2. **Override one part** — `navItems`, `mobileNavItems` or
+   `parentNavigation={{ href, label }}` win over what the tree derives;
+   `parentNavigation={null}` hides the back link.
+3. **`resolveNavigation(tree, pathname)`** — the same resolver, for chrome
+   outside AppShell.
+
+Do not copy `resolveNavigation` or `NavigationNode` into an app, and do not
+put a back row in page content or call `history.back()`. genesis-lint
+(`scripts/check-navigation-reimplementation.mjs`) fails a local declaration of
+either.

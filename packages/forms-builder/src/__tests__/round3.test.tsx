@@ -19,7 +19,6 @@ import {
   createField,
   defaultProps,
   FormBuilder,
-  getTemplate,
   newId,
   newOptionValue,
   paletteTypes,
@@ -32,8 +31,8 @@ import {
   type FieldTypeEditor,
   type FormBuilderHandle,
 } from "../index";
+import { visitFeedback } from "./fixtures";
 
-const afterClass = () => getTemplate("after-class")!.create();
 
 const counter = () => {
   let n = 0;
@@ -111,7 +110,7 @@ describe("1. actions get the current value, not the deferred one", () => {
 describe("2. the value is reported at once, kept on unmount and readable through a ref", () => {
   it("reports an edit even when the builder unmounts before it renders again", () => {
     const onChange = vi.fn<(def: FormDefinition) => void>();
-    const { unmount } = render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
+    const { unmount } = render(<FormBuilder defaultValue={visitFeedback()} onChange={onChange} />);
     act(() => {
       fireEvent.change(screen.getByLabelText("Form title"), { target: { value: "Last edit" } });
       unmount();
@@ -122,8 +121,9 @@ describe("2. the value is reported at once, kept on unmount and readable through
 
   it("commits a key still being typed when the builder unmounts", () => {
     const onChange = vi.fn<(def: FormDefinition) => void>();
-    const { unmount } = render(<FormBuilder defaultValue={afterClass()} onChange={onChange} />);
+    const { unmount } = render(<FormBuilder defaultValue={visitFeedback()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
+    fireEvent.click(screen.getByTestId("builder-field-advanced"));
     fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "overall_score" } });
     expect(onChange).not.toHaveBeenCalled();
     unmount();
@@ -132,8 +132,9 @@ describe("2. the value is reported at once, kept on unmount and readable through
 
   it("commits a draft when its inspector closes", () => {
     let last: FormDefinition | undefined;
-    render(<FormBuilder defaultValue={afterClass()} onChange={(d) => (last = d)} />);
+    render(<FormBuilder defaultValue={visitFeedback()} onChange={(d) => (last = d)} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
+    fireEvent.click(screen.getByTestId("builder-field-advanced"));
     fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "closed_key" } });
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     expect(last?.blocks.find((b) => b.id === "q_rating")).toMatchObject({ key: "closed_key" });
@@ -171,7 +172,7 @@ describe("2. the value is reported at once, kept on unmount and readable through
   it("stays silent for the initial value under StrictMode, and reports the analysis once", async () => {
     const onChange = vi.fn();
     const onAnalysis = vi.fn<(a: Analysis, d: FormDefinition) => void>();
-    const start = afterClass();
+    const start = visitFeedback();
     render(
       <StrictMode>
         <FormBuilder defaultValue={start} onChange={onChange} onAnalysis={onAnalysis} />
@@ -355,10 +356,10 @@ describe("B. identifying hidden inputs on an anonymous form", () => {
   });
 });
 
-describe("4. worksheet extensibility", () => {
-  const worksheet: FieldTypeEditor = {
-    type: "test-worksheet",
-    label: "Worksheet line",
+describe("4. custom type extensibility", () => {
+  const checklist: FieldTypeEditor = {
+    type: "test-checklist",
+    label: "Checklist line",
     category: "advanced",
     defaultProps: () => ({ prompt: "Write it down" }),
     starterValue: () => "done",
@@ -370,7 +371,7 @@ describe("4. worksheet extensibility", () => {
     ),
   };
   registerFieldType({
-    type: "test-worksheet",
+    type: "test-checklist",
     label: "Manifest label",
     category: "text",
     value: { json: true },
@@ -380,9 +381,9 @@ describe("4. worksheet extensibility", () => {
   });
 
   it("limits and orders the palette, with editor labels", () => {
-    const entries = paletteTypes({ palette: ["test-worksheet", "yes-no", "short-text", "not-registered"], fieldEditors: [worksheet] });
+    const entries = paletteTypes({ palette: ["test-checklist", "yes-no", "short-text", "not-registered"], fieldEditors: [checklist] });
     expect(entries.map((e) => [e.type, e.label])).toEqual([
-      ["test-worksheet", "Worksheet line"],
+      ["test-checklist", "Checklist line"],
       ["yes-no", "Yes / no"],
       ["short-text", "Short text"],
     ]);
@@ -390,18 +391,18 @@ describe("4. worksheet extensibility", () => {
 
   it("asks field editors for defaults and starter values first", () => {
     const def = twoFields();
-    const field = createField(def, { type: "test-worksheet" }, [worksheet]);
-    expect(field).toMatchObject({ label: "Worksheet line", props: { prompt: "Write it down" } });
-    expect(starterValue(field, "eq", [worksheet])).toBe("done");
+    const field = createField(def, { type: "test-checklist" }, [checklist]);
+    expect(field).toMatchObject({ label: "Checklist line", props: { prompt: "Write it down" } });
+    expect(starterValue(field, "eq", [checklist])).toBe("done");
     expect(starterValue(field, "eq")).toBe("");
   });
 
   const Custom = ({ binding }: FieldRendererProps) => <p>{`custom renderer for ${binding.field.key}`}</p>;
-  const registry = defaultRegistry.extend([{ type: "test-worksheet", Component: Custom }]);
+  const registry = defaultRegistry.extend([{ type: "test-checklist", Component: Custom }]);
 
-  const withWorksheet = (): FormDefinition => {
+  const withChecklist = (): FormDefinition => {
     const def = twoFields();
-    def.blocks.push({ kind: "field", id: "q_w", key: "w", type: "test-worksheet", label: "Line", props: { prompt: "P" } });
+    def.blocks.push({ kind: "field", id: "q_w", key: "w", type: "test-checklist", label: "Line", props: { prompt: "P" } });
     def.logic = [{ id: "r", effect: "show", target: "q_b", when: { op: "eq", left: { field: "q_w" }, right: { value: "done" } } }];
     def.blocks = [def.blocks[2]!, def.blocks[0]!, def.blocks[1]!];
     return def;
@@ -410,7 +411,7 @@ describe("4. worksheet extensibility", () => {
   it("shows the type's own panel and logic value editor", () => {
     let last: FormDefinition | undefined;
     const { unmount } = render(
-      <FormBuilder defaultValue={withWorksheet()} fieldEditors={[worksheet]} previewRegistry={registry} onChange={(d) => (last = d)} />,
+      <FormBuilder defaultValue={withChecklist()} fieldEditors={[checklist]} previewRegistry={registry} onChange={(d) => (last = d)} />,
     );
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_w"));
     fireEvent.click(screen.getByRole("button", { name: "Edit prompt" }));
@@ -418,8 +419,8 @@ describe("4. worksheet extensibility", () => {
     unmount();
     render(
       <FormBuilder
-        defaultValue={withWorksheet()}
-        fieldEditors={[worksheet]}
+        defaultValue={withChecklist()}
+        fieldEditors={[checklist]}
         previewRegistry={registry}
         defaultTab="logic"
         onChange={(d) => (last = d)}
@@ -434,8 +435,8 @@ describe("4. worksheet extensibility", () => {
     render(
       <FormBuilder
         defaultValue={twoFields()}
-        palette={["test-worksheet", "yes-no"]}
-        fieldEditors={[worksheet]}
+        palette={["test-checklist", "yes-no"]}
+        fieldEditors={[checklist]}
         blockKinds={{ content: ["heading"], pageBreak: false }}
         previewRegistry={registry}
       />,
@@ -443,14 +444,14 @@ describe("4. worksheet extensibility", () => {
     const trigger = screen.getAllByTestId("builder-add-block").at(-1)!;
     fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
     const items = (await screen.findAllByRole("menuitem")).map((i) => i.textContent);
-    expect(items).toEqual(["Worksheet line", "Yes / no", "Heading"]);
+    expect(items).toEqual(["Checklist line", "Yes / no", "Heading"]);
   });
 
   it("renders custom field types in the preview with the given registry and validators", () => {
     render(
       <FormBuilder
-        defaultValue={withWorksheet()}
-        fieldEditors={[worksheet]}
+        defaultValue={withChecklist()}
+        fieldEditors={[checklist]}
         previewRegistry={registry}
         previewValidators={{ q_a: (v) => (v === "bad" ? "No bad answers." : null) }}
       />,

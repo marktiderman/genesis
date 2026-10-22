@@ -49,6 +49,25 @@ already right; that re-derivation is where forks come from. Reach for rung 2
 first. When the app hand-builds something Genesis nearly had, that is a bug
 report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 
+## ResourcePage knobs a real screen needs
+
+Reach for these before a slot. Each one replaced a slot workaround in a real app.
+
+| You need | Prop |
+| --- | --- |
+| Every row reachable in `resource` mode | default `pagination="client"` fetches up to `clientRowLimit` (1000) and says so past it; `pagination="server"` pages through the provider (give it `searchFields`) |
+| Per-row rights in the peek | `canEditItem(item)` for both, or `canEdit(item)` / `canDelete(item)` separately (UI gate only; the server still decides) |
+| A confirmed delete | `allowDelete` (built in, `resource` mode), or `onDelete` + `confirmDelete`; copy via `confirmDelete={{ title: (item) => … }}`, toast via `onDeleted` |
+| A computed peek subtitle | `getSubtitle(item)`; the peek stays open after an edit and shows the saved row |
+| A list inside a tab (no page title) | `header="toolbar"` (also on `DataPageShell`) |
+| Empty-state copy | `emptyMessage`, `emptyDescription`, `emptyIcon` |
+| Cards on phones, table on desktop | `defaultView={{ mobile: "grid", desktop: "table" }}`; only an explicit toggle is stored |
+| Typed slot maps | `ResourcePageSlots<T>`, `ResourcePageSlotProps<T>`, `ResourcePageSlotMap<T>` from `/data` |
+
+`ResourceForm` ties labels to inputs (`getByLabelText` works), shows a failed save as an alert,
+honours `maxLength` on text fields, adds no placeholder unless the field sets one (or
+`autoPlaceholder`), and takes `prefillFromUrl={false}` when the page's query string is not form data.
+
 ## The layer contract (docs/FRAMEWORK.md)
 
 1. Layers: tokens → primitives → patterns → layouts → data-bound; each depends downward only.
@@ -62,6 +81,7 @@ report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 | You need                                                      | Use                                                                                | Import from                                                       |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | App skeleton: nav, header, content                            | `AppShell`                                                                         | `@marktiderman/genesis-ui/layout`                                 |
+| Sidebar, contextual nav, tab bar and back link from one tree | `AppShell navigation={tree}` (`NavigationNode`; `parentNavigation` to override)    | `/layout`                                                         |
 | Page title row with count, view toggle, options               | `PageHeader` (+ `options.configurable` for the in-header options popover)          | `/layout`                                                         |
 | List page chrome: header, filters, loading/empty/error        | `DataPageShell` (`stats`, `filters` slots)                                         | `/data`                                                           |
 | A whole CRUD list page over a resource                        | `ResourcePage`                                                                     | `/data`                                                           |
@@ -76,7 +96,9 @@ report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 | Cmd-K palette                                                 | `CommandPalette`, `useCommandPaletteHotkey`                                        | `/command-palette`                                                |
 | Arrow-key list navigation                                     | `useKeyboardNavigation`                                                            | `/hooks/use-keyboard-navigation`                                  |
 | Reorderable list: drag, keyboard, row-menu moves             | `SortableList`                                                                     | `/sortable-list`                                                  |
+| Formatted text (lessons, notes): editor and read-only view    | `RichTextEditor`, `RichText` (+ `sanitizeRichTextDoc`, `richTextToHtml` on the server) | `/rich-text-editor`, `/rich-text`                                 |
 | Persisted page size / density                                 | `useViewSettings`                                                                  | `/hooks/use-view-settings`                                        |
+| Client-side links, navigate, URL filters on your router       | `ReactRouterLink` / `TanStackRouterLink` and their `use…Navigate`, `use…SearchParams`, `use…ActivePath` hooks | `/router/react-router`, `/router/tanstack-router`                 |
 
 ## Import rule
 
@@ -97,12 +119,73 @@ wins over `@layer theme`. `tailwindFromBrand(brand).css` adds brand ramps
 (`--color-neutral-500` and the like) on top. Components reference only semantic tokens
 (`bg-primary`, `text-muted-foreground`), never raw colours.
 
+## Data views without hand-rolling
+
+Reach for `ResourcePage` (with `data` for rows you already have) before composing DataTable,
+DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
+
+- **Column widths:** `width: 180` is px, through a `<colgroup>`; the other columns share the rest.
+  Long headers truncate and keep the full text as a tooltip.
+- **Clickable cards:** with a custom `renderCard`, `openOnCardClick` makes the whole card one
+  keyboard-reachable button that opens the detail. On a bare `DataGrid`, use `onItemClick` and
+  `getItemLabel`. Never wrap a card in a `div role="button"`.
+- **Per-row rights:** `canEditItem(item)` hides Edit and Delete for rows the user can't change;
+  `canEdit(item)` / `canDelete(item)` gate each one separately. `canEditItem` is checked first: a row it
+  refuses gets neither button, whatever the pair says.
+- **Names and empty state:** `getTitle` / `getSubtitle` when a record's name spans fields;
+  `emptyIcon`, `emptyMessage`, `emptyDescription` and `emptyState` (its action) for the empty list.
+- **A list inside tabs:** `header="toolbar"` (on `ResourcePage` or `DataPageShell`) drops the title
+  block and keeps the count, view toggle, filters and create button.
+- **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays
+  the default for deletes.
+
 ## Full inventory
 
 `docs/component-reference.md` lists every export with its props and stability tag. It is
 generated (`pnpm gen:component-reference`); do not edit it by hand.
 
+## Rich text
+
+`RichTextEditor` (`/rich-text-editor`, Tiptap 3) needs the optional peers
+`@tiptap/core @tiptap/pm @tiptap/react @tiptap/starter-kit @tiptap/extensions` (`^3.31`). `RichText` and the
+helpers on `/rich-text` need nothing beyond React and run on a server.
+
+- **Store JSON, derive HTML.** `onChange(doc, details)` gives the document JSON (canonical) and lazy
+  `details.html` / `details.text`. Persist `doc` (Postgres `jsonb`). If you also need HTML or text (email,
+  search, previews), derive them on the server; never trust HTML or JSON a client posts.
+- **Sanitize on the server on every write, with limits:**
+  `const doc = sanitizeRichTextDoc(body.doc, { maxCharacters: 50_000, maxNodes: 5_000, onTooDeep: "throw" })`
+  keeps only the allow-listed nodes (paragraph, h2-h4, lists, blockquote, bold/italic/underline,
+  http(s)/mailto/tel/relative links, YouTube/Vimeo/Loom embeds by id). Over a limit, or nested more than 32
+  levels, it throws `RichTextLimitError` (`reason`: `"characters" | "nodes" | "depth"`), so answer 413/422
+  instead of storing it. Then `richTextToHtml(doc)` (`{ embedAs: "link" }` for email) and
+  `richTextToPlainText(doc)`. Both run without a DOM and escape every value.
+- **Render with `<RichText value={doc} />`**, not `dangerouslySetInnerHTML`. It re-sanitizes and works in
+  server components. If you must inject stored HTML, inject only HTML you produced with `richTextToHtml`.
+- The editor adds roughly 135 KB gzipped (ProseMirror + Tiptap), so load it only where people write:
+  `const RichTextEditor = lazy(() => import("@marktiderman/genesis-ui/rich-text-editor").then((m) => ({ default: m.RichTextEditor })))`.
+  Reading pages use `RichText`, which pulls in no editor code.
+- Embeds are off by default: `<RichTextEditor embeds />`. A CSP needs `frame-src` for
+  `https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com`. The editor injects no
+  `<style>` tag (Tiptap's base rules are classes), so `style-src` needs no `'unsafe-inline'` for it.
+
+```tsx
+<RichTextEditor aria-label="Lesson text" value={doc} onChange={setDoc} placeholder="Write the lesson…" embeds maxLength={20000} />
+<RichText value={lesson.body} />
+```
+
 ## Wiring into an app
+
+**Data provider and query cache.** If the app already has a TanStack `QueryClientProvider`,
+mount `DataProviderRoot` inside it (or pass `queryClient` to `GenesisProvider`). Plain
+`GenesisProvider` creates its own `QueryClient`, a second cache that app invalidations never
+reach. On Supabase with RLS, configure `createSupabaseProvider(client, { binTables, resources,
+onWrite })` instead of writing a local adapter: zero-row updates/deletes and Postgres error codes
+come back as typed `DataWriteError` outcomes (`forbidden`, `gone`, `invalid`,
+`unauthenticated`), recycle-bin tables count "gone from view" as success, and per-resource
+`prepare` / `create` / `update` / `toFormValues` / `invalidates` cover RPC writes, form shapes and
+related query keys. Branch on `isDataWriteError(e) && e.outcome`, never on the message. Details:
+`packages/core/README.md`.
 
 **Tailwind class scanning.** Tailwind v4 skips git-ignored paths such as `node_modules`, so genesis-ui's classes
 are missing unless the app points at them. Import the shipped source entry — never hardcode an
@@ -113,26 +196,78 @@ are missing unless the app points at them. Import the shipped source entry — n
 @import "@marktiderman/genesis-ui/styles.css"; /* = @source over the package's dist/ */
 ```
 
+**Router adapters.** genesis-ui never imports a router from its root or layer subpaths. Links default
+to a plain `<a>` and navigation to a full page load until you inject an adapter. Take the shipped one
+for your router; do not hand-write it. Each lives on its own subpath with its router as an optional
+peer, so the other router is never installed or bundled.
+
+```tsx
+// React Router v7
+import {
+  ReactRouterLink,
+  useReactRouterActivePath,
+  useReactRouterNavigate,
+  useReactRouterSearchParams,
+} from "@marktiderman/genesis-ui/router/react-router";
+// TanStack Router: the same four, named TanStackRouterLink / useTanStackRouter…,
+// from "@marktiderman/genesis-ui/router/tanstack-router".
+
+<AppShell linkComponent={ReactRouterLink} activePath={useReactRouterActivePath()} … />
+<ResourcePage detail="route" onNavigate={useReactRouterNavigate()} … />
+useDataFilters("orders", defs, { searchParams: useReactRouterSearchParams() });
+```
+
+The link takes Genesis's string `href` (`/admin?tab=users#top`) and keeps its query and hash; the
+TanStack one parses the query with the router's own `parseSearch`, so `validateSearch` sees what a
+typed `<Link search>` would give it. Genesis owns the active state: the adapters never add a
+router's own `aria-current` or `active` class. Absolute URLs leave the app as plain anchors or a
+document navigation. Next.js needs no adapter: pass `next/link` as `linkComponent`.
+
 **Active nav items with `?query` / `#hash`.** Pass the full location as `activePath`
-(`pathname + search + hash`). Plain items still match on the path; an item whose `to` carries a
+(`pathname + search + hash`, which `use…ActivePath()` above returns). Plain items still match on the path; an item whose `to` carries a
 query or hash (`/admin?tab=users`, `/settings#profile`) is active only when those match too.
 Do not write a custom `isActive` for this. `isPathActive(to, activePath, { end: true })` is the
 exact-path variant.
 
-**Hierarchical "up" navigation.** Describe the logical hierarchy once as a `NavigationNode` tree
-and call `resolveNavigation(tree, pathname)` from the root barrel or `/data`. It returns
-`{ current, parent, items, trail, params }` with every path interpolated from the URL's params.
-Use `parent` for a back-to-parent link and `items` for contextual nav — never `history.back()`.
+**Hierarchical navigation — the default.** Describe the logical hierarchy once as a
+`NavigationNode<NavItem>` tree and hand it to `AppShell` with the current location. AppShell
+derives the global sidebar (the root's `items`), a contextual section (the current node's
+`items`, `$param`s filled from the URL), the mobile tab bar (contextual items, else global) and
+a back-to-parent link in the content header. `navItems`, `mobileNavItems` and
+`parentNavigation={{ href, label }}` override a derived part; `parentNavigation={null}` hides the
+link. Never put a back row in page content, never `history.back()`, never copy the resolver.
+
+```tsx
+import { AppShell, type NavigationNode, type NavItem } from "@marktiderman/genesis-ui/layout";
+
+const navigation: NavigationNode<NavItem> = {
+  id: "app", path: "/", label: "Home", items: globalItems, children: [
+    { id: "projects", path: "/projects", label: "Projects", items: [], children: [
+      { id: "project", path: "/projects/$projectId", label: "Project", items: [
+        { to: "/projects/$projectId", icon: FileText, label: "Overview", end: true },
+        { to: "/projects/$projectId/tasks", icon: CheckSquare, label: "Tasks" },
+      ] },
+    ] },
+  ],
+};
+
+<AppShell appName="Acme" navigation={navigation} activePath={pathname + search + hash}
+  linkComponent={RouterLink}>{children}</AppShell>
+```
+
+For chrome outside AppShell, call the same resolver: `resolveNavigation(tree, pathname)` (from
+`/layout`, `/data` or the root barrel) returns `{ current, parent, items, trail, params }` with
+every path interpolated from the URL's params.
 
 ```ts
 const nav = resolveNavigation(
   { id: "app", path: "/app", label: "Home", items: globalItems, children: [
-    { id: "clients", path: "/dashboard", label: "Clients", items: [], children: [
-      { id: "client", path: "/clients/$clientId", label: "Client", items: clientItems },
+    { id: "projects", path: "/dashboard", label: "Projects", items: [], children: [
+      { id: "project", path: "/projects/$projectId", label: "Project", items: projectItems },
     ] },
   ] },
   pathname,
 );
-// pathname "/clients/c1/tasks" → nav.current.id "client", nav.parent.path "/dashboard",
-// nav.params { clientId: "c1" }
+// pathname "/projects/p1/tasks" → nav.current.id "project", nav.parent.path "/dashboard",
+// nav.params { projectId: "p1" }
 ```

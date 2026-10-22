@@ -63,6 +63,10 @@ function field<K extends string, V>(
   return block as FieldSpec<K, V>;
 }
 
+/** The props that are set, so an unset option never becomes `undefined` in the JSON. */
+const props = (all: Record<string, Json | undefined>): Record<string, Json> =>
+  Object.fromEntries(Object.entries(all).filter((e): e is [string, Json] => e[1] !== undefined));
+
 const choiceProps = (options: readonly { value: string; label?: string }[]): Record<string, Json> => ({
   options: options.map((o): Json => (o.label ? { value: o.value, label: o.label } : { value: o.value })),
 });
@@ -101,6 +105,66 @@ export const f = {
   multiChoice: <K extends string, O extends string>(key: K, o: ChoiceFieldOptions<O>) =>
     field<K, O[]>("multi-choice", key, o, choiceProps(o.options)),
   yesNo: <K extends string>(key: K, o: FieldOptions) => field<K, boolean>("yes-no", key, o),
+  /** Several short answers, one per line: goals, action items, three things that went well. */
+  list: <K extends string>(
+    key: K,
+    o: FieldOptions & {
+      min?: number | undefined;
+      max?: number | undefined;
+      itemMaxLength?: number | undefined;
+      itemPlaceholder?: string | undefined;
+    },
+  ) =>
+    field<K, string[]>(
+      "list",
+      key,
+      o,
+      props({ min: o.min, max: o.max, itemMaxLength: o.itemMaxLength, placeholder: o.itemPlaceholder }),
+    ),
+  /**
+   * A small table each answer fills row by row, one answer per column: an
+   * action plan (What / Who / By when), pros and cons.
+   */
+  table: <K extends string, C extends string>(
+    key: K,
+    o: FieldOptions & {
+      columns: readonly { key: C; label: string; long?: boolean | undefined }[];
+      minRows?: number | undefined;
+      maxRows?: number | undefined;
+    },
+  ) =>
+    field<K, Partial<Record<C, string>>[]>("table", key, o, {
+      columns: o.columns.map((c): Json => (c.long ? { key: c.key, label: c.label, long: true } : { key: c.key, label: c.label })),
+      ...props({ minRows: o.minRows, maxRows: o.maxRows }),
+    }),
+  /**
+   * Notes pinned to times in a video or audio (lecture notes, a recorded call
+   * review): `at` is seconds from its start.
+   */
+  mediaNotes: <K extends string>(
+    key: K,
+    o: FieldOptions & { maxNotes?: number | undefined; textMaxLength?: number | undefined },
+  ) =>
+    field<K, { at: number; text: string }[]>(
+      "media-notes",
+      key,
+      o,
+      props({ maxNotes: o.maxNotes, textMaxLength: o.textMaxLength }),
+    ),
+  /**
+   * Highlight passages of a text and note on each (annotating an article, a
+   * policy or a contract): `text` here, or supplied by the host app.
+   */
+  textHighlights: <K extends string>(
+    key: K,
+    o: FieldOptions & { text?: string | undefined; maxHighlights?: number | undefined },
+  ) =>
+    field<K, { start: number; end: number; quote: string; note: string }[]>(
+      "text-highlights",
+      key,
+      o,
+      props({ text: o.text, maxHighlights: o.maxHighlights }),
+    ),
   /** Any registered field type, including plugins. */
   custom: <K extends string, V = Json>(type: string, key: K, o: FieldOptions & { props?: Record<string, Json> }) =>
     field<K, V>(type, key, o, o.props),

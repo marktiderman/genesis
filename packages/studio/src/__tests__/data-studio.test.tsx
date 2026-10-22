@@ -85,7 +85,7 @@ function makeProvider() {
         audit: {
           id: "4f2c9a1e-0000-4000-8000-000000000000",
           occurredAt: "2026-10-19 09:41:55.123456+00",
-          actor: "coach-a",
+          actor: "owner-a",
           resource: "public.clients",
           key: { id: row.id },
           action: "update" as const,
@@ -152,7 +152,7 @@ describe("DataStudio", () => {
     expect(state.updates).toEqual([{ id: "c1", data: { notes: "Moved to evenings" }, expectedVersion: "v1" }]);
     const audit = screen.getByTestId("studio-audit-entry").textContent ?? "";
     expect(audit).toMatch(/audit 4f2c9a1e/);
-    expect(audit).toMatch(/by coach-a/);
+    expect(audit).toMatch(/by owner-a/);
     expect(audit).toMatch(/notes: Prefers mornings → Moved to evenings/);
     expect(await screen.findByText("Moved to evenings")).toBeTruthy();
   });

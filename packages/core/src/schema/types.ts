@@ -87,7 +87,7 @@ export interface FieldSchema {
  * One declaration of a resource: its fields and its identity.
  *
  * `key` names the identity field, or several for a composite key (a junction
- * table keyed on `(coach_id, client_id)`). Use {@link keyFields} to read it as
+ * table keyed on `(team_id, user_id)`). Use {@link keyFields} to read it as
  * a list without caring which form it took.
  */
 export interface ResourceContract<Row extends DataRow = DataRow> {

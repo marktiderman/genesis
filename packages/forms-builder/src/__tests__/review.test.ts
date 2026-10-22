@@ -4,7 +4,7 @@ import { analyze, structureFingerprint } from "../analyze";
 import { diffDefinitions } from "../diff";
 import { historyReducer } from "../history";
 import * as ops from "../ops";
-import { getTemplate } from "../templates";
+import { visitFeedback } from "./fixtures";
 
 const field = (def: FormDefinition, id: string) => def.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id)!;
 const options = (def: FormDefinition, id: string) => field(def, id).props!.options as { value: string; label: string }[];
@@ -30,7 +30,7 @@ const base = (): FormDefinition => ({
 
 describe("analyze when coverage is truncated", () => {
   it("reports one info and no path warnings", () => {
-    let d = getTemplate("after-class")!.create();
+    let d = visitFeedback();
     for (let i = 0; i < 2; i++) d = ops.insertBlock(d, ops.createField(d, { type: i % 2 ? "yes-no" : "rating", label: `Extra ${i}` }));
     const a = analyze(d);
     expect(a.coverage?.truncated).toBe(true);
@@ -40,7 +40,7 @@ describe("analyze when coverage is truncated", () => {
   });
 
   it("reuses coverage while only wording changes", () => {
-    const d = getTemplate("after-class")!.create();
+    const d = visitFeedback();
     const first = analyze(d).coverage;
     const reworded = ops.updateBlock(d, "q_rating", { label: "How was it?" });
     expect(structureFingerprint(reworded)).toBe(structureFingerprint(d));
@@ -138,10 +138,10 @@ describe("type changes", () => {
   });
 
   it("of a hidden input drop the rules that no longer fit", () => {
-    let d = ops.addHidden(base(), { name: "coach" });
-    d = ops.addRule(d, { id: "h1", effect: "hide", target: "q_b", when: { op: "in", left: { hidden: "coach" }, right: { value: ["ann"] } } });
-    d = ops.addRule(d, { id: "h2", effect: "hide", target: "q_b", when: { op: "answered", left: { hidden: "coach" } } });
-    d = ops.updateHidden(d, "coach", { type: "boolean" });
+    let d = ops.addHidden(base(), { name: "owner" });
+    d = ops.addRule(d, { id: "h1", effect: "hide", target: "q_b", when: { op: "in", left: { hidden: "owner" }, right: { value: ["ann"] } } });
+    d = ops.addRule(d, { id: "h2", effect: "hide", target: "q_b", when: { op: "answered", left: { hidden: "owner" } } });
+    d = ops.updateHidden(d, "owner", { type: "boolean" });
     expect(d.logic?.map((r) => r.id)).toEqual(["r1", "h2"]);
   });
 });

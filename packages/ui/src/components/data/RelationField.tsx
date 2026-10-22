@@ -35,6 +35,11 @@ export interface RelationFieldProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  /** Id for the trigger, so a `<label htmlFor>` names it. */
+  id?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+  "aria-required"?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,6 +51,10 @@ export function RelationField({
   value,
   onChange,
   disabled,
+  id,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  "aria-required": ariaRequired,
 }: RelationFieldProps) {
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -114,7 +123,11 @@ export function RelationField({
         <Button
           variant="outline"
           role="combobox"
+          id={id}
           aria-expanded={open}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
+          aria-required={ariaRequired}
           className="w-full justify-between font-normal"
           disabled={disabled || isLoading}
         >

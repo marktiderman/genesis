@@ -46,7 +46,7 @@ export interface HeaderSlotProps {
   className?: string;
 }
 export interface BrandSlotProps {
-  /** The practice or business name, shown beside the logo. */
+  /** The organisation or business name, shown beside the logo. */
   name: string;
   /** An image URL or your own element. Without one, the name's initials are shown. */
   logo?: ReactNode;
@@ -176,6 +176,7 @@ function DefaultBrand({ name, logo, className }: BrandSlotProps) {
 function DefaultProgress({ step, total, className }: ProgressSlotProps) {
   const { presentation } = useFormPresentation();
   const page = presentation === "page";
+  if (!total) return null;
   // In page mode the bar fills with questions answered (empty on the first), like Typeform.
   const percent = total ? Math.round(((page ? step - 1 : step) / total) * 100) : 0;
   // Not a live region: focus moving to the question is the announcement.
@@ -405,7 +406,7 @@ export interface FormProps {
    * layout the questions are sections on one scrolling page.
    */
   presentation?: FormPresentation | undefined;
-  /** A practice's name and logo, shown small at the top of every step and on the ending. */
+  /** An organisation's or business's name and logo, shown small at the top of every step and on the ending. */
   brand?: FormBrand | undefined;
   registry?: RendererRegistry | undefined;
   /**
@@ -503,7 +504,7 @@ function FormBody({
   const errorsKey = useFormSelector(engine, (s) => JSON.stringify(s.errors));
   const ending = useFormSelector(engine, (s) => s.ending);
   const historyLength = useFormSelector(engine, (s) => s.history.length);
-  // The introduction recalls like endings do ({{field:name}}, {{hidden:coach}}), so it follows
+  // The introduction recalls like endings do ({{field:name}}, {{hidden:owner}}), so it follows
   // the answers; a string, so it re-renders only when the recalled text changes.
   const description = useFormSelector(engine, () => (def.description ? engine.text(def.description) : undefined));
   const path = JSON.parse(pathKey) as string[];
@@ -790,7 +791,8 @@ function FormBody({
         )
       : null;
   const progress =
-    layout === "focus"
+    // No questions on the path: no "Question 1 of 0".
+    layout === "focus" && path.length > 0
       ? renderSlot(DefaultProgress, slots?.progress, { step, total: path.length }, slotProps?.progress)
       : null;
   const fields = (

@@ -99,7 +99,7 @@ Forms → `react-hook-form` + `zod`. Server state → `@tanstack/react-query`. D
 Genesis's value is **composition and opinion**, not reimplementation. Every library we
 re-implement is code we own across every consumer, forever.
 
-The one exception is form *products* (feedback, surveys, worksheets, onboarding, intake):
+The one exception is form *products* (feedback, surveys, exercises, onboarding, intake):
 `@marktiderman/genesis-forms` owns its state, because values, visibility, navigation and
 validation there are one reactive graph that must also run on the server. CRUD forms
 (`ResourceForm`) stay on `react-hook-form` + `zod`. See [FORMS.md](./FORMS.md).
@@ -125,9 +125,9 @@ Naming the exclusions matters as much as the inclusions — scope creep is how o
 
 | Out | Why | Where it lives instead |
 |---|---|---|
-| **Business domain** | EOS, coaching, engagements are one company's vocabulary | consuming apps |
+| **Business domain** | an app's nouns (its kinds of customer, session, plan or engagement) are one company's vocabulary | consuming apps |
 | **Auth** | every org's is different | app; Genesis provides slots |
-| **Routing** | router-agnostic is already a contribution gate | app |
+| **Routing** | router-agnostic is already a contribution gate | app; genesis-ui ships thin per-router adapters on their own subpaths (`/router/react-router`, `/router/tanstack-router`), each router an optional peer |
 | **Server-state config** | consumers own cache policy | app, via TanStack Query |
 | **The data source** | this is the whole point of adapters | switchboard adapters |
 
@@ -300,8 +300,8 @@ hand-assembled pages.
 
 Templates only pay off if the data layer conforms. A consuming app can hold hundreds of
 `genesis-ui` imports and still hand-write every form, because `ResourcePage` needs a
-`DataProvider` and the app has competing data patterns — the observed situation in
-Breakthrough today.
+`DataProvider` and the app has competing data patterns — a situation observed in a
+real consuming app.
 
 Two different axes, worth not conflating. **Within the data-bound layer** the order is
 contract → templates: a template is unusable until its contract exists. **Across the package**

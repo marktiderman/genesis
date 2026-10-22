@@ -23,7 +23,7 @@ import {
   type Json,
 } from "../index";
 import { validateSubmission } from "../server";
-import { afterClass } from "./sample-forms";
+import { eventFeedback } from "./sample-forms";
 
 const field = (id: string, type: string, extra: Partial<FieldBlock> = {}): FieldBlock => ({
   kind: "field",
@@ -194,7 +194,7 @@ describe("6. coerceHidden", () => {
   const def = raw([field("q1", "short-text"), field("q2", "short-text", { required: true })], {
     hidden: [
       { name: "score", type: "number", source: "url" },
-      { name: "coach", type: "string", source: "server" },
+      { name: "owner", type: "string", source: "server" },
     ],
     logic: [{ id: "r1", when: { op: "gt", left: { hidden: "score" }, right: { value: 3 } }, effect: "show", target: "q2" }],
   });
@@ -210,9 +210,9 @@ describe("6. coerceHidden", () => {
   });
 
   it("filters by source and reports what it drops", () => {
-    expect(coerceHidden(def, { score: "7", coach: "Sam", nope: 1 }, { sources: ["url"] })).toEqual({
+    expect(coerceHidden(def, { score: "7", owner: "Sam", nope: 1 }, { sources: ["url"] })).toEqual({
       values: { score: 7 },
-      ignored: ["coach", "nope"],
+      ignored: ["owner", "nope"],
     });
   });
 });
@@ -231,7 +231,7 @@ describe("7. unknown field types", () => {
 });
 
 describe("8. malformed submissions", () => {
-  const def = afterClass.definition;
+  const def = eventFeedback.definition;
   const malformed = [
     null,
     "x",
@@ -634,7 +634,7 @@ describe("settings, layout and meta are checked (CodeRabbit round 4)", () => {
       layout: { mode: "focus" },
       settings: { anonymous: true, clearHiddenValues: false },
       meta: { owner: "x" },
-      hidden: [{ name: "member", type: "string", source: "server", sensitive: true }],
+      hidden: [{ name: "account", type: "string", source: "server", sensitive: true }],
     });
     expect(r.ok).toBe(true);
   });
@@ -642,12 +642,12 @@ describe("settings, layout and meta are checked (CodeRabbit round 4)", () => {
     const form = defineForm({
       id: "h",
       title: "H",
-      hidden: { member: f.hidden.string({ source: "server", sensitive: true }), coach: f.hidden.string({ source: "server" }) },
+      hidden: { account: f.hidden.string({ source: "server", sensitive: true }), owner: f.hidden.string({ source: "server" }) },
       blocks: [f.rating("r", { label: "R" })],
     });
     expect(form.definition.hidden).toEqual([
-      { name: "member", type: "string", source: "server", sensitive: true },
-      { name: "coach", type: "string", source: "server" },
+      { name: "account", type: "string", source: "server", sensitive: true },
+      { name: "owner", type: "string", source: "server" },
     ]);
   });
 });
@@ -763,7 +763,7 @@ describe("forms review fixes", () => {
     const hidden = {
       memberId: f.hidden.string({ source: "server", identifying: true }),
       ref: f.hidden.string({ identifying: true }),
-      cls: f.hidden.string({ source: "server" }),
+      plan: f.hidden.string({ source: "server" }),
       utm: f.hidden.string(),
     };
     const blocks = [f.rating("overall", { label: "O" }), f.yesNo("vip", { label: "VIP" })] as const;
@@ -774,17 +774,17 @@ describe("forms review fixes", () => {
       validateSubmission(
         def,
         { answers: { overall: 4 }, hidden: { ref: "member-123", utm: "mail" } },
-        { context: { memberId: "m_42", cls: "yoga" } },
+        { context: { memberId: "m_42", plan: "pro" } },
       );
     const r = submit(anon.definition);
-    expect(r.ok && r.submission).toMatchObject({ hidden: { utm: "mail" }, context: { cls: "yoga" }, ignored: ["hidden.ref"] });
-    expect(r.ok && Object.keys(r.submission.context)).toEqual(["cls"]);
+    expect(r.ok && r.submission).toMatchObject({ hidden: { utm: "mail" }, context: { plan: "pro" }, ignored: ["hidden.ref"] });
+    expect(r.ok && Object.keys(r.submission.context)).toEqual(["plan"]);
     // Logic still reads the withheld input.
     expect(createForm(anon.definition, { hidden: { memberId: "m_42" } }).getState().path).toEqual(["overall"]);
     const named = defineForm({ id: "n", title: "N", hidden, blocks });
     expect(submit(named.definition)).toMatchObject({
       ok: true,
-      submission: { hidden: { ref: "member-123", utm: "mail" }, context: { memberId: "m_42", cls: "yoga" }, ignored: [] },
+      submission: { hidden: { ref: "member-123", utm: "mail" }, context: { memberId: "m_42", plan: "pro" }, ignored: [] },
     });
     const bad = { name: "x", type: "string", source: "url", identifying: "yes" } as never;
     expect(parseForm(raw([field("q", "short-text")], { hidden: [bad] })).ok).toBe(false);
@@ -840,7 +840,7 @@ describe("forms review fixes", () => {
           field("last", "short-text"),
         ],
         {
-          hidden: [{ name: "cls", type: "number", source: "url" }],
+          hidden: [{ name: "tier", type: "number", source: "url" }],
           logic: [{ id: "x", when: condition, effect: "show", target: "last" }],
         },
       );
@@ -857,8 +857,8 @@ describe("forms review fixes", () => {
       expect(warns({ op: "eq", left: { field: "c" }, right: { value: "z" } })[0]).toMatch(/"z" is not an option of "c"/);
       expect(warns({ op: "in", left: { field: "c" }, right: { value: ["a", "z"] } })).toHaveLength(1);
       expect(warns({ op: "contains", left: { field: "m" }, right: { value: "q" } })).toHaveLength(1);
-      expect(warns({ op: "eq", left: { hidden: "cls" }, right: { value: "12" } })[0]).toMatch(
-        /hidden input "cls" holds a number/,
+      expect(warns({ op: "eq", left: { hidden: "tier" }, right: { value: "12" } })[0]).toMatch(
+        /hidden input "tier" holds a number/,
       );
       expect(warns({ op: "lt", left: { value: 1 }, right: { value: "2" } })).toHaveLength(1);
     });
@@ -913,8 +913,8 @@ describe("forms review fixes", () => {
         { op: "eq", left: { field: "c" }, right: { value: "a" } },
         { op: "contains", left: { field: "m" }, right: { value: "a" } },
         { op: "contains", left: { field: "t" }, right: { value: "x" } },
-        { op: "gte", left: { hidden: "cls" }, right: { value: 12 } },
-        { op: "eq", left: { field: "r" }, right: { hidden: "cls" } },
+        { op: "gte", left: { hidden: "tier" }, right: { value: 12 } },
+        { op: "eq", left: { field: "r" }, right: { hidden: "tier" } },
         { op: "answered", left: { field: "y" } },
       ];
       for (const condition of fine) expect(warns(condition)).toEqual([]);

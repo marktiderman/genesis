@@ -12,7 +12,7 @@ export function meta() {
 
 /**
  * What a member sees after scanning the QR code: the form alone, full screen,
- * with the practice's brand and none of the app's chrome. Submitting runs the
+ * with the organisation's brand and none of the app's chrome. Submitting runs the
  * server check locally and shows the ending; nothing is stored.
  * `?layout=classic` or `?layout=focus` overrides the form's own layout.
  */

@@ -134,6 +134,12 @@ export interface FieldTypeDefaults {
 
 const editorFor = (editors: readonly FieldTypeDefaults[] | undefined, type: string) => editors?.find((e) => e.type === type);
 
+/** The columns a new `table` field starts with; authors rename and add to them. */
+export const DEFAULT_TABLE_COLUMNS: readonly { key: string; label: string; long?: true }[] = [
+  { key: "column_1", label: "Column 1" },
+  { key: "column_2", label: "Column 2" },
+];
+
 /**
  * Default props for a new field, so it is valid as soon as it is added. A
  * matching editor in `editors` is asked first. Choice options get fresh
@@ -152,6 +158,8 @@ export function defaultProps(
     case "single-choice":
     case "multi-choice":
       return { options: withOptionValues([{ label: "Option 1" }, { label: "Option 2" }]) };
+    case "table":
+      return { columns: DEFAULT_TABLE_COLUMNS.map((c) => ({ ...c })), minRows: 1, maxRows: 3 };
     default:
       return undefined;
   }

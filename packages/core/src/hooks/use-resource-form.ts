@@ -7,6 +7,8 @@ import { useDataProvider, useStorage } from "../provider/context";
 import { useQueryClient } from "@tanstack/react-query";
 import { titleCase } from "../utils";
 import type { ResourceFormFieldDef, FieldType } from "../form-types";
+import type { BaseRecord, InvalidationKey } from "../provider/types";
+import { relatedKeys } from "./related-keys";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,12 +24,29 @@ export interface UseResourceFormOptions {
   listData?: Record<string, unknown>[];
   onSuccess?: (data: Record<string, unknown>) => void;
   onError?: (error: Error) => void;
-  /** Pre-fill create form defaults from URL query params. Default true. */
+  /**
+   * Pre-fill create form defaults from URL query params: a param named like a
+   * field (`?status=draft`) becomes that field's starting value. Default true.
+   * Pass false for a form that should not read the page's URL, e.g. one
+   * opened from a list whose own filters live in the query string.
+   */
   prefillFromUrl?: boolean;
+  /**
+   * Generate a placeholder ("Enter name", "name@example.com") for a field
+   * whose `placeholder` is unset. Default true. A placeholder that only
+   * repeats the label adds noise without information, so `ResourceForm`
+   * turns this off unless asked.
+   */
+  autoPlaceholder?: boolean;
   /** Validation trigger mode. Default "onBlur". */
   validationMode?: "onBlur" | "onChange" | "onSubmit";
   /** Enable autosave drafts to localStorage for create mode. */
   autosave?: boolean | { debounceMs?: number };
+  /**
+   * Other query keys to invalidate after a save, on top of `[resource]` and
+   * the provider's own `invalidates`.
+   */
+  invalidates?: InvalidationKey[];
 }
 
 export interface UseResourceFormReturn {
@@ -96,7 +115,10 @@ function resolveFields(
   fields: ResourceFormFieldDef[] | undefined,
   data: Record<string, unknown> | undefined,
   allData?: Record<string, unknown>[],
+  autoPlaceholder = true,
 ): ResourceFormFieldDef[] {
+  const placeholderFor = (key: string, type: FieldType): string | undefined =>
+    autoPlaceholder ? defaultPlaceholder(key, type) : undefined;
   if (fields && fields.length > 0) {
     return fields.map((f) => {
       const inferred = f.type ?? (data ? inferFieldType(data[f.key]) : "text");
@@ -104,7 +126,7 @@ function resolveFields(
         ...f,
         label: f.label ?? titleCase(f.key),
         type: inferred,
-        placeholder: f.placeholder ?? defaultPlaceholder(f.key, inferred),
+        placeholder: f.placeholder ?? placeholderFor(f.key, inferred),
         required: f.required ?? (inferred !== "switch" && inferred !== "checkbox" && inferred !== "hidden"),
       };
     });
@@ -124,7 +146,9 @@ function resolveFields(
             label: titleCase(key),
             type: selectInfo.type,
             options: selectInfo.options,
-            placeholder: `Select ${titleCase(key).toLowerCase()}...`,
+            placeholder: autoPlaceholder
+              ? `Select ${titleCase(key).toLowerCase()}...`
+              : undefined,
             required: true,
           };
         }
@@ -135,7 +159,7 @@ function resolveFields(
         key,
         label: titleCase(key),
         type: inferred,
-        placeholder: defaultPlaceholder(key, inferred),
+        placeholder: placeholderFor(key, inferred),
         required: inferred !== "switch" && inferred !== "checkbox" && inferred !== "hidden",
       };
     });
@@ -187,6 +211,12 @@ function buildSchema(fields: ResourceFormFieldDef[]) {
               }
               if (subType === "email") s = s.email("Invalid email address");
               if (subType === "url") s = s.url("Invalid URL");
+              if (sub.maxLength != null) {
+                s = s.max(
+                  sub.maxLength,
+                  `${sub.label ?? titleCase(sub.key)} must be ${sub.maxLength} characters or fewer`,
+                );
+              }
               itemShape[sub.key] = sub.required === false ? s.optional().or(z.literal("")) : s;
             }
           }
@@ -213,6 +243,12 @@ function buildSchema(fields: ResourceFormFieldDef[]) {
         }
         if (fieldType === "url") {
           schema = schema.url("Invalid URL");
+        }
+        if (field.maxLength != null) {
+          schema = schema.max(
+            field.maxLength,
+            `${field.label ?? titleCase(field.key)} must be ${field.maxLength} characters or fewer`,
+          );
         }
         shape[field.key] = field.required === false
           ? schema.optional().or(z.literal(""))
@@ -305,8 +341,10 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     onSuccess,
     onError,
     prefillFromUrl = true,
+    autoPlaceholder = true,
     validationMode,
     autosave,
+    invalidates,
   } = options;
 
   const autosaveEnabled = !!autosave;
@@ -328,10 +366,21 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
   const effectiveData = initialData ?? fetchedData;
   const isLoading = needsFetch && fetchResult.isLoading;
 
+  // In edit mode the form starts from the provider's form shape of the row
+  // (`DataProvider.toFormValues`), for a resource whose form differs from
+  // its table. The record id still comes from the row itself.
+  const formSource = useMemo(
+    () =>
+      action === "edit" && effectiveData && provider.toFormValues
+        ? provider.toFormValues(resource, effectiveData)
+        : effectiveData,
+    [action, effectiveData, provider, resource],
+  );
+
   // Resolve fields
   const resolvedFields = useMemo(
-    () => resolveFields(fieldsProp, effectiveData, listData),
-    [fieldsProp, effectiveData, listData],
+    () => resolveFields(fieldsProp, formSource, listData, autoPlaceholder),
+    [fieldsProp, formSource, listData, autoPlaceholder],
   );
 
   // Build schema
@@ -342,7 +391,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
 
   // Build defaults (with optional draft restoration)
   const defaultValues = useMemo(() => {
-    const defaults = buildDefaults(resolvedFields, effectiveData, action, prefillFromUrl);
+    const defaults = buildDefaults(resolvedFields, formSource, action, prefillFromUrl);
     if (autosaveEnabled && action === "create") {
       const key = `genesis-draft:${resource}:new`;
       const saved = storage.getItem(key);
@@ -368,7 +417,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
       }
     }
     return defaults;
-  }, [resolvedFields, effectiveData, action, prefillFromUrl, autosaveEnabled, resource, storage]);
+  }, [resolvedFields, formSource, action, prefillFromUrl, autosaveEnabled, resource, storage]);
 
   // Form
   // Cast the resolver because zod v4's passthrough() produces `unknown` for input,
@@ -415,11 +464,12 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     async (formData: Record<string, unknown>) => {
       try {
         let result: Record<string, unknown>;
+        let recordId: string | number | undefined;
         if (action === "create") {
           const res = await provider.create(resource, { data: formData });
           result = res.data;
         } else {
-          const recordId = id ?? String((effectiveData as Record<string, unknown>)?.id ?? "");
+          recordId = id ?? String((effectiveData as Record<string, unknown>)?.id ?? "");
           if (!recordId) {
             throw new Error("Cannot update record: no ID available. Provide an id prop or ensure the record has an id field.");
           }
@@ -434,8 +484,20 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
             console.warn(`[useResourceForm] Draft cleanup failed for "${resource}":`, err instanceof Error ? err.message : String(err));
           }
         }
-        // Invalidate queries to refresh data
+        // Invalidate queries to refresh data: the resource's own, then any
+        // related keys the provider or the caller named.
         await queryClient.invalidateQueries({ queryKey: [resource] });
+        const related = relatedKeys(
+          provider,
+          {
+            resource,
+            kind: action === "create" ? "create" : "update",
+            id: (recordId ?? result.id) as string | number,
+            record: result as BaseRecord,
+          },
+          invalidates,
+        );
+        await Promise.all(related.map((queryKey) => queryClient.invalidateQueries({ queryKey: [...queryKey] })));
         onSuccess?.(result);
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
@@ -448,7 +510,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
       }
     },
     // form is stable (from useForm) but included for correctness since we call form.setError
-    [action, provider, resource, id, effectiveData, queryClient, onSuccess, onError, autosaveEnabled, form, storage],
+    [action, provider, resource, id, effectiveData, queryClient, onSuccess, onError, autosaveEnabled, form, storage, invalidates],
   );
 
   const onSubmit = useCallback(

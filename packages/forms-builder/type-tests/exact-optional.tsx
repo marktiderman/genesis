@@ -30,6 +30,7 @@ declare const maybe: {
   brand?: FormBrand;
   previewHidden?: Record<string, string | number | boolean>;
   showJson?: boolean;
+  readOnly?: boolean;
   defaultTab?: BuilderTab;
   className?: string;
   onJump?: (f: Finding) => void;
@@ -50,6 +51,7 @@ export const builder = (
     brand={maybe.brand}
     previewHidden={maybe.previewHidden}
     showJson={maybe.showJson}
+    readOnly={maybe.readOnly}
     defaultTab={maybe.defaultTab}
     className={maybe.className}
   />
@@ -70,7 +72,7 @@ declare const maybeEditor: {
 };
 
 export const editor: FieldTypeEditor = {
-  type: "rows",
+  type: "table",
   label: maybeEditor.label,
   category: maybeEditor.category,
   icon: maybeEditor.icon,

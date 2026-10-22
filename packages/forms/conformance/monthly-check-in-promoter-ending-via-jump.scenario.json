@@ -1,0 +1,128 @@
+{
+  "scenarioVersion": 1,
+  "name": "monthly-check-in: promoter ending via jump",
+  "description": "NPS 9 or more jumps straight to the promoter ending; why and frequency are never asked.",
+  "tags": [
+    "monthly-check-in",
+    "jump",
+    "ending"
+  ],
+  "definition": {
+    "schemaVersion": 1,
+    "id": "monthly-check-in",
+    "title": "Monthly check-in",
+    "blocks": [
+      {
+        "kind": "field",
+        "id": "recommend",
+        "key": "recommend",
+        "type": "nps",
+        "label": "How likely are you to recommend us to a friend?",
+        "required": true
+      },
+      {
+        "kind": "field",
+        "id": "why",
+        "key": "why",
+        "type": "long-text",
+        "label": "What's the main reason for your score?"
+      },
+      {
+        "kind": "field",
+        "id": "frequency",
+        "key": "frequency",
+        "type": "single-choice",
+        "label": "How often did you use the service this month?",
+        "props": {
+          "options": [
+            {
+              "value": "1-4",
+              "label": "1–4 times"
+            },
+            {
+              "value": "5-8",
+              "label": "5–8 times"
+            },
+            {
+              "value": "9-12",
+              "label": "9–12 times"
+            },
+            {
+              "value": "13+",
+              "label": "13 or more"
+            }
+          ]
+        }
+      }
+    ],
+    "layout": {
+      "mode": "focus"
+    },
+    "logic": [
+      {
+        "id": "r1",
+        "when": {
+          "op": "gte",
+          "left": {
+            "field": "recommend"
+          },
+          "right": {
+            "value": 9
+          }
+        },
+        "effect": "jump",
+        "from": "recommend",
+        "to": {
+          "ending": "promoter"
+        }
+      }
+    ],
+    "endings": [
+      {
+        "id": "default",
+        "title": "Thanks for the honest feedback."
+      },
+      {
+        "id": "promoter",
+        "title": "Thank you! Tell a friend about us anytime."
+      }
+    ],
+    "settings": {
+      "anonymous": true
+    }
+  },
+  "events": [
+    {
+      "type": "answer",
+      "field": "recommend",
+      "value": 9
+    },
+    {
+      "type": "next"
+    },
+    {
+      "type": "submit"
+    }
+  ],
+  "expect": {
+    "path": [
+      "recommend"
+    ],
+    "visible": [
+      "recommend"
+    ],
+    "current": "recommend",
+    "status": "completed",
+    "ending": "promoter",
+    "answers": {
+      "recommend": 9
+    },
+    "server": {
+      "ok": true,
+      "answers": {
+        "recommend": 9
+      },
+      "context": {}
+    }
+  }
+}

@@ -64,6 +64,26 @@ Dropping to rung 3 because one part was wrong means re-deriving all the wiring t
 
 Full detail, plus the rules that keep this true: [`packages/ui/EXTENDING.md`](./packages/ui/EXTENDING.md). Agents building on Genesis load [`packages/ui/SKILL.md`](./packages/ui/SKILL.md), which ships in the `genesis-ui` tarball.
 
+## Staying on Genesis
+
+`genesis doctor` checks an app against the Genesis it has installed: no local primitive folder,
+no direct Radix imports, no raw `<button>` where Genesis ships `Button`, no literal palette or hex
+colors, no `var(--token)` the theme doesn't define, no export that shadows a Genesis one. Every
+rule is read from the installed `genesis-ui` declarations and theme CSS, so upgrading Genesis
+upgrades the checks. Apps add their own rules in config or as plugin modules.
+
+```bash
+npx @marktiderman/genesis-cli doctor            # in CI: exit 1 on errors
+```
+
+```ts
+// vite.config.ts: fail production builds, show the overlay in dev
+import { genesisDoctor } from "@marktiderman/genesis-cli/vite";
+export default defineConfig({ plugins: [genesisDoctor()] });
+```
+
+Details, config and the plugin API: [`packages/genesis-cli`](./packages/genesis-cli#genesis-doctor).
+
 ## Packages
 
 | Package                                                            | What it is                                                                                                                                                                                                                                                                               |
@@ -73,7 +93,8 @@ Full detail, plus the rules that keep this true: [`packages/ui/EXTENDING.md`](./
 | [`@marktiderman/genesis-design-system`](./packages/design-system)  | Brand-agnostic design tokens (DTCG-style), a `CanonicalBrand` schema, and factories (`tailwindFromBrand`, `themeFromBrand`) that turn your brand into a Tailwind preset or a NativeWind theme.                                                                                           |
 | [`@marktiderman/genesis-ui-native`](./packages/ui-native)          | The React Native (NativeWind v5) counterpart to `genesis-ui` — same component vocabulary, native primitives.                                                                                                                                                                             |
 | [`@marktiderman/genesis-switchboard`](./packages/data-switchboard) | A `DataProvider` implementation for the case where a resource's backend is migrating — bind a resource to two backends at once during a cutover, verify they agree (`driftReport`), then bind it fully to the new one. Ships adapters for Supabase, Airtable, and Notion out of the box. |
-| [`@marktiderman/genesis-cli`](./packages/genesis-cli)              | Scaffolds a new consumer: brand package, Tailwind/NativeWind config, token imports.                                                                                                                                                                                                      |
+| [`@marktiderman/genesis-extension`](./packages/extension)          | Build Chrome extensions (Manifest V3) with Genesis: checked messaging, settings storage, the main page as a floating panel, top bar or Chrome side panel, an in-page bar, native-helper jobs, a tabbed options page and lazy lists on Genesis UI, and a `chrome.*` fake for tests.       |
+| [`@marktiderman/genesis-cli`](./packages/genesis-cli)              | `genesis init` scaffolds a consumer (brand package, Tailwind/NativeWind config, token imports); `genesis doctor` checks an app against the installed Genesis, in CI and as a Vite plugin. |
 | [`@marktiderman/genesis`](./packages/genesis)                      | One-install umbrella — re-exports everything above under one version coordinate, via subpath exports. Holds no code of its own.                                                                                                                                                          |
 
 ## Reference apps

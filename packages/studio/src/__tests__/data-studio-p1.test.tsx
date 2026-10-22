@@ -77,7 +77,7 @@ function makeProvider() {
   const schemas: Record<string, ResourceSchema> = { "public.clients": CLIENTS, "public.programs": PROGRAMS, "public.notes": NOTES };
   const history: AuditEntry[] = [];
   const audit = (action: AuditEntry["action"], key: Row, before: Row | null, after: Row | null): AuditEntry => {
-    const entry = { id: `audit-${n++}`, occurredAt: "2026-10-19 10:00:00+00", actor: "coach-a", resource: "public.clients", key, action, before, after };
+    const entry = { id: `audit-${n++}`, occurredAt: "2026-10-19 10:00:00+00", actor: "owner-a", resource: "public.clients", key, action, before, after };
     history.unshift(entry);
     return entry;
   };
