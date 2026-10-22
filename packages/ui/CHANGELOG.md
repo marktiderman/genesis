@@ -1,5 +1,74 @@
 # @marktiderman/genesis-ui
 
+## 2.8.0
+
+### Minor Changes
+
+- 9453f10: `AppShell` takes a `navigation` tree (`NavigationNode<NavItem>`) and derives the global sidebar, a contextual section for the current node (with `$param` paths filled from the URL), the mobile tab bar and a back-to-parent link in a new content-header slot. `parentNavigation={{ href, label }}` sets that link directly (or `null` hides it), and `navItems` is now optional when `navigation` is given. `/layout` also re-exports `resolveNavigation`, `NavigationNode`, `ResolvedNavigation`, `LinkComponent` and `GenesisLinkProps`. `navItems` is optional now (required before): leave it out to take the global items from the tree. Wrappers that read `AppShellProps["navItems"]` should default it with `?? []`. On top-level pages, whose parent is the root, no back link is shown. Additive: existing `navItems` apps are unchanged.
+- 9453f10: More ResourcePage props for app data views:
+
+  - `getTitle` / `getSubtitle` name a record from several fields (the detail title, and the card label with `openOnCardClick`).
+  - `emptyIcon` / `emptyMessage` / `emptyDescription` set the empty state. `DataPageShell` gains `emptyDescription`.
+
+  Fix: the open detail follows the current rows by key. After an edit it shows the new values, and when its record is deleted it closes instead of showing the old copy.
+
+- 9453f10: Props for the parts apps hand-rolled around ResourcePage and DataTable:
+
+  - `DataTableColumn.width` takes a number (px), applied through a `<colgroup>` so the other columns share the rest. A px string (`"180px"`) does the same; other strings stay class names (`"12rem"` no longer becomes 12px). Long headers truncate, with the full text as their title.
+  - `DataGrid` `onItemClick` / `getItemLabel`: each card or list row becomes one keyboard-reachable button; clicks on controls inside it are left alone.
+  - `ResourcePage` `openOnCardClick` (custom cards open the detail) and `canEditItem` (no Edit/Delete for rows the user can't change). `ResourceColumnDef` passes `width`, `minWidth` and `defaultVisible` through to the table.
+  - `PageHeaderOptions.showTitle: false` keeps the actions row without the title block, for a list inside a tab.
+  - `AlertDialogAction` `variant="default"` for confirmations that aren't destructive; red stays the default.
+
+- 9453f10: Rich text hardening:
+
+  - `sanitizeRichTextDoc` takes `maxCharacters`, `maxNodes` and `onTooDeep: "throw"`. When a document breaks one of them, it throws the new `RichTextLimitError` (`reason`, `limit`, `actual`). Use these on server writes. Without them nothing changes: too-deep content is still dropped and the function never throws.
+  - `RichTextEditor` no longer injects a `<style>` tag (`injectCSS: false`). Tiptap's base rules are now classes on the editable element, so a strict `style-src` CSP works.
+  - The `@tiptap/*` peer range is now `^3.31.0`, the version the editor is tested against.
+
+- 9453f10: ResourcePage, ResourceForm and DataPageShell: close the gaps a real screen hit moving onto `ResourcePage`. All additive; the behaviour changes are listed at the end.
+
+  **ResourcePage**
+  - `resource` mode reaches every row. New `pagination`: `"client"` (default) fetches up to `clientRowLimit` (1000) rows in one request and keeps client-side search, sort and header sorting; past the limit a "Showing the first N of M records" notice (and a console warning) replaces the old silent cut at 25. `"server"` pages through the provider: the pager drives `useResource`'s page, the header's page size its `perPage`, and search (debounced, needs `searchFields`), sort and status chips become provider queries; the current page stays on screen while the next loads.
+  - `canEdit(item)` / `canDelete(item)` gate the peek's Edit and Delete separately; `canEditItem` (which gates both) still applies on top.
+  - Built-in confirmed delete: `allowDelete` (resource mode: confirm, `remove(item.id)`, close the peek), or `onDelete` + `confirmDelete`. Copy via `confirmDelete={{ title, description, confirmLabel, cancelLabel }}` (title/description may be functions of the row), `onDeleted` after success; a failure shows in the dialog. New `deleteDialog` slot and exported `ConfirmDeleteDialog`.
+  - `getSubtitle(item)` for the peek; the peek re-resolves its row by key, so after an edit it stays open and shows the saved values.
+  - `header="toolbar"`. (Empty-state copy uses `emptyMessage`, `emptyDescription` and `emptyIcon`, which #85 added.)
+  - `defaultView` accepts `{ mobile, desktop }`.
+  - `/data` now exports `ResourcePageSlots`, `ResourcePageSlotMap`, `ResourcePageSlotProps`, `ResourceDeleteConfirmCopy`, `ConfirmDeleteDialogProps`, `ResponsiveViewMode`, `ViewModeDefault` and the generic `Slots` / `SlotOverride` / `SlotPropsFor`.
+
+  **ResourceForm**
+  - A failed save (`errors.root`) renders as an alert.
+  - Labels are tied to their controls (`htmlFor`/`id` from `useId`), and `aria-describedby` points at the description and the error; `RelationField` and `FileUploadField` accept `id` and the aria props.
+  - `maxLength` on text-like fields (input attribute plus schema validation).
+  - New `autoPlaceholder` (default `false`) and `prefillFromUrl` (default `true`, as before) props. The form sets `noValidate` so the schema's accessible messages are not pre-empted by browser bubbles.
+
+  **DataPageShell / PageHeader**
+  - `DataPageShell`: `emptyDescription`, and `header="toolbar"` (the header's actions without the title block), built on `PageHeaderOptions.showTitle`.
+
+  **genesis-core**
+  - `ResourceFormFieldDef.maxLength`; `useResourceForm` options `autoPlaceholder` (default `true`, unchanged) and `prefillFromUrl` documented; `useResource` option `keepPreviousData`.
+
+  **Behaviour changes to check on upgrade**
+  - `resource`-mode `ResourcePage` now requests up to 1000 rows instead of 25 (set `resourceOptions.defaultPerPage` to keep a smaller page, or use `pagination="server"`).
+  - `ResourceForm` no longer generates "Enter …" placeholders unless `autoPlaceholder` is set (select prompts stay).
+  - The peek stays open after a built-in edit save instead of closing.
+  - `useViewPreference` no longer writes the default to storage on mount; only an explicit choice is stored. It reads storage through `useSyncExternalStore`, so SSR hydrates against the default.
+
+- 9453f10: Add rich text: `RichTextEditor` on `@marktiderman/genesis-ui/rich-text-editor` (Tiptap 3, Genesis toolbar, headings, bold/italic/underline, lists, safe links, quotes, optional YouTube/Vimeo/Loom embeds, placeholder, character count, keyboard shortcuts, controlled or uncontrolled, `readOnly`/`disabled`, SSR-safe) and `RichText` plus server-safe helpers on `@marktiderman/genesis-ui/rich-text` (`sanitizeRichTextDoc`, `richTextToHtml`, `richTextToPlainText`, `isSafeUrl`, `parseVideoUrl`). JSON is the canonical value; HTML is derived through an allow-list. The `@tiptap/*` packages are new optional peers, needed only by apps that import the editor. Neither subpath is re-exported from the package root.
+- 9453f10: Router adapters for the navigation contract, so apps stop hand-writing them. `@marktiderman/genesis-ui/router/react-router` exports `ReactRouterLink`, `useReactRouterNavigate`, `useReactRouterSearchParams` and `useReactRouterActivePath`; `@marktiderman/genesis-ui/router/tanstack-router` exports the same four as `TanStackRouterLink` and `useTanStackRouter…`. Pass the link as `linkComponent`, the navigate fn as `onNavigate`, the search-params adapter to `useDataFilters`, and the active path as `activePath`. The TanStack link splits Genesis's `href` into `to`, `search` and `hash`, parsing the query with the router's own `parseSearch`, and both adapters leave the active state (`aria-current`) to Genesis. `react-router` (^7) and `@tanstack/react-router` (^1) are new optional peers, loaded only by their own subpath. Additive: nothing existing changes.
+
+### Patch Changes
+
+- 9453f10: - `sanitizeRichTextDoc` with `maxNodes` or `maxCharacters` now runs a cheap pre-check on the raw input. It refuses a payload more than 4× the node limit or 2× the character limit before sanitizing, and it doesn't walk past that point.
+  - In `ResourcePage`, the peek keeps its last copy when the open row leaves the current rows (paging, sorting, search, filters). Only a confirmed delete closes it.
+  - `canEditItem`'s precedence over `canEdit` and `canDelete` is now documented.
+- 9453f10: SKILL.md: how to mount the data provider so it shares the app's TanStack Query cache (`DataProviderRoot`, or `GenesisProvider` with `queryClient`), and how to configure `createSupabaseProvider` for Supabase RLS instead of writing a local adapter.
+- 9453f10: SortableList: a keyboard pick-up no longer stays stuck after a cancel or drop, focus stays on the row's own button (or the handle) when a move — or a rejected move's revert — puts the row elsewhere, and two moves in the same tick send one `onReorder`. Rows also disarm on `contextmenu` and window blur, and `SortableListReorder` is exported from the package root.
+- Updated dependencies [9453f10]
+- Updated dependencies [9453f10]
+  - @marktiderman/genesis-core@1.4.0
+
 ## 2.7.0
 
 ### Minor Changes

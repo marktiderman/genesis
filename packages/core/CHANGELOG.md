@@ -1,5 +1,51 @@
 # @marktiderman/genesis-core
 
+## 1.4.0
+
+### Minor Changes
+
+- 9453f10: **`createSupabaseProvider` is safe to use directly under Supabase RLS.** Additive; a **minor**.
+
+  - **Zero rows is a typed failure.** `update` and `deleteOne` now ask for the affected rows instead of ending in `.single()`. When RLS skips the row, the provider reads it back and throws `DataWriteError("forbidden")` (still visible) or `DataWriteError("gone")` (no longer visible), instead of PostgREST's cryptic `PGRST116` error.
+  - **Write errors are typed.** Every create/update/delete error is a `DataWriteError` whose outcome comes from its Postgres/PostgREST code (`42501` forbidden; `22***`/`23***` such as `23505`, `23503` invalid; `PGRST301`–`303` unauthenticated; `PGRST116` gone; else error). The code stays on `error.code` and the raw error is the `cause`. New helpers: `writeOutcomeFromCode`, `toDataWriteError`. Reads are unchanged.
+  - **Recycle-bin tables:** `createSupabaseProvider(client, { binTables })` (or per-resource `deleteMode: "bin"`). A delete succeeds when the row leaves the caller's view and is `forbidden` when it is still visible.
+  - **Per-resource rules** (`resources: { [name]: … }`): `prepare(values, context)` before every write, `create` and `update` overrides (e.g. RPCs; an `update` that returns nothing is read back and reported as `forbidden`/`gone`, never as saved), `toFormValues(row)`, `invalidates`, and `noun` for messages.
+  - **Write events and invalidation:** `onWrite(event)` after every committed write (its failure never fails the write). New optional `DataProvider.invalidates(event)` and `DataProvider.toFormValues(resource, row)`: `useResource` and `useResourceForm` invalidate the provider's related keys after their writes, and `useResourceForm` starts edit forms from `toFormValues`. Both hooks also take an `invalidates` option.
+  - `GenesisProvider` takes an optional `queryClient`, so an app can share its existing cache; documented alongside `DataProviderRoot`.
+  - `DataWriteError` gains an optional `code`, and `DataWriteErrorOptions` gains `code` and `cause`.
+  - New `packages/core/README.md`.
+
+  Behavior note: a zero-row update or delete through `createSupabaseProvider` already threw; it now throws a `DataWriteError` (still an `Error`) with a clear outcome and message.
+
+- 9453f10: ResourcePage, ResourceForm and DataPageShell: close the gaps a real screen hit moving onto `ResourcePage`. All additive; the behaviour changes are listed at the end.
+
+  **ResourcePage**
+  - `resource` mode reaches every row. New `pagination`: `"client"` (default) fetches up to `clientRowLimit` (1000) rows in one request and keeps client-side search, sort and header sorting; past the limit a "Showing the first N of M records" notice (and a console warning) replaces the old silent cut at 25. `"server"` pages through the provider: the pager drives `useResource`'s page, the header's page size its `perPage`, and search (debounced, needs `searchFields`), sort and status chips become provider queries; the current page stays on screen while the next loads.
+  - `canEdit(item)` / `canDelete(item)` gate the peek's Edit and Delete separately; `canEditItem` (which gates both) still applies on top.
+  - Built-in confirmed delete: `allowDelete` (resource mode: confirm, `remove(item.id)`, close the peek), or `onDelete` + `confirmDelete`. Copy via `confirmDelete={{ title, description, confirmLabel, cancelLabel }}` (title/description may be functions of the row), `onDeleted` after success; a failure shows in the dialog. New `deleteDialog` slot and exported `ConfirmDeleteDialog`.
+  - `getSubtitle(item)` for the peek; the peek re-resolves its row by key, so after an edit it stays open and shows the saved values.
+  - `header="toolbar"`. (Empty-state copy uses `emptyMessage`, `emptyDescription` and `emptyIcon`, which #85 added.)
+  - `defaultView` accepts `{ mobile, desktop }`.
+  - `/data` now exports `ResourcePageSlots`, `ResourcePageSlotMap`, `ResourcePageSlotProps`, `ResourceDeleteConfirmCopy`, `ConfirmDeleteDialogProps`, `ResponsiveViewMode`, `ViewModeDefault` and the generic `Slots` / `SlotOverride` / `SlotPropsFor`.
+
+  **ResourceForm**
+  - A failed save (`errors.root`) renders as an alert.
+  - Labels are tied to their controls (`htmlFor`/`id` from `useId`), and `aria-describedby` points at the description and the error; `RelationField` and `FileUploadField` accept `id` and the aria props.
+  - `maxLength` on text-like fields (input attribute plus schema validation).
+  - New `autoPlaceholder` (default `false`) and `prefillFromUrl` (default `true`, as before) props. The form sets `noValidate` so the schema's accessible messages are not pre-empted by browser bubbles.
+
+  **DataPageShell / PageHeader**
+  - `DataPageShell`: `emptyDescription`, and `header="toolbar"` (the header's actions without the title block), built on `PageHeaderOptions.showTitle`.
+
+  **genesis-core**
+  - `ResourceFormFieldDef.maxLength`; `useResourceForm` options `autoPlaceholder` (default `true`, unchanged) and `prefillFromUrl` documented; `useResource` option `keepPreviousData`.
+
+  **Behaviour changes to check on upgrade**
+  - `resource`-mode `ResourcePage` now requests up to 1000 rows instead of 25 (set `resourceOptions.defaultPerPage` to keep a smaller page, or use `pagination="server"`).
+  - `ResourceForm` no longer generates "Enter …" placeholders unless `autoPlaceholder` is set (select prompts stay).
+  - The peek stays open after a built-in edit save instead of closing.
+  - `useViewPreference` no longer writes the default to storage on mount; only an explicit choice is stored. It reads storage through `useSyncExternalStore`, so SSR hydrates against the default.
+
 ## 1.3.0
 
 ### Minor Changes
