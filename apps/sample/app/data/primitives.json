@@ -12294,7 +12294,7 @@
               "type": "((item: T) => boolean)",
               "required": false,
               "defaultValue": null,
-              "description": "Whether the signed-in user may change this record at all. When it\nreturns false the peek offers neither Edit nor Delete for it. Shorthand\nfor the pair below; when both are given, a row needs to pass each."
+              "description": "Whether the signed-in user may change this record at all: shorthand for\n`canEdit` and `canDelete` together. When it returns false the peek\noffers neither Edit nor Delete.\n\nPrecedence: `canEditItem` is checked first. A row it refuses gets no Edit\nand no Delete, whatever `canEdit` / `canDelete` say. A row it allows is\nthen gated by `canEdit` (Edit) and `canDelete` (Delete) when given. Use\n`canEditItem` alone for one owner rule, or the pair for separate rules."
             },
             {
               "name": "canSaveViews",
