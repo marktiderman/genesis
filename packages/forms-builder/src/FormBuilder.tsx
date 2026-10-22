@@ -80,7 +80,7 @@ export interface FormBuilderProps {
   /**
    * The preview's renderers. It replaces `defaultRegistry` (it is `<Form registry>`),
    * so extend that one rather than passing only your own types:
-   * `defaultRegistry.extend([{ type: "rows", Component: Rows }])`.
+   * `defaultRegistry.extend([{ type: "acme/signature", Component: Signature }])`.
    */
   previewRegistry?: RendererRegistry | undefined;
   /** Custom validators for the preview, by field id (as `createForm` takes them). */
