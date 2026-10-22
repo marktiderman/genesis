@@ -33,7 +33,7 @@ const EMPTY: Record<string, Json> = {};
 
 /**
  * The Genesis Forms inspector: state, event timeline with time travel, and the
- * server check. Answers to sensitive fields are masked until "Reveal sensitive
+ * server check. Answers to sensitive and identifying fields are masked until "Reveal sensitive
  * values" is switched on. Each tab renders inside an error boundary, so a
  * hostile value shows a message instead of taking the page down.
  */

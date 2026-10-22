@@ -30,13 +30,13 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs && tsc -p type-tests",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-forms": "workspace:^",
+    "@marktiderman/genesis-forms": "workspace:>=0.1.1 <1.0.0",
     "react": "^19.0.0"
   },
   "devDependencies": {

@@ -1,11 +1,14 @@
 # Releasing Genesis packages
 
-All seven `@marktiderman/*` packages are published by CI, from
-`.github/workflows/release.yml` on `main`, with npm Trusted Publishing (OIDC).
-No npm token is stored anywhere. Do not publish by hand (except a brand-new
+All thirteen public `@marktiderman/*` packages (every `packages/*` without
+`"private": true`) are published by CI, from `.github/workflows/release.yml` on
+`main`, with npm Trusted Publishing (OIDC). No npm token is stored anywhere.
+Every package sets `publishConfig.provenance: false`, so no provenance
+attestation is published; the commit that shipped is in the release tag and the
+Actions run. Do not publish by hand (except a brand-new
 package's first version, below): a manual `npm publish`
-skips the `workspace:` rewrite (the 2.1.0 incident) and leaves no provenance
-of which commit shipped.
+skips the `workspace:` rewrite (the 2.1.0 incident) and leaves no record of
+which commit shipped.
 
 ## Normal release (nothing to do on npm)
 
@@ -60,6 +63,20 @@ release (e.g. `0.1.0`) and leave it out of the changeset. A changeset bumping a
 `0.0.0` package puts its `workspace:^` dependents out of range, and changesets
 then gives them a major bump (`1.0.0`). Every later version goes through CI as
 usual.
+
+## Forms packages and 0.x peer ranges
+
+With `workspace:^` on a 0.x package, every minor of `genesis-forms` would leave
+`^0.1.x`, and changesets gives a dependent a **major** bump when a new version
+leaves its peer range: `-react`, `-web` and `-devtools` would go to `1.0.0`. So
+their peer ranges on other forms packages are written as
+`workspace:>=0.1.1 <1.0.0` (any 0.x from that floor), and changesets leaves a
+dependent alone while the new version stays in range. That relies on
+`onlyUpdatePeerDependentsWhenOutOfRange: true` in `.changeset/config.json`;
+without it, changesets majors a dependent on any non-patch peer release, in
+range or not, so keep it on. Raise a floor by hand when a dependent starts
+needing a newer forms API. Each forms package is versioned on its own (no
+`linked` group). Check a release plan with `pnpm changeset status --verbose`.
 
 ## When the "Verify npm Trusted Publishing" step fails
 

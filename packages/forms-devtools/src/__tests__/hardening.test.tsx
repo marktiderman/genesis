@@ -279,3 +279,41 @@ describe("share links blank sensitive hidden inputs in context (CodeRabbit on #4
     expect(back?.context).toEqual({ member: null, coach: "Sam" });
   });
 });
+
+describe("identifying fields and hidden inputs are masked like sensitive ones", () => {
+  const def = defineForm({
+    id: "ident",
+    title: "Ident",
+    hidden: { member: f.hidden.string({ source: "server", identifying: true }), coach: f.hidden.string({ source: "server" }) },
+    blocks: [f.email("email", { label: "Email", identifying: true }), f.longText("notes", { label: "Notes" })],
+  }).definition;
+  const events: FormEvent[] = [
+    { type: "answer", field: "email", value: "jo@x.com" },
+    { type: "answer", field: "notes", value: "fine" },
+  ];
+
+  it("encodeShare blanks them", async () => {
+    const back = await decodeShare(
+      await encodeShare({ v: 1, definition: def, events, context: { member: "user-42", coach: "Sam" } }, { includeContext: true }),
+    );
+    expect(back?.events).toEqual([
+      { type: "answer", field: "email", value: null },
+      { type: "answer", field: "notes", value: "fine" },
+    ]);
+    expect(back?.context).toEqual({ member: null, coach: "Sam" });
+  });
+
+  it("the state and timeline panels mask them until revealed", () => {
+    const filled = () => replay(def, events, { hidden: { member: "user-42", coach: "Sam" } });
+    for (const panel of [<StatePanel key="s" engine={filled()} />, <TimelinePanel key="t" engine={filled()} />]) {
+      const { container, unmount } = render(panel);
+      const text = container.textContent ?? "";
+      expect(text).not.toMatch(/jo@x\.com|user-42/);
+      expect(text).toMatch(/fine/);
+      unmount();
+    }
+    render(<Inspector engine={filled()} />);
+    fireEvent.click(screen.getByRole("switch", { name: "Reveal sensitive values" }));
+    expect(screen.getByTestId("devtools-state").textContent).toMatch(/jo@x\.com/);
+  });
+});

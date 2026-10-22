@@ -35,6 +35,35 @@ const liveRegion = () => document.querySelector("[data-gf-live]")!;
 
 afterEach(() => vi.useRealTimers());
 
+describe("<Form> introduction", () => {
+  it("recalls hidden inputs in the description, like endings", () => {
+    const intro = defineForm({
+      id: "intro",
+      title: "Hi",
+      description: "Coached by {{hidden:coach|us}}",
+      layout: { mode: "classic" },
+      hidden: { coach: f.hidden.string({ source: "server" }) },
+      blocks: [f.shortText("x", { label: "X" })],
+    });
+    render(<Form form={intro} options={{ hidden: { coach: "Sam" } }} />);
+    expect(screen.getByText("Coached by Sam")).toBeTruthy();
+  });
+
+  it("updates a description that recalls an answer as it changes", () => {
+    const intro = defineForm({
+      id: "intro-recall",
+      title: "Hi",
+      description: "Hello {{field:name|there}}",
+      layout: { mode: "classic" },
+      blocks: [f.shortText("name", { label: "Name" })],
+    });
+    render(<Form form={intro} />);
+    expect(screen.getByText("Hello there")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: "Ana" } });
+    expect(screen.getByText("Hello Ana")).toBeTruthy();
+  });
+});
+
 describe("<Form> focus layout", () => {
   it("walks one question at a time, showing progress and moving focus", async () => {
     const onSubmit = vi.fn();
