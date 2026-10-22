@@ -19,12 +19,19 @@ import type {
   WriteEvent,
 } from "../provider/types";
 import { relatedKeys } from "./related-keys";
+import {
+  cachedRecord,
+  executeWrite,
+  invalidateResource,
+  useDelayedWrites,
+  type MutationModeOptions,
+} from "./mutation-mode";
 
 // ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
 
-export interface UseResourceOptions<T> {
+export interface UseResourceOptions<T> extends MutationModeOptions {
   defaultSort?: SortParam;
   /**
    * Re-synced whenever its value changes (deep-equal, order-independent),
@@ -60,9 +67,19 @@ export interface UseResourceOptions<T> {
    * rather than flashing a skeleton. Default false.
    */
   keepPreviousData?: boolean;
+  /**
+   * After the write commits, with the provider's row. In `optimistic` and
+   * `undoable` modes that is after `create` / `update` / `remove` have
+   * already resolved.
+   */
   onCreateSuccess?: (data: T) => void;
   onUpdateSuccess?: (data: T) => void;
   onDeleteSuccess?: () => void;
+  /**
+   * A write failed. In `optimistic` and `undoable` modes this is the only
+   * place a failure is reported (the cache has already been put back), so
+   * show it to the user here.
+   */
   onError?: (error: Error) => void;
 }
 
@@ -80,11 +97,19 @@ export interface UseResourceReturn<T> {
   setPage: (page: number) => void;
   setPerPage: (perPage: number) => void;
   setSearch: (query: string) => void;
-  /** Create a new record. Returns the created item. */
+  /**
+   * Create a new record. Returns the created item. In `optimistic` and
+   * `undoable` modes it resolves at once with the values given (no `id` yet;
+   * `onCreateSuccess` gets the stored row).
+   */
   create: (data: Partial<T>) => Promise<T>;
-  /** Update an existing record by id. Returns the updated item. */
+  /**
+   * Update an existing record by id. Returns the updated item. In
+   * `optimistic` and `undoable` modes it resolves at once with the cached
+   * row merged with `data`.
+   */
   update: (id: Identifier, data: Partial<T>) => Promise<T>;
-  /** Delete a record by id. */
+  /** Delete a record by id. Resolves at once in `optimistic` / `undoable` modes. */
   remove: (id: Identifier) => Promise<void>;
   /** True when any mutation is in-flight. */
   isMutating: boolean;
@@ -136,6 +161,9 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     onUpdateSuccess,
     onDeleteSuccess,
     onError,
+    mutationMode = "pessimistic",
+    undoDelayMs,
+    onUndoable,
   } = options;
 
   const provider = useDataProvider();
@@ -235,7 +263,8 @@ export function useResource<T extends BaseRecord = BaseRecord>(
 
   const invalidateAfter = useCallback(
     (event: WriteEvent) => {
-      void queryClient.invalidateQueries({ queryKey: [resource] });
+      // Waits while an optimistic/undoable write on the resource is pending.
+      void invalidateResource(queryClient, resource);
       for (const queryKey of relatedKeys(provider, event, invalidates)) {
         void queryClient.invalidateQueries({ queryKey: [...queryKey] });
       }
@@ -249,17 +278,38 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     },
     [resource],
   );
+  const reportError = onError ?? defaultOnError;
+
+  const delayed = useDelayedWrites();
+  const modeArgs = {
+    queryClient,
+    provider,
+    resource,
+    mode: mutationMode,
+    undoDelayMs,
+    onUndoable,
+    delayed,
+    failedLater: reportError,
+  };
 
   const createMutation = useMutation<T, Error, Partial<T>>({
     mutationFn: async (data) => {
-      const result = await provider.create<T>(resource, { data });
-      return result.data;
+      const outcome = await executeWrite<T>({
+        ...modeArgs,
+        kind: "create",
+        data: data as Record<string, unknown>,
+        send: async () => {
+          const result = await provider.create<T>(resource, { data });
+          return { record: result.data, audit: result.audit };
+        },
+        committed: (record) => {
+          invalidateAfter({ resource, kind: "create", id: record.id, record });
+          onCreateSuccess?.(record);
+        },
+      });
+      return outcome.status === "committed" ? outcome.record : (data as T);
     },
-    onSuccess: (data) => {
-      invalidateAfter({ resource, kind: "create", id: data.id, record: data });
-      onCreateSuccess?.(data);
-    },
-    onError: onError ?? defaultOnError,
+    onError: reportError,
   });
 
   const updateMutation = useMutation<
@@ -268,25 +318,45 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     { id: Identifier; data: Partial<T> }
   >({
     mutationFn: async ({ id, data }) => {
-      const result = await provider.update<T>(resource, { id, data });
-      return result.data;
+      const before = cachedRecord(queryClient, resource, id);
+      const outcome = await executeWrite<T>({
+        ...modeArgs,
+        kind: "update",
+        id,
+        data: data as Record<string, unknown>,
+        send: async () => {
+          const result = await provider.update<T>(resource, { id, data });
+          return { record: result.data, audit: result.audit };
+        },
+        committed: (record) => {
+          invalidateAfter({ resource, kind: "update", id, record });
+          onUpdateSuccess?.(record);
+        },
+      });
+      return outcome.status === "committed"
+        ? outcome.record
+        : ({ ...(before ?? {}), ...data, id: before?.id ?? id } as T);
     },
-    onSuccess: (data, { id }) => {
-      invalidateAfter({ resource, kind: "update", id, record: data });
-      onUpdateSuccess?.(data);
-    },
-    onError: onError ?? defaultOnError,
+    onError: reportError,
   });
 
   const deleteMutation = useMutation<void, Error, Identifier>({
     mutationFn: async (id) => {
-      await provider.deleteOne(resource, { id });
+      await executeWrite<void>({
+        ...modeArgs,
+        kind: "delete",
+        id,
+        send: async () => {
+          const result = await provider.deleteOne(resource, { id });
+          return { record: undefined, audit: result?.audit };
+        },
+        committed: () => {
+          invalidateAfter({ resource, kind: "delete", id });
+          onDeleteSuccess?.();
+        },
+      });
     },
-    onSuccess: (_data, id) => {
-      invalidateAfter({ resource, kind: "delete", id });
-      onDeleteSuccess?.();
-    },
-    onError: onError ?? defaultOnError,
+    onError: reportError,
   });
 
   // -------------------------------------------------------------------------
