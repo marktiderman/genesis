@@ -106,6 +106,7 @@ export function parseForm(input: unknown): ParseResult {
   }
 
   const ids = new Set<string>();
+  const pageBreaks = new Set<string>();
   const keys = new Map<string, string>();
   const fieldTypes = new Map<string, string>();
   const order = new Map<string, number>();
@@ -119,6 +120,7 @@ export function parseForm(input: unknown): ParseResult {
     if (!name(block.id, `${path}.id`, "A block id")) return;
     if (ids.has(block.id)) issue(`${path}.id`, `Duplicate id "${block.id}".`);
     ids.add(block.id);
+    if (block.kind === "page-break") pageBreaks.add(block.id);
     order.set(block.id, i);
     if (block.kind === "field") {
       text(block.label, `${path}.label`);
@@ -253,6 +255,8 @@ export function parseForm(input: unknown): ParseResult {
     if (rule.effect === "jump") {
       if (typeof rule.from !== "string" || !ids.has(rule.from)) {
         issue(`${path}.from`, `No block "${String(rule.from)}".`);
+      } else if (pageBreaks.has(rule.from)) {
+        issue(`${path}.from`, "A jump can't start at a page break; use the block before it.");
       } else {
         at = rule.from;
         inclusive = true;
@@ -263,6 +267,8 @@ export function parseForm(input: unknown): ParseResult {
         }
       } else if (typeof rule.to !== "string" || !ids.has(rule.to)) {
         issue(`${path}.to`, `No block "${String(rule.to)}".`);
+      } else if (pageBreaks.has(rule.to)) {
+        issue(`${path}.to`, "A jump can't land on a page break; jump to the first block after it.");
       } else if (at !== undefined && (order.get(rule.to) ?? 0) <= (order.get(at) ?? 0)) {
         warnings.push({ path: `${path}.to`, message: "Jumps only go forward; this one is ignored." });
       }

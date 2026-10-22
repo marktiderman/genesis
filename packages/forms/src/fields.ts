@@ -271,7 +271,7 @@ const builtins: FieldTypeManifest[] = [
         : "Choose from the options.";
     },
     summarize: (value, field) =>
-      (value as string[]).map((v) => optionLabel(field, v)).join(", "),
+      Array.isArray(value) ? value.map((v) => optionLabel(field, String(v))).join(", ") : String(value),
   },
   {
     type: "yes-no",

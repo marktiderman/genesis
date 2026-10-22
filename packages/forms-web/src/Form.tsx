@@ -495,12 +495,12 @@ function FormBody({
   const layout = layoutProp ?? def.layout?.mode ?? "classic";
   const status = useFormSelector(engine, (s) => s.status);
   const current = useFormSelector(engine, (s) => s.current);
-  const pathKey = useFormSelector(engine, (s) => s.path.join(","));
+  const pathKey = useFormSelector(engine, (s) => JSON.stringify(s.path));
   // A string, so typing (which builds a new errors object) doesn't re-render the whole form.
   const errorsKey = useFormSelector(engine, (s) => JSON.stringify(s.errors));
   const ending = useFormSelector(engine, (s) => s.ending);
   const historyLength = useFormSelector(engine, (s) => s.history.length);
-  const path = pathKey ? pathKey.split(",") : [];
+  const path = JSON.parse(pathKey) as string[];
   const errors = JSON.parse(errorsKey) as Record<string, string>;
   const formRef = useRef<HTMLFormElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);

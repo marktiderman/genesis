@@ -112,7 +112,9 @@ function domainOf(field: FieldBlock, extra: Value[], maxOptions: number): Value[
   }
   // Unanswered first, so witnesses stay as short as possible.
   const candidates = dedupe([undefined, ...base, ...extra]);
-  return candidates.filter((v) => validateField(field, v) === null);
+  const valid = candidates.filter((v) => validateField(field, v) === null);
+  // A type with no known valid value (a plugin) must not dead-end the search.
+  return valid.length ? valid : [undefined];
 }
 
 export function coverage(form: FormDefinition | { definition: FormDefinition }, opts: CoverageOptions = {}): CoverageReport {
