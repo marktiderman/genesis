@@ -35,13 +35,14 @@ import { DataBulkBar } from "./DataBulkBar";
 import { DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
 import { ResourceForm } from "./ResourceForm";
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import {
   renderSlot,
   type Slots,
   type SlotPropsFor,
 } from "../../slots";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
-import type { ViewMode } from "../patterns/view-toggle";
+import type { ViewModeDefault } from "../../hooks/use-view-preference";
 import {
   useResource,
   type UseResourceOptions,
@@ -56,6 +57,7 @@ import { useKeyboardNavigation } from "../../hooks/use-keyboard-navigation";
 import type {
   BaseRecord,
   FilterParam,
+  Identifier,
   SortParam,
 } from "@marktiderman/genesis-core/provider";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
@@ -141,6 +143,11 @@ export type ResourcePageSlotMap<
   detail: ComponentProps<typeof DetailPanel<T>>;
   /** The create / edit form. */
   form: ComponentProps<typeof ResourceForm>;
+  /**
+   * The confirm step in front of a delete. Rendered only when a delete is
+   * confirmed (`allowDelete`, or `onDelete` with `confirmDelete`).
+   */
+  deleteDialog: ComponentProps<typeof ConfirmDeleteDialog>;
 };
 
 /**
@@ -159,6 +166,31 @@ export type ResourcePageSlots<
 > = Omit<Slots<ResourcePageSlotMap<T>>, "shell"> & {
   shell?: ComponentType<ComponentProps<typeof DataPageShell>>;
 };
+
+/**
+ * `slotProps` for {@link ResourcePage}: extra props merged into a part you
+ * are keeping, winning over ResourcePage's own.
+ */
+export type ResourcePageSlotProps<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = SlotPropsFor<ResourcePageSlotMap<T>>;
+
+/**
+ * Copy for the built-in delete confirmation. Every field is optional;
+ * omitted ones fall back to `ConfirmDeleteDialog`'s defaults.
+ *
+ * @stability Beta
+ */
+export interface ResourceDeleteConfirmCopy<T> {
+  /** Default "Delete this record?". A function receives the row. */
+  title?: string | ((item: T) => string);
+  /** Default "This can't be undone." */
+  description?: ReactNode | ((item: T) => ReactNode);
+  /** Default "Delete". */
+  confirmLabel?: string;
+  /** Default "Cancel". */
+  cancelLabel?: string;
+}
 
 export interface ResourcePageProps<
   T extends Record<string, unknown> = Record<string, unknown>,
@@ -180,6 +212,33 @@ export interface ResourcePageProps<
    * {@link onPageChange}.
    */
   total?: number;
+
+  /**
+   * How `resource` mode reaches rows past the first page. Ignored with
+   * `data` (server-data mode pages through the controlled props instead).
+   *
+   * - `"client"` (default): fetch up to `clientRowLimit` rows in one request
+   *   and search, sort, filter and page them in the browser — header-click
+   *   sort and instant search keep working. If the resource holds more rows
+   *   than that, a notice under the list says how many are shown (and a
+   *   console warning names this prop), rather than silently truncating.
+   * - `"server"`: fetch one page at a time. The pager under the list drives
+   *   `useResource`'s page, the header's page size its `perPage`, and
+   *   search / sort / status chips become provider queries (search is
+   *   debounced), and the current page stays on screen while the next one
+   *   loads. Give `statusFilter` explicit `options` here — derived ones can
+   *   only see the current page's values. Search needs `searchFields` (or
+   *   `resourceOptions.searchFields`) — the provider must be told which
+   *   columns to match — so the search box is hidden without them. Table
+   *   header sorting is withdrawn, as in server-data mode; the sort control
+   *   in the filter row drives the query.
+   */
+  pagination?: "client" | "server";
+  /**
+   * `pagination="client"` only: the most rows fetched. Default 1000. An
+   * explicit `resourceOptions.defaultPerPage` wins.
+   */
+  clientRowLimit?: number;
 
   // Page chrome
   title: string;
@@ -210,7 +269,11 @@ export interface ResourcePageProps<
    * `titleField` for the detail title and the card's accessible name.
    */
   getTitle?: (item: T) => string;
-  /** The detail subtitle from more than one field. Wins over `subtitleField`. */
+  /**
+   * The detail peek's subtitle, computed from the row ("2 staff", "Due
+   * Friday"). Wins over `subtitleField`, which can only show one column
+   * verbatim.
+   */
   getSubtitle?: (item: T) => string | undefined;
   renderDetail?: (item: T) => ReactNode;
   detailFields?: Array<{
@@ -422,14 +485,49 @@ export interface ResourcePageProps<
   // CRUD — presence enables the action
   onCreate?: () => void;
   onEdit?: (item: T) => void;
-  onDelete?: (item: T) => void;
   /**
-   * Whether the signed-in user may change this record. When it returns
-   * false, the detail view shows no Edit or Delete for it, while other rows
-   * keep theirs. Omitted, every row offers what `onEdit` / `onDelete` allow.
+   * Delete handler, shown as the detail peek's Delete button. Called
+   * directly, as before, unless `confirmDelete` is set — then it runs after
+   * the confirm dialog, which shows its error if the returned promise
+   * rejects, and closes the peek when it resolves.
+   */
+  onDelete?: (item: T) => void | Promise<void>;
+  /**
+   * Whether the signed-in user may change this record at all. When it
+   * returns false the peek offers neither Edit nor Delete for it. Shorthand
+   * for the pair below; when both are given, a row needs to pass each.
    */
   canEditItem?: (item: T) => boolean;
   createLabel?: string;
+  /**
+   * Whether this row may be edited. The peek's Edit button is hidden for a
+   * row that returns `false` (and the built-in edit form will not open for
+   * it). Omitted, every row is editable, as before. A UI gate only: the
+   * server must still refuse the write.
+   */
+  canEdit?: (item: T) => boolean;
+  /**
+   * Whether this row may be deleted. The peek's Delete button is hidden for
+   * a row that returns `false`. Omitted, every row is deletable. A UI gate
+   * only: the server must still refuse the write.
+   */
+  canDelete?: (item: T) => boolean;
+  /**
+   * Built-in delete for `resource` mode (ignored if `onDelete` is
+   * provided): the peek's Delete button opens a confirm dialog, then calls
+   * `useResource`'s `remove` with the row's `getKey` (when supplied) or its
+   * `id` — which invalidates the list — and closes the peek. A failure shows
+   * in the dialog.
+   */
+  allowDelete?: boolean;
+  /**
+   * Confirm before deleting. Defaults to `true` for `allowDelete` and
+   * `false` for `onDelete` (which keeps its old, unconfirmed behaviour).
+   * Pass an object to set the dialog's copy.
+   */
+  confirmDelete?: boolean | ResourceDeleteConfirmCopy<T>;
+  /** Called after a confirmed or built-in delete succeeds — e.g. a toast. */
+  onDeleted?: (item: T) => void;
   /**
    * Extra header actions beyond the create button, in one overflow menu.
    * See {@link PageHeaderAction} — the budget is one primary, the rest here.
@@ -550,10 +648,17 @@ export interface ResourcePageProps<
   emptyState?: ReactNode;
   /** The empty state's icon. */
   emptyIcon?: LucideIcon;
-  /** The empty state's title, e.g. "No tasks yet". */
+  /** The empty state's title, e.g. "No tasks yet". Default "No results found". */
   emptyMessage?: string;
-  /** A line under the empty-state title. */
+  /** A sentence under the empty-state title — forwarded to `DataPageShell`. */
   emptyDescription?: string;
+  /**
+   * `"page"` (default) renders the full header with the title. `"toolbar"`
+   * keeps the header's actions (count, view toggle, settings, create) and
+   * drops the title block — for a list inside a tab or card whose page
+   * already has the heading. See `DataPageShell`'s `header`.
+   */
+  header?: "page" | "toolbar";
 
   /**
    * Imperative navigation used only when `detail="route"` (navigates to
@@ -565,7 +670,13 @@ export interface ResourcePageProps<
 
   // Data options (client-side mode only)
   resourceOptions?: UseResourceOptions<T>;
-  defaultView?: ViewMode;
+  /**
+   * The view shown until the user picks one with the view toggle. Default
+   * `"table"`. Pass `{ mobile: "grid", desktop: "table" }` for cards on
+   * phones and a table on desktops. Only an explicit pick is persisted, so
+   * the responsive default stays responsive until the user chooses.
+   */
+  defaultView?: ViewModeDefault;
   /**
    * Persist key for density / page size via `useViewSettings`.
    * Defaults to `resource` or a slug of `title`.
@@ -583,7 +694,7 @@ export interface ResourcePageProps<
    */
   slots?: ResourcePageSlots<T>;
   /** Extra props merged into a part you are KEEPING. Wins over ours. */
-  slotProps?: SlotPropsFor<ResourcePageSlotMap<T>>;
+  slotProps?: ResourcePageSlotProps<T>;
   /** Merged onto the page shell's root. */
   className?: string;
 }
@@ -599,6 +710,8 @@ export function ResourcePage<
     resource: resourceName,
     data: dataProp,
     total: totalProp,
+    pagination = "client",
+    clientRowLimit = 1000,
     title,
     subtitle,
     icon,
@@ -645,6 +758,11 @@ export function ResourcePage<
     onDelete,
     canEditItem,
     createLabel = "New",
+    canEdit,
+    canDelete,
+    allowDelete,
+    confirmDelete,
+    onDeleted,
     secondaryActions,
     allowCreate,
     allowEdit,
@@ -665,6 +783,7 @@ export function ResourcePage<
     emptyIcon,
     emptyMessage,
     emptyDescription,
+    header: headerMode = "page",
     resourceOptions,
     defaultView = "table",
     onNavigate = defaultNavigate,
@@ -682,7 +801,14 @@ export function ResourcePage<
    * props — presence is the switch, so a caller that only pages (no server
    * search) still gets its `data` left alone.
    */
+  // `resource` mode paging through the provider: ResourcePage owns both the
+  // fetch and the page state, and reuses the server-controlled path below
+  // (no client-side transform, the pager under the list) with useResource's
+  // setters standing in for the caller's callbacks.
+  const resourceServerPaging = isClientMode && pagination === "server";
+
   const isServerControlled =
+    resourceServerPaging ||
     pageProp !== undefined ||
     perPageProp !== undefined ||
     onPageChange !== undefined ||
@@ -696,8 +822,9 @@ export function ResourcePage<
     title.toLowerCase().replace(/\s+/g, "-");
   const { settings, updateSetting } = useViewSettings(viewSettingsKey);
 
-  /** Explicit prop beats the per-user stored preference. */
-  const effectivePageSize = perPageProp ?? settings.pageSize;
+  // Server search needs the columns to match. Without them the provider
+  // would get a query it ignores, so the search box hides instead of lying.
+  const serverSearchFields = resourceOptions?.searchFields ?? searchFields;
 
   // ── Client-side mode: call useResource (hook is always called for rules-of-hooks) ──
   // Core's useResource constrains its row type to BaseRecord (rows carry an
@@ -706,8 +833,32 @@ export function ResourcePage<
   // ResourcePageProps<T> generic stays unchanged while satisfying the hook.
   const resourceHook = useResource<T & BaseRecord>(
     resourceName ?? "__noop__",
-    isClientMode ? resourceOptions : { enabled: false },
+    isClientMode
+      ? {
+          ...resourceOptions,
+          // Client paging fetches everything it can in one request; server
+          // paging starts at the user's stored page size. An explicit
+          // `defaultPerPage` wins over both.
+          defaultPerPage:
+            resourceOptions?.defaultPerPage ??
+            (resourceServerPaging
+              ? (perPageProp ?? settings.pageSize)
+              : clientRowLimit),
+          searchFields: resourceServerPaging
+            ? serverSearchFields
+            : resourceOptions?.searchFields,
+          // Paging, searching and sorting change the query key; keep the
+          // current page on screen while the next one loads.
+          keepPreviousData:
+            resourceOptions?.keepPreviousData ?? resourceServerPaging,
+        }
+      : { enabled: false },
   );
+
+  /** Explicit prop beats the per-user stored preference. */
+  const effectivePageSize = resourceServerPaging
+    ? (resourceHook.params.pagination?.perPage ?? settings.pageSize)
+    : (perPageProp ?? settings.pageSize);
 
   // ── Resolve display data ──
   const displayData: T[] = isClientMode
@@ -743,6 +894,96 @@ export function ResourcePage<
     controlled: isServerControlled,
   });
 
+  // ── `pagination="server"`: push the filter row's state into useResource ──
+  // Effects rather than the change handlers, so `initialFilters` and "Clear
+  // all" reach the provider by the same path as a keystroke. Each push is
+  // skipped while its value still equals what the hook already has, so the
+  // first render does not reset `defaultSort` or refetch for nothing.
+  const {
+    setSearch: setResourceSearch,
+    setSort: setResourceSort,
+    setFilters: setResourceFilters,
+  } = resourceHook;
+  const pushedSearchRef = useRef("");
+  const searchEffectRanRef = useRef(false);
+  useEffect(() => {
+    if (!resourceServerPaging) return;
+    const firstRun = !searchEffectRanRef.current;
+    searchEffectRanRef.current = true;
+    if (page.search === pushedSearchRef.current) return;
+    const push = () => {
+      pushedSearchRef.current = page.search;
+      setResourceSearch(page.search);
+    };
+    // One request per pause in typing, not per keystroke — but an
+    // `initialFilters` search (first run) or a cleared box ("Clear all")
+    // goes out at once, landing with the sort / status pushes instead of
+    // 300ms behind them.
+    if (firstRun || page.search === "") {
+      push();
+      return;
+    }
+    const timer = setTimeout(push, 300);
+    return () => clearTimeout(timer);
+  }, [resourceServerPaging, page.search, setResourceSearch]);
+
+  const defaultSort = resourceOptions?.defaultSort;
+  const pushedSortRef = useRef<string>("");
+  useEffect(() => {
+    if (!resourceServerPaging) return;
+    const key = page.sort ? `${page.sort.field}:${page.sort.order}` : "";
+    if (key === pushedSortRef.current) return;
+    pushedSortRef.current = key;
+    // Clearing the sort returns to the resource's default order, not to
+    // whatever order the provider happens to use.
+    setResourceSort(page.sort ?? defaultSort);
+  }, [resourceServerPaging, page.sort, defaultSort, setResourceSort]);
+
+  const statusField = statusFilter
+    ? typeof statusFilter === "string"
+      ? statusFilter
+      : statusFilter.field
+    : undefined;
+  const defaultFilters = resourceOptions?.defaultFilters;
+  const pushedStatusRef = useRef<string>("");
+  useEffect(() => {
+    if (!resourceServerPaging || !statusField) return;
+    // `defaultFilters` is part of the key: useResource re-syncs its filters
+    // to a changed `defaultFilters` (dropping the status filter), so a
+    // change there must re-push even when the chips did not move.
+    const key = JSON.stringify([page.statusValue, defaultFilters ?? null]);
+    if (key === pushedStatusRef.current) return;
+    pushedStatusRef.current = key;
+    setResourceFilters([
+      ...(defaultFilters ?? []),
+      ...(page.statusValue.length > 0
+        ? [{ field: statusField, operator: "in" as const, value: page.statusValue }]
+        : []),
+    ]);
+  }, [
+    resourceServerPaging,
+    statusField,
+    page.statusValue,
+    defaultFilters,
+    setResourceFilters,
+  ]);
+
+  // ── `pagination="client"`: say so when the resource outgrew the fetch ──
+  const clientTruncated =
+    isClientMode &&
+    !resourceServerPaging &&
+    !isLoading &&
+    !hasError &&
+    displayTotal > displayData.length;
+  const warnedTruncatedRef = useRef(false);
+  useEffect(() => {
+    if (!clientTruncated || warnedTruncatedRef.current) return;
+    warnedTruncatedRef.current = true;
+    console.warn(
+      `ResourcePage: "${resourceName}" has ${displayTotal} rows but only ${displayData.length} were fetched. ` +
+        `Pass \`pagination="server"\` to page through all of them, or raise \`clientRowLimit\`.`,
+    );
+  }, [clientTruncated, resourceName, displayTotal, displayData.length]);
   // ── Build ResourceActions for column render functions ──
   const actions: ResourceActions<T> = useMemo(() => {
     if (isClientMode) {
@@ -780,6 +1021,23 @@ export function ResourcePage<
       getKeyProp ? getKeyProp(item) : String((item as Record<string, unknown>).id ?? ""),
     [getKeyProp],
   );
+
+  // ── The peek's row, kept live ──
+  // `page.selectedItem` is a snapshot taken at click time. Re-resolving it by
+  // key against the current rows means a save (which refetches) shows its
+  // new values in the open peek instead of the pre-edit copy. A row missing
+  // from the rows has been deleted, so the peek closes, except with server
+  // paging, where it may only have left the current page or search; there
+  // the snapshot stays.
+  // An empty key (rows with no `id` and no `getKey`) identifies nothing, so
+  // it keeps the snapshot rather than matching the first keyless row.
+  const selectedKey = page.selectedItem ? keyOf(page.selectedItem) : null;
+  const selectedItem: T | null = !page.selectedItem
+    ? null
+    : selectedKey
+      ? (displayData.find((row) => keyOf(row) === selectedKey) ??
+        (resourceServerPaging ? page.selectedItem : null))
+      : page.selectedItem;
 
   // ── Bulk selection ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -825,6 +1083,8 @@ export function ResourcePage<
 
   const handleEdit = useCallback(
     (item: T) => {
+      if (canEdit && !canEdit(item)) return;
+      if (canEditItem && !canEditItem(item)) return;
       if (useBuiltInEdit) {
         setFormAction("edit");
         setFormItem(item);
@@ -833,8 +1093,85 @@ export function ResourcePage<
         onEdit(item);
       }
     },
-    [useBuiltInEdit, onEdit],
+    [useBuiltInEdit, onEdit, canEdit, canEditItem],
   );
+
+  const closeDetail = useCallback(() => {
+    page.setDetailOpen(false);
+    page.setSelectedItem(null);
+  }, [page]);
+
+  // ── Delete: built-in, confirmed, or the caller's as-is ──
+  const useBuiltInDelete = !!allowDelete && !onDelete && isClientMode;
+  const deleteConfirmed =
+    confirmDelete === undefined ? useBuiltInDelete : !!confirmDelete;
+  const deleteCopy =
+    typeof confirmDelete === "object" ? confirmDelete : undefined;
+  // The row being confirmed, kept after the dialog closes so its copy does
+  // not flip to the defaults during the exit animation; `deleteOpen` is what
+  // actually opens and closes it.
+  const [pendingDelete, setPendingDelete] = useState<T | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const { remove: removeRecord } = resourceHook;
+
+  const performDelete = useCallback(
+    async (item: T) => {
+      if (useBuiltInDelete) {
+        // A caller-supplied `getKey` (e.g. `encodeRecordKey` for a composite
+        // key) is the row's identity to the provider too; otherwise `id`.
+        await removeRecord(
+          (getKeyProp
+            ? keyOf(item)
+            : (item as Record<string, unknown>).id) as Identifier,
+        );
+      } else if (onDelete) {
+        await onDelete(item);
+      }
+      closeDetail();
+      onDeleted?.(item);
+    },
+    [
+      useBuiltInDelete,
+      removeRecord,
+      getKeyProp,
+      keyOf,
+      onDelete,
+      closeDetail,
+      onDeleted,
+    ],
+  );
+
+  const deleteHandler: ((item: T) => void) | undefined = !(
+    useBuiltInDelete || onDelete
+  )
+    ? undefined
+    : deleteConfirmed
+      ? (item: T) => {
+          setPendingDelete(item);
+          setDeleteOpen(true);
+        }
+      : useBuiltInDelete
+        ? (item: T) => {
+            performDelete(item).catch((err: unknown) => {
+              console.error("ResourcePage: delete failed", err);
+            });
+          }
+        : // Unconfirmed `onDelete` keeps its original contract exactly:
+          // called straight from the peek, nothing closed for it.
+          (item: T) => {
+            void onDelete?.(item);
+          };
+
+  // Per-row rights, evaluated against the row the peek is showing.
+  const mayChange = (item: T) => (canEditItem ? canEditItem(item) : true);
+  const selectedEditable =
+    !!selectedItem &&
+    mayChange(selectedItem) &&
+    (canEdit ? canEdit(selectedItem) : true);
+  const selectedDeletable =
+    !!selectedItem &&
+    mayChange(selectedItem) &&
+    (canDelete ? canDelete(selectedItem) : true);
 
   // ── Patch tableColumns to use real actions (client-side mode) ──
   const tableColumns = useMemo(() => {
@@ -867,7 +1204,19 @@ export function ResourcePage<
 
   // ── Server-driven pager state, needed above for handleSearchChange's
   // already-on-page-1 check. ──
-  const currentPage = pageProp ?? 1;
+  // The pager's inputs: the caller's controlled props, or — for
+  // `pagination="server"` — useResource's own page state.
+  const pagerPage = resourceServerPaging
+    ? (resourceHook.params.pagination?.page ?? 1)
+    : pageProp;
+  const pagerPerPage = resourceServerPaging
+    ? resourceHook.params.pagination?.perPage
+    : perPageProp;
+  const pagerTotal = resourceServerPaging ? displayTotal : totalProp;
+  const pagerOnPageChange = resourceServerPaging
+    ? resourceHook.setPage
+    : onPageChange;
+  const currentPage = pagerPage ?? 1;
 
   // ── Filter changes: keep the controlled UI state, and tell the server ──
   // In client-side mode these are exactly the hook's own setters; in
@@ -880,13 +1229,17 @@ export function ResourcePage<
       page.filterConfig.onSearchChange(value);
       if (!isServerControlled) return;
       onSearchChange?.(value);
-      if (currentPage !== 1) onPageChange?.(1);
+      // `pagination="server"`: useResource's setSearch resets the page
+      // itself once the debounce settles; resetting here too would fetch
+      // page 1 of the OLD query first.
+      if (currentPage !== 1 && !resourceServerPaging) onPageChange?.(1);
     },
     [
       page.filterConfig,
       isServerControlled,
       onSearchChange,
       onPageChange,
+      resourceServerPaging,
       currentPage,
     ],
   );
@@ -901,9 +1254,16 @@ export function ResourcePage<
           ? { field, order }
           : null,
       );
-      onPageChange?.(1);
+      // See handleSearchChange: useResource's setSort resets the page.
+      if (!resourceServerPaging) onPageChange?.(1);
     },
-    [page.filterConfig, isServerControlled, onSortChange, onPageChange],
+    [
+      page.filterConfig,
+      isServerControlled,
+      onSortChange,
+      onPageChange,
+      resourceServerPaging,
+    ],
   );
 
   const handleClearFilters = useCallback(() => {
@@ -913,8 +1273,15 @@ export function ResourcePage<
     // the controls and leaves the same rows on screen.
     onSearchChange?.("");
     onSortChange?.(null);
-    onPageChange?.(1);
-  }, [page, isServerControlled, onSearchChange, onSortChange, onPageChange]);
+    if (!resourceServerPaging) onPageChange?.(1);
+  }, [
+    page,
+    isServerControlled,
+    onSearchChange,
+    onSortChange,
+    onPageChange,
+    resourceServerPaging,
+  ]);
 
   // ── Status-chip changes: same page-1 reset as search/sort ──
   // In server-controlled mode `useResourcePage` skips client-side status
@@ -929,9 +1296,15 @@ export function ResourcePage<
     (values: string[]) => {
       page.filterConfig.statusChips?.onChange(values);
       if (!isServerControlled) return;
-      if (currentPage !== 1) onPageChange?.(1);
+      if (currentPage !== 1 && !resourceServerPaging) onPageChange?.(1);
     },
-    [page.filterConfig, isServerControlled, onPageChange, currentPage],
+    [
+      page.filterConfig,
+      isServerControlled,
+      onPageChange,
+      resourceServerPaging,
+      currentPage,
+    ],
   );
 
   const statusChipsConfig = useMemo(() => {
@@ -944,9 +1317,18 @@ export function ResourcePage<
     (size: number) => {
       updateSetting("pageSize", size);
       onPerPageChange?.(size);
-      if (isServerControlled) onPageChange?.(1);
+      // useResource's setPerPage resets to page 1 itself.
+      if (resourceServerPaging) resourceHook.setPerPage(size);
+      else if (isServerControlled) onPageChange?.(1);
     },
-    [updateSetting, onPerPageChange, isServerControlled, onPageChange],
+    [
+      updateSetting,
+      onPerPageChange,
+      resourceServerPaging,
+      resourceHook.setPerPage,
+      isServerControlled,
+      onPageChange,
+    ],
   );
 
   // ── Pagination-config error ──
@@ -965,9 +1347,9 @@ export function ResourcePage<
   // render and shows the error instead. Logged once per mount (not on
   // every render) so it's visible in a console without spamming it.
   const missingPerPage =
-    isServerControlled && !!onPageChange && perPageProp === undefined;
+    isServerControlled && !!pagerOnPageChange && pagerPerPage === undefined;
   const missingTotal =
-    isServerControlled && !!onPageChange && totalProp === undefined;
+    isServerControlled && !!pagerOnPageChange && pagerTotal === undefined;
   const pagerMisconfigured = missingPerPage || missingTotal;
   const missingPagerProps = [
     ...(missingPerPage ? ["perPage"] : []),
@@ -993,7 +1375,7 @@ export function ResourcePage<
   // ── Server-driven pager math ──
   // By the time the pager renders, `pagerMisconfigured` has already gated
   // it off, so `perPageProp` and `totalProp` are both present here.
-  const pagerPageSize = perPageProp ?? effectivePageSize;
+  const pagerPageSize = pagerPerPage ?? effectivePageSize;
   const totalPages = Math.max(
     1,
     Math.ceil(displayTotal / Math.max(1, pagerPageSize)),
@@ -1002,27 +1384,32 @@ export function ResourcePage<
     page.data.length === 0 ? 0 : (currentPage - 1) * pagerPageSize + 1;
   const rangeTo = rangeFrom === 0 ? 0 : rangeFrom + page.data.length - 1;
 
+  // ── `pagination="server"`: never strand the user past the last page ──
+  // Deleting the last row of the last page (or any shrink in `total`) would
+  // otherwise leave `page` beyond the end: the list comes back empty, the
+  // shell swaps in its empty state — pager included — and there is no way
+  // back. Step back to the real last page instead.
+  const { setPage: setResourcePage } = resourceHook;
+  const settledPage =
+    !isLoading && !hasError && !resourceHook.list.isPlaceholderData;
+  useEffect(() => {
+    if (!resourceServerPaging || !settledPage) return;
+    if (currentPage > totalPages) setResourcePage(totalPages);
+  }, [resourceServerPaging, settledPage, currentPage, totalPages, setResourcePage]);
+
   // ── Detail title/subtitle values ──
   const titleOf = (item: T): string =>
     getTitle
       ? getTitle(item)
       : String((item as Record<string, unknown>)[page.titleField] ?? "");
-  // The open record as it is NOW, looked up by key in the current rows: after
-  // an edit the detail shows the new values, and a record that was deleted
-  // (or is no longer in the rows) closes the detail instead of lingering.
-  const selectedKey = page.selectedItem ? keyOf(page.selectedItem) : null;
-  const detailItem =
-    selectedKey == null
-      ? null
-      : (displayData.find((row) => keyOf(row) === selectedKey) ?? null);
-  const detailTitle = detailItem ? titleOf(detailItem) : "";
-  const detailSubtitle = !detailItem
+  const detailTitle = selectedItem ? titleOf(selectedItem) : "";
+  const detailSubtitle = !selectedItem
     ? undefined
     : getSubtitle
-      ? getSubtitle(detailItem)
+      ? getSubtitle(selectedItem)
       : page.subtitleField
         ? String(
-            (detailItem as Record<string, unknown>)[page.subtitleField] ?? "",
+            (selectedItem as Record<string, unknown>)[page.subtitleField] ?? "",
           )
         : undefined;
 
@@ -1049,7 +1436,7 @@ export function ResourcePage<
   // keys suspend (they'd otherwise drive the list behind the overlay, and
   // Enter would re-open the row instead of activating the focused control);
   // ⌫ stays live so it can dismiss the overlay.
-  const overlayOpen = page.detailOpen || formOpen;
+  const overlayOpen = page.detailOpen || formOpen || deleteOpen;
   const keyboardNav = useKeyboardNavigation({
     itemCount: page.data.length,
     enabled: keyboardNavigation && page.viewMode !== "table",
@@ -1273,6 +1660,7 @@ export function ResourcePage<
       emptyIcon={emptyIcon}
       emptyMessage={emptyMessage}
       emptyDescription={emptyDescription}
+      {...(headerMode === "toolbar" ? { header: "toolbar" as const } : {})}
       filters={renderSlot(
         DataFilters,
         slots?.filters,
@@ -1291,7 +1679,9 @@ export function ResourcePage<
           onDeleteView,
           canSaveViews,
           onClearAll: page.hasActiveFilters ? handleClearFilters : undefined,
-          showSearch: capabilities?.search !== false,
+          showSearch:
+            capabilities?.search !== false &&
+            !(resourceServerPaging && !serverSearchFields?.length),
           showSort: capabilities?.sort !== false,
         },
         slotProps?.filters,
@@ -1395,7 +1785,17 @@ export function ResourcePage<
           `pagerMisconfigured` comment above. A pager reporting the wrong range
           with a Next button that never disables is worse than one that
           says why it can't render. */}
-      {isServerControlled && onPageChange && pagerMisconfigured && (
+      {clientTruncated && (
+        <p
+          role="status"
+          className="px-3 py-2 text-sm text-muted-foreground"
+          data-testid="resource-page-truncated"
+        >
+          Showing the first {displayData.length.toLocaleString()} of{" "}
+          {displayTotal.toLocaleString()} records.
+        </p>
+      )}
+      {isServerControlled && pagerOnPageChange && pagerMisconfigured && (
         <div
           className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
           data-testid="resource-page-pagination-error"
@@ -1415,9 +1815,14 @@ export function ResourcePage<
           </span>
         </div>
       )}
-      {isServerControlled && onPageChange && !pagerMisconfigured && (
+      {isServerControlled && pagerOnPageChange && !pagerMisconfigured && (
         <nav
           aria-label="Pagination"
+          // The previous page stays on screen while the next one loads.
+          aria-busy={
+            (resourceServerPaging && resourceHook.list.isPlaceholderData) ||
+            undefined
+          }
           className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 py-2 text-sm"
           data-testid="resource-page-pagination"
         >
@@ -1435,7 +1840,7 @@ export function ResourcePage<
               variant="outline"
               size="sm"
               disabled={currentPage <= 1}
-              onClick={() => onPageChange(currentPage - 1)}
+              onClick={() => pagerOnPageChange(currentPage - 1)}
               testID="resource-page-prev"
             >
               <ChevronLeft className="h-4 w-4 mr-1" aria-hidden="true" />
@@ -1451,7 +1856,7 @@ export function ResourcePage<
               variant="outline"
               size="sm"
               disabled={currentPage >= totalPages}
-              onClick={() => onPageChange(currentPage + 1)}
+              onClick={() => pagerOnPageChange(currentPage + 1)}
               testID="resource-page-next"
             >
               Next
@@ -1471,20 +1876,15 @@ export function ResourcePage<
           DetailPanel<T>,
           slots?.detail,
           {
-            item: detailItem,
-            open: page.detailOpen && detailItem !== null,
-            onClose: () => {
-              page.setDetailOpen(false);
-              page.setSelectedItem(null);
-            },
+            item: selectedItem,
+            open: page.detailOpen && selectedItem !== null,
+            onClose: closeDetail,
             title: detailTitle,
             subtitle: detailSubtitle,
-            ...(detailItem && canEditItem && !canEditItem(detailItem)
-              ? {}
-              : {
-                  onEdit: onEdit ?? (useBuiltInEdit ? handleEdit : undefined),
-                  onDelete,
-                }),
+            onEdit: selectedEditable
+              ? (onEdit ?? (useBuiltInEdit ? handleEdit : undefined))
+              : undefined,
+            onDelete: selectedDeletable ? deleteHandler : undefined,
             fields: detailFields,
             width: detailWidth,
             layout: detail === "modal" ? "dialog" : "sheet",
@@ -1523,14 +1923,43 @@ export function ResourcePage<
             listData: page.data as Record<string, unknown>[],
             renderForm: renderFormProp,
             onSuccess: () => {
-              // Data auto-refreshes via TanStack Query invalidation in useResourceForm
-              page.setDetailOpen(false);
-              page.setSelectedItem(null);
+              // The list refetches via useResourceForm's invalidation. After
+              // an edit the peek stays open and re-resolves its row by key
+              // (see `selectedItem`), so it shows the saved values; a create
+              // has no peek of its own to keep.
+              if (formAction === "create") closeDetail();
             },
           },
           slotProps?.form,
         )
       )}
+      {deleteConfirmed &&
+        (useBuiltInDelete || !!onDelete) &&
+        renderSlot(
+          ConfirmDeleteDialog,
+          slots?.deleteDialog,
+          {
+            open: deleteOpen,
+            onOpenChange: setDeleteOpen,
+            onConfirm: () =>
+              pendingDelete ? performDelete(pendingDelete) : undefined,
+            title:
+              typeof deleteCopy?.title === "function"
+                ? pendingDelete
+                  ? deleteCopy.title(pendingDelete)
+                  : undefined
+                : deleteCopy?.title,
+            description:
+              typeof deleteCopy?.description === "function"
+                ? pendingDelete
+                  ? deleteCopy.description(pendingDelete)
+                  : undefined
+                : deleteCopy?.description,
+            confirmLabel: deleteCopy?.confirmLabel,
+            cancelLabel: deleteCopy?.cancelLabel,
+          },
+          slotProps?.deleteDialog,
+        )}
     </Shell>
   );
 }

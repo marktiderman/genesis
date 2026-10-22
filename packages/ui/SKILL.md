@@ -49,6 +49,25 @@ already right; that re-derivation is where forks come from. Reach for rung 2
 first. When the app hand-builds something Genesis nearly had, that is a bug
 report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 
+## ResourcePage knobs a real screen needs
+
+Reach for these before a slot. Each one replaced a slot workaround in a real app.
+
+| You need | Prop |
+| --- | --- |
+| Every row reachable in `resource` mode | default `pagination="client"` fetches up to `clientRowLimit` (1000) and says so past it; `pagination="server"` pages through the provider (give it `searchFields`) |
+| Per-row rights in the peek | `canEditItem(item)` for both, or `canEdit(item)` / `canDelete(item)` separately (UI gate only; the server still decides) |
+| A confirmed delete | `allowDelete` (built in, `resource` mode), or `onDelete` + `confirmDelete`; copy via `confirmDelete={{ title: (item) => … }}`, toast via `onDeleted` |
+| A computed peek subtitle | `getSubtitle(item)`; the peek stays open after an edit and shows the saved row |
+| A list inside a tab (no page title) | `header="toolbar"` (also on `DataPageShell`) |
+| Empty-state copy | `emptyMessage`, `emptyDescription`, `emptyIcon` |
+| Cards on phones, table on desktop | `defaultView={{ mobile: "grid", desktop: "table" }}`; only an explicit toggle is stored |
+| Typed slot maps | `ResourcePageSlots<T>`, `ResourcePageSlotProps<T>`, `ResourcePageSlotMap<T>` from `/data` |
+
+`ResourceForm` ties labels to inputs (`getByLabelText` works), shows a failed save as an alert,
+honours `maxLength` on text fields, adds no placeholder unless the field sets one (or
+`autoPlaceholder`), and takes `prefillFromUrl={false}` when the page's query string is not form data.
+
 ## The layer contract (docs/FRAMEWORK.md)
 
 1. Layers: tokens → primitives → patterns → layouts → data-bound; each depends downward only.
@@ -110,11 +129,12 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
 - **Clickable cards:** with a custom `renderCard`, `openOnCardClick` makes the whole card one
   keyboard-reachable button that opens the detail. On a bare `DataGrid`, use `onItemClick` and
   `getItemLabel`. Never wrap a card in a `div role="button"`.
-- **Per-row rights:** `canEditItem(item)` hides Edit and Delete for rows the user can't change.
+- **Per-row rights:** `canEditItem(item)` hides Edit and Delete for rows the user can't change;
+  `canEdit(item)` / `canDelete(item)` gate each one separately.
 - **Names and empty state:** `getTitle` / `getSubtitle` when a record's name spans fields;
   `emptyIcon`, `emptyMessage`, `emptyDescription` and `emptyState` (its action) for the empty list.
-- **A list inside tabs:** `slotProps={{ shell: { headerOptions: { showTitle: false } } }}` drops
-  the title block and keeps the count, view toggle, filters and create button.
+- **A list inside tabs:** `header="toolbar"` (on `ResourcePage` or `DataPageShell`) drops the title
+  block and keeps the count, view toggle, filters and create button.
 - **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays
   the default for deletes.
 

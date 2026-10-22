@@ -24,8 +24,20 @@ export interface UseResourceFormOptions {
   listData?: Record<string, unknown>[];
   onSuccess?: (data: Record<string, unknown>) => void;
   onError?: (error: Error) => void;
-  /** Pre-fill create form defaults from URL query params. Default true. */
+  /**
+   * Pre-fill create form defaults from URL query params: a param named like a
+   * field (`?status=draft`) becomes that field's starting value. Default true.
+   * Pass false for a form that should not read the page's URL, e.g. one
+   * opened from a list whose own filters live in the query string.
+   */
   prefillFromUrl?: boolean;
+  /**
+   * Generate a placeholder ("Enter name", "name@example.com") for a field
+   * whose `placeholder` is unset. Default true. A placeholder that only
+   * repeats the label adds noise without information, so `ResourceForm`
+   * turns this off unless asked.
+   */
+  autoPlaceholder?: boolean;
   /** Validation trigger mode. Default "onBlur". */
   validationMode?: "onBlur" | "onChange" | "onSubmit";
   /** Enable autosave drafts to localStorage for create mode. */
@@ -103,7 +115,10 @@ function resolveFields(
   fields: ResourceFormFieldDef[] | undefined,
   data: Record<string, unknown> | undefined,
   allData?: Record<string, unknown>[],
+  autoPlaceholder = true,
 ): ResourceFormFieldDef[] {
+  const placeholderFor = (key: string, type: FieldType): string | undefined =>
+    autoPlaceholder ? defaultPlaceholder(key, type) : undefined;
   if (fields && fields.length > 0) {
     return fields.map((f) => {
       const inferred = f.type ?? (data ? inferFieldType(data[f.key]) : "text");
@@ -111,7 +126,7 @@ function resolveFields(
         ...f,
         label: f.label ?? titleCase(f.key),
         type: inferred,
-        placeholder: f.placeholder ?? defaultPlaceholder(f.key, inferred),
+        placeholder: f.placeholder ?? placeholderFor(f.key, inferred),
         required: f.required ?? (inferred !== "switch" && inferred !== "checkbox" && inferred !== "hidden"),
       };
     });
@@ -131,7 +146,9 @@ function resolveFields(
             label: titleCase(key),
             type: selectInfo.type,
             options: selectInfo.options,
-            placeholder: `Select ${titleCase(key).toLowerCase()}...`,
+            placeholder: autoPlaceholder
+              ? `Select ${titleCase(key).toLowerCase()}...`
+              : undefined,
             required: true,
           };
         }
@@ -142,7 +159,7 @@ function resolveFields(
         key,
         label: titleCase(key),
         type: inferred,
-        placeholder: defaultPlaceholder(key, inferred),
+        placeholder: placeholderFor(key, inferred),
         required: inferred !== "switch" && inferred !== "checkbox" && inferred !== "hidden",
       };
     });
@@ -194,6 +211,12 @@ function buildSchema(fields: ResourceFormFieldDef[]) {
               }
               if (subType === "email") s = s.email("Invalid email address");
               if (subType === "url") s = s.url("Invalid URL");
+              if (sub.maxLength != null) {
+                s = s.max(
+                  sub.maxLength,
+                  `${sub.label ?? titleCase(sub.key)} must be ${sub.maxLength} characters or fewer`,
+                );
+              }
               itemShape[sub.key] = sub.required === false ? s.optional().or(z.literal("")) : s;
             }
           }
@@ -220,6 +243,12 @@ function buildSchema(fields: ResourceFormFieldDef[]) {
         }
         if (fieldType === "url") {
           schema = schema.url("Invalid URL");
+        }
+        if (field.maxLength != null) {
+          schema = schema.max(
+            field.maxLength,
+            `${field.label ?? titleCase(field.key)} must be ${field.maxLength} characters or fewer`,
+          );
         }
         shape[field.key] = field.required === false
           ? schema.optional().or(z.literal(""))
@@ -312,6 +341,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     onSuccess,
     onError,
     prefillFromUrl = true,
+    autoPlaceholder = true,
     validationMode,
     autosave,
     invalidates,
@@ -349,8 +379,8 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
 
   // Resolve fields
   const resolvedFields = useMemo(
-    () => resolveFields(fieldsProp, formSource, listData),
-    [fieldsProp, formSource, listData],
+    () => resolveFields(fieldsProp, formSource, listData, autoPlaceholder),
+    [fieldsProp, formSource, listData, autoPlaceholder],
   );
 
   // Build schema
