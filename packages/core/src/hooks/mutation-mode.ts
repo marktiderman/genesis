@@ -601,7 +601,13 @@ const CAPABILITIES_QUERY = (provider: DataProvider, resource: string) => ({
   retry: false as const,
 });
 
-async function providerServesUndo(
+/**
+ * Whether `provider` serves `undo` for `resource`, from its capabilities
+ * (useCapabilities' key, so the answer is shared, and scoped to this
+ * provider: a swapped-out provider's capabilities never offer undo).
+ * @internal Exported for tests.
+ */
+export async function providerServesUndo(
   queryClient: QueryClient,
   provider: DataProvider,
   resource: string,

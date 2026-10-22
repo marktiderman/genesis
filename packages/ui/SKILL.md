@@ -188,6 +188,20 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
 - **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays
   the default for deletes.
 
+## A different layout over the same list
+
+`useResourceTable(options)` (from `/data` or `/hooks`) is ResourcePage without its markup. It takes the
+same options and returns:
+
+- the rows (`page.data`) and paging (`currentPage`, `totalPages`);
+- search, sort and filters (`handleSearchChange`, `handleSortSelect`);
+- selection (`selectedIds`, `handleToggleSelect`);
+- the open record (`handleRowClick`, `detailOpen`, `selectedItem`, `closeDetail`);
+- the built-in form and delete state.
+
+Build a board, a calendar or a custom card wall on it instead of re-deriving that wiring.
+`ResourcePage` is this hook plus Genesis's markup.
+
 ## Big tables
 
 `DataTable` runs on TanStack Table. Sorting compares numbers, dates and booleans by value. For a long

@@ -712,6 +712,40 @@ describe("getList follow-ups (#96 review)", () => {
     expect(calls.filter((c) => c.method === "from")).toHaveLength(2);
   });
 
+  it("retries only for the resource's own id column, never a related table's, and keeps the key order after", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const p = provider();
+    const page = { pagination: { page: 1, perPage: 10 } };
+    // An embedded select's or a related sort's id: a real error, not an id-less view.
+    for (const message of [
+      "column author.id does not exist",
+      "column profiles_1.id does not exist",
+      'column "author_id" does not exist',
+      "column tasks.id_old does not exist",
+    ]) {
+      queue.push(fail(message, "42703"));
+      expect(isDataReadError(await p.getList("tasks", page).catch((e) => e))).toBe(true);
+    }
+    expect(queue).toHaveLength(0);
+    expect(warn).not.toHaveBeenCalled();
+    // Not marked id-less: the next page is still ordered by id.
+    calls = [];
+    queue.push({ ...ok([]), count: 0 } as Response);
+    await p.getList("tasks", page);
+    expect(calls.filter((c) => c.method === "order").map((c) => c.args[0])).toEqual(["id"]);
+    // The bare form, and a schema-qualified resource, still retry.
+    for (const [resource, message] of [
+      ["plain_view", 'column "id" does not exist'],
+      ["reports.summary", "column summary.id does not exist"],
+    ] as const) {
+      queue.push(fail(message, "42703"));
+      queue.push({ ...ok([]), count: 0 } as Response);
+      expect(await p.getList(resource, page)).toEqual({ data: [], total: 0 });
+    }
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
   it("orders an unsorted page by the key column, and leaves an unpaged, unsorted list alone", async () => {
     await list(provider(), { pagination: { page: 1, perPage: 10 } });
     expect(calls.filter((c) => c.method === "order").map((c) => c.args)).toEqual([["id", { ascending: true }]]);
