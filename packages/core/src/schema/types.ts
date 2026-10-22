@@ -278,6 +278,11 @@ export interface ProviderCapabilities {
    * this (and the provider warns), so a client that wants every row must page.
    */
   readonly maxPerPage?: number;
+  /**
+   * A delete moves the record to a recycle bin (it can be restored) instead
+   * of removing it. Asked per resource: `capabilities(resource)`.
+   */
+  readonly softDelete?: boolean;
 }
 
 /** One audit record, as committed alongside the edit it describes. */
