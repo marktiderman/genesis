@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useState,
 } from "react";
@@ -251,10 +252,16 @@ export interface AppShellProps {
 
 const PARAM = /^\$(.+)$/;
 
-/** Fill `$name` path segments from `params`; `undefined` if one is missing. */
+/**
+ * Fill `$name` path segments from `params`; `undefined` if one is missing. A
+ * `?query` / `#hash` on `to` is kept as is.
+ */
 function fillParams(to: string, params: Record<string, string>): string | undefined {
+  const cut = to.search(/[?#]/);
+  const path = cut === -1 ? to : to.slice(0, cut);
+  const suffix = cut === -1 ? "" : to.slice(cut);
   let missing = false;
-  const filled = to
+  const filled = path
     .split("/")
     .map((part) => {
       const name = PARAM.exec(part)?.[1];
@@ -264,7 +271,7 @@ function fillParams(to: string, params: Record<string, string>): string | undefi
       return value == null ? part : encodeURIComponent(value);
     })
     .join("/");
-  return missing ? undefined : filled;
+  return missing ? undefined : filled + suffix;
 }
 
 /** Interpolate items (and children); drop any whose path the URL can't fill. */
@@ -281,6 +288,9 @@ function fillItems(items: NavItem[], params: Record<string, string>): NavItem[] 
     ];
   });
 }
+
+const exactPathActive = (to: string, activePath?: string) =>
+  isPathActive(to, activePath, { end: true });
 
 function ThemeToggle({ testId }: { testId: string }) {
   const [dark, setDark] = useState(false);
@@ -582,6 +592,13 @@ function SidebarNav({
   activePath?: string;
   isActive: (to: string, activePath?: string) => boolean;
 }) {
+  const contextualLabelId = useId();
+  // While a contextual item is the current page, global items match their own
+  // path exactly, so "Clients" and "Tasks" are never both `aria-current`.
+  const contextualActive = Boolean(
+    contextualNavItems?.some((item) => itemIsActive(item, activePath, isActive)),
+  );
+  const globalIsActive = contextualActive ? exactPathActive : isActive;
   return (
     <nav
       className={cn(
@@ -599,7 +616,7 @@ function SidebarNav({
           onNavClick={onNavClick}
           linkComponent={linkComponent}
           activePath={activePath}
-          isActive={isActive}
+          isActive={globalIsActive}
         />
       ))}
 
@@ -610,9 +627,15 @@ function SidebarNav({
             collapsed && "mt-2 pt-2",
           )}
           data-testid="app-shell-contextual-nav"
+          role="group"
+          aria-labelledby={!collapsed && contextualNavLabel ? contextualLabelId : undefined}
+          aria-label={collapsed ? contextualNavLabel : undefined}
         >
           {!collapsed && contextualNavLabel ? (
-            <p className="mb-2 truncate px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground/40">
+            <p
+              id={contextualLabelId}
+              className="mb-2 truncate px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground/40"
+            >
               {contextualNavLabel}
             </p>
           ) : null}
@@ -746,9 +769,12 @@ export function AppShell({
     const atRoot = nav.trail.length === 1;
     const globalItems = fillItems(navigation.items, nav.params);
     const contextualItems = atRoot ? [] : fillItems(nav.items, nav.params);
-    // A parent path the URL couldn't fill would be a broken link; drop it.
+    // No link up to the root from a top-level page (it is where the global
+    // nav already goes), and none whose path the URL couldn't fill.
     const parent =
-      nav.parent && !nav.parent.path.split("/").some((p) => PARAM.test(p))
+      nav.parent &&
+      nav.trail.length > 2 &&
+      !nav.parent.path.split("/").some((p) => PARAM.test(p))
         ? { href: nav.parent.path, label: nav.parent.label }
         : undefined;
     return { current: nav.current, globalItems, contextualItems, parent };
@@ -874,12 +900,21 @@ export function AppShell({
     resolved.railWidth === "wide" ? "md:w-64" : "md:w-52";
   const railClass = collapsed ? "md:w-14" : railExpanded;
 
+  const leaves = (items: NavItem[]) =>
+    items.filter((i) => !i.children || i.children.length === 0);
+  const contextualLeaves = leaves(contextualNavItems);
   const bottomItems = (
     mobileNavItems ??
-    (contextualNavItems.length > 0 ? contextualNavItems : navItems).filter(
-      (i) => !i.children || i.children.length === 0,
-    )
+    (contextualLeaves.length > 0 ? contextualLeaves : leaves(navItems))
   ).filter((i) => !i.disabled);
+  // The tab bar marks a global item active only on its exact path while it
+  // shows contextual items elsewhere (see SidebarNav).
+  const bottomIsActive =
+    !mobileNavItems &&
+    contextualLeaves.length === 0 &&
+    contextualNavItems.some((i) => itemIsActive(i, activePath, isActive))
+      ? exactPathActive
+      : isActive;
 
   const toggles: ToggleDef[] = (
     [
@@ -1186,14 +1221,15 @@ export function AppShell({
         >
           {parentNavigation ? (
             <div
-              className="flex min-w-0 items-center px-2 pt-2 sm:px-4 sm:pt-3 lg:px-6"
+              className="flex min-w-0 items-center px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8"
               data-testid="app-shell-parent-nav"
             >
+              {/* -ml-3 lines the arrow up with the content's left edge. */}
               <Button
                 asChild
                 variant="ghost"
                 size="sm"
-                className="min-w-0 max-w-full"
+                className="-ml-3 min-w-0 max-w-full"
                 testID="app-shell-parent-link"
               >
                 <ParentLink
@@ -1206,7 +1242,14 @@ export function AppShell({
               </Button>
             </div>
           ) : null}
-          <div className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</div>
+          <div
+            className={cn(
+              "min-w-0 p-4 sm:p-6 lg:p-8",
+              parentNavigation && "pt-2 sm:pt-3 lg:pt-4",
+            )}
+          >
+            {children}
+          </div>
         </main>
 
         {showMobileBottom ? (
@@ -1216,7 +1259,7 @@ export function AppShell({
           >
             {bottomItems.map((item) => {
               const LinkComp = linkComponent;
-              const active = itemIsActive(item, activePath, isActive);
+              const active = itemIsActive(item, activePath, bottomIsActive);
               return (
                 <LinkComp
                   key={item.to + item.label}

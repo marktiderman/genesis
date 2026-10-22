@@ -10,15 +10,18 @@
  *
  * Flags DECLARATIONS only (`function resolveNavigation`, `const
  * resolveNavigation =`, `interface NavigationNode`, `type NavigationNode =`),
- * never imports or calls of the Genesis versions.
+ * never imports or calls of the Genesis versions. Not flagged: comments,
+ * `declare module` augmentations, and a type alias of the genesis-ui one
+ * (`type NavigationNode = import("@marktiderman/genesis-ui/layout").NavigationNode<Item>`).
  *
  * Allowlist:
  *   - `packages/ui/**` — Genesis itself owns the originals.
- *   - Test files and `__fixtures__` / `__mocks__`.
+ *   - Test, spec and story files, and `__fixtures__` / `__mocks__`.
  *
  * Exit codes:
  *   0 — clean.
- *   1 — at least one local re-implementation, printed with file:line.
+ *   1 — at least one local re-implementation (printed with file:line), or a
+ *       scan root that doesn't exist (so a mistyped path can't pass silently).
  *
  * Usage:
  *   node scripts/check-navigation-reimplementation.mjs
@@ -26,12 +29,14 @@
  *   pnpm check:navigation-reimplementation
  *
  * Wired into:
- *   .github/workflows/genesis-lint.yml token-usage job.
+ *   .github/workflows/genesis-lint.yml, job `token-usage`
+ *   ("Raw hex + forbidden imports"), and the root `lint:genesis` script.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripBlockComments } from './check-token-usage.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(__filename), '..');
@@ -43,7 +48,7 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.git', '.next', 'co
 
 const ALLOWLIST_PATTERNS = [
   /^packages\/ui\//, // Genesis itself owns the originals.
-  /\.test\.(ts|tsx|js|jsx|mts)$/,
+  /\.(test|spec|stories)\.(ts|tsx|js|jsx|mts)$/,
   /(^|\/)__fixtures__\//,
   /(^|\/)__mocks__\//,
 ];
@@ -53,16 +58,36 @@ const DECLARATIONS = [
   { name: 'NavigationNode', re: /\b(?:interface\s+NavigationNode\b|type\s+NavigationNode\b\s*(?:<.*?>)?\s*=)/ },
 ];
 
+// An alias of the Genesis type is a use of it, not a copy.
+const GENESIS_ALIAS_RE = /@marktiderman\/genesis-ui/;
+
+/** Blank every line inside a `declare module "…" { … }` block (augmentations). */
+function blankDeclareModules(lines) {
+  let depth = 0;
+  return lines.map((line) => {
+    if (depth === 0 && !/\bdeclare\s+module\b/.test(line)) return line;
+    for (const ch of line) {
+      if (ch === '{') depth++;
+      else if (ch === '}') depth--;
+    }
+    if (depth < 0) depth = 0;
+    return '';
+  });
+}
+
 /**
  * Local `resolveNavigation` / `NavigationNode` declarations in `source`.
  * @param {string} source
  * @returns {{ line: number, name: string, content: string }[]}
  */
 export function findNavigationReimplementations(source) {
+  const original = source.split('\n');
+  const scan = blankDeclareModules(stripBlockComments(source, true).split('\n'));
   const found = [];
-  source.split('\n').forEach((text, i) => {
+  scan.forEach((text, i) => {
+    if (GENESIS_ALIAS_RE.test(text)) return;
     for (const { name, re } of DECLARATIONS) {
-      if (re.test(text)) found.push({ line: i + 1, name, content: text.trim() });
+      if (re.test(text)) found.push({ line: i + 1, name, content: original[i].trim() });
     }
   });
   return found;
@@ -86,7 +111,14 @@ function main() {
   const args = process.argv.slice(2);
   const roots = args.length > 0
     ? args.map((a) => path.resolve(REPO_ROOT, a))
-    : [path.join(REPO_ROOT, 'apps'), path.join(REPO_ROOT, 'packages')];
+    : ['apps', 'packages', 'src'].map((d) => path.join(REPO_ROOT, d)).filter((d) => fs.existsSync(d));
+
+  const missing = roots.filter((r) => !fs.existsSync(r));
+  if (missing.length > 0) {
+    for (const r of missing) console.error(`FAIL Scan path does not exist: ${toPosix(path.relative(REPO_ROOT, r)) || r}`);
+    console.error('Pass directories or files (globs are not expanded).');
+    process.exit(1);
+  }
 
   const violations = [];
   for (const root of roots) {

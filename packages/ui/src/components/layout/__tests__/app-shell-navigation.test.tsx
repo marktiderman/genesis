@@ -136,6 +136,70 @@ describe("AppShell navigation tree", () => {
     expect(screen.queryByTestId("app-shell-parent-link")).toBeNull();
   });
 
+  it("has no back link on a top-level page (its parent is the root)", () => {
+    renderShell("/clients");
+    expect(screen.queryByTestId("app-shell-parent-link")).toBeNull();
+  });
+
+  it("keeps a `?query` / `#hash` on an item's `to` while filling its params", () => {
+    const withQuery: NavigationNode<NavItem> = {
+      ...tree,
+      children: [
+        {
+          id: "client",
+          path: "/clients/$clientId",
+          label: "Client",
+          items: [
+            { to: "/clients/$clientId?tab=notes", icon: FileText, label: "Notes" },
+            { to: "/clients/$clientId#billing", icon: CheckSquare, label: "Billing" },
+          ],
+        },
+      ],
+    };
+    renderShell("/clients/c1", { navigation: withQuery });
+    const contextual = within(sidebar().getByTestId("app-shell-contextual-nav"));
+    expect(contextual.getByRole("link", { name: "Notes" }).getAttribute("href")).toBe("/clients/c1?tab=notes");
+    expect(contextual.getByRole("link", { name: "Billing" }).getAttribute("href")).toBe("/clients/c1#billing");
+  });
+
+  it("marks only one sidebar link current when a contextual item matches", () => {
+    renderShell("/clients/c1/tasks");
+    const current = within(screen.getByTestId("app-shell-sidebar"))
+      .getAllByRole("link")
+      .filter((a) => a.getAttribute("aria-current") === "page")
+      .map((a) => a.textContent);
+    expect(current).toEqual(["Tasks"]);
+  });
+
+  it("labels the contextual section as a group", () => {
+    renderShell("/clients/c1");
+    const group = sidebar().getByRole("group", { name: "Client" });
+    expect(group.getAttribute("data-testid")).toBe("app-shell-contextual-nav");
+  });
+
+  it("falls back to global items on mobile when every contextual item has children", () => {
+    const grouped: NavigationNode<NavItem> = {
+      ...tree,
+      children: [
+        {
+          id: "client",
+          path: "/clients/$clientId",
+          label: "Client",
+          items: [
+            {
+              to: "/clients/$clientId",
+              icon: FileText,
+              label: "Overview",
+              children: [{ to: "/clients/$clientId/tasks", icon: CheckSquare, label: "Tasks" }],
+            },
+          ],
+        },
+      ],
+    };
+    renderShell("/clients/c1", { navigation: grouped });
+    expect(bottomBar().getAllByRole("link").map((a) => a.textContent)).toEqual(["Dashboard", "Clients"]);
+  });
+
   it("renders `parentNavigation` without a tree", () => {
     render(
       <AppShell

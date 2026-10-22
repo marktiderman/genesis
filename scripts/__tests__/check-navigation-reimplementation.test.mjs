@@ -29,6 +29,35 @@ describe("findNavigationReimplementations", () => {
     expect(findNavigationReimplementations(source)).toEqual([]);
   });
 
+  it("ignores comments", () => {
+    const source = [
+      "// function resolveNavigation(tree) — we used to have our own",
+      "/* interface NavigationNode<T> { id: string } */",
+      "/**",
+      " * type NavigationNode = { id: string };",
+      " */",
+    ].join("\n");
+    expect(findNavigationReimplementations(source)).toEqual([]);
+  });
+
+  it("ignores a declare module augmentation", () => {
+    const source = [
+      'declare module "@marktiderman/genesis-ui/layout" {',
+      "  interface NavigationNode<T> {",
+      "    badge?: string;",
+      "  }",
+      "}",
+      "export function resolveNavigation() {}",
+    ].join("\n");
+    expect(findNavigationReimplementations(source).map((v) => v.line)).toEqual([6]);
+  });
+
+  it("ignores an alias of the genesis-ui type", () => {
+    expect(
+      names('type NavigationNode = import("@marktiderman/genesis-ui/layout").NavigationNode<Item>;'),
+    ).toEqual([]);
+  });
+
   it("reports the line", () => {
     expect(findNavigationReimplementations("// x\nfunction resolveNavigation() {}")[0]?.line).toBe(2);
   });

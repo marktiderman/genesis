@@ -19,7 +19,7 @@
     "coverage:design-system": "node scripts/design-system-coverage.mjs",
     "gen:component-reference": "node scripts/gen-component-reference.mjs",
     "lint": "pnpm -r lint",
-    "lint:genesis": "pnpm check:legacy-imports && pnpm check:token-usage && pnpm check:forbidden-imports && pnpm check:peer-deps && pnpm check:testid-coverage",
+    "lint:genesis": "pnpm check:legacy-imports && pnpm check:token-usage && pnpm check:forbidden-imports && pnpm check:navigation-reimplementation && pnpm check:peer-deps && pnpm check:testid-coverage",
     "test": "pnpm -r test && pnpm test:scripts",
     "test:scripts": "vitest run --config vitest.scripts.config.mjs",
     "typecheck": "pnpm -r typecheck",
