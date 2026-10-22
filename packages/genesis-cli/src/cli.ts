@@ -187,8 +187,9 @@ featureOptions(features.command("build").description("Write the AGENTS.md block,
 
 featureOptions(features.command("check").description("Errors fail (stale output, missing code paths, flag rules, removed ids, bad tags); warnings don't"))
   .option("--labels <list>", "The PR's labels, comma-separated, to check feature:<id> labels")
+  .option("--prs", "Also read merged PRs labelled feature:<id> with gh, to warn about planned features that shipped", false)
   .option("--summary", "Print a short summary and always exit 0 (for a SessionStart hook)", false)
-  .action(async (opts: FeatureCliOptions & { labels?: string; summary: boolean }) => {
+  .action(async (opts: FeatureCliOptions & { labels?: string; prs: boolean; summary: boolean }) => {
     const { runFeaturesCheck } = await import("./features.js");
     const { summary, labels, ...rest } = opts;
     const result = await runFeaturesCheck({ ...rest, labels: labels?.split(",").map((l) => l.trim()).filter(Boolean) });

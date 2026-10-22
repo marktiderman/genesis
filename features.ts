@@ -381,12 +381,14 @@ export const features = defineFeatures({
   "feature-evidence": {
     name: "Status from evidence",
     summary: "A feature's status follows evidence (merged PRs and changesets tagged with it, flag rollout): check warns when tagged work shipped but the feature is still planned, and later a bot proposes status changes as PRs.",
-    status: "planned",
-    horizon: "next",
+    status: "building",
+    claimedBy: "claude (feature-evidence session)",
     owner: "mark",
     apps: ["cli"],
     audience: ["developer", "agent"],
     visibility: "internal",
+    reviewedAt,
+    links: { code: ["packages/features/src/node.ts", "packages/genesis-cli/src/features.ts"], docs: ["packages/features/README.md"] },
   },
   "feature-hierarchy": {
     name: "Feature hierarchy",

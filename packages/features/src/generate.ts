@@ -226,7 +226,8 @@ other copy (the AGENTS.md block, JSON, the flags manifest, the admin page) is ge
    its body) or the PR (a \`feature:<id>\` label).
 
 ## Change
-- Move \`status\` as it ships: planned, building, beta, live, deprecated, retired.
+- Move \`status\` as it ships: planned, building, beta, live, deprecated, retired. \`check\` warns when a
+  planned feature already has shipped work tagged with it (a changeset, or with \`--prs\` a merged PR).
 - Set \`reviewedAt\` (today) whenever you check an entry against the product; \`check\` warns after 90 days.
 - Rename by giving the feature a new id and putting the old one in \`aliases\`. Never delete an id.
 

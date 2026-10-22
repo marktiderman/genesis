@@ -8,6 +8,7 @@
  * `FeatureProjectOptions` field that is a path, a list or a switch, plus
  * `registry` and `flagsFile`); command-line options win.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { createJiti } from "jiti";
@@ -16,11 +17,15 @@ import {
   checkFeatureOutputs,
   summarizeCheck,
   type FeatureCheckResult,
+  type FeaturePrEvidence,
   type FeatureProjectOptions,
 } from "@marktiderman/genesis-features/node";
 import { findFeatures, type FeatureRecord, type Features, type Flags } from "@marktiderman/genesis-features";
 
-type Settings = Omit<FeatureProjectOptions, "root" | "features" | "flags" | "labels" | "today">;
+type Settings = Omit<FeatureProjectOptions, "root" | "features" | "flags" | "labels" | "today" | "evidence">;
+
+/** Runs `gh` with these arguments in `cwd` and returns its stdout; throws when it can't. */
+export type GhRunner = (args: string[], cwd: string) => string;
 
 export interface FeaturesCommandOptions extends Settings {
   /** The repo root. */
@@ -31,6 +36,10 @@ export interface FeaturesCommandOptions extends Settings {
   flagsFile?: string;
   /** The PR's labels, for `check`. */
   labels?: string[];
+  /** `check`: also read merged PRs labelled `feature:<id>` for planned features, with `gh`. */
+  prs?: boolean;
+  /** How `--prs` runs `gh`. Tests pass a fake. */
+  gh?: GhRunner;
 }
 
 const DEFAULT_REGISTRIES = ["src/features.ts", "features.ts"];
@@ -69,7 +78,7 @@ export async function loadRegistry(input: FeaturesCommandOptions) {
   if (flags !== undefined && !isObject(flags)) {
     throw new Error(`${options.flagsFile ?? registry}'s \`flags\` export must be an object (from defineFlags).`);
   }
-  const { dir: _dir, registry: _registry, flagsFile: _flagsFile, ...rest } = options;
+  const { dir: _dir, registry: _registry, flagsFile: _flagsFile, prs: _prs, gh: _gh, ...rest } = options;
   const project: FeatureProjectOptions = {
     ...rest,
     root,
@@ -84,10 +93,60 @@ export async function runFeaturesBuild(options: FeaturesCommandOptions): Promise
   return buildFeatureOutputs(await loadRegistry(options));
 }
 
+const runGh: GhRunner = (args, cwd) =>
+  execFileSync("gh", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 15_000 });
+
+/** Labels per `gh` search: a comma list is an OR, and GitHub caps a query's length. */
+const LABELS_PER_SEARCH = 10;
+
+/** Why `gh` failed, in one line: not installed, timed out, or the first line it printed. */
+function ghFailure(error: unknown): string {
+  const e = error as NodeJS.ErrnoException & { stderr?: string | Buffer; signal?: string };
+  if (e?.code === "ENOENT") return "gh is not installed";
+  if (e?.code === "ETIMEDOUT" || e?.signal === "SIGTERM") return "gh timed out";
+  const stderr = e?.stderr?.toString().trim();
+  return (stderr || String(error instanceof Error ? error.message : error)).split("\n")[0]!;
+}
+
+/**
+ * Merged PRs labelled `feature:<id>`, for each planned feature's id and
+ * aliases, read with one `gh` search per ten labels. Only planned features
+ * are asked about: that is all the evidence is for. When `gh` is missing or
+ * fails, stops and says so once.
+ */
+export function gatherPrEvidence(project: FeatureProjectOptions, gh: GhRunner = runGh): { prs: Record<string, FeaturePrEvidence[]>; warning?: string } {
+  const prs: Record<string, FeaturePrEvidence[]> = {};
+  const names = Object.entries(project.features)
+    .filter(([, f]) => f.status === "planned")
+    .flatMap(([id, f]) => [id, ...(f.aliases ?? [])]);
+  for (let i = 0; i < names.length; i += LABELS_PER_SEARCH) {
+    const batch = names.slice(i, i + LABELS_PER_SEARCH);
+    const search = `label:${batch.map((n) => `"feature:${n}"`).join(",")}`;
+    try {
+      const out = gh(["pr", "list", "--state", "merged", "--search", search, "--limit", "1000", "--json", "number,title,labels"], project.root);
+      for (const { number, title, labels } of JSON.parse(out) as (FeaturePrEvidence & { labels: { name: string }[] })[]) {
+        for (const { name: label } of labels) {
+          const name = label.startsWith("feature:") ? label.slice("feature:".length) : null;
+          if (name && batch.includes(name)) (prs[name] ??= []).push({ number, title });
+        }
+      }
+    } catch (error) {
+      return { prs, warning: `--prs: couldn't read merged PRs with gh (${ghFailure(error)}), so only changesets were checked for shipped work` };
+    }
+  }
+  return { prs };
+}
+
 export async function runFeaturesCheck(options: FeaturesCommandOptions): Promise<FeatureCheckResult & { summary: string }> {
   const project = await loadRegistry(options);
-  const result = checkFeatureOutputs(project);
-  return { ...result, summary: summarizeCheck(result, project.features) };
+  const evidence = options.prs ? gatherPrEvidence(project, options.gh) : undefined;
+  const result = checkFeatureOutputs({ ...project, evidence: evidence && { prs: evidence.prs } });
+  let summary = summarizeCheck(result, project.features);
+  if (evidence?.warning) {
+    result.warnings.push(evidence.warning);
+    summary = `${summarizeCheck(result, project.features)}\n- ${evidence.warning}.`;
+  }
+  return { ...result, summary };
 }
 
 export async function runFeaturesFind(options: FeaturesCommandOptions, term: string): Promise<FeatureRecord[]> {

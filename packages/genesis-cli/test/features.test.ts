@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { formatFeature, runFeaturesBuild, runFeaturesCheck, runFeaturesFind } from "../src/features";
+import { formatFeature, runFeaturesBuild, runFeaturesCheck, runFeaturesFind, type GhRunner } from "../src/features";
 
 const created: string[] = [];
 afterEach(() => {
@@ -62,6 +62,50 @@ describe("genesis features", () => {
     expect(JSON.parse(readFileSync(path.join(root, "flags.json"), "utf8")).flags["tasks.v2"].flagType).toBe("boolean");
     expect((await runFeaturesCheck({ dir: root })).ok).toBe(true);
     expect((await runFeaturesCheck({ dir: root, labels: ["feature:nope"] })).errors).toEqual(["PR label feature:nope: nope is not a feature"]);
+  });
+
+  it("--prs reads merged PRs labelled feature:<id> for planned features with gh", async () => {
+    const root = repo({ "src/features.ts": registry("live").replace(`reviewedAt: "2026-10-22"`, `reviewedAt: "2026-10-22" }, billing: { name: "Billing", summary: "Seats.", status: "planned", horizon: "next", owner: "mark", apps: ["web"], audience: ["owner"], aliases: ["payments"]`), "src/tasks.ts": "" });
+    const calls: string[][] = [];
+    const gh: GhRunner = (args) => {
+      calls.push(args);
+      return JSON.stringify([
+        { number: 123, title: "Seats", url: "x", labels: [{ name: "feature:billing" }, { name: "bug" }] },
+        { number: 124, title: "Pay", labels: [{ name: "feature:payments" }, { name: "feature:tasks" }] },
+      ]);
+    };
+    const result = await runFeaturesCheck({ dir: root, ...off, prs: true, gh });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![calls[0]!.indexOf("--search") + 1]).toBe(`label:"feature:billing","feature:payments"`);
+    expect(calls[0]).toEqual(expect.arrayContaining(["pr", "list", "--state", "merged", "--json", "number,title,labels"]));
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toContain("billing is still planned, but PR #123 and PR #124 shipped work for it");
+    expect(result.plannedButShipped).toEqual([{ id: "billing", changesets: [], prs: [{ number: 123, title: "Seats" }, { number: 124, title: "Pay" }] }]);
+    expect(result.summary).toContain("- 1 planned feature has shipped work: billing.");
+
+    expect((await runFeaturesCheck({ dir: root, ...off, gh })).plannedButShipped).toEqual([]);
+  });
+
+  it("--prs degrades to one warning when gh is missing or fails", async () => {
+    const root = repo({ "src/features.ts": registry("live").replace(`reviewedAt: "2026-10-22"`, `reviewedAt: "2026-10-22" }, billing: { name: "Billing", summary: "Seats.", status: "planned", horizon: "next", owner: "mark", apps: ["web"], audience: ["owner"]`), "src/tasks.ts": "" });
+    const missing: GhRunner = () => {
+      throw Object.assign(new Error("spawn gh ENOENT"), { code: "ENOENT" });
+    };
+    const result = await runFeaturesCheck({ dir: root, ...off, prs: true, gh: missing });
+    expect(result.ok).toBe(true);
+    const gh = (warnings: string[]) => warnings.filter((w) => w.startsWith("--prs"));
+    expect(gh(result.warnings)).toEqual(["--prs: couldn't read merged PRs with gh (gh is not installed), so only changesets were checked for shipped work"]);
+    expect(result.summary).toContain("\n- --prs: couldn't read merged PRs with gh (gh is not installed), so only changesets were checked for shipped work.");
+    const failing: GhRunner = () => {
+      throw Object.assign(new Error("Command failed: gh pr list"), { stderr: "HTTP 401: Bad credentials\nmore" });
+    };
+    expect(gh((await runFeaturesCheck({ dir: root, ...off, prs: true, gh: failing })).warnings)).toEqual([
+      "--prs: couldn't read merged PRs with gh (HTTP 401: Bad credentials), so only changesets were checked for shipped work",
+    ]);
+    const slow: GhRunner = () => {
+      throw Object.assign(new Error("spawnSync gh ETIMEDOUT"), { code: "ETIMEDOUT" });
+    };
+    expect(gh((await runFeaturesCheck({ dir: root, ...off, prs: true, gh: slow })).warnings)[0]).toContain("(gh timed out)");
   });
 
   it("finds features by term", async () => {

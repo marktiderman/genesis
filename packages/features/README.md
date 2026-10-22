@@ -73,8 +73,8 @@ export const flags = defineFlags(features, {
 
 ```bash
 genesis features build          # AGENTS.md pointer, features.json, flags.json, the skill, the marketing block; @AGENTS.md in CLAUDE.md
-genesis features check          # CI. --labels "a,b" checks a PR's feature:<id> labels
-genesis features check --summary  # for a SessionStart hook: counts, stale output, expired flags, claims
+genesis features check          # CI. --labels "a,b" checks a PR's feature:<id> labels; --prs reads merged PRs with gh
+genesis features check --summary  # for a SessionStart hook: counts, stale output, expired flags, planned-but-shipped, claims
 genesis features find <term>    # search ids, aliases, names, summaries, flags and code paths
 ```
 
@@ -91,6 +91,7 @@ genesis features find <term>    # search ids, aliases, names, summaries, flags a
 
 - A review is due: `reviewedAt` is over 90 days old, or missing.
 - A live feature has no test tagged with its `@feat:<id>`.
+- A feature is still `planned`, but shipped work is tagged with it: a changeset with `Features: <id>`, or (with `--prs`) a merged PR labelled `feature:<id>`. The warning names each one, e.g. "billing is still planned, but .changeset/x.md and PR #123 shipped work for it". `--prs` asks `gh pr list --state merged --label feature:<id>` for each planned id and alias; when `gh` is missing or fails, you get one warning and only changesets count. From code, pass the PRs yourself as `checkFeatureOutputs({ …, evidence: { prs: { billing: [{ number, title }] } } })`.
 - A route or server-function file isn't covered by any `links.code`.
 - A docs path is missing.
 
