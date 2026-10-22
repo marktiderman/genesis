@@ -1,8 +1,4 @@
 ---
-"@marktiderman/genesis-forms": minor
-"@marktiderman/genesis-forms-react": minor
-"@marktiderman/genesis-forms-web": minor
-"@marktiderman/genesis-forms-devtools": minor
 "@marktiderman/genesis": minor
 ---
 
