@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSupabaseProvider, type SupabaseProviderOptions } from "../supabase-provider";
-import { readOutcomeFromCode, toDataWriteError, writeOutcomeFromCode } from "../postgrest-errors";
+import { fieldErrorsFromPostgrest, readOutcomeFromCode, toDataWriteError, writeOutcomeFromCode } from "../postgrest-errors";
 import { isDataReadError, type DataReadError } from "../../schema/read-outcome";
 import { DataWriteError, isDataWriteError } from "../../schema/write-outcome";
 import { relatedKeys } from "../../hooks/related-keys";
@@ -8,7 +8,7 @@ import { relatedKeys } from "../../hooks/related-keys";
 // A stand-in Supabase client: each awaited query takes the next queued
 // response, and every chained call is recorded so tests can check what was
 // sent.
-type Response = { data: unknown; error: { message: string; code?: string } | null; count?: number };
+type Response = { data: unknown; error: { message: string; code?: string; details?: string } | null; count?: number };
 let queue: Response[] = [];
 let calls: { method: string; args: unknown[] }[] = [];
 
@@ -83,6 +83,79 @@ describe("writeOutcomeFromCode", () => {
     const own = new DataWriteError("conflict", "x");
     expect(toDataWriteError(own)).toBe(own);
     expect(toDataWriteError(new Error("network")).outcome).toBe("error");
+  });
+});
+
+describe("field-level write errors", () => {
+  it("maps a unique violation to the column PostgREST's details name, with safe messages", () => {
+    const raw = {
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "users_email_key"',
+      details: "Key (email)=(ann@example.com) already exists.",
+    };
+    const err = toDataWriteError(raw);
+    expect(err.outcome).toBe("invalid");
+    expect(err.fields).toEqual({ email: "This value is already in use." });
+    expect(err.message).toBe("Email is already in use.");
+    // Neither the value nor the constraint name reaches a message.
+    expect(JSON.stringify([err.message, err.fields])).not.toMatch(/ann@example|users_email_key/);
+    expect(err.cause).toBe(raw);
+  });
+
+  it("maps a composite unique key to each of its columns", () => {
+    const mapped = fieldErrorsFromPostgrest({
+      code: "23505",
+      details: "Key (org_id, slug)=(4, intro) already exists.",
+    });
+    expect(mapped?.fields).toEqual({
+      org_id: "This combination is already in use.",
+      slug: "This combination is already in use.",
+    });
+    expect(mapped?.message).toBe("This combination of Org Id and Slug is already in use.");
+  });
+
+  it("maps a not-null violation to its column", () => {
+    const err = toDataWriteError({
+      code: "23502",
+      message: 'null value in column "title" of relation "tasks" violates not-null constraint',
+      details: "Failing row contains (7, null, secret).",
+    });
+    expect(err.fields).toEqual({ title: "This field is required." });
+    expect(err.message).toBe("Title is required.");
+    expect(err.message).not.toMatch(/secret|relation/);
+  });
+
+  it("maps a missing foreign key on insert to its column", () => {
+    const mapped = fieldErrorsFromPostgrest({
+      code: "23503",
+      details: 'Key (owner_id)=(99) is not present in table "people".',
+    });
+    expect(mapped?.fields).toEqual({ owner_id: "The selected item doesn't exist." });
+  });
+
+  it("maps nothing it cannot read safely", () => {
+    // An expression index, a still-referenced delete, other codes, no details.
+    expect(fieldErrorsFromPostgrest({ code: "23505", details: "Key (lower(email::text))=(a) already exists." })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23503", details: 'Key (id)=(5) is still referenced from table "tasks".' })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23514", message: 'new row violates check constraint "x"' })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23505" })).toBeUndefined();
+    expect(fieldErrorsFromPostgrest({ code: "23502", message: 'null value in column "we\"ird" of relation' })).toBeUndefined();
+    expect(toDataWriteError({ code: "23505", message: "dup" }).fields).toBeUndefined();
+  });
+
+  it("a provider create carries the mapped fields", async () => {
+    queue.push({
+      data: null,
+      error: { code: "23505", message: "duplicate key", details: "Key (slug)=(intro) already exists." },
+    });
+    const err = await failure(provider().create("questions", { data: { slug: "intro" } }));
+    expect(err.fields).toEqual({ slug: "This value is already in use." });
+    expect(err.code).toBe("23505");
+  });
+
+  it("a DataWriteError built with empty fields has none", () => {
+    expect(new DataWriteError("invalid", "x", { fields: {} }).fields).toBeUndefined();
+    expect(new DataWriteError("invalid", "x", { fields: { a: "b" } }).fields).toEqual({ a: "b" });
   });
 });
 

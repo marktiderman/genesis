@@ -45,8 +45,10 @@ import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewModeDefault } from "../../hooks/use-view-preference";
 import {
   useResource,
+  type MutationMode,
   type UseResourceOptions,
 } from "@marktiderman/genesis-core/hooks";
+import { writeModeOptions } from "./undo-toast";
 import {
   useResourcePage,
   type ResourceColumnDef,
@@ -575,6 +577,13 @@ export interface ResourcePageProps<
   formSteps?: WizardStep[];
   /** Layout mode for the built-in form container. If not set, defaults to sheet for edit, dialog for create. */
   formLayout?: "dialog" | "sheet" | "page";
+  /**
+   * When the built-in form's saves and deletes reach the list: `"pessimistic"`
+   * (default, wait for the provider), `"optimistic"` or `"undoable"` (an Undo
+   * toast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`
+   * wins for deletes.
+   */
+  mutationMode?: MutationMode;
 
   // Bulk actions
   bulkActions?: Array<{
@@ -807,6 +816,7 @@ export function ResourcePage<
     formMode,
     formSteps,
     formLayout: formLayoutProp,
+    mutationMode: mutationModeProp,
     bulkActions,
     renderCard: renderCardProp,
     openOnCardClick = false,
@@ -927,6 +937,7 @@ export function ResourcePage<
                 ...(urlSeed.sort ? { defaultSort: urlSeed.sort } : {}),
               }
             : {}),
+          ...writeModeOptions(resourceOptions, mutationModeProp),
         }
       : { enabled: false },
   );
@@ -2111,6 +2122,7 @@ export function ResourcePage<
               formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog"),
             mode: formMode,
             steps: formSteps,
+            mutationMode: mutationModeProp,
             item:
               formAction === "edit"
                 ? ((formItem as Record<string, unknown> | null) ?? undefined)

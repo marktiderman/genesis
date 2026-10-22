@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect } from "react";
+import { useMemo, useCallback, useEffect, useRef, useState } from "react";
 import { useForm, type UseFormReturn, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,12 +9,21 @@ import { titleCase } from "../utils";
 import type { ResourceFormFieldDef, FieldType } from "../form-types";
 import type { BaseRecord, InvalidationKey } from "../provider/types";
 import { relatedKeys } from "./related-keys";
+import { isDataWriteError } from "../schema/write-outcome";
+import {
+  cachedRecord,
+  executeWrite,
+  invalidateResource,
+  useDelayedWrites,
+  type MutationModeOptions,
+} from "./mutation-mode";
+import { useUnsavedChangesGuard } from "./use-unsaved-changes-guard";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export interface UseResourceFormOptions {
+export interface UseResourceFormOptions extends MutationModeOptions {
   resource: string;
   action: "create" | "edit";
   id?: string;
@@ -22,8 +31,25 @@ export interface UseResourceFormOptions {
   fields?: ResourceFormFieldDef[];
   /** Full dataset used to auto-detect select fields from unique values. */
   listData?: Record<string, unknown>[];
+  /**
+   * The form is done. After the save in `pessimistic` mode (with the stored
+   * row); at once in `optimistic` and `undoable` modes (with the submitted
+   * values over the record, and no `id` for a create).
+   */
   onSuccess?: (data: Record<string, unknown>) => void;
+  /**
+   * The save failed. In `optimistic` and `undoable` modes the form may be
+   * gone by then, so show the error from here (genesis-ui's ResourceForm
+   * toasts it when no `onError` is given).
+   */
   onError?: (error: Error) => void;
+  /**
+   * Warn before unsaved changes are lost. Default false. While the form is
+   * dirty, closing or reloading the tab shows the browser's prompt, and
+   * `confirmLeave()` asks before in-app navigation (wire it to a router
+   * blocker; see SKILL.md "Unsaved changes").
+   */
+  warnWhenUnsaved?: boolean | { message?: string };
   /**
    * Pre-fill create form defaults from URL query params: a param named like a
    * field (`?status=draft`) becomes that field's starting value. Default true.
@@ -57,6 +83,17 @@ export interface UseResourceFormReturn {
   handleSave: (data: Record<string, unknown>) => Promise<void>;
   isSaving: boolean;
   isLoading: boolean;
+  /**
+   * The form has changes that have not been saved. False again once a save
+   * succeeds (or, in optimistic / undoable modes, is handed off).
+   */
+  isDirty: boolean;
+  /**
+   * For in-app navigation: true when it is fine to leave (nothing unsaved,
+   * `warnWhenUnsaved` off, or the user confirmed). Asks with
+   * `window.confirm` otherwise.
+   */
+  confirmLeave: () => boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -345,6 +382,10 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     validationMode,
     autosave,
     invalidates,
+    warnWhenUnsaved = false,
+    mutationMode = "pessimistic",
+    undoDelayMs,
+    onUndoable,
   } = options;
 
   const autosaveEnabled = !!autosave;
@@ -459,58 +500,153 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     };
   }, [autosaveEnabled, resource, action, form, debounceMs, storage]);
 
+  // Unsaved changes: RHF's isDirty, cleared by a successful save until the
+  // next edit (a create form keeps its values after saving, so RHF alone
+  // would still call it dirty).
+  const rhfDirty = form.formState.isDirty;
+  const [savedClean, setSavedClean] = useState(false);
+  const savedCleanRef = useRef(false);
+  useEffect(() => {
+    const subscription = form.watch((_values, info) => {
+      // `watch` also reports resets (no field name); only an edit dirties.
+      if (!info.name) return;
+      savedCleanRef.current = false;
+      setSavedClean(false);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+  const isDirty = rhfDirty && !savedClean;
+  const warn = !!warnWhenUnsaved;
+  const { confirmLeave: guardConfirm } = useUnsavedChangesGuard({
+    when: warn && isDirty,
+    message: typeof warnWhenUnsaved === "object" ? warnWhenUnsaved.message : undefined,
+  });
+  const confirmLeave = useCallback(
+    // The ref, not state: a router blocker may ask in the same tick as the
+    // save's onSuccess navigates, before a re-render.
+    () => (!warn || savedCleanRef.current ? true : guardConfirm()),
+    [warn, guardConfirm],
+  );
+  const markSaved = useCallback(() => {
+    savedCleanRef.current = true;
+    setSavedClean(true);
+  }, []);
+
+  const delayed = useDelayedWrites();
+
+  /** A failed save, on the form: per-field messages and a root summary. */
+  const showError = useCallback(
+    (error: Error) => {
+      const fieldErrors = isDataWriteError(error) ? error.fields : undefined;
+      const known = new Set(resolvedFields.map((f) => f.key));
+      let first: string | undefined;
+      if (fieldErrors) {
+        for (const [field, message] of Object.entries(fieldErrors)) {
+          if (!known.has(field)) continue;
+          form.setError(field, { type: "server", message });
+          first ??= field;
+        }
+      }
+      form.setError("root", { type: "server", message: error.message });
+      if (first) {
+        try {
+          form.setFocus(first);
+        } catch {
+          // Not rendered (hidden or custom renderForm): the summary still says it.
+        }
+      }
+    },
+    [form, resolvedFields],
+  );
+
+  const reportError = useCallback(
+    (error: Error) => {
+      // A save handed off optimistically and then refused is unsaved again.
+      savedCleanRef.current = false;
+      setSavedClean(false);
+      showError(error);
+      if (onError) {
+        onError(error);
+      } else {
+        console.error(`[useResourceForm] ${action} failed for "${resource}":`, error);
+      }
+    },
+    [showError, onError, action, resource],
+  );
+
   // Submit handler
   const handleSubmit = useCallback(
     async (formData: Record<string, unknown>) => {
       try {
-        let result: Record<string, unknown>;
         let recordId: string | number | undefined;
-        if (action === "create") {
-          const res = await provider.create(resource, { data: formData });
-          result = res.data;
-        } else {
+        if (action === "edit") {
           recordId = id ?? String((effectiveData as Record<string, unknown>)?.id ?? "");
           if (!recordId) {
             throw new Error("Cannot update record: no ID available. Provide an id prop or ensure the record has an id field.");
           }
-          const res = await provider.update(resource, { id: recordId, data: formData });
-          result = res.data;
         }
-        // Clear draft on successful save
-        if (autosaveEnabled && action === "create") {
-          try {
-            storage.removeItem(`genesis-draft:${resource}:new`);
-          } catch (err) {
-            console.warn(`[useResourceForm] Draft cleanup failed for "${resource}":`, err instanceof Error ? err.message : String(err));
-          }
-        }
-        // Invalidate queries to refresh data: the resource's own, then any
-        // related keys the provider or the caller named.
-        await queryClient.invalidateQueries({ queryKey: [resource] });
-        const related = relatedKeys(
+        const before = recordId != null ? cachedRecord(queryClient, resource, recordId) : undefined;
+        const outcome = await executeWrite<BaseRecord>({
+          queryClient,
           provider,
-          {
-            resource,
-            kind: action === "create" ? "create" : "update",
-            id: (recordId ?? result.id) as string | number,
-            record: result as BaseRecord,
+          resource,
+          kind: action === "create" ? "create" : "update",
+          id: recordId,
+          // The cache holds rows; patch it only when the form's values are
+          // row-shaped (no provider.toFormValues reshaping this record).
+          data: formSource === effectiveData ? formData : undefined,
+          mode: mutationMode,
+          undoDelayMs,
+          onUndoable,
+          delayed,
+          send: async () => {
+            const res =
+              action === "create"
+                ? await provider.create(resource, { data: formData })
+                : await provider.update(resource, { id: recordId!, data: formData });
+            return { record: res.data, audit: res.audit };
           },
-          invalidates,
-        );
-        await Promise.all(related.map((queryKey) => queryClient.invalidateQueries({ queryKey: [...queryKey] })));
-        onSuccess?.(result);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        form.setError("root", { message: error.message });
-        if (onError) {
-          onError(error);
+          committed: async (result) => {
+            // Clear draft on successful save
+            if (autosaveEnabled && action === "create") {
+              try {
+                storage.removeItem(`genesis-draft:${resource}:new`);
+              } catch (err) {
+                console.warn(`[useResourceForm] Draft cleanup failed for "${resource}":`, err instanceof Error ? err.message : String(err));
+              }
+            }
+            // Invalidate queries to refresh data: the resource's own, then any
+            // related keys the provider or the caller named.
+            await invalidateResource(queryClient, resource);
+            const related = relatedKeys(
+              provider,
+              {
+                resource,
+                kind: action === "create" ? "create" : "update",
+                id: (recordId ?? result.id) as string | number,
+                record: result,
+              },
+              invalidates,
+            );
+            await Promise.all(related.map((queryKey) => queryClient.invalidateQueries({ queryKey: [...queryKey] })));
+          },
+          failedLater: reportError,
+        });
+        markSaved();
+        if (outcome.status === "committed") {
+          onSuccess?.(outcome.record);
         } else {
-          console.error(`[useResourceForm] ${action} failed for "${resource}":`, error);
+          onSuccess?.(
+            action === "edit"
+              ? { ...(before ?? effectiveData ?? {}), ...formData, id: recordId }
+              : { ...formData },
+          );
         }
+      } catch (err) {
+        reportError(err instanceof Error ? err : new Error(String(err)));
       }
     },
-    // form is stable (from useForm) but included for correctness since we call form.setError
-    [action, provider, resource, id, effectiveData, queryClient, onSuccess, onError, autosaveEnabled, form, storage, invalidates],
+    [action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, delayed, reportError, markSaved],
   );
 
   const onSubmit = useCallback(
@@ -527,5 +663,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     handleSave: handleSubmit,
     isSaving,
     isLoading,
+    isDirty,
+    confirmLeave,
   };
 }
