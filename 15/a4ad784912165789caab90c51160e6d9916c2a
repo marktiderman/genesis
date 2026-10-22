@@ -1,0 +1,73 @@
+packages/forms/README.md
+  s_a1b83c03f697d3::t_39ec8daf047954 79,106-170
+  s_a1b83c03f697d3::t_27f1a26b0dd2ce 171
+docs/FORMS.md
+  s_a1b83c03f697d3::t_a45d1960009524 3-5,131-132,158,568,573-580,680,826
+.changeset/forms-destinations.md
+  s_a1b83c03f697d3::t_3de935af04c068 1-6
+packages/forms/src/destinations/email.ts
+  s_a1b83c03f697d3::t_d6cf4878ace76d 298
+  s_a1b83c03f697d3::t_f04a607717c0e3 1-11,13-20,22-108,110-190,192-297,299-301
+  s_a1b83c03f697d3::t_a27de589f14f6d 109
+  s_a1b83c03f697d3::t_a3f39defa39db3 12,21,191
+packages/genesis/README.md
+  s_a1b83c03f697d3::t_8ece45c3b098aa 28
+packages/forms/src/destinations/sheets.ts
+  s_a1b83c03f697d3::t_e5441392d376ae 1-200,210-249,251-326
+  s_a1b83c03f697d3::t_19be344dbafd39 250
+  s_a1b83c03f697d3::t_535173aa8bc4e1 201-209
+packages/forms/type-tests/destinations.ts
+  s_a1b83c03f697d3::t_9e2579aa53886b 1-33
+packages/genesis/package.json
+  s_a1b83c03f697d3::t_199255d1059d0c 7,99-101
+  s_a1b83c03f697d3::t_35d6bd826507d7 102
+packages/forms/src/destinations/types.ts
+  s_a1b83c03f697d3::t_deb6302e77ff7c 263-265
+  s_a1b83c03f697d3::t_5a7d5baf198ad0 1-262
+packages/forms/src/destinations/row.ts
+  s_a1b83c03f697d3::t_1cb902040871aa 79-88,98-119
+  s_a1b83c03f697d3::t_1a70bbd8d92fb4 1-78,89-97,120-137
+packages/forms/src/fields.ts
+  s_a1b83c03f697d3::t_ec31d81d944fe0 142
+packages/forms/package.json
+  s_a1b83c03f697d3::t_6b12a162c930fe 12-14,52-59
+  s_a1b83c03f697d3::t_be0407c92369c2 60-61
+packages/forms/tsup.config.ts
+  s_a1b83c03f697d3::t_6b12a162c930fe 10
+packages/forms/src/destinations/webhook.ts
+  s_a1b83c03f697d3::t_dfc4aa4e70cfd4 1-20,22-36,38-103,105-142,144-243,250-257,260-315
+  s_a1b83c03f697d3::t_deb6302e77ff7c 37,104,143
+  s_a1b83c03f697d3::t_1cb902040871aa 21,244-249,258-259
+packages/forms/src/destinations.ts
+  s_a1b83c03f697d3::t_1cb902040871aa 25
+  s_a1b83c03f697d3::t_6b12a162c930fe 1-24,26-79
+packages/genesis/src/forms-destinations.ts
+  s_a1b83c03f697d3::t_199255d1059d0c 1
+packages/forms/src/destinations/google-auth.ts
+  s_a1b83c03f697d3::t_deb6302e77ff7c 7,31
+  s_a1b83c03f697d3::t_62784b6d3c1965 1-6,8-30,32-95
+packages/forms/type-tests/tsconfig.json
+  s_a1b83c03f697d3::t_6b12a162c930fe 17-19
+packages/forms/src/__tests__/destinations.test.ts
+  s_a1b83c03f697d3::t_1cb902040871aa 174-191,747-763
+  s_a1b83c03f697d3::t_32154afd981375 94
+  s_a1b83c03f697d3::t_20f5137debd7f5 1-93,95-173,192-746,764-766
+packages/genesis/tsup.config.ts
+  s_a1b83c03f697d3::t_199255d1059d0c 37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "15a4ad784912165789caab90c51160e6d9916c2a",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
