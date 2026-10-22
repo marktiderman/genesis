@@ -15830,7 +15830,7 @@
               "type": "() => Promise<boolean>",
               "required": true,
               "defaultValue": null,
-              "description": "Take the write back. Resolves true when it was undone, false when it\ncould not be: already sent under `delay` (the window closed, or the hook\nunmounted), already undone, or the provider's undo failed (reported\nthrough `onError`). Safe to call more than once."
+              "description": "Take the write back. Resolves true when it was undone (or will never be\nsent), false when it could not be: already sent under `delay` (the\nwindow closed, it was committed, a later write on the same record sent\nit first, or the page unloaded), already undone, or the provider's undo\nfailed (reported through `onError`). Works after the hook that made the\nwrite has unmounted. Safe to call more than once."
             },
             {
               "name": "id",

@@ -14,10 +14,19 @@ import {
   cachedRecord,
   executeWrite,
   invalidateResource,
-  useDelayedWrites,
+  sameValue,
   type MutationModeOptions,
 } from "./mutation-mode";
 import { useUnsavedChangesGuard } from "./use-unsaved-changes-guard";
+
+/** A deep copy where the platform allows one (form values are plain data). */
+function structuredCloneSafe<T>(value: T): T {
+  try {
+    return typeof structuredClone === "function" ? structuredClone(value) : value;
+  } catch {
+    return value;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -50,6 +59,14 @@ export interface UseResourceFormOptions extends MutationModeOptions {
    * blocker; see SKILL.md "Unsaved changes").
    */
   warnWhenUnsaved?: boolean | { message?: string };
+  /**
+   * Whether the form is on screen. Default true. Pass false while it is
+   * hidden but still mounted (a closed dialog). An optimistic or undoable
+   * save that fails later is put back on the form (field errors, unsaved
+   * again) only while the form is mounted, visible and still holds the
+   * values it saved; otherwise the failure only reaches `onError`.
+   */
+  visible?: boolean;
   /**
    * Pre-fill create form defaults from URL query params: a param named like a
    * field (`?status=draft`) becomes that field's starting value. Default true.
@@ -386,6 +403,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     mutationMode = "pessimistic",
     undoDelayMs,
     onUndoable,
+    visible = true,
   } = options;
 
   const autosaveEnabled = !!autosave;
@@ -532,7 +550,17 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     setSavedClean(true);
   }, []);
 
-  const delayed = useDelayedWrites();
+  // A save that fails after it was handed off only comes back to the form
+  // while the user can still see it.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
 
   /** A failed save, on the form: per-field messages and a root summary. */
   const showError = useCallback(
@@ -560,23 +588,33 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
   );
 
   const reportError = useCallback(
-    (error: Error) => {
-      // A save handed off optimistically and then refused is unsaved again.
-      savedCleanRef.current = false;
-      setSavedClean(false);
-      showError(error);
+    (error: Error, handedOff?: Record<string, unknown>) => {
+      // A save handed off optimistically and then refused is unsaved again,
+      // if the form still shows what it saved; a closed, hidden or reset
+      // form is left alone.
+      const onForm =
+        !handedOff ||
+        (mountedRef.current && visibleRef.current && sameValue(form.getValues(), handedOff));
+      if (onForm) {
+        savedCleanRef.current = false;
+        setSavedClean(false);
+        showError(error);
+      }
       if (onError) {
         onError(error);
       } else {
         console.error(`[useResourceForm] ${action} failed for "${resource}":`, error);
       }
     },
-    [showError, onError, action, resource],
+    [form, showError, onError, action, resource],
   );
 
   // Submit handler
   const handleSubmit = useCallback(
     async (formData: Record<string, unknown>) => {
+      // What the form shows as this save goes out (raw input values, before
+      // any resolver coercion), to tell later whether it still does.
+      const shown = structuredCloneSafe(form.getValues());
       try {
         let recordId: string | number | undefined;
         if (action === "edit") {
@@ -598,12 +636,12 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
           mode: mutationMode,
           undoDelayMs,
           onUndoable,
-          delayed,
-          send: async () => {
+          send: async (ctx) => {
+            const keepalive = ctx.keepalive ? { keepalive: true } : {};
             const res =
               action === "create"
-                ? await provider.create(resource, { data: formData })
-                : await provider.update(resource, { id: recordId!, data: formData });
+                ? await provider.create(resource, { data: formData, ...keepalive })
+                : await provider.update(resource, { id: recordId!, data: ctx.data ?? formData, ...keepalive });
             return { record: res.data, audit: res.audit };
           },
           committed: async (result) => {
@@ -630,7 +668,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
             );
             await Promise.all(related.map((queryKey) => queryClient.invalidateQueries({ queryKey: [...queryKey] })));
           },
-          failedLater: reportError,
+          failedLater: (error) => reportError(error, shown),
         });
         markSaved();
         if (outcome.status === "committed") {
@@ -646,7 +684,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
         reportError(err instanceof Error ? err : new Error(String(err)));
       }
     },
-    [action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, delayed, reportError, markSaved],
+    [form, action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, reportError, markSaved],
   );
 
   const onSubmit = useCallback(

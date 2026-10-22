@@ -110,6 +110,13 @@ export interface GetManyResult<T> {
 /** Parameters for `create`. */
 export interface CreateParams<T> {
   data: Partial<T>;
+  /**
+   * Sent while the page unloads (an `undoable` write flushed on close or
+   * reload). A fetch-based provider should pass `keepalive: true` to `fetch`
+   * so the request outlives the page, and report `keepaliveWrites` in its
+   * capabilities. Others ignore it.
+   */
+  keepalive?: boolean;
 }
 
 /** Result of `create`. */
@@ -135,6 +142,8 @@ export interface UpdateParams<T> {
    * ignore it.
    */
   expectedVersion?: string | null;
+  /** See `CreateParams.keepalive`. */
+  keepalive?: boolean;
 }
 
 /** Result of `update`. */
@@ -151,6 +160,8 @@ export interface DeleteParams {
   id: Identifier;
   /** The version token the row was read at; see `UpdateParams.expectedVersion`. */
   expectedVersion?: string | null;
+  /** See `CreateParams.keepalive`. */
+  keepalive?: boolean;
 }
 
 /** Result of `deleteOne`. */
