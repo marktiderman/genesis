@@ -88,6 +88,8 @@ const notesWithText = (value: Json | undefined): JsonObject[] =>
 
 export interface Highlight { start: number; end: number; quote: string; note: string }
 export const MAX_HIGHLIGHT_NOTE_LENGTH = 1000;
+/** The longest passage one highlight may quote; also bounds a quote the server can't check against `props.text`. */
+export const MAX_HIGHLIGHT_QUOTE_LENGTH = 2000;
 export const HIGHLIGHT_NOTE_MESSAGE = "Add a note to each highlight.";
 const subjectText = (field: FieldBlock) => (typeof field.props?.text === "string" && field.props.text ? field.props.text : undefined);
 
@@ -204,6 +206,7 @@ export const worksheetFieldTypes: FieldTypeManifest[] = [
         const start = h.start as number;
         const end = h.end as number;
         if (start < 0 || end <= start || h.quote.length !== end - start) return "Highlight a passage of the text.";
+        if (end - start > MAX_HIGHLIGHT_QUOTE_LENGTH) return `Highlight under ${MAX_HIGHLIGHT_QUOTE_LENGTH} characters at a time.`;
         if (text !== undefined && (end > text.length || text.slice(start, end) !== h.quote)) return "A highlight doesn't match the text.";
         if (h.note.trim() === "") return HIGHLIGHT_NOTE_MESSAGE;
         if (h.note.trim().length > MAX_HIGHLIGHT_NOTE_LENGTH) return `Keep each note under ${MAX_HIGHLIGHT_NOTE_LENGTH} characters.`;

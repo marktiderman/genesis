@@ -156,6 +156,10 @@ describe("highlights", () => {
     // Without a text, only the shape is checked.
     expect(validateField(field("highlights"), [{ ...iron, quote: "Wxyz" }])).toBeNull();
     expect(validateField(field("highlights"), [{ ...iron, quote: "Wx" }])).toMatch(/passage/);
+    // ...and the length, so an unchecked quote can't be huge.
+    const long = { start: 0, end: 2001, quote: "x".repeat(2001), note: "n" };
+    expect(validateField(field("highlights"), [long])).toMatch(/under 2000/);
+    expect(validateField(field("highlights"), [{ ...long, end: 2000, quote: "x".repeat(2000) }])).toBeNull();
   });
 
   it("normalizes and summarizes", () => {
