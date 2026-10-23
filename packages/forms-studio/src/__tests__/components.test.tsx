@@ -140,6 +140,12 @@ describe("Headline numbers and question cards", () => {
     expect(screen.getByTestId("headline-rate").textContent).toBe("Photo consent50%1 of 2 agreed");
   });
 
+  it("says when every low rating is followed up", () => {
+    const h = headlineNumbers(items, [checkIn]);
+    render(<HeadlineNumbers numbers={headlineCards(h, { lowOpen: 0 })} />);
+    expect(screen.getByTestId("headline-low").textContent).toBe("Low ratings1All followed up");
+  });
+
   it("shows each question's spread, consent as one bar, and written answers", () => {
     render(
       <QuestionSummaryCards

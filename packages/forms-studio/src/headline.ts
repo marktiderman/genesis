@@ -177,7 +177,11 @@ const signed = (n: number, digits = 0) => {
  */
 export function headlineCards(
   headline: Headline,
-  options: { period?: string | null | undefined; lowDetail?: string | undefined } = {},
+  options: {
+    period?: string | null | undefined;
+    /** How many low-rated responses still need a follow-up (not handled); the card says so. */
+    lowOpen?: number | undefined;
+  } = {},
 ): HeadlineNumber[] {
   const cards: HeadlineNumber[] = [];
   const { responses, rating, low, rate } = headline;
@@ -209,13 +213,14 @@ export function headlineCards(
     });
   }
   if (low) {
+    const open = options.lowOpen ?? low.count;
     cards.push({
       key: "low",
       label: "Low ratings",
       value: low.count,
-      ...(low.count
-        ? { detail: options.lowDetail ?? (low.count === 1 ? "Needs a follow-up" : "Need a follow-up"), tone: "negative" as const }
-        : { detail: "None" }),
+      ...(open
+        ? { detail: open === 1 ? "Needs a follow-up" : `${open} need a follow-up`, tone: "negative" as const }
+        : { detail: low.count ? "All followed up" : "None" }),
     });
   }
   if (rate) {
