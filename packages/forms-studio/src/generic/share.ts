@@ -11,11 +11,27 @@ export interface PrefillChoice {
   options: readonly { value: string; label: string }[];
 }
 
-/** `url` with `values` set as search params (empty values left out), keeping what it has. */
+// Resolves a relative link without inventing an origin for it.
+const RELATIVE_BASE = "http://relative.invalid";
+
+/**
+ * `url` with `values` set as search params (empty values left out), keeping what it has.
+ * An absolute link stays absolute; a relative one (`/f/a?x=1`) stays relative, so it never
+ * throws while a page is still working out its origin.
+ */
 export function prefilledUrl(url: string, values: Record<string, string | undefined>): string {
-  const u = new URL(url);
+  let absolute = true;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    absolute = false;
+    u = new URL(url, RELATIVE_BASE);
+  }
   for (const [k, v] of Object.entries(values)) if (v) u.searchParams.set(k, v);
-  return u.toString();
+  if (absolute) return u.toString();
+  const path = url.startsWith("/") ? u.pathname : u.pathname.replace(/^\//, "");
+  return `${path}${u.search}${u.hash}`;
 }
 
 const attr = (s: string) =>

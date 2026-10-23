@@ -18,6 +18,7 @@ export {
   lowRatingAtMost,
   lowScaleAtMost,
   hasLowRating,
+  hasLowRatingExcept,
   lowRatingLabel,
   isFiltered,
   filterResponses,
@@ -40,6 +41,7 @@ export { dayLabel } from "./generic/days";
 export { prefilledUrl, embedSnippet, type PrefillChoice } from "./generic/share";
 export {
   formAvailability,
+  parseInstant,
   takesResponses,
   isFull,
   type FormAvailability,

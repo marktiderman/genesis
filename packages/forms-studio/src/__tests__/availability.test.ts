@@ -1,6 +1,6 @@
 // @feat:forms-studio
 import { describe, expect, it } from "vitest";
-import { formAvailability, isFull, takesResponses } from "../availability";
+import { formAvailability, isFull, parseInstant, takesResponses } from "../availability";
 
 const now = new Date("2026-10-22T12:00:00Z");
 const live = { status: "active" as const };
@@ -52,5 +52,33 @@ describe("isFull", () => {
     expect(isFull({ responseCap: 2, completedResponses: 1 })).toBe(false);
     expect(isFull({ responseCap: 2, completedResponses: 2 })).toBe(true);
     expect(isFull({ responseCap: 2, completedResponses: 5, full: false })).toBe(false);
+  });
+});
+
+describe("times that can't be trusted", () => {
+  const live = { status: "active" as const, published: true };
+  const at = new Date("2026-10-23T12:00:00Z");
+
+  it("keeps a form with an unreadable opening or closing time closed", () => {
+    expect(formAvailability({ ...live, opensAt: "not a time" }, at)).toBe("closed");
+    expect(formAvailability({ ...live, closesAt: "2026-13-45T99:00:00Z" }, at)).toBe("closed");
+  });
+
+  it("needs Z or an offset, so the runtime's clock never decides", () => {
+    expect(formAvailability({ ...live, opensAt: "2026-10-23T09:00:00" }, at)).toBe("closed");
+    expect(formAvailability({ ...live, opensAt: "2026-10-23T09:00:00+00:00" }, at)).toBe("live");
+    expect(formAvailability({ ...live, opensAt: "2026-10-23T14:00:00+02:00" }, at)).toBe("live");
+    expect(formAvailability({ ...live, opensAt: "2026-10-23T15:00:00+02:00" }, at)).toBe("scheduled");
+    expect(formAvailability({ ...live, closesAt: "2026-10-23T12:00:00.000Z" }, at)).toBe("closed");
+    expect(formAvailability({ ...live, closesAt: "2026-10-23T12:00:01Z" }, at)).toBe("live");
+  });
+
+  it("reads instants with an offset only", () => {
+    expect(parseInstant("2026-10-23T12:00:00Z")).toBe(Date.parse("2026-10-23T12:00:00Z"));
+    expect(parseInstant("2026-10-23T12:00:00-0500")).toBe(Date.parse("2026-10-23T17:00:00Z"));
+    expect(Number.isNaN(parseInstant("2026-10-23"))).toBe(true);
+    expect(Number.isNaN(parseInstant("2026-10-23T12:00"))).toBe(true);
+    expect(Number.isNaN(parseInstant("2026-10-23T12:00:00-05"))).toBe(true);
+    expect(parseInstant("2026-10-23 12:00:00+00:00")).toBe(Date.parse("2026-10-23T12:00:00Z"));
   });
 });

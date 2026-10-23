@@ -248,18 +248,58 @@ describe("summarizeResponses", () => {
     expect(choice.options.every((o) => o.percent === 0)).toBe(true);
   });
 
-  it("widens a rating's scale to fit an older version's larger max", () => {
+  it("keeps the newest version's scale, moving an older scale's answers onto it", () => {
     const ten = {
       ...v1,
       blocks: [
         { kind: "field", id: "r", key: "overall", type: "rating", label: "x", props: { max: 10 } },
       ],
     } as unknown as FormDefinition;
-    const s = summarizeResponses([item("a", "2026-10-01", ten, { r: 9 })], [v2, ten]).find(
-      (x) => x.key === "overall",
-    ) as ScaleSummary;
-    expect(s.max).toBe(9);
-    expect(s.buckets.at(-1)).toEqual({ value: 9, count: 1 });
+    const s = summarizeResponses(
+      [
+        item("a", "2026-10-01", ten, { r: 9 }),
+        item("b", "2026-10-01", ten, { r: 10 }),
+        item("c", "2026-10-02", v2, { r2: 5 }),
+        item("d", "2026-10-02", v2, { r2: 1 }),
+      ],
+      [v2, ten],
+    ).find((x) => x.key === "overall") as ScaleSummary;
+    // Never "6.5 / 9": the scale is the newest version's 1–5.
+    expect(s.max).toBe(5);
+    expect(s.buckets).toHaveLength(5);
+    expect(s.rescaled).toBe(2);
+    expect(s.excluded).toBe(0);
+    // 9 of 1–10 is 4.56 of 1–5 (shown at 5), 10 is 5.
+    expect(s.buckets.at(-1)).toEqual({ value: 5, count: 3 });
+    expect(s.buckets[0]).toEqual({ value: 1, count: 1 });
+    expect(s.average).toBeCloseTo((1 + 8 * (4 / 9) + 5 + 5 + 1) / 4, 5);
+  });
+
+  it("leaves out answers outside their own question's scale, and says how many", () => {
+    const s = summarizeResponses(
+      [
+        item("a", "2026-10-02", v2, { r2: 7 }),
+        item("b", "2026-10-02", v2, { r2: 0 }),
+        item("c", "2026-10-02", v2, { r2: 2.5 }),
+        item("d", "2026-10-02", v2, { r2: 4 }),
+      ],
+      [v2],
+    ).find((x) => x.key === "overall") as ScaleSummary;
+    expect(s.count).toBe(1);
+    expect(s.excluded).toBe(3);
+    expect(s.average).toBe(4);
+  });
+
+  it("summarises 200,000 answers without overflowing the stack", () => {
+    const many = Array.from({ length: 200_000 }, (_, i) =>
+      item(`m${i}`, "2026-10-02", v2, { r2: (i % 5) + 1 }),
+    );
+    const started = Date.now();
+    const s = summarizeResponses(many, [v2]).find((x) => x.key === "overall") as ScaleSummary;
+    expect(s.count).toBe(200_000);
+    expect(s.buckets.map((b) => b.count)).toEqual([40_000, 40_000, 40_000, 40_000, 40_000]);
+    expect(s.average).toBe(3);
+    expect(Date.now() - started).toBeLessThan(10_000);
   });
 });
 
