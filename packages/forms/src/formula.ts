@@ -90,6 +90,8 @@ function tokenize(source: string): Token[] {
         i++;
         while (isDigit(source[i] ?? "")) i++;
       }
+      // `1e6` and `2x` are not numbers here: say so rather than "expected an operator".
+      if (isIdStart(source[i] ?? "")) throw new FormulaError("Write a number in digits only, like 1000000.", at);
       const v = Number(source.slice(at, i));
       if (!Number.isFinite(v)) throw new FormulaError("This number is too large.", at);
       tokens.push({ t: "num", v, at });
@@ -344,6 +346,45 @@ function numbersIn(values: FormulaValue[], out: number[] = []): number[] {
   return out;
 }
 
+interface Totals {
+  sum: number;
+  count: number;
+  min: number;
+  max: number;
+}
+
+/**
+ * Each list's numbers added up once, for the lists this package built and
+ * froze itself (the calculator's lists, one per answer and column), so a
+ * formula worked out again over an unchanged table doesn't walk it again.
+ * Any other list a reader returns may change in place, so it is added up
+ * every time.
+ */
+const listTotals = new WeakMap<readonly FormulaValue[], Totals>();
+const ownLists = new WeakSet<readonly FormulaValue[]>();
+
+/** Mark a frozen list built inside this package as safe to keep totals for (not exported from the package). */
+export function ownFormulaList(list: FormulaValue[]): readonly FormulaValue[] {
+  Object.freeze(list);
+  ownLists.add(list);
+  return list;
+}
+
+function totalsOf(list: readonly FormulaValue[]): Totals {
+  const own = ownLists.has(list);
+  let t = own ? listTotals.get(list) : undefined;
+  if (t) return t;
+  const nums = numbersIn(list as FormulaValue[]);
+  t = { sum: 0, count: nums.length, min: Infinity, max: -Infinity };
+  for (const n of nums) {
+    t.sum += n;
+    if (n < t.min) t.min = n;
+    if (n > t.max) t.max = n;
+  }
+  if (own) listTotals.set(list, t);
+  return t;
+}
+
 function compare(op: BinaryOp, a: FormulaValue, b: FormulaValue): boolean {
   const blank = (v: FormulaValue) => v === null || Array.isArray(v) || (typeof v === "string" && v.trim() === "");
   // A blank equals nothing: `!=` holds and every other comparison fails.
@@ -375,7 +416,8 @@ export function evaluateFormula(ast: FormulaNode, read: FormulaReader): FormulaV
       case "text":
         return node.value;
       case "ref":
-        return read(node.column !== undefined ? { key: node.key, column: node.column } : { key: node.key });
+        // The node itself: a reader may key on it, and it is never changed.
+        return read(node);
       case "unary": {
         const n = formulaNumber(scalar(run(node.arg)));
         return n === null ? null : -n;
@@ -383,12 +425,31 @@ export function evaluateFormula(ast: FormulaNode, read: FormulaReader): FormulaV
       case "if":
         return truthy(run(node.test)) ? run(node.then) : run(node.else);
       case "call": {
-        const nums = numbersIn(node.args.map(run));
-        const total = nums.reduce((a, b) => a + b, 0);
+        let total = 0;
+        let count = 0;
+        let min = Infinity;
+        let max = -Infinity;
+        for (const arg of node.args) {
+          const v = run(arg);
+          if (Array.isArray(v)) {
+            const t = totalsOf(v);
+            total += t.sum;
+            count += t.count;
+            if (t.min < min) min = t.min;
+            if (t.max > max) max = t.max;
+            continue;
+          }
+          const n = formulaNumber(v);
+          if (n === null) continue;
+          total += n;
+          count++;
+          if (n < min) min = n;
+          if (n > max) max = n;
+        }
         if (node.fn === "sum") return finite(total);
-        if (!nums.length) return null;
-        if (node.fn === "avg") return finite(total / nums.length);
-        return nums.reduce((a, b) => (node.fn === "min" ? Math.min(a, b) : Math.max(a, b)));
+        if (!count) return null;
+        if (node.fn === "avg") return finite(total / count);
+        return node.fn === "min" ? min : max;
       }
       case "binary": {
         const a = run(node.left);

@@ -66,6 +66,7 @@ describe("parseFormula", () => {
     expect(parsed.ok).toBe(false);
     if (!parsed.ok) expect(parsed).toMatchObject({ message: "This number is too large.", at: 0 });
     expect(run("1" + "0".repeat(300))).toBe(1e300);
+    expect(parseFormula("1e400")).toMatchObject({ ok: false, message: "Write a number in digits only, like 1000000.", at: 0 });
   });
 
   it("never evaluates JavaScript", () => {
@@ -142,5 +143,19 @@ describe("formulaRefs and renameFormulaKey", () => {
     expect(renameFormulaKey("sum(a)", "sum", "total")).toBe("sum(a)");
     expect(renameFormulaKey("hours*rate", "hours", "time")).toBe("time*rate");
     expect(renameFormulaKey("a $ b", "a", "c")).toBe("a $ b");
+  });
+});
+
+describe("readers that change a list in place", () => {
+  it("add the list up again on every evaluation", () => {
+    const parsed = parseFormula("sum(xs) + max(xs)");
+    if (!parsed.ok) throw new Error(parsed.message);
+    const xs: FormulaValue[] = [1, 2, 3];
+    const read = () => xs;
+    expect(evaluateFormula(parsed.ast, read)).toBe(9);
+    xs[0] = 10;
+    expect(evaluateFormula(parsed.ast, read)).toBe(25);
+    xs.push(100);
+    expect(evaluateFormula(parsed.ast, read)).toBe(215);
   });
 });
