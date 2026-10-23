@@ -212,21 +212,38 @@ export function DataPageShell({
 
       {/* Content */}
       {isLoading ? (
-        <div
-          data-testid="page-loader"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-        >
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton
-              key={i}
-              className="h-40 rounded-xl"
-              style={{ animationDelay: `${i * 75}ms` }}
-            />
-          ))}
+        // Shaped like the view it stands in for, so a list inside a panel or
+        // tab doesn't reserve a page of card placeholders.
+        <div data-testid="page-loader" role="status" aria-busy="true">
+          <span className="sr-only">Loading…</span>
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  className="h-32 rounded-xl"
+                  style={{ animationDelay: `${i * 75}ms` }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  className="h-10 rounded-md"
+                  style={{ animationDelay: `${i * 75}ms` }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       ) : hasError ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
+        <div
+          role="alert"
+          className="flex flex-col items-center justify-center py-16 text-center"
+        >
+          <AlertTriangle className="h-10 w-10 text-destructive mb-3" aria-hidden />
           <p className="mb-1 text-sm font-medium text-foreground">
             Something went wrong
           </p>
@@ -235,7 +252,7 @@ export function DataPageShell({
           </p>
           {onRetry && (
             <Button variant="outline" size="sm" onClick={onRetry}>
-              <RefreshCw className="mr-1 h-4 w-4" /> Retry
+              <RefreshCw className="mr-1 h-4 w-4" aria-hidden /> Retry
             </Button>
           )}
         </div>
