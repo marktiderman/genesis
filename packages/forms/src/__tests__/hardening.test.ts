@@ -976,7 +976,9 @@ describe("submission work limits", () => {
     events.push({ type: "submit" });
     const start = performance.now();
     const result = validateSubmission(worst, { events }, { complete: false });
-    expect(performance.now() - start).toBeLessThan(1000);
+    // Refused at the limit: about 0.2 s locally, about 1.8 s on CI runners. Without the limit it
+    // runs on (5 s locally), so 3 s still shows the limit stops it.
+    expect(performance.now() - start).toBeLessThan(3000);
     expect(result).toEqual({
       ok: false,
       errors: { "": `Too much work: replaying these events (the path and calculated fields) would take more than ${MAX_REPLAY_WORK} steps; the limit is ${MAX_REPLAY_WORK}.` },
