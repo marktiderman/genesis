@@ -129,6 +129,67 @@ Each type validates, normalizes (trimmed, blanks dropped, notes in time order), 
 samples for `coverage()`. Helpers: `listLimits`, `tableColumns`, `tableLimits`, `formatTimestamp`
 and `parseTimestamp`; types `TableColumn`, `MediaNote` and `Highlight`.
 
+### Calculated fields
+
+A `calculated` field shows a value worked out from other answers, such as a total, an average or a
+band, and the respondent can't change it. Its props are `{ formula, format?, decimals? }`, with
+`format` one of `"number"`, `"percent"` (`0.25` shows `25%`) or `"text"`.
+
+```ts
+const budget = defineForm({
+  id: "budget",
+  title: "Weekly budget",
+  blocks: [
+    f.shortText("hours", { label: "Hours worked" }),
+    f.shortText("rate", { label: "Hourly rate" }),
+    f.table("costs", { label: "Costs", columns: [{ key: "item", label: "Item" }, { key: "amount", label: "Amount" }] }),
+    f.calculated("income", { label: "Income", formula: "hours * rate", decimals: 2 }),
+    f.calculated("left", { label: "Left over", formula: "income - sum(costs.amount)", decimals: 2 }),
+    f.calculated("status", { label: "Status", formula: "left >= 0 ? 'On budget' : 'Over budget'", format: "text" }),
+  ],
+});
+```
+
+The formula language is small and is parsed and evaluated by this package, never run as code:
+
+| Part | Written as |
+| --- | --- |
+| Answers | Their key (`hours`); one column of a table as `key.column` (`costs.amount`) |
+| Values | Numbers (`12`, `0.5`) and text in quotes (`"High"`, `'High'`) |
+| Arithmetic | `+ - * /` (also `− × ÷`), unary minus, parentheses |
+| Comparisons | `== != < <= > >=` (also `= ≠ ≤ ≥`), true or false |
+| A choice | `test ? a : b` |
+| Functions | `sum`, `avg`, `min`, `max` of numbers, lists and table columns |
+
+An unanswered question is blank, and arithmetic with a blank is blank, so a total stays empty until
+its answers are in; dividing by zero is blank too. The functions skip blanks (`sum` of nothing is
+`0`). Text holding a number (`"12"`, `"1,200"`) counts as that number, and yes / no as 1 / 0.
+A list or table of more than `MAX_FORMULA_ITEMS` (10,000) items reads as blank. A formula is at
+most `MAX_FORMULA_LENGTH` characters and 64 levels of parentheses, calls, signs and `? :` deep.
+
+The engine works the values out from the answers on the path (an answer hidden by logic reads as
+blank), again whenever an answer it reads changes, and stores them with the answers, so `engine.answers()` and a
+checked submission hold them for later use. `setValue` on a calculated field does nothing, and
+`validateSubmission` works the values out itself, dropping any the client sent. A calculated field
+is never required. Logic may compare its value.
+
+`parseForm` checks each formula: it must parse, every key must be a question of the form, a table
+must be read by one of its columns, and a calculated field may read only calculated fields before
+it, so values never go round in a circle. A problem is an issue on `blocks[i].props.formula`, such
+as `The formula uses "wage", which is not the answer name of a question in this form.` or
+`Expected a number, an answer or "(", but the formula ends there. (at character 9)`.
+
+`parseFormula`, `evaluateFormula`, `formulaRefs` and `renameFormulaKey` work with formulas on their
+own; `formatCalculated` shows a value as the field does. Builders offer the type only when the host
+names it (`COMPUTED_FIELD_TYPES`).
+
+### Props for the host
+
+Props a field type doesn't use are kept and ignored: the engine, `parseForm` and
+`validateSubmission` treat them as data for the app. A host can mark where an answer goes after a
+submit, for example `props: { record_column: "nickname" }`, and read it from the definition when it
+stores the response. The builder offers such props as `outputs` (see its README).
+
 ## On the server
 
 ```ts

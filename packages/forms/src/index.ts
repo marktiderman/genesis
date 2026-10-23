@@ -67,6 +67,33 @@ export {
   type MediaNote,
   STRUCTURED_FIELD_TYPES,
 } from "./structured";
+export {
+  CALCULATED_TYPE,
+  COMPUTED_FIELD_TYPES,
+  MAX_CALCULATED_DECIMALS,
+  calculatedProps,
+  calculatedValue,
+  formatCalculated,
+  formulaInput,
+  MAX_FORMULA_ITEMS,
+  type CalculatedFormat,
+  type CalculatedProps,
+} from "./calculated";
+export {
+  evaluateFormula,
+  FORMULA_FUNCTIONS,
+  formulaNumber,
+  formulaRefs,
+  MAX_FORMULA_LENGTH,
+  parseFormula,
+  renameFormulaKey,
+  type FormulaFunction,
+  type FormulaNode,
+  type FormulaParseResult,
+  type FormulaReader,
+  type FormulaRef,
+  type FormulaValue,
+} from "./formula";
 export { recall } from "./recall";
 export { validateField, REQUIRED_MESSAGE, type FieldValidator, type StandardSchemaV1 } from "./validate";
 export { canonicalJson, fingerprint } from "./hash";

@@ -11,6 +11,7 @@ import {
   canonicalJson,
   choiceOptions,
   getFieldType,
+  renameFormulaKey,
   type Block,
   type Condition,
   type ContentBlock,
@@ -161,6 +162,9 @@ export function defaultProps(
       return { options: withOptionValues([{ label: "Option 1" }, { label: "Option 2" }]) };
     case "table":
       return { columns: DEFAULT_TABLE_COLUMNS.map((c) => ({ ...c })), minRows: 1, maxRows: 3 };
+    case "calculated":
+      // Valid from the start; the author writes the real formula.
+      return { formula: "0" };
     default:
       return undefined;
   }
@@ -274,7 +278,7 @@ export function updateBlock(def: FormDefinition, id: string, patch: BlockPatch):
   });
   if (!changed) return def;
   let out: FormDefinition = { ...def, blocks };
-  if (renamed) out = rewriteRecall(out, "field", renamed.from, renamed.to);
+  if (renamed) out = renameFormulaRefs(rewriteRecall(out, "field", renamed.from, renamed.to), renamed.from, renamed.to);
   if (!typeChanged) return out;
   const { from, to } = typeChanged;
   if (CHOICE_TYPES.has(from) && CHOICE_TYPES.has(to)) {
@@ -545,6 +549,7 @@ function starterScalar(field: FieldBlock): string | number | boolean {
   if (field.type === "yes-no") return true;
   if (field.type === "rating") return typeof field.props?.max === "number" ? Math.ceil(field.props.max / 2) : 3;
   if (field.type === "nps") return 9;
+  if (field.type === "calculated") return field.props?.format === "text" ? "" : 0;
   if (field.type === "number") return typeof field.props?.min === "number" ? field.props.min : 0;
   return choiceOptions(field)[0]?.value ?? "";
 }
@@ -646,6 +651,19 @@ function renameHiddenRefs(def: FormDefinition, from: string, to: string): FormDe
   return out;
 }
 
+/** Point calculated fields' formulas that read the answer `from` at `to`. */
+function renameFormulaRefs(def: FormDefinition, from: string, to: string): FormDefinition {
+  let changed = false;
+  const blocks = def.blocks.map((b) => {
+    if (b.kind !== "field" || b.type !== "calculated" || typeof b.props?.formula !== "string") return b;
+    const formula = renameFormulaKey(b.props.formula, from, to);
+    if (formula === b.props.formula) return b;
+    changed = true;
+    return { ...b, props: { ...b.props, formula } };
+  });
+  return changed ? { ...def, blocks } : def;
+}
+
 /**
  * Point `{{field:from}}` / `{{hidden:from}}` recall tokens at `to`, or, with `to`
  * null, replace them with their fallback text, so labels, descriptions, content,
@@ -702,3 +720,7 @@ export function updateSettings(def: FormDefinition, patch: Partial<FormSettings>
   if (!Object.keys(settings).length) delete out.settings;
   return sameJson(out.settings, def.settings) ? def : out;
 }
+
+// ── Field outputs ────────────────────────────────────────────────────────────
+
+export * from "./outputs";

@@ -108,6 +108,10 @@ choice, yes/no, and the structured types:
 
 `useMediaTime()` and `useSourceText()` read them in a custom renderer.
 
+A **`calculated`** field shows the value the engine worked out from other answers, read-only, in an
+`<output>` named by the question that announces changes politely. It follows the field's `format`
+and `decimals`, and shows a dash until there is a value.
+
 ## License
 
 MIT

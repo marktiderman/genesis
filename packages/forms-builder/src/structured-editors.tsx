@@ -9,6 +9,7 @@ import { Button } from "@marktiderman/genesis-ui/button";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { SortableList } from "@marktiderman/genesis-ui/sortable-list";
 import { Switch } from "@marktiderman/genesis-ui/switch";
+import { CALCULATED_FIELD_EDITOR } from "./calculated-editor";
 import { DraftInput, NumberRow, TextRow } from "./controls";
 import type { FieldPanelProps, FieldTypeEditor } from "./editors";
 import { slugKey, uniqueName } from "./ops";
@@ -194,10 +195,11 @@ function TextHighlightsPanel({ field, setProps }: FieldPanelProps) {
 
 const icon = "size-4 text-muted-foreground";
 
-/** The builder's editors for the built-in structured types. */
+/** The builder's editors for the built-in structured types and the calculated type. */
 export const BUILT_IN_FIELD_EDITORS: readonly FieldTypeEditor[] = [
   { type: "list", icon: <List className={icon} aria-hidden="true" />, Panel: ListPanel },
   { type: "table", icon: <Rows3 className={icon} aria-hidden="true" />, Panel: TablePanel },
   { type: "media-notes", icon: <Clock className={icon} aria-hidden="true" />, Panel: MediaNotesPanel },
   { type: "text-highlights", icon: <Highlighter className={icon} aria-hidden="true" />, Panel: TextHighlightsPanel },
+  CALCULATED_FIELD_EDITOR,
 ];

@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ChevronRight, Copy, GripVertical, Plus, Trash2, X }
 import {
   choiceOptions,
   getFieldType,
+  COMPUTED_FIELD_TYPES,
   listFieldTypes,
   STRUCTURED_FIELD_TYPES,
   type Block,
@@ -11,6 +12,8 @@ import {
   type Json,
 } from "@marktiderman/genesis-forms";
 import { Badge } from "@marktiderman/genesis-ui/badge";
+import { Checkbox } from "@marktiderman/genesis-ui/checkbox";
+import { Label } from "@marktiderman/genesis-ui/label";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@marktiderman/genesis-ui/collapsible";
 import {
@@ -51,6 +54,7 @@ import {
   type FieldPanelProps,
   type FieldPreset,
 } from "./editors";
+import { chosenOutputs, clearOutputs, outputPropsFor, outputsFor, outputUsedBy, setOutput, type OutputTarget } from "./outputs";
 
 const TEXT_TYPES = new Set(["short-text", "long-text", "email", "phone", "number"]);
 const CHOICE_TYPES = new Set(["single-choice", "multi-choice", "dropdown"]);
@@ -77,11 +81,12 @@ export interface PaletteEntry {
 
 /**
  * The palette when the host names none: every registered type except the
- * structured types (`STRUCTURED_FIELD_TYPES`), which a host opts into by
- * naming them, e.g. `palette={[...defaultPalette(), ...STRUCTURED_FIELD_TYPES]}`.
+ * opt-in ones, the structured types (`STRUCTURED_FIELD_TYPES`) and the
+ * calculated type (`COMPUTED_FIELD_TYPES`), which a host offers by naming
+ * them, e.g. `palette={[...defaultPalette(), ...STRUCTURED_FIELD_TYPES, ...COMPUTED_FIELD_TYPES]}`.
  */
 export function defaultPalette(): string[] {
-  const optIn = new Set<string>(STRUCTURED_FIELD_TYPES);
+  const optIn = new Set<string>([...STRUCTURED_FIELD_TYPES, ...COMPUTED_FIELD_TYPES]);
   return listFieldTypes()
     .map((t) => t.type)
     .filter((type) => !optIn.has(type));
@@ -537,8 +542,15 @@ function FieldInspector({
     // type's default props are made here (new option values are random), so the edit stays pure.
     const keepsOptions = isChoice && CHOICE_TYPES.has(type) && !editorFor(config, type)?.defaultProps;
     if (keepsOptions) set({ type });
-    else set({ type, props: defaultProps(type, { def, editors: config.fieldEditors }) });
+    else {
+      // Where the answer goes stays, for the targets the new type also accepts.
+      const kept = outputPropsFor(field, type, config.outputs);
+      const base = defaultProps(type, { def, editors: config.fieldEditors });
+      const props = Object.keys(kept).length ? { ...base, ...kept } : base;
+      set({ type, props });
+    }
   };
+  const calculated = field.type === "calculated";
   const anonymous = !!def.settings?.anonymous;
   const flagged = [field.identifying && "Identifies the respondent", field.sensitive && "Sensitive"].filter(Boolean);
   return (
@@ -669,12 +681,15 @@ function FieldInspector({
         />
       ) : null}
       {!Panel && isChoice ? <OptionsEditor field={field} apply={apply} /> : null}
-      <SwitchRow
-        label="Required"
-        checked={!!field.required}
-        testID="builder-field-required"
-        onChange={(required) => set({ required })}
-      />
+      {calculated ? null : (
+        <SwitchRow
+          label="Required"
+          checked={!!field.required}
+          testID="builder-field-required"
+          onChange={(required) => set({ required })}
+        />
+      )}
+      <SavesTo def={def} field={field} apply={apply} />
       {/* Read-only viewers can't press the trigger (the fieldset is disabled), so they see it open. */}
       <Collapsible className="rounded-md border" defaultOpen={!!config.readOnly}>
         <CollapsibleTrigger
@@ -792,5 +807,85 @@ function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
         Removing an option takes it out of “is one of” lists and removes the other rules that compare with it.
       </p>
     </fieldset>
+  );
+}
+
+/**
+ * "Saves to": the host's output targets for this field's type, grouped, as
+ * checkboxes. Targets with different props can be on together; choosing one
+ * replaces another with the same prop. "Nowhere else" turns them all off.
+ */
+function SavesTo({ def, field, apply }: { def: FormDefinition; field: FieldBlock; apply: Apply }) {
+  const config = useBuilderConfig();
+  const targets = outputsFor(config.outputs, field.type);
+  if (!targets.length) return null;
+  const chosen = new Set(chosenOutputs(field, targets).map((t) => t.id));
+  const groups = new Map<string, OutputTarget[]>();
+  for (const t of targets) groups.set(t.group ?? "", [...(groups.get(t.group ?? "") ?? []), t]);
+  const ungrouped = groups.get("");
+  groups.delete("");
+  const sections: [string, OutputTarget[]][] = [...(ungrouped ? [["", ungrouped] as [string, OutputTarget[]]] : []), ...groups];
+  return (
+    <fieldset className="space-y-3 rounded-md border p-3" data-testid="builder-field-outputs">
+      <legend className="px-1 text-sm font-medium">Saves to</legend>
+      <p className="text-xs text-muted-foreground">Besides this form's responses, the answer can also go to:</p>
+      <OutputOption
+        id={`${field.id}-nowhere`}
+        label="Nowhere else"
+        checked={chosen.size === 0}
+        testID="builder-output-none"
+        onChange={(on) => {
+          if (on) apply((d) => clearOutputs(d, field.id, config.outputs));
+        }}
+      />
+      {sections.map(([group, list]) => (
+        <div key={group || "-"} className="space-y-2" {...(group ? { role: "group", "aria-label": group } : {})}>
+          {group ? <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{group}</p> : null}
+          {list.map((t) => {
+            const other = outputUsedBy(def, field.id, t);
+            const hint = [t.description, other && !chosen.has(t.id) ? `Now saved from “${other.label || other.key}”; choosing it here moves it.` : null]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <OutputOption
+                key={t.id}
+                id={`${field.id}-out-${t.id}`}
+                label={t.label}
+                hint={hint || undefined}
+                checked={chosen.has(t.id)}
+                testID={`builder-output-${t.id}`}
+                onChange={(on) => apply((d) => setOutput(d, field.id, t, on))}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </fieldset>
+  );
+}
+
+function OutputOption(props: { id: string; label: string; hint?: string | undefined; checked: boolean; testID: string; onChange: (on: boolean) => void }) {
+  const hintId = `${props.id}-hint`;
+  return (
+    <div className="flex items-start gap-2">
+      <Checkbox
+        id={props.id}
+        checked={props.checked}
+        data-testid={props.testID}
+        aria-describedby={props.hint ? hintId : undefined}
+        onCheckedChange={(v) => props.onChange(v === true)}
+        className="mt-0.5"
+      />
+      <div className="space-y-0.5">
+        <Label htmlFor={props.id} className="font-normal">
+          {props.label}
+        </Label>
+        {props.hint ? (
+          <p id={hintId} className="text-xs text-muted-foreground">
+            {props.hint}
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }

@@ -4,6 +4,7 @@
  * conditions); a depth-first search answers the fields in path order, so only
  * combinations a respondent could actually produce are explored.
  */
+import { CALCULATED_TYPE } from "./calculated";
 import { canonicalJson } from "./hash";
 import { choiceOptions, getFieldType, isEmptyValue } from "./fields";
 import { evaluate, fieldMap, steps, walkPath, type EvalScope, type PathWalk } from "./logic";
@@ -94,6 +95,9 @@ function dedupe(values: Value[]): Value[] {
 }
 
 function domainOf(field: FieldBlock, extra: Value[], maxOptions: number): Candidate[] {
+  // A calculated value is worked out, not answered: blank, or any value the
+  // logic compares it with (assuming the answers before it can produce that).
+  if (field.type === CALCULATED_TYPE) return dedupe([undefined, ...extra]).map((value) => ({ value }));
   const options = choiceOptions(field).map((o) => o.value);
   let base: Value[];
   switch (field.type) {

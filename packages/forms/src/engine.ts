@@ -1,3 +1,4 @@
+import { calculator, isCalculated } from "./calculated";
 import { isEmptyValue, normalizeValue } from "./fields";
 import { coerceHidden } from "./hidden";
 import { computePath, fieldMap, own, type EvalScope } from "./logic";
@@ -45,7 +46,8 @@ export interface FormEngine {
   /**
    * Set an answer. Like `next`, `back` and `submit`, it does nothing once the
    * response is completed: a completed response is final, so its stored
-   * answers are the ones that were validated.
+   * answers are the ones that were validated. It does nothing for a
+   * `calculated` field either: the engine works that value out.
    */
   setValue(id: string, value: Json | undefined): void;
   /** Validate the current step and move on. Returns false if it has errors. */
@@ -97,9 +99,24 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
   }
   Object.assign(initialHidden, coerceHidden(definition, options.hidden).values);
 
-  const first = computePath(definition, scopeOf({}, initialHidden));
+  // Calculated fields are worked out from the answers on the path, and logic
+  // may read them, so the two settle together (a few rounds at most).
+  const calc = calculator(definition);
+  const settle = (values: FormState["values"], hidden: FormState["hidden"]) => {
+    let { path } = computePath(definition, scopeOf(values, hidden));
+    if (!calc.active) return { values, path };
+    for (let round = 0; round < 4; round++) {
+      const next = calc.withCalculated(values, path);
+      if (next === values) break;
+      values = next;
+      path = computePath(definition, scopeOf(values, hidden)).path;
+    }
+    return { values, path };
+  };
+
+  const first = settle({}, initialHidden);
   let state: FormState = {
-    values: {},
+    values: first.values,
     hidden: initialHidden,
     path: first.path,
     current: first.path[0] ?? null,
@@ -140,12 +157,30 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
     return errors;
   };
 
+  // While replaying, answers only record the value: the path and calculated
+  // fields are settled once, before the next step that reads them
+  // (`next`, `back`, `submit`, or the end of the replay), not once per event.
+  let unsettled = false;
+  const settleNow = () => {
+    if (!unsettled) return;
+    unsettled = false;
+    const { values, path } = settle(state.values, state.hidden);
+    state = { ...state, values, path };
+  };
+
   const answer = (id: string, value: Json | undefined, event: FormEvent) => {
-    if (state.status === "completed" || own(state.values, id) === value) return;
-    const values = { ...state.values, [id]: value };
-    const { path } = computePath(definition, scopeOf(values, state.hidden));
+    if (state.status === "completed" || own(state.values, id) === value || isCalculated(fields.get(id))) return;
     const errors = { ...state.errors };
     delete errors[id];
+    if (batch) {
+      // `state` is not seen by anyone until the replay ends, so it is updated in place.
+      state.values = { ...state.values, [id]: value };
+      state.errors = errors;
+      log(event);
+      unsettled = true;
+      return;
+    }
+    const { values, path } = settle({ ...state.values, [id]: value }, state.hidden);
     emit({ ...state, values, path, errors, events: log(event) });
   };
 
@@ -228,12 +263,16 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
   };
 
   // Prefilled answers are logged as leading `answer` events, so a replay of
-  // the log, and the server, see them too.
+  // the log, and the server, see them too. They settle once, like a replay.
   if (options.initialValues) {
+    const wasBatch = batch;
+    batch = true;
     for (const [id, value] of Object.entries(options.initialValues)) {
       if (!fields.has(id) || value === undefined) continue;
       answer(id, value, stamp({ type: "answer", field: id, value, source: "prefill" }));
     }
+    settleNow();
+    batch = wasBatch;
   }
 
   const apply = (event: FormEvent) => {
@@ -242,12 +281,20 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
         const { at: _at, ...logged } = event;
         answer(event.field, event.value, logged);
       }
-    } else if (event.type === "next") engine.next();
-    else if (event.type === "back") engine.back();
-    else if (event.type === "submit") engine.submit();
+    } else if (event.type === "next") {
+      settleNow();
+      engine.next();
+    } else if (event.type === "back") {
+      settleNow();
+      engine.back();
+    } else if (event.type === "submit") {
+      settleNow();
+      engine.submit();
+    }
     // Unknown event types are ignored.
   };
   const finish = () => {
+    settleNow();
     batch = false;
     state = { ...state, events: [...state.events] };
   };

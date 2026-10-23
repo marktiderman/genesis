@@ -529,7 +529,12 @@ function ValueEditor({
       />
     );
   }
-  const numeric = field ? field.type === "rating" || field.type === "nps" || field.type === "number" : input?.type === "number";
+  const numeric = field
+    ? field.type === "rating" ||
+      field.type === "nps" ||
+      field.type === "number" ||
+      (field.type === "calculated" && field.props?.format !== "text")
+    : input?.type === "number";
   if (field?.type === "date" && op !== "in") {
     return (
       <Input

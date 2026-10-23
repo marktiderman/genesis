@@ -1,6 +1,7 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from "react";
 import type { ContentBlock, FieldBlock, FormDefinition, Json, Operator } from "@marktiderman/genesis-forms";
 import type { BlockPatch, FieldTypeDefaults } from "./ops";
+import type { OutputTarget } from "./outputs";
 import { BUILT_IN_FIELD_EDITORS } from "./structured-editors";
 
 export type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) => void;
@@ -117,6 +118,8 @@ export interface BuilderConfig {
   /** Named variants of field types the Add menu offers after the palette's types. */
   presets?: readonly FieldPreset[] | undefined;
   blockKinds?: BlockKinds | undefined;
+  /** Where a field's answer may also go, offered per question under "Saves to" (see `OutputTarget`). */
+  outputs?: readonly OutputTarget[] | undefined;
   /**
    * Show the form without changing it: every panel stays visible, but its
    * controls are off and add, remove, reorder and drag are hidden. Panels

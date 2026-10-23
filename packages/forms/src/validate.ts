@@ -1,3 +1,4 @@
+import { CALCULATED_TYPE } from "./calculated";
 import { getFieldType, isEmptyValue } from "./fields";
 import type { FieldBlock, Json } from "./types";
 
@@ -40,7 +41,8 @@ export function validateField(
   options: { requireAnswers?: boolean; custom?: FieldValidator } = {},
 ): string | null {
   if (isEmptyValue(value, field)) {
-    return field.required && options.requireAnswers !== false ? REQUIRED_MESSAGE : null;
+    // A calculated field is worked out, not answered, so it is never required.
+    return field.required && field.type !== CALCULATED_TYPE && options.requireAnswers !== false ? REQUIRED_MESSAGE : null;
   }
   const manifest = getFieldType(field.type);
   // A type with no manifest cannot say what a valid answer is, so none is accepted.

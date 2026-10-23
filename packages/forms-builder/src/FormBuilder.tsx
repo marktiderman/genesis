@@ -25,6 +25,7 @@ import { ChecksContext, visibleFindings, type ChecksState } from "./checks";
 import { createDraftRegistry, DraftsContext } from "./controls";
 import { BuilderConfigContext, type Apply, type BlockKinds, type BuilderConfig, type FieldPreset, type FieldTypeEditor } from "./editors";
 import { useBuilderHistory } from "./history";
+import type { OutputTarget } from "./outputs";
 import { updateForm, ruleRefs } from "./ops";
 import { Preview } from "./preview";
 import { QuestionsPanel } from "./questions";
@@ -82,7 +83,7 @@ export interface FormBuilderProps {
   actions?: ((value: FormDefinition, analysis: Analysis, state: BuilderActionsState) => ReactNode) | undefined;
   /** Read the value synchronously, run the checks now, or commit pending drafts. */
   ref?: Ref<FormBuilderHandle> | undefined;
-  /** The field types authors may add, in this order (palette and Type select). Default: `defaultPalette()`, every registered type except the structured types (`STRUCTURED_FIELD_TYPES`), which a host opts into. */
+  /** The field types authors may add, in this order (palette and Type select). Default: `defaultPalette()`, every registered type except the opt-in ones (`STRUCTURED_FIELD_TYPES`, `COMPUTED_FIELD_TYPES`), which a host names to offer. */
   palette?: readonly string[] | undefined;
   /** How the builder edits particular field types: label, defaults, settings panel, logic value editor. */
   fieldEditors?: readonly FieldTypeEditor[] | undefined;
@@ -94,6 +95,14 @@ export interface FormBuilderProps {
   presets?: readonly FieldPreset[] | undefined;
   /** Which non-question blocks authors may add. Default: headings, text and page breaks. */
   blockKinds?: BlockKinds | undefined;
+  /**
+   * Where a field's answer may also go besides the response, such as a column
+   * of the respondent's record. Each question whose type a target accepts gets
+   * a "Saves to" section listing them in plain language; choosing one sets
+   * `props[target.prop] = target.value` on the field, which the host reads
+   * after a submit. The preview notes each one under its question.
+   */
+  outputs?: readonly OutputTarget[] | undefined;
   /**
    * The preview's renderers. It replaces `defaultRegistry` (it is `<Form registry>`),
    * so extend that one rather than passing only your own types:
@@ -175,6 +184,7 @@ export function FormBuilder({
   fieldEditors,
   presets,
   blockKinds,
+  outputs,
   previewRegistry,
   previewValidators,
   brand,
@@ -228,8 +238,8 @@ export function FormBuilder({
   const [drafts] = useState(createDraftRegistry);
   const readOnlyNoteId = useId();
   const config = useMemo<BuilderConfig>(
-    () => ({ palette, fieldEditors, presets, blockKinds, readOnly }),
-    [palette, fieldEditors, presets, blockKinds, readOnly],
+    () => ({ palette, fieldEditors, presets, blockKinds, outputs, readOnly }),
+    [palette, fieldEditors, presets, blockKinds, outputs, readOnly],
   );
   // Every edit goes through `apply`, so a read-only builder cannot change the
   // value (or call onChange) even from a control the panels forgot to hide.
@@ -400,6 +410,7 @@ export function FormBuilder({
             hidden={previewHidden}
             registry={previewRegistry}
             validators={previewValidators}
+            outputs={outputs}
           />
           <FindingsList findings={shown} onJump={jumpTo} />
         </aside>
