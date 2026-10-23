@@ -91,21 +91,33 @@ export function ResourceSettingsPage({
   const [active, setActive] = useState(sections[0]?.id);
   const ids = sections.map((s) => s.id).join(" ");
   useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return;
-    const seen = new Map<string, boolean>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) seen.set(e.target.id, e.isIntersecting);
-        const first = sections.find((s) => seen.get(s.id));
-        if (first) setActive(first.id);
-      },
-      { rootMargin: "0px 0px -60% 0px" },
-    );
-    for (const s of sections) {
-      const el = document.getElementById(s.id);
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
+    if (typeof window === "undefined") return;
+    // The section in view is the last one whose top has passed the upper third of the
+    // window (the first one before any has).
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const line = window.innerHeight / 3;
+      let current = sections[0]?.id;
+      for (const s of sections) {
+        const el = document.getElementById(s.id);
+        if (el && el.getBoundingClientRect().top <= line) current = s.id;
+      }
+      // At the very bottom the last sections can't reach the line: the last one is in view.
+      const bottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      const last = [...sections].reverse().find((s) => document.getElementById(s.id));
+      if (bottom && last && window.scrollY > 0) current = last.id;
+      setActive(current);
+    };
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll, { capture: true });
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, [ids]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
