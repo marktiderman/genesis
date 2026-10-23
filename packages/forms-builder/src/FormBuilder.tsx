@@ -388,7 +388,8 @@ export function FormBuilder({
   const checksList = <FindingsList findings={shown} onJump={jumpTo} />;
   const formSettings = (
     <RowLayoutContext.Provider value={settingsRow ?? null}>
-      <SettingsPanel def={def} apply={apply} />
+      {/* A host laying out the panel titles this part itself ("Form" card), so it is not titled twice. */}
+      <SettingsPanel def={def} apply={apply} formHeading={!settingsLayout} />
     </RowLayoutContext.Provider>
   );
 

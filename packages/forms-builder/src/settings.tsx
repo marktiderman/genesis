@@ -161,12 +161,21 @@ export function LogicAndEndingsPanel({
   );
 }
 
-export function SettingsPanel({ def, apply }: { def: FormDefinition; apply: Apply }) {
+export function SettingsPanel({
+  def,
+  apply,
+  formHeading = true,
+}: {
+  def: FormDefinition;
+  apply: Apply;
+  /** Show the "Form" heading over the first section. Off when a host's own card already titles it. Default true. */
+  formHeading?: boolean;
+}) {
   const readOnly = !!useBuilderConfig().readOnly;
   return (
     <Editable readOnly={readOnly} className="space-y-6">
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold">Form</h3>
+        {formHeading ? <h3 className="text-sm font-semibold">Form</h3> : null}
         <TextRow
           label="Title"
           value={def.title}

@@ -119,7 +119,8 @@ can be genesis-ui's `SettingsRow` so the builder's rows match yours:
 ```
 
 With `settingsLayout`, what it returns is the whole Settings panel: `settingsExtra` and the preview
-beside the settings are not shown.
+beside the settings are not shown, and the form settings drop their own "Form" heading (your card
+titles them).
 
 ### Reading the value
 

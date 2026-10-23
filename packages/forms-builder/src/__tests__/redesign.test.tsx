@@ -213,6 +213,11 @@ describe("flowCheck", () => {
 });
 
 describe("host hooks", () => {
+  it("keeps the Settings panel's Form heading without settingsLayout", () => {
+    render(<FormBuilder defaultValue={form()} tabs={false} tab="settings" />);
+    expect(screen.getByRole("heading", { name: "Form" })).toBeTruthy();
+  });
+
   it("undoes and redoes through the ref, and reports whether it can", () => {
     const ref = createRef<FormBuilderHandle>();
     const states: BuilderHistoryState[] = [];
@@ -270,6 +275,8 @@ describe("host hooks", () => {
     expect(within(card).getByLabelText("Title")).toBe(screen.getByTestId("builder-form-title"));
     expect(card.querySelector('[data-slot="settings-row"]')).toBeTruthy();
     expect(screen.queryByText("Never shown")).toBeNull();
+    // The host's card titles the form settings, so the panel's own "Form" heading is dropped.
+    expect(within(card).queryByRole("heading", { name: "Form" })).toBeNull();
     expect(screen.queryByTestId("builder-settings-extra")).toBeNull();
   });
 });
