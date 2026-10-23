@@ -1,0 +1,25 @@
+.changeset/features-scan-regex-template.md
+  s_2c334912fcb08f::t_80067bab0ed4da 1-5
+docs/component-reference.md
+  s_2c334912fcb08f::t_f8e5a69a98f05e 1154
+packages/features/src/__tests__/node.test.ts
+  s_2c334912fcb08f::t_d3c6f2f6d72a8f 6,255-267
+packages/features/src/node.ts
+  s_2c334912fcb08f::t_a5df7abb8e30d3 195-196,199-211,213,217-219,230-231,233-243,246-278,284-292
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "805cc1470d8747c741a68fa394eab463e5f25757",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
