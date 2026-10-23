@@ -1,5 +1,26 @@
 # @marktiderman/genesis-forms-builder
 
+## 0.3.0
+
+### Minor Changes
+
+- 5b1f464: Field outputs. A host passes `outputs` (`OutputTarget[]`) to `FormBuilder`: places a field's answer may also go, such as a column of the respondent's record or a task list, each with a plain-language `label`, an optional `group`, `description` and accepted `types`, and the `prop` and `value` it sets on the field. A question whose type a target accepts gets a "Saves to" section listing them, grouped, with "Nowhere else" on top. Choosing one sets `props[prop] = value`; targets with different props can be used together, and one with the same prop replaces the other. A target is used by one question at a time unless it is `multiple`, and choosing it on another question moves it there (the inspector says so). Changing a question's type keeps the targets the new type accepts. The preview notes each one under its question ("→ goes to …"). A target can't set a prop the field types own (`options`, `formula`, `columns`, limits and labels, listed in `RESERVED_OUTPUT_PROPS`): it is not offered, and `setOutput` ignores it. The targets are only checked in the builder, so a host that acts on outputs after a submit must check each field's props against its own targets on the server. The ops are exported too: `outputsFor`, `chosenOutputs`, `usesOutput`, `setOutput`, `clearOutputs`, `outputUsedBy`, `outputPropsFor` and `RESERVED_OUTPUT_PROPS`.
+
+  Calculated fields. The builder edits the new `calculated` type: a formula input checked as it is typed (the same checks as `parseForm`), buttons for the answers it can use, "Show as" (number, percent, text) and decimal places, and a value worked out from sample answers typed under "Try it". A new calculated field starts with the formula `0`, it has no Required switch, renaming an answer rewrites the formulas that read it, and logic compares it as a number unless it is shown as text. Like the structured types it is opt-in: `defaultPalette()` leaves out `COMPUTED_FIELD_TYPES`, so add them to `palette`. Its editor is `CALCULATED_FIELD_EDITOR` (also in `BUILT_IN_FIELD_EDITORS`), and `formulaNames(def, field)` lists the answers a formula may name.
+
+- 5b1f464: Builder fixes for new forms and hosts with their own tabs, and settings for the new question types.
+
+  - **Empty form:** shows a neutral "Add a question" instead of a red "1 to fix"; the empty-form finding is listed as information. Publishing is still blocked until the form asks something.
+  - **New questions:** a question added from the Add menu opens untitled, with its title field focused and the placeholder "Your question". Its "needs a title" check waits until the author leaves the field, or until the new `FormBuilderHandle.revealChecks()` (call it when someone tries to publish); the status reads "In progress" meanwhile. `createField()` keeps titling a field after its type unless you pass `label: ""`.
+  - **Hosting the panels:** `tabs={false}` hides the builder's tab bar; `tab` and `onTabChange` let a host control the panel (also from its own row of tabs); `settingsExtra` renders the host's settings under the form settings. Logic and Endings are one panel, "Logic and endings" (`LogicAndEndingsPanel`); `"endings"` is still accepted as a `BuilderTab`.
+  - **New types:** dropdown, number, date and consent are in the default palette, with settings: options (and switching between single choice, multiple choice and dropdown keeps them), smallest/largest/step, earliest/latest date, the consent checkbox's text. Ratings get end labels and a Numbers/Stars choice; NPS gets end labels. Logic compares numbers and dates with the right input.
+  - `theme` and `submitLabel` pass through to the preview. `Finding.code` (`"no-questions"`, `"untitled-question"`) names the builder's own checks; `visibleFindings`, `ChecksContext` and `useChecks` are exported for panels hosted on their own.
+  - `diffDefinitions` reports a change to end labels, the star display or the consent text as wording, not as a settings change.
+
+  **Behaviour change:** a question with no title is now an error that blocks publishing (it was a warning), since new questions start untitled. The message is "Question N needs a title."
+
+  Features: forms-builder
+
 ## 0.2.0
 
 ### Minor Changes
