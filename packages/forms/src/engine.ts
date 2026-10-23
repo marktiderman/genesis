@@ -17,6 +17,11 @@ export interface FormState {
   current: string | null;
   /** Visited blocks, for Back. */
   history: string[];
+  /**
+   * The furthest block reached by moving on (`next`), kept after going back;
+   * the first block until then. `formProgress` reads it.
+   */
+  furthest: string | null;
   errors: Record<string, string>;
   status: "in_progress" | "completed";
   /** The ending reached once completed. */
@@ -32,6 +37,15 @@ export interface CreateFormOptions {
   validators?: Record<string, FieldValidator> | undefined;
   /** Timestamps on events. Pass `() => undefined` to record none (anonymous forms). */
   clock?: (() => number | undefined) | undefined;
+  /**
+   * Pick up where the respondent was (with `initialValues` holding their saved
+   * answers): a block id, usually `formProgress`'s `fieldId` from an earlier
+   * visit. The form moves on from the first block with Next, as they did, until
+   * it reaches this one, so Back still walks their path; it stops early at a
+   * step that no longer passes (a question since made required), and does
+   * nothing when the block isn't on the path.
+   */
+  resumeAt?: string | null | undefined;
 }
 
 export interface FormEngine {
@@ -145,6 +159,7 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
     path: first.path,
     current: first.path[0] ?? null,
     history: [],
+    furthest: first.path[0] ?? null,
     errors: {},
     status: "in_progress",
     ending: null,
@@ -264,7 +279,9 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
         emit({ ...state, events });
         return true;
       }
-      emit({ ...state, current: target, history: [...state.history, state.current], events });
+      const furthest =
+        state.furthest && state.path.indexOf(state.furthest) >= state.path.indexOf(target) ? state.furthest : target;
+      emit({ ...state, current: target, history: [...state.history, state.current], furthest, events });
       return true;
     },
 
@@ -317,6 +334,18 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
     }
     settleNow();
     batch = wasBatch;
+  }
+
+  // Resuming: Next from the first block to the saved one, at most once per block.
+  const resumeAt = options.resumeAt;
+  if (resumeAt && !replaying && state.path.includes(resumeAt)) {
+    for (let i = 0; i < state.path.length && state.current !== resumeAt; i++) {
+      if (!engine.next()) {
+        // The step that stopped it is on screen without its errors: nothing was typed yet.
+        state = { ...state, errors: {} };
+        break;
+      }
+    }
   }
 
   const apply = (event: FormEvent) => {

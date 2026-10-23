@@ -8,8 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@marktiderman/genesis-ui";
-import { CalendarDays, TriangleAlert, X } from "lucide-react";
-import { lowThisWeek, NO_FILTERS, type FiltersValue } from "./summary";
+import { CalendarDays, CircleDashed, TriangleAlert, X } from "lucide-react";
+import { lowThisWeek, NO_FILTERS, STATUS_FILTER_LABEL, type FiltersValue, type StatusFilter } from "./summary";
 
 /** One "pick a value" filter over an extra column, such as a class or a coach. */
 export interface ChoiceFilter {
@@ -36,9 +36,10 @@ const ANY = "__any";
 const TRIGGER = "h-9 w-auto min-w-0 gap-2 [&>span]:flex [&>span]:items-center [&>span]:gap-2";
 
 /**
- * Filters for a form's responses: when, any number of choice filters, a rating floor, and
- * the low-ratings chip ("Low ratings this week" until it's on; then a chip saying what
- * low means, with ×). The summary and the list of responses share one value.
+ * Filters for a form's responses: when, the status (with `statuses`: Sent and partial,
+ * Sent, Partial, In progress), any number of choice filters, a rating floor, and the
+ * low-ratings chip ("Low ratings this week" until it's on; then a chip saying what low
+ * means, with ×). The summary and the list of responses share one value.
  */
 export function ResponsesFilters({
   value,
@@ -46,8 +47,11 @@ export function ResponsesFilters({
   choices = [],
   ratingMax = null,
   lowLabel = null,
+  statuses = false,
   filtered,
 }: {
+  /** Show the status filter: for a form that saves answers as they go (settings.saveProgress). */
+  statuses?: boolean | undefined;
   value: FiltersValue;
   onChange: (next: FiltersValue) => void;
   choices?: readonly ChoiceFilter[] | undefined;
@@ -94,6 +98,24 @@ export function ResponsesFilters({
             onChange={(e) => onChange({ ...value, to: e.target.value })}
           />
         </span>
+      ) : null}
+      {statuses ? (
+        <Select
+          value={value.status ?? "counted"}
+          onValueChange={(status) => onChange({ ...value, status: status as StatusFilter })}
+        >
+          <SelectTrigger className={TRIGGER} aria-label="Status" data-testid="responses-status">
+            <CircleDashed className="size-4 text-muted-foreground" aria-hidden />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(STATUS_FILTER_LABEL) as StatusFilter[]).map((s) => (
+              <SelectItem key={s} value={s}>
+                {STATUS_FILTER_LABEL[s]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       ) : null}
       {choices
         .filter((c) => c.options.length > 0)

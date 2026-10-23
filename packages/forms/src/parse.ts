@@ -222,6 +222,7 @@ export function parseForm(input: unknown): ParseResult {
     else {
       optionalBoolean(input.settings.anonymous, "settings.anonymous");
       optionalBoolean(input.settings.clearHiddenValues, "settings.clearHiddenValues");
+      optionalBoolean(input.settings.saveProgress, "settings.saveProgress");
     }
   }
   if (input.meta !== undefined && (!isObject(input.meta) || !isJson(input.meta))) {

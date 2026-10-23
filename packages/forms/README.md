@@ -62,6 +62,13 @@ const version = eventFeedback.hash();         // content fingerprint for publish
   `validateSubmission` refuses a definition that does not parse. Ids, keys, hidden names and ending
   ids may not be `Object.prototype` names (`constructor`, `__proto__`…).
 - **Unanswered recall renders its fallback** (`{{field:name|there}}`); the text is never dropped.
+- **Saving answers as they go is a setting.** `settings.saveProgress` (off by default) says the
+  host keeps the answers so far each time the respondent moves on, so an unfinished response
+  survives. `formProgress(engine)` says how far they got: `{ step, total, fieldId }`, where
+  `fieldId` is the furthest question reached (kept after Back; in classic layout, the last one
+  answered). genesis-forms-web's `onProgress` calls the host with it; the server checks the
+  answers so far with `validateSubmission(definition, input, { complete: false })`. After a
+  reload, `createForm(definition, { initialValues: saved, resumeAt: fieldId })` picks up there.
 
 ## Pieces
 

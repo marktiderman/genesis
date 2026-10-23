@@ -712,8 +712,10 @@ export function updateForm(
 export function updateSettings(def: FormDefinition, patch: Partial<FormSettings>): FormDefinition {
   const settings: FormSettings = { ...def.settings };
   for (const [k, v] of Object.entries(patch) as [keyof FormSettings, boolean | undefined][]) {
-    // Only non-default values are stored: anonymous defaults to false, clearHiddenValues to true.
+    // Only non-default values are stored: anonymous and saveProgress default to false,
+    // clearHiddenValues to true.
     if (k === "anonymous") v ? (settings.anonymous = true) : delete settings.anonymous;
+    if (k === "saveProgress") v ? (settings.saveProgress = true) : delete settings.saveProgress;
     if (k === "clearHiddenValues") v === false ? (settings.clearHiddenValues = false) : delete settings.clearHiddenValues;
   }
   const out: FormDefinition = { ...def, settings };
