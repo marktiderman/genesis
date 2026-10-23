@@ -9,6 +9,7 @@ import { choiceOptions, getFieldType, type Json } from "@marktiderman/genesis-fo
 import { createRendererRegistry, type FieldRendererProps, type RendererEntry } from "@marktiderman/genesis-forms-react";
 import { useFormPresentation } from "./presentation";
 import { describedBy, FieldChrome } from "./chrome";
+import { calculatedRenderers } from "./calculated";
 import { structuredRenderers } from "./structured";
 
 export { describedBy, FieldChrome, type FieldChromeProps } from "./chrome";
@@ -412,6 +413,7 @@ export const builtInRenderers: RendererEntry[] = [
   { type: "multi-choice", Component: MultiChoiceField },
   { type: "yes-no", Component: YesNoField },
   ...structuredRenderers,
+  ...calculatedRenderers,
 ];
 
 /**
