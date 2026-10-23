@@ -14,10 +14,14 @@ form's rows and handles every action (save, publish, mark handled, reply), so an
 
 ```tsx
 import {
-  ResourceHeader, ReadinessChip, SubNavTabsFallback, formNavItems, formStatusChip,
+  ResourceHeader, ReadinessChip, formNavItems, formStatusChip,
   formAvailability, formCounts, readinessOf,
 } from "@marktiderman/genesis-forms-studio";
+import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "@marktiderman/genesis-ui/layout";
 
+useAppShellSubNav(formNavItems(`/forms/${form.id}`, { ...formCounts(definition), responses }), { mode: "tabs" });
+
+<AppShellPageHeader>
 <ResourceHeader
   title={form.title}
   parent={<Link to="/forms">Forms</Link>}
@@ -27,15 +31,15 @@ import {
   onPreview={openPreview} onShare={openShare}
   publish={{ onClick: publish, label: form.version ? "Publish changes" : "Publish" }}
 />
+</AppShellPageHeader>
+<AppShellSubNavEnd><ReadinessChip readiness={readinessOf(analysis.findings)} /></AppShellSubNavEnd>
 ```
 
 - `formNavItems("/forms/f1", { questions, logic, responses })` declares the form's four child items
   (Questions, Logic and endings, Responses, Settings) as `?tab=` links with their counts as badges,
   for the app shell's `useAppShellSubNav`. `formCounts(definition)` gives the first two.
-- `ReadinessChip` ("Ready to publish", or "3 problems to fix") goes in the row's trailing slot.
-  `readinessOf(analysis.findings)` reads it from the builder's checks.
-- `SubNavTabsFallback` is **temporary**: one row of tabs for those items until genesis-ui's shell
-  renders a page's child items itself.
+- `ReadinessChip` ("Ready to publish", or "3 problems to fix") goes in the row's trailing slot,
+  `<AppShellSubNavEnd>`. `readinessOf(analysis.findings)` reads it from the builder's checks.
 
 ## Responses
 
@@ -72,6 +76,6 @@ prefilled-link builder (`prefilledUrl`).
 ## Generic pieces
 
 `src/generic/` holds what isn't about forms: `ResourceHeader`, `ReadinessChip`,
-`SubNavTabsFallback`, `ResponsesToolbar`, `HeadlineNumbers`, `SummaryCard`, `FollowUpList`,
+`ResponsesToolbar`, `HeadlineNumbers`, `SummaryCard`, `FollowUpList`,
 `ResourceSettingsPage`, `SettingsSection`, `ShareDialog` and their words. Courses, lessons and
 worksheets use the same page pattern, so these are meant to move to genesis-ui.

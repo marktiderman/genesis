@@ -12,14 +12,12 @@ import {
   ResponsesToolbar,
   SettingsSection,
   ShareDialog,
-  SubNavTabsFallback,
   SummaryCard,
-  formNavItems,
   type FiltersValue,
   type QuestionSummary,
   type SaveState,
 } from "@marktiderman/genesis-forms-studio";
-import { headlineNumbers, needsFollowUp } from "@marktiderman/genesis-forms-studio/rules";
+import { formNavItems, headlineNumbers, needsFollowUp } from "@marktiderman/genesis-forms-studio/rules";
 
 declare const filters: FiltersValue;
 declare const summaries: QuestionSummary[];
@@ -49,7 +47,6 @@ export const views = (
       onPreview={maybe.onPreview}
       className={maybe.className}
     />
-    <SubNavTabsFallback items={formNavItems("/forms/f1")} value="questions" onValueChange={() => {}} className={maybe.className} />
     <ReadinessChip readiness={{ state: "ready", count: 0 }} onClick={maybe.onClick} />
     <ResponsesToolbar view="summary" onViewChange={() => {}} className={maybe.className} />
     <ResponsesFilters value={filters} onChange={() => {}} filtered={false} lowLabel={maybe.lowLabel} ratingMax={maybe.ratingMax} />
@@ -65,3 +62,4 @@ export const views = (
 
 export const numbers = headlineNumbers([], []);
 export const list = needsFollowUp([]);
+export const nav = formNavItems("/forms/f1");

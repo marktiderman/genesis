@@ -9,7 +9,7 @@ export * from "./rules";
 
 // Generic (src/generic)
 export { ResourceHeader, type ResourceHeaderProps } from "./generic/ResourceHeader";
-export { ReadinessChip, SubNavTabsFallback } from "./generic/nav";
+export { ReadinessChip } from "./generic/nav";
 export { Chip } from "./generic/chip";
 export { ResponsesToolbar, type ResponsesView } from "./generic/ResponsesToolbar";
 export { HeadlineNumbers, type HeadlineNumber } from "./generic/HeadlineNumbers";

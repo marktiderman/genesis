@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { Button } from "@marktiderman/genesis-ui";
 import { ResourceHeader } from "../generic/ResourceHeader";
-import { ReadinessChip, SubNavTabsFallback } from "../generic/nav";
+import { ReadinessChip } from "../generic/nav";
 import { ResponsesFilters } from "../ResponsesFilters";
 import { ResponsesToolbar } from "../generic/ResponsesToolbar";
 import { HeadlineNumbers } from "../generic/HeadlineNumbers";
@@ -13,7 +13,7 @@ import { ResourceSettingsPage, SettingsSection } from "../generic/settings";
 import { ShareDialog } from "../generic/ShareDialog";
 import { headlineCards, headlineNumbers } from "../headline";
 import { NO_FILTERS, summarizeResponses } from "../summary";
-import { formNavItems, formStatusChip } from "../status";
+import { formStatusChip } from "../status";
 import { answer, checkIn } from "./fixtures";
 
 describe("ResourceHeader", () => {
@@ -63,22 +63,10 @@ describe("ResourceHeader", () => {
   });
 });
 
-describe("SubNavTabsFallback and ReadinessChip", () => {
-  it("shows the four places with counts, and the readiness chip", () => {
-    const onChange = vi.fn();
-    render(
-      <SubNavTabsFallback
-        items={formNavItems("/forms/f1", { questions: 2, logic: 1, responses: 24 })}
-        value="questions"
-        onValueChange={onChange}
-        trailing={<ReadinessChip readiness={{ state: "ready", count: 0 }} />}
-      />,
-    );
-    const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["Questions2", "Logic and endings1", "Responses24", "Settings"]);
+describe("ReadinessChip", () => {
+  it("says the form is ready", () => {
+    render(<ReadinessChip readiness={{ state: "ready", count: 0 }} />);
     expect(screen.getByTestId("readiness").textContent).toBe("Ready to publish");
-    fireEvent.mouseDown(screen.getByRole("tab", { name: /Responses/ }));
-    expect(onChange).toHaveBeenCalledWith("responses");
   });
 
   it("is a button when it opens the checks", () => {

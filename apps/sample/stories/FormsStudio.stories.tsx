@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Button, Input, ToggleRow, SettingsRow } from "@marktiderman/genesis-ui";
+import { Button, DefaultLink, Input, ToggleRow, SettingsRow } from "@marktiderman/genesis-ui";
+import { SubNavTabs } from "@marktiderman/genesis-ui/layout";
 import {
   FollowUpList,
   HeadlineNumbers,
@@ -11,7 +12,6 @@ import {
   ResponsesFilters,
   ResponsesToolbar,
   ShareDialog,
-  SubNavTabsFallback,
   comparisonFilter,
   dayLabel,
   filterResponses,
@@ -33,6 +33,8 @@ import {
 } from "@marktiderman/genesis-forms-studio";
 import { Bell, Clock, Download, FileText, Link2, Plug, Sheet, User, Users } from "lucide-react";
 import { checkIn, items, TODAY } from "./__fixtures__/forms-studio";
+
+const items_ = items;
 
 const meta: Meta = { title: "Forms/Studio" };
 export default meta;
@@ -57,17 +59,30 @@ function Header() {
 
 function Tabs({ tab, onTab }: { tab: FormTab; onTab: (t: FormTab) => void }) {
   const counts = formCounts(checkIn);
+  const items = formNavItems("/form", { ...counts, responses: items_.length });
+  const active = items.find((i) => i.id === tab)!;
+  // In an app the shell renders this row (useAppShellSubNav, AppShellSubNavEnd).
   return (
-    <SubNavTabsFallback
-      items={formNavItems("#form", { ...counts, responses: items.length })}
-      value={tab}
-      onValueChange={onTab}
-      trailing={<ReadinessChip readiness={{ state: "ready", count: 0 }} />}
-    />
+    <div onClickCapture={(e) => {
+      const a = (e.target as HTMLElement).closest("a");
+      const hit = a && items.find((i) => a.getAttribute("href") === i.to);
+      if (hit) {
+        e.preventDefault();
+        onTab(hit.id);
+      }
+    }}>
+      <SubNavTabs
+        items={items}
+        activePath={active.to}
+        linkComponent={DefaultLink}
+        label="Form"
+        end={<ReadinessChip readiness={{ state: "ready", count: 0 }} />}
+      />
+    </div>
   );
 }
 
-/** The header and the temporary row of tabs, with the readiness chip. */
+/** The header and the form's row of tabs (the shell's SubNavTabs), with the readiness chip. */
 export const HeaderAndTabs: Story = {
   render: function Render() {
     const [tab, setTab] = useState<FormTab>("questions");
