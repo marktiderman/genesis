@@ -21,6 +21,7 @@ import {
   type UndoableWrite,
 } from "@marktiderman/genesis-core";
 import { ResourcePage } from "../../components/data/ResourcePage";
+import { useResourceTable } from "../../components/data/use-resource-table";
 
 type Row = { id: string; title: string };
 const ALL: Row[] = Array.from({ length: 5 }, (_, i) => ({ id: `t${i + 1}`, title: `Task ${i + 1}` }));
@@ -172,15 +173,53 @@ describe("ResourcePage — pagination=\"cursor\"", () => {
     await screen.findByText("Task 2");
     expect(screen.queryByText("Task 3")).toBeNull();
 
-    fireEvent.click(screen.getByTestId("resource-page-load-more"));
+    const button = screen.getByTestId("resource-page-load-more");
+    const status = screen.getByTestId("resource-page-load-status");
+    expect(status.getAttribute("aria-live")).toBe("polite");
+    expect(status.textContent).toBe("");
+
+    button.focus();
+    fireEvent.click(button);
     await screen.findByText("Task 4");
     expect(screen.getByText("Task 1")).toBeTruthy();
+    await waitFor(() => expect(status.textContent).toBe("Loaded 2 more. 4 shown."));
 
     fireEvent.click(screen.getByTestId("resource-page-load-more"));
     await screen.findByText("Task 5");
-    // Nothing left: the button goes.
-    await waitFor(() => expect(screen.queryByTestId("resource-page-load-more")).toBeNull());
+    await waitFor(() => expect(status.textContent).toBe("Loaded 1 more. 5 shown."));
+    // Nothing left: the same button stays, focused, and says so.
+    const done = screen.getByTestId("resource-page-load-more");
+    expect(done).toBe(button);
+    expect(document.activeElement).toBe(button);
+    expect(done.textContent).toBe("All 5 loaded");
+    expect(done.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(done);
+    expect(vi.mocked(provider.getList).mock.calls).toHaveLength(3);
     expect(document.querySelectorAll("tbody tr")).toHaveLength(5);
+  });
+
+  it("useResourceTable's total is the server's count, and the loaded matches while searching", async () => {
+    localStorage.clear();
+    const provider = cursorProvider();
+    const { wrapper } = wrap(provider);
+    const { result } = renderHook(
+      () =>
+        useResourceTable<Row>({
+          resource: "tasks",
+          title: "Tasks",
+          columns: ["title"],
+          searchFields: ["title"],
+          pagination: "cursor",
+          resourceOptions: { defaultPerPage: 2 },
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.rows).toHaveLength(2));
+    expect(result.current.total).toBe(5);
+    expect(result.current.loadMore).toMatchObject({ hasMore: true, loaded: 2, lastLoaded: 0 });
+    act(() => result.current.setSearch("Task 2"));
+    await waitFor(() => expect(result.current.rows).toHaveLength(1));
+    expect(result.current.total).toBe(1);
   });
 
   it("refetches the loaded pages on a live change event", async () => {

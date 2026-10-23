@@ -404,13 +404,15 @@ export function useResourceTableModel<
     );
   }, [clientTruncated, resourceName, displayTotal, displayData.length]);
   // ── Build ResourceActions for column render functions ──
+  // `refetch` is stable; the query results around it are new each render.
+  const refetchList = resourceHook.list.refetch;
+  const refetchInfinite = infinite.query.refetch;
   const actions: ResourceActions<T> = useMemo(() => {
     if (isClientMode) {
       return {
         update: resourceHook.update as ResourceActions<T>["update"],
         remove: resourceHook.remove,
-        refetch: () =>
-          resourceCursorPaging ? infinite.query.refetch() : resourceHook.list.refetch(),
+        refetch: () => (resourceCursorPaging ? refetchInfinite() : refetchList()),
       };
     }
     return {
@@ -432,9 +434,9 @@ export function useResourceTableModel<
     isClientMode,
     resourceHook.update,
     resourceHook.remove,
-    resourceHook.list,
+    refetchList,
     resourceCursorPaging,
-    infinite.query,
+    refetchInfinite,
   ]);
 
   // ── Row identity ──
@@ -985,15 +987,23 @@ export function useResourceTableModel<
     onBack: detailOpen ? closeDetail : undefined,
   });
 
-  // ── Create button ──
   // `pagination="cursor"`: the "Load more" footer's state.
+  const infinitePages = infinite.query.data?.pages;
   const loadMore = resourceCursorPaging
     ? {
         hasMore: infinite.hasNextPage,
         loading: infinite.isFetchingNextPage,
         load: infinite.fetchNextPage,
+        loaded: infinite.rows.length,
+        // Rows the latest "Load more" added; 0 before the first one.
+        lastLoaded:
+          infinitePages && infinitePages.length > 1
+            ? infinitePages[infinitePages.length - 1]!.data.length
+            : 0,
       }
     : undefined;
+
+  // ── Create button ──
 
   return {
     actions,
@@ -1081,7 +1091,11 @@ export interface ResourceTableState<
    * current page.
    */
   rows: T[];
-  /** How many rows match, across all pages. */
+  /**
+   * How many rows match, across all pages. With `pagination="cursor"` it is
+   * the server's count while no search or status filter is active; with one,
+   * only loaded rows are filtered, so it counts the loaded rows that match.
+   */
   total: number;
   loading: boolean;
   /** The read failed. */
@@ -1092,7 +1106,15 @@ export interface ResourceTableState<
    * `pagination="cursor"`: whether more rows can be loaded, whether a page
    * is loading, and `load()` to append the next page. Undefined otherwise.
    */
-  loadMore?: { hasMore: boolean; loading: boolean; load: () => void };
+  loadMore?: {
+    hasMore: boolean;
+    loading: boolean;
+    load: () => void;
+    /** Rows loaded so far. */
+    loaded: number;
+    /** Rows the latest load added (0 before the first "Load more"). */
+    lastLoaded: number;
+  };
   /** The columns, resolved to DataTable's format. */
   columns: DataTableColumn<T>[];
   /** Write actions for cell renderers (update, remove, …). */
@@ -1198,7 +1220,10 @@ export function useResourceTable<
   );
   return {
     rows: m.page.data,
-    total: m.page.total,
+    total:
+      m.loadMore && m.page.search === "" && m.page.statusValue.length === 0
+        ? m.displayTotal
+        : m.page.total,
     loading: m.isLoading,
     error: m.hasError,
     truncated: m.clientTruncated,

@@ -1225,18 +1225,36 @@ export function ResourcePage<
           `pagerMisconfigured` comment above. A pager reporting the wrong range
           with a Next button that never disables is worse than one that
           says why it can't render. */}
-      {loadMore && loadMore.hasMore && (
-        <div className="flex justify-center px-3 py-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={loadMore.loading}
-            aria-busy={loadMore.loading || undefined}
-            onClick={loadMore.load}
-            testID="resource-page-load-more"
+      {loadMore && (
+        <div className="flex flex-col items-center gap-1 px-3 py-2">
+          {/* Stays mounted (aria-disabled, not disabled) once everything is
+              loaded, so focus on it is never dropped to the page. */}
+          {(loadMore.hasMore || loadMore.loaded > 0) && (
+            <Button
+              variant="outline"
+              size="sm"
+              aria-disabled={!loadMore.hasMore || loadMore.loading || undefined}
+              aria-busy={loadMore.loading || undefined}
+              onClick={loadMore.hasMore && !loadMore.loading ? loadMore.load : undefined}
+              testID="resource-page-load-more"
+            >
+              {loadMore.loading
+                ? "Loading…"
+                : loadMore.hasMore
+                  ? "Load more"
+                  : `All ${loadMore.loaded.toLocaleString()} loaded`}
+            </Button>
+          )}
+          <p
+            role="status"
+            aria-live="polite"
+            className="sr-only"
+            data-testid="resource-page-load-status"
           >
-            {loadMore.loading ? "Loading…" : "Load more"}
-          </Button>
+            {loadMore.lastLoaded > 0
+              ? `Loaded ${loadMore.lastLoaded.toLocaleString()} more. ${loadMore.loaded.toLocaleString()} shown.`
+              : ""}
+          </p>
         </div>
       )}
       {clientTruncated && (
