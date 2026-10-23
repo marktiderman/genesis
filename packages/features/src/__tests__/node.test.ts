@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { defineFlags } from "../index";
-import { buildFeatureOutputs, checkFeatureOutputs, globToRegExp, scanFlagReads, summarizeCheck, type FeatureProjectOptions } from "../node";
+import { blankComments, buildFeatureOutputs, checkFeatureOutputs, globToRegExp, scanFlagReads, summarizeCheck, type FeatureProjectOptions } from "../node";
 import { features, flags } from "./fixture";
 
 /** A test tag, built so this file isn't itself read as tagging these fixture ids. */
@@ -252,6 +252,19 @@ describe("globToRegExp", () => {
 });
 
 describe("the flag scan skips comments, tests and ignored files", () => {
+  it("doesn't take a regex, a template's code or JSX text for a comment", () => {
+    const text = [
+      `const re = /[/*]/; useFlag("x.a");`,
+      "const t = `${value /* getFlag(key) */} //not-a-comment`; useFlag(\"x.b\");",
+      `const view = <p>Don't</p>; // getFlag(key)`,
+      `const n = a / b; useFlag("x.c"); // useFlag(other)`,
+    ].join("\n");
+    expect(blankComments(text).split("\n")).toHaveLength(4);
+    const { keys, dynamic } = scanFlagReads("f.tsx", text);
+    expect(keys.map((k) => `${k.key}@${k.where}`)).toEqual(["x.a@f.tsx:1", "x.b@f.tsx:2", "x.c@f.tsx:4"]);
+    expect(dynamic).toEqual([]);
+  });
+
   it("ignores flags named in comments, and keeps line numbers", () => {
     const text = [
       `// Behind the feature flag (src/lib/flags/registry.ts): useFlag("x.c")`,

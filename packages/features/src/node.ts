@@ -192,15 +192,31 @@ function literalAt(text: string, i: number): string | null {
 
 /**
  * `text` with its comments blanked to spaces (newlines kept), so a flag named
- * in a comment isn't read as a flag read and line numbers stay right. Strings
- * and template literals are left alone.
+ * in a comment isn't read as a flag read and line numbers stay right. Strings,
+ * regex literals and template text are left alone; a template's `${…}` is code.
  */
 export function blankComments(text: string): string {
+  return blankFrom(text, 0, false).out;
+}
+
+// Characters after which a `/` starts a regex literal rather than a division.
+const BEFORE_REGEX = new Set("(,=:[!&|?{};+-*%<>~^");
+const REGEX_KEYWORDS = /(?:^|[^\w$])(?:return|typeof|instanceof|in|of|new|delete|void|throw|case|do|else|yield|await)$/;
+
+/**
+ * Blanks comments from `i`, keeping strings, regex literals and template text.
+ * With `inTemplate`, stops at the `}` that closes a template's `${`, so
+ * interpolations are scanned as code.
+ */
+function blankFrom(text: string, i: number, inTemplate: boolean): { out: string; end: number } {
   let out = "";
-  let i = 0;
+  let depth = 0;
   while (i < text.length) {
     const c = text[i]!;
     const next = text[i + 1];
+    if (inTemplate && c === "}" && depth === 0) return { out, end: i };
+    if (c === "{") depth++;
+    else if (c === "}") depth--;
     if (c === "/" && next === "/") {
       const end = text.indexOf("\n", i);
       const stop = end === -1 ? text.length : end;
@@ -211,18 +227,69 @@ export function blankComments(text: string): string {
       const stop = end === -1 ? text.length : end + 2;
       out += text.slice(i, stop).replace(/[^\n]/g, " ");
       i = stop;
-    } else if (c === '"' || c === "'" || c === "`") {
+    } else if (c === "/" && startsRegex(out)) {
+      // A regex literal: `/[/*]/` holds no comment. Classes may contain `/`.
       let j = i + 1;
-      // A quote in JSX text ("Don't") isn't a string: plain strings end at the line.
-      while (j < text.length && text[j] !== c && (c === "`" || text[j] !== "\n")) j += text[j] === "\\" ? 2 : 1;
+      let inClass = false;
+      while (j < text.length && text[j] !== "\n") {
+        const r = text[j]!;
+        if (r === "\\") j += 2;
+        else {
+          if (r === "[") inClass = true;
+          else if (r === "]") inClass = false;
+          else if (r === "/" && !inClass) break;
+          j++;
+        }
+      }
       out += text.slice(i, j + 1);
       i = j + 1;
+    } else if (c === "`") {
+      // Template text is kept; each `${…}` is scanned as code.
+      out += c;
+      let j = i + 1;
+      while (j < text.length && text[j] !== "`") {
+        if (text[j] === "\\") {
+          out += text.slice(j, j + 2);
+          j += 2;
+        } else if (text[j] === "$" && text[j + 1] === "{") {
+          out += "${";
+          const inner = blankFrom(text, j + 2, true);
+          out += inner.out;
+          j = inner.end;
+          if (j < text.length) out += text[j]!;
+          j++;
+        } else {
+          out += text[j]!;
+          j++;
+        }
+      }
+      if (j < text.length) out += "`";
+      i = j + 1;
+    } else if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== c && text[j] !== "\n") j += text[j] === "\\" ? 2 : 1;
+      if (text[j] === c) {
+        out += text.slice(i, j + 1);
+        i = j + 1;
+      } else {
+        // No closing quote on this line: JSX text ("Don't"), not a string.
+        out += c;
+        i++;
+      }
     } else {
       out += c;
       i++;
     }
   }
-  return out;
+  return { out, end: i };
+}
+
+function startsRegex(before: string): boolean {
+  const trimmed = before.replace(/\s+$/, "");
+  if (trimmed === "") return true;
+  // `</p>` closes a JSX tag; a regex right after `<` is vanishingly rare.
+  if (before.endsWith("<")) return false;
+  return BEFORE_REGEX.has(trimmed[trimmed.length - 1]!) || REGEX_KEYWORDS.test(trimmed);
 }
 
 /**
