@@ -2,6 +2,7 @@ import { useParams } from "react-router";
 import { Activity, CheckSquare, FileText, Settings } from "lucide-react";
 import { Badge, Card, CardContent } from "@marktiderman/genesis-ui";
 import {
+  AppShellPageHeader,
   AppShellSubNavEnd,
   PageHeader,
   useAppShellSubNav,
@@ -44,7 +45,10 @@ export default function ProjectPage() {
       <AppShellSubNavEnd>
         <Badge variant="success">Ready to publish</Badge>
       </AppShellSubNavEnd>
-      <PageHeader title={`${project.name} · ${TAB_TITLES[tab] ?? tab}`} />
+      {/* The resource header goes above the tab row, as in the design. */}
+      <AppShellPageHeader>
+        <PageHeader title={`${project.name} · ${TAB_TITLES[tab] ?? tab}`} />
+      </AppShellPageHeader>
       <Card>
         <CardContent className="space-y-2 p-4 text-sm">
           {tab === "activity" ? (

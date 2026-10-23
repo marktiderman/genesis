@@ -6,12 +6,12 @@
  * including the phone bar's back item; "off" hides the children.
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ClipboardList, Home, Users } from "lucide-react";
 
 import { AppShell, type AppShellProps, type NavItem } from "../AppShell";
-import { AppShellSubNavEnd, useAppShellSubNav } from "../sub-nav";
+import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../sub-nav";
 import type { NavigationNode } from "../../../navigation";
 
 const legacy = { showThemeToggle: false, configurable: false };
@@ -58,8 +58,8 @@ const bottomBar = () => within(screen.getByRole("navigation", { name: "Primary" 
 const currentIn = (scope: ReturnType<typeof within>) =>
   scope
     .getAllByRole("link")
-    .filter((a) => a.getAttribute("aria-current") === "page")
-    .map((a) => a.textContent);
+    .filter((a: HTMLElement) => a.getAttribute("aria-current") === "page")
+    .map((a: HTMLElement) => a.textContent);
 
 beforeEach(() => {
   localStorage.clear();
@@ -196,6 +196,78 @@ describe("sub-navigation from the page: useAppShellSubNav", () => {
     expect(sidebar().getByRole("group").textContent).toContain("Profile");
   });
 
+  it("the innermost caller wins, and badge updates never flip it", () => {
+    function Layout({ children }: { children: ReactNode }) {
+      const [n, setN] = useState(1);
+      useAppShellSubNav([{ to: "/forms/f1/edit", label: "Layout tab", badge: n, end: true }]);
+      return (
+        <>
+          <button type="button" onClick={() => setN((v) => v + 1)}>layout badge</button>
+          {children}
+        </>
+      );
+    }
+    function Page() {
+      const [n, setN] = useState(1);
+      useAppShellSubNav([{ to: "/forms/f1/edit", label: "Page tab", badge: n, end: true }]);
+      return <button type="button" onClick={() => setN((v) => v + 1)}>page badge</button>;
+    }
+    render(
+      <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath="/forms/f1/edit">
+        <Layout>
+          <Page />
+        </Layout>
+      </AppShell>,
+    );
+    const labels = () => tabs().getAllByRole("link").map((a: HTMLElement) => a.textContent);
+    expect(labels()).toEqual(["Page tab1"]);
+    fireEvent.click(screen.getByText("layout badge"));
+    expect(labels()).toEqual(["Page tab1"]);
+    fireEvent.click(screen.getByText("page badge"));
+    expect(labels()).toEqual(["Page tab2"]);
+    fireEvent.click(screen.getByText("layout badge"));
+    expect(labels()).toEqual(["Page tab2"]);
+  });
+
+  it("a page mounted later under a mounted layout still wins", () => {
+    function Layout({ children }: { children: ReactNode }) {
+      useAppShellSubNav([{ to: "/forms/f1/edit", label: "Layout tab", end: true }]);
+      return <>{children}</>;
+    }
+    function Page() {
+      useAppShellSubNav([{ to: "/forms/f1/edit", label: "Page tab", end: true }]);
+      return null;
+    }
+    function Harness() {
+      const [show, setShow] = useState(false);
+      return (
+        <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath="/forms/f1/edit">
+          <Layout>{show ? <Page /> : null}</Layout>
+          <button type="button" onClick={() => setShow(true)}>open page</button>
+        </AppShell>
+      );
+    }
+    render(<Harness />);
+    expect(tabs().getByRole("link").textContent).toBe("Layout tab");
+    fireEvent.click(screen.getByText("open page"));
+    expect(tabs().getByRole("link").textContent).toBe("Page tab");
+  });
+
+  it("keeps the mode when items are null, and falls back to the node's items", () => {
+    function ModeOnly() {
+      useAppShellSubNav(null, { mode: "sidebar" });
+      return null;
+    }
+    // App default is legacy "section"; the page turns sidebar mode on.
+    renderShell("/forms/f1/edit/logic", { options: legacy, children: <ModeOnly /> });
+    expect(screen.queryByTestId("app-shell-sub-nav")).toBeNull();
+    const group = sidebar().getByRole("group", { name: "Form" });
+    expect(within(group).getAllByRole("link")).toHaveLength(4);
+    // Nested under Forms (sidebar mode), and phones get the back item.
+    expect(group.parentElement?.getAttribute("aria-label")).not.toBe("Main");
+    expect(screen.getByTestId("app-shell-mobile-back")).toBeTruthy();
+  });
+
   it("does nothing outside an AppShell", () => {
     function Lonely() {
       useAppShellSubNav([{ to: "/x", label: "X" }]);
@@ -289,5 +361,96 @@ describe("sub-navigation on phones", () => {
     renderShell("/forms/f1/edit");
     const questions = bottomBar().getByRole("link", { name: "Questions (2)" });
     expect(questions.textContent).toContain("Q");
+  });
+});
+
+describe("page header slot: AppShellPageHeader", () => {
+  const header = () => screen.getByTestId("app-shell-page-header");
+  const Title = ({ text }: { text: string }) => (
+    <AppShellPageHeader>
+      <h1>{text}</h1>
+    </AppShellPageHeader>
+  );
+
+  it("renders the page's header above the tab row, with the page content below", () => {
+    renderShell("/forms/f1/edit", { children: <><Title text="E2E Saturday check-in" /><p>body</p></> });
+    const title = screen.getByRole("heading", { name: "E2E Saturday check-in" });
+    expect(header().contains(title)).toBe(true);
+    const row = screen.getByTestId("app-shell-sub-nav");
+    expect(title.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(row.compareDocumentPosition(screen.getByText("body")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("stays visible on phones while the bottom bar shows back plus the children", () => {
+    renderShell("/forms/f1/edit", { children: <Title text="Form" /> });
+    expect(header().className).not.toMatch(/(^|\s)hidden(\s|$)/);
+    expect(screen.getByTestId("app-shell-mobile-back")).toBeTruthy();
+  });
+
+  it("the innermost header wins over a layout's, and keeps winning as it updates", () => {
+    function Page() {
+      const [n, setN] = useState(1);
+      return (
+        <>
+          <Title text={`Page ${n}`} />
+          <button type="button" onClick={() => setN((v) => v + 1)}>bump</button>
+        </>
+      );
+    }
+    renderShell("/forms/f1/edit", {
+      children: (
+        <>
+          <Title text="Layout" />
+          <Page />
+        </>
+      ),
+    });
+    expect(within(header()).getAllByRole("heading").map((h: HTMLElement) => h.textContent)).toEqual(["Page 1"]);
+    fireEvent.click(screen.getByText("bump"));
+    expect(within(header()).getAllByRole("heading").map((h: HTMLElement) => h.textContent)).toEqual(["Page 2"]);
+  });
+
+  it("falls back to the layout's header when the page's unmounts", () => {
+    function Harness() {
+      const [page, setPage] = useState(true);
+      return (
+        <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath="/forms/f1/edit">
+          <Title text="Layout" />
+          {page ? <Title text="Page" /> : null}
+          <button type="button" onClick={() => setPage(false)}>leave</button>
+        </AppShell>
+      );
+    }
+    render(<Harness />);
+    expect(within(header()).getByRole("heading").textContent).toBe("Page");
+    fireEvent.click(screen.getByText("leave"));
+    expect(within(header()).getByRole("heading").textContent).toBe("Layout");
+  });
+
+  it("changes nothing when no header is mounted", () => {
+    renderShell("/forms/f1/edit");
+    expect(header().childNodes).toHaveLength(0);
+    expect(header().className).toBe("");
+  });
+
+  it("sits at the top of the content in the default section mode", () => {
+    renderShell("/forms/f1/edit", { options: legacy, children: <><Title text="Form" /><p>body</p></> });
+    expect(screen.queryByTestId("app-shell-sub-nav")).toBeNull();
+    const title = screen.getByRole("heading", { name: "Form" });
+    expect(header().contains(title)).toBe(true);
+    expect(title.compareDocumentPosition(screen.getByText("body")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("renders only the innermost end-slot chip too", () => {
+    renderShell("/forms/f1/edit", {
+      children: (
+        <>
+          <AppShellSubNavEnd><span>layout chip</span></AppShellSubNavEnd>
+          <div><AppShellSubNavEnd><span>page chip</span></AppShellSubNavEnd></div>
+        </>
+      ),
+    });
+    expect(tabs().queryByText("layout chip")).toBeNull();
+    expect(tabs().getByText("page chip")).toBeTruthy();
   });
 });

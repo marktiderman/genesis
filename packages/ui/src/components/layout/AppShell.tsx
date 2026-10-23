@@ -5,7 +5,9 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -241,6 +243,8 @@ function isTypingTarget(el: EventTarget | null): boolean {
     node.closest?.('[contenteditable=""], [contenteditable="true"]') != null
   );
 }
+
+const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /** md breakpoint: the desktop sidebar only exists at this width and up. */
 const DESKTOP_QUERY = "(min-width: 768px)";
@@ -1127,6 +1131,7 @@ export function AppShell({
   const navItems = navItemsProp ?? derived?.globalItems ?? [];
   const subNavChannel = useSubNavChannel();
   const pageSubNav = subNavChannel.page;
+  const hasPageHeader = subNavChannel.hasHeader;
   // The current page's children: the page's own (hook) over the node's items.
   const contextualNavItems = pageSubNav?.items ?? derived?.contextualItems ?? [];
   const parentNavigation =
@@ -1247,6 +1252,43 @@ export function AppShell({
   );
 
   const sidebarId = useId();
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  // Collapsing re-renders the sidebar's insides: the toggle moves from the
+  // header to the rail's foot, and rail links gain a tooltip wrapper. Both
+  // remount, which would drop keyboard focus on <body>. So note what had
+  // focus (the toggle, or a link by its href) and put focus back on the
+  // matching element once the new layout has committed.
+  const pendingFocus = useRef<{ toggle: true } | { href: string } | null>(null);
+  const toggleCollapsed = useCallback(
+    (fromToggle: boolean) => {
+      const aside = sidebarRef.current;
+      const focused = typeof document === "undefined" ? null : document.activeElement;
+      if (fromToggle) {
+        pendingFocus.current = { toggle: true };
+      } else if (aside && focused instanceof HTMLElement && aside.contains(focused)) {
+        const href = focused.getAttribute("href");
+        pendingFocus.current = href ? { href } : { toggle: true };
+      }
+      setCollapsed(!collapsed);
+    },
+    [collapsed, setCollapsed],
+  );
+  useIsoLayoutEffect(() => {
+    const want = pendingFocus.current;
+    pendingFocus.current = null;
+    const aside = sidebarRef.current;
+    if (!want || !aside) return;
+    const toggleEl = aside.querySelector<HTMLElement>('[data-testid="app-shell-collapse"]');
+    let target: HTMLElement | null = null;
+    if ("href" in want) {
+      target =
+        Array.from(aside.querySelectorAll<HTMLElement>("a[href]")).find(
+          (a) => a.getAttribute("href") === want.href,
+        ) ?? null;
+    }
+    (target ?? toggleEl)?.focus();
+  }, [collapsed]);
   const showCollapseCtrl = resolved.showCollapse !== false;
   const collapseShortcut =
     optionsProp?.collapseShortcut ?? OPTION_DEFAULTS.collapseShortcut!;
@@ -1264,11 +1306,11 @@ export function AppShell({
       if (isTypingTarget(e.target)) return;
       if (window.matchMedia && !window.matchMedia(DESKTOP_QUERY).matches) return;
       e.preventDefault();
-      setCollapsed(!collapsed);
+      toggleCollapsed(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [collapseShortcut, showCollapseCtrl, collapsed, setCollapsed]);
+  }, [collapseShortcut, showCollapseCtrl, toggleCollapsed]);
 
   const ParentLink = linkComponent;
   const LinkComp = linkComponent;
@@ -1445,7 +1487,7 @@ export function AppShell({
         variant="ghost"
         size="icon"
         className="h-8 w-8"
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={() => toggleCollapsed(true)}
         aria-label={collapseLabel}
         aria-expanded={!collapsed}
         aria-controls={sidebarId}
@@ -1601,6 +1643,7 @@ export function AppShell({
           railClass,
         )}
         id={sidebarId}
+        ref={sidebarRef}
         aria-label="Sidebar"
         data-collapsed={collapsed || undefined}
         data-testid="app-shell-sidebar"
@@ -1691,13 +1734,24 @@ export function AppShell({
               </Button>
             </div>
           ) : null}
+          {/* Page header slot (<AppShellPageHeader>): above the tab row, on
+              phones too. Empty and unstyled until a page mounts one. */}
+          <div
+            ref={subNavChannel.setHeaderSlot}
+            className={cn(
+              hasPageHeader && "min-w-0 px-4 sm:px-6 lg:px-8",
+              hasPageHeader &&
+                (parentNavigation ? "pt-2 sm:pt-3 lg:pt-4" : "pt-4 sm:pt-6 lg:pt-8"),
+            )}
+            data-testid="app-shell-page-header"
+          />
           {showTabs ? (
             <div
               className={cn(
                 "px-4 sm:px-6 lg:px-8",
                 // Phones use the bottom bar, unless the app turned it off.
                 showMobileBottom && "hidden md:block",
-                !parentNavigation && "pt-2 sm:pt-3 lg:pt-4",
+                (!parentNavigation || hasPageHeader) && "pt-2 sm:pt-3 lg:pt-4",
               )}
             >
               <SubNavTabs
@@ -1713,7 +1767,7 @@ export function AppShell({
           <div
             className={cn(
               "min-w-0 p-4 sm:p-6 lg:p-8",
-              parentNavigation && !showTabs && "pt-2 sm:pt-3 lg:pt-4",
+              (parentNavigation || hasPageHeader) && !showTabs && "pt-2 sm:pt-3 lg:pt-4",
             )}
           >
             <SubNavContext.Provider value={subNavChannel.channel}>

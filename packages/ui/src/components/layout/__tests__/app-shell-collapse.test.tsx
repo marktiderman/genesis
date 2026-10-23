@@ -263,6 +263,67 @@ describe("AppShell collapsible sidebar", () => {
     });
   });
 
+  describe("keeps keyboard focus across the collapse", () => {
+    it("clicking the toggle leaves focus on the (moved) toggle, both ways", () => {
+      render(
+        <AppShell appName="Breakthrough" navItems={items} options={chrome}>
+          <div>content</div>
+        </AppShell>,
+      );
+      toggle().focus();
+      fireEvent.click(toggle());
+      expect(isCollapsed()).toBe(true);
+      expect(document.activeElement).toBe(toggle());
+      expect(toggle().getAttribute("aria-label")).toBe("Expand sidebar");
+      fireEvent.click(toggle());
+      expect(isCollapsed()).toBe(false);
+      expect(document.activeElement).toBe(toggle());
+    });
+
+    it("pressing [ on a sidebar link keeps focus on that link", () => {
+      render(
+        <AppShell appName="Breakthrough" navItems={items} options={chrome}>
+          <div>content</div>
+        </AppShell>,
+      );
+      within(sidebar()).getByRole("link", { name: /Clients/ }).focus();
+      fireEvent.keyDown(document.activeElement!, { key: "[" });
+      expect(isCollapsed()).toBe(true);
+      const focused = document.activeElement as HTMLElement;
+      expect(focused.getAttribute("href")).toBe("/clients");
+      expect(sidebar().contains(focused)).toBe(true);
+      fireEvent.keyDown(focused, { key: "[" });
+      expect(isCollapsed()).toBe(false);
+      expect((document.activeElement as HTMLElement).getAttribute("href")).toBe("/clients");
+    });
+
+    it("falls back to the toggle when the focused link isn't on the rail", () => {
+      render(
+        <AppShell appName="Breakthrough" navItems={items} activePath="/library/lessons" options={chrome}>
+          <div>content</div>
+        </AppShell>,
+      );
+      // A nested child: on the rail it lives in the group's popover.
+      within(sidebar()).getByRole("link", { name: "Courses" }).focus();
+      fireEvent.keyDown(document.activeElement!, { key: "[" });
+      expect(isCollapsed()).toBe(true);
+      expect(document.activeElement).toBe(toggle());
+    });
+
+    it("leaves focus alone when it was outside the sidebar", () => {
+      render(
+        <AppShell appName="Breakthrough" navItems={items} options={chrome}>
+          <button type="button">page action</button>
+        </AppShell>,
+      );
+      const action = screen.getByRole("button", { name: "page action" });
+      action.focus();
+      fireEvent.keyDown(action, { key: "[" });
+      expect(isCollapsed()).toBe(true);
+      expect(document.activeElement).toBe(action);
+    });
+  });
+
   describe("[ shortcut", () => {
     const renderShell = (extra?: { collapseShortcut?: string | false }) =>
       render(

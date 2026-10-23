@@ -14602,12 +14602,17 @@
         },
         {
           "name": "useAppShellSubNav",
-          "summary": "Give the shell this page's child items (sub-navigation) while the page is\nmounted. They replace the current `NavigationNode`'s `items`; pass\n`null` / `undefined` to fall back to them. Use it when children depend on\npage data, such as live badge counts. A fresh array each render is fine:\nthe shell only updates when a `to`, label, badge, icon or flag changes.\n\n```tsx\nuseAppShellSubNav([\n  { to: `/forms/${id}/edit`, label: \"Questions\", icon: ListChecks, badge: questions.length, end: true },\n  { to: `/forms/${id}/edit/logic`, label: \"Logic and endings\", icon: GitBranch, badge: rules.length },\n  { to: `/forms/${id}/edit/responses`, label: \"Responses\", icon: Inbox, badge: responses },\n  { to: `/forms/${id}/edit/settings`, label: \"Settings\", icon: Settings },\n]);\n```\n\nDoes nothing outside an `AppShell`.",
+          "summary": "Give the shell this page's child items (sub-navigation) while the page is\nmounted. They replace the current `NavigationNode`'s `items`; pass\n`null` / `undefined` to fall back to them (a `mode` still applies). When\nseveral components call it (a layout and its page), the innermost wins,\nfor items and for mode separately. Use it when children depend on\npage data, such as live badge counts. A fresh array each render is fine:\nthe shell only updates when a `to`, label, badge, icon or flag changes.\n\n```tsx\nuseAppShellSubNav([\n  { to: `/forms/${id}/edit`, label: \"Questions\", icon: ListChecks, badge: questions.length, end: true },\n  { to: `/forms/${id}/edit/logic`, label: \"Logic and endings\", icon: GitBranch, badge: rules.length },\n  { to: `/forms/${id}/edit/responses`, label: \"Responses\", icon: Inbox, badge: responses },\n  { to: `/forms/${id}/edit/settings`, label: \"Settings\", icon: Settings },\n]);\n```\n\nDoes nothing outside an `AppShell`.",
           "props": []
         },
         {
           "name": "AppShellSubNavEnd",
-          "summary": "Render `children` in the right-hand slot of the shell's sub-navigation\ntab row, e.g. a \"Ready to publish\" status chip. Rendered through a\nportal, so it keeps the page's context and state. Renders nothing when\nthe shell shows no tab row (other modes, phones, no children).",
+          "summary": "Render `children` in the right-hand slot of the shell's sub-navigation\ntab row, e.g. a \"Ready to publish\" status chip. Rendered through a\nportal, so it keeps the page's context and state. Renders nothing when\nthe shell shows no tab row (other modes, phones, no children). When\nseveral are mounted (a layout's and a page's), the innermost renders.",
+          "props": []
+        },
+        {
+          "name": "AppShellPageHeader",
+          "summary": "Render the page's resource header (breadcrumb, title, status, actions) at\nthe top of the shell's content, ABOVE the sub-navigation tab row, where\nthe design puts it. A portal like `AppShellSubNavEnd`, so it keeps the\npage's state; the innermost mounted one renders. On phones it stays at\nthe top of the content while the bottom bar carries the children. With\nno tab row (the default `\"section\"` mode, or a page without children) it\nsimply sits at the top of the content. Mount none and the layout is\nunchanged.",
           "props": []
         },
         {

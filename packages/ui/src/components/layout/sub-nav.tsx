@@ -17,10 +17,12 @@
  */
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -194,47 +196,122 @@ export function SubNavTabs({
 // ---------------------------------------------------------------------------
 
 interface PageSubNav {
-  items: NavItem[];
+  /** Absent: this registrant only sets a mode; items come from elsewhere. */
+  items?: NavItem[];
   mode?: SubNavMode;
 }
 
+interface Registration extends PageSubNav {
+  id: string;
+  /**
+   * Render order of the registering component, taken at its first render.
+   * React renders top-down, so a page inside a layout always gets a higher
+   * number than that layout, and a page mounted later (a route change under
+   * a mounted layout) does too: the highest number is the innermost caller.
+   */
+  order: number;
+}
+
+/** Portal slots the shell exposes to pages. */
+type SlotName = "header" | "end";
+
 /** @internal What AppShell provides to pages. */
 export interface SubNavChannel {
-  register(id: string, value: PageSubNav): void;
+  register(id: string, order: number, value: PageSubNav): void;
   unregister(id: string): void;
-  /** The tab row's end slot, once mounted. */
-  endSlot: HTMLElement | null;
+  /** Claim a portal slot; the innermost claimant (highest order) renders. */
+  claimSlot(slot: SlotName, id: string, order: number): void;
+  releaseSlot(slot: SlotName, id: string): void;
+  /** The mounted slot elements, and which claimant owns each. */
+  slots: Record<SlotName, { el: HTMLElement | null; owner: string | undefined }>;
 }
 
 /** @internal */
 export const SubNavContext = createContext<SubNavChannel | null>(null);
 
+type Claims = Record<SlotName, Array<{ id: string; order: number }>>;
+
+function innermost(claims: Array<{ id: string; order: number }>): string | undefined {
+  let best: { id: string; order: number } | undefined;
+  for (const c of claims) if (!best || c.order > best.order) best = c;
+  return best?.id;
+}
+
 /**
- * @internal Shell side: holds the latest page registration. Registration runs
- * in a layout effect, so the page's items are in place before first paint.
+ * @internal Shell side: holds the page registrations and slot claims.
+ * Registration runs in a layout effect, so the page's items are in place
+ * before first paint.
  */
 export function useSubNavChannel(): {
   page: PageSubNav | undefined;
   channel: SubNavChannel;
   setEndSlot: (el: HTMLElement | null) => void;
+  setHeaderSlot: (el: HTMLElement | null) => void;
+  /** A page header has been claimed (render the header region). */
+  hasHeader: boolean;
 } {
-  const [entries, setEntries] = useState<Array<[string, PageSubNav]>>([]);
+  const [entries, setEntries] = useState<Registration[]>([]);
   const [endSlot, setEndSlot] = useState<HTMLElement | null>(null);
-  const channelRef = useRef<SubNavChannel | null>(null);
-  const register = (id: string, value: PageSubNav) =>
-    setEntries((prev) => [...prev.filter(([k]) => k !== id), [id, value]]);
-  const unregister = (id: string) =>
-    setEntries((prev) => prev.filter(([k]) => k !== id));
-  // Stable identity for register/unregister; endSlot changes rarely.
-  if (!channelRef.current || channelRef.current.endSlot !== endSlot) {
-    channelRef.current = { register, unregister, endSlot };
-  }
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  const [claims, setClaims] = useState<Claims>({ header: [], end: [] });
+
+  // Updated in place, so a badge change never reorders registrants.
+  const register = useCallback((id: string, order: number, value: PageSubNav) => {
+    setEntries((prev) =>
+      prev.some((e) => e.id === id)
+        ? prev.map((e) => (e.id === id ? { ...value, id, order } : e))
+        : [...prev, { ...value, id, order }],
+    );
+  }, []);
+  const unregister = useCallback((id: string) => {
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+  const claimSlot = useCallback((slot: SlotName, id: string, order: number) => {
+    setClaims((prev) =>
+      prev[slot].some((c) => c.id === id)
+        ? prev
+        : { ...prev, [slot]: [...prev[slot], { id, order }] },
+    );
+  }, []);
+  const releaseSlot = useCallback((slot: SlotName, id: string) => {
+    setClaims((prev) =>
+      prev[slot].some((c) => c.id === id)
+        ? { ...prev, [slot]: prev[slot].filter((c) => c.id !== id) }
+        : prev,
+    );
+  }, []);
+
+  const headerOwner = innermost(claims.header);
+  const endOwner = innermost(claims.end);
+  const channel = useMemo<SubNavChannel>(
+    () => ({
+      register,
+      unregister,
+      claimSlot,
+      releaseSlot,
+      slots: {
+        header: { el: headerSlot, owner: headerOwner },
+        end: { el: endSlot, owner: endOwner },
+      },
+    }),
+    [register, unregister, claimSlot, releaseSlot, headerSlot, headerOwner, endSlot, endOwner],
+  );
+
+  // Innermost registrant wins, separately for items and for mode, so a page
+  // that only sets a mode keeps a layout's items (and vice versa).
+  const byDepth = [...entries].sort((a, b) => b.order - a.order);
+  const items = byDepth.find((e) => e.items)?.items;
+  const mode = byDepth.find((e) => e.mode)?.mode;
   return {
-    page: entries.length ? entries[entries.length - 1]![1] : undefined,
-    channel: channelRef.current,
+    page: items || mode ? { items, mode } : undefined,
+    channel,
     setEndSlot,
+    setHeaderSlot,
+    hasHeader: headerOwner !== undefined,
   };
 }
+
+let nextOrder = 0;
 
 const iconIds = new WeakMap<object, number>();
 let nextIconId = 1;
@@ -275,7 +352,9 @@ export interface UseAppShellSubNavOptions {
 /**
  * Give the shell this page's child items (sub-navigation) while the page is
  * mounted. They replace the current `NavigationNode`'s `items`; pass
- * `null` / `undefined` to fall back to them. Use it when children depend on
+ * `null` / `undefined` to fall back to them (a `mode` still applies). When
+ * several components call it (a layout and its page), the innermost wins,
+ * for items and for mode separately. Use it when children depend on
  * page data, such as live badge counts. A fresh array each render is fine:
  * the shell only updates when a `to`, label, badge, icon or flag changes.
  *
@@ -298,6 +377,7 @@ export function useAppShellSubNav(
 ): void {
   const channel = useContext(SubNavContext);
   const id = useId();
+  const [order] = useState(() => ++nextOrder);
   const latest = useRef(items);
   latest.current = items;
   const key = items ? itemsKey(items) : "";
@@ -307,10 +387,12 @@ export function useAppShellSubNav(
 
   useIsoLayoutEffect(() => {
     if (!register || !unregister) return;
-    const value = latest.current;
-    if (value) register(id, { items: value, mode });
+    const value = latest.current ?? undefined;
+    // `null` items with a mode still register: the mode applies, and the
+    // items fall back to an outer registrant or the node's.
+    if (value || mode) register(id, order, { items: value, mode });
     else unregister(id);
-  }, [register, unregister, id, key, mode]);
+  }, [register, unregister, id, order, key, mode]);
 
   useIsoLayoutEffect(() => {
     if (!unregister) return;
@@ -318,16 +400,47 @@ export function useAppShellSubNav(
   }, [unregister, id]);
 }
 
+function useSlotPortal(slot: SlotName, children: ReactNode): ReactNode {
+  const channel = useContext(SubNavContext);
+  const id = useId();
+  const [order] = useState(() => ++nextOrder);
+  const claimSlot = channel?.claimSlot;
+  const releaseSlot = channel?.releaseSlot;
+  useIsoLayoutEffect(() => {
+    if (!claimSlot || !releaseSlot) return;
+    claimSlot(slot, id, order);
+    return () => releaseSlot(slot, id);
+  }, [claimSlot, releaseSlot, slot, id, order]);
+  const target = channel?.slots[slot];
+  if (!target?.el || target.owner !== id) return null;
+  return createPortal(children, target.el);
+}
+
 /**
  * Render `children` in the right-hand slot of the shell's sub-navigation
  * tab row, e.g. a "Ready to publish" status chip. Rendered through a
  * portal, so it keeps the page's context and state. Renders nothing when
- * the shell shows no tab row (other modes, phones, no children).
+ * the shell shows no tab row (other modes, phones, no children). When
+ * several are mounted (a layout's and a page's), the innermost renders.
  *
  * @stability Beta
  */
 export function AppShellSubNavEnd({ children }: { children: ReactNode }) {
-  const channel = useContext(SubNavContext);
-  if (!channel?.endSlot) return null;
-  return createPortal(children, channel.endSlot);
+  return useSlotPortal("end", children);
+}
+
+/**
+ * Render the page's resource header (breadcrumb, title, status, actions) at
+ * the top of the shell's content, ABOVE the sub-navigation tab row, where
+ * the design puts it. A portal like `AppShellSubNavEnd`, so it keeps the
+ * page's state; the innermost mounted one renders. On phones it stays at
+ * the top of the content while the bottom bar carries the children. With
+ * no tab row (the default `"section"` mode, or a page without children) it
+ * simply sits at the top of the content. Mount none and the layout is
+ * unchanged.
+ *
+ * @stability Beta
+ */
+export function AppShellPageHeader({ children }: { children: ReactNode }) {
+  return useSlotPortal("header", children);
 }

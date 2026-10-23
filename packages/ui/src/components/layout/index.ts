@@ -30,6 +30,7 @@ export {
 export {
   useAppShellSubNav,
   AppShellSubNavEnd,
+  AppShellPageHeader,
   SubNavTabs,
   type SubNavMode,
   type SubNavTabsProps,

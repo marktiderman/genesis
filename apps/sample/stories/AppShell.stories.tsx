@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import {
   AppShell,
+  AppShellPageHeader,
   AppShellSubNavEnd,
   useAppShellSubNav,
   type NavigationNode,
@@ -185,7 +186,10 @@ const formsTree: NavigationNode<NavItem> = {
   ],
 };
 
-/** What a form page does: live badges through the hook, a chip in the row's end slot. */
+/**
+ * What a form page does: live badges through the hook, its resource header
+ * above the tab row (`AppShellPageHeader`), a chip in the row's end slot.
+ */
 function FormPage() {
   useAppShellSubNav([
     { to: "/forms/f1/edit", label: "Questions", badge: 2, end: true },
@@ -198,7 +202,18 @@ function FormPage() {
       <AppShellSubNavEnd>
         <Badge variant="success">Ready to publish</Badge>
       </AppShellSubNavEnd>
-      <h1 className="text-xl font-semibold">E2E Saturday check-in</h1>
+      <AppShellPageHeader>
+        <p className="text-xs text-muted-foreground">Forms › E2E Saturday check-in</p>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold">E2E Saturday check-in</h1>
+          <div className="flex gap-2">
+            <button type="button" className="rounded-md border px-3 py-1.5 text-sm">Share</button>
+            <button type="button" className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground">
+              Publish changes
+            </button>
+          </div>
+        </div>
+      </AppShellPageHeader>
       <p className="text-sm text-muted-foreground">Logic and endings is the current tab.</p>
     </div>
   );

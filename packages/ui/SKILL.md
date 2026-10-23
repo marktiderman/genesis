@@ -349,7 +349,11 @@ optional `icon` (first letter when missing) and optional `badge` (a count or sho
 as a chip). Gate by role the same way as other items: filter the list before handing it over.
 For live data (badge counts) the page calls `useAppShellSubNav(items, { mode? })`, which
 replaces the node's items while it is mounted, and puts a host chip at the end of the tab row with
-`<AppShellSubNavEnd>…</AppShellSubNavEnd>`. Shell sub-navigation is opt-in through
+`<AppShellSubNavEnd>…</AppShellSubNavEnd>`. The page's resource header (breadcrumb, title,
+status, actions) goes in `<AppShellPageHeader>…</AppShellPageHeader>`, which the shell renders
+above the tab row (on phones too; at the top of the content when there is no row). Both are
+portals; when a layout and its page both mount one, the page's (innermost) renders, and the same
+rule picks between `useAppShellSubNav` callers. Shell sub-navigation is opt-in through
 `options.subNav`:
 
 - `"section"` (default): exactly the pre-sub-nav shell. The children sit in a labelled section
