@@ -41,6 +41,7 @@ import {
   SubNavContext,
   SubNavTabs,
   useSubNavChannel,
+  type SubNavItem,
   type SubNavMode,
 } from "./sub-nav";
 import { cn } from "../../utils";
@@ -56,11 +57,7 @@ import {
 export interface NavItem {
   /** Route, optionally with `?search` / `#hash` (see `isPathActive`). */
   to: string;
-  /**
-   * Icon for the row, the rail and the tab bars. Optional: without one the
-   * collapsed rail and the mobile bar show the label's first letter.
-   */
-  icon?: LucideIcon;
+  icon: LucideIcon;
   label: string;
   /** Nested items — rendered as a collapsible group when the rail is expanded */
   children?: NavItem[];
@@ -114,11 +111,17 @@ export interface AppShellOptions {
    */
   defaultCollapsed?: boolean;
   /**
-   * Key that toggles the desktop sidebar (default `"["`, as in Linear and
-   * Notion). `false` turns the shortcut off. It never fires while typing in a
-   * field, with Ctrl/Cmd/Alt held, or when `showCollapse` is off.
+   * Opt-in key that toggles the desktop sidebar, e.g. `"["` as in Linear and
+   * Notion. Off (`false`) by default. It never fires while typing in a field,
+   * while a listbox, combobox or menu has focus (Select typeahead), while a
+   * dialog is open, with Ctrl/Cmd/Alt held, or when `showCollapse` is off.
    */
   collapseShortcut?: string | false;
+  /**
+   * Width of the collapsed icon rail in px: `56` (default, as before) or
+   * `64` (the Breakthrough design).
+   */
+  collapsedRailWidth?: 56 | 64;
   /**
    * Shell sub-navigation, opt-in. `"section"` (default) renders a page's
    * children exactly as AppShell always has; `"tabs"` or `"sidebar"` turn
@@ -155,12 +158,22 @@ export interface AppShellOptions {
 const OPTION_DEFAULTS: Required<
   Omit<
     AppShellOptions,
-    "configurable" | "defaultCollapsed" | "lockedOptions" | "collapseShortcut" | "subNav"
+    | "configurable"
+    | "defaultCollapsed"
+    | "lockedOptions"
+    | "collapseShortcut"
+    | "subNav"
+    | "collapsedRailWidth"
   >
 > &
   Pick<
     AppShellOptions,
-    "configurable" | "defaultCollapsed" | "lockedOptions" | "collapseShortcut" | "subNav"
+    | "configurable"
+    | "defaultCollapsed"
+    | "lockedOptions"
+    | "collapseShortcut"
+    | "subNav"
+    | "collapsedRailWidth"
   > = {
   showLogo: true,
   showAppName: true,
@@ -171,7 +184,8 @@ const OPTION_DEFAULTS: Required<
   showSecondaryNav: true,
   showMobileBottomNav: true,
   defaultCollapsed: false,
-  collapseShortcut: "[",
+  collapseShortcut: false,
+  collapsedRailWidth: 56,
   subNav: "section",
   configurable: undefined,
   density: "comfortable",
@@ -245,6 +259,25 @@ function isTypingTarget(el: EventTarget | null): boolean {
 }
 
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+/** Focus is in a widget that uses printable keys itself (typeahead). */
+function ownsKeys(el: EventTarget | null): boolean {
+  const node = el as HTMLElement | null;
+  return Boolean(
+    node?.closest?.(
+      '[role="listbox"], [role="combobox"], [role="menu"], [role="menubar"], [role="menuitem"], [role="option"], [role="tree"], [role="grid"]',
+    ),
+  );
+}
+
+/** A modal or Radix dialog is open somewhere on the page. */
+function dialogOpen(): boolean {
+  if (typeof document === "undefined") return false;
+  return (
+    document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [aria-modal="true"]') !=
+    null
+  );
+}
 
 /** md breakpoint: the desktop sidebar only exists at this width and up. */
 const DESKTOP_QUERY = "(min-width: 768px)";
@@ -453,10 +486,10 @@ function ThemeToggle({ testId }: { testId: string }) {
 }
 
 /** The item's icon, or its label's first letter when it has none. */
-function NavIcon({ item, className }: { item: NavItem; className?: string }) {
+function NavIcon({ item, className }: { item: SubNavItem; className?: string }) {
   if (item.icon) {
     const Icon = item.icon;
-    return <Icon className={className} aria-hidden />;
+    return <Icon className={className} />;
   }
   return (
     <span
@@ -497,7 +530,7 @@ function NavLinkRow({
   notCurrent = false,
   active: activeOverride,
 }: {
-  item: NavItem;
+  item: SubNavItem;
   collapsed: boolean;
   density: "comfortable" | "compact";
   onNavClick?: () => void;
@@ -513,22 +546,35 @@ function NavLinkRow({
   const pad = density === "compact" ? "px-2.5 py-1.5" : "px-3 py-2";
 
   if (item.disabled) {
-    const row = (
-      <span
-        title={collapsed ? undefined : item.label}
-        className={cn(
-          "flex w-full items-center gap-3 rounded-lg text-sm font-medium opacity-40",
-          pad,
-          collapsed && "h-10 justify-center px-0 py-0",
-        )}
-        aria-disabled
-        aria-label={collapsed ? item.label : undefined}
-      >
-        <NavIcon item={item} className="h-4 w-4 shrink-0" />
-        {!collapsed ? <span className="truncate">{item.label}</span> : null}
-      </span>
+    if (!collapsed) {
+      return (
+        <span
+          title={item.label}
+          className={cn(
+            "flex items-center gap-3 rounded-lg text-sm font-medium opacity-40",
+            pad,
+          )}
+          aria-disabled
+        >
+          <NavIcon item={item} className="h-4 w-4 shrink-0" />
+          <span className="truncate">{item.label}</span>
+        </span>
+      );
+    }
+    // Rail: a disabled link, named so screen readers announce it (a bare
+    // span's aria-label is not reliably read).
+    return (
+      <RailTooltip label={item.label}>
+        <span
+          role="link"
+          aria-disabled="true"
+          aria-label={item.label}
+          className="flex h-10 w-full items-center justify-center rounded-lg text-sm font-medium opacity-40"
+        >
+          <NavIcon item={item} className="h-4 w-4 shrink-0" />
+        </span>
+      </RailTooltip>
     );
-    return collapsed ? <RailTooltip label={item.label}>{row}</RailTooltip> : row;
   }
 
   const link = (
@@ -544,9 +590,9 @@ function NavLinkRow({
       }
       aria-current={active && !notCurrent ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none",
+        "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
         pad,
-        collapsed && "relative h-10 w-full justify-center px-0 py-0",
+        collapsed && "relative h-10 w-full justify-center px-0 py-0 motion-reduce:transition-none",
         active
           ? "bg-sidebar-accent text-sidebar-primary"
           : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -589,7 +635,7 @@ function RailGroup({
   isActive,
   notCurrent,
 }: {
-  item: NavItem;
+  item: SubNavItem;
   density: "comfortable" | "compact";
   linkComponent: LinkComponent;
   activePath?: string;
@@ -599,7 +645,7 @@ function RailGroup({
   const [open, setOpen] = useState(false);
   const children = item.children ?? [];
   const active = itemIsActive(item, activePath, isActive);
-  const entries: NavItem[] = item.to
+  const entries: SubNavItem[] = item.to
     ? [{ ...item, children: undefined, end: true }, ...children]
     : children;
   const current = mostSpecificActive(entries, activePath, isActive);
@@ -676,7 +722,7 @@ function NavGroup({
   isActive,
   notCurrent = false,
 }: {
-  item: NavItem;
+  item: SubNavItem;
   collapsed: boolean;
   density: "comfortable" | "compact";
   onNavClick?: () => void;
@@ -836,9 +882,9 @@ function SidebarNav({
   subActive = false,
   nest = false,
 }: {
-  navItems: NavItem[];
+  navItems: SubNavItem[];
   /** The page's children, in `subNav: "sidebar"` mode only. */
-  contextualNavItems?: NavItem[];
+  contextualNavItems?: SubNavItem[];
   contextualNavLabel?: string;
   /** A sub-navigation item (wherever it renders) is the current page. */
   subActive?: boolean;
@@ -848,7 +894,7 @@ function SidebarNav({
    * the legacy section below the global items.
    */
   nest?: boolean;
-  secondaryNavItems?: NavItem[];
+  secondaryNavItems?: SubNavItem[];
   secondaryNavLabel: string;
   showSecondary: boolean;
   collapsed: boolean;
@@ -1251,7 +1297,6 @@ export function AppShell({
     [isCollapseControlled, optionsStorageKey, onCollapsedChange],
   );
 
-  const sidebarId = useId();
   const sidebarRef = useRef<HTMLElement>(null);
 
   // Collapsing re-renders the sidebar's insides: the toggle moves from the
@@ -1274,7 +1319,20 @@ export function AppShell({
     },
     [collapsed, setCollapsed],
   );
+  // A collapse that no toggle asked for (a route's `defaultCollapsed`, a
+  // controlled prop): capture what had focus during the render that changes
+  // it, before the commit remounts the sidebar's insides.
+  const renderedCollapsed = useRef(collapsed);
+  if (renderedCollapsed.current !== collapsed && !pendingFocus.current) {
+    const aside = sidebarRef.current;
+    const focused = typeof document === "undefined" ? null : document.activeElement;
+    if (aside && focused instanceof HTMLElement && aside.contains(focused)) {
+      const href = focused.getAttribute("href");
+      pendingFocus.current = href ? { href } : { toggle: true };
+    }
+  }
   useIsoLayoutEffect(() => {
+    renderedCollapsed.current = collapsed;
     const want = pendingFocus.current;
     pendingFocus.current = null;
     const aside = sidebarRef.current;
@@ -1293,10 +1351,11 @@ export function AppShell({
   const collapseShortcut =
     optionsProp?.collapseShortcut ?? OPTION_DEFAULTS.collapseShortcut!;
 
-  // `[` toggles the desktop sidebar. Skipped while typing, with a modifier
-  // held (those chords belong to the app or browser), when another handler
-  // already took the key, below the md breakpoint (no desktop sidebar there),
-  // and when the collapse control is hidden.
+  // Opt-in shortcut (e.g. `[`) toggles the desktop sidebar. Skipped while
+  // typing, in a listbox/combobox/menu (typeahead), while a dialog is open,
+  // with a modifier held (those chords belong to the app or browser), when
+  // another handler already took the key, below the md breakpoint (no
+  // desktop sidebar there), and when the collapse control is hidden.
   useEffect(() => {
     if (!collapseShortcut || !showCollapseCtrl) return;
     if (typeof window === "undefined") return;
@@ -1304,6 +1363,8 @@ export function AppShell({
       if (e.key !== collapseShortcut || e.repeat || e.defaultPrevented) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (isTypingTarget(e.target)) return;
+      if (ownsKeys(e.target)) return;
+      if (dialogOpen()) return;
       if (window.matchMedia && !window.matchMedia(DESKTOP_QUERY).matches) return;
       e.preventDefault();
       toggleCollapsed(false);
@@ -1318,8 +1379,12 @@ export function AppShell({
   const scrollWindow = resolved.scrollRoot === "window";
   const railExpanded =
     resolved.railWidth === "wide" ? "md:w-64" : "md:w-52";
-  // 64px icon rail when collapsed.
-  const railClass = collapsed ? "md:w-16" : railExpanded;
+  // Collapsed icon rail: 56px as before, or 64px when asked for.
+  const railCollapsed =
+    (optionsProp?.collapsedRailWidth ?? OPTION_DEFAULTS.collapsedRailWidth) === 64
+      ? "md:w-16"
+      : "md:w-14";
+  const railClass = collapsed ? railCollapsed : railExpanded;
 
   // Sub-navigation mode: page (hook) > prop > nearest node > app option.
   const subNavMode: SubNavMode =
@@ -1334,14 +1399,16 @@ export function AppShell({
   // the shell as it always was; "off" hides the children entirely.
   const subNavOn = subNavMode === "tabs" || subNavMode === "sidebar";
 
-  const leaves = (items: NavItem[]) =>
+  const leaves = (items: SubNavItem[]) =>
     items.filter((i) => !i.children || i.children.length === 0);
   // Phones. On: a page with children swaps the bar to them, led by a back
   // item to the logical parent. "section": the children replace the bar
   // as before, with no back item. "off": the app's main bar. An explicit
   // `mobileNavItems` always wins.
   const contextualLeaves = subNavMode === "off" ? [] : leaves(contextualNavItems);
-  const subBottom = subNavOn && !mobileNavItems && contextualLeaves.length > 0;
+  // With sub-navigation on, a page's children win over an app-wide
+  // `mobileNavItems` on that page; elsewhere `mobileNavItems` applies.
+  const subBottom = subNavOn && contextualLeaves.length > 0;
   const legacyBottom = !subNavOn && !mobileNavItems && contextualLeaves.length > 0;
   const backTarget = subBottom
     ? (parentNavigation ?? derived?.backItem ?? (() => {
@@ -1350,8 +1417,9 @@ export function AppShell({
       })())
     : undefined;
   const bottomItems = (
-    mobileNavItems ??
-    (subBottom || legacyBottom ? contextualLeaves : leaves(navItems))
+    subBottom
+      ? contextualLeaves
+      : (mobileNavItems ?? (legacyBottom ? contextualLeaves : leaves(navItems)))
   ).filter((i) => !i.disabled);
   // Global tabs keep their highlight, but leave `aria-current` to the sub
   // item that is the current page (see SidebarNav).
@@ -1467,41 +1535,27 @@ export function AppShell({
     ) : null;
 
   const collapseLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  // Same markup as before this feature (title + aria-pressed); only its
+  // place changes on the collapsed rail (the foot instead of the header).
   const collapseToggle = showCollapseCtrl ? (
-    <Tooltip
-      content={
-        collapseShortcut ? (
-          <span className="flex items-center gap-2">
-            {collapseLabel}
-            <kbd className="rounded border border-background/30 px-1 font-sans text-[10px]">
-              {collapseShortcut}
-            </kbd>
-          </span>
-        ) : (
-          collapseLabel
-        )
-      }
-      side="right"
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8"
+      onClick={() => toggleCollapsed(true)}
+      title={collapseShortcut ? `${collapseLabel} (${collapseShortcut})` : collapseLabel}
+      aria-label={collapseLabel}
+      aria-pressed={collapsed}
+      aria-keyshortcuts={collapseShortcut || undefined}
+      data-testid="app-shell-collapse"
+      testID="app-shell-collapse"
     >
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8"
-        onClick={() => toggleCollapsed(true)}
-        aria-label={collapseLabel}
-        aria-expanded={!collapsed}
-        aria-controls={sidebarId}
-        aria-keyshortcuts={collapseShortcut || undefined}
-        data-testid="app-shell-collapse"
-        testID="app-shell-collapse"
-      >
-        {collapsed ? (
-          <PanelLeft className="h-4 w-4" aria-hidden />
-        ) : (
-          <PanelLeftClose className="h-4 w-4" aria-hidden />
-        )}
-      </Button>
-    </Tooltip>
+      {collapsed ? (
+        <PanelLeft className="h-4 w-4" />
+      ) : (
+        <PanelLeftClose className="h-4 w-4" />
+      )}
+    </Button>
   ) : null;
 
   const sidebarChrome = (opts: { mobile?: boolean }) => (
@@ -1638,13 +1692,11 @@ export function AppShell({
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 motion-reduce:transition-none md:flex",
+          "hidden flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 motion-reduce:transition-none md:flex",
           scrollWindow && "sticky top-0 h-screen",
           railClass,
         )}
-        id={sidebarId}
         ref={sidebarRef}
-        aria-label="Sidebar"
         data-collapsed={collapsed || undefined}
         data-testid="app-shell-sidebar"
       >
@@ -1736,15 +1788,16 @@ export function AppShell({
           ) : null}
           {/* Page header slot (<AppShellPageHeader>): above the tab row, on
               phones too. Empty and unstyled until a page mounts one. */}
-          <div
-            ref={subNavChannel.setHeaderSlot}
-            className={cn(
-              hasPageHeader && "min-w-0 px-4 sm:px-6 lg:px-8",
-              hasPageHeader &&
-                (parentNavigation ? "pt-2 sm:pt-3 lg:pt-4" : "pt-4 sm:pt-6 lg:pt-8"),
-            )}
-            data-testid="app-shell-page-header"
-          />
+          {hasPageHeader ? (
+            <div
+              ref={subNavChannel.setHeaderSlot}
+              className={cn(
+                "min-w-0 px-4 sm:px-6 lg:px-8",
+                parentNavigation ? "pt-2 sm:pt-3 lg:pt-4" : "pt-4 sm:pt-6 lg:pt-8",
+              )}
+              data-testid="app-shell-page-header"
+            />
+          ) : null}
           {showTabs ? (
             <div
               className={cn(
@@ -1760,7 +1813,11 @@ export function AppShell({
                 isActive={isActive}
                 linkComponent={linkComponent}
                 label={subNavLabel ?? derived?.current.label ?? "Page sections"}
-                end={<div ref={subNavChannel.setEndSlot} className="flex items-center" />}
+                end={
+                  subNavChannel.hasEnd ? (
+                    <div ref={subNavChannel.setEndSlot} className="flex items-center" />
+                  ) : undefined
+                }
               />
             </div>
           ) : null}
@@ -1800,7 +1857,7 @@ export function AppShell({
                 <LinkComp
                   key={item.to + item.label}
                   href={item.to}
-                  title={subNavOn ? undefined : item.label}
+                  title={item.label}
                   aria-label={
                     subNavOn && item.badge != null
                       ? `${item.label} (${item.badge})`
@@ -1812,19 +1869,21 @@ export function AppShell({
                     active ? "text-primary" : "text-muted-foreground",
                   )}
                 >
-                  <span className="relative">
-                    <NavIcon item={item} className="h-5 w-5" />
-                    {subNavOn && item.badge != null ? (
-                      // Anchored to the icon's right edge and growing right,
-                      // so a word badge ("New") never covers the icon.
+                  {subNavOn && item.badge != null ? (
+                    <span className="relative">
+                      <NavIcon item={item} className="h-5 w-5" />
+                      {/* Anchored to the icon's right edge and growing right,
+                          so a word badge ("New") never covers the icon. */}
                       <span
                         className="absolute -top-1.5 left-full -ml-1 inline-flex h-4 min-w-4 items-center justify-center whitespace-nowrap rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground ring-2 ring-background"
                         aria-hidden
                       >
                         {item.badge}
                       </span>
-                    ) : null}
-                  </span>
+                    </span>
+                  ) : (
+                    <NavIcon item={item} className="h-5 w-5" />
+                  )}
                   <span className="max-w-full truncate px-0.5">
                     {item.label}
                   </span>

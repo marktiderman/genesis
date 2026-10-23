@@ -327,15 +327,17 @@ const navigation: NavigationNode<NavItem> = {
   linkComponent={RouterLink}>{children}</AppShell>
 ```
 
-**Collapsible sidebar.** On desktop the sidebar collapses to a 64px icon rail: the logo mark,
-one icon per item (name in a tooltip on hover and focus), nested groups in a popover, and the
-expand button at the bottom. The panel button beside the logo and the `[` key toggle it. Pass
+**Collapsible sidebar.** On desktop the sidebar collapses to an icon rail (56px;
+`options.collapsedRailWidth: 64` for the wider one): the logo mark, one icon per item (name in a
+tooltip on hover and focus), nested groups in a popover, and the expand button at the bottom.
+The panel button beside the logo toggles it; `options.collapseShortcut: "["` adds an opt-in key
+(skipped while typing, in a listbox/combobox/menu, or with a dialog open). Pass
 `optionsStorageKey` (app-scoped, e.g. `"acme:app-shell"`) to remember the user's choice under
 `${key}:collapsed`. A page asks to open collapsed with `defaultCollapsed: true` on its
 `NavigationNode` (the nearest node in the trail that sets it wins) or `defaultCollapsed` on
 `AppShell`; the user's own toggle always wins once they have used it, and "Reset to defaults" in
-the sidebar options hands it back. `options.defaultCollapsed` is the app-wide default,
-`options.collapseShortcut` changes or (`false`) removes the key, and `collapsed` +
+the sidebar options hands it back. `options.defaultCollapsed` is the app-wide default, and
+`collapsed` +
 `onCollapsedChange` make it controlled. The mobile drawer is unaffected.
 
 ```tsx
@@ -346,7 +348,9 @@ the sidebar options hands it back. `options.defaultCollapsed` is the app-wide de
 form's Questions / Logic and endings / Responses / Settings. Each is a `NavItem`: `label`, `to`
 (a route, or a `?search` / `#hash`; active state follows the URL, most specific sibling wins),
 optional `icon` (first letter when missing) and optional `badge` (a count or short status, shown
-as a chip). Gate by role the same way as other items: filter the list before handing it over.
+as a chip). The hook takes `SubNavItem`s (a `NavItem` whose `icon` is optional); `NavItem.icon`
+itself stays required. Gate by role the same way as other items: filter the list before handing
+it over.
 For live data (badge counts) the page calls `useAppShellSubNav(items, { mode? })`, which
 replaces the node's items while it is mounted, and puts a host chip at the end of the tab row with
 `<AppShellSubNavEnd>…</AppShellSubNavEnd>`. The page's resource header (breadcrumb, title,
@@ -367,7 +371,8 @@ With `"tabs"` or `"sidebar"`, a page with children swaps the phone bar to a back
 logical parent ("Forms") plus the children and their badges; leaving the page brings the main
 bar back. A node (`subNav` on `NavigationNode`, nearest in the trail wins), the `subNav` prop and
 the page's hook override the option, in that order of strength (hook strongest), so one subtree
-can opt in. An explicit `mobileNavItems` always wins.
+can opt in. With it on, a page's children also win over an app-wide `mobileNavItems` on that page;
+in `"section"` / `"off"`, or on pages without children, `mobileNavItems` applies as before.
 
 ```tsx
 useAppShellSubNav([

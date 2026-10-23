@@ -33,6 +33,7 @@ export {
   AppShellPageHeader,
   SubNavTabs,
   type SubNavMode,
+  type SubNavItem,
   type SubNavTabsProps,
   type UseAppShellSubNavOptions,
 } from "./sub-nav";

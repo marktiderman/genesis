@@ -8,7 +8,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { ClipboardList, Home, Users } from "lucide-react";
+import { ClipboardList, GitBranch, Home, Inbox, ListChecks, Settings, Users } from "lucide-react";
 
 import { AppShell, type AppShellProps, type NavItem } from "../AppShell";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../sub-nav";
@@ -18,10 +18,10 @@ const legacy = { showThemeToggle: false, configurable: false };
 const chrome = { ...legacy, subNav: "tabs" as const };
 
 const formTabs: NavItem[] = [
-  { to: "/forms/$formId/edit", label: "Questions", badge: 2 },
-  { to: "/forms/$formId/edit/logic", label: "Logic and endings", badge: 1 },
-  { to: "/forms/$formId/edit/responses", label: "Responses", badge: 2 },
-  { to: "/forms/$formId/edit/settings", label: "Settings" },
+  { to: "/forms/$formId/edit", icon: ListChecks, label: "Questions", badge: 2 },
+  { to: "/forms/$formId/edit/logic", icon: GitBranch, label: "Logic and endings", badge: 1 },
+  { to: "/forms/$formId/edit/responses", icon: Inbox, label: "Responses", badge: 2 },
+  { to: "/forms/$formId/edit/settings", icon: Settings, label: "Settings" },
 ];
 
 const tree: NavigationNode<NavItem> = {
@@ -89,7 +89,7 @@ describe("sub-navigation: default is the legacy section (opt-in)", () => {
       "Responses",
       "Settings",
     ]);
-    expect(links[0]!.textContent).toBe("QQuestions");
+    expect(links[0]!.textContent).toBe("Questions");
   });
 });
 
@@ -129,8 +129,8 @@ describe("sub-navigation: tabs", () => {
           path: "/forms/$formId",
           label: "Form",
           items: [
-            { to: "/forms/$formId?tab=questions", label: "Questions" },
-            { to: "/forms/$formId?tab=responses", label: "Responses" },
+            { to: "/forms/$formId?tab=questions", icon: ListChecks, label: "Questions" },
+            { to: "/forms/$formId?tab=responses", icon: Inbox, label: "Responses" },
           ],
         },
       ],
@@ -286,8 +286,7 @@ describe("sub-navigation: sidebar", () => {
     // Directly under the Forms row.
     const forms = sidebar().getByRole("link", { name: "Forms" });
     expect(group.parentElement).toBe(forms.parentElement);
-    // Items without an icon show their first letter.
-    expect(currentIn(within(group))).toEqual(["RResponses2"]);
+    expect(currentIn(within(group))).toEqual(["Responses2"]);
   });
 
   it("shows them in a flyout from the active item on the collapsed rail", () => {
@@ -296,12 +295,12 @@ describe("sub-navigation: sidebar", () => {
     const flyout = screen.getByTestId("nav-rail-popover-Forms");
     expect(within(flyout).getAllByRole("link").map((a) => a.textContent)).toEqual([
       "Forms",
-      "QQuestions2",
-      "LLogic and endings1",
-      "RResponses2",
-      "SSettings",
+      "Questions2",
+      "Logic and endings1",
+      "Responses2",
+      "Settings",
     ]);
-    expect(currentIn(within(flyout))).toEqual(["QQuestions2"]);
+    expect(currentIn(within(flyout))).toEqual(["Questions2"]);
   });
 
   it("can be set on the navigation node", () => {
@@ -322,6 +321,54 @@ describe("sub-navigation: off", () => {
     expect(screen.queryByTestId("app-shell-contextual-nav")).toBeNull();
     expect(bottomBar().getAllByRole("link").map((a) => a.textContent)).toEqual(["Home", "Clients", "Forms"]);
     expect(screen.queryByTestId("app-shell-mobile-back")).toBeNull();
+  });
+});
+
+describe("phone bar vs an app-wide mobileNavItems", () => {
+  const appBar: NavItem[] = [
+    { to: "/", icon: Home, label: "Home", end: true },
+    { to: "/forms", icon: ClipboardList, label: "Forms" },
+  ];
+
+  it("tabs / sidebar: a page's children win on that page, mobileNavItems elsewhere", () => {
+    for (const mode of ["tabs", "sidebar"] as const) {
+      const { unmount, rerender } = renderShell("/forms/f1/edit", { subNav: mode, mobileNavItems: appBar });
+      expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => a.getAttribute("aria-label"))).toEqual([
+        "Back to Forms",
+        "Questions (2)",
+        "Logic and endings (1)",
+        "Responses (2)",
+        "Settings",
+      ]);
+      rerender(
+        <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath="/clients" subNav={mode} mobileNavItems={appBar}>
+          <div>content</div>
+        </AppShell>,
+      );
+      expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => a.textContent)).toEqual(["Home", "Forms"]);
+      unmount();
+    }
+  });
+
+  it("the page's hook children win too", () => {
+    function Page() {
+      useAppShellSubNav([{ to: "/forms/f1/edit", label: "Only tab", end: true }]);
+      return null;
+    }
+    renderShell("/forms/f1/edit", { mobileNavItems: appBar, children: <Page /> });
+    expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => a.getAttribute("aria-label"))).toEqual([
+      "Back to Forms",
+      "Only tab",
+    ]);
+  });
+
+  it("section / off: mobileNavItems still wins, as before", () => {
+    for (const mode of ["section", "off"] as const) {
+      const { unmount } = renderShell("/forms/f1/edit", { subNav: mode, mobileNavItems: appBar });
+      expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => a.textContent)).toEqual(["Home", "Forms"]);
+      expect(screen.queryByTestId("app-shell-mobile-back")).toBeNull();
+      unmount();
+    }
   });
 });
 
@@ -357,10 +404,14 @@ describe("sub-navigation on phones", () => {
     expect(bottomBar().getAllByRole("link").map((a) => a.textContent)).toEqual(["Home", "Clients", "Forms"]);
   });
 
-  it("shows the label's first letter for an item without an icon", () => {
-    renderShell("/forms/f1/edit");
+  it("shows the label's first letter for a page's item without an icon", () => {
+    function Page() {
+      useAppShellSubNav([{ to: "/forms/f1/edit", label: "Questions", badge: 2, end: true }]);
+      return null;
+    }
+    renderShell("/forms/f1/edit", { children: <Page /> });
     const questions = bottomBar().getByRole("link", { name: "Questions (2)" });
-    expect(questions.textContent).toContain("Q");
+    expect(questions.textContent).toBe("Q2Questions");
   });
 });
 
@@ -427,10 +478,9 @@ describe("page header slot: AppShellPageHeader", () => {
     expect(within(header()).getByRole("heading").textContent).toBe("Layout");
   });
 
-  it("changes nothing when no header is mounted", () => {
+  it("adds no markup when no header is mounted", () => {
     renderShell("/forms/f1/edit");
-    expect(header().childNodes).toHaveLength(0);
-    expect(header().className).toBe("");
+    expect(screen.queryByTestId("app-shell-page-header")).toBeNull();
   });
 
   it("sits at the top of the content in the default section mode", () => {

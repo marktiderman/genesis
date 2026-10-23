@@ -5,6 +5,7 @@
  * precedence (controlled > user choice > page default > app default).
  */
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import type React from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ClipboardList, Home, Layers, PencilRuler, Users } from "lucide-react";
 
@@ -12,6 +13,8 @@ import { AppShell, type NavItem } from "../AppShell";
 import type { NavigationNode } from "../../../navigation";
 
 const chrome = { showThemeToggle: false, configurable: false };
+// The `[` shortcut is opt-in; tests that press it turn it on.
+const withKey = { ...chrome, collapseShortcut: "[" as const };
 
 const items: NavItem[] = [
   { to: "/", icon: Home, label: "Home", end: true },
@@ -63,7 +66,7 @@ beforeEach(() => {
 });
 
 describe("AppShell collapsible sidebar", () => {
-  it("expanded: icon + label rows, collapse beside the logo with aria-expanded", () => {
+  it("expanded: icon + label rows, collapse beside the logo with its pre-existing markup", () => {
     render(
       <AppShell appName="Breakthrough" appLogo="B" navItems={items} activePath="/clients" options={chrome}>
         <div>content</div>
@@ -72,16 +75,20 @@ describe("AppShell collapsible sidebar", () => {
     expect(isCollapsed()).toBe(false);
     expect(within(sidebar()).getByText("Clients")).toBeTruthy();
     const button = toggle();
-    expect(button.getAttribute("aria-expanded")).toBe("true");
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    expect(button.getAttribute("title")).toBe("Collapse sidebar");
     expect(button.getAttribute("aria-label")).toBe("Collapse sidebar");
-    expect(button.getAttribute("aria-controls")).toBe(sidebar().id);
-    expect(button.getAttribute("aria-keyshortcuts")).toBe("[");
+    expect(button.hasAttribute("aria-expanded")).toBe(false);
+    // No shortcut unless the app turns one on.
+    expect(button.hasAttribute("aria-keyshortcuts")).toBe(false);
+    expect(sidebar().hasAttribute("id")).toBe(false);
+    expect(sidebar().hasAttribute("aria-label")).toBe(false);
     // Beside the logo: in the header row, before the nav.
     const nav = within(sidebar()).getByRole("navigation", { name: "Main" });
     expect(button.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("collapsed: 64px rail, logo mark, named icon links, expand button after the nav", () => {
+  it("collapsed: 56px rail, logo mark, named icon links, expand button after the nav", () => {
     render(
       <AppShell appName="Breakthrough" appLogo="B" navItems={items} activePath="/clients" options={chrome}>
         <div>content</div>
@@ -89,7 +96,7 @@ describe("AppShell collapsible sidebar", () => {
     );
     fireEvent.click(toggle());
     expect(isCollapsed()).toBe(true);
-    expect(sidebar().className).toContain("md:w-16");
+    expect(sidebar().className).toContain("md:w-14");
     expect(within(sidebar()).getByText("B")).toBeTruthy();
     expect(within(sidebar()).queryByText("Breakthrough")).toBeNull();
 
@@ -98,10 +105,47 @@ describe("AppShell collapsible sidebar", () => {
     expect(within(sidebar()).getByRole("link", { name: "Home" })).toBeTruthy();
 
     const button = toggle();
-    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    expect(button.getAttribute("title")).toBe("Expand sidebar");
     expect(button.getAttribute("aria-label")).toBe("Expand sidebar");
     const nav = within(sidebar()).getByRole("navigation", { name: "Main" });
     expect(nav.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("is 64px when collapsedRailWidth asks for it", () => {
+    render(
+      <AppShell appName="Breakthrough" navItems={items} collapsed options={{ ...chrome, collapsedRailWidth: 64 }}>
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(sidebar().className).toContain("md:w-16");
+  });
+
+  it("announces a disabled rail item as a disabled link", () => {
+    render(
+      <AppShell
+        appName="Breakthrough"
+        navItems={[...items, { to: "/data", icon: Layers, label: "Data", disabled: true }]}
+        collapsed
+        options={chrome}
+      >
+        <div>content</div>
+      </AppShell>,
+    );
+    const data = within(sidebar()).getByRole("link", { name: "Data" });
+    expect(data.tagName).toBe("SPAN");
+    expect(data.getAttribute("aria-disabled")).toBe("true");
+    expect(data.hasAttribute("href")).toBe(false);
+  });
+
+  it("titles the toggle with the shortcut when one is on", () => {
+    render(
+      <AppShell appName="Breakthrough" navItems={items} options={withKey}>
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(toggle().getAttribute("title")).toBe("Collapse sidebar ([)");
+    expect(toggle().getAttribute("aria-keyshortcuts")).toBe("[");
   });
 
   it("falls back to the app name's first letter when there is no logo", () => {
@@ -266,7 +310,7 @@ describe("AppShell collapsible sidebar", () => {
   describe("keeps keyboard focus across the collapse", () => {
     it("clicking the toggle leaves focus on the (moved) toggle, both ways", () => {
       render(
-        <AppShell appName="Breakthrough" navItems={items} options={chrome}>
+        <AppShell appName="Breakthrough" navItems={items} options={withKey}>
           <div>content</div>
         </AppShell>,
       );
@@ -282,7 +326,7 @@ describe("AppShell collapsible sidebar", () => {
 
     it("pressing [ on a sidebar link keeps focus on that link", () => {
       render(
-        <AppShell appName="Breakthrough" navItems={items} options={chrome}>
+        <AppShell appName="Breakthrough" navItems={items} options={withKey}>
           <div>content</div>
         </AppShell>,
       );
@@ -299,7 +343,7 @@ describe("AppShell collapsible sidebar", () => {
 
     it("falls back to the toggle when the focused link isn't on the rail", () => {
       render(
-        <AppShell appName="Breakthrough" navItems={items} activePath="/library/lessons" options={chrome}>
+        <AppShell appName="Breakthrough" navItems={items} activePath="/library/lessons" options={withKey}>
           <div>content</div>
         </AppShell>,
       );
@@ -310,9 +354,26 @@ describe("AppShell collapsible sidebar", () => {
       expect(document.activeElement).toBe(toggle());
     });
 
+    it("restores focus when a route's defaultCollapsed collapses the sidebar", () => {
+      const shell = (path: string) => (
+        <AppShell appName="Breakthrough" navigation={tree} activePath={path} options={chrome}>
+          <div>content</div>
+        </AppShell>
+      );
+      const { rerender } = render(shell("/forms"));
+      expect(isCollapsed()).toBe(false);
+      // The user clicked "Forms" (focus on it); the route below asks for the rail.
+      within(sidebar()).getByRole("link", { name: "Forms" }).focus();
+      rerender(shell("/forms/f1/edit"));
+      expect(isCollapsed()).toBe(true);
+      const focused = document.activeElement as HTMLElement;
+      expect(focused.getAttribute("href")).toBe("/forms");
+      expect(sidebar().contains(focused)).toBe(true);
+    });
+
     it("leaves focus alone when it was outside the sidebar", () => {
       render(
-        <AppShell appName="Breakthrough" navItems={items} options={chrome}>
+        <AppShell appName="Breakthrough" navItems={items} options={withKey}>
           <button type="button">page action</button>
         </AppShell>,
       );
@@ -325,12 +386,53 @@ describe("AppShell collapsible sidebar", () => {
   });
 
   describe("[ shortcut", () => {
-    const renderShell = (extra?: { collapseShortcut?: string | false }) =>
+    const renderShell = (extra?: { collapseShortcut?: string | false }, children?: React.ReactNode) =>
       render(
-        <AppShell appName="Breakthrough" navItems={items} options={{ ...chrome, ...extra }}>
+        <AppShell appName="Breakthrough" navItems={items} options={{ ...withKey, ...extra }}>
           <input aria-label="Title" />
+          {children}
         </AppShell>,
       );
+
+    it("is off by default", () => {
+      render(
+        <AppShell appName="Breakthrough" navItems={items} options={chrome}>
+          <div>content</div>
+        </AppShell>,
+      );
+      fireEvent.keyDown(window, { key: "[" });
+      expect(isCollapsed()).toBe(false);
+    });
+
+    it("is skipped while a dialog is open", () => {
+      renderShell(undefined, <div role="dialog" data-state="open" aria-label="Edit" />);
+      fireEvent.keyDown(window, { key: "[" });
+      expect(isCollapsed()).toBe(false);
+    });
+
+    it("is skipped while an aria-modal element is open", () => {
+      renderShell(undefined, <div aria-modal="true" />);
+      fireEvent.keyDown(window, { key: "[" });
+      expect(isCollapsed()).toBe(false);
+    });
+
+    it("is skipped while a listbox, combobox or menu has focus (typeahead)", () => {
+      renderShell(
+        undefined,
+        <>
+          <div role="listbox" aria-label="Options" tabIndex={0}>
+            <div role="option" aria-selected="false" tabIndex={-1}>One</div>
+          </div>
+          <button type="button" role="combobox" aria-expanded="false" aria-controls="x">Pick</button>
+          <div role="menu" aria-label="Actions" tabIndex={0} />
+        </>,
+      );
+      fireEvent.keyDown(screen.getByRole("listbox"), { key: "[" });
+      fireEvent.keyDown(screen.getByRole("option"), { key: "[" });
+      fireEvent.keyDown(screen.getByRole("combobox"), { key: "[" });
+      fireEvent.keyDown(screen.getByRole("menu"), { key: "[" });
+      expect(isCollapsed()).toBe(false);
+    });
 
     it("toggles the sidebar", () => {
       renderShell();
