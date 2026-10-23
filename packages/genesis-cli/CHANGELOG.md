@@ -1,5 +1,23 @@
 # @marktiderman/genesis-cli
 
+## 1.3.0
+
+### Minor Changes
+
+- ed8083f: `genesis features build|check|find`. `build` writes everything generated from the repo's `features.ts`: the AGENTS.md pointer, `features.json`, the OpenFeature `flags.json`, the agent skill and an optional marketing block, and adds `@AGENTS.md` to CLAUDE.md. `check` fails CI on stale output, missing code paths, the flag rules, removed ids and unknown feature tags (`--labels` checks a PR's `feature:<id>` labels), and warns on the rest; `--summary` is for a SessionStart hook. `find <term>` searches the registry. Settings live in package.json under `genesisFeatures`.
+
+  Features: feature-registry
+
+### Patch Changes
+
+- ed8083f: `genesis features check --prs` also reads merged PRs labelled `feature:<id>` for the planned features (one `gh pr list --search` per ten labels, with a 15-second timeout), and warns when one already shipped. When `gh` is missing, times out or fails, one warning gives the reason from `gh`'s stderr, `--summary` repeats it, and only changesets are checked. `--summary` counts planned features with shipped work.
+
+  Features: feature-evidence
+
+- Updated dependencies [ed8083f]
+- Updated dependencies [ed8083f]
+  - @marktiderman/genesis-features@0.1.1
+
 ## 1.2.0
 
 ### Minor Changes
