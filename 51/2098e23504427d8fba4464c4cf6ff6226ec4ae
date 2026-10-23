@@ -1,0 +1,101 @@
+packages/forms-studio/src/__tests__/partial.test.tsx
+  s_7baae891ebd9ae::t_bccf94b835e400 1-145
+packages/forms/src/__tests__/progress.test.ts
+  s_7baae891ebd9ae::t_d0f2a23591ae03 64-90
+  s_7baae891ebd9ae::t_bc0229bd3bb11f 1-63,91-95
+packages/forms-builder/src/__tests__/save-progress.test.tsx
+  s_7baae891ebd9ae::t_b91da7c1b8b63a 1-41
+.changeset/forms-partial-responses.md
+  s_7baae891ebd9ae::t_fc00a52f9515d9 1-9,11-13
+  s_7baae891ebd9ae::t_3110eb2fe0d1be 10
+packages/forms-web/README.md
+  s_7baae891ebd9ae::t_bab7a938bc2cbd 53-65
+packages/forms/src/index.ts
+  s_7baae891ebd9ae::t_0bdb039316e3e2 36
+packages/forms-studio/README.md
+  s_7baae891ebd9ae::t_97338f34aafb1e 61-69
+packages/forms-studio/src/summary.ts
+  s_7baae891ebd9ae::t_49fbe9b0454dc8 14-20,30-63
+  s_7baae891ebd9ae::t_146e678e91611c 409
+  s_7baae891ebd9ae::t_dae898d602f7ca 468-469,487-493
+  s_7baae891ebd9ae::t_dfaea07bbed691 384-385,388,395
+packages/forms-studio/src/DropOffByQuestion.tsx
+  s_7baae891ebd9ae::t_4fbfc90ace150b 1-67
+packages/forms-studio/src/rules.ts
+  s_7baae891ebd9ae::t_f4ed27308146bf 44
+  s_7baae891ebd9ae::t_83872613113577 29-33
+packages/forms/src/parse.ts
+  s_7baae891ebd9ae::t_6358e411d5651b 225
+packages/forms-studio/src/dropoff.ts
+  s_7baae891ebd9ae::t_f636c8cc75c8d1 1-66
+packages/forms/src/engine.ts
+  s_7baae891ebd9ae::t_edbba0d4e4334d 20,23,40-48
+  s_7baae891ebd9ae::t_fb109fc560c50c 339-350
+  s_7baae891ebd9ae::t_b3e9951f9c1b3a 21-22
+  s_7baae891ebd9ae::t_baec89342b76ba 24
+  s_8d9d469477f397::t_bcec146bbe2a19 162,282-284
+packages/forms-studio/src/ResponsesFilters.tsx
+  s_7baae891ebd9ae::t_da9bcadc1f330c 102-119
+  s_7baae891ebd9ae::t_86e532f7d53914 11-12
+  s_7baae891ebd9ae::t_424334a2145bfc 39-42,50,53-54
+packages/forms-builder/src/settings.tsx
+  s_7baae891ebd9ae::t_c25a54ae0841d8 174-175,177-184
+  s_7baae891ebd9ae::t_5e3b2d91ebbde9 262-273
+packages/forms-web/src/Form.tsx
+  s_7baae891ebd9ae::t_2441814104e178 518-521
+  s_7baae891ebd9ae::t_69ac1ec55ebff0 860-866
+  s_7baae891ebd9ae::t_b473f535bc38c4 16-23
+  s_7baae891ebd9ae::t_234b83b6d8349e 1054,1058
+  s_7baae891ebd9ae::t_fc1c929344ae03 1029
+  s_7baae891ebd9ae::t_4ad34e48f2ec23 478-493
+  s_7baae891ebd9ae::t_8a7a6ff9bacd79 1043
+  s_7baae891ebd9ae::t_2d4bb84f95cd4c 626-676
+  s_7baae891ebd9ae::t_1b15dc7f04c58a 571-572
+packages/forms-web/src/index.ts
+  s_7baae891ebd9ae::t_bb9cdc04808918 3-4
+packages/forms/src/progress.ts
+  s_7baae891ebd9ae::t_1a333c674e2505 8-9,13-14,20-22,28-30,36,38-39,48-50,56,58-59
+  s_7baae891ebd9ae::t_15c77318125508 1-7,10-12,15-19,23-27,31-35,37,40-47,51-55,57,60-62
+packages/forms-studio/src/headline.ts
+  s_7baae891ebd9ae::t_0e77fe8bfa742e 108
+  s_7baae891ebd9ae::t_fd2757a5b9f85a 65
+  s_7baae891ebd9ae::t_9c1986d4b52b81 22
+  s_7baae891ebd9ae::t_5bb1e33876d8d1 168-175
+  s_7baae891ebd9ae::t_2a455d3461a1cd 200-201,208-210,213-215
+  s_7baae891ebd9ae::t_63eadfb33727e4 23
+packages/forms/README.md
+  s_7baae891ebd9ae::t_9bed66fa7bae97 70-71
+  s_7baae891ebd9ae::t_4636279c39f3b5 65-69
+packages/forms-web/src/__tests__/progress.test.tsx
+  s_7baae891ebd9ae::t_3b9b05745ee007 1-134
+packages/forms-builder/src/ops.ts
+  s_7baae891ebd9ae::t_89b13863a0af35 715-716,718
+packages/forms-studio/src/index.ts
+  s_7baae891ebd9ae::t_9c1f02e86c1f75 25
+packages/forms/src/types.ts
+  s_7baae891ebd9ae::t_51e049ad7f77ac 112-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "512098e23504427d8fba4464c4cf6ff6226ec4ae",
+  "prompts": {},
+  "sessions": {
+    "s_7baae891ebd9ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "978228ed-47c3-4e1c-a76c-34946b2a80b1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_8d9d469477f397": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a16360eae1ab7529b",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

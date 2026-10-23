@@ -1,0 +1,55 @@
+packages/forms-builder/src/flow.tsx
+  s_3daa86e3ae6031::t_0c4a08cc53ad81 1-256
+packages/forms-builder/src/__tests__/redesign.test.tsx
+  s_3daa86e3ae6031::t_76776af88c2827 1-275
+packages/forms-builder/src/type-icons.tsx
+  s_3daa86e3ae6031::t_81a0530724145a 1-64
+.changeset/form-builder-redesign.md
+  s_3daa86e3ae6031::t_6bf5d0f2c93470 1-12
+apps/sample/stories/FormBuilder.stories.tsx
+  s_3daa86e3ae6031::t_57fb10b5fbe745 1-74
+packages/forms-builder/README.md
+  s_3daa86e3ae6031::t_587c1bb42c9c1b 46-66,90-123
+packages/forms-builder/src/FormBuilder.tsx
+  s_3daa86e3ae6031::t_347fda2d3273c6 10,26,55-68,165-192,244-247,304-311,313,319-329,367-380,388-393,405,447,455-467,469-480,482-503,511-524
+packages/forms-builder/src/__tests__/builder.test.tsx
+  s_3daa86e3ae6031::t_c90f1c452ab575 83,88-90,136-139,146-147
+packages/forms-builder/src/__tests__/gaps.test.tsx
+  s_3daa86e3ae6031::t_7d607769e64492 88
+packages/forms-builder/src/__tests__/readonly.test.tsx
+  s_3daa86e3ae6031::t_dcc1a42abf78b8 83-85
+packages/forms-builder/src/__tests__/round3.test.tsx
+  s_3daa86e3ae6031::t_bf4b8fd0c82752 139-140,164-165
+packages/forms-builder/src/analyze.ts
+  s_3daa86e3ae6031::t_c4ac115dd80dbe 30-32,37-46,164-166,168,171,191,198,201,205
+packages/forms-builder/src/controls.tsx
+  s_3daa86e3ae6031::t_ee1938a98dee15 1-12,18,46-62,70,77-78,80-87,90,112-117,134,137,139,318-319,360-367,383-396,407-464
+packages/forms-builder/src/history.ts
+  s_3daa86e3ae6031::t_bd941da5dc36bf 68-69,105,110,118
+packages/forms-builder/src/index.ts
+  s_3daa86e3ae6031::t_2738dee2fdbcdc 5,19,23-24,37-38
+packages/forms-builder/src/logic.tsx
+  s_3daa86e3ae6031::t_cbae8dbbb3c297 1-2,21-28,34,49,155-181,186,198-215,217,222-267,269-370,375-473,564-566,572-579,585-595,600-656,708,715-716,722-723,726,734-735,752,755,794,835,853,879,891,904
+packages/forms-builder/src/preview.tsx
+  s_3daa86e3ae6031::t_2e737e44ce6de7 2,17-18,62,110-123,125-135,137-144,173
+packages/forms-builder/src/questions.tsx
+  s_3daa86e3ae6031::t_e17e38fb903ff4 1-2,28-29,32-33,186,192,209,262-283,291-292,300-303,305,310-316,321,330-336,339-346,351,353-443,448-527,530,532,534,538,540-542,544-652,655-657,668-669,671-723,727-730,732-738,766-819,844-851,853,857-863,865,872,878-883,895-900,912-916,918,925-929,931,942-961,963-971,973-979,981-982,984-988,990-1032
+packages/forms-builder/src/settings.tsx
+  s_3daa86e3ae6031::t_9a4bbbee6a91ef 1-2,12,17,29-41,45-46,48-55,58,60-100,102-109,113-124,126,131-135,137-147,149-159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "665423ba4fb7218d758a6d05ba97a529d006e22d",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
