@@ -50,8 +50,14 @@ const fields = (def: FormDefinition) =>
   new Map(def.blocks.filter((b): b is FieldBlock => b.kind === "field").map((b) => [b.id, b]));
 
 /** A field's props without its options, which are compared one by one. */
+/** Props that are only wording or looks: changing them never makes an earlier answer not fit. */
+const PRESENTATION_PROPS = ["lowLabel", "highLabel", "display", "text"] as const;
+const presentation = (b: FieldBlock) =>
+  Object.fromEntries(PRESENTATION_PROPS.flatMap((k) => (b.props?.[k] !== undefined ? [[k, b.props[k]]] : [])));
+
 const withoutOptions = (props: FieldBlock["props"]) => {
   const { options: _options, ...rest } = props ?? {};
+  for (const k of PRESENTATION_PROPS) delete rest[k];
   return rest;
 };
 
@@ -106,6 +112,7 @@ export function diffDefinitions(before: FormDefinition, after: FormDefinition): 
     }
     if ((old.description ?? "") !== (next.description ?? "")) wording.add("question descriptions");
     if ((old.placeholder ?? "") !== (next.placeholder ?? "")) wording.add("placeholders");
+    if (old.type === next.type && !same(presentation(old), presentation(next))) wording.add("question settings");
     if (old.type === next.type && !same(withoutOptions(old.props), withoutOptions(next.props))) {
       const oldMax = old.props?.max;
       const newMax = next.props?.max;

@@ -12,7 +12,7 @@ import {
   type ParseResult,
 } from "@marktiderman/genesis-forms";
 import type { RendererRegistry } from "@marktiderman/genesis-forms-react";
-import { Form, type FormBrand } from "@marktiderman/genesis-forms-web";
+import { Form, type FormBrand, type FormTheme } from "@marktiderman/genesis-forms-web";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@marktiderman/genesis-ui/toggle-group";
 import { structureFingerprint } from "./analyze";
@@ -30,6 +30,8 @@ export function Preview({
   hidden,
   registry,
   validators,
+  theme,
+  submitLabel,
 }: {
   def: FormDefinition;
   /** `parseForm(def)`, when the caller already has it. */
@@ -41,6 +43,10 @@ export function Preview({
   registry?: RendererRegistry | undefined;
   /** Custom validators by field id, for the preview's engine. Read when a response starts (or Restart). */
   validators?: Record<string, FieldValidator> | undefined;
+  /** The form's accent colour and header image (`<Form theme>`). */
+  theme?: FormTheme | undefined;
+  /** The send button's word (`<Form submitLabel>`). Default "Send", as in `<Form>`. */
+  submitLabel?: string | undefined;
 }) {
   const mode = def.layout?.mode ?? "focus";
   const [layout, setLayout] = useState<"focus" | "classic">(mode);
@@ -121,7 +127,15 @@ export function Preview({
             </div>
           ) : form && engine ? (
             // No onSubmit: a completed engine then shows its ending, also after a wording edit remounts it.
-            <Form form={form} engine={engine} layout={layout} brand={brand} {...(registry ? { registry } : {})} />
+            <Form
+              form={form}
+              engine={engine}
+              layout={layout}
+              brand={brand}
+              theme={theme}
+              {...(submitLabel ? { submitLabel } : {})}
+              {...(registry ? { registry } : {})}
+            />
           ) : (
             <div className="space-y-2 p-4 text-sm">
               <p className="font-medium">The preview starts once the form is valid.</p>

@@ -14,22 +14,26 @@ import {
 import { AlertTriangle, CircleCheck, Eye, Info, Redo2, Undo2, XCircle } from "lucide-react";
 import { parseForm, type FieldValidator, type FormDefinition, type ParseResult } from "@marktiderman/genesis-forms";
 import type { RendererRegistry } from "@marktiderman/genesis-forms-react";
-import type { FormBrand } from "@marktiderman/genesis-forms-web";
+import type { FormBrand, FormTheme } from "@marktiderman/genesis-forms-web";
 import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@marktiderman/genesis-ui/tabs";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { analyze, type Analysis, type Finding } from "./analyze";
+import { ChecksContext, visibleFindings, type ChecksState } from "./checks";
 import { createDraftRegistry, DraftsContext } from "./controls";
 import { BuilderConfigContext, type Apply, type BlockKinds, type BuilderConfig, type FieldPreset, type FieldTypeEditor } from "./editors";
 import { useBuilderHistory } from "./history";
-import { LogicPanel } from "./logic";
 import { updateForm, ruleRefs } from "./ops";
 import { Preview } from "./preview";
 import { QuestionsPanel } from "./questions";
-import { EndingsPanel, JsonPanel, SettingsPanel } from "./settings";
+import { JsonPanel, LogicAndEndingsPanel, SettingsPanel } from "./settings";
 
+/**
+ * The builder's panels. `"logic"` is the one "Logic and endings" panel;
+ * `"endings"` is kept as another name for it.
+ */
 export type BuilderTab = "questions" | "logic" | "endings" | "settings" | "json";
 
 /** Read and commit the builder's value from the host, for example from a ref in a Publish handler. */
@@ -40,6 +44,12 @@ export interface FormBuilderHandle {
   getAnalysis(): Analysis;
   /** Commit text still being typed in fields that save on blur (keys, hidden input names, numbers), then return `getValue()`. */
   flush(): FormDefinition;
+  /**
+   * Show every check, including the "needs a title" error of a question just
+   * added whose title field the author has not left yet. Call it when someone
+   * tries to publish, so what blocks publishing is on screen.
+   */
+  revealChecks(): void;
 }
 
 /** The third argument of `actions`: the handle, plus whether the analysis passed in is behind the value. */
@@ -94,6 +104,10 @@ export interface FormBuilderProps {
   previewValidators?: Record<string, FieldValidator> | undefined;
   /** An organisation or business's name and logo for the preview. */
   brand?: FormBrand | undefined;
+  /** The accent colour and header image for the preview (`<Form theme>`). */
+  theme?: FormTheme | undefined;
+  /** The preview's send button word, as the live form uses it (`<Form submitLabel>`). Default "Send". */
+  submitLabel?: string | undefined;
   /** Sample hidden-input values for the preview. */
   previewHidden?: Record<string, string | number | boolean> | undefined;
   /**
@@ -106,7 +120,24 @@ export interface FormBuilderProps {
   readOnly?: boolean | undefined;
   /** Hide the JSON tab from non-technical authors. Default true (shown). */
   showJson?: boolean | undefined;
+  /** The panel shown first, when `tab` is not set. Default `"questions"`. */
   defaultTab?: BuilderTab | undefined;
+  /**
+   * The panel shown, for a host that controls it (with `onTabChange`), for
+   * example from its own row of tabs with `tabs={false}`.
+   */
+  tab?: BuilderTab | undefined;
+  /** Called when the builder wants another panel: its own tab bar, or a check that points at a rule or an ending. */
+  onTabChange?: ((tab: BuilderTab) => void) | undefined;
+  /**
+   * Show the builder's own row of tabs. `false` hides it, so a host can put
+   * Questions, Logic and endings and Settings in its own single row of tabs
+   * and pass the chosen one as `tab`. The title, checks and preview stay.
+   * Default true.
+   */
+  tabs?: boolean | undefined;
+  /** The host's own settings, shown under the builder's form settings, so a form has one Settings panel. */
+  settingsExtra?: ReactNode | undefined;
   className?: string | undefined;
 }
 
@@ -147,10 +178,16 @@ export function FormBuilder({
   previewRegistry,
   previewValidators,
   brand,
+  theme,
+  submitLabel,
   previewHidden,
   readOnly = false,
   showJson = true,
   defaultTab = "questions",
+  tab: controlledTab,
+  onTabChange,
+  tabs = true,
+  settingsExtra,
   className,
 }: FormBuilderProps) {
   // Edits are reported as they are made, never for the initial value (also under StrictMode).
@@ -160,8 +197,33 @@ export function FormBuilder({
   // Checks follow the edits at their own pace, so typing never waits for them.
   const analysed = useDeferredValue(def);
   const analysis = useMemo(() => analyseOnce(analysed), [analysed]);
-  const [tab, setTab] = useState<BuilderTab>(defaultTab);
+  const [ownTab, setOwnTab] = useState<BuilderTab>(defaultTab);
+  // "endings" is the merged panel's older name.
+  const tab = (controlledTab ?? ownTab) === "endings" ? "logic" : (controlledTab ?? ownTab);
+  const setTab = (next: BuilderTab) => {
+    if (controlledTab === undefined) setOwnTab(next);
+    onTabChange?.(next);
+  };
   const [selected, setSelected] = useState<string | null>(null);
+
+  // Questions added here, held back from the "needs a title" check until their title field is left.
+  const [fresh, setFresh] = useState<ReadonlySet<string>>(() => new Set());
+  const [revealed, setRevealed] = useState(false);
+  const checks = useMemo<ChecksState>(
+    () => ({
+      fresh,
+      revealed,
+      markFresh: (id) => setFresh((s) => new Set(s).add(id)),
+      touch: (id) =>
+        setFresh((s) => {
+          if (!s.has(id)) return s;
+          const next = new Set(s);
+          next.delete(id);
+          return next;
+        }),
+    }),
+    [fresh, revealed],
+  );
 
   const [drafts] = useState(createDraftRegistry);
   const readOnlyNoteId = useId();
@@ -181,6 +243,7 @@ export function FormBuilder({
         drafts.flush();
         return history.get();
       },
+      revealChecks: () => setRevealed(true),
     }),
     [history.get, drafts],
   );
@@ -218,20 +281,25 @@ export function FormBuilder({
     return (id: string) => counts.get(id) ?? 0;
   }, [def.logic]);
 
-  const errors = analysis.findings.filter((f) => f.level === "error").length;
-  const warnings = analysis.findings.filter((f) => f.level === "warning").length;
+  const shown = useMemo(() => visibleFindings(analysis.findings, checks), [analysis.findings, checks]);
+  const noQuestions = analysis.findings.some((f) => f.code === "no-questions");
+  const errors = shown.filter((f) => f.level === "error").length;
+  const warnings = shown.filter((f) => f.level === "warning").length;
+  // Errors held back (a new question still being written): not ready, but nothing to fix yet.
+  const pending = !errors && analysis.findings.some((f) => f.level === "error");
 
   const jumpTo = (f: Finding) => {
     if (!f.ref) return;
     if (f.ref.kind === "block") {
       setTab("questions");
       setSelected(f.ref.id);
-    } else setTab(f.ref.kind === "rule" ? "logic" : "endings");
+    } else setTab("logic");
   };
 
   return (
     <BuilderConfigContext.Provider value={config}>
     <DraftsContext.Provider value={drafts}>
+    <ChecksContext.Provider value={checks}>
     <div
       className={cn("flex flex-col gap-4", className)}
       data-testid="form-builder"
@@ -261,12 +329,17 @@ export function FormBuilder({
             </Button>
           </>
         )}
-        {errors ? (
-          <Badge variant="destructive">{errors} to fix</Badge>
+        {noQuestions ? (
+          // A new form is not broken: it just asks nothing yet.
+          <Badge variant="muted" data-testid="builder-status">Add a question</Badge>
+        ) : errors ? (
+          <Badge variant="destructive" data-testid="builder-status">{errors} to fix</Badge>
+        ) : pending ? (
+          <Badge variant="muted" data-testid="builder-status">In progress</Badge>
         ) : warnings ? (
-          <Badge variant="warning">{warnings} to check</Badge>
+          <Badge variant="warning" data-testid="builder-status">{warnings} to check</Badge>
         ) : (
-          <Badge variant="success">
+          <Badge variant="success" data-testid="builder-status">
             <CircleCheck className="mr-1 size-3" /> Ready
           </Badge>
         )}
@@ -282,37 +355,36 @@ export function FormBuilder({
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
-        <Tabs defaultValue={defaultTab} value={tab} onValueChange={(v) => setTab(v as BuilderTab)} className="min-w-0">
-          <TabsList className="flex w-full flex-wrap justify-start">
-            <TabsTrigger value="questions">Questions</TabsTrigger>
-            <TabsTrigger value="logic">
-              Logic{def.logic?.length ? ` (${def.logic.length})` : ""}
-            </TabsTrigger>
-            <TabsTrigger value="endings">Endings</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-            {showJson ? <TabsTrigger value="json">JSON</TabsTrigger> : null}
-          </TabsList>
-          <TabsContent value="questions" className="mt-4">
+        <Tabs defaultValue={tab} value={tab} onValueChange={(v) => setTab(v as BuilderTab)} className="min-w-0">
+          {tabs ? (
+            <TabsList className="flex w-full flex-wrap justify-start">
+              <TabsTrigger value="questions">Questions</TabsTrigger>
+              <TabsTrigger value="logic">
+                Logic and endings{def.logic?.length ? ` (${def.logic.length})` : ""}
+              </TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+              {showJson ? <TabsTrigger value="json">JSON</TabsTrigger> : null}
+            </TabsList>
+          ) : null}
+          <TabsContent value="questions" className={tabs ? "mt-4" : "mt-0"}>
             <QuestionsPanel
               def={def}
               apply={apply}
               selected={selected}
               onSelect={setSelected}
-              findings={analysis.findings}
+              findings={shown}
               ruleCount={ruleCount}
             />
           </TabsContent>
-          <TabsContent value="logic" className="mt-4">
-            <LogicPanel def={def} apply={apply} findings={analysis.findings} />
+          <TabsContent value="logic" className={tabs ? "mt-4" : "mt-0"}>
+            <LogicAndEndingsPanel def={def} apply={apply} findings={shown} />
           </TabsContent>
-          <TabsContent value="endings" className="mt-4">
-            <EndingsPanel def={def} apply={apply} findings={analysis.findings} />
-          </TabsContent>
-          <TabsContent value="settings" className="mt-4">
+          <TabsContent value="settings" className={tabs ? "mt-4" : "mt-0"}>
             <SettingsPanel def={def} apply={apply} />
+            {settingsExtra ? <div className="mt-6" data-testid="builder-settings-extra">{settingsExtra}</div> : null}
           </TabsContent>
           {showJson ? (
-            <TabsContent value="json" className="mt-4">
+            <TabsContent value="json" className={tabs ? "mt-4" : "mt-0"}>
               <JsonPanel def={def} apply={apply} />
             </TabsContent>
           ) : null}
@@ -323,14 +395,17 @@ export function FormBuilder({
             def={def}
             parsed={parsed}
             brand={brand}
+            theme={theme}
+            submitLabel={submitLabel}
             hidden={previewHidden}
             registry={previewRegistry}
             validators={previewValidators}
           />
-          <FindingsList findings={analysis.findings} onJump={jumpTo} />
+          <FindingsList findings={shown} onJump={jumpTo} />
         </aside>
       </div>
     </div>
+    </ChecksContext.Provider>
     </DraftsContext.Provider>
     </BuilderConfigContext.Provider>
   );

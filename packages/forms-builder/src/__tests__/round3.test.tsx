@@ -303,7 +303,7 @@ describe("3. focus after Ctrl+Z inside the preview", () => {
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_a"));
     fireEvent.change(screen.getByTestId("builder-field-label"), { target: { value: "A, reworded" } });
     const preview = screen.getByTestId("builder-preview");
-    const submit = within(preview).getByRole("button", { name: /submit/i });
+    const submit = within(preview).getByRole("button", { name: /send/i });
     submit.focus();
     expect(document.activeElement).toBe(submit);
     fireEvent.keyDown(submit, { key: "z", ctrlKey: true });
@@ -311,7 +311,7 @@ describe("3. focus after Ctrl+Z inside the preview", () => {
     expect(submit.isConnected).toBe(false);
     expect(document.activeElement).not.toBe(document.body);
     expect(preview.contains(document.activeElement)).toBe(true);
-    expect(document.activeElement).toBe(within(preview).getByRole("button", { name: /submit/i }));
+    expect(document.activeElement).toBe(within(preview).getByRole("button", { name: /send/i }));
   });
 });
 
@@ -459,7 +459,7 @@ describe("4. custom type extensibility", () => {
     const preview = screen.getByTestId("builder-preview");
     expect(within(preview).getByText("custom renderer for w")).toBeTruthy();
     fireEvent.change(within(preview).getByLabelText("A"), { target: { value: "bad" } });
-    fireEvent.click(within(preview).getByRole("button", { name: /submit/i }));
+    fireEvent.click(within(preview).getByRole("button", { name: /send/i }));
     expect(within(preview).getByText("No bad answers.")).toBeTruthy();
   });
 });

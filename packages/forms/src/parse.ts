@@ -1,5 +1,5 @@
 import { isJson } from "./events";
-import { getFieldType } from "./fields";
+import { getFieldType, isIsoDate } from "./fields";
 import { recallRefs } from "./recall";
 import { MAX_TABLE_COLUMNS } from "./structured";
 import type { Condition, FormDefinition, Operator } from "./types";
@@ -42,7 +42,14 @@ const LITERAL_TYPE: Readonly<Record<string, "string" | "number" | "boolean">> = 
   "multi-choice": "string",
   "yes-no": "boolean",
   list: "string",
+  dropdown: "string",
+  number: "number",
+  date: "string",
+  consent: "boolean",
 };
+
+/** Field types whose answer is one of `props.options`. */
+const CHOICE_TYPES: ReadonlySet<string> = new Set(["single-choice", "multi-choice", "dropdown"]);
 
 const ORDERING: ReadonlySet<string> = new Set<Operator>(["lt", "lte", "gt", "gte"]);
 
@@ -150,6 +157,38 @@ export function parseForm(input: unknown): ParseResult {
     }
   };
 
+  const isFiniteNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  /** The props of the scale, number, date and consent types. */
+  const fieldProps = (type: string, props: Record<string, unknown>, path: string) => {
+    if (type === "rating" || type === "nps") {
+      optionalText(props.lowLabel, `${path}.lowLabel`);
+      optionalText(props.highLabel, `${path}.highLabel`);
+    }
+    if (type === "rating" && props.display !== undefined && props.display !== "numbers" && props.display !== "stars") {
+      issue(`${path}.display`, "Must be numbers or stars.");
+    }
+    if (type === "number") {
+      for (const k of ["min", "max", "step"] as const) {
+        if (props[k] !== undefined && !isFiniteNumber(props[k])) issue(`${path}.${k}`, "Must be a number.");
+      }
+      if (isFiniteNumber(props.step) && props.step <= 0) issue(`${path}.step`, "Must be above 0.");
+      if (isFiniteNumber(props.min) && isFiniteNumber(props.max) && props.min > props.max) {
+        issue(`${path}.min`, "Can't be more than the largest number.");
+      }
+    }
+    if (type === "date") {
+      for (const k of ["min", "max"] as const) {
+        if (props[k] !== undefined && !(typeof props[k] === "string" && isIsoDate(props[k]))) {
+          issue(`${path}.${k}`, "Must be a date like 2026-10-22.");
+        }
+      }
+      if (typeof props.min === "string" && typeof props.max === "string" && isIsoDate(props.min) && isIsoDate(props.max) && props.min > props.max) {
+        issue(`${path}.min`, "Can't be after the latest date.");
+      }
+    }
+    if (type === "consent") optionalText(props.text, `${path}.text`);
+  };
+
   if (!isObject(input)) {
     issue("", "A form definition must be an object.");
     return fail();
@@ -240,6 +279,7 @@ export function parseForm(input: unknown): ParseResult {
       // Checked with or without props: a table with no columns would block every submission.
       if (typeof block.type === "string" && (block.props === undefined || isObject(block.props))) {
         structuredProps(block.type, block.props ?? {}, `${path}.props`);
+        fieldProps(block.type, block.props ?? {}, `${path}.props`);
       }
       if (validKey) {
         if (keys.has(block.key as string)) issue(`${path}.key`, `Duplicate key "${String(block.key)}".`);
@@ -346,7 +386,7 @@ export function parseForm(input: unknown): ParseResult {
       const fieldType = fieldTypes.get(left.field)!;
       what = `"${keyOf(left.field)}"`;
       type = LITERAL_TYPE[fieldType];
-      if (fieldType === "single-choice" || fieldType === "multi-choice") options = choices.get(left.field);
+      if (CHOICE_TYPES.has(fieldType)) options = choices.get(left.field);
     } else if (typeof left.hidden === "string" && hiddenTypes.has(left.hidden)) {
       what = `hidden input "${left.hidden}"`;
       type = hiddenTypes.get(left.hidden);

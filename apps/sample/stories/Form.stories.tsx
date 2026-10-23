@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { defineForm, f, when } from "@marktiderman/genesis-forms";
 import { Form } from "@marktiderman/genesis-forms-web";
+import { DEMO_ACCENT, DEMO_BANNER } from "./__fixtures__/form-theme";
 
 const eventFeedback = defineForm({
   id: "event-feedback",
@@ -42,3 +43,38 @@ export const Focus: Story = {};
 
 /** Every visible question on one page. */
 export const Classic: Story = { args: { layout: "classic" } };
+
+const classBooking = defineForm({
+  id: "class-booking",
+  title: "Book a class",
+  layout: { mode: "classic" },
+  blocks: [
+    f.dropdown("class", {
+      label: "Which class?",
+      required: true,
+      options: [
+        { value: "early", label: "Early morning" },
+        { value: "evening", label: "Evening" },
+      ],
+    }),
+    f.date("day", { label: "Which day?", required: true }),
+    f.number("guests", { label: "How many guests?", min: 0, max: 5, step: 1 }),
+    f.rating("last", { label: "How was your last class?", lowLabel: "Poor", highLabel: "Great" }),
+    f.rating("stars", { label: "And as stars?", display: "stars" }),
+    f.consent("terms", { label: "Booking terms", text: "I agree to the booking terms", required: true }),
+  ],
+});
+
+/** Dropdown, date, number, end labels, stars and a consent checkbox, with "* Required". */
+export const QuestionTypes: Story = { args: { form: classBooking, options: undefined } };
+
+/** An accent colour and a header image; the accent is adjusted only as far as contrast needs. */
+export const Themed: Story = {
+  args: {
+    form: classBooking,
+    options: undefined,
+    presentation: "page",
+    brand: { name: "Acme Fitness" },
+    theme: { accent: DEMO_ACCENT, headerImage: DEMO_BANNER },
+  },
+};

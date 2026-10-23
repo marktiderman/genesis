@@ -35,7 +35,12 @@ export { createForm, replay, type CreateFormOptions, type FormEngine, type FormS
 export { computePath, evaluate, ruleVisible, steps, type PathResult } from "./logic";
 export {
   choiceOptions,
+  dateLimits,
   getFieldType,
+  isIsoDate,
+  numberLimits,
+  ratingDisplay,
+  scaleLabels,
   isEmptyValue,
   isSensitive,
   listFieldTypes,

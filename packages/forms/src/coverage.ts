@@ -109,6 +109,7 @@ function domainOf(field: FieldBlock, extra: Value[], maxOptions: number): Candid
       base = [true, false];
       break;
     case "single-choice":
+    case "dropdown":
       base = options;
       break;
     case "multi-choice": {
