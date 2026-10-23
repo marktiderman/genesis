@@ -1,6 +1,7 @@
 import type { Block, FieldBlock, Json, Operator } from "./types";
 import { calculatedFieldType } from "./calculated";
 import { structuredFieldTypes } from "./structured";
+import { photoFieldType } from "./photo";
 
 /**
  * A field type, without any UI. Renderers are registered separately per
@@ -432,4 +433,4 @@ export function dateLimits(field: FieldBlock): { min?: string; max?: string } {
   return out;
 }
 
-for (const manifest of [...builtins, ...structuredFieldTypes, calculatedFieldType]) registerFieldType(manifest);
+for (const manifest of [...builtins, ...structuredFieldTypes, calculatedFieldType, photoFieldType]) registerFieldType(manifest);

@@ -1,5 +1,6 @@
 import { fingerprint } from "./hash";
 import { parseForm } from "./parse";
+import type { PhotoFormat, PhotoRef } from "./photo";
 import type {
   Condition,
   ContentBlock,
@@ -214,6 +215,25 @@ export const f = {
       key,
       o,
       props({ text: o.text, maxHighlights: o.maxHighlights }),
+    ),
+  /**
+   * Up to a few photos (a picture of broken equipment). The answer holds the
+   * references the host's upload returned, never the bytes; `formats` from
+   * jpeg, png, heic and webp (default all four).
+   */
+  photo: <K extends string>(
+    key: K,
+    o: FieldOptions & {
+      maxFiles?: number | undefined;
+      maxSizeMb?: number | undefined;
+      formats?: readonly PhotoFormat[] | undefined;
+    },
+  ) =>
+    field<K, PhotoRef[]>(
+      "photo",
+      key,
+      o,
+      props({ maxFiles: o.maxFiles, maxSizeMb: o.maxSizeMb, formats: o.formats ? [...o.formats] : undefined }),
     ),
   /** Any registered field type, including plugins. */
   custom: <K extends string, V = Json>(type: string, key: K, o: FieldOptions & { props?: Record<string, Json> }) =>

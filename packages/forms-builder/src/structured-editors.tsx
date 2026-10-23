@@ -1,10 +1,25 @@
 /**
  * The builder's own editors for the structured field types (list, table,
- * media-notes, text-highlights): a palette icon and a settings panel each.
+ * media-notes, text-highlights) and the photo type: a palette icon and a
+ * settings panel each.
  * A host's `fieldEditors` entry for the same type replaces these.
  */
-import { Clock, Highlighter, List, Plus, Rows3, X } from "lucide-react";
-import { MAX_TABLE_COLUMNS, tableColumns, type Json, type TableColumn } from "@marktiderman/genesis-forms";
+import { Camera, Clock, Highlighter, List, Plus, Rows3, X } from "lucide-react";
+import {
+  DEFAULT_PHOTO_FILES,
+  DEFAULT_PHOTO_SIZE_MB,
+  MAX_PHOTO_FILES,
+  MAX_PHOTO_SIZE_MB,
+  MAX_TABLE_COLUMNS,
+  PHOTO_FORMATS,
+  photoLimits,
+  tableColumns,
+  type Json,
+  type PhotoFormat,
+  type TableColumn,
+} from "@marktiderman/genesis-forms";
+import { Checkbox } from "@marktiderman/genesis-ui/checkbox";
+import { Label } from "@marktiderman/genesis-ui/label";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { SortableList } from "@marktiderman/genesis-ui/sortable-list";
@@ -193,6 +208,71 @@ function TextHighlightsPanel({ field, setProps }: FieldPanelProps) {
   );
 }
 
+const FORMAT_LABELS: Record<PhotoFormat, string> = { jpeg: "JPEG", png: "PNG", heic: "HEIC (iPhone)", webp: "WebP" };
+const ALL_FORMATS = Object.keys(PHOTO_FORMATS) as PhotoFormat[];
+/** A whole number from `min` to `max`, or undefined to fall back to the type's default. */
+const within = (n: number | undefined, min: number, max: number) =>
+  n === undefined ? undefined : Math.min(max, Math.max(min, Math.round(n)));
+
+function PhotoPanel({ field, setProps }: FieldPanelProps) {
+  const { formats } = photoLimits(field);
+  const chosen = new Set(formats);
+  const id = `photo-formats-${field.id}`;
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <NumberRow
+          label="Most photos"
+          commitOnBlur
+          min={1}
+          max={MAX_PHOTO_FILES}
+          value={intProp(field.props, "maxFiles")}
+          hint={`1 to ${MAX_PHOTO_FILES}. Leave empty for ${DEFAULT_PHOTO_FILES}.`}
+          onChange={(n) => setProps({ maxFiles: within(n, 1, MAX_PHOTO_FILES) })}
+        />
+        <NumberRow
+          label="Largest photo (MB)"
+          commitOnBlur
+          min={1}
+          max={MAX_PHOTO_SIZE_MB}
+          value={intProp(field.props, "maxSizeMb")}
+          hint={`1 to ${MAX_PHOTO_SIZE_MB}. Leave empty for ${DEFAULT_PHOTO_SIZE_MB}.`}
+          onChange={(n) => setProps({ maxSizeMb: within(n, 1, MAX_PHOTO_SIZE_MB) })}
+        />
+      </div>
+      <fieldset className="space-y-2" aria-describedby={`${id}-hint`}>
+        <legend className="text-sm font-medium">Formats</legend>
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
+          {ALL_FORMATS.map((format) => {
+            const checked = chosen.has(format);
+            return (
+              <div key={format} className="flex items-center gap-2">
+                <Checkbox
+                  id={`${id}-${format}`}
+                  checked={checked}
+                  // At least one format stays on.
+                  disabled={checked && chosen.size === 1}
+                  onCheckedChange={(on) => {
+                    const next = ALL_FORMATS.filter((f) => (f === format ? on === true : chosen.has(f)));
+                    // All four is the default, so it is stored as no prop.
+                    setProps({ formats: next.length === ALL_FORMATS.length ? undefined : next });
+                  }}
+                />
+                <Label htmlFor={`${id}-${format}`} className="font-normal">
+                  {FORMAT_LABELS[format]}
+                </Label>
+              </div>
+            );
+          })}
+        </div>
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+          The app hosting the form stores the photos; the answer keeps only a reference to each.
+        </p>
+      </fieldset>
+    </div>
+  );
+}
+
 const icon = "size-4 text-muted-foreground";
 
 /** The builder's editors for the built-in structured types and the calculated type. */
@@ -201,5 +281,6 @@ export const BUILT_IN_FIELD_EDITORS: readonly FieldTypeEditor[] = [
   { type: "table", icon: <Rows3 className={icon} aria-hidden="true" />, Panel: TablePanel },
   { type: "media-notes", icon: <Clock className={icon} aria-hidden="true" />, Panel: MediaNotesPanel },
   { type: "text-highlights", icon: <Highlighter className={icon} aria-hidden="true" />, Panel: TextHighlightsPanel },
+  { type: "photo", icon: <Camera className={icon} aria-hidden="true" />, Panel: PhotoPanel },
   CALCULATED_FIELD_EDITOR,
 ];

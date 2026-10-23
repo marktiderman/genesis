@@ -3,6 +3,7 @@ import {
   AlignLeft,
   Calculator,
   Calendar,
+  Camera,
   CircleDot,
   Clapperboard,
   Gauge,
@@ -45,6 +46,7 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   "media-notes": Clapperboard,
   "text-highlights": Highlighter,
   calculated: Calculator,
+  photo: Camera,
 };
 
 /**

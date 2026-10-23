@@ -1,7 +1,9 @@
 import {
+  useContext,
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -13,7 +15,7 @@ import {
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Progress } from "@marktiderman/genesis-ui/progress";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import type { CreateFormOptions, FormDefinition, FormEngine, FormState } from "@marktiderman/genesis-forms";
+import type { CreateFormOptions, FieldBlock, FormDefinition, FormEngine, FormState, PhotoRef } from "@marktiderman/genesis-forms";
 import {
   FieldRenderer,
   FormRuntime,
@@ -25,6 +27,7 @@ import {
 import { FormPresentationProvider, useFormPresentation, type FormPresentation } from "./presentation";
 import { defaultRegistry } from "./renderers";
 import { themeCss, type FormTheme } from "./theme";
+import { createPendingUploads, PendingUploadsContext, UPLOAD_WAIT_MESSAGE, UploadContext, type PendingUploads } from "./upload";
 
 // ── Slots (the Genesis extension ladder, EXTENDING.md) ──────────────────────
 
@@ -485,6 +488,14 @@ export interface FormProps {
   requiredLabel?: string | null | undefined;
   /** The submit button's label after `onSubmit` failed. Default "Try again". */
   retryLabel?: string | undefined;
+  /**
+   * Stores a file a respondent adds to a `photo` field and resolves to its
+   * reference (`{ id, name, type, size }`), which is all the answer keeps; a
+   * rejection shows under the field. While any upload is in flight the form
+   * neither moves on nor sends. Without it (and without an `UploadContext`
+   * above the form), photo fields say photos can't be added.
+   */
+  onUpload?: ((file: File, field: FieldBlock) => Promise<PhotoRef>) | undefined;
   slots?: { [K in keyof FormSlotMap]?: SlotOverride<FormSlotMap[K]> } | undefined;
   slotProps?: { [K in keyof FormSlotMap]?: Partial<FormSlotMap[K]> } | undefined;
   className?: string | undefined;
@@ -515,10 +526,19 @@ function OwnedForm(props: FormProps) {
 }
 
 function FormWithEngine(props: FormProps & { engine: FormEngine }) {
+  const { onUpload } = props;
+  // `onUpload` wins; otherwise a host's own UploadContext above the form is kept.
+  const outer = useContext(UploadContext);
+  const host = useMemo(() => (onUpload ? { upload: onUpload } : outer), [onUpload, outer]);
+  const [pending] = useState(createPendingUploads);
   return (
-    <FormRuntime engine={props.engine} registry={props.registry ?? defaultRegistry}>
-      <FormBody key={keyOf(props.engine)} {...props} />
-    </FormRuntime>
+    <UploadContext.Provider value={host}>
+      <PendingUploadsContext.Provider value={pending}>
+        <FormRuntime engine={props.engine} registry={props.registry ?? defaultRegistry}>
+          <FormBody key={keyOf(props.engine)} {...props} pendingUploads={pending} />
+        </FormRuntime>
+      </PendingUploadsContext.Provider>
+    </UploadContext.Provider>
   );
 }
 
@@ -550,7 +570,8 @@ function FormBody({
   slotProps,
   className,
   testID,
-}: FormProps & { engine: FormEngine }) {
+  pendingUploads,
+}: FormProps & { engine: FormEngine; pendingUploads: PendingUploads }) {
   const { idPrefix } = useFormContext();
   const def = engine.definition;
   const layout = layoutProp ?? def.layout?.mode ?? "classic";
@@ -636,8 +657,16 @@ function FormBody({
     if (message) announce(message);
   };
 
+  /** True (and says so) while a photo is still on its way: the form waits for it. */
+  const waitingForUploads = () => {
+    if (pendingUploads.count() === 0) return false;
+    announce(UPLOAD_WAIT_MESSAGE);
+    return true;
+  };
+
   const finish = async () => {
     if (sending.current) return;
+    if (engine.getState().status !== "completed" && waitingForUploads()) return;
     // A retry after a failed onSubmit finds the response already completed.
     if (engine.getState().status !== "completed" && !engine.submit()) {
       if (layout === "classic") setSummaryRequest((n) => n + 1);
@@ -663,6 +692,7 @@ function FormBody({
   const isLastStep = (state: FormState) => state.current === state.path[state.path.length - 1];
 
   const advance = () => {
+    if (waitingForUploads()) return;
     direction.current = "forward";
     if (isLastStep(engine.getState())) void finish();
     else if (!engine.next()) announceStepError();
