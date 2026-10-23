@@ -192,10 +192,12 @@ function literalAt(text: string, i: number): string | null {
 
 /**
  * `text` with its comments blanked to spaces (newlines kept), so a flag named
- * in a comment isn't read as a flag read and line numbers stay right. Strings
- * and template literals are left alone.
+ * in a comment isn't read as a flag read and line numbers stay right. With
+ * `strings`, string and template-literal contents are blanked too (the quotes
+ * stay), so prose inside a string ("…behind the release flag (off)") can't
+ * look like a call.
  */
-export function blankComments(text: string): string {
+export function blankComments(text: string, strings = false): string {
   let out = "";
   let i = 0;
   while (i < text.length) {
@@ -211,11 +213,13 @@ export function blankComments(text: string): string {
       const stop = end === -1 ? text.length : end + 2;
       out += text.slice(i, stop).replace(/[^\n]/g, " ");
       i = stop;
-    } else if (c === '"' || c === "'" || c === "`") {
+    } else if ((c === '"' || c === "'" || c === "`") && !(c === "'" && /\w/.test(text[i - 1] ?? ""))) {
+      // An apostrophe right after a letter ("Don't" in JSX text) isn't a string,
+      // and plain strings end at the line, so one stray quote can't hide the rest.
       let j = i + 1;
-      // A quote in JSX text ("Don't") isn't a string: plain strings end at the line.
       while (j < text.length && text[j] !== c && (c === "`" || text[j] !== "\n")) j += text[j] === "\\" ? 2 : 1;
-      out += text.slice(i, j + 1);
+      const body = text.slice(i + 1, j);
+      out += c + (strings ? body.replace(/[^\n]/g, " ") : body) + (j < text.length ? text[j] : "");
       i = j + 1;
     } else {
       out += c;
@@ -232,13 +236,14 @@ export function blankComments(text: string): string {
  */
 export function scanFlagReads(path: string, source: string, accessors: readonly string[] = DEFAULT_ACCESSORS) {
   const text = blankComments(source);
+  const code = blankComments(source, true);
   const keys: { key: string; where: string }[] = [];
   const dynamic: string[] = [];
   for (const accessor of accessors) {
     const jsx = /^<(\w[\w.]*)\s+(\w+)>$/.exec(accessor);
     if (jsx) {
       const re = new RegExp(`<${jsx[1]!.replace(/\./g, "\\.")}\\b[^>]*?\\b${jsx[2]}\\s*=\\s*`, "g");
-      for (const m of text.matchAll(re)) {
+      for (const m of code.matchAll(re)) {
         let i = m.index! + m[0].length;
         if (text[i] === "{") i = text.slice(i + 1).search(/\S/) + i + 1;
         const key = literalAt(text, i);
@@ -248,7 +253,7 @@ export function scanFlagReads(path: string, source: string, accessors: readonly 
       continue;
     }
     const re = new RegExp(`(?<![\\w$.])(function\\s+)?${accessor.replace(/\$/g, "\\$")}\\s*(?:<[^>()]*>)?\\s*\\(\\s*`, "g");
-    for (const m of text.matchAll(re)) {
+    for (const m of code.matchAll(re)) {
       if (m[1]) continue; // its own definition
       const i = m.index! + m[0].length;
       if (text[i] === ")") continue;

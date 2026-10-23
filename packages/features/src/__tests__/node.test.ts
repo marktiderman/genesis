@@ -259,6 +259,7 @@ describe("the flag scan skips comments, tests and ignored files", () => {
       `<p>Don't</p>; const a = useFlag("x.a");`,
       "const b = useFlag(`x.${id}`); // useFlag(other)",
       `const url = "https://x.test"; useFlag("x.b");`,
+      `const note = "Behind the release flag (off until rollout); see useFlag(name).";`,
     ].join("\n");
     const { keys, dynamic } = scanFlagReads("f.tsx", text);
     expect(keys.map((k) => `${k.key}@${k.where}`)).toEqual(["x.a@f.tsx:3", "x.b@f.tsx:5"]);
