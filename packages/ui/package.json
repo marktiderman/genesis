@@ -29,7 +29,8 @@
     "build": "tsup && node scripts/stamp-use-client.mjs && cp src/styles.css dist/styles.css && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
     "check:exports": "node ../../scripts/check-exports-resolve.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.type-tests.json"
   },
   "exports": {
     ".": {
