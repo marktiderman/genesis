@@ -1,9 +1,21 @@
-import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
 import { Switch } from "@marktiderman/genesis-ui/switch";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@marktiderman/genesis-ui/toggle-group";
 import { cn } from "@marktiderman/genesis-ui/utils";
 
 /**
@@ -31,6 +43,23 @@ export function Editable({ readOnly, className, children }: { readOnly?: boolean
   );
 }
 
+/**
+ * The props of a host's own settings row, the shape of genesis-ui's
+ * `SettingsRow`: a label, a one-sentence description, then the control.
+ */
+export interface SettingsRowSlotProps {
+  label: ReactNode;
+  description?: ReactNode;
+  /** The id of the control, for the row's `<label for>`. */
+  htmlFor?: string;
+  /** The id to give the description, which the control points at with `aria-describedby`. */
+  descriptionId?: string;
+  children?: ReactNode;
+}
+
+/** A host's row layout for the rows inside it (the builder sets it around its settings panel). */
+export const RowLayoutContext = createContext<ComponentType<SettingsRowSlotProps> | null>(null);
+
 /** A labelled control. `hint` sits under the control. */
 export function Row({
   label,
@@ -38,16 +67,27 @@ export function Row({
   htmlFor,
   children,
   className,
+  hideLabel,
 }: {
   label: string;
   hint?: ReactNode;
   htmlFor?: string;
   children: ReactNode;
   className?: string;
+  /** Keep the label for assistive tech only (the field's placeholder says what it is). */
+  hideLabel?: boolean;
 }) {
+  const Layout = useContext(RowLayoutContext);
+  if (Layout && !hideLabel) {
+    return (
+      <Layout label={label} description={hint} htmlFor={htmlFor}>
+        {children}
+      </Layout>
+    );
+  }
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label htmlFor={htmlFor}>{label}</Label>
+      <Label htmlFor={htmlFor} className={hideLabel ? "sr-only" : undefined}>{label}</Label>
       {children}
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
@@ -69,6 +109,12 @@ export function TextRow(props: {
   invalid?: boolean;
   /** The input type of a one-line field, such as `"date"`. Default text. */
   type?: string;
+  /** Keep the label for assistive tech only. */
+  hideLabel?: boolean;
+  /** Classes for the input or textarea itself. */
+  inputClassName?: string;
+  /** Rows of a multiline field. Default 2. */
+  rows?: number;
 }) {
   const id = useId();
   // Focused after the menu that added the question has closed and handed focus back.
@@ -85,11 +131,12 @@ export function TextRow(props: {
     "data-testid": props.testID,
     onBlur: props.onBlur,
     "aria-invalid": props.invalid || undefined,
+    className: props.inputClassName,
   };
   return (
-    <Row label={props.label} hint={props.hint} htmlFor={id}>
+    <Row label={props.label} hint={props.hint} htmlFor={id} hideLabel={props.hideLabel}>
       {props.multiline ? (
-        <Textarea {...common} rows={2} onChange={(e) => props.onChange(e.target.value)} />
+        <Textarea {...common} rows={props.rows ?? 2} onChange={(e) => props.onChange(e.target.value)} />
       ) : (
         <Input {...common} type={props.type} onChange={(e) => props.onChange(e.target.value)} />
       )}
@@ -268,6 +315,8 @@ export function NumberRow(props: {
 export interface Choice {
   value: string;
   label: string;
+  /** Shown before the label, in the list and on the closed control. */
+  icon?: ReactNode;
 }
 
 export function SelectRow(props: {
@@ -308,7 +357,14 @@ export function Pick(props: {
       <SelectContent>
         {props.options.map((o) => (
           <SelectItem key={o.value} value={o.value}>
-            {o.label}
+            {o.icon ? (
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                {o.icon}
+                <span className="truncate">{o.label}</span>
+              </span>
+            ) : (
+              o.label
+            )}
           </SelectItem>
         ))}
       </SelectContent>
@@ -324,6 +380,20 @@ export function SwitchRow(props: {
   testID?: string;
 }) {
   const id = useId();
+  const Layout = useContext(RowLayoutContext);
+  if (Layout) {
+    return (
+      <Layout label={props.label} description={props.hint} htmlFor={id} descriptionId={props.hint ? `${id}-hint` : undefined}>
+        <Switch
+          id={id}
+          checked={props.checked}
+          onCheckedChange={props.onChange}
+          data-testid={props.testID}
+          aria-describedby={props.hint ? `${id}-hint` : undefined}
+        />
+      </Layout>
+    );
+  }
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="space-y-0.5">
@@ -332,5 +402,63 @@ export function SwitchRow(props: {
       </div>
       <Switch id={id} checked={props.checked} onCheckedChange={props.onChange} data-testid={props.testID} />
     </div>
+  );
+}
+
+/**
+ * A segmented control: a few mutually exclusive choices in one track, the
+ * chosen one raised. A single-select toggle group, so arrow keys move between
+ * the choices and each is a button with `aria-pressed`.
+ */
+export function Segmented(props: {
+  value: string;
+  options: readonly (Choice & { testID?: string; ariaLabel?: string })[];
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  testID?: string;
+  className?: string;
+  /** Compact (28px) items. Default true. */
+  small?: boolean;
+}) {
+  const small = props.small ?? true;
+  return (
+    <ToggleGroup
+      type="single"
+      value={props.value}
+      // Pressing the chosen item again would clear it: a segmented control always has one.
+      onValueChange={(v) => {
+        if (v) props.onChange(v);
+      }}
+      aria-label={props.ariaLabel}
+      data-testid={props.testID}
+      className={cn("inline-flex w-fit gap-0.5 rounded-md bg-muted p-0.5", props.className)}
+    >
+      {props.options.map((o) => (
+        <ToggleGroupItem
+          key={o.value}
+          value={o.value}
+          data-testid={o.testID}
+          aria-label={o.ariaLabel}
+          title={o.ariaLabel}
+          className={cn(
+            "min-w-0 rounded-[0.3rem] text-muted-foreground hover:bg-transparent hover:text-foreground",
+            "data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
+            small ? "h-7 px-2.5 text-[0.8125rem]" : "h-8 px-3",
+          )}
+        >
+          {o.icon ?? null}
+          {o.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
+/** An uppercase section label inside a card ("ANSWER", "ENDING"). */
+export function SectionLabel({ children, className, id }: { children: ReactNode; className?: string; id?: string }) {
+  return (
+    <p id={id} className={cn("text-[0.6875rem] font-medium uppercase tracking-wider text-muted-foreground", className)}>
+      {children}
+    </p>
   );
 }

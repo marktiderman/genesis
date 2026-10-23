@@ -43,7 +43,27 @@ import { MY_TEMPLATES } from "./form-templates"; // see "Templates" below
   `builder.revealChecks()` (call it when someone tries to publish). Meanwhile the status reads
   **In progress**. `analysis` and `getAnalysis()` always count it. `createField()` still titles a
   field after its type unless you pass `label: ""`.
-- `Finding.code` names the builder's own checks: `"no-questions"` and `"untitled-question"`.
+- `Finding.code` names the builder's own checks: `"no-questions"` and `"untitled-question"`, and
+  the path checks `"unreachable-block"`, `"rule-never-fires"`, `"unreachable-ending"` and
+  `"paths-not-checked"`. Questions are numbered as the outline numbers them (headings and page
+  breaks are not counted).
+
+### The panels
+
+- **Questions** has three columns: an outline of every block (select it; drag its handle, or focus
+  the handle and press Space, the arrow keys and Space again, or Alt+↑/↓, to reorder; then the
+  dashed **Add question** and the endings), the selected block's editor (its type, Move, Duplicate
+  and Delete, the title and description, the answer settings, **Required**, and a closed
+  **Advanced**), and the live preview (phone or desktop, one by one or one page). In a container
+  narrower than 66rem the preview goes under the other two, and under 48rem everything stacks:
+  outline, editor, preview. The panel uses Tailwind container queries, so it fits whatever space
+  the host gives it.
+- **Logic and endings** lists the rules as sentences of picker pills ("If [question] [is at most]
+  [2] go to [What went wrong?]"), each with its kind (Jump, Show only when, Hide when), a handle to
+  reorder it and a menu to change its kind, move or delete it; then the endings as cards, each
+  saying which rules use it. Beside them, the **Flow** map shows the steps in order with each
+  jump's branch and the endings, sums up the path checks ("Every path ends", or how many path
+  problems there are) and offers **Try a path** buttons that light up where one answer leads.
 
 ### Hosting the panels in your own tabs
 
@@ -66,6 +86,40 @@ const [tab, setTab] = useState<"questions" | "logic" | "responses" | "settings">
 
 `tab` and `onTabChange` also work with the builder's own tabs. `"endings"` is still accepted as
 another name for the merged panel.
+
+When your page header already shows the form's title and Undo/Redo, hide the builder's toolbar
+and drive undo from the ref:
+
+```tsx
+const builder = useRef<FormBuilderHandle>(null);
+const [history, setHistory] = useState({ canUndo: false, canRedo: false });
+<Button disabled={!history.canUndo} onClick={() => builder.current?.undo()}>Undo</Button>
+<Button disabled={!history.canRedo} onClick={() => builder.current?.redo()}>Redo</Button>
+<FormBuilder
+  ref={builder}
+  toolbar={false} // no title input, Undo/Redo, status badge or actions row
+  onHistoryChange={setHistory} // once on mount, then whenever it changes
+  onAnalysis={(analysis) => setReady(analysis.canPublish)}
+  tabs={false}
+  tab={tab}
+  defaultValue={draft}
+/>
+```
+
+To lay out the Settings panel yourself, take the builder's form settings as one node; your rows
+can be genesis-ui's `SettingsRow` so the builder's rows match yours:
+
+```tsx
+<FormBuilder
+  settingsRow={SettingsRow} // label, one-sentence description, then the control
+  settingsLayout={(form) => (
+    <FormSettingsPage sections={[{ id: "form", title: "Form", content: form }, /* your own sections */]} />
+  )}
+/>
+```
+
+With `settingsLayout`, what it returns is the whole Settings panel: `settingsExtra` and the preview
+beside the settings are not shown.
 
 ### Reading the value
 

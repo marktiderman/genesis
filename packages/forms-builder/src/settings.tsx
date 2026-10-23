@@ -1,5 +1,5 @@
-import { useEffect, useId, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useId, useState, type ReactNode } from "react";
+import { Flag, Plus, Trash2 } from "lucide-react";
 import { parseForm, type FormDefinition, type HiddenInput } from "@marktiderman/genesis-forms";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Switch } from "@marktiderman/genesis-ui/switch";
@@ -9,10 +9,12 @@ import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { DraftInput, Editable, Pick, SelectRow, SwitchRow, TextRow } from "./controls";
 import { useBuilderConfig } from "./editors";
 import { LogicPanel } from "./logic";
+import { FlowMap } from "./flow";
 import type { Finding } from "./analyze";
 import {
   addEnding,
   addHidden,
+  defaultEndingId,
   removeEnding,
   removeHidden,
   updateEnding,
@@ -24,79 +26,137 @@ import {
 
 type Apply = (edit: (def: FormDefinition) => FormDefinition, coalesce?: string) => void;
 
+/** "Used by rule 3", "Used by rules 1 and 3": the jumps that finish at an ending. */
+function usedBy(def: FormDefinition, endingId: string, isDefault: boolean): string {
+  const numbers = (def.logic ?? []).flatMap((r, i) => (r.effect === "jump" && typeof r.to === "object" && r.to.ending === endingId ? [i + 1] : []));
+  const list = numbers.length > 1 ? `${numbers.slice(0, -1).join(", ")} and ${numbers.at(-1)}` : String(numbers[0] ?? "");
+  const rules = numbers.length ? `rule${numbers.length > 1 ? "s" : ""} ${list}` : "";
+  if (isDefault) return rules ? `Used by every path that ends normally, and ${rules}` : "Used by every path that ends normally";
+  return rules ? `Used by ${rules}` : "Not used yet: add a jump that finishes here";
+}
+
+/**
+ * The endings, as cards in a row: title, message, which rules lead there.
+ * The default one (the first) is where a form ends when no jump picks another.
+ */
 export function EndingsPanel({ def, apply, findings }: { def: FormDefinition; apply: Apply; findings: Finding[] }) {
   const endings = def.endings ?? [];
   const readOnly = !!useBuilderConfig().readOnly;
+  const id = useId();
+  const fallback = defaultEndingId(def);
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        The first ending is shown when a respondent finishes normally. Add more and send people to them with jump rules.
-      </p>
-      <ol className="space-y-2">
+    <section className="@container space-y-3" aria-labelledby={`${id}-endings`} data-testid="builder-endings">
+      <div>
+        <h3 id={`${id}-endings`} className="text-lg font-semibold">
+          Endings
+        </h3>
+        <p className="text-sm text-muted-foreground">What people see after they send. The default shows unless a jump picks another.</p>
+      </div>
+      <ol className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3" aria-label="Endings">
         {endings.map((e, i) => {
           const warn = findings.filter((f) => f.ref?.kind === "ending" && f.ref.id === e.id);
+          const isDefault = e.id === fallback;
           return (
-            <li key={e.id} className="space-y-3 rounded-lg border bg-card p-4" data-testid={`builder-ending-${e.id}`}>
-              <div className="flex items-center gap-2">
-                <Badge variant={i === 0 ? "default" : "muted"}>{i === 0 ? "Default ending" : "Ending"}</Badge>
-                <code className="text-xs text-muted-foreground">{e.id}</code>
-                {warn.length ? <Badge variant="warning">Unreachable</Badge> : null}
-                <span className="flex-1" />
-                {readOnly ? null : (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Delete ending"
-                    disabled={i === 0}
-                    onClick={() => apply((d) => removeEnding(d, e.id))}
-                  >
-                    <Trash2 />
-                  </Button>
-                )}
-              </div>
-              <Editable readOnly={readOnly} className="space-y-3">
-              <TextRow label="Title" value={e.title} onChange={(title) => apply((d) => updateEnding(d, e.id, { title }), `ending-title:${e.id}`)} />
-              <TextRow
-                label="Message"
-                multiline
-                value={e.description ?? ""}
-                onChange={(description) => apply((d) => updateEnding(d, e.id, { description }), `ending-desc:${e.id}`)}
-              />
+            <li key={e.id} className="flex min-w-0 flex-col gap-1 rounded-xl border bg-card p-4 shadow-sm" data-testid={`builder-ending-${e.id}`}>
+              <Editable readOnly={readOnly} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Flag className="size-4 shrink-0 text-primary" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                  <TextRow
+                    label="Title"
+                    hideLabel
+                    value={e.title}
+                    placeholder="Ending title"
+                    inputClassName="h-8 border-transparent bg-transparent px-1 text-[0.9375rem] font-semibold shadow-none hover:border-input focus-visible:border-input"
+                    onChange={(title) => apply((d) => updateEnding(d, e.id, { title }), `ending-title:${e.id}`)}
+                  />
+                  </div>
+                  {isDefault ? (
+                    <Badge variant="muted" className="shrink-0 rounded-md">
+                      Default
+                    </Badge>
+                  ) : null}
+                  {readOnly || i === 0 ? null : (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0 text-muted-foreground"
+                      aria-label="Delete ending"
+                      onClick={() => apply((d) => removeEnding(d, e.id))}
+                    >
+                      <Trash2 />
+                    </Button>
+                  )}
+                </div>
+                <TextRow
+                  label="Message"
+                  hideLabel
+                  multiline
+                  rows={1}
+                  placeholder="Add a message (optional)"
+                  inputClassName="min-h-9 resize-none border-transparent bg-transparent px-1 py-1 text-sm text-muted-foreground shadow-none hover:border-input focus-visible:border-input"
+                  value={e.description ?? ""}
+                  onChange={(description) => apply((d) => updateEnding(d, e.id, { description }), `ending-desc:${e.id}`)}
+                />
               </Editable>
+              <p className="mt-auto px-1 pt-1 text-xs text-primary" data-testid={`builder-ending-used-${e.id}`}>
+                {usedBy(def, e.id, isDefault)}
+              </p>
+              {warn.length ? (
+                <Badge variant="warning" className="ml-1 rounded-md">
+                  Unreachable
+                </Badge>
+              ) : null}
             </li>
           );
         })}
+        {readOnly ? null : (
+          <li className="flex">
+            <Button
+              variant="outline"
+              className="h-auto min-h-24 w-full flex-1 border-dashed bg-transparent shadow-none"
+              onClick={() => apply((d) => addEnding(d))}
+              data-testid="builder-add-ending"
+            >
+              <Plus /> Add ending
+            </Button>
+          </li>
+        )}
       </ol>
-      {readOnly ? null : (
-        <Button variant="outline" size="sm" onClick={() => apply((d) => addEnding(d))} data-testid="builder-add-ending">
-          <Plus /> Add ending
-        </Button>
-      )}
-    </div>
+    </section>
   );
 }
 
 /**
- * Logic and endings in one panel: the rules first, then the endings they can
- * send people to. What the builder shows under "Logic and endings"; a host
- * with its own tabs can render it as one tab.
+ * Logic and endings in one panel: the rules, then the endings they can send
+ * people to, with the flow map beside them (under them in a narrow
+ * container). What the builder shows under "Logic and endings"; a host with
+ * its own tabs can render it as one tab. `aside` goes under the flow map,
+ * where the builder puts its checks.
  */
-export function LogicAndEndingsPanel({ def, apply, findings }: { def: FormDefinition; apply: Apply; findings: Finding[] }) {
-  const id = useId();
+export function LogicAndEndingsPanel({
+  def,
+  apply,
+  findings,
+  aside,
+}: {
+  def: FormDefinition;
+  apply: Apply;
+  findings: Finding[];
+  aside?: ReactNode;
+}) {
   return (
-    <div className="space-y-8" data-testid="builder-logic-endings">
-      <section className="space-y-3" aria-labelledby={`${id}-logic`}>
-        <h3 id={`${id}-logic`} className="text-sm font-semibold">
-          Logic
-        </h3>
-        <LogicPanel def={def} apply={apply} findings={findings} />
-      </section>
-      <section className="space-y-3" aria-labelledby={`${id}-endings`}>
-        <h3 id={`${id}-endings`} className="text-sm font-semibold">
-          Endings
-        </h3>
-        <EndingsPanel def={def} apply={apply} findings={findings} />
-      </section>
+    <div className="@container" data-testid="builder-logic-endings">
+      <div className="grid items-start gap-6 @4xl:grid-cols-[minmax(0,1fr)_22rem] @6xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="min-w-0 space-y-10">
+          <LogicPanel def={def} apply={apply} findings={findings} />
+          <EndingsPanel def={def} apply={apply} findings={findings} />
+        </div>
+        <div className="min-w-0 space-y-4 @4xl:sticky @4xl:top-4">
+          <FlowMap def={def} findings={findings} />
+          {aside}
+        </div>
+      </div>
     </div>
   );
 }

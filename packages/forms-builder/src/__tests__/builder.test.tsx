@@ -80,14 +80,14 @@ describe("<FormBuilder> builder polish", () => {
     expect(screen.getByText("Hidden from share links and support tools.")).toBeTruthy();
   });
 
-  it("truncates a long question title instead of letting it collapse", () => {
+  it("truncates a long question title in the outline instead of letting it collapse", () => {
     render(<FormBuilder defaultValue={visitFeedback()} />);
     const title = screen.getByTestId("builder-block-title-q_rating");
     expect(title.className).toMatch(/\btruncate\b/);
-    expect(title.className).toMatch(/\bflex-1\b/);
-    expect(title.className).toMatch(/\bmin-w-20\b/);
     expect(title.getAttribute("title")).toBe(title.textContent);
-    expect(screen.getByTestId("builder-block-toggle-q_rating").className).toMatch(/\bmin-w-32\b/);
+    const toggle = screen.getByTestId("builder-block-toggle-q_rating");
+    expect(toggle.className).toMatch(/\bmin-w-0\b/);
+    expect(toggle.className).toMatch(/\bflex-1\b/);
   });
 });
 
@@ -97,7 +97,6 @@ describe("<FormBuilder> review fixes", () => {
     def.logic![0]!.when = { not: { op: "gte", left: { field: "q_rating" }, right: { value: 4 } } };
     let last: FormDefinition | undefined;
     render(<FormBuilder defaultValue={def} defaultTab="logic" onChange={(d) => (last = d)} />);
-    fireEvent.click(screen.getByTestId("builder-rule-r_better").querySelector("button[aria-expanded]")!);
     const edited = { not: { op: "gte", left: { field: "q_rating" }, right: { value: 5 } } };
     fireEvent.change(screen.getByLabelText("Condition JSON"), { target: { value: JSON.stringify(edited) } });
     expect(last?.logic?.[0]?.when).toEqual(edited);
@@ -110,7 +109,6 @@ describe("<FormBuilder> review fixes", () => {
     const def = visitFeedback();
     def.logic![0]!.when = { not: { op: "gte", left: { field: "q_rating" }, right: { value: 4 } } };
     render(<FormBuilder defaultValue={def} defaultTab="logic" />);
-    fireEvent.click(screen.getByTestId("builder-rule-r_better").querySelector("button[aria-expanded]")!);
     fireEvent.change(screen.getByLabelText("Form title"), { target: { value: "Edited" } });
     fireEvent.change(screen.getByLabelText("Condition JSON"), { target: { value: "{ not valid" } });
     fireEvent.click(screen.getByTestId("builder-undo"));
@@ -135,15 +133,18 @@ describe("<FormBuilder> review fixes", () => {
   it("drags by the handle only and names the block in its buttons", () => {
     render(<FormBuilder defaultValue={visitFeedback()} />);
     const row = screen.getByTestId("builder-block-q_rating");
-    expect(row.getAttribute("draggable")).toBeNull();
-    expect(screen.getByTestId("builder-block-grip-q_rating").getAttribute("draggable")).toBe("true");
-    expect(within(row).getByRole("button", { name: 'Delete "How was your visit today?"' })).toBeTruthy();
+    // The row turns draggable only while its handle is pressed.
+    expect(row.closest("li")!.getAttribute("draggable")).toBeNull();
+    expect(within(screen.getByTestId("builder-block-grip-q_rating")).getByRole("button", { name: "Reorder How was your visit today?" })).toBeTruthy();
+    expect(within(screen.getByTestId("builder-editor")).getByRole("button", { name: 'Delete "How was your visit today?"' })).toBeTruthy();
   });
 
   it("commits the highest rating on blur", () => {
     let last: FormDefinition | undefined;
     render(<FormBuilder defaultValue={visitFeedback()} onChange={(d) => (last = d)} />);
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
+    // 1–3, 1–5 and 1–10 are one click; "Other" takes any highest rating from 2 to 10.
+    fireEvent.click(within(screen.getByTestId("builder-rating-scale")).getByText("Other"));
     const max = screen.getByLabelText("Highest rating") as HTMLInputElement;
     fireEvent.change(max, { target: { value: "1" } });
     expect(max.value).toBe("1");
