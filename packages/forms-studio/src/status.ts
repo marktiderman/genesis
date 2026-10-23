@@ -50,16 +50,17 @@ export function formCounts(definition: FormDefinition | null | undefined): {
 
 /**
  * The form page's child navigation items (Questions, Logic and endings, Responses,
- * Settings) with their counts as badges, for the app shell's sub-navigation
- * (`useAppShellSubNav(formNavItems(counts, { to }))`). A count left out (or null) shows
- * no badge. `to` gives each place's address; by default `?tab=<id>` on the current route,
- * and Questions (the default) with no search at all.
+ * Settings) with their counts as badges, for the app shell's sub-navigation:
+ * `useAppShellSubNav(formNavItems("/forms/f1", counts))`. `at` is the form page's path
+ * (each place is `?tab=<id>` on it, Questions the path itself, which the shell's most
+ * specific match keeps from lighting up on the others) or a function giving each place's
+ * address. A count left out (or null) shows no badge.
  */
 export function formNavItems(
+  at: string | ((tab: FormTab) => string),
   counts: { questions?: number | null; logic?: number | null; responses?: number | null } = {},
-  options: { to?: ((tab: FormTab) => string) | undefined } = {},
 ): FormNavItem[] {
-  const to = options.to ?? ((tab: FormTab) => (tab === "questions" ? "?" : `?tab=${tab}`));
+  const to = typeof at === "function" ? at : (tab: FormTab) => (tab === "questions" ? at : `${at}?tab=${tab}`);
   const item = (id: FormTab, label: string, badge?: number | null): FormNavItem =>
     badge == null ? { id, to: to(id), label } : { id, to: to(id), label, badge };
   return [

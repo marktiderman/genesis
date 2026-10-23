@@ -49,7 +49,7 @@ export const views = (
       onPreview={maybe.onPreview}
       className={maybe.className}
     />
-    <SubNavTabsFallback items={formNavItems()} value="questions" onValueChange={() => {}} className={maybe.className} />
+    <SubNavTabsFallback items={formNavItems("/forms/f1")} value="questions" onValueChange={() => {}} className={maybe.className} />
     <ReadinessChip readiness={{ state: "ready", count: 0 }} onClick={maybe.onClick} />
     <ResponsesToolbar view="summary" onViewChange={() => {}} className={maybe.className} />
     <ResponsesFilters value={filters} onChange={() => {}} filtered={false} lowLabel={maybe.lowLabel} ratingMax={maybe.ratingMax} />

@@ -59,7 +59,7 @@ function Tabs({ tab, onTab }: { tab: FormTab; onTab: (t: FormTab) => void }) {
   const counts = formCounts(checkIn);
   return (
     <SubNavTabsFallback
-      items={formNavItems({ ...counts, responses: items.length })}
+      items={formNavItems("#form", { ...counts, responses: items.length })}
       value={tab}
       onValueChange={onTab}
       trailing={<ReadinessChip readiness={{ state: "ready", count: 0 }} />}

@@ -68,7 +68,7 @@ describe("SubNavTabsFallback and ReadinessChip", () => {
     const onChange = vi.fn();
     render(
       <SubNavTabsFallback
-        items={formNavItems({ questions: 2, logic: 1, responses: 24 })}
+        items={formNavItems("/forms/f1", { questions: 2, logic: 1, responses: 24 })}
         value="questions"
         onValueChange={onChange}
         trailing={<ReadinessChip readiness={{ state: "ready", count: 0 }} />}

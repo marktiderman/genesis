@@ -139,13 +139,13 @@ describe("status words", () => {
   it("declares the four places with their counts", () => {
     expect(formCounts(checkIn)).toEqual({ questions: 4, logic: 1 });
     expect(formCounts(null)).toEqual({ questions: 0, logic: 0 });
-    expect(formNavItems({ questions: 2, logic: 1, responses: 24 })).toEqual([
-      { id: "questions", to: "?", label: "Questions", badge: 2 },
-      { id: "logic", to: "?tab=logic", label: "Logic and endings", badge: 1 },
-      { id: "responses", to: "?tab=responses", label: "Responses", badge: 24 },
-      { id: "settings", to: "?tab=settings", label: "Settings" },
+    expect(formNavItems("/forms/f1", { questions: 2, logic: 1, responses: 24 })).toEqual([
+      { id: "questions", to: "/forms/f1", label: "Questions", badge: 2 },
+      { id: "logic", to: "/forms/f1?tab=logic", label: "Logic and endings", badge: 1 },
+      { id: "responses", to: "/forms/f1?tab=responses", label: "Responses", badge: 24 },
+      { id: "settings", to: "/forms/f1?tab=settings", label: "Settings" },
     ]);
-    expect(formNavItems()[2]).toEqual({ id: "responses", to: "?tab=responses", label: "Responses" });
-    expect(formNavItems({}, { to: (t) => `/forms/f1/${t}` })[3]?.to).toBe("/forms/f1/settings");
+    expect(formNavItems("/f")[2]).toEqual({ id: "responses", to: "/f?tab=responses", label: "Responses" });
+    expect(formNavItems((t) => `/forms/f1/${t}`)[3]?.to).toBe("/forms/f1/settings");
   });
 });

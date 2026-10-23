@@ -29,9 +29,9 @@ import {
 />
 ```
 
-- `formNavItems({ questions, logic, responses })` declares the form's four child items (Questions,
-  Logic and endings, Responses, Settings) with their counts as badges, for the app shell's
-  sub-navigation. `formCounts(definition)` gives the first two.
+- `formNavItems("/forms/f1", { questions, logic, responses })` declares the form's four child items
+  (Questions, Logic and endings, Responses, Settings) as `?tab=` links with their counts as badges,
+  for the app shell's `useAppShellSubNav`. `formCounts(definition)` gives the first two.
 - `ReadinessChip` ("Ready to publish", or "3 problems to fix") goes in the row's trailing slot.
   `readinessOf(analysis.findings)` reads it from the builder's checks.
 - `SubNavTabsFallback` is **temporary**: one row of tabs for those items until genesis-ui's shell
