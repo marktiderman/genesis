@@ -223,6 +223,36 @@ export interface WriteEvent {
 }
 
 /**
+ * A change to a resource, as `DataProvider.subscribe` reports it.
+ *
+ * Treat it as a HINT that cached reads are stale, never as data to show:
+ * the Genesis hooks refetch through the provider's normal (RLS-checked)
+ * read instead of writing `record` into the cache. `changed` says only that
+ * something may have changed (e.g. after a reconnect, when events may have
+ * been missed), so every cached read of the resource should be refetched.
+ */
+export type ResourceChangeEvent =
+  | {
+      type: "created" | "updated" | "deleted";
+      /** The changed record's id, when the provider knows it. */
+      id?: Identifier;
+      /** The record as the provider saw it, when it sends one. A hint only. */
+      record?: BaseRecord;
+    }
+  | { type: "changed" };
+
+/** What a `subscribe` call watches. Every field narrows; none is required. */
+export interface SubscribeParams {
+  /** Watch one record only. */
+  id?: Identifier;
+  /**
+   * The list's filters. A provider MAY use them to send fewer events; it
+   * may also ignore them and report every change to the resource.
+   */
+  filters?: FilterParam[];
+}
+
+/**
  * A cache key to invalidate after a write. Shaped like a TanStack Query
  * `QueryKey` (`readonly unknown[]`), matched by prefix.
  */
@@ -333,6 +363,23 @@ export interface DataProvider {
    * `prepare`). `useResourceForm` applies it in edit mode.
    */
   toFormValues?(resource: string, record: Record<string, unknown>): Record<string, unknown>;
+
+  /**
+   * Watch a resource for changes made anywhere (other users, other tabs,
+   * server jobs). Calls `callback` for each change until the returned
+   * function is called, which must release everything the subscription
+   * holds (sockets, channels). Report `realtime: true` in `capabilities()`
+   * for the resources it serves; for others it may return a no-op.
+   *
+   * Events are invalidation hints: `useResource({ live: true })` and
+   * `useOne(..., { live: true })` refetch on them and never trust their
+   * payload.
+   */
+  subscribe?(
+    resource: string,
+    params: SubscribeParams,
+    callback: (event: ResourceChangeEvent) => void,
+  ): () => void;
 
   /**
    * Other cache keys a committed write makes stale, beyond the resource's

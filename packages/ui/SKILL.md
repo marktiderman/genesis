@@ -62,6 +62,7 @@ Reach for these before a slot. Each one replaced a slot workaround in a real app
 | A list inside a tab (no page title) | `header="toolbar"` (also on `DataPageShell`) |
 | Empty-state copy | `emptyMessage`, `emptyDescription`, `emptyIcon` |
 | Cards on phones, table on desktop | `defaultView={{ mobile: "grid", desktop: "table" }}`; only an explicit toggle is stored |
+| A list that updates when others change it | `live` (needs a provider whose `subscribe` serves the resource; Supabase: `resources[r].realtime` plus the table in the `supabase_realtime` publication, see core's README) |
 | Typed slot maps | `ResourcePageSlots<T>`, `ResourcePageSlotProps<T>`, `ResourcePageSlotMap<T>` from `/data` |
 
 `ResourceForm` ties labels to inputs (`getByLabelText` works), shows a failed save as an alert,

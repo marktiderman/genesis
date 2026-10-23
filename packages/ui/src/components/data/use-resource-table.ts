@@ -122,6 +122,7 @@ export function useResourceTableModel<
     emptyDescription,
     header: headerMode = "page",
     resourceOptions,
+    live,
     urlState: urlStateProp,
     defaultView = "table",
     onNavigate = defaultNavigate,
@@ -229,6 +230,7 @@ export function useResourceTableModel<
               }
             : {}),
           ...writeModeOptions(resourceOptions, mutationModeProp),
+          live: resourceOptions?.live ?? live,
         }
       : { enabled: false },
   );
