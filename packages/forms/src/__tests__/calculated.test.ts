@@ -418,13 +418,126 @@ describe("large submissions", () => {
     expect(engine.getState().values.n).toBe(3);
     engine.setValue("xs", [...xs, "3"]);
     expect(engine.getState().values.n).toBe(6);
-    // The engine keeps answers as given and never changes them; setValue with
-    // the same array is ignored, so an array changed in place is not a new answer.
+    // The engine keeps answers as given and never changes them.
     const stored = engine.getState().values.xs as string[];
     expect(stored).toEqual(["1", "2", "3"]);
     engine.setValue("other", "x");
     expect(engine.getState().values.xs).toBe(stored);
     expect(engine.getState().values.n).toBe(6);
+  });
+
+  it("stays fast with many calculated fields: 400 over a 10k-row table, 5k steps", () => {
+    const blocks: FieldBlock[] = [
+      { kind: "field", id: "t", key: "t", type: "table", label: "T", props: { maxRows: 10_000, columns: [{ key: "a", label: "A" }, { key: "b", label: "B" }] } },
+      { kind: "field", id: "n", key: "n", type: "number", label: "N" },
+    ];
+    for (let k = 0; k < 400; k++) {
+      blocks.push({ kind: "field", id: `c${k}`, key: `c${k}`, type: "calculated", label: "C", props: { formula: `sum(t.a)+avg(t.b)*n+${k}` } });
+    }
+    const form: FormDefinition = { schemaVersion: 1, id: "many-fields", title: "Many", blocks };
+    expect(parseForm(form).ok).toBe(true);
+    const evs: FormEvent[] = [{ type: "answer", field: "t", value: Array.from({ length: 10_000 }, (_, i) => ({ a: 1, b: i })) }];
+    for (let i = 0; i < 2_499; i++) {
+      evs.push({ type: "answer", field: "n", value: (i % 2) + 1 });
+      evs.push({ type: i % 4 < 2 ? "next" : "back" });
+    }
+    evs.push({ type: "answer", field: "n", value: 2 }, { type: "back" }, { type: "submit" });
+    const [result, ms] = timed(() => validateSubmission(form, { events: evs }, { complete: false }));
+    expect(result.ok && result.submission.answers).toMatchObject({ c0: 10_000 + 4_999.5 * 2, c399: 10_000 + 4_999.5 * 2 + 399 });
+    // About 1M formula runs: 130–250 ms locally, about 1.2 s on CI runners. The per-field copy
+    // this guards against (O(fields²)) took 20 s or more locally, so 3 s still catches it.
+    expect(ms).toBeLessThan(3000);
+  });
+
+  it("counts a table's rows once against the allowance, however many of its columns are read", () => {
+    const columns = Array.from({ length: 6 }, (_, k) => ({ key: `k${k}`, label: `K${k}` }));
+    const form: FormDefinition = {
+      schemaVersion: 1,
+      id: "cols",
+      title: "Cols",
+      blocks: [
+        { kind: "field", id: "t", key: "t", type: "table", label: "T", props: { maxRows: 10_000, columns } },
+        { kind: "field", id: "c", key: "c", type: "calculated", label: "C", props: { formula: columns.map((c) => `sum(t.${c.key})`).join("+") } },
+      ],
+    };
+    const row = Object.fromEntries(columns.map((c) => [c.key, "1"]));
+    const result = validateSubmission(form, { events: [{ type: "answer", field: "t", value: Array.from({ length: 10_000 }, () => ({ ...row })) }, { type: "submit" }] });
+    expect(result.ok && result.submission.answers.c).toBe(60_000);
+  });
+
+  it("leaves a total blank, not partial, when six 10k-row tables pass the allowance (Gate's case)", () => {
+    const blocks: FieldBlock[] = Array.from({ length: 6 }, (_, k): FieldBlock => ({
+      kind: "field", id: `t${k}`, key: `t${k}`, type: "table", label: "T", props: { maxRows: 10_000, columns: [{ key: "c", label: "C" }] },
+    }));
+    blocks.push({ kind: "field", id: "n", key: "n", type: "number", label: "N" });
+    blocks.push({ kind: "field", id: "c", key: "c", type: "calculated", label: "C", props: { formula: "sum(t0.c)+sum(t1.c)+sum(t2.c)+sum(t3.c)+sum(t4.c)+sum(t5.c)+n" } });
+    const form: FormDefinition = { schemaVersion: 1, id: "six", title: "Six", blocks };
+    const evs: FormEvent[] = blocks.slice(0, 6).map((b) => ({ type: "answer", field: b.id, value: Array.from({ length: 10_000 }, () => ({ c: 1 })) }));
+    evs.push({ type: "answer", field: "n", value: 1 }, { type: "submit" });
+    const result = validateSubmission(form, { events: evs }, { complete: false });
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.submission.answers).not.toHaveProperty("c");
+    // Five tables fit: 50,000 rows.
+    const five = validateSubmission(form, { events: evs.filter((e) => e.type !== "answer" || e.field !== "t5") }, { complete: false });
+    expect(five.ok && five.submission.answers.c).toBe(50_001);
+  });
+
+  it("never returns stale totals for a caller's array changed between calls (Gate's case)", () => {
+    const form: FormDefinition = {
+      schemaVersion: 1,
+      id: "mut",
+      title: "Mut",
+      blocks: [
+        { kind: "field", id: "t", key: "t", type: "table", label: "T", props: { maxRows: 100, columns: [{ key: "c", label: "C" }] } },
+        { kind: "field", id: "c", key: "c", type: "calculated", label: "C", props: { formula: "sum(t.c)" } },
+      ],
+    };
+    const rows: Record<string, Json>[] = [{ c: 1 }, { c: 2 }];
+    const total = () => {
+      const r = validateSubmission(form, { events: [{ type: "answer", field: "t", value: rows }, { type: "submit" }] }, { complete: false });
+      return r.ok ? r.submission.answers.c : r.errors;
+    };
+    expect(total()).toBe(3);
+    rows.push({ c: 100 });
+    expect(total()).toBe(103);
+    rows[0]!.c = 50;
+    expect(total()).toBe(152);
+    // The same through an engine: setValue with the array it holds works it out again, and a new engine reads it afresh.
+    const held: Record<string, Json>[] = [{ c: 1 }];
+    const engine = createForm(form);
+    engine.setValue("t", held);
+    expect(engine.getState().values.c).toBe(1);
+    held.push({ c: 5 });
+    engine.setValue("t", held);
+    expect(engine.getState().values.c).toBe(6);
+    const fresh = createForm(form);
+    fresh.setValue("t", held);
+    expect(fresh.getState().values.c).toBe(6);
+  });
+
+  it("a replay that steps through calculated fields gives the live engine's state, with and without logic on them", () => {
+    for (const logic of [[], [when("total").greaterThan(10).show("why")]]) {
+      const form = defineForm({
+        id: "steps",
+        title: "Steps",
+        blocks: [
+          f.shortText("a", { label: "A" }),
+          f.calculated("total", { label: "Total", formula: "a * 2" }),
+          f.shortText("why", { label: "Why?" }),
+        ],
+        logic,
+      }).definition;
+      const live = createForm(form, { clock: () => undefined });
+      live.setValue("a", "3");
+      live.next();
+      live.next();
+      live.back();
+      live.setValue("a", "8");
+      live.next();
+      const again = replay(form, live.getState().events);
+      expect(again.getState()).toEqual(live.getState());
+      expect(again.getState().values.total).toBe(16);
+    }
   });
 
   it("prefilled answers settle once and match a replay", () => {

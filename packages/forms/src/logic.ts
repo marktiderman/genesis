@@ -118,8 +118,9 @@ export interface PathWalk extends PathResult {
 /** One forward pass over the blocks. See `computePath`. */
 export function walkPath(def: FormDefinition, scope: EvalScope): PathWalk {
   const list = steps(def);
-  const index = new Map(list.map((b, i) => [b.id, i]));
-  const position = new Map(def.blocks.map((b, i) => [b.id, i]));
+  // Built only when needed: an engine walks the path on every step.
+  let index: Map<string, number> | undefined;
+  let position: Map<string, number> | undefined;
   const jumps = (def.logic ?? []).filter(
     (r): r is Extract<LogicRule, { effect: "jump" }> => r.effect === "jump",
   );
@@ -147,6 +148,7 @@ export function walkPath(def: FormDefinition, scope: EvalScope): PathWalk {
         ending = jump.to.ending;
         break;
       }
+      index ??= new Map(list.map((b, at) => [b.id, at]));
       const target = index.get(jump.to);
       if (target !== undefined && target > i) {
         i = nextVisible(target);
@@ -157,10 +159,11 @@ export function walkPath(def: FormDefinition, scope: EvalScope): PathWalk {
   }
 
   const scopeAt = (blockId: string, inclusive = false): EvalScope => {
+    position ??= new Map(def.blocks.map((b, i) => [b.id, i]));
     const at = position.get(blockId) ?? -1;
     const values = Object.create(null) as Record<string, Json | undefined>;
     for (const id of path) {
-      const p = position.get(id)!;
+      const p = position!.get(id)!;
       if (p > at || (p === at && !inclusive)) break;
       if (id in placed) values[id] = placed[id];
     }

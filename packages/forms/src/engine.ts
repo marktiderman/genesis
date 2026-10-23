@@ -61,6 +61,17 @@ export interface FormEngine {
   answers(): Record<string, Json>;
 }
 
+/** Whether any `field` operand under `node` (logic rules) names one of `ids`. */
+function readsAny(node: unknown, ids: ReadonlySet<string>): boolean {
+  if (Array.isArray(node)) return node.some((n) => readsAny(n, ids));
+  if (!node || typeof node !== "object") return false;
+  for (const [k, v] of Object.entries(node)) {
+    if (k === "field" && typeof v === "string" && ids.has(v)) return true;
+    if (typeof v === "object" && readsAny(v, ids)) return true;
+  }
+  return false;
+}
+
 export function createForm(definition: FormDefinition, options: CreateFormOptions = {}): FormEngine {
   return build(definition, options).engine;
 }
@@ -102,14 +113,22 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
   // Calculated fields are worked out from the answers on the path, and logic
   // may read them, so the two settle together (a few rounds at most).
   const calc = calculator(definition);
+  // When no rule reads a calculated field, the path doesn't depend on the
+  // calculated values, so one round is enough.
+  const logicReadsCalculated = calc.active && readsAny(definition.logic, calc.ids);
   const settle = (values: FormState["values"], hidden: FormState["hidden"]) => {
     let { path } = computePath(definition, scopeOf(values, hidden));
     if (!calc.active) return { values, path };
+    if (!logicReadsCalculated) return { values: calc.withCalculated(values, path), path };
     for (let round = 0; round < 4; round++) {
       const next = calc.withCalculated(values, path);
       if (next === values) break;
       values = next;
-      path = computePath(definition, scopeOf(values, hidden)).path;
+      const again = computePath(definition, scopeOf(values, hidden)).path;
+      // The same path: the values just worked out read the same answers, so they stand.
+      const same = again.length === path.length && again.every((id, i) => id === path[i]);
+      path = again;
+      if (same) break;
     }
     return { values, path };
   };
@@ -160,16 +179,36 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
   // While replaying, answers only record the value: the path and calculated
   // fields are settled once, before the next step that reads them
   // (`next`, `back`, `submit`, or the end of the replay), not once per event.
+  // When no rule reads a calculated field, a step needs only the path, so the
+  // formulas wait for a step that reads their values (`submit`, the end, or
+  // `next` on a calculated field) and run once there.
   let unsettled = false;
-  const settleNow = () => {
-    if (!unsettled) return;
-    unsettled = false;
-    const { values, path } = settle(state.values, state.hidden);
-    state = { ...state, values, path };
+  let formulasStale = false;
+  const settleNow = (needValues = true) => {
+    if (unsettled && calc.active && !logicReadsCalculated && !needValues) {
+      unsettled = false;
+      formulasStale = true;
+      state = { ...state, path: computePath(definition, scopeOf(state.values, state.hidden)).path };
+      return;
+    }
+    if (unsettled) {
+      unsettled = false;
+      formulasStale = false;
+      const { values, path } = settle(state.values, state.hidden);
+      state = { ...state, values, path };
+    } else if (formulasStale && needValues) {
+      formulasStale = false;
+      state = { ...state, values: calc.withCalculated(state.values, state.path) };
+    }
   };
 
   const answer = (id: string, value: Json | undefined, event: FormEvent) => {
-    if (state.status === "completed" || own(state.values, id) === value || isCalculated(fields.get(id))) return;
+    if (state.status === "completed" || isCalculated(fields.get(id))) return;
+    if (own(state.values, id) === value) {
+      // The same list or table again may have been changed in place: work it out afresh.
+      if (value === null || typeof value !== "object") return;
+      calc.forget(value);
+    }
     const errors = { ...state.errors };
     delete errors[id];
     if (batch) {
@@ -282,10 +321,11 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
         answer(event.field, event.value, logged);
       }
     } else if (event.type === "next") {
-      settleNow();
+      settleNow(false);
+      if (formulasStale && isCalculated(fields.get(state.current ?? ""))) settleNow(true);
       engine.next();
     } else if (event.type === "back") {
-      settleNow();
+      settleNow(false);
       engine.back();
     } else if (event.type === "submit") {
       settleNow();
