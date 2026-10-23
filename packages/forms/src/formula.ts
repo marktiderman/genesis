@@ -405,7 +405,8 @@ export function evaluateFormula(ast: FormulaNode, read: FormulaReader): FormulaV
       case "text":
         return node.value;
       case "ref":
-        return read(node.column !== undefined ? { key: node.key, column: node.column } : { key: node.key });
+        // The node itself: a reader may key on it, and it is never changed.
+        return read(node);
       case "unary": {
         const n = formulaNumber(scalar(run(node.arg)));
         return n === null ? null : -n;

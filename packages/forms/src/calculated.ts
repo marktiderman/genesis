@@ -13,6 +13,8 @@ export const CALCULATED_TYPE = "calculated";
 export const COMPUTED_FIELD_TYPES = [CALCULATED_TYPE] as const;
 
 export type CalculatedFormat = "number" | "percent" | "text";
+/** Longest the formulas of one form may be, all together (`parseForm` checks it). */
+export const MAX_FORM_FORMULA_LENGTH = 20_000;
 /** Most decimal places a calculated value may keep. */
 export const MAX_CALCULATED_DECIMALS = 10;
 
@@ -132,10 +134,28 @@ export function formulaInput(value: Json | undefined, column?: string): FormulaV
 interface Compiled {
   field: FieldBlock;
   ast: FormulaNode | null;
-  /** The answers it reads, in `refs` order (`id` is `undefined` for a key that is not a field). */
-  reads: { id: string | undefined; column: string | undefined }[];
+  /** The answers it reads, each (answer, column) once (`id` is `undefined` for a key that is not a field). */
+  reads: Read[];
+  /** Each `ref` node of the formula, to its index in `reads`. */
+  slots: Map<FormulaNode, number>;
   /** The inputs of the last evaluation and its result, reused while they are the same values. */
   last: { inputs: unknown[]; value: Json | undefined } | null;
+}
+
+interface Read {
+  id: string | undefined;
+  column: string | undefined;
+  /** `id` and `column` as one key, for the settle's item count. */
+  key: string;
+}
+
+function refNodes(node: FormulaNode, out: Extract<FormulaNode, { kind: "ref" }>[] = []) {
+  if (node.kind === "ref") out.push(node);
+  else if (node.kind === "unary") refNodes(node.arg, out);
+  else if (node.kind === "binary") (refNodes(node.left, out), refNodes(node.right, out));
+  else if (node.kind === "if") (refNodes(node.test, out), refNodes(node.then, out), refNodes(node.else, out));
+  else if (node.kind === "call") for (const a of node.args) refNodes(a, out);
+  return out;
 }
 
 /** Stands for an answer that is off the path or unanswered. */
@@ -157,8 +177,20 @@ export function calculator(definition: FormDefinition) {
   for (const block of definition.blocks) {
     if (block.kind !== "field" || !isCalculated(block)) continue;
     const parsed = parseFormula(calculatedProps(block).formula);
-    const reads = parsed.ok ? parsed.refs.map((r) => ({ id: idByKey.get(r.key), column: r.column })) : [];
-    compiled.push({ field: block, ast: parsed.ok ? parsed.ast : null, reads, last: null });
+    const reads: Read[] = [];
+    const slots = new Map<FormulaNode, number>();
+    const byKey = new Map<string, number>();
+    for (const ref of parsed.ok ? refNodes(parsed.ast) : []) {
+      const id = idByKey.get(ref.key);
+      const key = `${id ?? ""}\u0000${ref.column ?? ""}`;
+      let slot = byKey.get(key);
+      if (slot === undefined) {
+        slot = reads.push({ id, column: ref.column, key }) - 1;
+        byKey.set(key, slot);
+      }
+      slots.set(ref, slot);
+    }
+    compiled.push({ field: block, ast: parsed.ok ? parsed.ast : null, reads, slots, last: null });
   }
   const withCalculated = (values: Record<string, Json | undefined>, path: readonly string[]) => {
     if (!compiled.length) return values;
@@ -169,11 +201,10 @@ export function calculator(definition: FormDefinition) {
     // It depends on the answers only, so a client and the server agree.
     let budget = MAX_SETTLE_ITEMS;
     const within = new Map<string, boolean>();
-    const input = (id: string | undefined, column: string | undefined): unknown => {
+    const input = ({ id, key }: Read): unknown => {
       if (id === undefined || !visible.has(id) || !Object.prototype.hasOwnProperty.call(next, id)) return UNREAD;
       const value = next[id];
       if (!Array.isArray(value)) return value;
-      const key = `${id}\u0000${column ?? ""}`;
       let ok = within.get(key);
       if (ok === undefined) {
         ok = value.length <= budget;
@@ -186,14 +217,21 @@ export function calculator(definition: FormDefinition) {
       const { field, ast } = entry;
       // A formula is worked out again only when an answer it reads is a different value:
       // an engine settles on every answer, and most answers are to other questions.
-      const inputs = entry.reads.map((r) => input(r.id, r.column));
+      const inputs = entry.reads.map(input);
       let value: Json | undefined;
       if (entry.last && entry.last.inputs.length === inputs.length && entry.last.inputs.every((v, i) => v === inputs[i])) {
         value = entry.last.value;
       } else {
+        const resolved: (FormulaValue | undefined)[] = new Array(inputs.length);
         const read = (ref: FormulaRef): FormulaValue => {
-          const raw = input(idByKey.get(ref.key), ref.column);
-          return raw === UNREAD ? null : formulaInput(raw as Json | undefined, ref.column);
+          const slot = entry.slots.get(ref as FormulaNode);
+          if (slot === undefined) return null;
+          let v = resolved[slot];
+          if (v === undefined) {
+            const raw = inputs[slot];
+            v = resolved[slot] = raw === UNREAD ? null : formulaInput(raw as Json | undefined, entry.reads[slot]!.column);
+          }
+          return v;
         };
         value = ast ? calculatedValue(evaluateFormula(ast, read), field) : undefined;
         entry.last = { inputs, value };

@@ -1,4 +1,4 @@
-import { CALCULATED_TYPE, MAX_CALCULATED_DECIMALS } from "./calculated";
+import { CALCULATED_TYPE, MAX_CALCULATED_DECIMALS, MAX_FORM_FORMULA_LENGTH } from "./calculated";
 import { isJson } from "./events";
 import { getFieldType, isIsoDate } from "./fields";
 import { parseFormula } from "./formula";
@@ -326,9 +326,17 @@ export function parseForm(input: unknown): ParseResult {
   // Calculated fields: the formula parses, and every answer it names is a
   // question of this form (a table by one of its columns), and a calculated
   // one only when it comes earlier, so values never go round in a circle.
+  // The formulas are worked out again on each step that changes an answer
+  // they read, so all of them together are capped too.
+  let formulaChars = 0;
   input.blocks.forEach((block: unknown, i) => {
     if (!isObject(block) || block.kind !== "field" || block.type !== CALCULATED_TYPE) return;
     const path = `blocks[${i}].props.formula`;
+    const source = isObject(block.props) && typeof block.props.formula === "string" ? block.props.formula : "";
+    formulaChars += source.length;
+    if (formulaChars > MAX_FORM_FORMULA_LENGTH && formulaChars - source.length <= MAX_FORM_FORMULA_LENGTH) {
+      issue(path, `The form's formulas together are over ${MAX_FORM_FORMULA_LENGTH} characters; shorten some, or work part out once in an earlier calculated field.`);
+    }
     if (block.required === true) {
       warnings.push({ path: `blocks[${i}].required`, message: "A calculated field is worked out, not answered, so it is never required." });
     }

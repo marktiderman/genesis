@@ -9,6 +9,7 @@ import {
   getFieldType,
   MAX_FORMULA_ITEMS,
   MAX_SETTLE_ITEMS,
+  MAX_FORM_FORMULA_LENGTH,
   parseForm,
   replay,
   summarizeValue,
@@ -221,6 +222,19 @@ describe("parseForm", () => {
     expect(warnings(undefined, 5)).toEqual([]);
   });
 
+  it(`caps the form's formulas at ${MAX_FORM_FORMULA_LENGTH} characters together`, () => {
+    const long = Array.from({ length: 120 }, () => "sum(plan.cost)").join("+");
+    const withMany = (n: number): FormDefinition => ({
+      ...def,
+      blocks: [...def.blocks, ...Array.from({ length: n }, (_, k): FieldBlock => ({ kind: "field", id: `k${k}`, key: `k${k}`, type: "calculated", label: "K", props: { formula: long } }))],
+    });
+    const fits = Math.floor((MAX_FORM_FORMULA_LENGTH - 60) / long.length);
+    expect(issues(withMany(fits))).toEqual([]);
+    expect(issues(withMany(fits + 2))).toEqual([
+      `blocks[${6 + fits}].props.formula: The form's formulas together are over ${MAX_FORM_FORMULA_LENGTH} characters; shorten some, or work part out once in an earlier calculated field.`,
+    ]);
+  });
+
   it("checks format and decimals, and warns on required", () => {
     expect(issues({ ...def, blocks: [calc({ formula: "1", format: "money", decimals: 11 })] })).toEqual([
       "blocks[0].props.format: Must be number, percent or text.",
@@ -329,7 +343,6 @@ describe("large submissions", () => {
       schemaVersion: 1,
       id: "invoice",
       title: "Invoice",
-      version: 1,
       blocks: [
         { kind: "field", id: "items", key: "items", type: "table", label: "Items", props: { columns: [{ key: "qty", label: "Qty" }, { key: "price", label: "Price" }], maxRows: 10_000 } },
         { kind: "field", id: "rate", key: "rate", type: "number", label: "Tax rate" },

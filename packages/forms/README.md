@@ -166,7 +166,8 @@ its answers are in; dividing by zero is blank too. The functions skip blanks (`s
 `0`). Text holding a number (`"12"`, `"1,200"`) counts as that number, and yes / no as 1 / 0.
 A list or table of more than `MAX_FORMULA_ITEMS` (10,000) items reads as blank, and so does an
 answer past `MAX_SETTLE_ITEMS` (50,000) items read by all of a form's formulas together (each
-answer and column counted once, in form order). A formula is at
+answer and column counted once, in form order). All of a form's formulas together are at most
+`MAX_FORM_FORMULA_LENGTH` (20,000) characters. A formula is at
 most `MAX_FORMULA_LENGTH` characters and 64 levels of parentheses, calls, signs and `? :` deep.
 
 The engine works the values out from the answers on the path (an answer hidden by logic reads as
