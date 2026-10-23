@@ -204,7 +204,10 @@ function FormPage() {
   );
 }
 
-const subNavShell = (subNav: "tabs" | "sidebar" | "off", collapsed?: boolean) => (
+const subNavShell = (
+  subNav: "section" | "tabs" | "sidebar" | "off" | undefined,
+  collapsed?: boolean,
+) => (
   <AppShell
     appName="Breakthrough"
     appLogo="B"
@@ -217,8 +220,14 @@ const subNavShell = (subNav: "tabs" | "sidebar" | "off", collapsed?: boolean) =>
   </AppShell>
 );
 
+/** No `subNav` anywhere: the shell renders a page's children as it always has. */
+export const SubNavDefault: Story = {
+  name: "Sub-nav: not set (legacy section)",
+  render: () => subNavShell(undefined),
+};
+
 export const SubNavTabs: Story = {
-  name: "Sub-nav: tabs (default)",
+  name: "Sub-nav: tabs",
   render: () => subNavShell("tabs"),
 };
 
@@ -246,6 +255,12 @@ export const SubNavPhone: Story = {
   name: "Sub-nav: phone bottom bar",
   globals: { viewport: { value: "mobile1", isRotated: false } },
   render: () => subNavShell("tabs"),
+};
+
+export const SubNavPhoneDefault: Story = {
+  name: "Sub-nav: phone, not set (legacy bar)",
+  globals: { viewport: { value: "mobile1", isRotated: false } },
+  render: () => subNavShell(undefined),
 };
 
 export const SubNavPhoneOff: Story = {

@@ -58,6 +58,9 @@ const navigation: NavigationNode<NavItem> = {
       path: "/projects",
       label: "Projects",
       items: [],
+      // Sub-navigation is opt-in; this subtree turns it on. The rest of the
+      // app (the showcase's contextual section) renders as it always has.
+      subNav: "tabs",
       children: [{ id: "project", path: "/projects/$projectId", label: "Project", items: projectItems }],
     },
     {

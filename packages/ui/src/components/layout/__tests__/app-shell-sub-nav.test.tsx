@@ -1,8 +1,9 @@
 // @feat:app-shell
 /**
  * Shell sub-navigation: a page's child items (a form's Questions / Logic and
- * endings / Responses / Settings) as a tab row (default), nested in the
- * sidebar, or off; and in the mobile bottom bar with a back item.
+ * endings / Responses / Settings). Opt-in: with no `subNav` set the shell
+ * renders exactly as before ("section"). "tabs" and "sidebar" turn it on,
+ * including the phone bar's back item; "off" hides the children.
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
@@ -13,7 +14,8 @@ import { AppShell, type AppShellProps, type NavItem } from "../AppShell";
 import { AppShellSubNavEnd, useAppShellSubNav } from "../sub-nav";
 import type { NavigationNode } from "../../../navigation";
 
-const chrome = { showThemeToggle: false, configurable: false };
+const legacy = { showThemeToggle: false, configurable: false };
+const chrome = { ...legacy, subNav: "tabs" as const };
 
 const formTabs: NavItem[] = [
   { to: "/forms/$formId/edit", label: "Questions", badge: 2 },
@@ -63,7 +65,35 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-describe("sub-navigation: tabs (default)", () => {
+describe("sub-navigation: default is the legacy section (opt-in)", () => {
+  const renderLegacy = (path: string) => renderShell(path, { options: legacy });
+
+  it("renders no tab row, keeps the labelled sidebar section", () => {
+    renderLegacy("/forms/f1/edit/logic");
+    expect(screen.queryByTestId("app-shell-sub-nav")).toBeNull();
+    const section = sidebar().getByTestId("app-shell-contextual-nav");
+    expect(within(section).getByText("Form")).toBeTruthy();
+    // Its own section straight under the nav, after the global items, not
+    // nested in a wrapper with Forms.
+    expect(section.parentElement?.getAttribute("aria-label")).toBe("Main");
+    expect(section.previousElementSibling?.textContent).toBe("Forms");
+  });
+
+  it("puts the children in the phone bar as before: no back item, no badge chips", () => {
+    renderLegacy("/forms/f1/edit");
+    expect(screen.queryByTestId("app-shell-mobile-back")).toBeNull();
+    const links = bottomBar().getAllByRole("link");
+    expect(links.map((a) => a.getAttribute("aria-label"))).toEqual([
+      "Questions",
+      "Logic and endings",
+      "Responses",
+      "Settings",
+    ]);
+    expect(links[0]!.textContent).toBe("QQuestions");
+  });
+});
+
+describe("sub-navigation: tabs", () => {
   it("renders the children as navigation links across the top of the content", () => {
     renderShell("/forms/f1/edit");
     const nav = screen.getByRole("navigation", { name: "Form" });

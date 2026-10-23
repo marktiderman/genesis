@@ -349,17 +349,21 @@ optional `icon` (first letter when missing) and optional `badge` (a count or sho
 as a chip). Gate by role the same way as other items: filter the list before handing it over.
 For live data (badge counts) the page calls `useAppShellSubNav(items, { mode? })`, which
 replaces the node's items while it is mounted, and puts a host chip at the end of the tab row with
-`<AppShellSubNavEnd>…</AppShellSubNavEnd>`. `options.subNav` picks the desktop look:
+`<AppShellSubNavEnd>…</AppShellSubNavEnd>`. Shell sub-navigation is opt-in through
+`options.subNav`:
 
-- `"tabs"` (default): one row of navigation links across the top of the content, badges as
-  chips, the current tab underlined in the brand colour, `aria-current="page"`.
+- `"section"` (default): exactly the pre-sub-nav shell. The children sit in a labelled section
+  below the global sidebar items and replace the phone bar, with no back item.
+- `"tabs"`: one row of navigation links across the top of the content, badges as chips, the
+  current tab underlined in the brand colour, `aria-current="page"`.
 - `"sidebar"`: nested under the active global item ("Forms"); a flyout from it on the rail.
-- `"off"`: nothing; draw your own (`SubNavTabs` is exported for that).
+- `"off"`: nothing, desktop or phone; draw your own (`SubNavTabs` is exported for that).
 
-A node (`subNav` on `NavigationNode`, nearest in the trail wins), the `subNav` prop and the page's
-hook override it, in that order of strength (hook strongest). On phones, while the mode isn't
-`"off"`, a page with children swaps the bottom bar to them, led by a back item to the logical
-parent ("Forms"); leaving the page brings the main bar back. An explicit `mobileNavItems` wins.
+With `"tabs"` or `"sidebar"`, a page with children swaps the phone bar to a back item to the
+logical parent ("Forms") plus the children and their badges; leaving the page brings the main
+bar back. A node (`subNav` on `NavigationNode`, nearest in the trail wins), the `subNav` prop and
+the page's hook override the option, in that order of strength (hook strongest), so one subtree
+can opt in. An explicit `mobileNavItems` always wins.
 
 ```tsx
 useAppShellSubNav([

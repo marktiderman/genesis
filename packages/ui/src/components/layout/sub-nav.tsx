@@ -32,18 +32,22 @@ import { isPathActive, type LinkComponent } from "../../navigation";
 import type { NavItem } from "./AppShell";
 
 /**
- * How AppShell shows the current page's child items on desktop.
- * - `tabs` (default): one row of tabs across the top of the page content.
+ * How AppShell shows the current page's child items. Sub-navigation is
+ * opt-in: the default, `section`, is the shell as it always was.
+ * - `section` (default): a labelled section below the global sidebar
+ *   items; on phones the children replace the bottom bar (no back item).
+ * - `tabs`: one row of tabs across the top of the page content.
  * - `sidebar`: nested under the active item in the sidebar; a flyout from
  *   that item on the collapsed rail.
- * - `off`: nothing; the app draws its own (`SubNavTabs` is exported for it).
+ * - `off`: nothing, on desktop or phones; the app draws its own
+ *   (`SubNavTabs` is exported for it).
  *
- * Phones ignore it: the bottom bar switches to the children whenever there
- * are any.
+ * With `tabs` or `sidebar`, phones switch the bottom bar to a back item to
+ * the logical parent plus the children, with their badges.
  *
  * @stability Beta
  */
-export type SubNavMode = "tabs" | "sidebar" | "off";
+export type SubNavMode = "section" | "tabs" | "sidebar" | "off";
 
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 

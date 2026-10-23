@@ -118,11 +118,11 @@ export interface AppShellOptions {
    */
   collapseShortcut?: string | false;
   /**
-   * How the current page's child items show on desktop: `"tabs"` (default),
-   * `"sidebar"` or `"off"`. A navigation node, the `subNav` prop or the page
-   * (`useAppShellSubNav(items, { mode })`) can override it. While it isn't
-   * `"off"`, phones switch the bottom bar to the children plus a back item;
-   * with `"off"` they keep the app's main bar.
+   * Shell sub-navigation, opt-in. `"section"` (default) renders a page's
+   * children exactly as AppShell always has; `"tabs"` or `"sidebar"` turn
+   * sub-navigation on (see `SubNavMode`), and `"off"` hides them. A
+   * navigation node, the `subNav` prop or the page
+   * (`useAppShellSubNav(items, { mode })`) can override it.
    */
   subNav?: SubNavMode;
   /**
@@ -170,7 +170,7 @@ const OPTION_DEFAULTS: Required<
   showMobileBottomNav: true,
   defaultCollapsed: false,
   collapseShortcut: "[",
-  subNav: "tabs",
+  subNav: "section",
   configurable: undefined,
   density: "comfortable",
   railWidth: "narrow",
@@ -830,6 +830,7 @@ function SidebarNav({
   activePath,
   isActive,
   subActive = false,
+  nest = false,
 }: {
   navItems: NavItem[];
   /** The page's children, in `subNav: "sidebar"` mode only. */
@@ -837,6 +838,12 @@ function SidebarNav({
   contextualNavLabel?: string;
   /** A sub-navigation item (wherever it renders) is the current page. */
   subActive?: boolean;
+  /**
+   * `subNav: "sidebar"`: nest the children under the active item (a flyout on
+   * the rail), and mark only the most specific one current. Off, they keep
+   * the legacy section below the global items.
+   */
+  nest?: boolean;
   secondaryNavItems?: NavItem[];
   secondaryNavLabel: string;
   showSecondary: boolean;
@@ -860,7 +867,9 @@ function SidebarNav({
   // Children nest under the active global item ("Forms" for a form's tabs).
   // With none active they get their own section below the global items.
   const host =
-    contextual.length > 0 ? mostSpecificActive(navItems, activePath, isActive) : undefined;
+    nest && contextual.length > 0
+      ? mostSpecificActive(navItems, activePath, isActive)
+      : undefined;
   // Only the most specific sibling is current: `/forms/f1/edit/logic` must
   // not also light up a Questions item at `/forms/f1/edit`.
   const contextualCurrent = mostSpecificActive(contextual, activePath, isActive);
@@ -908,7 +917,7 @@ function SidebarNav({
             linkComponent={linkComponent}
             activePath={activePath}
             isActive={isActive}
-            active={item === contextualCurrent}
+            active={nest ? item === contextualCurrent : undefined}
           />
         ),
       )}
@@ -1279,13 +1288,19 @@ export function AppShell({
     OPTION_DEFAULTS.subNav!;
   const subActive = contextualNavItems.some((i) => itemIsActive(i, activePath, isActive));
 
+  // "tabs" and "sidebar" turn sub-navigation on; "section" (the default) is
+  // the shell as it always was; "off" hides the children entirely.
+  const subNavOn = subNavMode === "tabs" || subNavMode === "sidebar";
+
   const leaves = (items: NavItem[]) =>
     items.filter((i) => !i.children || i.children.length === 0);
-  // Phones: while sub-navigation is on, a page with children swaps the bar
-  // to them, led by a back item to the logical parent; `off` keeps the
-  // app's main bar. An explicit `mobileNavItems` always wins.
+  // Phones. On: a page with children swaps the bar to them, led by a back
+  // item to the logical parent. "section": the children replace the bar
+  // as before, with no back item. "off": the app's main bar. An explicit
+  // `mobileNavItems` always wins.
   const contextualLeaves = subNavMode === "off" ? [] : leaves(contextualNavItems);
-  const subBottom = !mobileNavItems && contextualLeaves.length > 0;
+  const subBottom = subNavOn && !mobileNavItems && contextualLeaves.length > 0;
+  const legacyBottom = !subNavOn && !mobileNavItems && contextualLeaves.length > 0;
   const backTarget = subBottom
     ? (parentNavigation ?? derived?.backItem ?? (() => {
         const hostItem = mostSpecificActive(navItems, activePath, isActive);
@@ -1293,11 +1308,13 @@ export function AppShell({
       })())
     : undefined;
   const bottomItems = (
-    mobileNavItems ?? (subBottom ? contextualLeaves : leaves(navItems))
+    mobileNavItems ??
+    (subBottom || legacyBottom ? contextualLeaves : leaves(navItems))
   ).filter((i) => !i.disabled);
   // Global tabs keep their highlight, but leave `aria-current` to the sub
   // item that is the current page (see SidebarNav).
-  const bottomNotCurrent = !mobileNavItems && !subBottom && subActive;
+  const bottomNotCurrent =
+    !mobileNavItems && !subBottom && !legacyBottom && subActive;
   const bottomCurrent = subBottom
     ? mostSpecificActive(bottomItems, activePath, isActive)
     : undefined;
@@ -1501,10 +1518,15 @@ export function AppShell({
       <SidebarNav
         navItems={navItems}
         contextualNavItems={
-          (opts.mobile ? subNavMode !== "off" : subNavMode === "sidebar")
+          (
+            opts.mobile
+              ? subNavMode !== "off"
+              : subNavMode === "sidebar" || subNavMode === "section"
+          )
             ? contextualNavItems
             : undefined
         }
+        nest={subNavMode === "sidebar" || (opts.mobile && subNavOn)}
         contextualNavLabel={derived?.current.label}
         subActive={subActive}
         secondaryNavItems={secondaryNavItems}
@@ -1724,8 +1746,11 @@ export function AppShell({
                 <LinkComp
                   key={item.to + item.label}
                   href={item.to}
+                  title={subNavOn ? undefined : item.label}
                   aria-label={
-                    item.badge != null ? `${item.label} (${item.badge})` : item.label
+                    subNavOn && item.badge != null
+                      ? `${item.label} (${item.badge})`
+                      : item.label
                   }
                   aria-current={active && !bottomNotCurrent ? "page" : undefined}
                   className={cn(
@@ -1735,9 +1760,11 @@ export function AppShell({
                 >
                   <span className="relative">
                     <NavIcon item={item} className="h-5 w-5" />
-                    {item.badge != null ? (
+                    {subNavOn && item.badge != null ? (
+                      // Anchored to the icon's right edge and growing right,
+                      // so a word badge ("New") never covers the icon.
                       <span
-                        className="absolute -right-2.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+                        className="absolute -top-1.5 left-full -ml-1 inline-flex h-4 min-w-4 items-center justify-center whitespace-nowrap rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground ring-2 ring-background"
                         aria-hidden
                       >
                         {item.badge}

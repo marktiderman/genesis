@@ -70,7 +70,7 @@ export const features = defineFeatures({
     acceptance: [
       "resolveNavigation marks the current item and its parents from the URL, never from browser history.",
       "The desktop sidebar collapses to a 64px icon rail with [ or its toggle; a page's defaultCollapsed applies until the user toggles, and that choice persists.",
-      "A page's child items show as tabs (default), nested in the sidebar or not at all on desktop, and as the phone's bottom bar with a back item while sub-navigation is on.",
+      "Shell sub-navigation is opt-in: with no subNav set the shell renders as before; tabs or sidebar show a page's children on desktop and a back item plus the children in the phone's bottom bar.",
     ],
     reviewedAt,
     links: { code: ["packages/ui/src/components/layout/AppShell.tsx", "packages/ui/src/navigation.tsx"] },
