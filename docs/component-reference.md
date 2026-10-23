@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 129 components · 434 other exports · 265 standalone types across 10 packages and entry points.
+**Totals:** 129 components · 436 other exports · 273 standalone types across 10 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -30,7 +30,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 
-### Other exports (30)
+### Other exports (32)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -45,6 +45,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DataReadError`](../packages/core/src/schema/read-outcome.ts) | class | — | Thrown by a provider when a read failed. Its `message` is safe to show. |
 | [`DataWriteError`](../packages/core/src/schema/write-outcome.ts) | class | — | Thrown by a provider when a write did not commit. |
 | [`decodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | The inverse of {@link encodeRecordKey}: field name → value. |
+| [`DEFAULT_LIVE_DEBOUNCE_MS`](../packages/core/src/hooks/use-live.ts) | const | — | How long a burst of change events is gathered into one refetch. |
 | [`DEFAULT_UNDO_DELAY_MS`](../packages/core/src/hooks/mutation-mode.ts) | const | — | How long an `undoable` write waits for an undo before it is sent. |
 | [`DEFAULT_UNSAVED_CHANGES_MESSAGE`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | const | — | _(no summary)_ |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
@@ -59,6 +60,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
+| [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
@@ -67,7 +69,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (73)
+### Types (81)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -98,9 +100,11 @@ export type { GetOneResult };
 export type { HistoryParams };
 export type { Identifier };
 export type { ImportParams };
+export type { InfinitePageParam };
 export type { InvalidationKey };
 export type { ListParams };
 export type { ListResult };
+export type { LiveOptions };
 export type { MockProviderOptions };
 export type { MutationMode };
 export type { MutationModeOptions };
@@ -112,6 +116,7 @@ export type { RangeFilter };
 export type { ReadOutcome };
 export type { RecordComment };
 export type { ResourceAccess };
+export type { ResourceChangeEvent };
 export type { ResourceContract };
 export type { ResourceFormFieldDef };
 export type { ResourceRelation };
@@ -124,14 +129,19 @@ export type { SelectOption };
 export type { SortParam };
 export type { StorageAdapter };
 export type { StorageType };
+export type { SubscribeParams };
 export type { SupabaseClient };
 export type { SupabaseClientInput };
 export type { SupabaseProviderOptions };
+export type { SupabaseRealtimeChannel };
+export type { SupabaseRealtimePayload };
 export type { SupabaseResourceConfig };
 export type { SupabaseWriteContext };
 export type { UndoableWrite };
 export type { UpdateParams };
 export type { UpdateResult };
+export type { UseInfiniteResourceOptions };
+export type { UseInfiniteResourceReturn };
 export type { UseOneOptions };
 export type { UseResourceFormOptions };
 export type { UseResourceFormReturn };
