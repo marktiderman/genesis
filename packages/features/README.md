@@ -114,7 +114,9 @@ The CLI reads settings from `package.json`, which also needs `"genesisFeatures"`
 }
 ```
 
-Other settings: `agents`, `claude`, `json`, `openfeature`, `skill` (each a path, or `false`), `scan`, `tests`, `coverageIgnore`, `changesets`, `reviewDays`.
+Other settings: `agents`, `claude`, `json`, `openfeature`, `skill` (each a path, or `false`), `scan`, `scanIgnore`, `tests`, `coverageIgnore`, `changesets`, `reviewDays`.
+
+The flag scan ignores comments and test files. List the flags runtime itself (the files that define the accessors and read by variable) in `scanIgnore`; setting it replaces the default test globs, so include those too.
 
 The CLI loads TypeScript itself, so the registry needs no build step. Keep its imports to packages, with no path aliases.
 

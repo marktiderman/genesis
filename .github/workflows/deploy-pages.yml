@@ -48,13 +48,12 @@ jobs:
       - name: Build packages
         run: pnpm build:packages
 
-      # SPA mode (ssr: false) pre-renders one static index.html shell;
-      # GH_PAGES flips react-router.config.ts's basename to /genesis/ so
-      # every asset/route URL resolves under the project-site subpath.
+      # SPA mode (ssr: false) pre-renders one static index.html shell.
+      # The site is served at the root of its custom domain
+      # (https://genesisone.dev, set in the repo's Pages settings), so it
+      # builds at "/". Set PAGES_BASE here to build for a subpath instead.
       - name: Build sample app
         working-directory: apps/sample
-        env:
-          GH_PAGES: "true"
         run: pnpm build
 
       # Storybook's Vite builder already emits relative asset paths
@@ -72,7 +71,7 @@ jobs:
           # GitHub Pages has no SPA rewrite rule: an unknown path 404s and
           # Pages serves the repo's own 404.html for it. Copying the SPA
           # shell there hands control back to react-router's client router
-          # for any deep link (e.g. /genesis/items).
+          # for any deep link (e.g. /items).
           cp dist/index.html dist/404.html
           mkdir -p dist/storybook
           cp -r apps/sample/storybook-static/. dist/storybook/
