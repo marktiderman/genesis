@@ -251,8 +251,14 @@ export interface ResourcePageProps<
    *   columns to match — so the search box is hidden without them. Table
    *   header sorting is withdrawn, as in server-data mode; the sort control
    *   in the filter row drives the query.
+   * - `"cursor"`: loads `perPage` rows (`resourceOptions.defaultPerPage`,
+   *   else the stored page size) and a "Load more" button appends the next
+   *   page, by cursor where the provider serves it
+   *   (`capabilities().cursorPagination`) and by offset otherwise. The
+   *   server orders by `resourceOptions.defaultSort`; search, sort and
+   *   filters in the toolbar act on the rows loaded so far.
    */
-  pagination?: "client" | "server";
+  pagination?: "client" | "server" | "cursor";
   /**
    * `pagination="client"` only: the most rows fetched. Default 1000. An
    * explicit `resourceOptions.defaultPerPage` wins. Keep it at or under the
@@ -819,6 +825,7 @@ export function ResourcePage<
     actions,
     allows,
     clientTruncated,
+    loadMore,
     closeDetail,
     currentPage,
     deleteConfirmed,
@@ -1172,7 +1179,7 @@ export function ResourcePage<
                 keyboardNavigation,
                 // The server already cut the page window; DataTable's own
                 // pagination would slice the slice.
-                pagination: isServerControlled ? false : undefined,
+                pagination: isServerControlled || loadMore ? false : undefined,
                 // Client mode: the header sort is the page's sort, so it
                 // reaches the URL and a link restores what the table shows.
                 ...(isServerControlled
@@ -1212,6 +1219,20 @@ export function ResourcePage<
           `pagerMisconfigured` comment above. A pager reporting the wrong range
           with a Next button that never disables is worse than one that
           says why it can't render. */}
+      {loadMore && loadMore.hasMore && (
+        <div className="flex justify-center px-3 py-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={loadMore.loading}
+            aria-busy={loadMore.loading || undefined}
+            onClick={loadMore.load}
+            testID="resource-page-load-more"
+          >
+            {loadMore.loading ? "Loading…" : "Load more"}
+          </Button>
+        </div>
+      )}
       {clientTruncated && (
         <p
           role="status"

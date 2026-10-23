@@ -81,6 +81,67 @@ function isListResult(value: unknown): value is ListResult<BaseRecord> {
   );
 }
 
+/** TanStack infinite-query data whose pages are list results. */
+interface InfiniteLists {
+  pages: unknown[];
+  pageParams: unknown[];
+}
+
+function isInfiniteLists(value: unknown): value is InfiniteLists {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as { pages?: unknown }).pages) &&
+    Array.isArray((value as { pageParams?: unknown }).pageParams)
+  );
+}
+
+/**
+ * Runs `fn` on every list a cache entry holds: a `[resource, "list", …]`
+ * entry is one list (keyed by its query hash); a `[resource, "infinite",
+ * …]` entry (useInfiniteResource) is one list per loaded page (keyed
+ * `hash#page`). Returns the entry rebuilt, or the same object when `fn`
+ * changed nothing. Rows added or removed change every page's `total`,
+ * since each page reports the whole list's count.
+ */
+function mapLists(
+  key: QueryKey,
+  hash: string,
+  value: unknown,
+  fn: (list: ListResult<BaseRecord>, hash: string) => ListResult<BaseRecord>,
+): unknown {
+  if (key[1] === "list") return isListResult(value) ? fn(value, hash) : value;
+  if (key[1] !== "infinite" || !isInfiniteLists(value)) return value;
+  let changed = false;
+  // Rows added or removed across pages, applied to every page's count: a
+  // page after the first may report -1 (not counted), so its own total
+  // can't carry the change.
+  let rowDelta = 0;
+  const pages = value.pages.map((page, i) => {
+    if (!isListResult(page)) return page;
+    const next = fn(page, `${hash}#${i}`);
+    if (next !== page) {
+      changed = true;
+      rowDelta += next.data.length - page.data.length;
+    }
+    return next;
+  });
+  if (!changed) return value;
+  const withTotals = value.pages.map((orig, i) => {
+    const page = pages[i];
+    if (!isListResult(page) || !isListResult(orig) || typeof orig.total !== "number") return page;
+    return { ...page, total: orig.total < 0 ? orig.total : Math.max(0, orig.total + rowDelta) };
+  });
+  return { ...value, pages: withTotals };
+}
+
+/** Every list result a cache entry holds (see `mapLists`). */
+function listsIn(key: QueryKey, value: unknown): ListResult<BaseRecord>[] {
+  if (key[1] === "list") return isListResult(value) ? [value] : [];
+  if (key[1] === "infinite" && isInfiniteLists(value)) return value.pages.filter(isListResult);
+  return [];
+}
+
 function isDetailKeyFor(key: QueryKey, resource: string, id: Identifier): boolean {
   return key[0] === resource && key[1] === "detail" && sameId(key[2], id);
 }
@@ -117,10 +178,11 @@ export function cachedRecord(
   for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: [resource, "detail"] })) {
     if (isDetailKeyFor(key, resource, id) && value && typeof value === "object") return value as BaseRecord;
   }
-  for (const [, value] of queryClient.getQueriesData<unknown>({ queryKey: [resource, "list"] })) {
-    if (!isListResult(value)) continue;
-    const found = value.data.find((row) => sameId(row.id, id));
-    if (found) return found;
+  for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: [resource] })) {
+    for (const list of listsIn(key, value)) {
+      const found = list.data.find((row) => sameId(row.id, id));
+      if (found) return found;
+    }
   }
   return undefined;
 }
@@ -130,7 +192,7 @@ export function cachedRecord(
 //
 // Holds every optimistic/undoable write not yet settled, and the cache
 // patches they made. Patches are re-applied to any `[resource, "list" |
-// "detail", …]` data that arrives while they are pending (a refetch, a new
+// "infinite" | "detail", …]` data that arrives while they are pending (a refetch, a new
 // page, filter or search), so a deleted row stays gone and an edit stays
 // shown until the write settles. Because of that, refetching is always safe
 // and nothing waits for pending writes before invalidating.
@@ -265,25 +327,27 @@ function revertFields(row: BaseRecord, data: Record<string, unknown>, before: Ba
  * applied.
  */
 function applyPatches(key: QueryKey, hash: string, value: unknown, patches: Patch[]): unknown {
-  if (key[1] === "list" && isListResult(value)) {
-    let rows = value.data;
-    let total = value.total;
-    let changed = false;
-    for (const p of patches) {
-      const index = rows.findIndex((row) => sameId(row.id, p.id));
-      if (index < 0) continue;
-      p.before.set(hash, { row: rows[index]!, index });
-      if (p.kind === "update") {
-        rows = rows.slice();
-        rows[index] = applyUpdate(rows[index]!, p.data ?? {});
-      } else {
-        rows = rows.filter((_, i) => i !== index);
-        if (typeof total === "number") total = Math.max(0, total - 1);
+  if (key[1] === "list" || key[1] === "infinite") {
+    return mapLists(key, hash, value, (list, listHash) => {
+      let rows = list.data;
+      let total = list.total;
+      let changed = false;
+      for (const p of patches) {
+        const index = rows.findIndex((row) => sameId(row.id, p.id));
+        if (index < 0) continue;
+        p.before.set(listHash, { row: rows[index]!, index });
+        if (p.kind === "update") {
+          rows = rows.slice();
+          rows[index] = applyUpdate(rows[index]!, p.data ?? {});
+        } else {
+          rows = rows.filter((_, i) => i !== index);
+          if (typeof total === "number" && total >= 0) total = Math.max(0, total - 1);
+        }
+        changed = true;
       }
-      changed = true;
-    }
-    if (!changed) return value;
-    return typeof total === "number" ? { ...value, data: rows, total } : { ...value, data: rows };
+      if (!changed) return list;
+      return typeof total === "number" ? { ...list, data: rows, total } : { ...list, data: rows };
+    });
   }
   if (key[1] === "detail" && value && typeof value === "object") {
     let row = value as BaseRecord;
@@ -369,28 +433,29 @@ function retractPatch(reg: Registry, queryClient: QueryClient, patch: Patch): vo
   for (const query of queryClient.getQueryCache().findAll({ queryKey: [patch.resource] })) {
     const key = query.queryKey;
     const value: unknown = query.state.data;
-    const b = patch.before.get(query.queryHash);
     let next: unknown = value;
-    if (key[1] === "list" && isListResult(value)) {
-      const at = value.data.findIndex((row) => sameId(row.id, patch.id));
-      if (patch.kind === "update") {
-        const src = b ?? firstBefore(patch);
-        if (at < 0 || !src || !patch.data) continue;
-        const rows = value.data.slice();
-        rows[at] = reapply(revertFields(rows[at]!, patch.data, src.row));
-        next = { ...value, data: rows };
-      } else {
+    if (key[1] === "list" || key[1] === "infinite") {
+      next = mapLists(key, query.queryHash, value, (list, listHash) => {
+        const b = patch.before.get(listHash);
+        const at = list.data.findIndex((row) => sameId(row.id, patch.id));
+        if (patch.kind === "update") {
+          const src = b ?? firstBefore(patch);
+          if (at < 0 || !src || !patch.data) return list;
+          const rows = list.data.slice();
+          rows[at] = reapply(revertFields(rows[at]!, patch.data, src.row));
+          return { ...list, data: rows };
+        }
         // A delete puts the row back where it was, unless a later delete of
         // the same record still hides it.
-        if (at >= 0 || !b || remaining.some((p) => p.kind === "delete")) continue;
-        const rows = value.data.slice();
+        if (at >= 0 || !b || remaining.some((p) => p.kind === "delete")) return list;
+        const rows = list.data.slice();
         rows.splice(Math.min(b.index, rows.length), 0, reapply(b.row));
-        next = {
-          ...value,
+        return {
+          ...list,
           data: rows,
-          ...(typeof value.total === "number" ? { total: value.total + 1 } : {}),
+          ...(typeof list.total === "number" && list.total >= 0 ? { total: list.total + 1 } : {}),
         };
-      }
+      });
     } else if (
       key[1] === "detail" &&
       patch.kind === "update" &&
@@ -399,7 +464,7 @@ function retractPatch(reg: Registry, queryClient: QueryClient, patch: Patch): vo
       value &&
       typeof value === "object"
     ) {
-      const src = b ?? firstBefore(patch);
+      const src = patch.before.get(query.queryHash) ?? firstBefore(patch);
       if (!src) continue;
       next = reapply(revertFields(value as BaseRecord, patch.data, src.row));
     }
@@ -480,12 +545,14 @@ function refreshFields(reg: Registry, queryClient: QueryClient, patch: Patch, ke
     const key = query.queryKey;
     const value: unknown = query.state.data;
     let next: unknown = value;
-    if (key[1] === "list" && isListResult(value)) {
-      const at = value.data.findIndex((row) => sameId(row.id, patch.id));
-      if (at < 0) continue;
-      const rows = value.data.slice();
-      rows[at] = fix(rows[at]!, query.queryHash);
-      next = { ...value, data: rows };
+    if (key[1] === "list" || key[1] === "infinite") {
+      next = mapLists(key, query.queryHash, value, (list, listHash) => {
+        const at = list.data.findIndex((row) => sameId(row.id, patch.id));
+        if (at < 0) return list;
+        const rows = list.data.slice();
+        rows[at] = fix(rows[at]!, listHash);
+        return { ...list, data: rows };
+      });
     } else if (key[1] === "detail" && sameId(key[2], patch.id) && value && typeof value === "object") {
       next = fix(value as BaseRecord, query.queryHash);
     }

@@ -292,6 +292,12 @@ export interface ProviderCapabilities {
    * "Leave site?" prompt.
    */
   readonly keepaliveWrites?: boolean;
+  /**
+   * `getList` serves cursor (keyset) paging: `pagination.cursor` in,
+   * `nextCursor` out. Pages stay correct while rows are added or removed,
+   * and a deep page costs no more than the first.
+   */
+  readonly cursorPagination?: boolean;
 }
 
 /** One audit record, as committed alongside the edit it describes. */

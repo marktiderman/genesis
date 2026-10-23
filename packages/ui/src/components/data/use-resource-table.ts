@@ -21,6 +21,7 @@ import {
 } from "../../hooks/use-resource-page";
 import {
   useCapabilities,
+  useInfiniteResource,
   useOne,
   useResource,
 } from "@marktiderman/genesis-core/hooks";
@@ -144,6 +145,8 @@ export function useResourceTableModel<
   // (no client-side transform, the pager under the list) with useResource's
   // setters standing in for the caller's callbacks.
   const resourceServerPaging = isClientMode && pagination === "server";
+  // `pagination="cursor"`: pages load by cursor and append ("Load more").
+  const resourceCursorPaging = isClientMode && pagination === "cursor";
 
   // ── URL state (`urlState`): the open record, search, sort and page ──
   // An adapter has `setSearchParams`; the options object wraps one.
@@ -229,9 +232,19 @@ export function useResourceTableModel<
               }
             : {}),
           ...writeModeOptions(resourceOptions, mutationModeProp),
+          // Cursor paging reads through useInfiniteResource below; this hook
+          // only writes.
+          ...(resourceCursorPaging ? { enabled: false } : {}),
         }
       : { enabled: false },
   );
+  const infinite = useInfiniteResource<T & BaseRecord>(resourceName ?? "__noop__", {
+    enabled: resourceCursorPaging && (resourceOptions?.enabled ?? true),
+    perPage: resourceOptions?.defaultPerPage ?? perPageProp ?? settings.pageSize,
+    defaultSort: resourceOptions?.defaultSort,
+    defaultFilters: resourceOptions?.defaultFilters,
+    select: resourceOptions?.select,
+  });
 
   /** Explicit prop beats the per-user stored preference. */
   const effectivePageSize = resourceServerPaging
@@ -239,19 +252,27 @@ export function useResourceTableModel<
     : (perPageProp ?? settings.pageSize);
 
   // ── Resolve display data ──
-  const displayData: T[] = isClientMode
+  const displayData: T[] = resourceCursorPaging
+    ? infinite.rows
+    : isClientMode
     ? (resourceHook.list.data?.data ?? [])
     : (dataProp ?? []);
-  const displayTotal: number = isClientMode
+  const displayTotal: number = resourceCursorPaging
+    ? (infinite.total ?? infinite.rows.length)
+    : isClientMode
     ? (resourceHook.list.data?.total ?? 0)
     : (totalProp ?? 0);
   // Client-side mode reads the hook it owns; server-data mode reads the
   // caller's `loading` / `error` props, defaulting to false so a page that
   // supplies neither renders exactly as it did before they existed.
-  const isLoading = isClientMode
+  const isLoading = resourceCursorPaging
+    ? infinite.query.isLoading
+    : isClientMode
     ? resourceHook.list.isLoading
     : (loadingProp ?? false);
-  const hasError = isClientMode
+  const hasError = resourceCursorPaging
+    ? infinite.query.isError
+    : isClientMode
     ? resourceHook.list.isError
     : (errorProp ?? false);
 
@@ -365,6 +386,7 @@ export function useResourceTableModel<
   const clientTruncated =
     isClientMode &&
     !resourceServerPaging &&
+    !resourceCursorPaging &&
     !isLoading &&
     !hasError &&
     displayTotal > displayData.length;
@@ -384,7 +406,8 @@ export function useResourceTableModel<
       return {
         update: resourceHook.update as ResourceActions<T>["update"],
         remove: resourceHook.remove,
-        refetch: () => resourceHook.list.refetch(),
+        refetch: () =>
+          resourceCursorPaging ? infinite.query.refetch() : resourceHook.list.refetch(),
       };
     }
     return {
@@ -407,6 +430,8 @@ export function useResourceTableModel<
     resourceHook.update,
     resourceHook.remove,
     resourceHook.list,
+    resourceCursorPaging,
+    infinite.query,
   ]);
 
   // ── Row identity ──
@@ -958,10 +983,20 @@ export function useResourceTableModel<
   });
 
   // ── Create button ──
+  // `pagination="cursor"`: the "Load more" footer's state.
+  const loadMore = resourceCursorPaging
+    ? {
+        hasMore: infinite.hasNextPage,
+        loading: infinite.isFetchingNextPage,
+        load: infinite.fetchNextPage,
+      }
+    : undefined;
+
   return {
     actions,
     allows,
     clientTruncated,
+    loadMore,
     closeDetail,
     currentPage,
     deleteConfirmed,
@@ -1050,6 +1085,11 @@ export interface ResourceTableState<
   error: boolean;
   /** True when more than `clientRowLimit` rows exist and only that many were loaded. */
   truncated: boolean;
+  /**
+   * `pagination="cursor"`: whether more rows can be loaded, whether a page
+   * is loading, and `load()` to append the next page. Undefined otherwise.
+   */
+  loadMore?: { hasMore: boolean; loading: boolean; load: () => void };
   /** The columns, resolved to DataTable's format. */
   columns: DataTableColumn<T>[];
   /** Write actions for cell renderers (update, remove, …). */
@@ -1159,6 +1199,8 @@ export function useResourceTable<
     loading: m.isLoading,
     error: m.hasError,
     truncated: m.clientTruncated,
+    // Present only with `pagination="cursor"`.
+    ...(m.loadMore ? { loadMore: m.loadMore } : {}),
     columns: m.tableColumns,
     actions: m.actions,
     getKey: m.keyOf,

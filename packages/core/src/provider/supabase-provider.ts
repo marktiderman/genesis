@@ -4,6 +4,7 @@ import type {
   FilterParam,
   Identifier,
   InvalidationKey,
+  ListParams,
   WriteEvent,
 } from "./types";
 import { DataWriteError } from "../schema/write-outcome";
@@ -35,7 +36,7 @@ interface SupabaseQueryBuilder {
   is(column: string, value: null): SupabaseQueryBuilder;
   not(column: string, operator: string, value: unknown): SupabaseQueryBuilder;
   or(filters: string): SupabaseQueryBuilder;
-  order(column: string, options?: { ascending?: boolean }): SupabaseQueryBuilder;
+  order(column: string, options?: { ascending?: boolean; nullsFirst?: boolean }): SupabaseQueryBuilder;
   range(from: number, to: number): SupabaseQueryBuilder;
   single(): SupabaseQueryBuilder;
   then: Promise<{ data: unknown; error: unknown; count?: number | null }>["then"];
@@ -212,6 +213,74 @@ function escapeIlike(value: string): string {
 
 function isIdentifier(value: unknown): value is Identifier {
   return typeof value === "string" || typeof value === "number";
+}
+
+// ---------------------------------------------------------------------------
+// Cursor (keyset) paging
+// ---------------------------------------------------------------------------
+
+/** What a cursor holds: the sort it was made for, and the last row's values. */
+interface CursorState {
+  /** Sort field, or null when ordered by the key alone. */
+  s: string | null;
+  o: "asc" | "desc";
+  /** The key column. */
+  k: string;
+  /** The last row's sort value (absent when `s` is null). */
+  v?: string | number | boolean | null;
+  /** The last row's key value. */
+  id: string | number;
+}
+
+const PLAIN_COLUMN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+function encodeCursor(state: CursorState): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(state));
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function decodeCursor(cursor: string): CursorState | undefined {
+  try {
+    const binary = atob(cursor.replace(/-/g, "+").replace(/_/g, "/"));
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const state = JSON.parse(new TextDecoder().decode(bytes)) as CursorState;
+    if (!state || typeof state !== "object" || typeof state.k !== "string" || !isIdentifier(state.id)) return undefined;
+    if (state.o !== "asc" && state.o !== "desc") return undefined;
+    return state;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A value quoted for a PostgREST filter, so commas, dots and parens are literal. */
+function quoteFilterValue(value: string | number | boolean): string {
+  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * The PostgREST `or` clauses selecting the rows after `state`, for a list
+ * ordered by `s` (`o`, nulls last when ascending and first when descending,
+ * as Postgres orders them by default) and then by the key ascending.
+ * @internal Exported for tests.
+ */
+export function keysetClauses(state: CursorState): string {
+  const k = state.k;
+  const K = quoteFilterValue(state.id);
+  if (state.s === null) return `${k}.${state.o === "asc" ? "gt" : "lt"}.${K}`;
+  const s = state.s;
+  const v = state.v;
+  const afterInTies = (eq: string) => `and(${eq},${k}.gt.${K})`;
+  if (v === null || v === undefined) {
+    // Asc: nulls are last, so only later nulls remain. Desc: nulls are
+    // first, so later nulls and then every non-null row remain.
+    const ties = afterInTies(`${s}.is.null`);
+    return state.o === "asc" ? ties : `${s}.not.is.null,${ties}`;
+  }
+  const V = quoteFilterValue(v);
+  const ties = afterInTies(`${s}.eq.${V}`);
+  return state.o === "asc" ? `${s}.gt.${V},${ties},${s}.is.null` : `${s}.lt.${V},${ties}`;
 }
 
 /**
@@ -425,6 +494,108 @@ export function createSupabaseProvider(
   // DataProvider implementation
   // ---------------------------------------------------------------------------
 
+  /** The search as PostgREST `or` clauses, or "" for none. */
+  function searchClauses(resource: string, params: ListParams): string {
+    const searchFields = configFor(resource).searchFields ?? params.search?.fields ?? [];
+    if (!params.search || !params.search.query || searchFields.length === 0) return "";
+    const escaped = escapeIlike(params.search.query);
+    const safeFieldPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
+    return searchFields
+      .filter((f) => safeFieldPattern.test(f))
+      .map((f) => `${f}.ilike.%${escaped}%`)
+      .join(",");
+  }
+
+  /** A cursor request this provider can't serve: `invalid`, with why as the cause. */
+  function refuseCursor(resource: string, why: string): Promise<never> {
+    return reportReadError(
+      new DataReadError(
+        "invalid",
+        readFailureMessage("invalid", nounFor(resource), false, configFor(resource).nounPlural),
+        { cause: new Error(`[SupabaseProvider] "${resource}": ${why}`) },
+      ),
+      resource,
+      "getList",
+    );
+  }
+
+  /**
+   * One page by keyset: ordered by the sort column and then the key, the
+   * rows after the cursor's row, plus one more to tell whether a next page
+   * exists. Counted only on the first page.
+   */
+  async function getCursorPage(
+    resource: string,
+    params: ListParams,
+    key: string | false,
+  ): Promise<{ data: unknown[]; total: number; nextCursor: string | null }> {
+    const { perPage, cursor } = params.pagination!;
+    if (!key) {
+      return refuseCursor(resource, "cursor paging needs a unique key column to order by; its orderKey is false. Set orderKey to a unique, non-null column, or page by offset.");
+    }
+    if (!PLAIN_COLUMN.test(key)) return refuseCursor(resource, `the key column "${key}" can't be used in a cursor.`);
+    const sort = params.sort && params.sort.field !== key ? params.sort : undefined;
+    if (sort && !PLAIN_COLUMN.test(sort.field)) {
+      return refuseCursor(resource, `cursor paging can sort only by a plain column, not "${sort.field}".`);
+    }
+    const order: "asc" | "desc" = params.sort?.order ?? "asc";
+    const sortField = sort ? sort.field : null;
+
+    let after: CursorState | undefined;
+    if (cursor) {
+      after = decodeCursor(cursor);
+      if (!after) return refuseCursor(resource, "the cursor is not one this provider made.");
+      if (after.s !== sortField || after.o !== order || after.k !== key) {
+        return refuseCursor(resource, "the cursor was made for a different sort; start again from the first page (cursor: null).");
+      }
+    }
+
+    let query = from(resource).select(
+      params.select ?? "*",
+      ...(cursor ? [] : [{ count: "exact" as const }]),
+    );
+    query = applyFilters(query, params.filters);
+    const search = searchClauses(resource, params);
+    const keyset = after ? keysetClauses(after) : "";
+    // Both are OR groups that must hold together: nest them in one `or`.
+    if (search && keyset) query = query.or(`and(or(${search}),or(${keyset}))`);
+    else if (search || keyset) query = query.or(search || keyset);
+
+    if (sortField) {
+      // Pinned to Postgres's default null placement, which the keyset assumes.
+      query = query.order(sortField, { ascending: order === "asc", nullsFirst: order === "desc" });
+      query = query.order(key, { ascending: true });
+    } else {
+      query = query.order(key, { ascending: order === "asc" });
+    }
+    query = query.range(0, perPage);
+
+    const result = (await query) as unknown as { data: unknown[] | null; error: unknown; count?: number | null };
+    await throwIfReadError(result, resource, "getList");
+    const rows = (result.data ?? []) as Record<string, unknown>[];
+    const page = rows.slice(0, perPage);
+    let nextCursor: string | null = null;
+    if (rows.length > perPage) {
+      const last = page[page.length - 1]!;
+      const id = last[key];
+      const v = sortField ? last[sortField] : undefined;
+      if (!isIdentifier(id) || (sortField && !(sortField in last))) {
+        return refuseCursor(resource, `the selected columns must include "${key}"${sortField ? ` and "${sortField}"` : ""} to page by cursor.`);
+      }
+      if (v !== undefined && v !== null && typeof v === "object") {
+        return refuseCursor(resource, `cursor paging can't sort by "${sortField}": its values aren't plain (text, number, date, boolean).`);
+      }
+      nextCursor = encodeCursor({
+        s: sortField,
+        o: order,
+        k: key,
+        ...(sortField ? { v: (v ?? null) as CursorState["v"] } : {}),
+        id,
+      });
+    }
+    return { data: page, total: cursor ? -1 : (result.count ?? 0), nextCursor };
+  }
+
   const provider: DataProvider = {
     async getList(resource, params) {
       // Refused, not cut short: a shorter page than the caller asked for
@@ -447,6 +618,9 @@ export function createSupabaseProvider(
       }
 
       const configuredKey = configFor(resource).orderKey;
+      if (params.pagination && params.pagination.cursor !== undefined) {
+        return getCursorPage(resource, params, configuredKey === undefined ? "id" : configuredKey) as never;
+      }
       const run = (key: string | false) => {
         let query = (client.from(resource) as SupabaseQueryBuilder).select(
           params.select ?? "*",
@@ -457,17 +631,9 @@ export function createSupabaseProvider(
 
         // Search — convert to OR of ilike. A resource's configured
         // `searchFields` win over the caller's.
-        const searchFields = configFor(resource).searchFields ?? params.search?.fields ?? [];
-        if (params.search && params.search.query && searchFields.length > 0) {
-          const escaped = escapeIlike(params.search.query);
-          const safeFieldPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
-          const clauses = searchFields
-            .filter((f) => safeFieldPattern.test(f))
-            .map((f) => `${f}.ilike.%${escaped}%`)
-            .join(",");
-          if (clauses) {
-            query = query.or(clauses);
-          }
+        const clauses = searchClauses(resource, params);
+        if (clauses) {
+          query = query.or(clauses);
         }
 
         // Sort, then the key column, so equal sort values keep one order
@@ -546,6 +712,7 @@ export function createSupabaseProvider(
         delete: true,
         maxPerPage,
         softDelete: resource ? isBinTable(resource) : false,
+        cursorPagination: resource ? configFor(resource).orderKey !== false : true,
       };
     },
 
