@@ -22,6 +22,7 @@ import {
   type FormEvent,
   type Json,
 } from "../index";
+import { workStats } from "../calculated";
 import { MAX_EVENTS, MAX_REPLAY_WORK, MAX_SUBMISSION_VALUES, RAW_EVENTS_PER_EVENT, validateSubmission } from "../server";
 import { eventFeedback } from "./sample-forms";
 
@@ -1011,7 +1012,7 @@ describe("submission work limits", () => {
         "ok",
       ]);
     }
-  });
+  }, 60_000);
 
   it("refuses an event log that would make every step work out every formula (Gate's worst case)", () => {
     const blocks: FieldBlock[] = [...(table.blocks.slice(0, 2) as FieldBlock[])];
@@ -1028,11 +1029,17 @@ describe("submission work limits", () => {
     const events: FormEvent[] = [{ type: "answer", field: "t", value: rows(10_000) }];
     while (events.length < 9_998) events.push({ type: "answer", field: "n", value: events.length % 4 < 2 ? 1 : 2 }, { type: "back" });
     events.push({ type: "submit" });
+    workStats.reset();
     const start = performance.now();
     const result = validateSubmission(worst, { events }, { complete: false });
-    // Refused at the limit: about 0.2 s locally, about 1.8 s on CI runners. Without the limit it
-    // runs on (5 s locally), so 3 s still shows the limit stops it.
-    expect(performance.now() - start).toBeLessThan(3000);
+    // The replay stopped at the limit: it used just past MAX_REPLAY_WORK (by at
+    // most one path walk or one formula), and worked out no more formulas than
+    // that allows. The time is a loose bound only: 0.1 s locally, up to 8x on
+    // CI; without the limit this ran 5 s locally and 40 s or more on CI.
+    expect(workStats.lastReplayWork).toBeGreaterThan(MAX_REPLAY_WORK);
+    expect(workStats.lastReplayWork).toBeLessThanOrEqual(MAX_REPLAY_WORK + blocks.length);
+    expect(workStats.formulaRuns).toBeLessThanOrEqual(MAX_REPLAY_WORK / 4);
+    expect(performance.now() - start).toBeLessThan(15_000);
     expect(result).toEqual({
       ok: false,
       errors: { "": `Too much work: replaying these events (the path and calculated fields) would take more than ${MAX_REPLAY_WORK} steps; the limit is ${MAX_REPLAY_WORK}.` },
@@ -1040,5 +1047,5 @@ describe("submission work limits", () => {
     // A host can allow more, and a short log of the same form is fine.
     expect(validateSubmission(worst, { events: events.slice(0, 41).concat({ type: "submit" }) }, { complete: false }).ok).toBe(true);
     expect(validateSubmission(worst, { events: events.slice(0, 401) }, { complete: false, maxReplayWork: 1e9 }).ok).toBe(true);
-  });
+  }, 60_000);
 });

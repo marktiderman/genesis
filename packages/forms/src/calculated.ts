@@ -166,6 +166,27 @@ export interface WorkBudget {
   max: number;
 }
 
+/**
+ * Counts of the work calculators and replays did, for tests to check the
+ * work stays bounded rather than timing it (not exported from the package).
+ * `reset` zeroes them.
+ */
+export const workStats = {
+  /** Formulas worked out (a cached result reused is not counted). */
+  formulaRuns: 0,
+  /** Lists read out of an answer (a list or one table column). */
+  listBuilds: 0,
+  /** Calls of `withCalculated`. */
+  settles: 0,
+  /** Copies of the answers made by `withCalculated`: at most one per call. */
+  answerCopies: 0,
+  /** Units of work the last limited replay used (see `WorkBudget`). */
+  lastReplayWork: 0,
+  reset() {
+    this.formulaRuns = this.listBuilds = this.settles = this.answerCopies = this.lastReplayWork = 0;
+  },
+};
+
 export class ReplayWorkExceeded extends Error {
   constructor(readonly limit: number) {
     super(`Replaying the response would take more than ${limit} steps of work.`);
@@ -231,7 +252,10 @@ export function calculator(definition: FormDefinition, work?: WorkBudget) {
     if (!byColumn) extracted.set(value, (byColumn = new Map()));
     const key = column ?? "";
     let list = byColumn.get(key);
-    if (!list) byColumn.set(key, (list = ownFormulaList(extract(value, column))));
+    if (!list) {
+      workStats.listBuilds++;
+      byColumn.set(key, (list = ownFormulaList(extract(value, column))));
+    }
     return list;
   };
   const readAnswer = (value: Json | undefined, column: string | undefined): FormulaValue => {
@@ -247,6 +271,7 @@ export function calculator(definition: FormDefinition, work?: WorkBudget) {
 
   const withCalculated = (values: Record<string, Json | undefined>, path: readonly string[]) => {
     if (!compiled.length) return values;
+    workStats.settles++;
     const visible = new Set(path);
     let next = values;
     // `values` is copied once, on the first change, then written into.
@@ -290,6 +315,7 @@ export function calculator(definition: FormDefinition, work?: WorkBudget) {
         value = entry.last!.value;
       } else {
         spend(work, entry.size);
+        workStats.formulaRuns++;
         const resolved: (FormulaValue | undefined)[] = new Array(inputs.length);
         const read = (ref: FormulaRef): FormulaValue => {
           const slot = entry.slots.get(ref as FormulaNode);
@@ -308,6 +334,7 @@ export function calculator(definition: FormDefinition, work?: WorkBudget) {
       const current = Object.prototype.hasOwnProperty.call(next, field.id) ? next[field.id] : undefined;
       if (current !== value) {
         if (!copied) {
+          workStats.answerCopies++;
           next = { ...next };
           copied = true;
         }

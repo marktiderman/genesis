@@ -1,4 +1,4 @@
-import { calculator, isCalculated, spend, type WorkBudget } from "./calculated";
+import { calculator, isCalculated, spend, workStats, type WorkBudget } from "./calculated";
 import { isEmptyValue, normalizeValue } from "./fields";
 import { coerceHidden } from "./hidden";
 import { computePath, fieldMap, own, type EvalScope } from "./logic";
@@ -368,8 +368,12 @@ export function replayWithin(
 ): FormEngine {
   const budget = maxWork === undefined ? undefined : { used: 0, max: maxWork };
   const { engine, apply, finish } = build(definition, { ...options, initialValues: undefined, clock: () => undefined }, true, budget);
-  for (const event of events) apply(event);
-  finish();
+  try {
+    for (const event of events) apply(event);
+    finish();
+  } finally {
+    if (budget) workStats.lastReplayWork = budget.used;
+  }
   // The limit is on the replay. What follows (a submit, `answers()`) settles
   // at most once, so it is not counted and never throws.
   if (budget) budget.max = Infinity;
