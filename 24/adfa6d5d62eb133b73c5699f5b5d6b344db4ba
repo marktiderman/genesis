@@ -1,0 +1,19 @@
+packages/forms/src/__tests__/hardening.test.ts
+  s_03a3816737bc07::t_0b4d1e27c3bea8 979-981
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "24adfa6d5d62eb133b73c5699f5b5d6b344db4ba",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

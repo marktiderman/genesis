@@ -1,0 +1,27 @@
+.changeset/form-builder-redesign.md
+  s_3daa86e3ae6031::t_73d5560f29db1c 10
+packages/forms-builder/README.md
+  s_3daa86e3ae6031::t_ddc72bf1fb34df 122-123
+packages/forms-builder/src/FormBuilder.tsx
+  s_3daa86e3ae6031::t_b7896e593d9eae 391-392
+packages/forms-builder/src/__tests__/redesign.test.tsx
+  s_3daa86e3ae6031::t_3dc08391d871ae 216-220,278-279
+packages/forms-builder/src/settings.tsx
+  s_3daa86e3ae6031::t_7062a2fc839743 164-173,178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b22b16f35260f9ee2232f5c5920360af7dc45483",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

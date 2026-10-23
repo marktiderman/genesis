@@ -1,0 +1,51 @@
+packages/core/src/hooks/index.ts
+  s_a1b83c03f697d3::t_ca2e514b140b6f 26-31
+packages/ui/SKILL.md
+  s_a1b83c03f697d3::t_5fcbe098cceeff 58
+packages/core/src/provider/supabase-provider.ts
+  s_a1b83c03f697d3::t_552c3c2d1ad17c 7,39,218-285,497-598,621-623,634-636,715
+packages/ui/src/hooks/__tests__/core-infinite-resource.test.tsx
+  s_a1b83c03f697d3::t_bf659b4b53ba59 1-198
+packages/core/src/hooks/use-infinite-resource.ts
+  s_a1b83c03f697d3::t_e427695082b772 1-173
+packages/core/src/provider/__tests__/supabase-cursor.test.ts
+  s_a1b83c03f697d3::t_374cfa04531a44 1-212
+packages/core/README.md
+  s_a1b83c03f697d3::t_5fcbe098cceeff 235-277
+.changeset/core-cursor-paging.md
+  s_a1b83c03f697d3::t_5fcbe098cceeff 1-14
+packages/ui/src/components/data/use-resource-table.ts
+  s_a1b83c03f697d3::t_af2da54c323680 24,148-149,235-237,241-247,255-257,260-262,268-270,273-275,389,409-410,433-434,986-994,999,1088-1092
+  s_a1b83c03f697d3::t_ddec6b13ca848a 1202-1203
+packages/ui/src/components/data/ResourcePage.tsx
+  s_a1b83c03f697d3::t_af2da54c323680 254-259,261,828,1182,1222-1235
+packages/core/src/hooks/mutation-mode.ts
+  s_a1b83c03f697d3::t_3c7c5fc29d3285 84-103,106-115,120-124,126-129,135-144,181-185,195,330-346,348-350,437-447,450-451,453-454,456,458,467,548-555
+  s_a1b83c03f697d3::t_199b4cd399eb84 104-105,116-119,125,130-134
+.changeset/ui-resource-page-cursor.md
+  s_a1b83c03f697d3::t_5fcbe098cceeff 1-5
+packages/core/src/schema/types.ts
+  s_a1b83c03f697d3::t_17b07a240c4b11 295-300
+packages/core/src/provider/types.ts
+  s_a1b83c03f697d3::t_17b07a240c4b11 19-27,31-32,94-97,99-103
+apps/sample/app/data/primitives.json
+  s_a1b83c03f697d3::t_b44e3dff0458aa 2,12773,15704,16319
+docs/component-reference.md
+  s_a1b83c03f697d3::t_5d7bf9ae56f7bf 7,33,62,71,102,137-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4726bacec46933522229b94b85f25879970f1eb5",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

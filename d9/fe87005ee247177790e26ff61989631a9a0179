@@ -1,0 +1,29 @@
+.changeset/formula-settle-cost.md
+  s_03a3816737bc07::t_29244303b90516 5
+packages/forms/README.md
+  s_03a3816737bc07::t_cf3dcacfef501a 167-178
+packages/forms/src/__tests__/calculated.test.ts
+  s_03a3816737bc07::t_2a8611a1bc80b3 332,334-336,370,384-385,387,391-429
+packages/forms/src/__tests__/formula.test.ts
+  s_03a3816737bc07::t_95621582112204 148-161
+packages/forms/src/calculated.ts
+  s_03a3816737bc07::t_03561955d558e1 2,85-88,92-100,102-108,110,112,117,119-125,130,172-173,221-222,226,244,248-249
+packages/forms/src/formula.ts
+  s_03a3816737bc07::t_a384b259596eab 357-361,364-371,374-375,384
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d9fe87005ee247177790e26ff61989631a9a0179",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

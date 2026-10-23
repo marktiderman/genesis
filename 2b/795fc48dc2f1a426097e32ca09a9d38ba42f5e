@@ -1,0 +1,117 @@
+packages/forms-studio/src/__tests__/components.test.tsx
+  s_3daa86e3ae6031::t_3605991fb93bbd 1-246
+  s_3daa86e3ae6031::t_6bd6f54e750669 247
+packages/forms-studio/README.md
+  s_3daa86e3ae6031::t_2b2ed2e8cbec0d 1-77
+apps/sample/stories/FormsStudio.stories.tsx
+  s_3daa86e3ae6031::t_b8ccaee3d68d17 1-217
+packages/forms-studio/src/followups.ts
+  s_3daa86e3ae6031::t_859f6e82fd0517 1-57
+apps/sample/stories/__fixtures__/forms-studio.ts
+  s_3daa86e3ae6031::t_b0c08eea1d3d23 1-38
+packages/forms-studio/src/ResponsesFilters.tsx
+  s_3daa86e3ae6031::t_f356360eedfc37 1-179
+packages/forms-studio/src/headline.ts
+  s_3daa86e3ae6031::t_aabcdcb284313a 1-160
+  s_3daa86e3ae6031::t_57c4a634f98fa3 161-232
+packages/forms-studio/src/__tests__/fixtures.ts
+  s_3daa86e3ae6031::t_f4cc2a2bdcf80f 1-32
+packages/forms-studio/src/__tests__/rules.test.ts
+  s_3daa86e3ae6031::t_033cb1e53834e6 1-147
+  s_3daa86e3ae6031::t_ad1ba31db1688f 148-151
+packages/forms-studio/src/status.ts
+  s_3daa86e3ae6031::t_48333977a3c24f 1-62,70
+  s_3daa86e3ae6031::t_69345f87b6d6a0 63-69,71
+packages/forms-studio/src/QuestionSummaryCards.tsx
+  s_3daa86e3ae6031::t_205a05672e5301 1-247
+.changeset/forms-studio.md
+  s_3daa86e3ae6031::t_4f49b9a2226fb7 1-5
+AGENTS.md
+  s_3daa86e3ae6031::t_bc7d702e9cb71d 15
+apps/sample/app/app.css
+  s_3daa86e3ae6031::t_efacf395d3e0d8 10
+apps/sample/package.json
+  s_3daa86e3ae6031::t_f34c6a07b29f91 30
+features.json
+  s_3daa86e3ae6031::t_edc616cd9502e2 549-576
+features.ts
+  s_3daa86e3ae6031::t_043195ebc38a91 280-293
+packages/forms-studio/LICENSE
+  s_3daa86e3ae6031::t_7b265b2c79c5ea 1-21
+packages/forms-studio/package.json
+  s_3daa86e3ae6031::t_fccbddf381732e 1-69
+packages/forms-studio/src/__tests__/answers.test.ts
+  s_3daa86e3ae6031::t_339db3642d1f3e 1-106
+packages/forms-studio/src/__tests__/availability.test.ts
+  s_3daa86e3ae6031::t_e096fa851b5122 1-56
+packages/forms-studio/src/__tests__/setup.ts
+  s_3daa86e3ae6031::t_259db23a6c9002 1-12
+packages/forms-studio/src/__tests__/share.test.ts
+  s_3daa86e3ae6031::t_214a06db559402 1-22
+packages/forms-studio/src/__tests__/summary.test.ts
+  s_3daa86e3ae6031::t_18e7b162a0541c 1-395
+packages/forms-studio/src/answers.ts
+  s_3daa86e3ae6031::t_ff3287644f4c79 1-138
+packages/forms-studio/src/availability.ts
+  s_3daa86e3ae6031::t_4ebff71fd2bd2a 1-57
+packages/forms-studio/src/generic/FollowUpList.tsx
+  s_3daa86e3ae6031::t_8e3f4f02b93509 1-108
+packages/forms-studio/src/generic/HeadlineNumbers.tsx
+  s_3daa86e3ae6031::t_fccb813bc1f0b5 1-63
+packages/forms-studio/src/generic/ResourceHeader.tsx
+  s_3daa86e3ae6031::t_fc5b44e090e3d2 1-187
+packages/forms-studio/src/generic/ResponsesToolbar.tsx
+  s_3daa86e3ae6031::t_4a3b3471c88b96 1-51
+packages/forms-studio/src/generic/ShareDialog.tsx
+  s_3daa86e3ae6031::t_51717e0bf419e2 1-238
+packages/forms-studio/src/generic/SummaryCard.tsx
+  s_3daa86e3ae6031::t_7a5de91d751cc6 1-44
+packages/forms-studio/src/generic/chip.tsx
+  s_3daa86e3ae6031::t_eb09b025a89e51 1-38
+packages/forms-studio/src/generic/days.ts
+  s_3daa86e3ae6031::t_dcefaed2704599 1-22
+packages/forms-studio/src/generic/nav.tsx
+  s_3daa86e3ae6031::t_8605740311c67e 1-85
+packages/forms-studio/src/generic/settings.tsx
+  s_3daa86e3ae6031::t_8397814c01a5cb 1-156
+packages/forms-studio/src/generic/share.ts
+  s_3daa86e3ae6031::t_d6c869b92fc5c3 1-27
+packages/forms-studio/src/generic/status.ts
+  s_3daa86e3ae6031::t_9cb8dc6edb7e7a 1-73
+packages/forms-studio/src/index.ts
+  s_3daa86e3ae6031::t_4c4b1ff204054e 1-23
+packages/forms-studio/src/rules.ts
+  s_3daa86e3ae6031::t_8810ba10570530 1-57
+packages/forms-studio/src/styles.css
+  s_3daa86e3ae6031::t_d4886e597d9ff9 1-10
+packages/forms-studio/src/summary.ts
+  s_3daa86e3ae6031::t_81b576604a799a 1-410
+packages/forms-studio/tsconfig.json
+  s_3daa86e3ae6031::t_0fd20f14cfd982 1-17
+packages/forms-studio/tsup.config.ts
+  s_3daa86e3ae6031::t_7dc8eb26ac1dd3 1-38
+packages/forms-studio/type-tests/exact-optional.tsx
+  s_3daa86e3ae6031::t_ddc7f6fdad3702 1-67
+packages/forms-studio/type-tests/tsconfig.json
+  s_3daa86e3ae6031::t_a4a7a4e95012cb 1-19
+packages/forms-studio/vitest.config.ts
+  s_3daa86e3ae6031::t_7c3487449121d8 1-9
+pnpm-lock.yaml
+  s_3daa86e3ae6031::t_6ab9ed372905a0 50-52,707-752
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2b795fc48dc2f1a426097e32ca09a9d38ba42f5e",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

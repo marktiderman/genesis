@@ -1,0 +1,24 @@
+packages/ui/src/components/data/use-resource-table.ts
+  s_a1b83c03f697d3::t_956c9b529d6f90 407-409,415,437,439,991,997-1002,1006-1007,1094-1098,1109-1117,1223-1226
+packages/ui/src/components/data/ResourcePage.tsx
+  s_a1b83c03f697d3::t_956c9b529d6f90 1228-1252,1254-1257
+packages/ui/src/hooks/__tests__/core-infinite-resource.test.tsx
+  s_a1b83c03f697d3::t_1ae7ec9cb995ac 24,176-182,185,189-197,201-222
+  s_a1b83c03f697d3::t_9511628cd6dce7 223-224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "12ee690d7b647ada64238257c4ba0beea6d5597b",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
