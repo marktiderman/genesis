@@ -113,7 +113,7 @@ describe('<Form presentation="page">', () => {
     fireEvent.click(screen.getByRole("radio", { name: "Yes" }));
     act(() => vi.advanceTimersByTime(1000));
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Submit" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
 
     await act(async () => submit());
     expect(onSubmit).toHaveBeenCalledOnce();

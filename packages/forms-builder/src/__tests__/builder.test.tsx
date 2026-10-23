@@ -191,7 +191,7 @@ describe("<Preview>", () => {
   it("keeps showing the ending through a wording edit", async () => {
     const { rerender } = render(<Preview def={def("Your name")} />);
     const preview = screen.getByTestId("builder-preview");
-    fireEvent.click(within(preview).getByRole("button", { name: /submit/i }));
+    fireEvent.click(within(preview).getByRole("button", { name: /send/i }));
     expect(await within(preview).findByText("Thanks")).toBeTruthy();
     rerender(<Preview def={def("Your full name")} />);
     expect(within(preview).getByText("Thanks")).toBeTruthy();

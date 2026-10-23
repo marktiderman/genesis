@@ -24,6 +24,7 @@ import {
 } from "@marktiderman/genesis-forms-react";
 import { FormPresentationProvider, useFormPresentation, type FormPresentation } from "./presentation";
 import { defaultRegistry } from "./renderers";
+import { themeCss, type FormTheme } from "./theme";
 
 // ── Slots (the Genesis extension ladder, EXTENDING.md) ──────────────────────
 
@@ -43,6 +44,14 @@ function renderSlot<P extends object>(
 export interface HeaderSlotProps {
   title: string;
   description?: string;
+  /** `theme.headerImage`: a banner over the title. */
+  image?: { src: string; alt: string } | undefined;
+  /**
+   * The note that marks required questions ("Required", drawn as "* Required"),
+   * set when the form has at least one required question. Empty when it has none
+   * or `requiredLabel` is null.
+   */
+  requiredNote?: string | undefined;
   className?: string;
 }
 export interface BrandSlotProps {
@@ -109,14 +118,39 @@ export interface FormSlotMap {
 
 const focusRing = "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background";
 
-function DefaultHeader({ title, description, className }: HeaderSlotProps) {
+/** "* Required": the asterisk matches the one beside each required question. */
+function RequiredNote({ text, className }: { text: string; className?: string }) {
+  return (
+    <p className={cn("text-sm text-muted-foreground", className)} data-gf-required-note="">
+      <span className="text-destructive" aria-hidden="true">
+        *{" "}
+      </span>
+      {text}
+    </p>
+  );
+}
+
+function HeaderImage({ image, className }: { image: { src: string; alt: string }; className?: string }) {
+  return (
+    <img
+      src={image.src}
+      alt={image.alt}
+      data-gf-header-image=""
+      className={cn("block h-32 w-full object-cover sm:h-44", className)}
+    />
+  );
+}
+
+function DefaultHeader({ title, description, image, requiredNote, className }: HeaderSlotProps) {
   const { presentation, layout } = useFormPresentation();
   if (presentation === "page" && layout === "focus") {
     // A quiet line above the first question: the question is the headline.
     return (
       <header className={cn("space-y-1", className)}>
+        {image ? <HeaderImage image={image} className="mb-4 rounded-lg" /> : null}
         <h1 className="text-sm font-medium text-muted-foreground">{title}</h1>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        {requiredNote ? <RequiredNote text={requiredNote} /> : null}
       </header>
     );
   }
@@ -124,19 +158,26 @@ function DefaultHeader({ title, description, className }: HeaderSlotProps) {
     return (
       <header
         className={cn(
-          "rounded-xl border border-t-8 border-t-primary bg-card px-5 py-6 text-card-foreground sm:px-8 sm:py-8",
+          "overflow-hidden rounded-xl border bg-card text-card-foreground",
+          !image && "border-t-8 border-t-primary",
           className,
         )}
       >
-        <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{title}</h1>
-        {description ? <p className="mt-3 text-base text-muted-foreground text-pretty">{description}</p> : null}
+        {image ? <HeaderImage image={image} /> : null}
+        <div className={cn("px-5 py-6 sm:px-8 sm:py-8", image && "border-t-8 border-t-primary")}>
+          <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{title}</h1>
+          {description ? <p className="mt-3 text-base text-muted-foreground text-pretty">{description}</p> : null}
+          {requiredNote ? <RequiredNote text={requiredNote} className="mt-4" /> : null}
+        </div>
       </header>
     );
   }
   return (
     <header className={cn("space-y-1", className)}>
+      {image ? <HeaderImage image={image} className="mb-4 rounded-lg" /> : null}
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       {description ? <p className="text-muted-foreground">{description}</p> : null}
+      {requiredNote ? <RequiredNote text={requiredNote} className="pt-1" /> : null}
     </header>
   );
 }
@@ -408,6 +449,13 @@ export interface FormProps {
   presentation?: FormPresentation | undefined;
   /** An organisation's or business's name and logo, shown small at the top of every step and on the ending. */
   brand?: FormBrand | undefined;
+  /**
+   * Colours and a header image: `accent` replaces the primary colour (buttons,
+   * selected options, progress, focus ring), adjusted where needed so it keeps
+   * at least 3:1 contrast with the page and its text 4.5:1; `headerImage` is a
+   * banner over the title.
+   */
+  theme?: FormTheme | undefined;
   registry?: RendererRegistry | undefined;
   /**
    * Called once the form completes. The ending shows only after it resolves.
@@ -426,8 +474,15 @@ export interface FormProps {
    * Never moves on from the last question. Default true.
    */
   autoAdvance?: boolean | undefined;
+  /** The send button's word, the same in every layout. Default "Send". */
   submitLabel?: string | undefined;
+  /** The button that moves to the next question in focus layout. Default "OK". */
   nextLabel?: string | undefined;
+  /**
+   * The note shown with the title when any question is required, after an
+   * asterisk ("* Required"). `null` hides it. Default "Required".
+   */
+  requiredLabel?: string | null | undefined;
   /** The submit button's label after `onSubmit` failed. Default "Try again". */
   retryLabel?: string | undefined;
   slots?: { [K in keyof FormSlotMap]?: SlotOverride<FormSlotMap[K]> } | undefined;
@@ -483,10 +538,12 @@ function FormBody({
   layout: layoutProp,
   presentation = "embedded",
   brand,
+  theme,
   onSubmit,
   onChange,
   autoAdvance = true,
-  submitLabel = "Submit",
+  submitLabel = "Send",
+  requiredLabel = "Required",
   nextLabel = "OK",
   retryLabel = "Try again",
   slots,
@@ -669,6 +726,11 @@ function FormBody({
   );
 
   const presentationValue = { presentation, layout };
+  const themeId = `gf-theme-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const themeStyle = themeCss(theme, `[data-gf-theme="${themeId}"]`);
+  // The theme's colours apply to everything inside: the form, or the ending in its place.
+  const themed = themeStyle ? { "data-gf-theme": themeId } : {};
+  const styleNode = themeStyle ? <style>{themeStyle}</style> : null;
   const brandNode = brand
     ? renderSlot(DefaultBrand, slots?.brand, { name: brand.name, logo: brand.logo }, slotProps?.brand)
     : null;
@@ -687,9 +749,11 @@ function FormBody({
     return (
       <FormPresentationProvider value={presentationValue}>
         {liveRegion}
+        {styleNode}
         {page ? (
           <div
             ref={endingRef}
+            {...themed}
             data-presentation="page"
             data-testid={testID}
             className={cn("flex min-h-dvh w-full flex-col bg-background text-foreground", className)}
@@ -702,7 +766,7 @@ function FormBody({
             </div>
           </div>
         ) : (
-          <div ref={endingRef} className={cn("mx-auto w-full max-w-xl space-y-6", className)} data-testid={testID}>
+          <div ref={endingRef} {...themed} className={cn("mx-auto w-full max-w-xl space-y-6", className)} data-testid={testID}>
             {brandNode}
             {endingNode}
           </div>
@@ -771,10 +835,16 @@ function FormBody({
   const currentField = pageFocus && current ? engine.field(current) : undefined;
   const keyHint = currentField ? (currentField.type === "long-text" ? `${modKey} + Enter` : "Enter ↵") : undefined;
 
+  const hasRequired = def.blocks.some((b) => b.kind === "field" && b.required === true);
   const header = renderSlot(
     DefaultHeader,
     slots?.header,
-    { title: def.title, description },
+    {
+      title: def.title,
+      description,
+      image: theme?.headerImage ? { src: theme.headerImage, alt: theme.headerImageAlt ?? "" } : undefined,
+      requiredNote: hasRequired && requiredLabel ? requiredLabel : undefined,
+    },
     slotProps?.header,
   );
   const errorSummary =
@@ -842,6 +912,7 @@ function FormBody({
   );
 
   const formProps = {
+    ...themed,
     ref: formRef,
     noValidate: true,
     onSubmit: handleSubmit,
@@ -854,6 +925,7 @@ function FormBody({
   return (
     <FormPresentationProvider value={presentationValue}>
       {liveRegion}
+      {styleNode}
       {pageFocus ? (
         <form
           {...formProps}

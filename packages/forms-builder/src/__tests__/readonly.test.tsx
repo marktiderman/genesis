@@ -23,7 +23,7 @@ const tab = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${nam
 describe("<FormBuilder readOnly>", () => {
   it("keeps every panel, marks itself read only and hides undo/redo", () => {
     render(<FormBuilder defaultValue={visitFeedback()} readOnly />);
-    for (const name of ["Questions", "Logic", "Endings", "Settings", "JSON"]) expect(tab(name)).toBeTruthy();
+    for (const name of ["Questions", "Logic and endings", "Settings", "JSON"]) expect(tab(name)).toBeTruthy();
     expect(screen.getByTestId("builder-readonly").textContent).toContain("Read only");
     expect(screen.getByTestId("form-builder").hasAttribute("data-readonly")).toBe(true);
     expect(screen.queryByTestId("builder-undo")).toBeNull();

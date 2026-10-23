@@ -48,14 +48,17 @@ describe("analyze when coverage is truncated", () => {
     expect(structureFingerprint(ops.updateBlock(d, "q_rating", { required: false }))).not.toBe(structureFingerprint(d));
   });
 
-  it("warns about missing wording", () => {
+  it("flags missing wording, and blocks publishing a question without a title", () => {
     let d = ops.updateBlock(base(), "q_b", { label: "" });
     d = ops.updateEnding(d, "default", { title: "" });
     d = ops.setOptions(d, "q_a", [{ value: "x", label: "" }, { value: "y", label: "Y" }, { value: "z", label: "Z" }]);
     const messages = analyze(d).findings.filter((f) => f.level === "warning").map((f) => f.message);
-    expect(messages).toEqual(
-      expect.arrayContaining([expect.stringMatching(/"b" has no wording/), expect.stringMatching(/option .* no label/i), expect.stringMatching(/no title/)]),
-    );
+    expect(messages).toEqual(expect.arrayContaining([expect.stringMatching(/option .* no label/i), expect.stringMatching(/no title/)]));
+    // A question without a title is an error: respondents would see a blank question.
+    const untitled = analyze(d).findings.find((f) => f.code === "untitled-question");
+    expect(untitled).toMatchObject({ level: "error", ref: { kind: "block", id: "q_b" } });
+    expect(untitled?.message).toMatch(/Question \d+ needs a title/);
+    expect(analyze(d).canPublish).toBe(false);
   });
 });
 

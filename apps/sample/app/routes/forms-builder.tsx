@@ -50,16 +50,17 @@ export default function FormsBuilderRoute() {
         defaultValue={start}
         palette={palette}
         readOnly={readOnly}
-        actions={(_def, analysis, builder) => readOnly ? null : (
+        actions={(_def, _analysis, builder) => readOnly ? null : (
           <Button
             testID="builder-publish"
             size="sm"
-            // The analysis shown can be a keystroke behind; the click checks the current value.
-            disabled={!analysis.canPublish && !builder.analysing}
+            // Always pressable: a click on a form that isn't ready shows every check that blocks it,
+            // including the title of a question still being written.
             onClick={() => {
               // Commit a key still being typed, then gate on the checks of exactly that value.
               const def = builder.flush();
               if (!builder.getAnalysis().canPublish) {
+                builder.revealChecks();
                 setNote("Fix the problems listed before publishing.");
                 return;
               }
