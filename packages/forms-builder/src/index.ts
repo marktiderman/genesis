@@ -22,7 +22,7 @@ export {
 } from "./questions";
 export { FlowMap, flowCheck, type FlowCheck } from "./flow";
 export { LogicPanel, RuleEditor, RuleSentence, RuleKindChip, ConditionEditor, describeRule, jumpTarget, OPERATOR_LABEL, starterRule, valueForOperator } from "./logic";
-export { EndingsPanel, LogicAndEndingsPanel, SettingsPanel, JsonPanel } from "./settings";
+export { EndingsPanel, LogicAndEndingsPanel, SettingsPanel, JsonPanel, type FormSettingKey } from "./settings";
 export { ChecksContext, useChecks, visibleFindings, type ChecksState } from "./checks";
 export {
   BuilderConfigContext,

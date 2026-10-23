@@ -321,6 +321,38 @@ describe("host hooks", () => {
     expect(screen.getByTestId("builder-questions")).toBeTruthy();
   });
 
+  it("leaves out the settings rows a host owns, with or without settingsLayout", () => {
+    const { rerender } = render(<FormBuilder defaultValue={form()} tabs={false} tab="settings" settingsOmit={["anonymous"]} />);
+    expect(screen.queryByText("Anonymous responses")).toBeNull();
+    expect(screen.queryByTestId("builder-anonymous")).toBeNull();
+    // The rest stays, Privacy included while it has a row.
+    expect(screen.getByTestId("builder-clear-hidden")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Privacy" })).toBeTruthy();
+    expect(screen.getByTestId("builder-form-title")).toBeTruthy();
+    rerender(
+      <FormBuilder
+        defaultValue={form()}
+        tabs={false}
+        tab="settings"
+        settingsOmit={["anonymous", "clearHiddenValues", "hidden"]}
+        settingsLayout={(f) => <section data-testid="host-form-card">{f}</section>}
+      />,
+    );
+    const card = screen.getByTestId("host-form-card");
+    expect(within(card).queryByTestId("builder-anonymous")).toBeNull();
+    // A section with nothing left goes with its heading.
+    expect(within(card).queryByRole("heading", { name: "Privacy" })).toBeNull();
+    expect(within(card).queryByRole("button", { name: /Add hidden input/ })).toBeNull();
+    expect(within(card).getByTestId("builder-form-title")).toBeTruthy();
+  });
+
+  it("shows every settings row by default", () => {
+    render(<FormBuilder defaultValue={form()} tabs={false} tab="settings" />);
+    expect(screen.getByTestId("builder-anonymous")).toBeTruthy();
+    expect(screen.getByTestId("builder-clear-hidden")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Add hidden input/ })).toBeTruthy();
+  });
+
   it("lets the host lay out the Settings panel and its rows", () => {
     render(
       <FormBuilder

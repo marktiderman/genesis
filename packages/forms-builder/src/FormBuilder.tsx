@@ -31,7 +31,7 @@ import { updateForm, ruleRefs } from "./ops";
 import { FlowMap } from "./flow";
 import { Preview } from "./preview";
 import { QuestionsPanel } from "./questions";
-import { JsonPanel, LogicAndEndingsPanel, SettingsPanel } from "./settings";
+import { JsonPanel, LogicAndEndingsPanel, SettingsPanel, type FormSettingKey } from "./settings";
 
 /**
  * The builder's panels. `"logic"` is the one "Logic and endings" panel;
@@ -182,6 +182,12 @@ export interface FormBuilderProps {
    */
   settingsRow?: ComponentType<SettingsRowSlotProps> | undefined;
   /**
+   * Form settings rows not to show, for a host that owns those settings
+   * itself, e.g. `settingsOmit={["anonymous"]}`. With or without
+   * `settingsLayout`. A section with no rows left goes too. Default: every row.
+   */
+  settingsOmit?: readonly FormSettingKey[] | undefined;
+  /**
    * Show the builder's toolbar: the form title, Undo and Redo, the status
    * badge and `actions`. `false` hides the whole row, for a host whose own
    * page header shows the title and those buttons (drive undo with the ref's
@@ -247,6 +253,7 @@ export function FormBuilder({
   settingsExtra,
   settingsLayout,
   settingsRow,
+  settingsOmit,
   toolbar = true,
   onHistoryChange,
   className,
@@ -400,7 +407,7 @@ export function FormBuilder({
   const formSettings = (
     <RowLayoutContext.Provider value={settingsRow ?? null}>
       {/* A host laying out the panel titles this part itself ("Form" card), so it is not titled twice. */}
-      <SettingsPanel def={def} apply={apply} formHeading={!settingsLayout} />
+      <SettingsPanel def={def} apply={apply} formHeading={!settingsLayout} omit={settingsOmit} />
     </RowLayoutContext.Provider>
   );
 

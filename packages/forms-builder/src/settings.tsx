@@ -169,61 +169,90 @@ export function LogicAndEndingsPanel({
   );
 }
 
+/**
+ * The rows the form settings panel can show, for `settingsOmit`: the form's
+ * title, introduction and layout, the two privacy switches, and the hidden
+ * inputs list.
+ */
+export type FormSettingKey = "title" | "description" | "layout" | "anonymous" | "clearHiddenValues" | "hidden";
+
 export function SettingsPanel({
   def,
   apply,
   formHeading = true,
+  omit,
 }: {
   def: FormDefinition;
   apply: Apply;
   /** Show the "Form" heading over the first section. Off when a host's own card already titles it. Default true. */
   formHeading?: boolean;
+  /** Rows not to show, for a host that owns those settings itself. A section with no rows left goes too. */
+  omit?: readonly FormSettingKey[] | undefined;
 }) {
   const readOnly = !!useBuilderConfig().readOnly;
+  const off = new Set(omit ?? []);
+  const shows = (key: FormSettingKey) => !off.has(key);
+  const form = shows("title") || shows("description") || shows("layout");
+  const privacy = shows("anonymous") || shows("clearHiddenValues");
   return (
     <Editable readOnly={readOnly} className="space-y-6">
-      <section className="space-y-4">
-        {formHeading ? <h3 className="text-sm font-semibold">Form</h3> : null}
-        <TextRow
-          label="Title"
-          value={def.title}
-          testID="builder-form-title"
-          onChange={(title) => apply((d) => updateForm(d, { title }), "form-title")}
-        />
-        <TextRow
-          label="Introduction"
-          multiline
-          value={def.description ?? ""}
-          hint="Shown before the first question."
-          onChange={(description) => apply((d) => updateForm(d, { description }), "form-description")}
-        />
-        <SelectRow
-          label="Layout"
-          value={def.layout?.mode ?? "focus"}
-          options={[
-            { value: "focus", label: "One question at a time" },
-            { value: "classic", label: "All questions on one page" },
-          ]}
-          onChange={(mode) => apply((d) => updateForm(d, { layout: { mode: mode as "focus" | "classic" } }))}
-        />
-      </section>
-      <section className="space-y-4">
-        <h3 className="text-sm font-semibold">Privacy</h3>
-        <SwitchRow
-          label="Anonymous responses"
-          testID="builder-anonymous"
-          hint="Questions marked “identifies the respondent” are not asked or stored. Hidden inputs marked so are not stored (logic can still read them)."
-          checked={!!def.settings?.anonymous}
-          onChange={(anonymous) => apply((d) => updateSettings(d, { anonymous }))}
-        />
-        <SwitchRow
-          label="Clear answers to hidden questions"
-          hint="When logic hides a question after it was answered, its answer is dropped on submit."
-          checked={def.settings?.clearHiddenValues !== false}
-          onChange={(clearHiddenValues) => apply((d) => updateSettings(d, { clearHiddenValues }))}
-        />
-      </section>
-      <HiddenInputsSection def={def} apply={apply} readOnly={readOnly} />
+      {form ? (
+        <section className="space-y-4">
+          {formHeading ? <h3 className="text-sm font-semibold">Form</h3> : null}
+          {shows("title") ? (
+            <TextRow
+              label="Title"
+              value={def.title}
+              testID="builder-form-title"
+              onChange={(title) => apply((d) => updateForm(d, { title }), "form-title")}
+            />
+          ) : null}
+          {shows("description") ? (
+            <TextRow
+              label="Introduction"
+              multiline
+              value={def.description ?? ""}
+              hint="Shown before the first question."
+              onChange={(description) => apply((d) => updateForm(d, { description }), "form-description")}
+            />
+          ) : null}
+          {shows("layout") ? (
+            <SelectRow
+              label="Layout"
+              value={def.layout?.mode ?? "focus"}
+              options={[
+                { value: "focus", label: "One question at a time" },
+                { value: "classic", label: "All questions on one page" },
+              ]}
+              onChange={(mode) => apply((d) => updateForm(d, { layout: { mode: mode as "focus" | "classic" } }))}
+            />
+          ) : null}
+        </section>
+      ) : null}
+      {privacy ? (
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold">Privacy</h3>
+          {shows("anonymous") ? (
+            <SwitchRow
+              label="Anonymous responses"
+              testID="builder-anonymous"
+              hint="Questions marked “identifies the respondent” are not asked or stored. Hidden inputs marked so are not stored (logic can still read them)."
+              checked={!!def.settings?.anonymous}
+              onChange={(anonymous) => apply((d) => updateSettings(d, { anonymous }))}
+            />
+          ) : null}
+          {shows("clearHiddenValues") ? (
+            <SwitchRow
+              label="Clear answers to hidden questions"
+              testID="builder-clear-hidden"
+              hint="When logic hides a question after it was answered, its answer is dropped on submit."
+              checked={def.settings?.clearHiddenValues !== false}
+              onChange={(clearHiddenValues) => apply((d) => updateSettings(d, { clearHiddenValues }))}
+            />
+          ) : null}
+        </section>
+      ) : null}
+      {shows("hidden") ? <HiddenInputsSection def={def} apply={apply} readOnly={readOnly} /> : null}
     </Editable>
   );
 }

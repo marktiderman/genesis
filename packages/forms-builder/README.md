@@ -127,6 +127,11 @@ beside the settings are not shown, and the form settings drop their own "Form" h
 titles them). With `settingsRow`, switches sit in the row; text fields and selects go under it at
 full width.
 
+A host that owns some of these settings itself leaves their rows out:
+`settingsOmit={["anonymous"]}`. The keys (`FormSettingKey`) are `"title"`, `"description"`,
+`"layout"`, `"anonymous"`, `"clearHiddenValues"` and `"hidden"`; a section with no rows left goes
+too. It works with or without `settingsLayout`.
+
 ### Reading the value
 
 - `onChange(value)` fires on every edit, undo and redo, straight away. It also fires on unmount for
