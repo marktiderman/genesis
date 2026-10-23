@@ -145,3 +145,17 @@ describe("formulaRefs and renameFormulaKey", () => {
     expect(renameFormulaKey("a $ b", "a", "c")).toBe("a $ b");
   });
 });
+
+describe("readers that change a list in place", () => {
+  it("add the list up again on every evaluation", () => {
+    const parsed = parseFormula("sum(xs) + max(xs)");
+    if (!parsed.ok) throw new Error(parsed.message);
+    const xs: FormulaValue[] = [1, 2, 3];
+    const read = () => xs;
+    expect(evaluateFormula(parsed.ast, read)).toBe(9);
+    xs[0] = 10;
+    expect(evaluateFormula(parsed.ast, read)).toBe(25);
+    xs.push(100);
+    expect(evaluateFormula(parsed.ast, read)).toBe(215);
+  });
+});

@@ -354,14 +354,25 @@ interface Totals {
 }
 
 /**
- * Each list's numbers added up once. Lists come from answers (see
- * `formulaInput`), which keeps one list per answer, so a formula worked out
- * again over an unchanged table doesn't walk it again.
+ * Each list's numbers added up once, for the lists this package built and
+ * froze itself (the calculator's lists, one per answer and column), so a
+ * formula worked out again over an unchanged table doesn't walk it again.
+ * Any other list a reader returns may change in place, so it is added up
+ * every time.
  */
 const listTotals = new WeakMap<readonly FormulaValue[], Totals>();
+const ownLists = new WeakSet<readonly FormulaValue[]>();
+
+/** Mark a frozen list built inside this package as safe to keep totals for (not exported from the package). */
+export function ownFormulaList(list: FormulaValue[]): readonly FormulaValue[] {
+  Object.freeze(list);
+  ownLists.add(list);
+  return list;
+}
 
 function totalsOf(list: readonly FormulaValue[]): Totals {
-  let t = listTotals.get(list);
+  const own = ownLists.has(list);
+  let t = own ? listTotals.get(list) : undefined;
   if (t) return t;
   const nums = numbersIn(list as FormulaValue[]);
   t = { sum: 0, count: nums.length, min: Infinity, max: -Infinity };
@@ -370,7 +381,7 @@ function totalsOf(list: readonly FormulaValue[]): Totals {
     if (n < t.min) t.min = n;
     if (n > t.max) t.max = n;
   }
-  listTotals.set(list, t);
+  if (own) listTotals.set(list, t);
   return t;
 }
 

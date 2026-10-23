@@ -1,5 +1,5 @@
 import type { FieldTypeManifest } from "./fields";
-import { evaluateFormula, formulaNumber, parseFormula, type FormulaNode, type FormulaRef, type FormulaValue } from "./formula";
+import { evaluateFormula, formulaNumber, ownFormulaList, parseFormula, type FormulaNode, type FormulaRef, type FormulaValue } from "./formula";
 import type { FieldBlock, FormDefinition, Json, Operator } from "./types";
 
 /** The calculated field type's registry key. */
@@ -82,43 +82,52 @@ export const MAX_FORMULA_ITEMS = 10_000;
 
 /**
  * Most list items and table rows all of a form's formulas read in one go
- * (each answer and column counted once, in form order). An answer past the
- * limit reads as blank, so many big answers can't make working the values
- * out slow either.
+ * (each answer and column counted once, in form order). A formula that reads
+ * an answer past the limit, or one over `MAX_FORMULA_ITEMS`, has no value
+ * (blank, never a partial total), so many big answers can't make working
+ * the values out slow either.
  */
 export const MAX_SETTLE_ITEMS = 50_000;
 
-/**
- * The lists already read from an answer, by the answer's array and then the
- * column (`""` for a list's own items). Answers are never changed in place
- * (a new answer is a new array), so an unchanged table is walked once.
- */
-const extracted = new WeakMap<readonly Json[], Map<string, FormulaValue[]>>();
-
-const extract = (value: readonly Json[], column: string | undefined): FormulaValue[] => {
-  let byColumn = extracted.get(value);
-  if (!byColumn) extracted.set(value, (byColumn = new Map()));
-  const key = column ?? "";
-  let list = byColumn.get(key);
-  if (list) return list;
-  list =
-    column !== undefined
+const extract = (value: readonly Json[], column: string | undefined): FormulaValue[] =>
+  column !== undefined
       ? value.flatMap((row): FormulaValue[] => {
           if (!row || typeof row !== "object" || Array.isArray(row)) return [];
           const cell = row[column];
           return typeof cell === "string" || typeof cell === "number" ? [cell] : [];
         })
       : value.flatMap((v): FormulaValue[] => (typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? [v] : []));
-  byColumn.set(key, list);
+
+/**
+ * The calculator's lists, by the answer's array and then the column (`""`
+ * for a list's own items), so an unchanged table is walked once. This relies
+ * on answers being immutable, which the engine guarantees: it never changes a
+ * value it holds (every update spreads a new `values`), the built-in
+ * renderers always pass a new array, and `setValue` with the array already
+ * held is ignored. A host must not change an answer array in place either
+ * (see the README); pass a new one to `setValue`.
+ */
+const extracted = new WeakMap<readonly Json[], Map<string, readonly FormulaValue[]>>();
+
+function cachedList(value: readonly Json[], column: string | undefined): readonly FormulaValue[] {
+  let byColumn = extracted.get(value);
+  if (!byColumn) extracted.set(value, (byColumn = new Map()));
+  const key = column ?? "";
+  let list = byColumn.get(key);
+  if (!list) byColumn.set(key, (list = ownFormulaList(extract(value, column))));
   return list;
-};
+}
+
+/** `formulaInput` for the calculator: the same values, with lists kept per answer (see `cachedList`). */
+function readAnswer(value: Json | undefined, column: string | undefined): FormulaValue {
+  if (Array.isArray(value)) return cachedList(value, column) as FormulaValue[];
+  return column !== undefined ? null : formulaInput(value);
+}
 
 /**
  * The value a formula reads for an answer: numbers and text as they are, a
  * list's items, one table column's cells. A list or table of more than
- * `MAX_FORMULA_ITEMS` reads as blank. Lists are kept by the answer's array,
- * so the same answer gives the same list without walking it again: treat
- * answers as immutable.
+ * `MAX_FORMULA_ITEMS` reads as blank. Each call builds a new list.
  */
 export function formulaInput(value: Json | undefined, column?: string): FormulaValue {
   if (value === undefined || value === null) return null;
@@ -160,6 +169,8 @@ function refNodes(node: FormulaNode, out: Extract<FormulaNode, { kind: "ref" }>[
 
 /** Stands for an answer that is off the path or unanswered. */
 const UNREAD = Symbol("unread");
+/** Stands for an answer too big to read: over `MAX_FORMULA_ITEMS`, or past `MAX_SETTLE_ITEMS`. */
+const OVER = Symbol("over");
 
 /**
  * Works out a form's calculated fields from its answers. `withCalculated`
@@ -207,11 +218,12 @@ export function calculator(definition: FormDefinition) {
       if (!Array.isArray(value)) return value;
       let ok = within.get(key);
       if (ok === undefined) {
-        ok = value.length <= budget;
+        // An answer over the per-answer limit is never read, so it uses none of the allowance.
+        ok = value.length <= MAX_FORMULA_ITEMS && value.length <= budget;
         if (ok) budget -= value.length;
         within.set(key, ok);
       }
-      return ok ? value : UNREAD;
+      return ok ? value : OVER;
     };
     for (const entry of compiled) {
       const { field, ast } = entry;
@@ -229,11 +241,12 @@ export function calculator(definition: FormDefinition) {
           let v = resolved[slot];
           if (v === undefined) {
             const raw = inputs[slot];
-            v = resolved[slot] = raw === UNREAD ? null : formulaInput(raw as Json | undefined, entry.reads[slot]!.column);
+            v = resolved[slot] = raw === UNREAD ? null : readAnswer(raw as Json | undefined, entry.reads[slot]!.column);
           }
           return v;
         };
-        value = ast ? calculatedValue(evaluateFormula(ast, read), field) : undefined;
+        // An answer too big to read leaves the value blank rather than a partial total.
+        value = ast && !inputs.includes(OVER) ? calculatedValue(evaluateFormula(ast, read), field) : undefined;
         entry.last = { inputs, value };
       }
       const current = Object.prototype.hasOwnProperty.call(next, field.id) ? next[field.id] : undefined;
