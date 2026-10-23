@@ -1,4 +1,4 @@
-import { calculator, isCalculated } from "./calculated";
+import { calculator, isCalculated, spend, type WorkBudget } from "./calculated";
 import { isEmptyValue, normalizeValue } from "./fields";
 import { coerceHidden } from "./hidden";
 import { computePath, fieldMap, own, type EvalScope } from "./logic";
@@ -84,7 +84,7 @@ interface Built {
   finish(): void;
 }
 
-function build(definition: FormDefinition, options: CreateFormOptions, replaying = false): Built {
+function build(definition: FormDefinition, options: CreateFormOptions, replaying = false, budget?: WorkBudget): Built {
   const fields = fieldMap(definition);
   const byKey = new Map([...fields.values()].map((f) => [f.key, f]));
   const blocks = new Map(definition.blocks.map((b) => [b.id, b]));
@@ -112,19 +112,24 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
 
   // Calculated fields are worked out from the answers on the path, and logic
   // may read them, so the two settle together (a few rounds at most).
-  const calc = calculator(definition);
+  const calc = calculator(definition, budget);
+  // Each walk of the path costs one unit per block, against the same budget.
+  const pathOf = (values: FormState["values"], hidden: FormState["hidden"]) => {
+    spend(budget, definition.blocks.length);
+    return computePath(definition, scopeOf(values, hidden));
+  };
   // When no rule reads a calculated field, the path doesn't depend on the
   // calculated values, so one round is enough.
   const logicReadsCalculated = calc.active && readsAny(definition.logic, calc.ids);
   const settle = (values: FormState["values"], hidden: FormState["hidden"]) => {
-    let { path } = computePath(definition, scopeOf(values, hidden));
+    let { path } = pathOf(values, hidden);
     if (!calc.active) return { values, path };
     if (!logicReadsCalculated) return { values: calc.withCalculated(values, path), path };
     for (let round = 0; round < 4; round++) {
       const next = calc.withCalculated(values, path);
       if (next === values) break;
       values = next;
-      const again = computePath(definition, scopeOf(values, hidden)).path;
+      const again = pathOf(values, hidden).path;
       // The same path: the values just worked out read the same answers, so they stand.
       const same = again.length === path.length && again.every((id, i) => id === path[i]);
       path = again;
@@ -188,7 +193,7 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
     if (unsettled && calc.active && !logicReadsCalculated && !needValues) {
       unsettled = false;
       formulasStale = true;
-      state = { ...state, path: computePath(definition, scopeOf(state.values, state.hidden)).path };
+      state = { ...state, path: pathOf(state.values, state.hidden).path };
       return;
     }
     if (unsettled) {
@@ -281,7 +286,7 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
         emit({ ...state, errors, current: firstError, events });
         return false;
       }
-      const { ending } = computePath(definition, scopeOf(state.values, state.hidden));
+      const { ending } = pathOf(state.values, state.hidden);
       emit({ ...state, errors: {}, status: "completed", ending, events });
       return true;
     },
@@ -347,7 +352,22 @@ export function replay(
   events: FormEvent[],
   options: Omit<CreateFormOptions, "clock" | "initialValues"> = {},
 ): FormEngine {
-  const { engine, apply, finish } = build(definition, { ...options, initialValues: undefined, clock: () => undefined }, true);
+  return replayWithin(definition, events, options);
+}
+
+/**
+ * `replay`, throwing `ReplayWorkExceeded` once walking the path and working
+ * out the calculated fields take more than `maxWork` (for
+ * `validateSubmission`; not exported from the package).
+ */
+export function replayWithin(
+  definition: FormDefinition,
+  events: FormEvent[],
+  options: Omit<CreateFormOptions, "clock" | "initialValues">,
+  maxWork?: number,
+): FormEngine {
+  const budget = maxWork === undefined ? undefined : { used: 0, max: maxWork };
+  const { engine, apply, finish } = build(definition, { ...options, initialValues: undefined, clock: () => undefined }, true, budget);
   for (const event of events) apply(event);
   finish();
   return engine;

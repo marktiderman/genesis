@@ -179,6 +179,18 @@ Limits, so a large submission can't make the server slow:
   array (the engine and the built-in renderers never change one in place). `setValue` with the
   array it already holds works it out again. Each engine, and so each `validateSubmission` call,
   keeps its own lists, so the same object passed again after a change is read afresh.
+- `validateSubmission` refuses a submission that would be too much work, with an error under `""`,
+  and never cuts one short. It doesn't rely on the host's request size limit. Each limit is an
+  option for a host that needs more:
+
+  | Limit | Default | Option | Counts |
+  | --- | --- | --- | --- |
+  | `MAX_EVENTS` | 10,000 | `maxEvents` | Events, after `compactEvents` |
+  | `MAX_SUBMISSION_VALUES` | 200,000 | `maxValues` | JSON values in the answers, answer events and hidden inputs: each number, text, true / false, list item, row and cell |
+  | `MAX_REPLAY_WORK` | 2,000,000 | `maxReplayWork` | Replaying the events: one unit per block each time the path is walked, one per calculated field each time the answers settle, and a formula's size (its numbers, answers and operators) each time it is worked out |
+
+  A respondent filling in a long form with formulas uses a few hundred thousand units of replay
+  work at most; the limit stops a log built to make every step work out every formula.
 
 The engine works the values out from the answers on the path (an answer hidden by logic reads as
 blank), again whenever an answer it reads changes, and stores them with the answers, so `engine.answers()` and a
@@ -216,8 +228,8 @@ await store(result.submission); // answers, hidden, context, ending
 ```
 
 Errors are keyed by field id. The `""` key is for the whole submission: `"Malformed submission."`
-(a body of the wrong shape), a definition that fails `parseForm`, or more than `maxEvents` events
-(default 10 000, counted after `compactEvents`). Events of an unknown type are dropped, so a newer
+(a body of the wrong shape), a definition that fails `parseForm`, or a submission past one of the
+limits above (`maxEvents`, `maxValues`, `maxReplayWork`). Events of an unknown type are dropped, so a newer
 client's log still replays. With `settings.clearHiddenValues: false`, a hidden field's value is kept
 only if its format is valid.
 

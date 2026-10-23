@@ -22,7 +22,7 @@ import {
   type FormEvent,
   type Json,
 } from "../index";
-import { validateSubmission } from "../server";
+import { MAX_REPLAY_WORK, MAX_SUBMISSION_VALUES, validateSubmission } from "../server";
 import { eventFeedback } from "./sample-forms";
 
 const field = (id: string, type: string, extra: Partial<FieldBlock> = {}): FieldBlock => ({
@@ -919,5 +919,70 @@ describe("forms review fixes", () => {
       ];
       for (const condition of fine) expect(warns(condition)).toEqual([]);
     });
+  });
+});
+
+describe("submission work limits", () => {
+  const table: FormDefinition = {
+    schemaVersion: 1,
+    id: "limits",
+    title: "Limits",
+    blocks: [
+      { kind: "field", id: "t", key: "t", type: "table", label: "T", props: { maxRows: 10_000, columns: [{ key: "c", label: "C" }] } },
+      { kind: "field", id: "n", key: "n", type: "number", label: "N" },
+      { kind: "field", id: "total", key: "total", type: "calculated", label: "Total", props: { formula: "sum(t.c) + n" } },
+    ],
+  };
+  const rows = (count: number) => Array.from({ length: count }, () => ({ c: "1" }));
+
+  it("passes a normal submission and a large but valid one", () => {
+    expect(validateSubmission(table, { events: [{ type: "answer", field: "t", value: rows(3) }, { type: "submit" }] })).toMatchObject({ ok: true });
+    const big: FormEvent[] = [{ type: "answer", field: "t", value: rows(10_000) }];
+    for (let i = 0; i < 4_000; i++) big.push({ type: "answer", field: "n", value: i % 2 }, { type: "back" });
+    big.push({ type: "submit" });
+    const result = validateSubmission(table, { events: big });
+    expect(result.ok && result.submission.answers.total).toBe(10_001);
+  });
+
+  it(`refuses more than ${MAX_SUBMISSION_VALUES} values, or the host's maxValues`, () => {
+    // 10,000 rows of 10 cells: 110,001 values in the answer, 220,002 with it sent twice.
+    const wide = Array.from({ length: 10_000 }, () => Object.fromEntries(Array.from({ length: 10 }, (_, k) => [`k${k}`, 1])));
+    const events: FormEvent[] = [{ type: "answer", field: "t", value: wide }, { type: "answer", field: "n", value: 1 }, { type: "answer", field: "t", value: wide }];
+    expect(validateSubmission(table, { events }, { complete: false })).toEqual({
+      ok: false,
+      errors: { "": `Too much data: the answers hold more than ${MAX_SUBMISSION_VALUES} values (items, rows and cells); the limit is ${MAX_SUBMISSION_VALUES}.` },
+    });
+    expect(validateSubmission(table, { events }, { complete: false, maxValues: 300_000 }).ok).toBe(true);
+    expect(validateSubmission(table, { answers: { t: rows(100) } }, { complete: false, maxValues: 200 })).toMatchObject({
+      ok: false,
+      errors: { "": expect.stringMatching(/^Too much data: .*the limit is 200\.$/) },
+    });
+  });
+
+  it("refuses an event log that would make every step work out every formula (Gate's worst case)", () => {
+    const blocks: FieldBlock[] = [...(table.blocks.slice(0, 2) as FieldBlock[])];
+    for (let k = 0; k < 1_800; k++) blocks.push({ kind: "field", id: `c${k}`, key: `c${k}`, type: "calculated", label: "C", props: { formula: "sum(t.c)+n" } });
+    blocks.push({ kind: "field", id: "why", key: "why", type: "short-text", label: "Why" });
+    const worst: FormDefinition = {
+      schemaVersion: 1,
+      id: "worst",
+      title: "Worst",
+      blocks,
+      logic: [{ id: "r", effect: "show", target: "why", when: { op: "gte", left: { field: "c0" }, right: { value: 0 } } }],
+    };
+    expect(parseForm(worst).ok).toBe(true);
+    const events: FormEvent[] = [{ type: "answer", field: "t", value: rows(10_000) }];
+    while (events.length < 9_998) events.push({ type: "answer", field: "n", value: events.length % 4 < 2 ? 1 : 2 }, { type: "back" });
+    events.push({ type: "submit" });
+    const start = performance.now();
+    const result = validateSubmission(worst, { events }, { complete: false });
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(result).toEqual({
+      ok: false,
+      errors: { "": `Too much work: replaying these events (the path and calculated fields) would take more than ${MAX_REPLAY_WORK} steps; the limit is ${MAX_REPLAY_WORK}.` },
+    });
+    // A host can allow more, and a short log of the same form is fine.
+    expect(validateSubmission(worst, { events: events.slice(0, 41).concat({ type: "submit" }) }, { complete: false }).ok).toBe(true);
+    expect(validateSubmission(worst, { events: events.slice(0, 401) }, { complete: false, maxReplayWork: 1e9 }).ok).toBe(true);
   });
 });

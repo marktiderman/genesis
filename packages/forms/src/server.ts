@@ -3,8 +3,8 @@
  * resolves its server inputs, calls `validateSubmission`, and stores what
  * comes back.
  */
-import { isCalculated } from "./calculated";
-import { createForm, replay, type FormEngine } from "./engine";
+import { isCalculated, ReplayWorkExceeded } from "./calculated";
+import { createForm, replayWithin, type FormEngine } from "./engine";
 import { compactEvents, isFormEvent, isJson, isPlainObject, isUnknownEvent } from "./events";
 import { isEmptyValue, normalizeValue } from "./fields";
 import { coerceHidden } from "./hidden";
@@ -28,8 +28,21 @@ export interface SubmissionOptions {
   /** `false` checks a draft: formats only, nothing required. Default true. */
   complete?: boolean | undefined;
   validators?: Record<string, FieldValidator> | undefined;
-  /** Most events accepted, counted after `compactEvents`. Default 10 000. */
+  /** Most events accepted, counted after `compactEvents`. Default `MAX_EVENTS` (10,000). */
   maxEvents?: number | undefined;
+  /**
+   * Most JSON values in the answers, answer events and hidden inputs
+   * together (each number, text, true / false, list item, row and cell
+   * counts one). Default `MAX_SUBMISSION_VALUES` (200,000).
+   */
+  maxValues?: number | undefined;
+  /**
+   * Most work replaying the events may take: one unit per block each time
+   * the path is walked, one per calculated field each time the answers
+   * settle, and a formula's size (its numbers, answers and operators) each
+   * time it is worked out. Default `MAX_REPLAY_WORK` (2,000,000).
+   */
+  maxReplayWork?: number | undefined;
 }
 
 export interface CheckedSubmission {
@@ -55,6 +68,36 @@ export type SubmissionResult =
 
 /** Default for `SubmissionOptions.maxEvents`. */
 export const MAX_EVENTS = 10_000;
+/** Default for `SubmissionOptions.maxValues`. */
+export const MAX_SUBMISSION_VALUES = 200_000;
+/** Default for `SubmissionOptions.maxReplayWork`. */
+export const MAX_REPLAY_WORK = 2_000_000;
+
+/** How many JSON values `value` holds (itself, and every item, row and cell inside), counting no further than `limit + 1`. */
+function countValues(value: unknown, limit: number): number {
+  let count = 0;
+  const stack: unknown[] = [value];
+  while (stack.length && count <= limit) {
+    const v = stack.pop();
+    if (v === undefined) continue;
+    count++;
+    if (Array.isArray(v)) for (const item of v) stack.push(item);
+    else if (v !== null && typeof v === "object") for (const k in v) stack.push((v as Record<string, unknown>)[k]);
+  }
+  return count;
+}
+
+/** The values a submission carries, as `countValues` counts them. */
+function submissionValues(input: SubmissionInput, limit: number): number {
+  let count = countValues(input.hidden, limit);
+  if (input.events) {
+    for (const e of input.events) {
+      if (count > limit) break;
+      if (e.type === "answer") count += countValues(e.value, limit - count);
+    }
+  } else count += countValues(input.answers, limit - count);
+  return count;
+}
 
 const MALFORMED: SubmissionResult = { ok: false, errors: { "": "Malformed submission." } };
 
@@ -104,6 +147,13 @@ export function validateSubmission(
   if (invalid) return { ok: false, errors: { "": invalid } };
   const input = wellFormed(submission);
   if (!input) return MALFORMED;
+  const maxValues = options.maxValues ?? MAX_SUBMISSION_VALUES;
+  if (submissionValues(input, maxValues) > maxValues) {
+    return {
+      ok: false,
+      errors: { "": `Too much data: the answers hold more than ${maxValues} values (items, rows and cells); the limit is ${maxValues}.` },
+    };
+  }
 
   // A Set: a key sent many times (one answer event per keystroke) is reported once.
   const ignored = new Set<string>();
@@ -134,7 +184,16 @@ export function validateSubmission(
     }
     // Unknown fields stay in the log (replay ignores them); withheld ones are removed.
     const kept = events.filter((e) => e.type !== "answer" || accept(e.field) !== false);
-    engine = replay(definition, kept, { hidden: engineHidden, validators: options.validators });
+    const maxWork = options.maxReplayWork ?? MAX_REPLAY_WORK;
+    try {
+      engine = replayWithin(definition, kept, { hidden: engineHidden, validators: options.validators }, maxWork);
+    } catch (e) {
+      if (!(e instanceof ReplayWorkExceeded)) throw e;
+      return {
+        ok: false,
+        errors: { "": `Too much work: replaying these events (the path and calculated fields) would take more than ${maxWork} steps; the limit is ${maxWork}.` },
+      };
+    }
   } else {
     const answers: Record<string, Json> = {};
     for (const id of Object.keys(input.answers ?? {})) {
