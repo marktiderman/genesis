@@ -3,6 +3,7 @@
  * resolves its server inputs, calls `validateSubmission`, and stores what
  * comes back.
  */
+import { isCalculated } from "./calculated";
 import { createForm, replay, type FormEngine } from "./engine";
 import { compactEvents, isFormEvent, isJson, isPlainObject, isUnknownEvent } from "./events";
 import { isEmptyValue, normalizeValue } from "./fields";
@@ -33,7 +34,11 @@ export interface SubmissionOptions {
 
 export interface CheckedSubmission {
   status: "draft" | "completed";
-  /** Visible answers only, keyed by field id (kept hidden answers too, with `clearHiddenValues: false`). */
+  /**
+   * Visible answers only, keyed by field id (kept hidden answers too, with
+   * `clearHiddenValues: false`). Calculated fields hold the value worked out
+   * here from these answers.
+   */
   answers: Record<string, Json>;
   /** Untrusted URL and host inputs, coerced to their declared types. Identifying ones are left out on anonymous forms. */
   hidden: Record<string, Json>;
@@ -112,6 +117,9 @@ export function validateSubmission(
   /** `true`: store it; `false`: withheld; `undefined`: not a field. Both of the latter are reported in `ignored`. */
   const accept = (id: string): boolean | undefined => {
     if (!fields.has(id)) return void ignored.add(id);
+    // Calculated values are worked out again here, never taken from the client
+    // (whose `engine.answers()` holds them), so they are dropped without a report.
+    if (isCalculated(fields.get(id))) return false;
     if (!withheld(definition, fields.get(id))) return true;
     ignored.add(id);
     return false;

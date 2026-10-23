@@ -1,3 +1,4 @@
+import { calculator, isCalculated } from "./calculated";
 import { isEmptyValue, normalizeValue } from "./fields";
 import { coerceHidden } from "./hidden";
 import { computePath, fieldMap, own, type EvalScope } from "./logic";
@@ -45,7 +46,8 @@ export interface FormEngine {
   /**
    * Set an answer. Like `next`, `back` and `submit`, it does nothing once the
    * response is completed: a completed response is final, so its stored
-   * answers are the ones that were validated.
+   * answers are the ones that were validated. It does nothing for a
+   * `calculated` field either: the engine works that value out.
    */
   setValue(id: string, value: Json | undefined): void;
   /** Validate the current step and move on. Returns false if it has errors. */
@@ -97,9 +99,24 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
   }
   Object.assign(initialHidden, coerceHidden(definition, options.hidden).values);
 
-  const first = computePath(definition, scopeOf({}, initialHidden));
+  // Calculated fields are worked out from the answers on the path, and logic
+  // may read them, so the two settle together (a few rounds at most).
+  const calc = calculator(definition);
+  const settle = (values: FormState["values"], hidden: FormState["hidden"]) => {
+    let { path } = computePath(definition, scopeOf(values, hidden));
+    if (!calc.active) return { values, path };
+    for (let round = 0; round < 4; round++) {
+      const next = calc.withCalculated(values, path);
+      if (next === values) break;
+      values = next;
+      path = computePath(definition, scopeOf(values, hidden)).path;
+    }
+    return { values, path };
+  };
+
+  const first = settle({}, initialHidden);
   let state: FormState = {
-    values: {},
+    values: first.values,
     hidden: initialHidden,
     path: first.path,
     current: first.path[0] ?? null,
@@ -141,9 +158,8 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
   };
 
   const answer = (id: string, value: Json | undefined, event: FormEvent) => {
-    if (state.status === "completed" || own(state.values, id) === value) return;
-    const values = { ...state.values, [id]: value };
-    const { path } = computePath(definition, scopeOf(values, state.hidden));
+    if (state.status === "completed" || own(state.values, id) === value || isCalculated(fields.get(id))) return;
+    const { values, path } = settle({ ...state.values, [id]: value }, state.hidden);
     const errors = { ...state.errors };
     delete errors[id];
     emit({ ...state, values, path, errors, events: log(event) });

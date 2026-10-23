@@ -122,6 +122,19 @@ export const f = {
       props({ min: o.min, max: o.max, itemMaxLength: o.itemMaxLength, placeholder: o.itemPlaceholder }),
     ),
   /**
+   * A value worked out from other answers and shown read-only, such as a
+   * total or a score: `formula` names answers by key (`hours * rate`,
+   * `sum(plan.cost)`). Stored with the answers; never required.
+   */
+  calculated: <K extends string>(
+    key: K,
+    o: Omit<FieldOptions, "required" | "placeholder"> & {
+      formula: string;
+      format?: "number" | "percent" | "text" | undefined;
+      decimals?: number | undefined;
+    },
+  ) => field<K, number | string | boolean>("calculated", key, o, props({ formula: o.formula, format: o.format, decimals: o.decimals })),
+  /**
    * A small table each answer fills row by row, one answer per column: an
    * action plan (What / Who / By when), pros and cons.
    */
