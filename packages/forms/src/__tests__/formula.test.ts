@@ -54,6 +54,20 @@ describe("parseFormula", () => {
     expect(parseFormula("1+".repeat(1500) + "1").ok).toBe(false);
   });
 
+  it("counts nesting per parenthesis, call, sign or `? :`, not per operator", () => {
+    expect(run("(".repeat(60) + "1 + 2 * 3" + ")".repeat(60))).toBe(7);
+    expect(run("sum(".repeat(30) + "1" + ")".repeat(30))).toBe(1);
+    expect(parseFormula("(".repeat(70) + "1" + ")".repeat(70)).ok).toBe(false);
+    expect(parseFormula("1 + 2 * 3 - 4 / 2 == 5 ? 1 : 0").ok).toBe(true);
+  });
+
+  it("refuses a number too large to hold", () => {
+    const parsed = parseFormula("9".repeat(400) + " + 1");
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed).toMatchObject({ message: "This number is too large.", at: 0 });
+    expect(run("1" + "0".repeat(300))).toBe(1e300);
+  });
+
   it("never evaluates JavaScript", () => {
     for (const source of ["constructor.constructor('x')()", "a[0]", "`x`", "a; b", "a => a", "this", "globalThis.x()"]) {
       const parsed = parseFormula(source);

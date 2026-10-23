@@ -5,7 +5,7 @@ can be stored, diffed, versioned, and evaluated identically in a browser, in Rea
 server. Zero dependencies.
 
 **Status: 0.1, release R1.** Field types: `short-text`, `long-text`, `email`, `phone`, `rating`,
-`nps`, `single-choice`, `multi-choice`, `yes-no`. Logic: show, hide, jump to a field or an ending. Layouts
+`nps`, `single-choice`, `multi-choice`, `yes-no`, `dropdown`, `number`, `date`, `consent`. Logic: show, hide, jump to a field or an ending. Layouts
 (rendered by `genesis-forms-web`): focus (one question at a time) and classic. The full plan is in
 [docs/FORMS.md](../../docs/FORMS.md).
 
@@ -85,6 +85,19 @@ space, `-`, `(`, `)` and `.`, 7 to 15 digits, at most 32 characters. Operators: 
 `answered`, `empty`. Its manifest carries `autocomplete: "tel"` and `inputMode: "tel"` (email:
 `"email"` for both).
 
+### Dropdown, number, date and consent
+
+| Type and builder | Value | Notes |
+| --- | --- | --- |
+| `dropdown`, `f.dropdown(key, { options })` | one option's value | Like single choice, from a compact menu. Operators: `eq`, `neq`, `in`, `answered`, `empty`. |
+| `number`, `f.number(key, { min, max, step })` | `number` | All limits optional; `step` counts from `min`, else 0 (`step: 1` for whole numbers). Supports `lt`/`gt` logic. `numberLimits(field)`. |
+| `date`, `f.date(key, { min, max })` | `"YYYY-MM-DD"` | A real calendar day within the optional limits. Operators: `eq`, `neq`, `answered`, `empty`. `isIsoDate`, `dateLimits(field)`. |
+| `consent`, `f.consent(key, { text })` | `true` | One checkbox; unchecked is unanswered, so `required` means it must be checked. Summarized as "Agreed". |
+
+`f.rating` also takes `lowLabel`, `highLabel` (words under the ends, such as "Poor" and "Great") and
+`display: "numbers" | "stars"`; `f.nps` takes the labels too. `summarizeValue` adds an end's label:
+`"5/5 (Great)"`. Helpers: `scaleLabels(field)`, `ratingDisplay(field)`.
+
 ### Structured field types
 
 Four built-in types collect more than one value for a question. `STRUCTURED_FIELD_TYPES` lists
@@ -151,9 +164,11 @@ The formula language is small and is parsed and evaluated by this package, never
 An unanswered question is blank, and arithmetic with a blank is blank, so a total stays empty until
 its answers are in; dividing by zero is blank too. The functions skip blanks (`sum` of nothing is
 `0`). Text holding a number (`"12"`, `"1,200"`) counts as that number, and yes / no as 1 / 0.
+A list or table of more than `MAX_FORMULA_ITEMS` (10,000) items reads as blank. A formula is at
+most `MAX_FORMULA_LENGTH` characters and 64 levels of parentheses, calls, signs and `? :` deep.
 
 The engine works the values out from the answers on the path (an answer hidden by logic reads as
-blank), again on every change, and stores them with the answers, so `engine.answers()` and a
+blank), again whenever an answer it reads changes, and stores them with the answers, so `engine.answers()` and a
 checked submission hold them for later use. `setValue` on a calculated field does nothing, and
 `validateSubmission` works the values out itself, dropping any the client sent. A calculated field
 is never required. Logic may compare its value.

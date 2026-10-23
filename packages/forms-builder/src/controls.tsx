@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
@@ -63,21 +63,35 @@ export function TextRow(props: {
   multiline?: boolean;
   testID?: string;
   onBlur?: () => void;
+  /** Focus the field when it mounts (a question just added). */
+  autoFocus?: boolean;
+  /** Marks the field invalid for assistive tech and draws it in the error colour. */
+  invalid?: boolean;
+  /** The input type of a one-line field, such as `"date"`. Default text. */
+  type?: string;
 }) {
   const id = useId();
+  // Focused after the menu that added the question has closed and handed focus back.
+  const autoFocus = !!props.autoFocus;
+  useEffect(() => {
+    if (!autoFocus) return;
+    const frame = requestAnimationFrame(() => document.getElementById(id)?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [autoFocus, id]);
   const common = {
     id,
     value: props.value,
     placeholder: props.placeholder,
     "data-testid": props.testID,
     onBlur: props.onBlur,
+    "aria-invalid": props.invalid || undefined,
   };
   return (
     <Row label={props.label} hint={props.hint} htmlFor={id}>
       {props.multiline ? (
         <Textarea {...common} rows={2} onChange={(e) => props.onChange(e.target.value)} />
       ) : (
-        <Input {...common} onChange={(e) => props.onChange(e.target.value)} />
+        <Input {...common} type={props.type} onChange={(e) => props.onChange(e.target.value)} />
       )}
     </Row>
   );
@@ -194,7 +208,11 @@ export function DraftInput(props: {
   );
 }
 
-/** A whole number. With `commitOnBlur`, it is kept as typed until blur or Enter (for values that get clamped). */
+/**
+ * A whole number (any number with `decimal`). With `commitOnBlur`, it is kept
+ * as typed until blur or Enter (for values that get clamped); `decimal` rows
+ * always commit on blur, so "0." is not cut back while typing "0.5".
+ */
 export function NumberRow(props: {
   label: string;
   value: number | undefined;
@@ -204,14 +222,15 @@ export function NumberRow(props: {
   hint?: ReactNode;
   testID?: string;
   commitOnBlur?: boolean;
+  decimal?: boolean;
 }) {
   const id = useId();
   const toNumber = (raw: string) => {
     if (raw.trim() === "") return undefined;
-    const n = Math.trunc(Number(raw));
+    const n = props.decimal ? Number(raw) : Math.trunc(Number(raw));
     return Number.isFinite(n) ? n : null;
   };
-  if (props.commitOnBlur) {
+  if (props.commitOnBlur || props.decimal) {
     return (
       <Row label={props.label} hint={props.hint} htmlFor={id}>
         <DraftInput

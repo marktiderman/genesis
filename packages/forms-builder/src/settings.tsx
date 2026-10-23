@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { parseForm, type FormDefinition, type HiddenInput } from "@marktiderman/genesis-forms";
 import { Label } from "@marktiderman/genesis-ui/label";
@@ -8,6 +8,7 @@ import { Button } from "@marktiderman/genesis-ui/button";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { DraftInput, Editable, Pick, SelectRow, SwitchRow, TextRow } from "./controls";
 import { useBuilderConfig } from "./editors";
+import { LogicPanel } from "./logic";
 import type { Finding } from "./analyze";
 import {
   addEnding,
@@ -71,6 +72,31 @@ export function EndingsPanel({ def, apply, findings }: { def: FormDefinition; ap
           <Plus /> Add ending
         </Button>
       )}
+    </div>
+  );
+}
+
+/**
+ * Logic and endings in one panel: the rules first, then the endings they can
+ * send people to. What the builder shows under "Logic and endings"; a host
+ * with its own tabs can render it as one tab.
+ */
+export function LogicAndEndingsPanel({ def, apply, findings }: { def: FormDefinition; apply: Apply; findings: Finding[] }) {
+  const id = useId();
+  return (
+    <div className="space-y-8" data-testid="builder-logic-endings">
+      <section className="space-y-3" aria-labelledby={`${id}-logic`}>
+        <h3 id={`${id}-logic`} className="text-sm font-semibold">
+          Logic
+        </h3>
+        <LogicPanel def={def} apply={apply} findings={findings} />
+      </section>
+      <section className="space-y-3" aria-labelledby={`${id}-endings`}>
+        <h3 id={`${id}-endings`} className="text-sm font-semibold">
+          Endings
+        </h3>
+        <EndingsPanel def={def} apply={apply} findings={findings} />
+      </section>
     </div>
   );
 }

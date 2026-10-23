@@ -12,7 +12,7 @@ import {
   type ParseResult,
 } from "@marktiderman/genesis-forms";
 import type { FieldRendererProps, RendererRegistry } from "@marktiderman/genesis-forms-react";
-import { defaultRegistry, Form, type FormBrand } from "@marktiderman/genesis-forms-web";
+import { defaultRegistry, Form, type FormBrand, type FormTheme } from "@marktiderman/genesis-forms-web";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@marktiderman/genesis-ui/toggle-group";
 import { structureFingerprint } from "./analyze";
@@ -32,6 +32,8 @@ export function Preview({
   registry,
   validators,
   outputs,
+  theme,
+  submitLabel,
 }: {
   def: FormDefinition;
   /** `parseForm(def)`, when the caller already has it. */
@@ -45,6 +47,10 @@ export function Preview({
   validators?: Record<string, FieldValidator> | undefined;
   /** The host's output targets: a question that uses one gets a "→ goes to …" note. */
   outputs?: readonly OutputTarget[] | undefined;
+  /** The form's accent colour and header image (`<Form theme>`). */
+  theme?: FormTheme | undefined;
+  /** The send button's word (`<Form submitLabel>`). Default "Send", as in `<Form>`. */
+  submitLabel?: string | undefined;
 }) {
   const noted = useMemo(() => (outputs?.length ? withOutputNotes(registry ?? defaultRegistry) : registry), [outputs, registry]);
   const mode = def.layout?.mode ?? "focus";
@@ -127,7 +133,15 @@ export function Preview({
           ) : form && engine ? (
             // No onSubmit: a completed engine then shows its ending, also after a wording edit remounts it.
             <OutputsContext.Provider value={outputs ?? NO_OUTPUTS}>
-              <Form form={form} engine={engine} layout={layout} brand={brand} {...(noted ? { registry: noted } : {})} />
+              <Form
+                form={form}
+                engine={engine}
+                layout={layout}
+                brand={brand}
+                theme={theme}
+                {...(submitLabel ? { submitLabel } : {})}
+                {...(noted ? { registry: noted } : {})}
+              />
             </OutputsContext.Provider>
           ) : (
             <div className="space-y-2 p-4 text-sm">

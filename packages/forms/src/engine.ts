@@ -157,11 +157,30 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
     return errors;
   };
 
+  // While replaying, answers only record the value: the path and calculated
+  // fields are settled once, before the next step that reads them
+  // (`next`, `back`, `submit`, or the end of the replay), not once per event.
+  let unsettled = false;
+  const settleNow = () => {
+    if (!unsettled) return;
+    unsettled = false;
+    const { values, path } = settle(state.values, state.hidden);
+    state = { ...state, values, path };
+  };
+
   const answer = (id: string, value: Json | undefined, event: FormEvent) => {
     if (state.status === "completed" || own(state.values, id) === value || isCalculated(fields.get(id))) return;
-    const { values, path } = settle({ ...state.values, [id]: value }, state.hidden);
     const errors = { ...state.errors };
     delete errors[id];
+    if (batch) {
+      // `state` is not seen by anyone until the replay ends, so it is updated in place.
+      state.values = { ...state.values, [id]: value };
+      state.errors = errors;
+      log(event);
+      unsettled = true;
+      return;
+    }
+    const { values, path } = settle({ ...state.values, [id]: value }, state.hidden);
     emit({ ...state, values, path, errors, events: log(event) });
   };
 
@@ -244,12 +263,16 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
   };
 
   // Prefilled answers are logged as leading `answer` events, so a replay of
-  // the log, and the server, see them too.
+  // the log, and the server, see them too. They settle once, like a replay.
   if (options.initialValues) {
+    const wasBatch = batch;
+    batch = true;
     for (const [id, value] of Object.entries(options.initialValues)) {
       if (!fields.has(id) || value === undefined) continue;
       answer(id, value, stamp({ type: "answer", field: id, value, source: "prefill" }));
     }
+    settleNow();
+    batch = wasBatch;
   }
 
   const apply = (event: FormEvent) => {
@@ -258,12 +281,20 @@ function build(definition: FormDefinition, options: CreateFormOptions, replaying
         const { at: _at, ...logged } = event;
         answer(event.field, event.value, logged);
       }
-    } else if (event.type === "next") engine.next();
-    else if (event.type === "back") engine.back();
-    else if (event.type === "submit") engine.submit();
+    } else if (event.type === "next") {
+      settleNow();
+      engine.next();
+    } else if (event.type === "back") {
+      settleNow();
+      engine.back();
+    } else if (event.type === "submit") {
+      settleNow();
+      engine.submit();
+    }
     // Unknown event types are ignored.
   };
   const finish = () => {
+    settleNow();
     batch = false;
     state = { ...state, events: [...state.events] };
   };

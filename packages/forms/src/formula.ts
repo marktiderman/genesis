@@ -46,7 +46,7 @@ export type FormulaParseResult =
 
 /** Longest formula accepted. */
 export const MAX_FORMULA_LENGTH = 2000;
-/** Deepest nesting of parentheses, calls and operators. */
+/** Deepest nesting of parentheses, function calls, signs and `? :`, each counting one level. */
 const MAX_DEPTH = 64;
 
 type Token =
@@ -90,7 +90,9 @@ function tokenize(source: string): Token[] {
         i++;
         while (isDigit(source[i] ?? "")) i++;
       }
-      tokens.push({ t: "num", v: Number(source.slice(at, i)), at });
+      const v = Number(source.slice(at, i));
+      if (!Number.isFinite(v)) throw new FormulaError("This number is too large.", at);
+      tokens.push({ t: "num", v, at });
       continue;
     }
     if (isIdStart(c)) {
@@ -157,7 +159,7 @@ export function parseFormula(source: string): FormulaParseResult {
 
   const ternary = (depth: number): FormulaNode => {
     guard(depth);
-    const test = comparison(depth + 1);
+    const test = comparison(depth);
     if (!isOp("?")) return test;
     pos++;
     const then = ternary(depth + 1);
@@ -166,11 +168,11 @@ export function parseFormula(source: string): FormulaParseResult {
     return { kind: "if", test, then, else: otherwise };
   };
   const comparison = (depth: number): FormulaNode => {
-    const left = additive(depth + 1);
+    const left = additive(depth);
     const tok = peek();
     if (tok.t !== "op" || !COMPARISONS.has(tok.v)) return left;
     pos++;
-    const right = additive(depth + 1);
+    const right = additive(depth);
     const next = peek();
     if (next.t === "op" && COMPARISONS.has(next.v)) {
       throw new FormulaError("Compare two values at a time; combine comparisons with `? :`.", next.at);
@@ -178,18 +180,18 @@ export function parseFormula(source: string): FormulaParseResult {
     return { kind: "binary", op: tok.v as BinaryOp, left, right };
   };
   const additive = (depth: number): FormulaNode => {
-    let left = multiplicative(depth + 1);
+    let left = multiplicative(depth);
     for (let tok = peek(); tok.t === "op" && (tok.v === "+" || tok.v === "-"); tok = peek()) {
       pos++;
-      left = { kind: "binary", op: tok.v as BinaryOp, left, right: multiplicative(depth + 1) };
+      left = { kind: "binary", op: tok.v as BinaryOp, left, right: multiplicative(depth) };
     }
     return left;
   };
   const multiplicative = (depth: number): FormulaNode => {
-    let left = unary(depth + 1);
+    let left = unary(depth);
     for (let tok = peek(); tok.t === "op" && (tok.v === "*" || tok.v === "/"); tok = peek()) {
       pos++;
-      left = { kind: "binary", op: tok.v as BinaryOp, left, right: unary(depth + 1) };
+      left = { kind: "binary", op: tok.v as BinaryOp, left, right: unary(depth) };
     }
     return left;
   };
@@ -203,7 +205,7 @@ export function parseFormula(source: string): FormulaParseResult {
       pos++;
       return unary(depth + 1);
     }
-    return primary(depth + 1);
+    return primary(depth);
   };
   const primary = (depth: number): FormulaNode => {
     const tok = peek();

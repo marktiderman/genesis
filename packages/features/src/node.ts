@@ -201,7 +201,7 @@ export function blankComments(text: string): string {
 
 // Characters after which a `/` starts a regex literal rather than a division.
 const BEFORE_REGEX = new Set("(,=:[!&|?{};+-*%<>~^");
-const REGEX_KEYWORDS = /(?:^|[^\w$])(?:return|typeof|instanceof|in|of|new|delete|void|throw|case|do|else|yield|await)$/;
+const REGEX_KEYWORDS = /(?:^|[^\w$.])(?:return|typeof|instanceof|in|new|delete|void|throw|case|do|else|yield|await)$/;
 
 /**
  * Blanks comments from `i`, keeping strings, regex literals and template text.
@@ -227,7 +227,7 @@ function blankFrom(text: string, i: number, inTemplate: boolean): { out: string;
       const stop = end === -1 ? text.length : end + 2;
       out += text.slice(i, stop).replace(/[^\n]/g, " ");
       i = stop;
-    } else if (c === "/" && startsRegex(out)) {
+    } else if (c === "/" && next !== ">" && startsRegex(out)) {
       // A regex literal: `/[/*]/` holds no comment. Classes may contain `/`.
       let j = i + 1;
       let inClass = false;
@@ -240,6 +240,12 @@ function blankFrom(text: string, i: number, inTemplate: boolean): { out: string;
           else if (r === "/" && !inClass) break;
           j++;
         }
+      }
+      if (text[j] !== "/") {
+        // No closing `/` on the line: a division after all.
+        out += c;
+        i++;
+        continue;
       }
       out += text.slice(i, j + 1);
       i = j + 1;

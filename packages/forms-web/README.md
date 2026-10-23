@@ -24,7 +24,7 @@ import { Form } from "@marktiderman/genesis-forms-web";
   progress bar and Enter to continue (Ctrl/Cmd+Enter in long text; Enter on a focused radio or
   checkbox too). After a single pick (rating, NPS, yes/no, one choice) it moves on by itself
   (`autoAdvance={false}` turns it off): only a click, tap or Space counts as a pick, arrow keys just
-  move through the options, and it never moves on from the last question, so Submit is always a
+  move through the options, and it never moves on from the last question, so Send is always a
   deliberate press. `classic` shows every visible question; a failed submit focuses an error summary
   above the fields that links to each invalid one.
 - **Presentation:** `presentation="embedded"` (the default) is a block inside your own page.
@@ -40,7 +40,7 @@ import { Form } from "@marktiderman/genesis-forms-web";
   button at the top-left. Each new question fades and slides in (CSS `@starting-style`, none with
   `prefers-reduced-motion`). The ending is centred and large. In classic layout, page mode is one
   scrolling page, Google Forms style: a header card with the title and description, each question
-  in its own card (red-edged while invalid), Submit at the end.
+  in its own card (red-edged while invalid), Send at the end.
   `brand={{ name: "Acme", logo }}` shows an organisation's or business's logo (an image URL or an
   element; its initials without one) and name small at the top of every step and on the ending.
   Custom slots and renderers can match with `useFormPresentation()`, which returns
@@ -57,6 +57,18 @@ import { Form } from "@marktiderman/genesis-forms-web";
   question text), a failed Next is announced once through a live region, and the ending heading
   takes focus. Choice rows are full-width labels at least 44px tall; motion respects
   `prefers-reduced-motion`. Ids are unique per form, so two forms can share a page.
+- **Send word and required note:** the send button says `submitLabel` (default **Send**) in every
+  layout. When any question is required, the title shows "\* Required" (`requiredLabel`, default
+  "Required"; `null` hides it).
+- **Theme:** `theme={{ accent: "#f97316", headerImage: url, headerImageAlt }}` sets the form's own
+  primary colour (buttons, selected options, stars, progress, focus rings) and a banner over the
+  title. The accent is adjusted only as far as contrast needs: at least 3:1 against the page in light
+  and dark, and text on it at least 4.5:1. It takes `#rgb`, `#rrggbb` or `rgb()`; anything else is
+  ignored. `themeColors(accent)` returns the colours it would use.
+- **Question types:** besides text, email, phone, rating, NPS, choices and yes/no, there are
+  `dropdown` (a native select), `number` (min, max, step; the decimal keypad on phones), `date` (the
+  browser's date picker) and `consent` (one checkbox). A rating can show end labels (`lowLabel`,
+  `highLabel`) and `display: "stars"`; NPS takes the same labels.
 - **Submitting:** the ending shows once `onSubmit` resolves. If it rejects, the completed response
   stays on screen read-only (a completed response is final), Back is hidden, and "Try again"
   (`retryLabel`) resends the same answers.

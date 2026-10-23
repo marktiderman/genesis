@@ -63,6 +63,24 @@ describe("ResourcePage — server-data fetch state", () => {
     expect(errorPanel()).toBeNull();
   });
 
+  it("shapes the loading skeleton like the table and tells assistive tech it is loading", async () => {
+    renderServerPage({ loading: true, data: [], defaultView: "table" });
+    await waitFor(() => expect(loader()).toBeTruthy());
+    expect(loader()!.getAttribute("role")).toBe("status");
+    expect(loader()!.getAttribute("aria-busy")).toBe("true");
+    expect(loader()!.textContent).toContain("Loading");
+    // Rows, not a page of card placeholders.
+    expect(loader()!.querySelectorAll(".h-10")).toHaveLength(5);
+    expect(loader()!.querySelector(".h-32, .h-40")).toBeNull();
+  });
+
+  it("announces the error state as an alert", async () => {
+    renderServerPage({ error: true, data: [], onRetry: () => {} });
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toContain("Something went wrong");
+    expect(screen.getByRole("button", { name: /retry/i })).toBeTruthy();
+  });
+
   it("shows the error state when `error` is true", async () => {
     renderServerPage({ error: true, data: [] });
     await waitFor(() => expect(errorPanel()).toBeTruthy());

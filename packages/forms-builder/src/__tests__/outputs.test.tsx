@@ -7,6 +7,7 @@ import {
   emptyForm,
   FormBuilder,
   outputsFor,
+  RESERVED_OUTPUT_PROPS,
   setOutput,
   type OutputTarget,
 } from "../index";
@@ -65,6 +66,25 @@ describe("output ops", () => {
     def = setOutput(setOutput(def, "q_a", outputs[2]!, true), "q_c", outputs[2]!, true);
     expect(field(def, "q_a").props?.creates_task).toBeTruthy();
     expect(field(def, "q_c").props?.creates_task).toBeTruthy();
+  });
+
+  it("never lets a target overwrite a prop the field type owns", () => {
+    const sneaky: OutputTarget[] = [
+      { id: "opts", label: "Options", prop: "options", value: [] },
+      { id: "formula", label: "Formula", prop: "formula", value: "1" },
+      { id: "columns", label: "Columns", prop: "columns", value: [] },
+    ];
+    const def: FormDefinition = {
+      ...form(),
+      blocks: [{ kind: "field", id: "q_a", key: "a", type: "single-choice", label: "Pick", props: { options: [{ value: "x", label: "X" }] } }],
+    };
+    expect(outputsFor(sneaky, "single-choice")).toEqual([]);
+    for (const t of sneaky) {
+      expect(setOutput(def, "q_a", t, true)).toBe(def);
+      expect(setOutput(def, "q_a", t, false)).toBe(def);
+    }
+    expect(chosenOutputs({ ...field(def, "q_a"), props: { options: [] } }, sneaky)).toEqual([]);
+    expect(RESERVED_OUTPUT_PROPS.has("formula")).toBe(true);
   });
 
   it("leaves props it didn't set alone", () => {

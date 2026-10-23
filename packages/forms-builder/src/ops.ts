@@ -158,6 +158,7 @@ export function defaultProps(
       return { max: 5 };
     case "single-choice":
     case "multi-choice":
+    case "dropdown":
       return { options: withOptionValues([{ label: "Option 1" }, { label: "Option 2" }]) };
     case "table":
       return { columns: DEFAULT_TABLE_COLUMNS.map((c) => ({ ...c })), minRows: 1, maxRows: 3 };
@@ -177,13 +178,20 @@ export interface NewField {
   props?: Record<string, Json>;
 }
 
-/** A new field block with a fresh id and a key unique in `def`. A matching editor in `editors` gives its label and props. */
+/**
+ * A new field block with a fresh id and a key unique in `def`. A matching
+ * editor in `editors` gives its label and props. Without `label` the field is
+ * titled after its type; pass `label: ""` for an untitled question (the
+ * builder's Add menu does, so the author writes the title), whose key is then
+ * made from the type's name.
+ */
 export function createField(def: FormDefinition, spec: NewField, editors?: readonly FieldTypeDefaults[]): FieldBlock {
-  const label = spec.label ?? editorFor(editors, spec.type)?.label ?? getFieldType(spec.type)?.label ?? "Question";
+  const typeName = editorFor(editors, spec.type)?.label ?? getFieldType(spec.type)?.label ?? "Question";
+  const label = spec.label ?? typeName;
   const block: FieldBlock = {
     kind: "field",
     id: freshId("q", def),
-    key: uniqueName(spec.key ?? slugKey(label), fieldKeys(def)),
+    key: uniqueName(spec.key ?? slugKey(label || typeName), fieldKeys(def)),
     type: spec.type,
     label,
   };
@@ -229,8 +237,8 @@ export type BlockPatch =
  * optional flag goes away instead of being stored as `false` or `undefined`.
  * A key is made unique if it clashes; a changed field type gets that type's
  * default props and loses the rules that compare it, since their operators
- * and values belong to the old type. Between single and multiple choice the
- * options stay, and so do rules whose operators the new type offers. An edit
+ * and values belong to the old type. Between single choice, multiple choice
+ * and dropdown the options stay, and so do rules whose operators the new type offers. An edit
  * that changes nothing returns `def` itself. Default props are made here
  * when the patch has none (new option values are random): pass `props` from
  * `defaultProps()` to keep the edit pure.
@@ -280,7 +288,7 @@ export function updateBlock(def: FormDefinition, id: string, patch: BlockPatch):
   return removeRulesWhere(out, (rule) => conditionFields(rule.when).has(id));
 }
 
-const CHOICE_TYPES: ReadonlySet<string> = new Set(["single-choice", "multi-choice"]);
+const CHOICE_TYPES: ReadonlySet<string> = new Set(["single-choice", "multi-choice", "dropdown"]);
 
 /** Move a block to `toIndex` (clamped). Rules keep working: they point at ids. */
 export function moveBlock(def: FormDefinition, id: string, toIndex: number): FormDefinition {
@@ -542,6 +550,7 @@ function starterScalar(field: FieldBlock): string | number | boolean {
   if (field.type === "rating") return typeof field.props?.max === "number" ? Math.ceil(field.props.max / 2) : 3;
   if (field.type === "nps") return 9;
   if (field.type === "calculated") return field.props?.format === "text" ? "" : 0;
+  if (field.type === "number") return typeof field.props?.min === "number" ? field.props.min : 0;
   return choiceOptions(field)[0]?.value ?? "";
 }
 

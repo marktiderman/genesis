@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, Copy, GripVertical, Plus, Trash2, X } from "lucide-react";
 import {
   choiceOptions,
@@ -26,6 +26,7 @@ import {
 } from "@marktiderman/genesis-ui/dropdown-menu";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { cn } from "@marktiderman/genesis-ui/utils";
+import { useChecks } from "./checks";
 import { DraftRow, Editable, NumberRow, SelectRow, SwitchRow, TextRow } from "./controls";
 import type { Finding } from "./analyze";
 import {
@@ -55,7 +56,8 @@ import {
 } from "./editors";
 import { chosenOutputs, clearOutputs, outputPropsFor, outputsFor, outputUsedBy, setOutput, type OutputTarget } from "./outputs";
 
-const TEXT_TYPES = new Set(["short-text", "long-text", "email", "phone"]);
+const TEXT_TYPES = new Set(["short-text", "long-text", "email", "phone", "number"]);
+const CHOICE_TYPES = new Set(["single-choice", "multi-choice", "dropdown"]);
 
 const CATEGORY_LABEL: Record<string, string> = {
   text: "Text",
@@ -167,7 +169,7 @@ export function createPresetField(def: FormDefinition, preset: FieldPreset, conf
 }
 
 function blockTitle(block: Block): string {
-  if (block.kind === "field") return block.label || block.key;
+  if (block.kind === "field") return block.label || "Untitled question";
   if (block.kind === "content") return block.text || (block.type === "heading" ? "Heading" : "Text");
   return block.title ? `Page break: ${block.title}` : "Page break";
 }
@@ -190,6 +192,12 @@ export function AddBlockMenu({
   for (const t of [...paletteTypes(config), ...palettePresets(config)]) byCategory.set(t.category, [...(byCategory.get(t.category) ?? []), t]);
   const content = contentTypes(config.blockKinds);
   const pageBreak = config.blockKinds?.pageBreak ?? true;
+  // After adding, focus goes to the new question's title, not back to this button.
+  const added = useRef(false);
+  const addAndKeepFocus = (make: (def: FormDefinition) => Block) => {
+    added.current = true;
+    onAdd(make);
+  };
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -197,7 +205,15 @@ export function AddBlockMenu({
           <Plus /> {label}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-96 overflow-y-auto">
+      <DropdownMenuContent
+        align="start"
+        className="max-h-96 overflow-y-auto"
+        onCloseAutoFocus={(e) => {
+          if (!added.current) return;
+          added.current = false;
+          e.preventDefault();
+        }}
+      >
         {[...byCategory].map(([category, types]) => (
           <div key={category}>
             <DropdownMenuLabel>{CATEGORY_LABEL[category] ?? category}</DropdownMenuLabel>
@@ -209,7 +225,10 @@ export function AddBlockMenu({
                   title={preset?.description}
                   data-testid={preset ? `builder-add-preset-${preset.id}` : undefined}
                   onSelect={() =>
-                    onAdd((def) => (preset ? createPresetField(def, preset, config) : createField(def, { type: t.type }, config.fieldEditors)))
+                    // A new question starts untitled: the author writes its title first.
+                    addAndKeepFocus((def) =>
+                      preset ? createPresetField(def, preset, config) : createField(def, { type: t.type, label: "" }, config.fieldEditors),
+                    )
                   }
                 >
                   {t.icon ?? null}
@@ -251,7 +270,10 @@ export function QuestionsPanel({
   ruleCount: (blockId: string) => number;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
+  // The question whose title field takes focus when its inspector opens: the one just added.
+  const [focusTitle, setFocusTitle] = useState<string | null>(null);
   const config = useBuilderConfig();
+  const checks = useChecks();
   const readOnly = !!config.readOnly;
 
   const add = (make: (def: FormDefinition) => Block) => {
@@ -259,6 +281,10 @@ export function QuestionsPanel({
     const created = make(def);
     const at = selected ? def.blocks.findIndex((b) => b.id === selected) + 1 : def.blocks.length;
     apply((d) => insertBlock(d, created, at || d.blocks.length));
+    if (created.kind === "field") {
+      if (!created.label.trim()) checks?.markFresh(created.id);
+      setFocusTitle(created.id);
+    }
     onSelect(created.id);
   };
 
@@ -325,7 +351,10 @@ export function QuestionsPanel({
                   // Badges wrap under the title before it shrinks below 5rem; past that it truncates.
                   className="flex min-w-32 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-left"
                   aria-expanded={open}
-                  onClick={() => onSelect(open ? null : block.id)}
+                  onClick={() => {
+                    setFocusTitle(null);
+                    onSelect(open ? null : block.id);
+                  }}
                   data-testid={`builder-block-toggle-${block.id}`}
                 >
                   <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">{index + 1}</span>
@@ -390,7 +419,13 @@ export function QuestionsPanel({
                     </p>
                   ))}
                   <Editable readOnly={readOnly}>
-                    <BlockInspector def={def} block={block} apply={apply} />
+                    <BlockInspector
+                      def={def}
+                      block={block}
+                      apply={apply}
+                      autoFocusTitle={focusTitle === block.id}
+                      titleInvalid={blockFindings.some((f) => f.code === "untitled-question")}
+                    />
                   </Editable>
                 </div>
               ) : null}
@@ -403,7 +438,21 @@ export function QuestionsPanel({
   );
 }
 
-export function BlockInspector({ def, block, apply }: { def: FormDefinition; block: Block; apply: Apply }) {
+export function BlockInspector({
+  def,
+  block,
+  apply,
+  autoFocusTitle,
+  titleInvalid,
+}: {
+  def: FormDefinition;
+  block: Block;
+  apply: Apply;
+  /** Focus the question's title field when it opens (a question just added). */
+  autoFocusTitle?: boolean | undefined;
+  /** The title is flagged by a check ("needs a title"). */
+  titleInvalid?: boolean | undefined;
+}) {
   // A function patch reads the block as it is when the edit runs, not as rendered.
   const set: FieldPanelProps["set"] = (patch, coalesce) =>
     apply((d) => {
@@ -449,7 +498,17 @@ export function BlockInspector({ def, block, apply }: { def: FormDefinition; blo
       />
     );
   }
-  return <FieldInspector def={def} field={block} set={set} setProps={setProps} apply={apply} />;
+  return (
+    <FieldInspector
+      def={def}
+      field={block}
+      set={set}
+      setProps={setProps}
+      apply={apply}
+      autoFocusTitle={!!autoFocusTitle}
+      titleInvalid={!!titleInvalid}
+    />
+  );
 }
 
 function FieldInspector({
@@ -458,25 +517,30 @@ function FieldInspector({
   set,
   setProps,
   apply,
+  autoFocusTitle,
+  titleInvalid,
 }: {
   def: FormDefinition;
   field: FieldBlock;
   set: FieldPanelProps["set"];
   setProps: FieldPanelProps["setProps"];
   apply: Apply;
+  autoFocusTitle: boolean;
+  titleInvalid: boolean;
 }) {
   const config = useBuilderConfig();
+  const checks = useChecks();
   const types = paletteTypes(config).map((t) => ({ value: t.type, label: t.label }));
   // The current type stays selectable, also when the palette leaves it out.
   if (!types.some((t) => t.value === field.type)) types.unshift({ value: field.type, label: typeLabel(field.type, config) });
-  const isChoice = field.type === "single-choice" || field.type === "multi-choice";
+  const isChoice = CHOICE_TYPES.has(field.type);
   const editor = editorFor(config, field.type);
   const Panel = editor?.Panel;
   const setType = (type: string) => {
     if (type === field.type) return;
-    // Between single and multiple choice the options stay; otherwise the new
+    // Between single choice, multiple choice and dropdown the options stay; otherwise the new
     // type's default props are made here (new option values are random), so the edit stays pure.
-    const keepsOptions = isChoice && (type === "single-choice" || type === "multi-choice") && !editorFor(config, type)?.defaultProps;
+    const keepsOptions = isChoice && CHOICE_TYPES.has(type) && !editorFor(config, type)?.defaultProps;
     if (keepsOptions) set({ type });
     else {
       // Where the answer goes stays, for the targets the new type also accepts.
@@ -494,7 +558,11 @@ function FieldInspector({
       <TextRow
         label="Question"
         value={field.label}
+        placeholder="Your question"
         testID="builder-field-label"
+        autoFocus={autoFocusTitle}
+        invalid={titleInvalid}
+        onBlur={() => checks?.touch(field.id)}
         onChange={(label) => set({ label }, `label:${field.id}`)}
       />
       <TextRow
@@ -507,7 +575,7 @@ function FieldInspector({
         label="Type"
         value={field.type}
         options={types}
-        hint="Changing the type resets its settings and removes rules that compare this question. Between single and multiple choice, the options and the rules that still fit stay."
+        hint="Changing the type resets its settings and removes rules that compare this question. Between single choice, multiple choice and dropdown, the options and the rules that still fit stay."
         onChange={setType}
       />
       {Panel ? <Panel def={def} field={field} set={set} setProps={setProps} apply={apply} readOnly={!!config.readOnly} /> : null}
@@ -526,6 +594,76 @@ function FieldInspector({
           max={10}
           value={typeof field.props?.max === "number" ? field.props.max : 5}
           onChange={(max) => set({ props: { ...field.props, max: Math.min(10, Math.max(2, max ?? 5)) } })}
+        />
+      ) : null}
+      {!Panel && field.type === "rating" ? (
+        <SelectRow
+          label="Show as"
+          value={field.props?.display === "stars" ? "stars" : "numbers"}
+          testID="builder-rating-display"
+          options={[
+            { value: "numbers", label: "Numbers" },
+            { value: "stars", label: "Stars" },
+          ]}
+          onChange={(display) => setProps({ display: display === "stars" ? "stars" : undefined })}
+        />
+      ) : null}
+      {!Panel && (field.type === "rating" || field.type === "nps") ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextRow
+            label="Label under the lowest"
+            value={typeof field.props?.lowLabel === "string" ? field.props.lowLabel : ""}
+            placeholder={field.type === "nps" ? "Not likely" : "Poor"}
+            testID="builder-scale-low"
+            onChange={(v) => setProps({ lowLabel: v || undefined }, `lowLabel:${field.id}`)}
+          />
+          <TextRow
+            label="Label under the highest"
+            value={typeof field.props?.highLabel === "string" ? field.props.highLabel : ""}
+            placeholder={field.type === "nps" ? "Very likely" : "Great"}
+            testID="builder-scale-high"
+            onChange={(v) => setProps({ highLabel: v || undefined }, `highLabel:${field.id}`)}
+          />
+        </div>
+      ) : null}
+      {!Panel && field.type === "number" ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {(["min", "max", "step"] as const).map((k) => (
+            <NumberRow
+              key={k}
+              decimal
+              label={k === "min" ? "Smallest" : k === "max" ? "Largest" : "Step"}
+              testID={`builder-number-${k}`}
+              value={typeof field.props?.[k] === "number" ? (field.props[k] as number) : undefined}
+              hint={k === "step" ? "1 for whole numbers." : "Optional."}
+              onChange={(n) => setProps({ [k]: n })}
+            />
+          ))}
+        </div>
+      ) : null}
+      {!Panel && field.type === "date" ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(["min", "max"] as const).map((k) => (
+            <TextRow
+              key={k}
+              type="date"
+              label={k === "min" ? "Earliest date" : "Latest date"}
+              testID={`builder-date-${k}`}
+              value={typeof field.props?.[k] === "string" ? (field.props[k] as string) : ""}
+              hint="Optional."
+              onChange={(v) => setProps({ [k]: v || undefined })}
+            />
+          ))}
+        </div>
+      ) : null}
+      {!Panel && field.type === "consent" ? (
+        <TextRow
+          label="Checkbox text"
+          value={typeof field.props?.text === "string" ? field.props.text : ""}
+          placeholder="I agree"
+          testID="builder-consent-text"
+          hint="Turn on Required so it must be checked to send."
+          onChange={(text) => setProps({ text: text || undefined }, `consent-text:${field.id}`)}
         />
       ) : null}
       {!Panel && (field.type === "short-text" || field.type === "long-text") ? (

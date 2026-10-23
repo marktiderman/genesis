@@ -71,9 +71,21 @@ export function formatCalculated(value: Json | undefined, field: FieldBlock): st
   return typeof value === "string" ? value : "";
 }
 
-/** The value a formula reads for an answer: numbers and text as they are, a list's items, one table column's cells. */
+/**
+ * Most items a formula reads from one answer (a list's items, a table's
+ * rows). A longer answer reads as blank, so one oversized value sent to the
+ * server can't make every formula over it slow.
+ */
+export const MAX_FORMULA_ITEMS = 10_000;
+
+/**
+ * The value a formula reads for an answer: numbers and text as they are, a
+ * list's items, one table column's cells. A list or table of more than
+ * `MAX_FORMULA_ITEMS` reads as blank.
+ */
 export function formulaInput(value: Json | undefined, column?: string): FormulaValue {
   if (value === undefined || value === null) return null;
+  if (Array.isArray(value) && value.length > MAX_FORMULA_ITEMS) return null;
   if (column !== undefined) {
     if (!Array.isArray(value)) return null;
     return value.flatMap((row): FormulaValue[] => {
@@ -91,7 +103,14 @@ export function formulaInput(value: Json | undefined, column?: string): FormulaV
 interface Compiled {
   field: FieldBlock;
   ast: FormulaNode | null;
+  /** The answer ids it reads, in `refs` order (`undefined` for a key that is not a field). */
+  reads: (string | undefined)[];
+  /** The inputs of the last evaluation and its result, reused while they are the same values. */
+  last: { inputs: unknown[]; value: Json | undefined } | null;
 }
+
+/** Stands for an answer that is off the path or unanswered. */
+const UNREAD = Symbol("unread");
 
 /**
  * Works out a form's calculated fields from its answers. `withCalculated`
@@ -105,21 +124,35 @@ export function calculator(definition: FormDefinition) {
   for (const block of definition.blocks) {
     if (block.kind !== "field") continue;
     idByKey.set(block.key, block.id);
-    if (!isCalculated(block)) continue;
+  }
+  for (const block of definition.blocks) {
+    if (block.kind !== "field" || !isCalculated(block)) continue;
     const parsed = parseFormula(calculatedProps(block).formula);
-    compiled.push({ field: block, ast: parsed.ok ? parsed.ast : null });
+    const reads = parsed.ok ? parsed.refs.map((r) => idByKey.get(r.key)) : [];
+    compiled.push({ field: block, ast: parsed.ok ? parsed.ast : null, reads, last: null });
   }
   const withCalculated = (values: Record<string, Json | undefined>, path: readonly string[]) => {
     if (!compiled.length) return values;
     const visible = new Set(path);
     let next = values;
-    for (const { field, ast } of compiled) {
-      const read = (ref: FormulaRef): FormulaValue => {
-        const id = idByKey.get(ref.key);
-        if (id === undefined || !visible.has(id) || !Object.prototype.hasOwnProperty.call(next, id)) return null;
-        return formulaInput(next[id], ref.column);
-      };
-      const value = ast ? calculatedValue(evaluateFormula(ast, read), field) : undefined;
+    const input = (id: string | undefined): unknown =>
+      id === undefined || !visible.has(id) || !Object.prototype.hasOwnProperty.call(next, id) ? UNREAD : next[id];
+    for (const entry of compiled) {
+      const { field, ast } = entry;
+      // A formula is worked out again only when an answer it reads is a different value:
+      // an engine settles on every answer, and most answers are to other questions.
+      const inputs = entry.reads.map(input);
+      let value: Json | undefined;
+      if (entry.last && entry.last.inputs.length === inputs.length && entry.last.inputs.every((v, i) => v === inputs[i])) {
+        value = entry.last.value;
+      } else {
+        const read = (ref: FormulaRef): FormulaValue => {
+          const raw = input(idByKey.get(ref.key));
+          return raw === UNREAD ? null : formulaInput(raw as Json | undefined, ref.column);
+        };
+        value = ast ? calculatedValue(evaluateFormula(ast, read), field) : undefined;
+        entry.last = { inputs, value };
+      }
       const current = Object.prototype.hasOwnProperty.call(next, field.id) ? next[field.id] : undefined;
       if (current !== value) next = { ...next, [field.id]: value };
     }

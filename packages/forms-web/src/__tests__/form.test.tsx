@@ -31,7 +31,7 @@ const choices = defineForm({
   ],
 });
 
-const submit = () => fireEvent.submit(screen.getByRole("button", { name: /OK|Submit|Try again/ }).closest("form")!);
+const submit = () => fireEvent.submit(screen.getByRole("button", { name: /OK|Send|Try again/ }).closest("form")!);
 const liveRegion = () => document.querySelector("[data-gf-live]")!;
 
 afterEach(() => vi.useRealTimers());
@@ -161,7 +161,7 @@ describe("<Form> focus management", () => {
 });
 
 describe("<Form> auto-advance", () => {
-  it("never auto-advances from the last question: the respondent presses Submit", async () => {
+  it("never auto-advances from the last question: the respondent presses Send", async () => {
     vi.useFakeTimers();
     const onSubmit = vi.fn();
     render(<Form form={eventFeedback} onSubmit={onSubmit} />);
@@ -171,7 +171,7 @@ describe("<Form> auto-advance", () => {
     fireEvent.click(screen.getByRole("radio", { name: "No" })); // hides email: this is now the last question
     await act(async () => vi.advanceTimersByTime(1000));
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Submit" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
   });
 
   it("cancels a pending auto-advance on Back", () => {
@@ -313,7 +313,7 @@ describe("<Form> classic layout and slots", () => {
     expect(screen.queryByLabelText("Best email to reach you")).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: "Yes" }));
     expect(screen.getByLabelText(/Best email to reach you/)).toBeTruthy();
-    fireEvent.submit(screen.getByRole("button", { name: "Submit" }).closest("form")!);
+    fireEvent.submit(screen.getByRole("button", { name: "Send" }).closest("form")!);
 
     const summary = screen.getByRole("group", { name: "2 answers need attention." });
     expect(document.activeElement).toBe(summary);

@@ -229,7 +229,11 @@ const builtins: FieldTypeManifest[] = [
         ? null
         : `Choose a rating from ${min} to ${max}.`;
     },
-    summarize: (value, field) => `${value}/${intRange(field, 1, 5).max}`,
+    summarize: (value, field) => {
+      const { max } = intRange(field, 1, 5);
+      const end = scaleEndLabel(field, value as number, 1, max);
+      return end ? `${value}/${max} (${end})` : `${value}/${max}`;
+    },
   },
   {
     type: "nps",
@@ -242,7 +246,10 @@ const builtins: FieldTypeManifest[] = [
       Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 10
         ? null
         : "Choose a score from 0 to 10.",
-    summarize: (value) => `${value}/10`,
+    summarize: (value, field) => {
+      const end = scaleEndLabel(field, value as number, 0, 10);
+      return end ? `${value}/10 (${end})` : `${value}/10`;
+    },
   },
   {
     type: "single-choice",
@@ -287,6 +294,142 @@ const builtins: FieldTypeManifest[] = [
     validate: (value) => (typeof value === "boolean" ? null : "Choose yes or no."),
     summarize: (value) => (value ? "Yes" : "No"),
   },
+  {
+    type: "dropdown",
+    label: "Dropdown",
+    category: "choice",
+    value: { json: true },
+    operators: ["eq", "neq", "in", "answered", "empty"],
+    a11y: { semantics: "control" },
+    validate: (value, field) =>
+      typeof value === "string" && choiceOptions(field).some((o) => o.value === value)
+        ? null
+        : "Choose one of the options.",
+    summarize: (value, field) => optionLabel(field, String(value)),
+  },
+  {
+    type: "number",
+    label: "Number",
+    category: "text",
+    value: { json: true },
+    operators: numberOps,
+    a11y: { semantics: "control", inputMode: "decimal" },
+    validate: (value, field) => {
+      if (typeof value !== "number" || !Number.isFinite(value)) return "Enter a number.";
+      const { min, max, step } = numberLimits(field);
+      if (min !== undefined && max !== undefined && (value < min || value > max)) {
+        return `Enter a number from ${min} to ${max}.`;
+      }
+      if (min !== undefined && value < min) return `Enter ${min} or more.`;
+      if (max !== undefined && value > max) return `Enter ${max} or less.`;
+      if (step !== undefined && !onStep(value, min ?? 0, step)) {
+        return step === 1 && Number.isInteger(min ?? 0)
+          ? "Enter a whole number."
+          : `Enter a number in steps of ${step}.`;
+      }
+      return null;
+    },
+    summarize: (value) => String(value),
+    samples: (field) => {
+      const { min, max } = numberLimits(field);
+      return [min, max, 0, 1].filter((v): v is number => v !== undefined);
+    },
+  },
+  {
+    type: "date",
+    label: "Date",
+    category: "date",
+    value: { json: true },
+    operators: ["eq", "neq", "answered", "empty"],
+    a11y: { semantics: "control" },
+    validate: (value, field) => {
+      if (typeof value !== "string" || !isIsoDate(value.trim())) return "Enter a date like 2026-10-22.";
+      const date = value.trim();
+      const { min, max } = dateLimits(field);
+      if (min && max && (date < min || date > max)) return `Choose a date from ${min} to ${max}.`;
+      if (min && date < min) return `Choose ${min} or later.`;
+      if (max && date > max) return `Choose ${max} or earlier.`;
+      return null;
+    },
+    normalize: (value) => (typeof value === "string" ? value.trim() : value),
+    samples: (field) => {
+      const { min, max } = dateLimits(field);
+      return [min ?? max ?? "2000-01-01"];
+    },
+  },
+  {
+    type: "consent",
+    label: "Consent checkbox",
+    category: "choice",
+    value: { json: true },
+    operators: ["answered", "empty"],
+    a11y: { semantics: "group" },
+    // Unchecked is unanswered, so a required consent must be checked.
+    isEmpty: (value) => value === undefined || value === null || value === false,
+    validate: (value) => (value === true ? null : "Check the box to agree."),
+    summarize: () => "Agreed",
+    samples: () => [true],
+  },
 ];
+
+/** The optional words under the ends of a rating or NPS scale ("Poor", "Great"). */
+export function scaleLabels(field: FieldBlock): { low?: string; high?: string } {
+  const out: { low?: string; high?: string } = {};
+  const low = field.props?.lowLabel;
+  const high = field.props?.highLabel;
+  if (typeof low === "string" && low.trim()) out.low = low.trim();
+  if (typeof high === "string" && high.trim()) out.high = high.trim();
+  return out;
+}
+
+/** How a rating is drawn: `"numbers"` (default) or `"stars"`. */
+export function ratingDisplay(field: FieldBlock): "numbers" | "stars" {
+  return field.props?.display === "stars" ? "stars" : "numbers";
+}
+
+function scaleEndLabel(field: FieldBlock, value: number, min: number, max: number): string | undefined {
+  const { low, high } = scaleLabels(field);
+  return value === min ? low : value === max ? high : undefined;
+}
+
+const finite = (v: Json | undefined): number | undefined =>
+  typeof v === "number" && Number.isFinite(v) ? v : undefined;
+
+/** A `number` field's limits: `min`, `max` and `step` (each optional; `step` is above 0). */
+export function numberLimits(field: FieldBlock): { min?: number; max?: number; step?: number } {
+  const out: { min?: number; max?: number; step?: number } = {};
+  const min = finite(field.props?.min);
+  const max = finite(field.props?.max);
+  const step = finite(field.props?.step);
+  if (min !== undefined) out.min = min;
+  if (max !== undefined) out.max = max;
+  if (step !== undefined && step > 0) out.step = step;
+  return out;
+}
+
+/** Whether `value` is `base` plus a whole number of `step`s, allowing for floating-point error. */
+function onStep(value: number, base: number, step: number): boolean {
+  const n = (value - base) / step;
+  return Math.abs(n - Math.round(n)) < 1e-9 * Math.max(1, Math.abs(n));
+}
+
+/** `YYYY-MM-DD`, a real calendar day (no 2026-02-30), years 0001 to 9999. */
+export function isIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number) as [number, number, number];
+  if (y < 1 || m < 1 || m > 12 || d < 1) return false;
+  const days = [31, y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return d <= days[m - 1]!;
+}
+
+/** A `date` field's earliest and latest days (`YYYY-MM-DD`), when set. */
+export function dateLimits(field: FieldBlock): { min?: string; max?: string } {
+  const out: { min?: string; max?: string } = {};
+  const min = field.props?.min;
+  const max = field.props?.max;
+  if (typeof min === "string" && isIsoDate(min)) out.min = min;
+  if (typeof max === "string" && isIsoDate(max)) out.max = max;
+  return out;
+}
 
 for (const manifest of [...builtins, ...structuredFieldTypes, calculatedFieldType]) registerFieldType(manifest);

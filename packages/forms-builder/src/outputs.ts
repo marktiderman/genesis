@@ -34,13 +34,48 @@ export interface OutputTarget {
   multiple?: boolean | undefined;
 }
 
+/**
+ * Props the field types themselves own (a choice's `options`, a calculated
+ * field's `formula`, a table's `columns`, limits and labels). A target can't
+ * set one: `outputsFor` leaves such a target out and `setOutput` ignores it,
+ * so turning an output on never rewrites the question itself.
+ *
+ * This is a guard in the builder only. A host that acts on outputs after a
+ * submit must still check each field's props against its own list of targets
+ * on the server: a definition can be edited outside the builder.
+ */
+export const RESERVED_OUTPUT_PROPS: ReadonlySet<string> = new Set([
+  "options",
+  "formula",
+  "format",
+  "decimals",
+  "columns",
+  "min",
+  "max",
+  "step",
+  "minRows",
+  "maxRows",
+  "maxLength",
+  "textMaxLength",
+  "itemMaxLength",
+  "maxNotes",
+  "maxHighlights",
+  "lowLabel",
+  "highLabel",
+  "display",
+  "text",
+  "placeholder",
+]);
+
+const reserved = (target: OutputTarget) => RESERVED_OUTPUT_PROPS.has(target.prop);
+
 const same = (a: Json | undefined, b: Json) => a !== undefined && canonicalJson(a) === canonicalJson(b);
 
 /** The targets a field of `type` may use, in the host's order, each id once. */
 export function outputsFor(outputs: readonly OutputTarget[] | undefined, type: string): OutputTarget[] {
   const seen = new Set<string>();
   return (outputs ?? []).filter((t) => {
-    if (seen.has(t.id) || (t.types && !t.types.includes(type))) return false;
+    if (seen.has(t.id) || reserved(t) || (t.types && !t.types.includes(type))) return false;
     seen.add(t.id);
     return true;
   });
@@ -48,7 +83,7 @@ export function outputsFor(outputs: readonly OutputTarget[] | undefined, type: s
 
 /** Whether `field` uses `target`: its prop holds the target's value. */
 export function usesOutput(field: FieldBlock, target: OutputTarget): boolean {
-  return same(field.props?.[target.prop], target.value);
+  return !reserved(target) && same(field.props?.[target.prop], target.value);
 }
 
 /** The targets `field` uses, among those that apply to its type. */
@@ -69,9 +104,11 @@ function patchProps(field: FieldBlock, edit: (props: Record<string, Json>) => vo
  * Turn a target on or off for one field. On sets `props[prop] = value`,
  * replacing another target with the same prop; unless the target is
  * `multiple`, it is also turned off on every other question that uses it.
- * Off removes the prop when it holds this target's value.
+ * Off removes the prop when it holds this target's value. A target whose
+ * prop is one of `RESERVED_OUTPUT_PROPS` changes nothing.
  */
 export function setOutput(def: FormDefinition, fieldId: string, target: OutputTarget, on: boolean): FormDefinition {
+  if (reserved(target)) return def;
   let changed = false;
   const blocks = def.blocks.map((b) => {
     if (b.kind !== "field") return b;

@@ -5,7 +5,9 @@ import {
   defineForm,
   f,
   formatCalculated,
+  formulaInput,
   getFieldType,
+  MAX_FORMULA_ITEMS,
   parseForm,
   replay,
   summarizeValue,
@@ -13,6 +15,7 @@ import {
   when,
   type FieldBlock,
   type FormDefinition,
+  type FormEvent,
   type Json,
 } from "../index";
 import { validateSubmission } from "../server";
@@ -193,6 +196,30 @@ describe("parseForm", () => {
     ]);
   });
 
+  it("warns when logic compares a calculated value with the wrong kind of literal", () => {
+    const warnings = (format: string | undefined, value: Json) => {
+      const form = defineForm({
+        id: "w",
+        title: "W",
+        blocks: [
+          f.shortText("base", { label: "Base" }),
+          f.calculated("total", { label: "Total", formula: "base", ...(format ? { format: format as "text" } : {}) }),
+          f.shortText("why", { label: "Why?" }),
+        ],
+        logic: [when("total").is(value).show("why")],
+      }).definition;
+      const r = parseForm(form);
+      return r.ok ? r.warnings.map((w) => w.message) : ["not ok"];
+    };
+    expect(warnings("number", "high")).toEqual(['"total" holds a number, but "high" is not one; this comparison is never true.']);
+    expect(warnings("number", 5)).toEqual([]);
+    expect(warnings("text", "high")).toEqual([]);
+    expect(warnings("text", 5)).toEqual(['"total" holds a string, but 5 is not one; this comparison is never true.']);
+    // Without a format a formula may give a number or text.
+    expect(warnings(undefined, "high")).toEqual([]);
+    expect(warnings(undefined, 5)).toEqual([]);
+  });
+
   it("checks format and decimals, and warns on required", () => {
     expect(issues({ ...def, blocks: [calc({ formula: "1", format: "money", decimals: 11 })] })).toEqual([
       "blocks[0].props.format: Must be number, percent or text.",
@@ -237,5 +264,68 @@ describe("unknown props (for a host's own use, such as where an answer goes)", (
     expect(engine.submit()).toBe(true);
     const result = validateSubmission(form, { answers: { type: "INTJ", plan: [{ commit: "Call Sam" }] } });
     expect(result.ok && result.submission.answers).toEqual({ type: "INTJ", plan: [{ commit: "Call Sam" }] });
+  });
+});
+
+describe("large submissions", () => {
+  const big = defineForm({
+    id: "big",
+    title: "Big",
+    blocks: [
+      f.shortText("a", { label: "A" }),
+      f.shortText("b", { label: "B" }),
+      f.table("t", { label: "T", columns: [{ key: "c", label: "C" }], maxRows: 100_000 }),
+      f.calculated("total", { label: "Total", formula: "sum(t.c)" }),
+    ],
+  }).definition;
+  const ids = { a: "a", b: "b", t: "t", total: "total" };
+  const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ c: String(i % 10) }));
+  /** One big table answer, then many alternating answers to the other questions (so compaction keeps them). */
+  const events = (tableRows: number, others: number, withSteps = false): FormEvent[] => {
+    const out: FormEvent[] = [{ type: "answer", field: ids.t, value: rows(tableRows) }];
+    for (let i = 0; i < others; i++) {
+      out.push({ type: "answer", field: i % 2 ? ids.a : ids.b, value: `v${i}` });
+      if (withSteps) out.push({ type: "back" });
+    }
+    out.push({ type: "submit" });
+    return out;
+  };
+  const timed = <T,>(run: () => T): [T, number] => {
+    const start = performance.now();
+    const result = run();
+    return [result, performance.now() - start];
+  };
+
+  it("replays many events over a big table in well under a second", () => {
+    const [engine, ms] = timed(() => replay(big, events(10_000, 9_000)));
+    expect(engine.getState().values[ids.total]).toBe(45_000);
+    expect(ms).toBeLessThan(1000);
+  });
+
+  it("validates a big submission on the server in well under a second", () => {
+    const [result, ms] = timed(() => validateSubmission(big, { events: events(10_000, 9_000) }));
+    expect(result.ok && result.submission.answers[ids.total]).toBe(45_000);
+    expect(ms).toBeLessThan(1000);
+  });
+
+  it("works a formula out again only when an answer it reads changes, so steps between answers stay cheap", () => {
+    const [result, ms] = timed(() => validateSubmission(big, { events: events(10_000, 4_000, true) }));
+    expect(result.ok && result.submission.answers[ids.total]).toBe(45_000);
+    expect(ms).toBeLessThan(1000);
+  });
+
+  it(`reads a list or table of more than ${MAX_FORMULA_ITEMS} items as blank`, () => {
+    const [engine, ms] = timed(() => replay(big, events(50_000, 9_000)));
+    expect(engine.getState().values[ids.total]).toBe(0);
+    expect(ms).toBeLessThan(1000);
+    expect(formulaInput(rows(MAX_FORMULA_ITEMS + 1), "c")).toBe(null);
+    expect(formulaInput(Array.from({ length: MAX_FORMULA_ITEMS + 1 }, () => 1))).toBe(null);
+    expect((formulaInput(rows(MAX_FORMULA_ITEMS), "c") as unknown[]).length).toBe(MAX_FORMULA_ITEMS);
+  });
+
+  it("prefilled answers settle once and match a replay", () => {
+    const engine = createForm(big, { initialValues: { [ids.t]: rows(100), [ids.a]: "x" } });
+    expect(engine.getState().values[ids.total]).toBe(450);
+    expect(replay(big, engine.getState().events).getState().values).toEqual(engine.getState().values);
   });
 });

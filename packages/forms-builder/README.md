@@ -18,12 +18,12 @@ import { MY_TEMPLATES } from "./form-templates"; // see "Templates" below
   key={form.id}
   defaultValue={draft ?? getTemplate("customer-feedback", MY_TEMPLATES)!.create()}
   onChange={(def) => saveDraftDebounced(def)}
-  actions={(_def, analysis, builder) => (
+  actions={(_def, _analysis, builder) => (
     <Button
-      disabled={!analysis.canPublish && !builder.analysing}
       onClick={() => {
         const def = builder.flush(); // commits a key still being typed
         if (builder.getAnalysis().canPublish) confirmPublish(diffDefinitions(published, def));
+        else builder.revealChecks(); // shows every check, also a new question's missing title
       }}
     >
       Publish
@@ -32,6 +32,40 @@ import { MY_TEMPLATES } from "./form-templates"; // see "Templates" below
   brand={{ name: "Acme" }}
 />
 ```
+
+### Checks while writing
+
+- An empty form shows a neutral **Add a question**, not an error. Publishing stays blocked
+  (`analysis.canPublish` is false) until it asks something.
+- A question added from the Add menu opens with its title field focused and empty, with the
+  placeholder "Your question". A question with no title is an error (`code: "untitled-question"`), but
+  the builder holds it back on a new question until the author leaves the title field, or until
+  `builder.revealChecks()` (call it when someone tries to publish). Meanwhile the status reads
+  **In progress**. `analysis` and `getAnalysis()` always count it. `createField()` still titles a
+  field after its type unless you pass `label: ""`.
+- `Finding.code` names the builder's own checks: `"no-questions"` and `"untitled-question"`.
+
+### Hosting the panels in your own tabs
+
+The builder's tabs are **Questions**, **Logic and endings** (one panel: `LogicAndEndingsPanel`),
+**Settings** and **JSON**. To put them in your own single row of tabs, hide the builder's and pass
+the tab you show:
+
+```tsx
+const [tab, setTab] = useState<"questions" | "logic" | "responses" | "settings">("questions");
+// Your row: Questions · Logic and endings · Responses · Settings
+<FormBuilder
+  className={tab === "responses" ? "hidden" : undefined} // stays mounted: undo history and drafts survive
+  tabs={false}
+  tab={tab === "responses" ? "questions" : tab}
+  onTabChange={(next) => setTab(next === "endings" ? "logic" : next)} // a check can ask for another panel
+  settingsExtra={<YourSettings />} // under the form settings, for one Settings panel
+  defaultValue={draft}
+/>
+```
+
+`tab` and `onTabChange` also work with the builder's own tabs. `"endings"` is still accepted as
+another name for the merged panel.
 
 ### Reading the value
 
@@ -153,6 +187,11 @@ builder only writes the props; the host reads them after a submit and does the s
 and `parseForm` ignore props they don't know. The edits are in `ops` too (also `@marktiderman/genesis-forms-builder/ops`):
 `outputsFor`, `chosenOutputs`, `usesOutput`, `setOutput`, `clearOutputs`, `outputUsedBy` and
 `outputPropsFor`.
+
+A target can't use a prop the field types own (`options`, `formula`, `columns`, limits and labels;
+the list is `RESERVED_OUTPUT_PROPS`): such a target is not offered and `setOutput` ignores it. The
+list of targets is only checked in the builder, so a host that acts on outputs after a submit must
+check each field's props against its own targets on the server.
 
 The host still owns templates: pass the one it picked as `defaultValue`. `setIdGenerator(fn)`
 replaces the random id generator (for example with a counter in tests); `setIdGenerator()` restores it.
