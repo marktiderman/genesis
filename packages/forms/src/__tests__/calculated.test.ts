@@ -20,7 +20,8 @@ import {
   type FormEvent,
   type Json,
 } from "../index";
-import { validateSubmission } from "../server";
+import { workStats } from "../calculated";
+import { MAX_REPLAY_WORK, validateSubmission } from "../server";
 import { coverage } from "../testing";
 
 const worksheet = defineForm({
@@ -305,36 +306,54 @@ describe("large submissions", () => {
     out.push({ type: "submit" });
     return out;
   };
-  const timed = <T,>(run: () => T): [T, number] => {
+  /**
+   * Runs it, returning the result, the time taken and the work counted. The
+   * tests check the work, which is the same everywhere; the time is only a
+   * loose bound (CI runs 5 to 8 times slower) that unbounded work would still pass.
+   */
+  const timed = <T,>(run: () => T): [T, number, Omit<typeof workStats, "reset">] => {
+    workStats.reset();
     const start = performance.now();
     const result = run();
-    return [result, performance.now() - start];
+    const ms = performance.now() - start;
+    const { reset: _reset, ...work } = workStats;
+    return [result, ms, { ...work }];
   };
 
-  it("replays many events over a big table in well under a second", () => {
-    const [engine, ms] = timed(() => replay(big, events(10_000, 9_000)));
+  /** Loose: unbounded work (the bugs these guard against) took 20 s to minutes. */
+  const SANITY_MS = 15_000;
+
+  it("replays many events over a big table, reading the table and working the formula out once each", () => {
+    const [engine, ms, work] = timed(() => replay(big, events(10_000, 9_000)));
     expect(engine.getState().values[ids.total]).toBe(45_000);
-    expect(ms).toBeLessThan(1000);
+    expect(work).toMatchObject({ listBuilds: 1 });
+    expect(work.formulaRuns).toBeLessThanOrEqual(2);
+    expect(ms).toBeLessThan(SANITY_MS);
   });
 
-  it("validates a big submission on the server in well under a second", () => {
-    const [result, ms] = timed(() => validateSubmission(big, { events: events(10_000, 9_000) }));
+  it("validates a big submission on the server with the same bounded work", () => {
+    const [result, ms, work] = timed(() => validateSubmission(big, { events: events(10_000, 9_000) }));
     expect(result.ok && result.submission.answers[ids.total]).toBe(45_000);
-    expect(ms).toBeLessThan(1000);
+    expect(work).toMatchObject({ listBuilds: 1 });
+    expect(work.formulaRuns).toBeLessThanOrEqual(2);
+    expect(ms).toBeLessThan(SANITY_MS);
   });
 
   it("works a formula out again only when an answer it reads changes, so steps between answers stay cheap", () => {
-    const [result, ms] = timed(() => validateSubmission(big, { events: events(10_000, 4_000, true) }));
+    const [result, ms, work] = timed(() => validateSubmission(big, { events: events(10_000, 4_000, true) }));
     expect(result.ok && result.submission.answers[ids.total]).toBe(45_000);
-    expect(ms).toBeLessThan(1000);
+    expect(work).toMatchObject({ listBuilds: 1 });
+    expect(work.formulaRuns).toBeLessThanOrEqual(2);
+    expect(ms).toBeLessThan(SANITY_MS);
   });
 
   it(`leaves a formula blank when it reads a list or table of more than ${MAX_FORMULA_ITEMS} items`, () => {
-    const [engine, ms] = timed(() => replay(big, events(50_000, 9_000)));
-    // Blank, not 0 or a partial total.
+    const [engine, ms, work] = timed(() => replay(big, events(50_000, 9_000)));
+    // Blank, not 0 or a partial total, and the table is never read.
     expect(engine.getState().values[ids.total]).toBe(undefined);
     expect(engine.answers()).not.toHaveProperty(ids.total);
-    expect(ms).toBeLessThan(1000);
+    expect(work.listBuilds).toBe(0);
+    expect(ms).toBeLessThan(SANITY_MS);
     expect(formulaInput(rows(MAX_FORMULA_ITEMS + 1), "c")).toBe(null);
     expect(formulaInput(Array.from({ length: MAX_FORMULA_ITEMS + 1 }, () => 1))).toBe(null);
     expect((formulaInput(rows(MAX_FORMULA_ITEMS), "c") as unknown[]).length).toBe(MAX_FORMULA_ITEMS);
@@ -362,9 +381,13 @@ describe("large submissions", () => {
     }
     evs.push({ type: "submit" });
     expect(JSON.stringify({ events: evs }).length).toBeGreaterThan(400_000);
-    const [result, ms] = timed(() => validateSubmission(invoice, { events: evs }, { complete: false }));
+    const [result, ms, work] = timed(() => validateSubmission(invoice, { events: evs }, { complete: false }));
     expect(result.ok && result.submission.answers).toMatchObject({ net: 49_995_000, rate: 0.2, units: 10_000 });
-    expect(ms).toBeLessThan(1000);
+    // Each column is read once, and no rule reads a total, so the five formulas
+    // are worked out at the start and the end, not on each of the 4,995 steps.
+    expect(work).toMatchObject({ listBuilds: 2 });
+    expect(work.formulaRuns).toBeLessThanOrEqual(10);
+    expect(ms).toBeLessThan(SANITY_MS);
   });
 
   it(`leaves a formula blank when it reads answers past ${MAX_SETTLE_ITEMS} items in all, across every formula`, () => {
@@ -426,7 +449,7 @@ describe("large submissions", () => {
     expect(engine.getState().values.n).toBe(6);
   });
 
-  it("stays fast with many calculated fields: 400 over a 10k-row table, 5k steps", () => {
+  it("stays bounded with many calculated fields: 400 over a 10k-row table, 5k steps", () => {
     const blocks: FieldBlock[] = [
       { kind: "field", id: "t", key: "t", type: "table", label: "T", props: { maxRows: 10_000, columns: [{ key: "a", label: "A" }, { key: "b", label: "B" }] } },
       { kind: "field", id: "n", key: "n", type: "number", label: "N" },
@@ -436,18 +459,40 @@ describe("large submissions", () => {
     }
     const form: FormDefinition = { schemaVersion: 1, id: "many-fields", title: "Many", blocks };
     expect(parseForm(form).ok).toBe(true);
+    // The same with a rule reading a total: every step then works every formula out.
+    const why: FieldBlock = { kind: "field", id: "why", key: "why", type: "short-text", label: "Why" };
+    const ruled: FormDefinition = {
+      ...form,
+      blocks: [...blocks, why],
+      logic: [{ id: "r", effect: "show", target: "why", when: { op: "gte", left: { field: "c0" }, right: { value: 0 } } }],
+    };
     const evs: FormEvent[] = [{ type: "answer", field: "t", value: Array.from({ length: 10_000 }, (_, i) => ({ a: 1, b: i })) }];
     for (let i = 0; i < 2_499; i++) {
       evs.push({ type: "answer", field: "n", value: (i % 2) + 1 });
       evs.push({ type: i % 4 < 2 ? "next" : "back" });
     }
     evs.push({ type: "answer", field: "n", value: 2 }, { type: "back" }, { type: "submit" });
-    const [result, ms] = timed(() => validateSubmission(form, { events: evs }, { complete: false }));
-    expect(result.ok && result.submission.answers).toMatchObject({ c0: 10_000 + 4_999.5 * 2, c399: 10_000 + 4_999.5 * 2 + 399 });
-    // About 1M formula runs: 130–250 ms locally, about 1.2 s on CI runners. The per-field copy
-    // this guards against (O(fields²)) took 20 s or more locally, so 3 s still catches it.
-    expect(ms).toBeLessThan(3000);
-  });
+    // 5,000 steps over 402 blocks walk the path for about 1M units of replay
+    // work: refused by default, having stopped at the limit.
+    const [refused, refusedMs, refusedWork] = timed(() => validateSubmission(form, { events: evs }, { complete: false }));
+    expect(refused).toMatchObject({ ok: false, errors: { "": expect.stringMatching(/^Too much work/) } });
+    expect(refusedWork.lastReplayWork).toBeGreaterThan(MAX_REPLAY_WORK);
+    expect(refusedWork.lastReplayWork).toBeLessThanOrEqual(MAX_REPLAY_WORK + blocks.length);
+    expect(refusedMs).toBeLessThan(SANITY_MS);
+    const expected = { c0: 10_000 + 4_999.5 * 2, c399: 10_000 + 4_999.5 * 2 + 399 };
+    // With the rule, 500 steps are enough to show each settle stays linear.
+    const short = [...evs.slice(0, 1_001), { type: "answer", field: "n", value: 2 }, { type: "back" }, { type: "submit" }] as FormEvent[];
+    for (const [def, log] of [[form, evs], [ruled, short]] as const) {
+      const [result, ms, work] = timed(() => validateSubmission(def, { events: [...log] }, { complete: false, maxReplayWork: 1e9 }));
+      expect(result.ok && result.submission.answers).toMatchObject(expected);
+      // The answers are copied at most once per settle, never once per field (O(fields²)).
+      expect(work.answerCopies).toBeLessThanOrEqual(work.settles);
+      expect(work.formulaRuns).toBeLessThanOrEqual(400 * work.settles);
+      expect(work.listBuilds).toBe(2);
+      if (def === ruled) expect(work.settles).toBeGreaterThan(500);
+      expect(ms).toBeLessThan(SANITY_MS);
+    }
+  }, 60_000);
 
   it("counts a table's rows once against the allowance, however many of its columns are read", () => {
     const columns = Array.from({ length: 6 }, (_, k) => ({ key: `k${k}`, label: `K${k}` }));

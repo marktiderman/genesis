@@ -120,6 +120,8 @@ export function formulaInput(value: Json | undefined, column?: string): FormulaV
 
 interface Compiled {
   field: FieldBlock;
+  /** `formulaSize` of `ast`. */
+  size: number;
   props: CalculatedProps;
   ast: FormulaNode | null;
   /** The answers it reads, each (answer, column) once (`id` is `undefined` for a key that is not a field). */
@@ -146,6 +148,57 @@ function refNodes(node: FormulaNode, out: Extract<FormulaNode, { kind: "ref" }>[
   return out;
 }
 
+/** How many parts (numbers, answers, operators, calls) a formula has: what working it out once costs. */
+function formulaSize(node: FormulaNode): number {
+  if (node.kind === "unary") return 1 + formulaSize(node.arg);
+  if (node.kind === "binary") return 1 + formulaSize(node.left) + formulaSize(node.right);
+  if (node.kind === "if") return 1 + formulaSize(node.test) + formulaSize(node.then) + formulaSize(node.else);
+  if (node.kind === "call") return node.args.reduce((n, a) => n + formulaSize(a), 1);
+  return 1;
+}
+
+/**
+ * Work an engine may spend while replaying (see `MAX_REPLAY_WORK` in
+ * `server.ts`): `spend` throws `ReplayWorkExceeded` once `used` passes `max`.
+ */
+export interface WorkBudget {
+  used: number;
+  max: number;
+}
+
+/**
+ * Counts of the work calculators and replays did, for tests to check the
+ * work stays bounded rather than timing it (not exported from the package).
+ * `reset` zeroes them.
+ */
+export const workStats = {
+  /** Formulas worked out (a cached result reused is not counted). */
+  formulaRuns: 0,
+  /** Lists read out of an answer (a list or one table column). */
+  listBuilds: 0,
+  /** Calls of `withCalculated`. */
+  settles: 0,
+  /** Copies of the answers made by `withCalculated`: at most one per call. */
+  answerCopies: 0,
+  /** Units of work the last limited replay used (see `WorkBudget`). */
+  lastReplayWork: 0,
+  reset() {
+    this.formulaRuns = this.listBuilds = this.settles = this.answerCopies = this.lastReplayWork = 0;
+  },
+};
+
+export class ReplayWorkExceeded extends Error {
+  constructor(readonly limit: number) {
+    super(`Replaying the response would take more than ${limit} steps of work.`);
+  }
+}
+
+export function spend(budget: WorkBudget | undefined, amount: number): void {
+  if (!budget) return;
+  budget.used += amount;
+  if (budget.used > budget.max) throw new ReplayWorkExceeded(budget.max);
+}
+
 /** Stands for an answer that is off the path or unanswered. */
 const UNREAD = Symbol("unread");
 /** Stands for an answer too big to read: over `MAX_FORMULA_ITEMS`, or past `MAX_SETTLE_ITEMS`. */
@@ -157,7 +210,9 @@ const OVER = Symbol("over");
  * answers on `path` only (an answer logic hides reads as blank) and the
  * calculated fields before it, in form order.
  */
-export function calculator(definition: FormDefinition) {
+export function calculator(definition: FormDefinition, work?: WorkBudget) {
+  // Work: 1 for each formula looked at in a settle, plus its size each time
+  // it is worked out. Past the budget, `withCalculated` throws.
   const compiled: Compiled[] = [];
   const idByKey = new Map<string, string>();
   for (const block of definition.blocks) {
@@ -181,7 +236,7 @@ export function calculator(definition: FormDefinition) {
       }
       slots.set(ref, slot);
     }
-    compiled.push({ field: block, props, ast: parsed.ok ? parsed.ast : null, reads, slots, last: null });
+    compiled.push({ field: block, props, ast: parsed.ok ? parsed.ast : null, size: parsed.ok ? formulaSize(parsed.ast) : 0, reads, slots, last: null });
   }
   /**
    * This calculator's lists, by the answer's array and then the column (`""`
@@ -197,7 +252,10 @@ export function calculator(definition: FormDefinition) {
     if (!byColumn) extracted.set(value, (byColumn = new Map()));
     const key = column ?? "";
     let list = byColumn.get(key);
-    if (!list) byColumn.set(key, (list = ownFormulaList(extract(value, column))));
+    if (!list) {
+      workStats.listBuilds++;
+      byColumn.set(key, (list = ownFormulaList(extract(value, column))));
+    }
     return list;
   };
   const readAnswer = (value: Json | undefined, column: string | undefined): FormulaValue => {
@@ -213,6 +271,7 @@ export function calculator(definition: FormDefinition) {
 
   const withCalculated = (values: Record<string, Json | undefined>, path: readonly string[]) => {
     if (!compiled.length) return values;
+    workStats.settles++;
     const visible = new Set(path);
     let next = values;
     // `values` is copied once, on the first change, then written into.
@@ -241,6 +300,7 @@ export function calculator(definition: FormDefinition) {
       // A formula is worked out again only when an answer it reads is a different value:
       // an engine settles on every answer, and most answers are to other questions.
       const { reads } = entry;
+      spend(work, 1);
       const inputs: unknown[] = new Array(reads.length);
       let over = false;
       let same = entry.last !== null;
@@ -254,6 +314,8 @@ export function calculator(definition: FormDefinition) {
       if (same) {
         value = entry.last!.value;
       } else {
+        spend(work, entry.size);
+        workStats.formulaRuns++;
         const resolved: (FormulaValue | undefined)[] = new Array(inputs.length);
         const read = (ref: FormulaRef): FormulaValue => {
           const slot = entry.slots.get(ref as FormulaNode);
@@ -272,6 +334,7 @@ export function calculator(definition: FormDefinition) {
       const current = Object.prototype.hasOwnProperty.call(next, field.id) ? next[field.id] : undefined;
       if (current !== value) {
         if (!copied) {
+          workStats.answerCopies++;
           next = { ...next };
           copied = true;
         }
