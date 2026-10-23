@@ -26,6 +26,17 @@ export {
   type NavItem,
   type ParentNavigation,
 } from "./AppShell";
+// Shell sub-navigation: a page's child items as tabs / nested sidebar / mobile bar.
+export {
+  useAppShellSubNav,
+  AppShellSubNavEnd,
+  AppShellPageHeader,
+  SubNavTabs,
+  type SubNavMode,
+  type SubNavItem,
+  type SubNavTabsProps,
+  type UseAppShellSubNavOptions,
+} from "./sub-nav";
 // AppShell's `navigation` tree and `linkComponent` contract; re-exported so a
 // layout-only import has everything it needs.
 export {

@@ -136,7 +136,8 @@ describe("2. the value is reported at once, kept on unmount and readable through
     fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
     fireEvent.click(screen.getByTestId("builder-field-advanced"));
     fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "closed_key" } });
-    fireEvent.click(screen.getByTestId("builder-block-toggle-q_rating"));
+    // Selecting another question replaces the editor.
+    fireEvent.click(screen.getByTestId("builder-block-toggle-q_better"));
     expect(last?.blocks.find((b) => b.id === "q_rating")).toMatchObject({ key: "closed_key" });
   });
 
@@ -160,8 +161,9 @@ describe("2. the value is reported at once, kept on unmount and readable through
     const ref = createRef<FormBuilderHandle>();
     render(<FormBuilder ref={ref} defaultValue={twoFields()} />);
     let fresh: Analysis | undefined;
+    // Deleting A selects B, so B's Delete is on screen next.
+    fireEvent.click(screen.getByRole("button", { name: 'Delete "A"' }));
     act(() => {
-      fireEvent.click(screen.getByRole("button", { name: 'Delete "A"' }));
       fireEvent.click(screen.getByRole("button", { name: 'Delete "B"' }));
       fresh = ref.current!.getAnalysis();
     });
@@ -426,7 +428,6 @@ describe("4. custom type extensibility", () => {
         onChange={(d) => (last = d)}
       />,
     );
-    fireEvent.click(screen.getByTestId("builder-rule-r").querySelector("button[aria-expanded]")!);
     fireEvent.click(screen.getByRole("button", { name: "Value: done" }));
     expect(last?.logic?.[0]?.when).toMatchObject({ right: { value: "other" } });
   });

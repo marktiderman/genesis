@@ -27,6 +27,7 @@
     "@marktiderman/genesis-forms": "workspace:^",
     "@marktiderman/genesis-forms-builder": "workspace:^",
     "@marktiderman/genesis-forms-devtools": "workspace:^",
+    "@marktiderman/genesis-forms-studio": "workspace:^",
     "@marktiderman/genesis-forms-react": "workspace:^",
     "@marktiderman/genesis-forms-web": "workspace:^",
     "@marktiderman/genesis-studio": "workspace:^",

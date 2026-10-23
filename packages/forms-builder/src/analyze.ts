@@ -27,12 +27,23 @@ export interface Finding {
   /**
    * A stable name for the builder's own checks, so a host can tell them apart
    * without matching the message: `"no-questions"` (the form asks nothing yet)
-   * and `"untitled-question"` (a question has no title).
+   * and `"untitled-question"` (a question has no title). The path checks are
+   * `"unreachable-block"`, `"rule-never-fires"`, `"unreachable-ending"` and
+   * `"paths-not-checked"` (too many paths to check them all).
    */
   code?: FindingCode;
 }
 
-export type FindingCode = "no-questions" | "untitled-question";
+export type FindingCode =
+  | "no-questions"
+  | "untitled-question"
+  | "unreachable-block"
+  | "rule-never-fires"
+  | "unreachable-ending"
+  | "paths-not-checked";
+
+/** The codes of the path checks, the ones the flow map sums up. */
+export const PATH_FINDINGS: ReadonlySet<FindingCode> = new Set<FindingCode>(["unreachable-block", "rule-never-fires", "unreachable-ending"]);
 
 export interface Analysis {
   /** Errors block publishing; warnings and infos do not. */
@@ -150,11 +161,14 @@ export function analyze(def: FormDefinition, opts: { maxStates?: number; parsed?
   if (!def.blocks.some((b) => b.kind === "field")) {
     findings.push({ level: "error", message: "Add at least one question.", code: "no-questions" });
   }
-  def.blocks.forEach((b, i) => {
+  // Numbered as the builder's outline numbers them: questions only, not headings or page breaks.
+  let number = 0;
+  def.blocks.forEach((b) => {
     if (b.kind !== "field") return;
+    number += 1;
     // An error: a new question starts without a title, and respondents would see a blank one.
     if (!b.label.trim()) {
-      findings.push({ level: "error", message: `Question ${i + 1} needs a title.`, ref: { kind: "block", id: b.id }, code: "untitled-question" });
+      findings.push({ level: "error", message: `Question ${number} needs a title.`, ref: { kind: "block", id: b.id }, code: "untitled-question" });
     }
     const blank = choiceOptions(b).filter((o) => !(o.label ?? o.value).trim()).length;
     if (blank) {
@@ -174,20 +188,21 @@ export function analyze(def: FormDefinition, opts: { maxStates?: number; parsed?
     findings.push({
       level: "info",
       message: "The form has too many paths to check them all, so unreachable questions, endings and rules are not reported.",
+      code: "paths-not-checked",
     });
     return { findings, canPublish: !findings.some((f) => f.level === "error"), coverage: report };
   }
   const idByKey = new Map(def.blocks.map((b) => [b.kind === "field" ? b.key : b.id, b.id]));
   for (const key of report.unreachableBlocks) {
     const id = idByKey.get(key) ?? key;
-    findings.push({ level: "warning", message: `No respondent can reach "${key}": a jump always skips it or logic always hides it.`, ref: { kind: "block", id } });
+    findings.push({ level: "warning", message: `No respondent can reach "${key}": a jump always skips it or logic always hides it.`, ref: { kind: "block", id }, code: "unreachable-block" });
   }
   for (const id of report.rulesNeverFired) {
-    findings.push({ level: "warning", message: "This rule's condition is never true for any respondent, so it has no effect.", ref: { kind: "rule", id } });
+    findings.push({ level: "warning", message: "This rule's condition is never true for any respondent, so it has no effect.", ref: { kind: "rule", id }, code: "rule-never-fires" });
   }
   for (const [id, e] of Object.entries(report.endings)) {
     if (!e.reached && !e.needsSamples) {
-      findings.push({ level: "warning", message: `No respondent can reach the ending "${def.endings?.find((x) => x.id === id)?.title ?? id}".`, ref: { kind: "ending", id } });
+      findings.push({ level: "warning", message: `No respondent can reach the ending "${def.endings?.find((x) => x.id === id)?.title ?? id}".`, ref: { kind: "ending", id }, code: "unreachable-ending" });
     }
   }
   return { findings, canPublish: !findings.some((f) => f.level === "error"), coverage: report };

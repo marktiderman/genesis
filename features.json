@@ -109,7 +109,9 @@
       ],
       "visibility": "public",
       "acceptance": [
-        "resolveNavigation marks the current item and its parents from the URL, never from browser history."
+        "resolveNavigation marks the current item and its parents from the URL, never from browser history.",
+        "The desktop sidebar collapses to a 56px icon rail (64px with options.collapsedRailWidth) with its toggle, or with [ when options.collapseShortcut is set; a page's defaultCollapsed applies until the user toggles, and that choice persists.",
+        "Shell sub-navigation is opt-in: with no subNav set the shell renders as before; tabs or sidebar show a page's children on desktop and a back item plus the children in the phone's bottom bar."
       ],
       "reviewedAt": "2026-10-22",
       "links": {
@@ -543,6 +545,34 @@
         ]
       },
       "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "forms-studio",
+      "name": "Form studio",
+      "summary": "The workspace around a form builder: a header with status, save state and publish, a Responses tab with filters, headline numbers, question summaries and a follow-up list, a Settings page with jump links, and the Share dialog.",
+      "tagline": "Run a form end to end: edit, publish, share and read the responses.",
+      "category": "Forms",
+      "status": "building",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer",
+        "operator"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "A low-rated response shows in Needs a follow-up until the host marks it handled."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/forms-studio"
+        ]
+      },
       "access": "all",
       "flags": []
     },

@@ -1,0 +1,10 @@
+/*
+ * Tailwind v4 source entry for @marktiderman/genesis-forms-studio.
+ *
+ *   @import "tailwindcss";
+ *   @import "@marktiderman/genesis-ui/styles.css";
+ *   @import "@marktiderman/genesis-forms-studio/styles.css";
+ *
+ * It only tells Tailwind to scan this package's classes.
+ */
+@source "./";

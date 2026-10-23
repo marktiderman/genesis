@@ -327,6 +327,63 @@ const navigation: NavigationNode<NavItem> = {
   linkComponent={RouterLink}>{children}</AppShell>
 ```
 
+**Collapsible sidebar.** On desktop the sidebar collapses to an icon rail (56px;
+`options.collapsedRailWidth: 64` for the wider one): the logo mark, one icon per item (name in a
+tooltip on hover and focus), nested groups in a popover, and the expand button at the bottom.
+The panel button beside the logo toggles it; `options.collapseShortcut: "["` adds an opt-in key
+(skipped while typing, in a listbox/combobox/menu, or with a dialog open). Pass
+`optionsStorageKey` (app-scoped, e.g. `"acme:app-shell"`) to remember the user's choice under
+`${key}:collapsed`. A page asks to open collapsed with `defaultCollapsed: true` on its
+`NavigationNode` (the nearest node in the trail that sets it wins) or `defaultCollapsed` on
+`AppShell`; the user's own toggle always wins once they have used it, and "Reset to defaults" in
+the sidebar options hands it back. `options.defaultCollapsed` is the app-wide default, and
+`collapsed` +
+`onCollapsedChange` make it controlled. The mobile drawer is unaffected.
+
+```tsx
+{ id: "builder", path: "/forms/$formId/edit", label: "Form builder", items: [], defaultCollapsed: true }
+```
+
+**Sub-navigation (a page's children).** A node's `items` are the current page's child items: a
+form's Questions / Logic and endings / Responses / Settings. A node's items are `NavItem`s,
+so each needs an `icon`. The hook (`useAppShellSubNav`) and the exported `SubNavTabs` take
+`SubNavItem`s instead: a `NavItem` whose `icon` is optional. Without one, the sidebar and mobile
+navigation show the label's first letter, and `SubNavTabs` shows the label alone. Each has `label`, `to` (a route, or a `?search` / `#hash`; active state follows the URL,
+most specific sibling wins) and an optional `badge` (a count or short status, shown as a chip). Gate by role the same way as other items: filter the list before handing
+it over.
+For live data (badge counts) the page calls `useAppShellSubNav(items, { mode? })`, which
+replaces the node's items while it is mounted, and puts a host chip at the end of the tab row with
+`<AppShellSubNavEnd>…</AppShellSubNavEnd>`. The page's resource header (breadcrumb, title,
+status, actions) goes in `<AppShellPageHeader>…</AppShellPageHeader>`, which the shell renders
+above the tab row (on phones too; at the top of the content when there is no row). Both are
+portals; when a layout and its page both mount one, the page's (innermost) renders, and the same
+rule picks between `useAppShellSubNav` callers. Shell sub-navigation is opt-in through
+`options.subNav`:
+
+- `"section"` (default): exactly the pre-sub-nav shell. The children sit in a labelled section
+  below the global sidebar items and replace the phone bar, with no back item.
+- `"tabs"`: one row of navigation links across the top of the content, badges as chips, the
+  current tab underlined in the brand colour, `aria-current="page"`.
+- `"sidebar"`: nested under the active global item ("Forms"); a flyout from it on the rail.
+- `"off"`: nothing, desktop or phone; draw your own (`SubNavTabs` is exported for that).
+
+With `"tabs"` or `"sidebar"`, a page with children swaps the phone bar to a back item to the
+logical parent ("Forms") plus the children and their badges; leaving the page brings the main
+bar back. A node (`subNav` on `NavigationNode`, nearest in the trail wins), the `subNav` prop and
+the page's hook override the option, in that order of strength (hook strongest), so one subtree
+can opt in. With it on, a page's children also win over an app-wide `mobileNavItems` on that page;
+in `"section"` / `"off"`, or on pages without children, `mobileNavItems` applies as before.
+
+```tsx
+useAppShellSubNav([
+  { to: `/forms/${id}/edit`, label: "Questions", icon: ListChecks, badge: questions.length, end: true },
+  { to: `/forms/${id}/edit/logic`, label: "Logic and endings", icon: GitBranch, badge: rules.length },
+  { to: `/forms/${id}/edit/responses`, label: "Responses", icon: Inbox, badge: responseCount },
+  { to: `/forms/${id}/edit/settings`, label: "Settings", icon: Settings },
+]);
+<AppShellSubNavEnd><Badge variant="success">Ready to publish</Badge></AppShellSubNavEnd>
+```
+
 For chrome outside AppShell, call the same resolver: `resolveNavigation(tree, pathname)` (from
 `/layout`, `/data` or the root barrel) returns `{ current, parent, items, trail, params }` with
 every path interpolated from the URL's params.
