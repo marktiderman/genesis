@@ -1,6 +1,7 @@
 // Compiled against the built .d.ts with exactOptionalPropertyTypes on: a host's own
 // optional props pass straight through to the studio's components.
 import type { ReactNode } from "react";
+import type { SubNavItem } from "@marktiderman/genesis-ui/layout";
 import {
   FollowUpList,
   HeadlineNumbers,
@@ -62,4 +63,4 @@ export const views = (
 
 export const numbers = headlineNumbers([], []);
 export const list = needsFollowUp([]);
-export const nav = formNavItems("/forms/f1");
+export const nav: SubNavItem[] = formNavItems("/forms/f1");

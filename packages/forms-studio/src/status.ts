@@ -1,7 +1,8 @@
 // A form page's status chip and its four child navigation items with their counts. Pure.
 import type { FormDefinition } from "@marktiderman/genesis-forms";
 import type { FormAvailability } from "./availability";
-import type { ChipTone, NavItem } from "./generic/status";
+import type { SubNavItem } from "@marktiderman/genesis-ui/layout";
+import type { ChipTone } from "./generic/status";
 
 /**
  * A form's status chip: "Live · version 3", "Draft", "Paused · version 3"… `availability`
@@ -33,8 +34,8 @@ export function formStatusChip(
 /** The form page's four places, in order. */
 export type FormTab = "questions" | "logic" | "responses" | "settings";
 
-/** One of a form page's child navigation items. */
-export type FormNavItem = NavItem<FormTab>;
+/** One of a form page's child navigation items: genesis-ui's `SubNavItem`, plus its place. */
+export type FormNavItem = SubNavItem & { id: FormTab; badge?: number };
 
 /** How many questions a definition asks, and how many rules plus endings it has. */
 export function formCounts(definition: FormDefinition | null | undefined): {

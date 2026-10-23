@@ -1,5 +1,4 @@
-// Words for a resource page's chips (save state, readiness) and the shape of its child
-// navigation items. Pure, and not about forms: courses, lessons and worksheets use the
+// Words for a resource page's chips (save state, readiness). Pure, and not about forms: courses, lessons and worksheets use the
 // same page pattern.
 
 /** Where the host's draft saving stands. */
@@ -57,17 +56,4 @@ export function readinessChip(readiness: Readiness): { label: string; tone: Chip
     case "warnings":
       return { label: `${readiness.count} to check`, tone: "warning" };
   }
-}
-
-/**
- * One child navigation item of a resource page, shaped like genesis-ui's `NavItem` (`to`,
- * `label`, `badge`) so it goes straight to the shell's `useAppShellSubNav`, plus its `id`.
- */
-export interface NavItem<Id extends string = string> {
-  id: Id;
-  /** Where it goes: a route, or `?tab=…` on the page's own route. */
-  to: string;
-  label: string;
-  /** A count shown beside the label; absent for none. */
-  badge?: number;
 }

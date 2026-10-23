@@ -53,5 +53,4 @@ export {
   type SaveState,
   type ChipTone,
   type Readiness,
-  type NavItem,
 } from "./generic/status";
