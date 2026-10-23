@@ -341,7 +341,30 @@ export function SelectRow(props: {
   );
 }
 
-/** A select without its own label, for compact rows (logic clauses). */
+/**
+ * The items a closed select keeps mounted: only the chosen one, which its
+ * trigger shows. A form with many rules has many selects, each listing every
+ * question; mounting every list while closed made rendering grow with
+ * questions × rules. The full list mounts when the select opens.
+ */
+export function useLazyItems<T extends { value: string }>(options: readonly T[], value: string) {
+  const [open, setOpen] = useState(false);
+  const shown = open ? options : options.filter((o) => o.value === value);
+  return { open, onOpenChange: setOpen, shown };
+}
+
+function ChoiceLabel({ choice }: { choice: Choice }) {
+  return choice.icon ? (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      {choice.icon}
+      <span className="truncate">{choice.label}</span>
+    </span>
+  ) : (
+    <>{choice.label}</>
+  );
+}
+
+/** A select without its own label, for compact rows (logic clauses). Its list mounts only while open. */
 export function Pick(props: {
   id?: string;
   value: string;
@@ -352,22 +375,16 @@ export function Pick(props: {
   ariaLabel?: string;
   className?: string;
 }) {
+  const { open, onOpenChange, shown } = useLazyItems(props.options, props.value);
   return (
-    <Select value={props.value} onValueChange={props.onChange}>
+    <Select value={props.value} onValueChange={props.onChange} open={open} onOpenChange={onOpenChange}>
       <SelectTrigger id={props.id} aria-label={props.ariaLabel} data-testid={props.testID} className={props.className}>
         <SelectValue placeholder={props.placeholder ?? "Choose…"} />
       </SelectTrigger>
       <SelectContent>
-        {props.options.map((o) => (
+        {shown.map((o) => (
           <SelectItem key={o.value} value={o.value}>
-            {o.icon ? (
-              <span className="inline-flex min-w-0 items-center gap-1.5">
-                {o.icon}
-                <span className="truncate">{o.label}</span>
-              </span>
-            ) : (
-              o.label
-            )}
+            <ChoiceLabel choice={o} />
           </SelectItem>
         ))}
       </SelectContent>

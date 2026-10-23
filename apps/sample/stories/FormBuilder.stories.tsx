@@ -53,10 +53,10 @@ export const HostedWithoutToolbar: Story = {
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <h1 className="flex-1 text-2xl font-semibold">Saturday check-in</h1>
-          <Button variant="ghost" disabled={!history.canUndo} onClick={() => builder.current?.undo()}>
+          <Button variant="ghost" disabled={!history.canUndo} onClick={() => builder.current?.undo?.()}>
             Undo
           </Button>
-          <Button variant="ghost" disabled={!history.canRedo} onClick={() => builder.current?.redo()}>
+          <Button variant="ghost" disabled={!history.canRedo} onClick={() => builder.current?.redo?.()}>
             Redo
           </Button>
         </div>

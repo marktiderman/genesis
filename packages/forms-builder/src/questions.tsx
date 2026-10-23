@@ -29,7 +29,7 @@ import { SortableList } from "@marktiderman/genesis-ui/patterns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { useChecks } from "./checks";
-import { DraftRow, Editable, NumberRow, SectionLabel, Segmented, SwitchRow, TextRow } from "./controls";
+import { DraftRow, Editable, NumberRow, SectionLabel, Segmented, SwitchRow, TextRow, useLazyItems } from "./controls";
 import { BlockIcon } from "./type-icons";
 import type { Finding } from "./analyze";
 import {
@@ -703,8 +703,9 @@ function TypeChip({ def, field, apply }: { def: FormDefinition; field: FieldBloc
   if (!types.some((t) => t.value === field.type)) types.unshift({ value: field.type, label: typeLabel(field.type, config) });
   const { set } = fieldSetters(apply, field.id);
   const icon = (type: string) => <BlockIcon block={{ ...field, type }} config={config} className="size-3.5" />;
+  const { open, onOpenChange, shown } = useLazyItems(types, field.type);
   return (
-    <Select value={field.type} onValueChange={(type) => changeType(def, field, type, config, set)}>
+    <Select value={field.type} onValueChange={(type) => changeType(def, field, type, config, set)} open={open} onOpenChange={onOpenChange}>
       <SelectTrigger
         aria-label="Type"
         title={TYPE_HINT}
@@ -714,7 +715,7 @@ function TypeChip({ def, field, apply }: { def: FormDefinition; field: FieldBloc
         <SelectValue />
       </SelectTrigger>
       <SelectContent className="max-h-96">
-        {types.map((t) => (
+        {shown.map((t) => (
           <SelectItem key={t.value} value={t.value}>
             <span className="inline-flex items-center gap-1.5">
               {icon(t.value)}
@@ -722,7 +723,7 @@ function TypeChip({ def, field, apply }: { def: FormDefinition; field: FieldBloc
             </span>
           </SelectItem>
         ))}
-        <p className="max-w-64 border-t px-2 py-2 text-xs text-muted-foreground">{TYPE_HINT}</p>
+        {open ? <p className="max-w-64 border-t px-2 py-2 text-xs text-muted-foreground">{TYPE_HINT}</p> : null}
       </SelectContent>
     </Select>
   );

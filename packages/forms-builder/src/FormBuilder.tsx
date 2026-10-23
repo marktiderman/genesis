@@ -53,14 +53,16 @@ export interface FormBuilderHandle {
    * tries to publish, so what blocks publishing is on screen.
    */
   revealChecks(): void;
-  /** Undo the last edit, as the builder's own Undo button does. Does nothing when read-only or when there is nothing to undo. */
-  undo(): void;
+  // The four below are optional only so that code which implements or mocks this
+  // interface keeps compiling; the builder's ref always has them.
+  /** Undo the last edit, as the builder's own Undo button does (text still being typed is committed first). Does nothing when read-only or when there is nothing to undo. */
+  undo?(): void;
   /** Redo the last undone edit. Does nothing when read-only or when there is nothing to redo. */
-  redo(): void;
+  redo?(): void;
   /** Whether `undo()` would change the value now. */
-  canUndo(): boolean;
+  canUndo?(): boolean;
   /** Whether `redo()` would change the value now. */
-  canRedo(): boolean;
+  canRedo?(): boolean;
 }
 
 /** Whether undo and redo can do anything, for a host's own Undo and Redo buttons. */
@@ -314,8 +316,8 @@ export function FormBuilder({
         drafts.flush();
         history.redo();
       },
-      canUndo: () => !readOnly && history.getStatus().canUndo,
-      canRedo: () => !readOnly && history.getStatus().canRedo,
+      canUndo: () => !readOnly && (history.getStatus?.().canUndo ?? history.canUndo),
+      canRedo: () => !readOnly && (history.getStatus?.().canRedo ?? history.canRedo),
     }),
     [history.get, history.undo, history.redo, history.getStatus, drafts, readOnly],
   );

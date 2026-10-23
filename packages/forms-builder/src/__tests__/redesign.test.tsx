@@ -278,16 +278,16 @@ describe("host hooks", () => {
     const states: BuilderHistoryState[] = [];
     render(<FormBuilder ref={ref} defaultValue={form()} onHistoryChange={(s) => states.push(s)} />);
     expect(states).toEqual([{ canUndo: false, canRedo: false }]);
-    expect(ref.current!.canUndo()).toBe(false);
+    expect(ref.current!.canUndo!()).toBe(false);
     fireEvent.change(screen.getByLabelText("Form title"), { target: { value: "Edited" } });
-    expect(ref.current!.canUndo()).toBe(true);
+    expect(ref.current!.canUndo!()).toBe(true);
     expect(states.at(-1)).toEqual({ canUndo: true, canRedo: false });
-    act(() => ref.current!.undo());
+    act(() => ref.current!.undo!());
     expect(ref.current!.getValue().title).toBe("Saturday check-in");
     expect(states.at(-1)).toEqual({ canUndo: false, canRedo: true });
-    act(() => ref.current!.redo());
+    act(() => ref.current!.redo!());
     expect(ref.current!.getValue().title).toBe("Edited");
-    expect(ref.current!.canRedo()).toBe(false);
+    expect(ref.current!.canRedo!()).toBe(false);
   });
 
   it("commits text still being typed before undo, so undo takes it back and redo restores it", () => {
@@ -295,10 +295,10 @@ describe("host hooks", () => {
     render(<FormBuilder ref={ref} defaultValue={form()} />);
     fireEvent.click(screen.getByTestId("builder-field-advanced"));
     fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "workout" } });
-    act(() => ref.current!.undo());
+    act(() => ref.current!.undo!());
     expect((ref.current!.getValue().blocks[0] as FieldBlock).key).toBe("wod");
-    expect(ref.current!.canRedo()).toBe(true);
-    act(() => ref.current!.redo());
+    expect(ref.current!.canRedo!()).toBe(true);
+    act(() => ref.current!.redo!());
     expect((ref.current!.getValue().blocks[0] as FieldBlock).key).toBe("workout");
   });
 
@@ -307,8 +307,8 @@ describe("host hooks", () => {
     const onHistoryChange = vi.fn();
     render(<FormBuilder ref={ref} defaultValue={form()} readOnly onHistoryChange={onHistoryChange} />);
     expect(onHistoryChange).toHaveBeenLastCalledWith({ canUndo: false, canRedo: false });
-    act(() => ref.current!.undo());
-    expect(ref.current!.canUndo()).toBe(false);
+    act(() => ref.current!.undo!());
+    expect(ref.current!.canUndo!()).toBe(false);
   });
 
   it("hides the toolbar with toolbar={false}", () => {

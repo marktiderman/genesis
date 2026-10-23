@@ -1,10 +1,9 @@
-import { useId, useMemo, useState } from "react";
+import { memo, useId, useMemo, useState } from "react";
 import { ArrowDown, ArrowRight, CircleCheck, EyeOff, Flag, TriangleAlert } from "lucide-react";
 import {
   choiceOptions,
   computePath,
   describeCondition,
-  parseForm,
   type Condition,
   type FieldBlock,
   type FormDefinition,
@@ -105,7 +104,7 @@ function trials(def: FormDefinition, jumps: Jump[], fields: Map<string, FieldBlo
  * branching off each step, and the endings. The chip sums up the path checks;
  * "Try a path" lights up where one answer leads.
  */
-export function FlowMap({ def, findings }: { def: FormDefinition; findings: readonly Finding[] }) {
+export const FlowMap = memo(function FlowMap({ def, findings }: { def: FormDefinition; findings: readonly Finding[] }) {
   const config = useBuilderConfig();
   const id = useId();
   const steps = def.blocks.filter((b) => b.kind !== "page-break");
@@ -125,8 +124,10 @@ export function FlowMap({ def, findings }: { def: FormDefinition; findings: read
           return b?.kind === "field" ? b.label || b.key : b?.kind === "content" ? b.text.slice(0, 40) : to;
         })();
 
-  const valid = useMemo(() => parseForm(def).ok, [def]);
-  const options = valid ? trials(def, jumps, fields) : [];
+  // The builder's checks already parsed this definition: no second parse per edit.
+  const { state, count } = flowCheck(findings);
+  const valid = state !== "invalid";
+  const options = useMemo(() => (valid ? trials(def, jumps, fields) : []), [valid, def.logic, fields]);
   const [trying, setTrying] = useState<string | null>(null);
   const trial = options.find((t) => t.label === trying);
   const path = useMemo(() => {
@@ -135,7 +136,6 @@ export function FlowMap({ def, findings }: { def: FormDefinition; findings: read
     return { blocks: new Set(result.path), ending: result.ending };
   }, [def, trial, fields]);
 
-  const { state, count } = flowCheck(findings);
   const chip =
     state === "ok"
       ? { text: "Every path ends", Icon: CircleCheck, className: "bg-success/15 text-emerald-700 dark:bg-success/20 dark:text-emerald-300" }
@@ -253,4 +253,4 @@ export function FlowMap({ def, findings }: { def: FormDefinition; findings: read
       ) : null}
     </section>
   );
-}
+});

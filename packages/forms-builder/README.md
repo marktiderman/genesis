@@ -97,8 +97,8 @@ and drive undo from the ref:
 ```tsx
 const builder = useRef<FormBuilderHandle>(null);
 const [history, setHistory] = useState({ canUndo: false, canRedo: false });
-<Button disabled={!history.canUndo} onClick={() => builder.current?.undo()}>Undo</Button>
-<Button disabled={!history.canRedo} onClick={() => builder.current?.redo()}>Redo</Button>
+<Button disabled={!history.canUndo} onClick={() => builder.current?.undo?.()}>Undo</Button>
+<Button disabled={!history.canRedo} onClick={() => builder.current?.redo?.()}>Redo</Button>
 <FormBuilder
   ref={builder}
   toolbar={false} // no title input, Undo/Redo, status badge or actions row

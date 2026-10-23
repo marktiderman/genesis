@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowRight, ArrowUp, Ellipsis, Eye, EyeOff, Flag, Plus, Trash2, X } from "lucide-react";
 import {
   choiceOptions,
@@ -45,7 +45,7 @@ import {
   type FieldTypeDefaults,
 } from "./ops";
 
-import { editorFor, useBuilderConfig, type Apply } from "./editors";
+import { editorFor, useBuilderConfig, type Apply, type BuilderConfig } from "./editors";
 import { BlockIcon } from "./type-icons";
 
 export const OPERATOR_LABEL: Record<Operator, string> = {
@@ -366,7 +366,7 @@ function RuleCard({
         </p>
       ))}
       <Editable readOnly={readOnly} className="mt-2.5">
-        <RuleSentence def={def} rule={rule} onChange={change} />
+        <RuleSentenceFor def={def} rule={rule} apply={apply} />
       </Editable>
     </div>
   );
@@ -380,10 +380,51 @@ const Word = ({ children }: { children: ReactNode }) => <span className="text-sm
  * [target]", and picking another question moves the jump there too; any
  * other jump reads "After [question], if … go to [target]".
  */
+// The step and ending pickers' options, made once per list of blocks (or endings) and builder
+// config, not once per rule: a form with many rules shows the same lists in every sentence.
+const stepCache = new WeakMap<readonly Block[], { config: BuilderConfig; choices: Choice[] }>();
+function stepChoices(blocks: readonly Block[], config: BuilderConfig): Choice[] {
+  const hit = stepCache.get(blocks);
+  if (hit && hit.config === config) return hit.choices;
+  const choices = blocks
+    .filter((b) => b.kind !== "page-break")
+    .map((b) => ({ value: b.id, label: blockLabel(b), icon: <BlockIcon block={b} config={config} className="size-3.5" /> }));
+  stepCache.set(blocks, { config, choices });
+  return choices;
+}
+const NO_ENDINGS: NonNullable<FormDefinition["endings"]> = [];
+const endingCache = new WeakMap<NonNullable<FormDefinition["endings"]>, Choice[]>();
+function endingChoices(endings: NonNullable<FormDefinition["endings"]>): Choice[] {
+  let choices = endingCache.get(endings);
+  if (!choices) {
+    choices = endings.map((e) => ({ value: `ending:${e.id}`, label: `Ending: ${e.title || e.id}`, icon: <Flag className="size-3.5" aria-hidden /> }));
+    endingCache.set(endings, choices);
+  }
+  return choices;
+}
+
+/**
+ * A rule's sentence that renders again only when that rule, or what its
+ * pickers list (the blocks, endings and hidden inputs), changes: editing one
+ * rule leaves the other sentences alone.
+ */
+const RuleSentenceFor = memo(
+  function RuleSentenceFor({ def, rule, apply }: { def: FormDefinition; rule: LogicRule; apply: Apply }) {
+    const onChange = useCallback((next: LogicRule) => apply((d) => updateRule(d, rule.id, next)), [apply, rule.id]);
+    return <RuleSentence def={def} rule={rule} onChange={onChange} />;
+  },
+  (a, b) =>
+    a.rule === b.rule &&
+    a.apply === b.apply &&
+    a.def.blocks === b.def.blocks &&
+    a.def.endings === b.def.endings &&
+    a.def.hidden === b.def.hidden,
+);
+
 export function RuleSentence({ def, rule, onChange }: { def: FormDefinition; rule: LogicRule; onChange: (rule: LogicRule) => void }) {
   const config = useBuilderConfig();
   const steps = def.blocks.filter((b) => b.kind !== "page-break");
-  const stepChoice = (b: Block): Choice => ({ value: b.id, label: blockLabel(b), icon: <BlockIcon block={b} config={config} className="size-3.5" /> });
+  const allSteps = stepChoices(def.blocks, config);
   const when = (
     <ConditionEditor
       def={def}
@@ -408,18 +449,14 @@ export function RuleSentence({ def, rule, onChange }: { def: FormDefinition; rul
     return (
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2" data-testid="builder-rule-sentence">
         <Word>{rule.effect === "show" ? "Show" : "Hide"}</Word>
-        <Pick ariaLabel={rule.effect === "show" ? "Show" : "Hide"} className={PILL} value={rule.target} options={steps.map(stepChoice)} onChange={(target) => onChange({ ...rule, target })} />
+        <Pick ariaLabel={rule.effect === "show" ? "Show" : "Hide"} className={PILL} value={rule.target} options={allSteps} onChange={(target) => onChange({ ...rule, target })} />
         <Word>{rule.effect === "show" ? "only when" : "when"}</Word>
         {when}
       </div>
     );
   }
 
-  const later = steps.slice(steps.findIndex((b) => b.id === rule.from) + 1);
-  const targets: Choice[] = [
-    ...later.map(stepChoice),
-    ...(def.endings ?? []).map((e) => ({ value: `ending:${e.id}`, label: `Ending: ${e.title || e.id}`, icon: <Flag className="size-3.5" aria-hidden /> })),
-  ];
+  const targets: Choice[] = [...allSteps.slice(steps.findIndex((b) => b.id === rule.from) + 1), ...endingChoices(def.endings ?? NO_ENDINGS)];
   const linked = linkedField(rule) !== null;
   const toValue = typeof rule.to === "string" ? rule.to : `ending:${rule.to.ending}`;
   return (
@@ -428,7 +465,7 @@ export function RuleSentence({ def, rule, onChange }: { def: FormDefinition; rul
         {linked ? null : (
           <>
             <Word>After</Word>
-            <Pick ariaLabel="After" className={PILL} value={rule.from} options={steps.map(stepChoice)} onChange={(from) => onChange({ ...rule, from })} />
+            <Pick ariaLabel="After" className={PILL} value={rule.from} options={allSteps} onChange={(from) => onChange({ ...rule, from })} />
             <Word>,</Word>
           </>
         )}

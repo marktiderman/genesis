@@ -65,8 +65,12 @@ export interface BuilderHistory {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  /** Whether undo and redo would do anything now, also after an edit not rendered yet. */
-  getStatus: () => { canUndo: boolean; canRedo: boolean };
+  /**
+   * Whether undo and redo would do anything now, also after an edit not rendered yet.
+   * Optional so that code which implements or mocks this interface keeps compiling;
+   * `useBuilderHistory` always sets it.
+   */
+  getStatus?: () => { canUndo: boolean; canRedo: boolean };
   /** Replace the value and clear history, for example after loading a saved draft. */
   reset: (value: FormDefinition) => void;
 }
