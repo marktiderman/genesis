@@ -54,6 +54,12 @@ export interface FeatureProjectOptions {
   flagAccessors?: readonly string[];
   /** Code scanned for flag reads. Default `src`, `app` and `packages/*\/src`. */
   scan?: readonly string[] | false;
+  /**
+   * Files the flag scan skips: the flags runtime that defines the accessors and
+   * reads by variable, and tests, which build keys on purpose. Default the test
+   * globs (`tests`).
+   */
+  scanIgnore?: readonly string[];
   /** Test files scanned for `@feat:<id>` tags. */
   tests?: readonly string[] | false;
   /** The changesets folder, scanned for `Features: <id>` lines. Default `.changeset`. */
@@ -185,10 +191,47 @@ function literalAt(text: string, i: number): string | null {
 }
 
 /**
- * Flag reads in `text`: each key read through an accessor with a literal, and
- * each read whose key isn't a literal (`dynamic`), as `path:line`.
+ * `text` with its comments blanked to spaces (newlines kept), so a flag named
+ * in a comment isn't read as a flag read and line numbers stay right. Strings
+ * and template literals are left alone.
  */
-export function scanFlagReads(path: string, text: string, accessors: readonly string[] = DEFAULT_ACCESSORS) {
+export function blankComments(text: string): string {
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i]!;
+    const next = text[i + 1];
+    if (c === "/" && next === "/") {
+      const end = text.indexOf("\n", i);
+      const stop = end === -1 ? text.length : end;
+      out += " ".repeat(stop - i);
+      i = stop;
+    } else if (c === "/" && next === "*") {
+      const end = text.indexOf("*/", i + 2);
+      const stop = end === -1 ? text.length : end + 2;
+      out += text.slice(i, stop).replace(/[^\n]/g, " ");
+      i = stop;
+    } else if (c === '"' || c === "'" || c === "`") {
+      let j = i + 1;
+      // A quote in JSX text ("Don't") isn't a string: plain strings end at the line.
+      while (j < text.length && text[j] !== c && (c === "`" || text[j] !== "\n")) j += text[j] === "\\" ? 2 : 1;
+      out += text.slice(i, j + 1);
+      i = j + 1;
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
+}
+
+/**
+ * Flag reads in `text`: each key read through an accessor with a literal, and
+ * each read whose key isn't a literal (`dynamic`), as `path:line`. Comments
+ * don't count.
+ */
+export function scanFlagReads(path: string, source: string, accessors: readonly string[] = DEFAULT_ACCESSORS) {
+  const text = blankComments(source);
   const keys: { key: string; where: string }[] = [];
   const dynamic: string[] = [];
   for (const accessor of accessors) {
@@ -398,8 +441,9 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
     for (const name of expired) errors.push(`${name} expired on ${flags[name]!.expires}: remove its code path, then the flag`);
     if (options.scan !== false) {
       const inScan = matcher(options.scan ?? DEFAULT_SCAN);
+      const skipped = matcher(options.scanIgnore ?? (options.tests || DEFAULT_TESTS));
       const used = new Map<string, string>();
-      for (const path of files.filter((p) => inScan(p) && !p.endsWith(".d.ts"))) {
+      for (const path of files.filter((p) => inScan(p) && !skipped(p) && !p.endsWith(".d.ts"))) {
         const { keys, dynamic } = scanFlagReads(path, readFileSync(join(root, path), "utf8"), options.flagAccessors ?? DEFAULT_ACCESSORS);
         for (const where of dynamic) errors.push(`${where}: a flag read with a computed key. Use a literal key, so the read can be checked`);
         for (const { key, where } of keys) {
