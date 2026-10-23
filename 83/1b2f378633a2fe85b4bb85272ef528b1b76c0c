@@ -1,0 +1,35 @@
+packages/ui/src/components/layout/__tests__/app-shell-collapse.test.tsx
+  s_3daa86e3ae6031::t_dd5a678859a8c0 1-308
+packages/ui/src/navigation.tsx
+  s_3daa86e3ae6031::t_84ceeeaea5f5fc 170-181
+.changeset/collapsible-app-sidebar.md
+  s_3daa86e3ae6031::t_76692e181652aa 1-7
+apps/sample/app/routes/_layout.tsx
+  s_3daa86e3ae6031::t_1837448963d8fc 43-45,88
+apps/sample/stories/AppShell.stories.tsx
+  s_3daa86e3ae6031::t_b745f973ac2b1c 51-68,70,73-74,77-116,118-120
+features.json
+  s_3daa86e3ae6031::t_2e37031de7dda0 112-113
+features.ts
+  s_3daa86e3ae6031::t_e16b079c645af3 70-73
+packages/ui/SKILL.md
+  s_3daa86e3ae6031::t_f79110e99466fb 330-344
+packages/ui/src/components/layout/AppShell.tsx
+  s_3daa86e3ae6031::t_2cb712ba3ecd38 10,21,35,89-93,95-100,127-130,132-135,145,152-172,185,188-189,193,196-219,297-300,302,304-313,426-440,465,467,469,471,474,476,480,483,487-493,496,498,504,514-520,524-613,661,664-665,919-925,927,967,989-999,1091-1096,1098-1103,1108,1110-1143,1150-1151,1247-1249,1255-1259,1271-1308,1339-1346,1377-1380,1404,1433,1437-1438
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "831b2f378633a2fe85b4bb85272ef528b1b76c0c",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
