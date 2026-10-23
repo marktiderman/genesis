@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { defineFlags } from "../index";
-import { buildFeatureOutputs, checkFeatureOutputs, globToRegExp, scanFlagReads, summarizeCheck, type FeatureProjectOptions } from "../node";
+import { blankComments, buildFeatureOutputs, checkFeatureOutputs, globToRegExp, scanFlagReads, summarizeCheck, type FeatureProjectOptions } from "../node";
 import { features, flags } from "./fixture";
 
 /** A test tag, built so this file isn't itself read as tagging these fixture ids. */
@@ -248,5 +248,59 @@ describe("globToRegExp", () => {
     expect(["src/a.ts", "src/x/y/b.tsx"].every((p) => re.test(p))).toBe(true);
     expect(re.test("src/a.js")).toBe(false);
     expect(globToRegExp("**/*.functions.ts").test("a.functions.ts")).toBe(true);
+  });
+});
+
+describe("the flag scan skips comments, tests and ignored files", () => {
+  it("doesn't take a regex, a template's code or JSX text for a comment", () => {
+    const text = [
+      `const re = /[/*]/; useFlag("x.a");`,
+      "const t = `${value /* getFlag(key) */} //not-a-comment`; useFlag(\"x.b\");",
+      `const view = <p>Don't</p>; // getFlag(key)`,
+      `const n = a / b; useFlag("x.c"); // useFlag(other)`,
+      `<Icon size={16} /> {/* useFlag(x) */} <Flag name="a" other={fn} /> // getFlag(key)`,
+      `const r = of / 2; const s = cfg.case / 2; // getFlag(key)`,
+    ].join("\n");
+    expect(blankComments(text).split("\n")).toHaveLength(6);
+    const { keys, dynamic } = scanFlagReads("f.tsx", text);
+    expect(keys.map((k) => `${k.key}@${k.where}`)).toEqual(["x.a@f.tsx:1", "x.b@f.tsx:2", "x.c@f.tsx:4", "a@f.tsx:5"]);
+    expect(dynamic).toEqual([]);
+  });
+
+  it("ignores flags named in comments, and keeps line numbers", () => {
+    const text = [
+      `// Behind the feature flag (src/lib/flags/registry.ts): useFlag("x.c")`,
+      `/* <Flag name=…> and getFlag(key) */`,
+      `<p>Don't</p>; const a = useFlag("x.a");`,
+      "const b = useFlag(`x.${id}`); // useFlag(other)",
+      `const url = "https://x.test"; useFlag("x.b");`,
+      `const note = "Behind the release flag (off until rollout); see useFlag(name).";`,
+    ].join("\n");
+    const { keys, dynamic } = scanFlagReads("f.tsx", text);
+    expect(keys.map((k) => `${k.key}@${k.where}`)).toEqual(["x.a@f.tsx:3", "x.b@f.tsx:5"]);
+    expect(dynamic).toEqual(["f.tsx:4"]);
+  });
+
+  it("skips tests by default and scanIgnore files when given", () => {
+    const root = repo({
+      "src/app.tsx": `useFlag("wins.v2"); <Flag name="wins.kill" />`,
+      "src/flags.test.ts": "useFlag(key)",
+      "src/flags/runtime.tsx": "export const Flag = ({ name }) => useFlag(name);",
+    });
+    const flagErrors = (more: Partial<FeatureProjectOptions> = {}) =>
+      checkFeatureOutputs(opts(root, more)).errors.filter((e) => e.includes("computed key"));
+    expect(flagErrors()).toEqual(["src/flags/runtime.tsx:1: a flag read with a computed key. Use a literal key, so the read can be checked"]);
+    expect(flagErrors({ scanIgnore: ["src/flags/**", "**/*.test.ts"] })).toEqual([]);
+  });
+});
+
+describe("the skill names this repo's outputs", () => {
+  it("leaves out flags.json when openfeature is off", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root, { openfeature: false }));
+    const skill = readFileSync(join(root, ".claude/skills/features/SKILL.md"), "utf8");
+    expect(skill).toContain("generates the rest from it: the AGENTS.md block, `features.json`, this skill.");
+    buildFeatureOutputs(opts(root));
+    expect(readFileSync(join(root, ".claude/skills/features/SKILL.md"), "utf8")).toContain("`flags.json` (the OpenFeature flag manifest)");
   });
 });

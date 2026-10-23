@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { RotateCcw } from "lucide-react";
 import {
   canonicalJson,
@@ -11,11 +11,12 @@ import {
   type FormEngine,
   type ParseResult,
 } from "@marktiderman/genesis-forms";
-import type { RendererRegistry } from "@marktiderman/genesis-forms-react";
-import { Form, type FormBrand } from "@marktiderman/genesis-forms-web";
+import type { FieldRendererProps, RendererRegistry } from "@marktiderman/genesis-forms-react";
+import { defaultRegistry, Form, type FormBrand, type FormTheme } from "@marktiderman/genesis-forms-web";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@marktiderman/genesis-ui/toggle-group";
 import { structureFingerprint } from "./analyze";
+import { chosenOutputs, type OutputTarget } from "./outputs";
 
 /**
  * The real `<Form>` in a phone-sized frame. It starts over when what is asked
@@ -30,6 +31,9 @@ export function Preview({
   hidden,
   registry,
   validators,
+  outputs,
+  theme,
+  submitLabel,
 }: {
   def: FormDefinition;
   /** `parseForm(def)`, when the caller already has it. */
@@ -41,7 +45,14 @@ export function Preview({
   registry?: RendererRegistry | undefined;
   /** Custom validators by field id, for the preview's engine. Read when a response starts (or Restart). */
   validators?: Record<string, FieldValidator> | undefined;
+  /** The host's output targets: a question that uses one gets a "→ goes to …" note. */
+  outputs?: readonly OutputTarget[] | undefined;
+  /** The form's accent colour and header image (`<Form theme>`). */
+  theme?: FormTheme | undefined;
+  /** The send button's word (`<Form submitLabel>`). Default "Send", as in `<Form>`. */
+  submitLabel?: string | undefined;
 }) {
+  const noted = useMemo(() => (outputs?.length ? withOutputNotes(registry ?? defaultRegistry) : registry), [outputs, registry]);
   const mode = def.layout?.mode ?? "focus";
   const [layout, setLayout] = useState<"focus" | "classic">(mode);
   // Follow the form's own layout setting; the toggle overrides it until it changes again.
@@ -121,7 +132,17 @@ export function Preview({
             </div>
           ) : form && engine ? (
             // No onSubmit: a completed engine then shows its ending, also after a wording edit remounts it.
-            <Form form={form} engine={engine} layout={layout} brand={brand} {...(registry ? { registry } : {})} />
+            <OutputsContext.Provider value={outputs ?? NO_OUTPUTS}>
+              <Form
+                form={form}
+                engine={engine}
+                layout={layout}
+                brand={brand}
+                theme={theme}
+                {...(submitLabel ? { submitLabel } : {})}
+                {...(noted ? { registry: noted } : {})}
+              />
+            </OutputsContext.Provider>
           ) : (
             <div className="space-y-2 p-4 text-sm">
               <p className="font-medium">The preview starts once the form is valid.</p>
@@ -134,6 +155,48 @@ export function Preview({
       </div>
     </div>
   );
+}
+
+const NO_OUTPUTS: readonly OutputTarget[] = [];
+const OutputsContext = createContext<readonly OutputTarget[]>(NO_OUTPUTS);
+
+/** One wrapper per renderer, so the preview's fields keep their identity (and state) across renders. */
+const notedRenderers = new WeakMap<ComponentType<FieldRendererProps>, ComponentType<FieldRendererProps>>();
+function notedRenderer(Renderer: ComponentType<FieldRendererProps>): ComponentType<FieldRendererProps> {
+  let Noted = notedRenderers.get(Renderer);
+  if (!Noted) {
+    Noted = function NotedField(props: FieldRendererProps) {
+      const labels = chosenOutputs(props.binding.field, useContext(OutputsContext)).map((t) => t.label);
+      return (
+        <>
+          <Renderer {...props} />
+          {labels.length ? (
+            <p className="mt-2 text-xs text-muted-foreground" data-testid={`builder-preview-output-${props.binding.field.id}`}>
+              <span aria-hidden="true">→ </span>goes to {labels.join(" and ")}
+            </p>
+          ) : null}
+        </>
+      );
+    };
+    notedRenderers.set(Renderer, Noted);
+  }
+  return Noted;
+}
+
+/** `base`, with each field's "→ goes to …" note under it. */
+function withOutputNotes(base: RendererRegistry): RendererRegistry {
+  const registry: RendererRegistry = {
+    register(entry) {
+      base.register(entry);
+      return registry;
+    },
+    resolve(block) {
+      const Renderer = base.resolve(block);
+      return Renderer ? notedRenderer(Renderer) : undefined;
+    },
+    extend: (entries) => withOutputNotes(base.extend(entries)),
+  };
+  return registry;
 }
 
 /** Finds the control like `el` after a remount: by id, by name (and value, for radios), or by role and text. */

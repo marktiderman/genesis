@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, Copy, GripVertical, Plus, Trash2, X } from "lucide-react";
 import {
   choiceOptions,
   getFieldType,
+  COMPUTED_FIELD_TYPES,
   listFieldTypes,
   STRUCTURED_FIELD_TYPES,
   type Block,
@@ -11,6 +12,8 @@ import {
   type Json,
 } from "@marktiderman/genesis-forms";
 import { Badge } from "@marktiderman/genesis-ui/badge";
+import { Checkbox } from "@marktiderman/genesis-ui/checkbox";
+import { Label } from "@marktiderman/genesis-ui/label";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@marktiderman/genesis-ui/collapsible";
 import {
@@ -23,6 +26,7 @@ import {
 } from "@marktiderman/genesis-ui/dropdown-menu";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { cn } from "@marktiderman/genesis-ui/utils";
+import { useChecks } from "./checks";
 import { DraftRow, Editable, NumberRow, SelectRow, SwitchRow, TextRow } from "./controls";
 import type { Finding } from "./analyze";
 import {
@@ -50,8 +54,10 @@ import {
   type FieldPanelProps,
   type FieldPreset,
 } from "./editors";
+import { chosenOutputs, clearOutputs, outputPropsFor, outputsFor, outputUsedBy, setOutput, type OutputTarget } from "./outputs";
 
-const TEXT_TYPES = new Set(["short-text", "long-text", "email", "phone"]);
+const TEXT_TYPES = new Set(["short-text", "long-text", "email", "phone", "number"]);
+const CHOICE_TYPES = new Set(["single-choice", "multi-choice", "dropdown"]);
 
 const CATEGORY_LABEL: Record<string, string> = {
   text: "Text",
@@ -75,11 +81,12 @@ export interface PaletteEntry {
 
 /**
  * The palette when the host names none: every registered type except the
- * structured types (`STRUCTURED_FIELD_TYPES`), which a host opts into by
- * naming them, e.g. `palette={[...defaultPalette(), ...STRUCTURED_FIELD_TYPES]}`.
+ * opt-in ones, the structured types (`STRUCTURED_FIELD_TYPES`) and the
+ * calculated type (`COMPUTED_FIELD_TYPES`), which a host offers by naming
+ * them, e.g. `palette={[...defaultPalette(), ...STRUCTURED_FIELD_TYPES, ...COMPUTED_FIELD_TYPES]}`.
  */
 export function defaultPalette(): string[] {
-  const optIn = new Set<string>(STRUCTURED_FIELD_TYPES);
+  const optIn = new Set<string>([...STRUCTURED_FIELD_TYPES, ...COMPUTED_FIELD_TYPES]);
   return listFieldTypes()
     .map((t) => t.type)
     .filter((type) => !optIn.has(type));
@@ -162,7 +169,7 @@ export function createPresetField(def: FormDefinition, preset: FieldPreset, conf
 }
 
 function blockTitle(block: Block): string {
-  if (block.kind === "field") return block.label || block.key;
+  if (block.kind === "field") return block.label || "Untitled question";
   if (block.kind === "content") return block.text || (block.type === "heading" ? "Heading" : "Text");
   return block.title ? `Page break: ${block.title}` : "Page break";
 }
@@ -185,6 +192,12 @@ export function AddBlockMenu({
   for (const t of [...paletteTypes(config), ...palettePresets(config)]) byCategory.set(t.category, [...(byCategory.get(t.category) ?? []), t]);
   const content = contentTypes(config.blockKinds);
   const pageBreak = config.blockKinds?.pageBreak ?? true;
+  // After adding, focus goes to the new question's title, not back to this button.
+  const added = useRef(false);
+  const addAndKeepFocus = (make: (def: FormDefinition) => Block) => {
+    added.current = true;
+    onAdd(make);
+  };
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -192,7 +205,15 @@ export function AddBlockMenu({
           <Plus /> {label}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-96 overflow-y-auto">
+      <DropdownMenuContent
+        align="start"
+        className="max-h-96 overflow-y-auto"
+        onCloseAutoFocus={(e) => {
+          if (!added.current) return;
+          added.current = false;
+          e.preventDefault();
+        }}
+      >
         {[...byCategory].map(([category, types]) => (
           <div key={category}>
             <DropdownMenuLabel>{CATEGORY_LABEL[category] ?? category}</DropdownMenuLabel>
@@ -204,7 +225,10 @@ export function AddBlockMenu({
                   title={preset?.description}
                   data-testid={preset ? `builder-add-preset-${preset.id}` : undefined}
                   onSelect={() =>
-                    onAdd((def) => (preset ? createPresetField(def, preset, config) : createField(def, { type: t.type }, config.fieldEditors)))
+                    // A new question starts untitled: the author writes its title first.
+                    addAndKeepFocus((def) =>
+                      preset ? createPresetField(def, preset, config) : createField(def, { type: t.type, label: "" }, config.fieldEditors),
+                    )
                   }
                 >
                   {t.icon ?? null}
@@ -246,7 +270,10 @@ export function QuestionsPanel({
   ruleCount: (blockId: string) => number;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
+  // The question whose title field takes focus when its inspector opens: the one just added.
+  const [focusTitle, setFocusTitle] = useState<string | null>(null);
   const config = useBuilderConfig();
+  const checks = useChecks();
   const readOnly = !!config.readOnly;
 
   const add = (make: (def: FormDefinition) => Block) => {
@@ -254,6 +281,10 @@ export function QuestionsPanel({
     const created = make(def);
     const at = selected ? def.blocks.findIndex((b) => b.id === selected) + 1 : def.blocks.length;
     apply((d) => insertBlock(d, created, at || d.blocks.length));
+    if (created.kind === "field") {
+      if (!created.label.trim()) checks?.markFresh(created.id);
+      setFocusTitle(created.id);
+    }
     onSelect(created.id);
   };
 
@@ -320,7 +351,10 @@ export function QuestionsPanel({
                   // Badges wrap under the title before it shrinks below 5rem; past that it truncates.
                   className="flex min-w-32 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-left"
                   aria-expanded={open}
-                  onClick={() => onSelect(open ? null : block.id)}
+                  onClick={() => {
+                    setFocusTitle(null);
+                    onSelect(open ? null : block.id);
+                  }}
                   data-testid={`builder-block-toggle-${block.id}`}
                 >
                   <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">{index + 1}</span>
@@ -385,7 +419,13 @@ export function QuestionsPanel({
                     </p>
                   ))}
                   <Editable readOnly={readOnly}>
-                    <BlockInspector def={def} block={block} apply={apply} />
+                    <BlockInspector
+                      def={def}
+                      block={block}
+                      apply={apply}
+                      autoFocusTitle={focusTitle === block.id}
+                      titleInvalid={blockFindings.some((f) => f.code === "untitled-question")}
+                    />
                   </Editable>
                 </div>
               ) : null}
@@ -398,7 +438,21 @@ export function QuestionsPanel({
   );
 }
 
-export function BlockInspector({ def, block, apply }: { def: FormDefinition; block: Block; apply: Apply }) {
+export function BlockInspector({
+  def,
+  block,
+  apply,
+  autoFocusTitle,
+  titleInvalid,
+}: {
+  def: FormDefinition;
+  block: Block;
+  apply: Apply;
+  /** Focus the question's title field when it opens (a question just added). */
+  autoFocusTitle?: boolean | undefined;
+  /** The title is flagged by a check ("needs a title"). */
+  titleInvalid?: boolean | undefined;
+}) {
   // A function patch reads the block as it is when the edit runs, not as rendered.
   const set: FieldPanelProps["set"] = (patch, coalesce) =>
     apply((d) => {
@@ -444,7 +498,17 @@ export function BlockInspector({ def, block, apply }: { def: FormDefinition; blo
       />
     );
   }
-  return <FieldInspector def={def} field={block} set={set} setProps={setProps} apply={apply} />;
+  return (
+    <FieldInspector
+      def={def}
+      field={block}
+      set={set}
+      setProps={setProps}
+      apply={apply}
+      autoFocusTitle={!!autoFocusTitle}
+      titleInvalid={!!titleInvalid}
+    />
+  );
 }
 
 function FieldInspector({
@@ -453,28 +517,40 @@ function FieldInspector({
   set,
   setProps,
   apply,
+  autoFocusTitle,
+  titleInvalid,
 }: {
   def: FormDefinition;
   field: FieldBlock;
   set: FieldPanelProps["set"];
   setProps: FieldPanelProps["setProps"];
   apply: Apply;
+  autoFocusTitle: boolean;
+  titleInvalid: boolean;
 }) {
   const config = useBuilderConfig();
+  const checks = useChecks();
   const types = paletteTypes(config).map((t) => ({ value: t.type, label: t.label }));
   // The current type stays selectable, also when the palette leaves it out.
   if (!types.some((t) => t.value === field.type)) types.unshift({ value: field.type, label: typeLabel(field.type, config) });
-  const isChoice = field.type === "single-choice" || field.type === "multi-choice";
+  const isChoice = CHOICE_TYPES.has(field.type);
   const editor = editorFor(config, field.type);
   const Panel = editor?.Panel;
   const setType = (type: string) => {
     if (type === field.type) return;
-    // Between single and multiple choice the options stay; otherwise the new
+    // Between single choice, multiple choice and dropdown the options stay; otherwise the new
     // type's default props are made here (new option values are random), so the edit stays pure.
-    const keepsOptions = isChoice && (type === "single-choice" || type === "multi-choice") && !editorFor(config, type)?.defaultProps;
+    const keepsOptions = isChoice && CHOICE_TYPES.has(type) && !editorFor(config, type)?.defaultProps;
     if (keepsOptions) set({ type });
-    else set({ type, props: defaultProps(type, { def, editors: config.fieldEditors }) });
+    else {
+      // Where the answer goes stays, for the targets the new type also accepts.
+      const kept = outputPropsFor(field, type, config.outputs);
+      const base = defaultProps(type, { def, editors: config.fieldEditors });
+      const props = Object.keys(kept).length ? { ...base, ...kept } : base;
+      set({ type, props });
+    }
   };
+  const calculated = field.type === "calculated";
   const anonymous = !!def.settings?.anonymous;
   const flagged = [field.identifying && "Identifies the respondent", field.sensitive && "Sensitive"].filter(Boolean);
   return (
@@ -482,7 +558,11 @@ function FieldInspector({
       <TextRow
         label="Question"
         value={field.label}
+        placeholder="Your question"
         testID="builder-field-label"
+        autoFocus={autoFocusTitle}
+        invalid={titleInvalid}
+        onBlur={() => checks?.touch(field.id)}
         onChange={(label) => set({ label }, `label:${field.id}`)}
       />
       <TextRow
@@ -495,7 +575,7 @@ function FieldInspector({
         label="Type"
         value={field.type}
         options={types}
-        hint="Changing the type resets its settings and removes rules that compare this question. Between single and multiple choice, the options and the rules that still fit stay."
+        hint="Changing the type resets its settings and removes rules that compare this question. Between single choice, multiple choice and dropdown, the options and the rules that still fit stay."
         onChange={setType}
       />
       {Panel ? <Panel def={def} field={field} set={set} setProps={setProps} apply={apply} readOnly={!!config.readOnly} /> : null}
@@ -516,6 +596,76 @@ function FieldInspector({
           onChange={(max) => set({ props: { ...field.props, max: Math.min(10, Math.max(2, max ?? 5)) } })}
         />
       ) : null}
+      {!Panel && field.type === "rating" ? (
+        <SelectRow
+          label="Show as"
+          value={field.props?.display === "stars" ? "stars" : "numbers"}
+          testID="builder-rating-display"
+          options={[
+            { value: "numbers", label: "Numbers" },
+            { value: "stars", label: "Stars" },
+          ]}
+          onChange={(display) => setProps({ display: display === "stars" ? "stars" : undefined })}
+        />
+      ) : null}
+      {!Panel && (field.type === "rating" || field.type === "nps") ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextRow
+            label="Label under the lowest"
+            value={typeof field.props?.lowLabel === "string" ? field.props.lowLabel : ""}
+            placeholder={field.type === "nps" ? "Not likely" : "Poor"}
+            testID="builder-scale-low"
+            onChange={(v) => setProps({ lowLabel: v || undefined }, `lowLabel:${field.id}`)}
+          />
+          <TextRow
+            label="Label under the highest"
+            value={typeof field.props?.highLabel === "string" ? field.props.highLabel : ""}
+            placeholder={field.type === "nps" ? "Very likely" : "Great"}
+            testID="builder-scale-high"
+            onChange={(v) => setProps({ highLabel: v || undefined }, `highLabel:${field.id}`)}
+          />
+        </div>
+      ) : null}
+      {!Panel && field.type === "number" ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {(["min", "max", "step"] as const).map((k) => (
+            <NumberRow
+              key={k}
+              decimal
+              label={k === "min" ? "Smallest" : k === "max" ? "Largest" : "Step"}
+              testID={`builder-number-${k}`}
+              value={typeof field.props?.[k] === "number" ? (field.props[k] as number) : undefined}
+              hint={k === "step" ? "1 for whole numbers." : "Optional."}
+              onChange={(n) => setProps({ [k]: n })}
+            />
+          ))}
+        </div>
+      ) : null}
+      {!Panel && field.type === "date" ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(["min", "max"] as const).map((k) => (
+            <TextRow
+              key={k}
+              type="date"
+              label={k === "min" ? "Earliest date" : "Latest date"}
+              testID={`builder-date-${k}`}
+              value={typeof field.props?.[k] === "string" ? (field.props[k] as string) : ""}
+              hint="Optional."
+              onChange={(v) => setProps({ [k]: v || undefined })}
+            />
+          ))}
+        </div>
+      ) : null}
+      {!Panel && field.type === "consent" ? (
+        <TextRow
+          label="Checkbox text"
+          value={typeof field.props?.text === "string" ? field.props.text : ""}
+          placeholder="I agree"
+          testID="builder-consent-text"
+          hint="Turn on Required so it must be checked to send."
+          onChange={(text) => setProps({ text: text || undefined }, `consent-text:${field.id}`)}
+        />
+      ) : null}
       {!Panel && (field.type === "short-text" || field.type === "long-text") ? (
         <NumberRow
           label="Longest answer (characters)"
@@ -531,12 +681,15 @@ function FieldInspector({
         />
       ) : null}
       {!Panel && isChoice ? <OptionsEditor field={field} apply={apply} /> : null}
-      <SwitchRow
-        label="Required"
-        checked={!!field.required}
-        testID="builder-field-required"
-        onChange={(required) => set({ required })}
-      />
+      {calculated ? null : (
+        <SwitchRow
+          label="Required"
+          checked={!!field.required}
+          testID="builder-field-required"
+          onChange={(required) => set({ required })}
+        />
+      )}
+      <SavesTo def={def} field={field} apply={apply} />
       {/* Read-only viewers can't press the trigger (the fieldset is disabled), so they see it open. */}
       <Collapsible className="rounded-md border" defaultOpen={!!config.readOnly}>
         <CollapsibleTrigger
@@ -654,5 +807,85 @@ function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
         Removing an option takes it out of “is one of” lists and removes the other rules that compare with it.
       </p>
     </fieldset>
+  );
+}
+
+/**
+ * "Saves to": the host's output targets for this field's type, grouped, as
+ * checkboxes. Targets with different props can be on together; choosing one
+ * replaces another with the same prop. "Nowhere else" turns them all off.
+ */
+function SavesTo({ def, field, apply }: { def: FormDefinition; field: FieldBlock; apply: Apply }) {
+  const config = useBuilderConfig();
+  const targets = outputsFor(config.outputs, field.type);
+  if (!targets.length) return null;
+  const chosen = new Set(chosenOutputs(field, targets).map((t) => t.id));
+  const groups = new Map<string, OutputTarget[]>();
+  for (const t of targets) groups.set(t.group ?? "", [...(groups.get(t.group ?? "") ?? []), t]);
+  const ungrouped = groups.get("");
+  groups.delete("");
+  const sections: [string, OutputTarget[]][] = [...(ungrouped ? [["", ungrouped] as [string, OutputTarget[]]] : []), ...groups];
+  return (
+    <fieldset className="space-y-3 rounded-md border p-3" data-testid="builder-field-outputs">
+      <legend className="px-1 text-sm font-medium">Saves to</legend>
+      <p className="text-xs text-muted-foreground">Besides this form's responses, the answer can also go to:</p>
+      <OutputOption
+        id={`${field.id}-nowhere`}
+        label="Nowhere else"
+        checked={chosen.size === 0}
+        testID="builder-output-none"
+        onChange={(on) => {
+          if (on) apply((d) => clearOutputs(d, field.id, config.outputs));
+        }}
+      />
+      {sections.map(([group, list]) => (
+        <div key={group || "-"} className="space-y-2" {...(group ? { role: "group", "aria-label": group } : {})}>
+          {group ? <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{group}</p> : null}
+          {list.map((t) => {
+            const other = outputUsedBy(def, field.id, t);
+            const hint = [t.description, other && !chosen.has(t.id) ? `Now saved from “${other.label || other.key}”; choosing it here moves it.` : null]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <OutputOption
+                key={t.id}
+                id={`${field.id}-out-${t.id}`}
+                label={t.label}
+                hint={hint || undefined}
+                checked={chosen.has(t.id)}
+                testID={`builder-output-${t.id}`}
+                onChange={(on) => apply((d) => setOutput(d, field.id, t, on))}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </fieldset>
+  );
+}
+
+function OutputOption(props: { id: string; label: string; hint?: string | undefined; checked: boolean; testID: string; onChange: (on: boolean) => void }) {
+  const hintId = `${props.id}-hint`;
+  return (
+    <div className="flex items-start gap-2">
+      <Checkbox
+        id={props.id}
+        checked={props.checked}
+        data-testid={props.testID}
+        aria-describedby={props.hint ? hintId : undefined}
+        onCheckedChange={(v) => props.onChange(v === true)}
+        className="mt-0.5"
+      />
+      <div className="space-y-0.5">
+        <Label htmlFor={props.id} className="font-normal">
+          {props.label}
+        </Label>
+        {props.hint ? (
+          <p id={hintId} className="text-xs text-muted-foreground">
+            {props.hint}
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }

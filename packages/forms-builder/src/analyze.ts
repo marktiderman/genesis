@@ -24,7 +24,15 @@ export interface Finding {
   path?: string;
   /** The block, rule or ending it is about, when one can be named. */
   ref?: { kind: "block" | "rule" | "ending"; id: string };
+  /**
+   * A stable name for the builder's own checks, so a host can tell them apart
+   * without matching the message: `"no-questions"` (the form asks nothing yet)
+   * and `"untitled-question"` (a question has no title).
+   */
+  code?: FindingCode;
 }
+
+export type FindingCode = "no-questions" | "untitled-question";
 
 export interface Analysis {
   /** Errors block publishing; warnings and infos do not. */
@@ -140,11 +148,14 @@ export function analyze(def: FormDefinition, opts: { maxStates?: number; parsed?
   findings.push(...parsed.warnings.map((i) => finding(def, "warning", i)));
 
   if (!def.blocks.some((b) => b.kind === "field")) {
-    findings.push({ level: "error", message: "Add at least one question." });
+    findings.push({ level: "error", message: "Add at least one question.", code: "no-questions" });
   }
-  for (const b of def.blocks) {
-    if (b.kind !== "field") continue;
-    if (!b.label.trim()) findings.push({ level: "warning", message: `Question "${b.key}" has no wording.`, ref: { kind: "block", id: b.id } });
+  def.blocks.forEach((b, i) => {
+    if (b.kind !== "field") return;
+    // An error: a new question starts without a title, and respondents would see a blank one.
+    if (!b.label.trim()) {
+      findings.push({ level: "error", message: `Question ${i + 1} needs a title.`, ref: { kind: "block", id: b.id }, code: "untitled-question" });
+    }
     const blank = choiceOptions(b).filter((o) => !(o.label ?? o.value).trim()).length;
     if (blank) {
       findings.push({
@@ -153,7 +164,7 @@ export function analyze(def: FormDefinition, opts: { maxStates?: number; parsed?
         ref: { kind: "block", id: b.id },
       });
     }
-  }
+  });
   for (const e of def.endings ?? []) {
     if (!e.title.trim()) findings.push({ level: "warning", message: `The ending "${e.id}" has no title.`, ref: { kind: "ending", id: e.id } });
   }

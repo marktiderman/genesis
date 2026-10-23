@@ -7,8 +7,8 @@ description: Find, add, change and retire this repo's features in features.ts, a
 
 # Features
 
-`features.ts` is the one list of what this product does. Running code imports it, and every
-other copy (the AGENTS.md block, JSON, the flags manifest, the admin page) is generated from it.
+`features.ts` is the one list of what this product does. Running code imports it, and
+`pnpm features build` generates the rest from it: the AGENTS.md block, `features.json`, the README.md Features section, this skill.
 
 ## Find
 - `pnpm features find <term>` searches ids, aliases, names, summaries and code paths. Run it before

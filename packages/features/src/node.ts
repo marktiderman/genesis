@@ -54,6 +54,12 @@ export interface FeatureProjectOptions {
   flagAccessors?: readonly string[];
   /** Code scanned for flag reads. Default `src`, `app` and `packages/*\/src`. */
   scan?: readonly string[] | false;
+  /**
+   * Files the flag scan skips: the flags runtime that defines the accessors and
+   * reads by variable, and tests, which build keys on purpose. Default the test
+   * globs (`tests`).
+   */
+  scanIgnore?: readonly string[];
   /** Test files scanned for `@feat:<id>` tags. */
   tests?: readonly string[] | false;
   /** The changesets folder, scanned for `Features: <id>` lines. Default `.changeset`. */
@@ -185,17 +191,132 @@ function literalAt(text: string, i: number): string | null {
 }
 
 /**
- * Flag reads in `text`: each key read through an accessor with a literal, and
- * each read whose key isn't a literal (`dynamic`), as `path:line`.
+ * `text` with its comments blanked to spaces (newlines kept), so a flag named
+ * in a comment isn't read as a flag read and line numbers stay right. Strings,
+ * regex literals and template text are left alone; a template's `${…}` is code.
+ * With `strings`, string and template-text contents are blanked too (quotes
+ * stay), so prose in a string ("…the release flag (off)") can't look like a call.
  */
-export function scanFlagReads(path: string, text: string, accessors: readonly string[] = DEFAULT_ACCESSORS) {
+export function blankComments(text: string, strings = false): string {
+  return blankFrom(text, 0, false, strings).out;
+}
+
+// Characters after which a `/` starts a regex literal rather than a division.
+const BEFORE_REGEX = new Set("(,=:[!&|?{};+-*%<>~^");
+const REGEX_KEYWORDS = /(?:^|[^\w$.])(?:return|typeof|instanceof|in|new|delete|void|throw|case|do|else|yield|await)$/;
+
+/**
+ * Blanks comments from `i`, keeping strings, regex literals and template text.
+ * With `inTemplate`, stops at the `}` that closes a template's `${`, so
+ * interpolations are scanned as code.
+ */
+function blankFrom(text: string, i: number, inTemplate: boolean, strings = false): { out: string; end: number } {
+  const keep = (chunk: string) => (strings ? chunk.replace(/[^\n]/g, " ") : chunk);
+  let out = "";
+  let depth = 0;
+  while (i < text.length) {
+    const c = text[i]!;
+    const next = text[i + 1];
+    if (inTemplate && c === "}" && depth === 0) return { out, end: i };
+    if (c === "{") depth++;
+    else if (c === "}") depth--;
+    if (c === "/" && next === "/") {
+      const end = text.indexOf("\n", i);
+      const stop = end === -1 ? text.length : end;
+      out += " ".repeat(stop - i);
+      i = stop;
+    } else if (c === "/" && next === "*") {
+      const end = text.indexOf("*/", i + 2);
+      const stop = end === -1 ? text.length : end + 2;
+      out += text.slice(i, stop).replace(/[^\n]/g, " ");
+      i = stop;
+    } else if (c === "/" && next !== ">" && startsRegex(out)) {
+      // A regex literal: `/[/*]/` holds no comment. Classes may contain `/`.
+      let j = i + 1;
+      let inClass = false;
+      while (j < text.length && text[j] !== "\n") {
+        const r = text[j]!;
+        if (r === "\\") j += 2;
+        else {
+          if (r === "[") inClass = true;
+          else if (r === "]") inClass = false;
+          else if (r === "/" && !inClass) break;
+          j++;
+        }
+      }
+      if (text[j] !== "/") {
+        // No closing `/` on the line: a division after all.
+        out += c;
+        i++;
+        continue;
+      }
+      out += text.slice(i, j + 1);
+      i = j + 1;
+    } else if (c === "`") {
+      // Template text is kept; each `${…}` is scanned as code.
+      out += c;
+      let j = i + 1;
+      while (j < text.length && text[j] !== "`") {
+        if (text[j] === "\\") {
+          out += keep(text.slice(j, j + 2));
+          j += 2;
+        } else if (text[j] === "$" && text[j + 1] === "{") {
+          out += "${";
+          const inner = blankFrom(text, j + 2, true, strings);
+          out += inner.out;
+          j = inner.end;
+          if (j < text.length) out += text[j]!;
+          j++;
+        } else {
+          out += keep(text[j]!);
+          j++;
+        }
+      }
+      if (j < text.length) out += "`";
+      i = j + 1;
+    } else if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== c && text[j] !== "\n") j += text[j] === "\\" ? 2 : 1;
+      if (text[j] === c) {
+        out += c + keep(text.slice(i + 1, j)) + c;
+        i = j + 1;
+      } else {
+        // No closing quote on this line: JSX text ("Don't"), not a string.
+        out += c;
+        i++;
+      }
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return { out, end: i };
+}
+
+function startsRegex(before: string): boolean {
+  const trimmed = before.replace(/\s+$/, "");
+  if (trimmed === "") return true;
+  // `</p>` closes a JSX tag; a regex right after `<` is vanishingly rare.
+  if (before.endsWith("<")) return false;
+  return BEFORE_REGEX.has(trimmed[trimmed.length - 1]!) || REGEX_KEYWORDS.test(trimmed);
+}
+
+/**
+ * Flag reads in `text`: each key read through an accessor with a literal, and
+ * each read whose key isn't a literal (`dynamic`), as `path:line`. Comments
+ * don't count.
+ */
+export function scanFlagReads(path: string, source: string, accessors: readonly string[] = DEFAULT_ACCESSORS) {
+  const text = blankComments(source);
+  // Matches run on code with string contents blanked; literal keys are read from `text`.
+  const code = blankComments(source, true);
   const keys: { key: string; where: string }[] = [];
   const dynamic: string[] = [];
   for (const accessor of accessors) {
     const jsx = /^<(\w[\w.]*)\s+(\w+)>$/.exec(accessor);
     if (jsx) {
       const re = new RegExp(`<${jsx[1]!.replace(/\./g, "\\.")}\\b[^>]*?\\b${jsx[2]}\\s*=\\s*`, "g");
-      for (const m of text.matchAll(re)) {
+      for (const m of code.matchAll(re)) {
         let i = m.index! + m[0].length;
         if (text[i] === "{") i = text.slice(i + 1).search(/\S/) + i + 1;
         const key = literalAt(text, i);
@@ -205,7 +326,7 @@ export function scanFlagReads(path: string, text: string, accessors: readonly st
       continue;
     }
     const re = new RegExp(`(?<![\\w$.])(function\\s+)?${accessor.replace(/\$/g, "\\$")}\\s*(?:<[^>()]*>)?\\s*\\(\\s*`, "g");
-    for (const m of text.matchAll(re)) {
+    for (const m of code.matchAll(re)) {
       if (m[1]) continue; // its own definition
       const i = m.index! + m[0].length;
       if (text[i] === ")") continue;
@@ -265,7 +386,15 @@ function outputs(options: FeatureProjectOptions): { path: string; next: (current
   }
   if (json) list.push({ path: json, ...whole(toJson(features, flags, { source })) });
   if (openfeature && flags && Object.keys(flags).length) list.push({ path: openfeature, ...whole(toOpenFeatureManifest(flags, features)) });
-  if (skill) list.push({ path: skill, ...whole(toSkillMarkdown({ source, command })) });
+  const writesFlags = Boolean(openfeature && flags && Object.keys(flags).length);
+  const generated = [
+    ...(agents ? [`the ${agents} block`] : []),
+    ...(json ? [`\`${json}\``] : []),
+    ...(writesFlags ? [`\`${openfeature}\` (the OpenFeature flag manifest)`] : []),
+    ...(options.marketing ? [`the ${options.marketing} Features section`] : []),
+    ...(skill ? ["this skill"] : []),
+  ];
+  if (skill) list.push({ path: skill, ...whole(toSkillMarkdown({ source, command, outputs: generated })) });
   if (options.marketing) {
     const block = toMarketingMarkdown(features, { heading: options.marketingHeading, source });
     list.push({
@@ -398,8 +527,9 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
     for (const name of expired) errors.push(`${name} expired on ${flags[name]!.expires}: remove its code path, then the flag`);
     if (options.scan !== false) {
       const inScan = matcher(options.scan ?? DEFAULT_SCAN);
+      const skipped = matcher(options.scanIgnore ?? (options.tests || DEFAULT_TESTS));
       const used = new Map<string, string>();
-      for (const path of files.filter((p) => inScan(p) && !p.endsWith(".d.ts"))) {
+      for (const path of files.filter((p) => inScan(p) && !skipped(p) && !p.endsWith(".d.ts"))) {
         const { keys, dynamic } = scanFlagReads(path, readFileSync(join(root, path), "utf8"), options.flagAccessors ?? DEFAULT_ACCESSORS);
         for (const where of dynamic) errors.push(`${where}: a flag read with a computed key. Use a literal key, so the read can be checked`);
         for (const { key, where } of keys) {

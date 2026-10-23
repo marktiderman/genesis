@@ -4,11 +4,11 @@ import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Switch } from "@marktiderman/genesis-ui/switch";
 import { FormBuilder, defaultPalette, diffDefinitions, getTemplate } from "@marktiderman/genesis-forms-builder";
-import { STRUCTURED_FIELD_TYPES, type FormDefinition } from "@marktiderman/genesis-forms";
+import { COMPUTED_FIELD_TYPES, STRUCTURED_FIELD_TYPES, type FormDefinition } from "@marktiderman/genesis-forms";
 import { SAMPLE_TEMPLATES } from "../lib/form-templates";
 
-/** The starter templates use the structured types, so authors can add them too. */
-const palette = [...defaultPalette(), ...STRUCTURED_FIELD_TYPES];
+/** The starter templates use the structured types, so authors can add them too, and calculated fields. */
+const palette = [...defaultPalette(), ...STRUCTURED_FIELD_TYPES, ...COMPUTED_FIELD_TYPES];
 
 /** The form builder on its own. Nothing is stored: "Publish" only shows what would change. */
 export default function FormsBuilderRoute() {
@@ -50,16 +50,17 @@ export default function FormsBuilderRoute() {
         defaultValue={start}
         palette={palette}
         readOnly={readOnly}
-        actions={(_def, analysis, builder) => readOnly ? null : (
+        actions={(_def, _analysis, builder) => readOnly ? null : (
           <Button
             testID="builder-publish"
             size="sm"
-            // The analysis shown can be a keystroke behind; the click checks the current value.
-            disabled={!analysis.canPublish && !builder.analysing}
+            // Always pressable: a click on a form that isn't ready shows every check that blocks it,
+            // including the title of a question still being written.
             onClick={() => {
               // Commit a key still being typed, then gate on the checks of exactly that value.
               const def = builder.flush();
               if (!builder.getAnalysis().canPublish) {
+                builder.revealChecks();
                 setNote("Fix the problems listed before publishing.");
                 return;
               }

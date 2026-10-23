@@ -1,5 +1,7 @@
+import { CALCULATED_TYPE, MAX_CALCULATED_DECIMALS } from "./calculated";
 import { isJson } from "./events";
-import { getFieldType } from "./fields";
+import { getFieldType, isIsoDate } from "./fields";
+import { parseFormula } from "./formula";
 import { recallRefs } from "./recall";
 import { MAX_TABLE_COLUMNS } from "./structured";
 import type { Condition, FormDefinition, Operator } from "./types";
@@ -42,7 +44,16 @@ const LITERAL_TYPE: Readonly<Record<string, "string" | "number" | "boolean">> = 
   "multi-choice": "string",
   "yes-no": "boolean",
   list: "string",
+  dropdown: "string",
+  number: "number",
+  date: "string",
+  consent: "boolean",
+  // A calculated field holds a number unless its format says text; see `literalType`.
+  calculated: "number",
 };
+
+/** Field types whose answer is one of `props.options`. */
+const CHOICE_TYPES: ReadonlySet<string> = new Set(["single-choice", "multi-choice", "dropdown"]);
 
 const ORDERING: ReadonlySet<string> = new Set<Operator>(["lt", "lte", "gt", "gte"]);
 
@@ -147,7 +158,47 @@ export function parseForm(input: unknown): ParseResult {
     } else if (type === "text-highlights") {
       optionalText(props.text, `${path}.text`);
       optionalInt(props.maxHighlights, `${path}.maxHighlights`, 1);
+    } else if (type === CALCULATED_TYPE) {
+      // The formula itself is checked once every key is known, below.
+      if (props.format !== undefined && props.format !== "number" && props.format !== "percent" && props.format !== "text") {
+        issue(`${path}.format`, "Must be number, percent or text.");
+      }
+      if (props.decimals !== undefined && !(isInt(props.decimals) && props.decimals >= 0 && props.decimals <= MAX_CALCULATED_DECIMALS)) {
+        issue(`${path}.decimals`, `Must be a whole number from 0 to ${MAX_CALCULATED_DECIMALS}.`);
+      }
     }
+  };
+
+  const isFiniteNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  /** The props of the scale, number, date and consent types. */
+  const fieldProps = (type: string, props: Record<string, unknown>, path: string) => {
+    if (type === "rating" || type === "nps") {
+      optionalText(props.lowLabel, `${path}.lowLabel`);
+      optionalText(props.highLabel, `${path}.highLabel`);
+    }
+    if (type === "rating" && props.display !== undefined && props.display !== "numbers" && props.display !== "stars") {
+      issue(`${path}.display`, "Must be numbers or stars.");
+    }
+    if (type === "number") {
+      for (const k of ["min", "max", "step"] as const) {
+        if (props[k] !== undefined && !isFiniteNumber(props[k])) issue(`${path}.${k}`, "Must be a number.");
+      }
+      if (isFiniteNumber(props.step) && props.step <= 0) issue(`${path}.step`, "Must be above 0.");
+      if (isFiniteNumber(props.min) && isFiniteNumber(props.max) && props.min > props.max) {
+        issue(`${path}.min`, "Can't be more than the largest number.");
+      }
+    }
+    if (type === "date") {
+      for (const k of ["min", "max"] as const) {
+        if (props[k] !== undefined && !(typeof props[k] === "string" && isIsoDate(props[k]))) {
+          issue(`${path}.${k}`, "Must be a date like 2026-10-22.");
+        }
+      }
+      if (typeof props.min === "string" && typeof props.max === "string" && isIsoDate(props.min) && isIsoDate(props.max) && props.min > props.max) {
+        issue(`${path}.min`, "Can't be after the latest date.");
+      }
+    }
+    if (type === "consent") optionalText(props.text, `${path}.text`);
   };
 
   if (!isObject(input)) {
@@ -186,8 +237,12 @@ export function parseForm(input: unknown): ParseResult {
   const keys = new Map<string, string>();
   const fieldTypes = new Map<string, string>();
   const order = new Map<string, number>();
+  /** Column keys of table fields, for formulas. */
+  const tableColumnKeys = new Map<string, Set<string>>();
   /** Option values of fields with `props.options`, for the operand check. */
   const choices = new Map<string, Set<string>>();
+  /** Calculated fields that don't hold a number: `format: "text"` holds text, no format can hold either. */
+  const calculatedLiteral = new Map<string, "string" | undefined>();
 
   input.blocks.forEach((block: unknown, i) => {
     const path = `blocks[${i}]`;
@@ -240,12 +295,24 @@ export function parseForm(input: unknown): ParseResult {
       // Checked with or without props: a table with no columns would block every submission.
       if (typeof block.type === "string" && (block.props === undefined || isObject(block.props))) {
         structuredProps(block.type, block.props ?? {}, `${path}.props`);
+        fieldProps(block.type, block.props ?? {}, `${path}.props`);
       }
       if (validKey) {
         if (keys.has(block.key as string)) issue(`${path}.key`, `Duplicate key "${String(block.key)}".`);
         keys.set(block.key as string, block.id);
       }
       fieldTypes.set(block.id, typeof block.type === "string" ? block.type : "");
+      if (block.type === CALCULATED_TYPE) {
+        const format = isObject(block.props) ? block.props.format : undefined;
+        if (format === "text") calculatedLiteral.set(block.id, "string");
+        else if (format !== "number" && format !== "percent") calculatedLiteral.set(block.id, undefined);
+      }
+      if (block.type === "table" && isObject(block.props) && Array.isArray(block.props.columns)) {
+        tableColumnKeys.set(
+          block.id,
+          new Set(block.props.columns.flatMap((c) => (isObject(c) && typeof c.key === "string" ? [c.key] : []))),
+        );
+      }
     } else if (block.kind === "content") {
       if (block.type !== "heading" && block.type !== "text") issue(`${path}.type`, "Must be heading or text.");
       text(block.text, `${path}.text`);
@@ -253,6 +320,42 @@ export function parseForm(input: unknown): ParseResult {
       optionalText(block.title, `${path}.title`);
     } else {
       issue(`${path}.kind`, "Unknown block kind.");
+    }
+  });
+
+  // Calculated fields: the formula parses, and every answer it names is a
+  // question of this form (a table by one of its columns), and a calculated
+  // one only when it comes earlier, so values never go round in a circle.
+  input.blocks.forEach((block: unknown, i) => {
+    if (!isObject(block) || block.kind !== "field" || block.type !== CALCULATED_TYPE) return;
+    const path = `blocks[${i}].props.formula`;
+    if (block.required === true) {
+      warnings.push({ path: `blocks[${i}].required`, message: "A calculated field is worked out, not answered, so it is never required." });
+    }
+    const formula = isObject(block.props) ? block.props.formula : undefined;
+    if (typeof formula !== "string" || !formula.trim()) return issue(path, "A calculated field needs a formula.");
+    const parsed = parseFormula(formula);
+    if (!parsed.ok) return issue(path, `${parsed.message} (at character ${parsed.at + 1})`);
+    const reported = new Set<string>();
+    for (const ref of parsed.refs) {
+      const name = ref.column === undefined ? ref.key : `${ref.key}.${ref.column}`;
+      if (reported.has(name)) continue;
+      reported.add(name);
+      const target = keys.get(ref.key);
+      const targetType = target === undefined ? undefined : fieldTypes.get(target);
+      const at = target === undefined ? undefined : order.get(target);
+      if (target === undefined || targetType === undefined) issue(path, `The formula uses "${ref.key}", which is not the answer name of a question in this form.`);
+      else if (target === block.id) issue(path, "The formula uses this field's own value.");
+      else if (targetType === CALCULATED_TYPE && (at ?? 0) > i) {
+        issue(path, `The formula uses "${ref.key}", a calculated field that comes after this one; move it earlier.`);
+      } else if (targetType === "table") {
+        const columns = tableColumnKeys.get(target);
+        if (ref.column === undefined) issue(path, `"${ref.key}" is a table: name one of its columns, like ${ref.key}.${[...(columns ?? [])][0] ?? "column"}.`);
+        else if (columns && !columns.has(ref.column)) issue(path, `The table "${ref.key}" has no column "${ref.column}".`);
+      } else if (ref.column !== undefined) issue(path, `"${ref.key}" is not a table, so it has no column "${ref.column}".`);
+      else if (targetType === "media-notes" || targetType === "text-highlights") {
+        warnings.push({ path, message: `"${ref.key}" holds notes, not numbers; the formula reads it as blank.` });
+      }
     }
   });
 
@@ -345,8 +448,8 @@ export function parseForm(input: unknown): ParseResult {
     if (typeof left.field === "string" && fieldTypes.has(left.field)) {
       const fieldType = fieldTypes.get(left.field)!;
       what = `"${keyOf(left.field)}"`;
-      type = LITERAL_TYPE[fieldType];
-      if (fieldType === "single-choice" || fieldType === "multi-choice") options = choices.get(left.field);
+      type = calculatedLiteral.has(left.field) ? calculatedLiteral.get(left.field) : LITERAL_TYPE[fieldType];
+      if (CHOICE_TYPES.has(fieldType)) options = choices.get(left.field);
     } else if (typeof left.hidden === "string" && hiddenTypes.has(left.hidden)) {
       what = `hidden input "${left.hidden}"`;
       type = hiddenTypes.get(left.hidden);

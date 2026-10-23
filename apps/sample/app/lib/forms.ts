@@ -62,16 +62,44 @@ export const monthlyCheckIn = defineForm({
   settings: { anonymous: true },
 });
 
+/** A booking request: dropdown, number, date, a star rating with end labels, and a consent checkbox. */
+export const classBooking = defineForm({
+  id: "class-booking",
+  title: "Book a class",
+  layout: { mode: "classic" },
+  blocks: [
+    f.dropdown("class", {
+      label: "Which class?",
+      required: true,
+      options: [
+        { value: "early", label: "Early morning" },
+        { value: "lunch", label: "Lunchtime" },
+        { value: "evening", label: "Evening" },
+        { value: "weekend", label: "Weekend" },
+      ],
+    }),
+    f.date("day", { label: "Which day?", required: true, min: "2026-01-01" }),
+    f.number("guests", { label: "How many guests are you bringing?", min: 0, max: 5, step: 1 }),
+    f.rating("last", { label: "How was your last class?", display: "stars", lowLabel: "Poor", highLabel: "Great" }),
+    f.consent("terms", { label: "Booking terms", text: "I agree to the booking terms", required: true }),
+  ],
+  logic: [when("guests").greaterThan(2).jumpTo({ ending: "group" })],
+  endings: [
+    { id: "default", title: "You're booked in." },
+    { id: "group", title: "Thanks! We'll confirm space for your group." },
+  ],
+});
+
 /** The organisation shown on the respondent's screen: initials stand in for a logo. */
 export const demoBrand = { name: "Acme Events" };
 
-export const playgroundForms ={ "event-feedback": eventFeedback, "monthly-check-in": monthlyCheckIn } as const;
+export const playgroundForms = { "event-feedback": eventFeedback, "monthly-check-in": monthlyCheckIn, "class-booking": classBooking } as const;
 
 export interface PlaygroundScenario {
   id: string;
   title: string;
   description: string;
-  form: typeof eventFeedback | typeof monthlyCheckIn;
+  form: typeof eventFeedback | typeof monthlyCheckIn | typeof classBooking;
   context: Record<string, string>;
   tags: string[];
 }
@@ -93,5 +121,13 @@ export const scenarios: PlaygroundScenario[] = [
     form: monthlyCheckIn,
     context: {},
     tags: ["R1", "nps", "endings"],
+  },
+  {
+    id: "class-booking",
+    title: "Class booking",
+    description: "Dropdown, date, number, star rating and a required consent; a group jumps to its own ending.",
+    form: classBooking,
+    context: {},
+    tags: ["dropdown", "number", "date", "consent", "stars"],
   },
 ];

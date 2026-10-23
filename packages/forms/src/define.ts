@@ -97,14 +97,51 @@ export const f = {
     field<K, string>("long-text", key, o, o.maxLength ? { maxLength: o.maxLength } : undefined),
   email: <K extends string>(key: K, o: FieldOptions) => field<K, string>("email", key, o),
   phone: <K extends string>(key: K, o: FieldOptions) => field<K, string>("phone", key, o),
-  rating: <K extends string>(key: K, o: FieldOptions & { max?: number | undefined }) =>
-    field<K, number>("rating", key, o, { max: o.max ?? 5 }),
-  nps: <K extends string>(key: K, o: FieldOptions) => field<K, number>("nps", key, o),
+  /**
+   * A 1-to-`max` scale. `lowLabel` and `highLabel` are optional words under
+   * its ends ("Poor", "Great"); `display: "stars"` draws stars instead of numbers.
+   */
+  rating: <K extends string>(
+    key: K,
+    o: FieldOptions & {
+      max?: number | undefined;
+      lowLabel?: string | undefined;
+      highLabel?: string | undefined;
+      display?: "numbers" | "stars" | undefined;
+    },
+  ) =>
+    field<K, number>(
+      "rating",
+      key,
+      o,
+      props({ max: o.max ?? 5, lowLabel: o.lowLabel || undefined, highLabel: o.highLabel || undefined, display: o.display }),
+    ),
+  /** A 0-to-10 Net Promoter Score. The end labels default to "Not likely" and "Very likely" in the renderer. */
+  nps: <K extends string>(key: K, o: FieldOptions & { lowLabel?: string | undefined; highLabel?: string | undefined }) =>
+    field<K, number>("nps", key, o, props({ lowLabel: o.lowLabel || undefined, highLabel: o.highLabel || undefined })),
   singleChoice: <K extends string, O extends string>(key: K, o: ChoiceFieldOptions<O>) =>
     field<K, O>("single-choice", key, o, choiceProps(o.options)),
   multiChoice: <K extends string, O extends string>(key: K, o: ChoiceFieldOptions<O>) =>
     field<K, O[]>("multi-choice", key, o, choiceProps(o.options)),
   yesNo: <K extends string>(key: K, o: FieldOptions) => field<K, boolean>("yes-no", key, o),
+  /** One option from a compact menu: for a long list (a country, a class), where single choice would be a wall of buttons. */
+  dropdown: <K extends string, O extends string>(key: K, o: ChoiceFieldOptions<O>) =>
+    field<K, O>("dropdown", key, o, choiceProps(o.options)),
+  /** A number, optionally between `min` and `max` and on a `step` (from `min`, else 0): `step: 1` for whole numbers. */
+  number: <K extends string>(
+    key: K,
+    o: FieldOptions & { min?: number | undefined; max?: number | undefined; step?: number | undefined },
+  ) => field<K, number>("number", key, o, props({ min: o.min, max: o.max, step: o.step })),
+  /** A calendar day, stored as `YYYY-MM-DD`, optionally between `min` and `max` (also `YYYY-MM-DD`). */
+  date: <K extends string>(key: K, o: FieldOptions & { min?: string | undefined; max?: string | undefined }) =>
+    field<K, string>("date", key, o, props({ min: o.min, max: o.max })),
+  /**
+   * A single checkbox to agree to something. `text` is the checkbox's own
+   * words ("I agree to the terms"); the renderer defaults to "I agree".
+   * Checked stores `true`; unchecked is unanswered, so `required` means it must be checked.
+   */
+  consent: <K extends string>(key: K, o: FieldOptions & { text?: string | undefined }) =>
+    field<K, true>("consent", key, o, props({ text: o.text || undefined })),
   /** Several short answers, one per line: goals, action items, three things that went well. */
   list: <K extends string>(
     key: K,
@@ -121,6 +158,19 @@ export const f = {
       o,
       props({ min: o.min, max: o.max, itemMaxLength: o.itemMaxLength, placeholder: o.itemPlaceholder }),
     ),
+  /**
+   * A value worked out from other answers and shown read-only, such as a
+   * total or a score: `formula` names answers by key (`hours * rate`,
+   * `sum(plan.cost)`). Stored with the answers; never required.
+   */
+  calculated: <K extends string>(
+    key: K,
+    o: Omit<FieldOptions, "required" | "placeholder"> & {
+      formula: string;
+      format?: "number" | "percent" | "text" | undefined;
+      decimals?: number | undefined;
+    },
+  ) => field<K, number | string | boolean>("calculated", key, o, props({ formula: o.formula, format: o.format, decimals: o.decimals })),
   /**
    * A small table each answer fills row by row, one answer per column: an
    * action plan (What / Who / By when), pros and cons.

@@ -75,3 +75,11 @@ describe("toSkillMarkdown", () => {
     expect(skill.indexOf("Remove the code first")).toBeLessThan(skill.indexOf("Then remove its flags"));
   });
 });
+
+describe("toSkillMarkdown outputs", () => {
+  it("names only what the build writes", () => {
+    expect(toSkillMarkdown({ command: "bun run features", outputs: ["the AGENTS.md block", "`features.json`", "this skill"] })).toContain(
+      "`bun run features build` generates the rest from it: the AGENTS.md block, `features.json`, this skill.",
+    );
+  });
+});

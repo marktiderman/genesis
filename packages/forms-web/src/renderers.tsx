@@ -1,14 +1,23 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Checkbox } from "@marktiderman/genesis-ui/checkbox";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { RadioGroup, RadioGroupItem } from "@marktiderman/genesis-ui/radio-group";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import { choiceOptions, getFieldType, type Json } from "@marktiderman/genesis-forms";
+import {
+  choiceOptions,
+  dateLimits,
+  getFieldType,
+  numberLimits,
+  ratingDisplay,
+  scaleLabels,
+  type Json,
+} from "@marktiderman/genesis-forms";
 import { createRendererRegistry, type FieldRendererProps, type RendererEntry } from "@marktiderman/genesis-forms-react";
 import { useFormPresentation } from "./presentation";
 import { describedBy, FieldChrome } from "./chrome";
+import { calculatedRenderers } from "./calculated";
 import { structuredRenderers } from "./structured";
 
 export { describedBy, FieldChrome, type FieldChromeProps } from "./chrome";
@@ -211,31 +220,112 @@ function scaleValues(type: string, max: number): number[] {
   return Array.from({ length: max }, (_, i) => i + 1);
 }
 
+/** The words under a scale's ends: the field's `lowLabel` / `highLabel`, else NPS's defaults. */
+function endLabels(props: FieldRendererProps): { low?: string; high?: string } {
+  const own = scaleLabels(props.binding.field);
+  if (props.binding.field.type !== "nps") return own;
+  return { low: own.low ?? "Not likely", high: own.high ?? "Very likely" };
+}
+
+/** The end labels row; each label is read with its end option (`aria-describedby`). */
+function EndLabels({ inputId, low, high }: { inputId: string; low?: string | undefined; high?: string | undefined }) {
+  if (!low && !high) return null;
+  return (
+    <div className="flex justify-between gap-4 text-sm text-muted-foreground" data-gf-scale-labels="">
+      <span id={`${inputId}-low`}>{low ?? ""}</span>
+      <span id={`${inputId}-high`} className="text-right">
+        {high ?? ""}
+      </span>
+    </div>
+  );
+}
+
 function ScaleField(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const max = typeof binding.field.props?.max === "number" ? binding.field.props.max : 5;
   const values = scaleValues(binding.field.type, max);
-  const nps = binding.field.type === "nps";
-  const options = values.map((n, i) => ({
-    value: String(n),
-    label: String(n),
-    describedBy: nps && i === 0 ? `${inputId}-low` : nps && i === values.length - 1 ? `${inputId}-high` : undefined,
-  }));
+  const { low, high } = endLabels(props);
+  const stars = binding.field.type === "rating" && ratingDisplay(binding.field) === "stars";
+  const describe = (i: number) =>
+    low && i === 0 ? `${inputId}-low` : high && i === values.length - 1 ? `${inputId}-high` : undefined;
+  const value = typeof binding.value === "number" ? String(binding.value) : "";
+  const onValueChange = (v: string) => binding.setValue(Number(v));
+  if (stars) {
+    return (
+      <FieldChrome props={props}>
+        <StarRadioGroup props={props} values={values} value={value} onValueChange={onValueChange} describe={describe} />
+        <EndLabels inputId={inputId} low={low} high={high} />
+      </FieldChrome>
+    );
+  }
+  const options = values.map((n, i) => ({ value: String(n), label: String(n), describedBy: describe(i) }));
   return (
     <FieldChrome props={props}>
-      <ButtonRadioGroup
-        props={props}
-        options={options}
-        value={typeof binding.value === "number" ? String(binding.value) : ""}
-        onValueChange={(v) => binding.setValue(Number(v))}
-      />
-      {nps ? (
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span id={`${inputId}-low`}>Not likely</span>
-          <span id={`${inputId}-high`}>Very likely</span>
-        </div>
-      ) : null}
+      <ButtonRadioGroup props={props} options={options} value={value} onValueChange={onValueChange} />
+      <EndLabels inputId={inputId} low={low} high={high} />
     </FieldChrome>
+  );
+}
+
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={cn("size-8 transition-colors motion-reduce:transition-none", filled ? "fill-primary text-primary" : "fill-transparent text-muted-foreground")}
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" />
+    </svg>
+  );
+}
+
+/**
+ * A rating drawn as stars. Still a real `radiogroup` (one radio per star,
+ * named "3 of 5"); the stars up to the chosen one are filled.
+ */
+function StarRadioGroup({
+  props,
+  values,
+  value,
+  onValueChange,
+  describe,
+}: {
+  props: FieldRendererProps;
+  values: number[];
+  value: string;
+  onValueChange: (value: string) => void;
+  describe: (index: number) => string | undefined;
+}) {
+  const pick = useDeliberatePick(props.onAdvance);
+  const chosen = value === "" ? 0 : Number(value);
+  const max = values[values.length - 1] ?? 5;
+  return (
+    <RadioGroup
+      {...groupAria(props)}
+      {...pick.rootProps}
+      value={value}
+      onValueChange={onValueChange}
+      className="flex flex-wrap justify-start gap-1"
+      data-gf-stars=""
+    >
+      {values.map((n, i) => (
+        <div key={n} className="relative">
+          <RadioGroupItem
+            value={String(n)}
+            aria-label={`${n} of ${max}`}
+            aria-describedby={describe(i)}
+            onClick={pick.onItemClick}
+            className="peer size-11 aspect-auto rounded-md border-0 bg-transparent shadow-none hover:bg-accent data-[state=checked]:bg-transparent [&_svg]:hidden"
+          />
+          <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center peer-disabled:opacity-50">
+            <StarIcon filled={n <= chosen} />
+          </span>
+        </div>
+      ))}
+    </RadioGroup>
   );
 }
 
@@ -399,6 +489,148 @@ function MultiChoiceField(props: FieldRendererProps) {
   );
 }
 
+// ── Dropdown, number, date, consent ─────────────────────────────────────────
+
+/** The look of a one-line control: a large underlined line in page focus, a taller box on a page. */
+function useLineClass(): string | undefined {
+  const { presentation, layout } = useFormPresentation();
+  if (presentation === "page" && layout === "focus") {
+    return "h-auto rounded-none border-0 border-b-2 border-input bg-transparent px-0 py-2 text-xl shadow-none md:text-2xl sm:text-2xl focus-visible:border-primary focus-visible:ring-0 focus-visible:ring-offset-0 aria-invalid:border-destructive";
+  }
+  return presentation === "page" ? "h-11 md:text-base" : undefined;
+}
+
+function controlAria(props: FieldRendererProps) {
+  return {
+    id: props.inputId,
+    "data-gf-focus": "",
+    "aria-invalid": props.binding.error ? true : undefined,
+    "aria-required": props.binding.field.required || undefined,
+    "aria-describedby": describedBy(props),
+  } as const;
+}
+
+/**
+ * One option from a native `<select>`: compact for a long list, and the
+ * phone's own picker on touch devices.
+ */
+function DropdownField(props: FieldRendererProps) {
+  const { binding } = props;
+  const options = choiceOptions(binding.field);
+  const line = useLineClass();
+  const value = typeof binding.value === "string" ? binding.value : "";
+  return (
+    <FieldChrome props={props}>
+      <select
+        {...controlAria(props)}
+        value={value}
+        onChange={(e) => binding.setValue(e.target.value === "" ? undefined : e.target.value)}
+        className={cn(
+          "flex h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm aria-invalid:border-destructive",
+          value === "" && "text-muted-foreground",
+          line,
+        )}
+      >
+        <option value="">{binding.field.placeholder ?? "Choose…"}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label ?? o.value}
+          </option>
+        ))}
+      </select>
+    </FieldChrome>
+  );
+}
+
+/**
+ * A number, typed as text with the decimal keypad: what was typed is kept
+ * while it is not a number yet ("-", "1."), and stored as a number once it is.
+ * Text that never becomes a number is kept as text, so validation says so.
+ */
+function NumberField(props: FieldRendererProps) {
+  const { binding } = props;
+  const { min, max, step } = numberLimits(binding.field);
+  const line = useLineClass();
+  const shown = typeof binding.value === "number" ? String(binding.value) : typeof binding.value === "string" ? binding.value : "";
+  const [text, setText] = useState(shown);
+  // A value set from outside (Back, a prefill, a restart) replaces what was typed.
+  useEffect(() => {
+    setText((typed) => (typed.trim() !== "" && Number(typed.trim().replace(",", ".")) === binding.value ? typed : shown));
+  }, [shown, binding.value]);
+  return (
+    <FieldChrome props={props}>
+      <Input
+        {...controlAria(props)}
+        type="text"
+        inputMode={min !== undefined && min >= 0 && (step === undefined || Number.isInteger(step)) ? "numeric" : "decimal"}
+        autoComplete="off"
+        value={text}
+        placeholder={binding.field.placeholder}
+        className={line}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setText(raw);
+          const t = raw.trim().replace(",", ".");
+          if (t === "") binding.setValue(undefined);
+          else {
+            const n = Number(t);
+            binding.setValue(Number.isFinite(n) && /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t) ? n : raw);
+          }
+        }}
+      />
+      {min !== undefined || max !== undefined ? (
+        <p className="text-sm text-muted-foreground" data-gf-number-range="">
+          {min !== undefined && max !== undefined ? `From ${min} to ${max}` : min !== undefined ? `${min} or more` : `${max} or less`}
+        </p>
+      ) : null}
+    </FieldChrome>
+  );
+}
+
+/** A calendar day from the browser's own date picker, stored as `YYYY-MM-DD`. */
+function DateField(props: FieldRendererProps) {
+  const { binding } = props;
+  const { min, max } = dateLimits(binding.field);
+  const line = useLineClass();
+  return (
+    <FieldChrome props={props}>
+      <Input
+        {...controlAria(props)}
+        type="date"
+        min={min}
+        max={max}
+        value={typeof binding.value === "string" ? binding.value : ""}
+        className={cn("w-full sm:w-auto sm:min-w-48", line)}
+        onChange={(e) => binding.setValue(e.target.value === "" ? undefined : e.target.value)}
+      />
+    </FieldChrome>
+  );
+}
+
+/**
+ * One checkbox to agree to something. The question is the legend; the
+ * checkbox's own words are `props.text` ("I agree to the terms"), else "I agree".
+ */
+function ConsentField(props: FieldRendererProps) {
+  const { binding, inputId } = props;
+  const text = typeof binding.field.props?.text === "string" && binding.field.props.text.trim() ? binding.field.props.text : "I agree";
+  const look = useChoiceLook(inputId, 1);
+  return (
+    <FieldChrome props={props}>
+      <Label htmlFor={`${inputId}-0`} className={look.row}>
+        <Checkbox
+          id={`${inputId}-0`}
+          checked={binding.value === true}
+          aria-invalid={binding.error ? true : undefined}
+          aria-required={binding.field.required || undefined}
+          onCheckedChange={(c) => binding.setValue(c === true ? true : undefined)}
+        />
+        <span>{props.engine.text(text)}</span>
+      </Label>
+    </FieldChrome>
+  );
+}
+
 export const builtInRenderers: RendererEntry[] = [
   { type: "short-text", Component: (p) => <TextField {...p} /> },
   { type: "long-text", Component: (p) => <TextField {...p} multiline /> },
@@ -411,7 +643,12 @@ export const builtInRenderers: RendererEntry[] = [
   { type: "single-choice", Component: SingleChoiceField },
   { type: "multi-choice", Component: MultiChoiceField },
   { type: "yes-no", Component: YesNoField },
+  { type: "dropdown", Component: DropdownField },
+  { type: "number", Component: NumberField },
+  { type: "date", Component: DateField },
+  { type: "consent", Component: ConsentField },
   ...structuredRenderers,
+  ...calculatedRenderers,
 ];
 
 /**
