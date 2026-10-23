@@ -1,0 +1,88 @@
+packages/forms-web/src/photo.tsx
+  s_7baae891ebd9ae::t_3cfbd41581ce6a 209
+  s_7baae891ebd9ae::t_9b02966f7eef80 1-208,210-291
+packages/forms-studio/README.md
+  s_7baae891ebd9ae::t_900ebf4b870a44 61-65
+.changeset/photo-field-builder.md
+  s_7baae891ebd9ae::t_701eaa61be32aa 1-5
+packages/forms-studio/src/PhotoAnswer.tsx
+  s_7baae891ebd9ae::t_afba077907a239 1-26,28-96
+  s_7baae891ebd9ae::t_904e105d9e30f5 27
+packages/forms/src/define.ts
+  s_7baae891ebd9ae::t_979df73bdf998e 3,219-236
+  s_7baae891ebd9ae::t_1454f0e36ab7b3 237
+packages/forms-builder/src/structured-editors.tsx
+  s_7baae891ebd9ae::t_ccea7317c191fd 3-4,7-22,211-275,284
+packages/forms/README.md
+  s_7baae891ebd9ae::t_900ebf4b870a44 132-153
+packages/forms-web/src/upload.ts
+  s_7baae891ebd9ae::t_e46988c2f79de5 1-48
+packages/forms-builder/src/calculated-editor.tsx
+  s_7baae891ebd9ae::t_ccea7317c191fd 37
+packages/forms-builder/src/type-icons.tsx
+  s_7baae891ebd9ae::t_ccea7317c191fd 6,49
+packages/forms-builder/README.md
+  s_7baae891ebd9ae::t_900ebf4b870a44 216-222
+packages/forms-studio/src/index.ts
+  s_7baae891ebd9ae::t_904e105d9e30f5 25
+packages/forms-web/src/index.ts
+  s_7baae891ebd9ae::t_2699e504e4f863 18-23
+  s_7baae891ebd9ae::t_bde7f51faba7d5 17
+.changeset/photo-field-studio.md
+  s_7baae891ebd9ae::t_b9720e508eee15 1-5
+packages/forms/src/photo.ts
+  s_7baae891ebd9ae::t_80b79d56a08aa7 104-106
+  s_7baae891ebd9ae::t_5c2de980a5066c 30,142
+  s_7baae891ebd9ae::t_b070489532d558 1-20,22-29,31-103,107-141,143-145
+  s_7baae891ebd9ae::t_c7fe647d13d3e1 21
+.changeset/photo-field-engine.md
+  s_7baae891ebd9ae::t_b4cf127d8b7343 1-5
+packages/forms-builder/src/questions.tsx
+  s_7baae891ebd9ae::t_ccea7317c191fd 9,88-90,94
+packages/forms-builder/src/__tests__/photo.test.tsx
+  s_7baae891ebd9ae::t_f1278e65f124dd 1-65
+packages/forms-web/src/__tests__/photo.test.tsx
+  s_7baae891ebd9ae::t_236870538282d1 1-46,49-123
+  s_7baae891ebd9ae::t_501248fd316e92 47-48
+packages/forms/src/__tests__/photo.test.ts
+  s_7baae891ebd9ae::t_28b95feb9b71e0 131,154-156
+  s_7baae891ebd9ae::t_8585080f6d8d53 1-130,132-153,157-158
+.changeset/photo-field-web.md
+  s_7baae891ebd9ae::t_f1007a4f3adcf2 1-5
+packages/forms/src/fields.ts
+  s_7baae891ebd9ae::t_979df73bdf998e 4,436
+packages/forms-web/src/Form.tsx
+  s_7baae891ebd9ae::t_c40270f36f84dd 2
+  s_7baae891ebd9ae::t_c835e084846001 530-532,535-541
+  s_7baae891ebd9ae::t_2699e504e4f863 6,18,30,491-498,529,533,573-574,660-666,669,695
+packages/forms-web/README.md
+  s_7baae891ebd9ae::t_900ebf4b870a44 111-131
+packages/forms/type-tests/exact-optional.ts
+  s_7baae891ebd9ae::t_5ce10b0c35aff8 24
+packages/forms-web/src/renderers.tsx
+  s_7baae891ebd9ae::t_2699e504e4f863 22,653
+packages/forms-studio/src/__tests__/photo-answer.test.tsx
+  s_7baae891ebd9ae::t_8c7b8408184921 1-50
+packages/forms/src/parse.ts
+  s_7baae891ebd9ae::t_979df73bdf998e 203-218,383-384
+  s_7baae891ebd9ae::t_17ef2b2f663830 6
+packages/forms/src/index.ts
+  s_7baae891ebd9ae::t_979df73bdf998e 71-91
+  s_7baae891ebd9ae::t_c7a5370f176412 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "586e19cb00b96087c2baef690508be996b5c16fb",
+  "prompts": {},
+  "sessions": {
+    "s_7baae891ebd9ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "978228ed-47c3-4e1c-a76c-34946b2a80b1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

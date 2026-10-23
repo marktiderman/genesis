@@ -1,0 +1,80 @@
+packages/forms/src/engine.ts
+  s_7baae891ebd9ae::t_d5a9adbbb7066e 35-42
+  s_7baae891ebd9ae::t_50b8a6bef3c48b 46
+  s_7baae891ebd9ae::t_2cd6779b5c38f8 96-97
+  s_7baae891ebd9ae::t_8358b9099ab55e 2
+packages/forms/src/define.ts
+  s_7baae891ebd9ae::t_5448c41fb5d32e 15
+  s_7baae891ebd9ae::t_b66c0ea4cd957e 142
+  s_7baae891ebd9ae::t_97b509abb60277 79-82
+  s_7baae891ebd9ae::t_9649c088e4d5bc 42-49
+  s_7baae891ebd9ae::t_01e8d0ea1cd5fb 78,83-85
+  s_7baae891ebd9ae::t_6035b13317f6b1 136,138
+.changeset/forms-host-options.md
+  s_7baae891ebd9ae::t_44193ca1d2704d 1-11
+packages/forms-builder/README.md
+  s_7baae891ebd9ae::t_1b56763fe2a676 174
+  s_7baae891ebd9ae::t_bfa6de1dd4bde0 262-284
+packages/forms/src/types.ts
+  s_7baae891ebd9ae::t_747221861dbf79 36-48
+packages/forms/src/fields.ts
+  s_7baae891ebd9ae::t_a95351f7e2c708 1
+  s_7baae891ebd9ae::t_f4d9695de5f434 112-167
+packages/forms-builder/src/__tests__/host-options.test.tsx
+  s_7baae891ebd9ae::t_efe923c2a63f18 1-116
+packages/forms/README.md
+  s_7baae891ebd9ae::t_bd1b074edbbb15 213-235
+packages/forms-web/src/__tests__/host-options.test.tsx
+  s_7baae891ebd9ae::t_031a4363fd98b3 1-45
+packages/forms-builder/src/index.ts
+  s_7baae891ebd9ae::t_165267d5a44afc 38
+packages/forms-builder/src/ops.ts
+  s_7baae891ebd9ae::t_0f00afc883973e 406-434
+  s_7baae891ebd9ae::t_88e845bae610b6 14
+packages/forms-builder/src/editors.ts
+  s_7baae891ebd9ae::t_fdf31a25003b7b 124-125
+  s_7baae891ebd9ae::t_c3addba5bde033 3
+packages/forms/src/index.ts
+  s_7baae891ebd9ae::t_a3543796866aaa 16
+  s_7baae891ebd9ae::t_46f168b2b58165 49,52,55
+packages/forms/src/__tests__/host-options.test.ts
+  s_7baae891ebd9ae::t_251710ddacb751 82-83
+  s_7baae891ebd9ae::t_1bf9e231b2da8b 1-81,84-173
+packages/forms-web/src/Form.tsx
+  s_7baae891ebd9ae::t_5e928d8a8d04c1 523
+  s_7baae891ebd9ae::t_98744fa73d4f34 440-449
+  s_7baae891ebd9ae::t_28beab52008910 16
+packages/forms/src/server.ts
+  s_7baae891ebd9ae::t_488d58be86bbba 9
+  s_7baae891ebd9ae::t_d290a3fa8f95d4 177,181,183-185
+  s_7baae891ebd9ae::t_cb25ed2beb91b3 51-57
+packages/forms-builder/src/host-options.ts
+  s_7baae891ebd9ae::t_c7bd9a80771125 1-41
+packages/forms/src/parse.ts
+  s_7baae891ebd9ae::t_1fb0cc8287e259 288-294
+  s_7baae891ebd9ae::t_c4b63e729e7fcf 270-277
+packages/forms-builder/src/FormBuilder.tsx
+  s_7baae891ebd9ae::t_8c9cf14b4e71f5 29,125-133,228-234,253,280-286,318-319,328,410
+packages/forms-builder/src/analyze.ts
+  s_7baae891ebd9ae::t_c860e8126da1d7 10,12,19,152-155,157-160,190-197,203-204
+packages/forms-builder/src/preview.tsx
+  s_7baae891ebd9ae::t_0181e0b9d2de24 12-13,35,48-49,73,75-76,89
+packages/forms-builder/src/questions.tsx
+  s_7baae891ebd9ae::t_98c9482844bbd3 8,33-34,49,1065-1069,1071-1139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aab03c3d77aa9f7a59deaf89a7adcc513630a092",
+  "prompts": {},
+  "sessions": {
+    "s_7baae891ebd9ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "978228ed-47c3-4e1c-a76c-34946b2a80b1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
