@@ -14,12 +14,15 @@ form's rows and handles every action (save, publish, mark handled, reply), so an
 
 ```tsx
 import {
-  ResourceHeader, ReadinessChip, formNavItems, formStatusChip,
+  ResourceHeader, ReadinessChip, formNavItems, formStatusChip, FORM_NAV_ICONS,
   formAvailability, formCounts, readinessOf,
 } from "@marktiderman/genesis-forms-studio";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "@marktiderman/genesis-ui/layout";
 
-useAppShellSubNav(formNavItems(`/forms/${form.id}`, { ...formCounts(definition), responses }), { mode: "tabs" });
+useAppShellSubNav(
+  formNavItems(`/forms/${form.id}`, { ...formCounts(definition), responses }, FORM_NAV_ICONS),
+  { mode: "tabs" },
+);
 
 <AppShellPageHeader>
 <ResourceHeader

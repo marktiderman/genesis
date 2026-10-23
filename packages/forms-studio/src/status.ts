@@ -60,10 +60,20 @@ export function formCounts(definition: FormDefinition | null | undefined): {
 export function formNavItems(
   at: string | ((tab: FormTab) => string),
   counts: { questions?: number | null; logic?: number | null; responses?: number | null } = {},
+  /** Each place's icon, for the rail and the phone's bottom bar (`FORM_NAV_ICONS`). */
+  icons?: Partial<Record<FormTab, SubNavItem["icon"]>>,
 ): FormNavItem[] {
   const to = typeof at === "function" ? at : (tab: FormTab) => (tab === "questions" ? at : `${at}?tab=${tab}`);
-  const item = (id: FormTab, label: string, badge?: number | null): FormNavItem =>
-    badge == null ? { id, to: to(id), label } : { id, to: to(id), label, badge };
+  const item = (id: FormTab, label: string, badge?: number | null): FormNavItem => {
+    const icon = icons?.[id];
+    return {
+      id,
+      to: to(id),
+      label,
+      ...(badge == null ? {} : { badge }),
+      ...(icon ? { icon } : {}),
+    };
+  };
   return [
     item("questions", "Questions", counts.questions),
     item("logic", "Logic and endings", counts.logic),

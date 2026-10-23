@@ -19,5 +19,6 @@ export { ShareDialog } from "./generic/ShareDialog";
 export { SettingsSection, ResourceSettingsPage, type SettingsPageSection } from "./generic/settings";
 
 // Forms
+export { FORM_NAV_ICONS } from "./navIcons";
 export { ResponsesFilters, type ChoiceFilter } from "./ResponsesFilters";
 export { QuestionSummaryCards, QuestionSummaryCard } from "./QuestionSummaryCards";

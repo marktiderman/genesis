@@ -147,5 +147,7 @@ describe("status words", () => {
     ]);
     expect(formNavItems("/f")[2]).toEqual({ id: "responses", to: "/f?tab=responses", label: "Responses" });
     expect(formNavItems((t) => `/forms/f1/${t}`)[3]?.to).toBe("/forms/f1/settings");
+    const Icon = () => null;
+    expect(formNavItems("/f", {}, { settings: Icon as never })[3]?.icon).toBe(Icon);
   });
 });
