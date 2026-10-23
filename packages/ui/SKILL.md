@@ -342,6 +342,35 @@ the sidebar options hands it back. `options.defaultCollapsed` is the app-wide de
 { id: "builder", path: "/forms/$formId/edit", label: "Form builder", items: [], defaultCollapsed: true }
 ```
 
+**Sub-navigation (a page's children).** A node's `items` are the current page's child items: a
+form's Questions / Logic and endings / Responses / Settings. Each is a `NavItem`: `label`, `to`
+(a route, or a `?search` / `#hash`; active state follows the URL, most specific sibling wins),
+optional `icon` (first letter when missing) and optional `badge` (a count or short status, shown
+as a chip). Gate by role the same way as other items: filter the list before handing it over.
+For live data (badge counts) the page calls `useAppShellSubNav(items, { mode? })`, which
+replaces the node's items while it is mounted, and puts a host chip at the end of the tab row with
+`<AppShellSubNavEnd>…</AppShellSubNavEnd>`. `options.subNav` picks the desktop look:
+
+- `"tabs"` (default): one row of navigation links across the top of the content, badges as
+  chips, the current tab underlined in the brand colour, `aria-current="page"`.
+- `"sidebar"`: nested under the active global item ("Forms"); a flyout from it on the rail.
+- `"off"`: nothing; draw your own (`SubNavTabs` is exported for that).
+
+A node (`subNav` on `NavigationNode`, nearest in the trail wins), the `subNav` prop and the page's
+hook override it, in that order of strength (hook strongest). On phones, while the mode isn't
+`"off"`, a page with children swaps the bottom bar to them, led by a back item to the logical
+parent ("Forms"); leaving the page brings the main bar back. An explicit `mobileNavItems` wins.
+
+```tsx
+useAppShellSubNav([
+  { to: `/forms/${id}/edit`, label: "Questions", icon: ListChecks, badge: questions.length, end: true },
+  { to: `/forms/${id}/edit/logic`, label: "Logic and endings", icon: GitBranch, badge: rules.length },
+  { to: `/forms/${id}/edit/responses`, label: "Responses", icon: Inbox, badge: responseCount },
+  { to: `/forms/${id}/edit/settings`, label: "Settings", icon: Settings },
+]);
+<AppShellSubNavEnd><Badge variant="success">Ready to publish</Badge></AppShellSubNavEnd>
+```
+
 For chrome outside AppShell, call the same resolver: `resolveNavigation(tree, pathname)` (from
 `/layout`, `/data` or the root barrel) returns `{ current, parent, items, trail, params }` with
 every path interpolated from the URL's params.

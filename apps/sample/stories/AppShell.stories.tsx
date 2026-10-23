@@ -1,11 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { AppShell } from "@marktiderman/genesis-ui/layout";
+import {
+  AppShell,
+  AppShellSubNavEnd,
+  useAppShellSubNav,
+  type NavigationNode,
+  type NavItem,
+} from "@marktiderman/genesis-ui/layout";
+import { Badge } from "@marktiderman/genesis-ui";
 import {
   LayoutDashboard,
   Map,
   CheckSquare,
   Layers,
   Newspaper,
+  ClipboardList,
+  Home,
+  Users,
 } from "lucide-react";
 
 const meta: Meta<typeof AppShell> = {
@@ -140,4 +150,106 @@ export const WindowScroll: Story = {
       </div>
     </AppShell>
   ),
+};
+
+// ---------------------------------------------------------------------------
+// Sub-navigation: a page's child items (a form's four tabs)
+// ---------------------------------------------------------------------------
+
+const formTabs: NavItem[] = [
+  { to: "/forms/$formId/edit", label: "Questions", badge: 2, end: true },
+  { to: "/forms/$formId/edit/logic", label: "Logic and endings", badge: 1 },
+  { to: "/forms/$formId/edit/responses", label: "Responses", badge: 2 },
+  { to: "/forms/$formId/edit/settings", label: "Settings" },
+];
+
+const formsTree: NavigationNode<NavItem> = {
+  id: "app",
+  path: "/",
+  label: "Home",
+  items: [
+    { to: "/", icon: Home, label: "Home", end: true },
+    { to: "/clients", icon: Users, label: "Clients" },
+    { to: "/forms", icon: ClipboardList, label: "Forms" },
+  ],
+  children: [
+    {
+      id: "forms",
+      path: "/forms",
+      label: "Forms",
+      items: [],
+      children: [
+        { id: "form", path: "/forms/$formId/edit", label: "Form", items: formTabs, defaultCollapsed: true },
+      ],
+    },
+  ],
+};
+
+/** What a form page does: live badges through the hook, a chip in the row's end slot. */
+function FormPage() {
+  useAppShellSubNav([
+    { to: "/forms/f1/edit", label: "Questions", badge: 2, end: true },
+    { to: "/forms/f1/edit/logic", label: "Logic and endings", badge: 1 },
+    { to: "/forms/f1/edit/responses", label: "Responses", badge: 2 },
+    { to: "/forms/f1/edit/settings", label: "Settings" },
+  ]);
+  return (
+    <div className="space-y-2">
+      <AppShellSubNavEnd>
+        <Badge variant="success">Ready to publish</Badge>
+      </AppShellSubNavEnd>
+      <h1 className="text-xl font-semibold">E2E Saturday check-in</h1>
+      <p className="text-sm text-muted-foreground">Logic and endings is the current tab.</p>
+    </div>
+  );
+}
+
+const subNavShell = (subNav: "tabs" | "sidebar" | "off", collapsed?: boolean) => (
+  <AppShell
+    appName="Breakthrough"
+    appLogo="B"
+    navigation={formsTree}
+    activePath="/forms/f1/edit/logic"
+    subNav={subNav}
+    defaultCollapsed={collapsed ?? false}
+  >
+    <FormPage />
+  </AppShell>
+);
+
+export const SubNavTabs: Story = {
+  name: "Sub-nav: tabs (default)",
+  render: () => subNavShell("tabs"),
+};
+
+export const SubNavTabsCollapsed: Story = {
+  name: "Sub-nav: tabs, sidebar collapsed",
+  render: () => subNavShell("tabs", true),
+};
+
+export const SubNavSidebar: Story = {
+  name: "Sub-nav: sidebar",
+  render: () => subNavShell("sidebar"),
+};
+
+export const SubNavSidebarRail: Story = {
+  name: "Sub-nav: sidebar, rail flyout",
+  render: () => subNavShell("sidebar", true),
+};
+
+export const SubNavOff: Story = {
+  name: "Sub-nav: off",
+  render: () => subNavShell("off"),
+};
+
+export const SubNavPhone: Story = {
+  name: "Sub-nav: phone bottom bar",
+  globals: { viewport: { value: "mobile1", isRotated: false } },
+  render: () => subNavShell("tabs"),
+};
+
+export const SubNavPhoneOff: Story = {
+  name: "Sub-nav: phone, off keeps the main bar",
+  globals: { viewport: { value: "mobile1", isRotated: false } },
+  render: () => subNavShell("off"),
 };

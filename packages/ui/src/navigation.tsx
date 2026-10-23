@@ -179,6 +179,17 @@ export interface NavigationNode<T> {
    * @stability Beta
    */
   defaultCollapsed?: boolean;
+  /**
+   * How the app shell shows this node's `items` (its child pages, e.g. a
+   * form's Questions / Logic / Responses / Settings) on desktop: `"tabs"`
+   * across the top of the content, `"sidebar"` nested under the active
+   * item, or `"off"` (the app draws its own). The nearest node in the trail
+   * that sets it wins over the shell's `options.subNav`. Phones show the
+   * children in the bottom bar unless the mode is `"off"`.
+   *
+   * @stability Beta
+   */
+  subNav?: "tabs" | "sidebar" | "off";
 }
 
 /**

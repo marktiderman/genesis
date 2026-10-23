@@ -10,7 +10,14 @@ import { CheckSquare, FileText, LayoutDashboard, Plus, Users } from "lucide-reac
 import { AppShell, type NavItem } from "../AppShell";
 import type { NavigationNode } from "../../../navigation";
 
-const chrome = { showThemeToggle: false, showCollapse: false, configurable: false };
+// These cases cover the sidebar rendering of a node's items; the tab row
+// (the default) is covered in app-shell-sub-nav.test.tsx.
+const chrome = {
+  showThemeToggle: false,
+  showCollapse: false,
+  configurable: false,
+  subNav: "sidebar" as const,
+};
 
 const tree: NavigationNode<NavItem> = {
   id: "app",
@@ -70,7 +77,8 @@ describe("AppShell navigation tree", () => {
   it("derives contextual items with `$param` filled from the URL", () => {
     renderShell("/clients/c%201/tasks?page=2");
     const contextual = within(sidebar().getByTestId("app-shell-contextual-nav"));
-    expect(contextual.getByText("Client")).toBeTruthy();
+    // Nested under the active global item, named by the node's label.
+    expect(sidebar().getByRole("group", { name: "Client" })).toBeTruthy();
     expect(contextual.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/clients/c%201");
     const tasks = contextual.getByRole("link", { name: "Tasks" });
     expect(tasks.getAttribute("href")).toBe("/clients/c%201/tasks");
@@ -79,9 +87,10 @@ describe("AppShell navigation tree", () => {
     expect(sidebar().getByRole("link", { name: "Dashboard" })).toBeTruthy();
   });
 
-  it("puts the contextual items in the mobile tab bar", () => {
+  it("puts the contextual items in the mobile tab bar, after a back item", () => {
     renderShell("/clients/c1");
     expect(bottomBar().getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
+      "/clients",
       "/clients/c1",
       "/clients/c1/tasks",
     ]);

@@ -4,7 +4,7 @@ import {
   ReactRouterLink,
   useReactRouterActivePath,
 } from "@marktiderman/genesis-ui/router/react-router";
-import { LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler, SwatchBook, Shapes, LayoutTemplate, ScrollText, ListChecks } from "lucide-react";
+import { LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler, SwatchBook, Shapes, LayoutTemplate, ScrollText, ListChecks, FolderKanban, FileText, Activity } from "lucide-react";
 
 const globalItems: NavItem[] = [
   { to: "/showcase", icon: Sparkles, label: "Showcase" },
@@ -19,7 +19,17 @@ const globalItems: NavItem[] = [
   { to: "/forms-builder", icon: PencilRuler, label: "Form builder" },
   { to: "/studio", icon: Database, label: "Data Studio" },
   { to: "/features", icon: ListChecks, label: "Features" },
+  { to: "/projects", icon: FolderKanban, label: "Projects" },
   { to: "/settings", icon: Settings, label: "Settings" },
+];
+
+// A project's four children. The page (`projects.$projectId.tsx`) hands over
+// the same list with live badges through `useAppShellSubNav`.
+const projectItems: NavItem[] = [
+  { to: "/projects/$projectId", icon: FileText, label: "Overview", end: true },
+  { to: "/projects/$projectId/tasks", icon: CheckSquare, label: "Tasks" },
+  { to: "/projects/$projectId/activity", icon: Activity, label: "Activity" },
+  { to: "/projects/$projectId/settings", icon: Settings, label: "Settings" },
 ];
 
 // Contextual nav while anywhere in the showcase.
@@ -43,6 +53,13 @@ const navigation: NavigationNode<NavItem> = {
     // The form builder needs the width: it opens with the sidebar as an icon
     // rail until the user picks a side with the toggle (or `[`).
     { id: "forms-builder", path: "/forms-builder", label: "Form builder", items: [], defaultCollapsed: true },
+    {
+      id: "projects",
+      path: "/projects",
+      label: "Projects",
+      items: [],
+      children: [{ id: "project", path: "/projects/$projectId", label: "Project", items: projectItems }],
+    },
     {
       id: "showcase",
       path: "/showcase",
