@@ -80,9 +80,9 @@ describe("<FormBuilder readOnly>", () => {
     expect(screen.queryByTestId("builder-add-rule-jump")).toBeNull();
     expect(screen.queryByRole("button", { name: /rule (up|down)|Delete rule/ })).toBeNull();
     const rule = screen.getByTestId("builder-rule-r_better");
-    fireEvent.click(within(rule).getByRole("button", { expanded: false }));
-    expect(screen.getByLabelText("Question").closest("fieldset[disabled]")).toBeTruthy();
-    expect(isDisabled(screen.getByLabelText("Question"))).toBe(true);
+    expect(within(rule).queryByRole("button", { name: /Actions for rule/ })).toBeNull();
+    expect(within(rule).getByLabelText("Question").closest("fieldset[disabled]")).toBeTruthy();
+    expect(isDisabled(within(rule).getByLabelText("Question"))).toBe(true);
     expect(screen.queryByRole("button", { name: "Remove condition" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Add condition/ })).toBeNull();
   });

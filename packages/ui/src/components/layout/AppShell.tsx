@@ -105,7 +105,7 @@ export interface AppShellOptions {
   /** Mobile fixed bottom tab bar */
   showMobileBottomNav?: boolean;
   /**
-   * Open the desktop sidebar collapsed (64px icon rail) when the user hasn't
+   * Open the desktop sidebar collapsed (an icon rail, `collapsedRailWidth` wide) when the user hasn't
    * chosen. The app-wide default; a page asks for its own through
    * `AppShellProps.defaultCollapsed` or `NavigationNode.defaultCollapsed`.
    */
@@ -1331,12 +1331,16 @@ export function AppShell({
       pendingFocus.current = href ? { href } : { toggle: true };
     }
   }
+  // Runs on every commit, so a request is always consumed in the commit that
+  // follows it: a controlled parent that keeps `collapsed` as it was, or a
+  // discarded render, can't leave a stale request for a later collapse.
   useIsoLayoutEffect(() => {
+    const changed = renderedCollapsed.current !== collapsed;
     renderedCollapsed.current = collapsed;
     const want = pendingFocus.current;
     pendingFocus.current = null;
     const aside = sidebarRef.current;
-    if (!want || !aside) return;
+    if (!changed || !want || !aside) return;
     const toggleEl = aside.querySelector<HTMLElement>('[data-testid="app-shell-collapse"]');
     let target: HTMLElement | null = null;
     if ("href" in want) {
@@ -1346,7 +1350,7 @@ export function AppShell({
         ) ?? null;
     }
     (target ?? toggleEl)?.focus();
-  }, [collapsed]);
+  });
   const showCollapseCtrl = resolved.showCollapse !== false;
   const collapseShortcut =
     optionsProp?.collapseShortcut ?? OPTION_DEFAULTS.collapseShortcut!;

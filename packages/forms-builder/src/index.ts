@@ -2,6 +2,7 @@ export {
   FormBuilder,
   FindingsList,
   type BuilderActionsState,
+  type BuilderHistoryState,
   type BuilderTab,
   type FormBuilderHandle,
   type FormBuilderProps,
@@ -15,11 +16,13 @@ export {
   defaultPalette,
   palettePresets,
   paletteTypes,
+  questionNumbers,
   type PaletteEntry,
   type PresetEntry,
 } from "./questions";
-export { LogicPanel, RuleEditor, ConditionEditor, describeRule, jumpTarget, OPERATOR_LABEL, starterRule, valueForOperator } from "./logic";
-export { EndingsPanel, LogicAndEndingsPanel, SettingsPanel, JsonPanel } from "./settings";
+export { FlowMap, flowCheck, type FlowCheck } from "./flow";
+export { LogicPanel, RuleEditor, RuleSentence, RuleKindChip, ConditionEditor, describeRule, jumpTarget, OPERATOR_LABEL, starterRule, valueForOperator } from "./logic";
+export { EndingsPanel, LogicAndEndingsPanel, SettingsPanel, JsonPanel, type FormSettingKey } from "./settings";
 export { ChecksContext, useChecks, visibleFindings, type ChecksState } from "./checks";
 export {
   BuilderConfigContext,
@@ -31,7 +34,8 @@ export {
   type FieldPreset,
   type FieldTypeEditor,
 } from "./editors";
-export { analyze, type Analysis, type Finding, type FindingCode, type FindingLevel } from "./analyze";
+export { RowLayoutContext, type SettingsRowSlotProps } from "./controls";
+export { analyze, PATH_FINDINGS, type Analysis, type Finding, type FindingCode, type FindingLevel } from "./analyze";
 export { diffDefinitions, isUnchanged, type Change, type ChangeKind } from "./diff";
 export {
   useBuilderHistory,

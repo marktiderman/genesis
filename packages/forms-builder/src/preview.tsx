@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import { RotateCcw } from "lucide-react";
+import { Monitor, RotateCcw, Smartphone } from "lucide-react";
 import {
   canonicalJson,
   createForm,
@@ -14,7 +14,8 @@ import {
 import type { FieldRendererProps, RendererRegistry } from "@marktiderman/genesis-forms-react";
 import { defaultRegistry, Form, type FormBrand, type FormTheme } from "@marktiderman/genesis-forms-web";
 import { Button } from "@marktiderman/genesis-ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@marktiderman/genesis-ui/toggle-group";
+import { cn } from "@marktiderman/genesis-ui/utils";
+import { Segmented } from "./controls";
 import { structureFingerprint } from "./analyze";
 import { chosenOutputs, type OutputTarget } from "./outputs";
 
@@ -58,6 +59,7 @@ export function Preview({
   // Follow the form's own layout setting; the toggle overrides it until it changes again.
   useEffect(() => setLayout(mode), [mode]);
   const [run, setRun] = useState(0);
+  const [device, setDevice] = useState<"phone" | "desktop">("phone");
   const parsed = useMemo(() => given ?? parseForm(def), [given, def]);
   const form = parsed.ok ? parsed.form : null;
   // Headings and text alone ask nothing: the form would read "Question 1 of 0".
@@ -105,26 +107,41 @@ export function Preview({
   }, [engine]);
 
   return (
-    <div className="space-y-2 outline-none" data-testid="builder-preview" ref={root} tabIndex={-1}>
-      <div className="flex items-center gap-2">
-        <ToggleGroup
-          type="single"
-          size="sm"
-          variant="outline"
-          value={layout}
-          onValueChange={(v) => v && setLayout(v as "focus" | "classic")}
-          aria-label="Preview layout"
-        >
-          <ToggleGroupItem value="focus">One at a time</ToggleGroupItem>
-          <ToggleGroupItem value="classic">One page</ToggleGroupItem>
-        </ToggleGroup>
-        <span className="flex-1" />
-        <Button variant="ghost" size="sm" onClick={() => setRun((n) => n + 1)} aria-label="Restart preview">
-          <RotateCcw /> Restart
+    <div className="space-y-3 outline-none" data-testid="builder-preview" ref={root} tabIndex={-1}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmented
+          ariaLabel="Preview size"
+          testID="builder-preview-device"
+          value={device}
+          options={[
+            { value: "phone", label: "", ariaLabel: "Phone", icon: <Smartphone aria-hidden /> },
+            { value: "desktop", label: "", ariaLabel: "Desktop", icon: <Monitor aria-hidden /> },
+          ]}
+          onChange={(v) => setDevice(v === "desktop" ? "desktop" : "phone")}
+        />
+        <Button variant="ghost" size="icon" className="size-8 text-muted-foreground" onClick={() => setRun((n) => n + 1)} aria-label="Restart preview" title="Restart">
+          <RotateCcw />
         </Button>
+        <span className="flex-1" />
+        <Segmented
+          ariaLabel="Preview layout"
+          testID="builder-preview-layout"
+          value={layout}
+          options={[
+            { value: "focus", label: "One by one" },
+            { value: "classic", label: "One page" },
+          ]}
+          onChange={(v) => setLayout(v === "classic" ? "classic" : "focus")}
+        />
       </div>
-      <div className="mx-auto w-full max-w-sm overflow-hidden rounded-[1.75rem] border-4 border-foreground/10 bg-background shadow-sm">
-        <div className="h-[36rem] overflow-y-auto p-4">
+      <div
+        data-device={device}
+        className={cn(
+          "mx-auto w-full overflow-hidden bg-background shadow-sm",
+          device === "phone" ? "max-w-[22rem] rounded-[2.25rem] border-[6px] border-foreground/10" : "rounded-lg border",
+        )}
+      >
+        <div className={cn("h-[38rem] overflow-y-auto", device === "phone" ? "px-5 py-6" : "p-6")}>
           {empty ? (
             <div className="flex h-full flex-col items-center justify-center gap-1 p-4 text-center" data-testid="builder-preview-empty">
               <p className="text-sm font-medium">Add a question to see it here.</p>
@@ -153,6 +170,7 @@ export function Preview({
           )}
         </div>
       </div>
+      <p className="text-center text-xs text-muted-foreground">Live preview · updates as you type</p>
     </div>
   );
 }

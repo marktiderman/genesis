@@ -345,11 +345,11 @@ the sidebar options hands it back. `options.defaultCollapsed` is the app-wide de
 ```
 
 **Sub-navigation (a page's children).** A node's `items` are the current page's child items: a
-form's Questions / Logic and endings / Responses / Settings. Each is a `NavItem`: `label`, `to`
-(a route, or a `?search` / `#hash`; active state follows the URL, most specific sibling wins),
-optional `icon` (first letter when missing) and optional `badge` (a count or short status, shown
-as a chip). The hook takes `SubNavItem`s (a `NavItem` whose `icon` is optional); `NavItem.icon`
-itself stays required. Gate by role the same way as other items: filter the list before handing
+form's Questions / Logic and endings / Responses / Settings. A node's items are `NavItem`s,
+so each needs an `icon`. The hook (`useAppShellSubNav`) and the exported `SubNavTabs` take
+`SubNavItem`s instead: a `NavItem` whose `icon` is optional. Without one, the sidebar and mobile
+navigation show the label's first letter, and `SubNavTabs` shows the label alone. Each has `label`, `to` (a route, or a `?search` / `#hash`; active state follows the URL,
+most specific sibling wins) and an optional `badge` (a count or short status, shown as a chip). Gate by role the same way as other items: filter the list before handing
 it over.
 For live data (badge counts) the page calls `useAppShellSubNav(items, { mode? })`, which
 replaces the node's items while it is mounted, and puts a host chip at the end of the tab row with

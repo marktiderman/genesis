@@ -179,7 +179,7 @@ export function SubNavTabs({
             return (
               <li key={item.to + item.label} className="shrink-0">
                 {item.disabled ? (
-                  <span className={cn(cls, "opacity-40")} aria-disabled>
+                  <span className={cn(cls, "opacity-40")} role="link" aria-disabled="true">
                     {body}
                   </span>
                 ) : (
