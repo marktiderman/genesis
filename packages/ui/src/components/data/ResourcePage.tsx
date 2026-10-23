@@ -705,6 +705,12 @@ export interface ResourcePageProps<
   // Data options (client-side mode only)
   resourceOptions?: UseResourceOptions<T>;
   /**
+   * `resource` mode: refetch the list (and the open record) when the
+   * provider reports a change, e.g. Supabase Realtime. Shorthand for
+   * `resourceOptions.live`, which wins. See core's `UseResourceOptions.live`.
+   */
+  live?: UseResourceOptions<T>["live"];
+  /**
    * Keep the list's state in the URL: the open record (`?id=`), the search
    * (`q`), the sort (`sort=field:asc`) and, with `pagination="server"`, the
    * page. Pass your router's search-params adapter

@@ -4,6 +4,7 @@ import type {
   FilterParam,
   Identifier,
   InvalidationKey,
+  ResourceChangeEvent,
   WriteEvent,
 } from "./types";
 import { DataWriteError } from "../schema/write-outcome";
@@ -50,6 +51,41 @@ interface SupabaseQueryBuilder {
  */
 export interface SupabaseClient {
   from(table: string): SupabaseQueryBuilder;
+  /** Supabase Realtime; needed only for `subscribe` (see `SupabaseProviderOptions.realtime`). */
+  channel?(name: string): SupabaseRealtimeChannel;
+  /** Releases a channel made by `channel()`. */
+  removeChannel?(channel: SupabaseRealtimeChannel): unknown;
+}
+
+/**
+ * One `postgres_changes` message, as Supabase Realtime sends it. Only the
+ * fields the provider reads; a real payload has more.
+ */
+export interface SupabaseRealtimePayload {
+  eventType: "INSERT" | "UPDATE" | "DELETE";
+  /** The row after an insert or update (empty for a delete). */
+  new?: Record<string, unknown>;
+  /** For a delete or update: the old row's key (all of it with `REPLICA IDENTITY FULL`). */
+  old?: Record<string, unknown>;
+}
+
+/**
+ * The part of a Supabase `RealtimeChannel` the provider uses. A real
+ * `@supabase/supabase-js` channel satisfies it.
+ */
+export interface SupabaseRealtimeChannel {
+  on(
+    type: "postgres_changes",
+    filter: {
+      event: "*" | "INSERT" | "UPDATE" | "DELETE";
+      schema: string;
+      table: string;
+      filter?: string;
+    },
+    callback: (payload: SupabaseRealtimePayload) => void,
+  ): SupabaseRealtimeChannel;
+  subscribe(callback?: (status: string, error?: unknown) => void): SupabaseRealtimeChannel;
+  unsubscribe?(): unknown;
 }
 
 /**
@@ -68,6 +104,9 @@ export interface SupabaseClient {
  */
 export interface SupabaseClientInput {
   from(table: string): unknown;
+  /** Supabase Realtime, for `subscribe`. Any real client's `channel` fits. */
+  channel?(name: string): unknown;
+  removeChannel?(channel: unknown): unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +185,14 @@ export interface SupabaseResourceConfig {
    * `useResource` and `useResourceForm` invalidate after their writes.
    */
   invalidates?: InvalidationKey[] | ((event: WriteEvent) => InvalidationKey[]);
+  /**
+   * Serve `subscribe` for this resource through Supabase Realtime
+   * (`postgres_changes`), so `live` lists and records refresh when the table
+   * changes. The table must be in the `supabase_realtime` publication, with
+   * RLS on. `false` turns it off even when `SupabaseProviderOptions.realtime`
+   * covers the resource.
+   */
+  realtime?: boolean;
 }
 
 /** Options for `createSupabaseProvider`. All optional; none changes reads. */
@@ -184,6 +231,13 @@ export interface SupabaseProviderOptions {
     error: DataReadError,
     context: { resource: string; operation: "getList" | "getOne" | "getMany" },
   ) => void | Promise<void>;
+  /**
+   * Which resources `subscribe` serves through Supabase Realtime: `true` for
+   * all, a list of names, or a test. Off by default; a resource's own
+   * `resources[name].realtime` wins. Needs a client with `channel()` (any
+   * `@supabase/supabase-js` client).
+   */
+  realtime?: boolean | readonly string[] | ((resource: string) => boolean);
 }
 
 /** A PostgREST "undefined column" error (42703) naming `column`. */
@@ -213,6 +267,21 @@ function escapeIlike(value: string): string {
 function isIdentifier(value: unknown): value is Identifier {
   return typeof value === "string" || typeof value === "number";
 }
+
+/** `"schema.table"` or `"table"` (schema `public`), as Realtime names them. */
+function realtimeTable(resource: string): { schema: string; table: string } {
+  const dot = resource.indexOf(".");
+  const strip = (name: string) => name.replace(/"/g, "");
+  return dot < 0
+    ? { schema: "public", table: strip(resource) }
+    : { schema: strip(resource.slice(0, dot)), table: strip(resource.slice(dot + 1)) };
+}
+
+/** An id safe to put in a Realtime filter (`id=eq.<id>`) without quoting. */
+const SAFE_FILTER_ID = /^[A-Za-z0-9_-]+$/;
+
+let realtimeChannelSeq = 0;
+const warnedRealtime = new Set<string>();
 
 /**
  * The Supabase data provider. Reads and writes go through the client you
@@ -333,6 +402,16 @@ export function createSupabaseProvider(
   const configFor = (resource: string): SupabaseResourceConfig =>
     options.resources?.[resource] ?? {};
   const nounFor = (resource: string) => configFor(resource).noun ?? "record";
+
+  function realtimeEnabled(resource: string): boolean {
+    if (typeof client.channel !== "function") return false;
+    const own = configFor(resource).realtime;
+    if (own !== undefined) return own;
+    const all = options.realtime;
+    if (!all) return false;
+    if (all === true) return true;
+    return typeof all === "function" ? all(resource) : all.includes(resource);
+  }
 
   function isBinTable(resource: string): boolean {
     const mode = configFor(resource).deleteMode;
@@ -546,6 +625,88 @@ export function createSupabaseProvider(
         delete: true,
         maxPerPage,
         softDelete: resource ? isBinTable(resource) : false,
+        realtime: resource
+          ? realtimeEnabled(resource)
+          : typeof client.channel === "function" &&
+            (!!options.realtime ||
+              Object.values(options.resources ?? {}).some((r) => r.realtime === true)),
+      };
+    },
+
+    subscribe(resource, params, callback) {
+      if (!realtimeEnabled(resource)) {
+        if (process.env.NODE_ENV !== "production" && !warnedRealtime.has(resource)) {
+          warnedRealtime.add(resource);
+          console.warn(
+            typeof client.channel !== "function"
+              ? `[SupabaseProvider] "${resource}" was subscribed to, but the client has no channel() (Supabase Realtime), so nothing will be reported.`
+              : `[SupabaseProvider] "${resource}" was subscribed to, but realtime is off for it. Set resources.${resource}.realtime (or the realtime option) to true.`,
+          );
+        }
+        return () => {};
+      }
+      const { schema, table } = realtimeTable(resource);
+      const filter =
+        params.id != null && SAFE_FILTER_ID.test(String(params.id))
+          ? `id=eq.${String(params.id)}`
+          : undefined;
+      // A unique topic: supabase-js hands back an existing channel for a
+      // topic already open, and removing it would end the other subscriber.
+      const channel = client.channel!(
+        `genesis:${resource}:${++realtimeChannelSeq}`,
+      ) as SupabaseRealtimeChannel;
+      let closed = false;
+      let subscribedOnce = false;
+      let interrupted = false;
+      const emit = (event: ResourceChangeEvent) => {
+        if (closed) return;
+        try {
+          callback(event);
+        } catch (error) {
+          console.error(`[SupabaseProvider] a realtime callback for "${resource}" threw:`, error);
+        }
+      };
+      channel
+        .on(
+          "postgres_changes",
+          { event: "*", schema, table, ...(filter ? { filter } : {}) },
+          (payload) => {
+            // Only the id: the payload is a hint, never data to show. Realtime
+            // applies RLS to inserts and updates, but a delete's old key is
+            // sent to every subscriber, so nothing else is passed on.
+            const row = payload.eventType === "DELETE" ? payload.old : payload.new;
+            const id = row?.["id"];
+            if (params.id != null && !filter && isIdentifier(id) && String(id) !== String(params.id)) return;
+            const type =
+              payload.eventType === "INSERT" ? "created" : payload.eventType === "UPDATE" ? "updated" : "deleted";
+            emit(isIdentifier(id) ? { type, id } : { type });
+          },
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            // Back after a drop: changes made meanwhile were not sent.
+            if (subscribedOnce && interrupted) emit({ type: "changed" });
+            subscribedOnce = true;
+            interrupted = false;
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            interrupted = true;
+          }
+        });
+      return () => {
+        if (closed) return;
+        closed = true;
+        try {
+          const done =
+            typeof client.removeChannel === "function"
+              ? client.removeChannel(channel)
+              : channel.unsubscribe?.();
+          // A failed removal (socket already gone) is nothing to report.
+          if (done && typeof (done as Promise<unknown>).catch === "function") {
+            (done as Promise<unknown>).catch(() => {});
+          }
+        } catch {
+          // As above.
+        }
       };
     },
 

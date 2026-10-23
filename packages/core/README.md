@@ -101,6 +101,7 @@ const provider = createSupabaseProvider(supabase, {
 | `toFormValues(row)` | Row → edit-form values, for a form shaped differently from its table. Served as `DataProvider.toFormValues`, which `useResourceForm` applies in edit mode. The reverse is `prepare`. |
 | `invalidates` | Other query keys a write makes stale, as a list or `(event) => keys`. Served as `DataProvider.invalidates`, which `useResource` and `useResourceForm` (and so `ResourcePage` and `ResourceForm`) invalidate after their writes, on top of `[resource]`. |
 | `onWrite(event)` | Called after every committed create, update and delete, including writes made straight through the provider. Awaited; if it throws, the error is logged and the write is still reported saved. |
+| `realtime` / `resources[r].realtime` | Serve `subscribe` through Supabase Realtime, for `live` lists and records. Off by default: `true`, a list of resources, or `(resource) => boolean`; a resource's own `realtime` wins. See [Live updates](#live-updates-realtime). |
 
 Both hooks also take an `invalidates` option for keys one screen cares about:
 `useResource("tasks", { invalidates: [["me"]] })`.
@@ -231,6 +232,67 @@ const tasks = useResource("tasks", {
 });
 await tasks.remove(id); // resolves at once; sent in 5 s unless undone
 ```
+
+## Live updates (realtime)
+
+`useResource(resource, { live: true })`, `useOne(resource, id, { live: true })`
+and genesis-ui's `<ResourcePage live />` keep what is on screen current while
+they are mounted. They subscribe through the provider's optional
+`subscribe(resource, params, callback)` and, when it reports a change,
+refetch the resource's cached reads (`useResource`: every `[resource, …]`
+query; `useOne`: that record, and only for its own id).
+
+- **Events are hints, never data.** The callback gets `{ type: "created" |
+  "updated" | "deleted", id? }`, or `{ type: "changed" }` when changes may have
+  been missed (after a reconnect). Nothing from an event is written to the
+  cache: rows always come from the provider's normal read, under its RLS.
+- **One refetch per burst.** Events within `debounceMs` (default 250) of each
+  other cause one refetch: `live: { debounceMs: 1000 }`. A steady stream
+  still refetches at least every `4 × debounceMs`.
+- **Pending writes stay applied.** A refetch while an optimistic or undoable
+  write is pending gets that write's patch re-applied (see
+  [Mutation modes](#mutation-modes)), so a row deleted with Undo stays hidden
+  and an edit stays shown. Your own committed writes come back as events too;
+  the extra refetch is harmless and is not filtered out.
+- **A hidden tab waits.** While the page is hidden, reads are only marked
+  stale; they refetch when it is shown again (with TanStack Query's default
+  `refetchOnWindowFocus`) or when next used.
+- **Without `subscribe`**, or for a resource the provider doesn't watch,
+  `live` does nothing. `capabilities(resource).realtime` says whether it
+  will work.
+
+### Supabase setup
+
+```ts
+const provider = createSupabaseProvider(supabase, {
+  resources: { tasks: { realtime: true } }, // or realtime: true | ["tasks"] for several
+});
+```
+
+```sql
+-- 1. Publish the table's changes to Realtime.
+alter publication supabase_realtime add table public.tasks;
+-- 2. Keep RLS on: Realtime only sends an insert or update to a subscriber
+--    whose SELECT policies allow the new row.
+alter table public.tasks enable row level security;
+```
+
+- The provider opens one `postgres_changes` channel per subscription
+  (`useOne` filters it to `id=eq.<id>`) and removes it on unsubscribe. A
+  resource named `schema.table` listens in that schema; otherwise `public`.
+- **What leaks, and what doesn't.** Insert and update events are checked
+  against RLS by Realtime. **Delete events are not:** every subscriber to the
+  table receives the deleted row's primary key (with RLS on, Supabase sends
+  only the key, even under `REPLICA IDENTITY FULL`). The provider passes on only the id, and the hooks only refetch,
+  so a user never sees a row their read doesn't return. Don't enable
+  realtime on a table whose ids are themselves sensitive.
+- **Cost.** Each mounted live list or record is one Realtime channel, and
+  each change refetches every live list of that table for every subscriber
+  (debounced per client). Realtime checks RLS once per subscriber per
+  change, so busy tables with many viewers multiply database load. Enable it
+  where people watch shared data change, not on every table.
+- `capabilities(resource).realtime` is true only for resources with realtime
+  on and a client with `channel()` (any `@supabase/supabase-js` client).
 
 ## Unsaved changes
 

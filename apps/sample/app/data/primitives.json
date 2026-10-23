@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22",
+  "generatedAt": "2026-10-23",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -12633,6 +12633,13 @@
               "description": "Built-in list keyboard navigation via `useKeyboardNavigation`: j/k (or\nArrow Up/Down) move a focus cursor, Enter opens the focused item,\nBackspace (⌫) closes an open detail view, and x toggles the focused\nitem's selection when `bulkActions` are configured. Set to `false` to\nopt out.\n\nDefault-on, and scoped so that being on by default stays safe:\n- The j/k cursor runs while the grid or list view is showing. Table view\n  keeps its own sort/pagination, so there `DataTable` handles the keys on\n  its focusable rows instead (↑/↓ or j/k, Home/End, Enter, x); this prop\n  turns that off too.\n- Cursor keys suspend while a detail panel/modal or the built-in form\n  is open, so they can't drive the list behind the overlay; ⌫ stays\n  live there so it can close it.\n- Backspace is only intercepted while there's an open detail to close.\n- Modified chords (Ctrl/Cmd/Alt) are never captured, so an app's\n  Cmd+K-style shortcuts keep working."
             },
             {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "`resource` mode: refetch the list (and the open record) when the\nprovider reports a change, e.g. Supabase Realtime. Shorthand for\n`resourceOptions.live`, which wins. See core's `UseResourceOptions.live`."
+            },
+            {
               "name": "loading",
               "type": "boolean",
               "required": false,
@@ -15564,6 +15571,13 @@
               "description": "Built-in list keyboard navigation via `useKeyboardNavigation`: j/k (or\nArrow Up/Down) move a focus cursor, Enter opens the focused item,\nBackspace (⌫) closes an open detail view, and x toggles the focused\nitem's selection when `bulkActions` are configured. Set to `false` to\nopt out.\n\nDefault-on, and scoped so that being on by default stays safe:\n- The j/k cursor runs while the grid or list view is showing. Table view\n  keeps its own sort/pagination, so there `DataTable` handles the keys on\n  its focusable rows instead (↑/↓ or j/k, Home/End, Enter, x); this prop\n  turns that off too.\n- Cursor keys suspend while a detail panel/modal or the built-in form\n  is open, so they can't drive the list behind the overlay; ⌫ stays\n  live there so it can close it.\n- Backspace is only intercepted while there's an open detail to close.\n- Modified chords (Ctrl/Cmd/Alt) are never captured, so an app's\n  Cmd+K-style shortcuts keep working."
             },
             {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "`resource` mode: refetch the list (and the open record) when the\nprovider reports a change, e.g. Supabase Realtime. Shorthand for\n`resourceOptions.live`, which wins. See core's `UseResourceOptions.live`."
+            },
+            {
               "name": "loading",
               "type": "boolean",
               "required": false,
@@ -16177,6 +16191,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Built-in list keyboard navigation via `useKeyboardNavigation`: j/k (or\nArrow Up/Down) move a focus cursor, Enter opens the focused item,\nBackspace (⌫) closes an open detail view, and x toggles the focused\nitem's selection when `bulkActions` are configured. Set to `false` to\nopt out.\n\nDefault-on, and scoped so that being on by default stays safe:\n- The j/k cursor runs while the grid or list view is showing. Table view\n  keeps its own sort/pagination, so there `DataTable` handles the keys on\n  its focusable rows instead (↑/↓ or j/k, Home/End, Enter, x); this prop\n  turns that off too.\n- Cursor keys suspend while a detail panel/modal or the built-in form\n  is open, so they can't drive the list behind the overlay; ⌫ stays\n  live there so it can close it.\n- Backspace is only intercepted while there's an open detail to close.\n- Modified chords (Ctrl/Cmd/Alt) are never captured, so an app's\n  Cmd+K-style shortcuts keep working."
+            },
+            {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "`resource` mode: refetch the list (and the open record) when the\nprovider reports a change, e.g. Supabase Realtime. Shorthand for\n`resourceOptions.live`, which wins. See core's `UseResourceOptions.live`."
             },
             {
               "name": "loading",

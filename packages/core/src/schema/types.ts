@@ -292,6 +292,12 @@ export interface ProviderCapabilities {
    * "Leave site?" prompt.
    */
   readonly keepaliveWrites?: boolean;
+  /**
+   * `subscribe` reports changes to this resource (asked per resource:
+   * `capabilities(resource)`), so `live` lists and records refresh when
+   * someone else changes them.
+   */
+  readonly realtime?: boolean;
 }
 
 /** One audit record, as committed alongside the edit it describes. */
