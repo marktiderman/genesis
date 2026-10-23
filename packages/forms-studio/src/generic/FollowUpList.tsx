@@ -86,6 +86,7 @@ export function FollowUpList({
                   {entry.rating ? (
                     <span
                       className="flex shrink-0 items-center gap-0.5 text-sm font-medium tabular-nums text-amber-800 dark:text-amber-200"
+                      role="img"
                       aria-label={`Rated ${entry.rating.value} out of ${entry.rating.max}`}
                     >
                       {entry.rating.value}

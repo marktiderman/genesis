@@ -4,7 +4,7 @@
 import type { FormDefinition } from "@marktiderman/genesis-forms";
 import type { HeadlineNumber } from "./generic/HeadlineNumbers";
 import {
-  hasLowRating,
+  hasLowRatingExcept,
   presetRange,
   summarizeResponses,
   type FiltersValue,
@@ -104,7 +104,8 @@ export function headlineNumbers(
       change: previous ? items.length - previous.length : null,
     },
     rating,
-    low: scored ? { count: items.filter(hasLowRating).length } : null,
+    // The same skip as needsFollowUp, so the Low ratings card and the follow-up list agree.
+    low: scored ? { count: items.filter((i) => hasLowRatingExcept(i, options.skip ?? new Set())).length } : null,
     rate,
   };
 }
