@@ -25,6 +25,7 @@ import {
   invalidateResource,
   type MutationModeOptions,
 } from "./mutation-mode";
+import { useLiveInvalidation, type LiveOptions } from "./use-live";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -66,6 +67,17 @@ export interface UseResourceOptions<T> extends MutationModeOptions {
    * rather than flashing a skeleton. Default false.
    */
   keepPreviousData?: boolean;
+  /**
+   * Keep the list current while mounted: subscribe to the provider's change
+   * events (`DataProvider.subscribe`) and refetch this resource's cached
+   * reads (lists and records) when it reports one, once per burst of
+   * events. Events are hints: rows always come from the provider's normal
+   * read. Pending optimistic and undoable writes stay applied over the
+   * refetch. Needs a provider that serves `subscribe` for the resource
+   * (`capabilities(resource).realtime`); otherwise it does nothing. Off by
+   * default.
+   */
+  live?: boolean | LiveOptions;
   /**
    * After the write commits, with the provider's row. In `optimistic` and
    * `undoable` modes that is after `create` / `update` / `remove` have
@@ -156,6 +168,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     enabled = true,
     invalidates,
     keepPreviousData = false,
+    live,
     onCreateSuccess,
     onUpdateSuccess,
     onDeleteSuccess,
@@ -255,6 +268,10 @@ export function useResource<T extends BaseRecord = BaseRecord>(
     enabled,
     placeholderData: keepPreviousData ? keepPreviousPlaceholder : undefined,
   });
+
+  // Every cached read of the resource: its lists, and the records a peek or
+  // detail page shows from it.
+  useLiveInvalidation(resource, live, enabled, { filters: params.filters }, [resource]);
 
   // -------------------------------------------------------------------------
   // Mutations

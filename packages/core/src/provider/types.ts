@@ -16,11 +16,20 @@ export type Identifier = string | number;
 /** Base record type — all resources must have an id. */
 export type BaseRecord = { id: Identifier; [key: string]: unknown };
 
-/** Pagination parameters (offset-based, with optional cursor for future use). */
+/**
+ * Pagination parameters: offset (`page`) or cursor (keyset).
+ *
+ * Cursor paging: set `cursor` to `null` for the first page and to the
+ * previous page's `ListResult.nextCursor` for each next one. A provider that
+ * serves it (`capabilities().cursorPagination`) then ignores `page` and
+ * returns `nextCursor`; one that doesn't ignores `cursor` and pages by
+ * `page`, returning no `nextCursor`. `useInfiniteResource` handles both.
+ */
 export interface PaginationParam {
   page: number;
   perPage: number;
-  cursor?: string;
+  /** `null`: the first page, by cursor. A string: the page after that cursor. Opaque. */
+  cursor?: string | null;
 }
 
 /** Sort direction for a single field. */
@@ -82,7 +91,16 @@ export interface ListParams {
 /** Result of `getList`. */
 export interface ListResult<T> {
   data: T[];
+  /**
+   * Rows matching the filters and search. In cursor mode a provider may
+   * count only on the first page (`cursor: null`) and return `-1` after it.
+   */
   total: number;
+  /**
+   * Cursor mode only: the cursor for the next page, or `null` when this is
+   * the last one. Absent when the provider paged by offset.
+   */
+  nextCursor?: string | null;
 }
 
 /** Parameters for `getOne`. */
@@ -223,6 +241,36 @@ export interface WriteEvent {
 }
 
 /**
+ * A change to a resource, as `DataProvider.subscribe` reports it.
+ *
+ * Treat it as a HINT that cached reads are stale, never as data to show:
+ * the Genesis hooks refetch through the provider's normal (RLS-checked)
+ * read instead of writing `record` into the cache. `changed` says only that
+ * something may have changed (e.g. after a reconnect, when events may have
+ * been missed), so every cached read of the resource should be refetched.
+ */
+export type ResourceChangeEvent =
+  | {
+      type: "created" | "updated" | "deleted";
+      /** The changed record's id, when the provider knows it. */
+      id?: Identifier;
+      /** The record as the provider saw it, when it sends one. A hint only. */
+      record?: BaseRecord;
+    }
+  | { type: "changed" };
+
+/** What a `subscribe` call watches. Every field narrows; none is required. */
+export interface SubscribeParams {
+  /** Watch one record only. */
+  id?: Identifier;
+  /**
+   * The list's filters. A provider MAY use them to send fewer events; it
+   * may also ignore them and report every change to the resource.
+   */
+  filters?: FilterParam[];
+}
+
+/**
  * A cache key to invalidate after a write. Shaped like a TanStack Query
  * `QueryKey` (`readonly unknown[]`), matched by prefix.
  */
@@ -333,6 +381,23 @@ export interface DataProvider {
    * `prepare`). `useResourceForm` applies it in edit mode.
    */
   toFormValues?(resource: string, record: Record<string, unknown>): Record<string, unknown>;
+
+  /**
+   * Watch a resource for changes made anywhere (other users, other tabs,
+   * server jobs). Calls `callback` for each change until the returned
+   * function is called, which must release everything the subscription
+   * holds (sockets, channels). Report `realtime: true` in `capabilities()`
+   * for the resources it serves; for others it may return a no-op.
+   *
+   * Events are invalidation hints: `useResource({ live: true })` and
+   * `useOne(..., { live: true })` refetch on them and never trust their
+   * payload.
+   */
+  subscribe?(
+    resource: string,
+    params: SubscribeParams,
+    callback: (event: ResourceChangeEvent) => void,
+  ): () => void;
 
   /**
    * Other cache keys a committed write makes stale, beyond the resource's

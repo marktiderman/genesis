@@ -55,13 +55,14 @@ Reach for these before a slot. Each one replaced a slot workaround in a real app
 
 | You need | Prop |
 | --- | --- |
-| Every row reachable in `resource` mode | default `pagination="client"` fetches up to `clientRowLimit` (1000) and says so past it; `pagination="server"` pages through the provider (give it `searchFields`) |
+| Every row reachable in `resource` mode | default `pagination="client"` fetches up to `clientRowLimit` (1000) and says so past it; `pagination="server"` pages through the provider (give it `searchFields`); `pagination="cursor"` loads `resourceOptions.defaultPerPage` rows with a "Load more" button (keyset where the provider serves it; toolbar search and sort act on loaded rows) |
 | Who may create, edit, delete | `can(action, item)` (UI gate only; the server still decides) |
 | A confirmed delete | `allowDelete` (built in, `resource` mode), or `onDelete` + `confirmDelete`; copy via `confirmDelete={{ title: (item) => … }}`, toast via `onDeleted` |
 | A computed peek subtitle | `getSubtitle(item)`; the peek stays open after an edit and shows the saved row |
 | A list inside a tab (no page title) | `header="toolbar"` (also on `DataPageShell`) |
 | Empty-state copy | `emptyMessage`, `emptyDescription`, `emptyIcon` |
 | Cards on phones, table on desktop | `defaultView={{ mobile: "grid", desktop: "table" }}`; only an explicit toggle is stored |
+| A list that updates when others change it | `live` (needs a provider whose `subscribe` serves the resource; Supabase: `resources[r].realtime` plus the table in the `supabase_realtime` publication, see core's README) |
 | Typed slot maps | `ResourcePageSlots<T>`, `ResourcePageSlotProps<T>`, `ResourcePageSlotMap<T>` from `/data` |
 
 `ResourceForm` ties labels to inputs (`getByLabelText` works), shows a failed save as an alert,

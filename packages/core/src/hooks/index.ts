@@ -23,7 +23,14 @@
 
 export { useResource, type UseResourceOptions, type UseResourceReturn } from "./use-resource";
 export { useOne, type UseOneOptions } from "./use-one";
+export {
+  useInfiniteResource,
+  type UseInfiniteResourceOptions,
+  type UseInfiniteResourceReturn,
+  type InfinitePageParam,
+} from "./use-infinite-resource";
 export { useCapabilities } from "./use-capabilities";
+export { DEFAULT_LIVE_DEBOUNCE_MS, type LiveOptions } from "./use-live";
 export { useResourceForm, buildArrayItemDefaults, type UseResourceFormOptions, type UseResourceFormReturn } from "./use-resource-form";
 export { useWizard, type WizardStep, type UseWizardReturn } from "./use-wizard";
 export {

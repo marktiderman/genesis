@@ -251,8 +251,14 @@ export interface ResourcePageProps<
    *   columns to match — so the search box is hidden without them. Table
    *   header sorting is withdrawn, as in server-data mode; the sort control
    *   in the filter row drives the query.
+   * - `"cursor"`: loads `perPage` rows (`resourceOptions.defaultPerPage`,
+   *   else the stored page size) and a "Load more" button appends the next
+   *   page, by cursor where the provider serves it
+   *   (`capabilities().cursorPagination`) and by offset otherwise. The
+   *   server orders by `resourceOptions.defaultSort`; search, sort and
+   *   filters in the toolbar act on the rows loaded so far.
    */
-  pagination?: "client" | "server";
+  pagination?: "client" | "server" | "cursor";
   /**
    * `pagination="client"` only: the most rows fetched. Default 1000. An
    * explicit `resourceOptions.defaultPerPage` wins. Keep it at or under the
@@ -705,6 +711,12 @@ export interface ResourcePageProps<
   // Data options (client-side mode only)
   resourceOptions?: UseResourceOptions<T>;
   /**
+   * `resource` mode: refetch the list (and the open record) when the
+   * provider reports a change, e.g. Supabase Realtime. Shorthand for
+   * `resourceOptions.live`, which wins. See core's `UseResourceOptions.live`.
+   */
+  live?: UseResourceOptions<T>["live"];
+  /**
    * Keep the list's state in the URL: the open record (`?id=`), the search
    * (`q`), the sort (`sort=field:asc`) and, with `pagination="server"`, the
    * page. Pass your router's search-params adapter
@@ -819,6 +831,7 @@ export function ResourcePage<
     actions,
     allows,
     clientTruncated,
+    loadMore,
     closeDetail,
     currentPage,
     deleteConfirmed,
@@ -1172,7 +1185,7 @@ export function ResourcePage<
                 keyboardNavigation,
                 // The server already cut the page window; DataTable's own
                 // pagination would slice the slice.
-                pagination: isServerControlled ? false : undefined,
+                pagination: isServerControlled || loadMore ? false : undefined,
                 // Client mode: the header sort is the page's sort, so it
                 // reaches the URL and a link restores what the table shows.
                 ...(isServerControlled
@@ -1212,6 +1225,38 @@ export function ResourcePage<
           `pagerMisconfigured` comment above. A pager reporting the wrong range
           with a Next button that never disables is worse than one that
           says why it can't render. */}
+      {loadMore && (
+        <div className="flex flex-col items-center gap-1 px-3 py-2">
+          {/* Stays mounted (aria-disabled, not disabled) once everything is
+              loaded, so focus on it is never dropped to the page. */}
+          {(loadMore.hasMore || loadMore.loaded > 0) && (
+            <Button
+              variant="outline"
+              size="sm"
+              aria-disabled={!loadMore.hasMore || loadMore.loading || undefined}
+              aria-busy={loadMore.loading || undefined}
+              onClick={loadMore.hasMore && !loadMore.loading ? loadMore.load : undefined}
+              testID="resource-page-load-more"
+            >
+              {loadMore.loading
+                ? "Loading…"
+                : loadMore.hasMore
+                  ? "Load more"
+                  : `All ${loadMore.loaded.toLocaleString()} loaded`}
+            </Button>
+          )}
+          <p
+            role="status"
+            aria-live="polite"
+            className="sr-only"
+            data-testid="resource-page-load-status"
+          >
+            {loadMore.lastLoaded > 0
+              ? `Loaded ${loadMore.lastLoaded.toLocaleString()} more. ${loadMore.loaded.toLocaleString()} shown.`
+              : ""}
+          </p>
+        </div>
+      )}
       {clientTruncated && (
         <p
           role="status"
