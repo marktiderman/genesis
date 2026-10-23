@@ -1,0 +1,24 @@
+packages/ui/src/components/data/DataPageShell.tsx
+  s_9bf81edc5cc904::t_1fe2321984c990 215-217,219-239,242-246,255
+  s_9bf81edc5cc904::t_9b2f0cc1f707d6 218
+packages/ui/src/components/data/__tests__/resource-page-fetch-state.test.tsx
+  s_9bf81edc5cc904::t_9b2f0cc1f707d6 66-83
+.changeset/data-shell-states.md
+  s_9bf81edc5cc904::t_c6413bad954ba2 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f36155a02cd55e1e74bf5a62b6632b428b33dd1",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
