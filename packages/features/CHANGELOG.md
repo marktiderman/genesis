@@ -1,5 +1,18 @@
 # @marktiderman/genesis-features
 
+## 0.1.2
+
+### Patch Changes
+
+- 5b1f464: The flag scan in `checkFeatureOutputs` ignores comments (a flag named in a comment isn't a read) and test files, and takes `scanIgnore` for the flags runtime that defines the accessors. Found running the check against Breakthrough's flags runtime.
+
+  Features: feature-registry
+
+- 5b1f464: The flag scan no longer mistakes a regex literal (`/[/*]/`), a closing JSX tag, or an apostrophe in JSX text for the start of a comment or string. Comments inside a template's `${…}` are blanked like any other code.
+- 5b1f464: The generated skill names only what `build` writes in this repo (for example, no `flags.json` when `openfeature` is off), instead of a fixed list. The flag scan also ignores text inside strings ("…behind the release flag (off)" isn't a call), and an apostrophe after a letter (JSX "Don't") no longer starts a string.
+
+  Features: feature-registry
+
 ## 0.1.1
 
 ### Patch Changes
