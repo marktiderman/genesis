@@ -1,5 +1,7 @@
 export {
   FEATURE_HORIZONS,
+  FEATURE_LAYERS,
+  FEATURE_PLATFORMS,
   FEATURE_STATUSES,
   FLAG_KINDS,
   FeatureRegistryError,
@@ -10,13 +12,16 @@ export {
   findFeatures,
   flagSchema,
   flagsForFeature,
+  statusOn,
   toRecords,
   type FeatureAccess,
   type FeatureDef,
   type FeatureHorizon,
   type FeatureIdOf,
+  type FeatureLayer,
   type FeatureLinks,
   type FeatureMedia,
+  type FeaturePlatform,
   type FeatureRecord,
   type FeatureStatus,
   type FeatureVisibility,
@@ -25,6 +30,7 @@ export {
   type FlagKind,
   type FlagValue,
   type Flags,
+  type FindOptions,
 } from "./model";
 export {
   AGENTS_BLOCK_END,
