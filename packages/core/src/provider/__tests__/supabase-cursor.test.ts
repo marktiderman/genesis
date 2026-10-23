@@ -156,11 +156,38 @@ describe("getList by cursor", () => {
       search: { query: "x", fields: ["title"] },
     });
     const first = await page(p, params(null), { data: rows(["1", "A"], ["2", "B"], ["3", "C"]), error: null, count: 3 });
-    expect(callsOf("or")).toEqual([["title.ilike.%x%"]]);
+    expect(callsOf("or")).toEqual([['title.ilike."%x%"']]);
     await page(p, params(first.nextCursor!), { data: [], error: null });
     expect(callsOf("or")).toEqual([
-      ['and(or(title.ilike.%x%),or(title.gt."B",and(title.eq."B",id.gt."2"),title.is.null))'],
+      ['and(or(title.ilike."%x%"),or(title.gt."B",and(title.eq."B",id.gt."2"),title.is.null))'],
     ]);
+  });
+
+  it("quotes a search with PostgREST's reserved characters, nested or not", async () => {
+    const p = provider();
+    const params = (cursor: string | null): ListParams => ({
+      ...sorted(cursor),
+      search: { query: 'a,b.(c)"d', fields: ["title"] },
+    });
+    const first = await page(p, params(null), { data: rows(["1", "A"], ["2", "B"], ["3", "C"]), error: null, count: 3 });
+    expect(callsOf("or")).toEqual([['title.ilike."%a,b.(c)\\"d%"']]);
+    await page(p, params(first.nextCursor!), { data: [], error: null });
+    expect(callsOf("or")[0]![0]).toBe(
+      'and(or(title.ilike."%a,b.(c)\\"d%"),or(title.gt."B",and(title.eq."B",id.gt."2"),title.is.null))',
+    );
+  });
+
+  it("keeps the look-ahead row under maxPerPage, so a full-size page still finds the next one", async () => {
+    // PostgREST's max-rows would drop row maxPerPage + 1; ask for maxPerPage at most.
+    const p = provider({ maxPerPage: 3 });
+    const result = await page(p, { ...sorted(null), pagination: { page: 1, perPage: 3, cursor: null } }, {
+      data: rows(["1", "A"], ["2", "B"], ["3", "C"]),
+      error: null,
+      count: 9,
+    });
+    expect(callsOf("range")).toEqual([[0, 2]]);
+    expect(result.data).toEqual(rows(["1", "A"], ["2", "B"]));
+    expect(typeof result.nextCursor).toBe("string");
   });
 
   it("refuses a cursor made for another sort", async () => {

@@ -129,13 +129,18 @@ describe("subscribe: the channel", () => {
     expect(channels[1]!.removed).toBe(false);
   });
 
-  it("filters by id on the server for one record", () => {
+  it("one record: no server filter (it would drop deletes); the id is matched here, deletes included", () => {
     const { p } = provider({ realtime: true });
-    p.subscribe!("tasks", { id: "t-1" }, vi.fn());
-    expect(channels[0]!.filter?.filter).toBe("id=eq.t-1");
+    const cb = vi.fn();
+    p.subscribe!("tasks", { id: "t-1" }, cb);
+    expect(channels[0]!.filter?.filter).toBeUndefined();
+    channels[0]!.change!({ eventType: "DELETE", new: {}, old: { id: "t-2" } });
+    expect(cb).not.toHaveBeenCalled();
+    channels[0]!.change!({ eventType: "DELETE", new: {}, old: { id: "t-1" } });
+    expect(cb).toHaveBeenCalledWith({ type: "deleted", id: "t-1" });
   });
 
-  it("does not put an id needing quotes into the filter, and filters it here instead", () => {
+  it("matches an id needing quotes here too", () => {
     const { p } = provider({ realtime: true });
     const cb = vi.fn();
     p.subscribe!("tasks", { id: "a,b" }, cb);

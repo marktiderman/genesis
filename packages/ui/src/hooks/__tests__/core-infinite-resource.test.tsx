@@ -99,6 +99,27 @@ describe("useInfiniteResource", () => {
     expect(result.current.rows.map((r) => r.id)).toEqual(["t1", "t2", "t3", "t4", "t5"]);
   });
 
+  it("shows a row once when it moved into a later page meanwhile", async () => {
+    // t2 is pushed onto page 2 by a new row before it, after page 1 loaded.
+    let rowsNow = ALL;
+    const provider = baseProvider({
+      getList: vi.fn(async (_r: string, params: ListParams) => {
+        const { perPage, cursor } = params.pagination!;
+        const start = cursor ? Number(cursor) : 0;
+        const data = rowsNow.slice(start, start + perPage);
+        const next = start + perPage < rowsNow.length ? String(start + perPage) : null;
+        return { data, total: rowsNow.length, nextCursor: next };
+      }) as DataProvider["getList"],
+    });
+    const { wrapper } = wrap(provider);
+    const { result } = renderHook(() => useInfiniteResource<Row>("tasks", { perPage: 2 }), { wrapper });
+    await waitFor(() => expect(result.current.rows).toHaveLength(2));
+    rowsNow = [ALL[0]!, { id: "t0", title: "New" }, ...ALL.slice(1)];
+    act(() => result.current.fetchNextPage());
+    await waitFor(() => expect(vi.mocked(provider.getList).mock.calls).toHaveLength(2));
+    await waitFor(() => expect(result.current.rows.map((r) => r.id)).toEqual(["t1", "t2", "t3"]));
+  });
+
   it("falls back to offset pages with a provider that has no cursor paging", async () => {
     const provider = offsetProvider();
     const { wrapper } = wrap(provider);

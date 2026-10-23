@@ -345,9 +345,6 @@ function realtimeTable(resource: string): { schema: string; table: string } {
     : { schema: strip(resource.slice(0, dot)), table: strip(resource.slice(dot + 1)) };
 }
 
-/** An id safe to put in a Realtime filter (`id=eq.<id>`) without quoting. */
-const SAFE_FILTER_ID = /^[A-Za-z0-9_-]+$/;
-
 let realtimeChannelSeq = 0;
 const warnedRealtime = new Set<string>();
 
@@ -580,7 +577,9 @@ export function createSupabaseProvider(
     const safeFieldPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
     return searchFields
       .filter((f) => safeFieldPattern.test(f))
-      .map((f) => `${f}.ilike.%${escaped}%`)
+      // Quoted, so commas, dots and parens in the query stay literal (also
+      // when nested inside the keyset's `and(or(…))`).
+      .map((f) => `${f}.ilike.${quoteFilterValue(`%${escaped}%`)}`)
       .join(",");
   }
 
@@ -607,7 +606,11 @@ export function createSupabaseProvider(
     params: ListParams,
     key: string | false,
   ): Promise<{ data: unknown[]; total: number; nextCursor: string | null }> {
-    const { perPage, cursor } = params.pagination!;
+    const { cursor } = params.pagination!;
+    // The look-ahead row must fit under PostgREST's max-rows (maxPerPage), or
+    // it is dropped and the list would end after one page. A keyset page can
+    // be shorter than asked without skipping or repeating rows.
+    const perPage = Math.max(1, Math.min(params.pagination!.perPage, maxPerPage - 1));
     if (!key) {
       return refuseCursor(resource, "cursor paging needs a unique key column to order by; its orderKey is false. Set orderKey to a unique, non-null column, or page by offset.");
     }
@@ -812,10 +815,8 @@ export function createSupabaseProvider(
         return () => {};
       }
       const { schema, table } = realtimeTable(resource);
-      const filter =
-        params.id != null && SAFE_FILTER_ID.test(String(params.id))
-          ? `id=eq.${String(params.id)}`
-          : undefined;
+      // No server-side `id=eq.` filter for one record: Realtime never
+      // delivers DELETE events through a filter, so the id is matched below.
       // A unique topic: supabase-js hands back an existing channel for a
       // topic already open, and removing it would end the other subscriber.
       const channel = client.channel!(
@@ -835,14 +836,14 @@ export function createSupabaseProvider(
       channel
         .on(
           "postgres_changes",
-          { event: "*", schema, table, ...(filter ? { filter } : {}) },
+          { event: "*", schema, table },
           (payload) => {
             // Only the id: the payload is a hint, never data to show. Realtime
             // applies RLS to inserts and updates, but a delete's old key is
             // sent to every subscriber, so nothing else is passed on.
             const row = payload.eventType === "DELETE" ? payload.old : payload.new;
             const id = row?.["id"];
-            if (params.id != null && !filter && isIdentifier(id) && String(id) !== String(params.id)) return;
+            if (params.id != null && isIdentifier(id) && String(id) !== String(params.id)) return;
             const type =
               payload.eventType === "INSERT" ? "created" : payload.eventType === "UPDATE" ? "updated" : "deleted";
             emit(isIdentifier(id) ? { type, id } : { type });

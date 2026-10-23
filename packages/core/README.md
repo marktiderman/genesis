@@ -258,7 +258,9 @@ tasks.hasNextPage && tasks.fetchNextPage();
   `useInfiniteResource` then pages by offset until `total` rows are loaded.
 - **Supabase.**
   - It orders by the sort column and then the `orderKey` (default `id`) and
-    fetches `perPage + 1` rows to tell whether there is a next page.
+    fetches one row more than the page to tell whether there is a next
+    page. A page is at most `maxPerPage - 1` rows, so that extra row fits
+    under PostgREST's `max-rows`.
   - The cursor (opaque, base64 JSON) holds the last row's sort and key
     values and the sort it was made for. A cursor from another sort is
     refused.
@@ -275,6 +277,9 @@ tasks.hasNextPage && tasks.fetchNextPage();
   `[resource, "infinite", params]`, so writes (which invalidate `[resource]`)
   refetch them. Optimistic and undoable patches are applied to every loaded
   page and survive refetches, like lists.
+- **A row shows once.** A row that moved into a later page while the user
+  scrolled (its sort value changed, or rows were added before it) is shown
+  where it first appeared, not twice.
 
 ## Live updates (realtime)
 
@@ -320,8 +325,10 @@ alter publication supabase_realtime add table public.tasks;
 alter table public.tasks enable row level security;
 ```
 
-- The provider opens one `postgres_changes` channel per subscription
-  (`useOne` filters it to `id=eq.<id>`) and removes it on unsubscribe. A
+- The provider opens one `postgres_changes` channel per subscription and
+  removes it on unsubscribe. `useOne`'s channel is not filtered on the
+  server (Realtime never delivers deletes through a filter); its id is
+  matched on arrival. A
   resource named `schema.table` listens in that schema; otherwise `public`.
 - **What leaks, and what doesn't.** Insert and update events are checked
   against RLS by Realtime. **Delete events are not:** every subscriber to the

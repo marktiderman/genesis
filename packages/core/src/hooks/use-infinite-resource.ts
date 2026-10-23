@@ -151,10 +151,24 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
 
   useLiveInvalidation(resource, live, enabled, { filters: params.filters }, [resource]);
 
-  const rows = useMemo(
-    () => (query.data?.pages ?? []).flatMap((p) => p.data),
-    [query.data],
-  );
+  // A row can move between pages while the user scrolls (its sort value
+  // changed, or rows before it were added): show it once, where it first appears.
+  const rows = useMemo(() => {
+    const seen = new Set<string>();
+    const out: T[] = [];
+    for (const page of query.data?.pages ?? []) {
+      for (const row of page.data) {
+        const id = row?.id;
+        if (id != null) {
+          const key = String(id);
+          if (seen.has(key)) continue;
+          seen.add(key);
+        }
+        out.push(row);
+      }
+    }
+    return out;
+  }, [query.data]);
   const firstTotal = query.data?.pages[0]?.total;
   const total = firstTotal === undefined || firstTotal < 0 ? undefined : firstTotal;
 

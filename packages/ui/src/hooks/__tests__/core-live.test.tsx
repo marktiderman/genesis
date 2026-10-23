@@ -234,6 +234,15 @@ describe("useOne — live", () => {
     await flush(DEFAULT_LIVE_DEBOUNCE_MS + 10);
     expect(provider.getOne).toHaveBeenCalledTimes(3);
   });
+
+  it("refetches when its record is deleted", async () => {
+    const { provider, wrapper, emit } = setup();
+    renderHook(() => useOne<Row>("tasks", "t1", { live: true }), { wrapper });
+    await flush();
+    act(() => emit({ type: "deleted", id: "t1" }));
+    await flush(DEFAULT_LIVE_DEBOUNCE_MS + 10);
+    expect(provider.getOne).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("ResourcePage — live", () => {
