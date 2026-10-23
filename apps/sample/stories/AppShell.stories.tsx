@@ -17,6 +17,10 @@ import {
   ClipboardList,
   Home,
   Users,
+  ListChecks,
+  GitBranch,
+  Inbox,
+  Settings,
 } from "lucide-react";
 
 const meta: Meta<typeof AppShell> = {
@@ -68,6 +72,7 @@ export const Expanded: Story = {
       navItems={navItems}
       activePath="/tasks"
       defaultCollapsed={false}
+      options={{ collapseShortcut: "[", collapsedRailWidth: 64 }}
     >
       <div className="text-sm text-muted-foreground">
         Icon and label per item. Collapse with the panel button beside the logo,
@@ -86,6 +91,7 @@ export const CollapsedRail: Story = {
       navItems={navItems}
       activePath="/tasks"
       defaultCollapsed
+      options={{ collapseShortcut: "[", collapsedRailWidth: 64 }}
     >
       <div className="text-sm text-muted-foreground">
         A 64px icon rail: hover or tab onto an item for its name, open
@@ -157,11 +163,14 @@ export const WindowScroll: Story = {
 // Sub-navigation: a page's child items (a form's four tabs)
 // ---------------------------------------------------------------------------
 
+// A tree's items are `NavItem`s, so each has an icon. The page's own list
+// (below, through the hook) is `SubNavItem`s and may leave icons out, as the
+// design's tab row does.
 const formTabs: NavItem[] = [
-  { to: "/forms/$formId/edit", label: "Questions", badge: 2, end: true },
-  { to: "/forms/$formId/edit/logic", label: "Logic and endings", badge: 1 },
-  { to: "/forms/$formId/edit/responses", label: "Responses", badge: 2 },
-  { to: "/forms/$formId/edit/settings", label: "Settings" },
+  { to: "/forms/$formId/edit", icon: ListChecks, label: "Questions", badge: 2, end: true },
+  { to: "/forms/$formId/edit/logic", icon: GitBranch, label: "Logic and endings", badge: 1 },
+  { to: "/forms/$formId/edit/responses", icon: Inbox, label: "Responses", badge: 2 },
+  { to: "/forms/$formId/edit/settings", icon: Settings, label: "Settings" },
 ];
 
 const formsTree: NavigationNode<NavItem> = {
@@ -282,4 +291,25 @@ export const SubNavPhoneOff: Story = {
   name: "Sub-nav: phone, off keeps the main bar",
   globals: { viewport: { value: "mobile1", isRotated: false } },
   render: () => subNavShell("off"),
+};
+
+/**
+ * An app-wide `mobileNavItems` (as Breakthrough passes) still yields to a
+ * page's children while sub-navigation is on.
+ */
+export const SubNavPhoneOverAppBar: Story = {
+  name: "Sub-nav: phone, children win over mobileNavItems",
+  globals: { viewport: { value: "mobile1", isRotated: false } },
+  render: () => (
+    <AppShell
+      appName="Breakthrough"
+      appLogo="B"
+      navigation={formsTree}
+      activePath="/forms/f1/edit/logic"
+      subNav="tabs"
+      mobileNavItems={formsTree.items}
+    >
+      <FormPage />
+    </AppShell>
+  ),
 };

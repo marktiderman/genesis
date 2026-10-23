@@ -29,6 +29,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import type { LucideIcon } from "lucide-react";
+
 import { cn } from "../../utils";
 import { isPathActive, type LinkComponent } from "../../navigation";
 import type { NavItem } from "./AppShell";
@@ -51,11 +53,23 @@ import type { NavItem } from "./AppShell";
  */
 export type SubNavMode = "section" | "tabs" | "sidebar" | "off";
 
+/**
+ * A sub-navigation item: a `NavItem` whose `icon` is optional (the tab row,
+ * the phone bar and the rail show the label's first letter without one).
+ * Every `NavItem` is a `SubNavItem`; `NavItem` itself keeps `icon` required.
+ *
+ * @stability Beta
+ */
+export interface SubNavItem extends Omit<NavItem, "icon" | "children"> {
+  icon?: LucideIcon;
+  children?: SubNavItem[];
+}
+
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /** @internal Active-state rule shared by the sidebar, tabs and bottom bar. */
 export function itemIsActive(
-  item: NavItem,
+  item: SubNavItem,
   activePath: string | undefined,
   isActive: (to: string, activePath?: string) => boolean,
 ): boolean {
@@ -78,11 +92,11 @@ export function itemIsActive(
  * @internal
  */
 export function mostSpecificActive(
-  items: NavItem[],
+  items: SubNavItem[],
   activePath: string | undefined,
   isActive: (to: string, activePath?: string) => boolean,
-): NavItem | undefined {
-  let best: NavItem | undefined;
+): SubNavItem | undefined {
+  let best: SubNavItem | undefined;
   for (const item of items) {
     if (!itemIsActive(item, activePath, isActive)) continue;
     if (!best || item.to.length > best.to.length) best = item;
@@ -109,7 +123,7 @@ function BadgeChip({ badge, active }: { badge: string | number; active?: boolean
  * @stability Beta
  */
 export interface SubNavTabsProps {
-  items: NavItem[];
+  items: SubNavItem[];
   /** Current location (`pathname + search + hash`); drives the active tab. */
   activePath?: string;
   linkComponent: LinkComponent;
@@ -197,7 +211,7 @@ export function SubNavTabs({
 
 interface PageSubNav {
   /** Absent: this registrant only sets a mode; items come from elsewhere. */
-  items?: NavItem[];
+  items?: SubNavItem[];
   mode?: SubNavMode;
 }
 
@@ -249,6 +263,8 @@ export function useSubNavChannel(): {
   setHeaderSlot: (el: HTMLElement | null) => void;
   /** A page header has been claimed (render the header region). */
   hasHeader: boolean;
+  /** An end-slot chip has been claimed (render the row's end region). */
+  hasEnd: boolean;
 } {
   const [entries, setEntries] = useState<Registration[]>([]);
   const [endSlot, setEndSlot] = useState<HTMLElement | null>(null);
@@ -308,6 +324,7 @@ export function useSubNavChannel(): {
     setEndSlot,
     setHeaderSlot,
     hasHeader: headerOwner !== undefined,
+    hasEnd: endOwner !== undefined,
   };
 }
 
@@ -325,7 +342,7 @@ function iconKey(icon: unknown): number {
   return id;
 }
 
-function itemsKey(items: NavItem[]): string {
+function itemsKey(items: SubNavItem[]): string {
   return JSON.stringify(
     items.map((i) => [
       i.to,
@@ -372,7 +389,7 @@ export interface UseAppShellSubNavOptions {
  * @stability Beta
  */
 export function useAppShellSubNav(
-  items: NavItem[] | null | undefined,
+  items: SubNavItem[] | null | undefined,
   options?: UseAppShellSubNavOptions,
 ): void {
   const channel = useContext(SubNavContext);

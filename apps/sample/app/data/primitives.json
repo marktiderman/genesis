@@ -14551,7 +14551,7 @@
           "props": [
             {
               "name": "items",
-              "type": "NavItem[]",
+              "type": "SubNavItem[]",
               "required": true,
               "defaultValue": null,
               "description": ""
