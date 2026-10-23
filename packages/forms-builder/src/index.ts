@@ -42,4 +42,15 @@ export {
 } from "./history";
 export { BLANK_TEMPLATE, STARTER_TEMPLATES, TEMPLATES, getTemplate, type FormTemplate } from "./templates";
 export { BUILT_IN_FIELD_EDITORS } from "./structured-editors";
+export { CALCULATED_FIELD_EDITOR, formulaNames } from "./calculated-editor";
+export {
+  chosenOutputs,
+  clearOutputs,
+  outputPropsFor,
+  outputsFor,
+  outputUsedBy,
+  setOutput,
+  usesOutput,
+  type OutputTarget,
+} from "./outputs";
 export * from "./ops";

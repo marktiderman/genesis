@@ -529,7 +529,9 @@ function ValueEditor({
       />
     );
   }
-  const numeric = field ? field.type === "rating" || field.type === "nps" : input?.type === "number";
+  const numeric = field
+    ? field.type === "rating" || field.type === "nps" || (field.type === "calculated" && field.props?.format !== "text")
+    : input?.type === "number";
   if (op === "in") {
     // "is one of" needs a list: comma-separated values, numbers for numeric questions.
     const list = Array.isArray(value) ? value : [];
