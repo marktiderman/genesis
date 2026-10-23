@@ -803,9 +803,15 @@ export function DataTable<T>({
   // The header buttons drive the sort state (asc → desc → off, Shift adds a
   // secondary sort; held here or by the caller via `sort`); TanStack applies it with a typed comparison and pages
   // the result. Ties keep the items' own order.
+  // Only columns of this table: TanStack logs an error, every render, for a
+  // sort on a column it doesn't have (a caller's sort on a field that isn't
+  // shown, say).
   const sorting = useMemo<SortingState>(
-    () => sorts.map((s) => ({ id: s.key, desc: s.dir === "desc" })),
-    [sorts],
+    () =>
+      sorts
+        .filter((s) => columns.some((c) => c.key === s.key))
+        .map((s) => ({ id: s.key, desc: s.dir === "desc" })),
+    [sorts, columns],
   );
   const tanstackColumns = useMemo<TanStackColumnDef<T>[]>(
     () =>
@@ -872,11 +878,25 @@ export function DataTable<T>({
     : openColumn !== undefined
       ? openColumn
       : (activeColumns.find((c) => !c.editable)?.key ?? null);
+  // The tab stop is a rendered row: a virtualized row scrolled out of view
+  // has no button, and Tab would then skip the table.
+  const renderedItems = virtualRows
+    ? virtualRows.map((vr) => displayItems[vr.index]!).filter(Boolean)
+    : displayItems;
+  // Without a focused row, the first row in view: the overscan rows above
+  // the viewport are rendered too, and tabbing to one would scroll back.
+  const scrollTop = rowVirtualizer.scrollOffset ?? 0;
+  const firstInView = virtualRows
+    ? (virtualRows.find((vr) => vr.start >= scrollTop) ??
+      virtualRows.find((vr) => vr.end > scrollTop) ??
+      virtualRows[0])
+    : undefined;
+  const fallbackItem = firstInView ? displayItems[firstInView.index] : renderedItems[0];
   const tabStopKey =
-    activeRowKey && displayItems.some((it) => getKey(it) === activeRowKey)
+    activeRowKey && renderedItems.some((it) => getKey(it) === activeRowKey)
       ? activeRowKey
-      : displayItems[0]
-        ? getKey(displayItems[0])
+      : fallbackItem
+        ? getKey(fallbackItem)
         : null;
   /** A row's name for its checkbox: the open column's text, or its key. */
   const rowLabel = (item: T, id: string) => {

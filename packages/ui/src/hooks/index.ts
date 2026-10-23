@@ -13,6 +13,10 @@ export { useViewSettings, type Density, type ViewSettings } from "./use-view-set
 export { useSavedViews, type UseSavedViewsReturn } from "./use-saved-views";
 export { createPrefetch, type RouteMap } from "./use-prefetch";
 export {
+  useResourceTable,
+  type ResourceTableState,
+} from "../components/data/use-resource-table";
+export {
   useResourceUrlState,
   type ResourceUrlParams,
   type ResourceUrlState,

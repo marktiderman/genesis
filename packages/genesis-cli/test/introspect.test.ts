@@ -1,3 +1,4 @@
+// @feat:cli-introspect
 import postgres from "postgres";
 import ts from "typescript";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

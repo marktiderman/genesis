@@ -1,8 +1,21 @@
-import { useState, type DragEvent, type ReactNode } from "react";
-import { ArrowRightLeft } from "lucide-react";
+"use client";
+
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
+import { ArrowRightLeft, GripVertical } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { cn } from "../../utils";
+import { useAnnouncer } from "../patterns/use-announcer";
 
 export type ColumnStatus = "neutral" | "warning" | "success" | "info" | "destructive" | "primary";
 
@@ -37,12 +50,16 @@ export interface KanbanBoardProps<T> {
   /** A stable key per item. Without one, cards are keyed by position. */
   getKey?: (item: T) => string;
   /**
-   * Move an item to another column. When set, cards can be dragged between
-   * columns, and each card gets a "Move to…" menu that does the same from
-   * the keyboard. A rejected promise leaves the card where it was.
+   * Move an item to another column. When set (with `getKey`), every card can
+   * be moved four ways: dragged with a mouse; dragged by its handle on a
+   * touch screen; picked up from the keyboard with its handle (Space, then
+   * ←/→ to choose a column, Space to drop, Escape to cancel; Alt+←/→ moves
+   * straight away); or from its "Move to…" menu. A finished move is
+   * announced to screen readers. A rejected promise leaves the card where it
+   * was and announces that the move failed.
    */
   onMoveItem?: (item: T, toColumn: string) => void | Promise<void>;
-  /** A name for an item, for the move menu's label ("Move Ana Ruiz"). */
+  /** A name for an item, for its handle, menu and announcements ("Move Ana Ruiz"). */
   getItemLabel?: (item: T) => string;
   /** Under a column's cards, e.g. a "Load more" button. */
   renderColumnFooter?: (column: KanbanColumn<T>) => ReactNode;
@@ -50,13 +67,18 @@ export interface KanbanBoardProps<T> {
 
 const DRAG_TYPE = "application/x-genesis-kanban-item";
 
+// useLayoutEffect warns during server rendering; nothing needs refocusing there.
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 /**
  * Columns of cards, optionally movable between columns.
  *
- * Why the keyboard path isn't Radix (docs/FRAMEWORK.md rule 3): Radix has no
- * drag and drop, and native drag and drop can't be done from a keyboard. The
- * "Move to…" menu (a Radix DropdownMenu) is the equivalent path for keyboard
- * and screen-reader users, so dragging is never the only way to move a card.
+ * Moving uses the same engine as SortableList: native drag and drop for the
+ * mouse, pointer events on the handle for touch, a keyboard pick-up on the
+ * handle, and a "Move to…" menu, with every finished move announced in a
+ * polite live region. Radix has no drag and drop and native drag and drop
+ * can't be done from a keyboard or a touch screen (docs/FRAMEWORK.md rule 3),
+ * so dragging is never the only way to move a card.
  */
 export function KanbanBoard<T>({
   columns,
@@ -68,14 +90,54 @@ export function KanbanBoard<T>({
   getItemLabel,
   renderColumnFooter,
 }: KanbanBoardProps<T>) {
-  const [dragging, setDragging] = useState<{ key: string; from: string } | null>(null);
+  // A mouse drag (native) or a touch drag on the handle.
+  const [dragging, setDragging] = useState<{ key: string; from: string; pointer?: number } | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  // A keyboard pick-up: the card stays put and `target` is the column it
+  // would drop into.
+  const [grabbed, setGrabbed] = useState<{ key: string; from: string; target: string } | null>(null);
+  const { message: announcement, announce } = useAnnouncer();
+  const handles = useRef(new Map<string, HTMLButtonElement>());
+  // A card moved from the keyboard lands in another column, a new element;
+  // its handle gets focus back once it renders there.
+  const refocus = useRef<string | null>(null);
+  const instructionsId = useId();
   const keyOf = (item: T, index: number) => (getKey ? getKey(item) : String(index));
+  // Dragging needs stable keys to find the dropped item again.
+  const movable = Boolean(onMoveItem && getKey);
 
-  const move = (item: T, to: string) => {
-    void Promise.resolve(onMoveItem?.(item, to)).catch(() => {
-      // The caller reports the failure; the card simply stays put.
-    });
+  const find = (key: string) => {
+    if (!getKey) return null;
+    for (const column of columns) {
+      const item = column.items.find((i) => getKey(i) === key);
+      if (item !== undefined) return { item, column };
+    }
+    return null;
+  };
+  const labelOf = (key: string) => {
+    const found = find(key);
+    return found && getItemLabel ? getItemLabel(found.item) : "Card";
+  };
+  const columnLabel = (key: string) => columns.find((c) => c.key === key)?.label ?? key;
+
+  const move = (item: T, to: string, name: string) => {
+    let result: void | Promise<void>;
+    try {
+      result = onMoveItem?.(item, to);
+    } catch (error) {
+      result = Promise.reject(error);
+    }
+    // The caller reports the failure; the card simply stays put.
+    void Promise.resolve(result).then(
+      () => announce(`${name} moved to ${columnLabel(to)}.`),
+      () => announce(`Couldn’t move ${name}.`),
+    );
+  };
+
+  const moveKey = (key: string, to: string) => {
+    const found = find(key);
+    if (!found || found.column.key === to) return;
+    move(found.item, to, labelOf(key));
   };
 
   const onDrop = (event: DragEvent, to: string) => {
@@ -83,20 +145,146 @@ export function KanbanBoard<T>({
     setOver(null);
     const key = event.dataTransfer.getData(DRAG_TYPE) || dragging?.key;
     setDragging(null);
-    if (!key || !getKey) return;
-    for (const column of columns) {
-      const item = column.items.find((i) => getKey(i) === key);
-      if (item) {
-        if (column.key !== to) move(item, to);
-        return;
+    if (key) moveKey(key, to);
+  };
+
+  // ── Keyboard pick-up on the handle ──
+  const pickUp = (key: string, from: string) => {
+    setGrabbed({ key, from, target: from });
+    announce(
+      `${labelOf(key)} picked up in ${columnLabel(from)}. Use the left and right arrow keys to choose a column, Space to drop, Escape to cancel.`,
+    );
+  };
+  const aim = (index: number) => {
+    if (!grabbed) return;
+    const column = columns[Math.max(0, Math.min(columns.length - 1, index))];
+    if (!column || column.key === grabbed.target) return;
+    setGrabbed({ ...grabbed, target: column.key });
+    announce(`Over ${column.label}, column ${columns.indexOf(column) + 1} of ${columns.length}.`);
+  };
+  const drop = () => {
+    if (!grabbed) return;
+    setGrabbed(null);
+    if (grabbed.target === grabbed.from) {
+      announce(`${labelOf(grabbed.key)} dropped back in ${columnLabel(grabbed.from)}.`);
+      return;
+    }
+    refocus.current = grabbed.key;
+    moveKey(grabbed.key, grabbed.target);
+  };
+  const cancel = () => {
+    if (!grabbed) return;
+    setGrabbed(null);
+    announce(`Move cancelled. ${labelOf(grabbed.key)} stays in ${columnLabel(grabbed.from)}.`);
+  };
+
+  // Escape while a card is picked up must not also close a surrounding
+  // Dialog or Sheet, which listen before the handle does.
+  useEffect(() => {
+    if (!grabbed) return;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancel();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  });
+
+  // A card that disappears mid-gesture (or a board that stops being
+  // movable) ends the gesture.
+  useEffect(() => {
+    if (grabbed && (!movable || !find(grabbed.key))) setGrabbed(null);
+    if (dragging && (!movable || !find(dragging.key))) {
+      setDragging(null);
+      setOver(null);
+    }
+  });
+
+  useIsomorphicLayoutEffect(() => {
+    const key = refocus.current;
+    if (!key) return;
+    const handle = handles.current.get(key);
+    if (!handle) return;
+    // Wait while the card is still in its old column (an async move).
+    if (handle.isConnected && document.activeElement === handle) {
+      refocus.current = null;
+      return;
+    }
+    const active = document.activeElement;
+    if (active === null || active === document.body) {
+      handle.focus();
+      refocus.current = null;
+    }
+  });
+
+  const onHandleKeyDown = (event: KeyboardEvent, key: string, from: string) => {
+    const delta = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+    if (grabbed?.key === key) {
+      const index = columns.findIndex((c) => c.key === grabbed.target);
+      if (delta) {
+        event.preventDefault();
+        aim(index + delta);
+      } else if (event.key === "Home" || event.key === "End") {
+        event.preventDefault();
+        aim(event.key === "Home" ? 0 : columns.length - 1);
+      }
+      return;
+    }
+    if (delta && event.altKey && !grabbed) {
+      event.preventDefault();
+      const to = columns[columns.findIndex((c) => c.key === from) + delta];
+      if (to) {
+        refocus.current = key;
+        moveKey(key, to.key);
       }
     }
   };
 
-  // Dragging needs stable keys to find the dropped item again.
-  const movable = Boolean(onMoveItem && getKey);
+  // Space and Enter reach the handle as a click with `detail === 0`, as do
+  // screen readers' activations; a pointer click does nothing here.
+  const onHandleClick = (event: { detail: number }, key: string, from: string) => {
+    if (event.detail !== 0) return;
+    if (grabbed?.key === key) drop();
+    else if (!grabbed) pickUp(key, from);
+  };
+
+  // ── Touch (and pen) drag on the handle ──
+  // Native drag and drop doesn't start from a touch, so the handle tracks
+  // the pointer itself and drops on the column under the finger.
+  const columnAt = (x: number, y: number) =>
+    (typeof document.elementFromPoint === "function" ? document.elementFromPoint(x, y) : null)
+      ?.closest<HTMLElement>("[data-kanban-column]")
+      ?.dataset.kanbanColumn ?? null;
+  const onHandlePointerDown = (event: PointerEvent<HTMLButtonElement>, key: string, from: string) => {
+    if (event.pointerType === "mouse" || grabbed || dragging) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setDragging({ key, from, pointer: event.pointerId });
+    announce(`${labelOf(key)} picked up in ${columnLabel(from)}.`);
+  };
+  const onHandlePointerMove = (event: PointerEvent) => {
+    if (dragging?.pointer !== event.pointerId) return;
+    const to = columnAt(event.clientX, event.clientY);
+    if (to !== over) setOver(to);
+  };
+  const onHandlePointerUp = (event: PointerEvent) => {
+    if (dragging?.pointer !== event.pointerId) return;
+    const to = columnAt(event.clientX, event.clientY) ?? over;
+    const { key, from } = dragging;
+    setDragging(null);
+    setOver(null);
+    if (to && to !== from) moveKey(key, to);
+    else announce(`${labelOf(key)} dropped back in ${columnLabel(from)}.`);
+  };
+  const onHandlePointerCancel = (event: PointerEvent) => {
+    if (dragging?.pointer !== event.pointerId) return;
+    setDragging(null);
+    setOver(null);
+  };
 
   return (
+    <>
     <div
       className={cn(
         "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
@@ -114,10 +302,13 @@ export function KanbanBoard<T>({
           data-kanban-column={column.key}
           className={cn(
             "flex flex-col gap-3 rounded-lg",
-            movable && over === column.key && dragging?.from !== column.key && "bg-accent/40 ring-2 ring-primary/40",
+            movable &&
+              ((dragging && over === column.key && dragging.from !== column.key) ||
+                (grabbed && grabbed.target === column.key && grabbed.from !== column.key)) &&
+              "bg-accent/40 ring-2 ring-primary/40",
           )}
           onDragOver={movable ? (e) => {
-            if (!dragging) return;
+            if (!dragging || dragging.pointer !== undefined) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";
             if (over !== column.key) setOver(column.key);
@@ -149,10 +340,17 @@ export function KanbanBoard<T>({
             ) : (
               column.items.map((item, i) => {
                 const key = keyOf(item, i);
+                const name = getItemLabel?.(item) ?? "card";
+                const isGrabbed = grabbed?.key === key;
                 return (
                 <div
                   key={key}
-                  className={cn("animate-fade-in", movable && "group relative", dragging?.key === key && "opacity-50")}
+                  className={cn(
+                    "animate-fade-in",
+                    movable && "group relative rounded-lg",
+                    dragging?.key === key && "opacity-50",
+                    isGrabbed && "ring-2 ring-primary/50",
+                  )}
                   style={{ animationDelay: `${i * 30}ms`, animationFillMode: "both" }}
                   draggable={movable || undefined}
                   onDragStart={movable ? (e) => {
@@ -167,9 +365,37 @@ export function KanbanBoard<T>({
                 >
                   {renderCard(item)}
                   {movable && columns.length > 1 && (
+                    <button
+                      type="button"
+                      ref={(node) => {
+                        if (node) handles.current.set(key, node);
+                        else handles.current.delete(key);
+                      }}
+                      aria-label={`Pick up ${name}`}
+                      aria-describedby={instructionsId}
+                      data-grabbed={isGrabbed || undefined}
+                      className={cn(
+                        "absolute right-8 top-1.5 cursor-grab touch-none rounded p-1 text-muted-foreground",
+                        "hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        isGrabbed && "bg-accent text-foreground",
+                      )}
+                      onClick={(e) => onHandleClick(e, key, column.key)}
+                      onKeyDown={(e) => onHandleKeyDown(e, key, column.key)}
+                      onBlur={() => {
+                        if (isGrabbed) cancel();
+                      }}
+                      onPointerDown={(e) => onHandlePointerDown(e, key, column.key)}
+                      onPointerMove={onHandlePointerMove}
+                      onPointerUp={onHandlePointerUp}
+                      onPointerCancel={onHandlePointerCancel}
+                    >
+                      <GripVertical className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                  )}
+                  {movable && columns.length > 1 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger
-                        aria-label={`Move ${getItemLabel?.(item) ?? "card"}`}
+                        aria-label={`Move ${name}`}
                         className="absolute right-1.5 top-1.5 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden />
@@ -179,7 +405,13 @@ export function KanbanBoard<T>({
                         {columns
                           .filter((c) => c.key !== column.key)
                           .map((c) => (
-                            <DropdownMenuItem key={c.key} onSelect={() => move(item, c.key)}>
+                            <DropdownMenuItem
+                              key={c.key}
+                              onSelect={() => {
+                                refocus.current = key;
+                                move(item, c.key, getItemLabel?.(item) ?? "Card");
+                              }}
+                            >
                               {c.label}
                             </DropdownMenuItem>
                           ))}
@@ -196,5 +428,17 @@ export function KanbanBoard<T>({
         );
       })}
     </div>
+    {movable && (
+      <>
+        <p id={instructionsId} hidden>
+          Space or Enter picks the card up. Left and right arrows, Home and End choose a column. Space or Enter drops
+          it, Escape puts it back. Alt with an arrow moves it one column.
+        </p>
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {announcement}
+        </div>
+      </>
+    )}
+    </>
   );
 }

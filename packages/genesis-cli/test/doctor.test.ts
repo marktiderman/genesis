@@ -1,3 +1,4 @@
+// @feat:cli-doctor
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import * as path from "node:path";

@@ -1,3 +1,4 @@
+// @feat:chrome-extensions
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installChromeFake, type ChromeFake } from "../testing";
 import {

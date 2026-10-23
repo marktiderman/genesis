@@ -4,7 +4,7 @@ import {
   ReactRouterLink,
   useReactRouterActivePath,
 } from "@marktiderman/genesis-ui/router/react-router";
-import { LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler, SwatchBook, Shapes, LayoutTemplate, ScrollText } from "lucide-react";
+import { LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler, SwatchBook, Shapes, LayoutTemplate, ScrollText, ListChecks } from "lucide-react";
 
 const globalItems: NavItem[] = [
   { to: "/showcase", icon: Sparkles, label: "Showcase" },
@@ -18,6 +18,7 @@ const globalItems: NavItem[] = [
   { to: "/forms", icon: ClipboardList, label: "Forms playground" },
   { to: "/forms-builder", icon: PencilRuler, label: "Form builder" },
   { to: "/studio", icon: Database, label: "Data Studio" },
+  { to: "/features", icon: ListChecks, label: "Features" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 

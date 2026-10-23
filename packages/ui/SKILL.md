@@ -78,6 +78,9 @@ honours `maxLength` on text fields, adds no placeholder unless the field sets on
   once and the cached list updates; `undoable` shows an Undo toast and sends the save after
   `undoDelayMs` (5000) unless undone. A failure puts the list back and is toasted. Needs a
   mounted `<Toaster />`. `ResourcePage` passes its own `mutationMode` to its form and deletes.
+  The undo still works after the dialog closes. For a direct
+  `useResource({ mutationMode: "undoable" })`, pass `onUndoable: showUndoToast` and
+  `onError: showWriteErrorToast` (both exported from `/data`).
 
 ## Unsaved changes
 
@@ -184,6 +187,20 @@ DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
   closes a record that was opened. A page that owns its own paging uses `useResourceUrlState`.
 - **Non-destructive confirm:** `<AlertDialogAction variant="default">` for publish/send; red stays
   the default for deletes.
+
+## A different layout over the same list
+
+`useResourceTable(options)` (from `/data` or `/hooks`) is ResourcePage without its markup. It takes the
+same options and returns:
+
+- the rows (`page.data`) and paging (`currentPage`, `totalPages`);
+- search, sort and filters (`handleSearchChange`, `handleSortSelect`);
+- selection (`selectedIds`, `handleToggleSelect`);
+- the open record (`handleRowClick`, `detailOpen`, `selectedItem`, `closeDetail`);
+- the built-in form and delete state.
+
+Build a board, a calendar or a custom card wall on it instead of re-deriving that wiring.
+`ResourcePage` is this hook plus Genesis's markup.
 
 ## Big tables
 

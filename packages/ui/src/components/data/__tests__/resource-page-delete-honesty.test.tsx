@@ -115,3 +115,27 @@ describe("ResourcePage caller onDelete that throws synchronously", () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("Nope."));
   });
 });
+
+describe("ResourcePage caller onDelete when resourceOptions.onError throws", () => {
+  it("falls back to the toast and leaves no unhandled rejection", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const provider = createMockProvider({ tasks: [{ id: "1", title: "Write" }] });
+      const onError = vi.fn(() => {
+        throw new Error("logger down");
+      });
+      renderTasks(
+        { onDelete: () => Promise.reject(new Error("Couldn't delete it.")), resourceOptions: { onError } },
+        provider,
+      );
+      await askToDelete("Write");
+      await waitFor(() => expect(toastError).toHaveBeenCalledWith("Couldn't delete it."));
+      expect(onError).toHaveBeenCalled();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
+  });
+});

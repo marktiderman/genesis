@@ -187,11 +187,19 @@ export interface SupabaseProviderOptions {
 }
 
 /** A PostgREST "undefined column" error (42703) naming `column`. */
-function isMissingColumn(error: unknown, column: string): boolean {
+/**
+ * A PostgreSQL "undefined column" error (42703) for `table`'s own `column`:
+ * `column "id" does not exist` or `column <table>.id does not exist`. Not a
+ * related table's column (`author.id`) or any other message mentioning it.
+ */
+function isMissingColumn(error: unknown, table: string, column: string): boolean {
   if (!error || typeof error !== "object") return false;
   const { code, message } = error as { code?: unknown; message?: unknown };
   if (code !== "42703" || typeof message !== "string") return false;
-  return new RegExp(`(^|[^A-Za-z0-9_])${column}([^A-Za-z0-9_]|$)`).test(message);
+  const match = /^column (?:"?([^."\s]+)"?\.)?"?([^."\s]+)"? does not exist$/.exec(message.trim());
+  if (!match || match[2] !== column) return false;
+  const ownTable = table.split(".").pop()?.replace(/"/g, "");
+  return match[1] === undefined || match[1] === ownTable;
 }
 
 const SERVED_OPERATORS: readonly FilterOperator[] = [
@@ -493,7 +501,7 @@ export function createSupabaseProvider(
       // as before, without the key order, and is not ordered by it again.
       const guessKey = configuredKey === undefined && !keylessResources.has(resource);
       let result = await run(configuredKey ?? (keylessResources.has(resource) ? false : "id"));
-      if (guessKey && isMissingColumn(result.error, "id")) {
+      if (guessKey && isMissingColumn(result.error, resource, "id")) {
         keylessResources.add(resource);
         if (process.env.NODE_ENV !== "production") {
           console.warn(

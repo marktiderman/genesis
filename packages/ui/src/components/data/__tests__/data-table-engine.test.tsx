@@ -2,7 +2,7 @@
  * DataTable on TanStack Table: typed sorting, pinned columns, reordering
  * (Alt+←/→, persisted, reset) and row virtualization for long unpaged tables.
  */
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DataTable, type DataTableColumn } from "../DataTable";
@@ -139,6 +139,35 @@ describe("DataTable virtualization", () => {
     expect(first?.getAttribute("aria-rowindex")).toBe("2");
   });
 
+  it("keeps a tab stop on a rendered row when the focused row scrolls out of view", async () => {
+    render(
+      <DataTable
+        items={many}
+        columns={columns}
+        getKey={(r) => r.id}
+        onRowClick={() => {}}
+        pagination={false}
+        virtualize={{ height: 400 }}
+        columnVisibility={false}
+      />,
+    );
+    const first = document.querySelector<HTMLElement>('[data-row-open="0"]')!;
+    first.focus();
+    expect(first.tabIndex).toBe(0);
+    const scroller = screen.getByRole("table").closest<HTMLElement>(".overflow-y-auto")!;
+    scroller.scrollTop = 41 * 400;
+    await act(async () => {
+      fireEvent.scroll(scroller);
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(document.querySelector('[data-row-open="0"]')).toBeNull();
+    const stops = Array.from(document.querySelectorAll<HTMLElement>("[data-row-open]")).filter((b) => b.tabIndex === 0);
+    expect(stops).toHaveLength(1);
+    // The first row in view, not one of the 10 overscan rows rendered above it.
+    const rendered = Array.from(document.querySelectorAll<HTMLElement>("[data-row-open]")).map((b) => Number(b.dataset.rowOpen));
+    expect(Number(stops[0]!.dataset.rowOpen)).toBeGreaterThanOrEqual(Math.min(...rendered) + 10);
+  });
+
   it("renders every row when paginated, ignoring virtualize", () => {
     render(<DataTable items={many} columns={columns} getKey={(r) => r.id} pageSize={25} virtualize columnVisibility={false} />);
     expect(screen.getAllByRole("row").length - 1).toBe(25);
@@ -153,6 +182,22 @@ describe("DataTable follow-ups (#105 review)", () => {
     expect(firstColumn().at(-1)).toBe("Dee");
     sortBy("count");
     expect(firstColumn().at(-1)).toBe("Dee");
+  });
+
+  it("ignores a controlled sort on a column the table doesn't have, without TanStack errors", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <DataTable
+        items={rows}
+        columns={columns}
+        getKey={(r) => r.id}
+        columnVisibility={false}
+        sort={[{ key: "not_a_column", dir: "asc" }, { key: "count", dir: "asc" }]}
+      />,
+    );
+    expect(firstColumn()).toEqual(["Ada", "Cara", "Bo"]);
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
   });
 
   it("ignores a stored column order that isn't a list of keys", () => {

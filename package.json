@@ -17,6 +17,9 @@
     "check:token-usage": "node scripts/check-token-usage.mjs",
     "clean:packages": "pnpm --filter \"@marktiderman/genesis-*\" clean",
     "coverage:design-system": "node scripts/design-system-coverage.mjs",
+    "features": "genesis features",
+    "features:build": "genesis features build",
+    "features:check": "genesis features check",
     "gen:component-reference": "node scripts/gen-component-reference.mjs",
     "lint": "pnpm -r lint",
     "lint:genesis": "pnpm check:legacy-imports && pnpm check:token-usage && pnpm check:forbidden-imports && pnpm check:navigation-reimplementation && pnpm check:peer-deps && pnpm check:testid-coverage",
@@ -27,7 +30,18 @@
   },
   "devDependencies": {
     "@changesets/cli": "~2.30.0",
+    "@marktiderman/genesis-cli": "workspace:*",
+    "@marktiderman/genesis-features": "workspace:*",
     "vitest": "^4.1.12",
     "yaml": "^2.6.0"
+  },
+  "genesisFeatures": {
+    "registry": "features.ts",
+    "command": "pnpm features",
+    "marketing": "README.md",
+    "coverage": [
+      "packages/*/src/index.{ts,tsx}"
+    ],
+    "coverageIgnore": []
   }
 }

@@ -1,3 +1,4 @@
+// @feat:app-shell
 /**
  * AppShell `navigation`: sidebar, contextual section, mobile tab bar and the
  * parent link all derived from one `NavigationNode` tree.

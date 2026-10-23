@@ -1,3 +1,4 @@
+// @feat:page-layouts
 /**
  * Page template behaviour contract (FRAMEWORK.md step 8, layout half).
  *

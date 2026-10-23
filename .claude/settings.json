@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x node_modules/.bin/genesis ] && node_modules/.bin/genesis features check --summary 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

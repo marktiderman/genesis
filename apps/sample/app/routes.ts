@@ -27,6 +27,7 @@ export default [
     ]),
     route("settings", "routes/settings.tsx"),
     route("studio", "routes/studio.tsx"),
+    route("features", "routes/features.tsx"),
     // Phase G — Genesis Showcase portfolio routes
     route("showcase", "routes/showcase._index.tsx"),
     route("showcase/tokens", "routes/showcase.tokens._index.tsx"),

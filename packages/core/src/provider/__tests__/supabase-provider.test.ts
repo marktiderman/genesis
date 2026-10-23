@@ -1,3 +1,4 @@
+// @feat:supabase-provider
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSupabaseProvider, type SupabaseProviderOptions } from "../supabase-provider";
 import { fieldErrorsFromPostgrest, readOutcomeFromCode, toDataWriteError, writeOutcomeFromCode } from "../postgrest-errors";
@@ -74,11 +75,11 @@ describe("writeOutcomeFromCode", () => {
   });
 
   it("toDataWriteError keeps the message, code and cause, and passes DataWriteError through", () => {
-    const raw = { message: "duplicate key", code: "23505", details: "Key (slug)=(a)" };
+    const raw = { message: "check failed", code: "23514", details: "Failing row contains (a)." };
     const err = toDataWriteError(raw);
     expect(err.outcome).toBe("invalid");
-    expect(err.message).toBe("duplicate key");
-    expect(err.code).toBe("23505");
+    expect(err.message).toBe("check failed");
+    expect(err.code).toBe("23514");
     expect(err.cause).toBe(raw);
     const own = new DataWriteError("conflict", "x");
     expect(toDataWriteError(own)).toBe(own);
@@ -133,12 +134,43 @@ describe("field-level write errors", () => {
     expect(mapped?.fields).toEqual({ owner_id: "The selected item doesn't exist." });
   });
 
+  it("maps a simple expression index to its column", () => {
+    const err = toDataWriteError({
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "users_lower_email_key"',
+      details: "Key (lower(email::text))=(ann@example.com) already exists.",
+    });
+    expect(err.fields).toEqual({ email: "This value is already in use." });
+    expect(err.message).toBe("Email is already in use.");
+    expect(
+      fieldErrorsFromPostgrest({ code: "23505", details: "Key (lower((email)::text))=(a) already exists." })?.fields,
+    ).toEqual({ email: "This value is already in use." });
+    expect(
+      fieldErrorsFromPostgrest({ code: "23505", details: "Key (org_id, lower(slug))=(4, a) already exists." })?.fields,
+    ).toEqual({ org_id: "This combination is already in use.", slug: "This combination is already in use." });
+  });
+
+  it("an unreadable unique key still never shows the raw text", () => {
+    for (const details of [
+      "Key (coalesce(a, b))=(x) already exists.",
+      "Key ((data ->> 'k'::text))=(x) already exists.",
+      undefined,
+    ]) {
+      const err = toDataWriteError({
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "secret_idx"',
+        details,
+      });
+      expect(err.fields).toBeUndefined();
+      expect(err.message).toBe("This value is already in use.");
+      expect(err.outcome).toBe("invalid");
+    }
+  });
+
   it("maps nothing it cannot read safely", () => {
-    // An expression index, a still-referenced delete, other codes, no details.
-    expect(fieldErrorsFromPostgrest({ code: "23505", details: "Key (lower(email::text))=(a) already exists." })).toBeUndefined();
+    // A still-referenced delete, other codes.
     expect(fieldErrorsFromPostgrest({ code: "23503", details: 'Key (id)=(5) is still referenced from table "tasks".' })).toBeUndefined();
     expect(fieldErrorsFromPostgrest({ code: "23514", message: 'new row violates check constraint "x"' })).toBeUndefined();
-    expect(fieldErrorsFromPostgrest({ code: "23505" })).toBeUndefined();
     expect(fieldErrorsFromPostgrest({ code: "23502", message: 'null value in column "we\"ird" of relation' })).toBeUndefined();
     expect(toDataWriteError({ code: "23505", message: "dup" }).fields).toBeUndefined();
   });
@@ -679,6 +711,45 @@ describe("getList follow-ups (#96 review)", () => {
     expect(isDataReadError(await p.getList("tasks", { pagination: { page: 1, perPage: 10 } }).catch((e) => e))).toBe(true);
     expect(queue).toHaveLength(0);
     expect(calls.filter((c) => c.method === "from")).toHaveLength(2);
+  });
+
+  it("retries only for the resource's own id column, never a related table's, and keeps the key order after", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const p = provider();
+    const page = { pagination: { page: 1, perPage: 10 } };
+    // An embedded select's or a related sort's id: a real error, not an id-less view.
+    for (const message of [
+      "column author.id does not exist",
+      "column profiles_1.id does not exist",
+      'column "author_id" does not exist',
+      "column tasks.id_old does not exist",
+      'column "Other-Table".id does not exist',
+    ]) {
+      queue.push(fail(message, "42703"));
+      expect(isDataReadError(await p.getList("tasks", page).catch((e) => e))).toBe(true);
+    }
+    expect(queue).toHaveLength(0);
+    expect(warn).not.toHaveBeenCalled();
+    // Not marked id-less: the next page is still ordered by id.
+    calls = [];
+    queue.push({ ...ok([]), count: 0 } as Response);
+    await p.getList("tasks", page);
+    expect(calls.filter((c) => c.method === "order").map((c) => c.args[0])).toEqual(["id"]);
+    // The bare form, and a schema-qualified resource, still retry.
+    for (const [resource, message] of [
+      ["plain_view", 'column "id" does not exist'],
+      ["reports.summary", "column summary.id does not exist"],
+      // A quoted table name (mixed case, a hyphen) is still the resource's own.
+      ["Report-View", 'column "Report-View".id does not exist'],
+      // PostgreSQL allows `$` in identifiers.
+      ["sales$summary", "column sales$summary.id does not exist"],
+    ] as const) {
+      queue.push(fail(message, "42703"));
+      queue.push({ ...ok([]), count: 0 } as Response);
+      expect(await p.getList(resource, page)).toEqual({ data: [], total: 0 });
+    }
+    expect(warn).toHaveBeenCalledTimes(4);
+    warn.mockRestore();
   });
 
   it("orders an unsorted page by the key column, and leaves an unpaged, unsorted list alone", async () => {
