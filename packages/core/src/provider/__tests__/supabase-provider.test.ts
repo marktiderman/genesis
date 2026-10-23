@@ -782,6 +782,6 @@ describe("searchFields config: the query", () => {
     const p = provider({ resources: { tasks: { searchFields: ["title"] } } });
     queue.push({ ...ok([]), count: 0 } as Response);
     await p.getList("tasks", { search: { query: "x", fields: ["title", "secret"] } });
-    expect(calls.find((c) => c.method === "or")?.args).toEqual(["title.ilike.%x%"]);
+    expect(calls.find((c) => c.method === "or")?.args).toEqual(['title.ilike."%x%"']);
   });
 });

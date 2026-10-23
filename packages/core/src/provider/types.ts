@@ -16,11 +16,20 @@ export type Identifier = string | number;
 /** Base record type — all resources must have an id. */
 export type BaseRecord = { id: Identifier; [key: string]: unknown };
 
-/** Pagination parameters (offset-based, with optional cursor for future use). */
+/**
+ * Pagination parameters: offset (`page`) or cursor (keyset).
+ *
+ * Cursor paging: set `cursor` to `null` for the first page and to the
+ * previous page's `ListResult.nextCursor` for each next one. A provider that
+ * serves it (`capabilities().cursorPagination`) then ignores `page` and
+ * returns `nextCursor`; one that doesn't ignores `cursor` and pages by
+ * `page`, returning no `nextCursor`. `useInfiniteResource` handles both.
+ */
 export interface PaginationParam {
   page: number;
   perPage: number;
-  cursor?: string;
+  /** `null`: the first page, by cursor. A string: the page after that cursor. Opaque. */
+  cursor?: string | null;
 }
 
 /** Sort direction for a single field. */
@@ -82,7 +91,16 @@ export interface ListParams {
 /** Result of `getList`. */
 export interface ListResult<T> {
   data: T[];
+  /**
+   * Rows matching the filters and search. In cursor mode a provider may
+   * count only on the first page (`cursor: null`) and return `-1` after it.
+   */
   total: number;
+  /**
+   * Cursor mode only: the cursor for the next page, or `null` when this is
+   * the last one. Absent when the provider paged by offset.
+   */
+  nextCursor?: string | null;
 }
 
 /** Parameters for `getOne`. */

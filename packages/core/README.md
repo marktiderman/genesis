@@ -233,6 +233,54 @@ const tasks = useResource("tasks", {
 await tasks.remove(id); // resolves at once; sent in 5 s unless undone
 ```
 
+## Cursor paging
+
+For long lists that grow with "Load more", page by cursor (keyset) instead of
+offset: pages stay right while rows are added or removed, and a deep page
+costs no more than the first.
+
+```ts
+const tasks = useInfiniteResource("tasks", {
+  perPage: 50,
+  defaultSort: { field: "due_at", order: "asc" },
+});
+tasks.rows;           // every loaded row
+tasks.total;          // from the first page's count
+tasks.hasNextPage && tasks.fetchNextPage();
+```
+
+- **The contract.** `getList` with `pagination: { page, perPage, cursor }`,
+  where `cursor` is `null` for the first page and the previous page's
+  `nextCursor` after that. A provider that serves it
+  (`capabilities().cursorPagination`) returns `nextCursor` (`null` on the
+  last page) and may return `total: -1` after the first page (not counted).
+  A provider that doesn't ignores `cursor` and pages by `page`;
+  `useInfiniteResource` then pages by offset until `total` rows are loaded.
+- **Supabase.**
+  - It orders by the sort column and then the `orderKey` (default `id`) and
+    fetches one row more than the page to tell whether there is a next
+    page. A page is at most `maxPerPage - 1` rows, so that extra row fits
+    under PostgREST's `max-rows`.
+  - The cursor (opaque, base64 JSON) holds the last row's sort and key
+    values and the sort it was made for. A cursor from another sort is
+    refused.
+  - The keyset filter handles ascending and descending sorts, ties (broken
+    by the key) and null sort values, matching Postgres's default null
+    placement (last when ascending, first when descending, pinned in the
+    query).
+  - It refuses, with an `invalid` `DataReadError` whose `cause` says why:
+    `orderKey: false`, a sort on an embedded field (`author.name`), a sort
+    column with non-scalar values, and a `select` that leaves out the sort
+    or key column.
+  - Only the first page is counted.
+- **Writes and pending patches.** Pages live under
+  `[resource, "infinite", params]`, so writes (which invalidate `[resource]`)
+  refetch them. Optimistic and undoable patches are applied to every loaded
+  page and survive refetches, like lists.
+- **A row shows once.** A row that moved into a later page while the user
+  scrolled (its sort value changed, or rows were added before it) is shown
+  where it first appeared, not twice.
+
 ## Live updates (realtime)
 
 `useResource(resource, { live: true })`, `useOne(resource, id, { live: true })`
@@ -277,8 +325,10 @@ alter publication supabase_realtime add table public.tasks;
 alter table public.tasks enable row level security;
 ```
 
-- The provider opens one `postgres_changes` channel per subscription
-  (`useOne` filters it to `id=eq.<id>`) and removes it on unsubscribe. A
+- The provider opens one `postgres_changes` channel per subscription and
+  removes it on unsubscribe. `useOne`'s channel is not filtered on the
+  server (Realtime never delivers deletes through a filter); its id is
+  matched on arrival. A
   resource named `schema.table` listens in that schema; otherwise `public`.
 - **What leaks, and what doesn't.** Insert and update events are checked
   against RLS by Realtime. **Delete events are not:** every subscriber to the
