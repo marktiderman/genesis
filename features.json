@@ -549,6 +549,34 @@
       "flags": []
     },
     {
+      "id": "forms-studio",
+      "name": "Form studio",
+      "summary": "The workspace around a form builder: a header with status, save state and publish, a Responses tab with filters, headline numbers, question summaries and a follow-up list, a Settings page with jump links, and the Share dialog.",
+      "tagline": "Run a form end to end: edit, publish, share and read the responses.",
+      "category": "Forms",
+      "status": "building",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer",
+        "operator"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "A low-rated response shows in Needs a follow-up until the host marks it handled."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/forms-studio"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "forms-destinations",
       "name": "Form destinations",
       "summary": "Deliver responses by email, to Google Sheets and to signed webhooks.",

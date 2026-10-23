@@ -1,0 +1,83 @@
+// A form page's status chip and its four child navigation items with their counts. Pure.
+import type { FormDefinition } from "@marktiderman/genesis-forms";
+import type { FormAvailability } from "./availability";
+import type { SubNavItem } from "@marktiderman/genesis-ui/layout";
+import type { ChipTone } from "./generic/status";
+
+/**
+ * A form's status chip: "Live · version 3", "Draft", "Paused · version 3"… `availability`
+ * is formAvailability's answer; `version` the live version, when there is one.
+ */
+export function formStatusChip(
+  availability: FormAvailability,
+  version?: number | null,
+): { label: string; tone: ChipTone } {
+  const v = version ? ` · version ${version}` : "";
+  switch (availability) {
+    case "live":
+      return { label: `Live${v}`, tone: "success" };
+    case "draft":
+      return { label: "Draft", tone: "muted" };
+    case "paused":
+      return { label: `Paused${v}`, tone: "warning" };
+    case "scheduled":
+      return { label: `Scheduled${v}`, tone: "info" };
+    case "closed":
+      return { label: `Closed${v}`, tone: "muted" };
+    case "full":
+      return { label: `Full${v}`, tone: "warning" };
+    case "archived":
+      return { label: "Archived", tone: "muted" };
+  }
+}
+
+/** The form page's four places, in order. */
+export type FormTab = "questions" | "logic" | "responses" | "settings";
+
+/** One of a form page's child navigation items: genesis-ui's `SubNavItem`, plus its place. */
+export type FormNavItem = SubNavItem & { id: FormTab; badge?: number };
+
+/** How many questions a definition asks, and how many rules plus endings it has. */
+export function formCounts(definition: FormDefinition | null | undefined): {
+  questions: number;
+  logic: number;
+} {
+  if (!definition) return { questions: 0, logic: 0 };
+  return {
+    questions: definition.blocks.filter((b) => b.kind === "field").length,
+    logic: (definition.logic?.length ?? 0) + (definition.endings?.length ?? 0),
+  };
+}
+
+/**
+ * The form page's child navigation items (Questions, Logic and endings, Responses,
+ * Settings) with their counts as badges, for the app shell's sub-navigation:
+ * `useAppShellSubNav(formNavItems("/forms/f1", counts))`. `at` is the form page's path
+ * (each place is `?tab=<id>` on it, Questions the path itself, which the shell's most
+ * specific match keeps from lighting up on the others) or a function giving each place's
+ * address. A count left out (or null) shows no badge.
+ */
+export function formNavItems(
+  at: string | ((tab: FormTab) => string),
+  counts: { questions?: number | null; logic?: number | null; responses?: number | null } = {},
+  /** Each place's icon, for the rail and the phone's bottom bar (`FORM_NAV_ICONS`). */
+  icons?: Partial<Record<FormTab, SubNavItem["icon"]>>,
+): FormNavItem[] {
+  const to = typeof at === "function" ? at : (tab: FormTab) => (tab === "questions" ? at : `${at}?tab=${tab}`);
+  const item = (id: FormTab, label: string, badge?: number | null): FormNavItem => {
+    const icon = icons?.[id];
+    return {
+      id,
+      to: to(id),
+      label,
+      ...(badge == null ? {} : { badge }),
+      ...(icon ? { icon } : {}),
+    };
+  };
+  return [
+    item("questions", "Questions", counts.questions),
+    item("logic", "Logic and endings", counts.logic),
+    item("responses", "Responses", counts.responses),
+    item("settings", "Settings"),
+  ];
+}
