@@ -1,0 +1,41 @@
+packages/forms-builder/src/__tests__/scale.test.tsx
+  s_3daa86e3ae6031::t_0a5d8b95015d81 1-96
+.changeset/form-builder-redesign.md
+  s_3daa86e3ae6031::t_2acae196817ac1 10-11,13
+apps/sample/stories/FormBuilder.stories.tsx
+  s_3daa86e3ae6031::t_8d87620e770a8e 56,59
+packages/forms-builder/README.md
+  s_3daa86e3ae6031::t_7132b3d7b46dce 100-101
+packages/forms-builder/src/FormBuilder.tsx
+  s_3daa86e3ae6031::t_b01f8a27779d83 56-59,61,63,65,319-320
+packages/forms-builder/src/__tests__/redesign.test.tsx
+  s_3daa86e3ae6031::t_69e92f79034c3d 281,283,285,288,290,298,300-301,310-311
+packages/forms-builder/src/controls.tsx
+  s_3daa86e3ae6031::t_55fdcd30368b31 344-367,378,380,385,387
+packages/forms-builder/src/flow.tsx
+  s_3daa86e3ae6031::t_b6c2b379ab7e48 1,107,127-130,256
+packages/forms-builder/src/history.ts
+  s_3daa86e3ae6031::t_a14d8723b6d2da 68-73
+packages/forms-builder/src/logic.tsx
+  s_3daa86e3ae6031::t_08bcb252c235b0 1,48,369,383-423,427,452,459,468
+packages/forms-builder/src/questions.tsx
+  s_3daa86e3ae6031::t_e0639e9d381b9c 32,706,708,718,726
+packages/forms-builder/type-tests/additive-api.tsx
+  s_3daa86e3ae6031::t_396488e434464d 1-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "81c5110f93c094d40898862c2b05897e165b4dd9",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
