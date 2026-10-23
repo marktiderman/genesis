@@ -9,6 +9,8 @@ import {
   type FieldValidator,
   type FormDefinition,
   type FormEngine,
+  type HostOptions,
+  type Json,
   type ParseResult,
 } from "@marktiderman/genesis-forms";
 import type { FieldRendererProps, RendererRegistry } from "@marktiderman/genesis-forms-react";
@@ -30,6 +32,7 @@ export function Preview({
   parsed: given,
   brand,
   hidden,
+  hostOptions,
   registry,
   validators,
   outputs,
@@ -42,6 +45,8 @@ export function Preview({
   brand?: FormBrand | undefined;
   /** Sample values for hidden inputs, so recall and logic on them can be tried. */
   hidden?: Record<string, string | number | boolean> | undefined;
+  /** Stand-in options for questions whose options come from the app (`sampleHostOptions`). */
+  hostOptions?: HostOptions | undefined;
   /** Passed to `<Form registry>`, replacing `defaultRegistry`: extend it (`defaultRegistry.extend([...])`). */
   registry?: RendererRegistry | undefined;
   /** Custom validators by field id, for the preview's engine. Read when a response starts (or Restart). */
@@ -65,9 +70,10 @@ export function Preview({
   // Headings and text alone ask nothing: the form would read "Question 1 of 0".
   const empty = !!form && !form.blocks.some((b) => b.kind === "field");
   const hiddenKey = hidden ? canonicalJson(hidden) : "";
+  const optionsKey = hostOptions ? canonicalJson(hostOptions as unknown as Json) : "";
   const key = useMemo(
-    () => (form ? `${structureFingerprint(form)}:${layout}:${run}:${hiddenKey}` : ""),
-    [form, layout, run, hiddenKey],
+    () => (form ? `${structureFingerprint(form)}:${layout}:${run}:${hiddenKey}:${optionsKey}` : ""),
+    [form, layout, run, hiddenKey, optionsKey],
   );
 
   const root = useRef<HTMLDivElement>(null);
@@ -80,6 +86,7 @@ export function Preview({
   if (form && !engine) {
     const options: Omit<CreateFormOptions, "clock" | "initialValues"> = {};
     if (hidden) options.hidden = hidden;
+    if (hostOptions) options.hostOptions = hostOptions;
     if (validators) options.validators = validators;
     const active = typeof document === "undefined" ? null : document.activeElement;
     if (active && root.current?.contains(active)) lostFocus.current = { el: active, find: finder(active) };

@@ -11,6 +11,7 @@ import {
   canonicalJson,
   choiceOptions,
   getFieldType,
+  optionsSource,
   renameFormulaKey,
   type Block,
   type Condition,
@@ -400,6 +401,35 @@ export function setOptions(
       return Array.isArray(v) ? (c.op === "in" && !v.length) || v.some(gone) : gone(v);
     }),
   );
+}
+
+/**
+ * Where a choice field's options come from. `{ key }`: the app's list with
+ * that key (`props.optionsFrom: { source: "host", key }`); the field's typed
+ * options go, with the rules that compared them. `{ options }`: typed here,
+ * these options (made with `withOptionValues` outside the edit); the app's
+ * list goes, with rules that compare a value not among them. An edit that
+ * changes nothing returns `def` itself.
+ */
+export function setOptionsSource(
+  def: FormDefinition,
+  id: string,
+  source: { key: string } | { options: readonly { value?: string; label: string }[] },
+): FormDefinition {
+  const field = def.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id);
+  if (!field) return def;
+  const current = optionsSource(field);
+  if ("key" in source) {
+    if (current?.key === source.key && field.props?.options === undefined) return def;
+    // Typed options and the rules comparing them go first, then the source is set.
+    const cleared = setOptions(def, id, []);
+    const latest = cleared.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id)!;
+    const { options: _options, ...rest } = latest.props ?? {};
+    return updateBlock(cleared, id, { props: { ...rest, optionsFrom: { source: "host", key: source.key } } });
+  }
+  if (!current) return setOptions(def, id, source.options);
+  const { optionsFrom: _from, ...rest } = field.props ?? {};
+  return setOptions(updateBlock(def, id, { props: rest }), id, source.options);
 }
 
 /** `options` with a new value, unused among them, for each one that has none. Call it outside a reducer. */

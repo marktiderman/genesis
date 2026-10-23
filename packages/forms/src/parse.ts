@@ -267,6 +267,14 @@ export function parseForm(input: unknown): ParseResult {
         issue(`${path}.type`, `Unknown field type "${String(block.type)}".`);
       }
       if (block.props !== undefined) {
+        const from = isObject(block.props) ? block.props.optionsFrom : undefined;
+        if (from !== undefined) {
+          if (!isObject(from) || from.source !== "host" || typeof from.key !== "string" || !from.key) {
+            issue(`${path}.props.optionsFrom`, 'Must be { source: "host", key } with a non-empty key.');
+          } else if (typeof block.type === "string" && !CHOICE_TYPES.has(block.type)) {
+            warnings.push({ path: `${path}.props.optionsFrom`, message: "Only single choice, multiple choice and dropdown questions take options from the app." });
+          }
+        }
         if (!isObject(block.props) || !isJson(block.props)) issue(`${path}.props`, "Must be a JSON object.");
         else if (block.props.options !== undefined) {
           const options = block.props.options;
@@ -277,10 +285,13 @@ export function parseForm(input: unknown): ParseResult {
               if (!isObject(o) || typeof o.value !== "string") issue(at, "Each option needs a string value.");
               else optionalText(o.label, `${at}.label`);
             });
-            choices.set(
-              block.id,
-              new Set(options.flatMap((o) => (isObject(o) && typeof o.value === "string" ? [o.value] : []))),
-            );
+            // With options from the app, any value may be one of them: literals aren't checked against these.
+            if (from === undefined) {
+              choices.set(
+                block.id,
+                new Set(options.flatMap((o) => (isObject(o) && typeof o.value === "string" ? [o.value] : []))),
+              );
+            }
           }
         }
         // Renderers draw one button per point, so the scale is bounded.
