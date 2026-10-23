@@ -308,7 +308,15 @@ function outputs(options: FeatureProjectOptions): { path: string; next: (current
   }
   if (json) list.push({ path: json, ...whole(toJson(features, flags, { source })) });
   if (openfeature && flags && Object.keys(flags).length) list.push({ path: openfeature, ...whole(toOpenFeatureManifest(flags, features)) });
-  if (skill) list.push({ path: skill, ...whole(toSkillMarkdown({ source, command })) });
+  const writesFlags = Boolean(openfeature && flags && Object.keys(flags).length);
+  const generated = [
+    ...(agents ? [`the ${agents} block`] : []),
+    ...(json ? [`\`${json}\``] : []),
+    ...(writesFlags ? [`\`${openfeature}\` (the OpenFeature flag manifest)`] : []),
+    ...(options.marketing ? [`the ${options.marketing} Features section`] : []),
+    ...(skill ? ["this skill"] : []),
+  ];
+  if (skill) list.push({ path: skill, ...whole(toSkillMarkdown({ source, command, outputs: generated })) });
   if (options.marketing) {
     const block = toMarketingMarkdown(features, { heading: options.marketingHeading, source });
     list.push({

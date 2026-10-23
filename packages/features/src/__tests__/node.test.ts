@@ -277,3 +277,14 @@ describe("the flag scan skips comments, tests and ignored files", () => {
     expect(flagErrors({ scanIgnore: ["src/flags/**", "**/*.test.ts"] })).toEqual([]);
   });
 });
+
+describe("the skill names this repo's outputs", () => {
+  it("leaves out flags.json when openfeature is off", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root, { openfeature: false }));
+    const skill = readFileSync(join(root, ".claude/skills/features/SKILL.md"), "utf8");
+    expect(skill).toContain("generates the rest from it: the AGENTS.md block, `features.json`, this skill.");
+    buildFeatureOutputs(opts(root));
+    expect(readFileSync(join(root, ".claude/skills/features/SKILL.md"), "utf8")).toContain("`flags.json` (the OpenFeature flag manifest)");
+  });
+});
