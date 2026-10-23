@@ -258,10 +258,12 @@ describe("the flag scan skips comments, tests and ignored files", () => {
       "const t = `${value /* getFlag(key) */} //not-a-comment`; useFlag(\"x.b\");",
       `const view = <p>Don't</p>; // getFlag(key)`,
       `const n = a / b; useFlag("x.c"); // useFlag(other)`,
+      `<Icon size={16} /> {/* useFlag(x) */} <Flag name="a" other={fn} /> // getFlag(key)`,
+      `const r = of / 2; const s = cfg.case / 2; // getFlag(key)`,
     ].join("\n");
-    expect(blankComments(text).split("\n")).toHaveLength(4);
+    expect(blankComments(text).split("\n")).toHaveLength(6);
     const { keys, dynamic } = scanFlagReads("f.tsx", text);
-    expect(keys.map((k) => `${k.key}@${k.where}`)).toEqual(["x.a@f.tsx:1", "x.b@f.tsx:2", "x.c@f.tsx:4"]);
+    expect(keys.map((k) => `${k.key}@${k.where}`)).toEqual(["x.a@f.tsx:1", "x.b@f.tsx:2", "x.c@f.tsx:4", "a@f.tsx:5"]);
     expect(dynamic).toEqual([]);
   });
 
