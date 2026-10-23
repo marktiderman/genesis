@@ -1,0 +1,67 @@
+.changeset/core-cursor-paging.md
+  s_03a3816737bc07::t_68029528142396 1-18
+.changeset/core-realtime-live.md
+  s_03a3816737bc07::t_11e48d2e17cfa5 1-11
+.changeset/ui-resource-page-cursor.md
+  s_03a3816737bc07::t_51da14fdd80f73 1-5
+.changeset/ui-resource-page-live.md
+  s_03a3816737bc07::t_a6c05c1e84a713 1-5
+apps/sample/app/data/primitives.json
+  s_03a3816737bc07::t_605090b23e8d3b 2,12635-12641,12780,15573-15579,15718,16195-16201,16340
+docs/component-reference.md
+  s_03a3816737bc07::t_6588a696f2e806 7,33,48,63,72,103,107,119,132,136-137,143-144
+packages/core/README.md
+  s_03a3816737bc07::t_7207546d0fd40b 104,236-346
+packages/core/src/hooks/index.ts
+  s_03a3816737bc07::t_fa44e96150c504 26-31,33
+packages/core/src/hooks/mutation-mode.ts
+  s_03a3816737bc07::t_945fbee9ef13fc 84-144,181-185,195,330-346,348-350,437-447,450-451,453-454,456,458,467,548-555
+packages/core/src/hooks/use-infinite-resource.ts
+  s_03a3816737bc07::t_14cae49cea9c72 1-193
+packages/core/src/hooks/use-live.ts
+  s_03a3816737bc07::t_d280016d155395 1-119
+packages/core/src/hooks/use-one.ts
+  s_03a3816737bc07::t_e625fba65c1a2e 4,15-20,40,43-52
+packages/core/src/hooks/use-resource.ts
+  s_03a3816737bc07::t_3476dc54cbf94a 28,70-80,171,272-275
+packages/core/src/provider/__tests__/supabase-cursor.test.ts
+  s_03a3816737bc07::t_a1a96aa65095aa 1-239
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_03a3816737bc07::t_b09208866324c9 785
+packages/core/src/provider/__tests__/supabase-realtime.test.ts
+  s_03a3816737bc07::t_c997a9f0f9b84f 1-217
+packages/core/src/provider/index.ts
+  s_03a3816737bc07::t_9423b26e72bf14 32-33,53-54
+packages/core/src/provider/supabase-provider.ts
+  s_03a3816737bc07::t_1885ab2c105a32 7-8,40,55-89,108-110,189-196,235-241,272-350,471-480,572-679,702-704,715-717,796-876
+packages/core/src/provider/types.ts
+  s_03a3816737bc07::t_d602c428def356 19-27,31-32,94-97,99-103,243-272,385-401
+packages/core/src/schema/types.ts
+  s_03a3816737bc07::t_2ab2f38936c472 295-306
+packages/ui/SKILL.md
+  s_03a3816737bc07::t_b424cd306491d4 58,65
+packages/ui/src/components/data/ResourcePage.tsx
+  s_03a3816737bc07::t_2997214613b994 254-259,261,713-718,834,1188,1228-1259
+packages/ui/src/components/data/use-resource-table.ts
+  s_03a3816737bc07::t_8ce5f8f6dc796d 24,126,149-150,236-239,243-250,258-260,263-265,271-273,276-278,392,407-409,415,437-439,990-1005,1007,1012,1094-1098,1105-1117,1223-1226,1230-1231
+packages/ui/src/hooks/__tests__/core-infinite-resource.test.tsx
+  s_03a3816737bc07::t_887fb9a674a66c 1-287
+packages/ui/src/hooks/__tests__/core-live.test.tsx
+  s_03a3816737bc07::t_fdacb2d9055d3d 1-276
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "65995aef5a5b3f161284a7167cc4fb44e5f5993d",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
