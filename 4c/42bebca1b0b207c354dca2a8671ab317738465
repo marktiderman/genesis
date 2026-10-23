@@ -1,0 +1,23 @@
+packages/forms-studio/src/generic/status.ts
+  s_3daa86e3ae6031::t_40b9bc96eafa7c 1
+packages/forms-studio/src/status.ts
+  s_3daa86e3ae6031::t_b04eba85ce46fa 4-5,37-38
+packages/forms-studio/type-tests/exact-optional.tsx
+  s_3daa86e3ae6031::t_ce807868d05141 4,66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4c42bebca1b0b207c354dca2a8671ab317738465",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
