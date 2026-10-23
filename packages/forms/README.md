@@ -185,12 +185,14 @@ Limits, so a large submission can't make the server slow:
 
   | Limit | Default | Option | Counts |
   | --- | --- | --- | --- |
-  | `MAX_EVENTS` | 10,000 | `maxEvents` | Events, after `compactEvents` |
-  | `MAX_SUBMISSION_VALUES` | 200,000 | `maxValues` | JSON values in the answers, answer events and hidden inputs: each number, text, true / false, list item, row and cell |
-  | `MAX_REPLAY_WORK` | 2,000,000 | `maxReplayWork` | Replaying the events: one unit per block each time the path is walked, one per calculated field each time the answers settle, and a formula's size (its numbers, answers and operators) each time it is worked out |
+  | `MAX_EVENTS` | 10,000 | `maxEvents` | Events, after `compactEvents`; at most `RAW_EVENTS_PER_EVENT` (10) times as many may be sent |
+  | `MAX_SUBMISSION_VALUES` | 200,000 | `maxValues` | JSON values in the answers, answer events and hidden inputs: each number, text, true / false, list item, row and cell. A run of answers to one field (a table sends itself on every keystroke) counts its last only |
+  | `MAX_REPLAY_WORK` | 1,000,000 | `maxReplayWork` | Replaying the events: one unit per block each time the path is walked, one per calculated field each time the answers settle, and a formula's size (its numbers, answers and operators) each time it is worked out. The submit after the replay isn't counted |
 
-  A respondent filling in a long form with formulas uses a few hundred thousand units of replay
-  work at most; the limit stops a log built to make every step work out every formula.
+  A respondent filling in a long form with formulas uses about 400,000 units of replay work at
+  most; the limit stops a log built to make every step work out every formula. After a refusal,
+  sending the same body again gets the same answer, so show the `""` message rather than offer
+  "Try again".
 
 The engine works the values out from the answers on the path (an answer hidden by logic reads as
 blank), again whenever an answer it reads changes, and stores them with the answers, so `engine.answers()` and a

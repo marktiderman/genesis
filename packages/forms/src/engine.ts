@@ -370,5 +370,8 @@ export function replayWithin(
   const { engine, apply, finish } = build(definition, { ...options, initialValues: undefined, clock: () => undefined }, true, budget);
   for (const event of events) apply(event);
   finish();
+  // The limit is on the replay. What follows (a submit, `answers()`) settles
+  // at most once, so it is not counted and never throws.
+  if (budget) budget.max = Infinity;
   return engine;
 }

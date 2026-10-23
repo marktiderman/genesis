@@ -22,7 +22,7 @@ import {
   type FormEvent,
   type Json,
 } from "../index";
-import { MAX_REPLAY_WORK, MAX_SUBMISSION_VALUES, validateSubmission } from "../server";
+import { MAX_EVENTS, MAX_REPLAY_WORK, MAX_SUBMISSION_VALUES, RAW_EVENTS_PER_EVENT, validateSubmission } from "../server";
 import { eventFeedback } from "./sample-forms";
 
 const field = (id: string, type: string, extra: Partial<FieldBlock> = {}): FieldBlock => ({
@@ -957,6 +957,60 @@ describe("submission work limits", () => {
       ok: false,
       errors: { "": expect.stringMatching(/^Too much data: .*the limit is 200\.$/) },
     });
+  });
+
+  it("counts a table typed into once: 1,000 rows sent on each of 500 keystrokes pass", () => {
+    const columns = ["what", "rating", "note"];
+    const form: FormDefinition = {
+      schemaVersion: 1,
+      id: "typing",
+      title: "Typing",
+      blocks: [
+        { kind: "field", id: "name", key: "name", type: "short-text", label: "Name" },
+        { kind: "field", id: "t", key: "t", type: "table", label: "T", props: { maxRows: 1_000, columns: columns.map((key) => ({ key, label: key })) } },
+      ],
+    };
+    let rowsNow = Array.from({ length: 1_000 }, (_, i) => ({ what: `w${i}`, rating: "3", note: "" }));
+    const events: FormEvent[] = [{ type: "answer", field: "name", value: "Ann" }, { type: "next" }];
+    for (let k = 0; k < 500; k++) {
+      rowsNow = rowsNow.map((r, j) => (j === k ? { ...r, note: `${r.note}x` } : r));
+      events.push({ type: "answer", field: "t", value: rowsNow });
+    }
+    events.push({ type: "submit" });
+    // 500 copies of a 4,001-value table: 2,000,500 values sent, 4,001 kept.
+    expect(validateSubmission(form, { events })).toMatchObject({ ok: true });
+    // A real oversize answer is still refused, typed or not.
+    expect(validateSubmission(form, { events }, { maxValues: 4_000 })).toMatchObject({ ok: false, errors: { "": expect.stringMatching(/^Too much data/) } });
+    // And the log sent is bounded before anything looks inside it.
+    const flood: FormEvent[] = Array.from({ length: MAX_EVENTS * RAW_EVENTS_PER_EVENT + 1 }, () => ({ type: "back" }));
+    expect(validateSubmission(form, { events: flood })).toEqual({
+      ok: false,
+      errors: { "": `Too many events: ${flood.length} sent; the limit is ${MAX_EVENTS * RAW_EVENTS_PER_EVENT} before compaction.` },
+    });
+  });
+
+  it("never throws near the replay-work limit, with or without a submit event (Gate's case)", () => {
+    const blocks: FieldBlock[] = [
+      { kind: "field", id: "n", key: "n", type: "number", label: "N" },
+      { kind: "field", id: "a", key: "a", type: "short-text", label: "A" },
+    ];
+    for (let k = 0; k < 50; k++) blocks.push({ kind: "field", id: `c${k}`, key: `c${k}`, type: "calculated", label: "C", props: { formula: `n+${k}` } });
+    const logic: FormDefinition["logic"] = [{ id: "r", effect: "show", target: "a", when: { op: "gte", left: { field: "c0" }, right: { value: 0 } } }];
+    const events: FormEvent[] = Array.from({ length: 200 }, (_, i) => ({ type: "answer", field: "n", value: i }));
+    for (const withLogic of [false, true]) {
+      const form: FormDefinition = { schemaVersion: 1, id: "near", title: "Near", blocks, ...(withLogic ? { logic } : {}) };
+      const seen = new Set<string>();
+      for (let work = 1; work < 1_500; work++) {
+        for (const complete of [true, false]) {
+          const result = validateSubmission(form, { events }, { complete, maxReplayWork: work });
+          seen.add(result.ok ? "ok" : (result.errors[""] ?? "").replace(/\d+/g, "N"));
+        }
+      }
+      expect([...seen].sort()).toEqual([
+        "Too much work: replaying these events (the path and calculated fields) would take more than N steps; the limit is N.",
+        "ok",
+      ]);
+    }
   });
 
   it("refuses an event log that would make every step work out every formula (Gate's worst case)", () => {

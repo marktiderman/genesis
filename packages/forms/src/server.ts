@@ -28,19 +28,24 @@ export interface SubmissionOptions {
   /** `false` checks a draft: formats only, nothing required. Default true. */
   complete?: boolean | undefined;
   validators?: Record<string, FieldValidator> | undefined;
-  /** Most events accepted, counted after `compactEvents`. Default `MAX_EVENTS` (10,000). */
+  /**
+   * Most events accepted, counted after `compactEvents`. Default `MAX_EVENTS`
+   * (10,000). At most `RAW_EVENTS_PER_EVENT` (10) times as many may be sent.
+   */
   maxEvents?: number | undefined;
   /**
    * Most JSON values in the answers, answer events and hidden inputs
    * together (each number, text, true / false, list item, row and cell
-   * counts one). Default `MAX_SUBMISSION_VALUES` (200,000).
+   * counts one; a run of answers to one field, as typing in a table sends,
+   * counts its last only). Default `MAX_SUBMISSION_VALUES` (200,000).
    */
   maxValues?: number | undefined;
   /**
    * Most work replaying the events may take: one unit per block each time
    * the path is walked, one per calculated field each time the answers
    * settle, and a formula's size (its numbers, answers and operators) each
-   * time it is worked out. Default `MAX_REPLAY_WORK` (2,000,000).
+   * time it is worked out. Default `MAX_REPLAY_WORK` (1,000,000). Only the
+   * replay counts: the submit that follows it does not.
    */
   maxReplayWork?: number | undefined;
 }
@@ -71,7 +76,12 @@ export const MAX_EVENTS = 10_000;
 /** Default for `SubmissionOptions.maxValues`. */
 export const MAX_SUBMISSION_VALUES = 200_000;
 /** Default for `SubmissionOptions.maxReplayWork`. */
-export const MAX_REPLAY_WORK = 2_000_000;
+export const MAX_REPLAY_WORK = 1_000_000;
+/**
+ * Most events sent, before compaction, as a multiple of `maxEvents`: a
+ * keystroke log compacts to far fewer, but every event sent is looked at.
+ */
+export const RAW_EVENTS_PER_EVENT = 10;
 
 /** How many JSON values `value` holds (itself, and every item, row and cell inside), counting no further than `limit + 1`. */
 function countValues(value: unknown, limit: number): number {
@@ -87,13 +97,31 @@ function countValues(value: unknown, limit: number): number {
   return count;
 }
 
-/** The values a submission carries, as `countValues` counts them. */
-function submissionValues(input: SubmissionInput, limit: number): number {
+const answerTo = (e: unknown): string | undefined =>
+  isPlainObject(e) && e.type === "answer" && typeof e.field === "string" ? e.field : undefined;
+
+/**
+ * Events as `compactEvents` keeps them, before they are checked: of a run of
+ * answers to one field (a table sends itself on every keystroke), only the
+ * last. Looks only at each event's `type` and `field`, so it is cheap.
+ */
+function leanEvents(events: unknown[]): unknown[] {
+  const out: unknown[] = [];
+  for (let i = 0; i < events.length; i++) {
+    const field = answerTo(events[i]);
+    if (field !== undefined && answerTo(events[i + 1]) === field) continue;
+    out.push(events[i]);
+  }
+  return out;
+}
+
+/** The values a submission carries, as `countValues` counts them: its answers (each run of answers to a field once) and hidden inputs. */
+function submissionValues(input: Record<string, unknown>, limit: number): number {
   let count = countValues(input.hidden, limit);
-  if (input.events) {
+  if (Array.isArray(input.events)) {
     for (const e of input.events) {
       if (count > limit) break;
-      if (e.type === "answer") count += countValues(e.value, limit - count);
+      if (answerTo(e) !== undefined) count += countValues((e as Record<string, unknown>).value, limit - count);
     }
   } else count += countValues(input.answers, limit - count);
   return count;
@@ -145,15 +173,28 @@ export function validateSubmission(
 ): SubmissionResult {
   const invalid = checkDefinition(definition);
   if (invalid) return { ok: false, errors: { "": invalid } };
-  const input = wellFormed(submission);
-  if (!input) return MALFORMED;
+  if (!isPlainObject(submission)) return MALFORMED;
+  const maxEvents = options.maxEvents ?? MAX_EVENTS;
+  let sent: Record<string, unknown> = submission;
+  if (Array.isArray(submission.events)) {
+    // Bounded before anything walks the events or their values.
+    const maxRaw = maxEvents * RAW_EVENTS_PER_EVENT;
+    if (submission.events.length > maxRaw) {
+      return { ok: false, errors: { "": `Too many events: ${submission.events.length} sent; the limit is ${maxRaw} before compaction.` } };
+    }
+    sent = { ...submission, events: leanEvents(submission.events) };
+  }
+  // Counted on what the replay keeps, so a table typed into is counted once,
+  // and before the values are checked, so counting stops at the limit.
   const maxValues = options.maxValues ?? MAX_SUBMISSION_VALUES;
-  if (submissionValues(input, maxValues) > maxValues) {
+  if (submissionValues(sent, maxValues) > maxValues) {
     return {
       ok: false,
       errors: { "": `Too much data: the answers hold more than ${maxValues} values (items, rows and cells); the limit is ${maxValues}.` },
     };
   }
+  const input = wellFormed(sent);
+  if (!input) return MALFORMED;
 
   // A Set: a key sent many times (one answer event per keystroke) is reported once.
   const ignored = new Set<string>();
@@ -178,9 +219,8 @@ export function validateSubmission(
   let engine: FormEngine;
   if (input.events) {
     const events = compactEvents(input.events);
-    const max = options.maxEvents ?? MAX_EVENTS;
-    if (events.length > max) {
-      return { ok: false, errors: { "": `Too many events: ${events.length} after compaction; the limit is ${max}.` } };
+    if (events.length > maxEvents) {
+      return { ok: false, errors: { "": `Too many events: ${events.length} after compaction; the limit is ${maxEvents}.` } };
     }
     // Unknown fields stay in the log (replay ignores them); withheld ones are removed.
     const kept = events.filter((e) => e.type !== "answer" || accept(e.field) !== false);

@@ -163,7 +163,7 @@ function formulaSize(node: FormulaNode): number {
  */
 export interface WorkBudget {
   used: number;
-  readonly max: number;
+  max: number;
 }
 
 export class ReplayWorkExceeded extends Error {
