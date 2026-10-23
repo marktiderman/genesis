@@ -1,0 +1,29 @@
+apps/sample/stories/FormsStudio.stories.tsx
+  s_3936b1849d3933::t_6c34f6b82654d8 62
+packages/forms-studio/README.md
+  s_3936b1849d3933::t_047806a432d768 32-34
+packages/forms-studio/src/__tests__/components.test.tsx
+  s_3936b1849d3933::t_a5a90520a69007 71
+packages/forms-studio/src/__tests__/rules.test.ts
+  s_3936b1849d3933::t_213c93ece46a4b 142-146,148-149
+packages/forms-studio/src/status.ts
+  s_3936b1849d3933::t_689258421c798d 53-57,60,63
+packages/forms-studio/type-tests/exact-optional.tsx
+  s_3936b1849d3933::t_653390caf0617b 52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ff715962303c6794dd672b5a1d8542c0554315bf",
+  "prompts": {},
+  "sessions": {
+    "s_3936b1849d3933": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ae6c9fe29eb698239",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
