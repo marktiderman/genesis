@@ -54,7 +54,8 @@ export function EndingsPanel({ def, apply, findings }: { def: FormDefinition; ap
       </div>
       <ol className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3" aria-label="Endings">
         {endings.map((e, i) => {
-          const warn = findings.filter((f) => f.ref?.kind === "ending" && f.ref.id === e.id);
+          // Only the reachability check: an untitled ending is flagged too, but it can still be reached.
+          const unreachable = findings.some((f) => f.code === "unreachable-ending" && f.ref?.id === e.id);
           const isDefault = e.id === fallback;
           return (
             <li key={e.id} className="flex min-w-0 flex-col gap-1 rounded-xl border bg-card p-4 shadow-sm" data-testid={`builder-ending-${e.id}`}>
@@ -102,8 +103,8 @@ export function EndingsPanel({ def, apply, findings }: { def: FormDefinition; ap
               <p className="mt-auto px-1 pt-1 text-xs text-primary" data-testid={`builder-ending-used-${e.id}`}>
                 {usedBy(def, e.id, isDefault)}
               </p>
-              {warn.length ? (
-                <Badge variant="warning" className="ml-1 rounded-md">
+              {unreachable ? (
+                <Badge variant="warning" className="ml-1 rounded-md" data-testid={`builder-ending-unreachable-${e.id}`}>
                   Unreachable
                 </Badge>
               ) : null}
@@ -139,21 +140,28 @@ export function LogicAndEndingsPanel({
   apply,
   findings,
   aside,
+  flow = true,
 }: {
   def: FormDefinition;
   apply: Apply;
   findings: Finding[];
   aside?: ReactNode;
+  /** Show the flow map beside the rules. The builder puts it over its own preview instead. Default true. */
+  flow?: boolean;
 }) {
+  const main = (
+    <div className="min-w-0 space-y-10">
+      <LogicPanel def={def} apply={apply} findings={findings} />
+      <EndingsPanel def={def} apply={apply} findings={findings} />
+    </div>
+  );
+  if (!flow && !aside) return <div data-testid="builder-logic-endings">{main}</div>;
   return (
     <div className="@container" data-testid="builder-logic-endings">
-      <div className="grid items-start gap-6 @4xl:grid-cols-[minmax(0,1fr)_22rem] @6xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="min-w-0 space-y-10">
-          <LogicPanel def={def} apply={apply} findings={findings} />
-          <EndingsPanel def={def} apply={apply} findings={findings} />
-        </div>
-        <div className="min-w-0 space-y-4 @4xl:sticky @4xl:top-4">
-          <FlowMap def={def} findings={findings} />
+      <div className="grid items-start gap-6 @min-[52rem]:grid-cols-[minmax(0,1fr)_20rem] @min-[72rem]:grid-cols-[minmax(0,1fr)_24rem]">
+        {main}
+        <div className="min-w-0 space-y-4 @min-[52rem]:sticky @min-[52rem]:top-4">
+          {flow ? <FlowMap def={def} findings={findings} /> : null}
           {aside}
         </div>
       </div>

@@ -28,6 +28,7 @@ import { BuilderConfigContext, type Apply, type BlockKinds, type BuilderConfig, 
 import { useBuilderHistory } from "./history";
 import type { OutputTarget } from "./outputs";
 import { updateForm, ruleRefs } from "./ops";
+import { FlowMap } from "./flow";
 import { Preview } from "./preview";
 import { QuestionsPanel } from "./questions";
 import { JsonPanel, LogicAndEndingsPanel, SettingsPanel } from "./settings";
@@ -174,7 +175,8 @@ export interface FormBuilderProps {
    * The row the form settings use for each labelled control: label, a
    * one-sentence description, then the control. It takes genesis-ui's
    * `SettingsRow` as it is (`settingsRow={SettingsRow}`), so the builder's
-   * rows match the host's. Default: the builder's own stacked rows.
+   * rows match the host's. Switches sit in the row; text fields and selects go under it, full
+   * width, so they never widen a narrow page. Default: the builder's own stacked rows.
    */
   settingsRow?: ComponentType<SettingsRowSlotProps> | undefined;
   /**
@@ -301,11 +303,16 @@ export function FormBuilder({
         return history.get();
       },
       revealChecks: () => setRevealed(true),
+      // Text still being typed is committed first, so it is what gets undone (and redo stays).
       undo: () => {
-        if (!readOnly) history.undo();
+        if (readOnly) return;
+        drafts.flush();
+        history.undo();
       },
       redo: () => {
-        if (!readOnly) history.redo();
+        if (readOnly) return;
+        drafts.flush();
+        history.redo();
       },
       canUndo: () => !readOnly && history.getStatus().canUndo,
       canRedo: () => !readOnly && history.getStatus().canRedo,
@@ -386,6 +393,8 @@ export function FormBuilder({
     } else setTab("logic");
   };
   const checksList = <FindingsList findings={shown} onJump={jumpTo} />;
+  // A host laying out Settings itself gets the whole width there.
+  const hideAside = tab === "settings" && !!settingsLayout;
   const formSettings = (
     <RowLayoutContext.Provider value={settingsRow ?? null}>
       {/* A host laying out the panel titles this part itself ("Form" card), so it is not titled twice. */}
@@ -453,6 +462,9 @@ export function FormBuilder({
         </p>
       ) : null}
 
+      {/* One preview for every panel, outside the tabs: switching panels keeps its device, layout and answers. */}
+      <div className="@container">
+      <div className={cn("grid items-start gap-6", hideAside ? null : "@min-[56rem]:grid-cols-[minmax(0,1fr)_20rem] @min-[76rem]:grid-cols-[minmax(0,1fr)_24.5rem]")}>
       <Tabs defaultValue={tab} value={tab} onValueChange={(v) => setTab(v as BuilderTab)} className="min-w-0">
         {tabs ? (
           <TabsList className="flex h-auto w-full flex-wrap justify-start">
@@ -473,53 +485,43 @@ export function FormBuilder({
             findings={shown}
             ruleCount={ruleCount}
             onOpenEnding={() => setTab("logic")}
-            preview={
-              <div className="space-y-4">
-                {preview}
-                {checksList}
-              </div>
-            }
           />
         </TabsContent>
         <TabsContent value="logic" className={tabs ? "mt-4" : "mt-0"}>
-          <LogicAndEndingsPanel def={def} apply={apply} findings={shown} aside={checksList} />
+          <LogicAndEndingsPanel def={def} apply={apply} findings={shown} flow={false} />
         </TabsContent>
         <TabsContent value="settings" className={tabs ? "mt-4" : "mt-0"}>
           {settingsLayout ? (
             settingsLayout(formSettings)
           ) : (
-            <WithPreview aside={<>{preview}{checksList}</>}>
+            <>
               {formSettings}
               {settingsExtra ? <div className="mt-6" data-testid="builder-settings-extra">{settingsExtra}</div> : null}
-            </WithPreview>
+            </>
           )}
         </TabsContent>
         {showJson ? (
           <TabsContent value="json" className={tabs ? "mt-4" : "mt-0"}>
-            <WithPreview aside={<>{preview}{checksList}</>}>
-              <JsonPanel def={def} apply={apply} />
-            </WithPreview>
+            <JsonPanel def={def} apply={apply} />
           </TabsContent>
         ) : null}
       </Tabs>
+      {/* Kept mounted when hidden (a host's own Settings layout), so the preview's state survives. */}
+      <aside
+        className={cn("min-w-0 space-y-4 @min-[56rem]:sticky @min-[56rem]:top-4", hideAside && "hidden")}
+        aria-label="Preview and checks"
+        data-testid="builder-aside"
+      >
+        <div className="empty:hidden">{tab === "logic" ? <FlowMap def={def} findings={shown} /> : null}</div>
+        {preview}
+        {checksList}
+      </aside>
+      </div>
+      </div>
     </div>
     </ChecksContext.Provider>
     </DraftsContext.Provider>
     </BuilderConfigContext.Provider>
-  );
-}
-
-/** A panel with the preview and checks beside it (under it in a narrow container). */
-function WithPreview({ aside, children }: { aside: ReactNode; children: ReactNode }) {
-  return (
-    <div className="@container">
-      <div className="grid items-start gap-6 @4xl:grid-cols-[minmax(0,1fr)_24.5rem]">
-        <div className="min-w-0">{children}</div>
-        <aside className="min-w-0 space-y-4 @4xl:sticky @4xl:top-4" aria-label="Preview and checks">
-          {aside}
-        </aside>
-      </div>
-    </div>
   );
 }
 

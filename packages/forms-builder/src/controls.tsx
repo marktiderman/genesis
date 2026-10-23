@@ -79,10 +79,13 @@ export function Row({
 }) {
   const Layout = useContext(RowLayoutContext);
   if (Layout && !hideLabel) {
+    // Text fields and selects go under the host's row, full width: a row's trailing control
+    // column (genesis-ui's SettingsRow keeps it from shrinking) would let a textarea widen the page.
     return (
-      <Layout label={label} description={hint} htmlFor={htmlFor}>
-        {children}
-      </Layout>
+      <div className={cn("min-w-0", className)} data-row-stacked="">
+        <Layout label={label} description={hint} htmlFor={htmlFor} />
+        <div className="min-w-0 pb-3">{children}</div>
+      </div>
     );
   }
   return (

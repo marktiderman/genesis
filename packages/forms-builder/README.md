@@ -54,16 +54,20 @@ import { MY_TEMPLATES } from "./form-templates"; // see "Templates" below
   the handle and press Space, the arrow keys and Space again, or Alt+↑/↓, to reorder; then the
   dashed **Add question** and the endings), the selected block's editor (its type, Move, Duplicate
   and Delete, the title and description, the answer settings, **Required**, and a closed
-  **Advanced**), and the live preview (phone or desktop, one by one or one page). In a container
-  narrower than 66rem the preview goes under the other two, and under 48rem everything stacks:
-  outline, editor, preview. The panel uses Tailwind container queries, so it fits whatever space
+  **Advanced**), and the live preview (phone or desktop, one by one or one page). The preview and
+  checks are one column beside every panel, kept mounted across panels, so the device, layout and
+  answers typed into it stay. Three columns fit from a 56rem (896px) builder, for example at 1280px
+  beside a 256px sidebar; narrower, the preview goes under, and under 34rem everything stacks:
+  outline, editor, preview. The builder uses Tailwind container queries, so it fits whatever space
   the host gives it.
 - **Logic and endings** lists the rules as sentences of picker pills ("If [question] [is at most]
   [2] go to [What went wrong?]"), each with its kind (Jump, Show only when, Hide when), a handle to
   reorder it and a menu to change its kind, move or delete it; then the endings as cards, each
   saying which rules use it. Beside them, the **Flow** map shows the steps in order with each
   jump's branch and the endings, sums up the path checks ("Every path ends", or how many path
-  problems there are) and offers **Try a path** buttons that light up where one answer leads.
+  problems there are) and offers **Try a path** buttons that light up where one answer leads. In
+  the builder the flow map sits over the preview; `LogicAndEndingsPanel` on its own shows it beside
+  the rules (`flow={false}` leaves it out).
 
 ### Hosting the panels in your own tabs
 
@@ -120,7 +124,8 @@ can be genesis-ui's `SettingsRow` so the builder's rows match yours:
 
 With `settingsLayout`, what it returns is the whole Settings panel: `settingsExtra` and the preview
 beside the settings are not shown, and the form settings drop their own "Form" heading (your card
-titles them).
+titles them). With `settingsRow`, switches sit in the row; text fields and selects go under it at
+full width.
 
 ### Reading the value
 

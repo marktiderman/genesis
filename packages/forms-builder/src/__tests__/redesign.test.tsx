@@ -96,14 +96,58 @@ describe("the Questions panel", () => {
     expect(screen.getByTestId("builder-field-advanced").getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("puts the live preview in the panel, with phone/desktop and one-by-one/one-page controls", () => {
+  it("shows the live preview beside the panel, with phone/desktop and one-by-one/one-page controls", () => {
     render(<FormBuilder defaultValue={form()} />);
     const preview = screen.getByTestId("builder-preview");
-    expect(screen.getByTestId("builder-questions").contains(preview)).toBe(true);
+    expect(screen.getByTestId("builder-aside").contains(preview)).toBe(true);
     expect(within(preview).getByText("Live preview · updates as you type")).toBeTruthy();
     fireEvent.click(within(preview).getByRole("radio", { name: "Desktop" }));
     expect(preview.querySelector("[data-device]")?.getAttribute("data-device")).toBe("desktop");
     expect(within(preview).getByRole("radio", { name: "One by one" }).getAttribute("data-state")).toBe("on");
+  });
+
+  it("keeps one preview, with its device and answers, across panels", () => {
+    const def = form();
+    def.layout = { mode: "classic" };
+    render(<FormBuilder defaultValue={def} />);
+    const preview = screen.getByTestId("builder-preview");
+    fireEvent.click(within(preview).getByRole("radio", { name: "Desktop" }));
+    fireEvent.change(within(preview).getByLabelText("What went wrong?"), { target: { value: "Too hot" } });
+    tab(/Logic and endings/);
+    tab(/Settings/);
+    tab(/Questions/);
+    expect(screen.getAllByTestId("builder-preview")).toHaveLength(1);
+    expect(screen.getByTestId("builder-preview")).toBe(preview);
+    expect(preview.querySelector("[data-device]")?.getAttribute("data-device")).toBe("desktop");
+    expect((within(preview).getByLabelText("What went wrong?") as HTMLInputElement).value).toBe("Too hot");
+  });
+
+  it("shows the preview on Logic and endings for a host with its own tabs, under the flow map", () => {
+    render(<FormBuilder defaultValue={withJump()} tabs={false} tab="logic" />);
+    const aside = screen.getByTestId("builder-aside");
+    expect(within(aside).getByTestId("builder-preview")).toBeTruthy();
+    expect(within(aside).getByTestId("builder-flow")).toBeTruthy();
+  });
+
+  it("adds a question from the outline at the end", () => {
+    const onChange = vi.fn();
+    render(<FormBuilder defaultValue={form()} onChange={onChange} />);
+    // The first question is selected; the new one still goes last.
+    fireEvent.pointerDown(screen.getByTestId("builder-add-block"), { button: 0, ctrlKey: false, pointerType: "mouse" });
+    fireEvent.click(screen.getAllByRole("menuitem").find((i) => i.textContent === "Short text")!);
+    const ids = lastBlocks(onChange);
+    expect(ids.slice(0, 3)).toEqual(["q_wod", "q_wrong", "q_photo"]);
+    expect(ids).toHaveLength(4);
+    expect(screen.getByTestId(`builder-block-toggle-${ids[3]}`).getAttribute("aria-current")).toBe("true");
+  });
+
+  it("keeps focus in the editor after Duplicate and Delete", () => {
+    render(<FormBuilder defaultValue={form()} />);
+    fireEvent.click(screen.getByRole("button", { name: 'Duplicate "How was today\'s WOD?"' }));
+    // The copy's editor replaced the original's: focus is on its Duplicate, not on <body>.
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: 'Duplicate "How was today\'s WOD? (copy)"' }));
+    fireEvent.click(screen.getByRole("button", { name: 'Delete "How was today\'s WOD? (copy)"' }));
+    expect(document.activeElement).toBe(screen.getByTestId("builder-editor"));
   });
 
   it("opens an ending from the outline in the Logic and endings panel", () => {
@@ -160,6 +204,17 @@ describe("the Logic and endings panel", () => {
     const logic = (onChange.mock.lastCall![0] as FormDefinition).logic!;
     expect(logic.map((r) => r.effect)).toEqual(["jump", "show"]);
     expect(logic[0]).toMatchObject({ from: "q_wod", to: "q_wrong" });
+  });
+
+  it("marks only an unreachable ending Unreachable, not one with another warning", () => {
+    const def = withJump();
+    def.endings![1] = { id: "loved", title: "" };
+    render(<FormBuilder defaultValue={def} defaultTab="logic" />);
+    // An untitled ending is flagged, but a jump still reaches it.
+    expect(screen.queryByTestId("builder-ending-unreachable-loved")).toBeNull();
+    const unused = form();
+    render(<FormBuilder defaultValue={unused} defaultTab="logic" />);
+    expect(screen.getAllByTestId("builder-ending-unreachable-loved")).toHaveLength(1);
   });
 
   it("shows endings as cards with Default and what uses them", () => {
@@ -235,6 +290,18 @@ describe("host hooks", () => {
     expect(ref.current!.canRedo()).toBe(false);
   });
 
+  it("commits text still being typed before undo, so undo takes it back and redo restores it", () => {
+    const ref = createRef<FormBuilderHandle>();
+    render(<FormBuilder ref={ref} defaultValue={form()} />);
+    fireEvent.click(screen.getByTestId("builder-field-advanced"));
+    fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "workout" } });
+    act(() => ref.current!.undo());
+    expect((ref.current!.getValue().blocks[0] as FieldBlock).key).toBe("wod");
+    expect(ref.current!.canRedo()).toBe(true);
+    act(() => ref.current!.redo());
+    expect((ref.current!.getValue().blocks[0] as FieldBlock).key).toBe("workout");
+  });
+
   it("does nothing on undo when read-only", () => {
     const ref = createRef<FormBuilderHandle>();
     const onHistoryChange = vi.fn();
@@ -274,6 +341,12 @@ describe("host hooks", () => {
     expect(within(card).getByTestId("builder-form-title")).toBeTruthy();
     expect(within(card).getByLabelText("Title")).toBe(screen.getByTestId("builder-form-title"));
     expect(card.querySelector('[data-slot="settings-row"]')).toBeTruthy();
+    // Text fields sit under their row, full width, never in its non-shrinking control column.
+    const intro = within(card).getByLabelText("Introduction");
+    expect(intro.closest('[data-slot="settings-row"]')).toBeNull();
+    expect(intro.closest("[data-row-stacked]")).toBeTruthy();
+    // Switches stay in the row.
+    expect(screen.getByTestId("builder-anonymous").closest('[data-slot="settings-row"]')).toBeTruthy();
     expect(screen.queryByText("Never shown")).toBeNull();
     // The host's card titles the form settings, so the panel's own "Form" heading is dropped.
     expect(within(card).queryByRole("heading", { name: "Form" })).toBeNull();

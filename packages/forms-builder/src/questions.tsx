@@ -304,6 +304,8 @@ export function QuestionsPanel({
 }) {
   // The question whose title field takes focus when its editor opens: the one just added.
   const [focusTitle, setFocusTitle] = useState<string | null>(null);
+  // The editor is remade for another block after Duplicate or Delete: where focus goes in the new one.
+  const [refocus, setRefocus] = useState<{ id: string; target: "duplicate" | "card" } | null>(null);
   const config = useBuilderConfig();
   const checks = useChecks();
   const readOnly = !!config.readOnly;
@@ -318,8 +320,8 @@ export function QuestionsPanel({
   const add = (make: (def: FormDefinition) => Block) => {
     // Made here, not in the edit: edits run in the reducer and must stay pure.
     const created = make(def);
-    const at = current ? def.blocks.findIndex((b) => b.id === current.id) + 1 : def.blocks.length;
-    apply((d) => insertBlock(d, created, at || d.blocks.length));
+    // Added at the end, under the rows the button sits below.
+    apply((d) => insertBlock(d, created, d.blocks.length));
     if (created.kind === "field") {
       if (!created.label.trim()) checks?.markFresh(created.id);
       setFocusTitle(created.id);
@@ -330,19 +332,19 @@ export function QuestionsPanel({
   const grid = cn(
     "grid items-start gap-6",
     preview
-      ? "@3xl:grid-cols-[15rem_minmax(0,1fr)] @min-[66rem]:grid-cols-[15rem_minmax(0,1fr)_23rem] @min-[80rem]:grid-cols-[16rem_minmax(0,1fr)_24.5rem]"
-      : "@3xl:grid-cols-[16rem_minmax(0,1fr)]",
+      ? "@min-[34rem]:grid-cols-[13rem_minmax(0,1fr)] @min-[56rem]:grid-cols-[13rem_minmax(0,1fr)_20rem] @min-[76rem]:grid-cols-[16rem_minmax(0,1fr)_24.5rem]"
+      : "@min-[34rem]:grid-cols-[13rem_minmax(0,1fr)] @min-[48rem]:grid-cols-[16rem_minmax(0,1fr)]",
   );
 
   if (!def.blocks.length) {
     return (
       <div className="@container" data-testid="builder-questions">
         <div className={grid}>
-          <div className="rounded-lg border border-dashed p-8 text-center @3xl:col-span-2" data-testid="builder-empty">
+          <div className="rounded-lg border border-dashed p-8 text-center @min-[34rem]:col-span-2" data-testid="builder-empty">
             <p className={cn("text-sm text-muted-foreground", !readOnly && "mb-3")}>No questions yet.</p>
             {readOnly ? null : <AddBlockMenu onAdd={add} label="Add the first question" />}
           </div>
-          {preview ? <div className="@3xl:col-span-2 @min-[66rem]:col-span-1">{preview}</div> : null}
+          {preview ? <div className="@min-[34rem]:col-span-2 @min-[56rem]:col-span-1">{preview}</div> : null}
         </div>
       </div>
     );
@@ -352,7 +354,7 @@ export function QuestionsPanel({
   return (
     <div className="@container" data-testid="builder-questions">
       <div className={grid}>
-        <nav aria-label="Outline" className="min-w-0 space-y-3 @3xl:sticky @3xl:top-4" data-testid="builder-outline">
+        <nav aria-label="Outline" className="min-w-0 space-y-3 @min-[34rem]:sticky @min-[34rem]:top-4" data-testid="builder-outline">
           <SectionLabel>Questions</SectionLabel>
           <SortableList
             items={def.blocks}
@@ -431,12 +433,14 @@ export function QuestionsPanel({
             apply={apply}
             findings={findings.filter((f) => f.ref?.kind === "block" && f.ref.id === current.id)}
             autoFocusTitle={focusTitle === current.id}
+            focusOnMount={refocus?.id === current.id ? refocus.target : undefined}
             onSelect={onSelect}
+            onReplaced={(id, target) => setRefocus({ id, target })}
           />
         ) : null}
 
         {preview ? (
-          <aside aria-label="Preview" className="min-w-0 @3xl:col-span-2 @min-[66rem]:sticky @min-[66rem]:top-4 @min-[66rem]:col-span-1">
+          <aside aria-label="Preview" className="min-w-0 @min-[34rem]:col-span-2 @min-[56rem]:sticky @min-[56rem]:top-4 @min-[56rem]:col-span-1">
             {preview}
           </aside>
         ) : null}
@@ -531,7 +535,9 @@ function BlockEditorCard({
   apply,
   findings,
   autoFocusTitle,
+  focusOnMount,
   onSelect,
+  onReplaced,
 }: {
   def: FormDefinition;
   block: Block;
@@ -539,8 +545,21 @@ function BlockEditorCard({
   apply: Apply;
   findings: Finding[];
   autoFocusTitle: boolean;
+  /** Focus this card's Duplicate button, or the card, when it mounts (it replaced the card that had focus). */
+  focusOnMount?: "duplicate" | "card" | undefined;
   onSelect: (id: string | null) => void;
+  /** This card is about to be replaced by block `id`'s, from one of its own buttons. */
+  onReplaced: (id: string, target: "duplicate" | "card") => void;
 }) {
+  const root = useRef<HTMLElement>(null);
+  // Read once, when this card mounts: later renders must not pull focus back.
+  const initialFocus = useRef(focusOnMount);
+  useEffect(() => {
+    const el = root.current;
+    if (!initialFocus.current || !el) return;
+    const target = initialFocus.current === "duplicate" ? el.querySelector<HTMLElement>('[data-action="duplicate"]') : el;
+    (target ?? el).focus();
+  }, []);
   const config = useBuilderConfig();
   const readOnly = !!config.readOnly;
   const index = def.blocks.findIndex((b) => b.id === block.id);
@@ -550,7 +569,9 @@ function BlockEditorCard({
   return (
     <section
       aria-label={heading}
-      className="min-w-0 rounded-xl border bg-card p-5 shadow-sm @3xl:p-6"
+      ref={root}
+      tabIndex={-1}
+      className="min-w-0 rounded-xl border bg-card p-5 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring @lg:p-6"
       data-testid="builder-editor"
       data-block={block.id}
     >
@@ -587,10 +608,12 @@ function BlockEditorCard({
                 className={iconButton}
                 aria-label={`Duplicate "${name}"`}
                 title="Duplicate"
+                data-action="duplicate"
                 onClick={() => {
                   // The id is made here, not in the edit: edits must stay pure.
                   const copyId = freshId(blockIdPrefix(block), def);
                   apply((d) => duplicateBlock(d, block.id, copyId));
+                  onReplaced(copyId, "duplicate");
                   onSelect(copyId);
                 }}
               >
@@ -607,6 +630,7 @@ function BlockEditorCard({
                   // The next block takes the editor, else the one before.
                   const neighbour = def.blocks[index + 1] ?? def.blocks[index - 1];
                   apply((d) => removeBlock(d, block.id));
+                  if (neighbour) onReplaced(neighbour.id, "card");
                   onSelect(neighbour?.id ?? null);
                 }}
               >
