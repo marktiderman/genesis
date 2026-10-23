@@ -1,5 +1,18 @@
 # @marktiderman/genesis-ui
 
+## 2.11.0
+
+### Minor Changes
+
+- b28e674: `ResourcePage` takes `pagination="cursor"` in `resource` mode. It loads `resourceOptions.defaultPerPage` rows (or the stored page size), and a "Load more" button appends the next page. It pages by cursor where the provider serves it and by offset otherwise. `useResourceTable` returns the same thing as `loadMore: { hasMore, loading, load }`. Offset paging stays the default.
+- 30aca5c: `ResourcePage` (and `useResourceTable`) takes `live`: in `resource` mode, the list and the open record refetch when the provider reports a change, for example through Supabase Realtime. It is shorthand for `resourceOptions.live`, which wins.
+
+### Patch Changes
+
+- Updated dependencies [b28e674]
+- Updated dependencies [30aca5c]
+  - @marktiderman/genesis-core@1.6.0
+
 ## 2.10.1
 
 ### Patch Changes
