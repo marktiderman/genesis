@@ -711,3 +711,7 @@ export function updateSettings(def: FormDefinition, patch: Partial<FormSettings>
   if (!Object.keys(settings).length) delete out.settings;
   return sameJson(out.settings, def.settings) ? def : out;
 }
+
+// ── Field outputs ────────────────────────────────────────────────────────────
+
+export * from "./outputs";
