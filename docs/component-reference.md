@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 129 components · 433 other exports · 265 standalone types across 10 packages and entry points.
+**Totals:** 129 components · 434 other exports · 265 standalone types across 10 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1145,16 +1145,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 **Barrel:** [`packages/features/src/node.ts`](../packages/features/src/node.ts)
 
-### Other exports (5)
+### Other exports (6)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`blankComments`](../packages/features/src/node.ts) | function | — | `text` with its comments blanked to spaces (newlines kept), so a flag named in a comment isn't read as a flag read and line numbers stay right. Strings and template literals are left alone. |
 | [`buildFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Writes every generated output (the AGENTS.md block, the JSON, the flag manifest, the skill, the marketing block) and adds `@AGENTS.md` to CLAUDE.md when it's missing. Refuses, writing nothing, when an id recorded in the JSON has disappea... |
 | [`checkFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Checks the registry against the repo. Errors (exit 1): generated output that is stale, `links.code` paths that don't exist, the flag rules (a permission flag, an expired flag, a dynamic key, a key read but not defined or defined but neve... |
 | [`globToRegExp`](../packages/features/src/node.ts) | function | — | A glob (`*`, `**`, `?`, `{a,b}`) as a RegExp over `/`-separated relative paths. |
-| [`scanFlagReads`](../packages/features/src/node.ts) | function | — | Flag reads in `text`: each key read through an accessor with a literal, and each read whose key isn't a literal (`dynamic`), as `path:line`. |
+| [`scanFlagReads`](../packages/features/src/node.ts) | function | — | Flag reads in `text`: each key read through an accessor with a literal, and each read whose key isn't a literal (`dynamic`), as `path:line`. Comments don't count. |
 | [`summarizeCheck`](../packages/features/src/node.ts) | function | Beta | A few lines for a session's start: counts, stale output, expired flags, planned features with shipped work and open claims. Meant for a SessionStart hook (`genesis features check --summary`). |
 
 ### Types (5)

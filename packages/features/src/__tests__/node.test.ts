@@ -250,3 +250,30 @@ describe("globToRegExp", () => {
     expect(globToRegExp("**/*.functions.ts").test("a.functions.ts")).toBe(true);
   });
 });
+
+describe("the flag scan skips comments, tests and ignored files", () => {
+  it("ignores flags named in comments, and keeps line numbers", () => {
+    const text = [
+      `// Behind the feature flag (src/lib/flags/registry.ts): useFlag("x.c")`,
+      `/* <Flag name=…> and getFlag(key) */`,
+      `<p>Don't</p>; const a = useFlag("x.a");`,
+      "const b = useFlag(`x.${id}`); // useFlag(other)",
+      `const url = "https://x.test"; useFlag("x.b");`,
+    ].join("\n");
+    const { keys, dynamic } = scanFlagReads("f.tsx", text);
+    expect(keys.map((k) => `${k.key}@${k.where}`)).toEqual(["x.a@f.tsx:3", "x.b@f.tsx:5"]);
+    expect(dynamic).toEqual(["f.tsx:4"]);
+  });
+
+  it("skips tests by default and scanIgnore files when given", () => {
+    const root = repo({
+      "src/app.tsx": `useFlag("wins.v2"); <Flag name="wins.kill" />`,
+      "src/flags.test.ts": "useFlag(key)",
+      "src/flags/runtime.tsx": "export const Flag = ({ name }) => useFlag(name);",
+    });
+    const flagErrors = (more: Partial<FeatureProjectOptions> = {}) =>
+      checkFeatureOutputs(opts(root, more)).errors.filter((e) => e.includes("computed key"));
+    expect(flagErrors()).toEqual(["src/flags/runtime.tsx:1: a flag read with a computed key. Use a literal key, so the read can be checked"]);
+    expect(flagErrors({ scanIgnore: ["src/flags/**", "**/*.test.ts"] })).toEqual([]);
+  });
+});
