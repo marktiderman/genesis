@@ -66,6 +66,7 @@ describe("parseFormula", () => {
     expect(parsed.ok).toBe(false);
     if (!parsed.ok) expect(parsed).toMatchObject({ message: "This number is too large.", at: 0 });
     expect(run("1" + "0".repeat(300))).toBe(1e300);
+    expect(parseFormula("1e400")).toMatchObject({ ok: false, message: "Write a number in digits only, like 1000000.", at: 0 });
   });
 
   it("never evaluates JavaScript", () => {

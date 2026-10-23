@@ -8,6 +8,7 @@ import {
   formulaInput,
   getFieldType,
   MAX_FORMULA_ITEMS,
+  MAX_SETTLE_ITEMS,
   parseForm,
   replay,
   summarizeValue,
@@ -321,6 +322,54 @@ describe("large submissions", () => {
     expect(formulaInput(rows(MAX_FORMULA_ITEMS + 1), "c")).toBe(null);
     expect(formulaInput(Array.from({ length: MAX_FORMULA_ITEMS + 1 }, () => 1))).toBe(null);
     expect((formulaInput(rows(MAX_FORMULA_ITEMS), "c") as unknown[]).length).toBe(MAX_FORMULA_ITEMS);
+  });
+
+  it("stays fast when a step changes an answer the formulas read (an invoice, alternating the tax rate)", () => {
+    const invoice: FormDefinition = {
+      schemaVersion: 1,
+      id: "invoice",
+      title: "Invoice",
+      version: 1,
+      blocks: [
+        { kind: "field", id: "items", key: "items", type: "table", label: "Items", props: { columns: [{ key: "qty", label: "Qty" }, { key: "price", label: "Price" }], maxRows: 10_000 } },
+        { kind: "field", id: "rate", key: "rate", type: "number", label: "Tax rate" },
+        { kind: "field", id: "net", key: "net", type: "calculated", label: "Net", props: { formula: "sum(items.price)" } },
+        { kind: "field", id: "tax", key: "tax", type: "calculated", label: "Tax", props: { formula: "sum(items.price) * rate" } },
+        { kind: "field", id: "total", key: "total", type: "calculated", label: "Total", props: { formula: "sum(items.price) + sum(items.price) * rate" } },
+        { kind: "field", id: "avg", key: "avg", type: "calculated", label: "Average", props: { formula: "avg(items.price) * (1 + rate)" } },
+        { kind: "field", id: "units", key: "units", type: "calculated", label: "Units", props: { formula: "sum(items.qty) + max(items.qty) - min(items.qty)" } },
+      ],
+    };
+    const evs: FormEvent[] = [{ type: "answer", field: "items", value: Array.from({ length: 10_000 }, (_, i) => ({ qty: 1, price: i })) }];
+    for (let i = 0; i < 4_995; i++) {
+      evs.push({ type: "answer", field: "rate", value: i % 2 ? 0.1 : 0.2 });
+      evs.push({ type: "back" });
+    }
+    evs.push({ type: "submit" });
+    expect(JSON.stringify({ events: evs }).length).toBeGreaterThan(400_000);
+    const [result, ms] = timed(() => validateSubmission(invoice, { events: evs }, { complete: false }));
+    expect(result.ok && result.submission.answers).toMatchObject({ net: 49_995_000, rate: 0.2, units: 10_000 });
+    expect(ms).toBeLessThan(1000);
+  });
+
+  it(`reads answers past ${MAX_SETTLE_ITEMS} items in all, across every formula, as blank`, () => {
+    const lists = Array.from({ length: 6 }, (_, k) => f.list(`l${k}`, { label: `L${k}` }));
+    const form = defineForm({
+      id: "many",
+      title: "Many",
+      blocks: [
+        ...lists,
+        f.calculated("first", { label: "First", formula: "sum(l0, l1, l2, l3, l4)" }),
+        f.calculated("again", { label: "Again", formula: "sum(l0) + sum(l5)" }),
+      ],
+    }).definition;
+    const items = Array.from({ length: MAX_SETTLE_ITEMS / 5 }, () => "1");
+    const engine = createForm(form);
+    for (let k = 0; k < 6; k++) engine.setValue(`l${k}`, items);
+    // l0 to l4 use the whole allowance; l0 is counted once, and l5 reads as blank.
+    expect(engine.getState().values.first).toBe(MAX_SETTLE_ITEMS);
+    expect(engine.getState().values.again).toBe(MAX_SETTLE_ITEMS / 5);
+    expect(replay(form, engine.getState().events).getState().values).toEqual(engine.getState().values);
   });
 
   it("prefilled answers settle once and match a replay", () => {

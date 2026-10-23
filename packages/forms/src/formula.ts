@@ -90,6 +90,8 @@ function tokenize(source: string): Token[] {
         i++;
         while (isDigit(source[i] ?? "")) i++;
       }
+      // `1e6` and `2x` are not numbers here: say so rather than "expected an operator".
+      if (isIdStart(source[i] ?? "")) throw new FormulaError("Write a number in digits only, like 1000000.", at);
       const v = Number(source.slice(at, i));
       if (!Number.isFinite(v)) throw new FormulaError("This number is too large.", at);
       tokens.push({ t: "num", v, at });
@@ -344,6 +346,34 @@ function numbersIn(values: FormulaValue[], out: number[] = []): number[] {
   return out;
 }
 
+interface Totals {
+  sum: number;
+  count: number;
+  min: number;
+  max: number;
+}
+
+/**
+ * Each list's numbers added up once. Lists come from answers (see
+ * `formulaInput`), which keeps one list per answer, so a formula worked out
+ * again over an unchanged table doesn't walk it again.
+ */
+const listTotals = new WeakMap<readonly FormulaValue[], Totals>();
+
+function totalsOf(list: readonly FormulaValue[]): Totals {
+  let t = listTotals.get(list);
+  if (t) return t;
+  const nums = numbersIn(list as FormulaValue[]);
+  t = { sum: 0, count: nums.length, min: Infinity, max: -Infinity };
+  for (const n of nums) {
+    t.sum += n;
+    if (n < t.min) t.min = n;
+    if (n > t.max) t.max = n;
+  }
+  listTotals.set(list, t);
+  return t;
+}
+
 function compare(op: BinaryOp, a: FormulaValue, b: FormulaValue): boolean {
   const blank = (v: FormulaValue) => v === null || Array.isArray(v) || (typeof v === "string" && v.trim() === "");
   // A blank equals nothing: `!=` holds and every other comparison fails.
@@ -383,12 +413,31 @@ export function evaluateFormula(ast: FormulaNode, read: FormulaReader): FormulaV
       case "if":
         return truthy(run(node.test)) ? run(node.then) : run(node.else);
       case "call": {
-        const nums = numbersIn(node.args.map(run));
-        const total = nums.reduce((a, b) => a + b, 0);
+        let total = 0;
+        let count = 0;
+        let min = Infinity;
+        let max = -Infinity;
+        for (const arg of node.args) {
+          const v = run(arg);
+          if (Array.isArray(v)) {
+            const t = totalsOf(v);
+            total += t.sum;
+            count += t.count;
+            if (t.min < min) min = t.min;
+            if (t.max > max) max = t.max;
+            continue;
+          }
+          const n = formulaNumber(v);
+          if (n === null) continue;
+          total += n;
+          count++;
+          if (n < min) min = n;
+          if (n > max) max = n;
+        }
         if (node.fn === "sum") return finite(total);
-        if (!nums.length) return null;
-        if (node.fn === "avg") return finite(total / nums.length);
-        return nums.reduce((a, b) => (node.fn === "min" ? Math.min(a, b) : Math.max(a, b)));
+        if (!count) return null;
+        if (node.fn === "avg") return finite(total / count);
+        return node.fn === "min" ? min : max;
       }
       case "binary": {
         const a = run(node.left);

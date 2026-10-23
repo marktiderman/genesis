@@ -164,7 +164,9 @@ The formula language is small and is parsed and evaluated by this package, never
 An unanswered question is blank, and arithmetic with a blank is blank, so a total stays empty until
 its answers are in; dividing by zero is blank too. The functions skip blanks (`sum` of nothing is
 `0`). Text holding a number (`"12"`, `"1,200"`) counts as that number, and yes / no as 1 / 0.
-A list or table of more than `MAX_FORMULA_ITEMS` (10,000) items reads as blank. A formula is at
+A list or table of more than `MAX_FORMULA_ITEMS` (10,000) items reads as blank, and so does an
+answer past `MAX_SETTLE_ITEMS` (50,000) items read by all of a form's formulas together (each
+answer and column counted once, in form order). A formula is at
 most `MAX_FORMULA_LENGTH` characters and 64 levels of parentheses, calls, signs and `? :` deep.
 
 The engine works the values out from the answers on the path (an answer hidden by logic reads as

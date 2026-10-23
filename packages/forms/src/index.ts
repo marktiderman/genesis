@@ -76,6 +76,7 @@ export {
   formatCalculated,
   formulaInput,
   MAX_FORMULA_ITEMS,
+  MAX_SETTLE_ITEMS,
   type CalculatedFormat,
   type CalculatedProps,
 } from "./calculated";
