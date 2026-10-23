@@ -1,0 +1,36 @@
+apps/sample/app/data/primitives.json
+  s_9bf81edc5cc904::t_6ded9357e7ed15 8912-8918,9003-9009,9017-9023,9065-9071
+packages/ui/src/components/data/DataTable.tsx
+  s_9bf81edc5cc904::t_6aa8006218f683 8,12-20,160-200,205-207,209,756-787,791-816
+  s_9bf81edc5cc904::t_f40dbb65af459c 848-852,855-867,870-884,886-893,895,897-918,920-928,930,932,937-951,954-963,1203-1217
+  s_9bf81edc5cc904::t_d3904cb51ec54e 868-869,952-953,1185-1188
+  s_9bf81edc5cc904::t_6e0947ce2d8fa2 499-502,597,618-645,647,649-653,657-677,853-854,919,929,931,933-936
+  s_9bf81edc5cc904::t_5d2fee98e80d2e 646,648,654-656,716-746,885,894,896,1005-1009,1016,1034-1037,1052-1054,1065,1067-1086,1089-1098,1146-1156,1192
+.changeset/datatable-tanstack.md
+  s_9bf81edc5cc904::t_6ded9357e7ed15 1-12
+packages/ui/SKILL.md
+  s_9bf81edc5cc904::t_6ded9357e7ed15 145-152
+packages/ui/src/components/data/__tests__/data-table-engine.test.tsx
+  s_9bf81edc5cc904::t_5d3134a9593cc5 1-5,7-104,116-137
+  s_9bf81edc5cc904::t_1e189bf115294f 6,105-115
+packages/ui/package.json
+  s_9bf81edc5cc904::t_47a144be48ba60 388-389
+pnpm-lock.yaml
+  s_9bf81edc5cc904::t_fbaf80d6bd1a3c 400,856-861,1009,13615,13617
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fbaadc6a38d0790ad2f5025f4300916c2f6e040e",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

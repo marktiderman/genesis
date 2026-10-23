@@ -1,0 +1,41 @@
+packages/studio-server/src/cli.ts
+  s_ebc909da001b53::t_9dc28acf87a503 1-2,6-9,12,15-18
+apps/sample/studio/supabase-demo/seed.mjs
+  s_ebc909da001b53::t_7e45bbe1c892ab 1-109
+apps/sample/package.json
+  s_ebc909da001b53::t_7349ff9324e8e7 16-19
+apps/sample/studio/supabase-demo/adopt.mjs
+  s_06b71c929ad9e0::t_eccd166c5c196d 1-143
+apps/sample/studio/supabase-demo/supabase/.gitignore
+  s_ebc909da001b53::t_e3ef4b79bd8227 1-8
+apps/sample/studio/supabase-demo/supabase/config.toml
+  s_ebc909da001b53::t_9289f578a7bf17 1-418
+apps/sample/studio/supabase-demo/supabase/migrations/20261019000000_genesis_studio.sql
+  s_ebc909da001b53::t_c0f491f463ef07 1-82
+apps/sample/studio/supabase-demo/supabase/migrations/20261019000100_coaching_demo.sql
+  s_ebc909da001b53::t_bf8d62931fafe1 1-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c7429561f2efa613ae016fd44f7bc1c92026e567",
+  "prompts": {},
+  "sessions": {
+    "s_06b71c929ad9e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d875784a-2ec4-4b04-b784-0ea60dbee0ac",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,0 +1,51 @@
+packages/studio-server/src/catalog.ts
+  s_ebc909da001b53::t_3d2dbe8ff4f518 69-75,83-89,103-106,201
+packages/genesis-cli/src/studio/init.ts
+  s_ebc909da001b53::t_018fc67ddb5dce 125-126,171-172
+  s_ebc909da001b53::t_f006ff2b0180b7 51-57
+packages/genesis-cli/test/studio-init.test.ts
+  s_ebc909da001b53::t_f006ff2b0180b7 39
+packages/studio-server/src/auth.ts
+  s_ebc909da001b53::t_7e719aa823ba0d 26-29,58,60,62,79,103-109,112-114
+  s_ebc909da001b53::t_37db9bcc409e8e 25
+packages/studio-server/test/studio.integration.test.ts
+  s_ebc909da001b53::t_3a9625cba3cd7b 141-149
+docs/DATA-STUDIO.md
+  s_ebc909da001b53::t_94cf9cb496159c 18-29
+packages/genesis-cli/README.md
+  s_ebc909da001b53::t_94cf9cb496159c 10-25
+  s_ebc909da001b53::t_60d3de59537224 9
+packages/studio-server/test/unit.test.ts
+  s_ebc909da001b53::t_7e719aa823ba0d 435-461
+  s_ebc909da001b53::t_38f7dbde3f202f 4
+packages/studio/src/DataStudio.tsx
+  s_ebc909da001b53::t_f4357f73b5e1b3 124-127
+packages/studio/src/standalone.css
+  s_ebc909da001b53::t_f4357f73b5e1b3 36-96
+packages/studio-server/src/access.ts
+  s_ebc909da001b53::t_3d2dbe8ff4f518 309-312
+packages/studio/README.md
+  s_ebc909da001b53::t_94cf9cb496159c 26-50
+packages/studio-server/README.md
+  s_ebc909da001b53::t_94cf9cb496159c 24-60,101-103,111-113,142-144,152-160
+packages/studio-server/test/fixtures.ts
+  s_ebc909da001b53::t_3a9625cba3cd7b 281-286,309
+.changeset/studio-turn-on.md
+  s_ebc909da001b53::t_087da1f1620131 1-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "20a92598cf9b86bbb82ee10ae79b830ec26919bc",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

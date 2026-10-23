@@ -1,0 +1,36 @@
+packages/ui/SKILL.md
+  s_9bf81edc5cc904::t_dde93aa63eca42 114-115
+.changeset/data-view-gaps-2.md
+  s_9bf81edc5cc904::t_c547b5e200bb6b 1-10
+packages/ui/src/components/data/ResourcePage.tsx
+  s_9bf81edc5cc904::t_1e45fe2b9fad76 208-214,611-612
+  s_9bf81edc5cc904::t_4346f4f18a9d91 1006-1009,1020-1021,1023-1024,1026-1027,1372
+  s_9bf81edc5cc904::t_bda3abf17c0f43 1010-1019,1022,1025,1474-1475,1482
+  s_9bf81edc5cc904::t_ad6ac4044954b7 549,551-556,665-667,1273-1275
+packages/ui/src/components/data/DataPageShell.tsx
+  s_9bf81edc5cc904::t_ad6ac4044954b7 31-32,103,225
+apps/sample/app/data/primitives.json
+  s_9bf81edc5cc904::t_d203ec5967f4fc 10,8590-8595,12218-12230,12233-12238,12244,12302-12315
+  8b7777c8b425c50d 8589,12231-12232
+packages/ui/src/components/data/__tests__/data-view-gaps.test.tsx
+  s_9bf81edc5cc904::t_619df692c0e5d6 212
+  s_9bf81edc5cc904::t_ab28f4b5dbe0bd 187,191
+  s_9bf81edc5cc904::t_fb05b67db1bb21 186,188-190,192-193
+  s_9bf81edc5cc904::t_cc89946ae7c066 200-211,213-242
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "474fe49388313595d1397a950479046b5e38aca6",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": null
+    }
+  }
+}

@@ -1,0 +1,23 @@
+.changeset/studio-server-core-peer.md
+  s_1caa0c729ef750::t_97fbe2a517471d 1-8
+packages/studio-server/package.json
+  s_1caa0c729ef750::t_64188870a52419 53-55,57
+pnpm-lock.yaml
+  s_1caa0c729ef750::t_44aa427da619b6 951-953
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "36e114cd13324777f8ae81c86d2851039ba78ded",
+  "prompts": {},
+  "sessions": {
+    "s_1caa0c729ef750": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9d1c9116-b6ac-4384-927c-3ec5aef73333",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

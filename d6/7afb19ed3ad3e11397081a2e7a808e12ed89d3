@@ -1,0 +1,52 @@
+packages/studio-server/test/unit.test.ts
+  s_ebc909da001b53::t_700ece21c19d45 97-109
+  s_ebc909da001b53::t_241e242448a4cc 47-57
+packages/studio-server/src/write.ts
+  s_ebc909da001b53::t_b5b40141cebfa2 57-68,140-143,154,184,204,212-213,226-227
+packages/studio-server/src/authorize.ts
+  s_ebc909da001b53::t_b447f463ae7843 1,5-9,15-26,28-30,33-39,41-46
+packages/studio-server/src/auth.ts
+  s_ebc909da001b53::t_241e242448a4cc 25,27-32,50-59
+packages/studio-server/src/handler.ts
+  s_ebc909da001b53::t_edf88c05bb8866 26-27,58-59,62-86,119-126,129-142,175-189,191-194,207-215,218,225-240,263-266,268
+  s_ebc909da001b53::t_c6f028309db1e9 127-128
+packages/studio-server/src/db.ts
+  s_ebc909da001b53::t_bb9fda4ed1ed84 24-32,43-44,77-80,86-96,109-110,112,120-131,135-154,162-173,175-176
+packages/studio-server/src/rows.ts
+  s_ebc909da001b53::t_c6f028309db1e9 101-131,172-174,179,183,193,199,214-219,221-226
+packages/studio-server/src/access.ts
+  s_ebc909da001b53::t_11dabaf2e5f1c8 16-23,71-72,108-116,135-140,197-204,211-217,249-251
+packages/studio-server/src/protocol.ts
+  s_ebc909da001b53::t_c6f028309db1e9 69,71-72
+packages/studio-server/src/catalog.ts
+  s_ebc909da001b53::t_d688d171119b57 27-28,62-63,79-80,84-86,103,169,188,254-259,263-265,269-286,288-297,299-304
+packages/studio-server/test/fixtures.ts
+  s_ebc909da001b53::t_acf5da5ea24271 61,63-66,154-183,203-205,251-253,277,279
+  s_ebc909da001b53::t_c6f028309db1e9 260
+packages/studio-server/src/options.ts
+  s_ebc909da001b53::t_8527118e2ab91b 22-27,59-63,73-83,105-126
+packages/studio-server/test/studio.integration.test.ts
+  s_ebc909da001b53::t_ca8580f58f8131 439-441
+  s_ebc909da001b53::t_c6f028309db1e9 162-165
+  s_ebc909da001b53::t_acf5da5ea24271 39-40,42-45,67-104,121,124,127,202-249
+  s_ebc909da001b53::t_d64fb91410d819 17,41
+  s_ebc909da001b53::t_358155872a5cff 250
+packages/studio-server/src/setup-sql.ts
+  s_ebc909da001b53::t_b5b40141cebfa2 12-21,44-50,98,107-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d67afb19ed3ad3e11397081a2e7a808e12ed89d3",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

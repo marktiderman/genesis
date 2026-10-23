@@ -1,0 +1,25 @@
+packages/ui/src/components/data/DataPageShell.tsx
+  s_27941f9a453428::t_fcd68fdc584211 47-53,113,163
+packages/ui/src/components/data/__tests__/data-page-shell-stats.test.tsx
+  s_27941f9a453428::t_03df061d61d9f1 1-74
+packages/ui/src/components/layout/PageHeader.tsx
+  s_27941f9a453428::t_dff778c6b3a344 44-49,84,100,157-163,212,233,281,288,334,350,542-550,552-557,563
+packages/ui/src/components/layout/__tests__/chrome-options.test.tsx
+  s_27941f9a453428::t_a705a8ae0a72fc 55-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "25a41205274a9d33731d5835223c05454301b6b5",
+  "prompts": {},
+  "sessions": {
+    "s_27941f9a453428": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ecde524b-eec9-4047-902c-42e72e9baf6f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+.changeset/umbrella-real-dependency-ranges.md
+  s_9bea1ba6ffc6c0::t_7e01e06166194c 5,7-10,12-25
+packages/genesis/package.json
+  s_9bea1ba6ffc6c0::t_2914d6917d75bf 3
+packages/ui/CHANGELOG.md
+  s_9bea1ba6ffc6c0::t_861b85da9bdec5 3-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6e2dd798f2d87f9b56d3a155e65dc47cc00b5c24",
+  "prompts": {},
+  "sessions": {
+    "s_9bea1ba6ffc6c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "56d6e0dd-a6b3-4f5a-942c-1e3f6b11c59c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

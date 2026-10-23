@@ -1,0 +1,44 @@
+packages/ui/SKILL.md
+  s_2c334912fcb08f::t_e97d76a28beb71 145-152
+apps/sample/app/data/primitives.json
+  s_2c334912fcb08f::t_e97d76a28beb71 8912-8918,9010-9016,9024-9030,9079-9085
+.changeset/provider-followups-2.md
+  s_2c334912fcb08f::t_e97d76a28beb71 1-7
+.changeset/datatable-tanstack.md
+  s_2c334912fcb08f::t_e97d76a28beb71 1-12
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_2c334912fcb08f::t_e97d76a28beb71 17,596-613
+packages/ui/src/components/data/__tests__/data-table-engine.test.tsx
+  s_2c334912fcb08f::t_e97d76a28beb71 1-137
+packages/ui/src/components/data/DataTable.tsx
+  s_2c334912fcb08f::t_e97d76a28beb71 8,12-20,160-179,196-216,219-221,223,530-533,621,642-701,740-770,780,783-811,815-840,872-987,1029-1033,1040,1058-1061,1076-1078,1089,1091-1110,1113-1122,1170-1180,1209-1212,1216,1227-1241
+  s_2c334912fcb08f::t_7170eb6f209f5d 543-544,781-782
+packages/ui/src/components/data/__tests__/resource-page-delete-honesty.test.tsx
+  s_2c334912fcb08f::t_e97d76a28beb71 93-117
+packages/core/src/provider/supabase-provider.ts
+  s_2c334912fcb08f::t_e97d76a28beb71 92-97,417-420,423,501
+  s_2c334912fcb08f::t_2c93db7273caa4 91
+packages/ui/src/components/data/ResourcePage.tsx
+  s_2c334912fcb08f::t_e97d76a28beb71 1289,1291-1295
+  s_2c334912fcb08f::t_cd160078d51f91 1290,1296-1305
+packages/ui/package.json
+  s_2c334912fcb08f::t_e97d76a28beb71 388-389
+pnpm-lock.yaml
+  s_2c334912fcb08f::t_2fba25769052a2 400,856-861,1009,13615,13617
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f66c735333fcb89247bf80a857e4cfda7407868",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

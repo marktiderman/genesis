@@ -1,0 +1,34 @@
+packages/studio-server/README.md
+  s_ebc909da001b53::t_44cfffaf0e9d2c 50
+packages/studio/src/DataStudio.tsx
+  s_ebc909da001b53::t_e647dd0013e4a5 454-460,463-464
+packages/ui/src/components/sheet-grid/sheet-grid.tsx
+  s_ebc909da001b53::t_d75767e24f44b6 270-271,326
+  s_ebc909da001b53::t_c8b4e307ba9c73 338
+packages/genesis-cli/test/studio-init.test.ts
+  s_ebc909da001b53::t_630b359bdb7863 168-173
+packages/genesis-cli/src/cli.ts
+  s_ebc909da001b53::t_92e8761812780a 80-81,85,91-100
+packages/ui/src/components/sheet-grid/__tests__/sheet-grid.test.tsx
+  s_ebc909da001b53::t_6515f456f629b0 86-104
+packages/genesis-cli/README.md
+  s_ebc909da001b53::t_d1299525ff0dd0 40-42
+packages/genesis-cli/src/studio/init.ts
+  s_ebc909da001b53::t_c487e55ae2a49f 344-345,350-355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8cd81f7db407f08f9d506f09ec3128b5bc0ec4db",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

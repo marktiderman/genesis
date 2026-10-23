@@ -1,0 +1,23 @@
+packages/ui/src/components/layout/AppShell.tsx
+  s_a1b83c03f697d3::t_47b42964ea88ff 194-195
+packages/ui/src/components/data/ResourcePage.tsx
+  s_a1b83c03f697d3::t_47b42964ea88ff 533-534
+apps/sample/app/data/primitives.json
+  s_a1b83c03f697d3::t_819c6427386f50 5248,12314
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "23bb5f490cc871dff60ba1cd0e6c389db5d05453",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

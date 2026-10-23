@@ -1,0 +1,25 @@
+.changeset/gamify-stats-status-tabs.md
+  s_27941f9a453428::t_005529ec903b4e 1-15
+packages/ui/src/components/data/DataFilters.tsx
+  s_27941f9a453428::t_198ef2283a1e50 57-69,80,83-89,135-144,165-197,306,308-332
+packages/ui/src/components/data/__tests__/data-filters-status-chips.test.tsx
+  s_27941f9a453428::t_e3e3f9b25609aa 1-134
+packages/ui/src/components/data/index.ts
+  s_27941f9a453428::t_e2732c1fed658e 2-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "934774af23df866b825627b23ab0bc30ce3ae83d",
+  "prompts": {},
+  "sessions": {
+    "s_27941f9a453428": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ecde524b-eec9-4047-902c-42e72e9baf6f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

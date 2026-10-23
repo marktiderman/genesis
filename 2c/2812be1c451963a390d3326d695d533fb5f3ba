@@ -1,0 +1,47 @@
+packages/forms/src/formula.ts
+  s_03a3816737bc07::t_adb034b6ab0476 1-412
+packages/forms/src/validate.ts
+  s_03a3816737bc07::t_6df61fcc93f4a3 1,44-45
+packages/forms/src/parse.ts
+  s_03a3816737bc07::t_cc1cb174fa7118 1,4,152-159,199-200,261-266,277-310
+  s_03a3816737bc07::t_09e8236bbb21b8 311-312
+packages/forms/src/index.ts
+  s_03a3816737bc07::t_c190472e38ba24 65-90
+packages/forms/src/coverage.ts
+  s_03a3816737bc07::t_c190472e38ba24 7
+  s_03a3816737bc07::t_db555093a3a939 98-100
+packages/forms/src/define.ts
+  s_03a3816737bc07::t_c190472e38ba24 125-136
+  s_03a3816737bc07::t_10350b40db506e 124
+packages/forms/src/__tests__/formula.test.ts
+  s_03a3816737bc07::t_a5b7b7619228f0 1-132
+packages/forms/src/engine.ts
+  s_03a3816737bc07::t_51a3ff912c30dc 1,49-50,102-117,119,161-162
+packages/forms/src/__tests__/calculated.test.ts
+  s_03a3816737bc07::t_78a41685147ae5 1-106,109-241
+  s_03a3816737bc07::t_7b49504f94e4ec 107-108
+packages/forms/src/calculated.ts
+  s_03a3816737bc07::t_0922850238cc84 1-143
+packages/forms/src/fields.ts
+  s_03a3816737bc07::t_6df61fcc93f4a3 2,292
+packages/forms/src/server.ts
+  s_03a3816737bc07::t_597b4e5b1a9daa 6,37-41,120-122
+.changeset/calculated-fields-core.md
+  s_03a3816737bc07::t_fae80d633de60a 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2c2812be1c451963a390d3326d695d533fb5f3ba",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

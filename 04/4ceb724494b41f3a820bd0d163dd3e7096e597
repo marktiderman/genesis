@@ -1,0 +1,44 @@
+packages/genesis-cli/src/introspect/openapi.ts
+  s_ebc909da001b53::t_54c5ee9c70c942 35
+  s_ebc909da001b53::t_4de58f3ddd5870 1-34,36-90
+packages/genesis-cli/package.json
+  s_ebc909da001b53::t_1e2f0290533115 6,45-46
+packages/genesis-cli/src/introspect/emit.ts
+  s_ebc909da001b53::t_ede0459bb6d98b 1-105
+packages/genesis-cli/src/introspect/model.ts
+  s_ebc909da001b53::t_fe343d6a9e41b6 1-57
+packages/genesis-cli/test/introspect.test.ts
+  s_ebc909da001b53::t_abd0cff4be8b6a 1-185
+packages/genesis-cli/src/cli.ts
+  s_ebc909da001b53::t_1e2f0290533115 75-121,156-179
+packages/genesis-cli/src/introspect/postgres.ts
+  s_ebc909da001b53::t_4de58f3ddd5870 1-109
+packages/genesis-cli/src/introspect/index.ts
+  s_ebc909da001b53::t_ede0459bb6d98b 1-5
+packages/genesis-cli/src/introspect/comments.ts
+  s_ebc909da001b53::t_fe343d6a9e41b6 1-61
+packages/genesis-cli/README.md
+  s_ebc909da001b53::t_e6a7887efa9061 1-44
+packages/genesis-cli/src/index.ts
+  s_ebc909da001b53::t_1e2f0290533115 19-34
+packages/genesis-cli/tsup.config.ts
+  s_ebc909da001b53::t_1e2f0290533115 19,35
+pnpm-lock.yaml
+  s_ebc909da001b53::t_3886bf07f94da7 174-176,444-446
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "044ceb724494b41f3a820bd0d163dd3e7096e597",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

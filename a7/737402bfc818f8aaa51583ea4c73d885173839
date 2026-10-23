@@ -1,0 +1,70 @@
+packages/studio/src/toolbar/ImportDialog.tsx
+  s_ebc909da001b53::t_e4825c966ee011 10
+  s_ebc909da001b53::t_055173d26dfebd 138
+apps/sample/studio/vite-plugin.ts
+  s_ebc909da001b53::t_8dfc14da8b8863 23,129-130
+  s_ebc909da001b53::t_1ccefa692af3d9 117,131-135
+packages/studio/src/record/RecordForm.tsx
+  s_ebc909da001b53::t_055173d26dfebd 14,99
+packages/studio/src/sheet/SheetView.tsx
+  s_ebc909da001b53::t_055173d26dfebd 5,35
+apps/sample/package.json
+  s_ebc909da001b53::t_9eb020c8addb70 75
+  s_ebc909da001b53::t_8dfc14da8b8863 19-20
+packages/studio/src/record/RecordPanel.tsx
+  s_ebc909da001b53::t_e4825c966ee011 118,122,132,234-239
+packages/studio-server/test/contract-fits.test.ts
+  s_ebc909da001b53::t_2c8978d2a3b515 1-23
+packages/studio-server/test/unit.test.ts
+  s_ebc909da001b53::t_2c8978d2a3b515 5,310-316
+  s_ebc909da001b53::t_96539fd213e410 317-318
+apps/sample/studio/supabase-demo/supabase/migrations/20261021000000_genesis_studio_p3.sql
+  s_ebc909da001b53::t_052acb1dec52f6 1-53,58-195,200-250
+  s_ebc909da001b53::t_a8cf3b47748e69 54-57,196-199
+apps/sample/studio/setup-db.mjs
+  s_ebc909da001b53::t_1ccefa692af3d9 67-70
+packages/studio-server/README.md
+  s_ebc909da001b53::t_e6a7887efa9061 186-235
+packages/studio/src/views/KanbanView.tsx
+  s_ebc909da001b53::t_e4825c966ee011 7,102-104,106-116,149,151,170
+packages/studio/src/views/CalendarView.tsx
+  s_ebc909da001b53::t_e4825c966ee011 8,121,136
+apps/sample/studio/schema.sql
+  s_ebc909da001b53::t_1ccefa692af3d9 47,50-51,61-74
+packages/studio/src/toolbar/BulkEdit.tsx
+  s_ebc909da001b53::t_055173d26dfebd 9,67
+packages/studio-server/src/write.ts
+  s_ebc909da001b53::t_e4825c966ee011 90
+packages/studio/README.md
+  s_ebc909da001b53::t_e6a7887efa9061 90-96
+packages/studio/src/__tests__/data-studio-p3.test.tsx
+  s_ebc909da001b53::t_e0f7ca3fd5dc17 31,91,211-229
+  s_ebc909da001b53::t_da8381577f128f 230
+packages/studio/src/toolbar/Toolbar.tsx
+  s_ebc909da001b53::t_055173d26dfebd 11,77,207,239,324
+packages/studio/src/DataStudio.tsx
+  s_ebc909da001b53::t_055173d26dfebd 19,505
+packages/studio/src/values.ts
+  s_ebc909da001b53::t_055173d26dfebd 35-39
+apps/sample/studio/resources.genesis.ts
+  s_ebc909da001b53::t_21474b17b4c4d1 1-112
+packages/studio-server/src/catalog.ts
+  s_ebc909da001b53::t_2c8978d2a3b515 178,213,340-349
+  s_ebc909da001b53::t_756067e81d66fb 350
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a7737402bfc818f8aaa51583ea4c73d885173839",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

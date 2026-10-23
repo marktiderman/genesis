@@ -1,0 +1,63 @@
+.changeset/collapsible-app-sidebar.md
+  s_3daa86e3ae6031::t_5d6f37011b9bc9 1-30
+apps/sample/.react-router/types/+routes.ts
+  s_3daa86e3ae6031::t_c47be8cf5dfd07 63-71,113,129,183-190,252-253
+apps/sample/.react-router/types/app/routes/+types/projects.$projectId.ts
+  s_3daa86e3ae6031::t_32c1356e0fbd73 1-74
+apps/sample/.react-router/types/app/routes/+types/projects._index.ts
+  s_3daa86e3ae6031::t_a9c053bfa8a36c 1-74
+apps/sample/app/data/primitives.json
+  s_3daa86e3ae6031::t_b2e2339404fd58 10,5213,5222-5228,5290,5334-5347,14533-14624
+apps/sample/app/data/projects.ts
+  s_3daa86e3ae6031::t_0a2fabbfec61ff 1-25
+apps/sample/app/routes.ts
+  s_3daa86e3ae6031::t_ff26a32607a337 29-31
+apps/sample/app/routes/_layout.tsx
+  s_3daa86e3ae6031::t_d380154a215790 7,22,26-34,53-65,108-110
+apps/sample/app/routes/projects.$projectId.tsx
+  s_3daa86e3ae6031::t_eb29a9c80779e9 1-70
+apps/sample/app/routes/projects._index.tsx
+  s_3daa86e3ae6031::t_a7fc7c0d6c35ed 1-33
+apps/sample/stories/AppShell.stories.tsx
+  s_3daa86e3ae6031::t_945679887b5a81 2-10,17-23,66-84,86,89-90,93-94,96-137,161-315
+features.json
+  s_3daa86e3ae6031::t_b7ab5aadbcdca7 112-114
+features.ts
+  s_3daa86e3ae6031::t_81feccb6d3a9cf 70-74
+packages/ui/SKILL.md
+  s_3daa86e3ae6031::t_68290b19f174cb 330-386
+packages/ui/package.json
+  s_3daa86e3ae6031::t_01925cc736d10e 32-33
+packages/ui/src/components/layout/AppShell.tsx
+  s_3daa86e3ae6031::t_f93697245a0c8b 8,10,12,23,37-46,58,64-69,107-111,113-132,159-167,169-177,187-189,196-216,229,232-233,237-270,273-284,362-365,367,369-391,488-492,494-518,531,533,542-543,545,549-565,567-576,580,584-590,595,601,611-617,621-712,725,760,763-764,809,821,882-883,885-887,889-897,911-974,976,985-989,991,996,998-1022,1083-1089,1091,1131-1133,1155-1174,1178-1182,1270-1275,1277-1282,1287,1289-1331,1333-1374,1377,1382-1396,1398-1402,1404-1418,1420-1422,1424-1425,1427-1430,1463,1513-1515,1521-1525,1537-1560,1591-1598,1616-1625,1627,1639-1642,1666,1695,1699,1789-1823,1827,1830-1832,1841-1851,1853-1855,1861-1865,1872-1886
+packages/ui/src/components/layout/__tests__/app-shell-collapse.test.tsx
+  s_3daa86e3ae6031::t_e01cfeda10d646 1-471
+packages/ui/src/components/layout/__tests__/app-shell-sub-nav.test.tsx
+  s_3daa86e3ae6031::t_a80f7fbcba8472 1-506
+packages/ui/src/components/layout/index.ts
+  s_3daa86e3ae6031::t_fb634f43c53e4e 29-39
+packages/ui/src/components/layout/sub-nav.tsx
+  s_3daa86e3ae6031::t_b76354b6916cb1 1-463
+packages/ui/src/navigation.tsx
+  s_3daa86e3ae6031::t_7a1b959a8ddb7a 170-193
+packages/ui/tsconfig.type-tests.json
+  s_3daa86e3ae6031::t_6480e0fc7a5eb0 1-13
+packages/ui/type-tests/nav-item-icon.tsx
+  s_3daa86e3ae6031::t_cafa1f326a1719 1-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2161f5e316b27954ceb4ba81aa084ed113a4aa22",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

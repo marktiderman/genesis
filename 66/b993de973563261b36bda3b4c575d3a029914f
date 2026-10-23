@@ -1,0 +1,57 @@
+packages/core/src/schema/index.ts
+  s_a1b83c03f697d3::t_f5e0224db94531 24,26-27,29,31,33
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_a1b83c03f697d3::t_0e3e0dd615d54b 1,523-539,605-622
+  s_a1b83c03f697d3::t_80eabd5da0a2d1 3-17,459-476,479-522,540-604,623-669
+packages/ui/src/components/data/ConfirmDeleteDialog.tsx
+  s_a1b83c03f697d3::t_701d8af16411e3 31-39,41-44,64-69
+packages/ui/src/components/data/index.ts
+  s_a1b83c03f697d3::t_1b2d1eff9d2103 36
+packages/core/src/provider/index.ts
+  s_a1b83c03f697d3::t_7a1f319266a495 55
+  s_a1b83c03f697d3::t_f5e0224db94531 36,38-39,41,43,45
+  s_a1b83c03f697d3::t_841ab0f2f5b9ef 59-66
+packages/core/src/provider/supabase-provider.ts
+  s_a1b83c03f697d3::t_8fa58010909226 1,11-14,142,153-159,200-202,205-206,209-211,285-287,289-294,298,312-315,430-432,434-436,439,441,454-455,464-465,467-468,474-475,477-478,587-612
+  s_a1b83c03f697d3::t_0e3e0dd615d54b 203-204,207-208
+  s_a1b83c03f697d3::t_d4dd17249b70ce 450-451
+  s_a1b83c03f697d3::t_7a1f319266a495 136-141,160-166,271-280,282,288,295-297,301-303,442-449,458,466,476
+  s_a1b83c03f697d3::t_ec7f9a7d8aa185 299-300,613-614
+packages/ui/src/components/data/ResourceDetailPage.tsx
+  s_a1b83c03f697d3::t_2244ef55121111 6-10,63-64,86,131-133
+packages/ui/SKILL.md
+  s_a1b83c03f697d3::t_a7c62da9ce8f8c 59-60,132-134
+packages/ui/src/components/data/resource-permissions.ts
+  s_a1b83c03f697d3::t_a912db9e5195d5 1-41
+packages/core/src/schema/write-outcome.ts
+  s_a1b83c03f697d3::t_f5e0224db94531 48-57,62-66,68,70-81,98-151
+packages/core/src/schema/types.ts
+  s_a1b83c03f697d3::t_e852348e99020e 276-288
+packages/core/src/hooks/use-resource.ts
+  s_a1b83c03f697d3::t_eafe09263288c1 21,24-34,84-87,89-96,216-232,239,248,354-355
+packages/ui/src/components/data/__tests__/resource-page-can-soft-delete.test.tsx
+  s_a1b83c03f697d3::t_5c7ebebeb7876d 1-126,130-136,139-305
+  s_a1b83c03f697d3::t_de6f53e390cf3c 127-129,137-138
+packages/ui/src/components/data/ResourcePage.tsx
+  s_a1b83c03f697d3::t_020a9ff759fcb1 39-43,190-192,194-197,472-476,478,510-523,533-535,544-547,554-557,565-567,806,1132-1137,1140,1149,1169-1183,1223,1225-1227,1229-1232,1236-1237,2009-2010
+packages/core/src/provider/postgrest-errors.ts
+  s_a1b83c03f697d3::t_841ab0f2f5b9ef 6,8,10,59-125
+packages/core/src/hooks/index.ts
+  s_a1b83c03f697d3::t_351171c7c2db8e 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "66b993de973563261b36bda3b4c575d3a029914f",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

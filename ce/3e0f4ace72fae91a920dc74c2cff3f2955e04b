@@ -1,0 +1,26 @@
+packages/extension/src/surfaces.ts
+  s_18dd9cee35b819::t_d629fcda7b20cd 322-323,325-329
+  s_18dd9cee35b819::t_14aef06ac3a702 407-418
+  s_18dd9cee35b819::t_6ad61b3a1b700d 140-141,143,190-191,213,472-473
+  s_18dd9cee35b819::t_d74faf48fafb61 419,474
+.changeset/extension-bar-and-fallback.md
+  s_18dd9cee35b819::t_eb8cb8ef5a7fae 1-5
+packages/extension/src/__tests__/core.test.ts
+  s_18dd9cee35b819::t_d0cace2416239a 181-183,212-214,366-369,393-416
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ce3e0f4ace72fae91a920dc74c2cff3f2955e04b",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

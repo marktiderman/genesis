@@ -1,0 +1,23 @@
+.github/workflows/deploy-pages.yml
+  s_3daa86e3ae6031::t_b079052ff5e325 51-54,74
+apps/sample/react-router.config.ts
+  s_3daa86e3ae6031::t_603215bb97dc39 3-7,10
+apps/sample/vite.config.ts
+  s_3daa86e3ae6031::t_aa5fbdfa5244a1 8-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a956c5fe8d966f9caf416598c73019898bcebe5a",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

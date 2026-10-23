@@ -1,0 +1,25 @@
+packages/ui/src/components/rich-text/rich-text-doc.ts
+  s_a1b83c03f697d3::t_824b8283304652 569-571
+  s_a1b83c03f697d3::t_5b1858c5f5b633 354-384
+packages/ui/src/components/rich-text/__tests__/rich-text-doc.test.ts
+  s_a1b83c03f697d3::t_ae9154fd7d2a7b 218
+  s_a1b83c03f697d3::t_b8a5c482ee5b80 213-217,219-224
+.changeset/rich-text-raw-precheck.md
+  s_a1b83c03f697d3::t_dcf71511d10f4a 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7be65eca429f458a0281cb416ba010010b30568e",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

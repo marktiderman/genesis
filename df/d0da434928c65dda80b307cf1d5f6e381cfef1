@@ -1,0 +1,26 @@
+.changeset/forms-web-structured-renderers.md
+  s_03a3816737bc07::t_0c847286ca505f 1-5
+.changeset/forms-structured-field-types.md
+  s_03a3816737bc07::t_0c847286ca505f 1-12
+.changeset/forms-builder-structured-editors.md
+  s_03a3816737bc07::t_0c847286ca505f 1-5
+.changeset/forms-builder-host-templates.md
+  s_03a3816737bc07::t_0c847286ca505f 5,7
+  s_03a3816737bc07::t_8a782e5d7c310e 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dfd0da434928c65dda80b307cf1d5f6e381cfef1",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

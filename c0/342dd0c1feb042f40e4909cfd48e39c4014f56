@@ -1,0 +1,23 @@
+packages/studio-server/src/setup-sql.ts
+  s_ebc909da001b53::t_85fe0a833e4d17 236,241-246
+packages/studio-server/test/p1.integration.test.ts
+  s_ebc909da001b53::t_85fe0a833e4d17 204-210
+.changeset/studio-p2-packages.md
+  s_ebc909da001b53::t_93186a00f40c0a 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c0342dd0c1feb042f40e4909cfd48e39c4014f56",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

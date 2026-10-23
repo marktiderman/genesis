@@ -1,0 +1,28 @@
+docs/component-reference.md
+  s_f5a91deb5a46ce::t_389cdf7010b431 7,1148,1154,1158
+packages/features/src/__tests__/node.test.ts
+  s_f5a91deb5a46ce::t_e43ac71592c7f0 253-279
+packages/features/README.md
+  s_f5a91deb5a46ce::t_389cdf7010b431 117-119
+.changeset/features-flag-scan.md
+  s_f5a91deb5a46ce::t_389cdf7010b431 1-7
+packages/features/src/node.ts
+  s_f5a91deb5a46ce::t_e43ac71592c7f0 216-217
+  s_f5a91deb5a46ce::t_a38c12e820065b 57-62,193-215,218-227,230-231,233-234,444,446
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c8ded084e419a04a4dcdb66bdd4a368fc184bc80",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

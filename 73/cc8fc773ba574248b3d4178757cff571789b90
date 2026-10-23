@@ -1,0 +1,30 @@
+packages/ui/src/components/layout/AppShell.tsx
+  s_9bf81edc5cc904::t_267cd1c98d268a 352,361-362,423,432-433,455,474,511,564,602-604,625-626,917-919,922,1267,1274
+  s_9bf81edc5cc904::t_8f01aeffd9905a 390
+packages/ui/src/components/layout/__tests__/app-shell-navigation.test.tsx
+  s_9bf81edc5cc904::t_bd9b94b3fd78b4 165-166,170-187,217-220
+.changeset/appshell-navigation-tree.md
+  s_9bf81edc5cc904::t_ea6e9510c7adc2 5
+scripts/__tests__/check-navigation-reimplementation.test.mjs
+  s_9bf81edc5cc904::t_ea6e9510c7adc2 61-67
+scripts/check-navigation-reimplementation.mjs
+  s_9bf81edc5cc904::t_ea6e9510c7adc2 62,64,68,113,119,150-156
+scripts/check-token-usage.mjs
+  s_9bf81edc5cc904::t_ea6e9510c7adc2 482-488
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "73cc8fc773ba574248b3d4178757cff571789b90",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

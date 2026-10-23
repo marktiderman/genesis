@@ -1,0 +1,24 @@
+packages/extension/src/surfaces.ts
+  s_18dd9cee35b819::t_7d218be08b1cd6 116-118,209-211,330-338,355-366,370-376,386,449-450,453-461,467-468,470-473,475
+  s_18dd9cee35b819::t_8e86092a10f73e 18-24,474,476
+packages/extension/src/__tests__/core.test.ts
+  s_18dd9cee35b819::t_9e2916cdef1066 176,237,240,261,273-278,296-297,300,303,305,317-319,322,334-337,340
+packages/extension/README.md
+  s_18dd9cee35b819::t_c0991c8d26af2d 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e22ee53121221edfd7f9a0d222eb84243cec019e",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

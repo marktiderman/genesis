@@ -1,0 +1,19 @@
+pnpm-workspace.yaml
+  s_e91dade8500017::t_0447bd2d0ad8e3 4-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "2c260a39ffd65ad3e91f59a246185e9e6f8a1e91",
+  "prompts": {},
+  "sessions": {
+    "s_e91dade8500017": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "02c5507a-7342-415e-9c8a-14bb5da0532b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

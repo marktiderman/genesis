@@ -1,0 +1,65 @@
+apps/sample/app/data/primitives.json
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 7918-7926,8945,8968-8974,12299-12305,12311,12318,12325
+packages/ui/src/components/data/__tests__/data-table-a11y.test.tsx
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 2-4,14,18-24,28,31-44,46-53,56,58,62-63,66-69,72,74-75,79,90-99,112-114,118-120,122,124,127-137
+packages/core/src/hooks/index.ts
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 26
+packages/core/src/schema/read-outcome.ts
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 52,57,61,63
+.github/workflows/claude-code-review.yml
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 25
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 532-572
+.changeset/provider-followups.md
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 1-10
+packages/ui/SKILL.md
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 59,132-134
+packages/ui/src/components/data/ConfirmDeleteDialog.tsx
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 33-41,62-65
+packages/ui/src/components/data/ResourcePage.tsx
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 69-70,81-87,513-523,528-529,533-534,794,857-872,1126,1129,1132-1145,1189-1201,1204,1213,1219-1220,1234-1238,1279-1283,1293-1294,1562,1602,2016-2033,2101
+packages/ui/src/components/data/index.ts
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 30
+.changeset/resource-page-can.md
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 1-7
+docs/component-reference.md
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 7,33,56
+packages/ui/src/components/data/DataTable.tsx
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 137-141,144-149,152-154,156,158-159,161-165,455,458-459,655-675,754,786-787,789-792,812-815,833-837,883,898,922-970
+.changeset/a11y-fast-follow.md
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 1-10
+packages/core/src/schema/types.ts
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 281-285
+packages/ui/src/components/data/__tests__/resource-page-delete-honesty.test.tsx
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 1-92
+.github/workflows/self-lint.yml
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 67-68
+packages/core/src/hooks/use-capabilities.ts
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 1-21
+packages/core/src/provider/supabase-provider.ts
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 89-90,263-264,278,413-415,421-422,430-435,471,483
+packages/ui/src/components/data/__tests__/resource-page-can.test.tsx
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 1-70
+.changeset/delete-honesty.md
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 1-12
+.github/workflows/ci.yml
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 17-18,96-97
+packages/ui/src/components/data/__tests__/resource-page-url-state.test.tsx
+  s_f5a91deb5a46ce::t_a7a55d7b9a089b 9-11,171-240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "45b174045ccd491585ff865c62982de9ef077440",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

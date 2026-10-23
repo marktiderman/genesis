@@ -1,0 +1,33 @@
+packages/ui/SKILL.md
+  s_27941f9a453428::t_dfcd0a790345f7 73
+  s_27941f9a453428::t_4d4188c8661ca4 70-72
+  s_27941f9a453428::t_dfe4002f72b0f0 74-76
+  s_27941f9a453428::t_7259fa9e7b5b9d 62-69,77-78
+packages/ui/src/components/data/DataFilters.tsx
+  s_27941f9a453428::t_2c3734fd6a69db 159
+  s_27941f9a453428::t_3ee340e16ad181 15-16
+packages/ui/src/components/data/__tests__/data-filters-status-chips.test.tsx
+  s_27941f9a453428::t_acf5a651de41e8 81
+  s_27941f9a453428::t_ee187ff6de6792 9
+  s_27941f9a453428::t_28dad2567633bd 59,63,65
+  s_27941f9a453428::t_518214b48e6ced 106-107
+  s_27941f9a453428::t_b1d951bd6a02d5 35,38-40,64
+apps/sample/app/data/primitives.json
+  s_27941f9a453428::t_0a28869f3d8db3 2,8327,8715-8721,11048-11054
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c0d1bf3f7a2ac0b0e8ed5df2372641501bf50c1d",
+  "prompts": {},
+  "sessions": {
+    "s_27941f9a453428": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ecde524b-eec9-4047-902c-42e72e9baf6f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

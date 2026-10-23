@@ -1,0 +1,52 @@
+packages/ui/package.json
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 388-389
+packages/ui/SKILL.md
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 188-195
+packages/ui/src/components/data/DataTable.tsx
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 8,12-20,147-151,154-179,182-207,209,498-502,505-506,597,618-677,716-746,756-787,791-837,848-963,1005-1009,1016,1034-1037,1039,1052-1054,1065,1067-1079,1082-1100,1102-1105,1125-1128,1146-1161,1185-1188,1192,1203-1217
+.changeset/a11y-fast-follow.md
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 1-10
+packages/ui/src/components/data/__tests__/data-table-engine.test.tsx
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 1-137
+packages/ui/src/components/data/ResourcePage.tsx
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 71,867-882,1137,1140,1143-1156,1230-1231,1300,1304-1308,1587,2041-2058
+  s_a1b83c03f697d3::t_b98e2c6d6ef3e4 1301-1303,1309-1314
+apps/sample/app/data/primitives.json
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 8912-8918,8952,8975-8981,9003-9009,9017-9023,9065-9071
+packages/core/src/schema/read-outcome.ts
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 52,57,61,63
+packages/core/src/provider/supabase-provider.ts
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 89-97,270-271,285,405-408,411,422-424,430-431,439-444,482
+packages/ui/src/components/data/__tests__/data-table-a11y.test.tsx
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 2-4,14,18-24,28,31-44,46-53,56,58,62-63,66-69,72,74-75,79,90-99,112-114,118-120,122,124,127-137
+.changeset/datatable-tanstack.md
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 1-12
+.changeset/provider-followups.md
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 1-10
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 17,613-662
+packages/ui/src/components/data/__tests__/resource-page-url-state.test.tsx
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 8-10,170-239
+packages/ui/src/components/data/__tests__/resource-page-delete-honesty.test.tsx
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 93-117
+.changeset/provider-followups-2.md
+  s_a1b83c03f697d3::t_c3ee7de78f8d1c 1-7
+pnpm-lock.yaml
+  s_a1b83c03f697d3::t_956a2ef610f5c1 400,856-861,1009,13615,13617
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "68419a76b20d564ace395b76f98fb4210f6654fd",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

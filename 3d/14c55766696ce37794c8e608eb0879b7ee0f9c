@@ -1,0 +1,131 @@
+.changeset/calculated-fields-core.md
+  s_03a3816737bc07::t_3741ed51710b1e 7,11
+.changeset/data-shell-states.md
+  s_03a3816737bc07::t_9f22828772c02d 1-8
+.changeset/field-outputs-builder.md
+  s_03a3816737bc07::t_f4f7dcb0590cfa 5
+.changeset/forms-builder-gaps.md
+  s_03a3816737bc07::t_336bb79226eaae 1-16
+.changeset/forms-question-types.md
+  s_03a3816737bc07::t_6c7c9cbedd2535 1-17
+.changeset/forms-web-types-theme.md
+  s_03a3816737bc07::t_1529bc8a315fe7 1-14
+apps/sample/app/lib/forms.ts
+  s_03a3816737bc07::t_010d8f16f1f82d 65-92,96,102,125-132
+apps/sample/app/routes/forms-builder.tsx
+  s_03a3816737bc07::t_3873f6734c050c 53,57-58,63
+apps/sample/stories/Form.stories.tsx
+  s_03a3816737bc07::t_71d6cb4ba876ef 4,46-80
+apps/sample/stories/__fixtures__/form-theme.ts
+  s_03a3816737bc07::t_9ec748e6b1b60c 1-6
+packages/features/src/__tests__/node.test.ts
+  s_03a3816737bc07::t_d6d2e7e77cb179 261-262,264,266
+packages/features/src/node.ts
+  s_03a3816737bc07::t_df075ad0c8f49b 204,230,244-249
+packages/forms-builder/README.md
+  s_03a3816737bc07::t_62ae6952818f9b 21,26,36-69,191-195
+packages/forms-builder/src/FormBuilder.tsx
+  s_03a3816737bc07::t_c50f593764d692 17,24,32,34-37,48-53,116-119,132,134-149,191-192,197-200,210-216,219-237,256,294-299,306,312,342-348,350,352,368-379,385,389-390,392,394,397,408-409,415,419
+packages/forms-builder/src/__tests__/builder.test.tsx
+  s_03a3816737bc07::t_9d4c791e10ed11 194
+packages/forms-builder/src/__tests__/gaps.test.tsx
+  s_03a3816737bc07::t_c88898be6f3603 1-184
+packages/forms-builder/src/__tests__/outputs.test.tsx
+  s_03a3816737bc07::t_6e5a69611c9b0d 10,71-89
+packages/forms-builder/src/__tests__/readonly.test.tsx
+  s_03a3816737bc07::t_9b09635ad75986 26
+packages/forms-builder/src/__tests__/review.test.ts
+  s_03a3816737bc07::t_9040656167593d 51,56-61
+packages/forms-builder/src/__tests__/round3.test.tsx
+  s_03a3816737bc07::t_e6ceb9c97b0d94 306,314,462
+packages/forms-builder/src/analyze.ts
+  s_03a3816737bc07::t_fa34129792907c 27-32,35-36,151,153-158,167
+packages/forms-builder/src/checks.ts
+  s_03a3816737bc07::t_88a0d7a0ee92c9 1-40
+packages/forms-builder/src/controls.tsx
+  s_03a3816737bc07::t_0b00ba383699dd 1,66-71,74-80,87,94,211-215,225,230,233
+packages/forms-builder/src/diff.ts
+  s_03a3816737bc07::t_a8595358c1219b 53-57,60,115
+packages/forms-builder/src/index.ts
+  s_03a3816737bc07::t_9bf80eefdab338 22-23,34
+packages/forms-builder/src/logic.tsx
+  s_03a3816737bc07::t_074d2feda24211 533-536,538-548
+packages/forms-builder/src/ops.ts
+  s_03a3816737bc07::t_5a27ecb3c803bd 161,181-187,189-190,194,240-241,291,553
+packages/forms-builder/src/outputs.ts
+  s_03a3816737bc07::t_64831093c6ed24 37-71,78,86,107-108,111
+packages/forms-builder/src/preview.tsx
+  s_03a3816737bc07::t_d594700bbe137c 15,35-36,50-53,136-144
+packages/forms-builder/src/questions.tsx
+  s_03a3816737bc07::t_852bae7134dc0f 1,29,59-60,172,195-200,208-216,228-231,273-274,276,284-287,354-357,422-428,441-455,501-511,520-521,528-529,532,536,541,543,561,563-565,578,599-668
+packages/forms-builder/src/settings.tsx
+  s_03a3816737bc07::t_7312cc6d2c9d54 1,11,79-103
+packages/forms-web/README.md
+  s_03a3816737bc07::t_e0e398c670c1ba 27,43,60-71
+packages/forms-web/src/Form.tsx
+  s_03a3816737bc07::t_f363c0c4a8a6c3 27,47-54,121-144,150,153,161-162,166-171,177,180,452-458,477,479,481-485,541,545-546,729-733,752,756,769,838,842-847,915,928
+packages/forms-web/src/__tests__/form.test.tsx
+  s_03a3816737bc07::t_1fdae8fca25857 34,164,174,316
+packages/forms-web/src/__tests__/page.test.tsx
+  s_03a3816737bc07::t_daf2f1c9653a73 116
+packages/forms-web/src/__tests__/question-types.test.tsx
+  s_03a3816737bc07::t_750642f4f177f8 1-187
+packages/forms-web/src/index.ts
+  s_03a3816737bc07::t_62bb9aa55b26c9 14
+packages/forms-web/src/renderers.tsx
+  s_03a3816737bc07::t_5e7371899e20c5 1,8-16,223-242,247-261,264-265,270-331,492-633,646-649
+packages/forms-web/src/theme.ts
+  s_03a3816737bc07::t_3565065052f386 1-124
+packages/forms/README.md
+  s_2c334912fcb08f::t_836e61dff1fca0 8,88-100,167-168,171
+packages/forms/src/__tests__/calculated.test.ts
+  s_03a3816737bc07::t_d0dcc60adc515e 8,10,18,199-222,269-331
+packages/forms/src/__tests__/formula.test.ts
+  s_03a3816737bc07::t_257275228388eb 57-70
+packages/forms/src/__tests__/question-types.test.ts
+  s_03a3816737bc07::t_146f2dd682245c 1-211
+packages/forms/src/calculated.ts
+  s_03a3816737bc07::t_e7e85e559eeaad 74-85,88,106-109,112-114,127-129,131-132,138-155
+packages/forms/src/coverage.ts
+  s_03a3816737bc07::t_f992c351e7eaf2 116
+packages/forms/src/define.ts
+  s_03a3816737bc07::t_8af4264ec05dff 100-121,127-144
+packages/forms/src/engine.ts
+  s_03a3816737bc07::t_62cead8717013c 160-170,175-183,266,268-269,274-275,284-293,297
+packages/forms/src/fields.ts
+  s_03a3816737bc07::t_0363fe44c41b2e 232-236,249-252,297-372,375-434
+packages/forms/src/formula.ts
+  s_03a3816737bc07::t_0d00b8dfef53d1 49,93-95,162,171,175,183,186,191,194,208
+packages/forms/src/index.ts
+  s_03a3816737bc07::t_37cf7e671ee8dc 38,40-43,78
+packages/forms/src/parse.ts
+  s_03a3816737bc07::t_4294af78404b92 3,47-52,55-57,172-203,244-245,298,305-309,451-452
+packages/ui/src/components/data/DataPageShell.tsx
+  s_03a3816737bc07::t_e014c2612dbf02 215-239,242-246,255
+packages/ui/src/components/data/__tests__/resource-page-fetch-state.test.tsx
+  s_03a3816737bc07::t_98baab3d19b2fd 66-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d14c55766696ce37794c8e608eb0879b7ee0f9c",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

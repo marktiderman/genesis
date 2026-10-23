@@ -1,0 +1,89 @@
+.changeset/data-view-gaps.md
+  s_2c334912fcb08f::t_acebf7b4cda2c7 1-11
+.changeset/forms-builder-polish.md
+  s_2c334912fcb08f::t_cada1de14183ad 1-10
+.changeset/ui-router-adapters.md
+  s_2c334912fcb08f::t_57ce6011849d90 1-5
+apps/sample/app/data/primitives.json
+  s_2c334912fcb08f::t_26c785e16b0125 5133,5141-5147,8420-8426,8448-8454,11496-11527,12120-12126,12400-12406,14287-14318
+apps/sample/app/routes/_layout.tsx
+  s_2c334912fcb08f::t_c1a6fc2f7c7523 1-2,4-6,75-76,78,84-85
+apps/sample/scripts/generate-primitive-docs.ts
+  s_2c334912fcb08f::t_2d25e24d65941a 261-265
+docs/FRAMEWORK.md
+  s_2c334912fcb08f::t_c13f3ed227ae15 130
+docs/component-reference.md
+  s_2c334912fcb08f::t_d4f9260c5d3b29 7,530-567
+packages/extension/README.md
+  s_2c334912fcb08f::t_720999be3f51ca 16
+packages/extension/src/__tests__/core.test.ts
+  s_2c334912fcb08f::t_745b09e9e150db 176,237,240,261,273-278,296-297,300,303,305,317-319,322,334-337,340
+packages/extension/src/surfaces.ts
+  s_2c334912fcb08f::t_2f6fb4301cd04d 18-24,116-118,209-211,330-338,355-366,370-376,386,449-450,453-461,467-468,470-476
+packages/forms-builder/src/__tests__/builder.test.tsx
+  s_2c334912fcb08f::t_86d82ef9767319 43,55-92
+packages/forms-builder/src/__tests__/round3.test.tsx
+  s_2c334912fcb08f::t_fef04145e87248 127,138
+packages/forms-builder/src/preview.tsx
+  s_2c334912fcb08f::t_a9cdb1254552b4 52-53,117-122
+packages/forms-builder/src/questions.tsx
+  s_2c334912fcb08f::t_b3b3190901a484 2,15,222-223,247-248,254-256,260-262,265,406,421-427,461-507
+packages/forms-web/src/Form.tsx
+  s_2c334912fcb08f::t_4c079485eede1b 179,794-795
+packages/forms-web/src/__tests__/form.test.tsx
+  s_2c334912fcb08f::t_42f439d99bb7b8 68-74
+packages/ui/SKILL.md
+  s_2c334912fcb08f::t_b65f5c58382b67 82,103-118,172-198,200
+packages/ui/package.json
+  s_2c334912fcb08f::t_d0351da3db63bf 83-90,363,382,411,433,443-445,463-465
+packages/ui/src/components/data/DataGrid.tsx
+  s_2c334912fcb08f::t_08aaea56a8997c 7-8,39-48,51-82,95-96,140,143,167,170
+packages/ui/src/components/data/DataTable.tsx
+  s_2c334912fcb08f::t_98e12a759439a2 69-75,152-177,549-550,553-554,672-687,718,734-738,743,745,754
+packages/ui/src/components/data/ResourcePage.tsx
+  s_2c334912fcb08f::t_89760143d6cc22 419-424,506-513,630,642,1337-1343,1451-1456
+packages/ui/src/components/data/__tests__/data-view-gaps.test.tsx
+  s_2c334912fcb08f::t_b1625a596cc6f4 1-191
+packages/ui/src/components/layout/PageHeader.tsx
+  s_2c334912fcb08f::t_11a19c0377e368 38-44,85,101-102,528-530
+packages/ui/src/components/ui/alert-dialog.tsx
+  s_2c334912fcb08f::t_86978a838f26f3 82-91,94-97,101-102
+packages/ui/src/hooks/use-data-filters.ts
+  s_2c334912fcb08f::t_acea4eacd5138b 34-37
+packages/ui/src/hooks/use-resource-page.ts
+  s_2c334912fcb08f::t_a4bc92aeb2adcc 28-33,418-420
+packages/ui/src/navigation.tsx
+  s_2c334912fcb08f::t_4031ec8b04f361 9-13
+packages/ui/src/router/__tests__/react-router.test.tsx
+  s_2c334912fcb08f::t_2b0fdc88880177 1-168
+packages/ui/src/router/__tests__/tanstack-router.test.tsx
+  s_2c334912fcb08f::t_60fa3bc46338ba 1-260
+packages/ui/src/router/react-router.tsx
+  s_2c334912fcb08f::t_eeb0740d960e3e 1-116
+packages/ui/src/router/tanstack-router.tsx
+  s_2c334912fcb08f::t_bea405b1f494aa 1-207
+packages/ui/src/router/utils.ts
+  s_2c334912fcb08f::t_bf9d5d308c921c 1-36
+packages/ui/tsup.config.ts
+  s_2c334912fcb08f::t_f142e28b1ef777 65-70
+pnpm-lock.yaml
+  s_2c334912fcb08f::t_09d7d7e30c3cdd 400,923-925,989-991,1009,4369-4372,4381-4393,4407-4413,5565-5567,8538-8547,12987-12988,12996-13011,13024-13032,13615,13617,14380-14381,18024-18029
+scripts/gen-component-reference.mjs
+  s_2c334912fcb08f::t_b621d8316d5077 68-84,434-441
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fa8314987c0d974368c52ab31d11ec6c9c50771e",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

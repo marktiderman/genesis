@@ -1,0 +1,19 @@
+apps/sample/app/data/primitives.json
+  s_a1b83c03f697d3::t_5105c0f794f923 10,2466,11830,12395,12479,15026
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7b46b7b08b45a47e8ea2c134b3d05cc8331aeebe",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

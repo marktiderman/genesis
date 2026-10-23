@@ -1,0 +1,21 @@
+packages/features/src/react.tsx
+  s_f5a91deb5a46ce::t_06f6a2c517f9f3 79-80,82-90,92-94,96-97,104,116,221-222,237
+packages/features/package.json
+  s_f5a91deb5a46ce::t_391ad89813a64b 50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d8f06d44981d4fd20b888bfd8c55c888d087de58",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

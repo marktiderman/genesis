@@ -1,0 +1,46 @@
+packages/genesis-cli/package.json
+  s_ebc909da001b53::t_5272474375d62e 6,45
+packages/studio-server/test/unit.test.ts
+  s_ebc909da001b53::t_c36f066fa403c7 382,402-433
+  s_ebc909da001b53::t_9e983c6b1dc88c 434
+packages/genesis-cli/tsup.config.ts
+  s_ebc909da001b53::t_5272474375d62e 19,35
+packages/genesis-cli/test/studio-init.test.ts
+  s_ebc909da001b53::t_5154c58c2285c8 1-35,37-46,48-63
+  s_ebc909da001b53::t_f49c9ca1185a3d 47
+  s_ebc909da001b53::t_e0bf2a94a62cb5 36
+pnpm-workspace.yaml
+  s_ebc909da001b53::t_b055d5c3896422 21-24
+packages/genesis-cli/src/studio/init.ts
+  s_ebc909da001b53::t_fa699104ce469f 1-136,138-194,196-215
+  s_ebc909da001b53::t_e0bf2a94a62cb5 137,195
+packages/genesis-cli/src/index.ts
+  s_ebc909da001b53::t_5272474375d62e 35-44
+packages/genesis-cli/src/cli.ts
+  s_ebc909da001b53::t_5272474375d62e 122-171
+packages/studio-server/src/handler.ts
+  s_ebc909da001b53::t_bc4818e3c16a4c 217-236,467-472
+  s_ebc909da001b53::t_e3d3bb10cf6875 473
+packages/studio/package.json
+  s_ebc909da001b53::t_e58c4ecc7b23ba 29-30,37,59,70
+packages/studio/src/standalone.css
+  s_ebc909da001b53::t_8749af58744f5e 1-35
+pnpm-lock.yaml
+  s_ebc909da001b53::t_50bce211a0be7f 441-443,478-480,511-513,2575-2662,4052-4055,7089-7091,10740-10799,12334-12343,15900-15901
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "75f2bbcb3dfb3185e6f26cc69bf8d01fe93af159",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

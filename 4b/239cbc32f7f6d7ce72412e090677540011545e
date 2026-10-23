@@ -1,0 +1,22 @@
+packages/ui/src/components/data/ResourcePage.tsx
+  s_e91dade8500017::t_5e295992b689fb 203-206
+  s_e91dade8500017::t_6484d446c7d478 644-667
+  s_e91dade8500017::t_18fface3ded95d 145-146
+  s_e91dade8500017::t_10a0323be024e3 965
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "4b239cbc32f7f6d7ce72412e090677540011545e",
+  "prompts": {},
+  "sessions": {
+    "s_e91dade8500017": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "02c5507a-7342-415e-9c8a-14bb5da0532b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

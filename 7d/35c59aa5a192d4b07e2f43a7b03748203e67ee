@@ -1,0 +1,23 @@
+.changeset/plenty-pandas-refuse.md
+  s_e91dade8500017::t_cc7e9238ead33a 1-16
+packages/ui/src/components/data/ResourcePage.tsx
+  s_e91dade8500017::t_b9e161b6e02623 4,679-692,695-701,704,708-712,714-717,720-721,1069,1072,1080-1087,1092
+packages/ui/src/components/data/__tests__/resource-page-server-mode.test.tsx
+  s_e91dade8500017::t_59d70f7ddfe8bb 161-196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "7d35c59aa5a192d4b07e2f43a7b03748203e67ee",
+  "prompts": {},
+  "sessions": {
+    "s_e91dade8500017": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "02c5507a-7342-415e-9c8a-14bb5da0532b",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

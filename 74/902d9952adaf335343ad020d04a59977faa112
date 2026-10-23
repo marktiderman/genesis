@@ -1,0 +1,76 @@
+packages/extension/tsconfig.json
+  s_18dd9cee35b819::t_b67fca6ccbcc87 1-17
+packages/extension/tsup.config.ts
+  s_18dd9cee35b819::t_d2d5a487bf87c8 1-16,20-42
+  s_18dd9cee35b819::t_28275ddbb37343 17-19
+packages/extension/src/surfaces.ts
+  s_18dd9cee35b819::t_db6750260f51bc 1-33,37-54,59-84,89-104,111-135,138-162,167-172,176-209,213-223,226-242,249-256,260-262
+  s_18dd9cee35b819::t_28275ddbb37343 34-36,55-58,85-88,105-110,136-137,163-166,173-175,210-212,224-225,243-248,257-259
+packages/extension/src/testing/index.ts
+  s_18dd9cee35b819::t_5a4912f61f572d 9-23,29-40,45-48,53,56-57,63-87,92-94,98-99,102,105-107,112-122,125-133,136-148,151-154,158-177,180-232,238-247
+  s_18dd9cee35b819::t_21a77d22e3bdc1 178-179
+  s_18dd9cee35b819::t_28275ddbb37343 1-8,24-28,41-44,49-52,54-55,58-62,88-91,95-97,100-101,103-104,108-111,123-124,134-135,149-150,155-157,233-237
+packages/extension/src/__tests__/core.test.ts
+  s_18dd9cee35b819::t_28275ddbb37343 19-22,29-32,35-40,42-44,46-51,55-57,63-67,81-83,85-91,96-97,108-116,123-125,136-137,149-151,175-180,193-197
+  s_18dd9cee35b819::t_2bee8c88073dcc 1-18,23-28,33-34,41,45,52-54,58-62,68-80,84,92-95,98-107,117-122,126-135,138-148,152-174,181-192,198-201
+packages/extension/LICENSE
+  s_18dd9cee35b819::t_ed8c4838b60fe8 1-21
+README.md
+  s_18dd9cee35b819::t_5a97501def08ef 76
+packages/extension/src/chrome.ts
+  s_18dd9cee35b819::t_28275ddbb37343 63-65,77-79,81-85,88-92,98-103,106-117,120-122,130-132
+  s_18dd9cee35b819::t_00a547eef47ab3 1-62,66-76,80,86-87,93-97,104-105,118-119,123-129,133-135
+packages/extension/src/react/index.tsx
+  s_18dd9cee35b819::t_28275ddbb37343 2-7,11-14,63-65,69-71,115-119,135-138,148-152,169-183,197-201,205-208,210-212,267-271,301-307,319-323,338-344,347-350
+  s_18dd9cee35b819::t_7bbcd743bc9c6b 1,8-10,15-62,66-68,72-114,120-134,139-147,153-168,184-196,202-204,209,213-266,272-300,308-318,324-337,345-346,351-361
+packages/extension/src/page-bar.ts
+  s_18dd9cee35b819::t_28275ddbb37343 45-48,50-54,60-61,100-104,111-115,122-125,137-140,142-149,151-155
+  s_18dd9cee35b819::t_8ce711b6227025 1-44,49,55-59,62-99,105-110,116-121,126-136,141,150,156-175
+packages/extension/src/keys.ts
+  s_18dd9cee35b819::t_415516d17b0dc6 1-22,26-32,37-39,52
+  s_18dd9cee35b819::t_28275ddbb37343 23-25,33-36,40-51
+packages/extension/src/prefs.ts
+  s_18dd9cee35b819::t_707af7e084fa80 1-18,23-40,45,50-55
+  s_18dd9cee35b819::t_28275ddbb37343 19-22,41-44,46-49
+packages/extension/src/__tests__/react.test.tsx
+  s_18dd9cee35b819::t_2bee8c88073dcc 1-5,13-31,42-72,77-98,102-103
+  s_18dd9cee35b819::t_28275ddbb37343 6-12,32-41,73-76,99-101
+packages/extension/README.md
+  s_18dd9cee35b819::t_282b81c29cebf3 1-4,10-30,37-48,53-63,74-95
+  s_18dd9cee35b819::t_28275ddbb37343 5-9,31-36,49-52,64-73
+packages/extension/package.json
+  s_18dd9cee35b819::t_36b52426b522dc 1-70
+packages/extension/vitest.config.ts
+  s_18dd9cee35b819::t_74c416b81413ba 1-5,10-12
+  s_18dd9cee35b819::t_21a77d22e3bdc1 6
+  s_18dd9cee35b819::t_28275ddbb37343 7-9
+packages/extension/src/native.ts
+  s_18dd9cee35b819::t_28275ddbb37343 24-27,31-34,65-66,76-82,92-94,119-120,129-133
+  s_18dd9cee35b819::t_e179085ce7c632 1-23,28-30,35-64,67-75,83-91,95-118,121-128,134-137
+packages/extension/src/index.ts
+  s_18dd9cee35b819::t_751c9f9cc9b1b9 1-6,14-20,28-29,36-41
+  s_18dd9cee35b819::t_28275ddbb37343 7-13,21-27,30-35
+docs/README.md
+  s_18dd9cee35b819::t_881d1d75c006be 15-17
+packages/extension/src/messaging.ts
+  s_18dd9cee35b819::t_28275ddbb37343 37-40,45-49,70-74,80-82,86-88,97-99,110-113,115-121,128-131
+  s_18dd9cee35b819::t_c90e87adb1fe30 1-36,41-44,50-69,75-79,83-85,89-96,100-109,114,122-127,132-142
+pnpm-lock.yaml
+  s_18dd9cee35b819::t_381cd0661e8edc 435-467
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "74902d9952adaf335343ad020d04a59977faa112",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

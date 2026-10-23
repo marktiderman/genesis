@@ -1,0 +1,23 @@
+.changeset/forms-review-fixes.md
+  s_3daa86e3ae6031::t_d7f404b161b3df 6
+docs/RELEASING.md
+  s_3daa86e3ae6031::t_66e674c1e94c19 79-83
+packages/forms-builder/README.md
+  s_3daa86e3ae6031::t_43533ab3629089 3,8-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7d2a009ebd5d372b3e9d28da80ffdb7fc1aa5082",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

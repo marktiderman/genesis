@@ -1,0 +1,43 @@
+packages/studio/README.md
+  s_ebc909da001b53::t_5837ebe4645e94 1-63
+scripts/gen-component-reference.mjs
+  s_ebc909da001b53::t_2547b4dfac8feb 82-95
+packages/studio-server/README.md
+  s_ebc909da001b53::t_39d7116641ce2d 1-155
+.changeset/data-studio-packages.md
+  s_ebc909da001b53::t_f2d4b7a0090049 1-9
+.changeset/data-studio-ui.md
+  s_ebc909da001b53::t_f2d4b7a0090049 1-9
+docs/component-reference.md
+  s_ebc909da001b53::t_2547b4dfac8feb 7,33,45-49,58,64,69-70,73-75,77,89,91-92,94-95,100,111-112,114,234,429,484,494,497-498,696,717,761,767-861
+  s_ebc909da001b53::t_3306e294bece29 862
+.changeset/data-studio-schema-model.md
+  s_ebc909da001b53::t_f2d4b7a0090049 1-11
+packages/studio-server/package.json
+  s_ebc909da001b53::t_f2d4b7a0090049 3
+apps/sample/app/data/primitives.json
+  s_ebc909da001b53::t_2547b4dfac8feb 12145-12150
+  s_ebc909da001b53::t_2c03819023e7d4 12144
+.github/workflows/ci.yml
+  s_ebc909da001b53::t_5409a396b1e456 17-33
+apps/sample/app/routes/studio.tsx
+  s_ebc909da001b53::t_e08ec14bdc065d 86,123,186
+packages/studio/package.json
+  s_ebc909da001b53::t_f2d4b7a0090049 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "682efe8096b8f02a0dbf15be980dc1cf11c45cdc",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

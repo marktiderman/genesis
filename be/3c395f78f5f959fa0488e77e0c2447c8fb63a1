@@ -1,0 +1,24 @@
+packages/ui/src/components/data/ResourcePage.tsx
+  s_9bea1ba6ffc6c0::t_86b0dbfb0b1472 24-28
+  s_9bea1ba6ffc6c0::t_04e6f0d57a6fe8 216,223,354-369,476
+  s_9bea1ba6ffc6c0::t_1f06c96afe6a96 168-187
+  s_9bea1ba6ffc6c0::t_60a82aa4969734 212-215,217-222,353,444,1061,1096-1099,1124-1125
+packages/ui/src/components/data/__tests__/resource-page-passthrough-slots.test.tsx
+  s_9bea1ba6ffc6c0::t_6ec11c448fc981 1-186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "be3c395f78f5f959fa0488e77e0c2447c8fb63a1",
+  "prompts": {},
+  "sessions": {
+    "s_9bea1ba6ffc6c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "56d6e0dd-a6b3-4f5a-942c-1e3f6b11c59c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

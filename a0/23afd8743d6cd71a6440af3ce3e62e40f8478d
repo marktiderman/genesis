@@ -1,0 +1,35 @@
+packages/core/CHANGELOG.md
+  s_03a3816737bc07::t_0702670c4f8d6e 3-29
+packages/core/package.json
+  s_03a3816737bc07::t_da6018bc6bd12b 3
+packages/forms/CHANGELOG.md
+  s_03a3816737bc07::t_3de61a8ccaec18 3-8
+packages/forms/package.json
+  s_03a3816737bc07::t_06a11f50376335 3
+packages/genesis/CHANGELOG.md
+  s_03a3816737bc07::t_7448d0a7151795 3-15
+packages/genesis/package.json
+  s_03a3816737bc07::t_67bdb78185dbea 3
+packages/ui/CHANGELOG.md
+  s_03a3816737bc07::t_5ad837c7cebdca 3-15
+packages/ui/package.json
+  s_03a3816737bc07::t_602820f36c96b1 3
+.changeset/formula-settle-once.md
+  s_03a3816737bc07::t_d2fbae7f3e065f 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a023afd8743d6cd71a6440af3ce3e62e40f8478d",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

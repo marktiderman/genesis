@@ -1,0 +1,19 @@
+.github/workflows/release.yml
+  s_06b71c929ad9e0::t_5d1a647e93f0a3 205,207-208,210,213,229-231,234-236,238-239
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e58d173621573bdd76a1ebcc3c62789dc7307e74",
+  "prompts": {},
+  "sessions": {
+    "s_06b71c929ad9e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d875784a-2ec4-4b04-b784-0ea60dbee0ac",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

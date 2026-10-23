@@ -1,0 +1,19 @@
+docs/component-reference.md
+  s_c7e35667e8ec12::t_60f0d535db485a 7,213,404,462,476-478
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f318770b842d59f7f06ad9f1ab89d3b4b61cd23b",
+  "prompts": {},
+  "sessions": {
+    "s_c7e35667e8ec12": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_c7e35667e8ec12",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

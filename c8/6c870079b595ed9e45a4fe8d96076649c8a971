@@ -1,0 +1,23 @@
+apps/sample/app/data/primitives.json
+  s_9bea1ba6ffc6c0::t_3c066b442807ef 2,10,8187-8193,8498-8504,8617-8623,8708-8714,11034-11040,11987,11999-12005,12076-12096,12153-12159,12223-12229,12293-12299,12349-12369,12998-13014
+packages/ui/src/components/data/DataPageShell.tsx
+  s_9bea1ba6ffc6c0::t_3f07168ed5de31 122-130
+packages/ui/src/components/data/ResourcePage.tsx
+  s_9bea1ba6ffc6c0::t_73f2b24f298c6a 7,146-156,159-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c86c870079b595ed9e45a4fe8d96076649c8a971",
+  "prompts": {},
+  "sessions": {
+    "s_9bea1ba6ffc6c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "56d6e0dd-a6b3-4f5a-942c-1e3f6b11c59c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

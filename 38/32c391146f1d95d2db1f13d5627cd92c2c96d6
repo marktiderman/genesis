@@ -1,0 +1,19 @@
+README.md
+  s_9bea1ba6ffc6c0::t_b6ff6248bd86bb 16-19,30-33,35,38-66,69-74,76-77,92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3832c391146f1d95d2db1f13d5627cd92c2c96d6",
+  "prompts": {},
+  "sessions": {
+    "s_9bea1ba6ffc6c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "56d6e0dd-a6b3-4f5a-942c-1e3f6b11c59c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

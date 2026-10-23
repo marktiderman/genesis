@@ -1,0 +1,49 @@
+apps/sample/package.json
+  s_ebc909da001b53::t_e46540774263b6 15-16,20-23,80-81
+apps/sample/app/app.css
+  s_ebc909da001b53::t_e46540774263b6 5
+apps/sample/studio/dev-users.json
+  s_ebc909da001b53::t_434f3e23c75d55 1-4
+apps/sample/.react-router/types/+routes.ts
+  s_ebc909da001b53::t_e46540774263b6 41-43,79,87,121-124,171
+apps/sample/app/routes/studio.tsx
+  s_ebc909da001b53::t_0fcd1e0fc978da 1-191
+apps/sample/app/routes.ts
+  s_ebc909da001b53::t_e46540774263b6 19
+packages/studio/src/DataStudio.tsx
+  s_ebc909da001b53::t_b4ea89137cfb7a 142,194
+apps/sample/studio/vite-plugin.ts
+  s_ebc909da001b53::t_434f3e23c75d55 1-38,42-144
+  s_ebc909da001b53::t_f4fe1b419ec5be 39-41
+apps/sample/.react-router/types/app/routes/+types/studio.ts
+  s_ebc909da001b53::t_e46540774263b6 1-74
+apps/sample/vite.config.ts
+  s_ebc909da001b53::t_e46540774263b6 3-4,6-9,12
+apps/sample/app/routes/_layout.tsx
+  s_ebc909da001b53::t_e46540774263b6 3,14
+apps/sample/studio/bootstrap.sql
+  s_ebc909da001b53::t_30e228025f4f66 1-20
+apps/sample/studio/setup-db.mjs
+  s_ebc909da001b53::t_2e44bb45506453 1-26,29-89
+  s_ebc909da001b53::t_434f3e23c75d55 27-28
+apps/sample/studio/schema.sql
+  s_ebc909da001b53::t_30e228025f4f66 1-57
+pnpm-lock.yaml
+  s_ebc909da001b53::t_006b435f16d28c 29-34,201-206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0096fadeaa6021eaf3eb571e7fe19d41cd0b1bed",
+  "prompts": {},
+  "sessions": {
+    "s_ebc909da001b53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e91b606-0c06-4738-be6e-bd7c63dcefdf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

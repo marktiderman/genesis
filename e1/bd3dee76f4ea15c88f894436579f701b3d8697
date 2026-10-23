@@ -1,0 +1,49 @@
+packages/core/CHANGELOG.md
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3-48
+packages/forms-devtools/CHANGELOG.md
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3-10
+packages/forms-builder/package.json
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3
+packages/ui/CHANGELOG.md
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3-71
+packages/genesis/package.json
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3
+packages/forms-web/CHANGELOG.md
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3-18
+packages/genesis-cli/CHANGELOG.md
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3-17
+packages/forms/package.json
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3
+packages/forms-devtools/package.json
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3
+packages/ui/package.json
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3
+packages/forms/CHANGELOG.md
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3-17
+packages/core/package.json
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3
+packages/genesis/CHANGELOG.md
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3-30
+packages/forms-builder/CHANGELOG.md
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3-33
+packages/genesis-cli/package.json
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3
+packages/forms-web/package.json
+  s_f5a91deb5a46ce::t_b3bfb2796bb6fb 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e1bd3dee76f4ea15c88f894436579f701b3d8697",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
