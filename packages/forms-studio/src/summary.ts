@@ -37,6 +37,13 @@ export interface ScaleSummary {
   average: number | null;
   /** One per value from min to max, in order, zeros included. */
   buckets: { value: number; count: number }[];
+  /**
+   * Answers given on an older version's different scale (a 1–10 rating now 1–5), moved
+   * onto this one in proportion: they count, at their nearest point on this scale.
+   */
+  rescaled: number;
+  /** Answers left out: outside their own question's scale, or not a whole number. */
+  excluded: number;
   /** NPS only: promoters 9–10, passives 7–8, detractors 0–6, score = % promoters − % detractors. */
   nps: { promoters: number; passives: number; detractors: number; score: number } | null;
 }
@@ -91,8 +98,14 @@ const optionsOf = (field: FieldBlock) =>
       ? CONSENT
       : choiceOptions(field).map((o) => ({ value: o.value, label: o.label ?? o.value }));
 
-const ratingMax = (field: FieldBlock) =>
-  typeof field.props?.["max"] === "number" ? (field.props["max"] as number) : 5;
+const ratingMax = (field: FieldBlock) => {
+  const max = field.props?.["max"];
+  return typeof max === "number" && Number.isInteger(max) && max >= 1 && max <= 100 ? max : 5;
+};
+
+/** A rating or NPS question's own scale; null for other questions. */
+const scaleOf = (field: FieldBlock): { min: number; max: number } | null =>
+  field.type === "nps" ? { min: 0, max: 10 } : field.type === "rating" ? { min: 1, max: ratingMax(field) } : null;
 
 const newestFirst = <T extends { date: string }>(items: readonly T[]) =>
   items
@@ -130,19 +143,39 @@ export function summarizeResponses(
 
     if (field.type === "rating" || field.type === "nps") {
       const nps = field.type === "nps";
-      const numbers = answered.flatMap(({ values }) => {
-        const v = values.get(key)?.value;
-        return typeof v === "number" && Number.isInteger(v) && v >= (nps ? 0 : 1) ? [v] : [];
-      });
+      // The newest version sets the scale. One pass: a bucket array, never a spread of
+      // every answer (that overflows the stack on large forms).
       const min = nps ? 0 : 1;
-      const max = Math.max(nps ? 10 : ratingMax(field), ...numbers);
-      const buckets = Array.from({ length: max - min + 1 }, (_, i) => ({
-        value: min + i,
-        count: numbers.filter((n) => n === min + i).length,
-      }));
-      const count = numbers.length;
-      const promoters = numbers.filter((n) => n >= 9).length;
-      const detractors = numbers.filter((n) => n <= 6).length;
+      const max = nps ? 10 : ratingMax(field);
+      const counts = new Array<number>(max - min + 1).fill(0);
+      let count = 0;
+      let sum = 0;
+      let promoters = 0;
+      let detractors = 0;
+      let rescaled = 0;
+      let excluded = 0;
+      for (const { values } of answered) {
+        const answer = values.get(key);
+        if (!answer) continue;
+        const v = answer.value;
+        const own = scaleOf(answer.field);
+        if (!own || typeof v !== "number" || !Number.isInteger(v) || v < own.min || v > own.max) {
+          excluded++;
+          continue;
+        }
+        let x = v;
+        if (own.min !== min || own.max !== max) {
+          // Another version's scale: the same share of the way along this one.
+          x = own.max === own.min ? max : min + ((v - own.min) * (max - min)) / (own.max - own.min);
+          rescaled++;
+        }
+        const point = Math.round(x);
+        counts[point - min]! += 1;
+        count++;
+        sum += x;
+        if (point >= 9) promoters++;
+        else if (point <= 6) detractors++;
+      }
       return [
         {
           kind: "scale",
@@ -153,8 +186,10 @@ export function summarizeResponses(
           count,
           min,
           max,
-          average: count ? numbers.reduce((s, n) => s + n, 0) / count : null,
-          buckets,
+          average: count ? sum / count : null,
+          buckets: counts.map((c, i) => ({ value: min + i, count: c })),
+          rescaled,
+          excluded,
           nps:
             nps && count
               ? {
@@ -256,7 +291,13 @@ export function lowScaleAtMost(type: "rating" | "nps", max: number): number {
 
 /** Whether any rating or NPS answer in an item is low on its own question's scale. */
 export function hasLowRating(item: SummaryItem): boolean {
-  for (const { field, value } of valuesByKey(item.definition, item.answers).values()) {
+  return hasLowRatingExcept(item, new Set());
+}
+
+/** hasLowRating, leaving out the answers to keys in `skip` (as summaries and needsFollowUp do). */
+export function hasLowRatingExcept(item: SummaryItem, skip: ReadonlySet<string>): boolean {
+  for (const [key, { field, value }] of valuesByKey(item.definition, item.answers)) {
+    if (skip.has(key)) continue;
     const atMost = lowRatingAtMost(field);
     if (atMost !== null && typeof value === "number" && value <= atMost) return true;
   }

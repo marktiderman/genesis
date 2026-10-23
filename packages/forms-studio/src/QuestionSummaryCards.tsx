@@ -58,6 +58,18 @@ function ScaleBody({ s }: { s: ScaleSummary }) {
           </span>
         </p>
       ) : null}
+      {s.rescaled || s.excluded ? (
+        <p className="text-xs text-muted-foreground" data-testid={`scale-note-${s.key}`}>
+          {[
+            s.rescaled
+              ? `${plural(s.rescaled, "answer")} from an earlier version's scale moved onto ${s.min}–${s.max}.`
+              : "",
+            s.excluded ? `${plural(s.excluded, "answer")} outside the scale left out.` : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        </p>
+      ) : null}
       <ul className="space-y-2" aria-label="Answers by score">
         {[...s.buckets].reverse().map((b) => (
           <li key={b.value} className="grid grid-cols-[2.25rem_1fr_2rem] items-center gap-3 text-sm">

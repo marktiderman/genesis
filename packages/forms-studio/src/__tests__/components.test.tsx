@@ -12,6 +12,7 @@ import { FollowUpList } from "../generic/FollowUpList";
 import { ResourceSettingsPage, SettingsSection } from "../generic/settings";
 import { ShareDialog } from "../generic/ShareDialog";
 import { headlineCards, headlineNumbers } from "../headline";
+import { needsFollowUp } from "../followups";
 import { NO_FILTERS, summarizeResponses } from "../summary";
 import { formStatusChip } from "../status";
 import { answer, checkIn } from "./fixtures";
@@ -140,6 +141,22 @@ describe("Headline numbers and question cards", () => {
     expect(screen.getByTestId("headline-rate").textContent).toBe("Photo consent50%1 of 2 agreed");
   });
 
+  it("counts low ratings as the follow-up list does, leaving skipped keys out", () => {
+    const rated = { ...checkIn, blocks: [...checkIn.blocks, { kind: "field", id: "s", key: "staff", type: "rating", label: "Staff only", props: { max: 5 } }] } as typeof checkIn;
+    const lowOnlyInSkipped = [{ ...answer("2026-10-23", { wod: 5 }), definition: rated, answers: { r: 5, s: 1 } }];
+    const skip = new Set(["staff"]);
+    const h = headlineNumbers(lowOnlyInSkipped, [rated], { skip });
+    expect(h.low).toEqual({ count: 0 });
+    expect(needsFollowUp(lowOnlyInSkipped, { skip })).toHaveLength(0);
+  });
+
+  it("says how many answers came from an earlier scale", () => {
+    const ten = { ...checkIn, blocks: [{ kind: "field", id: "r", key: "wod", type: "rating", label: "How was today's WOD?", props: { max: 10 } }] } as typeof checkIn;
+    const mixed = [{ ...answer("2026-10-22", {}), definition: ten, answers: { r: 9 } }, answer("2026-10-23", { wod: 4 })];
+    render(<QuestionSummaryCards summaries={summarizeResponses(mixed, [checkIn, ten])} responses={2} />);
+    expect(screen.getByTestId("scale-note-wod").textContent).toBe("1 answer from an earlier version's scale moved onto 1–5.");
+  });
+
   it("says when every low rating is followed up", () => {
     const h = headlineNumbers(items, [checkIn]);
     render(<HeadlineNumbers numbers={headlineCards(h, { lowOpen: 0 })} />);
@@ -186,7 +203,7 @@ describe("FollowUpList", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     const first = screen.getByTestId("follow-up-1");
     expect(within(first).getByText("Member")).toBeTruthy();
-    expect(within(first).getByLabelText("Rated 2 out of 5")).toBeTruthy();
+    expect(within(first).getByRole("img", { name: "Rated 2 out of 5" })).toBeTruthy();
     expect(within(screen.getByTestId("follow-up-2")).getByText("No comment")).toBeTruthy();
     fireEvent.click(within(first).getByRole("button", { name: "Mark handled" }));
     expect(handled).toHaveBeenCalledWith("1");
@@ -229,6 +246,49 @@ describe("Settings", () => {
 });
 
 describe("ShareDialog", () => {
+  it("copies the embed code", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<ShareDialog open onOpenChange={() => {}} url="https://app.test/f/a" name="A" defaultTab="embed" />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy embed code" }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('<iframe src="https://app.test/f/a"'));
+  });
+
+  it("builds a prefilled link and its poster from the choices", async () => {
+    render(
+      <ShareDialog
+        open
+        onOpenChange={() => {}}
+        url="https://app.test/f/a"
+        name="A"
+        posterUrl={(url, values) => (Object.keys(values).length ? `${url}/poster?class=${values["class"]}` : null)}
+        prefill={[{ key: "class", label: "Class", anyLabel: "Any class", options: [{ value: "6am", label: "6am WOD" }] }]}
+      />,
+    );
+    const trigger = screen.getByRole("combobox", { name: "Class" });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    fireEvent.click(await screen.findByRole("option", { name: "6am WOD" }));
+    expect((screen.getByLabelText("Prefilled link") as HTMLInputElement).value).toBe("https://app.test/f/a?class=6am");
+    expect(screen.getByRole("link", { name: "Print a poster for this link" }).getAttribute("href")).toBe(
+      "https://app.test/f/a/poster?class=6am",
+    );
+  });
+
+  it("doesn't throw on a relative link", () => {
+    render(
+      <ShareDialog
+        open
+        onOpenChange={() => {}}
+        url="/f/a"
+        name="A"
+        prefill={[{ key: "class", label: "Class", anyLabel: "Any class", options: [{ value: "6am", label: "6am" }] }]}
+      />,
+    );
+    expect((screen.getByRole("textbox", { name: "Link" }) as HTMLInputElement).value).toBe("/f/a");
+  });
+
   it("shows the link and opens on the tab asked for", () => {
     render(
       <ShareDialog open onOpenChange={() => {}} url="https://app.test/f/a" name="A" defaultTab="embed" />,

@@ -20,3 +20,13 @@ describe("Share helpers", () => {
   });
 });
 
+
+describe("relative links", () => {
+  it("prefills a relative link without throwing, and keeps it relative", () => {
+    expect(prefilledUrl("/f/cff/after-class", { class: "6:00 WOD" })).toBe(
+      "/f/cff/after-class?class=6%3A00+WOD",
+    );
+    expect(prefilledUrl("/qr?form=a#top", { coach: "c1", class: "" })).toBe("/qr?form=a&coach=c1#top");
+    expect(prefilledUrl("f/a", { x: "1" })).toBe("f/a?x=1");
+  });
+});
