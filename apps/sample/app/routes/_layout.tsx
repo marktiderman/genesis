@@ -40,6 +40,9 @@ const navigation: NavigationNode<NavItem> = {
   label: "Home",
   items: globalItems,
   children: [
+    // The form builder needs the width: it opens with the sidebar as an icon
+    // rail until the user picks a side with the toggle (or `[`).
+    { id: "forms-builder", path: "/forms-builder", label: "Form builder", items: [], defaultCollapsed: true },
     {
       id: "showcase",
       path: "/showcase",
@@ -82,6 +85,7 @@ export default function Layout() {
       appName="Genesis Showcase"
       appLogo="G"
       navigation={navigation}
+      optionsStorageKey="genesis-sample:app-shell"
       linkComponent={ReactRouterLink}
       activePath={activePath}
     >

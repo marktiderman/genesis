@@ -167,6 +167,18 @@ export interface NavigationNode<T> {
   /** Contextual nav items to show while this node is current. */
   items: T[];
   children?: NavigationNode<T>[];
+  /**
+   * Ask the app shell to open its desktop sidebar collapsed (icon rail) while
+   * this node, or a descendant that doesn't set its own value, is current.
+   * The nearest node in the resolved trail that sets it wins, so
+   * `defaultCollapsed: false` on a child re-opens it under a collapsed
+   * parent. Only a default: once the user has toggled the sidebar, their
+   * choice wins everywhere. `AppShell` reads it; `resolveNavigation` copies
+   * it through untouched.
+   *
+   * @stability Beta
+   */
+  defaultCollapsed?: boolean;
 }
 
 /**

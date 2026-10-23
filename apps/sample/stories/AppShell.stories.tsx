@@ -48,17 +48,76 @@ export const Default: Story = {
   ),
 };
 
-export const CollapsedRail: Story = {
+export const Expanded: Story = {
+  name: "Sidebar: expanded",
   render: () => (
     <AppShell
-      appName="Genesis"
-      appLogo="G"
+      appName="Breakthrough"
+      appLogo="B"
       navItems={navItems}
       activePath="/tasks"
-      collapsed
-      options={{ configurable: true }}
+      defaultCollapsed={false}
     >
-      <div className="text-sm text-muted-foreground">Collapsed to an icon rail.</div>
+      <div className="text-sm text-muted-foreground">
+        Icon and label per item. Collapse with the panel button beside the logo,
+        or press <kbd>[</kbd>.
+      </div>
+    </AppShell>
+  ),
+};
+
+export const CollapsedRail: Story = {
+  name: "Sidebar: collapsed rail",
+  render: () => (
+    <AppShell
+      appName="Breakthrough"
+      appLogo="B"
+      navItems={navItems}
+      activePath="/tasks"
+      defaultCollapsed
+    >
+      <div className="text-sm text-muted-foreground">
+        A 64px icon rail: hover or tab onto an item for its name, open
+        Gitdata for its nested items, expand from the button at the bottom
+        or press <kbd>[</kbd>.
+      </div>
+    </AppShell>
+  ),
+};
+
+/**
+ * A page asks for the rail through its navigation node
+ * (`defaultCollapsed: true`), the way a form builder route would. The
+ * user's own toggle wins once they use it (persisted under
+ * `optionsStorageKey`).
+ */
+export const PageDefaultCollapsed: Story = {
+  name: "Sidebar: page asks for collapsed",
+  render: () => (
+    <AppShell
+      appName="Breakthrough"
+      appLogo="B"
+      navigation={{
+        id: "app",
+        path: "/",
+        label: "Home",
+        items: navItems,
+        children: [
+          {
+            id: "builder",
+            path: "/forms/$formId/edit",
+            label: "Form builder",
+            items: [],
+            defaultCollapsed: true,
+          },
+        ],
+      }}
+      activePath="/forms/f1/edit"
+      optionsStorageKey="storybook-app-shell"
+    >
+      <div className="text-sm text-muted-foreground">
+        The form builder route opens collapsed until the user picks a side.
+      </div>
     </AppShell>
   ),
 };

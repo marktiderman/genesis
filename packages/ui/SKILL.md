@@ -327,6 +327,21 @@ const navigation: NavigationNode<NavItem> = {
   linkComponent={RouterLink}>{children}</AppShell>
 ```
 
+**Collapsible sidebar.** On desktop the sidebar collapses to a 64px icon rail: the logo mark,
+one icon per item (name in a tooltip on hover and focus), nested groups in a popover, and the
+expand button at the bottom. The panel button beside the logo and the `[` key toggle it. Pass
+`optionsStorageKey` (app-scoped, e.g. `"acme:app-shell"`) to remember the user's choice under
+`${key}:collapsed`. A page asks to open collapsed with `defaultCollapsed: true` on its
+`NavigationNode` (the nearest node in the trail that sets it wins) or `defaultCollapsed` on
+`AppShell`; the user's own toggle always wins once they have used it, and "Reset to defaults" in
+the sidebar options hands it back. `options.defaultCollapsed` is the app-wide default,
+`options.collapseShortcut` changes or (`false`) removes the key, and `collapsed` +
+`onCollapsedChange` make it controlled. The mobile drawer is unaffected.
+
+```tsx
+{ id: "builder", path: "/forms/$formId/edit", label: "Form builder", items: [], defaultCollapsed: true }
+```
+
 For chrome outside AppShell, call the same resolver: `resolveNavigation(tree, pathname)` (from
 `/layout`, `/data` or the root barrel) returns `{ current, parent, items, trail, params }` with
 every path interpolated from the URL's params.

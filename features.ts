@@ -67,7 +67,10 @@ export const features = defineFeatures({
     apps: ["web"],
     audience: ["developer"],
     visibility: "public",
-    acceptance: ["resolveNavigation marks the current item and its parents from the URL, never from browser history."],
+    acceptance: [
+      "resolveNavigation marks the current item and its parents from the URL, never from browser history.",
+      "The desktop sidebar collapses to a 64px icon rail with [ or its toggle; a page's defaultCollapsed applies until the user toggles, and that choice persists.",
+    ],
     reviewedAt,
     links: { code: ["packages/ui/src/components/layout/AppShell.tsx", "packages/ui/src/navigation.tsx"] },
   },
