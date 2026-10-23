@@ -1,5 +1,5 @@
-import { useRef, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, ChevronRight, Copy, GripVertical, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowDown, ArrowUp, ChevronRight, Copy, Flag, Plus, Star, Trash2, X } from "lucide-react";
 import {
   choiceOptions,
   getFieldType,
@@ -25,9 +25,12 @@ import {
   DropdownMenuTrigger,
 } from "@marktiderman/genesis-ui/dropdown-menu";
 import { Input } from "@marktiderman/genesis-ui/input";
+import { SortableList } from "@marktiderman/genesis-ui/patterns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { useChecks } from "./checks";
-import { DraftRow, Editable, NumberRow, SelectRow, SwitchRow, TextRow } from "./controls";
+import { DraftRow, Editable, NumberRow, SectionLabel, Segmented, SwitchRow, TextRow, useLazyItems } from "./controls";
+import { BlockIcon } from "./type-icons";
 import type { Finding } from "./analyze";
 import {
   createContent,
@@ -180,11 +183,13 @@ export function AddBlockMenu({
   label = "Add question",
   testID = "builder-add-block",
   variant = "default",
+  className,
 }: {
   onAdd: (make: (def: FormDefinition) => Block) => void;
   label?: string;
   testID?: string;
   variant?: "default" | "outline" | "ghost";
+  className?: string;
 }) {
   const config = useBuilderConfig();
   const byCategory = new Map<string, PaletteEntry[]>();
@@ -201,7 +206,7 @@ export function AddBlockMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant={variant} size="sm" data-testid={testID}>
+        <Button variant={variant} size="sm" data-testid={testID} className={className}>
           <Plus /> {label}
         </Button>
       </DropdownMenuTrigger>
@@ -254,6 +259,28 @@ export function AddBlockMenu({
   );
 }
 
+/** "Question 2", "Heading", "Page break": what the editor card's header calls a block. */
+function blockHeading(block: Block, number: number | undefined): string {
+  if (block.kind === "field") return `Question ${number ?? ""}`.trim();
+  if (block.kind === "content") return block.type === "heading" ? "Heading" : "Text";
+  return "Page break";
+}
+
+/** Each field's number among the questions (headings, text and page breaks are not numbered). */
+export function questionNumbers(def: FormDefinition): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const b of def.blocks) if (b.kind === "field") out.set(b.id, out.size + 1);
+  return out;
+}
+
+/**
+ * The Questions panel: an outline of every block on the left (select,
+ * drag or keyboard-reorder, add), the selected block's editor in the middle
+ * and, when `preview` is given, the live preview on the right. In a narrow
+ * container the columns stack: outline, editor, preview.
+ *
+ * The editor shows `selected`, else the first block.
+ */
 export function QuestionsPanel({
   def,
   apply,
@@ -261,6 +288,8 @@ export function QuestionsPanel({
   onSelect,
   findings,
   ruleCount,
+  preview,
+  onOpenEnding,
 }: {
   def: FormDefinition;
   apply: Apply;
@@ -268,19 +297,31 @@ export function QuestionsPanel({
   onSelect: (id: string | null) => void;
   findings: Finding[];
   ruleCount: (blockId: string) => number;
+  /** The third column: the builder passes its live preview (and checks). */
+  preview?: ReactNode;
+  /** Open an ending listed under the outline, for example in the Logic and endings panel. */
+  onOpenEnding?: ((id: string) => void) | undefined;
 }) {
-  const [dragging, setDragging] = useState<string | null>(null);
-  // The question whose title field takes focus when its inspector opens: the one just added.
+  // The question whose title field takes focus when its editor opens: the one just added.
   const [focusTitle, setFocusTitle] = useState<string | null>(null);
+  // The editor is remade for another block after Duplicate or Delete: where focus goes in the new one.
+  const [refocus, setRefocus] = useState<{ id: string; target: "duplicate" | "card" } | null>(null);
   const config = useBuilderConfig();
   const checks = useChecks();
   const readOnly = !!config.readOnly;
+  const numbers = questionNumbers(def);
+  const current = def.blocks.find((b) => b.id === selected) ?? def.blocks[0] ?? null;
+  // The block shown is the one selected, so moving it (or another block to the top) keeps it in the editor.
+  const shownId = current?.id ?? null;
+  useEffect(() => {
+    if (shownId !== selected && shownId !== null) onSelect(shownId);
+  }, [shownId, selected, onSelect]);
 
   const add = (make: (def: FormDefinition) => Block) => {
     // Made here, not in the edit: edits run in the reducer and must stay pure.
     const created = make(def);
-    const at = selected ? def.blocks.findIndex((b) => b.id === selected) + 1 : def.blocks.length;
-    apply((d) => insertBlock(d, created, at || d.blocks.length));
+    // Added at the end, under the rows the button sits below.
+    apply((d) => insertBlock(d, created, d.blocks.length));
     if (created.kind === "field") {
       if (!created.label.trim()) checks?.markFresh(created.id);
       setFocusTitle(created.id);
@@ -288,153 +329,403 @@ export function QuestionsPanel({
     onSelect(created.id);
   };
 
+  const grid = cn(
+    "grid items-start gap-6",
+    preview
+      ? "@min-[34rem]:grid-cols-[13rem_minmax(0,1fr)] @min-[56rem]:grid-cols-[13rem_minmax(0,1fr)_20rem] @min-[76rem]:grid-cols-[16rem_minmax(0,1fr)_24.5rem]"
+      : "@min-[34rem]:grid-cols-[13rem_minmax(0,1fr)] @min-[48rem]:grid-cols-[16rem_minmax(0,1fr)]",
+  );
+
   if (!def.blocks.length) {
     return (
-      <div className="rounded-lg border border-dashed p-8 text-center" data-testid="builder-empty">
-        <p className={cn("text-sm text-muted-foreground", !readOnly && "mb-3")}>No questions yet.</p>
-        {readOnly ? null : <AddBlockMenu onAdd={add} label="Add the first question" />}
+      <div className="@container" data-testid="builder-questions">
+        <div className={grid}>
+          <div className="rounded-lg border border-dashed p-8 text-center @min-[34rem]:col-span-2" data-testid="builder-empty">
+            <p className={cn("text-sm text-muted-foreground", !readOnly && "mb-3")}>No questions yet.</p>
+            {readOnly ? null : <AddBlockMenu onAdd={add} label="Add the first question" />}
+          </div>
+          {preview ? <div className="@min-[34rem]:col-span-2 @min-[56rem]:col-span-1">{preview}</div> : null}
+        </div>
       </div>
     );
   }
 
+  const endings = def.endings ?? [];
   return (
-    <div className="space-y-2">
-      <ol className="space-y-2" aria-label="Questions">
-        {def.blocks.map((block, index) => {
-          const open = selected === block.id;
-          const blockFindings = findings.filter((f) => f.ref?.kind === "block" && f.ref.id === block.id);
-          const rules = ruleCount(block.id);
-          const name = blockTitle(block);
-          return (
-            <li
-              key={block.id}
-              data-testid={`builder-block-${block.id}`}
-              className={cn(
-                "rounded-lg border bg-card transition-shadow",
-                open ? "ring-2 ring-ring" : "hover:shadow-sm",
-                dragging === block.id && "opacity-50",
-              )}
-              onDragOver={(e) => {
-                if (!readOnly && dragging && dragging !== block.id) e.preventDefault();
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (!readOnly && dragging && dragging !== block.id) apply((d) => moveBlock(d, dragging, index));
-                setDragging(null);
-              }}
-            >
-              {/* In a narrow column the actions wrap to a second line rather than squeeze the title away. */}
-              <div className="flex flex-wrap items-center gap-2 p-3">
-                {/* Only the handle drags, so selecting text in the row (or in its inspector) still works. */}
-                {readOnly ? null : (
-                <span
-                  aria-hidden
-                  draggable
-                  title="Drag to reorder"
-                  className="shrink-0 cursor-grab text-muted-foreground"
-                  data-testid={`builder-block-grip-${block.id}`}
-                  onDragStart={(e) => {
-                    setDragging(block.id);
-                    e.dataTransfer.effectAllowed = "move";
-                    // Firefox starts a drag only when it carries data.
-                    e.dataTransfer.setData("text/plain", block.id);
-                    const row = e.currentTarget.closest("li");
-                    if (row) e.dataTransfer.setDragImage?.(row, 16, 16);
-                  }}
-                  onDragEnd={() => setDragging(null)}
-                >
-                  <GripVertical className="size-4" />
-                </span>
-                )}
-                <button
-                  type="button"
-                  // Badges wrap under the title before it shrinks below 5rem; past that it truncates.
-                  className="flex min-w-32 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-left"
-                  aria-expanded={open}
-                  onClick={() => {
-                    setFocusTitle(null);
-                    onSelect(open ? null : block.id);
-                  }}
-                  data-testid={`builder-block-toggle-${block.id}`}
-                >
-                  <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">{index + 1}</span>
-                  <span className="min-w-20 flex-1 truncate text-sm font-medium" title={name} data-testid={`builder-block-title-${block.id}`}>
-                    {name}
-                  </span>
-                  <Badge variant="muted" className="shrink-0">
-                    {block.kind === "field" ? typeLabel(block.type, config) : block.kind === "content" ? block.type : "page"}
-                  </Badge>
-                  {block.kind === "field" && block.required ? <Badge variant="outline" className="shrink-0">Required</Badge> : null}
-                  {rules ? <Badge variant="info" className="shrink-0">{rules} rule{rules === 1 ? "" : "s"}</Badge> : null}
-                  {blockFindings.length ? <Badge variant="warning" className="shrink-0">{blockFindings.length}</Badge> : null}
-                </button>
-                {readOnly ? null : (
-                <div className="ml-auto flex shrink-0 items-center">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Move "${name}" up`}
-                    disabled={index === 0}
-                    onClick={() => apply((d) => moveBlock(d, block.id, index - 1))}
-                  >
-                    <ArrowUp />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Move "${name}" down`}
-                    disabled={index === def.blocks.length - 1}
-                    onClick={() => apply((d) => moveBlock(d, block.id, index + 1))}
-                  >
-                    <ArrowDown />
-                  </Button>
-                  <Button variant="ghost" size="icon" aria-label={`Duplicate "${name}"`} onClick={() => {
-                      // The id is made here, not in the edit: edits must stay pure.
-                      const copyId = freshId(blockIdPrefix(block), def);
-                      apply((d) => duplicateBlock(d, block.id, copyId));
-                    }}
-                  >
-                    <Copy />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Delete "${name}"`}
-                    data-testid={`builder-block-delete-${block.id}`}
-                    onClick={() => {
-                      apply((d) => removeBlock(d, block.id));
-                      if (open) onSelect(null);
-                    }}
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-                )}
-              </div>
-              {open ? (
-                <div className="space-y-4 border-t p-4">
-                  {blockFindings.map((f, i) => (
-                    <p key={i} className="rounded-md bg-warning/15 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-                      {f.message}
-                    </p>
-                  ))}
-                  <Editable readOnly={readOnly}>
-                    <BlockInspector
-                      def={def}
-                      block={block}
-                      apply={apply}
-                      autoFocusTitle={focusTitle === block.id}
-                      titleInvalid={blockFindings.some((f) => f.code === "untitled-question")}
-                    />
-                  </Editable>
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
-      {readOnly ? null : <AddBlockMenu onAdd={add} variant="outline" />}
+    <div className="@container" data-testid="builder-questions">
+      <div className={grid}>
+        <nav aria-label="Outline" className="min-w-0 space-y-3 @min-[34rem]:sticky @min-[34rem]:top-4" data-testid="builder-outline">
+          <SectionLabel>Questions</SectionLabel>
+          <SortableList
+            items={def.blocks}
+            getKey={(b) => b.id}
+            getItemLabel={blockTitle}
+            label="Questions"
+            disabled={readOnly}
+            // The editor's header has Move up and Move down, so rows need no menu of their own.
+            moveMenu={false}
+            className="gap-2"
+            onReorder={(_from, to, { key }) => apply((d) => moveBlock(d, key, to))}
+            renderItem={(block, { handle, isGrabbed }) => (
+              <OutlineRow
+                block={block}
+                number={numbers.get(block.id)}
+                active={current?.id === block.id}
+                grabbed={isGrabbed}
+                handle={handle}
+                rules={ruleCount(block.id)}
+                issues={findings.filter((f) => f.ref?.kind === "block" && f.ref.id === block.id).length}
+                onSelect={() => {
+                  setFocusTitle(null);
+                  onSelect(block.id);
+                }}
+              />
+            )}
+          />
+          {readOnly ? null : (
+            <AddBlockMenu
+              onAdd={add}
+              variant="outline"
+              className="h-10 w-full border-dashed bg-transparent text-sm font-medium shadow-none"
+            />
+          )}
+          {endings.length ? (
+            <div className="space-y-2 pt-3">
+              <SectionLabel>{endings.length === 1 ? "Ending" : "Endings"}</SectionLabel>
+              <ul className="space-y-2" aria-label="Endings">
+                {endings.map((e) => {
+                  const body = (
+                    <>
+                      <Flag className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="min-w-0 truncate">{e.title || "Untitled ending"}</span>
+                    </>
+                  );
+                  const row = "flex w-full items-center gap-3 rounded-lg border bg-card px-3 py-2.5 text-left text-sm";
+                  return (
+                    <li key={e.id}>
+                      {onOpenEnding ? (
+                        <button
+                          type="button"
+                          className={cn(row, "hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}
+                          onClick={() => onOpenEnding(e.id)}
+                          data-testid={`builder-outline-ending-${e.id}`}
+                          title="Edit in Logic and endings"
+                        >
+                          {body}
+                        </button>
+                      ) : (
+                        <div className={row}>{body}</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+        </nav>
+
+        {current ? (
+          <BlockEditorCard
+            key={current.id}
+            def={def}
+            block={current}
+            number={numbers.get(current.id)}
+            apply={apply}
+            findings={findings.filter((f) => f.ref?.kind === "block" && f.ref.id === current.id)}
+            autoFocusTitle={focusTitle === current.id}
+            focusOnMount={refocus?.id === current.id ? refocus.target : undefined}
+            onSelect={onSelect}
+            onReplaced={(id, target) => setRefocus({ id, target })}
+          />
+        ) : null}
+
+        {preview ? (
+          <aside aria-label="Preview" className="min-w-0 @min-[34rem]:col-span-2 @min-[56rem]:sticky @min-[56rem]:top-4 @min-[56rem]:col-span-1">
+            {preview}
+          </aside>
+        ) : null}
+      </div>
     </div>
+  );
+}
+
+function OutlineRow({
+  block,
+  number,
+  active,
+  grabbed,
+  handle,
+  rules,
+  issues,
+  onSelect,
+}: {
+  block: Block;
+  number: number | undefined;
+  active: boolean;
+  grabbed: boolean;
+  handle: ReactNode;
+  rules: number;
+  issues: number;
+  onSelect: () => void;
+}) {
+  const config = useBuilderConfig();
+  const name = blockTitle(block);
+  const meta =
+    block.kind === "field"
+      ? [String(number), typeLabel(block.type, config), block.required ? "Required" : null, rules ? `${rules} rule${rules === 1 ? "" : "s"}` : null]
+          .filter(Boolean)
+          .join(" · ")
+      : block.kind === "content"
+        ? block.type === "heading"
+          ? "Heading"
+          : "Text"
+        : "Page break";
+  return (
+    <div
+      data-testid={`builder-block-${block.id}`}
+      data-active={active || undefined}
+      className={cn(
+        "flex items-center gap-1.5 rounded-lg border bg-card py-2 pl-1.5 pr-2.5 transition-colors",
+        active ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-foreground/20",
+        grabbed && "shadow-md",
+        !handle && "pl-3",
+      )}
+    >
+      {handle ? (
+        <span className="shrink-0" data-testid={`builder-block-grip-${block.id}`} title="Drag to reorder, or press Space to pick up">
+          {handle}
+        </span>
+      ) : null}
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-current={active ? "true" : undefined}
+        onClick={onSelect}
+        data-testid={`builder-block-toggle-${block.id}`}
+      >
+        <span
+          className={cn(
+            "flex size-7 shrink-0 items-center justify-center rounded-md border bg-background",
+            active ? "text-primary" : "text-muted-foreground",
+          )}
+        >
+          <BlockIcon block={block} config={config} className="size-3.5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium" title={name} data-testid={`builder-block-title-${block.id}`}>
+            {name}
+          </span>
+          <span className="block truncate text-xs text-muted-foreground">{meta}</span>
+        </span>
+      </button>
+      {issues ? (
+        <Badge variant="warning" className="shrink-0 px-1.5" title={`${issues} to check`}>
+          {issues}
+        </Badge>
+      ) : null}
+    </div>
+  );
+}
+
+/** The selected block's editor: header with its type and actions, then its settings. */
+function BlockEditorCard({
+  def,
+  block,
+  number,
+  apply,
+  findings,
+  autoFocusTitle,
+  focusOnMount,
+  onSelect,
+  onReplaced,
+}: {
+  def: FormDefinition;
+  block: Block;
+  number: number | undefined;
+  apply: Apply;
+  findings: Finding[];
+  autoFocusTitle: boolean;
+  /** Focus this card's Duplicate button, or the card, when it mounts (it replaced the card that had focus). */
+  focusOnMount?: "duplicate" | "card" | undefined;
+  onSelect: (id: string | null) => void;
+  /** This card is about to be replaced by block `id`'s, from one of its own buttons. */
+  onReplaced: (id: string, target: "duplicate" | "card") => void;
+}) {
+  const root = useRef<HTMLElement>(null);
+  // Read once, when this card mounts: later renders must not pull focus back.
+  const initialFocus = useRef(focusOnMount);
+  useEffect(() => {
+    const el = root.current;
+    if (!initialFocus.current || !el) return;
+    const target = initialFocus.current === "duplicate" ? el.querySelector<HTMLElement>('[data-action="duplicate"]') : el;
+    (target ?? el).focus();
+  }, []);
+  const config = useBuilderConfig();
+  const readOnly = !!config.readOnly;
+  const index = def.blocks.findIndex((b) => b.id === block.id);
+  const name = blockTitle(block);
+  const heading = blockHeading(block, number);
+  const iconButton = "size-8 text-muted-foreground hover:text-foreground";
+  return (
+    <section
+      aria-label={heading}
+      ref={root}
+      tabIndex={-1}
+      className="min-w-0 rounded-xl border bg-card p-5 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring @lg:p-6"
+      data-testid="builder-editor"
+      data-block={block.id}
+    >
+      <Editable readOnly={readOnly} className="space-y-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-medium text-muted-foreground">{heading}</h3>
+          {block.kind === "field" ? <TypeChip def={def} field={block} apply={apply} /> : null}
+          <span className="flex-1" />
+          {readOnly ? null : (
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={iconButton}
+                aria-label={`Move "${name}" up`}
+                disabled={index === 0}
+                onClick={() => apply((d) => moveBlock(d, block.id, index - 1))}
+              >
+                <ArrowUp />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={iconButton}
+                aria-label={`Move "${name}" down`}
+                disabled={index === def.blocks.length - 1}
+                onClick={() => apply((d) => moveBlock(d, block.id, index + 1))}
+              >
+                <ArrowDown />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={iconButton}
+                aria-label={`Duplicate "${name}"`}
+                title="Duplicate"
+                data-action="duplicate"
+                onClick={() => {
+                  // The id is made here, not in the edit: edits must stay pure.
+                  const copyId = freshId(blockIdPrefix(block), def);
+                  apply((d) => duplicateBlock(d, block.id, copyId));
+                  onReplaced(copyId, "duplicate");
+                  onSelect(copyId);
+                }}
+              >
+                <Copy />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={iconButton}
+                aria-label={`Delete "${name}"`}
+                title="Delete"
+                data-testid={`builder-block-delete-${block.id}`}
+                onClick={() => {
+                  // The next block takes the editor, else the one before.
+                  const neighbour = def.blocks[index + 1] ?? def.blocks[index - 1];
+                  apply((d) => removeBlock(d, block.id));
+                  if (neighbour) onReplaced(neighbour.id, "card");
+                  onSelect(neighbour?.id ?? null);
+                }}
+              >
+                <Trash2 />
+              </Button>
+            </div>
+          )}
+        </div>
+        {findings.map((f, i) => (
+          <p key={i} className="rounded-md bg-warning/15 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+            {f.message}
+          </p>
+        ))}
+        <BlockInspector
+          def={def}
+          block={block}
+          apply={apply}
+          autoFocusTitle={autoFocusTitle}
+          titleInvalid={findings.some((f) => f.code === "untitled-question")}
+        />
+      </Editable>
+    </section>
+  );
+}
+
+/**
+ * Change a field's type. Between single choice, multiple choice and dropdown
+ * the options stay; otherwise the new type's default props are made here (new
+ * option values are random), so the edit stays pure. Where the answer goes
+ * stays, for the output targets the new type also accepts.
+ */
+function changeType(def: FormDefinition, field: FieldBlock, type: string, config: BuilderConfig, set: FieldPanelProps["set"]) {
+  if (type === field.type) return;
+  const keepsOptions = CHOICE_TYPES.has(field.type) && CHOICE_TYPES.has(type) && !editorFor(config, type)?.defaultProps;
+  if (keepsOptions) return set({ type });
+  const kept = outputPropsFor(field, type, config.outputs);
+  const base = defaultProps(type, { def, editors: config.fieldEditors });
+  const props = Object.keys(kept).length ? { ...base, ...kept } : base;
+  set({ type, props });
+}
+
+/** The edit sink for one field, reading the field as it is when the edit runs. */
+function fieldSetters(apply: Apply, id: string) {
+  const set: FieldPanelProps["set"] = (patch, coalesce) =>
+    apply((d) => {
+      if (typeof patch !== "function") return updateBlock(d, id, patch);
+      const latest = d.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id);
+      return latest ? updateBlock(d, id, patch(latest)) : d;
+    }, coalesce);
+  const setProps: FieldPanelProps["setProps"] = (props, coalesce) =>
+    set((latest) => {
+      const next: Record<string, Json> = { ...latest.props };
+      for (const [k, v] of Object.entries(props)) {
+        if (v === undefined) delete next[k];
+        else next[k] = v;
+      }
+      return { props: Object.keys(next).length ? next : undefined };
+    }, coalesce);
+  return { set, setProps };
+}
+
+const TYPE_HINT =
+  "Changing the type resets its settings and removes rules that compare this question. Between single choice, multiple choice and dropdown, the options and the rules that still fit stay.";
+
+/** The type picker chip in the editor's header. */
+function TypeChip({ def, field, apply }: { def: FormDefinition; field: FieldBlock; apply: Apply }) {
+  const config = useBuilderConfig();
+  const types = paletteTypes(config).map((t) => ({ value: t.type, label: t.label }));
+  // The current type stays selectable, also when the palette leaves it out.
+  if (!types.some((t) => t.value === field.type)) types.unshift({ value: field.type, label: typeLabel(field.type, config) });
+  const { set } = fieldSetters(apply, field.id);
+  const icon = (type: string) => <BlockIcon block={{ ...field, type }} config={config} className="size-3.5" />;
+  const { open, onOpenChange, shown } = useLazyItems(types, field.type);
+  return (
+    <Select value={field.type} onValueChange={(type) => changeType(def, field, type, config, set)} open={open} onOpenChange={onOpenChange}>
+      <SelectTrigger
+        aria-label="Type"
+        title={TYPE_HINT}
+        data-testid="builder-field-type"
+        className="h-7 w-auto gap-1.5 rounded-md border-transparent bg-muted px-2 text-[0.8125rem] font-medium focus:ring-offset-0"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="max-h-96">
+        {shown.map((t) => (
+          <SelectItem key={t.value} value={t.value}>
+            <span className="inline-flex items-center gap-1.5">
+              {icon(t.value)}
+              {t.label}
+            </span>
+          </SelectItem>
+        ))}
+        {open ? <p className="max-w-64 border-t px-2 py-2 text-xs text-muted-foreground">{TYPE_HINT}</p> : null}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -454,36 +745,22 @@ export function BlockInspector({
   titleInvalid?: boolean | undefined;
 }) {
   // A function patch reads the block as it is when the edit runs, not as rendered.
-  const set: FieldPanelProps["set"] = (patch, coalesce) =>
-    apply((d) => {
-      if (typeof patch !== "function") return updateBlock(d, block.id, patch);
-      const latest = d.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === block.id);
-      return latest ? updateBlock(d, block.id, patch(latest)) : d;
-    }, coalesce);
-  const setProps: FieldPanelProps["setProps"] = (props, coalesce) =>
-    set((latest) => {
-      const next: Record<string, Json> = { ...latest.props };
-      for (const [k, v] of Object.entries(props)) {
-        if (v === undefined) delete next[k];
-        else next[k] = v;
-      }
-      return { props: Object.keys(next).length ? next : undefined };
-    }, coalesce);
-
+  const { set, setProps } = fieldSetters(apply, block.id);
   const config = useBuilderConfig();
   if (block.kind === "content") {
     const allowed = new Set<string>([...contentTypes(config.blockKinds), block.type]);
+    const styles = [
+      { value: "heading", label: "Heading" },
+      { value: "text", label: "Text" },
+    ].filter((o) => allowed.has(o.value));
     return (
-      <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
-        <SelectRow
-          label="Style"
-          value={block.type}
-          options={[
-            { value: "heading", label: "Heading" },
-            { value: "text", label: "Text" },
-          ].filter((o) => allowed.has(o.value))}
-          onChange={(type) => set({ type: type as "heading" | "text" })}
-        />
+      <div className="space-y-4">
+        {styles.length > 1 ? (
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium">Style</p>
+            <Segmented ariaLabel="Style" value={block.type} options={styles} onChange={(type) => set({ type: type as "heading" | "text" })} />
+          </div>
+        ) : null}
         <TextRow label="Text" multiline value={block.text} onChange={(text) => set({ text }, `text:${block.id}`)} />
       </div>
     );
@@ -511,6 +788,60 @@ export function BlockInspector({
   );
 }
 
+const SCALES = ["3", "5", "10"] as const;
+
+/** Rating: the scale (1–3, 1–5, 1–10 or another highest value), numbers or stars. */
+function RatingScale({ field, set, setProps }: { field: FieldBlock; set: FieldPanelProps["set"]; setProps: FieldPanelProps["setProps"] }) {
+  const max = typeof field.props?.max === "number" ? field.props.max : 5;
+  const [custom, setCustom] = useState(() => !(SCALES as readonly string[]).includes(String(max)));
+  const scale = custom || !(SCALES as readonly string[]).includes(String(max)) ? "other" : String(max);
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-x-8 gap-y-4">
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium">Scale</p>
+          <Segmented
+            ariaLabel="Scale"
+            testID="builder-rating-scale"
+            value={scale}
+            options={[...SCALES.map((n) => ({ value: n, label: `1–${n}` })), { value: "other", label: "Other" }]}
+            onChange={(v) => {
+              if (v === "other") return setCustom(true);
+              setCustom(false);
+              set({ props: { ...field.props, max: Number(v) } });
+            }}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium">Show as</p>
+          <Segmented
+            ariaLabel="Show as"
+            testID="builder-rating-display"
+            value={field.props?.display === "stars" ? "stars" : "numbers"}
+            options={[
+              { value: "numbers", label: "Numbers" },
+              { value: "stars", label: "Stars", icon: <Star aria-hidden /> },
+            ]}
+            onChange={(display) => setProps({ display: display === "stars" ? "stars" : undefined })}
+          />
+        </div>
+      </div>
+      {scale === "other" ? (
+        <NumberRow
+          label="Highest rating"
+          commitOnBlur
+          min={2}
+          max={10}
+          hint="From 2 to 10."
+          testID="builder-rating-max"
+          value={max}
+          onChange={(n) => set({ props: { ...field.props, max: Math.min(10, Math.max(2, n ?? 5)) } })}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function FieldInspector({
   def,
   field,
@@ -530,104 +861,51 @@ function FieldInspector({
 }) {
   const config = useBuilderConfig();
   const checks = useChecks();
-  const types = paletteTypes(config).map((t) => ({ value: t.type, label: t.label }));
-  // The current type stays selectable, also when the palette leaves it out.
-  if (!types.some((t) => t.value === field.type)) types.unshift({ value: field.type, label: typeLabel(field.type, config) });
   const isChoice = CHOICE_TYPES.has(field.type);
   const editor = editorFor(config, field.type);
   const Panel = editor?.Panel;
-  const setType = (type: string) => {
-    if (type === field.type) return;
-    // Between single choice, multiple choice and dropdown the options stay; otherwise the new
-    // type's default props are made here (new option values are random), so the edit stays pure.
-    const keepsOptions = isChoice && CHOICE_TYPES.has(type) && !editorFor(config, type)?.defaultProps;
-    if (keepsOptions) set({ type });
-    else {
-      // Where the answer goes stays, for the targets the new type also accepts.
-      const kept = outputPropsFor(field, type, config.outputs);
-      const base = defaultProps(type, { def, editors: config.fieldEditors });
-      const props = Object.keys(kept).length ? { ...base, ...kept } : base;
-      set({ type, props });
-    }
-  };
   const calculated = field.type === "calculated";
   const anonymous = !!def.settings?.anonymous;
-  const flagged = [field.identifying && "Identifies the respondent", field.sensitive && "Sensitive"].filter(Boolean);
-  return (
-    <div className="space-y-4">
-      <TextRow
-        label="Question"
-        value={field.label}
-        placeholder="Your question"
-        testID="builder-field-label"
-        autoFocus={autoFocusTitle}
-        invalid={titleInvalid}
-        onBlur={() => checks?.touch(field.id)}
-        onChange={(label) => set({ label }, `label:${field.id}`)}
-      />
-      <TextRow
-        label="Description"
-        multiline
-        value={field.description ?? ""}
-        onChange={(description) => set({ description }, `description:${field.id}`)}
-      />
-      <SelectRow
-        label="Type"
-        value={field.type}
-        options={types}
-        hint="Changing the type resets its settings and removes rules that compare this question. Between single choice, multiple choice and dropdown, the options and the rules that still fit stay."
-        onChange={setType}
-      />
-      {Panel ? <Panel def={def} field={field} set={set} setProps={setProps} apply={apply} readOnly={!!config.readOnly} /> : null}
-      {!Panel && TEXT_TYPES.has(field.type) ? (
+  const flagged = [field.identifying && "identifies the respondent", field.sensitive && "sensitive"].filter(Boolean) as string[];
+  const max = typeof field.props?.max === "number" ? field.props.max : field.type === "nps" ? 10 : 5;
+
+  const answer: ReactNode[] = [];
+  if (Panel) answer.push(<Panel key="panel" def={def} field={field} set={set} setProps={setProps} apply={apply} readOnly={!!config.readOnly} />);
+  else {
+    if (TEXT_TYPES.has(field.type)) {
+      answer.push(
         <TextRow
+          key="placeholder"
           label="Placeholder"
           value={field.placeholder ?? ""}
           onChange={(placeholder) => set({ placeholder }, `placeholder:${field.id}`)}
-        />
-      ) : null}
-      {!Panel && field.type === "rating" ? (
-        <NumberRow
-          label="Highest rating"
-          commitOnBlur
-          min={2}
-          max={10}
-          value={typeof field.props?.max === "number" ? field.props.max : 5}
-          onChange={(max) => set({ props: { ...field.props, max: Math.min(10, Math.max(2, max ?? 5)) } })}
-        />
-      ) : null}
-      {!Panel && field.type === "rating" ? (
-        <SelectRow
-          label="Show as"
-          value={field.props?.display === "stars" ? "stars" : "numbers"}
-          testID="builder-rating-display"
-          options={[
-            { value: "numbers", label: "Numbers" },
-            { value: "stars", label: "Stars" },
-          ]}
-          onChange={(display) => setProps({ display: display === "stars" ? "stars" : undefined })}
-        />
-      ) : null}
-      {!Panel && (field.type === "rating" || field.type === "nps") ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        />,
+      );
+    }
+    if (field.type === "rating") answer.push(<RatingScale key="scale" field={field} set={set} setProps={setProps} />);
+    if (field.type === "rating" || field.type === "nps") {
+      answer.push(
+        <div key="labels" className="grid gap-4 @lg:grid-cols-2">
           <TextRow
-            label="Label under the lowest"
+            label={`Label under ${field.type === "nps" ? 0 : 1}`}
             value={typeof field.props?.lowLabel === "string" ? field.props.lowLabel : ""}
             placeholder={field.type === "nps" ? "Not likely" : "Poor"}
             testID="builder-scale-low"
             onChange={(v) => setProps({ lowLabel: v || undefined }, `lowLabel:${field.id}`)}
           />
           <TextRow
-            label="Label under the highest"
+            label={`Label under ${max}`}
             value={typeof field.props?.highLabel === "string" ? field.props.highLabel : ""}
             placeholder={field.type === "nps" ? "Very likely" : "Great"}
             testID="builder-scale-high"
             onChange={(v) => setProps({ highLabel: v || undefined }, `highLabel:${field.id}`)}
           />
-        </div>
-      ) : null}
-      {!Panel && field.type === "number" ? (
-        <div className="grid gap-4 sm:grid-cols-3">
+        </div>,
+      );
+    }
+    if (field.type === "number") {
+      answer.push(
+        <div key="number" className="grid gap-4 @lg:grid-cols-3">
           {(["min", "max", "step"] as const).map((k) => (
             <NumberRow
               key={k}
@@ -639,10 +917,12 @@ function FieldInspector({
               onChange={(n) => setProps({ [k]: n })}
             />
           ))}
-        </div>
-      ) : null}
-      {!Panel && field.type === "date" ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        </div>,
+      );
+    }
+    if (field.type === "date") {
+      answer.push(
+        <div key="date" className="grid gap-4 @lg:grid-cols-2">
           {(["min", "max"] as const).map((k) => (
             <TextRow
               key={k}
@@ -654,20 +934,26 @@ function FieldInspector({
               onChange={(v) => setProps({ [k]: v || undefined })}
             />
           ))}
-        </div>
-      ) : null}
-      {!Panel && field.type === "consent" ? (
+        </div>,
+      );
+    }
+    if (field.type === "consent") {
+      answer.push(
         <TextRow
+          key="consent"
           label="Checkbox text"
           value={typeof field.props?.text === "string" ? field.props.text : ""}
           placeholder="I agree"
           testID="builder-consent-text"
           hint="Turn on Required so it must be checked to send."
           onChange={(text) => setProps({ text: text || undefined }, `consent-text:${field.id}`)}
-        />
-      ) : null}
-      {!Panel && (field.type === "short-text" || field.type === "long-text") ? (
+        />,
+      );
+    }
+    if (field.type === "short-text" || field.type === "long-text") {
+      answer.push(
         <NumberRow
+          key="maxLength"
           label="Longest answer (characters)"
           min={1}
           value={typeof field.props?.maxLength === "number" ? field.props.maxLength : undefined}
@@ -678,59 +964,97 @@ function FieldInspector({
             else delete props.maxLength;
             set({ props: Object.keys(props).length ? props : undefined }, `maxLength:${field.id}`);
           }}
+        />,
+      );
+    }
+    if (isChoice) answer.push(<OptionsEditor key="options" field={field} apply={apply} />);
+  }
+
+  return (
+    <div className="@container space-y-5">
+      <div className="space-y-3">
+        <TextRow
+          label="Question"
+          hideLabel
+          value={field.label}
+          placeholder="Your question"
+          testID="builder-field-label"
+          inputClassName="h-12 text-lg font-semibold"
+          autoFocus={autoFocusTitle}
+          invalid={titleInvalid}
+          onBlur={() => checks?.touch(field.id)}
+          onChange={(label) => set({ label }, `label:${field.id}`)}
         />
+        <TextRow
+          label="Description"
+          hideLabel
+          multiline
+          rows={1}
+          placeholder="Add a description (optional)"
+          inputClassName="min-h-10 resize-y"
+          value={field.description ?? ""}
+          onChange={(description) => set({ description }, `description:${field.id}`)}
+        />
+      </div>
+      {answer.length ? (
+        <section className="space-y-4 border-t pt-5" aria-labelledby={`${field.id}-answer`}>
+          <SectionLabel id={`${field.id}-answer`}>Answer</SectionLabel>
+          {answer}
+        </section>
       ) : null}
-      {!Panel && isChoice ? <OptionsEditor field={field} apply={apply} /> : null}
-      {calculated ? null : (
-        <SwitchRow
-          label="Required"
-          checked={!!field.required}
-          testID="builder-field-required"
-          onChange={(required) => set({ required })}
-        />
-      )}
       <SavesTo def={def} field={field} apply={apply} />
-      {/* Read-only viewers can't press the trigger (the fieldset is disabled), so they see it open. */}
-      <Collapsible className="rounded-md border" defaultOpen={!!config.readOnly}>
-        <CollapsibleTrigger
-          className="group flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          data-testid="builder-field-advanced"
-        >
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-          Advanced
-          {flagged.length ? (
-            <span className="min-w-0 truncate text-xs font-normal text-muted-foreground">{flagged.join(", ")}</span>
-          ) : null}
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-4 border-t p-3">
-          <DraftRow
-            label="Answer name"
-            value={field.key}
-            testID="builder-field-key"
-            hint="Used as the column heading in exports. Changing it updates places that repeat this answer."
-            onCommit={(key) => set({ key })}
-          />
-          <p className="text-xs text-muted-foreground">
-            Optional: to repeat an earlier answer in this question, type {"{{field:its-answer-name}}"}.
-          </p>
+      <div className="space-y-3 border-t pt-5">
+        {calculated ? null : (
           <SwitchRow
-            label="Identifies the respondent"
-            hint={
-              anonymous
-                ? "This form is anonymous, so this question is skipped."
-                : "Turn on for questions like name, email or phone. Skipped when the form is anonymous."
-            }
-            checked={!!field.identifying}
-            onChange={(identifying) => set({ identifying })}
+            label="Required"
+            hint="People can't send the form without answering."
+            checked={!!field.required}
+            testID="builder-field-required"
+            onChange={(required) => set({ required })}
           />
-          <SwitchRow
-            label="Sensitive"
-            hint="Hidden from share links and support tools."
-            checked={!!field.sensitive}
-            onChange={(sensitive) => set({ sensitive })}
-          />
-        </CollapsibleContent>
-      </Collapsible>
+        )}
+        {/* Read-only viewers can't press the trigger (the fieldset is disabled), so they see it open. */}
+        <Collapsible defaultOpen={!!config.readOnly}>
+          <CollapsibleTrigger
+            className="group -ml-1 flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid="builder-field-advanced"
+          >
+            <ChevronRight className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
+            <span className="min-w-0 truncate">
+              Advanced: answer name, identifies the respondent, sensitive
+              {flagged.length ? <span className="text-foreground"> ({flagged.join(", ")})</span> : null}
+            </span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3 space-y-4 rounded-md border p-3">
+            <DraftRow
+              label="Answer name"
+              value={field.key}
+              testID="builder-field-key"
+              hint="Used as the column heading in exports. Changing it updates places that repeat this answer."
+              onCommit={(key) => set({ key })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional: to repeat an earlier answer in this question, type {"{{field:its-answer-name}}"}.
+            </p>
+            <SwitchRow
+              label="Identifies the respondent"
+              hint={
+                anonymous
+                  ? "This form is anonymous, so this question is skipped."
+                  : "Turn on for questions like name, email or phone. Skipped when the form is anonymous."
+              }
+              checked={!!field.identifying}
+              onChange={(identifying) => set({ identifying })}
+            />
+            <SwitchRow
+              label="Sensitive"
+              hint="Hidden from share links and support tools."
+              checked={!!field.sensitive}
+              onChange={(sensitive) => set({ sensitive })}
+            />
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
     </div>
   );
 }

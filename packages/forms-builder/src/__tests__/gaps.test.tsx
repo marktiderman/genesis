@@ -85,7 +85,7 @@ describe("tabs a host can own", () => {
     expect(tabs).toEqual(["Questions", "Logic and endings (2)", "Settings", "JSON"]);
     fireEvent.mouseDown(screen.getByRole("tab", { name: /Logic and endings/ }), { button: 0 });
     const panel = screen.getByTestId("builder-logic-endings");
-    expect(within(panel).getByRole("heading", { name: "Logic" })).toBeTruthy();
+    expect(within(panel).getByRole("heading", { name: "Rules" })).toBeTruthy();
     expect(within(panel).getByRole("heading", { name: "Endings" })).toBeTruthy();
     expect(within(panel).getByTestId("builder-ending-default")).toBeTruthy();
   });

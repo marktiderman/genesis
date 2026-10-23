@@ -65,6 +65,12 @@ export interface BuilderHistory {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  /**
+   * Whether undo and redo would do anything now, also after an edit not rendered yet.
+   * Optional so that code which implements or mocks this interface keeps compiling;
+   * `useBuilderHistory` always sets it.
+   */
+  getStatus?: () => { canUndo: boolean; canRedo: boolean };
   /** Replace the value and clear history, for example after loading a saved draft. */
   reset: (value: FormDefinition) => void;
 }
@@ -100,10 +106,12 @@ export function useBuilderHistory(initial: FormDefinition, options: BuilderHisto
   const redo = useCallback(() => dispatch({ type: "redo" }), [dispatch]);
   const reset = useCallback((value: FormDefinition) => dispatch({ type: "reset", value }), [dispatch]);
   const get = useCallback(() => latest.current.present, []);
+  const getStatus = useCallback(() => ({ canUndo: latest.current.past.length > 0, canRedo: latest.current.future.length > 0 }), []);
   return useMemo(
     () => ({
       value: state.present,
       get,
+      getStatus,
       apply,
       undo,
       redo,
@@ -111,7 +119,7 @@ export function useBuilderHistory(initial: FormDefinition, options: BuilderHisto
       canUndo: state.past.length > 0,
       canRedo: state.future.length > 0,
     }),
-    [state, get, apply, undo, redo, reset],
+    [state, get, getStatus, apply, undo, redo, reset],
   );
 }
 
