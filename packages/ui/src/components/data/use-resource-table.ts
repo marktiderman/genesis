@@ -123,6 +123,7 @@ export function useResourceTableModel<
     emptyDescription,
     header: headerMode = "page",
     resourceOptions,
+    live,
     urlState: urlStateProp,
     defaultView = "table",
     onNavigate = defaultNavigate,
@@ -235,6 +236,7 @@ export function useResourceTableModel<
           // Cursor paging reads through useInfiniteResource below; this hook
           // only writes.
           ...(resourceCursorPaging ? { enabled: false } : {}),
+          live: resourceOptions?.live ?? live,
         }
       : { enabled: false },
   );
@@ -244,6 +246,7 @@ export function useResourceTableModel<
     defaultSort: resourceOptions?.defaultSort,
     defaultFilters: resourceOptions?.defaultFilters,
     select: resourceOptions?.select,
+    live: resourceOptions?.live ?? live,
   });
 
   /** Explicit prop beats the per-user stored preference. */

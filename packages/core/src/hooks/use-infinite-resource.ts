@@ -12,6 +12,7 @@ import type {
   ListResult,
   SortParam,
 } from "../provider/types";
+import { useLiveInvalidation, type LiveOptions } from "./use-live";
 
 // ---------------------------------------------------------------------------
 // useInfiniteResource — a list that grows with "Load more", by cursor.
@@ -38,6 +39,8 @@ export interface UseInfiniteResourceOptions {
   searchFields?: string[];
   /** Disable fetching. */
   enabled?: boolean;
+  /** Refetch the loaded pages when the provider reports a change. See `UseResourceOptions.live`. */
+  live?: boolean | LiveOptions;
 }
 
 /** Where one page starts: its offset page, and its cursor (`null` for the first). */
@@ -84,6 +87,7 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     select,
     searchFields,
     enabled = true,
+    live,
   } = options;
   const provider = useDataProvider();
 
@@ -144,6 +148,8 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     },
     enabled,
   });
+
+  useLiveInvalidation(resource, live, enabled, { filters: params.filters }, [resource]);
 
   const rows = useMemo(
     () => (query.data?.pages ?? []).flatMap((p) => p.data),

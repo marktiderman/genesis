@@ -183,6 +183,35 @@ describe("ResourcePage — pagination=\"cursor\"", () => {
     expect(document.querySelectorAll("tbody tr")).toHaveLength(5);
   });
 
+  it("refetches the loaded pages on a live change event", async () => {
+    localStorage.clear();
+    const listeners: ((e: { type: "changed" }) => void)[] = [];
+    const provider = cursorProvider();
+    provider.subscribe = vi.fn((_r, _p, cb) => {
+      listeners.push(cb as (e: { type: "changed" }) => void);
+      return () => {};
+    });
+    const { queryClient } = wrap(provider);
+    render(
+      <GenesisProvider provider={provider} queryClient={queryClient}>
+        <ResourcePage<Row>
+          resource="tasks"
+          title="Tasks"
+          columns={["title"]}
+          detail="none"
+          pagination="cursor"
+          live={{ debounceMs: 0 }}
+          resourceOptions={{ defaultPerPage: 2 }}
+        />
+      </GenesisProvider>,
+    );
+    await screen.findByText("Task 2");
+    expect(provider.subscribe).toHaveBeenCalled();
+    const before = vi.mocked(provider.getList).mock.calls.length;
+    act(() => listeners.forEach((cb) => cb({ type: "changed" })));
+    await waitFor(() => expect(vi.mocked(provider.getList).mock.calls.length).toBe(before + 1));
+  });
+
   it("has no Load more button in the default (client) mode", async () => {
     localStorage.clear();
     const provider = offsetProvider();

@@ -29,6 +29,8 @@ export type {
   ImportParams,
   WriteEvent,
   InvalidationKey,
+  ResourceChangeEvent,
+  SubscribeParams,
 } from "./types";
 
 // Write outcomes — also exported from `@marktiderman/genesis-core/schema`.
@@ -48,6 +50,8 @@ export {
   type SupabaseProviderOptions,
   type SupabaseResourceConfig,
   type SupabaseWriteContext,
+  type SupabaseRealtimeChannel,
+  type SupabaseRealtimePayload,
 } from "./supabase-provider";
 export {
   writeOutcomeFromCode,

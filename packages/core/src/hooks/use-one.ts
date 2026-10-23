@@ -1,6 +1,7 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useDataProvider } from "../provider/context";
 import type { BaseRecord, Identifier } from "../provider/types";
+import { useLiveInvalidation, type LiveOptions } from "./use-live";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -11,6 +12,12 @@ export interface UseOneOptions {
   select?: string;
   /** Defaults to `!!id` — won't fetch when id is falsy. */
   enabled?: boolean;
+  /**
+   * Keep the record current while mounted: refetch it when the provider
+   * reports a change to it (`DataProvider.subscribe`). See
+   * `UseResourceOptions.live`. Off by default.
+   */
+  live?: boolean | LiveOptions;
 }
 
 // ---------------------------------------------------------------------------
@@ -30,8 +37,18 @@ export function useOne<T extends BaseRecord = BaseRecord>(
 ): UseQueryResult<T> {
   const provider = useDataProvider();
 
-  const { select, enabled } = options;
+  const { select, enabled, live } = options;
   const isEnabled = enabled ?? !!id;
+
+  // Only this record's events; `changed` (events may have been missed) too.
+  useLiveInvalidation(
+    resource,
+    live,
+    isEnabled && id != null,
+    id != null ? { id } : {},
+    [resource, "detail", id],
+    (event) => event.type === "changed" || !("id" in event) || event.id == null || String(event.id) === String(id),
+  );
 
   return useQuery<T>({
     // `select` is part of the key because it is part of the REQUEST: two pages
