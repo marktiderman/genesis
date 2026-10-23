@@ -1,0 +1,67 @@
+packages/features/src/model.ts
+  s_8252619ce79a86::t_d36581c6dea0a5 130-148
+  s_8252619ce79a86::t_3a1c7fecfcef93 5-6,10
+  s_8252619ce79a86::t_a9eb959e6818d8 230-233
+  s_8252619ce79a86::t_09a6ab56aaa341 259,262-266
+  s_8252619ce79a86::t_38719b433f99ae 260-261
+  s_8252619ce79a86::t_468f67bffd0d45 57-81
+  s_8252619ce79a86::t_6797929c8c5445 382,479-500,504,506-511,513,516,518-527,531
+  s_8252619ce79a86::t_552b64e961bca6 345,350-381
+  s_8252619ce79a86::t_01b44bbeee87c6 383
+packages/ui-native/src/layouts/__tests__/settings-page.test.tsx
+  s_8252619ce79a86::t_2464b6807c8120 1
+packages/features/src/react.tsx
+  s_8252619ce79a86::t_550b2a48f14eb4 25,35,46-47,51,61,320
+packages/ui-native/src/layouts/__tests__/nav-bar.test.tsx
+  s_8252619ce79a86::t_2464b6807c8120 1
+packages/features/src/__tests__/model.test.ts
+  s_8252619ce79a86::t_e3365790b8a962 142-216
+.changeset/feature-inventory-reuse.md
+  s_8252619ce79a86::t_08cec101759328 1-8
+packages/genesis-cli/src/features.ts
+  s_8252619ce79a86::t_fe73330ea1f695 23,152,154,159-165
+features.ts
+  s_8252619ce79a86::t_a13d6984d3e61c 6-9,23-25,44-46,61-63,78-80,97-98,110-112,126-128,144-149,168-170,183-184,198-200,215-218,233-234,249-250,270-271,285-288,302-305,320-322,335-336,350-351,366-367,381-382,396-397,410-411,423,437-438,464-465,483,496-497,504-907
+packages/ui/src/components/data/__tests__/resource-page-passthrough-slots.test.tsx
+  s_8252619ce79a86::t_c5a9b857311e9c 1
+packages/features/src/generate.ts
+  s_8252619ce79a86::t_f5dbc578720006 210-216,221,230-233,241-242
+packages/features/src/node.ts
+  s_8252619ce79a86::t_6e0a6803325a35 590,593
+  s_8252619ce79a86::t_550b2a48f14eb4 512
+  s_8252619ce79a86::t_d6682cc7e487e9 96
+packages/ui-native/src/layouts/__tests__/notifications-page.test.tsx
+  s_8252619ce79a86::t_2464b6807c8120 1
+packages/features/src/index.ts
+  s_8252619ce79a86::t_550b2a48f14eb4 3-4,15,21,24,33
+packages/ui-native/src/layouts/__tests__/auth.test.tsx
+  s_8252619ce79a86::t_2464b6807c8120 1
+packages/ui-native/src/layouts/__tests__/settings-sub-page.test.tsx
+  s_8252619ce79a86::t_2464b6807c8120 1
+packages/ui-native/src/layouts/__tests__/screen-container.test.tsx
+  s_8252619ce79a86::t_2464b6807c8120 1
+.claude/skills/features/SKILL.md
+  s_8252619ce79a86::t_c5a9b857311e9c 13-19,24,33-36,44-45
+packages/genesis-cli/src/cli.ts
+  s_8252619ce79a86::t_fe73330ea1f695 206-232
+AGENTS.md
+  s_8252619ce79a86::t_c5a9b857311e9c 15
+features.json
+  s_8252619ce79a86::t_c5a9b857311e9c 11-22,56-67,100-110,138-149,178-185,211-219,247-257,285-313,345-356,382-387,415-428,459-472,501-508,540-547,583-597,630-642,671-682,711-719,746-751,779-783,812-818,846-852,881-888,915-921,947,975-980,1034-1042,1076,1105-1110,1123-2047
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ffa443c1e78f4df4bd1c46b7420cd1d1be593eb2",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
