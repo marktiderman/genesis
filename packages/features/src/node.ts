@@ -194,9 +194,11 @@ function literalAt(text: string, i: number): string | null {
  * `text` with its comments blanked to spaces (newlines kept), so a flag named
  * in a comment isn't read as a flag read and line numbers stay right. Strings,
  * regex literals and template text are left alone; a template's `${…}` is code.
+ * With `strings`, string and template-text contents are blanked too (quotes
+ * stay), so prose in a string ("…the release flag (off)") can't look like a call.
  */
-export function blankComments(text: string): string {
-  return blankFrom(text, 0, false).out;
+export function blankComments(text: string, strings = false): string {
+  return blankFrom(text, 0, false, strings).out;
 }
 
 // Characters after which a `/` starts a regex literal rather than a division.
@@ -208,7 +210,8 @@ const REGEX_KEYWORDS = /(?:^|[^\w$.])(?:return|typeof|instanceof|in|new|delete|v
  * With `inTemplate`, stops at the `}` that closes a template's `${`, so
  * interpolations are scanned as code.
  */
-function blankFrom(text: string, i: number, inTemplate: boolean): { out: string; end: number } {
+function blankFrom(text: string, i: number, inTemplate: boolean, strings = false): { out: string; end: number } {
+  const keep = (chunk: string) => (strings ? chunk.replace(/[^\n]/g, " ") : chunk);
   let out = "";
   let depth = 0;
   while (i < text.length) {
@@ -255,17 +258,17 @@ function blankFrom(text: string, i: number, inTemplate: boolean): { out: string;
       let j = i + 1;
       while (j < text.length && text[j] !== "`") {
         if (text[j] === "\\") {
-          out += text.slice(j, j + 2);
+          out += keep(text.slice(j, j + 2));
           j += 2;
         } else if (text[j] === "$" && text[j + 1] === "{") {
           out += "${";
-          const inner = blankFrom(text, j + 2, true);
+          const inner = blankFrom(text, j + 2, true, strings);
           out += inner.out;
           j = inner.end;
           if (j < text.length) out += text[j]!;
           j++;
         } else {
-          out += text[j]!;
+          out += keep(text[j]!);
           j++;
         }
       }
@@ -275,7 +278,7 @@ function blankFrom(text: string, i: number, inTemplate: boolean): { out: string;
       let j = i + 1;
       while (j < text.length && text[j] !== c && text[j] !== "\n") j += text[j] === "\\" ? 2 : 1;
       if (text[j] === c) {
-        out += text.slice(i, j + 1);
+        out += c + keep(text.slice(i + 1, j)) + c;
         i = j + 1;
       } else {
         // No closing quote on this line: JSX text ("Don't"), not a string.
@@ -305,13 +308,15 @@ function startsRegex(before: string): boolean {
  */
 export function scanFlagReads(path: string, source: string, accessors: readonly string[] = DEFAULT_ACCESSORS) {
   const text = blankComments(source);
+  // Matches run on code with string contents blanked; literal keys are read from `text`.
+  const code = blankComments(source, true);
   const keys: { key: string; where: string }[] = [];
   const dynamic: string[] = [];
   for (const accessor of accessors) {
     const jsx = /^<(\w[\w.]*)\s+(\w+)>$/.exec(accessor);
     if (jsx) {
       const re = new RegExp(`<${jsx[1]!.replace(/\./g, "\\.")}\\b[^>]*?\\b${jsx[2]}\\s*=\\s*`, "g");
-      for (const m of text.matchAll(re)) {
+      for (const m of code.matchAll(re)) {
         let i = m.index! + m[0].length;
         if (text[i] === "{") i = text.slice(i + 1).search(/\S/) + i + 1;
         const key = literalAt(text, i);
@@ -321,7 +326,7 @@ export function scanFlagReads(path: string, source: string, accessors: readonly 
       continue;
     }
     const re = new RegExp(`(?<![\\w$.])(function\\s+)?${accessor.replace(/\$/g, "\\$")}\\s*(?:<[^>()]*>)?\\s*\\(\\s*`, "g");
-    for (const m of text.matchAll(re)) {
+    for (const m of code.matchAll(re)) {
       if (m[1]) continue; // its own definition
       const i = m.index! + m[0].length;
       if (text[i] === ")") continue;
@@ -381,7 +386,15 @@ function outputs(options: FeatureProjectOptions): { path: string; next: (current
   }
   if (json) list.push({ path: json, ...whole(toJson(features, flags, { source })) });
   if (openfeature && flags && Object.keys(flags).length) list.push({ path: openfeature, ...whole(toOpenFeatureManifest(flags, features)) });
-  if (skill) list.push({ path: skill, ...whole(toSkillMarkdown({ source, command })) });
+  const writesFlags = Boolean(openfeature && flags && Object.keys(flags).length);
+  const generated = [
+    ...(agents ? [`the ${agents} block`] : []),
+    ...(json ? [`\`${json}\``] : []),
+    ...(writesFlags ? [`\`${openfeature}\` (the OpenFeature flag manifest)`] : []),
+    ...(options.marketing ? [`the ${options.marketing} Features section`] : []),
+    ...(skill ? ["this skill"] : []),
+  ];
+  if (skill) list.push({ path: skill, ...whole(toSkillMarkdown({ source, command, outputs: generated })) });
   if (options.marketing) {
     const block = toMarketingMarkdown(features, { heading: options.marketingHeading, source });
     list.push({

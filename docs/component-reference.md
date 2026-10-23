@@ -1091,7 +1091,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toMarketingMarkdown`](../packages/features/src/generate.ts) | function | Beta | A benefit-led feature list for a README or a marketing page: public, shipped features with a tagline, highlights first, grouped by category. |
 | [`toOpenFeatureManifest`](../packages/features/src/generate.ts) | function | Beta | The flags as an OpenFeature CLI flag manifest (`flags.json`), so `openfeature generate` can make typed accessors from the same registry. |
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
-| [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. |
+| [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
 ### Types (15)
 
@@ -1151,7 +1151,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`blankComments`](../packages/features/src/node.ts) | function | — | `text` with its comments blanked to spaces (newlines kept), so a flag named in a comment isn't read as a flag read and line numbers stay right. Strings, regex literals and template text are left alone; a template's `${…}` is code. |
+| [`blankComments`](../packages/features/src/node.ts) | function | — | `text` with its comments blanked to spaces (newlines kept), so a flag named in a comment isn't read as a flag read and line numbers stay right. Strings, regex literals and template text are left alone; a template's `${…}` is code. With `... |
 | [`buildFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Writes every generated output (the AGENTS.md block, the JSON, the flag manifest, the skill, the marketing block) and adds `@AGENTS.md` to CLAUDE.md when it's missing. Refuses, writing nothing, when an id recorded in the JSON has disappea... |
 | [`checkFeatureOutputs`](../packages/features/src/node.ts) | function | Beta | Checks the registry against the repo. Errors (exit 1): generated output that is stale, `links.code` paths that don't exist, the flag rules (a permission flag, an expired flag, a dynamic key, a key read but not defined or defined but neve... |
 | [`globToRegExp`](../packages/features/src/node.ts) | function | — | A glob (`*`, `**`, `?`, `{a,b}`) as a RegExp over `/`-separated relative paths. |

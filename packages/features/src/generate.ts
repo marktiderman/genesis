@@ -185,13 +185,16 @@ export const replaceAgentsBlock = (doc: string, block: string) => replaceBlock(d
 
 /**
  * The agent skill for working with the registry, written to
- * `.claude/skills/features/SKILL.md` by `genesis features build`.
+ * `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs`
+ * names what the build writes in this repo, so the skill never claims a file
+ * the repo turned off.
  *
  * @stability Beta
  */
-export function toSkillMarkdown(options: GenerateOptions = {}): string {
+export function toSkillMarkdown(options: GenerateOptions & { outputs?: readonly string[] } = {}): string {
   const source = options.source ?? "src/features.ts";
   const command = options.command ?? "genesis features";
+  const outputs = options.outputs ?? ["the AGENTS.md block", "features.json", "this skill"];
   return `---
 name: features
 description: Find, add, change and retire this repo's features in ${source}, and their flags. Use before adding UI, a route, a server function or a flag, when someone asks what the product does, or when shipping, deprecating or removing something.
@@ -201,8 +204,8 @@ description: Find, add, change and retire this repo's features in ${source}, and
 
 # Features
 
-\`${source}\` is the one list of what this product does. Running code imports it, and every
-other copy (the AGENTS.md block, JSON, the flags manifest, the admin page) is generated from it.
+\`${source}\` is the one list of what this product does. Running code imports it, and
+\`${command} build\` generates the rest from it: ${outputs.join(", ")}.
 
 ## Find
 - \`${command} find <term>\` searches ids, aliases, names, summaries and code paths. Run it before
