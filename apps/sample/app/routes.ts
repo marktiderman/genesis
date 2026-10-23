@@ -26,6 +26,9 @@ export default [
       route(":scenario", "routes/forms.$scenario.tsx"),
     ]),
     route("settings", "routes/settings.tsx"),
+    // Shell sub-navigation demo: a page with four children.
+    route("projects", "routes/projects._index.tsx"),
+    route("projects/:projectId/:tab?", "routes/projects.$projectId.tsx"),
     route("studio", "routes/studio.tsx"),
     route("features", "routes/features.tsx"),
     // Phase G — Genesis Showcase portfolio routes

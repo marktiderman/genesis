@@ -167,6 +167,30 @@ export interface NavigationNode<T> {
   /** Contextual nav items to show while this node is current. */
   items: T[];
   children?: NavigationNode<T>[];
+  /**
+   * Ask the app shell to open its desktop sidebar collapsed (icon rail) while
+   * this node, or a descendant that doesn't set its own value, is current.
+   * The nearest node in the resolved trail that sets it wins, so
+   * `defaultCollapsed: false` on a child re-opens it under a collapsed
+   * parent. Only a default: once the user has toggled the sidebar, their
+   * choice wins everywhere. `AppShell` reads it; `resolveNavigation` copies
+   * it through untouched.
+   *
+   * @stability Beta
+   */
+  defaultCollapsed?: boolean;
+  /**
+   * How the app shell shows this node's `items` (its child pages, e.g. a
+   * form's Questions / Logic / Responses / Settings). `"tabs"` (across the
+   * top of the content) or `"sidebar"` (nested under the active item) turn
+   * shell sub-navigation on, which also gives phones a back item plus the
+   * children in the bottom bar. `"section"` is the legacy rendering (the
+   * shell's default) and `"off"` hides them. The nearest node in the trail
+   * that sets it wins over the shell's `options.subNav`.
+   *
+   * @stability Beta
+   */
+  subNav?: "section" | "tabs" | "sidebar" | "off";
 }
 
 /**

@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 109
+      "count": 110
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -5210,7 +5210,7 @@
               "type": "boolean",
               "required": false,
               "defaultValue": null,
-              "description": "Controlled collapse (desktop rail)"
+              "description": "Controlled collapse (desktop rail). Overrides the stored user choice and\nevery default."
             },
             {
               "name": "collapsedHeaderSlot",
@@ -5218,6 +5218,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Compact slot shown in the **collapsed** desktop rail, where `headerSlot`\nis hidden for space. Use it to keep a core affordance reachable without\nexpanding — e.g. an icon-only product switcher. Omit to hide the header\nregion entirely while collapsed."
+            },
+            {
+              "name": "defaultCollapsed",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "This page's default: open the desktop sidebar collapsed (`true`) or\nexpanded (`false`) until the user toggles it. Reactive, so a layout can\npass it per route. Wins over `navigation`'s `defaultCollapsed` and\n`options.defaultCollapsed`; the user's own choice (persisted under\n`optionsStorageKey`) wins over all of them.\n@stability Beta"
             },
             {
               "name": "footer",
@@ -5280,7 +5287,7 @@
               "type": "((collapsed: boolean) => void)",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "Called with the new state whenever the user toggles the sidebar."
             },
             {
               "name": "options",
@@ -5323,6 +5330,20 @@
               "required": false,
               "defaultValue": null,
               "description": "@deprecated Prefer `options.showThemeToggle`. Kept for sample-app\nback-compat; merges into resolved options when `options` omits it."
+            },
+            {
+              "name": "subNav",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "This page's sub-navigation mode (see `AppShellOptions.subNav`). Wins\nover `navigation`'s `subNav` and `options.subNav`; the page's own\n`useAppShellSubNav(items, { mode })` wins over it.\n@stability Beta"
+            },
+            {
+              "name": "subNavLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name of the sub-navigation tab row. Defaults to the current\nnavigation node's label, else \"Page sections\"."
             },
             {
               "name": "userSlot",
@@ -14505,6 +14526,98 @@
         {
           "name": "StatusBadgeStatus",
           "summary": "The domain status vocabulary `StatusBadge` understands. A `Pick` (not a\nhand-copied literal union) of `@marktiderman/genesis-design-system`'s\n`status` tokens, so removing/renaming one of these keys upstream breaks\nthis file's typecheck instead of silently drifting.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "sub-nav",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/sub-nav.tsx",
+      "stability": "beta",
+      "summary": "Of several matching items, the one whose path matches most specifically,\nso `/forms/f1/edit/logic` doesn't also light up an `/forms/f1/edit`\nQuestions tab that isn't marked `end`.",
+      "primaryComponent": "mostSpecificActive",
+      "components": [
+        {
+          "name": "mostSpecificActive",
+          "summary": "Of several matching items, the one whose path matches most specifically,\nso `/forms/f1/edit/logic` doesn't also light up an `/forms/f1/edit`\nQuestions tab that isn't marked `end`.",
+          "props": []
+        },
+        {
+          "name": "SubNavTabs",
+          "summary": "A row of navigation tabs: real links (deep links and middle-click work),\n`aria-current=\"page\"` on the active one, badges as chips, the active tab\nunderlined in the brand colour. AppShell renders it in `tabs` mode; an app\nusing `subNav: \"off\"` can place it itself.",
+          "props": [
+            {
+              "name": "items",
+              "type": "NavItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "linkComponent",
+              "type": "LinkComponent",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "activePath",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Current location (`pathname + search + hash`); drives the active tab."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "end",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Right-aligned slot in the row, e.g. a \"Ready to publish\" chip."
+            },
+            {
+              "name": "isActive",
+              "type": "((to: string, activePath?: string) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Page sections",
+              "description": "Accessible name of the `<nav>` (default \"Page sections\")."
+            }
+          ]
+        },
+        {
+          "name": "useAppShellSubNav",
+          "summary": "Give the shell this page's child items (sub-navigation) while the page is\nmounted. They replace the current `NavigationNode`'s `items`; pass\n`null` / `undefined` to fall back to them (a `mode` still applies). When\nseveral components call it (a layout and its page), the innermost wins,\nfor items and for mode separately. Use it when children depend on\npage data, such as live badge counts. A fresh array each render is fine:\nthe shell only updates when a `to`, label, badge, icon or flag changes.\n\n```tsx\nuseAppShellSubNav([\n  { to: `/forms/${id}/edit`, label: \"Questions\", icon: ListChecks, badge: questions.length, end: true },\n  { to: `/forms/${id}/edit/logic`, label: \"Logic and endings\", icon: GitBranch, badge: rules.length },\n  { to: `/forms/${id}/edit/responses`, label: \"Responses\", icon: Inbox, badge: responses },\n  { to: `/forms/${id}/edit/settings`, label: \"Settings\", icon: Settings },\n]);\n```\n\nDoes nothing outside an `AppShell`.",
+          "props": []
+        },
+        {
+          "name": "AppShellSubNavEnd",
+          "summary": "Render `children` in the right-hand slot of the shell's sub-navigation\ntab row, e.g. a \"Ready to publish\" status chip. Rendered through a\nportal, so it keeps the page's context and state. Renders nothing when\nthe shell shows no tab row (other modes, phones, no children). When\nseveral are mounted (a layout's and a page's), the innermost renders.",
+          "props": []
+        },
+        {
+          "name": "AppShellPageHeader",
+          "summary": "Render the page's resource header (breadcrumb, title, status, actions) at\nthe top of the shell's content, ABOVE the sub-navigation tab row, where\nthe design puts it. A portal like `AppShellSubNavEnd`, so it keeps the\npage's state; the innermost mounted one renders. On phones it stays at\nthe top of the content while the bottom bar carries the children. With\nno tab row (the default `\"section\"` mode, or a page without children) it\nsimply sits at the top of the content. Mount none and the layout is\nunchanged.",
+          "props": []
+        },
+        {
+          "name": "SubNavContext",
+          "summary": "",
           "props": []
         }
       ]
