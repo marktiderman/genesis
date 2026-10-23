@@ -1,0 +1,8 @@
+# @marktiderman/genesis-forms-studio
+
+## 0.1.1
+
+### Patch Changes
+
+- 3681e30: Review fixes. `summarizeResponses` counts a rating in one pass (no spread of every answer, which overflowed the stack near 120,000 answers) and keeps the newest version's scale: answers given on an older version's different scale are moved onto it in proportion (`ScaleSummary.rescaled`), answers outside their own scale are left out (`excluded`), and the question card says so. A rating's `max` is read as 1–100. `formAvailability` keeps a form closed when its opening or closing time doesn't parse or has no `Z` or offset (`parseInstant`). `prefilledUrl` keeps a relative link relative instead of throwing. The Low ratings headline honours `skip`, like `needsFollowUp` (`hasLowRatingExcept`). `FollowUpList`'s score has an accessible name.
+- 664a25f: New package: the workspace around a form builder. `ResourceHeader` (breadcrumb, title once, status and save-state chips, undo and redo, Preview, Share, Publish), `formNavItems` and `ReadinessChip` for the page's child navigation (genesis-ui's `useAppShellSubNav` and `AppShellSubNavEnd`), the Responses tab (`ResponsesToolbar`, `ResponsesFilters`, `HeadlineNumbers` with `headlineNumbers`/`headlineCards`, `QuestionSummaryCards`, `FollowUpList` with `needsFollowUp`), the Settings layout (`ResourceSettingsPage`, `SettingsSection` around genesis-ui `SettingsRow`/`ToggleRow`) and `ShareDialog`. The pure rules (`summarizeResponses`, filters and presets, `answerColumns`/`toCsv`, `formAvailability`, `prefilledUrl`/`embedSnippet`) are also at `@marktiderman/genesis-forms-studio/rules`. Moved up from Breakthrough. The pieces in `src/generic/` aren't about forms and are meant to move to genesis-ui later.
