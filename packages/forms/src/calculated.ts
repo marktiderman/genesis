@@ -50,7 +50,10 @@ const round = (n: number, decimals: number | undefined) => {
  * anything the format can't hold, is no value (`undefined`).
  */
 export function calculatedValue(result: FormulaValue, field: FieldBlock): Json | undefined {
-  const { format, decimals } = calculatedProps(field);
+  return valueAs(result, calculatedProps(field));
+}
+
+function valueAs(result: FormulaValue, { format, decimals }: CalculatedProps): Json | undefined {
   if (result === null || Array.isArray(result)) return undefined;
   if (format === "number" || format === "percent") {
     const n = formulaNumber(result);
@@ -82,7 +85,7 @@ export const MAX_FORMULA_ITEMS = 10_000;
 
 /**
  * Most list items and table rows all of a form's formulas read in one go
- * (each answer and column counted once, in form order). A formula that reads
+ * (each list or table counted once, however many of its columns are read, in form order). A formula that reads
  * an answer past the limit, or one over `MAX_FORMULA_ITEMS`, has no value
  * (blank, never a partial total), so many big answers can't make working
  * the values out slow either.
@@ -98,31 +101,6 @@ const extract = (value: readonly Json[], column: string | undefined): FormulaVal
         })
       : value.flatMap((v): FormulaValue[] => (typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? [v] : []));
 
-/**
- * The calculator's lists, by the answer's array and then the column (`""`
- * for a list's own items), so an unchanged table is walked once. This relies
- * on answers being immutable, which the engine guarantees: it never changes a
- * value it holds (every update spreads a new `values`), the built-in
- * renderers always pass a new array, and `setValue` with the array already
- * held is ignored. A host must not change an answer array in place either
- * (see the README); pass a new one to `setValue`.
- */
-const extracted = new WeakMap<readonly Json[], Map<string, readonly FormulaValue[]>>();
-
-function cachedList(value: readonly Json[], column: string | undefined): readonly FormulaValue[] {
-  let byColumn = extracted.get(value);
-  if (!byColumn) extracted.set(value, (byColumn = new Map()));
-  const key = column ?? "";
-  let list = byColumn.get(key);
-  if (!list) byColumn.set(key, (list = ownFormulaList(extract(value, column))));
-  return list;
-}
-
-/** `formulaInput` for the calculator: the same values, with lists kept per answer (see `cachedList`). */
-function readAnswer(value: Json | undefined, column: string | undefined): FormulaValue {
-  if (Array.isArray(value)) return cachedList(value, column) as FormulaValue[];
-  return column !== undefined ? null : formulaInput(value);
-}
 
 /**
  * The value a formula reads for an answer: numbers and text as they are, a
@@ -142,6 +120,7 @@ export function formulaInput(value: Json | undefined, column?: string): FormulaV
 
 interface Compiled {
   field: FieldBlock;
+  props: CalculatedProps;
   ast: FormulaNode | null;
   /** The answers it reads, each (answer, column) once (`id` is `undefined` for a key that is not a field). */
   reads: Read[];
@@ -154,7 +133,7 @@ interface Compiled {
 interface Read {
   id: string | undefined;
   column: string | undefined;
-  /** `id` and `column` as one key, for the settle's item count. */
+  /** `id` and `column` as one key, to read each once per formula. */
   key: string;
 }
 
@@ -187,7 +166,8 @@ export function calculator(definition: FormDefinition) {
   }
   for (const block of definition.blocks) {
     if (block.kind !== "field" || !isCalculated(block)) continue;
-    const parsed = parseFormula(calculatedProps(block).formula);
+    const props = calculatedProps(block);
+    const parsed = parseFormula(props.formula);
     const reads: Read[] = [];
     const slots = new Map<FormulaNode, number>();
     const byKey = new Map<string, number>();
@@ -201,27 +181,58 @@ export function calculator(definition: FormDefinition) {
       }
       slots.set(ref, slot);
     }
-    compiled.push({ field: block, ast: parsed.ok ? parsed.ast : null, reads, slots, last: null });
+    compiled.push({ field: block, props, ast: parsed.ok ? parsed.ast : null, reads, slots, last: null });
   }
+  /**
+   * This calculator's lists, by the answer's array and then the column (`""`
+   * for a list's own items), so an unchanged table is walked once. Each
+   * engine (and so each `validateSubmission` call) has its own, so a host
+   * array changed between two calls is read afresh. Within one engine an
+   * answer is not changed in place: the engine never changes a value it
+   * holds, and `setValue` with an array it already holds calls `forget`.
+   */
+  const extracted = new WeakMap<readonly Json[], Map<string, readonly FormulaValue[]>>();
+  const cachedList = (value: readonly Json[], column: string | undefined): readonly FormulaValue[] => {
+    let byColumn = extracted.get(value);
+    if (!byColumn) extracted.set(value, (byColumn = new Map()));
+    const key = column ?? "";
+    let list = byColumn.get(key);
+    if (!list) byColumn.set(key, (list = ownFormulaList(extract(value, column))));
+    return list;
+  };
+  const readAnswer = (value: Json | undefined, column: string | undefined): FormulaValue => {
+    if (Array.isArray(value)) return cachedList(value, column) as FormulaValue[];
+    return column !== undefined ? null : formulaInput(value);
+  };
+  /** Drop what was worked out from `value`: it may have been changed in place. */
+  const forget = (value: Json | undefined) => {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) extracted.delete(value);
+    for (const entry of compiled) if (entry.last?.inputs.includes(value)) entry.last = null;
+  };
+
   const withCalculated = (values: Record<string, Json | undefined>, path: readonly string[]) => {
     if (!compiled.length) return values;
     const visible = new Set(path);
     let next = values;
+    // `values` is copied once, on the first change, then written into.
+    let copied = false;
     // The items every formula may read, together: each list answer and table
-    // column counts once, in form order, and one past the limit reads as blank.
-    // It depends on the answers only, so a client and the server agree.
+    // counts its items or rows once (however many of its columns are read),
+    // in form order, and one past the limit reads as blank. It depends on the
+    // answers only, so a client and the server agree.
     let budget = MAX_SETTLE_ITEMS;
     const within = new Map<string, boolean>();
-    const input = ({ id, key }: Read): unknown => {
+    const input = ({ id }: Read): unknown => {
       if (id === undefined || !visible.has(id) || !Object.prototype.hasOwnProperty.call(next, id)) return UNREAD;
       const value = next[id];
       if (!Array.isArray(value)) return value;
-      let ok = within.get(key);
+      let ok = within.get(id);
       if (ok === undefined) {
         // An answer over the per-answer limit is never read, so it uses none of the allowance.
         ok = value.length <= MAX_FORMULA_ITEMS && value.length <= budget;
         if (ok) budget -= value.length;
-        within.set(key, ok);
+        within.set(id, ok);
       }
       return ok ? value : OVER;
     };
@@ -229,10 +240,19 @@ export function calculator(definition: FormDefinition) {
       const { field, ast } = entry;
       // A formula is worked out again only when an answer it reads is a different value:
       // an engine settles on every answer, and most answers are to other questions.
-      const inputs = entry.reads.map(input);
+      const { reads } = entry;
+      const inputs: unknown[] = new Array(reads.length);
+      let over = false;
+      let same = entry.last !== null;
+      for (let i = 0; i < reads.length; i++) {
+        const v = input(reads[i]!);
+        inputs[i] = v;
+        if (v === OVER) over = true;
+        if (same && entry.last!.inputs[i] !== v) same = false;
+      }
       let value: Json | undefined;
-      if (entry.last && entry.last.inputs.length === inputs.length && entry.last.inputs.every((v, i) => v === inputs[i])) {
-        value = entry.last.value;
+      if (same) {
+        value = entry.last!.value;
       } else {
         const resolved: (FormulaValue | undefined)[] = new Array(inputs.length);
         const read = (ref: FormulaRef): FormulaValue => {
@@ -241,20 +261,26 @@ export function calculator(definition: FormDefinition) {
           let v = resolved[slot];
           if (v === undefined) {
             const raw = inputs[slot];
-            v = resolved[slot] = raw === UNREAD ? null : readAnswer(raw as Json | undefined, entry.reads[slot]!.column);
+            v = resolved[slot] = raw === UNREAD ? null : readAnswer(raw as Json | undefined, reads[slot]!.column);
           }
           return v;
         };
         // An answer too big to read leaves the value blank rather than a partial total.
-        value = ast && !inputs.includes(OVER) ? calculatedValue(evaluateFormula(ast, read), field) : undefined;
+        value = ast && !over ? valueAs(evaluateFormula(ast, read), entry.props) : undefined;
         entry.last = { inputs, value };
       }
       const current = Object.prototype.hasOwnProperty.call(next, field.id) ? next[field.id] : undefined;
-      if (current !== value) next = { ...next, [field.id]: value };
+      if (current !== value) {
+        if (!copied) {
+          next = { ...next };
+          copied = true;
+        }
+        next[field.id] = value;
+      }
     }
     return next;
   };
-  return { active: compiled.length > 0, withCalculated };
+  return { active: compiled.length > 0, ids: new Set(compiled.map((c) => c.field.id)), withCalculated, forget };
 }
 
 const numberOps: Operator[] = ["eq", "neq", "lt", "lte", "gt", "gte", "in", "answered", "empty"];

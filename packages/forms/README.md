@@ -170,12 +170,15 @@ Limits, so a large submission can't make the server slow:
 - A calculated field that reads a list or table of more than `MAX_FORMULA_ITEMS` (10,000) items
   has no value: it is blank, never `0` or a partial total. The same goes for one that reads an
   answer past `MAX_SETTLE_ITEMS` (50,000) items read by all of a form's formulas together (each
-  answer and column counted once, in form order; an answer over 10,000 items counts for none).
+  list or table counted once, however many of its columns are read, in form order; an answer over
+  10,000 items counts for none).
   Nothing else reports this, so give a table a `maxRows` well under these if its total matters.
 - A formula is at most `MAX_FORMULA_LENGTH` characters and 64 levels of parentheses, calls, signs
   and `? :` deep, and all of a form's formulas together at most `MAX_FORM_FORMULA_LENGTH` (20,000).
-- Lists are read once per answer, so treat answers as immutable: pass `setValue` a new array, never
-  one changed in place (the engine and the built-in renderers never change one).
+- Lists are read once per answer, so treat an engine's answers as immutable: pass `setValue` a new
+  array (the engine and the built-in renderers never change one in place). `setValue` with the
+  array it already holds works it out again. Each engine, and so each `validateSubmission` call,
+  keeps its own lists, so the same object passed again after a change is read afresh.
 
 The engine works the values out from the answers on the path (an answer hidden by logic reads as
 blank), again whenever an answer it reads changes, and stores them with the answers, so `engine.answers()` and a
