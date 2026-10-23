@@ -444,7 +444,9 @@ describe("large submissions", () => {
     evs.push({ type: "answer", field: "n", value: 2 }, { type: "back" }, { type: "submit" });
     const [result, ms] = timed(() => validateSubmission(form, { events: evs }, { complete: false }));
     expect(result.ok && result.submission.answers).toMatchObject({ c0: 10_000 + 4_999.5 * 2, c399: 10_000 + 4_999.5 * 2 + 399 });
-    expect(ms).toBeLessThan(1000);
+    // About 1M formula runs: 130–250 ms locally, about 1.2 s on CI runners. The per-field copy
+    // this guards against (O(fields²)) took 20 s or more locally, so 3 s still catches it.
+    expect(ms).toBeLessThan(3000);
   });
 
   it("counts a table's rows once against the allowance, however many of its columns are read", () => {
