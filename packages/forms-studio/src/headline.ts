@@ -19,6 +19,8 @@ export interface Headline {
     previous: number | null;
     /** count − previous; null with no period. */
     change: number | null;
+    /** How many of `count` are partial (never sent); left out when there are none. */
+    partial?: number;
   };
   /** The first rating question (newest definition order); null when the form has none. */
   rating: {
@@ -60,6 +62,7 @@ export function headlineNumbers(
 ): Headline {
   const previous = options.previous ?? null;
   const summaries = summarizeResponses(items, definitions, options.skip);
+  const partial = items.filter((i) => i.status === "partial").length;
   const before = previous ? summarizeResponses(previous, definitions, options.skip) : null;
 
   const scale = summaries.find((s) => s.kind === "scale" && s.type === "rating");
@@ -102,6 +105,7 @@ export function headlineNumbers(
       count: items.length,
       previous: previous ? previous.length : null,
       change: previous ? items.length - previous.length : null,
+      ...(partial ? { partial } : {}),
     },
     rating,
     // The same skip as needsFollowUp, so the Low ratings card and the follow-up list agree.
@@ -161,7 +165,14 @@ export function comparisonFilter(
               ? "the 30 days before"
               : "the days before";
   return {
-    filter: { from, to, match: value.match, ratingAtMost: value.ratingAtMost, low: value.low },
+    filter: {
+      from,
+      to,
+      match: value.match,
+      ratingAtMost: value.ratingAtMost,
+      low: value.low,
+      ...(value.status ? { status: value.status } : {}),
+    },
     label,
   };
 }
@@ -186,16 +197,22 @@ export function headlineCards(
 ): HeadlineNumber[] {
   const cards: HeadlineNumber[] = [];
   const { responses, rating, low, rate } = headline;
+  // Partial responses count, and the card says how many there are.
+  const partial = responses.partial ? `${responses.partial} partial` : null;
   cards.push({
     key: "responses",
     label: "Responses",
     value: responses.count,
     ...(responses.change !== null && options.period
       ? {
-          detail: responses.change === 0 ? `Same as ${options.period}` : `${signed(responses.change)} vs ${options.period}`,
+          detail:
+            (responses.change === 0 ? `Same as ${options.period}` : `${signed(responses.change)} vs ${options.period}`) +
+            (partial ? ` · ${partial}` : ""),
           tone: responses.change > 0 ? ("positive" as const) : responses.change < 0 ? ("negative" as const) : ("muted" as const),
         }
-      : {}),
+      : partial
+        ? { detail: `Including ${partial}` }
+        : {}),
   });
   if (rating) {
     const change = rating.change;

@@ -433,3 +433,36 @@ describe("the filter bar", () => {
     ).toEqual(["2", "3"]);
   });
 });
+
+describe('summarizeResponses with an "Other" answer', () => {
+  const areas = {
+    schemaVersion: 1,
+    id: "areas",
+    title: "Areas",
+    blocks: [
+      {
+        kind: "field",
+        id: "a",
+        key: "areas",
+        type: "multi-choice",
+        label: "Which area?",
+        props: { options: [{ value: "parking", label: "Parking" }], other: true },
+      },
+    ],
+  } as unknown as FormDefinition;
+
+  it("counts typed answers together under Other", () => {
+    const [summary] = summarizeResponses(
+      [
+        item("1", "2026-10-01", areas, { a: ["parking", "Lockers"] }),
+        item("2", "2026-10-02", areas, { a: ["Mats"] }),
+        item("3", "2026-10-03", areas, { a: ["parking"] }),
+      ],
+      [areas],
+    ) as ChoiceSummary[];
+    expect(summary!.options.map((o) => [o.label, o.count])).toEqual([
+      ["Parking", 2],
+      ["Other", 2],
+    ]);
+  });
+});

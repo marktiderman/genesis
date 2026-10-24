@@ -11,6 +11,7 @@ import {
   canonicalJson,
   choiceOptions,
   getFieldType,
+  optionsSource,
   renameFormulaKey,
   type Block,
   type Condition,
@@ -402,6 +403,35 @@ export function setOptions(
   );
 }
 
+/**
+ * Where a choice field's options come from. `{ key }`: the app's list with
+ * that key (`props.optionsFrom: { source: "host", key }`); the field's typed
+ * options go, with the rules that compared them. `{ options }`: typed here,
+ * these options (made with `withOptionValues` outside the edit); the app's
+ * list goes, with rules that compare a value not among them. An edit that
+ * changes nothing returns `def` itself.
+ */
+export function setOptionsSource(
+  def: FormDefinition,
+  id: string,
+  source: { key: string } | { options: readonly { value?: string; label: string }[] },
+): FormDefinition {
+  const field = def.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id);
+  if (!field) return def;
+  const current = optionsSource(field);
+  if ("key" in source) {
+    if (current?.key === source.key && field.props?.options === undefined) return def;
+    // Typed options and the rules comparing them go first, then the source is set.
+    const cleared = setOptions(def, id, []);
+    const latest = cleared.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id)!;
+    const { options: _options, ...rest } = latest.props ?? {};
+    return updateBlock(cleared, id, { props: { ...rest, optionsFrom: { source: "host", key: source.key } } });
+  }
+  if (!current) return setOptions(def, id, source.options);
+  const { optionsFrom: _from, ...rest } = field.props ?? {};
+  return setOptions(updateBlock(def, id, { props: rest }), id, source.options);
+}
+
 /** `options` with a new value, unused among them, for each one that has none. Call it outside a reducer. */
 export function withOptionValues<T extends { value?: string; label: string }>(options: readonly T[]): (T & { value: string })[] {
   const taken = new Set(options.flatMap((o) => (o.value ? [o.value] : [])));
@@ -712,8 +742,10 @@ export function updateForm(
 export function updateSettings(def: FormDefinition, patch: Partial<FormSettings>): FormDefinition {
   const settings: FormSettings = { ...def.settings };
   for (const [k, v] of Object.entries(patch) as [keyof FormSettings, boolean | undefined][]) {
-    // Only non-default values are stored: anonymous defaults to false, clearHiddenValues to true.
+    // Only non-default values are stored: anonymous and saveProgress default to false,
+    // clearHiddenValues to true.
     if (k === "anonymous") v ? (settings.anonymous = true) : delete settings.anonymous;
+    if (k === "saveProgress") v ? (settings.saveProgress = true) : delete settings.saveProgress;
     if (k === "clearHiddenValues") v === false ? (settings.clearHiddenValues = false) : delete settings.clearHiddenValues;
   }
   const out: FormDefinition = { ...def, settings };

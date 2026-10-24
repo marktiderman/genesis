@@ -1,6 +1,7 @@
-import type { Block, FieldBlock, Json, Operator } from "./types";
+import type { Block, FieldBlock, FormDefinition, Json, Operator, OptionsSource } from "./types";
 import { calculatedFieldType } from "./calculated";
 import { structuredFieldTypes } from "./structured";
+import { photoFieldType } from "./photo";
 
 /**
  * A field type, without any UI. Renderers are registered separately per
@@ -99,6 +100,36 @@ export interface ChoiceOption {
   label?: string;
 }
 
+/** The longest answer an "Other" option takes. */
+export const OTHER_MAX_LENGTH = 200;
+
+/**
+ * A choice question's "Other" option (`props.other: true` or `{ label }`): the respondent types
+ * their own answer, stored as the answer's value itself (single choice, dropdown) or as one more
+ * item (multiple choice). Null when the question has none.
+ */
+export function otherOption(field: FieldBlock): { label: string } | null {
+  const other = field.props?.other;
+  if (other === true) return { label: "Other" };
+  if (other && typeof other === "object" && !Array.isArray(other)) {
+    const label = typeof other.label === "string" && other.label.trim() ? other.label.trim() : "Other";
+    return { label };
+  }
+  return null;
+}
+
+/** Whether a value is a typed "Other" answer: text that isn't one of the question's options. */
+export function isOtherValue(field: FieldBlock, value: unknown): value is string {
+  return (
+    otherOption(field) !== null &&
+    typeof value === "string" &&
+    !choiceOptions(field).some((o) => o.value === value)
+  );
+}
+
+const typedOther = (field: FieldBlock, value: unknown) =>
+  isOtherValue(field, value) && value.trim() !== "" && value.length <= OTHER_MAX_LENGTH;
+
 export function choiceOptions(field: FieldBlock): ChoiceOption[] {
   const raw = field.props?.options;
   if (!Array.isArray(raw)) return [];
@@ -107,6 +138,62 @@ export function choiceOptions(field: FieldBlock): ChoiceOption[] {
       ? [{ value: o.value, label: typeof o.label === "string" ? o.label : undefined }]
       : [],
   );
+}
+
+/**
+ * Option lists the app showing a form supplies, by key (`OptionsSource.key`):
+ * `{ coaches: [{ value: "8c1…", label: "Ada Lovelace" }] }`.
+ */
+export type HostOptions = Readonly<Record<string, readonly ChoiceOption[]>>;
+
+/** A choice field's `props.optionsFrom`, when it is a well-formed `{ source: "host", key }`. */
+export function optionsSource(field: FieldBlock): OptionsSource | undefined {
+  const raw = field.props?.optionsFrom;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  return raw.source === "host" && typeof raw.key === "string" && raw.key ? { source: "host", key: raw.key } : undefined;
+}
+
+/** The host's list for `key`, as options: string values only, each value once, labels when they are text. */
+function hostList(hostOptions: HostOptions | undefined, key: string): ChoiceOption[] {
+  if (!hostOptions || !Object.prototype.hasOwnProperty.call(hostOptions, key)) return [];
+  const list = hostOptions[key];
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  const out: ChoiceOption[] = [];
+  for (const o of list as unknown[]) {
+    if (!o || typeof o !== "object" || Array.isArray(o)) continue;
+    const { value, label } = o as { value?: unknown; label?: unknown };
+    if (typeof value !== "string" || !value || seen.has(value)) continue;
+    seen.add(value);
+    out.push(typeof label === "string" ? { value, label } : { value });
+  }
+  return out;
+}
+
+/**
+ * The definition with each `optionsFrom: { source: "host" }` field's options
+ * filled in from `hostOptions`: its own `props.options` first, then the host's
+ * list for its key (a value the field already has is not added twice). A key
+ * the host does not supply adds nothing, so the field offers its own options
+ * only. `createForm` and `validateSubmission` call it with their `hostOptions`,
+ * so a respondent sees, and a submit accepts, exactly these. Returns
+ * `definition` itself when no field takes options from the host.
+ */
+export function withHostOptions(definition: FormDefinition, hostOptions: HostOptions | undefined): FormDefinition {
+  let changed = false;
+  const blocks = definition.blocks.map((block) => {
+    if (block.kind !== "field") return block;
+    const from = optionsSource(block);
+    if (!from) return block;
+    const own = choiceOptions(block);
+    const taken = new Set(own.map((o) => o.value));
+    const added = hostList(hostOptions, from.key).filter((o) => !taken.has(o.value));
+    if (!added.length) return block;
+    changed = true;
+    const options = [...own, ...added].map((o): Json => (o.label === undefined ? { value: o.value } : { value: o.value, label: o.label }));
+    return { ...block, props: { ...block.props, options } };
+  });
+  return changed ? { ...definition, blocks } : definition;
 }
 
 function optionLabel(field: FieldBlock, value: string): string {
@@ -259,7 +346,7 @@ const builtins: FieldTypeManifest[] = [
     operators: ["eq", "neq", "in", "answered", "empty"],
     a11y: { semantics: "group" },
     validate: (value, field) =>
-      typeof value === "string" && choiceOptions(field).some((o) => o.value === value)
+      typeof value === "string" && (choiceOptions(field).some((o) => o.value === value) || typedOther(field, value))
         ? null
         : "Choose one of the options.",
     summarize: (value, field) => optionLabel(field, String(value)),
@@ -273,11 +360,13 @@ const builtins: FieldTypeManifest[] = [
     a11y: { semantics: "group" },
     validate: (value, field) => {
       const allowed = new Set(choiceOptions(field).map((o) => o.value));
-      // Each option at most once, so a value is never longer than the option list.
+      // Each option at most once, plus at most one typed "Other" answer, so a value is never
+      // longer than the option list and one.
+      const others = Array.isArray(value) ? value.filter((v) => typeof v === "string" && !allowed.has(v)) : [];
       return Array.isArray(value) &&
-        value.length <= allowed.size &&
         new Set(value).size === value.length &&
-        value.every((v) => typeof v === "string" && allowed.has(v))
+        value.every((v) => typeof v === "string") &&
+        (others.length === 0 || (others.length === 1 && typedOther(field, others[0])))
         ? null
         : "Choose from the options.";
     },
@@ -302,7 +391,7 @@ const builtins: FieldTypeManifest[] = [
     operators: ["eq", "neq", "in", "answered", "empty"],
     a11y: { semantics: "control" },
     validate: (value, field) =>
-      typeof value === "string" && choiceOptions(field).some((o) => o.value === value)
+      typeof value === "string" && (choiceOptions(field).some((o) => o.value === value) || typedOther(field, value))
         ? null
         : "Choose one of the options.",
     summarize: (value, field) => optionLabel(field, String(value)),
@@ -432,4 +521,4 @@ export function dateLimits(field: FieldBlock): { min?: string; max?: string } {
   return out;
 }
 
-for (const manifest of [...builtins, ...structuredFieldTypes, calculatedFieldType]) registerFieldType(manifest);
+for (const manifest of [...builtins, ...structuredFieldTypes, calculatedFieldType, photoFieldType]) registerFieldType(manifest);

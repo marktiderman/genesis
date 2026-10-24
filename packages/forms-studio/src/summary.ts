@@ -5,11 +5,20 @@
 // no storage, no React. Moved up from Breakthrough's src/lib/forms/summary.ts.
 import {
   choiceOptions,
+  isOtherValue,
+  otherOption,
   type FieldBlock,
   type FormDefinition,
   type Json,
 } from "@marktiderman/genesis-forms";
 import { answerColumns, answersByKey, valuesByKey, type Cell } from "./answers";
+
+/**
+ * Where a response is, on a form that saves answers as they go (`settings.saveProgress`):
+ * `in_progress` while someone is answering, `partial` once they stopped without sending
+ * (kept, and counted like a sent one), `completed` once sent.
+ */
+export type ResponseStatus = "in_progress" | "partial" | "completed";
 
 /** One answered form (a feedback response, a worksheet entry). */
 export interface SummaryItem {
@@ -20,6 +29,40 @@ export interface SummaryItem {
   answers: Record<string, Json>;
   /** Extra plain values a filter can match, such as the class or coach. */
   extra?: Record<string, Cell>;
+  /** Default `completed`. */
+  status?: ResponseStatus | undefined;
+  /**
+   * The furthest question reached (a field id of `definition`), for an unfinished
+   * response: genesis-forms `formProgress`'s `fieldId`. Drop-off by question reads it.
+   */
+  furthest?: string | null | undefined;
+}
+
+/**
+ * Which responses to show by status. `counted` (the default): sent and partial ones,
+ * which summaries count; `in_progress` ones are still being answered.
+ */
+export type StatusFilter = "counted" | "completed" | "partial" | "in_progress";
+
+/** The status filter's words, in the menu's order. */
+export const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
+  counted: "Sent and partial",
+  completed: "Sent",
+  partial: "Partial",
+  in_progress: "In progress",
+};
+
+/** A response status's word, as a table or a detail panel shows it. */
+export const RESPONSE_STATUS_LABEL: Record<ResponseStatus, string> = {
+  in_progress: "In progress",
+  partial: "Partial",
+  completed: "Sent",
+};
+
+/** Whether `item` passes a status filter (no status is `completed`). */
+export function matchesStatus(item: Pick<SummaryItem, "status">, filter: StatusFilter = "counted"): boolean {
+  const status = item.status ?? "completed";
+  return filter === "counted" ? status !== "in_progress" : status === filter;
 }
 
 export interface ScaleSummary {
@@ -90,6 +133,9 @@ const CONSENT = [
   { value: "true", label: "Agreed" },
   { value: "false", label: "Didn't agree" },
 ];
+
+/** The summary row that counts a question's typed "Other" answers. */
+export const OTHER_BUCKET = "__other__";
 
 const optionsOf = (field: FieldBlock) =>
   field.type === "yes-no"
@@ -206,6 +252,16 @@ export function summarizeResponses(
     if (CHOICE_TYPES.has(field.type)) {
       const options = optionsOf(field).map((o) => ({ ...o, count: 0 }));
       const find = (value: string, from: FieldBlock) => {
+        // Typed "Other" answers count together, under the question's Other label.
+        if (isOtherValue(from, value) && !options.some((o) => o.value === value)) {
+          value = OTHER_BUCKET;
+          let bucket = options.find((o) => o.value === OTHER_BUCKET);
+          if (!bucket) {
+            bucket = { value: OTHER_BUCKET, label: (otherOption(field) ?? otherOption(from))!.label, count: 0 };
+            options.push(bucket);
+          }
+          return bucket;
+        }
         let option = options.find((o) => o.value === value);
         if (!option) {
           // An option only an older version had: its label from that version.
@@ -340,15 +396,18 @@ export interface ResponseFilter {
   ratingAtMost?: number | null;
   /** Only items with a low answer on its question's own scale (hasLowRating). */
   low?: boolean;
+  /** By status (matchesStatus); default `counted`: sent and partial, not in progress. */
+  status?: StatusFilter | undefined;
 }
 
-/** Whether a filter leaves anything out. */
+/** Whether a filter leaves anything out beyond the default (in-progress responses). */
 export function isFiltered(filter: ResponseFilter): boolean {
   return Boolean(
     filter.from ||
     filter.to ||
     filter.ratingAtMost != null ||
     filter.low ||
+    (filter.status && filter.status !== "counted") ||
     Object.values(filter.match ?? {}).some((v) => v != null && v !== ""),
   );
 }
@@ -362,6 +421,7 @@ export function filterResponses<T extends SummaryItem>(
     (e): e is [string, string] => e[1] != null && e[1] !== "",
   );
   return items.filter((item) => {
+    if (!matchesStatus(item, filter.status)) return false;
     if (filter.from && item.date < filter.from) return false;
     if (filter.to && item.date > filter.to) return false;
     if (match.some(([key, value]) => String(item.extra?.[key] ?? "") !== value)) return false;
@@ -420,6 +480,8 @@ export interface FiltersValue {
   ratingAtMost: number | null;
   /** Low ratings, each on its own question's scale (lowRatingAtMost). */
   low: boolean;
+  /** By status, on a form that saves answers as they go; missing is `counted`. */
+  status?: StatusFilter | undefined;
 }
 
 export const NO_FILTERS: FiltersValue = {
@@ -437,7 +499,13 @@ export function toResponseFilter(value: FiltersValue, today: string): ResponseFi
     value.when === "custom"
       ? { from: value.from || null, to: value.to || null }
       : presetRange(value.when, today);
-  return { ...range, match: value.match, ratingAtMost: value.ratingAtMost, low: value.low };
+  return {
+    ...range,
+    match: value.match,
+    ratingAtMost: value.ratingAtMost,
+    low: value.low,
+    ...(value.status ? { status: value.status } : {}),
+  };
 }
 
 /**

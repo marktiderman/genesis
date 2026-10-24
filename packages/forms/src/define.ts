@@ -1,5 +1,6 @@
 import { fingerprint } from "./hash";
 import { parseForm } from "./parse";
+import type { PhotoFormat, PhotoRef } from "./photo";
 import type {
   Condition,
   ContentBlock,
@@ -12,6 +13,7 @@ import type {
   Json,
   LogicRule,
   Operator,
+  OptionsSource,
   PageBreakBlock,
 } from "./types";
 
@@ -38,7 +40,19 @@ export interface FieldOptions {
 }
 
 export interface ChoiceFieldOptions<O extends string> extends FieldOptions {
-  options: readonly { value: O; label?: string }[];
+  /** The options. Optional only with `optionsFrom`, whose options follow these. */
+  options?: readonly { value: O; label?: string }[] | undefined;
+  /**
+   * Options the app showing the form supplies, by key (`OptionsSource`), such
+   * as `{ source: "host", key: "coaches" }`; pass the lists as `hostOptions`
+   * to `createForm` and `validateSubmission`.
+   */
+  optionsFrom?: OptionsSource | undefined;
+  /**
+   * An "Other" option the respondent fills in (`true`, or `{ label }` to name it): their text is
+   * the answer (one more item on a multiple choice). See `otherOption`.
+   */
+  other?: boolean | { label?: string } | undefined;
 }
 
 function field<K extends string, V>(
@@ -67,9 +81,15 @@ function field<K extends string, V>(
 const props = (all: Record<string, Json | undefined>): Record<string, Json> =>
   Object.fromEntries(Object.entries(all).filter((e): e is [string, Json] => e[1] !== undefined));
 
-const choiceProps = (options: readonly { value: string; label?: string }[]): Record<string, Json> => ({
-  options: options.map((o): Json => (o.label ? { value: o.value, label: o.label } : { value: o.value })),
-});
+const choiceProps = (o: ChoiceFieldOptions<string>): Record<string, Json> => {
+  const out: Record<string, Json> = {};
+  if (o.options || !o.optionsFrom) {
+    out.options = (o.options ?? []).map((x): Json => (x.label ? { value: x.value, label: x.label } : { value: x.value }));
+  }
+  if (o.optionsFrom) out.optionsFrom = { source: o.optionsFrom.source, key: o.optionsFrom.key };
+  if (o.other) out.other = o.other === true ? true : props({ label: o.other.label });
+  return out;
+};
 
 interface HiddenOptions {
   source?: HiddenInput["source"] | undefined;
@@ -120,13 +140,13 @@ export const f = {
   nps: <K extends string>(key: K, o: FieldOptions & { lowLabel?: string | undefined; highLabel?: string | undefined }) =>
     field<K, number>("nps", key, o, props({ lowLabel: o.lowLabel || undefined, highLabel: o.highLabel || undefined })),
   singleChoice: <K extends string, O extends string>(key: K, o: ChoiceFieldOptions<O>) =>
-    field<K, O>("single-choice", key, o, choiceProps(o.options)),
+    field<K, O>("single-choice", key, o, choiceProps(o)),
   multiChoice: <K extends string, O extends string>(key: K, o: ChoiceFieldOptions<O>) =>
-    field<K, O[]>("multi-choice", key, o, choiceProps(o.options)),
+    field<K, O[]>("multi-choice", key, o, choiceProps(o)),
   yesNo: <K extends string>(key: K, o: FieldOptions) => field<K, boolean>("yes-no", key, o),
   /** One option from a compact menu: for a long list (a country, a class), where single choice would be a wall of buttons. */
   dropdown: <K extends string, O extends string>(key: K, o: ChoiceFieldOptions<O>) =>
-    field<K, O>("dropdown", key, o, choiceProps(o.options)),
+    field<K, O>("dropdown", key, o, choiceProps(o)),
   /** A number, optionally between `min` and `max` and on a `step` (from `min`, else 0): `step: 1` for whole numbers. */
   number: <K extends string>(
     key: K,
@@ -214,6 +234,25 @@ export const f = {
       key,
       o,
       props({ text: o.text, maxHighlights: o.maxHighlights }),
+    ),
+  /**
+   * Up to a few photos (a picture of broken equipment). The answer holds the
+   * references the host's upload returned, never the bytes; `formats` from
+   * jpeg, png, heic and webp (default all four).
+   */
+  photo: <K extends string>(
+    key: K,
+    o: FieldOptions & {
+      maxFiles?: number | undefined;
+      maxSizeMb?: number | undefined;
+      formats?: readonly PhotoFormat[] | undefined;
+    },
+  ) =>
+    field<K, PhotoRef[]>(
+      "photo",
+      key,
+      o,
+      props({ maxFiles: o.maxFiles, maxSizeMb: o.maxSizeMb, formats: o.formats ? [...o.formats] : undefined }),
     ),
   /** Any registered field type, including plugins. */
   custom: <K extends string, V = Json>(type: string, key: K, o: FieldOptions & { props?: Record<string, Json> }) =>

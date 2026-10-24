@@ -7,13 +7,16 @@ import {
   choiceOptions,
   fingerprint,
   listFieldTypes,
+  optionsSource,
   parseForm,
+  withHostOptions,
   type FieldTypeManifest,
   type FormDefinition,
   type FormIssue,
   type ParseResult,
 } from "@marktiderman/genesis-forms";
 import { coverage, type CoverageReport } from "@marktiderman/genesis-forms/testing";
+import { sampleHostOptions, type HostOptionList } from "./host-options";
 
 export type FindingLevel = "error" | "warning" | "info";
 
@@ -146,9 +149,15 @@ function cachedCoverage(def: FormDefinition, maxStates: number): CoverageReport 
  * Analyse a definition. Coverage only runs on a definition that parses, and
  * stops after `maxStates` explored states so a large form stays responsive;
  * when it stops early, its path warnings are left out (they would be guesses).
- * Pass `parsed` when `parseForm(def)` already ran.
+ * Pass `parsed` when `parseForm(def)` already ran. With `hostOptions` (the
+ * host's lists, as `FormBuilder` takes them), the path checks try their
+ * sample options, and a question taking its options from a list the host
+ * doesn't offer is a warning.
  */
-export function analyze(def: FormDefinition, opts: { maxStates?: number; parsed?: ParseResult } = {}): Analysis {
+export function analyze(
+  def: FormDefinition,
+  opts: { maxStates?: number; parsed?: ParseResult; hostOptions?: readonly HostOptionList[] | undefined } = {},
+): Analysis {
   const parsed = opts.parsed ?? parseForm(def);
   const findings: Finding[] = [];
   if (!parsed.ok) {
@@ -178,12 +187,21 @@ export function analyze(def: FormDefinition, opts: { maxStates?: number; parsed?
         ref: { kind: "block", id: b.id },
       });
     }
+    const from = optionsSource(b);
+    if (from && !opts.hostOptions?.some((l) => l.key === from.key)) {
+      findings.push({
+        level: "warning",
+        message: `"${b.label || b.key}" takes its options from the app's list "${from.key}", which this app doesn't offer, so it shows only its own options.`,
+        ref: { kind: "block", id: b.id },
+      });
+    }
   });
   for (const e of def.endings ?? []) {
     if (!e.title.trim()) findings.push({ level: "warning", message: `The ending "${e.id}" has no title.`, ref: { kind: "ending", id: e.id } });
   }
 
-  const report = cachedCoverage(def, opts.maxStates ?? 2000);
+  // Questions with options from the app are explored with the host's sample options.
+  const report = cachedCoverage(withHostOptions(def, sampleHostOptions(opts.hostOptions)), opts.maxStates ?? 2000);
   if (report.truncated) {
     findings.push({
       level: "info",

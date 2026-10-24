@@ -10,6 +10,8 @@ import {
   dateLimits,
   getFieldType,
   numberLimits,
+  otherOption,
+  OTHER_MAX_LENGTH,
   ratingDisplay,
   scaleLabels,
   type Json,
@@ -19,6 +21,7 @@ import { useFormPresentation } from "./presentation";
 import { describedBy, FieldChrome } from "./chrome";
 import { calculatedRenderers } from "./calculated";
 import { structuredRenderers } from "./structured";
+import { photoRenderers } from "./photo";
 
 export { describedBy, FieldChrome, type FieldChromeProps } from "./chrome";
 
@@ -387,6 +390,8 @@ function useChoiceLook(inputId: string, count: number): ChoiceLook {
     onKeyDown: pageFocus
       ? (e) => {
           if (e.altKey || e.ctrlKey || e.metaKey || e.key.length !== 1) return;
+          // Typing an "Other" answer: letters are text, not shortcuts.
+          if ((e.target as HTMLElement).tagName === "INPUT") return;
           const index = KEYS.indexOf(e.key.toUpperCase());
           if (index < 0 || index >= count) return;
           const option = document.getElementById(`${inputId}-${index}`);
@@ -426,11 +431,72 @@ function ChoiceContent({ look, index, label }: { look: ChoiceLook; index: number
   );
 }
 
+/** The radio and select value of an "Other" option while it is picked: never stored. */
+const OTHER_VALUE = "\u0000other";
+
+/** The text box of an "Other" option: what the respondent types is the answer. */
+function OtherText({
+  id,
+  label,
+  value,
+  onChange,
+  invalid,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (text: string) => void;
+  invalid: boolean;
+}) {
+  const line = useLineClass();
+  return (
+    <Input
+      id={id}
+      value={value}
+      maxLength={OTHER_MAX_LENGTH}
+      aria-label={`${label}: your answer`}
+      aria-invalid={invalid || undefined}
+      placeholder="Type your answer"
+      onChange={(e) => onChange(e.target.value)}
+      className={cn("mt-2", line)}
+    />
+  );
+}
+
+/** Puts the cursor in the "Other" box once it is shown. */
+const focusSoon = (id: string) =>
+  requestAnimationFrame(() => (document.getElementById(id) as HTMLInputElement | null)?.focus());
+
+/**
+ * A question's typed "Other" answer, kept while the respondent switches between options, so
+ * picking "Other" again brings back what they wrote. `typed` is the stored answer's text.
+ */
+function useOtherText(typed: string) {
+  const [on, setOn] = useState(typed !== "");
+  const [text, setText] = useState(typed);
+  return { on, setOn, text, setText };
+}
+
 function SingleChoiceField(props: FieldRendererProps) {
   const { binding, inputId, onAdvance } = props;
   const pick = useDeliberatePick(onAdvance);
   const options = choiceOptions(binding.field);
-  const look = useChoiceLook(inputId, options.length);
+  const other = otherOption(binding.field);
+  const current = typeof binding.value === "string" ? binding.value : "";
+  const typed = other && current && !options.some((o) => o.value === current) ? current : "";
+  const otherText = useOtherText(typed);
+  const look = useChoiceLook(inputId, options.length + (other ? 1 : 0));
+  const textId = `${inputId}-other-text`;
+  const choose = (v: string) => {
+    if (v !== OTHER_VALUE) {
+      otherText.setOn(false);
+      binding.setValue(v);
+      return;
+    }
+    otherText.setOn(true);
+    binding.setValue(otherText.text.trim() ? otherText.text : undefined);
+    focusSoon(textId);
+  };
   return (
     <FieldChrome props={props}>
       <RadioGroup
@@ -438,8 +504,8 @@ function SingleChoiceField(props: FieldRendererProps) {
         {...pick.rootProps}
         onKeyDown={look.onKeyDown}
         className={look.pageFocus ? "gap-2.5" : undefined}
-        value={typeof binding.value === "string" ? binding.value : ""}
-        onValueChange={(v) => binding.setValue(v)}
+        value={otherText.on ? OTHER_VALUE : current}
+        onValueChange={choose}
       >
         {options.map((o, i) => (
           <Label key={o.value} htmlFor={`${inputId}-${i}`} className={look.row}>
@@ -452,7 +518,26 @@ function SingleChoiceField(props: FieldRendererProps) {
             <ChoiceContent look={look} index={i} label={o.label ?? o.value} />
           </Label>
         ))}
+        {other ? (
+          // No auto-advance: the respondent still has to type.
+          <Label htmlFor={`${inputId}-${options.length}`} className={look.row}>
+            <RadioGroupItem id={`${inputId}-${options.length}`} value={OTHER_VALUE} className={look.control} />
+            <ChoiceContent look={look} index={options.length} label={other.label} />
+          </Label>
+        ) : null}
       </RadioGroup>
+      {other && otherText.on ? (
+        <OtherText
+          id={textId}
+          label={other.label}
+          value={otherText.text}
+          invalid={!!binding.error}
+          onChange={(text) => {
+            otherText.setText(text);
+            binding.setValue(text.trim() ? text : undefined);
+          }}
+        />
+      ) : null}
     </FieldChrome>
   );
 }
@@ -461,11 +546,19 @@ function MultiChoiceField(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const selected = Array.isArray(binding.value) ? (binding.value as string[]) : [];
   const options = choiceOptions(binding.field);
-  const look = useChoiceLook(inputId, options.length);
-  const toggle = (value: string, on: boolean) => {
-    const next = on ? [...selected, value] : selected.filter((v) => v !== value);
+  const other = otherOption(binding.field);
+  const known = new Set(options.map((o) => o.value));
+  const chosen = selected.filter((v) => known.has(v));
+  const otherText = useOtherText(other ? (selected.find((v) => !known.has(v)) ?? "") : "");
+  const look = useChoiceLook(inputId, options.length + (other ? 1 : 0));
+  const textId = `${inputId}-other-text`;
+  // The picked options, then the typed "Other" answer while it is ticked and not blank.
+  const commit = (picked: string[], otherOn: boolean, text: string) => {
+    const next = otherOn && text.trim() ? [...picked, text] : picked;
     binding.setValue(next.length ? (next as Json) : undefined);
   };
+  const toggle = (value: string, on: boolean) =>
+    commit(on ? [...chosen, value] : chosen.filter((v) => v !== value), otherText.on, otherText.text);
   // The fieldset from FieldChrome is the group: it is named by the legend and
   // carries the description and error, so the list needs no wrapper role.
   return (
@@ -484,6 +577,34 @@ function MultiChoiceField(props: FieldRendererProps) {
             <ChoiceContent look={look} index={i} label={o.label ?? o.value} />
           </Label>
         ))}
+        {other ? (
+          <Label htmlFor={`${inputId}-${options.length}`} className={look.row}>
+            <Checkbox
+              id={`${inputId}-${options.length}`}
+              checked={otherText.on}
+              aria-invalid={binding.error ? true : undefined}
+              onCheckedChange={(c) => {
+                otherText.setOn(c === true);
+                commit(chosen, c === true, otherText.text);
+                if (c === true) focusSoon(textId);
+              }}
+              className={look.control}
+            />
+            <ChoiceContent look={look} index={options.length} label={other.label} />
+          </Label>
+        ) : null}
+        {other && otherText.on ? (
+          <OtherText
+            id={textId}
+            label={other.label}
+            value={otherText.text}
+            invalid={!!binding.error}
+            onChange={(text) => {
+              otherText.setText(text);
+              commit(chosen, true, text);
+            }}
+          />
+        ) : null}
       </div>
     </FieldChrome>
   );
@@ -517,14 +638,26 @@ function controlAria(props: FieldRendererProps) {
 function DropdownField(props: FieldRendererProps) {
   const { binding } = props;
   const options = choiceOptions(binding.field);
+  const other = otherOption(binding.field);
   const line = useLineClass();
-  const value = typeof binding.value === "string" ? binding.value : "";
+  const current = typeof binding.value === "string" ? binding.value : "";
+  const typed = other && current && !options.some((o) => o.value === current) ? current : "";
+  const otherText = useOtherText(typed);
+  const value = otherText.on ? OTHER_VALUE : current;
+  const textId = `${props.inputId}-other-text`;
   return (
     <FieldChrome props={props}>
       <select
         {...controlAria(props)}
         value={value}
-        onChange={(e) => binding.setValue(e.target.value === "" ? undefined : e.target.value)}
+        onChange={(e) => {
+          const v = e.target.value;
+          otherText.setOn(v === OTHER_VALUE);
+          if (v === OTHER_VALUE) {
+            binding.setValue(otherText.text.trim() ? otherText.text : undefined);
+            focusSoon(textId);
+          } else binding.setValue(v === "" ? undefined : v);
+        }}
         className={cn(
           "flex h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm aria-invalid:border-destructive",
           value === "" && "text-muted-foreground",
@@ -537,7 +670,20 @@ function DropdownField(props: FieldRendererProps) {
             {o.label ?? o.value}
           </option>
         ))}
+        {other ? <option value={OTHER_VALUE}>{other.label}</option> : null}
       </select>
+      {other && otherText.on ? (
+        <OtherText
+          id={textId}
+          label={other.label}
+          value={otherText.text}
+          invalid={!!binding.error}
+          onChange={(text) => {
+            otherText.setText(text);
+            binding.setValue(text.trim() ? text : undefined);
+          }}
+        />
+      ) : null}
     </FieldChrome>
   );
 }
@@ -649,6 +795,7 @@ export const builtInRenderers: RendererEntry[] = [
   { type: "consent", Component: ConsentField },
   ...structuredRenderers,
   ...calculatedRenderers,
+  ...photoRenderers,
 ];
 
 /**
