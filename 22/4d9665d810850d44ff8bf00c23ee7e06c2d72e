@@ -1,0 +1,41 @@
+docs/component-reference.md
+  s_8252619ce79a86::t_b53a200549a492 190
+packages/design-system/src/presets/brand-genesis.ts
+  s_8252619ce79a86::t_f393ad5207ecca 4,14-15
+packages/design-system/src/tokens/theme-css.ts
+  s_8252619ce79a86::t_f393ad5207ecca 123-124
+packages/genesis-cli/test/fixtures/doctor/_genesis/design-system/genesis.css
+  s_8252619ce79a86::t_f393ad5207ecca 3
+apps/sample-native/app/tokens/motion.tsx
+  s_8252619ce79a86::t_b823c58a9bb78a 95
+packages/design-system/src/providers/native.ts
+  s_8252619ce79a86::t_f393ad5207ecca 87,90-95,175,180,193,198,217
+packages/design-system/src/tokens/roles.ts
+  s_8252619ce79a86::t_f393ad5207ecca 81,129
+packages/design-system/src/presets/__tests__/brand-genesis-drift.test.ts
+  s_8252619ce79a86::t_f393ad5207ecca 179
+packages/design-system/package.json
+  s_8252619ce79a86::t_b53a200549a492 72
+packages/design-system/src/tokens/__tests__/roles.test.ts
+  s_8252619ce79a86::t_b823c58a9bb78a 63-73
+packages/design-system/src/providers/__tests__/native-provider.test.tsx
+  s_8252619ce79a86::t_b6f1b4264ccf4f 1-37
+pnpm-lock.yaml
+  s_8252619ce79a86::t_cc7e9062a98cd8 446-448
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "224d9665d810850d44ff8bf00c23ee7e06c2d72e",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
