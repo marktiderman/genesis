@@ -625,10 +625,11 @@ export const features = defineFeatures({
     audience: ["developer"],
     visibility: "internal",
     acceptance: [
-      "completeOAuthRedirect exchanges a redirect's code for a session, and returns the provider's error without a request when the redirect carries one.",
-      "signInWithApple sends Apple the SHA-256 of the nonce and Supabase the raw nonce, returns the shared full name, and returns { canceled: true } when the person closes Apple's sheet.",
-      "appleProvider adds Apple's own button to AuthScreen in one line on iOS and is skipped elsewhere, and the missing-Apple warning still fires on iOS without it.",
-      "delete_my_account deletes only the caller's login, refuses a call with no signed-in person, and cannot be executed by anon or public; deleteMyAccount then signs the device out.",
+      "completeOAuthRedirect exchanges a redirect's code (with its sb_flow_id) for a session and its redirectType, and returns the provider's error as fixed copy, its own text only as the untrusted providerMessage, without a request.",
+      "signInWithApple sends Apple the SHA-256 of the nonce and Supabase the raw nonce, returns the shared full name and Apple's authorizationCode, and returns { canceled: true } when the person closes Apple's sheet.",
+      "appleProvider adds Apple's own button to AuthScreen in one line on iOS and is skipped elsewhere, ignores a second tap while a sign-in is open, and the missing-Apple warning still fires on iOS without it.",
+      "delete_my_account deletes only the caller's login, refuses no signed-in person, an aal1 session with a verified MFA factor, a refusing app hook (GA001) and a row without on delete cascade (23503), and cannot be executed by anon or public; deleteMyAccount then signs the device out.",
+      "Still beta: revoking Sign in with Apple tokens on deletion (Apple's /auth/revoke, a server step) is documented but not shipped.",
     ],
     reviewedAt,
     links: {

@@ -15,7 +15,7 @@
  *
  * @stability Beta
  */
-import type { ComponentType } from "react";
+import { useRef, useState, type ComponentType } from "react";
 import { Platform, View } from "react-native";
 import { useThemeMode } from "../hooks/use-theme-mode";
 import type { SocialAuthProvider } from "./auth";
@@ -29,6 +29,7 @@ export interface AppleButtonModuleLike {
     onPress: () => void;
     style?: unknown;
     testID?: string;
+    accessibilityState?: { disabled?: boolean; busy?: boolean };
   }>;
   AppleAuthenticationButtonType: { SIGN_IN: number; CONTINUE: number; SIGN_UP: number };
   AppleAuthenticationButtonStyle: { BLACK: number; WHITE: number; WHITE_OUTLINE: number };
@@ -45,8 +46,9 @@ export interface AppleSignInButtonProps {
   appearance?: "auto" | "black" | "white" | "white-outline";
   /** Default 10, to sit with Genesis buttons. */
   cornerRadius?: number;
-  /** Default 44, Apple's minimum. */
+  /** Default 44, the recommended touch target (Apple's HIG minimum for this button is 30pt). */
   height?: number;
+  /** Dims the button and ignores presses. It is also ignored on its own while an `onPress` promise is pending, so a second tap can't open a second sheet. */
   disabled?: boolean;
   testID?: string;
 }
@@ -63,26 +65,37 @@ export function AppleSignInButton({
   testID = "apple-sign-in",
 }: AppleSignInButtonProps) {
   const mode = useThemeMode();
+  // A ref, not only state: two taps in the same frame both see the old state.
+  const pending = useRef(false);
+  const [busy, setBusy] = useState(false);
   if (Platform.OS !== "ios") return null;
+  const press = async () => {
+    if (disabled || pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    try {
+      await onPress();
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  };
+  const inactive = !!disabled || busy;
   const { AppleAuthenticationButton, AppleAuthenticationButtonType: Type, AppleAuthenticationButtonStyle: Style } = apple;
   const buttonType = type === "sign-in" ? Type.SIGN_IN : type === "sign-up" ? Type.SIGN_UP : Type.CONTINUE;
   const resolved = appearance === "auto" ? (mode === "dark" ? "white" : "black") : appearance;
   const buttonStyle = resolved === "white" ? Style.WHITE : resolved === "white-outline" ? Style.WHITE_OUTLINE : Style.BLACK;
   return (
-    <View
-      testID={`${testID}-container`}
-      pointerEvents={disabled ? "none" : "auto"}
-      style={disabled ? { opacity: 0.5 } : undefined}
-      accessibilityState={{ disabled: !!disabled }}
-    >
+    <View testID={`${testID}-container`} pointerEvents={inactive ? "none" : "auto"} style={disabled ? { opacity: 0.5 } : undefined}>
       <AppleAuthenticationButton
         testID={testID}
         buttonType={buttonType}
         buttonStyle={buttonStyle}
         cornerRadius={cornerRadius}
         style={{ width: "100%", height }}
+        accessibilityState={{ disabled: inactive, busy }}
         onPress={() => {
-          if (!disabled) void onPress();
+          void press();
         }}
       />
     </View>
@@ -92,9 +105,16 @@ export function AppleSignInButton({
 export interface AppleProviderOptions extends Omit<AppleSignInButtonProps, "apple" | "testID"> {
   /** `expo-apple-authentication`, or `undefined` where it isn't installed. */
   apple: AppleButtonModuleLike | null | undefined;
-  /** Read by screen readers and the dev warning. Default "Continue with Apple" (Apple's button draws its own text). */
+  /**
+   * The provider's `label`, used only by `AuthScreen`'s dev warning and a
+   * custom `social` slot. Apple's button draws and announces its own localized
+   * text. Default follows `type`: "Continue with Apple", "Sign in with Apple"
+   * or "Sign up with Apple".
+   */
   label?: string;
 }
+
+const APPLE_LABELS = { continue: "Continue with Apple", "sign-in": "Sign in with Apple", "sign-up": "Sign up with Apple" } as const;
 
 /**
  * A `SocialAuthProvider` (id `"apple"`) that draws Apple's button, for
@@ -102,11 +122,11 @@ export interface AppleProviderOptions extends Omit<AppleSignInButtonProps, "appl
  *
  * @stability Beta
  */
-export function appleProvider({ apple, label = "Continue with Apple", ...button }: AppleProviderOptions): SocialAuthProvider | null {
+export function appleProvider({ apple, label, ...button }: AppleProviderOptions): SocialAuthProvider | null {
   if (Platform.OS !== "ios" || !apple) return null;
   return {
     id: "apple",
-    label,
+    label: label ?? APPLE_LABELS[button.type ?? "continue"],
     onPress: button.onPress,
     disabled: button.disabled,
     render: ({ testID, disabled }) => <AppleSignInButton apple={apple} {...button} disabled={disabled} testID={testID} />,

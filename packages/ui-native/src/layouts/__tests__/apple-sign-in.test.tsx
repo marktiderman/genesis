@@ -1,5 +1,5 @@
 // @feat:account
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Platform } from "react-native";
 import { AuthScreen } from "../auth-screen";
@@ -8,10 +8,10 @@ import { appleProvider, AppleSignInButton, type AppleButtonModuleLike } from "..
 function fakeApple() {
   const seen: Array<{ buttonType: number; buttonStyle: number }> = [];
   const apple: AppleButtonModuleLike = {
-    AppleAuthenticationButton: ({ buttonType, buttonStyle, onPress, testID }) => {
+    AppleAuthenticationButton: ({ buttonType, buttonStyle, onPress, testID, accessibilityState }) => {
       seen.push({ buttonType, buttonStyle });
       return (
-        <button type="button" data-testid={testID} onClick={onPress}>
+        <button type="button" data-testid={testID} aria-disabled={accessibilityState?.disabled ? "true" : "false"} onClick={onPress}>
           apple-native-button
         </button>
       );
@@ -73,5 +73,25 @@ describe("AppleSignInButton", () => {
     expect(seen[0]).toEqual({ buttonType: 2, buttonStyle: 1 });
     fireEvent.click(screen.getByTestId("apple-sign-in"));
     expect(onPress).not.toHaveBeenCalled();
+    expect(screen.getByTestId("apple-sign-in").getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("ignores a second tap while the first sign-in is still open", async () => {
+    const { apple } = fakeApple();
+    let finish!: () => void;
+    const onPress = vi.fn(() => new Promise<void>((r) => (finish = r)));
+    render(<AppleSignInButton apple={apple} onPress={onPress} />);
+    const button = screen.getByTestId("apple-sign-in");
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(onPress).toHaveBeenCalledTimes(1);
+    await act(async () => finish());
+    fireEvent.click(button);
+    expect(onPress).toHaveBeenCalledTimes(2);
+  });
+
+  it("labels the provider to match Apple's wording", () => {
+    const { apple } = fakeApple();
+    expect(appleProvider({ apple, onPress: () => {}, type: "sign-in" })?.label).toBe("Sign in with Apple");
   });
 });

@@ -272,14 +272,14 @@
               "type": "boolean",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "Dims the button and ignores presses. It is also ignored on its own while an `onPress` promise is pending, so a second tap can't open a second sheet."
             },
             {
               "name": "height",
               "type": "number",
               "required": false,
               "defaultValue": "44",
-              "description": "Default 44, Apple's minimum."
+              "description": "Default 44, the recommended touch target (Apple's HIG minimum for this button is 30pt)."
             },
             {
               "name": "testID",
@@ -334,21 +334,21 @@
               "type": "boolean",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "Dims the button and ignores presses. It is also ignored on its own while an `onPress` promise is pending, so a second tap can't open a second sheet."
             },
             {
               "name": "height",
               "type": "number",
               "required": false,
               "defaultValue": null,
-              "description": "Default 44, Apple's minimum."
+              "description": "Default 44, the recommended touch target (Apple's HIG minimum for this button is 30pt)."
             },
             {
               "name": "label",
               "type": "string",
               "required": false,
-              "defaultValue": "Continue with Apple",
-              "description": "Read by screen readers and the dev warning. Default \"Continue with Apple\" (Apple's button draws its own text)."
+              "defaultValue": null,
+              "description": "The provider's `label`, used only by `AuthScreen`'s dev warning and a\ncustom `social` slot. Apple's button draws and announces its own localized\ntext. Default follows `type`: \"Continue with Apple\", \"Sign in with Apple\"\nor \"Sign up with Apple\"."
             },
             {
               "name": "type",

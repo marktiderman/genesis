@@ -29,9 +29,10 @@ Nothing here imports React Native or Expo: you pass those modules in.
 
 ## Account: sign-in and deletion
 
-What the App Store asks of an app with accounts, in a few lines: Sign in with Apple beside any
-other third-party sign-in (Guideline 4.8), Apple's own button, and deleting the account from
-inside the app (5.1.1(v)).
+What the App Store asks of an app with accounts: an equivalent privacy-preserving login beside any
+other third-party sign-in (Guideline 4.8; Sign in with Apple satisfies it), Apple's own button, and
+deleting the account from inside the app (5.1.1(v)), including revoking the person's Apple tokens.
+Everything below is covered except that last server step; see [Not covered yet](#not-covered-yet).
 
 ### Sign in with Apple
 
@@ -48,14 +49,18 @@ async function onApple() {
   if (result.error) return showError(result.error.message); // result.error.code says why
   // Apple shares the name on the first sign-in only, so save it now.
   if (result.fullName) await supabase.auth.updateUser({ data: { full_name: result.fullName } });
+  // For revoking on deletion: hand the single-use code to your server now (see below).
+  if (result.authorizationCode) await supabase.functions.invoke("apple-store-token", { body: { code: result.authorizationCode } });
 }
 ```
 
 - **`signInWithApple(client, AppleAuthentication, { digest, randomNonce? })`**: checks
-  `isAvailableAsync()`, asks for name and email with the SHA-256 of a fresh nonce, and signs in
-  with `signInWithIdToken({ provider: "apple", token, nonce })` (Supabase gets the raw nonce and
-  checks the token against it). Returns `{ session, user, fullName, email }`, `{ canceled: true }`
-  or `{ error }` (a `GenesisAuthError` with a `code`); it never throws.
+  `isAvailableAsync()`, asks for name and email with the SHA-256 (lowercase hex; anything else is
+  `bad_digest`) of a fresh nonce, and signs in with `signInWithIdToken({ provider: "apple", token, nonce })`
+  (Supabase gets the raw nonce and checks the token against it). Returns
+  `{ session, user, fullName, email, authorizationCode }`, `{ canceled: true }` or `{ error }` (a
+  `GenesisAuthError` with a `code`, plus `fullName` when Apple shared one, so a retry can still
+  save it); it never throws.
 - Draw it with `appleProvider({ apple: AppleAuthentication, onPress: onApple })` from
   `@marktiderman/genesis-ui-native` in `AuthScreen`'s `providers`: Apple's own button on iOS,
   nothing elsewhere.
@@ -73,14 +78,32 @@ const redirectTo = "myapp://auth/callback";
 const { data } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo, skipBrowserRedirect: true } });
 const res = await WebBrowser.openAuthSessionAsync(data.url!, redirectTo);
 if (res.type === "success") {
-  const { session, error } = await completeOAuthRedirect(supabase, res.url);
+  const result = await completeOAuthRedirect(supabase, res.url);
+  if (result.error) showError(result.error.message); // never result.error.providerMessage
+  else if (result.redirectType === "recovery") router.push("/set-password");
 }
 ```
 
 - **`completeOAuthRedirect(client, url)`**: reads the redirect's query and fragment. A `code` is
-  exchanged with `exchangeCodeForSession` (PKCE; the verifier is already in the client's storage);
-  an `error`/`error_description` comes back as `{ error }` with no request. Returns `{ session }`
-  or `{ error }`; it never throws. A deep link that opens the app cold goes through the same call.
+  exchanged with `exchangeCodeForSession`, with the redirect's `sb_flow_id` when it has one so the
+  right flow's verifier is used. An `error` comes back as `{ error }` with no request. Returns
+  `{ session, redirectType }` (`"recovery"` after a password-reset link) or `{ error }`; it never throws.
+- **Pass only the URL `openAuthSessionAsync` resolved with**, for the sign-in the app just started.
+  A code is single-use and the exchange spends the stored verifier whatever happens, so feeding it a
+  stray `?code=` from some other link burns the sign-in in progress.
+- **Handle each redirect once.** If the app also listens with `Linking.addEventListener("url", …)`,
+  the same redirect arrives twice and the second exchange fails just after the first signed them
+  in. Pick one path (the auth-session result), or remember the last code you handled and skip it.
+- **The error text is fixed copy.** `error.message` is chosen from the `code`; the redirect's own
+  `error_description` is only on `error.providerMessage`, which is **untrusted**: any web page or
+  app can open your callback link with any text in it. Log it, don't show it.
+- **Native needs `flowType: "pkce"`**, which `createGenesisSupabase` sets. With the implicit flow
+  the redirect carries tokens instead of a code, and this returns `missing_code`.
+- **Redirect URLs:** add the exact deep link (`myapp://auth/callback`) to Supabase Auth's Redirect
+  URLs, not a wildcard such as `myapp://**`.
+- **Why the deep link is safe:** another app can claim your custom scheme, and any page can open
+  it. That's harmless because of PKCE: a code is useless without the verifier, which never leaves
+  this device. The implicit flow would hand tokens to whoever owns the scheme.
 
 ### Deleting the account
 
@@ -89,13 +112,36 @@ The database half is a migration this package ships:
 (also at `node_modules/@marktiderman/genesis-supabase/migrations/`). Copy it into your app's
 `supabase/migrations/` under a new timestamped name. It defines `public.delete_my_account()`, a
 `security definer` function with `search_path = ''` that deletes the caller's `auth.users` row,
-executable by `authenticated` only (granted and revoked by name). Its pgTAP test is
-`migrations/tests/0001_genesis_account_deletion.test.sql`: copy it to `supabase/tests/database/`
-and run `supabase test db`.
+executable by `authenticated` only (granted and revoked by name; a later blanket
+`grant … on all functions` would hand it back to `anon`, so such a grant must exclude it). Its pgTAP
+test is `migrations/tests/0001_genesis_account_deletion.test.sql`: copy it to
+`supabase/tests/database/` and run `supabase test db`.
 
-Deleting the login removes the rows whose foreign keys to `auth.users(id)` are `on delete cascade`,
-and is refused (`23503`) while any other row still points at it, so check each such key. Files in
-Storage aren't tied by a foreign key; remove them first.
+It refuses, by error code (`SupabaseQueryError.code` on the client):
+
+| Code | When |
+|---|---|
+| `42501` | Nobody is signed in, or the person has a verified MFA factor and the session isn't `aal2`: verify the second factor, then retry. |
+| `GA001` | The app's hook refused (below). |
+| `GA002` | The app requires a recent sign-in and this one isn't: sign in again, then retry. |
+| `23503` | A row still references the login: a foreign key without `on delete cascade`, or files in Storage. |
+
+- **Your data:** deleting the login removes the rows whose foreign keys to `auth.users(id)` are
+  `on delete cascade`, and is refused (`23503`) while any other row still points at it, so the
+  person never ends up half-deleted. Give every user-owned table such a foreign key: a table keyed
+  on `auth.uid()` without one keeps orphans.
+- **Storage:** Supabase documents that a user who owns objects in Storage can't be deleted, so the
+  call fails (`23503`) while they have files. Remove their files through the Storage API first.
+  (Documented by Supabase; not verified against a full stack in this package's tests.)
+- **The app hook:** create `private.genesis_before_account_delete(uuid)` and it runs first, in the
+  same transaction, with the person's id, to scrub data, set flags, or refuse (e.g. the sole owner
+  of a team). Any error it raises cancels the delete and reaches the client as `GA001` (or as the
+  hook's own code when that starts with `GA`). The migration's header has an example.
+- **Recent sign-in (optional):** call `perform private.genesis_require_recent_sign_in(interval '10 minutes')`
+  from the hook to require that the person authenticated within that time (`GA002` otherwise). It
+  reads the newest `amr` timestamp in the JWT, which records the actual sign-in and survives a token
+  refresh, and falls back to `iat`. On `GA002`, have them sign in again (or `reauthenticate()`),
+  then retry.
 
 ```ts
 import { Alert } from "react-native";
@@ -121,5 +167,20 @@ import { deleteMyAccount } from "@marktiderman/genesis-supabase";
   device out (`scope: "local"`; the login's refresh tokens went with it). A refusal throws a
   `SupabaseQueryError` and keeps the session. An access token already issued stays valid until it
   expires.
+
+### Not covered yet
+
+- **Revoking Sign in with Apple tokens on deletion.** Apple requires an app that offers Sign in
+  with Apple to revoke the person's tokens through its REST API when they delete their account, and
+  App Review rejects apps that don't. Supabase doesn't do it, and the native id-token sign-in never
+  gives Supabase an Apple refresh token, so it takes a server step this package doesn't ship yet:
+  1. At sign-in, the app sends `result.authorizationCode` to an Edge Function. It is single-use and
+     valid for about five minutes.
+  2. The function exchanges it at `https://appleid.apple.com/auth/token`
+     (`grant_type=authorization_code`, with your client id and a client secret JWT signed with your
+     Sign in with Apple key) and stores the returned `refresh_token` against the user, somewhere
+     only the service role reads.
+  3. Before deletion, a function calls `https://appleid.apple.com/auth/revoke` with that refresh
+     token (`token_type_hint=refresh_token`), then calls `delete_my_account` (or the app does).
 
 Part of the [Genesis framework](https://github.com/marktiderman/genesis).

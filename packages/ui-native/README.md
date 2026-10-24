@@ -32,8 +32,12 @@ import { AuthScreen, appleProvider } from "@marktiderman/genesis-ui-native/layou
   provider with id `"apple"`, or `null` off iOS or when `apple` is undefined. `AuthScreen` skips
   `null` entries, so the same list works on every platform. `type` is Apple's wording
   (`"continue"` by default, `"sign-in"`, `"sign-up"`); `appearance` `"auto"` is black in light mode
-  and white in dark.
-- **`AppleSignInButton`**: the same button on its own, for a screen you compose yourself.
+  and white in dark. `label` follows `type` and is used only by the dev warning and a custom
+  `social` slot: Apple's button draws and announces its own localized text. `height` defaults to
+  44, the recommended touch target (the HIG minimum for this button is 30pt).
+- **`AppleSignInButton`**: the same button on its own, for a screen you compose yourself. While an
+  `onPress` promise is pending it ignores further taps (so a double tap can't open a second sheet)
+  and reports itself busy and disabled to accessibility; `disabled` does the same and dims it.
 - **`SocialAuthProvider.render`**: any provider can draw its own button this way.
 - `onPress` is usually `signInWithApple` from `@marktiderman/genesis-supabase/native`, which
   returns the full name Apple shares on the first sign-in only; save it with
