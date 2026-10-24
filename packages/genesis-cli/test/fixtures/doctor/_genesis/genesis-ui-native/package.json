@@ -1,0 +1,9 @@
+{
+  "name": "@marktiderman/genesis-ui-native",
+  "version": "8.8.8",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./layouts": { "types": "./dist/layouts/index.d.ts", "import": "./dist/layouts/index.js" }
+  }
+}

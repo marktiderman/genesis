@@ -234,6 +234,11 @@ PRD-07 Phase D-VR ships the visual regression infrastructure that catches silent
 
 ### Native — Maestro screenshot diff
 
+> **2026-10-24:** `apps/sample-native` became the native starter (`apps/genesis-rn-starter`), and
+> the component showcase screens and screenshot flows listed below were removed with it (they are
+> in git history). The starter keeps one Maestro smoke flow; see
+> `apps/genesis-rn-starter/.maestro/README.md`. The paths below are kept as the record.
+
 - Flows: `apps/sample-native/.maestro/flows/screenshot-{light,dark,reduced-motion}.yaml`.
 - Showcase screens: `apps/sample-native/app/components-showcase/*` (deep-link only).
 - Workflow: `.github/workflows/visual-regression.yml` (iOS + Android).

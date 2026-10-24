@@ -12,6 +12,7 @@ export interface NativeTextareaProps extends TextInputProps {
   inputClassName?: string;
   label?: string;
   error?: string;
+  /** How many lines tall the field is, on both platforms (passed as `numberOfLines`). Default 4. */
   rows?: number;
 }
 

@@ -106,6 +106,13 @@ const PACKAGES = [
     description: "React Native components (NativeWind v4-5). Use in Expo / RN surfaces.",
   },
   {
+    name: "@marktiderman/genesis-native",
+    dir: "packages/native",
+    barrel: "packages/native/src/index.ts",
+    description:
+      "The native app shell: `GenesisNativeApp` (boot behind the splash, fatal screen, persisted query client, auth gate, held deep links; each part a slot and exported on its own). See packages/native/README.md.",
+  },
+  {
     name: "@marktiderman/genesis-switchboard",
     dir: "packages/data-switchboard",
     barrel: "packages/data-switchboard/src/index.ts",

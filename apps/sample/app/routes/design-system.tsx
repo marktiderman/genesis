@@ -248,29 +248,29 @@ export default function DesignSystem() {
           <div>
             <p className="text-sm text-muted-foreground mb-2">Variants</p>
             <div className="flex flex-wrap gap-2">
-              <Button variant="default">Default</Button>
-              <Button variant="secondary">Secondary</Button>
-              <Button variant="outline">Outline</Button>
-              <Button variant="ghost">Ghost</Button>
-              <Button variant="destructive">Destructive</Button>
-              <Button variant="link">Link</Button>
+              <Button variant="default" testID="ds-button-default">Default</Button>
+              <Button variant="secondary" testID="ds-button-secondary">Secondary</Button>
+              <Button variant="outline" testID="ds-button-outline">Outline</Button>
+              <Button variant="ghost" testID="ds-button-ghost">Ghost</Button>
+              <Button variant="destructive" testID="ds-button-destructive">Destructive</Button>
+              <Button variant="link" testID="ds-button-link">Link</Button>
             </div>
           </div>
           <div>
             <p className="text-sm text-muted-foreground mb-2">Sizes</p>
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm">Small</Button>
-              <Button size="default">Default</Button>
-              <Button size="lg">Large</Button>
-              <Button size="icon"><Plus className="h-4 w-4" /></Button>
+              <Button size="sm" testID="ds-button-size-sm">Small</Button>
+              <Button size="default" testID="ds-button-size-default">Default</Button>
+              <Button size="lg" testID="ds-button-size-lg">Large</Button>
+              <Button size="icon" testID="ds-button-size-icon"><Plus className="h-4 w-4" /></Button>
             </div>
           </div>
           <div>
             <p className="text-sm text-muted-foreground mb-2">With icons</p>
             <div className="flex flex-wrap gap-2">
-              <Button><Plus className="h-4 w-4" /> Create Item</Button>
-              <Button variant="destructive"><Trash2 className="h-4 w-4" /> Delete</Button>
-              <Button variant="outline" disabled>Disabled</Button>
+              <Button testID="ds-button-icon-create"><Plus className="h-4 w-4" /> Create Item</Button>
+              <Button variant="destructive" testID="ds-button-icon-delete"><Trash2 className="h-4 w-4" /> Delete</Button>
+              <Button variant="outline" disabled testID="ds-button-disabled">Disabled</Button>
             </div>
           </div>
         </div>
@@ -308,8 +308,8 @@ export default function DesignSystem() {
               <p className="text-sm">This is the card content area. It can contain any elements.</p>
             </CardContent>
             <CardFooter className="gap-2">
-              <Button size="sm">Save</Button>
-              <Button size="sm" variant="outline">Cancel</Button>
+              <Button size="sm" testID="ds-card-save">Save</Button>
+              <Button size="sm" variant="outline" testID="ds-card-cancel">Cancel</Button>
             </CardFooter>
           </Card>
           <Card className="bg-muted/30">
@@ -377,7 +377,7 @@ export default function DesignSystem() {
       <Section id="dialog" title="8. Dialog">
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="outline">Open Dialog</Button>
+            <Button variant="outline" testID="ds-dialog-open">Open Dialog</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -389,8 +389,8 @@ export default function DesignSystem() {
               <Input placeholder="Email" defaultValue="mark@example.com" />
             </div>
             <DialogFooter>
-              <Button variant="outline">Cancel</Button>
-              <Button>Save Changes</Button>
+              <Button variant="outline" testID="ds-dialog-cancel">Cancel</Button>
+              <Button testID="ds-dialog-save">Save Changes</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -403,7 +403,7 @@ export default function DesignSystem() {
       <Section id="alert-dialog" title="9. Alert Dialog">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive">Delete Account</Button>
+            <Button variant="destructive" testID="ds-alert-dialog-open">Delete Account</Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>

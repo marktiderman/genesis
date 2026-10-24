@@ -18,7 +18,7 @@ export const genesisColors = {
 /**
  * Genesis OOTB brand — the single source of truth for the full brand palette.
  *
- * Consumers (and Genesis's own `apps/sample` + `apps/sample-native`) import this
+ * Consumers (and Genesis's own `apps/sample` + `apps/genesis-rn-starter`) import this
  * instead of inlining the hex ramp, so the palette lives in exactly one place —
  * the design system — and the token gate stays green on app code (WS-F / audit
  * R1.6: Genesis eats its own design-system lint).

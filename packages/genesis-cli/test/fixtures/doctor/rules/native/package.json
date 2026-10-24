@@ -1,0 +1,12 @@
+{
+  "name": "native-fixture",
+  "private": true,
+  "dependencies": {
+    "@marktiderman/genesis-ui-native": "8.8.8",
+    "expo": "55.0.0",
+    "expo-auth-session": "7.0.0",
+    "expo-camera": "17.0.0",
+    "expo-router": "55.0.0",
+    "react-native": "0.83.2"
+  }
+}

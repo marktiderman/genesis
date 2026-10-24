@@ -11,9 +11,10 @@ import { basename, join } from "node:path";
 // Subpaths mirror exactly what the dashboard needs today (ui/data,
 // ui/utils, ui/status-colors, ui/hooks) plus each package's main entry
 // and design-system's tokens/theme. `/native` re-exports
-// @marktiderman/genesis-ui-native — web bundlers never pull this in
-// unless a consumer explicitly imports it, so react-native stays an
-// optional peer.
+// @marktiderman/genesis-ui-native and `/native-app` re-exports
+// @marktiderman/genesis-native (the app shell) — web bundlers never pull
+// these in unless a consumer explicitly imports them, so react-native stays
+// an optional peer.
 
 // Every entry is a barrel; its .d.ts is emitted as a deterministic shim below.
 const ENTRY = [
@@ -32,6 +33,8 @@ const ENTRY = [
   "src/switchboard-gitdata.ts",
   "src/switchboard-data-provider.ts",
   "src/native.ts",
+  "src/native-app.ts",
+  "src/native-app-persist.ts",
   "src/forms.ts",
   "src/forms-server.ts",
   "src/forms-destinations.ts",

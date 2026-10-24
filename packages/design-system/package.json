@@ -48,11 +48,13 @@
     },
     "./providers/native": {
       "types": "./dist/providers/native.d.ts",
-      "import": "./dist/providers/native.js"
+      "import": "./dist/providers/native.js",
+      "default": "./dist/providers/native.js"
     },
     "./presets/*": {
       "types": "./dist/presets/*.d.ts",
-      "import": "./dist/presets/*.js"
+      "import": "./dist/presets/*.js",
+      "default": "./dist/presets/*.js"
     },
     "./schema/brand": {
       "types": "./dist/schema/brand.d.ts",

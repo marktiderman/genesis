@@ -23,6 +23,8 @@ import { tokens } from "@marktiderman/genesis/design-system/tokens";
 | `.../design-system/theme`    | `@marktiderman/genesis-design-system/theme` |
 | `.../switchboard`            | `@marktiderman/genesis-switchboard`    |
 | `.../native`                 | `@marktiderman/genesis-ui-native`      |
+| `.../native-app`             | `@marktiderman/genesis-native`         |
+| `.../native-app/persist`     | `@marktiderman/genesis-native/persist` |
 | `.../forms`                  | `@marktiderman/genesis-forms`          |
 | `.../forms/server`           | `@marktiderman/genesis-forms/server`   |
 | `.../forms/destinations`     | `@marktiderman/genesis-forms/destinations` |
@@ -30,7 +32,7 @@ import { tokens } from "@marktiderman/genesis/design-system/tokens";
 | `.../forms/web`              | `@marktiderman/genesis-forms-web`      |
 
 Web bundlers never pull in React Native code unless a consumer explicitly
-imports `@marktiderman/genesis/native` — `react-native` is an optional peer
+imports `@marktiderman/genesis/native` or `/native-app` — `react-native` is an optional peer
 dependency. Each granular package remains independently installable as an
 escape hatch for rare subpaths not mirrored here.
 

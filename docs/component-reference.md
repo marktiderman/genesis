@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 130 components · 443 other exports · 282 standalone types across 10 packages and entry points.
+**Totals:** 136 components · 463 other exports · 317 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -688,10 +688,11 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (86)
+### Components (87)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AppleSignInButton`](../packages/ui-native/src/layouts/apple-sign-in.tsx) | `AppleSignInButtonProps` | — | Apple's branded button, full width. Renders nothing off iOS. |
 | [`AuthBranding`](../packages/ui-native/src/layouts/auth.tsx) | `AuthBrandingProps` | — | _(no summary)_ |
 | [`AuthForm`](../packages/ui-native/src/layouts/auth.tsx) | `AuthFormProps` | — | _(no summary)_ |
 | [`AuthScreen`](../packages/ui-native/src/layouts/auth-screen.tsx) | `AuthScreenProps` | — | _(no summary)_ |
@@ -779,13 +780,14 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`SocialAuthRow`](../packages/ui-native/src/layouts/auth.tsx) | `SocialAuthRowProps` | — | _(no summary)_ |
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 
-### Other exports (28)
+### Other exports (29)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`alertVariants`](../packages/ui-native/src/components/alert.tsx) | value | — | _(no summary)_ |
+| [`appleProvider`](../packages/ui-native/src/layouts/apple-sign-in.tsx) | function | Beta | A `SocialAuthProvider` (id `"apple"`) that draws Apple's button, for `AuthScreen`'s `providers`. `null` off iOS or without the module. |
 | [`badgeTextVariants`](../packages/ui-native/src/components/badge.tsx) | value | — | _(no summary)_ |
 | [`badgeVariants`](../packages/ui-native/src/components/badge.tsx) | value | — | _(no summary)_ |
 | [`buttonTextVariants`](../packages/ui-native/src/components/button.tsx) | value | — | _(no summary)_ |
@@ -814,11 +816,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (32)
+### Types (34)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AppleButtonModuleLike };
+export type { AppleProviderOptions };
 export type { AuthFormValues };
 export type { AuthScreenSlotMap };
 export type { BoxBackground };
@@ -851,6 +855,90 @@ export type { TextPreset };
 export type { ThemeMode };
 export type { ThemeRoleColors };
 export type { UseThemeRolesOptions };
+```
+
+---
+
+## @marktiderman/genesis-native
+
+The native app shell: `GenesisNativeApp` (boot behind the splash, fatal screen, persisted query client, auth gate, held deep links; each part a slot and exported on its own). See packages/native/README.md.
+
+**Barrel:** [`packages/native/src/index.ts`](../packages/native/src/index.ts)
+
+### Components (5)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`AuthGate`](../packages/native/src/auth.tsx) | `AuthGateProps` | — | Render one tree for a signed-in user and another for everyone else. |
+| [`BootScreen`](../packages/native/src/app.tsx) | `BootScreenProps` | — | The default boot slot: a plain loading view (the splash covers it at launch). |
+| [`FatalScreen`](../packages/native/src/errors.tsx) | `FatalScreenProps` | — | The default fatal screen: what went wrong and "Try again". |
+| [`GenesisErrorBoundary`](../packages/native/src/errors.tsx) | `GenesisErrorBoundaryProps` | — | An error boundary whose fallback gets `{ error, retry }`. |
+| [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard scrolling, data, boot behind the splash, errors, session and held links. |
+
+### Other exports (19)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`BootProvider`](../packages/native/src/boot.tsx) | function | — | Makes a boot readable with `useBoot()`. |
+| [`BootTimeoutError`](../packages/native/src/boot.tsx) | class | — | Thrown when a step takes longer than its timeout. |
+| [`connectQueryLifecycle`](../packages/native/src/query.ts) | function | — | Tell TanStack Query when the app comes to the front (refetch stale queries) and when the network comes and goes. Returns the cleanup. |
+| [`createBoot`](../packages/native/src/boot.tsx) | function | — | The boot controller: runs `steps` once each, in order, with a timeout per step. |
+| [`createHydrationGate`](../packages/native/src/hydration-gate.ts) | function | — | A gate that holds writes until a persisted store has hydrated. |
+| [`createLinkHold`](../packages/native/src/held-link.ts) | function | — | A place to hold one deep link until sign-in completes; lives outside React. |
+| [`createNativeQueryClient`](../packages/native/src/query.ts) | function | — | A QueryClient for a phone. `networkMode: "always"` runs a query or mutation even when the device reports offline, so it fails (and shows its error or cached data) instead of waiting forever for a network that may never come back. `gcTime... |
+| [`createSessionStore`](../packages/native/src/auth.tsx) | function | — | The Supabase session as a store: `load` reads it once, `start` follows auth events. |
+| [`DAY_MS`](../packages/native/src/query.ts) | const | — | One day in milliseconds: the default max age of the saved query cache. |
+| [`defaultErrorUtils`](../packages/native/src/errors.tsx) | function | — | `globalThis.ErrorUtils` in a React Native runtime, undefined elsewhere. |
+| [`defaultRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Hermes's rejection tracker, when the app runs on Hermes. React Native sends unhandled rejections to `ExceptionsManager` (LogBox in development), never to `ErrorUtils`' global handler, so without this they never reach `onError`. |
+| [`installGlobalErrorHandler`](../packages/native/src/errors.tsx) | function | — | Route global errors to `onError`. A fatal one goes to `onFatal` instead of React Native's default handler, which would close the app; a non-fatal one still reaches the previous handler (LogBox in development). Returns a function that put... |
+| [`installRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Report unhandled promise rejections to `onError` (non-fatal). This replaces React Native's own tracker, so each rejection is also written with `console.warn`, which LogBox shows in development as before. |
+| [`normalizeLink`](../packages/native/src/links.ts) | function | — | The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. |
+| [`PlainFatalScreen`](../packages/native/src/errors.tsx) | function | — | The last-resort fatal screen: React Native primitives only, no theme, no context, nothing that can itself fail. Shown when the providers could not start, or when the `fatal` slot threw. |
+| [`SessionProvider`](../packages/native/src/auth.tsx) | function | — | Makes a session store readable with `useSession()`. |
+| [`useBoot`](../packages/native/src/boot.tsx) | function | — | The boot's status, and `retry` after a failure. Inside `GenesisNativeApp` or a `BootProvider`. |
+| [`useHeldLink`](../packages/native/src/held-link.ts) | function | — | Follow the held link after a sign-in, drop it otherwise; returns the link still held. |
+| [`useSession`](../packages/native/src/auth.tsx) | function | — | The session and whether it is known yet. Inside `GenesisNativeApp` or a `SessionProvider`. |
+
+### Types (33)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AppStateLike };
+export type { AsyncStorageLike };
+export type { AuthClientLike };
+export type { BootController };
+export type { BootOptions };
+export type { BootState };
+export type { BootStatus };
+export type { BootStep };
+export type { BootStepContext };
+export type { EnableRejectionTracker };
+export type { ErrorReport };
+export type { ErrorUtilsLike };
+export type { GlobalErrorHandlerOptions };
+export type { HeldLinkAuth };
+export type { HydrationGate };
+export type { HydrationGateOptions };
+export type { LinkHold };
+export type { LinkOptions };
+export type { LinkTarget };
+export type { NativeAppSlots };
+export type { NativeQueryClientOptions };
+export type { NetInfoLike };
+export type { OnError };
+export type { QueryLifecycleOptions };
+export type { QueryPersistence };
+export type { SessionState };
+export type { SessionStatus };
+export type { SessionStore };
+export type { SessionStoreOptions };
+export type { SignedOutProps };
+export type { SplashModule };
+export type { UseBootReturn };
+export type { UseHeldLinkOptions };
 ```
 
 ---

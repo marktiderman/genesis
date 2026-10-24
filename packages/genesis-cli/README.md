@@ -211,6 +211,69 @@ before building something.
 Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__fixtures__`,
 `__mocks__`, `*.d.ts` and `*.gen.*`. Comments are ignored by every rule.
 
+### Rule packs
+
+Two packs are opt-in, so a web app is unaffected until it lists them. Turn them on explicitly
+(they are not auto-detected, so adding `expo` or a `supabase/` folder never changes a build's
+result on its own):
+
+```json
+{
+  "doctor": {
+    "packs": ["native", "supabase"],
+    "native": { "routerRoot": "app" },
+    "supabase": { "migrations": "supabase/migrations", "base": "origin/main", "exposedSchemas": ["public"], "since": "20260101000000" }
+  }
+}
+```
+
+Pack rule ids are built-in ids, so `rules` and `allow` work on them as on any other rule.
+Folder settings (`routerRoot`, `migrations`) are app-relative: `./app/` is read as `app`, and
+an absolute path or one leaving the app is a config error. `exposedSchemas` compares lowercased.
+
+**`native`**, for Expo apps on `@marktiderman/genesis-ui-native`. With the pack on, the core
+rules read the native package (unless `uiPackage` says otherwise) and the default scan is
+`app`, `src` and `components`. The screen layouts are every component the installed native
+package exports whose name ends in `Page`, `Screen` or `ScreenContainer` (`ScreenContainer`,
+`SettingsPage`, `SettingsSubPage`, `NotificationsPage`, `AuthScreen`, `NativeResourcePage`, …),
+so a new layout is recognized when Genesis ships it.
+
+With the native pack on, every hex or `rgb()` literal in a script file is reported as
+`native-literal-color` instead of `raw-color`, web files in a mixed repo included. Existing
+`rules` and `allow` entries for `raw-color` that cover script files need the new id (CSS files
+keep `raw-color`).
+
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `native-raw-primitive` | error | A React Native primitive Genesis wraps, used from `react-native` (`Modal`, `ActivityIndicator`; the list in the repo's `scripts/lib/native-primitives.mjs`, shared with `check:forbidden-imports`): named and aliased imports (multi-line too), `import * as RN` then `RN.Modal`, `require("react-native").Modal`, destructured `require`, and `export { Modal } from "react-native"`. Type-only imports are fine. The message names the replacements the installed package exports. |
+| `native-literal-color` | error | Hex and `rgb()/hsl()` literals in native code (the same lexer as `raw-color`, which it replaces for script files). Use a theme role (`useThemeRoles()`), a token className or `PlatformColor(...)`. |
+| `native-custom-header` | warn | A file that sets `headerShown: false` and draws its own header (a `<…Header>` of the app's own, or `style={styles.header}`); a screen that draws one when the `_layout` beside it hides the navigator's; a hand-built tab bar (`tabBar={…}` in a file with `<Tabs>`, or a `<…TabBar>` of the app's own). Section headers (`SectionHeader`, `ListHeader`, `CardHeader`, …) and Genesis components don't count. Only the `_layout` in the screen's own folder is followed, not ancestors. |
+| `native-screen-layout` | warn | A route screen under the router root (`native.routerRoot`, default `src/app`, else `app`) that renders no Genesis screen layout, directly or through one local import (`./`, `../`, `@/`, `~/`). `_layout`, `+html`, `+native-intent`, `+middleware`, `+api` files, re-export-only routes and `<Redirect>` routes are skipped. Also a warning when the router root is missing, or when `src` leaves it unscanned. |
+| `store-readiness` | warn | Static checks of `app.json`, `app.config.json` and (as text, best-effort) `app.config.{ts,js,mjs,cjs}`. **Usage strings**: Expo applies an installed module's config plugin even when it isn't listed, with a generic default string (`Allow $(PRODUCT_NAME) to access your camera`), and App Review rejects generic purpose strings; so a module without its own sentence (`ios.infoPlist.<Key>` or the plugin option) is flagged, and `false` (Expo's opt-out) counts as set. Covered: `expo-camera`, `expo-image-picker` (photos; camera only "if the app takes photos"), `expo-media-library`, `expo-location`, `expo-av` / `expo-audio` (microphone "if the app records audio"), `expo-contacts`, `expo-local-authentication` (Face ID). **Sign in with Apple**: third-party sign-in (`@react-native-google-signin/google-signin`, `react-native-fbsdk-next`, or a Supabase `signInWithOAuth` / `signInWithIdToken` with a non-Apple provider) without Apple sign-in (`expo-apple-authentication`, or Supabase's `apple` provider). Guideline 4.8 accepts any equivalent privacy-focused login, so this is a warning to `allow` with the reason when another option qualifies; `expo-auth-session` alone doesn't trigger it (it serves non-login OAuth too). Also the export-compliance flag (`ios.config.usesNonExemptEncryption` or `ITSAppUsesNonExemptEncryption`), `ios.privacyManifests`, and a missing Expo config. Those two count as set when the [Expo config plugin](#expo-config-plugin) (`@marktiderman/genesis-cli` in `plugins`) will set them: export compliance unless `exportCompliance: false`, the privacy manifest unless `privacyManifest: false` and only when a dependency needs one. |
+
+**`supabase`**, for `supabase/migrations/*.sql` (`supabase.migrations`). The SQL is read
+statement by statement with comments removed and string (`'…'`, `E'…'`) and dollar-quoted
+bodies blanked, so text inside a function body never matches; the one exception is below.
+
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `migration-grants` | error / warn | In new migrations: `grant … on all functions in schema …` and `alter default privileges … grant … on functions` to `anon` or `public` (error) or `authenticated` (warn: it re-grants functions revoked from signed-in users); other roles (`service_role`, `postgres`) are fine. A function outside `exposedSchemas` granted to `anon` or `public` by name, and `grant usage on schema <unexposed> to anon/public` (error). Revokes, `revoke grant option for`, argument types and `granted by` are read correctly. Grant by name so an earlier revoke survives. |
+| `migration-rls` | error | A table in an exposed schema whose row level security is off once every migration has run: never enabled, or disabled later. Renames (`alter table … rename to`, `set schema`) and drops are followed. RLS enabled by dynamic SQL (a `do $$ … execute format('alter table %I enable row level security', t) … $$` loop) can't be traced, so such a block counts as enabling it for every table created before it. |
+| `migration-definer-search-path` | error | A `security definer` function or procedure without `set search_path`. Functions are keyed by name and argument types, so overloads are separate; `alter function … security definer` makes one definer, `alter function … set search_path` fixes it, and renames, replaces and drops are followed. |
+| `migration-edited` | error | A `.sql` migration that already exists at the merge base with `supabase.base` (default `origin/main`) was modified, deleted or renamed. Applied migrations are never edited; add a new one. Skipped outside a git repo; a **warn** when the base ref isn't available. |
+
+**Which migrations are new.** In a git repo with the base ref, a migration is new when it was
+added, modified or is untracked since the merge base. `since` (a file name or timestamp prefix)
+also trusts every file that sorts before it. Without git or the base ref (a shallow CI clone, a
+Vercel build), `migration-grants` is skipped with a warning unless `since` is set, so applied
+migrations never fail a build. In CI, check out with full history and fetch the base:
+
+```yaml
+- uses: actions/checkout@v4
+  with: { fetch-depth: 0 }
+- run: git fetch origin main
+```
+
 ### Config
 
 `genesis.config.json` (or `"genesis": { "doctor": { … } }` in package.json):
@@ -237,10 +300,13 @@ Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__f
 
 | Key | Default | |
 | --- | --- | --- |
-| `src` | `["src"]` | Folders (or files) to scan. |
+| `packs` | | Opt-in rule packs: `"native"`, `"supabase"`. See [Rule packs](#rule-packs). |
+| `native` | | `{ routerRoot }` for the native pack. |
+| `supabase` | | `{ migrations, base, exposedSchemas, since }` for the supabase pack. |
+| `src` | `["src"]` (`["app", "src", "components"]` with the native pack) | Folders (or files) to scan. |
 | `extensions` | `.ts .tsx .js .jsx .mts .cts .css` | |
 | `ignore` | | Globs to skip, added to the defaults. `*` stays in a folder, `**` crosses folders, a trailing `/` means the whole folder. |
-| `uiPackage` | `@marktiderman/genesis-ui` | |
+| `uiPackage` | `@marktiderman/genesis-ui` (`@marktiderman/genesis-ui-native` with the native pack) | |
 | `themeCss` | the design system's `dist/themes/*.css` + genesis-ui's styles | One stylesheet or a list: package paths (`@marktiderman/genesis-design-system/dist/themes/genesis.css`) or app paths. |
 | `tokenFiles` | every scanned `.css` | Globs of app files whose `--x:` declarations count as defined tokens. Files outside `src` work too. |
 | `ignoreTokenPrefixes` | `["--tw-", "--radix-"]` | |

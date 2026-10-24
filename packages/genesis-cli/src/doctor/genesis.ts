@@ -12,6 +12,7 @@ import { DoctorConfigError } from "./config.js";
 import type { DoctorConfig, GenesisFacts } from "./types.js";
 
 export const DEFAULT_UI_PACKAGE = "@marktiderman/genesis-ui";
+export const NATIVE_UI_PACKAGE = "@marktiderman/genesis-ui-native";
 export const DESIGN_SYSTEM_PACKAGE = "@marktiderman/genesis-design-system";
 
 /**
@@ -45,10 +46,60 @@ export function findPackageDir(from: string, name: string): string | null {
   }
 }
 
+/** What one installed component package exports, read from its type declarations. */
+export interface PackageExports {
+  dir: string;
+  version: string;
+  /** Every exported name (all subpaths). */
+  exports: Set<string>;
+  /** Exported values (not types). */
+  values: Set<string>;
+  /** Exported components, sorted. */
+  components: string[];
+}
+
+/** The component package the core rules read: `uiPackage`, else the native one when the native pack is on. */
+export function uiPackageFor(config: DoctorConfig): string {
+  return config.uiPackage ?? (config.packs?.includes("native") ? NATIVE_UI_PACKAGE : DEFAULT_UI_PACKAGE);
+}
+
 export function loadGenesis(root: string, config: DoctorConfig): GenesisFacts {
-  const uiPackage = config.uiPackage ?? DEFAULT_UI_PACKAGE;
+  const uiPackage = uiPackageFor(config);
+  const pkg = readPackageExports(root, uiPackage);
+  if (!pkg) throw new DoctorConfigError(`${uiPackage} is not installed here. Install it, or set doctor.uiPackage.`);
+  const { dir: uiDir, exports: exportNames, values, components } = pkg;
+
+  // ---- Tokens, from the theme stylesheets ----
+  const tokens = new Set<string>();
+  const themeFiles = resolveThemeFiles(root, config, uiDir);
+  for (const file of themeFiles) for (const t of declaredTokens(readFileSync(file, "utf8"))) tokens.add(t);
+
+  // ---- Raw tags ----
+  const byLower = new Map(components.map((c) => [c.toLowerCase(), c]));
+  const rawTags = new Map<string, string>();
+  for (const tag of TAGS) if (byLower.has(tag)) rawTags.set(tag, byLower.get(tag)!);
+  for (const [tag, comp] of Object.entries(TAG_ALIASES)) if (values.has(comp)) rawTags.set(tag, comp);
+  for (const [tag, comp] of Object.entries(config.rawTags ?? {})) {
+    if (comp === false) rawTags.delete(tag);
+    else rawTags.set(tag, comp);
+  }
+
+  return {
+    uiPackage,
+    uiVersion: pkg.version,
+    exports: exportNames,
+    values,
+    components,
+    tokens,
+    rawTags,
+    palette: loadPalette(root),
+  };
+}
+
+/** An installed package's exports, from its declarations (every subpath), or null when it isn't installed. */
+export function readPackageExports(root: string, uiPackage: string): PackageExports | null {
   const uiDir = findPackageDir(root, uiPackage);
-  if (!uiDir) throw new DoctorConfigError(`${uiPackage} is not installed here. Install it, or set doctor.uiPackage.`);
+  if (!uiDir) return null;
   const uiPkg = JSON.parse(readFileSync(path.join(uiDir, "package.json"), "utf8"));
 
   // ---- Exports, from every subpath's declarations ----
@@ -97,32 +148,7 @@ export function loadGenesis(root: string, config: DoctorConfig): GenesisFacts {
     // PascalCase (H1 and P included), but not SCREAMING_CASE constants.
     .filter((n) => /^[A-Z][A-Za-z0-9]*$/.test(n) && !(n.length > 2 && n === n.toUpperCase()) && !NON_COMPONENT_SUFFIX.test(n))
     .sort();
-
-  // ---- Tokens, from the theme stylesheets ----
-  const tokens = new Set<string>();
-  const themeFiles = resolveThemeFiles(root, config, uiDir);
-  for (const file of themeFiles) for (const t of declaredTokens(readFileSync(file, "utf8"))) tokens.add(t);
-
-  // ---- Raw tags ----
-  const byLower = new Map(components.map((c) => [c.toLowerCase(), c]));
-  const rawTags = new Map<string, string>();
-  for (const tag of TAGS) if (byLower.has(tag)) rawTags.set(tag, byLower.get(tag)!);
-  for (const [tag, comp] of Object.entries(TAG_ALIASES)) if (values.has(comp)) rawTags.set(tag, comp);
-  for (const [tag, comp] of Object.entries(config.rawTags ?? {})) {
-    if (comp === false) rawTags.delete(tag);
-    else rawTags.set(tag, comp);
-  }
-
-  return {
-    uiPackage,
-    uiVersion: String(uiPkg.version ?? "unknown"),
-    exports: exportNames,
-    values,
-    components,
-    tokens,
-    rawTags,
-    palette: loadPalette(root),
-  };
+  return { dir: uiDir, version: String(uiPkg.version ?? "unknown"), exports: exportNames, values, components };
 }
 
 /** Names exported by a declaration file: `export { a, b as c }` blocks and `export declare …` statements. */
