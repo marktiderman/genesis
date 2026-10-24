@@ -15,14 +15,16 @@ import {
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Progress } from "@marktiderman/genesis-ui/progress";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import type {
-  CreateFormOptions,
-  FieldBlock,
-  FormDefinition,
-  FormEngine,
-  FormState,
-  HostOptions,
-  PhotoRef,
+import {
+  formProgress,
+  type CreateFormOptions,
+  type FieldBlock,
+  type FormDefinition,
+  type FormEngine,
+  type FormProgress,
+  type FormState,
+  type HostOptions,
+  type PhotoRef,
 } from "@marktiderman/genesis-forms";
 import {
   FieldRenderer,
@@ -490,6 +492,22 @@ export interface FormProps {
    */
   onChange?: ((state: FormState, engine: FormEngine) => void) | undefined;
   /**
+   * Save answers as they go: with the definition's `settings.saveProgress` on,
+   * called a moment after each step forward (in classic layout, a moment after
+   * the answers change) with how far the respondent got (`formProgress`); read
+   * the answers so far with `engine.answers()`. It never holds them up: it runs
+   * after the step, and a rejection is ignored (the next call carries every
+   * answer again). A pending call goes at once when the page is hidden, and none
+   * is made once the form is submitted.
+   */
+  onProgress?: ((engine: FormEngine, progress: FormProgress) => void | Promise<void>) | undefined;
+  /**
+   * The note under the first question while answers save as they go (only with
+   * `onProgress` and `settings.saveProgress`). `null` hides it. Default
+   * "Your answers save as you go."
+   */
+  progressNotice?: string | null | undefined;
+  /**
    * In focus layout, move on after a single pick (rating, yes/no, one choice).
    * Arrow keys only move through the options; a click, tap or Space picks.
    * Never moves on from the last question. Default true.
@@ -521,6 +539,10 @@ export interface FormProps {
 }
 
 const ADVANCE_DELAY_MS = 250;
+/** How long after a step forward `onProgress` waits, so quick steps save once. */
+export const PROGRESS_DELAY_MS = 400;
+/** In classic layout, how long after the last answer changed. */
+export const CLASSIC_PROGRESS_DELAY_MS = 1500;
 
 // A stable key per engine, so a new engine starts the form body over.
 const engineKeys = new WeakMap<FormEngine, number>();
@@ -579,6 +601,8 @@ function FormBody({
   theme,
   onSubmit,
   onChange,
+  onProgress,
+  progressNotice = "Your answers save as you go.",
   autoAdvance = true,
   submitLabel = "Send",
   requiredLabel = "Required",
@@ -632,6 +656,57 @@ function FormBody({
     if (!onChange) return;
     return engine.subscribe(() => onChange(engine.getState(), engine));
   }, [engine, onChange]);
+
+  // Save answers as they go: a moment after each step forward (or, in classic layout,
+  // after the answers change), off the respondent's path. The latest onProgress is
+  // read when it fires, so a host passing a new function each render keeps one timer.
+  const saveProgress = def.settings?.saveProgress === true && !!onProgress;
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress;
+  useEffect(() => {
+    if (!saveProgress) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let last = engine.getState();
+    const fire = () => {
+      timer = undefined;
+      if (engine.getState().status === "completed") return;
+      try {
+        void Promise.resolve(onProgressRef.current?.(engine, formProgress(engine))).catch(() => {});
+      } catch {
+        // A host's error never reaches the respondent; the next step saves again.
+      }
+    };
+    const schedule = (delay: number) => {
+      clearTimeout(timer);
+      timer = setTimeout(fire, delay);
+    };
+    const unsubscribe = engine.subscribe(() => {
+      const state = engine.getState();
+      const previous = last;
+      last = state;
+      if (state.status === "completed") {
+        clearTimeout(timer);
+        timer = undefined;
+        return;
+      }
+      const event = state.events[state.events.length - 1];
+      if (layout === "focus") {
+        if (event?.type === "next" && state.current !== previous.current) schedule(PROGRESS_DELAY_MS);
+      } else if (event?.type === "answer") schedule(CLASSIC_PROGRESS_DELAY_MS);
+    });
+    // Leaving the page (closing the tab, switching away on a phone) sends a pending save now.
+    const flush = () => {
+      if (timer === undefined) return;
+      clearTimeout(timer);
+      fire();
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [engine, saveProgress, layout]);
 
   // A new question cancels a pending auto-advance and, in focus layout, takes
   // focus: the input of a text field, otherwise the visible question. Comparing
@@ -825,6 +900,13 @@ function FormBody({
 
   const pageFocus = page && layout === "focus";
   const pageClassic = page && layout === "classic";
+  // Under the first question (focus layout) or the title (classic), until they move on.
+  const notice =
+    saveProgress && progressNotice && historyLength === 0 ? (
+      <p className="text-sm text-muted-foreground" data-gf-progress-notice="">
+        {progressNotice}
+      </p>
+    ) : null;
 
   const renderBlock = (id: string, focus: boolean) => {
     const block = engine.block(id);
@@ -987,6 +1069,7 @@ function FormBody({
               {/* The form's name introduces the first question, then stays for assistive tech only. */}
               <div className={historyLength === 0 ? "mb-5" : "sr-only"}>{header}</div>
               {fields}
+              {notice ? <div className="mt-4">{notice}</div> : null}
               {failure ? <div className="mt-6">{failure}</div> : null}
               <div className="mt-10">{navigation}</div>
             </div>
@@ -1000,6 +1083,7 @@ function FormBody({
           <div className="mx-auto w-full max-w-2xl space-y-4">
             {brandNode ? <div className="flex justify-center pb-2">{brandNode}</div> : null}
             {header}
+            {notice}
             {errorSummary}
             {fields}
             {failure}
@@ -1010,9 +1094,11 @@ function FormBody({
         <form {...formProps} className={cn("mx-auto w-full max-w-xl space-y-8", className)}>
           {brandNode}
           {header}
+          {layout === "classic" ? notice : null}
           {errorSummary}
           {progress}
           {fields}
+          {layout === "focus" ? notice : null}
           {failure}
           {navigation}
         </form>

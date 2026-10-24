@@ -50,6 +50,19 @@ import { Form } from "@marktiderman/genesis-forms-web";
   <Form form={eventFeedback} presentation="page" brand={{ name: "Acme" }} onSubmit={send} />
   ```
 
+- **Save answers as they go:** with the definition's `settings.saveProgress` on, `onProgress(engine,
+  { step, total, fieldId })` is called a moment after each step forward (`PROGRESS_DELAY_MS`; in
+  classic layout, `CLASSIC_PROGRESS_DELAY_MS` after the answers change), with `fieldId` the
+  furthest question reached (`formProgress` from genesis-forms) and `engine.answers()` the answers
+  so far. It never holds up Next: a rejection is ignored (the next call carries every answer
+  again), a pending call goes at once on `pagehide`, and none is made once the form is submitted.
+  Under the first question a note says "Your answers save as you go." (`progressNotice`; `null`
+  hides it). Without `onProgress`, or with the setting off, nothing is saved and nothing is said.
+
+  ```tsx
+  <Form form={feedback} presentation="page" onProgress={(engine, p) => saveDraft(engine.answers(), p.fieldId)} onSubmit={send} />
+  ```
+
 - **Accessible by default:** group questions are a `fieldset` with a `legend`, and rating, NPS and
   yes/no are real radio groups (arrows select). Every control carries `aria-invalid`,
   errors are linked with `aria-describedby`, and the NPS end labels are read with 0 and 10. In

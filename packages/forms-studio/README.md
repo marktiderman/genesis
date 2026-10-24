@@ -58,6 +58,15 @@ useAppShellSubNav(
   choice counts, consent and yes/no as one split bar, and the latest written answers.
 - `FollowUpList` from `needsFollowUp(items, { isHandled })`: low-rated responses, newest first,
   with the host's actions on each.
+- Partial responses, for a form that saves answers as they go (`settings.saveProgress`): give each
+  item its `status` (`in_progress`, `partial`, `completed`) and, unfinished, its `furthest`
+  question (genesis-forms `formProgress`'s `fieldId`). Filters show sent and partial responses by
+  default (summaries count both; the Responses card says how many are partial);
+  `<ResponsesFilters statuses>` adds the status menu (Sent and partial, Sent, Partial, In
+  progress).
+- `DropOffByQuestion` from `dropOffByQuestion(items, definitions)`: for each question, how many
+  people reached it, how many stopped there, and the drop-off share. A sent response reached
+  every question; a partial one, every question up to its furthest; in-progress ones are left out.
 - `PhotoAnswer` (`{ photos, resolveUrl }`): a response's photos as thumbnails, each opening full
   size in a new tab. The host resolves each reference to an address it may show (a short-lived
   signed link, say) or null; a photo most browsers can't draw (HEIC) is a tile with its name and an

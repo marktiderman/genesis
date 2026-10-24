@@ -26,6 +26,11 @@ export {
   toResponseFilter,
   lowThisWeek,
   NO_FILTERS,
+  matchesStatus,
+  STATUS_FILTER_LABEL,
+  RESPONSE_STATUS_LABEL,
+  type ResponseStatus,
+  type StatusFilter,
   type SummaryItem,
   type ScaleSummary,
   type ChoiceSummary,
@@ -36,6 +41,7 @@ export {
   type FiltersValue,
 } from "./summary";
 export { headlineNumbers, comparisonFilter, headlineCards, type Headline } from "./headline";
+export { dropOffByQuestion, type QuestionDropOff } from "./dropoff";
 export { followUpOf, needsFollowUp, type FollowUp } from "./followups";
 export { dayLabel } from "./generic/days";
 export { prefilledUrl, embedSnippet, type PrefillChoice } from "./generic/share";
