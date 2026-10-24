@@ -233,6 +233,36 @@ imported: without `updates` there is no banner and no channel switching;
 without `application` nothing is forced and no notes show. The banner uses
 `react-native-safe-area-context`, a peer (genesis-ui-native needs it too).
 
+## Blocks
+
+`blocks` takes `defineBlock` declarations (`@marktiderman/genesis-features/blocks`) a native shell
+can run: a `NativeBlock` may also carry `bootSteps` (run behind the splash after your `steps`,
+before the session) and a `Root` (mounted around your screens, inside the error boundary). The
+updates block is one, so these are the same:
+
+```tsx
+<GenesisNativeApp {...shell} updates={updates}>   // as before
+<GenesisNativeApp {...shell} blocks={[updates]}>  // the same block, as a block
+```
+
+The shell resolves the blocks once, at start (`resolveBlocks` with `platform: "native"`). Then:
+
+- their boot steps run in dependency order, and their roots wrap your screens, the first block's outermost;
+- their `contributes.slots` fill the shell's slots by name, under yours: your `slots` (a component
+  or `null`) always win;
+- `useBlocks()` returns the resolved blocks (ids, nav entries, routes, migrations…), each
+  contribution tagged with its FeatureId;
+- `useBlockSettings(sections, { navigate })` returns your Settings sections with every block's
+  rows added to the section they name (an unknown section is added at the end), live subtitles
+  included. The updates block adds the version signature to `about` (`versionRow` in
+  `createUpdates` sets its title and section, or `false` turns it off). Call it at the top of the
+  Settings screen and pass the result to `SettingsPage`.
+
+A block may require your own features that aren't blocks: list them in `appFeatures`. Blocks that
+don't resolve (a required block that wasn't passed or is off, an unknown slot name, two blocks
+filling one slot) hide the splash, show the fatal screen and report a `BlockError` to `onError`:
+a set-up mistake, found at launch.
+
 ## Each part on its own
 
 `createBoot` + `BootProvider` + `useBoot`; `GenesisErrorBoundary` +

@@ -71,3 +71,13 @@ export {
 } from "./auth";
 export { normalizeLink, type LinkOptions, type LinkTarget } from "./links";
 export { createLinkHold, useHeldLink, type HeldLinkAuth, type LinkHold, type UseHeldLinkOptions } from "./held-link";
+export {
+  useBlocks,
+  useBlockSettings,
+  mergeBlockSettings,
+  type BlockSettingsSection,
+  type NativeBlock,
+  type NativeBlockRootProps,
+  type SettingsRowLike,
+  type UseBlockSettingsOptions,
+} from "./blocks";

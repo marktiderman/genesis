@@ -12,10 +12,17 @@
  *
  * Every renderer is a slot, a primitive (`ForceUpgradeScreen`, …) and a hook
  * (`useForceUpgrade`, …).
+ *
+ * The block is also a `defineBlock` declaration (`id: "app-updates"`), so
+ * `<GenesisNativeApp blocks={[updates]}>` runs it too. It contributes a
+ * Settings row with the version signature (section `about`; see
+ * `useBlockSettings`) and names the release-policy migration it reads.
  */
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import { View } from "react-native";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
+import { defineBlock } from "@marktiderman/genesis-features/blocks";
+import type { NativeBlock } from "../blocks";
 import { createUpdateChecker, createReloadGuard, type ReloadGuard, type UpdateChecker, type UpdateCheckState } from "./checker";
 import { createChannelSwitcher, type ChannelSwitcher } from "./channels";
 import { delay } from "./store";
@@ -89,6 +96,12 @@ export interface UpdatesOptions {
   checkIntervalMs?: number;
   /** `reloadAsync`'s reload screen (background color, spinner). */
   reloadScreenOptions?: object;
+  /**
+   * The Settings row with the version signature the block contributes
+   * (`useBlockSettings`): its title and section, or `false` for none.
+   * Default `{ title: "Version", section: "about" }`.
+   */
+  versionRow?: false | { title?: string; section?: string };
   /** Storage key prefix. Default `"genesis:updates"`. */
   storageKeyPrefix?: string;
   /** Every caught error, for reporting. None of them blocks anyone. */
@@ -96,7 +109,10 @@ export interface UpdatesOptions {
   now?: () => number;
 }
 
-export interface UpdatesBlock {
+/** The FeatureId of the updates block. */
+export const UPDATES_BLOCK_ID = "app-updates";
+
+export interface UpdatesBlock extends NativeBlock<typeof UPDATES_BLOCK_ID> {
   readonly options: UpdatesOptions;
   readonly policy: PolicyStore;
   readonly checker: UpdateChecker;
@@ -108,6 +124,8 @@ export interface UpdatesBlock {
   readonly signature: VersionSignature;
   /** Loads the policy and the seen version behind the splash; never fails, done within `policyTimeoutMs`. */
   readonly bootStep: { id: string; run: () => Promise<void>; timeoutMs: number };
+  /** `[bootStep]`, for a shell that runs blocks. */
+  readonly bootSteps: readonly { id: string; run: () => Promise<void>; timeoutMs: number }[];
   /** Start following the app's state; returns the stop. `UpdatesRoot` calls it. */
   start(): () => void;
   /** The block's root, for `GenesisNativeApp`. */
@@ -183,7 +201,38 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     return loaded;
   };
 
+  const bootStep = { id: "genesis:updates", run: load, timeoutMs: policyTimeoutMs + 5000 };
+  const { versionRow } = options;
+  const declaration = defineBlock<typeof UPDATES_BLOCK_ID, ComponentType<never>>({
+    id: UPDATES_BLOCK_ID,
+    platforms: ["native"],
+    contributes: {
+      settings:
+        versionRow === false
+          ? []
+          : [
+              {
+                id: "app-version",
+                section: versionRow?.section ?? "about",
+                title: versionRow?.title ?? "Version",
+                testID: "genesis-app-version",
+                // Bound to this block, so it needs no provider above the Settings screen.
+                useSubtitle: () => useVersionSignatureOf(block).short,
+              },
+            ],
+      migrations: [
+        {
+          package: "@marktiderman/genesis-supabase",
+          file: "migrations/0002_genesis_app_release_policy.sql",
+          test: "migrations/tests/0002_genesis_app_release_policy.test.sql",
+        },
+      ],
+      privacy: { notes: ["Reads the installed version and update ids on the device to decide on a force upgrade; sends nothing about the person."] },
+    },
+  });
+
   const block: UpdatesBlock = {
+    ...declaration,
     options,
     policy,
     checker,
@@ -191,7 +240,8 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     whatsNew,
     channels: switcher,
     signature,
-    bootStep: { id: "genesis:updates", run: load, timeoutMs: policyTimeoutMs + 5000 },
+    bootStep,
+    bootSteps: [bootStep],
     start() {
       void load();
       void checker.check();
@@ -316,7 +366,10 @@ export function useWhatsNew(): WhatsNewProps | null {
 
 /** The version signature, with the channel picked on this device once it has been read. */
 export function useVersionSignature(): VersionSignature {
-  const block = useUpdates();
+  return useVersionSignatureOf(useUpdates());
+}
+
+function useVersionSignatureOf(block: UpdatesBlock): VersionSignature {
   const [requested, setRequested] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;

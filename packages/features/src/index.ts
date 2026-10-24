@@ -49,3 +49,21 @@ export {
   toSkillMarkdown,
   type GenerateOptions,
 } from "./generate";
+export {
+  BlockError,
+  defineBlock,
+  resolveBlocks,
+  type BlockContributions,
+  type BlockDataUse,
+  type BlockDef,
+  type BlockMigration,
+  type BlockNavItem,
+  type BlockPrivacy,
+  type BlockRoute,
+  type BlockSettingsRow,
+  type Contributed,
+  type EnabledBlocks,
+  type ResolveBlocksOptions,
+  type ResolvedBlocks,
+} from "./blocks";
+export { cycleProblems, dependencyOrder, requirementProblem, requiresProblems, type RequiresNode, type RequiresProblemsOptions } from "./graph";

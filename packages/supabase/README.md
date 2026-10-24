@@ -317,6 +317,73 @@ and release notes (`notes`, an array of `{ version, title?, body }`). Copy it in
 - **Read it** with `supabasePolicySource(supabase)` from `@marktiderman/genesis-native/updates`,
   which fails open: no row, a failed read or a malformed value never blocks anyone.
 
+## Tenant features
+
+Per-tenant switches for shipped features: a tenant's admins turn a feature off (or back on) for
+their tenant with a reason, and its members hide what is off. "Tenant" is whatever your app groups
+people by (a team, an organization, a workspace), keyed by a uuid. A switch controls exposure,
+never authorization (that is RLS) and never paid access (that is an entitlement).
+
+Copy `migrations/0004_genesis_tenant_features.sql` into `supabase/migrations/` under a timestamped
+name, and its pgTAP test into `supabase/tests/database/`. Then give it your membership rule as a
+hook, in your own migration:
+
+```sql
+create function private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean
+language sql stable set search_path = '' as $$
+  select exists (select 1 from public.memberships m
+                 where m.team_id = tenant and m.user_id = person and m.role in ('owner', 'admin'))
+$$;
+revoke execute on function private.genesis_tenant_admin(uuid, uuid) from public, anon, authenticated;
+-- Optional: who may read which features are off (admins always may).
+-- create function private.genesis_tenant_member(tenant uuid, person uuid) returns boolean …
+alter table public.tenant_features add foreign key (tenant_id) references public.teams (id) on delete cascade;
+alter table public.tenant_feature_changes add foreign key (tenant_id) references public.teams (id) on delete cascade;
+```
+
+Without the admin hook nobody can change a switch (`42501`, with a hint): it fails closed.
+
+```ts
+import { setTenantFeature, tenantFeatures, tenantFeatureHistory } from "@marktiderman/genesis-supabase";
+
+const features = await tenantFeatures(supabase, teamId); // members and admins; 42501 for anyone else
+if (features.isOn("chat")) showChatTab();
+
+await setTenantFeature(supabase, { tenantId: teamId, featureId: "chat", enabled: false, reason: "Launching next month" });
+const history = await tenantFeatureHistory(supabase, teamId); // admins: who, when, why, newest first
+```
+
+| | |
+| --- | --- |
+| `public.set_tenant_feature(tenant, feature, enabled, reason)` | admins only (the hook); a reason of 1 to 500 characters; a FeatureId-shaped id |
+| `public.tenant_features_off(tenant)` | the ids that are off; members (`private.genesis_tenant_member`) and admins |
+| `public.tenant_feature_settings(tenant)` | every switch with its reason, who and when; admins |
+| `public.tenant_feature_history(tenant, max_rows)` | every change, newest first; admins |
+| `private.tenant_feature_on(tenant, feature)` | for SQL gates; a feature with no row is on |
+
+Every change, through the function or by the service role writing the table directly, is
+recorded by a trigger in `public.tenant_feature_changes` with the person (none for the service
+role or a migration), the JWT role and the time. The tables have row level security on with no
+policies and no grants to anon or authenticated: they are reached only through the functions,
+each security definer with an empty `search_path`, granted and revoked by name. Deleting a
+person never fails on these tables; their changes stay, without them.
+
+`private.tenant_feature_on` answers for any tenant, without the member check, so it is granted to
+nobody but the service role: call it from your own security definer functions (owned by the
+migration's role, they need no grant). Granting it to authenticated, with usage on `private`, lets
+every signed-in person ask about any tenant.
+
+A delete that cascades into `tenant_features` (from your tenant table, or a person whose tenant
+goes with them) isn't recorded, so it never refuses the tenant's or the person's deletion; saving
+the same switch and reason again changes nothing, not even who and when.
+
+## Blocks
+
+`accountBlock` and `tenantFeaturesBlock` are `defineBlock` declarations
+(`@marktiderman/genesis-features/blocks`) of what this package's blocks need: their migrations
+(with their tests) and, for the account, what it means for the stores' privacy forms. The
+functions above don't change; the declarations are for `resolveBlocks` and the shell.
+
 ## Choices, and why
 
 - **Keychain chunks rather than encrypted AsyncStorage.** Supabase's Expo guide shows two options: an AES-encrypted value in AsyncStorage with the key in SecureStore ("LargeSecureStore"), or `expo-sqlite/localStorage`. `keychainStorage` keeps the whole session in the Keychain/Keystore instead, split into chunks under the item size limit, with an atomic switch between generations. That means one native dependency (`expo-secure-store`) rather than three, no key to manage, and a session that can't be read off the device's file system. If you prefer LargeSecureStore, pass it as `storage`; everything else here works the same.
