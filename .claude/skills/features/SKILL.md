@@ -10,13 +10,18 @@ description: Find, add, change and retire this repo's features in features.ts, a
 `features.ts` is the one list of what this product does. Running code imports it, and
 `pnpm features build` generates the rest from it: the AGENTS.md block, `features.json`, the README.md Features section, this skill.
 
-## Find
-- `pnpm features find <term>` searches ids, aliases, names, summaries and code paths. Run it before
-  building anything new: extend the feature that already covers it rather than adding a second one.
+## Find: reuse, then extend, then invent
+- `pnpm features find <term>` searches ids, aliases, names, keywords, summaries, import paths, slots
+  and code paths; `--platform`, `--layer` and `--status` narrow it (an empty term lists all
+  that pass). Run it before building anything new, in this order:
+  1. **Reuse**: a feature already does it. Use it as is, configured through its `slots`.
+  2. **Extend**: one is close. Fill a slot, or add a variant with `extends: <id>`.
+  3. **Invent**: nothing is close. Add an entry first (an `idea` is enough), then build.
 
 ## Add
 1. Add an entry to `features.ts`. The key is the id: lowercase, permanent, never reused.
    Required: `name`, `summary` (internal, one sentence), `status`, `owner`, `apps`, `audience`.
+   - `idea`: captured, not agreed. Nothing else is required; add `keywords` so `find` matches it.
    - `planned` needs a `horizon` (now, next, later). No dates on the roadmap.
    - `building`: set `claimedBy` to your name or session while you work on it.
    - `beta` and `live` need `acceptance`: one testable sentence each. Tag the tests that prove
@@ -25,6 +30,10 @@ description: Find, add, change and retire this repo's features in features.ts, a
    - `visibility` (internal, customer, public, client:<name>) and `access` ("all" or { plan }).
      Paid access is `access`, never a flag. The id is the billing entitlement's lookup key.
    - For a public page: `tagline` (the customer benefit), `category`, `media`, `highlight`.
+   - For reuse: `layer` (token, primitive, pattern, layout, hook, provider, block, service, tool),
+     `platforms` (status per platform when it differs), `entry` (what to import, per platform),
+     `keywords`, `slots`, `extends` (the feature this is a variant of), `requires` (a beta or
+     live feature can't require an idea, a planned or a retired one) and `contributes`.
 2. Flags go in the flags registry with `feature: <id>`. One flag per feature; a second needs a
    `splitReason`. `release` and `experiment` flags need `expires`, `ops` flags a `runbook`.
    Read flags only through the typed accessor with a literal key, never a computed one.
@@ -32,8 +41,8 @@ description: Find, add, change and retire this repo's features in features.ts, a
    its body) or the PR (a `feature:<id>` label).
 
 ## Change
-- Move `status` as it ships: planned, building, beta, live, deprecated, retired. `check` warns when a
-  planned feature already has shipped work tagged with it (a changeset, or with `--prs` a merged PR).
+- Move `status` as it ships: idea, planned, building, beta, live, deprecated, retired. `check` warns
+  when an idea or a planned feature already has shipped work tagged with it (a changeset, or with `--prs` a merged PR).
 - Set `reviewedAt` (today) whenever you check an entry against the product; `check` warns after 90 days.
 - Rename by giving the feature a new id and putting the old one in `aliases`. Never delete an id.
 

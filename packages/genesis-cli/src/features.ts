@@ -20,7 +20,7 @@ import {
   type FeaturePrEvidence,
   type FeatureProjectOptions,
 } from "@marktiderman/genesis-features/node";
-import { findFeatures, type FeatureRecord, type Features, type Flags } from "@marktiderman/genesis-features";
+import { findFeatures, type FeatureRecord, type Features, type FindOptions, type Flags } from "@marktiderman/genesis-features";
 
 type Settings = Omit<FeatureProjectOptions, "root" | "features" | "flags" | "labels" | "today" | "evidence">;
 
@@ -48,17 +48,25 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** package.json's "genesisFeatures", under the command line's options. */
-function settings(root: string, options: FeaturesCommandOptions): FeaturesCommandOptions {
-  let fromPackage: Record<string, unknown> = {};
+function readObject(file: string, key: string): Record<string, unknown> {
   try {
-    const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf-8")) as Record<string, unknown>;
-    if (isObject(pkg.genesisFeatures)) fromPackage = pkg.genesisFeatures;
+    const json = JSON.parse(readFileSync(file, "utf-8")) as Record<string, unknown>;
+    return isObject(json[key]) ? json[key] : {};
   } catch {
-    // No package.json: command-line options only.
+    return {};
   }
+}
+
+/**
+ * The registry settings, strongest first: the command line, the `features`
+ * block of genesis.config.json (the app's one Genesis config, beside
+ * `doctor`), then package.json's older "genesisFeatures".
+ */
+function settings(root: string, options: FeaturesCommandOptions): FeaturesCommandOptions {
+  const fromPackage = readObject(path.join(root, "package.json"), "genesisFeatures");
+  const fromConfig = readObject(path.join(root, "genesis.config.json"), "features");
   const given = Object.fromEntries(Object.entries(options).filter(([, v]) => v !== undefined));
-  return { ...fromPackage, ...given } as FeaturesCommandOptions;
+  return { ...fromPackage, ...fromConfig, ...given } as FeaturesCommandOptions;
 }
 
 export async function loadRegistry(input: FeaturesCommandOptions) {
@@ -149,14 +157,20 @@ export async function runFeaturesCheck(options: FeaturesCommandOptions): Promise
   return { ...result, summary };
 }
 
-export async function runFeaturesFind(options: FeaturesCommandOptions, term: string): Promise<FeatureRecord[]> {
+export async function runFeaturesFind(options: FeaturesCommandOptions, term: string, filters: FindOptions = {}): Promise<FeatureRecord[]> {
   const project = await loadRegistry(options);
-  return findFeatures(project.features, term, project.flags);
+  return findFeatures(project.features, term, project.flags, filters);
 }
 
 /** One search hit, for the terminal. */
 export function formatFeature(r: FeatureRecord): string {
-  const lines = [`${r.id} — ${r.name} [${r.status}${r.horizon ? `, ${r.horizon}` : ""}] (${r.owner})`, `  ${r.summary}`];
+  const kind = r.layer ? ` ${r.layer}` : "";
+  const lines = [`${r.id} — ${r.name} [${r.status}${r.horizon ? `, ${r.horizon}` : ""}]${kind} (${r.owner})`, `  ${r.summary}`];
+  if (r.platforms) lines.push(`  platforms: ${Object.entries(r.platforms).map(([p, s]) => `${p} ${s}`).join(", ")}`);
+  if (r.entry) lines.push(`  import: ${Object.entries(r.entry).map(([p, e]) => `${e} (${p})`).join(", ")}`);
+  if (r.extends) lines.push(`  variant of: ${r.extends}`);
+  if (r.slots?.length) lines.push(`  slots: ${r.slots.join(", ")}`);
+  if (r.requires?.length) lines.push(`  requires: ${r.requires.join(", ")}`);
   if (r.links?.code?.length) lines.push(`  code: ${r.links.code.join(", ")}`);
   if (r.flags.length) lines.push(`  flags: ${r.flags.join(", ")}`);
   if (r.claimedBy) lines.push(`  being built by ${r.claimedBy}`);

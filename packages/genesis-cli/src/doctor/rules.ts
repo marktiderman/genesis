@@ -20,6 +20,7 @@ export const BUILTIN_RULES = [
   "raw-color",
   "undefined-token",
   "shadowed-export",
+  "version-skew",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];

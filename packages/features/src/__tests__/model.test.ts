@@ -139,3 +139,78 @@ describe("toRecords and findFeatures", () => {
     expect(findFeatures(features, "  ")).toEqual([]);
   });
 });
+
+describe("reuse fields", () => {
+  const shipped = { ...base, status: "live", acceptance: ["It works."] } as const;
+
+  it("accepts an idea with only the required fields", () => {
+    expect(problems(() => defineFeatures({ chat: { ...base, status: "idea", keywords: ["dm", "inbox"] } }))).toEqual([]);
+  });
+
+  it("checks layer, platforms and entry by name", () => {
+    const found = problems(() =>
+      defineFeatures({
+        // @ts-expect-error not a layer
+        a: { ...base, layer: "widget" },
+        // @ts-expect-error not a platform
+        b: { ...base, platforms: { tv: "live" } },
+        // @ts-expect-error not a status
+        c: { ...base, entry: { web: "x" }, platforms: { web: "shipped" } },
+      }),
+    );
+    expect(found.some((p) => p.startsWith("a.layer"))).toBe(true);
+    expect(found.some((p) => p.startsWith("b.platforms"))).toBe(true);
+    expect(found.some((p) => p.startsWith("c.platforms.web"))).toBe(true);
+  });
+
+  it("requires extends and requires to name other features", () => {
+    expect(
+      problems(() =>
+        defineFeatures({
+          a: { ...base, extends: "a", requires: ["a", "missing"] },
+          b: { ...base, extends: "missing" },
+        }),
+      ),
+    ).toEqual([
+      'a.extends: a feature can\'t extend itself',
+      "a.requires: a feature can't require itself",
+      'a.requires: "missing" is not a feature',
+      'b.extends: "missing" is not a feature',
+    ]);
+  });
+
+  it("refuses a shipped feature that needs an unshipped one", () => {
+    expect(problems(() => defineFeatures({ push: { ...base, status: "planned", horizon: "now" }, inbox: { ...shipped, requires: ["push"] } }))).toEqual([
+      'inbox.requires: a live feature can\'t require "push", which is planned',
+    ]);
+    expect(problems(() => defineFeatures({ push: { ...base }, inbox: { ...base, requires: ["push"] } }))).toEqual([]);
+  });
+
+  it("finds a cycle through requires", () => {
+    expect(problems(() => defineFeatures({ a: { ...base, requires: ["b"] }, b: { ...base, requires: ["c"] }, c: { ...base, requires: ["a"] } }))).toEqual([
+      "c.requires: a cycle: a → b → c → a",
+    ]);
+  });
+});
+
+describe("findFeatures with reuse fields", () => {
+  const catalog = defineFeatures({
+    inbox: { ...base, name: "Inbox", keywords: ["chat", "dm"], layer: "block", platforms: { web: "live", native: "planned" }, slots: ["composer"] },
+    settings: { ...base, name: "Settings", layer: "layout", apps: ["web", "native"], entry: { web: "@acme/ui/settings-row" } },
+    palette: { ...base, name: "Command palette", layer: "pattern", status: "idea" },
+  });
+  const ids = (r: { id: string }[]) => r.map((x) => x.id);
+
+  it("matches keywords as strongly as names, and entry and slots weakly", () => {
+    expect(ids(findFeatures(catalog, "chat"))).toEqual(["inbox"]);
+    expect(ids(findFeatures(catalog, "composer"))).toEqual(["inbox"]);
+    expect(ids(findFeatures(catalog, "settings-row"))).toEqual(["settings"]);
+  });
+
+  it("filters by platform (platforms first, then apps), layer and status", () => {
+    expect(ids(findFeatures(catalog, "", undefined, { platform: "native" }))).toEqual(["inbox", "settings"]);
+    expect(ids(findFeatures(catalog, "", undefined, { layer: "layout" }))).toEqual(["settings"]);
+    expect(ids(findFeatures(catalog, "", undefined, { status: "idea" }))).toEqual(["palette"]);
+    expect(ids(findFeatures(catalog, "inbox", undefined, { platform: "server" }))).toEqual([]);
+  });
+});

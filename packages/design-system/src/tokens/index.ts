@@ -7,3 +7,4 @@ export {
   themeToCss,
   type ThemeConfig,
 } from "./themes";
+export { THEME_ROLES, resolveThemeRoles, type ResolveThemeRolesOptions, type ThemeRole } from "./roles";
