@@ -2053,6 +2053,38 @@
       "flags": []
     },
     {
+      "id": "option-lists",
+      "name": "Option lists",
+      "summary": "Reusable, staff-editable option lists for forms (locations, people, categories), stored by the app under its own access rules, imported from a CSV paste or upload, resolved through the forms engine's host options, re-checked on submit, with each answer keeping the label it had when submitted.",
+      "category": "Forms",
+      "status": "idea",
+      "layer": "block",
+      "keywords": [
+        "choices",
+        "dropdown options",
+        "picklist",
+        "csv import",
+        "lookup list",
+        "host options"
+      ],
+      "requires": [
+        "forms-engine"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "admin"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "seed-data",
       "name": "Seed data",
       "summary": "Generated demo and test data for an app's tables, for local stacks and preview branches.",
