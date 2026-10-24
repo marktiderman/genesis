@@ -1,11 +1,16 @@
 # Maestro flows
 
-End-to-end flows for the starter, run against a development build on a simulator or emulator.
-No workflow runs them in CI yet.
+Smoke flows for the starter, run against the development variant on a simulator or emulator.
+`.eas/workflows/e2e.yml` runs them on EAS for each pull request.
 
-| Flow | What it checks |
-| --- | --- |
-| `flows/sign-in-screen.yaml` | A fresh install boots past the splash (every boot step, the session read) to the sign-in screen. |
+| Flow | Tags | What it checks |
+| --- | --- | --- |
+| `flows/launch.yaml` | smoke | A fresh install runs every boot step and leaves the splash, with no fatal screen. |
+| `flows/sign-in-screen.yaml` | smoke | It lands on the sign-in screen: the email form and the sign-in / create-account switch. |
+| `flows/settings-version.yaml` | smoke, account | Signs in with email, opens the Settings tab, and finds the About row's version signature (`settings-row-version`) and sign-out. |
+
+`subflows/sign-in.yaml` is the sign-in steps `settings-version.yaml` runs; it isn't a flow of its
+own, so it lives outside `flows/`.
 
 ## Running
 
@@ -13,12 +18,20 @@ You need [Maestro](https://maestro.mobile.dev), `.env` filled in (see the starte
 development variant installed:
 
 ```bash
-APP_VARIANT=development pnpm --filter genesis-rn-starter ios   # or android
-maestro test apps/genesis-rn-starter/.maestro/flows/sign-in-screen.yaml
+APP_VARIANT=development pnpm --filter genesis-rn-starter ios --configuration Release
+pnpm --filter genesis-rn-starter e2e                       # every flow in flows/
+maestro test --exclude-tags account .maestro/flows          # the ones that don't sign in
 ```
 
-`config.yaml` and each flow name the development variant's bundle id
-(`com.example.genesisstarter.dev`); change it with `app.bundleId` in `starter.config.ts`.
+The `account` flow signs in with `MAESTRO_TEST_EMAIL` and `MAESTRO_TEST_PASSWORD` from the
+environment (Maestro reads `MAESTRO_*` variables): an account that can sign in with email and
+password on the Supabase project the build points at. On EAS they are secret variables of the
+development environment.
 
-The component showcase and its screenshot flows lived here while this app was `apps/sample-native`;
-they were removed when it became the starter and are in git history.
+`config.yaml` and each flow name the development variant's bundle id
+(`com.example.genesisstarter.dev`); change them with `app.bundleId` in `starter.config.ts` (a test
+checks they agree). The flows find screens by the testIDs the Genesis layouts set (`auth-screen`,
+`home`, `settings`, `settings-row-<id>`, `genesis-boot`, `genesis-fatal`).
+
+These files are copies of [`templates/maestro/`](../../../templates/maestro); a test fails if they
+drift.

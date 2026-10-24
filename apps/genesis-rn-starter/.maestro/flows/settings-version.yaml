@@ -1,0 +1,25 @@
+# Smoke: sign in with email, open the Settings tab and see the About row's version signature.
+#
+# Needs an account that can sign in with email and password on the app's Supabase project:
+#
+#   MAESTRO_TEST_EMAIL=… MAESTRO_TEST_PASSWORD=… maestro test .maestro/flows/settings-version.yaml
+#
+# Maestro reads MAESTRO_* variables from the environment. In EAS Workflows (e2e.yml) they are
+# secret variables of the EAS environment the build uses.
+appId: com.example.genesisstarter.dev
+tags:
+  - smoke
+  - account
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings"
+    timeout: 10000
+- assertVisible:
+    id: "settings-row-version"
+- assertVisible:
+    id: "sign-out"

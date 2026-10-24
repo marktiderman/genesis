@@ -1,0 +1,116 @@
+# Promote or roll back a staged production update (one deploy-production.yml started).
+#
+# Run it by hand, from git:
+#
+#   eas workflow:run rollout.yml --ref main \
+#     --input update_group_id=<group id> --input action=promote --input percentage=50
+#   eas workflow:run rollout.yml --ref main --input update_group_id=<group id> --input action=rollback
+#
+# promote: first a health check reads EAS's insights for the update group
+# (`eas update:insights --json`) and stops the promotion when, on any platform, fewer than
+# `min_launches` launches were counted or more than `max_failed_launch_percent` of launches
+# failed. Then the rollout goes up to `percentage`. It never goes down; use rollback for that.
+#
+# What the check sees, and what it doesn't: EAS's "crash rate" is failed launches of the update
+# (expo-updates couldn't start it and fell back to the previous code), not crash-free sessions. A
+# crash after the app started isn't in it. Before promoting, read crash-free sessions for the
+# update in your crash reporter (the update id is in the version signature, Settings > About).
+# The workflow can't do that part for you.
+#
+# rollback: everyone on the channel goes back to what they ran before the staged update
+# (`eas update:revert-update-rollout`).
+#
+# The custom jobs run EAS CLI, which needs `EXPO_TOKEN`: a robot token with access to this
+# project, as a secret variable of the production EAS environment.
+#
+# Genesis template (templates/eas/workflows/rollout.yml). Edit the copy in your app; see
+# docs/NATIVE-RELEASE.md in the Genesis repository.
+name: Rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      update_group_id:
+        type: string
+        required: true
+        description: The update group deploy-production.yml published (its update job's log, or `eas update:list --branch production`).
+      action:
+        type: choice
+        required: true
+        options: [promote, rollback]
+        description: promote raises the rollout to `percentage`; rollback reverts it.
+      percentage:
+        type: choice
+        options: ["25", "50", "100"]
+        default: "50"
+        description: The share of production installs to promote to.
+      max_failed_launch_percent:
+        type: string
+        default: "1"
+        description: Stop the promotion when more than this share of launches failed, on any platform.
+      min_launches:
+        type: string
+        default: "200"
+        description: Stop the promotion when fewer launches than this were counted, on any platform.
+
+jobs:
+  health_check:
+    name: Check failed launches before promoting
+    if: ${{ inputs.action == 'promote' }}
+    environment: production
+    env:
+      UPDATE_GROUP_ID: ${{ inputs.update_group_id }}
+      MAX_FAILED_LAUNCH_PERCENT: ${{ inputs.max_failed_launch_percent }}
+      MIN_LAUNCHES: ${{ inputs.min_launches }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Read the update group's insights and check them
+        run: |
+          set -euo pipefail
+          npx --yes eas-cli@25.3.0 update:insights "$UPDATE_GROUP_ID" --json --non-interactive > insights.json
+          node .eas/scripts/rollout-health.mjs insights.json
+
+  promote_25:
+    name: Promote to 25%
+    needs: [health_check]
+    if: ${{ inputs.percentage == '25' }}
+    type: update-rollout
+    environment: production
+    params:
+      update_group_id: ${{ inputs.update_group_id }}
+      rollout_percentage: 25
+
+  promote_50:
+    name: Promote to 50%
+    needs: [health_check]
+    if: ${{ inputs.percentage == '50' }}
+    type: update-rollout
+    environment: production
+    params:
+      update_group_id: ${{ inputs.update_group_id }}
+      rollout_percentage: 50
+
+  promote_100:
+    name: Promote to 100%
+    needs: [health_check]
+    if: ${{ inputs.percentage == '100' }}
+    type: update-rollout
+    environment: production
+    params:
+      update_group_id: ${{ inputs.update_group_id }}
+      rollout_percentage: 100
+
+  rollback:
+    name: Roll back the staged update
+    if: ${{ inputs.action == 'rollback' }}
+    environment: production
+    env:
+      UPDATE_GROUP_ID: ${{ inputs.update_group_id }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Revert the rollout
+        run: |
+          set -euo pipefail
+          npx --yes eas-cli@25.3.0 update:revert-update-rollout --group "$UPDATE_GROUP_ID" --message "Rolled back by rollout.yml" --non-interactive

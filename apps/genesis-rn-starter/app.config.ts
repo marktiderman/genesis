@@ -2,13 +2,15 @@
 import "tsx/cjs";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 import starter from "./starter.config";
-import { nativePlatforms } from "./src/lib/define-starter";
+import { easConfig, nativePlatforms } from "./src/lib/define-starter";
 
 // Name, ids and plugins only. The Genesis plugin (`@marktiderman/genesis-cli`) adds the rest:
 // APP_VARIANT variants (development / preview / production), associated domains and app links from
 // genesis.config.json, the privacy manifest, export compliance and the fingerprint runtime version.
+// `easConfig` adds the EAS update URL and project id from starter.config.ts `app.easProjectId`.
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
+  ...easConfig(starter.app),
   name: starter.app.name,
   slug: starter.app.slug,
   scheme: starter.app.scheme,
@@ -23,5 +25,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: { package: starter.app.bundleId },
   experiments: { typedRoutes: true, reactCompiler: true },
-  plugins: ["expo-router", "expo-secure-store", "@marktiderman/genesis-cli"],
+  plugins: ["expo-router", "expo-secure-store", "expo-updates", "@marktiderman/genesis-cli"],
 });

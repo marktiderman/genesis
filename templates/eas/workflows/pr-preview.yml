@@ -1,0 +1,107 @@
+# PR preview: an installable build of each pull request, and an update on its own channel.
+#
+# 1. Fingerprint the native project as the preview variant builds it.
+# 2. A preview build with that fingerprint exists: repack it with this pull request's JavaScript
+#    (no native compile). None exists (the pull request changed native code): build one.
+# 3. Publish the pull request's JavaScript as an update to the channel `pr-<number>`.
+# 4. Comment on the pull request: the build's install link and QR code, and the update.
+#
+# Nothing here can reach production: the preview profile and EAS environment, internal
+# distribution, a pr-<number> channel, and no submit job.
+#
+# Genesis template (templates/eas/workflows/pr-preview.yml). Edit the copy in your app; see
+# docs/NATIVE-RELEASE.md in the Genesis repository.
+name: PR preview
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: preview
+    env:
+      APP_VARIANT: preview
+
+  get_ios_build:
+    name: Find a preview iOS build with this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: preview
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  get_android_build:
+    name: Find a preview Android build with this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: android
+      profile: preview
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  repack_ios:
+    name: Repack iOS with this JavaScript
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: repack
+    environment: preview
+    env:
+      APP_VARIANT: preview
+    params:
+      build_id: ${{ needs.get_ios_build.outputs.build_id }}
+      profile: preview
+
+  repack_android:
+    name: Repack Android with this JavaScript
+    needs: [get_android_build]
+    if: ${{ needs.get_android_build.outputs.build_id }}
+    type: repack
+    environment: preview
+    env:
+      APP_VARIANT: preview
+    params:
+      build_id: ${{ needs.get_android_build.outputs.build_id }}
+      profile: preview
+
+  build_ios:
+    name: Build iOS (native code changed)
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    environment: preview
+    params:
+      platform: ios
+      profile: preview
+
+  build_android:
+    name: Build Android (native code changed)
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    type: build
+    environment: preview
+    params:
+      platform: android
+      profile: preview
+
+  publish_update:
+    name: Publish to channel pr-<number>
+    needs: [fingerprint]
+    type: update
+    environment: preview
+    env:
+      APP_VARIANT: preview
+    params:
+      channel: pr-${{ github.event.pull_request.number }}
+
+  comment:
+    name: Comment on the pull request
+    after: [repack_ios, repack_android, build_ios, build_android, publish_update]
+    type: github-comment
+    params:
+      message: "Preview of this pull request: install a build from its link or QR code. A preview build already installed can switch to the channel pr-${{ github.event.pull_request.number }} instead."
