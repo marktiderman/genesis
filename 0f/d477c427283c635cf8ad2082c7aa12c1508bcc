@@ -1,0 +1,73 @@
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_1e212a3cae8803 7,98-104,154,176-181,183-190,193
+packages/native/src/__tests__/app.test.tsx
+  s_8252619ce79a86::t_9f3760ad08a0d1 319-346
+  s_8252619ce79a86::t_8ca5177c75acfc 2
+apps/genesis-rn-starter/tailwind.config.mjs
+  s_8252619ce79a86::t_a9a01a40e08f88 4,9
+  s_8252619ce79a86::t_745de35c4a58ad 1-2
+packages/supabase/src/__tests__/web-crypto.test.ts
+  s_8252619ce79a86::t_7213f22fdf4679 83
+  s_8252619ce79a86::t_6609c8f6572943 1-82,84-123
+packages/design-system/src/presets/nativewind.ts
+  s_8252619ce79a86::t_44c3c997346f7b 1-16,19-62
+  s_8252619ce79a86::t_528c84a6e82038 17-18
+packages/native/README.md
+  s_8252619ce79a86::t_4822229a37bd4c 9,19,39-43
+packages/design-system/src/tokens/theme-css.ts
+  s_8252619ce79a86::t_44c3c997346f7b 13-14
+  s_8252619ce79a86::t_8723f7e217c744 219-222,225-233,296-328
+packages/design-system/tsup.config.ts
+  s_8252619ce79a86::t_44c3c997346f7b 24
+packages/design-system/src/presets/__tests__/nativewind.test.ts
+  s_8252619ce79a86::t_528c84a6e82038 1-51
+packages/supabase/src/native.ts
+  s_8252619ce79a86::t_39432cf8100ead 9-10
+apps/genesis-rn-starter/src/lib/supabase.ts
+  s_8252619ce79a86::t_a6816be8ac346d 7,60-61
+packages/supabase/src/web-crypto.ts
+  s_8252619ce79a86::t_39432cf8100ead 1-150
+apps/genesis-rn-starter/src/lib/app.ts
+  s_8252619ce79a86::t_3b9908b6463908 10,35
+.changeset/starter-sim-fixes.md
+  s_8252619ce79a86::t_745de35c4a58ad 5,14
+  s_8252619ce79a86::t_8b31b387fced51 1-4,6-13
+packages/supabase/src/index.ts
+  s_8252619ce79a86::t_39432cf8100ead 7,33-41,48-49,60,63-65
+  s_8252619ce79a86::t_6b6526bc22a30e 9
+  s_8252619ce79a86::t_43b62542a7178d 8
+packages/supabase/README.md
+  s_8252619ce79a86::t_b8ab0764a265ed 9,16,23
+packages/genesis-cli/test/scaffolder.test.ts
+  s_8252619ce79a86::t_267d1ee5e12260 278-279
+packages/genesis-cli/src/scaffolder.ts
+  s_8252619ce79a86::t_267d1ee5e12260 342-345
+packages/design-system/style-dictionary.config.ts
+  s_8252619ce79a86::t_8723f7e217c744 22,40
+docs/component-reference.md
+  s_3e2f226a7efe86::t_3f8d0a1cf325eb 876
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0fd477c427283c635cf8ad2082c7aa12c1508bcc",
+  "prompts": {},
+  "sessions": {
+    "s_3e2f226a7efe86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a94f65bebe0a18869",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
