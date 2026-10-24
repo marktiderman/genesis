@@ -2074,7 +2074,7 @@
       "name": "Option lists",
       "summary": "Reusable, staff-editable option lists for forms (locations, people, categories), stored by the app under its own access rules, imported from a CSV paste or upload, resolved through the forms engine's host options, re-checked on submit, with each answer keeping the label it had when submitted.",
       "category": "Forms",
-      "status": "idea",
+      "status": "building",
       "layer": "block",
       "keywords": [
         "choices",
@@ -2082,7 +2082,10 @@
         "picklist",
         "csv import",
         "lookup list",
-        "host options"
+        "host options",
+        "record picker",
+        "prefill link",
+        "searchable dropdown"
       ],
       "requires": [
         "forms-engine"
@@ -2098,6 +2101,23 @@
         "admin"
       ],
       "visibility": "internal",
+      "acceptance": [
+        "A coach picker filtered by the chosen location shows only that location's coaches, clears a coach who no longer matches, and the server refuses one outside the filter.",
+        "A link with ?location=<value> preselects that option, and a value not in the list is ignored.",
+        "A CSV paste previews duplicates, blanks and bad image links before it merges by value."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/forms/src/options.ts",
+          "packages/forms-web/src/searchable.tsx",
+          "packages/forms-builder/src/option-lists.ts",
+          "packages/forms-builder/src/OptionListEditor.tsx"
+        ],
+        "docs": [
+          "packages/forms/README.md"
+        ]
+      },
       "access": "all",
       "flags": []
     },

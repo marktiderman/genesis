@@ -9,6 +9,7 @@ import { compactEvents, isFormEvent, isJson, isPlainObject, isUnknownEvent } fro
 import { isEmptyValue, normalizeValue, withHostOptions, type HostOptions } from "./fields";
 import { coerceHidden } from "./hidden";
 import { fieldMap, own, withheld } from "./logic";
+import { filteredChoiceError } from "./options";
 import { parseForm } from "./parse";
 import type { FormDefinition, FormEvent, Json } from "./types";
 import { validateField, type FieldValidator } from "./validate";
@@ -267,11 +268,13 @@ export function validateSubmission(
     }
   } else {
     const errors: Record<string, string> = {};
-    for (const [id, value] of Object.entries(engine.answers())) {
-      const message = validateField(fields.get(id)!, value, {
-        requireAnswers: false,
-        custom: options.validators?.[id],
-      });
+    const kept = engine.answers();
+    for (const [id, value] of Object.entries(kept)) {
+      const message =
+        validateField(fields.get(id)!, value, {
+          requireAnswers: false,
+          custom: options.validators?.[id],
+        }) ?? filteredChoiceError(definition, fields.get(id)!, value, kept);
       if (message) errors[id] = message;
     }
     if (Object.keys(errors).length) return { ok: false, errors };
@@ -324,3 +327,12 @@ export function validateSubmission(
 export function publicDefinition(definition: FormDefinition): FormDefinition {
   return JSON.parse(JSON.stringify(definition)) as FormDefinition;
 }
+
+export {
+  answerSnapshots,
+  answersFromSnapshots,
+  type AnswerSnapshot,
+  type OptionSnapshot,
+  type RestoredAnswers,
+} from "./options";
+export { withHostOptions, type HostOptions } from "./fields";

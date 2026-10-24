@@ -22,8 +22,25 @@ export interface HostOptionList {
   label: string;
   /** One line on what it lists, shown under the picker. */
   description?: string | undefined;
-  /** Stand-in options the builder's preview shows (and its checks try). Default: none. */
+  /**
+   * Stand-in options the builder's preview shows (and its checks try), with any description,
+   * picture and attributes the real list has, so the preview looks like the live form. Default: none.
+   */
   sample?: readonly ChoiceOption[] | undefined;
+  /**
+   * The attribute names the list's options carry (such as `["location"]`), offered as "Only show
+   * options matching" (`props.optionsFrom.filter`). Default: the names found on `sample`.
+   */
+  attributes?: readonly string[] | undefined;
+}
+
+/** The attribute names a list offers for filtering: its `attributes`, else those on its sample options. */
+export function hostListAttributes(list: HostOptionList | undefined): string[] {
+  if (!list) return [];
+  if (list.attributes) return [...list.attributes];
+  const names = new Set<string>();
+  for (const o of list.sample ?? []) for (const name of Object.keys(o.attributes ?? {})) names.add(name);
+  return [...names];
 }
 
 /** The stand-in options, by key, from the host's lists: what the builder's preview fills in. */
