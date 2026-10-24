@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 60
+      "count": 61
     }
   },
   "primitives": [
@@ -226,6 +226,142 @@
       ]
     },
     {
+      "slug": "apple-sign-in",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/apple-sign-in.tsx",
+      "stability": "beta",
+      "summary": "Apple's branded button, full width. Renders nothing off iOS.",
+      "primaryComponent": "AppleSignInButton",
+      "components": [
+        {
+          "name": "AppleSignInButton",
+          "summary": "Apple's branded button, full width. Renders nothing off iOS.",
+          "props": [
+            {
+              "name": "apple",
+              "type": "AppleButtonModuleLike",
+              "required": true,
+              "defaultValue": null,
+              "description": "`expo-apple-authentication`."
+            },
+            {
+              "name": "onPress",
+              "type": "() => void | Promise<void>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Usually `() => signInWithApple(supabase, AppleAuthentication, { digest })` from `@marktiderman/genesis-supabase/native`."
+            },
+            {
+              "name": "appearance",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "auto",
+              "description": "`\"auto\"` (default): black in light mode, white in dark, as Apple recommends."
+            },
+            {
+              "name": "cornerRadius",
+              "type": "number",
+              "required": false,
+              "defaultValue": "10",
+              "description": "Default 10, to sit with Genesis buttons."
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "height",
+              "type": "number",
+              "required": false,
+              "defaultValue": "44",
+              "description": "Default 44, Apple's minimum."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "apple-sign-in",
+              "description": ""
+            },
+            {
+              "name": "type",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "continue",
+              "description": "Apple's wording: \"Sign in with Apple\", \"Continue with Apple\" (default) or \"Sign up with Apple\"."
+            }
+          ]
+        },
+        {
+          "name": "appleProvider",
+          "summary": "A `SocialAuthProvider` (id `\"apple\"`) that draws Apple's button, for\n`AuthScreen`'s `providers`. `null` off iOS or without the module.",
+          "props": [
+            {
+              "name": "apple",
+              "type": "AppleButtonModuleLike | null | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": "`expo-apple-authentication`, or `undefined` where it isn't installed."
+            },
+            {
+              "name": "onPress",
+              "type": "() => void | Promise<void>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Usually `() => signInWithApple(supabase, AppleAuthentication, { digest })` from `@marktiderman/genesis-supabase/native`."
+            },
+            {
+              "name": "appearance",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "`\"auto\"` (default): black in light mode, white in dark, as Apple recommends."
+            },
+            {
+              "name": "cornerRadius",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Default 10, to sit with Genesis buttons."
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "height",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Default 44, Apple's minimum."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Continue with Apple",
+              "description": "Read by screen readers and the dev warning. Default \"Continue with Apple\" (Apple's button draws its own text)."
+            },
+            {
+              "name": "type",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Apple's wording: \"Sign in with Apple\", \"Continue with Apple\" (default) or \"Sign up with Apple\"."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "auth",
       "aliases": [],
       "surface": "native",
@@ -422,7 +558,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/auth-screen.tsx",
       "stability": "beta",
-      "summary": "AuthScreen — a whole sign-in screen: branding, social providers, the\nemail form with a \"Forgot password?\" link, and a footer (terms, a\nsign-up link). It assembles the auth primitives (`AuthBranding`,\n`SocialAuthRow`, `AuthForm`, `ForgotPasswordLink`) so an app passes\nprops instead of composing them.\n\nThe form stays above the keyboard on small phones. In development, on\niOS, it warns when a third-party provider is offered without Sign in with\nApple (App Store Review Guideline 4.8 rejects that).\n\nSlots: replace or drop (`null`) `branding`, `social`, `form` or `footer`;\n`slotProps` feeds a default part. Composing the primitives yourself is\nstill the escape hatch.",
+      "summary": "AuthScreen — a whole sign-in screen: branding, social providers, the\nemail form with a \"Forgot password?\" link, and a footer (terms, a\nsign-up link). It assembles the auth primitives (`AuthBranding`,\n`SocialAuthRow`, `AuthForm`, `ForgotPasswordLink`) so an app passes\nprops instead of composing them.\n\nThe form stays above the keyboard on small phones. In development, on\niOS, it warns when a third-party provider is offered without Sign in with\nApple (App Store Review Guideline 4.8 rejects that). `appleProvider()`\nadds Apple's own button in one line.\n\nSlots: replace or drop (`null`) `branding`, `social`, `form` or `footer`;\n`slotProps` feeds a default part. Composing the primitives yourself is\nstill the escape hatch.",
       "primaryComponent": "AuthScreen",
       "components": [
         {
@@ -459,10 +595,10 @@
             },
             {
               "name": "providers",
-              "type": "SocialAuthProvider[]",
+              "type": "(false | SocialAuthProvider | null)[]",
               "required": false,
               "defaultValue": null,
-              "description": "Sign-in providers (Apple, Google…). None: no social row."
+              "description": "Sign-in providers (Apple, Google…). None: no social row. A `null` or\n`false` entry is skipped, so a platform-only provider such as\n`appleProvider(...)` (null off iOS) goes in the list as is."
             },
             {
               "name": "slotProps",

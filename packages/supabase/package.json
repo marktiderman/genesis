@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, and a result helper. Part of the Genesis framework.",
+  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and OAuth redirects, in-app account deletion, and a result helper. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -31,6 +31,7 @@
   },
   "files": [
     "dist",
+    "migrations",
     "README.md"
   ],
   "scripts": {

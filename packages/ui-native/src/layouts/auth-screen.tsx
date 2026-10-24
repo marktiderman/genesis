@@ -7,7 +7,8 @@
  *
  * The form stays above the keyboard on small phones. In development, on
  * iOS, it warns when a third-party provider is offered without Sign in with
- * Apple (App Store Review Guideline 4.8 rejects that).
+ * Apple (App Store Review Guideline 4.8 rejects that). `appleProvider()`
+ * adds Apple's own button in one line.
  *
  * Slots: replace or drop (`null`) `branding`, `social`, `form` or `footer`;
  * `slotProps` feeds a default part. Composing the primitives yourself is
@@ -40,8 +41,12 @@ export type AuthScreenSlotMap = {
 export interface AuthScreenProps {
   /** Logo, headline and subhead above everything else. */
   branding?: AuthBrandingProps;
-  /** Sign-in providers (Apple, Google…). None: no social row. */
-  providers?: SocialAuthProvider[];
+  /**
+   * Sign-in providers (Apple, Google…). None: no social row. A `null` or
+   * `false` entry is skipped, so a platform-only provider such as
+   * `appleProvider(...)` (null off iOS) goes in the list as is.
+   */
+  providers?: Array<SocialAuthProvider | null | false | undefined>;
   /** The email form. */
   form: AuthFormProps;
   /** Adds a "Forgot password?" link below the fields (password mode only). */
@@ -58,7 +63,7 @@ export interface AuthScreenProps {
 
 export function AuthScreen({
   branding,
-  providers,
+  providers: givenProviders,
   form,
   onForgotPassword,
   footer,
@@ -66,6 +71,7 @@ export function AuthScreen({
   slotProps = {},
   testID = "auth-screen",
 }: AuthScreenProps) {
+  const providers = givenProviders?.filter((p): p is SocialAuthProvider => !!p);
   warnIfNoAppleSignIn(providers);
   const forgot =
     onForgotPassword && (form.mode ?? "password") === "password" ? <ForgotPasswordLink onPress={onForgotPassword} /> : null;
@@ -97,7 +103,7 @@ function warnIfNoAppleSignIn(providers: SocialAuthProvider[] | undefined) {
   if (warnedNoApple.has(ids)) return;
   warnedNoApple.add(ids);
   console.warn(
-    `[genesis] AuthScreen offers ${providers.map((p) => p.label).join(", ")} on iOS without Sign in with Apple. App Store Review Guideline 4.8 requires it; add a provider with id "apple".`,
+    `[genesis] AuthScreen offers ${providers.map((p) => p.label).join(", ")} on iOS without Sign in with Apple. App Store Review Guideline 4.8 requires it; add appleProvider({ apple: AppleAuthentication, onPress }) (or any provider with id "apple"). If you did, expo-apple-authentication wasn't passed in.`,
   );
 }
 

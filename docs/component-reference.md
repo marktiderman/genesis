@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 130 components · 441 other exports · 281 standalone types across 10 packages and entry points.
+**Totals:** 131 components · 442 other exports · 283 standalone types across 10 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -688,10 +688,11 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (86)
+### Components (87)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AppleSignInButton`](../packages/ui-native/src/layouts/apple-sign-in.tsx) | `AppleSignInButtonProps` | — | Apple's branded button, full width. Renders nothing off iOS. |
 | [`AuthBranding`](../packages/ui-native/src/layouts/auth.tsx) | `AuthBrandingProps` | — | _(no summary)_ |
 | [`AuthForm`](../packages/ui-native/src/layouts/auth.tsx) | `AuthFormProps` | — | _(no summary)_ |
 | [`AuthScreen`](../packages/ui-native/src/layouts/auth-screen.tsx) | `AuthScreenProps` | — | _(no summary)_ |
@@ -779,13 +780,14 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`SocialAuthRow`](../packages/ui-native/src/layouts/auth.tsx) | `SocialAuthRowProps` | — | _(no summary)_ |
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 
-### Other exports (26)
+### Other exports (27)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`alertVariants`](../packages/ui-native/src/components/alert.tsx) | value | — | _(no summary)_ |
+| [`appleProvider`](../packages/ui-native/src/layouts/apple-sign-in.tsx) | function | Beta | A `SocialAuthProvider` (id `"apple"`) that draws Apple's button, for `AuthScreen`'s `providers`. `null` off iOS or without the module. |
 | [`badgeTextVariants`](../packages/ui-native/src/components/badge.tsx) | value | — | _(no summary)_ |
 | [`badgeVariants`](../packages/ui-native/src/components/badge.tsx) | value | — | _(no summary)_ |
 | [`buttonTextVariants`](../packages/ui-native/src/components/button.tsx) | value | — | _(no summary)_ |
@@ -812,11 +814,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (31)
+### Types (33)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AppleButtonModuleLike };
+export type { AppleProviderOptions };
 export type { AuthFormValues };
 export type { AuthScreenSlotMap };
 export type { BoxBackground };

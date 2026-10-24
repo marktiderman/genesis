@@ -14,7 +14,7 @@
  *
  * @stability Beta
  */
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useRef, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { NativeButton } from "../components/button";
 import { NativeInput } from "../components/input";
@@ -92,6 +92,12 @@ export type SocialAuthProvider = {
   onPress: () => void | Promise<void>;
   /** When true, the button is disabled (e.g., loading). */
   disabled?: boolean;
+  /**
+   * Draw the provider's own button instead of the default outline button,
+   * for a provider whose brand rules require theirs (Apple: see
+   * `appleProvider`). Receives the testID the default would use.
+   */
+  render?: (props: { testID: string; disabled?: boolean }) => ReactNode;
 };
 
 export interface SocialAuthRowProps {
@@ -116,24 +122,28 @@ export function SocialAuthRow({
   return (
     <View testID={testID} className={cn("gap-3", className)}>
       <View className="gap-2">
-        {providers.map((p) => (
-          <NativeButton
-            key={p.id}
-            testID={`${testID}-${p.id}`}
-            variant="outline"
-            disabled={p.disabled}
-            onPress={() => {
-              void p.onPress();
-            }}
-          >
-            <View className="flex-row items-center gap-2">
-              {p.icon}
-              <Text className="text-sm font-medium text-foreground">
-                {p.label}
-              </Text>
-            </View>
-          </NativeButton>
-        ))}
+        {providers.map((p) =>
+          p.render ? (
+            <Fragment key={p.id}>{p.render({ testID: `${testID}-${p.id}`, disabled: p.disabled })}</Fragment>
+          ) : (
+            <NativeButton
+              key={p.id}
+              testID={`${testID}-${p.id}`}
+              variant="outline"
+              disabled={p.disabled}
+              onPress={() => {
+                void p.onPress();
+              }}
+            >
+              <View className="flex-row items-center gap-2">
+                {p.icon}
+                <Text className="text-sm font-medium text-foreground">
+                  {p.label}
+                </Text>
+              </View>
+            </NativeButton>
+          ),
+        )}
       </View>
       {separator !== null && separator !== undefined ? (
         <View
