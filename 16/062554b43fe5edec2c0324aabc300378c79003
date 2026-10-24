@@ -1,0 +1,79 @@
+.changeset/define-block.md
+  s_8252619ce79a86::t_1cbc1b929e3889 1-11
+features.json
+  s_8252619ce79a86::t_745a23c488fd74 1326-1395,2446-2513
+features.ts
+  s_8252619ce79a86::t_6b6a1015b1b709 593-620,1086-1113
+packages/features/README.md
+  s_8252619ce79a86::t_fc62d5401b67ad 123-177
+packages/features/package.json
+  s_8252619ce79a86::t_d74562174e559d 7,27-30
+packages/features/src/__tests__/blocks.test.ts
+  s_8252619ce79a86::t_1c711e08369c5f 1-192
+packages/features/src/blocks-entry.ts
+  s_8252619ce79a86::t_0421619787d6b4 1-8
+packages/features/src/blocks.ts
+  s_8252619ce79a86::t_aff787529bf57d 1-411
+packages/features/src/graph.ts
+  s_8252619ce79a86::t_57c7fb6046b69a 1-91
+packages/features/src/index.ts
+  s_8252619ce79a86::t_7b43e9c825aceb 52-69
+packages/features/src/model.ts
+  s_8252619ce79a86::t_b9389faa618cab 2-3,59-60,360,362-363,369
+packages/features/src/platforms.ts
+  s_8252619ce79a86::t_dbba9e387a05fb 1-9
+packages/features/tsup.config.ts
+  s_8252619ce79a86::t_ce8e96daa5416a 27
+packages/native/README.md
+  s_8252619ce79a86::t_28e608d96bf6b6 236-265
+packages/native/package.json
+  s_8252619ce79a86::t_0169c9f9ec593e 7,49
+packages/native/src/__tests__/blocks.test.tsx
+  s_8252619ce79a86::t_29944e6571ced2 1-167
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_a7270fffc59c11 10,13-16,47-48,138-150,185-186,191-195,231,240-246,261-262,277-278,286,289,350-360,367-371,378-396
+packages/native/src/blocks.tsx
+  s_8252619ce79a86::t_01c00d17581ae1 1-125
+packages/native/src/index.ts
+  s_8252619ce79a86::t_a7c7bdf044896c 74-83
+packages/native/src/updates/block.tsx
+  s_8252619ce79a86::t_5ec374cf0e4b0e 15-19,24-25,99-104,112-115,127-128,204-233,235,243-244,369-372
+packages/native/src/updates/index.ts
+  s_8252619ce79a86::t_243903ff6e6e5e 17
+packages/supabase/README.md
+  s_8252619ce79a86::t_842ce12da438a6 320-386
+packages/supabase/migrations/0004_genesis_tenant_features.sql
+  s_8252619ce79a86::t_99ed22b4a21c80 1-333
+packages/supabase/migrations/tests/0004_genesis_tenant_features.test.sql
+  s_8252619ce79a86::t_82d5d9326f3a02 1-418
+packages/supabase/package.json
+  s_8252619ce79a86::t_ea2220e28255b1 7,38-40
+packages/supabase/src/__tests__/tenant-features.test.ts
+  s_8252619ce79a86::t_dc1f92d26b2be1 1-98
+packages/supabase/src/blocks.ts
+  s_8252619ce79a86::t_f8fdfbeb2bcf0f 1-53
+packages/supabase/src/index.ts
+  s_8252619ce79a86::t_3532387ca7fadc 185-196
+packages/supabase/src/tenant-features.ts
+  s_8252619ce79a86::t_c60409664d0c12 1-108
+packages/supabase/tsup.config.ts
+  s_8252619ce79a86::t_e3f4dca5c6210b 11
+pnpm-lock.yaml
+  s_8252619ce79a86::t_4456c9794c7b9b 971-973,1110-1113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "16062554b43fe5edec2c0324aabc300378c79003",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
