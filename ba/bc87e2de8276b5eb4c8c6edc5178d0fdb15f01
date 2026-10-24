@@ -1,0 +1,21 @@
+packages/forms-builder/src/settings.tsx
+  s_738228bc0d81b1::t_b9c7450a8e2eff 268
+packages/forms-web/src/photo.tsx
+  s_738228bc0d81b1::t_b9c7450a8e2eff 123-124,135,137,174-176,179-184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "babc87e2de8276b5eb4c8c6edc5178d0fdb15f01",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
