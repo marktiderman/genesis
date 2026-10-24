@@ -270,6 +270,44 @@ describe("native pack", () => {
     expect(brief(r.findings, "store-readiness")).toEqual(["store-readiness app.config.ts:0 NSLocationWhenInUseUsageDescription"]);
   });
 
+  it("store-readiness: withGenesis() covers export compliance, and the privacy manifest when a package needs one", async () => {
+    const appJson = (plugin: unknown) => JSON.stringify({ expo: { plugins: ["expo-router", plugin] } });
+    const deps = { "expo-apple-authentication": "1", "@react-native-async-storage/async-storage": "1" };
+    const covered = await run("native", NATIVE, { "app.json": appJson("@marktiderman/genesis-cli"), "package.json": withDeps(deps) });
+    expect(brief(covered.findings, "store-readiness")).toEqual([]);
+
+    // Its options turn each step off, and with no package that needs a manifest it writes none.
+    const off = await run("native", NATIVE, {
+      "app.json": appJson(["@marktiderman/genesis-cli", { exportCompliance: false, privacyManifest: false }]),
+      "package.json": withDeps(deps),
+    });
+    expect(brief(off.findings, "store-readiness")).toEqual(["store-readiness app.json:0 usesNonExemptEncryption", "store-readiness app.json:0 privacyManifests"]);
+    const nothingToDeclare = await run("native", NATIVE, {
+      "app.json": appJson("@marktiderman/genesis-cli"),
+      "package.json": withDeps({ "expo-apple-authentication": "1" }),
+    });
+    expect(brief(nothingToDeclare.findings, "store-readiness")).toEqual(["store-readiness app.json:0 privacyManifests"]);
+
+    // A dynamic config is read as text.
+    const root = makeApp("native", {
+      "app.config.ts": 'export default () => ({ plugins: ["expo-router", "@marktiderman/genesis-cli"] });\n',
+      "package.json": withDeps(deps),
+    });
+    rmSync(path.join(root, "app.json"));
+    expect(brief((await runDoctor({ root, config: NATIVE })).findings, "store-readiness")).toEqual([]);
+
+    // Importing the package isn't listing the plugin.
+    const importOnly = makeApp("native", {
+      "app.config.ts": 'import { doctor } from "@marktiderman/genesis-cli";\nexport default () => ({ plugins: ["expo-router"] });\n',
+      "package.json": withDeps(deps),
+    });
+    rmSync(path.join(importOnly, "app.json"));
+    expect(brief((await runDoctor({ root: importOnly, config: NATIVE })).findings, "store-readiness")).toEqual([
+      "store-readiness app.config.ts:0 usesNonExemptEncryption",
+      "store-readiness app.config.ts:0 privacyManifests",
+    ]);
+  });
+
   it("store-readiness: no Expo config is a warning", async () => {
     const root = makeApp("native");
     rmSync(path.join(root, "app.json"));

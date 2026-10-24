@@ -46,7 +46,7 @@
  *
  * Usage:
  *   node scripts/check-token-usage.mjs               # scans apps/
- *   node scripts/check-token-usage.mjs apps/sample-native
+ *   node scripts/check-token-usage.mjs apps/genesis-rn-starter
  *   pnpm check:token-usage
  *
  * Wired into:
@@ -100,12 +100,6 @@ const ALLOWLIST_PATTERNS = [
 // gate must not regress). Scoped to the exact file on purpose, and tracked for
 // removal.
 const COLOR_FN_ALLOWLIST_PATTERNS = [
-  // TEMP: current dashboard/sample-native are being refactored (Next/Expo);
-  // remove after. Both are `rgba(0,0,0,0.08)` hairline borders that should
-  // become `theme.colors.border` once the Expo refactor lands.
-  /(^|\/)apps\/sample-native\/app\/components\/token-row\.tsx$/,
-  /(^|\/)apps\/sample-native\/app\/\(tabs\)\/settings\.tsx$/,
-
   // apps/sample display-only literals (not shipped product UI):
   //  - Storybook `backgrounds` toolbar config (Storybook chrome; cannot
   //    consume runtime CSS-var tokens).

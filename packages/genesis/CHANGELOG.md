@@ -1,5 +1,33 @@
 # @marktiderman/genesis
 
+## 0.8.0
+
+### Minor Changes
+
+- 5078d3f: One Genesis version per app. `@marktiderman/genesis` writes `dist/versions.json` with the exact version of every public Genesis package in its release, exported as `@marktiderman/genesis/versions.json`, and re-exports the features registry as `@marktiderman/genesis/features`. `genesis doctor` gains `version-skew`: in an app with the umbrella installed, it warns for each installed Genesis package on a different version than the release lists (raise it to an error with `rules`).
+
+  Features: umbrella, cli-doctor
+
+### Patch Changes
+
+- f83ba49: From review: the umbrella's `versions.json` lists only the Genesis packages the umbrella depends on (and so releases with), so a patch to a package it doesn't depend on, such as the CLI or supabase, no longer looks like version skew. `genesis init --native` writes a Tailwind config with NativeWind's preset and the genesis-ui-native glob (without it, neither is written). `genesis features find` reports bad options as a clean CLI error instead of a stack trace.
+- Updated dependencies [27975e4]
+- Updated dependencies [e91765c]
+- Updated dependencies [e5462fb]
+- Updated dependencies [ffa443c]
+- Updated dependencies [7ae53e5]
+- Updated dependencies [ddac1fc]
+- Updated dependencies [2657c06]
+- Updated dependencies [58aadde]
+- Updated dependencies [d7b0389]
+- Updated dependencies [a154019]
+- Updated dependencies [bd07203]
+  - @marktiderman/genesis-design-system@1.4.0
+  - @marktiderman/genesis-features@0.2.0
+  - @marktiderman/genesis-ui-native@2.1.0
+  - @marktiderman/genesis-core@1.7.0
+  - @marktiderman/genesis-ui@2.12.1
+
 ## 0.7.8
 
 ### Patch Changes

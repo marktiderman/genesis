@@ -46,3 +46,14 @@ nodeLinker: hoisted
 autoInstallPeers: true
 # React Native packages declare conflicting peers.
 strictPeerDependencies: false
+
+# One React and one React Native for the whole workspace: the versions Expo SDK 58 pins (React
+# Native 0.88, react 19.3.0). With the hoisted layout, a second version puts packages built for
+# one React next to the other: react-dom refuses to load beside a react of another patch
+# ("Incompatible React versions"), and a dependency's nested @types/react breaks the web
+# package's declaration build. Move these with the Expo SDK.
+overrides:
+  react: 19.3.0
+  react-dom: 19.3.0
+  "@types/react": 19.3.0
+  react-native: 0.88.0

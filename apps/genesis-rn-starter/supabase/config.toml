@@ -1,0 +1,16 @@
+# The local Supabase stack for the starter (`supabase start`). Settings not listed here keep the
+# CLI's defaults. See https://supabase.com/docs/guides/local-development/cli/config
+project_id = "genesis-rn-starter"
+
+# Sign-up asks the person to confirm their email. The link confirms it on Supabase's side and
+# then opens `site_url`, not the app; the app's copy says to come back and sign in. (Opening the
+# app from the link needs `emailRedirectTo`, a redirect URL here and a screen that exchanges the
+# code: not in the starter yet.)
+[auth.email]
+enable_confirmations = true
+
+# Sign in with Apple: the bundle id (and its .dev / .preview variants) as client ids.
+[auth.external.apple]
+enabled = true
+client_id = "com.example.genesisstarter,com.example.genesisstarter.dev,com.example.genesisstarter.preview"
+secret = ""

@@ -7,8 +7,8 @@
  *
  * The native provider is structurally identical (same context, same
  * resolveTokens call, same mode-tracking semantics). Native runtime
- * behavior is verified by the sample-native app at integration time
- * (see PRD-07 A2b.3 — visual-parity gate).
+ * behavior is exercised by the native starter app (apps/genesis-rn-starter)
+ * at integration time.
  */
 
 import { describe, expect, it } from "vitest";

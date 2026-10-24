@@ -1,0 +1,5 @@
+# Maestro project config for the starter's flows.
+#
+# appId is the development variant's bundle id (APP_VARIANT=development appends `.dev` to
+# starter.config.ts `app.bundleId`). Change both together when you rename the app.
+appId: com.example.genesisstarter.dev

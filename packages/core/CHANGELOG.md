@@ -1,5 +1,13 @@
 # @marktiderman/genesis-core
 
+## 1.7.0
+
+### Minor Changes
+
+- e5462fb: The slot contract and the navigation resolver move to core, which has no DOM, so native patterns and shells can share them. New subpaths: `@marktiderman/genesis-core/slots` (`Slots`, `SlotOverride`, `SlotPropsFor`, `renderSlot`) and `@marktiderman/genesis-core/navigation` (`NavigationNode`, `ResolvedNavigation`, `resolveNavigation`, `isPathActive`). `@marktiderman/genesis-ui` re-exports both unchanged, so existing imports keep working.
+
+  Features: app-shell, resource-page
+
 ## 1.6.0
 
 ### Minor Changes

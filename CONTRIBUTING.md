@@ -41,7 +41,7 @@ pnpm exec changeset   # pick the changed packages + bump level
   **minor on 0.x** and **major on 1.x+** — not the SemVer default of "major
   always." A 0.x package hasn't promised API stability yet; treat every 0.x
   minor as a potential break.
-- `apps/sample` and `apps/sample-native` are ignored by changesets — no
+- `apps/sample` and `apps/genesis-rn-starter` are ignored by changesets — no
   changeset needed for changes scoped to those.
 
 ## Before you push

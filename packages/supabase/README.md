@@ -183,6 +183,7 @@ import { deleteMyAccount } from "@marktiderman/genesis-supabase";
      only the service role reads.
   3. Before deletion, a function calls `https://appleid.apple.com/auth/revoke` with that refresh
      token (`token_type_hint=refresh_token`), then calls `delete_my_account` (or the app does).
+
 ## Release policy (the updates block)
 
 [`migrations/0002_genesis_app_release_policy.sql`](./migrations/0002_genesis_app_release_policy.sql)
