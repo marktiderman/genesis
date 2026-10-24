@@ -7,7 +7,8 @@
  *     └ keyboard-aware scrolling (when `keyboardScroll` is given)
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
  *         └ session + boot (splash held until both are known)
- *           └ updateBanner + errorBoundary → your screens (or `signedOut`)
+ *           └ updates (with `updates`: force upgrade, maintenance, banner, what's new)
+ *             └ errorBoundary → your screens (or `signedOut`)
  *
  * Global errors, render errors and a failed boot show the `fatal` slot with
  * "Try again". Every part is a slot (`slots` / `slotProps`, `null` drops it)
@@ -39,6 +40,8 @@ import {
 import { SessionProvider, createSessionStore, type AuthClientLike } from "./auth";
 import { useHeldLink, type HeldLinkAuth, type LinkHold } from "./held-link";
 import { connectQueryLifecycle, createNativeQueryClient, type QueryLifecycleOptions, type QueryPersistence } from "./query";
+// Types only: the block's code is in the `/updates` entry and arrives with the `updates` prop.
+import type { UpdatesBlock, UpdatesSlots } from "./updates/block";
 
 /** `expo-splash-screen`, or a stand-in. Call `preventAutoHideAsync()` at module scope yourself too. */
 export interface SplashModule {
@@ -56,7 +59,9 @@ export interface SignedOutProps {
 }
 
 // A type, not an interface, so it fits the slots contract's Record constraint.
-export type NativeAppSlots = {
+// The updates block's slots (`forceUpgrade`, `maintenance`, `updateBanner`,
+// `whatsNew`) render only when the `updates` prop is given.
+export type NativeAppSlots = UpdatesSlots & {
   /** Shown while booting: under the splash at launch, on its own after "Try again". Default `BootScreen`. */
   boot: BootScreenProps;
   /** A failed boot, a fatal global error or a render error. Default `FatalScreen`. */
@@ -65,8 +70,6 @@ export type NativeAppSlots = {
   errorBoundary: GenesisErrorBoundaryProps;
   /** What a signed-out user sees. Default your screens (gate them with `useSession`). */
   signedOut: SignedOutProps;
-  /** Above your screens, for the updates block. Default nothing. */
-  updateBanner: Record<string, never>;
 };
 
 export interface NativeQueryClientOptions {
@@ -111,6 +114,13 @@ export interface GenesisNativeAppProps {
   onError?: OnError;
   /** After a signed-in user signs out, once the query cache is cleared. */
   onSignedOut?: () => void;
+  /**
+   * The updates block: `createUpdates(…)` from `@marktiderman/genesis-native/updates`
+   * (force upgrade, maintenance, the update banner, what's new). Its policy
+   * loads behind the splash for at most `policyTimeoutMs` and never fails the
+   * boot. Read once; leave it out to turn the block off.
+   */
+  updates?: UpdatesBlock;
   slots?: Slots<NativeAppSlots>;
   slotProps?: SlotPropsFor<NativeAppSlots>;
   children?: ReactNode;
@@ -125,7 +135,6 @@ export function BootScreen(_props: BootScreenProps) {
   );
 }
 
-const NoUpdateBanner: ComponentType<Record<string, never>> = () => null;
 const PassThrough: ComponentType<SignedOutProps> = ({ children }) => <>{children}</>;
 
 // The web provider's types don't list the native-only prop; Metro resolves the native provider.
@@ -195,6 +204,8 @@ function Shell(props: GenesisNativeAppProps) {
     const boot = createBoot(
       [
         ...steps,
+        // Settles within its own timeout and never throws: a policy that can't load never blocks the app.
+        ...(props.updates ? [props.updates.bootStep] : []),
         { id: "genesis:session", run: () => session.load(), timeoutMs: sessionWaitMs + SESSION_STEP_MARGIN_MS },
         // After the session, so only the cache saved for this user is restored.
         ...(persistence ? [{ id: "genesis:query-cache", run: () => persistence.restore(session.getState().userId ?? "") }] : []),
@@ -217,7 +228,7 @@ function Shell(props: GenesisNativeAppProps) {
         </GenesisErrorBoundary>
       );
     }
-    return { client, persistence, session, boot, FatalFallback, provider: provider ?? createSupabaseProvider(supabase) };
+    return { client, persistence, session, boot, FatalFallback, updates: props.updates, provider: provider ?? createSupabaseProvider(supabase) };
   });
   const { boot, session, persistence, client, FatalFallback } = parts;
   const bootState = useSyncExternalStore(boot.subscribe, boot.getState, boot.getState);
@@ -274,16 +285,19 @@ function Shell(props: GenesisNativeAppProps) {
   } else {
     const screens =
       sessionState.status === "signedOut" ? renderSlot(PassThrough, slots?.signedOut, { children }, slotProps?.signedOut) : children;
-    content = (
-      <>
-        {renderSlot(NoUpdateBanner, slots?.updateBanner, {}, slotProps?.updateBanner)}
-        {renderSlot(
-          GenesisErrorBoundary,
-          slots?.errorBoundary,
-          { fallback: FatalFallback, onError, resetKey, onRetry: retry, children: screens },
-          slotProps?.errorBoundary,
-        )}
-      </>
+    const guarded = renderSlot(
+      GenesisErrorBoundary,
+      slots?.errorBoundary,
+      { fallback: FatalFallback, onError, resetKey, onRetry: retry, children: screens },
+      slotProps?.errorBoundary,
+    );
+    const Updates = parts.updates?.Root;
+    content = Updates ? (
+      <Updates slots={slots} slotProps={slotProps}>
+        {guarded}
+      </Updates>
+    ) : (
+      guarded
     );
   }
 
