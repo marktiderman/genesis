@@ -1,0 +1,91 @@
+packages/genesis-cli/test/fixtures/doctor/rules/native/components/AppHeader.tsx
+  s_8252619ce79a86::t_0eca571bd296c1 1-10
+packages/genesis-cli/src/doctor/genesis.ts
+  s_8252619ce79a86::t_0eca571bd296c1 15-16,49-65,67-100,102,151
+packages/genesis-cli/test/fixtures/doctor/rules/supabase/supabase/migrations/20260102000000_grants.sql
+  s_8252619ce79a86::t_0eca571bd296c1 1-7
+packages/genesis-cli/test/fixtures/doctor/rules/native/package.json
+  s_8252619ce79a86::t_0eca571bd296c1 1-12
+packages/genesis-cli/src/doctor/rules.ts
+  s_8252619ce79a86::t_0eca571bd296c1 24-34,120-122,124,139-148
+packages/genesis-cli/src/doctor/supabase.ts
+  s_8252619ce79a86::t_0eca571bd296c1 1-281
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/_layout.tsx
+  s_8252619ce79a86::t_0eca571bd296c1 1-11
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/settings.tsx
+  s_8252619ce79a86::t_0eca571bd296c1 1-10
+packages/genesis-cli/src/doctor/index.ts
+  s_8252619ce79a86::t_0eca571bd296c1 25,27,33,38-39,83-84
+scripts/lib/native-primitives.d.mts
+  s_8252619ce79a86::t_2b1ac9bdaab4f2 1-8
+packages/genesis-cli/test/fixtures/doctor/rules/supabase/supabase/migrations/20260101000000_init.sql
+  s_8252619ce79a86::t_0eca571bd296c1 1-26
+.changeset/doctor-packs.md
+  s_8252619ce79a86::t_efce874f2518f1 1-7
+packages/genesis-cli/README.md
+  s_8252619ce79a86::t_efce874f2518f1 119-165,192-195,198
+features.ts
+  s_8252619ce79a86::t_efce874f2518f1 648,650,656-661
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/index.tsx
+  s_8252619ce79a86::t_0eca571bd296c1 1-11
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui-native/index.d.ts
+  s_8252619ce79a86::t_0eca571bd296c1 1-15
+packages/genesis-cli/test/fixtures/doctor/rules/native/components/MyTabBar.tsx
+  s_8252619ce79a86::t_0eca571bd296c1 1-5
+scripts/lib/native-primitives.mjs
+  s_8252619ce79a86::t_0eca571bd296c1 1-27
+packages/genesis-cli/src/doctor/types.ts
+  s_8252619ce79a86::t_0eca571bd296c1 67-85,88-92,98
+packages/genesis-cli/test/fixtures/doctor/rules/native/src/lib/sign-in.ts
+  s_8252619ce79a86::t_0eca571bd296c1 1-5
+packages/genesis-cli/test/doctor-helpers.ts
+  s_8252619ce79a86::t_64f7152f55d673 46
+  s_8252619ce79a86::t_0eca571bd296c1 28-30
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/old-home.tsx
+  s_8252619ce79a86::t_0eca571bd296c1 1-5
+packages/genesis-cli/test/fixtures/doctor/rules/native/components/ProfileScreen.tsx
+  s_8252619ce79a86::t_0eca571bd296c1 1-20
+packages/genesis-cli/src/doctor/scan.ts
+  s_8252619ce79a86::t_0eca571bd296c1 11-12,53
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_8252619ce79a86::t_64f7152f55d673 207,216
+  s_8252619ce79a86::t_0eca571bd296c1 1-206,208-215,217-257
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/(tabs)/_layout.tsx
+  s_8252619ce79a86::t_0eca571bd296c1 1-6
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui-native/package.json
+  s_8252619ce79a86::t_0eca571bd296c1 1-9
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui-native/layouts.d.ts
+  s_8252619ce79a86::t_0eca571bd296c1 1-9
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/profile.tsx
+  s_8252619ce79a86::t_0eca571bd296c1 1-5
+AGENTS.md
+  s_8252619ce79a86::t_efce874f2518f1 15
+packages/genesis-cli/src/doctor/config.ts
+  s_8252619ce79a86::t_0eca571bd296c1 36-38,44-49,142-157
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/+html.tsx
+  s_8252619ce79a86::t_0eca571bd296c1 1-3
+packages/genesis-cli/test/fixtures/doctor/rules/native/app.json
+  s_8252619ce79a86::t_0eca571bd296c1 1-8
+packages/genesis-cli/src/doctor/native.ts
+  s_8252619ce79a86::t_0eca571bd296c1 1-321
+scripts/check-forbidden-imports.mjs
+  s_8252619ce79a86::t_0eca571bd296c1 15-18,43,98,139-141,150
+features.json
+  s_8252619ce79a86::t_efce874f2518f1 1474,1483-1485,1499-1510
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8b467c14184b4cb2f50e641531361546f440e5ae",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
