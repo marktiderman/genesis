@@ -1,0 +1,29 @@
+packages/genesis-cli/test/scaffolder.test.ts
+  s_8252619ce79a86::t_9ed8ee646de0c1 271-288
+packages/genesis-cli/src/scaffolder.ts
+  s_8252619ce79a86::t_916b765b4614a6 42-43,94,117,340,342-344,360-361
+docs/RELEASING.md
+  s_8252619ce79a86::t_c57636fd90d8d4 51-52
+packages/genesis-cli/src/cli.ts
+  s_8252619ce79a86::t_98b8845773bd1c 44,54,63,233,241
+packages/genesis/tsup.config.ts
+  s_8252619ce79a86::t_c57636fd90d8d4 44-49,52-54,58-65,67-68
+.changeset/cli-review-fixes.md
+  s_8252619ce79a86::t_4f8fbc18866001 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f83ba49a5a2106b4b66bede03040444b13ef1ec5",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
