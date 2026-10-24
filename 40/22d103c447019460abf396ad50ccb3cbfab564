@@ -1,0 +1,103 @@
+apps/genesis-rn-starter/supabase/migrations/20261024000100_genesis_app_release_policy.sql
+  s_8252619ce79a86::t_f6a459f4f0e74b 1-82
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_2c2046daf9662f 14-15,69-70
+  s_8252619ce79a86::t_83540f24b9c648 34,43
+AGENTS.md
+  s_8252619ce79a86::t_4a4e44ec5ca8ef 16
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_4c2b525e22074c 16-21,46-51,77-79,82-85,89
+  s_8252619ce79a86::t_415c40fc9312d4 86-88,90-92
+  s_8252619ce79a86::t_af79a2c063d43f 93
+apps/genesis-rn-starter/.eas/workflows/rollout.yml
+  s_8252619ce79a86::t_3891ca61e8a9b3 1-116
+apps/genesis-rn-starter/starter.config.ts
+  s_8252619ce79a86::t_4c2b525e22074c 13-15,28
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_0125a3e4dd8e14 33-34,63,68,101-107,117,124-140,154-161
+templates/eas/workflows/e2e.yml
+  s_8252619ce79a86::t_7c92138e791295 1-73
+templates/maestro/subflows/sign-in.yaml
+  s_8252619ce79a86::t_7c92138e791295 1-20
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_350980bb127be3 1,7,46-86,167-183
+apps/genesis-rn-starter/.maestro/README.md
+  s_8252619ce79a86::t_512a9ab7fcbbbd 3-4,6-13,21-23,26-30,32-34,36-37
+apps/genesis-rn-starter/.eas/workflows/e2e.yml
+  s_8252619ce79a86::t_3891ca61e8a9b3 1-73
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_8252619ce79a86::t_f261cdd0251b9b 1-237
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_3891ca61e8a9b3 1-125
+features.ts
+  s_8252619ce79a86::t_4a4e44ec5ca8ef 636,642,649,652,658-704,900,1050
+templates/maestro/flows/launch.yaml
+  s_8252619ce79a86::t_7c92138e791295 1-17
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_8252619ce79a86::t_e53d6dbe12b87c 6,12,16,21-23,63
+apps/genesis-rn-starter/.maestro/flows/settings-version.yaml
+  s_8252619ce79a86::t_3891ca61e8a9b3 1-25
+templates/maestro/config.yaml
+  s_8252619ce79a86::t_7c92138e791295 1-5
+apps/genesis-rn-starter/src/lib/app.ts
+  s_8252619ce79a86::t_e53d6dbe12b87c 18,38
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_415c40fc9312d4 5,10,13,28
+templates/eas/eas.json
+  s_8252619ce79a86::t_7c92138e791295 1-45
+templates/eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_7c92138e791295 1-125
+apps/genesis-rn-starter/eas.json
+  s_8252619ce79a86::t_3891ca61e8a9b3 1-45
+docs/README.md
+  s_8252619ce79a86::t_0879e219cd6ead 20-22
+apps/genesis-rn-starter/.maestro/flows/launch.yaml
+  s_8252619ce79a86::t_3891ca61e8a9b3 1-17
+apps/genesis-rn-starter/.maestro/subflows/sign-in.yaml
+  s_8252619ce79a86::t_3891ca61e8a9b3 1-20
+apps/genesis-rn-starter/src/lib/updates.ts
+  s_8252619ce79a86::t_709cc6870757bf 1-50
+features.json
+  s_8252619ce79a86::t_4a4e44ec5ca8ef 1428,1452-1453,1466,1469,1484-1588,2030-2031,2360
+templates/maestro/flows/settings-version.yaml
+  s_8252619ce79a86::t_7c92138e791295 1-25
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_3891ca61e8a9b3 1-107
+docs/APP-CI.md
+  s_8252619ce79a86::t_0879e219cd6ead 6-10
+templates/maestro/flows/sign-in-screen.yaml
+  s_8252619ce79a86::t_7c92138e791295 1-15
+apps/genesis-rn-starter/src/app/sign-in.tsx
+  s_8252619ce79a86::t_e53d6dbe12b87c 5,19-21,26-27,36-37,48
+apps/genesis-rn-starter/supabase/tests/database/genesis_app_release_policy.test.sql
+  s_8252619ce79a86::t_f6a459f4f0e74b 1-148
+apps/genesis-rn-starter/.eas/scripts/rollout-health.mjs
+  s_8252619ce79a86::t_3891ca61e8a9b3 1-83
+templates/eas/workflows/rollout.yml
+  s_8252619ce79a86::t_7c92138e791295 1-116
+templates/eas/scripts/rollout-health.mjs
+  s_8252619ce79a86::t_7c92138e791295 1-83
+templates/eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_7c92138e791295 1-107
+docs/NATIVE-RELEASE.md
+  s_8252619ce79a86::t_512a9ab7fcbbbd 123
+  s_8252619ce79a86::t_73cfcdf1f8d78a 1-122,124-144
+pnpm-lock.yaml
+  s_8252619ce79a86::t_29db66fc2baf84 83-85,110-112,186-188,5291-5293,6292-6296,6315-6317,6348-6350,6364-6368,6458-6477,13774-13775,14994-14997,15023-15024,15050-15051,15068-15072,15177-15207
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4022d103c447019460abf396ad50ccb3cbfab564",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
