@@ -216,10 +216,11 @@ describe("GenesisNativeApp", () => {
     expect(screen.getByTestId("status").textContent).toBe("signedIn");
   });
 
-  it("fills the updateBanner slot, which is empty by default", async () => {
+  it("renders the updates slots only with the updates block", async () => {
     setup({ slots: { updateBanner: () => <span data-testid="banner" /> } });
     await act(flush);
-    expect(screen.getByTestId("banner")).toBeTruthy();
+    expect(screen.getByTestId("screens")).toBeTruthy();
+    expect(screen.queryByTestId("banner")).toBeNull();
   });
 
   it("lets the errorBoundary slot be dropped", async () => {

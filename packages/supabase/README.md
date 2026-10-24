@@ -24,10 +24,10 @@ const rows = must(await supabase.from("tasks").select("*"));
 - **`wipeSessionOnReinstall`**: the iOS Keychain outlives an uninstall; this removes a leftover session (and its PKCE verifier) on the first launch after an install.
 - **`must(result)`**: the data, or a thrown `SupabaseQueryError` carrying the database's `code`, `details` and `hint`.
 - **`signInWithApple`, `completeOAuthRedirect`, `deleteMyAccount`**: see [Account](#account-sign-in-and-deletion) below.
+- **`app_release_policy`**: the table the native updates block reads; see [Release policy](#release-policy-the-updates-block).
 
 Nothing here imports React Native or Expo: you pass those modules in.
 
-<<<<<<< HEAD
 ## Account: sign-in and deletion
 
 What the App Store asks of an app with accounts: an equivalent privacy-preserving login beside any
@@ -183,13 +183,29 @@ import { deleteMyAccount } from "@marktiderman/genesis-supabase";
      only the service role reads.
   3. Before deletion, a function calls `https://appleid.apple.com/auth/revoke` with that refresh
      token (`token_type_hint=refresh_token`), then calls `delete_my_account` (or the app does).
-=======
+## Release policy (the updates block)
+
+[`migrations/0002_genesis_app_release_policy.sql`](./migrations/0002_genesis_app_release_policy.sql)
+defines `public.app_release_policy`, one row per app: the oldest store version each platform may
+run (`min_version_ios`, `min_version_android`), store links, a maintenance switch with a message,
+and release notes (`notes`, an array of `{ version, title?, body }`). Copy it into your app's
+`supabase/migrations/` under a new timestamped name, and its pgTAP test
+(`migrations/tests/0002_genesis_app_release_policy.test.sql`) into `supabase/tests/database/`.
+
+- **Who can do what:** row level security is on; anon and authenticated may only `select` (the app
+  reads it before sign-in), and only the service role writes. Supabase's default privileges give
+  anon and authenticated everything on a new public table, so the migration revokes them by name
+  and grants back `select` alone.
+- **Malformed values stay out:** check constraints require plain dotted versions (`1.4.0`), https
+  (or `itms-apps://` / `market://`) store links, and notes with a string `version` and `body`.
+- **Read it** with `supabasePolicySource(supabase)` from `@marktiderman/genesis-native/updates`,
+  which fails open: no row, a failed read or a malformed value never blocks anyone.
+
 ## Choices, and why
 
 - **Keychain chunks rather than encrypted AsyncStorage.** Supabase's Expo guide shows two options: an AES-encrypted value in AsyncStorage with the key in SecureStore ("LargeSecureStore"), or `expo-sqlite/localStorage`. `keychainStorage` keeps the whole session in the Keychain/Keystore instead, split into chunks under the item size limit, with an atomic switch between generations. That means one native dependency (`expo-secure-store`) rather than three, no key to manage, and a session that can't be read off the device's file system. If you prefer LargeSecureStore, pass it as `storage`; everything else here works the same.
 - **The URL polyfill.** Supabase's React Native guides still import `react-native-url-polyfill/auto` before creating the client. Keep it until your app has tested PKCE sign-in end to end without it: React Native's built-in `URL` has improved, but the docs don't yet say it's enough.
 - **`refreshWhileActive` on native only.** Supabase gates the AppState listener to native platforms; call it from native code (not on web, where the browser already refreshes in the background).
 
->>>>>>> origin/staging/genesis-rn
 
 Part of the [Genesis framework](https://github.com/marktiderman/genesis).

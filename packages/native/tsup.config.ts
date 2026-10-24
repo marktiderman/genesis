@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { index: "src/index.ts", persist: "src/persist.ts" },
+  entry: { index: "src/index.ts", persist: "src/persist.ts", updates: "src/updates/index.ts" },
   format: ["esm"],
   dts: true,
   sourcemap: true,
@@ -11,6 +11,8 @@ export default defineConfig({
   external: [
     "react",
     "react-native",
+    "react-native-safe-area-context",
+    /^expo-/,
     /^@marktiderman\/genesis-/,
     /^@tanstack\//,
   ],
