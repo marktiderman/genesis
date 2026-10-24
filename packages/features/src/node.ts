@@ -19,7 +19,7 @@ import { expiredFlags, type Features, type Flags } from "./model";
 /**
  * Where a repo keeps its registry's outputs and what `check` scans. Every
  * path is relative to `root`; `false` turns an output or a scan off. The CLI
- * reads these from `package.json` → `"genesisFeatures"`, and its options win.
+ * reads these from genesis.config.json → `features` (or package.json → `"genesisFeatures"`), and its options win.
  *
  * @stability Beta
  */
