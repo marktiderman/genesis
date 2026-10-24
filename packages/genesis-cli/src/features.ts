@@ -48,17 +48,25 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** package.json's "genesisFeatures", under the command line's options. */
-function settings(root: string, options: FeaturesCommandOptions): FeaturesCommandOptions {
-  let fromPackage: Record<string, unknown> = {};
+function readObject(file: string, key: string): Record<string, unknown> {
   try {
-    const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf-8")) as Record<string, unknown>;
-    if (isObject(pkg.genesisFeatures)) fromPackage = pkg.genesisFeatures;
+    const json = JSON.parse(readFileSync(file, "utf-8")) as Record<string, unknown>;
+    return isObject(json[key]) ? json[key] : {};
   } catch {
-    // No package.json: command-line options only.
+    return {};
   }
+}
+
+/**
+ * The registry settings, strongest first: the command line, the `features`
+ * block of genesis.config.json (the app's one Genesis config, beside
+ * `doctor`), then package.json's older "genesisFeatures".
+ */
+function settings(root: string, options: FeaturesCommandOptions): FeaturesCommandOptions {
+  const fromPackage = readObject(path.join(root, "package.json"), "genesisFeatures");
+  const fromConfig = readObject(path.join(root, "genesis.config.json"), "features");
   const given = Object.fromEntries(Object.entries(options).filter(([, v]) => v !== undefined));
-  return { ...fromPackage, ...given } as FeaturesCommandOptions;
+  return { ...fromPackage, ...fromConfig, ...given } as FeaturesCommandOptions;
 }
 
 export async function loadRegistry(input: FeaturesCommandOptions) {

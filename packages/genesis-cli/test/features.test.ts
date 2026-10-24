@@ -64,6 +64,17 @@ describe("genesis features", () => {
     expect((await runFeaturesCheck({ dir: root, labels: ["feature:nope"] })).errors).toEqual(["PR label feature:nope: nope is not a feature"]);
   });
 
+  it("reads settings from genesis.config.json's features block, over package.json's", async () => {
+    const root = repo({
+      "features.ts": registry("live"),
+      "src/tasks.ts": "",
+      "package.json": JSON.stringify({ genesisFeatures: { agents: false, skill: false, claude: false, json: "old/features.json" } }),
+      "genesis.config.json": JSON.stringify({ doctor: {}, features: { json: "out/features.json" } }),
+    });
+    expect(await runFeaturesBuild({ dir: root })).toEqual(["out/features.json"]);
+    expect(await runFeaturesBuild({ dir: root, json: "cli/features.json" })).toEqual(["cli/features.json"]);
+  });
+
   it("--prs reads merged PRs labelled feature:<id> for planned features with gh", async () => {
     const root = repo({ "src/features.ts": registry("live").replace(`reviewedAt: "2026-10-22"`, `reviewedAt: "2026-10-22" }, billing: { name: "Billing", summary: "Seats.", status: "planned", horizon: "next", owner: "mark", apps: ["web"], audience: ["owner"], aliases: ["payments"]`), "src/tasks.ts": "" });
     const calls: string[][] = [];

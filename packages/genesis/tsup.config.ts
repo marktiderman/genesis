@@ -1,6 +1,6 @@
 import { defineConfig } from "tsup";
-import { copyFileSync, existsSync } from "node:fs";
-import { basename } from "node:path";
+import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
 
 // Umbrella package for @marktiderman/genesis. Holds NO code of its own —
 // every entry is a one-line re-export barrel over a granular
@@ -37,7 +37,27 @@ const ENTRY = [
   "src/forms-destinations.ts",
   "src/forms-react.ts",
   "src/forms-web.ts",
+  "src/features.ts",
 ];
+
+/**
+ * The release train: the exact version of every public Genesis package in this
+ * release, written to dist/versions.json. `genesis doctor` warns when an app
+ * that has this umbrella installed runs a different version of any of them.
+ */
+function writeReleaseManifest() {
+  const packages: Record<string, string> = {};
+  for (const dir of readdirSync("..")) {
+    const file = join("..", dir, "package.json");
+    if (!existsSync(file)) continue;
+    const pkg = JSON.parse(readFileSync(file, "utf8")) as { name?: string; version?: string; private?: boolean };
+    if (!pkg.private && pkg.name?.startsWith("@marktiderman/genesis-") && pkg.version) packages[pkg.name] = pkg.version;
+  }
+  const own = JSON.parse(readFileSync("package.json", "utf8")) as { version: string };
+  const sorted = Object.fromEntries(Object.entries(packages).sort(([a], [b]) => a.localeCompare(b)));
+  writeFileSync("dist/versions.json", `${JSON.stringify({ version: own.version, packages: sorted }, null, 2)}\n`);
+  console.log(`  versions.json ✔ ${Object.keys(sorted).length} packages`);
+}
 
 export default defineConfig({
   entry: ENTRY,
@@ -78,5 +98,6 @@ export default defineConfig({
       );
     }
     console.log(`  DTS ✔ ${ENTRY.length} thin re-export shims emitted`);
+    writeReleaseManifest();
   },
 });

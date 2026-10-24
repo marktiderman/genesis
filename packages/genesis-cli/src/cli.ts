@@ -14,13 +14,23 @@ import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { readFileSync } from "node:fs";
+
+/** The installed CLI's version, from its own package.json (dist/ sits beside it). */
+function cliVersion(): string {
+  try {
+    return (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version;
+  } catch {
+    return "unknown";
+  }
+}
 
 const program = new Command();
 
 program
   .name("genesis")
   .description("Genesis CLI — scaffolders + workspace tooling")
-  .version("0.1.0");
+  .version(cliVersion());
 
 program
   .command("init")
@@ -70,8 +80,8 @@ program
     console.log("");
     console.log("Next steps:");
     console.log(`  1. Edit packages/${consumer}-brand/src/brand.ts with your colors`);
-    console.log(`  2. pnpm install`);
-    console.log(`  3. Read docs/prds/PRD-07-genesis-consumption-architecture/standards/usage-doctrine.md`);
+    console.log(`  2. Install dependencies with your package manager`);
+    console.log(`  3. Run genesis doctor, and read https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md`);
   });
 
 program
@@ -163,7 +173,7 @@ program
 
 const features = program
   .command("features")
-  .description("The feature registry: one typed features.ts, everything else generated from it. Settings: package.json \"genesisFeatures\"");
+  .description("The feature registry: one typed features.ts, everything else generated from it. Settings: genesis.config.json \"features\" (or package.json \"genesisFeatures\")");
 
 function featureOptions(command: Command) {
   return command

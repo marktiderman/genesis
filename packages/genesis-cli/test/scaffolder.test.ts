@@ -81,7 +81,6 @@ describe("planScaffold", () => {
       "packages/sample-brand/tsconfig.json",
       "tailwind.config.ts",
       "app/global.css",
-      ".genesis/cli.yml",
       "CLAUDE.md",
     ]);
   });
@@ -124,12 +123,12 @@ describe("runScaffold (fresh)", () => {
       fs,
     );
 
-    expect(result.written).toHaveLength(8);
+    expect(result.written).toHaveLength(7);
     expect(result.skipped).toHaveLength(0);
     expect(result.conflicts).toHaveLength(0);
     expect(files.has("/tmp/proj/packages/sample-brand/src/brand.ts")).toBe(true);
     expect(files.has("/tmp/proj/CLAUDE.md")).toBe(true);
-    expect(files.has("/tmp/proj/.genesis/cli.yml")).toBe(true);
+    expect(files.has("/tmp/proj/.genesis/cli.yml")).toBe(false);
   });
 
   it("calls mkdirp for every parent dir", async () => {
@@ -138,9 +137,9 @@ describe("runScaffold (fresh)", () => {
       { consumerName: "sample", targetDir: "/tmp/proj" },
       fs,
     );
-    // At minimum: packages/sample-brand/src + .genesis + app
+    // At minimum: packages/sample-brand/src + app
     expect(mkdirCalls.some((d) => d.includes("packages/sample-brand/src"))).toBe(true);
-    expect(mkdirCalls.some((d) => d.endsWith(".genesis"))).toBe(true);
+    expect(mkdirCalls.some((d) => d.endsWith("/app"))).toBe(true);
     expect(mkdirCalls.some((d) => d.endsWith("/app"))).toBe(true);
   });
 
@@ -163,16 +162,16 @@ describe("runScaffold (idempotent)", () => {
       { consumerName: "sample", targetDir: "/p" },
       fs,
     );
-    expect(files.size).toBe(8);
+    expect(files.size).toBe(7);
 
     const second = await runScaffold(
       { consumerName: "sample", targetDir: "/p" },
       fs,
     );
     expect(second.written).toHaveLength(0);
-    expect(second.skipped).toHaveLength(8);
+    expect(second.skipped).toHaveLength(7);
     expect(second.conflicts).toHaveLength(0);
-    expect(files.size).toBe(8); // No new files
+    expect(files.size).toBe(7); // No new files
   });
 
   it("does not overwrite a divergent existing file", async () => {
@@ -226,7 +225,7 @@ describe("runScaffold (idempotent)", () => {
       k.endsWith(".genesis-next"),
     );
     expect(nextFiles).toHaveLength(0);
-    expect(result.skipped).toHaveLength(8);
+    expect(result.skipped).toHaveLength(7);
   });
 });
 
@@ -248,7 +247,7 @@ describe("runScaffold logger", () => {
       },
       fs,
     );
-    expect(info.mock.calls.length).toBe(8);
+    expect(info.mock.calls.length).toBe(7);
     expect(warn).not.toHaveBeenCalled();
   });
 
