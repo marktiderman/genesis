@@ -34,6 +34,7 @@ export { coerceHidden, coerceHiddenValue, MAX_HIDDEN_STRING_LENGTH, type Coerced
 export { isFormEvent, isJson } from "./events";
 export { createForm, replay, type CreateFormOptions, type FormEngine, type FormState } from "./engine";
 export { computePath, evaluate, ruleVisible, steps, type PathResult } from "./logic";
+export { formProgress, furthestReached, type FormProgress } from "./progress";
 export {
   choiceOptions,
   dateLimits,

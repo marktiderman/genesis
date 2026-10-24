@@ -1,5 +1,7 @@
 export {
   Form,
+  PROGRESS_DELAY_MS,
+  CLASSIC_PROGRESS_DELAY_MS,
   type BrandSlotProps,
   type EndingSlotProps,
   type ErrorSummaryItem,
