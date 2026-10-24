@@ -1,0 +1,33 @@
+packages/ui-native/src/layouts/auth-screen.tsx
+  s_8252619ce79a86::t_ff195415280111 8-10,33,76-78,85-104
+packages/ui-native/src/layouts/notifications-page.tsx
+  s_8252619ce79a86::t_1a210de3ac7f21 23,205
+packages/ui-native/src/layouts/settings-sub-page.tsx
+  s_8252619ce79a86::t_1a210de3ac7f21 22,165-176
+packages/ui-native/src/layouts/index.ts
+  s_8252619ce79a86::t_1a210de3ac7f21 67
+packages/ui-native/src/layouts/__tests__/keyboard-scroll.test.tsx
+  s_8252619ce79a86::t_7d2791180a6ec3 1-34
+packages/ui-native/src/layouts/keyboard.tsx
+  s_8252619ce79a86::t_ff195415280111 1-37
+.changeset/p0-polish.md
+  s_8252619ce79a86::t_5f9bf9a1b78014 1-9
+packages/supabase/README.md
+  s_8252619ce79a86::t_694f723bcc9686 29-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d7b0389335e699dc4baa557785e643ae39d0d44c",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
