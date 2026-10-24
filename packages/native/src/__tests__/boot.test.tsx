@@ -100,3 +100,48 @@ describe("useBoot", () => {
     expect(() => render(<Status />)).toThrow(/inside <GenesisNativeApp>/);
   });
 });
+
+describe("createBoot after a timeout", () => {
+  it("doesn't run a timed-out step twice at once: a retry waits for the abandoned run", async () => {
+    vi.useFakeTimers();
+    let running = 0;
+    let most = 0;
+    const run = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          running++;
+          most = Math.max(most, running);
+          setTimeout(() => {
+            running--;
+            resolve();
+          }, 1500);
+        }),
+    );
+    const boot = createBoot([{ id: "slow", run }], { timeoutMs: 1000 });
+    const first = boot.start();
+    await vi.advanceTimersByTimeAsync(1000);
+    await first;
+    expect(boot.getState().status).toBe("failed");
+    const second = boot.retry();
+    await vi.advanceTimersByTimeAsync(1000);
+    await second;
+    // The abandoned run finished during the retry's wait and counts: no second run.
+    expect(boot.getState().status).toBe("ready");
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(most).toBe(1);
+  });
+
+  it("fails the retry again while the abandoned run still hangs", async () => {
+    vi.useFakeTimers();
+    const run = vi.fn(() => new Promise<void>(() => {}));
+    const boot = createBoot([{ id: "stuck", run }], { timeoutMs: 1000 });
+    const first = boot.start();
+    await vi.advanceTimersByTimeAsync(1000);
+    await first;
+    const second = boot.retry();
+    await vi.advanceTimersByTimeAsync(1000);
+    await second;
+    expect(boot.getState().error?.message).toMatch(/still running/);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+});

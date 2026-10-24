@@ -2,7 +2,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { FatalScreen, GenesisErrorBoundary, installGlobalErrorHandler, type ErrorUtilsLike } from "../errors";
+import {
+  FatalScreen,
+  GenesisErrorBoundary,
+  PlainFatalScreen,
+  installGlobalErrorHandler,
+  installRejectionTracker,
+  type EnableRejectionTracker,
+  type ErrorUtilsLike,
+} from "../errors";
 
 function fakeErrorUtils(previous = vi.fn()) {
   let handler: ((error: unknown, isFatal?: boolean) => void) | undefined = previous;
@@ -98,5 +106,54 @@ describe("installGlobalErrorHandler", () => {
     expect(onFatal).toHaveBeenCalled();
     uninstall();
     expect(current()).toBe(previous);
+  });
+});
+
+describe("installGlobalErrorHandler edges", () => {
+  it("lets a second fatal error end the app instead of hanging behind a fatal screen", () => {
+    const { utils, previous, fire } = fakeErrorUtils();
+    const onFatal = vi.fn();
+    let fatalUp = false;
+    installGlobalErrorHandler({ errorUtils: utils, onFatal: () => ((fatalUp = true), onFatal()), alreadyFatal: () => fatalUp });
+    fire(new Error("first"), true);
+    fire(new Error("second"), true);
+    expect(onFatal).toHaveBeenCalledTimes(1);
+    expect(previous).toHaveBeenCalledWith(expect.objectContaining({ message: "second" }), true);
+  });
+
+  it("uninstalls to a logging handler when there was none before", () => {
+    let handler: ((error: unknown, isFatal?: boolean) => void) | undefined;
+    const utils: ErrorUtilsLike = { getGlobalHandler: () => undefined, setGlobalHandler: (next) => void (handler = next) };
+    const onFatal = vi.fn();
+    const uninstall = installGlobalErrorHandler({ errorUtils: utils, onFatal });
+    uninstall();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    handler?.(new Error("late"), true);
+    expect(onFatal).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
+  });
+});
+
+describe("installRejectionTracker", () => {
+  it("reports an unhandled rejection to onError, non-fatal, and still warns", () => {
+    let options: Parameters<EnableRejectionTracker>[0] | undefined;
+    const onError = vi.fn();
+    installRejectionTracker({ enable: (o) => void (options = o), onError });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    options?.onUnhandled(7, new Error("fetch failed"));
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "fetch failed" }), { fatal: false, source: "rejection" });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("id: 7"));
+    warn.mockRestore();
+  });
+});
+
+describe("PlainFatalScreen", () => {
+  it("shows the error and retries with React Native primitives only", () => {
+    const retry = vi.fn();
+    render(<PlainFatalScreen error={new Error("no theme")} retry={retry} />);
+    expect(screen.getByText("no theme")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("genesis-fatal-plain-retry"));
+    expect(retry).toHaveBeenCalled();
   });
 });

@@ -34,6 +34,7 @@ const ENTRY = [
   "src/switchboard-data-provider.ts",
   "src/native.ts",
   "src/native-app.ts",
+  "src/native-app-persist.ts",
   "src/forms.ts",
   "src/forms-server.ts",
   "src/forms-destinations.ts",

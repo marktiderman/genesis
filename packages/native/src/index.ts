@@ -3,6 +3,7 @@
  *
  * Rung 1: `<GenesisNativeApp>`. Rung 2: its `slots` / `slotProps`.
  * Rungs 3 and 4: each part below on its own, as a primitive and a hook.
+ * Query persistence is in `@marktiderman/genesis-native/persist`.
  *
  * @stability Beta
  */
@@ -11,6 +12,7 @@ export {
   type GenesisNativeAppProps,
   type NativeAppSlots,
   type NativeQueryClientOptions,
+  BootScreen,
   type SplashModule,
   type BootScreenProps,
   type SignedOutProps,
@@ -30,9 +32,13 @@ export {
 } from "./boot";
 export {
   FatalScreen,
+  PlainFatalScreen,
   GenesisErrorBoundary,
   installGlobalErrorHandler,
+  installRejectionTracker,
   defaultErrorUtils,
+  defaultRejectionTracker,
+  type EnableRejectionTracker,
   type ErrorReport,
   type ErrorUtilsLike,
   type FatalScreenProps,
@@ -42,7 +48,6 @@ export {
 } from "./errors";
 export {
   createNativeQueryClient,
-  createQueryPersistence,
   connectQueryLifecycle,
   DAY_MS,
   type AppStateLike,
@@ -50,7 +55,6 @@ export {
   type NetInfoLike,
   type QueryLifecycleOptions,
   type QueryPersistence,
-  type QueryPersistenceOptions,
 } from "./query";
 export { createHydrationGate, type HydrationGate, type HydrationGateOptions } from "./hydration-gate";
 export {
@@ -66,4 +70,4 @@ export {
   type SessionStoreOptions,
 } from "./auth";
 export { normalizeLink, type LinkOptions, type LinkTarget } from "./links";
-export { createLinkHold, useHeldLink, type LinkHold, type UseHeldLinkOptions } from "./held-link";
+export { createLinkHold, useHeldLink, type HeldLinkAuth, type LinkHold, type UseHeldLinkOptions } from "./held-link";

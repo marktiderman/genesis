@@ -61,3 +61,14 @@ describe("normalizeLink", () => {
     expect(normalizeLink("/x", throwing)).toBe("/");
   });
 });
+
+describe("normalizeLink dot segments", () => {
+  it("treats . and .. (escaped or not) as unknown, wherever they are", () => {
+    const onUnknown = vi.fn();
+    const withSpy = { ...options, onUnknown };
+    expect(normalizeLink("/help/../../admin", withSpy)).toBe("/");
+    expect(normalizeLink("myapp://help/%2e%2e/admin", withSpy)).toBe("/");
+    expect(normalizeLink("/c/./42", withSpy)).toBe("/");
+    expect(onUnknown).toHaveBeenCalledTimes(3);
+  });
+});

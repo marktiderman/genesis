@@ -91,6 +91,16 @@ function fill(target: LinkTarget, params: Record<string, string>): string {
   );
 }
 
+function isDotSegment(segment: string): boolean {
+  let decoded = segment;
+  try {
+    decoded = decodeURIComponent(segment);
+  } catch {
+    // Malformed escapes stay as they are.
+  }
+  return decoded === "." || decoded === "..";
+}
+
 function withQuery(path: string, query: string): string {
   if (!query || query === "?") return path;
   return path.includes("?") ? `${path}&${query.slice(1)}` : `${path}${query}`;
@@ -111,6 +121,10 @@ export function normalizeLink(url: string, options: LinkOptions): string | null 
   }
   if (!parsed) return unknown();
   const path = clean(parsed.path);
+  // "." and ".." would let a link climb out of the path it matched (a `*` capture included).
+  if (path.split("/").some(isDotSegment)) {
+    return unknown();
+  }
   if (ignore.some((pattern) => matchPattern(pattern, path))) return null;
   if (path === "/") return withQuery("/", parsed.query);
   for (const [pattern, target] of Object.entries(map)) {

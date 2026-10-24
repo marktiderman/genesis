@@ -1,17 +1,10 @@
 /**
- * Query: a TanStack Query client with offline-safe defaults, and persistence
- * of chosen queries to async storage (AsyncStorage, MMKV, …), built on
- * TanStack's own persister so restore, throttling and max age are theirs.
+ * Query: a TanStack Query client with offline-safe defaults, and the contract
+ * for saving it to the phone. The persister itself is in
+ * `@marktiderman/genesis-native/persist`, so an app that saves nothing doesn't
+ * install TanStack's persister packages.
  */
-import {
-  QueryClient,
-  defaultShouldDehydrateQuery,
-  focusManager,
-  onlineManager,
-  type QueryClientConfig,
-} from "@tanstack/react-query";
-import { persistQueryClientRestore, persistQueryClientSubscribe } from "@tanstack/query-persist-client-core";
-import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { QueryClient, focusManager, onlineManager, type QueryClientConfig } from "@tanstack/react-query";
 
 /** The part of AsyncStorage (or any async key-value store) Genesis uses. */
 export interface AsyncStorageLike {
@@ -42,63 +35,22 @@ export function createNativeQueryClient(config: QueryClientConfig = {}): QueryCl
   });
 }
 
-export interface QueryPersistenceOptions {
-  queryClient: QueryClient;
-  storage: AsyncStorageLike;
-  /**
-   * The query-key roots to persist: a query is saved when its key's first
-   * element is listed (`["clients", id]` is saved under `"clients"`). Nothing
-   * else is written to the phone.
-   */
-  keys: readonly string[];
-  /** Your app's version: a different value discards the saved cache. */
-  buster: string;
-  /** How old a saved cache may be when restored. Default 24 hours. */
-  maxAge?: number;
-  /** Storage key. Default `"genesis-query-cache"`. */
-  storageKey?: string;
-  /** Write at most this often. Default 1000 ms. */
-  throttleMs?: number;
-}
-
+/**
+ * The saved query cache. A `scope` (the signed-in user's id, `""` for nobody)
+ * is part of what is saved: a cache saved for one user is discarded, on disk
+ * too, when another scope restores it.
+ */
 export interface QueryPersistence {
-  /** Load the saved cache into the client (a boot step). */
-  restore(): Promise<void>;
-  /** Save on every cache change; returns the unsubscribe. */
-  subscribe(): () => void;
+  /** Load the saved cache into the client, if it was saved for `scope`. */
+  restore(scope: string): Promise<void>;
+  /** Save on every cache change, for `scope`; returns the unsubscribe. */
+  subscribe(scope: string): () => void;
   /**
-   * Delete the saved cache (sign-out). Clear the QueryClient first: the
-   * subscription then saves the empty cache, so a save already in flight
-   * can't leave the old queries on disk.
+   * Delete the saved cache. Clear the QueryClient first: the subscription
+   * then saves the empty cache, so a save already in flight can't leave the
+   * old queries on disk.
    */
   clear(): Promise<void>;
-}
-
-/** Save the allowlisted queries to async storage and restore them, with a max age and an app-version buster. */
-export function createQueryPersistence({
-  queryClient,
-  storage,
-  keys,
-  buster,
-  maxAge = DAY_MS,
-  storageKey = "genesis-query-cache",
-  throttleMs = 1000,
-}: QueryPersistenceOptions): QueryPersistence {
-  const persister = createAsyncStoragePersister({ storage, key: storageKey, throttleTime: throttleMs });
-  const allowed = new Set(keys);
-  const dehydrateOptions = {
-    shouldDehydrateQuery: (query: Parameters<typeof defaultShouldDehydrateQuery>[0]) =>
-      allowed.has(String(query.queryKey[0])) && defaultShouldDehydrateQuery(query),
-    // Mutations stay in memory: replaying a saved write is an outbox's job.
-    shouldDehydrateMutation: () => false,
-  };
-  return {
-    restore: () => persistQueryClientRestore({ queryClient, persister, buster, maxAge }),
-    subscribe: () => persistQueryClientSubscribe({ queryClient, persister, buster, dehydrateOptions }),
-    clear: async () => {
-      await persister.removeClient();
-    },
-  };
 }
 
 /** React Native's `AppState`, or a stand-in. */

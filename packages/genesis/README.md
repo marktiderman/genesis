@@ -24,6 +24,7 @@ import { tokens } from "@marktiderman/genesis/design-system/tokens";
 | `.../switchboard`            | `@marktiderman/genesis-switchboard`    |
 | `.../native`                 | `@marktiderman/genesis-ui-native`      |
 | `.../native-app`             | `@marktiderman/genesis-native`         |
+| `.../native-app/persist`     | `@marktiderman/genesis-native/persist` |
 | `.../forms`                  | `@marktiderman/genesis-forms`          |
 | `.../forms/server`           | `@marktiderman/genesis-forms/server`   |
 | `.../forms/destinations`     | `@marktiderman/genesis-forms/destinations` |

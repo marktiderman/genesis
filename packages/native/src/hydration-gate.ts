@@ -10,7 +10,10 @@
  *   const gate = createHydrationGate();
  *   persist(store, {
  *     storage: createJSONStorage(() => gate.storage(AsyncStorage)),
- *     onRehydrateStorage: () => () => gate.markHydrated(),
+ *     // Open only after a good read: after a failed one, writes would replace what's on disk.
+ *     onRehydrateStorage: () => (_state, error) => {
+ *       if (!error) gate.markHydrated();
+ *     },
  *   });
  */
 import type { AsyncStorageLike } from "./query";
@@ -61,18 +64,24 @@ export function createHydrationGate({ onDroppedWrite }: HydrationGateOptions = {
       return write();
     },
     storage(storage) {
-      return {
-        ...storage,
-        getItem: (key: string) => storage.getItem(key),
-        setItem: async (key: string, value: string) => {
-          if (!hydrated) return onDroppedWrite?.(key);
-          return storage.setItem(key, value);
-        },
-        removeItem: async (key: string) => {
-          if (!hydrated) return onDroppedWrite?.(key);
-          return storage.removeItem(key);
-        },
+      const setItem = async (key: string, value: string) => {
+        if (!hydrated) return onDroppedWrite?.(key);
+        return storage.setItem(key, value);
       };
+      const removeItem = async (key: string) => {
+        if (!hydrated) return onDroppedWrite?.(key);
+        return storage.removeItem(key);
+      };
+      // A proxy, not a spread: a storage class's prototype methods (and its
+      // private fields, through `this`) keep working.
+      return new Proxy(storage, {
+        get(target, property) {
+          if (property === "setItem") return setItem;
+          if (property === "removeItem") return removeItem;
+          const value = Reflect.get(target, property, target) as unknown;
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
     },
   };
   return gate;

@@ -23,6 +23,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./persist": {
+      "types": "./dist/persist.d.ts",
+      "import": "./dist/persist.js"
     }
   },
   "files": [
@@ -48,7 +52,10 @@
     "react-native": ">=0.76.0"
   },
   "peerDependenciesMeta": {
-    "react-native": {
+    "@tanstack/query-async-storage-persister": {
+      "optional": true
+    },
+    "@tanstack/query-persist-client-core": {
       "optional": true
     }
   },

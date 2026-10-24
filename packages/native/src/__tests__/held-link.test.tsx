@@ -1,7 +1,7 @@
 // @feat:native-app-shell
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { createLinkHold, useHeldLink } from "../held-link";
+import { createLinkHold, useHeldLink, type HeldLinkAuth } from "../held-link";
 
 describe("createLinkHold", () => {
   it("holds the latest link until taken", () => {
@@ -14,26 +14,39 @@ describe("createLinkHold", () => {
   });
 });
 
+function harness(initial: HeldLinkAuth) {
+  const hold = createLinkHold();
+  const onRelease = vi.fn();
+  const view = renderHook(({ auth }) => useHeldLink(hold, { auth, onRelease }), { initialProps: { auth: initial } });
+  return { hold, onRelease, ...view };
+}
+
 describe("useHeldLink", () => {
-  it("releases the held link once ready, once", () => {
-    const hold = createLinkHold();
-    hold.hold("/clients/1");
-    const onRelease = vi.fn();
-    const { result, rerender } = renderHook(({ ready }) => useHeldLink(hold, { ready, onRelease }), { initialProps: { ready: false } });
+  it("follows a link held while signed out, once, after sign-in", () => {
+    const { hold, onRelease, rerender, result } = harness("pending");
+    act(() => hold.hold("/clients/1"));
+    rerender({ auth: "signedOut" });
     expect(result.current).toBe("/clients/1");
     expect(onRelease).not.toHaveBeenCalled();
-    rerender({ ready: true });
+    rerender({ auth: "signedIn" });
     expect(onRelease).toHaveBeenCalledWith("/clients/1");
-    rerender({ ready: true });
+    rerender({ auth: "signedIn" });
     expect(onRelease).toHaveBeenCalledTimes(1);
     expect(result.current).toBeNull();
   });
 
-  it("releases a link that arrives while ready", () => {
-    const hold = createLinkHold();
-    const onRelease = vi.fn();
-    renderHook(() => useHeldLink(hold, { ready: true, onRelease }));
+  it("drops a link that arrives while signed in: the router already opened it", () => {
+    const { hold, onRelease, result } = harness("signedIn");
     act(() => hold.hold("/settings"));
-    expect(onRelease).toHaveBeenCalledWith("/settings");
+    expect(onRelease).not.toHaveBeenCalled();
+    expect(result.current).toBeNull();
+  });
+
+  it("drops a link from a cold start that turns out signed in", () => {
+    const { hold, onRelease, rerender } = harness("pending");
+    act(() => hold.hold("/clients/1"));
+    rerender({ auth: "signedIn" });
+    expect(onRelease).not.toHaveBeenCalled();
+    expect(hold.peek()).toBeNull();
   });
 });

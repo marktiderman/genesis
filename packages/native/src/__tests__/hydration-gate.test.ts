@@ -39,3 +39,29 @@ describe("createHydrationGate", () => {
     await expect(gate.whenHydrated()).resolves.toBeUndefined();
   });
 });
+
+describe("createHydrationGate storage", () => {
+  it("keeps a storage class's prototype methods and private state", async () => {
+    class Store {
+      #data = new Map<string, string>();
+      async getItem(key: string) {
+        return this.#data.get(key) ?? null;
+      }
+      async setItem(key: string, value: string) {
+        this.#data.set(key, value);
+      }
+      async removeItem(key: string) {
+        this.#data.delete(key);
+      }
+      size() {
+        return this.#data.size;
+      }
+    }
+    const gate = createHydrationGate();
+    const storage = gate.storage(new Store());
+    gate.markHydrated();
+    await storage.setItem("a", "1");
+    expect(await storage.getItem("a")).toBe("1");
+    expect(storage.size()).toBe(1);
+  });
+});

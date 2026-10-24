@@ -1,10 +1,12 @@
 /**
- * Errors: a boundary per screen tree, and a global handler for errors React
- * never sees (an event handler, a promise, a timer). Both report through one
- * `onError` (wire Sentry there) and show the fatal screen instead of letting
- * the app die; its "Try again" remounts the tree with fresh state.
+ * Errors: a boundary per screen tree, and handlers for errors React never sees
+ * (a fatal global error from `ErrorUtils`, an unhandled promise rejection).
+ * All of them report through one `onError` (wire Sentry there) and show the
+ * fatal screen instead of letting the app die; its "Try again" remounts the
+ * tree with fresh state.
  */
 import { Component, type ComponentType, type ErrorInfo, type ReactNode } from "react";
+import { Pressable, Text, View } from "react-native";
 import { NativeButton, NativeEmptyState } from "@marktiderman/genesis-ui-native/components";
 import { toError } from "./boot";
 
@@ -32,10 +34,29 @@ export function FatalScreen({ error, retry }: FatalScreenProps) {
   );
 }
 
+/**
+ * The last-resort fatal screen: React Native primitives only, no theme, no
+ * context, nothing that can itself fail. Shown when the providers could not
+ * start, or when the `fatal` slot threw.
+ */
+export function PlainFatalScreen({ error, retry }: FatalScreenProps) {
+  return (
+    <View testID="genesis-fatal-plain" style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 12 }}>
+      <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "600" }}>
+        Something went wrong
+      </Text>
+      <Text style={{ textAlign: "center" }}>{error.message}</Text>
+      <Pressable accessibilityRole="button" onPress={retry} testID="genesis-fatal-plain-retry" style={{ padding: 12 }}>
+        <Text style={{ fontSize: 17 }}>Try again</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export interface ErrorReport {
-  /** True when the app could not go on (a render error, or a fatal global error). */
+  /** True when the app could not go on (a render error, a failed boot, a fatal global error). */
   fatal: boolean;
-  source: "boundary" | "global" | "boot";
+  source: "boundary" | "global" | "boot" | "rejection";
   componentStack?: string;
 }
 
@@ -96,6 +117,12 @@ export interface GlobalErrorHandlerOptions {
   onError?: OnError;
   /** A fatal error: show the fatal screen. The previous handler (which would end the app) is not called. */
   onFatal: (error: Error) => void;
+  /**
+   * True while a fatal screen is already up. Another fatal error then goes to
+   * the previous handler, which ends the app (it restarts clean) rather than
+   * leaving it stuck behind a screen that may itself be broken.
+   */
+  alreadyFatal?: () => boolean;
 }
 
 /**
@@ -104,7 +131,7 @@ export interface GlobalErrorHandlerOptions {
  * still reaches the previous handler (LogBox in development). Returns a
  * function that puts the previous handler back.
  */
-export function installGlobalErrorHandler({ errorUtils, onError, onFatal }: GlobalErrorHandlerOptions): () => void {
+export function installGlobalErrorHandler({ errorUtils, onError, onFatal, alreadyFatal }: GlobalErrorHandlerOptions): () => void {
   const previous = errorUtils.getGlobalHandler();
   errorUtils.setGlobalHandler((raw, isFatal) => {
     const error = toError(raw);
@@ -113,11 +140,12 @@ export function installGlobalErrorHandler({ errorUtils, onError, onFatal }: Glob
     } catch {
       // A failing reporter must not take the handler down with it.
     }
-    if (isFatal) onFatal(error);
+    if (isFatal && !alreadyFatal?.()) onFatal(error);
     else previous?.(raw, isFatal);
   });
   return () => {
-    if (previous) errorUtils.setGlobalHandler(previous);
+    // With no previous handler, leave one that only logs, never ours (it would call an unmounted app).
+    errorUtils.setGlobalHandler(previous ?? ((error) => console.error(error)));
   };
 }
 
@@ -125,4 +153,43 @@ export function installGlobalErrorHandler({ errorUtils, onError, onFatal }: Glob
 export function defaultErrorUtils(): ErrorUtilsLike | undefined {
   const candidate = (globalThis as { ErrorUtils?: ErrorUtilsLike }).ErrorUtils;
   return candidate && typeof candidate.setGlobalHandler === "function" ? candidate : undefined;
+}
+
+/** Hermes's `HermesInternal.enablePromiseRejectionTracker`, or a stand-in. */
+export type EnableRejectionTracker = (options: {
+  allRejections: boolean;
+  onUnhandled: (id: number, rejection: unknown) => void;
+  onHandled: (id: number) => void;
+}) => void;
+
+/**
+ * Hermes's rejection tracker, when the app runs on Hermes. React Native sends
+ * unhandled rejections to `ExceptionsManager` (LogBox in development), never
+ * to `ErrorUtils`' global handler, so without this they never reach `onError`.
+ */
+export function defaultRejectionTracker(): EnableRejectionTracker | undefined {
+  const hermes = (globalThis as { HermesInternal?: { enablePromiseRejectionTracker?: EnableRejectionTracker } }).HermesInternal;
+  const enable = hermes?.enablePromiseRejectionTracker;
+  return typeof enable === "function" ? enable.bind(hermes) : undefined;
+}
+
+/**
+ * Report unhandled promise rejections to `onError` (non-fatal). This replaces
+ * React Native's own tracker, so each rejection is also written with
+ * `console.warn`, which LogBox shows in development as before.
+ */
+export function installRejectionTracker({ enable, onError }: { enable: EnableRejectionTracker; onError: OnError }): void {
+  enable({
+    allRejections: true,
+    onUnhandled: (id, rejection) => {
+      const error = toError(rejection);
+      console.warn(`Uncaught (in promise, id: ${id}): ${error.message}`);
+      try {
+        onError(error, { fatal: false, source: "rejection" });
+      } catch {
+        // A failing reporter must not throw inside the promise machinery.
+      }
+    },
+    onHandled: () => {},
+  });
 }

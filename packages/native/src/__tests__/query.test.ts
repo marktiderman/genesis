@@ -1,10 +1,9 @@
 // @feat:native-app-shell
 import { describe, expect, it, vi } from "vitest";
 import { focusManager, onlineManager } from "@tanstack/react-query";
-import { DAY_MS, connectQueryLifecycle, createNativeQueryClient, createQueryPersistence } from "../query";
-import { flush, memoryStorage } from "./fakes";
-
-const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+import { DAY_MS, connectQueryLifecycle, createNativeQueryClient } from "../query";
+import { createQueryPersistence, persistQueries } from "../persist";
+import { flush, memoryStorage, settle } from "./fakes";
 
 describe("createNativeQueryClient", () => {
   it("runs offline instead of waiting, and keeps data as long as it is persisted", () => {
@@ -21,52 +20,65 @@ describe("createNativeQueryClient", () => {
   });
 });
 
+async function saveFor(storage: ReturnType<typeof memoryStorage>, scope: string, buster = "1.0.0") {
+  const client = createNativeQueryClient();
+  const unsubscribe = createQueryPersistence({ queryClient: client, storage, keys: ["clients"], buster, throttleMs: 0 }).subscribe(scope);
+  client.setQueryData(["clients", "1"], { name: "Ada" });
+  client.setQueryData(["secrets"], { token: "x" });
+  await settle();
+  unsubscribe();
+}
+
 describe("createQueryPersistence", () => {
-  it("saves only the allowlisted key roots and restores them", async () => {
+  it("saves only the allowlisted key roots and restores them for the same user", async () => {
     const storage = memoryStorage();
-    const client = createNativeQueryClient();
-    const persistence = createQueryPersistence({ queryClient: client, storage, keys: ["clients"], buster: "1.0.0", throttleMs: 0 });
-    const unsubscribe = persistence.subscribe();
-    client.setQueryData(["clients", "1"], { name: "Ada" });
-    client.setQueryData(["secrets"], { token: "x" });
-    await settle();
-    unsubscribe();
+    await saveFor(storage, "user-a");
     const saved = storage.data.get("genesis-query-cache") ?? "";
     expect(saved).toContain("Ada");
     expect(saved).not.toContain("secrets");
 
     const fresh = createNativeQueryClient();
-    await createQueryPersistence({ queryClient: fresh, storage, keys: ["clients"], buster: "1.0.0" }).restore();
+    await createQueryPersistence({ queryClient: fresh, storage, keys: ["clients"], buster: "1.0.0" }).restore("user-a");
     expect(fresh.getQueryData(["clients", "1"])).toEqual({ name: "Ada" });
+  });
+
+  it("never restores one user's cache for another, and deletes it", async () => {
+    const storage = memoryStorage();
+    await saveFor(storage, "user-a");
+    for (const scope of ["user-b", ""]) {
+      const fresh = createNativeQueryClient();
+      await createQueryPersistence({ queryClient: fresh, storage, keys: ["clients"], buster: "1.0.0" }).restore(scope);
+      expect(fresh.getQueryData(["clients", "1"])).toBeUndefined();
+    }
+    expect(storage.data.has("genesis-query-cache")).toBe(false);
   });
 
   it("discards a cache from another app version", async () => {
     const storage = memoryStorage();
-    const client = createNativeQueryClient();
-    const unsubscribe = createQueryPersistence({ queryClient: client, storage, keys: ["clients"], buster: "1.0.0", throttleMs: 0 }).subscribe();
-    client.setQueryData(["clients"], ["Ada"]);
-    await settle();
-    unsubscribe();
-
+    await saveFor(storage, "u", "1.0.0");
     const fresh = createNativeQueryClient();
-    await createQueryPersistence({ queryClient: fresh, storage, keys: ["clients"], buster: "2.0.0" }).restore();
-    expect(fresh.getQueryData(["clients"])).toBeUndefined();
+    await createQueryPersistence({ queryClient: fresh, storage, keys: ["clients"], buster: "2.0.0" }).restore("u");
+    expect(fresh.getQueryData(["clients", "1"])).toBeUndefined();
   });
 
   it("discards a cache older than maxAge", async () => {
     const storage = memoryStorage();
-    const client = createNativeQueryClient();
-    const unsubscribe = createQueryPersistence({ queryClient: client, storage, keys: ["clients"], buster: "1", throttleMs: 0 }).subscribe();
-    client.setQueryData(["clients"], ["Ada"]);
-    await settle();
-    unsubscribe();
-
-    const later = Date.now() + 2 * DAY_MS;
-    const now = vi.spyOn(Date, "now").mockReturnValue(later);
+    await saveFor(storage, "u");
+    const now = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 2 * DAY_MS);
     const fresh = createNativeQueryClient();
-    await createQueryPersistence({ queryClient: fresh, storage, keys: ["clients"], buster: "1" }).restore();
+    await createQueryPersistence({ queryClient: fresh, storage, keys: ["clients"], buster: "1.0.0" }).restore("u");
     now.mockRestore();
-    expect(fresh.getQueryData(["clients"])).toBeUndefined();
+    expect(fresh.getQueryData(["clients", "1"])).toBeUndefined();
+  });
+
+  it("starts empty, without failing, from an unreadable cache", async () => {
+    const storage = memoryStorage();
+    storage.data.set("genesis-query-cache", "{not json");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(persistQueries({ storage, keys: ["clients"], buster: "1" })(createNativeQueryClient()).restore("u")).resolves.toBeUndefined();
+    expect(storage.data.has("genesis-query-cache")).toBe(false);
+    vi.restoreAllMocks();
   });
 
   it("clear removes the saved cache", async () => {

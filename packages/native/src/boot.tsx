@@ -15,7 +15,10 @@
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from "react";
 
 export interface BootStepContext {
-  /** Aborted when the step times out. */
+  /**
+   * Aborted when the step times out. Stop work when it fires: a retry waits
+   * for a timed-out run to settle before running the step again.
+   */
   signal: AbortSignal;
 }
 
@@ -58,8 +61,8 @@ export interface BootController {
 /** Thrown when a step takes longer than its timeout. */
 export class BootTimeoutError extends Error {
   readonly step: string;
-  constructor(step: string, ms: number) {
-    super(`Boot step "${step}" did not finish within ${ms} ms.`);
+  constructor(step: string, ms: number, reason = "did not finish") {
+    super(`Boot step "${step}" ${reason} within ${ms} ms.`);
     this.name = "BootTimeoutError";
     this.step = step;
   }
@@ -72,20 +75,18 @@ export function toError(value: unknown): Error {
   return new Error(typeof value === "string" ? value : "Unknown error", { cause: value });
 }
 
-async function runStep(step: BootStep, timeoutMs: number): Promise<void> {
-  const controller = new AbortController();
+/** Resolves "settled" when `promise` settles, "pending" after `ms`. */
+function settledWithin(promise: Promise<unknown>, ms: number): Promise<"settled" | "pending"> {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      controller.abort();
-      reject(new BootTimeoutError(step.id, timeoutMs));
-    }, timeoutMs);
-  });
-  try {
-    await Promise.race([Promise.resolve().then(() => step.run({ signal: controller.signal })), timeout]);
-  } finally {
-    clearTimeout(timer);
-  }
+  return Promise.race([
+    promise.then(
+      () => "settled" as const,
+      () => "settled" as const,
+    ),
+    new Promise<"pending">((resolve) => {
+      timer = setTimeout(() => resolve("pending"), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 /** The boot controller: runs `steps` once each, in order, with a timeout per step. */
@@ -99,6 +100,29 @@ export function createBoot(steps: readonly BootStep[], options: BootOptions = {}
   const listeners = new Set<() => void>();
   let state: BootState = { status: "idle", error: null, failedStep: null, completed: [] };
   let inFlight: Promise<void> | null = null;
+  // A step that timed out keeps running (JavaScript can't stop it; `signal`
+  // asks it to). A retry waits for it rather than running it twice at once.
+  const abandoned = new Map<string, Promise<"ok" | "failed">>();
+
+  const runStep = async (step: BootStep, ms: number): Promise<void> => {
+    const previous = abandoned.get(step.id);
+    if (previous) {
+      if ((await settledWithin(previous, ms)) === "pending") {
+        throw new BootTimeoutError(step.id, ms, "is still running from the last attempt");
+      }
+      abandoned.delete(step.id);
+      // The abandoned run finished after all: it counts.
+      if ((await previous) === "ok") return;
+    }
+    const controller = new AbortController();
+    const running = Promise.resolve().then(() => step.run({ signal: controller.signal }));
+    if ((await settledWithin(running, ms)) === "pending") {
+      controller.abort();
+      abandoned.set(step.id, running.then(() => "ok" as const, () => "failed" as const));
+      throw new BootTimeoutError(step.id, ms);
+    }
+    await running;
+  };
 
   const set = (next: Partial<BootState>) => {
     state = { ...state, ...next };

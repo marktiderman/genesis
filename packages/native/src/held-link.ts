@@ -1,10 +1,11 @@
 /**
  * Hold a deep link until sign-in completes.
  *
- * A link that arrives while nobody is signed in is held (one: the latest
- * wins), the user signs in, and the app is sent where the link pointed.
- * The hold lives outside React, because expo-router's `+native-intent` runs
- * before any component:
+ * expo-router opens every incoming link itself. For a signed-in user that is
+ * all that should happen. For a signed-out user, the auth layout redirects to
+ * sign-in and the link is lost; holding it lets the app go there once the user
+ * has signed in. The hold lives outside React, because expo-router's
+ * `+native-intent` runs before any component:
  *
  *   // lib/links.ts
  *   export const linkHold = createLinkHold();
@@ -15,8 +16,10 @@
  *     return to;
  *   }
  *
- * `GenesisNativeApp` releases it (`links.onRelease`) once signed in; elsewhere
- * call `useHeldLink(linkHold, { ready, onRelease })`.
+ * `useHeldLink` follows a held link only if the user was seen signed out
+ * while it was held. A link that arrives while signed in, or at a cold start
+ * that turns out signed in, is dropped, since the router already opened it.
+ * `GenesisNativeApp` runs it for you (`links.onRelease`).
  */
 import { useEffect, useRef, useSyncExternalStore } from "react";
 
@@ -55,22 +58,33 @@ export function createLinkHold(): LinkHold {
   };
 }
 
+/** `"pending"` while booting or reading the session. */
+export type HeldLinkAuth = "pending" | "signedOut" | "signedIn";
+
 export interface UseHeldLinkOptions {
-  /** True once the link may be followed (signed in, boot finished). */
-  ready: boolean;
-  /** Go there, e.g. `(path) => router.replace(path)`. Called once per held link. */
+  auth: HeldLinkAuth;
+  /** Go there, e.g. `(path) => router.replace(path)`. Called once per link held across a sign-in. */
   onRelease: (path: string) => void;
 }
 
-/** Release the held link once `ready`; returns the link still held. */
-export function useHeldLink(hold: LinkHold, { ready, onRelease }: UseHeldLinkOptions): string | null {
+/** Follow the held link after a sign-in, drop it otherwise; returns the link still held. */
+export function useHeldLink(hold: LinkHold, { auth, onRelease }: UseHeldLinkOptions): string | null {
   const held = useSyncExternalStore(hold.subscribe, hold.peek, hold.peek);
   const release = useRef(onRelease);
   release.current = onRelease;
+  // Was the user signed out while this link was held?
+  const waitedForSignIn = useRef(false);
   useEffect(() => {
-    if (!ready || held === null) return;
+    if (held === null) {
+      waitedForSignIn.current = false;
+      return;
+    }
+    if (auth === "signedOut") waitedForSignIn.current = true;
+    if (auth !== "signedIn") return;
     const path = hold.take();
-    if (path !== null) release.current(path);
-  }, [ready, held, hold]);
+    const follow = waitedForSignIn.current;
+    waitedForSignIn.current = false;
+    if (path !== null && follow) release.current(path);
+  }, [auth, held, hold]);
   return held;
 }

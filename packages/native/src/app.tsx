@@ -2,28 +2,19 @@
  * `<GenesisNativeApp>`: everything above an Expo app's screens, so the root
  * `_layout.tsx` is a few lines.
  *
- *   theme (GenesisThemeProvider, owning the platform color scheme)
- *   └ keyboard-aware scrolling (when `keyboardScroll` is given)
- *     └ data (GenesisProvider over the Supabase client, a persisted QueryClient)
- *       └ session + boot (splash held until both are known)
- *         └ updateBanner + errorBoundary → your screens (or `signedOut`)
+ *   last-resort boundary (React Native primitives only)
+ *   └ theme (GenesisThemeProvider, owning the platform color scheme)
+ *     └ keyboard-aware scrolling (when `keyboardScroll` is given)
+ *       └ data (GenesisProvider over the Supabase client, the QueryClient)
+ *         └ session + boot (splash held until both are known)
+ *           └ updateBanner + errorBoundary → your screens (or `signedOut`)
  *
- * Global errors and render errors show the `fatal` slot with "Try again".
- * Every part is a slot (`slots` / `slotProps`, `null` drops it) and is also
- * exported on its own: `createBoot`/`useBoot`, `GenesisErrorBoundary`,
- * `installGlobalErrorHandler`, `createNativeQueryClient`/`createQueryPersistence`,
- * `createSessionStore`/`useSession`, `normalizeLink`, `useHeldLink`.
+ * Global errors, render errors and a failed boot show the `fatal` slot with
+ * "Try again". Every part is a slot (`slots` / `slotProps`, `null` drops it)
+ * and is also exported on its own.
  */
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ComponentType,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
+import { Text, View } from "react-native";
 import type { QueryClient, QueryClientConfig } from "@tanstack/react-query";
 import { GenesisThemeProvider } from "@marktiderman/genesis-design-system/theme";
 import type { CanonicalBrand } from "@marktiderman/genesis-design-system";
@@ -34,22 +25,20 @@ import { BootProvider, createBoot, type BootOptions, type BootStatus, type BootS
 import {
   FatalScreen,
   GenesisErrorBoundary,
+  PlainFatalScreen,
   defaultErrorUtils,
+  defaultRejectionTracker,
   installGlobalErrorHandler,
+  installRejectionTracker,
+  type EnableRejectionTracker,
   type ErrorUtilsLike,
   type FatalScreenProps,
   type GenesisErrorBoundaryProps,
   type OnError,
 } from "./errors";
 import { SessionProvider, createSessionStore, type AuthClientLike } from "./auth";
-import { useHeldLink, type LinkHold } from "./held-link";
-import {
-  connectQueryLifecycle,
-  createNativeQueryClient,
-  createQueryPersistence,
-  type AsyncStorageLike,
-  type QueryLifecycleOptions,
-} from "./query";
+import { useHeldLink, type HeldLinkAuth, type LinkHold } from "./held-link";
+import { connectQueryLifecycle, createNativeQueryClient, type QueryLifecycleOptions, type QueryPersistence } from "./query";
 
 /** `expo-splash-screen`, or a stand-in. Call `preventAutoHideAsync()` at module scope yourself too. */
 export interface SplashModule {
@@ -68,7 +57,7 @@ export interface SignedOutProps {
 
 // A type, not an interface, so it fits the slots contract's Record constraint.
 export type NativeAppSlots = {
-  /** Shown while booting, under the splash. Default nothing. */
+  /** Shown while booting: under the splash at launch, on its own after "Try again". Default `BootScreen`. */
   boot: BootScreenProps;
   /** A failed boot, a fatal global error or a render error. Default `FatalScreen`. */
   fatal: FatalScreenProps;
@@ -84,17 +73,6 @@ export interface NativeQueryClientOptions {
   /** Your own client. Default `createNativeQueryClient(config)`. */
   client?: QueryClient;
   config?: QueryClientConfig;
-  /** Save these queries to `storage`; needs `storage`. */
-  persist?: {
-    /** Query-key roots to save. */
-    keys: readonly string[];
-    /** The app version; a new one discards the saved cache. */
-    buster: string;
-    /** Default 24 hours. */
-    maxAge?: number;
-    /** Write at most this often. Default 1000 ms. */
-    throttleMs?: number;
-  };
 }
 
 export interface GenesisNativeAppProps {
@@ -104,31 +82,49 @@ export interface GenesisNativeAppProps {
   /** The data provider. Default `createSupabaseProvider(supabase)`. */
   provider?: DataProvider;
   queryClient?: NativeQueryClientOptions;
-  /** Async storage (AsyncStorage, MMKV…) for the query cache. */
-  storage?: AsyncStorageLike;
+  /**
+   * Save queries to the phone: `persistQueries({ storage, keys, buster })`
+   * from `@marktiderman/genesis-native/persist`. The saved cache belongs to
+   * one user: it is restored only for that user and cleared when the user
+   * changes (sign-out, a session that ended while the app was closed, an
+   * account switch).
+   */
+  persist?: (client: QueryClient) => QueryPersistence;
   /** `expo-splash-screen`: hidden once boot has finished and the session is known. */
   splash?: SplashModule;
   /** `KeyboardAwareScrollView` from react-native-keyboard-controller, for form screens. */
   keyboardScroll?: ComponentType<KeyboardScrollProps>;
-  /** Release a held deep link once signed in. */
+  /** Follow a link held while signed out, once the user signs in. */
   links?: { hold: LinkHold; onRelease: (path: string) => void };
   /** Run before first render, in order (wipe-on-reinstall, hydrate stores, fonts). Read once. */
   steps?: readonly BootStep[];
   bootOptions?: BootOptions;
+  /** Longest wait for Supabase's `getSession()` before using the stored session (offline). Default 5000 ms. */
+  sessionWaitMs?: number;
   /** Default `globalThis.ErrorUtils`. */
   errorUtils?: ErrorUtilsLike;
+  /** Report unhandled promise rejections to `onError`. Default Hermes's tracker; `null` turns it off. */
+  rejectionTracker?: EnableRejectionTracker | null;
   /** `AppState` and NetInfo, so queries refetch on focus and know the network. */
   lifecycle?: QueryLifecycleOptions;
   /** Every caught error, for reporting (Sentry). */
   onError?: OnError;
-  /** After sign-out, once the query cache is cleared. */
+  /** After a signed-in user signs out, once the query cache is cleared. */
   onSignedOut?: () => void;
   slots?: Slots<NativeAppSlots>;
   slotProps?: SlotPropsFor<NativeAppSlots>;
   children?: ReactNode;
 }
 
-const NoBootScreen: ComponentType<BootScreenProps> = () => null;
+/** The default boot slot: a plain loading view (the splash covers it at launch). */
+export function BootScreen(_props: BootScreenProps) {
+  return (
+    <View testID="genesis-boot" accessibilityRole="progressbar" style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <Text>Loading…</Text>
+    </View>
+  );
+}
+
 const NoUpdateBanner: ComponentType<Record<string, never>> = () => null;
 const PassThrough: ComponentType<SignedOutProps> = ({ children }) => <>{children}</>;
 
@@ -145,8 +141,26 @@ const ThemeProvider = GenesisThemeProvider as ComponentType<{
  * @stability Beta
  */
 export function GenesisNativeApp(props: GenesisNativeAppProps) {
-  const { brand, keyboardScroll, children } = props;
-  const body = <Shell {...props}>{children}</Shell>;
+  // Above every provider: if one of them (or the shell's own set-up) throws,
+  // this shows a screen made of nothing that can fail, and retry starts over.
+  const [rootKey, setRootKey] = useState(0);
+  const onErrorRef = useRef(props.onError);
+  onErrorRef.current = props.onError;
+  return (
+    <GenesisErrorBoundary
+      key={rootKey}
+      fallback={PlainFatalScreen}
+      onError={(e, r) => onErrorRef.current?.(e, r)}
+      onRetry={() => setRootKey((key) => key + 1)}
+    >
+      <ThemedShell {...props} />
+    </GenesisErrorBoundary>
+  );
+}
+
+function ThemedShell(props: GenesisNativeAppProps) {
+  const { brand, keyboardScroll } = props;
+  const body = <Shell {...props} />;
   return (
     <ThemeProvider brand={brand} syncNativeAppearance>
       {keyboardScroll ? <KeyboardScrollProvider component={keyboardScroll}>{body}</KeyboardScrollProvider> : body}
@@ -154,51 +168,58 @@ export function GenesisNativeApp(props: GenesisNativeAppProps) {
   );
 }
 
-function Shell({
-  supabase,
-  provider,
-  queryClient: queryOptions,
-  storage,
-  splash,
-  links,
-  steps = [],
-  bootOptions,
-  errorUtils,
-  lifecycle,
-  onError,
-  onSignedOut,
-  slots,
-  slotProps,
-  children,
-}: GenesisNativeAppProps) {
-  const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
-  const onSignedOutRef = useRef(onSignedOut);
-  onSignedOutRef.current = onSignedOut;
+const SESSION_STEP_MARGIN_MS = 15_000;
+
+function Shell(props: GenesisNativeAppProps) {
+  const { supabase, provider, queryClient: queryOptions, persist, splash, links, steps = [], bootOptions, sessionWaitMs = 5000 } = props;
+  const { errorUtils, rejectionTracker, lifecycle, slots, slotProps, children } = props;
+  const latest = useRef(props);
+  latest.current = props;
+  const onError: OnError = (error, report) => latest.current.onError?.(error, report);
+  // How many fatal screens are up (the global handler lets a second fatal error end the app).
+  const fatalShown = useRef(0);
 
   // Created once: the shell's parts live as long as the app.
   const [parts] = useState(() => {
     const client = queryOptions?.client ?? createNativeQueryClient(queryOptions?.config);
-    const persist = queryOptions?.persist;
-    const persistence = persist && storage ? createQueryPersistence({ queryClient: client, storage, ...persist }) : null;
+    const persistence = persist ? persist(client) : null;
     const session = createSessionStore(supabase, {
-      onSignedOut: () => {
+      waitMs: sessionWaitMs,
+      // Another user (or nobody) now: nothing of the last user's may show or stay on disk.
+      onUserChange: (previous, next) => {
         client.clear();
         void persistence?.clear();
-        onSignedOutRef.current?.();
+        if (previous !== null && next === null) latest.current.onSignedOut?.();
       },
     });
     const boot = createBoot(
       [
         ...steps,
-        ...(persistence ? [{ id: "genesis:query-cache", run: () => persistence.restore() }] : []),
-        { id: "genesis:session", run: () => session.load() },
+        { id: "genesis:session", run: () => session.load(), timeoutMs: sessionWaitMs + SESSION_STEP_MARGIN_MS },
+        // After the session, so only the cache saved for this user is restored.
+        ...(persistence ? [{ id: "genesis:query-cache", run: () => persistence.restore(session.getState().userId ?? "") }] : []),
       ],
       bootOptions,
     );
-    return { client, persistence, session, boot, provider: provider ?? createSupabaseProvider(supabase) };
+    // One component type for the life of the app, so a re-render never remounts a visible fatal screen.
+    function FatalFallback(fallbackProps: FatalScreenProps) {
+      useEffect(() => {
+        fatalShown.current++;
+        return () => {
+          fatalShown.current--;
+        };
+      }, []);
+      const { slots: s, slotProps: sp } = latest.current;
+      return (
+        // A `fatal` slot that throws falls back to the plain screen.
+        <GenesisErrorBoundary fallback={PlainFatalScreen} onError={onError} onRetry={fallbackProps.retry}>
+          {renderSlot(FatalScreen, s?.fatal, fallbackProps, sp?.fatal)}
+        </GenesisErrorBoundary>
+      );
+    }
+    return { client, persistence, session, boot, FatalFallback, provider: provider ?? createSupabaseProvider(supabase) };
   });
-  const { boot, session, persistence, client } = parts;
+  const { boot, session, persistence, client, FatalFallback } = parts;
   const bootState = useSyncExternalStore(boot.subscribe, boot.getState, boot.getState);
   const sessionState = useSyncExternalStore(session.subscribe, session.getState, session.getState);
   const [fatal, setFatal] = useState<Error | null>(null);
@@ -209,18 +230,20 @@ function Shell({
     void boot.start();
   }, [boot]);
   useEffect(() => {
-    if (bootState.status === "failed" && bootState.error) {
-      onErrorRef.current?.(bootState.error, { fatal: true, source: "boot" });
-    }
+    if (bootState.status === "failed" && bootState.error) onError(bootState.error, { fatal: true, source: "boot" });
   }, [bootState.status, bootState.error]);
   useEffect(() => {
-    if (bootState.status === "ready" && persistence) return persistence.subscribe();
-  }, [bootState.status, persistence]);
+    if (bootState.status === "ready" && persistence) return persistence.subscribe(sessionState.userId ?? "");
+  }, [bootState.status, persistence, sessionState.userId]);
   useEffect(() => {
     const utils = errorUtils ?? defaultErrorUtils();
     if (!utils) return;
-    return installGlobalErrorHandler({ errorUtils: utils, onError: (e, r) => onErrorRef.current?.(e, r), onFatal: setFatal });
+    return installGlobalErrorHandler({ errorUtils: utils, onError, onFatal: setFatal, alreadyFatal: () => fatalShown.current > 0 });
   }, [errorUtils]);
+  useEffect(() => {
+    const enable = rejectionTracker === null ? undefined : (rejectionTracker ?? defaultRejectionTracker());
+    if (enable) installRejectionTracker({ enable, onError });
+  }, [rejectionTracker]);
   useEffect(() => (lifecycle ? connectQueryLifecycle(lifecycle) : undefined), [lifecycle]);
 
   // Splash: up until boot has finished (the session step included), or failed.
@@ -232,48 +255,32 @@ function Shell({
     splash.hideAsync().catch(() => {});
   }, [settled, splash]);
 
-  useHeldLink(links?.hold ?? NO_HOLD, {
-    ready: Boolean(links) && bootState.status === "ready" && sessionState.status === "signedIn",
-    onRelease: (path) => links?.onRelease(path),
-  });
+  const auth: HeldLinkAuth = bootState.status !== "ready" || sessionState.status === "loading" ? "pending" : sessionState.status;
+  useHeldLink(links?.hold ?? NO_HOLD, { auth: links ? auth : "pending", onRelease: (path) => links?.onRelease(path) });
 
-  const retry = useCallback(() => {
+  const retry = () => {
     setFatal(null);
     setResetKey((key) => key + 1);
     if (boot.getState().status === "failed") void boot.retry();
-  }, [boot]);
-
-  const fatalSlot = slots?.fatal;
-  const fatalExtra = slotProps?.fatal;
-  const Fallback = useMemo<ComponentType<FatalScreenProps>>(
-    () => (fallbackProps) => renderSlot(FatalScreen, fatalSlot, fallbackProps, fatalExtra),
-    [fatalSlot, fatalExtra],
-  );
+  };
 
   let content: ReactNode;
   if (fatal) {
-    content = <Fallback error={fatal} retry={retry} />;
+    content = <FatalFallback error={fatal} retry={retry} />;
   } else if (bootState.status === "failed" && bootState.error) {
-    content = <Fallback error={bootState.error} retry={retry} />;
+    content = <FatalFallback error={bootState.error} retry={retry} />;
   } else if (bootState.status !== "ready") {
-    content = renderSlot(NoBootScreen, slots?.boot, { status: bootState.status }, slotProps?.boot);
+    content = renderSlot(BootScreen, slots?.boot, { status: bootState.status }, slotProps?.boot);
   } else {
-    const screens = sessionState.status === "signedOut"
-      ? renderSlot(PassThrough, slots?.signedOut, { children }, slotProps?.signedOut)
-      : children;
+    const screens =
+      sessionState.status === "signedOut" ? renderSlot(PassThrough, slots?.signedOut, { children }, slotProps?.signedOut) : children;
     content = (
       <>
         {renderSlot(NoUpdateBanner, slots?.updateBanner, {}, slotProps?.updateBanner)}
         {renderSlot(
           GenesisErrorBoundary,
           slots?.errorBoundary,
-          {
-            fallback: Fallback,
-            onError: (e, r) => onErrorRef.current?.(e, r),
-            resetKey,
-            onRetry: retry,
-            children: screens,
-          },
+          { fallback: FatalFallback, onError, resetKey, onRetry: retry, children: screens },
           slotProps?.errorBoundary,
         )}
       </>
@@ -284,7 +291,7 @@ function Shell({
     <GenesisProvider provider={parts.provider} queryClient={client}>
       <SessionProvider store={session}>
         <BootProvider boot={boot}>
-          <GenesisErrorBoundary key={resetKey} fallback={Fallback} onError={(e, r) => onErrorRef.current?.(e, r)} onRetry={retry}>
+          <GenesisErrorBoundary key={resetKey} fallback={FatalFallback} onError={onError} onRetry={retry}>
             {content}
           </GenesisErrorBoundary>
         </BootProvider>
