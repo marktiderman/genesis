@@ -1,0 +1,81 @@
+.changeset/app-updates-block.md
+  s_8252619ce79a86::t_af54dc53d4ef79 1-19
+AGENTS.md
+  s_8252619ce79a86::t_089e884c844f51 15
+features.json
+  s_8252619ce79a86::t_b2f858f13df65e 1346-1349,1765,1770,1772,1775-1793,1804-1820
+features.ts
+  s_8252619ce79a86::t_14c97ec4ec0672 593,781,783-787,792-803
+packages/native/README.md
+  s_8252619ce79a86::t_c83e91440bfb51 130-225,258-260
+packages/native/package.json
+  s_8252619ce79a86::t_f8549e9b95d35b 7,30-33,56-57,65-73
+packages/native/src/__tests__/app.test.tsx
+  s_8252619ce79a86::t_fbd9a2b9a90a1f 219,222-223
+packages/native/src/__tests__/updates/block.test.tsx
+  s_8252619ce79a86::t_59557dc61bbcdb 1-205
+packages/native/src/__tests__/updates/checker.test.ts
+  s_8252619ce79a86::t_9f638717f1cd14 1-116
+packages/native/src/__tests__/updates/fakes.ts
+  s_8252619ce79a86::t_cc0bdc7ccf716b 1-65
+packages/native/src/__tests__/updates/policy.test.ts
+  s_8252619ce79a86::t_c34998f9c72a57 1-247
+packages/native/src/__tests__/updates/signature-channels.test.ts
+  s_8252619ce79a86::t_077e43522fb250 1-82
+packages/native/src/__tests__/updates/version.test.ts
+  s_8252619ce79a86::t_1cb3ccfb87a2f1 1-38
+packages/native/src/__tests__/updates/whats-new.test.ts
+  s_8252619ce79a86::t_9e5a8d07861897 1-77
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_ce1951e82e88aa 10-11,43-44,62-64,117-124,207-208,231,288-300
+packages/native/src/nativewind.d.ts
+  s_8252619ce79a86::t_95c725b67a4b5e 1-40
+packages/native/src/updates/block.tsx
+  s_8252619ce79a86::t_d2808185d3de94 1-358
+packages/native/src/updates/channels.ts
+  s_8252619ce79a86::t_9d1521f570ccb0 1-131
+packages/native/src/updates/checker.ts
+  s_8252619ce79a86::t_66baab7297104c 1-185
+packages/native/src/updates/index.ts
+  s_8252619ce79a86::t_6403ba835ee9a3 1-86
+packages/native/src/updates/modules.ts
+  s_8252619ce79a86::t_b403785fd150a8 1-64
+packages/native/src/updates/policy.ts
+  s_8252619ce79a86::t_64ec4e7c9f8938 1-298
+packages/native/src/updates/screens.tsx
+  s_8252619ce79a86::t_93b5ba58ffd623 1-143
+packages/native/src/updates/signature.ts
+  s_8252619ce79a86::t_9bd5390b90ba47 1-74
+packages/native/src/updates/store.ts
+  s_8252619ce79a86::t_9328f8ccaad52d 1-33
+packages/native/src/updates/version.ts
+  s_8252619ce79a86::t_f1b87d8a27219a 1-39
+packages/native/src/updates/whats-new.ts
+  s_8252619ce79a86::t_6493e0ea5f80da 1-120
+packages/native/tsup.config.ts
+  s_8252619ce79a86::t_da434f437c8294 4,14-15
+packages/supabase/README.md
+  s_8252619ce79a86::t_2b8afa82a6b5f0 27,186-203
+packages/supabase/migrations/0002_genesis_app_release_policy.sql
+  s_8252619ce79a86::t_192dda95fc049a 1-74
+packages/supabase/migrations/tests/0002_genesis_app_release_policy.test.sql
+  s_8252619ce79a86::t_f7ead3deb30c81 1-132
+pnpm-lock.yaml
+  s_8252619ce79a86::t_591823b003b5b7 911-913
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "581f319ea5ca6d9d4d58bb96771724f8fc9ff6da",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
