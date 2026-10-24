@@ -1,5 +1,25 @@
 # @marktiderman/genesis-forms-web
 
+## 0.4.0
+
+### Minor Changes
+
+- 8941c14: Options from the app: a single choice, multiple choice or dropdown question can take its options from the app showing the form, such as a coach picker that always lists a practice's current coaches.
+
+  - **genesis-forms**: a choice field may set `props.optionsFrom: { source: "host", key }` (`f.singleChoice`, `f.multiChoice` and `f.dropdown` take `optionsFrom`, and `options` is then optional). `createForm` and `replay` take `hostOptions` (lists by key, `{ value, label }[]`): `engine.definition` has them filled in after the question's own options, so renderers show them and only these values validate. `validateSubmission` takes `hostOptions` too, loaded on the server, so a value the server doesn't offer now is refused. New exports: `withHostOptions`, `optionsSource`, `HostOptions`, `OptionsSource`. `parseForm` checks the shape of `optionsFrom` (an issue), warns when a non-choice type sets it, and no longer warns about rules comparing such a question with a value only the app supplies. Definitions without `optionsFrom` behave exactly as before.
+  - **genesis-forms-builder**: `hostOptions?: HostOptionList[]` on `FormBuilder` and `BuilderConfig` (`{ key, label, description?, sample? }`). A choice question's options read "Options: Typed here | From the app", with a picker of the host's lists; the preview and the path checks use each list's `sample`, and a question using a list the host doesn't offer is a warning. New: `setOptionsSource` (ops), `sampleHostOptions`, `HostOptionList`; `analyze` takes `hostOptions`.
+  - **genesis-forms-web**: `<Form hostOptions>` passes the lists to the form's engine (with your own `engine`, pass them to `useForm`).
+
+- a3ba64e: An "Other" answer on choice questions: `props.other: true` (or `{ label }`) adds an Other option with a text box to a single choice, multiple choice or dropdown question. The typed text is the answer (one more item on a multiple choice), checked on the server (blank or over 200 characters is refused, and so is text on a question without Other). The builder has an "Allow an Other answer" switch, and response summaries count typed answers together under Other.
+- cbc94c1: Partial responses and drop-off by question (Typeform's "capture partial responses after every question").
+
+  - **genesis-forms**: `settings.saveProgress` (off by default; `parseForm` checks it's a boolean). `formProgress(engine)` says how far a respondent got: `{ step, total, fieldId }`, `fieldId` being the furthest question reached, kept after Back; `furthestReached(state, definition)` is the block. `FormState.furthest` holds the furthest block reached with Next. `createForm(definition, { initialValues, resumeAt })` picks up where someone was after a reload: it moves on with Next from the first block to `resumeAt` (so Back still walks their path), stopping early at a step that no longer passes.
+  - **genesis-forms-web**: `<Form onProgress={(engine, progress) => …}>`. With `settings.saveProgress` on, it's called a moment after each step forward (`PROGRESS_DELAY_MS`; in classic layout `CLASSIC_PROGRESS_DELAY_MS` after the answers change), never holding up Next: a rejection is ignored, a pending call goes at once on `pagehide`, and none is made once the form is submitted. A short note under the first question says "Your answers save as you go." (`progressNotice`, `null` hides it).
+  - **genesis-forms-builder**: a "Save answers as they go" switch in the form's settings, under Responses (`settingsOmit: ["saveProgress"]` leaves it out). `updateSettings` stores `saveProgress` only when on.
+  - **genesis-forms-studio**: `SummaryItem.status` (`in_progress`, `partial`, `completed`; missing is completed) and `furthest`. A status filter (`ResponseFilter.status`, `FiltersValue.status`, `<ResponsesFilters statuses>`: Sent and partial by default, Sent, Partial, In progress), so in-progress responses stay out of summaries unless picked; `matchesStatus`, `STATUS_FILTER_LABEL`, `RESPONSE_STATUS_LABEL`. The Responses card says how many are partial. `dropOffByQuestion(items, definitions)` and `<DropOffByQuestion>`: each question's views, how many stopped there, and the drop-off share.
+
+- 93e16e4: A renderer for the `photo` field: "Choose a photo", and "Take a photo" (the camera) on touch devices; type, size and count checked before uploading; a thumbnail (or the file's name when the browser can't draw it) and a remove button per photo. The file goes to the host through the new `Form` prop `onUpload(file, field) => Promise<PhotoRef>` (or an `UploadContext` around the form), so the renderer stays storage-agnostic; a rejected upload shows under the field. While a photo is uploading the form neither moves on nor sends, and says "Wait for the photo to finish uploading." Without a host, a photo field says photos can't be added. New exports: `UploadContext`, `useUpload`, `UploadHost`, `UPLOAD_WAIT_MESSAGE`, `photoAccept`, `photoFileProblem`, `photoFileType`.
+
 ## 0.3.0
 
 ### Minor Changes
