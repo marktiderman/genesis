@@ -171,6 +171,25 @@ describe("useFormController", () => {
     expect(seen.controller.phase).toBe("idle");
   });
 
+  it("sends a new engine's answers while an earlier engine's send is still on its way", async () => {
+    const one = createForm(survey.definition, { initialValues: { [survey.definition.blocks[0]!.id]: "Ada" } });
+    const two = createForm(survey.definition, { initialValues: { [survey.definition.blocks[0]!.id]: "Sam" } });
+    const sent: FormEngine[] = [];
+    let resolveFirst!: () => void;
+    const onSubmit = (e: FormEngine) => {
+      sent.push(e);
+      return e === one ? new Promise<void>((r) => (resolveFirst = r)) : Promise.resolve();
+    };
+    const { seen, rerender } = harness(one, { layout: "classic", onSubmit });
+    act(() => seen.controller.submit());
+    rerender(two);
+    await act(async () => seen.controller.submit());
+    expect(sent).toEqual([one, two]);
+    expect(seen.controller.phase).toBe("sent");
+    await act(async () => resolveFirst());
+    expect([seen.controller.engine, seen.controller.phase]).toEqual([two, "sent"]);
+  });
+
   it("saves progress after a step, and flushes a pending save at once", () => {
     vi.useFakeTimers();
     const onProgress = vi.fn();

@@ -174,9 +174,13 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
   const layout: FormLayoutMode = options.layout ?? def.layout?.mode ?? "classic";
   const autoAdvance = options.autoAdvance ?? true;
 
-  // The latest options, read when an action or timer runs, so none acts on a stale render's.
+  // The latest committed options, read when an action or timer runs, so none acts on a stale
+  // render's. Updated in a layout effect (the first one here), not during render, so a render
+  // React throws away never leaks its options.
   const latest = useRef({ options, layout, engine });
-  latest.current = { options, layout, engine };
+  useLayoutEffect(() => {
+    latest.current = { options, layout, engine };
+  });
 
   const status = useFormSelector(engine, (s) => s.status);
   const current = useFormSelector(engine, (s) => s.current);
@@ -204,7 +208,9 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
 
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const previousCurrent = useRef(current);
-  const sending = useRef(false);
+  // The engine whose `onSubmit` is running: a send still on its way for an earlier engine
+  // never blocks this one's.
+  const sending = useRef<FormEngine | null>(null);
   const direction = useRef<"forward" | "back">("forward");
   const progress = useRef<{ flush(): void } | null>(null);
 
@@ -318,7 +324,7 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
     };
     const finish = async () => {
       const { engine: e, layout: l, options: o } = latest.current;
-      if (sending.current) return;
+      if (sending.current === e) return;
       if (e.getState().status !== "completed" && waiting()) return;
       // A retry after a failed onSubmit finds the response already completed.
       if (e.getState().status !== "completed" && !e.submit()) {
@@ -330,7 +336,7 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
         update(e, () => ({ phase: "sent" }));
         return;
       }
-      sending.current = true;
+      sending.current = e;
       update(e, () => ({ phase: "sending" }));
       try {
         await o.onSubmit(e);
@@ -338,7 +344,7 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
       } catch {
         update(e, () => ({ phase: "failed" }));
       } finally {
-        sending.current = false;
+        if (sending.current === e) sending.current = null;
       }
     };
     const advance = () => {

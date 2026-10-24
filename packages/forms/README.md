@@ -394,8 +394,15 @@ registerContentType({ type: "acme/message", label: "Message", text: (block) => b
 The registry is shared by every form in the process (the server's checks too), so:
 
 - a built-in kind's name is refused unless you pass `{ replace: true }`;
-- what you register is stored as a frozen copy: changing your object later changes nothing;
-- a `checkProps` that throws is one issue, never a crash in `parseForm`.
+- what you register is stored as a frozen copy: changing your object, or what `getFieldType`
+  returns, changes nothing;
+- a choice kind without its own `validate` gets the built-in check for its shape, so its answers
+  are always one of its options (or a typed "Other");
+- a `validate` that throws refuses the answer, a `checkProps` that throws is one issue, and a
+  throwing `literal`, `snapshot` or `fromSnapshot` is skipped; `isEmpty`, `normalize` and
+  `summarize` must not throw;
+- an unknown content kind's issue names every registered kind, so registering one changes that
+  message for every form ("Must be heading, text or acme/message.").
 
 A content block carries `text` and, for a host's kind, `props`. `contentText(block)` is its display
 text. A renderer draws a content kind it doesn't know as that text.

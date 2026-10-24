@@ -13,6 +13,8 @@ export type LiteralType = "string" | "number" | "boolean";
  * server and snapshots all read, so a kind is described once instead of in a switch in each.
  * Renderers are registered separately per platform (`genesis-forms-react`), so a manifest runs
  * anywhere. Every hook is optional except where noted; a missing one means "nothing special".
+ * `validate`, `checkProps`, `literal`, `snapshot` and `fromSnapshot` may throw (each fails safe,
+ * as its doc says); `isEmpty`, `normalize` and `summarize` must not.
  */
 export interface FieldTypeManifest {
   type: string;
@@ -39,7 +41,9 @@ export interface FieldTypeManifest {
   /**
    * The answer's shape. `choice`: the answer is one of `props.options` (`multiple: false`, a
    * text) or several (`multiple: true`, a list of texts), so the field takes `optionsFrom`,
-   * `prefill`, `other` and filters, and its answers are snapshotted with their labels.
+   * `prefill`, `other` and filters, and its answers are snapshotted with their labels. Without
+   * its own `validate` (or `summarize`) it gets the built-in one for its shape, so an answer is
+   * always one of its options (or a typed "Other" when `props.other` allows it).
    */
   choice?: { multiple: boolean };
   /**
@@ -81,8 +85,11 @@ export const VALIDATOR_FAILED_MESSAGE = "This answer couldn't be checked.";
 
 // One registry per process, shared by every entry point (index, server,
 // testing are bundled separately), so a plugin registered once is seen by all.
-const REGISTRY = Symbol.for("@marktiderman/genesis-forms/field-types");
-const BUILT_IN = Symbol.for("@marktiderman/genesis-forms/built-in-field-types");
+// The key names the manifest format: a copy of an older release in the same
+// process (whose manifests lack `choice`, `checkProps` and `literal`) keeps its
+// own registry instead of overwriting these built-ins or keeping its own.
+const REGISTRY = Symbol.for("@marktiderman/genesis-forms/field-types@2");
+const BUILT_IN = Symbol.for("@marktiderman/genesis-forms/built-in-field-types@2");
 const globalScope = globalThis as typeof globalThis & {
   [REGISTRY]?: Map<string, FieldTypeManifest>;
   [BUILT_IN]?: Set<string>;
@@ -99,14 +106,21 @@ export interface RegisterOptions {
   replace?: boolean;
 }
 
+const freezeRecord = (v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? Object.freeze({ ...v }) : v);
+
 /**
- * A frozen copy (its operator list copied too), so changing the object after registering it
- * changes nothing the engine or the server reads.
+ * A frozen copy, so changing the object after registering it (or the one `getFieldType`
+ * returns) changes nothing the engine or the server reads: `choice`, `a11y` and `value` are
+ * frozen copies too, and `operators` hands out a fresh copy of the list on each read.
  */
 function frozen<T extends object>(manifest: T): T {
-  const copy = { ...manifest } as T & { operators?: unknown };
-  if (Array.isArray(copy.operators)) copy.operators = [...(copy.operators as unknown[])];
-  return Object.freeze(copy);
+  const copy = { ...manifest } as Record<string, unknown>;
+  for (const key of ["choice", "a11y", "value"]) if (key in copy) copy[key] = freezeRecord(copy[key]);
+  if (Array.isArray(copy.operators)) {
+    const operators = Object.freeze([...(copy.operators as unknown[])]);
+    Object.defineProperty(copy, "operators", { get: () => [...operators], enumerable: true });
+  }
+  return Object.freeze(copy) as T;
 }
 
 /**
@@ -139,7 +153,7 @@ export function registerFieldType(manifest: FieldTypeManifest, options: Register
       `registerFieldType: "${manifest.type}" is a built-in field type; pass { replace: true } to replace it for every form in this process.`,
     );
   }
-  registry.set(manifest.type, frozen(manifest));
+  registry.set(manifest.type, frozen(withChoiceDefaults(manifest)));
 }
 
 /** Built-ins: the first copy loaded wins, so a later entry point never undoes a host's `replace`. */
@@ -179,7 +193,13 @@ export function isChoiceField(block: unknown): block is FieldBlock {
 /** The JSON type a logic literal must have to match a field of `type` with these props, when known. */
 export function literalType(type: string, props: Readonly<Record<string, unknown>>): LiteralType | undefined {
   const literal = registry.get(type)?.literal;
-  return typeof literal === "function" ? literal(props) : literal;
+  if (typeof literal !== "function") return literal;
+  try {
+    return literal(props);
+  } catch {
+    // Not known: `parseForm` only warns from it, and never throws.
+    return undefined;
+  }
 }
 
 // ── Content kinds ────────────────────────────────────────────────────────────
@@ -198,7 +218,7 @@ export interface ContentTypeManifest {
   text?: (block: ContentBlock) => string;
 }
 
-const CONTENT_REGISTRY = Symbol.for("@marktiderman/genesis-forms/content-types");
+const CONTENT_REGISTRY = Symbol.for("@marktiderman/genesis-forms/content-types@1");
 const contentScope = globalThis as typeof globalThis & { [CONTENT_REGISTRY]?: Map<string, ContentTypeManifest> };
 const contentRegistry: Map<string, ContentTypeManifest> = (contentScope[CONTENT_REGISTRY] ??= new Map());
 const BUILT_IN_CONTENT: ReadonlySet<string> = new Set(["heading", "text"]);
@@ -537,6 +557,43 @@ function isPhoneNumber(value: string): boolean {
   return digits >= 7 && digits <= 15;
 }
 
+/** A single choice's or dropdown's check: one of the options, or a typed "Other" answer. */
+const oneOptionValidate = (value: Json, field: FieldBlock): string | null =>
+  typeof value === "string" && (choiceOptions(field).some((o) => o.value === value) || typedOther(field, value))
+    ? null
+    : "Choose one of the options.";
+const oneOptionSummary = (value: Json, field: FieldBlock) => optionLabel(field, String(value));
+
+/** A multiple choice's check. */
+const optionsValidate = (value: Json, field: FieldBlock): string | null => {
+  const allowed = new Set(choiceOptions(field).map((o) => o.value));
+  // Each option at most once, plus at most one typed "Other" answer, so a value is never
+  // longer than the option list and one.
+  const others = Array.isArray(value) ? value.filter((v) => typeof v === "string" && !allowed.has(v)) : [];
+  return Array.isArray(value) &&
+    new Set(value).size === value.length &&
+    value.every((v) => typeof v === "string") &&
+    (others.length === 0 || (others.length === 1 && typedOther(field, others[0])))
+    ? null
+    : "Choose from the options.";
+};
+const optionsSummary = (value: Json, field: FieldBlock) =>
+  Array.isArray(value) ? value.map((v) => optionLabel(field, String(v))).join(", ") : String(value);
+
+/**
+ * A choice kind registered without its own `validate` or `summarize` gets the built-in ones for
+ * its answer shape, so its answers are always checked against its options.
+ */
+function withChoiceDefaults(manifest: FieldTypeManifest): FieldTypeManifest {
+  if (!manifest.choice || (manifest.validate && manifest.summarize)) return manifest;
+  const multiple = manifest.choice.multiple;
+  return {
+    ...manifest,
+    validate: manifest.validate ?? (multiple ? optionsValidate : oneOptionValidate),
+    summarize: manifest.summarize ?? (multiple ? optionsSummary : oneOptionSummary),
+  };
+}
+
 /** A rating's or NPS's words under the ends of the scale. */
 const scaleProps: PropsCheck = (props, check) => {
   check.optionalText(props.lowLabel, "lowLabel");
@@ -646,11 +703,8 @@ const builtins: FieldTypeManifest[] = [
     a11y: { semantics: "group" },
     literal: "string",
     choice: { multiple: false },
-    validate: (value, field) =>
-      typeof value === "string" && (choiceOptions(field).some((o) => o.value === value) || typedOther(field, value))
-        ? null
-        : "Choose one of the options.",
-    summarize: (value, field) => optionLabel(field, String(value)),
+    validate: oneOptionValidate,
+    summarize: oneOptionSummary,
   },
   {
     type: "multi-choice",
@@ -661,20 +715,8 @@ const builtins: FieldTypeManifest[] = [
     a11y: { semantics: "group" },
     literal: "string",
     choice: { multiple: true },
-    validate: (value, field) => {
-      const allowed = new Set(choiceOptions(field).map((o) => o.value));
-      // Each option at most once, plus at most one typed "Other" answer, so a value is never
-      // longer than the option list and one.
-      const others = Array.isArray(value) ? value.filter((v) => typeof v === "string" && !allowed.has(v)) : [];
-      return Array.isArray(value) &&
-        new Set(value).size === value.length &&
-        value.every((v) => typeof v === "string") &&
-        (others.length === 0 || (others.length === 1 && typedOther(field, others[0])))
-        ? null
-        : "Choose from the options.";
-    },
-    summarize: (value, field) =>
-      Array.isArray(value) ? value.map((v) => optionLabel(field, String(v))).join(", ") : String(value),
+    validate: optionsValidate,
+    summarize: optionsSummary,
   },
   {
     type: "yes-no",
@@ -696,11 +738,8 @@ const builtins: FieldTypeManifest[] = [
     a11y: { semantics: "control" },
     literal: "string",
     choice: { multiple: false },
-    validate: (value, field) =>
-      typeof value === "string" && (choiceOptions(field).some((o) => o.value === value) || typedOther(field, value))
-        ? null
-        : "Choose one of the options.",
-    summarize: (value, field) => optionLabel(field, String(value)),
+    validate: oneOptionValidate,
+    summarize: oneOptionSummary,
   },
   {
     type: "number",

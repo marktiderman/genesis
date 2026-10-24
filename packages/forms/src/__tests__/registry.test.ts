@@ -140,6 +140,59 @@ describe("the field registry", () => {
     expect(answersFromSnapshots(engine.definition, { pick: { value: "gone", label: "banana" } }).answers).toEqual({ pick: "b" });
   });
 
+  it("checks a host choice kind's answers against its options when it brings no validator", () => {
+    registerFieldType({
+      type: "test/plain-pick", label: "Pick", category: "choice", value: { json: true },
+      operators: ["eq", "answered", "empty"], a11y: { semantics: "group" }, choice: { multiple: false },
+    });
+    registerFieldType({
+      type: "test/plain-picks", label: "Picks", category: "choice", value: { json: true },
+      operators: ["contains", "answered", "empty"], a11y: { semantics: "group" }, choice: { multiple: true },
+    });
+    const one = field("one", "test/plain-pick", { props: { options: [{ value: "a", label: "Apple" }] } });
+    const many = field("many", "test/plain-picks", { props: { options: [{ value: "a" }, { value: "b" }], other: true } });
+    const def = form("plain", [one, many]);
+    expect(validateSubmission(def, { answers: { one: { evil: true } } })).toEqual({ ok: false, errors: { one: "Choose one of the options." } });
+    expect(validateSubmission(def, { answers: { one: "z" } }).ok).toBe(false);
+    expect(validateSubmission(def, { answers: { many: ["a", "a"] } }).ok).toBe(false);
+    const ok = validateSubmission(def, { answers: { one: "a", many: ["b", "typed"] } });
+    expect(ok.ok && ok.submission.answers).toEqual({ one: "a", many: ["b", "typed"] });
+    expect(getFieldType("test/plain-pick")!.summarize!("a", one)).toBe("Apple");
+  });
+
+  it("keeps built-ins out of reach of a caller who changes what getFieldType returns", () => {
+    const single = getFieldType("single-choice")!;
+    expect(() => {
+      (single.choice as { multiple: boolean }).multiple = true;
+    }).toThrow();
+    single.operators.push("lt");
+    expect(getFieldType("single-choice")!.operators).not.toContain("lt");
+    expect(() => {
+      (single.a11y as { semantics: string }).semantics = "control";
+    }).toThrow();
+    expect(choiceKind("single-choice")).toEqual({ multiple: false });
+  });
+
+  it("never throws from parseForm or snapshots when a kind's literal or snapshot hooks throw", () => {
+    const boom = () => {
+      throw new Error("boom");
+    };
+    registerFieldType({
+      type: "test/hooks-throw", label: "H", category: "advanced", value: { json: true }, operators: ["eq", "answered"], a11y: { semantics: "control" },
+      literal: boom, snapshot: boom, fromSnapshot: boom,
+    });
+    registerFieldType({
+      type: "test/hooks-malformed", label: "H", category: "advanced", value: { json: true }, operators: ["answered"], a11y: { semantics: "control" },
+      fromSnapshot: () => ({}) as never,
+    });
+    const def = form("hooks", [field("h", "test/hooks-throw"), field("m", "test/hooks-malformed"), field("after", "short-text")], {
+      logic: [{ id: "r", when: { op: "eq", left: { field: "h" }, right: { value: 1 } }, effect: "hide", target: "after" }],
+    });
+    expect(parseForm(def).ok).toBe(true);
+    expect(answerSnapshots(def, { h: "x" })).toEqual({});
+    expect(answersFromSnapshots(def, { h: { value: "x" }, m: { value: "y" } })).toEqual({ answers: {}, missing: {} });
+  });
+
   it("uses a non-choice kind's own snapshot hooks", () => {
     registerFieldType({
       type: "test/place", label: "Place", category: "advanced", value: { json: true }, operators: ["answered"], a11y: { semantics: "control" },

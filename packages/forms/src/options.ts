@@ -369,7 +369,13 @@ export function answerSnapshots(
     if (custom) {
       const value = own(answers as Record<string, Json | undefined>, block.id);
       if (isEmptyValue(value, block)) continue;
-      const snapshot = custom(value as Json, block);
+      let snapshot: AnswerSnapshot | undefined;
+      try {
+        snapshot = custom(value as Json, block);
+      } catch {
+        // A kind's snapshot that throws leaves this answer without one; the rest are kept.
+        snapshot = undefined;
+      }
       if (snapshot !== undefined) put(out, block.id, snapshot);
       continue;
     }
@@ -415,9 +421,15 @@ export function answersFromSnapshots(
     if (custom) {
       const raw = own(snapshots as Record<string, unknown>, block.id);
       if (raw === undefined) continue;
-      const restored = custom(raw, block);
-      if (restored.value !== undefined) put(answers, block.id, restored.value);
-      if (restored.missing.length) put(missing, block.id, restored.missing);
+      let restored: { value?: Json; missing?: OptionSnapshot[] } | undefined;
+      try {
+        restored = custom(raw, block);
+      } catch {
+        // A kind's restore that throws restores nothing for this answer.
+        restored = undefined;
+      }
+      if (restored?.value !== undefined) put(answers, block.id, restored.value);
+      if (Array.isArray(restored?.missing) && restored.missing.length) put(missing, block.id, restored.missing);
       continue;
     }
     if (!isChoice(block)) continue;
