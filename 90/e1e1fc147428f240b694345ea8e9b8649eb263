@@ -1,0 +1,110 @@
+packages/design-system/src/tokens/__tests__/roles.test.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1-35
+packages/genesis-cli/src/doctor/versions.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1-45
+packages/supabase/src/native.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1-137
+features.ts
+  s_8252619ce79a86::t_fd4bbacb488984 209-213,219-225
+  s_8252619ce79a86::t_56f87301ba826e 214-218
+packages/genesis-cli/test/features.test.ts
+  s_8252619ce79a86::t_fd4bbacb488984 67-77
+packages/genesis-cli/test/scaffolder.test.ts
+  s_8252619ce79a86::t_fd4bbacb488984 126,131,140,142,165,172,174,228,250
+features.json
+  s_8252619ce79a86::t_fd4bbacb488984 453-457,480-500
+  s_8252619ce79a86::t_56f87301ba826e 458-479
+  s_8252619ce79a86::t_11690f453a83e6 452
+packages/genesis/tsup.config.ts
+  s_8252619ce79a86::t_fd4bbacb488984 2-3,40,43-61,101
+.changeset/release-train.md
+  s_8252619ce79a86::t_fd4bbacb488984 1-8
+packages/design-system/src/index.ts
+  s_8252619ce79a86::t_fd4bbacb488984 15-18
+packages/design-system/src/tokens/index.ts
+  s_8252619ce79a86::t_fd4bbacb488984 10
+packages/features/src/node.ts
+  s_8252619ce79a86::t_fd4bbacb488984 22
+.changeset/theme-roles.md
+  s_8252619ce79a86::t_fd4bbacb488984 1-6
+AGENTS.md
+  s_8252619ce79a86::t_56f87301ba826e 15
+docs/RELEASING.md
+  s_8252619ce79a86::t_fd4bbacb488984 48-56
+packages/genesis-cli/src/doctor/index.ts
+  s_8252619ce79a86::t_fd4bbacb488984 26,36,78
+packages/supabase/src/index.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1-71
+docs/FRAMEWORK.md
+  s_8252619ce79a86::t_fd4bbacb488984 129
+packages/supabase/src/__tests__/index.test.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1-22
+packages/ui-native/types/react-native.d.ts
+  s_8252619ce79a86::t_fd4bbacb488984 250-254
+.github/workflows/genesis-lint.yml
+  s_8252619ce79a86::t_fd4bbacb488984 1
+packages/genesis-cli/src/doctor/rules.ts
+  s_8252619ce79a86::t_fd4bbacb488984 23
+packages/supabase/tsconfig.json
+  s_8252619ce79a86::t_fd4bbacb488984 1-18
+.changeset/init-cleanup.md
+  s_8252619ce79a86::t_fd4bbacb488984 1-7
+packages/ui-native/src/hooks/__tests__/use-theme-roles.test.tsx
+  s_8252619ce79a86::t_fd4bbacb488984 1-12
+packages/ui-native/test-utils/rn-mock.tsx
+  s_8252619ce79a86::t_fd4bbacb488984 367-371
+packages/genesis-cli/src/scaffolder.ts
+  s_8252619ce79a86::t_fd4bbacb488984 340,358,381-383,385,399-401,409-411
+packages/ui-native/src/hooks/use-theme-roles.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1-35
+packages/supabase/tsup.config.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1-12
+packages/genesis-cli/test/doctor-versions.test.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1-30
+packages/genesis/package.json
+  s_8252619ce79a86::t_fd4bbacb488984 7,110-115,125-126
+docs/FORMS.md
+  s_8252619ce79a86::t_fd4bbacb488984 7-27,182
+packages/genesis-cli/src/features.ts
+  s_8252619ce79a86::t_fd4bbacb488984 51,53-54,56,58-67,69
+packages/design-system/src/index.native.ts
+  s_8252619ce79a86::t_fd4bbacb488984 25-28
+packages/supabase/src/__tests__/native.test.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1-92
+packages/ui-native/src/hooks/index.ts
+  s_8252619ce79a86::t_fd4bbacb488984 11
+packages/design-system/src/tokens/roles.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1-92
+.changeset/supabase-kit.md
+  s_8252619ce79a86::t_fd4bbacb488984 1-7
+packages/features/README.md
+  s_8252619ce79a86::t_fd4bbacb488984 104
+packages/supabase/package.json
+  s_8252619ce79a86::t_fd4bbacb488984 1-51
+packages/genesis/src/features.ts
+  s_8252619ce79a86::t_fd4bbacb488984 1
+packages/supabase/README.md
+  s_8252619ce79a86::t_fd4bbacb488984 1-29
+.changeset/one-config.md
+  s_8252619ce79a86::t_fd4bbacb488984 1-8
+packages/genesis-cli/src/cli.ts
+  s_8252619ce79a86::t_fd4bbacb488984 17-26,33,83-84,176
+pnpm-lock.yaml
+  s_8252619ce79a86::t_3a7d61a887b8ae 810-812,970-984,4373-4376,4381-4384,4392-4395,4400-4403,4408-4411,4421-4429,13042-13045,13050-13053,13060-13063,13069-13073,13079-13083,13092-13099
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "90e1e1fc147428f240b694345ea8e9b8649eb263",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
