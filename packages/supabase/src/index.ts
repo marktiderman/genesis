@@ -19,9 +19,11 @@ export interface GenesisSupabaseOptions {
   publishableKey: string;
   /** Where the session lives. Native: `keychainStorage(SecureStore)`. Web: leave out for supabase-js's own default. */
   storage?: SessionStorage;
+  /** `"native"` sets the React Native defaults (no session from the URL). Default `"web"`. */
+  platform?: "web" | "native";
   /**
-   * Read a session from the URL after an OAuth redirect. Default `true` on
-   * web; pass `false` on native, where the app hands the redirect URL to
+   * Read a session from the URL after an OAuth redirect. Default: `true` on
+   * web, `false` on native, where the app hands the redirect URL to
    * `exchangeCodeForSession` itself.
    */
   detectSessionInUrl?: boolean;
@@ -40,7 +42,8 @@ export function createGenesisSupabase<Database = unknown>({
   url,
   publishableKey,
   storage,
-  detectSessionInUrl = true,
+  platform = "web",
+  detectSessionInUrl = platform === "web",
   options = {},
 }: GenesisSupabaseOptions): SupabaseClient<Database> {
   // supabase-js's generics over the schema don't survive being forwarded, so the
@@ -59,13 +62,43 @@ export function createGenesisSupabase<Database = unknown>({
   return client as unknown as SupabaseClient<Database>;
 }
 
+/** What a Supabase or PostgREST error carries. */
+export interface PostgrestErrorLike {
+  message: string;
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+}
+
 /**
- * The data, or a thrown `Error` with the database's message: for query
- * results where an error should fail the caller (a TanStack Query `queryFn`).
+ * A failed query, with the database's `code` (`23505` unique violation,
+ * `42501` permission denied, `PGRST116` no rows…), `details` and `hint`, so a
+ * caller can tell an RLS refusal from a conflict. The original error is the
+ * `cause`.
  *
  * @stability Beta
  */
-export function must<T>(result: { data: T | null; error: { message: string } | null }): T {
-  if (result.error) throw new Error(result.error.message);
+export class SupabaseQueryError extends Error {
+  override name = "SupabaseQueryError";
+  readonly code?: string;
+  readonly details?: string | null;
+  readonly hint?: string | null;
+  constructor(error: PostgrestErrorLike) {
+    super(error.message, { cause: error });
+    this.code = error.code;
+    this.details = error.details;
+    this.hint = error.hint;
+  }
+}
+
+/**
+ * The data, or a thrown {@link SupabaseQueryError}: for query results where an
+ * error should fail the caller (a TanStack Query `queryFn`). The return type
+ * keeps `null` when the query can return no row (`.maybeSingle()`).
+ *
+ * @stability Beta
+ */
+export function must<T>(result: { data: T; error: null } | { data: null; error: PostgrestErrorLike }): T {
+  if (result.error) throw new SupabaseQueryError(result.error);
   return result.data as T;
 }
