@@ -1,0 +1,41 @@
+packages/features/src/__tests__/blocks.test.ts
+  s_8252619ce79a86::t_88df30871bdd41 120,122-124,131-135
+  s_8252619ce79a86::t_9a9c071ab601c3 136-137
+packages/features/README.md
+  s_8252619ce79a86::t_b77873a933c63b 167-168,170-172
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_88df30871bdd41 145-150,185-186,191-195,242-246,378-389
+  s_8252619ce79a86::t_c6abc44b721d9e 390
+packages/native/README.md
+  s_8252619ce79a86::t_b77873a933c63b 261-264
+packages/features/src/blocks.ts
+  s_8252619ce79a86::t_88df30871bdd41 143-144,246-250,298-299,308,341,350-356,383-389
+packages/supabase/migrations/tests/0004_genesis_tenant_features.test.sql
+  s_8252619ce79a86::t_7380b29505ea9d 13,15-16,19,28-35,136-146,168,270-287,394-407
+  s_8252619ce79a86::t_5aa90d6e88f153 408
+packages/supabase/README.md
+  s_8252619ce79a86::t_b77873a933c63b 371-378
+.changeset/define-block.md
+  s_8252619ce79a86::t_b77873a933c63b 9
+packages/supabase/migrations/0004_genesis_tenant_features.sql
+  s_8252619ce79a86::t_e08edf54fd5bc5 266-276,281-284
+  s_8252619ce79a86::t_7380b29505ea9d 31-32,174-176,277-278,285-286,307-308,310,328-333
+packages/native/src/__tests__/blocks.test.tsx
+  s_8252619ce79a86::t_88df30871bdd41 87-118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0687b6c64276d1e2e9a65d0f95c8c262c1ea02c1",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
