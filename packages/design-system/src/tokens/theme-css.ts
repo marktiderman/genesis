@@ -3,7 +3,7 @@
  * stylesheets in dist/themes/:
  *
  *   - {brand}.css            `:root` + `.dark` blocks of Shadcn HSL-component
- *                            variables (`--primary: 160 84% 39%`).
+ *                            variables (`--primary: 243 75% 59%`).
  *   - genesis-tailwind4.css  the Tailwind v4 `@theme inline` bridge that maps
  *                            every variable above to a Tailwind theme key
  *                            (`--color-primary: hsl(var(--primary))`).
@@ -120,7 +120,8 @@ export const THEME_SECTIONS: readonly ThemeSection[] = [
       color("sidebar-background", "0 0% 98%", "240 5.9% 10%"),
       color("sidebar-foreground", "240 5.3% 26.1%", "240 4.8% 95.9%"),
       color("sidebar-primary", primary),
-      color("sidebar-primary-foreground", "0 0% 100%"),
+      // Dark text on the lighter dark-mode primary (white on it is under 4.5:1).
+      color("sidebar-primary-foreground", "0 0% 100%", "240 10% 3.9%"),
       color("sidebar-accent", "240 4.8% 95.9%", "240 3.7% 15.9%"),
       color("sidebar-accent-foreground", "240 5.9% 10%", "240 4.8% 95.9%"),
       color("sidebar-border", "220 13% 91%", "240 3.7% 15.9%"),
