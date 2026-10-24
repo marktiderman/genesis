@@ -2,6 +2,15 @@ import { calculator, isCalculated, spend, workStats, type WorkBudget } from "./c
 import { isEmptyValue, normalizeValue, withHostOptions, type HostOptions } from "./fields";
 import { coerceHidden } from "./hidden";
 import { computePath, fieldMap, own, type EvalScope } from "./logic";
+import {
+  answersOnPath,
+  clearFilteredAnswers,
+  filteredChoiceError,
+  hasOptionFilters,
+  hiddenByPrefill,
+  prefillFromLink,
+  type LinkParams,
+} from "./options";
 import { recall } from "./recall";
 import type { Block, FieldBlock, FormDefinition, FormEvent, Json } from "./types";
 import { validateField, type FieldValidator } from "./validate";
@@ -54,6 +63,13 @@ export interface CreateFormOptions {
    * Pass the same lists to `validateSubmission` on the server.
    */
   hostOptions?: HostOptions | undefined;
+  /**
+   * The query parameters of the link the form was opened from (a `URLSearchParams` or a record).
+   * Choice questions with `props.prefill: { param }` take their parameter's value when it is one
+   * of their options (`prefillFromLink`); `initialValues` win over the link. A question with
+   * `props.prefill.hideWhenPrefilled` is then stepped over (`hiddenByPrefill`).
+   */
+  linkParams?: LinkParams | undefined;
 }
 
 export interface FormEngine {
@@ -195,15 +211,41 @@ function build(given: FormDefinition, options: CreateFormOptions, replaying = fa
   // rules allow them, given the answers before them.
   const isVisibleIn = (s: FormState, id: string) => s.path.includes(id);
 
+  // Lists filtered by another answer: a choice the filter no longer shows is cleared when that
+  // answer changes, and refused if it is set anyway.
+  const filters = hasOptionFilters(definition);
+  const clearFiltered = (values: FormState["values"], id: string) =>
+    filters ? clearFilteredAnswers(definition, values, id) : values;
+
   const errorsFor = (s: FormState, ids: string[]) => {
     const errors: Record<string, string> = {};
+    let shown: FormState["values"] | undefined;
     for (const id of ids) {
       const field = fields.get(id);
       if (!field || !isVisibleIn(s, id)) continue;
-      const message = validateField(field, own(s.values, id), { custom: options.validators?.[id] });
+      const value = own(s.values, id);
+      let message = validateField(field, value, { custom: options.validators?.[id] });
+      if (!message && filters) message = filteredChoiceError(definition, field, value, (shown ??= answersOnPath(s)));
       if (message) errors[id] = message;
     }
     return errors;
+  };
+
+  // Questions a prefill answered and hides are stepped over, not shown.
+  const skipped = (s: FormState) => new Set(hiddenByPrefill(definition, s));
+  /** The first block on the path from `from` (inclusive) the respondent sees, or undefined. */
+  const shownFrom = (s: FormState, from: number, skip: Set<string>) => {
+    for (let i = from; i < s.path.length; i++) if (!skip.has(s.path[i]!)) return s.path[i];
+    return undefined;
+  };
+  /** Move off a block a prefill hides, onto the next one shown (no event: it follows from the prefill). */
+  const showCurrent = () => {
+    if (!state.current) return;
+    const skip = skipped(state);
+    if (!skip.has(state.current)) return;
+    const at = state.path.indexOf(state.current);
+    const shown = at < 0 ? undefined : shownFrom(state, at, skip);
+    if (shown) state = { ...state, current: shown, furthest: state.furthest === state.current ? shown : state.furthest };
   };
 
   // While replaying, answers only record the value: the path and calculated
@@ -243,13 +285,13 @@ function build(given: FormDefinition, options: CreateFormOptions, replaying = fa
     delete errors[id];
     if (batch) {
       // `state` is not seen by anyone until the replay ends, so it is updated in place.
-      state.values = { ...state.values, [id]: value };
+      state.values = clearFiltered({ ...state.values, [id]: value }, id);
       state.errors = errors;
       log(event);
       unsettled = true;
       return;
     }
-    const { values, path } = settle({ ...state.values, [id]: value }, state.hidden);
+    const { values, path } = settle(clearFiltered({ ...state.values, [id]: value }, id), state.hidden);
     emit({ ...state, values, path, errors, events: log(event) });
   };
 
@@ -284,7 +326,7 @@ function build(given: FormDefinition, options: CreateFormOptions, replaying = fa
         return false;
       }
       const at = state.path.indexOf(state.current);
-      const target = state.path[at + 1];
+      const target = shownFrom(state, at + 1, skipped(state));
       if (!target) {
         emit({ ...state, events });
         return true;
@@ -298,8 +340,9 @@ function build(given: FormDefinition, options: CreateFormOptions, replaying = fa
     back() {
       if (state.status === "completed") return;
       const history = [...state.history];
+      const skip = skipped(state);
       let previous = history.pop();
-      while (previous && !state.path.includes(previous)) previous = history.pop();
+      while (previous && (!state.path.includes(previous) || skip.has(previous))) previous = history.pop();
       if (!previous) return;
       emit({ ...state, current: previous, history, events: log(stamp({ type: "back" as const })) });
     },
@@ -335,15 +378,19 @@ function build(given: FormDefinition, options: CreateFormOptions, replaying = fa
 
   // Prefilled answers are logged as leading `answer` events, so a replay of
   // the log, and the server, see them too. They settle once, like a replay.
-  if (options.initialValues) {
+  // A link's preselections come first; the host's own `initialValues` win over them.
+  const fromLink = options.linkParams ? prefillFromLink(definition, options.linkParams, options.initialValues) : {};
+  const initialValues = Object.keys(fromLink).length ? { ...fromLink, ...options.initialValues } : options.initialValues;
+  if (initialValues) {
     const wasBatch = batch;
     batch = true;
-    for (const [id, value] of Object.entries(options.initialValues)) {
+    for (const [id, value] of Object.entries(initialValues)) {
       if (!fields.has(id) || value === undefined) continue;
       answer(id, value, stamp({ type: "answer", field: id, value, source: "prefill" }));
     }
     settleNow();
     batch = wasBatch;
+    showCurrent();
   }
 
   // Resuming: Next from the first block to the saved one, at most once per block.
@@ -366,19 +413,23 @@ function build(given: FormDefinition, options: CreateFormOptions, replaying = fa
       }
     } else if (event.type === "next") {
       settleNow(false);
+      showCurrent();
       if (formulasStale && isCalculated(fields.get(state.current ?? ""))) settleNow(true);
       engine.next();
     } else if (event.type === "back") {
       settleNow(false);
+      showCurrent();
       engine.back();
     } else if (event.type === "submit") {
       settleNow();
+      showCurrent();
       engine.submit();
     }
     // Unknown event types are ignored.
   };
   const finish = () => {
     settleNow();
+    showCurrent();
     batch = false;
     state = { ...state, events: [...state.events] };
   };
@@ -389,7 +440,7 @@ function build(given: FormDefinition, options: CreateFormOptions, replaying = fa
 export function replay(
   definition: FormDefinition,
   events: FormEvent[],
-  options: Omit<CreateFormOptions, "clock" | "initialValues"> = {},
+  options: Omit<CreateFormOptions, "clock" | "initialValues" | "linkParams"> = {},
 ): FormEngine {
   return replayWithin(definition, events, options);
 }
@@ -402,11 +453,16 @@ export function replay(
 export function replayWithin(
   definition: FormDefinition,
   events: FormEvent[],
-  options: Omit<CreateFormOptions, "clock" | "initialValues">,
+  options: Omit<CreateFormOptions, "clock" | "initialValues" | "linkParams">,
   maxWork?: number,
 ): FormEngine {
   const budget = maxWork === undefined ? undefined : { used: 0, max: maxWork };
-  const { engine, apply, finish } = build(definition, { ...options, initialValues: undefined, clock: () => undefined }, true, budget);
+  const { engine, apply, finish } = build(
+    definition,
+    { ...options, initialValues: undefined, linkParams: undefined, clock: () => undefined },
+    true,
+    budget,
+  );
   try {
     for (const event of events) apply(event);
     finish();

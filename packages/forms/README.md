@@ -262,6 +262,91 @@ options only. Answers store the option's value; `summarizeValue` shows its label
 it. `parseForm` checks the shape of `optionsFrom`, and doesn't warn about rules comparing with
 values only the app knows.
 
+### Option details, filtered lists, search and links
+
+An option can carry more than its value and label, from the question's own `options` or the
+app's list:
+
+```ts
+{ value: "cff", label: "CrossFit Fairfield",
+  description: "12 Main St",                    // a muted line under the label
+  image: "https://cdn.example.com/cff.png",      // a small picture; https only
+  attributes: { region: "north", coaches: ["ada", "sam"] } } // for filters and recall
+```
+
+`readOption` keeps each detail only when it is well formed and within `OPTION_LIMITS`
+(description 500 characters, image URL 2048 and `https://` only (`isHttpsUrl`), at most 20
+attributes, each a text or a list of up to 50 texts of 200 characters). `parseForm` reports a
+definition's malformed details; an app's list is read leniently (the bad detail is dropped).
+
+**Filtered by another answer.** `optionsFrom.filter` shows only the options whose attribute
+matches an earlier question's answer, such as coaches at the chosen location:
+
+```ts
+f.dropdown("location", { label: "Where?", optionsFrom: { source: "host", key: "locations" } });
+f.singleChoice("coach", {
+  label: "Who coached you?",
+  optionsFrom: { source: "host", key: "coaches", filter: { attribute: "location", field: "location" } },
+});
+// a coach: { value: "ada", label: "Ada", attributes: { location: ["cff", "cornerstone"] } }
+```
+
+`field` is the earlier question's key (`parseForm` checks it exists and comes first). An option
+matches when its attribute (a text or a list) shares a value with the answer (a text, or a
+multiple choice's list); one without the attribute never matches. Until that question is answered
+(or while it is off the path) every option shows. `visibleOptions(definition, field, values)`
+says what shows, `answersOnPath(state)` gives it the answers it should read, and React renderers
+use `useChoiceOptions` (genesis-forms-react). When the answer changes, the engine clears picks the
+filter no longer shows (`clearFilteredAnswers`, following on through filters of filters); a pick
+outside the filtered list is refused by the engine and by `validateSubmission`
+(`filteredChoiceError`).
+
+**Search.** `isSearchable(field, count)` says whether a renderer puts a search box over the
+options: `props.searchable` when it is true or false, else more than `SEARCHABLE_OPTION_COUNT`
+(10) options. `searchOptions(options, query)` is the match every renderer uses: every word of the
+query in the label, value or description, ignoring case and accents.
+
+**Preselect from a link.** `props.prefill: { param }` on a choice question takes a link's query
+parameter, such as `?location=cornerstone`:
+
+```ts
+f.dropdown("location", { label: "Where?", optionsFrom: { source: "host", key: "locations" },
+  prefill: { param: "location", hideWhenPrefilled: true } });
+
+createForm(definition, { hostOptions: lists, linkParams: new URLSearchParams(location.search) });
+// or <Form hostOptions={lists} linkParams={new URLSearchParams(location.search)}>
+```
+
+`prefillFromLink(definition, params, values)` resolves it: the value is taken only when it is one
+of the options the question shows (a filtered list too), anything else is ignored; a multiple
+choice takes repeated parameters or one comma-separated value. The picks become `initialValues`
+(logged as `source: "prefill"` answers; the host's own `initialValues` win), so the server checks
+them like any answer. With `hideWhenPrefilled` the question is skipped while it holds the link's
+answer: `hiddenByPrefill(definition, state)` lists such questions, the engine's Next and Back step
+over them, and `respondentPath(definition, state)` is the path a renderer shows and counts. The
+answer is stored as usual. A parameter name is letters, digits, `_`, `-` and `.`, at most 64
+characters (`isPrefillParam`).
+
+**Snapshots of what was picked.** Store the option's label with its value, so reports group by the
+id and history keeps the name it had then:
+
+```ts
+import { answerSnapshots, answersFromSnapshots, withHostOptions } from "@marktiderman/genesis-forms/server";
+
+const shown = withHostOptions(definition, lists);
+const snapshots = answerSnapshots(shown, result.submission.answers);
+// { location: { value: "cff", label: "CrossFit Fairfield" }, helpers: [{ value: "ada", label: "Ada" }] }
+
+// An edit link: find each pick again in today's lists.
+const { answers, missing } = answersFromSnapshots(withHostOptions(definition, listsNow), stored);
+createForm(definition, { hostOptions: listsNow, initialValues: answers });
+```
+
+`answerSnapshots` covers questions with `optionsFrom`; a typed "Other" answer is marked `other`.
+`answersFromSnapshots` keeps a value still offered, else takes an option with the same label
+(ignoring case and accents), keeps a typed "Other" answer when the question still allows one, and
+reports the rest in `missing`. Both are also exported from the main entry.
+
 ### An "Other" answer
 
 ```ts
@@ -301,6 +386,49 @@ Errors are keyed by field id. The `""` key is for the whole submission: `"Malfor
 limits above (`maxEvents`, `maxValues`, `maxReplayWork`). Events of an unknown type are dropped, so a newer
 client's log still replays. With `settings.clearHiddenValues: false`, a hidden field's value is kept
 only if its format is valid.
+
+### Edit links
+
+A respondent can change a sent response through a signed link, `?edit=<id>.<nonce>.<expires>.<sig>`:
+an HMAC-SHA256 (Web Crypto) under a server secret of at least 32 bytes, working for 30 days. The app
+keeps a nonce per response and changes it after each edit, so only the newest link works; it checks
+the nonce itself. Without a usable secret there are no edit links: signing returns null and nothing
+verifies.
+
+```ts
+import {
+  createEditSecretReader,
+  editLinkUrl,
+  verifyEditToken,
+  withEditLinkHeaders,
+} from "@marktiderman/genesis-forms/server";
+
+const editSecret = createEditSecretReader({ variable: "FORM_EDIT_SECRET" }); // warns once when missing
+const editUrl = await editLinkUrl(`/f/${slug}`, { id: response.id, nonce: response.editNonce }, editSecret(env));
+const claims = await verifyEditToken(url.searchParams.get("edit"), editSecret(env)); // then compare claims.nonce
+// The link is a credential: no Referer, no caching, on the page it opens.
+return withEditLinkHeaders(request, response, { isFormPage: (u) => u.pathname.startsWith("/f/") });
+```
+
+`signEditToken`, `withEditToken`, `isEditLinkRequest`, `isUsableEditSecret`, `EDIT_LINK_TTL_SECONDS`,
+`MIN_EDIT_SECRET_BYTES` and `EDIT_LINK_PARAM` are the parts. `carryAnswers` (main entry) moves a
+stored response's answers onto a newer version of the form by field key, for the edit page's prefill.
+
+### Rate limits
+
+The submit endpoint's limit, without the counter: `clientIp(headers, trusted?)` reads the first
+trusted proxy header (`DEFAULT_TRUSTED_IP_HEADERS`: `x-vercel-forwarded-for`, `x-forwarded-for`,
+`x-real-ip`; trust only headers your proxy overwrites), `addressPrefix` keeps an IPv4 address whole
+and an IPv6 one by its /64, and `rateLimitKey({ kind, scope, ip, secret })` is
+`<kind>:<scope>:<hex HMAC-SHA256 of the prefix>`, so the address is never stored. The app's
+`RateLimitStore.hit(key, limit, windowSeconds)` counts (shared by every instance); `allow` fails
+open, and logs, when it answers null or throws. `RATE_LIMIT_DEFAULTS` holds 60 submits, 900 saves as
+they go and 120 photo uploads per 10 minutes.
+
+```ts
+const key = await rateLimitKey({ kind: "submit", scope: practiceId, ip: clientIp(request.headers), secret });
+if (!(await allow(store, { key, ...RATE_LIMIT_DEFAULTS.submit }, { log }))) return tooMany();
+```
 
 ## Destinations
 

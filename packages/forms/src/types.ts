@@ -44,6 +44,13 @@ export interface FieldBlock {
 export interface OptionsSource {
   source: "host";
   key: string;
+  /**
+   * Show only the options that match another answer: those whose `attributes[attribute]` is the
+   * earlier question `field`'s answer (by key), or, for a list attribute or a multiple choice
+   * answer, shares a value with it. Until that question is answered every option shows. See
+   * `visibleOptions`.
+   */
+  filter?: { attribute: string; field: string };
 }
 
 export interface ContentBlock {

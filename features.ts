@@ -986,14 +986,31 @@ export const features = defineFeatures({
     name: "Option lists",
     summary: "Reusable, staff-editable option lists for forms (locations, people, categories), stored by the app under its own access rules, imported from a CSV paste or upload, resolved through the forms engine's host options, re-checked on submit, with each answer keeping the label it had when submitted.",
     category: "Forms",
-    status: "idea",
+    // The Genesis side is in review: richer options, filters, search, link prefill, snapshots,
+    // CSV import and the list editor. Storage and access rules stay with each app.
+    status: "building",
     layer: "block",
-    keywords: ["choices", "dropdown options", "picklist", "csv import", "lookup list", "host options"],
+    keywords: ["choices", "dropdown options", "picklist", "csv import", "lookup list", "host options", "record picker", "prefill link", "searchable dropdown"],
     requires: ["forms-engine"],
     owner: "mark",
     apps: ["web", "native", "server"],
     audience: ["developer", "admin"],
     visibility: "internal",
+    acceptance: [
+      "A coach picker filtered by the chosen location shows only that location's coaches, clears a coach who no longer matches, and the server refuses one outside the filter.",
+      "A link with ?location=<value> preselects that option, and a value not in the list is ignored.",
+      "A CSV paste previews duplicates, blanks and bad image links before it merges by value.",
+    ],
+    reviewedAt,
+    links: {
+      code: [
+        "packages/forms/src/options.ts",
+        "packages/forms-web/src/searchable.tsx",
+        "packages/forms-builder/src/option-lists.ts",
+        "packages/forms-builder/src/OptionListEditor.tsx",
+      ],
+      docs: ["packages/forms/README.md"],
+    },
   },
   "seed-data": {
     name: "Seed data",

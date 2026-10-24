@@ -62,3 +62,5 @@ export {
   type ChipTone,
   type Readiness,
 } from "./generic/status";
+export { slugFromTitle, SLUG_PATTERN, validateSlug, copyTitle, freeSlug } from "./slug";
+export { offersSubmitAnother } from "./respondent";

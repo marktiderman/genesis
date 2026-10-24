@@ -82,6 +82,21 @@ import { Form } from "@marktiderman/genesis-forms-web";
   `dropdown` (a native select), `number` (min, max, step; the decimal keypad on phones), `date` (the
   browser's date picker) and `consent` (one checkbox). A rating can show end labels (`lowLabel`,
   `highLabel`) and `display: "stars"`; NPS takes the same labels.
+- **Option lists:** an option's `description` is a muted line under its label and its `image` a
+  small picture beside it. A choice question with more than 10 options it shows (or with
+  `searchable: true`) gets a search box over an in-page list instead of radios, checkboxes or a
+  select: typing narrows it (`searchOptions`), arrow keys move, Enter or a tap picks, and it
+  works the same in classic and focus layouts and on a phone. A list filtered by another answer
+  (`optionsFrom.filter`) shows only the matching options and drops a pick that stops matching.
+  `linkParams` (such as `new URLSearchParams(location.search)`) preselects questions with
+  `prefill: { param }`; with `hideWhenPrefilled` a question the link answered isn't shown or
+  counted. Which options show, when to search and what a link picks are all decided in
+  genesis-forms (`visibleOptions`, `isSearchable`, `prefillFromLink`, `respondentPath`), so
+  every renderer agrees with the engine and the server:
+
+  ```tsx
+  <Form form={def} hostOptions={lists} linkParams={new URLSearchParams(location.search)} />
+  ```
 - **Submitting:** the ending shows once `onSubmit` resolves. If it rejects, the completed response
   stays on screen read-only (a completed response is final), Back is hidden, and "Try again"
   (`retryLabel`) resends the same answers.
@@ -91,7 +106,9 @@ import { Form } from "@marktiderman/genesis-forms-web";
   over.
 - **Extension ladder:** `slots` replaces a part (`header`, `brand`, `progress`, `navigation`,
   `ending`, `errorSummary`), `null` removes it, and `slotProps` feeds it (and wins over the defaults). A custom
-  ending can mark an element `data-gf-focus` to receive focus; a custom error summary can mark itself
+  ending can mark an element `data-gf-focus` to receive focus; `slotProps={{ ending: { actions } }}`
+  puts buttons or links (Send another response, Change your answers) in a centred row under the
+  default ending, and `DefaultEnding` is exported for a custom ending to wrap; a custom error summary can mark itself
   `data-gf-error-summary` (with `tabIndex={-1}`) to be focused after a failed submit.
 - **Renderers** come from a registry. `defaultRegistry` is shared by every `<Form>` without a
   `registry` prop, so prefer `extend()`, which returns a new registry and changes nothing else:
@@ -145,6 +162,23 @@ sends (it says "Wait for the photo to finish uploading."). Without `onUpload`, o
 A **`calculated`** field shows the value the engine worked out from other answers, read-only, in an
 `<output>` named by the question that announces changes politely. It follows the field's `format`
 and `decimals`, and shows a dash until there is a value.
+
+## Clean form links
+
+A link's query (`?edit=`, prefilled answers, `utm_…`) can be taken out of the address bar once the
+page has read it, so it stays out of screenshots and shared addresses. Cosmetic, not security: the
+server still checks every value. Call it once, after reading the query:
+
+```ts
+import { hideQueryOnLoad, wasReload } from "@marktiderman/genesis-forms-web";
+
+useEffect(() => void hideQueryOnLoad(window, wasReload()), []);
+```
+
+It uses the browser's own `History.prototype.replaceState` (a router that patches the instance's
+would otherwise re-read the address), and keeps the query in sessionStorage (`form-query:<path>`) so
+a reload in the same tab within `HIDDEN_QUERY_KEEP_MS` (30 minutes) brings it back. Blocked storage
+leaves the query visible.
 
 ## License
 

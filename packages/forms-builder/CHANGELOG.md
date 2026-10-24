@@ -1,5 +1,55 @@
 # @marktiderman/genesis-forms-builder
 
+## 0.6.0
+
+### Minor Changes
+
+- d1e2966: Options carry more than a value and a label: `ChoiceOption` gains optional `description`,
+  `image` (an `https://` link) and `attributes` (`Record<string, string | string[]>`, for filters
+  and recall). `readOption` keeps each detail only when it is well formed and within
+  `OPTION_LIMITS`; `choiceOptions` and `withHostOptions` keep them, `parseForm` reports a
+  definition's malformed ones (`isHttpsUrl`, `optionJson` are exported too). Existing options and
+  `hostOptions` work unchanged.
+
+  genesis-forms-web shows an option's description as a muted line under its label and its image as
+  a small picture beside it. In genesis-forms-builder, `setOptions` keeps an option's details when
+  its label changes, and a host list's `sample` options show theirs in the preview.
+
+  Features: option-lists
+
+- d1e2966: Lists filtered by another answer, search for long lists, and preselecting from a link. Every
+  decision lives in genesis-forms, pure, so web and native renderers, the engine and the server
+  agree.
+
+  - **Filtered lists:** `props.optionsFrom.filter: { attribute, field }` shows only the options
+    whose attribute matches an earlier question's answer (`visibleOptions`, `optionMatches`,
+    `answersOnPath`). The engine clears a pick that stops matching (`clearFilteredAnswers`), and the
+    engine and `validateSubmission` refuse one outside the filter (`filteredChoiceError`).
+    `parseForm` checks the question it reads exists and comes earlier.
+  - **Search:** `isSearchable(field, count)` (more than `SEARCHABLE_OPTION_COUNT`, 10, unless
+    `props.searchable` says) and `searchOptions(options, query)`. genesis-forms-web draws such a
+    question as an in-page searchable list (genesis-ui `Command`), in classic and focus layouts.
+  - **Link prefill:** `props.prefill: { param, hideWhenPrefilled? }`, `createForm`'s `linkParams`
+    and `<Form linkParams>` preselect an option from `?param=value` when it is offered
+    (`prefillFromLink`); with `hideWhenPrefilled` the engine steps over it (`hiddenByPrefill`,
+    `respondentPath`) and still stores the answer, which the server checks like any other.
+  - genesis-forms-react: `useChoiceOptions(engine, id)` and `useRespondentPath(engine)`.
+  - genesis-forms-builder: "Only show options matching" under a list from the app
+    (`setOptionsFilter`, `HostOptionList.attributes`, `hostListAttributes`), and per choice
+    question a Search box setting and "Fill in from the link" (`setPrefill`). Renaming, moving or
+    removing the question a filter reads keeps the definition valid.
+
+  Features: option-lists
+
+- d1e2966: `<OptionListEditor list onChange>` edits a named option list a host keeps (rename; add, remove and
+  reorder options; each one's label, description, picture and attributes; CSV paste or file import
+  with a preview; CSV export). The pure pieces are in `ops` too: `parseOptionListCsv` (flags
+  duplicates, blank rows, over-long values and bad image links), `mergeOptions` (upsert by value),
+  `optionListCsv`, `parseCsvRows`, `slugOptionValue`, `hostOptionsOf` and the `OptionList` type.
+  Persistence stays with the host.
+
+  Features: option-lists
+
 ## 0.5.0
 
 ### Minor Changes

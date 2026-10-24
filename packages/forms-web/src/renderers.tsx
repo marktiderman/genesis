@@ -9,6 +9,7 @@ import {
   choiceOptions,
   dateLimits,
   getFieldType,
+  isSearchable,
   numberLimits,
   otherOption,
   OTHER_MAX_LENGTH,
@@ -16,12 +17,18 @@ import {
   scaleLabels,
   type Json,
 } from "@marktiderman/genesis-forms";
-import { createRendererRegistry, type FieldRendererProps, type RendererEntry } from "@marktiderman/genesis-forms-react";
+import {
+  createRendererRegistry,
+  useChoiceOptions,
+  type FieldRendererProps,
+  type RendererEntry,
+} from "@marktiderman/genesis-forms-react";
 import { useFormPresentation } from "./presentation";
 import { describedBy, FieldChrome } from "./chrome";
 import { calculatedRenderers } from "./calculated";
 import { structuredRenderers } from "./structured";
 import { photoRenderers } from "./photo";
+import { OptionImage, OptionText, SearchableOptions, SEARCH_OTHER_VALUE } from "./searchable";
 
 export { describedBy, FieldChrome, type FieldChromeProps } from "./chrome";
 
@@ -404,8 +411,27 @@ function useChoiceLook(inputId: string, count: number): ChoiceLook {
   };
 }
 
-function ChoiceContent({ look, index, label }: { look: ChoiceLook; index: number; label: string }) {
-  if (!look.pageFocus) return <span>{label}</span>;
+function ChoiceContent({
+  look,
+  index,
+  label,
+  description,
+  image,
+}: {
+  look: ChoiceLook;
+  index: number;
+  label: string;
+  description?: string | undefined;
+  image?: string | undefined;
+}) {
+  if (!look.pageFocus) {
+    return (
+      <>
+        {image ? <OptionImage src={image} /> : null}
+        <OptionText label={label} description={description} />
+      </>
+    );
+  }
   return (
     <>
       <span
@@ -414,7 +440,8 @@ function ChoiceContent({ look, index, label }: { look: ChoiceLook; index: number
       >
         {KEYS[index] ?? ""}
       </span>
-      <span className="flex-1">{label}</span>
+      {image ? <OptionImage src={image} large /> : null}
+      <OptionText label={label} description={description} />
       <svg
         viewBox="0 0 24 24"
         fill="none"
@@ -477,13 +504,124 @@ function useOtherText(typed: string) {
   return { on, setOn, text, setText };
 }
 
-function SingleChoiceField(props: FieldRendererProps) {
-  const { binding, inputId, onAdvance } = props;
-  const pick = useDeliberatePick(onAdvance);
-  const options = choiceOptions(binding.field);
+/**
+ * One pick from a long list, with a search box (`isSearchable`): a single choice or dropdown
+ * over more options than `SEARCHABLE_OPTION_COUNT`, or one with `props.searchable: true`.
+ */
+function SearchableSingleField(props: FieldRendererProps) {
+  const { binding, onAdvance } = props;
+  const options = useChoiceOptions(props.engine, binding.field.id);
   const other = otherOption(binding.field);
   const current = typeof binding.value === "string" ? binding.value : "";
-  const typed = other && current && !options.some((o) => o.value === current) ? current : "";
+  const typed = other && current && !choiceOptions(binding.field).some((o) => o.value === current) ? current : "";
+  const otherText = useOtherText(typed);
+  const textId = `${props.inputId}-other-text`;
+  return (
+    <FieldChrome props={props}>
+      <SearchableOptions
+        props={props}
+        options={options}
+        selected={otherText.on ? [] : [current]}
+        multiple={false}
+        otherLabel={other?.label}
+        otherOn={otherText.on}
+        onPick={(v) => {
+          if (v === SEARCH_OTHER_VALUE) {
+            otherText.setOn(true);
+            binding.setValue(otherText.text.trim() ? otherText.text : undefined);
+            focusSoon(textId);
+            return;
+          }
+          otherText.setOn(false);
+          binding.setValue(v);
+          onAdvance?.();
+        }}
+      />
+      {other && otherText.on ? (
+        <OtherText
+          id={textId}
+          label={other.label}
+          value={otherText.text}
+          invalid={!!binding.error}
+          onChange={(text) => {
+            otherText.setText(text);
+            binding.setValue(text.trim() ? text : undefined);
+          }}
+        />
+      ) : null}
+    </FieldChrome>
+  );
+}
+
+/** Several picks from a long list, with a search box (`isSearchable`). */
+function SearchableMultiField(props: FieldRendererProps) {
+  const { binding } = props;
+  const options = useChoiceOptions(props.engine, binding.field.id);
+  const other = otherOption(binding.field);
+  const selected = Array.isArray(binding.value) ? (binding.value as string[]) : [];
+  const known = new Set(choiceOptions(binding.field).map((o) => o.value));
+  const chosen = selected.filter((v) => known.has(v));
+  const otherText = useOtherText(other ? (selected.find((v) => !known.has(v)) ?? "") : "");
+  const textId = `${props.inputId}-other-text`;
+  const commit = (picked: string[], otherOn: boolean, text: string) => {
+    const next = otherOn && text.trim() ? [...picked, text] : picked;
+    binding.setValue(next.length ? (next as Json) : undefined);
+  };
+  return (
+    <FieldChrome props={props}>
+      <SearchableOptions
+        props={props}
+        options={options}
+        selected={chosen}
+        multiple
+        otherLabel={other?.label}
+        otherOn={otherText.on}
+        onPick={(v) => {
+          if (v === SEARCH_OTHER_VALUE) {
+            const on = !otherText.on;
+            otherText.setOn(on);
+            commit(chosen, on, otherText.text);
+            if (on) focusSoon(textId);
+            return;
+          }
+          commit(chosen.includes(v) ? chosen.filter((x) => x !== v) : [...chosen, v], otherText.on, otherText.text);
+        }}
+      />
+      {other && otherText.on ? (
+        <OtherText
+          id={textId}
+          label={other.label}
+          value={otherText.text}
+          invalid={!!binding.error}
+          onChange={(text) => {
+            otherText.setText(text);
+            commit(chosen, true, text);
+          }}
+        />
+      ) : null}
+    </FieldChrome>
+  );
+}
+
+/**
+ * Whether to draw a question's options with a search box: `isSearchable` over all its options,
+ * not just those a filter shows now, so the control doesn't change while the respondent answers.
+ */
+function useSearchable(props: FieldRendererProps): boolean {
+  return isSearchable(props.binding.field);
+}
+
+function SingleChoiceField(props: FieldRendererProps) {
+  return useSearchable(props) ? <SearchableSingleField {...props} /> : <SingleChoiceList {...props} />;
+}
+
+function SingleChoiceList(props: FieldRendererProps) {
+  const { binding, inputId, onAdvance } = props;
+  const pick = useDeliberatePick(onAdvance);
+  const options = useChoiceOptions(props.engine, binding.field.id);
+  const other = otherOption(binding.field);
+  const current = typeof binding.value === "string" ? binding.value : "";
+  const typed = other && current && !choiceOptions(binding.field).some((o) => o.value === current) ? current : "";
   const otherText = useOtherText(typed);
   const look = useChoiceLook(inputId, options.length + (other ? 1 : 0));
   const textId = `${inputId}-other-text`;
@@ -515,7 +653,7 @@ function SingleChoiceField(props: FieldRendererProps) {
               onClick={pick.onItemClick}
               className={look.control}
             />
-            <ChoiceContent look={look} index={i} label={o.label ?? o.value} />
+            <ChoiceContent look={look} index={i} label={o.label ?? o.value} description={o.description} image={o.image} />
           </Label>
         ))}
         {other ? (
@@ -543,11 +681,15 @@ function SingleChoiceField(props: FieldRendererProps) {
 }
 
 function MultiChoiceField(props: FieldRendererProps) {
+  return useSearchable(props) ? <SearchableMultiField {...props} /> : <MultiChoiceList {...props} />;
+}
+
+function MultiChoiceList(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const selected = Array.isArray(binding.value) ? (binding.value as string[]) : [];
-  const options = choiceOptions(binding.field);
+  const options = useChoiceOptions(props.engine, binding.field.id);
   const other = otherOption(binding.field);
-  const known = new Set(options.map((o) => o.value));
+  const known = new Set(choiceOptions(binding.field).map((o) => o.value));
   const chosen = selected.filter((v) => known.has(v));
   const otherText = useOtherText(other ? (selected.find((v) => !known.has(v)) ?? "") : "");
   const look = useChoiceLook(inputId, options.length + (other ? 1 : 0));
@@ -574,7 +716,7 @@ function MultiChoiceField(props: FieldRendererProps) {
               onCheckedChange={(c) => toggle(o.value, c === true)}
               className={look.control}
             />
-            <ChoiceContent look={look} index={i} label={o.label ?? o.value} />
+            <ChoiceContent look={look} index={i} label={o.label ?? o.value} description={o.description} image={o.image} />
           </Label>
         ))}
         {other ? (
@@ -633,15 +775,21 @@ function controlAria(props: FieldRendererProps) {
 
 /**
  * One option from a native `<select>`: compact for a long list, and the
- * phone's own picker on touch devices.
+ * phone's own picker on touch devices. Over more options than
+ * `SEARCHABLE_OPTION_COUNT` (or with `props.searchable: true`) it is a
+ * searchable list instead, which also shows descriptions and pictures.
  */
 function DropdownField(props: FieldRendererProps) {
+  return useSearchable(props) ? <SearchableSingleField {...props} /> : <DropdownSelect {...props} />;
+}
+
+function DropdownSelect(props: FieldRendererProps) {
   const { binding } = props;
-  const options = choiceOptions(binding.field);
+  const options = useChoiceOptions(props.engine, binding.field.id);
   const other = otherOption(binding.field);
   const line = useLineClass();
   const current = typeof binding.value === "string" ? binding.value : "";
-  const typed = other && current && !options.some((o) => o.value === current) ? current : "";
+  const typed = other && current && !choiceOptions(binding.field).some((o) => o.value === current) ? current : "";
   const otherText = useOtherText(typed);
   const value = otherText.on ? OTHER_VALUE : current;
   const textId = `${props.inputId}-other-text`;

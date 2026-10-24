@@ -25,6 +25,8 @@ import {
   type FormState,
   type HostOptions,
   type PhotoRef,
+  respondentPath,
+  type LinkParams,
 } from "@marktiderman/genesis-forms";
 import {
   FieldRenderer,
@@ -101,6 +103,12 @@ export interface NavigationSlotProps {
 export interface EndingSlotProps {
   title: string;
   description?: string;
+  /**
+   * Buttons or links under the ending, such as "Send another response" or "Change your
+   * answers": pass them through `slotProps.ending`. The default ending shows them in a
+   * centred row.
+   */
+  actions?: ReactNode;
   className?: string;
 }
 export interface ErrorSummaryItem {
@@ -359,8 +367,13 @@ function DefaultNavigation({
   );
 }
 
-function DefaultEnding({ title, description, className }: EndingSlotProps) {
+/**
+ * The built-in ending (a check, the title and description, then any `actions`). Exported
+ * so a custom ending slot can wrap it rather than copy it.
+ */
+export function DefaultEnding({ title, description, actions, className }: EndingSlotProps) {
   const { presentation } = useFormPresentation();
+  const actionRow = actions ? <div className="mt-4 flex flex-wrap justify-center gap-2">{actions}</div> : null;
   if (presentation === "page") {
     return (
       <div className={cn("flex flex-col items-center gap-4 text-center", className)}>
@@ -382,6 +395,7 @@ function DefaultEnding({ title, description, className }: EndingSlotProps) {
           {title}
         </h2>
         {description ? <p className="max-w-md text-lg text-muted-foreground text-pretty">{description}</p> : null}
+        {actionRow}
       </div>
     );
   }
@@ -392,6 +406,7 @@ function DefaultEnding({ title, description, className }: EndingSlotProps) {
         {title}
       </h2>
       {description ? <p className="text-muted-foreground">{description}</p> : null}
+      {actionRow}
     </div>
   );
 }
@@ -460,6 +475,15 @@ export interface FormProps {
    * `hostOptions`).
    */
   hostOptions?: HostOptions | undefined;
+  /**
+   * The query parameters of the link the form was opened from, such as
+   * `new URLSearchParams(location.search)`. A choice question with
+   * `props.prefill: { param }` starts with that parameter's value picked when
+   * it is one of its options (`prefillFromLink`), and with
+   * `hideWhenPrefilled` it isn't shown at all. Read when the response starts;
+   * unused with `engine` (pass `linkParams` to `useForm` then).
+   */
+  linkParams?: LinkParams | undefined;
   /** Overrides the definition's layout. */
   layout?: "focus" | "classic" | undefined;
   /**
@@ -561,7 +585,15 @@ export function Form(props: FormProps) {
 }
 
 function OwnedForm(props: FormProps) {
-  const engine = useForm(props.form, props.hostOptions ? { ...props.options, hostOptions: props.hostOptions } : props.options);
+  const options =
+    props.hostOptions || props.linkParams
+      ? {
+          ...props.options,
+          ...(props.hostOptions ? { hostOptions: props.hostOptions } : {}),
+          ...(props.linkParams ? { linkParams: props.linkParams } : {}),
+        }
+      : props.options;
+  const engine = useForm(props.form, options);
   return <FormWithEngine {...props} engine={engine} />;
 }
 
@@ -619,7 +651,8 @@ function FormBody({
   const layout = layoutProp ?? def.layout?.mode ?? "classic";
   const status = useFormSelector(engine, (s) => s.status);
   const current = useFormSelector(engine, (s) => s.current);
-  const pathKey = useFormSelector(engine, (s) => JSON.stringify(s.path));
+  // The questions the respondent sees: the path without any a link prefilled and hides.
+  const pathKey = useFormSelector(engine, (s) => JSON.stringify(respondentPath(def, s)));
   // A string, so typing (which builds a new errors object) doesn't re-render the whole form.
   const errorsKey = useFormSelector(engine, (s) => JSON.stringify(s.errors));
   const ending = useFormSelector(engine, (s) => s.ending);
@@ -782,7 +815,10 @@ function FormBody({
     }
   };
 
-  const isLastStep = (state: FormState) => state.current === state.path[state.path.length - 1];
+  const isLastStep = (state: FormState) => {
+    const shown = respondentPath(def, state);
+    return state.current === shown[shown.length - 1];
+  };
 
   const advance = () => {
     if (waitingForUploads()) return;
