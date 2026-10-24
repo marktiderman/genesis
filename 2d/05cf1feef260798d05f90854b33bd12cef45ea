@@ -1,0 +1,53 @@
+templates/maestro/flows/sign-in-screen.yaml
+  s_8252619ce79a86::t_0c65339342bc7b 3,5-6
+apps/genesis-rn-starter/.eas/workflows/rollout.yml
+  s_8252619ce79a86::t_a46678a650cbb1 43,67
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_06f99b5a6267d4 10-11
+templates/eas/workflows/e2e.yml
+  s_8252619ce79a86::t_06f99b5a6267d4 9-13,74
+docs/NATIVE-RELEASE.md
+  s_8252619ce79a86::t_06f99b5a6267d4 10,14
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_8252619ce79a86::t_0c65339342bc7b 155-159
+templates/maestro/flows/settings-version.yaml
+  s_8252619ce79a86::t_06f99b5a6267d4 24-26
+apps/genesis-rn-starter/.maestro/flows/settings-version.yaml
+  s_8252619ce79a86::t_a46678a650cbb1 24-26
+templates/eas/scripts/rollout-health.mjs
+  s_8252619ce79a86::t_06f99b5a6267d4 13-14
+templates/eas/workflows/rollout.yml
+  s_8252619ce79a86::t_06f99b5a6267d4 43,67
+templates/eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_0c65339342bc7b 87-89
+apps/genesis-rn-starter/.eas/scripts/rollout-health.mjs
+  s_8252619ce79a86::t_a46678a650cbb1 13-14
+templates/eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_06f99b5a6267d4 10-12
+apps/genesis-rn-starter/.maestro/README.md
+  s_8252619ce79a86::t_870a1713b30b63 10
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_9feb56493b19c1 87-89
+apps/genesis-rn-starter/.maestro/flows/sign-in-screen.yaml
+  s_8252619ce79a86::t_9feb56493b19c1 3,5-6
+apps/genesis-rn-starter/.eas/workflows/e2e.yml
+  s_8252619ce79a86::t_a46678a650cbb1 9-13,74
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_a46678a650cbb1 10-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2d05cf1feef260798d05f90854b33bd12cef45ea",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
