@@ -120,6 +120,8 @@ function PhotoField(props: FieldRendererProps) {
   const previews = useRef(new Map<string, string>());
   // Uploads still counted as in flight, released on unmount so a form left mid-upload can still send.
   const releases = useRef(new Set<() => void>());
+  // An upload can finish after unmount: its preview is then revoked, not kept.
+  const mounted = useRef(true);
   const chooseRef = useRef<HTMLInputElement>(null);
   const takeRef = useRef<HTMLInputElement>(null);
 
@@ -130,7 +132,9 @@ function PhotoField(props: FieldRendererProps) {
   useEffect(() => {
     const urls = previews.current;
     const pendingReleases = releases.current;
+    mounted.current = true;
     return () => {
+      mounted.current = false;
       for (const url of urls.values()) URL.revokeObjectURL(url);
       urls.clear();
       for (const release of pendingReleases) release();
@@ -167,11 +171,17 @@ function PhotoField(props: FieldRendererProps) {
         releases.current.delete(release);
         setUploading((list) => list.filter((u) => u.key !== key));
       };
-      host
-        .upload(file, field)
+      // Through a promise, so an upload that throws before returning one is caught too.
+      Promise.resolve()
+        .then(() => host.upload(file, field))
         .then((ref: PhotoRef) => {
           if (!isPhotoRef(ref)) throw new Error("The upload returned no photo reference.");
-          if (preview) previews.current.set(ref.id, preview);
+          if (preview) {
+            const old = previews.current.get(ref.id);
+            if (old && old !== preview) URL.revokeObjectURL(old);
+            if (mounted.current) previews.current.set(ref.id, preview);
+            else URL.revokeObjectURL(preview);
+          }
           const next = [...currentRefs().filter((r) => r.id !== ref.id), { id: ref.id, name: ref.name, type: ref.type, size: ref.size }];
           binding.setValue(next);
           finish();

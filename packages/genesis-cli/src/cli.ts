@@ -167,7 +167,8 @@ program
       process.exitCode = result.ok ? 0 : 1;
     } catch (err) {
       // Exit 2: the doctor could not run (bad config, Genesis not installed), as opposed to finding problems.
-      if (!(err instanceof doctor.DoctorConfigError)) throw err;
+      // GenesisConfigError covers DoctorConfigError and the shared blocks (a bad `links`, a non-object file).
+      if (!(err instanceof doctor.GenesisConfigError)) throw err;
       if (opts.json) console.log(JSON.stringify({ ok: false, error: err.message }, null, 2));
       else console.error(`✗ ${err.message}`);
       process.exitCode = 2;

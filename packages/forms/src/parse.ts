@@ -312,6 +312,14 @@ export function parseForm(input: unknown): ParseResult {
             }
           }
         }
+        const other = isObject(block.props) ? block.props.other : undefined;
+        if (other !== undefined) {
+          if (other !== true && other !== false && !(isObject(other) && (other.label === undefined || typeof other.label === "string"))) {
+            issue(`${path}.props.other`, "Must be true, false or { label }.");
+          } else if (other !== false && typeof block.type === "string" && !CHOICE_TYPES.has(block.type)) {
+            warnings.push({ path: `${path}.props.other`, message: "Only single choice, multiple choice and dropdown questions take an \"Other\" answer." });
+          }
+        }
         // Renderers draw one button per point, so the scale is bounded.
         const { max, maxLength } = isObject(block.props) ? block.props : {};
         if (block.type === "rating" && max !== undefined && !(isInt(max) && max >= 2 && max <= 10)) {
