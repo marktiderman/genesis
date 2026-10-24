@@ -14,13 +14,24 @@
  * passthrough. The composed options are rendered via the consumer's own
  * `<Stack.Screen options={...}>` — see `getStackScreenOptions()` helper.
  *
- * Layer-2 escape hatch: drop down to `<ScreenContainer>` if the layout
- * structure doesn't fit (see standards/usage-doctrine.md).
+ * Colors come from theme roles: on iOS the page is `systemGroupedBackground`
+ * with inset, rounded cells on `secondarySystemGroupedBackground`, like the
+ * Settings app; elsewhere, full-width cells on the Genesis tokens.
+ *
+ * Slots: replace or drop one part without leaving the layout. `slots`
+ * swaps a part (`sectionHeader`, `row`, `footnote`, `dangerousActions`) for
+ * your component, which receives exactly the props the default would;
+ * `slotProps` feeds the default more props; `null` drops the part.
+ *
+ * Escape hatch: drop down to `<ScreenContainer>` if the layout structure
+ * doesn't fit.
  *
  * @stability Beta
  */
 import { Fragment, type ReactNode } from "react";
-import { View } from "react-native";
+import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
+import { Platform, View } from "react-native";
+import { useThemeRoles } from "../hooks/use-theme-roles";
 import { NativeListItem, NativeListItemDivider } from "../components/list-item";
 import { NativeSectionListHeader } from "../components/section-list";
 import { NativeText } from "../components/text";
@@ -62,6 +73,23 @@ export interface SettingsPageSection {
   rows: SettingsPageRow[];
 }
 
+/** A destructive-tone action in the footer, e.g. "Sign out". */
+export interface SettingsPageDangerousAction {
+  label: string;
+  onPress: () => void;
+  /** When true, renders with extra emphasis. Default `false`. */
+  emphasized?: boolean;
+  testID?: string;
+}
+
+/** The parts of a {@link SettingsPage} that `slots` and `slotProps` reach, with the props each receives. */
+export type SettingsPageSlotMap = {
+  sectionHeader: { title: string; testID: string };
+  row: SettingsPageRow & { testID: string; isLast: boolean };
+  footnote: { text: string };
+  dangerousActions: { actions: SettingsPageDangerousAction[]; testID: string };
+};
+
 export interface SettingsPageProps extends ScreenHeaderProps {
   /** Sectioned content. Order is preserved. */
   sections: SettingsPageSection[];
@@ -69,13 +97,11 @@ export interface SettingsPageProps extends ScreenHeaderProps {
    * Optional dangerous-action row(s) shown after the last section in a
    * destructive-tone footer. Typical: "Sign out", "Delete account".
    */
-  dangerousActions?: {
-    label: string;
-    onPress: () => void;
-    /** When true, renders with extra emphasis. Default `false`. */
-    emphasized?: boolean;
-    testID?: string;
-  }[];
+  dangerousActions?: SettingsPageDangerousAction[];
+  /** Replace (a component) or drop (`null`) one part. */
+  slots?: Slots<SettingsPageSlotMap>;
+  /** More props for a default part, merged over what the layout passes. */
+  slotProps?: SlotPropsFor<SettingsPageSlotMap>;
   /** Override root container styling. */
   className?: string;
   /** testID on the root container. Default `"settings-page"`. */
@@ -109,10 +135,14 @@ export function SettingsPage({
   className,
   testID = "settings-page",
   children,
+  slots = {},
+  slotProps = {},
 }: SettingsPageProps) {
   // Note: header props (headerTitle, headerLeft, headerRight, etc.) are
   // accepted on the type for API ergonomics but consumed by
   // getSettingsPageStackOptions() at the consumer's <Stack.Screen> level.
+  const colors = useThemeRoles();
+  const inset = Platform.OS === "ios";
 
   return (
     <ScreenContainer
@@ -121,6 +151,7 @@ export function SettingsPage({
       testID={testID}
       contentClassName="pb-8"
       className={className}
+      style={{ backgroundColor: colors.groupedBackground }}
     >
       {children ? <View className="px-4 pt-2">{children}</View> : null}
 
@@ -130,60 +161,96 @@ export function SettingsPage({
           testID={`${testID}-section-${section.id}`}
           className="mt-6"
         >
-          {section.title ? (
-            <NativeSectionListHeader
-              title={section.title}
-              testID={`${testID}-section-${section.id}-header`}
-            />
-          ) : null}
-          <View className="border-y border-border bg-background">
+          {section.title
+            ? renderSlot(
+                DefaultSectionHeader,
+                slots.sectionHeader,
+                { title: section.title, testID: `${testID}-section-${section.id}-header` },
+                slotProps.sectionHeader,
+              )
+            : null}
+          <View
+            className={inset ? "mx-4 overflow-hidden rounded-xl" : "border-y"}
+            style={{ backgroundColor: colors.surface, borderColor: colors.separator }}
+          >
             {section.rows.map((row, rowIndex) => (
               <Fragment key={row.id}>
-                <NativeListItem
-                  testID={row.testID ?? `${testID}-row-${row.id}`}
-                  title={row.title}
-                  subtitle={row.subtitle}
-                  leading={row.leading}
-                  trailing={row.trailing}
-                  showChevron={row.showChevron}
-                  onPress={row.onPress}
-                  disabled={row.disabled}
-                />
-                {rowIndex < section.rows.length - 1 ? (
-                  <NativeListItemDivider className="ml-4" />
-                ) : null}
+                {renderSlot(
+                  DefaultRow,
+                  slots.row,
+                  { ...row, testID: row.testID ?? `${testID}-row-${row.id}`, isLast: rowIndex === section.rows.length - 1 },
+                  slotProps.row,
+                )}
               </Fragment>
             ))}
           </View>
-          {section.footnote ? (
-            <NativeText
-              preset="body-sm"
-              className="px-4 pt-2 text-muted-foreground"
-            >
-              {section.footnote}
-            </NativeText>
-          ) : null}
+          {section.footnote
+            ? renderSlot(DefaultFootnote, slots.footnote, { text: section.footnote }, slotProps.footnote)
+            : null}
         </View>
       ))}
 
-      {dangerousActions && dangerousActions.length > 0 ? (
-        <View
-          testID={`${testID}-dangerous-actions`}
-          className={cn("mt-8 gap-2 px-4")}
-        >
-          {dangerousActions.map((action) => (
-            <NativeButton
-              key={action.label}
-              testID={action.testID ?? `${testID}-danger-${slug(action.label)}`}
-              variant={action.emphasized ? "destructive" : "outline"}
-              onPress={action.onPress}
-            >
-              {action.label}
-            </NativeButton>
-          ))}
-        </View>
-      ) : null}
+      {dangerousActions && dangerousActions.length > 0
+        ? renderSlot(
+            DefaultDangerousActions,
+            slots.dangerousActions,
+            {
+              actions: dangerousActions.map((action) => ({ ...action, testID: action.testID ?? `${testID}-danger-${slug(action.label)}` })),
+              testID: `${testID}-dangerous-actions`,
+            },
+            slotProps.dangerousActions,
+          )
+        : null}
     </ScreenContainer>
+  );
+}
+
+function DefaultSectionHeader({ title, testID }: SettingsPageSlotMap["sectionHeader"]) {
+  return <NativeSectionListHeader title={title} testID={testID} />;
+}
+
+function DefaultRow({ isLast, id: _id, ...row }: SettingsPageSlotMap["row"]) {
+  return (
+    <>
+      <NativeListItem
+        testID={row.testID}
+        // The cell wrapper carries the surface color from theme roles.
+        className="bg-transparent"
+        title={row.title}
+        subtitle={row.subtitle}
+        leading={row.leading}
+        trailing={row.trailing}
+        showChevron={row.showChevron}
+        onPress={row.onPress}
+        disabled={row.disabled}
+      />
+      {isLast ? null : <NativeListItemDivider className="ml-4" />}
+    </>
+  );
+}
+
+function DefaultFootnote({ text }: SettingsPageSlotMap["footnote"]) {
+  return (
+    <NativeText preset="body-sm" className="px-4 pt-2 text-muted-foreground">
+      {text}
+    </NativeText>
+  );
+}
+
+function DefaultDangerousActions({ actions, testID }: SettingsPageSlotMap["dangerousActions"]) {
+  return (
+    <View testID={testID} className={cn("mt-8 gap-2 px-4")}>
+      {actions.map((action) => (
+        <NativeButton
+          key={action.label}
+          testID={action.testID}
+          variant={action.emphasized ? "destructive" : "outline"}
+          onPress={action.onPress}
+        >
+          {action.label}
+        </NativeButton>
+      ))}
+    </View>
   );
 }
 

@@ -13,6 +13,8 @@ export default defineConfig({
     "src/schema/index.ts",
     "src/form-types.ts",
     "src/utils.ts",
+    "src/slots.tsx",
+    "src/navigation.ts",
   ],
   format: ["esm"],
   dts: true,
