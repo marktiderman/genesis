@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 60
+      "count": 61
     }
   },
   "primitives": [
@@ -422,7 +422,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/auth-screen.tsx",
       "stability": "beta",
-      "summary": "AuthScreen — a whole sign-in screen: branding, social providers, the\nemail form with a \"Forgot password?\" link, and a footer (terms, a\nsign-up link). It assembles the auth primitives (`AuthBranding`,\n`SocialAuthRow`, `AuthForm`, `ForgotPasswordLink`) so an app passes\nprops instead of composing them.\n\nThe form stays above the keyboard on small phones. In development, on\niOS, it warns when a third-party provider is offered without Sign in with\nApple (App Store Review Guideline 4.8 rejects that).\n\nSlots: replace or drop (`null`) `branding`, `social`, `form` or `footer`;\n`slotProps` feeds a default part. Composing the primitives yourself is\nstill the escape hatch.",
+      "summary": "AuthScreen — a whole sign-in screen: branding, social providers, the\nemail form with a \"Forgot password?\" link, and a footer (terms, a\nsign-up link). It assembles the auth primitives (`AuthBranding`,\n`SocialAuthRow`, `AuthForm`, `ForgotPasswordLink`) so an app passes\nprops instead of composing them.\n\nThe form stays above the keyboard on small phones: with the app's\n`KeyboardScrollProvider` (react-native-keyboard-controller), else with\n`KeyboardAvoidingView`. In development, on\niOS, it warns when a third-party provider is offered without Sign in with\nApple (App Store Review Guideline 4.8 rejects that).\n\nSlots: replace or drop (`null`) `branding`, `social`, `form` or `footer`;\n`slotProps` feeds a default part. Composing the primitives yourself is\nstill the escape hatch.",
       "primaryComponent": "AuthScreen",
       "components": [
         {
@@ -1955,6 +1955,36 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "keyboard",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/keyboard.tsx",
+      "stability": "beta",
+      "summary": "Keyboard-aware scrolling for form screens. Expo recommends\nreact-native-keyboard-controller's `KeyboardAwareScrollView` over\n`KeyboardAvoidingView` for real apps; it is an optional peer here, so an app\nthat has it passes it once:\n\n  import { KeyboardAwareScrollView } from \"react-native-keyboard-controller\";\n  <KeyboardScrollProvider component={KeyboardAwareScrollView}>…</KeyboardScrollProvider>\n\n(The native app shell does this for you.) Without it, form screens fall back\nto `KeyboardAvoidingView`.",
+      "primaryComponent": "KeyboardScrollProvider",
+      "components": [
+        {
+          "name": "KeyboardScrollProvider",
+          "summary": "",
+          "props": [
+            {
+              "name": "component",
+              "type": "ComponentType<KeyboardScrollProps>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "useKeyboardScroll",
+          "summary": "The app's keyboard-aware scroll view, or null when none was provided.",
+          "props": []
         }
       ]
     },
