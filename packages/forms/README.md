@@ -262,6 +262,21 @@ options only. Answers store the option's value; `summarizeValue` shows its label
 it. `parseForm` checks the shape of `optionsFrom`, and doesn't warn about rules comparing with
 values only the app knows.
 
+### An "Other" answer
+
+```ts
+f.multiChoice("areas", { label: "Which area?", options: [...], other: true });
+f.singleChoice("where", { label: "Where?", options: [...], other: { label: "Somewhere else" } });
+// stored as props: { other: true } or { other: { label: "Somewhere else" } }
+```
+
+A single choice, multiple choice or dropdown question with `props.other` offers one more option,
+"Other" (or its `label`), with a text box. What the respondent types is the answer: the value of a
+single choice or dropdown, one more item on a multiple choice. `validateSubmission` accepts at most
+one such value per question, not blank and at most `OTHER_MAX_LENGTH` (200) characters, and only on
+a question with `other`. `otherOption(field)` reads the setting; `isOtherValue(field, value)` tells a
+typed answer from an option.
+
 ### Props for the host
 
 Props a field type doesn't use are kept and ignored: the engine, `parseForm` and
