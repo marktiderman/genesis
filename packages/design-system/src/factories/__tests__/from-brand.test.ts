@@ -8,9 +8,8 @@
  * fundamental divergence the factory can't bridge cleanly (data point
  * for the verdict — see research/a4-0-cross-platform-factory-spike.md).
  *
- * Brand fixture is modeled on real Gamify mobile tokens (navy/gold/
- * Oswald), pulled from /home/user/gamify-platform/apps/mobile/src/global.css
- * and src/theme/colors.ts as of 2026-05-03 (see spike doc §1).
+ * Brand fixture is a made-up game brand, "arcade" (navy/gold/Oswald),
+ * shaped like a real app's mobile tokens (see spike doc §1).
  */
 
 import { describe, expect, it } from "vitest";
@@ -23,11 +22,11 @@ import {
 } from "../from-brand";
 
 // ---------------------------------------------------------------------------
-// Real-shape Gamify-style fixture (color-only — matches today's schema).
+// Real-shape fixture for the made-up "arcade" brand (color-only — matches today's schema).
 // ---------------------------------------------------------------------------
 
-const gamifyColorOnly: CanonicalBrand = {
-  name: "gamify",
+const arcadeColorOnly: CanonicalBrand = {
+  name: "arcade",
   neutral: {
     "50": "#FAFAFA",
     "100": "#F5F5F5",
@@ -77,11 +76,11 @@ const gamifyColorOnly: CanonicalBrand = {
 
 // Full divergence-axis fixture — color-only PLUS typography/spacing/
 // radius/shadow/gradient/platformOverrides.
-const gamifyFull: CanonicalBrand = {
-  ...gamifyColorOnly,
+const arcadeFull: CanonicalBrand = {
+  ...arcadeColorOnly,
   typography: {
     fontFamily: {
-      // Gamify uses Oswald — web gets the stack with system fallbacks,
+      // The fixture uses Oswald — web gets the stack with system fallbacks,
       // native uses just the head ("Oswald-Regular"; consumer registers
       // via expo-font in app/_layout.tsx).
       body: ["Oswald", "system-ui", "sans-serif"],
@@ -164,20 +163,20 @@ const gamifyFull: CanonicalBrand = {
 
 describe("color-only brand (today's contract)", () => {
   it("tailwindFromBrand emits @theme entries for all color scales", () => {
-    const out = tailwindFromBrand(gamifyColorOnly);
+    const out = tailwindFromBrand(arcadeColorOnly);
     expect(out.css).toContain("--color-surface: #02166C");
     expect(out.css).toContain("--color-accent: #FFC402");
     expect(out.css).toContain("--color-success: #4CAF50");
     expect(out.css).toContain("--color-rank-gold: #FFD700");
     // Schema mandates camelCase extension keys; factory kebab-cases for CSS
     // emission so utility classes read naturally (`bg-game-mode-solo`, not
-    // `bg-gameMode-solo`). Matches Gamify's existing global.css convention.
+    // `bg-gameMode-solo`). Matches the host app's existing global.css convention.
     expect(out.css).toContain("--color-game-mode-solo");
     expect(out.css).toContain("--color-neutral-500: #737373");
   });
 
   it("preset.theme.extend.colors keeps the ColorScale shape", () => {
-    const out = tailwindFromBrand(gamifyColorOnly);
+    const out = tailwindFromBrand(arcadeColorOnly);
     expect(out.preset.theme.extend.colors.accent).toEqual({
       DEFAULT: "#FFC402",
       light: "#F9C525",
@@ -192,21 +191,21 @@ describe("color-only brand (today's contract)", () => {
   });
 
   it("themeFromBrand emits the same CSS as tailwindFromBrand", () => {
-    const tw = tailwindFromBrand(gamifyColorOnly);
-    const native = themeFromBrand(gamifyColorOnly);
+    const tw = tailwindFromBrand(arcadeColorOnly);
+    const native = themeFromBrand(arcadeColorOnly);
     expect(native.css).toBe(tw.css);
   });
 
   it("themeFromBrand variables.light contains DEFAULTs and emphasis variants", () => {
-    const native = themeFromBrand(gamifyColorOnly);
+    const native = themeFromBrand(arcadeColorOnly);
     expect(native.variables.light["--color-accent"]).toBe("#F9C525"); // light variant
     expect(native.variables.dark["--color-accent"]).toBe("#D4A017"); // dark variant
     expect(native.variables.light["--color-accent-light"]).toBe("#F9C525");
   });
 
   it("debugBrandPreset bundles both views + override-presence flags", () => {
-    const debug = debugBrandPreset(gamifyColorOnly);
-    expect(debug.brand).toBe("gamify");
+    const debug = debugBrandPreset(arcadeColorOnly);
+    expect(debug.brand).toBe("arcade");
     expect(debug.tailwind.css).toContain("--color-accent");
     expect(debug.nativewind.css).toBe(debug.tailwind.css);
     expect(debug.hasPlatformOverrides).toEqual({ web: false, native: false });
@@ -219,7 +218,7 @@ describe("color-only brand (today's contract)", () => {
 
 describe("axis: length units (rem ↔ px)", () => {
   it("tailwindFromBrand keeps rem strings as-is in CSS + preset", () => {
-    const out = tailwindFromBrand(gamifyFull);
+    const out = tailwindFromBrand(arcadeFull);
     expect(out.css).toContain("--spacing-md: 1rem");
     expect(out.css).toContain("--spacing-xl: 2rem");
     expect(out.preset.theme.extend.spacing).toEqual({
@@ -232,7 +231,7 @@ describe("axis: length units (rem ↔ px)", () => {
   });
 
   it("themeFromBrand converts rem → px numbers (default 16)", () => {
-    const native = themeFromBrand(gamifyFull);
+    const native = themeFromBrand(arcadeFull);
     expect(native.theme.spacing).toEqual({
       xs: 4,
       sm: 8,
@@ -243,14 +242,14 @@ describe("axis: length units (rem ↔ px)", () => {
   });
 
   it("themeFromBrand honors a custom remRoot", () => {
-    const native = themeFromBrand(gamifyFull, { remRoot: 18 });
+    const native = themeFromBrand(arcadeFull, { remRoot: 18 });
     expect(native.theme.spacing.md).toBe(18); // 1rem * 18
     expect(native.theme.spacing.lg).toBe(27); // 1.5rem * 18
   });
 
   it("radius emits both rem strings (web) and px numbers (native)", () => {
-    const web = tailwindFromBrand(gamifyFull);
-    const native = themeFromBrand(gamifyFull);
+    const web = tailwindFromBrand(arcadeFull);
+    const native = themeFromBrand(arcadeFull);
     expect(web.css).toContain("--radius-md: 0.5rem");
     expect(native.theme.radius.md).toBe(8);
     expect(native.theme.radius.lg).toBe(12);
@@ -263,7 +262,7 @@ describe("axis: length units (rem ↔ px)", () => {
 
 describe("axis: gradients (CSS supports; RN doesn't)", () => {
   it("tailwindFromBrand emits a linear-gradient CSS variable", () => {
-    const out = tailwindFromBrand(gamifyFull);
+    const out = tailwindFromBrand(arcadeFull);
     expect(out.css).toContain(
       "--background-image-navyBg: linear-gradient(to bottom, #020B33 0%, #021150 50%, #02166C 100%)"
     );
@@ -273,7 +272,7 @@ describe("axis: gradients (CSS supports; RN doesn't)", () => {
   });
 
   it("themeFromBrand emits stops + locations for expo-linear-gradient", () => {
-    const native = themeFromBrand(gamifyFull);
+    const native = themeFromBrand(arcadeFull);
     expect(native.theme.gradient.navyBg.colors).toEqual([
       "#020B33",
       "#021150",
@@ -286,7 +285,7 @@ describe("axis: gradients (CSS supports; RN doesn't)", () => {
   });
 
   it("themeFromBrand handles 'to right' direction → horizontal vectors", () => {
-    const native = themeFromBrand(gamifyFull);
+    const native = themeFromBrand(arcadeFull);
     expect(native.theme.gradient.goldButton.start).toEqual({ x: 0, y: 0.5 });
     expect(native.theme.gradient.goldButton.end).toEqual({ x: 1, y: 0.5 });
   });
@@ -298,13 +297,13 @@ describe("axis: gradients (CSS supports; RN doesn't)", () => {
 
 describe("axis: font weight (string-numeric)", () => {
   it("web emits the string", () => {
-    const out = tailwindFromBrand(gamifyFull);
+    const out = tailwindFromBrand(arcadeFull);
     expect(out.css).toContain("--font-weight-bold: 700");
     expect(out.preset.theme.extend.fontWeight?.bold).toBe("700");
   });
 
   it("native exposes the same string (RN accepts both)", () => {
-    const native = themeFromBrand(gamifyFull);
+    const native = themeFromBrand(arcadeFull);
     expect(native.theme.fontWeight.bold).toBe("700");
     expect(native.theme.fontWeight.normal).toBe("400");
   });
@@ -316,7 +315,7 @@ describe("axis: font weight (string-numeric)", () => {
 
 describe("axis: font family (stack ↔ single name)", () => {
   it("web joins the array into a CSS font stack with quoting", () => {
-    const out = tailwindFromBrand(gamifyFull);
+    const out = tailwindFromBrand(arcadeFull);
     // Universal value (no platformOverrides.web) — gets the system stack.
     expect(out.css).toContain(
       "--font-body: Oswald, system-ui, sans-serif"
@@ -324,21 +323,21 @@ describe("axis: font family (stack ↔ single name)", () => {
   });
 
   it("native uses ONLY the head — and platformOverrides.native swaps it", () => {
-    const native = themeFromBrand(gamifyFull);
-    // gamifyFull declares native.typography.fontFamily.body = ["Oswald-Regular"]
+    const native = themeFromBrand(arcadeFull);
+    // arcadeFull declares native.typography.fontFamily.body = ["Oswald-Regular"]
     expect(native.theme.fontFamily.body).toBe("Oswald-Regular");
     expect(native.theme.fontFamily.display).toBe("Oswald-Bold");
   });
 
   it("without platformOverrides.native, native uses the head of the universal stack", () => {
-    const noOverride: CanonicalBrand = { ...gamifyFull, platformOverrides: {} };
+    const noOverride: CanonicalBrand = { ...arcadeFull, platformOverrides: {} };
     const native = themeFromBrand(noOverride);
     expect(native.theme.fontFamily.body).toBe("Oswald");
   });
 
   it("multi-word family names are quoted in the web stack", () => {
     const brand: CanonicalBrand = {
-      ...gamifyColorOnly,
+      ...arcadeColorOnly,
       typography: {
         fontFamily: {
           display: ["Space Grotesk", "system-ui", "sans-serif"],
@@ -358,7 +357,7 @@ describe("axis: font family (stack ↔ single name)", () => {
 
 describe("axis: shadow (CSS string ↔ RN style + Android elevation)", () => {
   it("web composes a box-shadow CSS string", () => {
-    const out = tailwindFromBrand(gamifyFull);
+    const out = tailwindFromBrand(arcadeFull);
     expect(out.css).toContain("--shadow-card: 0px 2px 8px rgba(0,0,0,0.4)");
     expect(out.preset.theme.extend.boxShadow?.cta).toBe(
       "0px 4px 16px rgba(0,0,0,0.5)"
@@ -366,7 +365,7 @@ describe("axis: shadow (CSS string ↔ RN style + Android elevation)", () => {
   });
 
   it("native emits RN-shaped shadow with parsed alpha + elevation", () => {
-    const native = themeFromBrand(gamifyFull);
+    const native = themeFromBrand(arcadeFull);
     expect(native.theme.shadow.card).toEqual({
       shadowColor: "rgb(0, 0, 0)",
       shadowOffset: { width: 0, height: 2 },
@@ -378,7 +377,7 @@ describe("axis: shadow (CSS string ↔ RN style + Android elevation)", () => {
   });
 
   it("native honors explicit elevation when provided", () => {
-    const native = themeFromBrand(gamifyFull);
+    const native = themeFromBrand(arcadeFull);
     expect(native.theme.shadow.cta.elevation).toBe(6);
   });
 });
@@ -389,8 +388,8 @@ describe("axis: shadow (CSS string ↔ RN style + Android elevation)", () => {
 
 describe("axis: color (trivial)", () => {
   it("hex strings round-trip identically on both platforms", () => {
-    const web = tailwindFromBrand(gamifyColorOnly);
-    const native = themeFromBrand(gamifyColorOnly);
+    const web = tailwindFromBrand(arcadeColorOnly);
+    const native = themeFromBrand(arcadeColorOnly);
     expect(web.preset.theme.extend.colors.accent).toEqual({
       DEFAULT: "#FFC402",
       light: "#F9C525",
@@ -413,8 +412,8 @@ describe("axis: OS-specific font (expo-font registration on native)", () => {
   it("web declares the Google-Fonts stack; native loads the registered head", () => {
     // platformOverrides.native overrides body → "Oswald-Regular"
     // Universal body stack (web sees) → ["Oswald", "system-ui", "sans-serif"]
-    const web = tailwindFromBrand(gamifyFull);
-    const native = themeFromBrand(gamifyFull);
+    const web = tailwindFromBrand(arcadeFull);
+    const native = themeFromBrand(arcadeFull);
 
     // Web sees the universal value because no platformOverrides.web.
     expect(web.css).toContain("--font-body: Oswald, system-ui, sans-serif");
@@ -424,8 +423,8 @@ describe("axis: OS-specific font (expo-font registration on native)", () => {
   });
 
   it("does not blow up if a brand declares no typography", () => {
-    expect(() => tailwindFromBrand(gamifyColorOnly)).not.toThrow();
-    expect(() => themeFromBrand(gamifyColorOnly)).not.toThrow();
+    expect(() => tailwindFromBrand(arcadeColorOnly)).not.toThrow();
+    expect(() => themeFromBrand(arcadeColorOnly)).not.toThrow();
   });
 });
 
@@ -437,17 +436,17 @@ describe("schema additivity", () => {
   it("color-only brand passes validateBrand (today's contract)", async () => {
     // Lazy import so the test stays unaffected by tree-shaking.
     const { validateBrand } = await import("../../schema/brand");
-    expect(validateBrand(gamifyColorOnly)).toEqual({ ok: true, errors: [] });
+    expect(validateBrand(arcadeColorOnly)).toEqual({ ok: true, errors: [] });
   });
 
   it("full divergence-axis brand also passes validateBrand", async () => {
     const { validateBrand } = await import("../../schema/brand");
-    const result = validateBrand(gamifyFull);
+    const result = validateBrand(arcadeFull);
     expect(result).toEqual({ ok: true, errors: [] });
   });
 
   it("debugBrandPreset surfaces platformOverrides flags", () => {
-    const debug = debugBrandPreset(gamifyFull);
+    const debug = debugBrandPreset(arcadeFull);
     expect(debug.hasPlatformOverrides).toEqual({ web: false, native: true });
   });
 });

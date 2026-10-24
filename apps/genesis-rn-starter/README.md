@@ -30,6 +30,8 @@ isn't published yet. Until it is, make new apps inside the monorepo:
 3. In `genesis.config.json`, set `links.hosts` to your web domain (or delete the `links` block for
    no universal links).
 4. `cp .env.example .env` and fill in your Supabase project's URL and publishable key.
+   For EAS (builds, previews, updates), run `eas init` and put the project id in
+   `starter.config.ts` `app.easProjectId`; see [Releasing](#releasing).
 5. Apply `supabase/migrations` to your project (`supabase db push`, or `supabase start` for a
    local stack) and enable the providers you use in Supabase Auth (below).
 6. `pnpm install`, `pnpm build:packages` at the root, then `pnpm --filter my-app ios`.
@@ -58,11 +60,12 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `deepLinks` | `scheme://` and universal links open their screen, after sign-in if needed (`normalizeLink`). | Every link opens `/`. Universal links still open the app until you also delete the `links` block in `genesis.config.json`. |
 | `wipeSessionOnReinstall` | A reinstalled iOS app starts signed out (the Keychain outlives an uninstall). | The last session comes back after a reinstall. |
 | `refreshWhileActive` | The session refreshes only while the app is in front. | supabase-js's own timer runs in the background too. |
+| `updates` | The updates block (`createUpdates`, `src/lib/updates.ts`): force upgrade and maintenance from the `app_release_policy` row, the update banner (never reloads mid sign-in or mid deletion: `useBlockReload`), what's new, and the version signature in Settings > About. | No blocking screens, banner or notes; About shows the version and build from `expo-application`. |
 
 A config with both sign-in methods off fails at start-up. Apple's button only shows on iOS, so
 with `emailSignIn` off `app.config.ts` builds for iOS only.
 
-Switches that only change JavaScript don't change the build's fingerprint (`.fingerprintignore`
+Switches that only change JavaScript (`updates` included) don't change the build's fingerprint (`.fingerprintignore`
 leaves `starter.config.ts` out; what it means for the native build is in the evaluated config), so
 `eas update` still reaches installed builds after you turn one off. `appleSignIn` and
 `emailSignIn` change the native build and its runtime version.
@@ -95,13 +98,16 @@ manifest for the packages installed, export compliance and the fingerprint runti
 - **Client:** `src/lib/supabase.ts` makes the one client with `createGenesisSupabase`, the session
   in the Keychain (`keychainStorage`), `wipeSessionOnReinstall` before the first read and
   `refreshWhileActive`.
-- **Migrations:** `supabase/migrations/20261024000000_genesis_account_deletion.sql` is
-  `@marktiderman/genesis-supabase`'s `migrations/0001_genesis_account_deletion.sql`, copied under a
-  timestamped name as its README says, with its pgTAP test in `supabase/tests/database/`
-  (`supabase test db`). A test fails if either drifts from the package's copy. Give every table of
+- **Migrations:** `supabase/migrations/20261024000000_genesis_account_deletion.sql` and
+  `20261024000100_genesis_app_release_policy.sql` are `@marktiderman/genesis-supabase`'s
+  `migrations/0001_genesis_account_deletion.sql` and `0002_genesis_app_release_policy.sql`, copied
+  under timestamped names as its README says, with their pgTAP tests in `supabase/tests/database/`
+  (`supabase test db`). A test fails if any of them drifts from the package's copy. The updates
+  block reads the release policy row (`app_id` `default`) with the publishable key; write it with
+  the SQL editor or the service role. Give every table of
   yours that holds a person's data a foreign key to `auth.users(id)` with `on delete cascade`, or
   deleting their account is refused.
-- **Apple token revocation:** `supabase/migrations/20261024000100_genesis_apple_token_revocation.sql`
+- **Apple token revocation:** `supabase/migrations/20261024000200_genesis_apple_token_revocation.sql`
   and `supabase/functions/genesis-apple-revoke/` are the package's migration 0003 and its Edge
   Function, copied the same way (and drift-tested the same way). After an Apple sign-in,
   `src/lib/auth.ts` sends Apple's code to the function (`storeAppleToken`); deleting the account
@@ -116,14 +122,30 @@ manifest for the packages installed, export compliance and the fingerprint runti
 ## Checks
 
 ```bash
-pnpm --filter genesis-rn-starter test        # layout length, toggles, copy catalog, migration copies
+pnpm --filter genesis-rn-starter test        # layout length, toggles, copy catalog, migration copies, EAS and Maestro files
 pnpm --filter genesis-rn-starter typecheck
 pnpm --filter genesis-rn-starter lint
 pnpm --filter genesis-rn-starter doctor      # genesis doctor: native and supabase packs
 pnpm --filter genesis-rn-starter export:ios  # bundles the app, no device needed
 ```
 
-`.maestro/` has a smoke flow for a development build.
+## Releasing
+
+`eas.json` and `.eas/workflows/` are the release path on EAS Workflows, and `.maestro/` the smoke
+flows; [docs/NATIVE-RELEASE.md](../../docs/NATIVE-RELEASE.md) has the setup and the safety rules.
+
+| Workflow | When | What |
+| --- | --- | --- |
+| `pr-preview.yml` | each pull request | Repack a preview build with the same fingerprint (or build one), publish an update to `pr-<number>`, comment the install link and QR code. |
+| `e2e.yml` | each pull request | The Maestro flows on an iOS simulator build. |
+| `deploy-production.yml` | a pushed `v*.*.*` tag | A store build where native code changed, else an update to `production` at 10%; both after a person approves. |
+| `rollout.yml` | by hand | Promote the staged update after a failed-launch check, or roll it back. |
+
+Profiles: `development`, `preview` and `production` build the `APP_VARIANT` of the same name on
+the channel of the same name; `e2e` is a development build for the simulator. Store ids in
+`eas.json` are `REPLACE_WITH_…` placeholders. These files are copies of
+[`templates/eas/`](../../templates/eas) and [`templates/maestro/`](../../templates/maestro); a test
+fails if they drift.
 
 ## Not covered yet
 
@@ -134,6 +156,14 @@ pnpm --filter genesis-rn-starter export:ios  # bundles the app, no device needed
   build ships associated domains that never verify.
 - **Notifications have no source.** `src/lib/notifications.ts` returns an empty list; point its
   `queryFn` at yours. Push isn't part of the starter until the push block ships.
+- **No EAS project.** `app.easProjectId` is empty, so builds ship with `updates.enabled: false` and
+  no workflow can run until `eas init` (step 4 above). None of the workflows has been run against a
+  real EAS account yet.
+- **No channel picker.** Preview builds may switch to a pull request's channel
+  (`useUpdates().channels.switchTo("pr-42")`), but no screen offers it yet.
+- **Typing doesn't hold off a reload.** The sign-in form holds reloads only while a sign-in runs:
+  `AuthScreen` doesn't report half-typed fields, so tapping "Restart" on the update banner mid-typing
+  clears them.
 - **Genesis's own default strings are English.** The starter's copy is all in `src/copy.ts`, but a
   few labels inside the Genesis layouts ("Email", "Password", "or", the boot and fatal screens)
   have no override yet; that is the `i18n` feature in the repo's `features.ts`.

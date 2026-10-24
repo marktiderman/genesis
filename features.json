@@ -1425,7 +1425,7 @@
     {
       "id": "native-starter",
       "name": "Native starter",
-      "summary": "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh. Push, support, updates and onboarding join as their blocks ship.",
+      "summary": "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh, and the updates block (force upgrade, maintenance, update banner, what's new, the version signature in Settings) on the release-policy migration. EAS Workflows and Maestro smoke flows ship with it. Push, support and onboarding join as their blocks ship.",
       "category": "Starters",
       "status": "beta",
       "layer": "tool",
@@ -1449,7 +1449,8 @@
         "supabase-kit",
         "native-layouts",
         "expo-config-plugin",
-        "doctor-native"
+        "doctor-native",
+        "app-updates"
       ],
       "owner": "mark",
       "apps": [
@@ -1462,9 +1463,10 @@
       "visibility": "internal",
       "acceptance": [
         "The root layout is at most 30 lines and renders GenesisNativeApp; a test fails when it grows past that.",
+        "Turning a JavaScript-only switch off (updates, queryPersistence, ...) leaves the native fingerprint unchanged: app.config.ts imports only files .fingerprintignore leaves out.",
         "starter.config.ts ships with every feature on, and a config with no way to sign in fails at start-up.",
         "Every user-facing string in the screens comes from the typed copy catalog (src/copy.ts); a test fails on JSX text or a literal label.",
-        "supabase/migrations carries the account-deletion migration and its pgTAP test exactly as @marktiderman/genesis-supabase ships them.",
+        "supabase/migrations carries the account-deletion and app-release-policy migrations and their pgTAP tests exactly as @marktiderman/genesis-supabase ships them.",
         "genesis doctor --strict passes with the native and supabase packs, and expo export --platform ios bundles one copy of React, React Native and NativeWind's runtime."
       ],
       "reviewedAt": "2026-10-24",
@@ -1474,6 +1476,111 @@
         ],
         "docs": [
           "apps/genesis-rn-starter/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "eas-workflows",
+      "name": "EAS release workflows",
+      "summary": "EAS Workflows a native app owns, copied from templates/eas: pull request previews (fingerprint, repack a matching build or build one, an update on pr-<number>, a comment with the install QR code), a tag-started production deploy (a store build only when the native fingerprint changed, else a 10% over-the-air update, both behind an approval), a manual promote or roll back gated on failed launches, Maestro on a simulator build, and an eas.json whose profiles match the APP_VARIANT variants.",
+      "category": "Tooling",
+      "status": "building",
+      "claimedBy": "mark",
+      "layer": "tool",
+      "keywords": [
+        "eas",
+        "eas build",
+        "eas update",
+        "eas submit",
+        "ota",
+        "repack",
+        "fingerprint",
+        "pr preview",
+        "staged rollout",
+        "rollback",
+        "app store",
+        "testflight",
+        "release"
+      ],
+      "platforms": {
+        "native": "building"
+      },
+      "requires": [
+        "native-starter",
+        "expo-config-plugin",
+        "app-updates"
+      ],
+      "owner": "mark",
+      "apps": [
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "No pull request workflow can submit, publish to the production channel or use a production profile or environment.",
+        "Every store submission and every production update waits on a require-approval job, and production updates start below 100%.",
+        "The starter's eas.json, workflows and rollout check are byte-identical to templates/eas."
+      ],
+      "reviewedAt": "2026-10-24",
+      "links": {
+        "code": [
+          "templates/eas",
+          "apps/genesis-rn-starter/.eas",
+          "apps/genesis-rn-starter/eas.json"
+        ],
+        "docs": [
+          "docs/NATIVE-RELEASE.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "maestro-smoke",
+      "name": "Maestro smoke flows",
+      "summary": "Maestro flows a native app owns, copied from templates/maestro: the app launches past every boot step with no fatal screen, lands on the sign-in screen, and (with a test account) signs in and finds the version signature in Settings. They find screens by the testIDs the Genesis layouts set, and run locally or in EAS Workflows on a simulator build.",
+      "category": "Tooling",
+      "status": "building",
+      "claimedBy": "mark",
+      "layer": "tool",
+      "keywords": [
+        "e2e",
+        "end to end",
+        "ui tests",
+        "smoke test",
+        "simulator",
+        "maestro"
+      ],
+      "platforms": {
+        "native": "building"
+      },
+      "requires": [
+        "native-starter"
+      ],
+      "owner": "mark",
+      "apps": [
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Every flow names the development variant's bundle id, and the starter's flows are byte-identical to templates/maestro."
+      ],
+      "reviewedAt": "2026-10-24",
+      "links": {
+        "code": [
+          "templates/maestro",
+          "apps/genesis-rn-starter/.maestro"
+        ],
+        "docs": [
+          "apps/genesis-rn-starter/.maestro/README.md",
+          "docs/NATIVE-RELEASE.md"
         ]
       },
       "access": "all",
@@ -1944,7 +2051,8 @@
       "links": {
         "code": [
           "packages/native/src/updates",
-          "packages/supabase/migrations/0002_genesis_app_release_policy.sql"
+          "packages/supabase/migrations/0002_genesis_app_release_policy.sql",
+          "apps/genesis-rn-starter/src/lib/updates.ts"
         ],
         "docs": [
           "packages/native/README.md"
@@ -2273,7 +2381,7 @@
     {
       "id": "cli-add",
       "name": "genesis add, migrate and upgrade",
-      "summary": "Commands that add a feature block to an app (package, migrations, registry entry, routes, skill), copy new packaged migrations in, and upgrade every Genesis package together with codemods and a pull request.",
+      "summary": "Commands that add a feature block to an app (package, migrations, registry entry, routes, skill), copy new packaged migrations in, and upgrade every Genesis package together with codemods and a pull request, refreshing the template files an app owns (templates/eas, templates/maestro).",
       "category": "Tooling",
       "status": "idea",
       "layer": "tool",

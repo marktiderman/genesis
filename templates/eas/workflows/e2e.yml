@@ -1,0 +1,75 @@
+# E2E: the Maestro smoke flows in .maestro/flows on an iOS simulator build.
+#
+# 1. Fingerprint the native project as the development variant builds it (the flows name the
+#    development bundle id).
+# 2. An `e2e` simulator build with that fingerprint exists: repack it with this commit's
+#    JavaScript. None exists: build one.
+# 3. Run every flow in .maestro/flows on it.
+#
+# The `account` flows sign in, so they are left out (`exclude_tags: account`) until the
+# development EAS environment has MAESTRO_TEST_EMAIL and MAESTRO_TEST_PASSWORD (a test account on
+# the development Supabase project) as secret variables; then delete that line. Maestro reads
+# MAESTRO_* variables from the environment. This runs the pull request's code with that
+# environment's variables: keep nothing there that production depends on.
+#
+# Genesis template (templates/eas/workflows/e2e.yml). Edit the copy in your app; see
+# docs/NATIVE-RELEASE.md in the Genesis repository.
+name: E2E
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch: {}
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: development
+    env:
+      APP_VARIANT: development
+
+  get_ios_build:
+    name: Find an iOS simulator build with this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: e2e
+      simulator: true
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  repack_ios:
+    name: Repack the simulator build with this JavaScript
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: repack
+    environment: development
+    env:
+      APP_VARIANT: development
+    params:
+      build_id: ${{ needs.get_ios_build.outputs.build_id }}
+      profile: e2e
+
+  build_ios:
+    name: Build for the iOS simulator (native code changed)
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    environment: development
+    params:
+      platform: ios
+      profile: e2e
+
+  maestro_ios:
+    name: Maestro smoke flows
+    after: [repack_ios, build_ios]
+    if: ${{ after.repack_ios.outputs.build_id || after.build_ios.outputs.build_id }}
+    type: maestro
+    environment: development
+    params:
+      build_id: ${{ after.repack_ios.outputs.build_id || after.build_ios.outputs.build_id }}
+      flow_path: [".maestro/flows"]
+      exclude_tags: account
+      retries: 1

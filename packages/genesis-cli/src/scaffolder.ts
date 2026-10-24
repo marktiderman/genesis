@@ -81,7 +81,7 @@ export function validateConsumerName(name: string): void {
   if (!VALID_NAME_PATTERN.test(name)) {
     throw new Error(
       `Invalid consumer name "${name}". Must be lowercase letters/digits/hyphens, ` +
-        `2-31 chars, starting with a letter (e.g., "acme", "gamify-mobile").`,
+        `2-31 chars, starting with a letter (e.g., "acme", "arcade-mobile").`,
     );
   }
 }
@@ -247,7 +247,7 @@ function brandSchema(consumer: string): string {
  * Genesis primitives consume tokens from this file via the design-system
  * provider. Edit colors/spacing/typography here to retheme every screen
  * at once. Domain-specific tokens (e.g., "mood" for Acme, "rarity" for
- * Gamify) go under \`extensions\` — Genesis primitives don't read these,
+ * a game app) go under \`extensions\` — Genesis primitives don't read these,
  * but consumer composites do via \`useGenesisExtension(key)\`.
  *
  * Schema is intentionally narrow at the top level. Add categories under
@@ -339,9 +339,10 @@ export const brand: Brand = {
 
 function tailwindConfig(consumer: string, native: boolean): string {
   return `import type { Config } from "tailwindcss";
-import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";${native ? `
-// NativeWind v4 needs its preset; Genesis's goes after it.
-import nativewindPreset from "nativewind/preset";` : ""}
+${native ? `// NativeWind v4 needs its preset; Genesis's goes after it. The NativeWind preset also declares
+// the theme variables, which NativeWind can't import from genesis.css.
+import nativewindPreset from "nativewind/preset";
+import { genesisNativewindPreset as genesisPreset } from "@marktiderman/genesis-design-system/presets/nativewind";` : `import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";`}
 import { brand } from "@${consumer}/brand";
 
 /**

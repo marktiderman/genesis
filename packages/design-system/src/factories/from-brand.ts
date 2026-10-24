@@ -3,7 +3,7 @@
  *
  * Derives a Tailwind v4 web preset AND a NativeWind v5 native theme from a
  * single {@link CanonicalBrand} object. Used by consumer brand packages
- * (@gamify/brand, @acme/brand) so brand authors edit one file and both
+ * (@arcade/brand, @acme/brand) so brand authors edit one file and both
  * platforms stay in lockstep.
  *
  * --------------------------------------------------------------------------
@@ -749,8 +749,8 @@ function fillVarsForScale(
  * Usage in a consumer's `scripts/debug-brand.ts`:
  *
  *   import { debugBrandPreset } from "@marktiderman/genesis-design-system";
- *   import { gamifyBrand } from "../src/brand";
- *   console.log(JSON.stringify(debugBrandPreset(gamifyBrand), null, 2));
+ *   import { arcadeBrand } from "../src/brand";
+ *   console.log(JSON.stringify(debugBrandPreset(arcadeBrand), null, 2));
  *
  * Per PRD-07 A4.1: ships ~20 LoC; prevents the "factory magic" anti-
  * pattern that bites teams when the preset and the theme disagree.

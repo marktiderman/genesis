@@ -8,7 +8,7 @@
  * categories (per PRD-07 D8 — revised).
  *
  * Universal categories (always present): `neutral`, `surface`, `text`,
- * `accent`, `status`. Anything brand-domain-specific (e.g. Gamify gold/
+ * `accent`, `status`. Anything brand-domain-specific (e.g. a game app's gold/
  * silver/bronze ranks, Acme flow-template colors) lives under
  * `extensions[<key>]: ColorScale`.
  *
@@ -26,8 +26,8 @@
  *
  *   declare module "@marktiderman/genesis-design-system" {
  *     interface BrandExtensions {
- *       gameMode: ColorScale;   // Gamify-only
- *       rank: ColorScale;       // Gamify gold/silver/bronze leaderboard tier
+ *       gameMode: ColorScale;   // one app only
+ *       rank: ColorScale;       // gold/silver/bronze leaderboard tier
  *     }
  *   }
  *
@@ -43,7 +43,7 @@
  *   they're domain-tagged enough to read clearly at the callsite.
  * - When two consumers will plausibly want the same key with different
  *   values (e.g. both define `priority`), prefix with the consumer name:
- *   `gamifyPriority`, `acmePriority`. Collision is the trigger;
+ *   `arcadePriority`, `acmePriority`. Collision is the trigger;
  *   speculative prefixing pollutes the namespace.
  * - The `brand-genesis` OOTB fallback declares NO extensions — it is the
  *   reference brand-agnostic preset (per PRD-07 D2).
@@ -72,7 +72,7 @@ const LENGTH_REGEX = /^(?:0|\d+(?:\.\d+)?rem)$/;
  *
  * `DEFAULT` is required — it's the value `bg-<key>` resolves to without a
  * suffix. `light` / `dark` are the conventional emphasis pair; anything
- * else is brand-author discretion (e.g. Gamify ranks `gold` / `silver` /
+ * else is brand-author discretion (e.g. a game app's ranks `gold` / `silver` /
  * `bronze` are themselves separate `ColorScale` entries on `extensions.rank`,
  * NOT extra keys on a single `ColorScale`).
  */
@@ -140,7 +140,7 @@ export interface BrandExtensions {
  * value can't bridge. See research/a4-0-cross-platform-factory-spike.md.
  */
 export interface CanonicalBrand {
-  /** Brand identifier — kebab-case, e.g. "genesis", "gamify". */
+  /** Brand identifier — kebab-case, e.g. "genesis", "arcade". */
   name: string;
   /** Neutral grayscale ramp (50–900). */
   neutral: Record<string, string>;
@@ -177,7 +177,7 @@ export interface CanonicalBrand {
 
   /**
    * Optional typography tokens. Per PRD-07 A4.0, typography is brand-
-   * authored (Gamify chooses Oswald, Acme chooses Geist) but renders
+   * authored (one app chooses Oswald, Acme chooses Geist) but renders
    * platform-correctly via the factories: web gets a font-stack string,
    * native gets the head family (consumer is responsible for expo-font
    * registration). See {@link TypographyTokens}.

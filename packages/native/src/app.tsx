@@ -4,7 +4,7 @@
  *
  *   last-resort boundary (React Native primitives only)
  *   └ theme (GenesisThemeProvider, owning the platform color scheme)
- *     └ keyboard-aware scrolling (when `keyboardScroll` is given)
+ *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens)
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
  *         └ session + boot (splash held until both are known)
  *           └ updates (with `updates`: force upgrade, maintenance, banner, what's new)
@@ -95,7 +95,15 @@ export interface GenesisNativeAppProps {
   persist?: (client: QueryClient) => QueryPersistence;
   /** `expo-splash-screen`: hidden once boot has finished and the session is known. */
   splash?: SplashModule;
-  /** `KeyboardAwareScrollView` from react-native-keyboard-controller, for form screens. */
+  /**
+   * `KeyboardProvider` from react-native-keyboard-controller, mounted once
+   * around the app. Its keyboard views (`keyboardScroll` included) do nothing
+   * without it: give both or neither. Read once: it wraps the whole app, so
+   * a different component later would remount everything below it. To pass
+   * it props, define the wrapper at module scope, not inline.
+   */
+  keyboardProvider?: ComponentType<{ children: ReactNode }>;
+  /** `KeyboardAwareScrollView` from react-native-keyboard-controller, for form screens. Needs `keyboardProvider`. */
   keyboardScroll?: ComponentType<KeyboardScrollProps>;
   /** Follow a link held while signed out, once the user signs in. */
   links?: { hold: LinkHold; onRelease: (path: string) => void };
@@ -145,7 +153,7 @@ const ThemeProvider = GenesisThemeProvider as ComponentType<{
 }>;
 
 /**
- * The root of an Expo app: theme, keyboard scrolling, data, boot behind the splash, errors, session and held links.
+ * The root of an Expo app: theme, keyboard, data, boot behind the splash, errors, session and held links.
  *
  * @stability Beta
  */
@@ -167,12 +175,26 @@ export function GenesisNativeApp(props: GenesisNativeAppProps) {
   );
 }
 
+declare const __DEV__: boolean | undefined;
+
+const MISSING_KEYBOARD_PROVIDER =
+  "GenesisNativeApp: `keyboardScroll` was given without `keyboardProvider`, so form screens won't move above the keyboard. " +
+  'Pass `keyboardProvider={KeyboardProvider}` from "react-native-keyboard-controller" too.';
+
 function ThemedShell(props: GenesisNativeAppProps) {
   const { brand, keyboardScroll } = props;
-  const body = <Shell {...props} />;
+  // Frozen: a new component type here (an inline wrapper) would remount the shell and reset the app.
+  const [Keyboard] = useState(() => props.keyboardProvider);
+  const missingProvider = Boolean(keyboardScroll) && !Keyboard;
+  useEffect(() => {
+    if (missingProvider && typeof __DEV__ !== "undefined" && __DEV__) console.error(MISSING_KEYBOARD_PROVIDER);
+  }, [missingProvider]);
+  let body = <Shell {...props} />;
+  if (keyboardScroll) body = <KeyboardScrollProvider component={keyboardScroll}>{body}</KeyboardScrollProvider>;
+  if (Keyboard) body = <Keyboard>{body}</Keyboard>;
   return (
     <ThemeProvider brand={brand} syncNativeAppearance>
-      {keyboardScroll ? <KeyboardScrollProvider component={keyboardScroll}>{body}</KeyboardScrollProvider> : body}
+      {body}
     </ThemeProvider>
   );
 }
