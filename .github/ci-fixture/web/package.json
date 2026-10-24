@@ -1,0 +1,11 @@
+{
+  "name": "genesis-ci-fixture-web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "An app in a subfolder with no lockfile of its own: app-ci installs at the fixture root and runs the checks here.",
+  "scripts": {
+    "typecheck": "node -e \"console.log('web typecheck ok')\"",
+    "lint": "node -e \"console.log('web lint ok')\"",
+    "test": "node -e \"console.log('web test ok')\""
+  }
+}

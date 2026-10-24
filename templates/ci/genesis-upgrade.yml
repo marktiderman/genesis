@@ -1,0 +1,21 @@
+# Copy to .github/workflows/genesis-upgrade.yml. Replace GENESIS_SHA with the
+# commit of the Genesis release you run (docs/APP-CI.md in marktiderman/genesis).
+name: Genesis upgrade
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays, 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  upgrade:
+    uses: marktiderman/genesis/.github/workflows/genesis-upgrade.yml@GENESIS_SHA # @marktiderman/genesis@X.Y.Z
+    with:
+      package-manager: pnpm # or bun, npm
+    # So CI runs on the pull request (the default token can't start workflows):
+    # secrets:
+    #   token: ${{ secrets.GENESIS_UPGRADE_TOKEN }}

@@ -1,0 +1,3 @@
+# The doctor reads genesis-ui's type declarations only, so its React peers are not installed.
+[install]
+peer = false

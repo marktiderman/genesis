@@ -1,0 +1,262 @@
+# Genesis Supabase CI (reusable): `genesis doctor` with the supabase pack, then
+# the database from every migration (`supabase db start`) and its pgTAP tests
+# (`supabase test db`).
+#
+# Call it from the app's own workflow (templates/ci/supabase-ci.yml is a ready copy):
+#
+#   jobs:
+#     database:
+#       uses: marktiderman/genesis/.github/workflows/supabase-ci.yml@<commit sha> # @marktiderman/genesis@<version>
+#       with:
+#         package-manager: pnpm
+#
+# The doctor job needs the pack turned on in the app's doctor config
+# (`"packs": ["supabase"]`) and fails if it isn't. If the app also calls
+# app-ci, whose doctor runs every pack, pass `doctor: false` here.
+#
+# Every input reaches a shell through `env:`, never inside the script text.
+# Both jobs only read the repository (`contents: read`).
+
+name: Genesis Supabase CI (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      package-manager:
+        description: "pnpm, bun or npm (for the doctor job's install)"
+        type: string
+        default: pnpm
+      package-manager-version:
+        description: "pnpm or bun version. Empty: from package.json packageManager (bun: then engines.bun, then latest). Ignored for npm."
+        type: string
+        default: ""
+      working-directory:
+        description: "The folder that holds package.json and supabase/, relative to the repository root"
+        type: string
+        default: "."
+      node-version:
+        description: "Node.js version"
+        type: string
+        default: "22"
+      supabase-version:
+        description: "Supabase CLI version (a fixed version is reproducible; 'latest' is not)"
+        type: string
+        default: "2.122.0"
+      tests-path:
+        description: "pgTAP tests, relative to working-directory (a folder or a file)"
+        type: string
+        default: supabase/tests
+      doctor:
+        description: "Run genesis doctor with the supabase pack"
+        type: boolean
+        default: true
+      doctor-strict:
+        description: "Fail the doctor on warnings too (genesis doctor --strict)"
+        type: boolean
+        default: false
+      pgtap:
+        description: "Start the database from the migrations and run the pgTAP tests"
+        type: boolean
+        default: true
+      timeout-minutes:
+        description: "Timeout for each job"
+        type: number
+        default: 20
+    secrets:
+      npm-token:
+        description: "Optional registry token, exposed as NODE_AUTH_TOKEN to the install (for an .npmrc that reads it)"
+        required: false
+
+jobs:
+  doctor:
+    name: Doctor (supabase pack)
+    if: inputs.doctor
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    concurrency:
+      group: genesis-supabase-doctor-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ inputs.working-directory }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - name: Refuse pull_request_target
+        if: github.event_name == 'pull_request_target'
+        run: |
+          echo "::error title=supabase-ci::Call supabase-ci from a pull_request workflow, not pull_request_target: it runs the pull request's code."
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # migration-edited compares migrations with the base branch: it needs the merge base.
+          fetch-depth: 0
+
+      - name: Find the app and its lockfile
+        id: app
+        env:
+          PM: ${{ inputs.package-manager }}
+          WD: ${{ inputs.working-directory }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error title=supabase-ci::$1"; exit 1; }
+          case "$PM" in
+            pnpm) locks="pnpm-lock.yaml" ;;
+            bun) locks="bun.lock bun.lockb" ;;
+            npm) locks="package-lock.json npm-shrinkwrap.json" ;;
+            *) fail "package-manager must be pnpm, bun or npm, not '$PM'" ;;
+          esac
+          ws=$(pwd -P)
+          app=$(cd -- "$WD" 2>/dev/null && pwd -P) || fail "working-directory '$WD' does not exist"
+          case "$app/" in "$ws"/*) ;; *) fail "working-directory '$WD' is outside the repository" ;; esac
+          [ -f "$app/package.json" ] || fail "working-directory '$WD' has no package.json"
+          dir=$app
+          lockfile=''
+          while :; do
+            for l in $locks; do
+              if [ -f "$dir/$l" ]; then lockfile=$dir/$l; break 2; fi
+            done
+            [ "$dir" = "$ws" ] && break
+            dir=$(dirname -- "$dir")
+          done
+          [ -n "$lockfile" ] || fail "no $PM lockfile ($locks) in '$WD' or a folder above it. Commit one: CI installs exactly what it records."
+          rel() { local p=${1#"$ws"}; p=${p#/}; echo "${p:-.}"; }
+          echo "root=$(rel "$(dirname -- "$lockfile")")" >> "$GITHUB_OUTPUT"
+          echo "lockfile=$(rel "$lockfile")" >> "$GITHUB_OUTPUT"
+
+      - name: Set up pnpm
+        if: inputs.package-manager == 'pnpm'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: ${{ inputs.package-manager-version }}
+          package_json_file: ${{ steps.app.outputs.root }}/package.json
+
+      - name: Set up Bun
+        if: inputs.package-manager == 'bun'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ inputs.package-manager-version }}
+          bun-version-file: ${{ steps.app.outputs.root }}/package.json
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager != 'bun' && inputs.package-manager || '' }}
+          cache-dependency-path: ${{ steps.app.outputs.lockfile }}
+          package-manager-cache: false
+
+      - name: Cache Bun's install cache
+        if: inputs.package-manager == 'bun'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: genesis-bun-${{ runner.os }}-${{ hashFiles(steps.app.outputs.lockfile) }}
+          restore-keys: genesis-bun-${{ runner.os }}-
+
+      - name: Install (frozen lockfile)
+        working-directory: ${{ steps.app.outputs.root }}
+        env:
+          PM: ${{ inputs.package-manager }}
+          NODE_AUTH_TOKEN: ${{ secrets.npm-token }}
+        run: |
+          set -euo pipefail
+          case "$PM" in
+            pnpm) pnpm install --frozen-lockfile ;;
+            bun) bun install --frozen-lockfile ;;
+            npm) npm ci ;;
+          esac
+
+      # Reads the doctor config the way the doctor does (the installed CLI's loadConfig),
+      # so a missing pack fails here instead of passing with no migration rules run.
+      - name: Check the supabase pack is on
+        id: plan
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          node --input-type=module - <<'JS'
+            import { existsSync, appendFileSync } from "node:fs";
+            import path from "node:path";
+            let bin = "";
+            for (let dir = process.cwd(); ; dir = path.dirname(dir)) {
+              const candidate = path.join(dir, "node_modules", ".bin", "genesis");
+              if (existsSync(candidate)) { bin = candidate; break; }
+              if (dir === process.env.GITHUB_WORKSPACE || path.dirname(dir) === dir) break;
+            }
+            if (!bin) {
+              console.log("::error title=supabase-ci::@marktiderman/genesis-cli is not installed. Add it to devDependencies, or pass doctor: false.");
+              process.exit(1);
+            }
+            const { loadConfig } = await import("@marktiderman/genesis-cli/doctor");
+            let loaded;
+            try {
+              loaded = loadConfig(process.cwd());
+            } catch (err) {
+              // A CLI from before doctor packs rejects the "packs" key itself.
+              console.log(`::error title=supabase-ci::The doctor config is invalid for the installed @marktiderman/genesis-cli: ${err.message}. The supabase pack needs a CLI release that has doctor packs.`);
+              process.exit(1);
+            }
+            const { config, file } = loaded;
+            if (!(config.packs ?? []).includes("supabase")) {
+              console.log(`::error title=supabase-ci::The doctor config (${file ? path.relative(process.cwd(), file) : "none found"}) does not turn the supabase pack on. Add "packs": ["supabase"] to its doctor settings.`);
+              process.exit(1);
+            }
+            appendFileSync(process.env.GITHUB_OUTPUT, `bin=${bin}\n`);
+          JS
+
+      - name: genesis doctor
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          GENESIS: ${{ steps.plan.outputs.bin }}
+          STRICT: ${{ inputs.doctor-strict }}
+        run: |
+          set -euo pipefail
+          if [ "$STRICT" = "true" ]; then "$GENESIS" doctor --strict; else "$GENESIS" doctor; fi
+
+  pgtap:
+    name: Database and pgTAP
+    if: inputs.pgtap
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    concurrency:
+      group: genesis-supabase-pgtap-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ inputs.working-directory }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - name: Refuse pull_request_target
+        if: github.event_name == 'pull_request_target'
+        run: |
+          echo "::error title=supabase-ci::Call supabase-ci from a pull_request workflow, not pull_request_target: it runs the pull request's code."
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the paths
+        env:
+          WD: ${{ inputs.working-directory }}
+          TESTS: ${{ inputs.tests-path }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error title=supabase-ci::$1"; exit 1; }
+          ws=$(pwd -P)
+          app=$(cd -- "$WD" 2>/dev/null && pwd -P) || fail "working-directory '$WD' does not exist"
+          case "$app/" in "$ws"/*) ;; *) fail "working-directory '$WD' is outside the repository" ;; esac
+          [ -f "$app/supabase/config.toml" ] || fail "'$WD' has no supabase/config.toml (run supabase init there, or set working-directory)"
+          [ -e "$app/$TESTS" ] || fail "no pgTAP tests at '$TESTS' in '$WD' (set tests-path, or pass pgtap: false)"
+          real=$(cd -- "$(dirname -- "$app/$TESTS")" && pwd -P)
+          case "$real/" in "$ws"/*) ;; *) fail "tests-path '$TESTS' is outside the repository" ;; esac
+
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: ${{ inputs.supabase-version }}
+
+      # Postgres alone, built from every migration and then the seed.
+      - name: supabase db start
+        working-directory: ${{ inputs.working-directory }}
+        run: supabase db start
+
+      - name: supabase test db
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          TESTS: ${{ inputs.tests-path }}
+        run: supabase test db "$TESTS"

@@ -424,6 +424,33 @@ export const features = defineFeatures({
     reviewedAt,
     links: { code: ["packages/genesis-cli/src/doctor", "packages/genesis-cli/src/vite.ts"] },
   },
+  "ci-templates": {
+    name: "CI templates",
+    summary: "Reusable GitHub Actions workflows an app calls in a few lines: app-ci (install, typecheck, lint, test, doctor, features check), supabase-ci (doctor with the supabase pack, db start, pgTAP) and genesis-upgrade (moves every Genesis package to one release and opens a pull request), for pnpm, Bun or npm.",
+    category: "Tooling",
+    status: "building",
+    layer: "tool",
+    keywords: ["ci", "github actions", "workflow", "reusable workflow", "upgrade", "dependabot", "pgtap"],
+    requires: ["cli-doctor", "feature-registry"],
+    owner: "mark",
+    apps: ["cli"],
+    audience: ["developer"],
+    acceptance: [
+      "An app's CI file of about 15 lines runs install, typecheck, lint, test, the doctor and the features check with pnpm, Bun or npm.",
+      "genesis-upgrade moves every @marktiderman/genesis* dependency to the umbrella's versions.json and opens or updates one pull request.",
+    ],
+    reviewedAt,
+    links: {
+      code: [
+        ".github/workflows/app-ci.yml",
+        ".github/workflows/supabase-ci.yml",
+        ".github/workflows/genesis-upgrade.yml",
+        ".github/workflows/ci-templates-self-test.yml",
+        "templates/ci",
+      ],
+      docs: ["docs/APP-CI.md"],
+    },
+  },
   "cli-introspect": {
     name: "genesis introspect",
     summary: "Writes a checked-in contract of every table from the Postgres catalog or a PostgREST OpenAPI document; --check catches drift in CI.",
