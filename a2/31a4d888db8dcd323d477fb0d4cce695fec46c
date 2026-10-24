@@ -1,0 +1,263 @@
+apps/genesis-rn-starter/supabase/config.toml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 17-22
+packages/forms/src/props-check.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 8-9
+  s_8252619ce79a86::t_69132c616dc3fd 1-7,10-77
+apps/genesis-rn-starter/supabase/tests/database/genesis_apple_token_revocation.test.sql
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-230
+packages/forms-web/src/Form.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 18,31,35-36,565-567,586,649-686,691-692,695-697,701,711,719,724-725,745,811,819,838-839,886,906
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-256
+templates/eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-109
+templates/eas/workflows/rollout.yml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-118
+apps/genesis-rn-starter/supabase/migrations/20261024000200_genesis_apple_token_revocation.sql
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-205
+packages/forms-react/src/controller.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-429
+packages/supabase/src/apple-tokens.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-71
+docs/NATIVE-RELEASE.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-164
+packages/forms-react/src/engine-hooks.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-38
+.changeset/settings-native-headers.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-5
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1,7,46-86,167-206
+docs/FORMS.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 7,13,16-17,19,23-26,436-442
+  s_8252619ce79a86::t_deeeb9508ff8e8 443
+apps/genesis-rn-starter/src/lib/updates.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-52
+apps/genesis-rn-starter/.maestro/README.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 3-4,6-13,21-23,26-30,32-34,36-37
+.changeset/forms-registry-controller.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-37
+templates/eas/eas.json
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-45
+apps/genesis-rn-starter/src/lib/supabase.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 7,60-61
+apps/genesis-rn-starter/supabase/tests/database/genesis_app_release_policy.test.sql
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-148
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 7,98-106,156,178-183,186-194,197
+templates/eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-138
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 5,10-11,14,29
+packages/forms-react/src/index.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1,14,18-31
+  s_8252619ce79a86::t_6894d6729d879c 193-199
+packages/supabase/migrations/0003_genesis_apple_token_revocation.sql
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-205
+packages/ui-native/types/react-native.d.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 67-79,342-347
+  s_8252619ce79a86::t_84952987a220bd 348
+templates/maestro/config.yaml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-5
+apps/genesis-rn-starter/.maestro/flows/settings-version.yaml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-28
+docs/APP-CI.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 6-10
+apps/genesis-rn-starter/supabase/functions/genesis-apple-revoke/handler.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-227
+packages/design-system/src/presets/__tests__/nativewind.test.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-51
+packages/forms/src/fields.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1,5-9,12-17,35-54,56-59,61,68-78,83-85,88-96,98-107,109-135,137,145-162,173-271,572-614,623,633,643,657,672-678,698-699,716-719,728-731,740,751-754,763-772,801-811,834-835,904
+templates/maestro/subflows/sign-in.yaml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-20
+apps/genesis-rn-starter/starter.config.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 13-15,28
+templates/eas/workflows/e2e.yml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-75
+packages/forms/src/structured.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 2,114-144,147-148,170,214-217,243-246
+packages/native/README.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 9,19,39-43
+apps/genesis-rn-starter/.eas/workflows/rollout.yml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-118
+templates/maestro/flows/launch.yaml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-17
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 6,12,16,21-23,63
+packages/supabase/functions/genesis-apple-revoke/handler.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-227
+packages/design-system/style-dictionary.config.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 22,40
+packages/genesis-cli/test/scaffolder.test.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 278-279
+packages/supabase/functions/tests/genesis-apple-revoke_test.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-81
+packages/supabase/src/__tests__/web-crypto.test.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-188
+packages/forms/src/__tests__/merge.test.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-117
+apps/genesis-rn-starter/src/app/sign-in.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 5,19-21,26-27,36-37,48
+apps/genesis-rn-starter/supabase/functions/genesis-apple-revoke/apple.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-237
+packages/forms/src/__tests__/registry.test.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-248
+apps/genesis-rn-starter/src/lib/account.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 28-29
+apps/genesis-rn-starter/eas.json
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-45
+templates/eas/scripts/rollout-health.mjs
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-85
+templates/maestro/flows/sign-in-screen.yaml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-17
+packages/forms/src/options.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 7,12-15,18-20,221,272,365-381,418-434,457
+packages/forms-react/src/__tests__/controller.test.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-236
+docs/README.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 20-22
+apps/genesis-rn-starter/src/lib/app.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 10,18,36,39
+packages/forms/src/index.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 39,41-50,178-179
+packages/supabase/README.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 9,16,23,28,37-39,46-47,58-62,175-287,291-298
+packages/forms-react/src/__tests__/drafts-outbox.test.tsx
+  s_8252619ce79a86::t_50cc99e780d713 15-24,176-225
+  s_8252619ce79a86::t_b484e31b4573d3 226
+packages/ui-native/src/layouts/settings-page.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 17-25,37,39,41,178-183,217-238,240-270,273-279,288-292,298-311,317-328,330
+apps/genesis-rn-starter/eslint.config.js
+  s_8252619ce79a86::t_3ee3be7a4cfe17 5
+packages/supabase/package.json
+  s_8252619ce79a86::t_3ee3be7a4cfe17 34
+packages/design-system/src/presets/nativewind.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-62
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-109
+packages/ui-native/src/layouts/keyboard.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 7-10,12-15
+packages/forms-web/package.json
+  s_8252619ce79a86::t_3ee3be7a4cfe17 43
+.changeset/forms-react-drafts-outbox.md
+  s_8252619ce79a86::t_cf455c792173e8 9-11
+AGENTS.md
+  s_8252619ce79a86::t_06fba6fe519095 16
+apps/genesis-rn-starter/supabase/migrations/20261024000100_genesis_app_release_policy.sql
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-82
+packages/forms/src/parse.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1,3,7-8,55-60,64-66,125-134,179-180,209,239,271,275-276,287,294,302-303,305-309,452-453
+packages/genesis-cli/src/scaffolder.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 342-345
+apps/genesis-rn-starter/.eas/workflows/e2e.yml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-75
+packages/forms/src/server.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 339
+apps/genesis-rn-starter/.maestro/subflows/sign-in.yaml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-20
+apps/genesis-rn-starter/supabase/functions/genesis-apple-revoke/index.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-55
+packages/forms/README.md
+  s_8252619ce79a86::t_cf455c792173e8 720-723
+  s_8252619ce79a86::t_3ee3be7a4cfe17 81-82,366-423
+  s_8252619ce79a86::t_9c1888f2266eae 424
+packages/forms/src/calculated.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 2,359-369
+packages/supabase/tsconfig.json
+  s_8252619ce79a86::t_3ee3be7a4cfe17 14
+packages/supabase/src/__tests__/apple-revoke.test.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-352
+packages/supabase/functions/genesis-apple-revoke/index.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-55
+packages/forms/src/merge.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-89
+apps/genesis-rn-starter/tsconfig.json
+  s_8252619ce79a86::t_3ee3be7a4cfe17 11-12
+packages/forms-react/src/outbox.ts
+  s_8252619ce79a86::t_50cc99e780d713 2,49-90
+features.json
+  s_8252619ce79a86::t_3ee3be7a4cfe17 632,663-665,683,689-691,709-710,1582,1606-1607,1620,1623,1638-1742,1784,1806,1808,1818-1820,1823-1827,1842-1859,2208-2209,2538
+packages/forms-react/README.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 15-51
+apps/genesis-rn-starter/.maestro/flows/sign-in-screen.yaml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 3,5-6
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 16-21,46-51,77-79,82-92
+  s_8252619ce79a86::t_480e4e61cc6805 93
+.changeset/starter-sim-fixes.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-15
+apps/genesis-rn-starter/src/lib/auth.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 7-8,50-55
+apps/genesis-rn-starter/tailwind.config.mjs
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-2,4,9
+.changeset/apple-token-revocation.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-7
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-138
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_3ee3be7a4cfe17 14-15,34,43,69-70
+packages/forms/src/__tests__/golden.test.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-506
+packages/forms/src/types.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 59-63,65-66
+packages/supabase/src/index.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 6-18,42-53,60-61,72,75-77,91-94,146-158,169-172,177,179-181
+packages/ui-native/test-utils/rn-mock.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 53,83-84,369-378
+  s_8252619ce79a86::t_f2bc0c3deae0f3 379
+packages/forms/src/validate.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 2,50-56
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 33-34,63,68,101-107,110-119,127,134-150,154-156,161-168
+features.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 287,298-302,308,311,317-320,705,711,718,721,727-773,793,809,811,814-816,822-833,982,1132
+apps/genesis-rn-starter/.maestro/flows/launch.yaml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-17
+packages/design-system/tsup.config.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 24
+templates/maestro/flows/settings-version.yaml
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-28
+packages/native/src/__tests__/app.test.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 2,319-379
+apps/genesis-rn-starter/.eas/scripts/rollout-health.mjs
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-85
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_3ee3be7a4cfe17 2104,4042
+packages/forms/src/photo.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 2,132-147
+packages/supabase/src/native.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 10-17
+  s_8252619ce79a86::t_ca5fa8dbf6d746 9
+docs/component-reference.md
+  s_8252619ce79a86::t_3ee3be7a4cfe17 876
+packages/supabase/functions/genesis-apple-revoke/apple.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-237
+packages/design-system/src/tokens/theme-css.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 13-14,219-222,225-233,296-328
+packages/supabase/src/web-crypto.ts
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-211
+packages/ui-native/src/layouts/__tests__/settings-page-native-look.test.tsx
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-142
+packages/supabase/migrations/tests/0003_genesis_apple_token_revocation.test.sql
+  s_8252619ce79a86::t_3ee3be7a4cfe17 1-230
+packages/forms/src/__tests__/__snapshots__/golden.test.ts.snap
+  s_8252619ce79a86::t_04726a9a8d13c8 1-7145
+pnpm-lock.yaml
+  s_8252619ce79a86::t_54ac825024d3da 83-85,110-112,186-188,5291-5293,6292-6296,6315-6317,6348-6350,6364-6368,6458-6477,13774-13775,14994-14997,15023-15024,15050-15051,15068-15072,15177-15207
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a231a4d888db8dcd323d477fb0d4cce695fec46c",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
