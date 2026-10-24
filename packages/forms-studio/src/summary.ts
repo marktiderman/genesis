@@ -5,6 +5,8 @@
 // no storage, no React. Moved up from Breakthrough's src/lib/forms/summary.ts.
 import {
   choiceOptions,
+  isOtherValue,
+  otherOption,
   type FieldBlock,
   type FormDefinition,
   type Json,
@@ -132,6 +134,9 @@ const CONSENT = [
   { value: "false", label: "Didn't agree" },
 ];
 
+/** The summary row that counts a question's typed "Other" answers. */
+export const OTHER_BUCKET = "__other__";
+
 const optionsOf = (field: FieldBlock) =>
   field.type === "yes-no"
     ? YES_NO
@@ -247,6 +252,16 @@ export function summarizeResponses(
     if (CHOICE_TYPES.has(field.type)) {
       const options = optionsOf(field).map((o) => ({ ...o, count: 0 }));
       const find = (value: string, from: FieldBlock) => {
+        // Typed "Other" answers count together, under the question's Other label.
+        if (isOtherValue(from, value) && !options.some((o) => o.value === value)) {
+          value = OTHER_BUCKET;
+          let bucket = options.find((o) => o.value === OTHER_BUCKET);
+          if (!bucket) {
+            bucket = { value: OTHER_BUCKET, label: (otherOption(field) ?? otherOption(from))!.label, count: 0 };
+            options.push(bucket);
+          }
+          return bucket;
+        }
         let option = options.find((o) => o.value === value);
         if (!option) {
           // An option only an older version had: its label from that version.

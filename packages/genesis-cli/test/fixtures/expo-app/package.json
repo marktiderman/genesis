@@ -1,0 +1,8 @@
+{
+  "name": "expo-plugin-fixture",
+  "private": true,
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "expo-secure-store": "~55.0.0"
+  }
+}

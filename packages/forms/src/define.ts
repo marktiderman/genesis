@@ -48,6 +48,11 @@ export interface ChoiceFieldOptions<O extends string> extends FieldOptions {
    * to `createForm` and `validateSubmission`.
    */
   optionsFrom?: OptionsSource | undefined;
+  /**
+   * An "Other" option the respondent fills in (`true`, or `{ label }` to name it): their text is
+   * the answer (one more item on a multiple choice). See `otherOption`.
+   */
+  other?: boolean | { label?: string } | undefined;
 }
 
 function field<K extends string, V>(
@@ -82,6 +87,7 @@ const choiceProps = (o: ChoiceFieldOptions<string>): Record<string, Json> => {
     out.options = (o.options ?? []).map((x): Json => (x.label ? { value: x.value, label: x.label } : { value: x.value }));
   }
   if (o.optionsFrom) out.optionsFrom = { source: o.optionsFrom.source, key: o.optionsFrom.key };
+  if (o.other) out.other = o.other === true ? true : props({ label: o.other.label });
   return out;
 };
 

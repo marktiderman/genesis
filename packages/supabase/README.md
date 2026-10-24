@@ -27,6 +27,7 @@ const rows = must(await supabase.from("tasks").select("*"));
 
 Nothing here imports React Native or Expo: you pass those modules in.
 
+<<<<<<< HEAD
 ## Account: sign-in and deletion
 
 What the App Store asks of an app with accounts: an equivalent privacy-preserving login beside any
@@ -182,5 +183,13 @@ import { deleteMyAccount } from "@marktiderman/genesis-supabase";
      only the service role reads.
   3. Before deletion, a function calls `https://appleid.apple.com/auth/revoke` with that refresh
      token (`token_type_hint=refresh_token`), then calls `delete_my_account` (or the app does).
+=======
+## Choices, and why
+
+- **Keychain chunks rather than encrypted AsyncStorage.** Supabase's Expo guide shows two options: an AES-encrypted value in AsyncStorage with the key in SecureStore ("LargeSecureStore"), or `expo-sqlite/localStorage`. `keychainStorage` keeps the whole session in the Keychain/Keystore instead, split into chunks under the item size limit, with an atomic switch between generations. That means one native dependency (`expo-secure-store`) rather than three, no key to manage, and a session that can't be read off the device's file system. If you prefer LargeSecureStore, pass it as `storage`; everything else here works the same.
+- **The URL polyfill.** Supabase's React Native guides still import `react-native-url-polyfill/auto` before creating the client. Keep it until your app has tested PKCE sign-in end to end without it: React Native's built-in `URL` has improved, but the docs don't yet say it's enough.
+- **`refreshWhileActive` on native only.** Supabase gates the AppState listener to native platforms; call it from native code (not on web, where the browser already refreshes in the background).
+
+>>>>>>> origin/staging/genesis-rn
 
 Part of the [Genesis framework](https://github.com/marktiderman/genesis).

@@ -265,7 +265,7 @@ export function SettingsPanel({
           <SwitchRow
             label="Save answers as they go"
             testID="builder-save-progress"
-            hint="Each Next saves the answers so far, so you keep what people filled in even if they never send it. Unfinished responses show as Partial. The form tells people their answers save as they go."
+            hint="Where the app showing the form saves progress, each Next saves the answers so far, so you keep what people filled in even if they never send it. Unfinished responses show as Partial. The form tells people their answers save as they go."
             checked={def.settings?.saveProgress === true}
             onChange={(saveProgress) => apply((d) => updateSettings(d, { saveProgress }))}
           />
