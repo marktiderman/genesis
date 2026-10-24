@@ -1,0 +1,35 @@
+packages/native/README.md
+  s_8252619ce79a86::t_cda729629d2dc9 294
+packages/native/src/push/registration.ts
+  s_8252619ce79a86::t_cda729629d2dc9 5
+packages/ui-native/src/components/date-time-picker.tsx
+  s_8252619ce79a86::t_cda729629d2dc9 25-26,94-95
+features.json
+  s_8252619ce79a86::t_cda729629d2dc9 2103
+features.ts
+  s_8252619ce79a86::t_cda729629d2dc9 932
+packages/native/src/push/block.tsx
+  s_8252619ce79a86::t_cda729629d2dc9 379
+apps/genesis-rn-starter/src/lib/push.ts
+  s_8252619ce79a86::t_cda729629d2dc9 21,40-41,43
+packages/native/src/push/index.ts
+  s_8252619ce79a86::t_cda729629d2dc9 7
+packages/native/src/push/settings.tsx
+  s_8252619ce79a86::t_cda729629d2dc9 349
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9bc06393c76b9a8ac6af21d8852964e64ee46de8",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
