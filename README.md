@@ -136,7 +136,7 @@ Details, config and the plugin API: [`packages/genesis-cli`](./packages/genesis-
 ## Reference apps
 
 - [`apps/sample`](./apps/sample) — a web app consuming every package, including a live sandbox for `ResourcePage` configuration.
-- [`apps/sample-native`](./apps/sample-native) — the Expo/React Native counterpart.
+- [`apps/genesis-rn-starter`](./apps/genesis-rn-starter) — the Expo starter: a new native app with sign-in, settings, account deletion and notifications on day one, each turned off in one line.
 
 Start here if you want to see the packages used together before wiring them into your own app.
 

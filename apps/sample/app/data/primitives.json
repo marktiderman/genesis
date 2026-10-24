@@ -5015,7 +5015,7 @@
               "type": "number",
               "required": false,
               "defaultValue": "4",
-              "description": ""
+              "description": "Sets the number of rows for a `TextInput`. Use it with multiline set to\n`true` to be able to fill the lines."
             }
           ]
         }

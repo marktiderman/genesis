@@ -303,6 +303,10 @@ function processFiles(
         const parentName = prop.parent.fileName;
         if (parentName.includes("node_modules")) return false;
       }
+      // React Native 0.88 declares its props in type aliases (`Readonly<{…}>`), which leave
+      // `parent` unset, so look at where the prop is declared as well.
+      const inReactNative = (fileName: string) => /[\\/]node_modules[\\/]react-native[\\/]/.test(fileName);
+      if (prop.declarations?.length && prop.declarations.every((d) => inReactNative(d.fileName))) return false;
       return true;
     },
   });

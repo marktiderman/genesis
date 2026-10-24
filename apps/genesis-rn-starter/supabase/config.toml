@@ -1,0 +1,16 @@
+# The local Supabase stack for the starter (`supabase start`). Settings not listed here keep the
+# CLI's defaults. See https://supabase.com/docs/guides/local-development/cli/config
+project_id = "genesis-rn-starter"
+
+[auth]
+# The app's scheme (starter.config.ts) for sign-up confirmation and future OAuth redirects.
+additional_redirect_urls = ["genesis-starter://"]
+
+[auth.email]
+enable_confirmations = true
+
+# Sign in with Apple: the bundle id (and its .dev / .preview variants) as client ids.
+[auth.external.apple]
+enabled = true
+client_id = "com.example.genesisstarter,com.example.genesisstarter.dev,com.example.genesisstarter.preview"
+secret = ""

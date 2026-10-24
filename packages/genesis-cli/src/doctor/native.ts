@@ -11,6 +11,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { NATIVE_WRAPPED_PRIMITIVES, wrappedPrimitivesIn } from "../../../../scripts/lib/native-primitives.mjs";
+import { privacyApisFor } from "../expo.js";
 import { DoctorConfigError } from "./config.js";
 import { NATIVE_UI_PACKAGE, readPackageExports, type PackageExports } from "./genesis.js";
 import { lineAt } from "./scan.js";
@@ -266,6 +267,9 @@ const WEAK_SOCIAL_SIGN_IN = ["expo-auth-session"];
 const APPLE_SIGN_IN = ["expo-apple-authentication", "@invertase/react-native-apple-authentication"];
 const EXPO_CONFIGS = ["app.json", "app.config.json", "app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs"];
 const SUPABASE_SIGN_IN = /\bsignInWith(?:OAuth|IdToken)\s*\(\s*\{\s*provider\s*:\s*["']([\w-]+)["']/g;
+/** This package's Expo config plugin, as `plugins` lists it. */
+const GENESIS_PLUGIN = "@marktiderman/genesis-cli";
+const GENESIS_PLUGIN_TEXT = /["']@marktiderman\/genesis-cli(?:\/expo)?["']|\bwithGenesis\s*\(/;
 
 /** The app's Expo config as data (JSON files) plus text (dynamic configs, scanned best-effort). */
 interface ExpoConfig {
@@ -321,6 +325,13 @@ function dependencies(root: string): Set<string> {
   return new Set([...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})]);
 }
 
+/** `dependencies` only, as the config plugin reads them (dev tools ship nothing). */
+function runtimeDependencies(root: string): Record<string, unknown> {
+  const file = path.join(root, "package.json");
+  if (!existsSync(file)) return {};
+  return (JSON.parse(readFileSync(file, "utf8")) as { dependencies?: Record<string, unknown> }).dependencies ?? {};
+}
+
 /** `store-readiness`: static App Store checks against app.json / app.config.*. */
 export function checkStoreReadiness(ctx: DoctorContext): void {
   const configs = readExpoConfigs(ctx.root);
@@ -333,8 +344,25 @@ export function checkStoreReadiness(ctx: DoctorContext): void {
   /** A setting is present in any config: the JSON path is set, or a dynamic config's text names it. */
   const has = (keys: string[], word: string) =>
     configs.some((c) => (c.json ? get(c.json, keys) !== undefined : new RegExp(`\\b${word}\\b`).test(c.text)));
+  /**
+   * This package's own config plugin (`withGenesis()`) is listed and its `option` isn't `false`, so
+   * it sets that step when the config is evaluated. A dynamic config is read as text: the plugin's
+   * name or `withGenesis(`, and no `option: false`.
+   */
+  const genesisPluginDoes = (option: string) =>
+    configs.some((c) => {
+      if (c.json) {
+        const options = pluginOptions(c.json, GENESIS_PLUGIN) ?? pluginOptions(c.json, `${GENESIS_PLUGIN}/expo`);
+        return options !== null && options[option] !== false;
+      }
+      return GENESIS_PLUGIN_TEXT.test(c.text) && !new RegExp(`\\b${option}\\s*:\\s*false\\b`).test(c.text);
+    });
 
-  if (!has(["ios", "config", "usesNonExemptEncryption"], "usesNonExemptEncryption") && !has(["ios", "infoPlist", "ITSAppUsesNonExemptEncryption"], "ITSAppUsesNonExemptEncryption")) {
+  const exportCompliance =
+    has(["ios", "config", "usesNonExemptEncryption"], "usesNonExemptEncryption") ||
+    has(["ios", "infoPlist", "ITSAppUsesNonExemptEncryption"], "ITSAppUsesNonExemptEncryption") ||
+    genesisPluginDoes("exportCompliance");
+  if (!exportCompliance) {
     ctx.report({
       rule: "store-readiness",
       level: "warn",
@@ -390,7 +418,9 @@ export function checkStoreReadiness(ctx: DoctorContext): void {
     });
   }
 
-  if (!has(["ios", "privacyManifests"], "privacyManifests")) {
+  // The plugin writes a manifest only for packages it knows need one (`privacyApisFor`).
+  const pluginManifest = genesisPluginDoes("privacyManifest") && privacyApisFor(runtimeDependencies(ctx.root)).length > 0;
+  if (!has(["ios", "privacyManifests"], "privacyManifests") && !pluginManifest) {
     ctx.report({
       rule: "store-readiness",
       level: "warn",

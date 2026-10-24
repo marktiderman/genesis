@@ -39,7 +39,7 @@
  *
  * Usage:
  *   node scripts/check-testid-coverage.mjs                 # scans apps/
- *   node scripts/check-testid-coverage.mjs apps/sample-native
+ *   node scripts/check-testid-coverage.mjs apps/genesis-rn-starter
  *   node scripts/check-testid-coverage.mjs --self-test      # run built-in fixture checks, no scan
  *   pnpm check:testid-coverage
  *
