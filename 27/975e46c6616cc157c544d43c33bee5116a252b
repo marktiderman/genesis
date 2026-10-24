@@ -1,0 +1,35 @@
+packages/design-system/src/tokens/theme-css.ts
+  s_8252619ce79a86::t_68782e1a637694 6
+packages/design-system/src/providers/native.ts
+  s_8252619ce79a86::t_68782e1a637694 27,88
+packages/design-system/tokens/dtcg/brands/genesis.json
+  s_8252619ce79a86::t_68782e1a637694 3,5-7
+packages/design-system/src/presets/brand-genesis.ts
+  s_8252619ce79a86::t_68782e1a637694 6,11-13,45-46
+packages/design-system/src/tokens/__tests__/roles.test.ts
+  s_8252619ce79a86::t_2ecb03597a6e8a 62
+packages/design-system/style-dictionary.config.ts
+  s_8252619ce79a86::t_68782e1a637694 40
+packages/design-system/src/tokens/__tests__/theme-css.test.ts
+  s_8252619ce79a86::t_ed5c1f00425036 27
+packages/design-system/src/presets/__tests__/brand-genesis-drift.test.ts
+  s_8252619ce79a86::t_b47848b194e27c 26-28
+.changeset/brand-tint-indigo.md
+  s_8252619ce79a86::t_ef39b5b3f856c6 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "27975e46c6616cc157c544d43c33bee5116a252b",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
