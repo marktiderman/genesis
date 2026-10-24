@@ -107,6 +107,16 @@ manifest for the packages installed, export compliance and the fingerprint runti
   the SQL editor or the service role. Give every table of
   yours that holds a person's data a foreign key to `auth.users(id)` with `on delete cascade`, or
   deleting their account is refused.
+- **Apple token revocation:** `supabase/migrations/20261024000200_genesis_apple_token_revocation.sql`
+  and `supabase/functions/genesis-apple-revoke/` are the package's migration 0003 and its Edge
+  Function, copied the same way (and drift-tested the same way). After an Apple sign-in,
+  `src/lib/auth.ts` sends Apple's code to the function (`storeAppleToken`); deleting the account
+  queues the token and `src/lib/account.ts` asks the function to revoke it
+  (`deleteMyAccount(supabase, { revokeAppleTokens: true })`). `APPLE_CLIENT_IDS` must list all three
+  bundle ids (`…`, `….dev`, `….preview`), or that variant's sign-ins keep no token (a console
+  warning, `unknown_client`). Before a release, set the function's
+  secrets, deploy it and schedule its retries: see "Revoking Apple's tokens" in
+  [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#revoking-apples-tokens).
 - **Auth providers:** email works with Supabase's defaults (confirmation on: sign-up asks the
   person to confirm, then sign in; the confirmation link opens `site_url`, not the app). For Apple, enable the Apple provider with the bundle ids of all
   three variants as client ids; `supabase/config.toml` does this for a local stack.
@@ -141,12 +151,9 @@ fails if they drift.
 
 ## Not covered yet
 
-- **Revoking Sign in with Apple tokens on account deletion. Required before you ship to the App
-  Store with the defaults.** With `appleSignIn` and `accountDeletion` both on, App Review expects
-  deletion to revoke the person's Apple tokens, which takes a server step the packages don't ship
-  yet (the `apple-token-revocation` feature in the repo's `features.ts`); see "Not covered yet" in
-  [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#not-covered-yet).
-  `src/lib/auth.ts` marks where the authorization code would be sent.
+- **Apple token revocation needs your Apple key before the App Store.** The code is in place (see
+  Supabase above), but nothing is revoked until the `genesis-apple-revoke` function is deployed
+  with your Sign in with Apple key, and it hasn't been tried against Apple with a real key yet.
 - **`links.hosts` is `example.com`.** Replace it (step 3 above) before a release build, or the
   build ships associated domains that never verify.
 - **Notifications have no source.** `src/lib/notifications.ts` returns an empty list; point its
