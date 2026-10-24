@@ -1,0 +1,45 @@
+packages/forms/src/fields.ts
+  s_738228bc0d81b1::t_c04a5cf757c7d9 103-132,349,363-365,368-369,394
+packages/forms-studio/src/summary.ts
+  s_738228bc0d81b1::t_60ac007432adcd 8-9,137-139,255-264
+packages/forms-web/src/renderers.tsx
+  s_738228bc0d81b1::t_762a4a9bc5afc1 13-14,393-394,434-479,484-499,507-508,521-527,529-540,549-557,560-561,580-607,641,643-647,653-660,673,675-686
+packages/forms/README.md
+  s_738228bc0d81b1::t_a1537111eb18d2 265-279
+packages/forms/src/define.ts
+  s_738228bc0d81b1::t_e06e57c72ee079 51-55,90
+packages/forms-web/src/__tests__/other-option.test.tsx
+  s_738228bc0d81b1::t_9775dcf58a615b 1-73
+packages/forms-builder/src/questions.tsx
+  s_738228bc0d81b1::t_3251b7b379125a 9
+  s_738228bc0d81b1::t_2b12d4ce304d86 1076-1082,1108,1113-1129
+  s_738228bc0d81b1::t_8000ed3442f161 1130-1132
+packages/forms/src/parse.ts
+  s_738228bc0d81b1::t_c04a5cf757c7d9 315-322
+packages/forms/src/index.ts
+  s_738228bc0d81b1::t_653afe6ba24031 40-42
+packages/forms/src/__tests__/other-option.test.ts
+  s_738228bc0d81b1::t_e6854ee309106e 1-72,74-89
+  s_738228bc0d81b1::t_c63c0cad29378d 73
+packages/forms-studio/src/__tests__/summary.test.ts
+  s_738228bc0d81b1::t_4f54b4309e7786 436-456,460-468
+  s_738228bc0d81b1::t_d57f2f99779f60 457-459
+.changeset/forms-other-option.md
+  s_738228bc0d81b1::t_a1537111eb18d2 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "df7545cfecdf55812f2a90ec03eccd63966541f4",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
