@@ -1,5 +1,27 @@
 # @marktiderman/genesis-design-system
 
+## 1.4.0
+
+### Minor Changes
+
+- 27975e4: The default Genesis brand primary is indigo-600 (`#4f46e5`, `243 75% 59%`; 6.3:1 on white) instead of emerald, which was the same colour as `success`, so a primary button read as a success state. `--primary`, `--ring`, `--sidebar-primary`, the native `GENESIS_PRIMARY`, the brand preset's accent (dark: indigo-400) and the theme roles' default tint all follow. Apps with their own brand are unaffected; apps on the default brand change colour.
+
+  Features: design-tokens, theme-roles
+
+- d7b0389: The native `GenesisThemeProvider` takes `syncNativeAppearance`: on the root provider it passes an in-app light or dark choice to `Appearance.setColorScheme`, so iOS system colors and native controls follow it, not only Genesis tokens; "system" and unmounting hand it back to the OS ("unspecified", or "auto" on React Native 0.87+). The react-native-keyboard-controller peer range starts at 1.11 (KeyboardAwareScrollView). `KeyboardScrollProvider` lets an app supply react-native-keyboard-controller's `KeyboardAwareScrollView` once; `AuthScreen` and `SettingsSubPage` use it, and fall back to `KeyboardAvoidingView` without it. `NotificationsPage` memoizes its date grouping. The genesis-supabase README explains the Keychain storage choice, the URL polyfill and where to call `refreshWhileActive`.
+
+  Features: design-tokens, native-layouts, supabase-kit
+
+- bd07203: Theme roles: twelve colors named for what they are for (`background`, `groupedBackground`, `surface`, `label`, `secondaryLabel`, `tertiaryLabel`, `separator`, `fill`, `tint`, `destructive`, `success`, `warning`), resolved per platform. `resolveThemeRoles({ target, scheme, platformColor, tint })` in the design system gives the theme's CSS variables on web, iOS system colors through `PlatformColor` on iOS, and the Genesis token for the current scheme on Android, so Android dark mode follows the system. A brand sets `tint`. The design system has no React Native import; ui-native adds `useThemeRoles({ tint })`, which reads the platform and color scheme itself.
+
+  Features: theme-roles
+
+### Patch Changes
+
+- a154019: Theme roles, from review: off iOS, `destructive` is a text-safe red in both schemes (the dark token was a background red at about 2:1); dark-mode `surface` is raised above `groupedBackground` the way iOS grouped lists are (they were inverted); the default `tint` comes from the Genesis brand preset instead of a literal. `resolveThemeRoles({ androidDynamic })` and `useThemeRoles({ materialYou })` use Material You dynamic colors on Android 12+.
+
+  Features: theme-roles
+
 ## 1.3.1
 
 ### Patch Changes
