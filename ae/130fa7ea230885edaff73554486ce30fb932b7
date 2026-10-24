@@ -1,0 +1,147 @@
+.changeset/account-block-review.md
+  s_8252619ce79a86::t_d98b9170beecc5 1-21
+scripts/check-forbidden-imports.mjs
+  s_8252619ce79a86::t_d98b9170beecc5 15-18,43,93-94,99,140-142,151
+packages/genesis-cli/src/doctor/rules.ts
+  s_8252619ce79a86::t_d98b9170beecc5 24-34,120-122,124,139-148
+packages/forms-studio/CHANGELOG.md
+  s_8252619ce79a86::t_d98b9170beecc5 3-16
+packages/ui-native/src/layouts/__tests__/apple-sign-in.test.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-97
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/+html.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-3
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui-native/layouts.d.ts
+  s_8252619ce79a86::t_d98b9170beecc5 1-9
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_d98b9170beecc5 18,228-363,561,598,601
+packages/genesis-cli/src/doctor/scan.ts
+  s_8252619ce79a86::t_d98b9170beecc5 11-12,53
+packages/genesis-cli/test/fixtures/doctor/rules/native/package.json
+  s_8252619ce79a86::t_d98b9170beecc5 1-12
+packages/supabase/src/__tests__/account.test.ts
+  s_8252619ce79a86::t_d98b9170beecc5 1-165
+AGENTS.md
+  s_8252619ce79a86::t_5529a3741b1200 15
+packages/forms-studio/package.json
+  s_8252619ce79a86::t_d98b9170beecc5 3
+packages/genesis-cli/test/fixtures/doctor/rules/native/app.json
+  s_8252619ce79a86::t_d98b9170beecc5 1-8
+packages/supabase/src/index.ts
+  s_8252619ce79a86::t_d98b9170beecc5 105-131
+features.json
+  s_8252619ce79a86::t_d98b9170beecc5 1412,1425-1428,1443-1463,1516,1525-1527,1541-1552
+packages/forms/package.json
+  s_8252619ce79a86::t_d98b9170beecc5 3
+packages/genesis-cli/src/doctor/genesis.ts
+  s_8252619ce79a86::t_d98b9170beecc5 15,49-65,67-100,102,151
+packages/ui-native/src/layouts/auth.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 17,95-100,125-146
+scripts/lib/native-primitives.mjs
+  s_8252619ce79a86::t_d98b9170beecc5 1-33
+.changeset/account-block.md
+  s_8252619ce79a86::t_d98b9170beecc5 1-8
+packages/forms-web/CHANGELOG.md
+  s_8252619ce79a86::t_d98b9170beecc5 3-22
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui-native/index.d.ts
+  s_8252619ce79a86::t_d98b9170beecc5 1-15
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui-native/package.json
+  s_8252619ce79a86::t_d98b9170beecc5 1-9
+packages/forms/CHANGELOG.md
+  s_8252619ce79a86::t_d98b9170beecc5 3-22
+packages/genesis-cli/test/fixtures/doctor/rules/supabase/supabase/migrations/20260101000000_init.sql
+  s_8252619ce79a86::t_d98b9170beecc5 1-26
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/index.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-11
+packages/genesis-cli/test/fixtures/doctor/rules/native/components/ProfileScreen.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-20
+packages/genesis-cli/test/fixtures/doctor/rules/native/components/AppHeader.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-10
+packages/ui-native/src/layouts/index.ts
+  s_8252619ce79a86::t_d98b9170beecc5 68-75
+packages/genesis-cli/src/doctor/native.ts
+  s_8252619ce79a86::t_d98b9170beecc5 1-402
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/(tabs)/_layout.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-6
+packages/supabase/src/native.ts
+  s_8252619ce79a86::t_d98b9170beecc5 3-5,9-21
+  s_8252619ce79a86::t_614eff3f5e6a74 22
+packages/supabase/README.md
+  s_8252619ce79a86::t_d98b9170beecc5 26,30-186,193
+packages/genesis-cli/src/doctor/index.ts
+  s_8252619ce79a86::t_d98b9170beecc5 25,27,42,47-48,92-93
+packages/genesis-cli/src/doctor/types.ts
+  s_8252619ce79a86::t_d98b9170beecc5 67-91,94-98,104
+packages/forms-builder/package.json
+  s_8252619ce79a86::t_d98b9170beecc5 3
+packages/genesis/package.json
+  s_8252619ce79a86::t_d98b9170beecc5 3
+packages/genesis-cli/test/doctor-helpers.ts
+  s_8252619ce79a86::t_d98b9170beecc5 28-30,46
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/profile.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-5
+packages/supabase/migrations/tests/0001_genesis_account_deletion.test.sql
+  s_8252619ce79a86::t_d98b9170beecc5 1-138
+packages/supabase/package.json
+  s_8252619ce79a86::t_d98b9170beecc5 7,34
+packages/genesis-cli/test/fixtures/doctor/rules/supabase/supabase/migrations/20260102000000_grants.sql
+  s_8252619ce79a86::t_d98b9170beecc5 1-7
+scripts/lib/native-primitives.d.mts
+  s_8252619ce79a86::t_d98b9170beecc5 1-8
+packages/genesis/CHANGELOG.md
+  s_8252619ce79a86::t_d98b9170beecc5 3-15
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/old-home.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-5
+packages/genesis-cli/README.md
+  s_8252619ce79a86::t_d98b9170beecc5 214-276,303-306,309
+packages/genesis-cli/src/doctor/supabase.ts
+  s_8252619ce79a86::t_d98b9170beecc5 1-480
+packages/supabase/src/sign-in.ts
+  s_8252619ce79a86::t_d98b9170beecc5 1-261
+docs/component-reference.md
+  s_8252619ce79a86::t_5529a3741b1200 7
+  s_8252619ce79a86::t_d98b9170beecc5 691,695,783,790,819,824-825
+features.ts
+  s_8252619ce79a86::t_d98b9170beecc5 625,628-629,635-652,674,676,682-687
+packages/ui-native/src/layouts/apple-sign-in.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-134
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_8252619ce79a86::t_d98b9170beecc5 1-467
+packages/forms-web/package.json
+  s_8252619ce79a86::t_d98b9170beecc5 3
+.changeset/doctor-packs.md
+  s_8252619ce79a86::t_d98b9170beecc5 1-7
+packages/supabase/migrations/0001_genesis_account_deletion.sql
+  s_8252619ce79a86::t_d98b9170beecc5 1-133
+packages/ui-native/src/layouts/auth-screen.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 12-13,47-52,69,77,130
+packages/forms-builder/CHANGELOG.md
+  s_8252619ce79a86::t_d98b9170beecc5 3-22
+packages/genesis-cli/test/fixtures/doctor/rules/native/src/lib/sign-in.ts
+  s_8252619ce79a86::t_d98b9170beecc5 1-5
+packages/genesis-cli/test/fixtures/doctor/rules/native/components/MyTabBar.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-5
+packages/ui-native/README.md
+  s_8252619ce79a86::t_d98b9170beecc5 1-52
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/settings.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-10
+packages/genesis-cli/src/doctor/config.ts
+  s_8252619ce79a86::t_d98b9170beecc5 60-62,68-82,222-243
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/_layout.tsx
+  s_8252619ce79a86::t_d98b9170beecc5 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ae130fa7ea230885edaff73554486ce30fb932b7",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
