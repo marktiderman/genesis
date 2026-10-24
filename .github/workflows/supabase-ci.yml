@@ -62,6 +62,10 @@ on:
         description: "Timeout for each job"
         type: number
         default: 20
+    secrets:
+      npm-token:
+        description: "Optional registry token, exposed as NODE_AUTH_TOKEN to the install (for an .npmrc that reads it)"
+        required: false
 
 jobs:
   doctor:
@@ -72,7 +76,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: genesis-supabase-doctor-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.working-directory }}
+      group: genesis-supabase-doctor-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ inputs.working-directory }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Refuse pull_request_target
@@ -86,7 +90,6 @@ jobs:
           persist-credentials: false
           # migration-edited compares migrations with the base branch: it needs the merge base.
           fetch-depth: 0
-          filter: blob:none
 
       - name: Find the app and its lockfile
         id: app
@@ -132,6 +135,7 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ inputs.package-manager-version }}
+          bun-version-file: ${{ steps.app.outputs.root }}/package.json
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -152,6 +156,7 @@ jobs:
         working-directory: ${{ steps.app.outputs.root }}
         env:
           PM: ${{ inputs.package-manager }}
+          NODE_AUTH_TOKEN: ${{ secrets.npm-token }}
         run: |
           set -euo pipefail
           case "$PM" in
@@ -213,7 +218,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: genesis-supabase-pgtap-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.working-directory }}
+      group: genesis-supabase-pgtap-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ inputs.working-directory }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Refuse pull_request_target

@@ -30,10 +30,13 @@ jobs:
 Call the workflows at the commit of a Genesis release, never at `@main`.
 
 - Each release of the umbrella package is tagged `@marktiderman/genesis@X.Y.Z` in this repo. Pin
-  `uses:` to that tag's commit SHA and name the release in a comment, as above. Find the SHA with:
+  `uses:` to that tag's commit SHA and name the release in a comment, as above. The tags are
+  annotated, so ask for the commit the tag points at (`^{}`), not the tag object:
 
   ```bash
-  git ls-remote https://github.com/marktiderman/genesis 'refs/tags/@marktiderman/genesis@X.Y.Z'
+  git ls-remote https://github.com/marktiderman/genesis 'refs/tags/@marktiderman/genesis@X.Y.Z^{}'
+  # or
+  gh api 'repos/marktiderman/genesis/commits/@marktiderman%2Fgenesis@X.Y.Z' --jq .sha
   ```
 
 - Why not `@main`: main changes under you, so a passing build can fail tomorrow with no change of
@@ -62,10 +65,14 @@ installed).
 | `doctor` | `true` | `genesis doctor`. `doctor-strict: true` adds `--strict` (warnings fail). |
 | `features` | `auto` | `genesis features check` when the app has `src/features.ts`, `features.ts` or features settings; `true` or `false` to force it. On a pull request it also checks `feature:<id>` labels. |
 | `timeout-minutes` | `20` | |
+| secret `npm-token` | none | Exposed as `NODE_AUTH_TOKEN` to the install, for an `.npmrc` that reads `${NODE_AUTH_TOKEN}` (private packages). |
 
 Every check runs even when an earlier one failed, so one run reports all of them. The checkout has
-full history (file contents fetched on demand), which the doctor's supabase pack needs to compare
-migrations with the base branch.
+full history, which the doctor's supabase pack needs to compare migrations with the base branch.
+
+The `feature:<id>` label check reads the labels the run started with. The template triggers on
+pull request pushes only, so after fixing a label, push (or add `labeled` and `unlabeled` to the
+caller's `pull_request` types, at the cost of a full run per label change).
 
 ## supabase-ci
 
@@ -90,20 +97,26 @@ The schedule is the caller's (the template runs Mondays at 06:00 UTC, and on dem
 2. sets every `@marktiderman/genesis*` entry in `dependencies`, `devDependencies` and
    `optionalDependencies` of every tracked package.json at or below `working-directory`: the
    umbrella to the release, packages the manifest lists to their listed version, and other Genesis
-   packages (the CLI, studio, supabase) to their npm `latest`. The range prefix (`^`, `~`, exact)
-   is kept. `workspace:`, `file:`, `link:` and `npm:` specs, wider ranges, peer dependencies and
-   anything already newer are left alone and listed in the pull request;
-3. reinstalls, which updates the lockfile, and runs `genesis doctor`;
-4. commits the package.json files and the lockfile to `branch` (default `genesis-upgrade`), rebuilt
-   from the branch the workflow ran on, and opens or updates one pull request into that branch.
-   When nothing changed since the last run the branch is left as it is.
+   packages (the CLI, studio, supabase) to their npm `latest`, even when `version` names an older
+   release, since they release on their own. The range prefix (`^`, `~`, exact) is kept.
+   `workspace:`, `file:`, `link:` and `npm:` specs, wider ranges, peer dependencies and anything
+   already newer are left alone and listed in the pull request;
+3. reinstalls and runs `genesis doctor`;
+4. commits the package.json files and the lockfile to `branch` (default
+   `genesis-upgrade/<base branch>`), rebuilt from the branch the workflow ran on, and opens or
+   updates one pull request into that branch. When nothing changed since the last run the branch
+   is left as it is. Once anyone else pushes to the branch (say, a fix for a doctor finding), runs
+   leave it alone and say so, until its pull request is merged or closed and the branch deleted.
 
 A doctor failure is written into the pull request and fails the run. `dry-run: true` does steps
-1 to 3, writes the run summary and pushes nothing.
+1 to 3, writes the run summary and pushes nothing. The secret `npm-token` works as in app-ci.
 
-The job that holds the write token runs no dependency code: the bump, install and doctor run in a
-read-only job and hand over a patch, and the pull request job applies it only if it touches
-nothing but package.json files and lockfiles.
+The job that holds the write token runs no dependency code. A read-only job bumps, installs
+(install scripts run there) and runs the doctor. The pull request job then makes the same bump
+again from the same release, writes the lockfile with install scripts off
+(`--lockfile-only`/`--package-lock-only --ignore-scripts`), and commits only those files; the only
+thing it takes from the first job is the doctor's output, shown escaped in the pull request. Review
+the lockfile change as you would any dependency update.
 
 The caller grants `contents: write` and `pull-requests: write`. With the default `GITHUB_TOKEN`:
 
@@ -125,8 +138,12 @@ The caller grants `contents: write` and `pull-requests: write`. With the default
   request job, which pushes.
 - app-ci and supabase-ci refuse to run under `pull_request_target`, which would run a pull
   request's code with the base repository's token and secrets.
-- Concurrency groups: a newer push to a pull request cancels the older run; pushes to a branch are
-  never cancelled, and two upgrade runs never push the same branch at once.
+- The upgrade only updates a pull request from its own repository, never a fork's branch of the
+  same name, and never pushes to the base or default branch.
+- Concurrency groups: a newer push to a pull request cancels the older run; branch pushes group by
+  commit, so they never cancel each other; two upgrade runs never push the same branch at once.
+  Two calls of app-ci in one caller with the same folder, package manager and Node version share a
+  group, so give them different inputs or separate workflows.
 
 ## Testing these workflows
 

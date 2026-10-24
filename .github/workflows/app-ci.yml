@@ -64,6 +64,10 @@ on:
         description: "Job timeout"
         type: number
         default: 20
+    secrets:
+      npm-token:
+        description: "Optional registry token, exposed as NODE_AUTH_TOKEN to the install (for an .npmrc that reads it)"
+        required: false
 
 jobs:
   app:
@@ -72,10 +76,10 @@ jobs:
     timeout-minutes: ${{ inputs.timeout-minutes }}
     permissions:
       contents: read
-    # One run per pull request (or branch) and app; a newer push to a pull request cancels
-    # the older run. Branch pushes are never cancelled, so every commit on main keeps a result.
+    # One run per pull request and app: a newer push to it cancels the older run. Pushes
+    # group by commit, so a push never cancels or displaces another commit's run.
     concurrency:
-      group: genesis-app-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.working-directory }}-${{ inputs.package-manager }}-${{ inputs.node-version }}
+      group: genesis-app-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ inputs.working-directory }}-${{ inputs.package-manager }}-${{ inputs.node-version }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       # pull_request_target runs with the base repository's token and secrets;
@@ -89,10 +93,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # Full history, file contents on demand: the doctor's supabase pack compares
-          # migrations with the base branch, which needs the merge base.
+          # Full history: the doctor's supabase pack compares migrations with the base
+          # branch, which needs the merge base and the files (for rename detection).
           fetch-depth: 0
-          filter: blob:none
 
       - name: Find the app and its lockfile
         id: app
@@ -141,6 +144,7 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ inputs.package-manager-version }}
+          bun-version-file: ${{ steps.app.outputs.root }}/package.json
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -162,6 +166,7 @@ jobs:
         working-directory: ${{ steps.app.outputs.root }}
         env:
           PM: ${{ inputs.package-manager }}
+          NODE_AUTH_TOKEN: ${{ secrets.npm-token }}
         run: |
           set -euo pipefail
           case "$PM" in
