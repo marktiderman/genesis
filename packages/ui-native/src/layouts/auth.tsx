@@ -14,7 +14,7 @@
  *
  * @stability Beta
  */
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { NativeButton } from "../components/button";
 import { NativeInput } from "../components/input";
@@ -210,6 +210,7 @@ export function AuthForm({
   const [password, setPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const passwordRef = useRef<{ focus(): void } | null>(null);
 
   const isMagic = mode === "magic-link";
   const resolvedSubmitLabel =
@@ -270,13 +271,16 @@ export function AuthForm({
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
+          textContentType="emailAddress"
+          autoComplete="email"
           returnKeyType={isMagic ? "send" : "next"}
           editable={!loading && !submitting}
-          // In magic-link mode the email field is the last input, so the
-          // return key dispatches submit. In password mode the next return
-          // moves focus to password (default RN behavior); the password
-          // field's onSubmitEditing handles the actual send.
-          onSubmitEditing={isMagic ? handleSubmit : undefined}
+          // Magic-link mode: the email field is the last input, so return
+          // submits. Password mode: React Native doesn't move focus by
+          // itself, so return focuses the password field and keeps the
+          // keyboard open.
+          submitBehavior={isMagic ? "blurAndSubmit" : "submit"}
+          onSubmitEditing={isMagic ? handleSubmit : () => passwordRef.current?.focus()}
         />
       </View>
 
@@ -284,12 +288,15 @@ export function AuthForm({
         <View className="gap-1">
           <Text className="text-sm font-medium text-foreground">Password</Text>
           <NativeInput
+            ref={passwordRef}
             testID={`${testID}-password`}
             accessibilityLabel="Password"
             value={password}
             onChangeText={setPassword}
             placeholder="••••••••"
             secureTextEntry
+            textContentType="password"
+            autoComplete="current-password"
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="send"

@@ -92,14 +92,7 @@ export default function TokensMotion() {
                     name={`easing.${e.name}`}
                     value={`cubic-bezier${e.curve} · ${e.note}`}
                     sample={
-                      <View
-                        style={{
-                          width: 24,
-                          height: 24,
-                          backgroundColor: "#10B981",
-                          borderRadius: 12,
-                        }}
-                      />
+                      <View className="h-6 w-6 rounded-full bg-primary" />
                     }
                     testID={`token-easing-${e.name}`}
                   />

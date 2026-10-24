@@ -96,6 +96,12 @@ declare module "react-native" {
     accessibilityHint?: string;
     accessibilityState?: AccessibilityState;
     clearButtonMode?: "never" | "while-editing" | "unless-editing" | "always";
+    /** iOS AutoFill hint, e.g. "emailAddress", "password", "newPassword". */
+    textContentType?: string;
+    /** Android Autofill and web autocomplete hint, e.g. "email", "current-password". */
+    autoComplete?: string;
+    /** What the return key does: "submit" keeps the keyboard open, "blurAndSubmit" closes it. */
+    submitBehavior?: "submit" | "blurAndSubmit" | "newline";
     testID?: string;
     ref?: React.Ref<any>;
   }
@@ -247,6 +253,11 @@ declare module "react-native" {
 
   export type ColorSchemeName = "light" | "dark" | null | undefined;
 
+  /** A color string, or an opaque platform color from `PlatformColor`. */
+  export type OpaqueColorValue = symbol & { __TYPE__: "Color" };
+  export type ColorValue = string | OpaqueColorValue;
+  export function PlatformColor(...names: string[]): OpaqueColorValue;
+
   export interface AppearanceModule {
     getColorScheme(): ColorSchemeName;
     addChangeListener(
@@ -317,6 +328,8 @@ declare module "react-native" {
 
   export const Platform: {
     OS: "ios" | "android" | "web";
+    /** Android API level (number) or iOS version (string). */
+    Version: number | string;
     select: <T>(specifics: { ios?: T; android?: T; web?: T; default?: T }) => T;
   };
 

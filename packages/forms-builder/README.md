@@ -171,6 +171,7 @@ checks, `actions` and the ref handle work as usual. Panels rendered on their own
 | `previewRegistry` | The preview's `<Form registry>`. It replaces `defaultRegistry`, so pass `defaultRegistry.extend([...])` with your types, not a registry of your types alone. |
 | `previewValidators` | Custom validators by field id for the preview's engine. |
 | `outputs` | `OutputTarget[]`: places a field's answer may also go besides the response. See [Field outputs](#field-outputs). |
+| `hostOptions` | `HostOptionList[]`: option lists the app fills in when the form opens. See [Options from the app](#options-from-the-app). |
 
 #### Structured field types
 
@@ -212,6 +213,13 @@ checked as it is typed with the same checks as `parseForm`, buttons for the answ
 (`formulaNames(def, field)`), "Show as" (number, percent or text), decimal places, and "Try it":
 type sample answers to see the value. A new one starts with the formula `0`; renaming an answer
 rewrites the formulas that read it. It has no Required switch, since it is never required.
+
+#### Photo fields
+
+The `photo` type stores files through the host, so it is opt-in as well:
+`palette={[...defaultPalette(), ...UPLOAD_FIELD_TYPES]}` (from `@marktiderman/genesis-forms`). Its
+settings panel has the most photos (1 to 5), the largest photo in MB (1 to 25) and the formats (JPEG,
+PNG, HEIC, WebP; at least one stays on). A formula can't read photos.
 
 #### Field outputs
 
@@ -257,6 +265,29 @@ A target can't use a prop the field types own (`options`, `formula`, `columns`, 
 the list is `RESERVED_OUTPUT_PROPS`): such a target is not offered and `setOutput` ignores it. The
 list of targets is only checked in the builder, so a host that acts on outputs after a submit must
 check each field's props against its own targets on the server.
+
+#### Options from the app
+
+`hostOptions` lists the option lists the app fills in when the form opens (see genesis-forms'
+"Options from the app"):
+
+```tsx
+<FormBuilder
+  hostOptions={[
+    { key: "coaches", label: "Coaches", description: "The practice's current coaches.",
+      sample: [{ value: "c1", label: "Ada" }, { value: "c2", label: "Sam" }] },
+  ]}
+  …
+/>
+```
+
+A choice question's options then read "Options: Typed here | From the app"; From the app shows a
+picker of the lists and sets `props.optionsFrom: { source: "host", key }` (`setOptionsSource` in
+`ops`: the typed options go, with the rules that compared them; back to Typed here starts two new
+options). The preview and the path checks use each list's `sample`; the live form needs the real
+lists (`<Form hostOptions>`, `validateSubmission`'s `hostOptions`). A question using a list the
+host doesn't offer keeps it, says so, and is a warning in the checks. Without `hostOptions` the
+switch isn't shown unless a question already uses a list.
 
 The host still owns templates: pass the one it picked as `defaultValue`. `setIdGenerator(fn)`
 replaces the random id generator (for example with a counter in tests); `setIdGenerator()` restores it.

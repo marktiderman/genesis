@@ -1,3 +1,4 @@
+// @feat:slots-contract
 /**
  * ResourcePage — the two passthrough slots that let a hand-assembled page
  * stop being hand-assembled: `filters` (extra multi-select comboboxes, handed

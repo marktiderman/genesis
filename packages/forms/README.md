@@ -62,6 +62,13 @@ const version = eventFeedback.hash();         // content fingerprint for publish
   `validateSubmission` refuses a definition that does not parse. Ids, keys, hidden names and ending
   ids may not be `Object.prototype` names (`constructor`, `__proto__`…).
 - **Unanswered recall renders its fallback** (`{{field:name|there}}`); the text is never dropped.
+- **Saving answers as they go is a setting.** `settings.saveProgress` (off by default) says the
+  host keeps the answers so far each time the respondent moves on, so an unfinished response
+  survives. `formProgress(engine)` says how far they got: `{ step, total, fieldId }`, where
+  `fieldId` is the furthest question reached (kept after Back; in classic layout, the last one
+  answered). genesis-forms-web's `onProgress` calls the host with it; the server checks the
+  answers so far with `validateSubmission(definition, input, { complete: false })`. After a
+  reload, `createForm(definition, { initialValues: saved, resumeAt: fieldId })` picks up there.
 
 ## Pieces
 
@@ -128,6 +135,28 @@ const plan = defineForm({
 Each type validates, normalizes (trimmed, blanks dropped, notes in time order), summarizes and has
 samples for `coverage()`. Helpers: `listLimits`, `tableColumns`, `tableLimits`, `formatTimestamp`
 and `parseTimestamp`; types `TableColumn`, `MediaNote` and `Highlight`.
+
+### Photo fields
+
+A `photo` field asks for up to a few photos, such as a picture of broken equipment:
+`f.photo(key, { maxFiles, maxSizeMb, formats })`. The answer holds references the host's storage
+returned, never the bytes: `PhotoRef[]`, each `{ id, name, type, size }`. The renderer uploads
+through the host (`onUpload` on genesis-forms-web's `Form`), so the engine and `validateSubmission`
+stay storage-agnostic; the host's server should check that every reference is a file it stored
+for this respondent and form before saving.
+
+| Prop | Default | Rule |
+| --- | --- | --- |
+| `maxFiles` | 3 | 1 to `MAX_PHOTO_FILES` (5). |
+| `maxSizeMb` | 10 | 1 to `MAX_PHOTO_SIZE_MB` (25), per photo. |
+| `formats` | all four | One or more of `jpeg`, `png`, `heic` (also HEIF) and `webp` (`PHOTO_FORMATS` maps each to its MIME types). |
+
+A photo is neither `sensitive` nor `identifying` by default; set either on the field when it is.
+Validation checks each reference's shape, type and size and the count; `normalize` keeps only the
+four keys; `summarizeValue` lists the file names. Like the structured types it is opt-in in a
+builder palette: `UPLOAD_FIELD_TYPES` (`["photo"]`). Helpers: `photoLimits(field)` (`maxFiles`,
+`maxSizeMb`, `maxBytes`, `formats`, `mimeTypes`), `photoRefs(value)`, `isPhotoRef`,
+`photoFormatList`, and the messages `photoTypeMessage`, `photoSizeMessage` and `photoCountMessage`.
 
 ### Calculated fields
 
@@ -209,6 +238,44 @@ as `The formula uses "wage", which is not the answer name of a question in this 
 `parseFormula`, `evaluateFormula`, `formulaRefs` and `renameFormulaKey` work with formulas on their
 own; `formatCalculated` shows a value as the field does. Builders offer the type only when the host
 names it (`COMPUTED_FIELD_TYPES`).
+
+### Options from the app
+
+A single choice, multiple choice or dropdown question can take its options from the app showing
+the form, such as a coach picker that always lists the current coaches:
+
+```ts
+f.dropdown("coach", { label: "Who coached you?", optionsFrom: { source: "host", key: "coaches" } });
+// stored as props: { optionsFrom: { source: "host", key: "coaches" } }
+
+const lists = { coaches: [{ value: profileId, label: "Ada Lovelace" }] }; // loaded by the app
+createForm(definition, { hostOptions: lists }); // or <Form hostOptions={lists}>
+validateSubmission(definition, body, { hostOptions: lists }); // loaded again on the server
+```
+
+`withHostOptions(definition, lists)` fills them in: the question's own `props.options` first (it
+may have some), then the list for its key, each value once. The engine does it for
+`engine.definition`, so renderers show the list and an answer must be one of these options;
+`validateSubmission` does it with the server's lists, so a value the server doesn't offer now (a
+coach who left, a made-up id) is refused. Without a list for the key, the question offers its own
+options only. Answers store the option's value; `summarizeValue` shows its label while the list has
+it. `parseForm` checks the shape of `optionsFrom`, and doesn't warn about rules comparing with
+values only the app knows.
+
+### An "Other" answer
+
+```ts
+f.multiChoice("areas", { label: "Which area?", options: [...], other: true });
+f.singleChoice("where", { label: "Where?", options: [...], other: { label: "Somewhere else" } });
+// stored as props: { other: true } or { other: { label: "Somewhere else" } }
+```
+
+A single choice, multiple choice or dropdown question with `props.other` offers one more option,
+"Other" (or its `label`), with a text box. What the respondent types is the answer: the value of a
+single choice or dropdown, one more item on a multiple choice. `validateSubmission` accepts at most
+one such value per question, not blank and at most `OTHER_MAX_LENGTH` (200) characters, and only on
+a question with `other`. `otherOption(field)` reads the setting; `isOtherValue(field, value)` tells a
+typed answer from an option.
 
 ### Props for the host
 

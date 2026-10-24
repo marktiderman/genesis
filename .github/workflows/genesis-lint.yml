@@ -1,4 +1,4 @@
-# Genesis Lint — reusable workflow (PRD-07 Phase D6).
+# Genesis Lint — reusable workflow.
 #
 # Wraps the four/five Genesis CI guards into a single workflow consumer
 # repos can call from their own pr.yml. Each guard is its own job so a
@@ -32,7 +32,6 @@
 # themselves back to contents:read.)
 #
 # Pin to a release tag instead of @main once Genesis tags this workflow.
-# See docs/prds/PRD-07-genesis-consumption-architecture/standards/upgrade-process.md.
 #
 # Jobs:
 #   1. legacy-imports         — wraps scripts/check-legacy-imports.mjs (D6.1)

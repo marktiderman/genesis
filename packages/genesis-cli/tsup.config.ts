@@ -8,6 +8,7 @@ export default defineConfig([
       scaffolder: "src/scaffolder.ts",
       doctor: "src/doctor/index.ts",
       vite: "src/vite.ts",
+      expo: "src/expo.ts",
     },
     format: ["esm"],
     dts: true,
@@ -18,7 +19,7 @@ export default defineConfig([
     minify: false,
     target: "es2022",
     outExtension: () => ({ js: ".js" }),
-    external: ["commander", "postgres", "jiti", /^@marktiderman\//, "vite"],
+    external: ["commander", "postgres", "jiti", /^@marktiderman\//, /^@expo\//, "vite"],
   },
   {
     entry: {
@@ -34,6 +35,6 @@ export default defineConfig([
     target: "es2022",
     outExtension: () => ({ js: ".js" }),
     banner: { js: "#!/usr/bin/env node" },
-    external: ["commander", "postgres", "jiti", /^@marktiderman\//, "vite"],
+    external: ["commander", "postgres", "jiti", /^@marktiderman\//, /^@expo\//, "vite"],
   },
 ]);

@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Fixture",
+    "slug": "fixture",
+    "ios": {
+      "bundleIdentifier": "com.example.fixture"
+    },
+    "android": {
+      "package": "com.example.fixture"
+    },
+    "plugins": [
+      "@marktiderman/genesis-cli"
+    ]
+  }
+}

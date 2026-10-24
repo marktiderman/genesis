@@ -33,6 +33,19 @@ export interface FieldBlock {
   props?: Record<string, Json>;
 }
 
+/**
+ * Where a choice field (single choice, multiple choice, dropdown) also takes
+ * options from, as `props.optionsFrom`. `source: "host"`: the app showing the
+ * form supplies the list named `key` when the form opens and again when a
+ * response is checked (`hostOptions` on `createForm` and `validateSubmission`),
+ * such as a practice's current coaches. They follow the field's own
+ * `props.options`, if it has any.
+ */
+export interface OptionsSource {
+  source: "host";
+  key: string;
+}
+
 export interface ContentBlock {
   kind: "content";
   id: string;
@@ -109,6 +122,14 @@ export interface FormSettings {
   anonymous?: boolean;
   /** Clear the values of fields hidden by logic on submit. Default true. */
   clearHiddenValues?: boolean;
+  /**
+   * Save answers as they go, off by default (Typeform's partial responses). When
+   * true, a host saves the answers so far each time the respondent moves on
+   * (genesis-forms-web's `onProgress`, with `formProgress` saying how far they
+   * got), so an unfinished response is kept even if they never submit. The form
+   * tells respondents so. Saving is the host's: the engine only says it's on.
+   */
+  saveProgress?: boolean;
 }
 
 export type FormLayout = { mode: "classic" } | { mode: "focus" };

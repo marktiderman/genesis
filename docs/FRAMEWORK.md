@@ -126,7 +126,7 @@ Naming the exclusions matters as much as the inclusions — scope creep is how o
 | Out | Why | Where it lives instead |
 |---|---|---|
 | **Business domain** | an app's nouns (its kinds of customer, session, plan or engagement) are one company's vocabulary | consuming apps |
-| **Auth** | every org's is different | app; Genesis provides slots |
+| **Auth policy** | every org's providers, sessions and sign-up rules are different | app. The sign-in screens are in: `AuthScreen` on native (assembled from `AuthBranding`, `SocialAuthRow` and `AuthForm`, each a slot), used with whatever auth the app runs |
 | **Routing** | router-agnostic is already a contribution gate | app; genesis-ui ships thin per-router adapters on their own subpaths (`/router/react-router`, `/router/tanstack-router`), each router an optional peer |
 | **Server-state config** | consumers own cache policy | app, via TanStack Query |
 | **The data source** | this is the whole point of adapters | switchboard adapters |

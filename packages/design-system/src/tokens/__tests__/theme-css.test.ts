@@ -24,7 +24,7 @@ const typography = JSON.parse(
   readFileSync(join(pkgRoot, "tokens", "dtcg", "typography.json"), "utf-8")
 );
 const fonts = fontFamiliesFromDtcg(typography);
-const genesisBrand = { name: "genesis", h: 160, s: 84, l: 39, radius: "0.625rem" };
+const genesisBrand = { name: "genesis", h: 243, s: 75, l: 59, radius: "0.625rem" };
 const themeCss = renderThemeCss(genesisBrand, fonts);
 const bridgeCss = renderTailwind4Bridge();
 

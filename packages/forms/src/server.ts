@@ -6,7 +6,7 @@
 import { isCalculated, ReplayWorkExceeded } from "./calculated";
 import { createForm, replayWithin, type FormEngine } from "./engine";
 import { compactEvents, isFormEvent, isJson, isPlainObject, isUnknownEvent } from "./events";
-import { isEmptyValue, normalizeValue } from "./fields";
+import { isEmptyValue, normalizeValue, withHostOptions, type HostOptions } from "./fields";
 import { coerceHidden } from "./hidden";
 import { fieldMap, own, withheld } from "./logic";
 import { parseForm } from "./parse";
@@ -48,6 +48,13 @@ export interface SubmissionOptions {
    * replay counts: the submit that follows it does not.
    */
   maxReplayWork?: number | undefined;
+  /**
+   * The option lists the app supplies for `optionsFrom: { source: "host" }`
+   * choice fields, loaded here on the server (never taken from the client):
+   * an answer must be one of the field's own options or of these. Pass what
+   * the form was shown with, loaded afresh, such as the current staff.
+   */
+  hostOptions?: HostOptions | undefined;
 }
 
 export interface CheckedSubmission {
@@ -167,12 +174,15 @@ function wellFormed(input: unknown): SubmissionInput | null {
  * malformed submission: it returns `{ ok: false, errors: { "": … } }`.
  */
 export function validateSubmission(
-  definition: FormDefinition,
+  published: FormDefinition,
   submission: SubmissionInput,
   options: SubmissionOptions = {},
 ): SubmissionResult {
-  const invalid = checkDefinition(definition);
+  const invalid = checkDefinition(published);
   if (invalid) return { ok: false, errors: { "": invalid } };
+  // Host-supplied options, filled in as the respondent's engine filled them, so
+  // a choice is accepted only when it is one the server offers now.
+  const definition = withHostOptions(published, options.hostOptions);
   if (!isPlainObject(submission)) return MALFORMED;
   const maxEvents = options.maxEvents ?? MAX_EVENTS;
   let sent: Record<string, unknown> = submission;

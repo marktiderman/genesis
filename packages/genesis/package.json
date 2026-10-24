@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis",
-  "version": "0.7.7",
+  "version": "0.8.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -107,7 +107,12 @@
     "./forms/web": {
       "types": "./dist/forms-web.d.ts",
       "import": "./dist/forms-web.js"
-    }
+    },
+    "./features": {
+      "types": "./dist/features.d.ts",
+      "import": "./dist/features.js"
+    },
+    "./versions.json": "./dist/versions.json"
   },
   "dependencies": {
     "@marktiderman/genesis-core": "workspace:*",
@@ -117,7 +122,8 @@
     "@marktiderman/genesis-ui-native": "workspace:*",
     "@marktiderman/genesis-forms": "workspace:*",
     "@marktiderman/genesis-forms-react": "workspace:*",
-    "@marktiderman/genesis-forms-web": "workspace:*"
+    "@marktiderman/genesis-forms-web": "workspace:*",
+    "@marktiderman/genesis-features": "workspace:*"
   },
   "peerDependencies": {
     "react": "^19.0.0",

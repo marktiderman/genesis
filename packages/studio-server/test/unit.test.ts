@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { SignJWT } from "jose";
 import { isDataWriteError } from "@marktiderman/genesis-core/schema";
 import { byResource, createStudioHandler, databaseDecides, jwtAuth, studioSetupSql, supabaseAuth, supabaseStudio, type StudioDatabase } from "../src/index";
@@ -98,8 +98,17 @@ describe("createStudioHandler login check", () => {
     // open until released, so the order they finish in is the test's to choose.
     type Login = Awaited<ReturnType<StudioDatabase["inspectLogin"]>>;
     const pending: Array<(login: Login) => void> = [];
+    // Resolves when the next check reaches the database. Each request signs and
+    // verifies a token first, so under load the second can overtake the first;
+    // waiting for each arrival in turn keeps pending[0] the first request's.
+    let arrived = () => {};
+    const nextArrival = () => new Promise<void>((resolve) => (arrived = resolve));
     const database: StudioDatabase = {
-      inspectLogin: () => new Promise<Login>((resolve) => pending.push(resolve)),
+      inspectLogin: () =>
+        new Promise<Login>((resolve) => {
+          pending.push(resolve);
+          arrived();
+        }),
       async asUser() {
         return { resources: [] } as never;
       },
@@ -121,9 +130,13 @@ describe("createStudioHandler login check", () => {
           body: JSON.stringify({ op: "resources" }),
         }),
       );
+    let arrival = nextArrival();
     const first = post();
+    await arrival;
+    arrival = nextArrival();
     const second = post();
-    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    await arrival;
+    expect(pending).toHaveLength(2);
     // The unsafe answer comes back first, then the safe one.
     pending[0]!({ name: "studio_login", superuser: true, bypassRls: false, inherit: false });
     expect((await first).status).toBe(500);

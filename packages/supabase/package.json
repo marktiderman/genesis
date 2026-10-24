@@ -1,0 +1,51 @@
+{
+  "name": "@marktiderman/genesis-supabase",
+  "version": "0.1.1",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, and a result helper. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/supabase"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "import": "./dist/native.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.118.0"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
+  }
+}

@@ -52,6 +52,12 @@ describe("findNavigationReimplementations", () => {
     expect(findNavigationReimplementations(source).map((v) => v.line)).toEqual([6]);
   });
 
+  it("ignores an alias of the genesis-core type", () => {
+    expect(
+      names('type NavigationNode<T> = import("@marktiderman/genesis-core/navigation").NavigationNode<T>;'),
+    ).toEqual([]);
+  });
+
   it("ignores an alias of the genesis-ui type", () => {
     expect(
       names('type NavigationNode = import("@marktiderman/genesis-ui/layout").NavigationNode<Item>;'),
