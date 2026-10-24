@@ -47,3 +47,26 @@ describe("AuthScreen", () => {
     expect(screen.queryByText("Hi")).toBeNull();
   });
 });
+
+describe("AuthScreen review fixes", () => {
+  it("moves focus to the password field when return is pressed on email", () => {
+    render(<AuthScreen form={form} />);
+    fireEvent.keyDown(screen.getByTestId("auth-screen-form-email"), { key: "Enter" });
+    expect(document.activeElement).toBe(screen.getByTestId("auth-screen-form-password"));
+  });
+
+  it("warns once on iOS when a third-party provider has no Sign in with Apple beside it", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const github = [{ id: "github", label: "GitHub", onPress: () => {} }];
+    render(<AuthScreen form={form} providers={github} />);
+    render(<AuthScreen form={form} providers={github} />);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain("4.8");
+    warn.mockRestore();
+  });
+
+  it("stays above the keyboard", () => {
+    render(<AuthScreen form={form} />);
+    expect(screen.getByTestId("auth-screen-kav")).toBeTruthy();
+  });
+});

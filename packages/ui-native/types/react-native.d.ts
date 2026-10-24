@@ -96,6 +96,12 @@ declare module "react-native" {
     accessibilityHint?: string;
     accessibilityState?: AccessibilityState;
     clearButtonMode?: "never" | "while-editing" | "unless-editing" | "always";
+    /** iOS AutoFill hint, e.g. "emailAddress", "password", "newPassword". */
+    textContentType?: string;
+    /** Android Autofill and web autocomplete hint, e.g. "email", "current-password". */
+    autoComplete?: string;
+    /** What the return key does: "submit" keeps the keyboard open, "blurAndSubmit" closes it. */
+    submitBehavior?: "submit" | "blurAndSubmit" | "newline";
     testID?: string;
     ref?: React.Ref<any>;
   }
