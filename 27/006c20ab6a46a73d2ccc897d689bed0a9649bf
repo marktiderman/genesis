@@ -1,0 +1,42 @@
+.changeset/expo-config-plugin.md
+  s_8252619ce79a86::t_9b1d01f09088bb 5-7
+packages/genesis-cli/test/fixtures/expo-app/package.json
+  s_8252619ce79a86::t_9b1d01f09088bb 1-8
+packages/genesis-cli/src/doctor/config.ts
+  s_8252619ce79a86::t_9b1d01f09088bb 29-30,111,121,136,139
+packages/genesis-cli/src/expo.ts
+  s_8252619ce79a86::t_9b1d01f09088bb 18-19,24-26,75-81,84-86,101-105,111-112
+packages/genesis-cli/src/cli.ts
+  s_8252619ce79a86::t_9b1d01f09088bb 170-171
+packages/genesis-cli/test/doctor.test.ts
+  s_8252619ce79a86::t_9b1d01f09088bb 306-319
+packages/genesis-cli/test/expo.test.ts
+  s_8252619ce79a86::t_9b1d01f09088bb 6,10,79-85,155,159-163,174-175,178,183-184,186,194-195,199-200,205-206,209,234,243,264-288
+  s_8252619ce79a86::t_d9b0b61e45d470 289-290
+packages/genesis-cli/test/fixtures/expo-app/app.json
+  s_8252619ce79a86::t_9b1d01f09088bb 1-15
+packages/genesis-cli/package.json
+  s_8252619ce79a86::t_9b1d01f09088bb 66
+packages/genesis-cli/test/fixtures/expo-app/genesis.config.json
+  s_8252619ce79a86::t_9b1d01f09088bb 1-10
+packages/genesis-cli/README.md
+  s_8252619ce79a86::t_9b1d01f09088bb 86-88,96,98-107,110-118,122,127-151
+pnpm-lock.yaml
+  s_8252619ce79a86::t_7a9065ec90267b 869-871
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "27006c20ab6a46a73d2ccc897d689bed0a9649bf",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
