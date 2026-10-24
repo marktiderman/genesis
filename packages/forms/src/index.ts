@@ -170,3 +170,4 @@ export {
   type JumpTrace,
   type RuleTrace,
 } from "./explain";
+export { carryAnswers } from "./carry";

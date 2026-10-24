@@ -103,6 +103,12 @@ export interface NavigationSlotProps {
 export interface EndingSlotProps {
   title: string;
   description?: string;
+  /**
+   * Buttons or links under the ending, such as "Send another response" or "Change your
+   * answers": pass them through `slotProps.ending`. The default ending shows them in a
+   * centred row.
+   */
+  actions?: ReactNode;
   className?: string;
 }
 export interface ErrorSummaryItem {
@@ -361,8 +367,13 @@ function DefaultNavigation({
   );
 }
 
-function DefaultEnding({ title, description, className }: EndingSlotProps) {
+/**
+ * The built-in ending (a check, the title and description, then any `actions`). Exported
+ * so a custom ending slot can wrap it rather than copy it.
+ */
+export function DefaultEnding({ title, description, actions, className }: EndingSlotProps) {
   const { presentation } = useFormPresentation();
+  const actionRow = actions ? <div className="mt-4 flex flex-wrap justify-center gap-2">{actions}</div> : null;
   if (presentation === "page") {
     return (
       <div className={cn("flex flex-col items-center gap-4 text-center", className)}>
@@ -384,6 +395,7 @@ function DefaultEnding({ title, description, className }: EndingSlotProps) {
           {title}
         </h2>
         {description ? <p className="max-w-md text-lg text-muted-foreground text-pretty">{description}</p> : null}
+        {actionRow}
       </div>
     );
   }
@@ -394,6 +406,7 @@ function DefaultEnding({ title, description, className }: EndingSlotProps) {
         {title}
       </h2>
       {description ? <p className="text-muted-foreground">{description}</p> : null}
+      {actionRow}
     </div>
   );
 }

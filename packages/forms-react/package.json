@@ -36,7 +36,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-forms": "workspace:>=0.1.1 <1.0.0",
+    "@marktiderman/genesis-forms": "workspace:>=0.6.0 <1.0.0",
     "react": "^19.0.0"
   },
   "devDependencies": {

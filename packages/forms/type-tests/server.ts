@@ -1,7 +1,15 @@
 // Options passed straight through from a consumer's own optional values must
 // type-check with exactOptionalPropertyTypes on.
 import { createForm, f, type FieldValidator, type Json } from "@marktiderman/genesis-forms";
-import { validateSubmission, type SubmissionInput } from "@marktiderman/genesis-forms/server";
+import {
+  allow,
+  createEditSecretReader,
+  editLinkUrl,
+  isEditLinkRequest,
+  validateSubmission,
+  type RateLimitStore,
+  type SubmissionInput,
+} from "@marktiderman/genesis-forms/server";
 import { form } from "./exact-optional";
 
 declare const maybe: {
@@ -35,3 +43,21 @@ export const fields = [
   f.rating("score", { label: "Score", max: undefined }),
 ];
 export const member = f.hidden.string({ source: "server", identifying: maybe.identifying });
+
+declare const optional: {
+  now?: number;
+  ttlSeconds?: number;
+  param?: string;
+  isFormPage?: (url: URL) => boolean;
+  log?: (message: string) => void;
+  message?: string;
+};
+declare const store: RateLimitStore;
+export const link = editLinkUrl("/f/a", { id: "x", nonce: "y" }, undefined, {
+  now: optional.now,
+  ttlSeconds: optional.ttlSeconds,
+  param: optional.param,
+});
+export const isEdit = isEditLinkRequest(new URL("https://x.test/f/a"), { param: optional.param, isFormPage: optional.isFormPage });
+export const readSecret = createEditSecretReader({ variable: "FORM_EDIT_SECRET", log: optional.log });
+export const allowed = allow(store, { key: "k", limit: 1, windowSeconds: 1 }, { log: optional.log, message: optional.message });

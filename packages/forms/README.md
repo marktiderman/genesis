@@ -387,6 +387,49 @@ limits above (`maxEvents`, `maxValues`, `maxReplayWork`). Events of an unknown t
 client's log still replays. With `settings.clearHiddenValues: false`, a hidden field's value is kept
 only if its format is valid.
 
+### Edit links
+
+A respondent can change a sent response through a signed link, `?edit=<id>.<nonce>.<expires>.<sig>`:
+an HMAC-SHA256 (Web Crypto) under a server secret of at least 32 bytes, working for 30 days. The app
+keeps a nonce per response and changes it after each edit, so only the newest link works; it checks
+the nonce itself. Without a usable secret there are no edit links: signing returns null and nothing
+verifies.
+
+```ts
+import {
+  createEditSecretReader,
+  editLinkUrl,
+  verifyEditToken,
+  withEditLinkHeaders,
+} from "@marktiderman/genesis-forms/server";
+
+const editSecret = createEditSecretReader({ variable: "FORM_EDIT_SECRET" }); // warns once when missing
+const editUrl = await editLinkUrl(`/f/${slug}`, { id: response.id, nonce: response.editNonce }, editSecret(env));
+const claims = await verifyEditToken(url.searchParams.get("edit"), editSecret(env)); // then compare claims.nonce
+// The link is a credential: no Referer, no caching, on the page it opens.
+return withEditLinkHeaders(request, response, { isFormPage: (u) => u.pathname.startsWith("/f/") });
+```
+
+`signEditToken`, `withEditToken`, `isEditLinkRequest`, `isUsableEditSecret`, `EDIT_LINK_TTL_SECONDS`,
+`MIN_EDIT_SECRET_BYTES` and `EDIT_LINK_PARAM` are the parts. `carryAnswers` (main entry) moves a
+stored response's answers onto a newer version of the form by field key, for the edit page's prefill.
+
+### Rate limits
+
+The submit endpoint's limit, without the counter: `clientIp(headers, trusted?)` reads the first
+trusted proxy header (`DEFAULT_TRUSTED_IP_HEADERS`: `x-vercel-forwarded-for`, `x-forwarded-for`,
+`x-real-ip`; trust only headers your proxy overwrites), `addressPrefix` keeps an IPv4 address whole
+and an IPv6 one by its /64, and `rateLimitKey({ kind, scope, ip, secret })` is
+`<kind>:<scope>:<hex HMAC-SHA256 of the prefix>`, so the address is never stored. The app's
+`RateLimitStore.hit(key, limit, windowSeconds)` counts (shared by every instance); `allow` fails
+open, and logs, when it answers null or throws. `RATE_LIMIT_DEFAULTS` holds 60 submits, 900 saves as
+they go and 120 photo uploads per 10 minutes.
+
+```ts
+const key = await rateLimitKey({ kind: "submit", scope: practiceId, ip: clientIp(request.headers), secret });
+if (!(await allow(store, { key, ...RATE_LIMIT_DEFAULTS.submit }, { log }))) return tooMany();
+```
+
 ## Destinations
 
 `@marktiderman/genesis-forms/destinations` sends a checked submission somewhere. No dependencies:

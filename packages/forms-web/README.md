@@ -106,7 +106,9 @@ import { Form } from "@marktiderman/genesis-forms-web";
   over.
 - **Extension ladder:** `slots` replaces a part (`header`, `brand`, `progress`, `navigation`,
   `ending`, `errorSummary`), `null` removes it, and `slotProps` feeds it (and wins over the defaults). A custom
-  ending can mark an element `data-gf-focus` to receive focus; a custom error summary can mark itself
+  ending can mark an element `data-gf-focus` to receive focus; `slotProps={{ ending: { actions } }}`
+  puts buttons or links (Send another response, Change your answers) in a centred row under the
+  default ending, and `DefaultEnding` is exported for a custom ending to wrap; a custom error summary can mark itself
   `data-gf-error-summary` (with `tabIndex={-1}`) to be focused after a failed submit.
 - **Renderers** come from a registry. `defaultRegistry` is shared by every `<Form>` without a
   `registry` prop, so prefer `extend()`, which returns a new registry and changes nothing else:
@@ -160,6 +162,23 @@ sends (it says "Wait for the photo to finish uploading."). Without `onUpload`, o
 A **`calculated`** field shows the value the engine worked out from other answers, read-only, in an
 `<output>` named by the question that announces changes politely. It follows the field's `format`
 and `decimals`, and shows a dash until there is a value.
+
+## Clean form links
+
+A link's query (`?edit=`, prefilled answers, `utm_…`) can be taken out of the address bar once the
+page has read it, so it stays out of screenshots and shared addresses. Cosmetic, not security: the
+server still checks every value. Call it once, after reading the query:
+
+```ts
+import { hideQueryOnLoad, wasReload } from "@marktiderman/genesis-forms-web";
+
+useEffect(() => void hideQueryOnLoad(window, wasReload()), []);
+```
+
+It uses the browser's own `History.prototype.replaceState` (a router that patches the instance's
+would otherwise re-read the address), and keeps the query in sessionStorage (`form-query:<path>`) so
+a reload in the same tab within `HIDDEN_QUERY_KEEP_MS` (30 minutes) brings it back. Blocked storage
+leaves the query visible.
 
 ## License
 
