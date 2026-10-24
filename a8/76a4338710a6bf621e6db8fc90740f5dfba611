@@ -1,0 +1,44 @@
+templates/eas/scripts/rollout-health.mjs
+  s_8252619ce79a86::t_be005174ab1209 29-30
+templates/eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_be005174ab1209 10-11
+templates/eas/workflows/rollout.yml
+  s_8252619ce79a86::t_be005174ab1209 9-13,15-18,26-28,61,63-64,109
+docs/NATIVE-RELEASE.md
+  s_8252619ce79a86::t_b3b08c0e86dbb0 12,50-52,62-68,70-71,80-86,98-107
+  s_8252619ce79a86::t_9becb9e723978e 53-56,69,133
+apps/genesis-rn-starter/.eas/workflows/rollout.yml
+  s_8252619ce79a86::t_2190062cbd29f2 9-13,15-18,26-28,61,63-64,109
+apps/genesis-rn-starter/.eas/scripts/rollout-health.mjs
+  s_8252619ce79a86::t_2190062cbd29f2 29-30
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_2190062cbd29f2 10-11
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_b3b08c0e86dbb0 133
+apps/genesis-rn-starter/src/lib/updates.ts
+  s_8252619ce79a86::t_be005174ab1209 8-12,22-23,34
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_8252619ce79a86::t_b3b08c0e86dbb0 43-48,51,140-141,147-148,152-158,164,179,181-182,193,196-197,233-234
+templates/eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_9becb9e723978e 2-4,17-19,24-27
+  s_8252619ce79a86::t_a1755beb43e78f 35,88
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_9becb9e723978e 2-4,27
+  s_8252619ce79a86::t_2190062cbd29f2 17-19,24-26,35,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a876a4338710a6bf621e6db8fc90740f5dfba611",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
