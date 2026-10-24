@@ -1,0 +1,29 @@
+packages/genesis-cli/test/scaffolder.test.ts
+  s_8252619ce79a86::t_58ea8ee7039328 165,174
+  s_8252619ce79a86::t_a9c53cc6840ad5 140,142
+  s_8252619ce79a86::t_0e8604e47534e4 126,131,172,228,250
+.github/workflows/genesis-lint.yml
+  s_8252619ce79a86::t_0e8604e47534e4 1
+packages/genesis-cli/src/scaffolder.ts
+  s_8252619ce79a86::t_0e8604e47534e4 340,358,381-383,385,399-401,409-411
+packages/genesis-cli/src/cli.ts
+  s_8252619ce79a86::t_0e8604e47534e4 17-26,33,83-84
+.changeset/init-cleanup.md
+  s_8252619ce79a86::t_199403651ce1ce 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "76d7ab71036420d1b5708c661a4830b6e17aef1a",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
