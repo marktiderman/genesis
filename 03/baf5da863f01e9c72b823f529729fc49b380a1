@@ -1,0 +1,181 @@
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 7,98-106,156,178-183,186-194,197
+apps/genesis-rn-starter/src/lib/app.ts
+  s_8252619ce79a86::t_7f376fcad77e29 10,18,36,39
+apps/genesis-rn-starter/supabase/migrations/20261024000100_genesis_app_release_policy.sql
+  s_8252619ce79a86::t_7f376fcad77e29 1-82
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_8252619ce79a86::t_7f376fcad77e29 1-256
+apps/genesis-rn-starter/.maestro/flows/sign-in-screen.yaml
+  s_8252619ce79a86::t_7f376fcad77e29 3,5-6
+apps/genesis-rn-starter/starter.config.ts
+  s_8252619ce79a86::t_7f376fcad77e29 13-15,28
+apps/sample/stories/FormBuilder.stories.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 33
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_8a20bc73ee27a5 110
+  s_8252619ce79a86::t_7f376fcad77e29 33-34,63,68,101-107,125,132-148,159-166
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_7f376fcad77e29 14-15,34,43,69-70
+docs/MIGRATION.md
+  s_8252619ce79a86::t_7f376fcad77e29 95,183,220,290
+apps/genesis-rn-starter/src/lib/updates.ts
+  s_8252619ce79a86::t_7f376fcad77e29 1-52
+packages/design-system/src/factories/from-brand.ts
+  s_8252619ce79a86::t_7f376fcad77e29 6,752-753
+features.json
+  s_8252619ce79a86::t_7f376fcad77e29 1428,1452-1453,1466,1469,1484-1588,2054-2055,2384
+templates/eas/scripts/rollout-health.mjs
+  s_8252619ce79a86::t_7f376fcad77e29 1-85
+templates/eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_7f376fcad77e29 1-138
+templates/eas/eas.json
+  s_8252619ce79a86::t_7f376fcad77e29 1-45
+templates/eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_7f376fcad77e29 1-109
+apps/genesis-rn-starter/.maestro/README.md
+  s_8252619ce79a86::t_7f376fcad77e29 3-4,6-13,21-23,26-30,32-34,36-37
+apps/genesis-rn-starter/eas.json
+  s_8252619ce79a86::t_7f376fcad77e29 1-45
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 6,12,16,21-23,63
+packages/native/README.md
+  s_8252619ce79a86::t_7f376fcad77e29 9,19,39-43
+packages/supabase/src/web-crypto.ts
+  s_8252619ce79a86::t_7f376fcad77e29 1-211
+templates/eas/workflows/e2e.yml
+  s_8252619ce79a86::t_7f376fcad77e29 1-75
+templates/eas/workflows/rollout.yml
+  s_8252619ce79a86::t_7f376fcad77e29 1-118
+docs/DATA-STUDIO.md
+  s_8252619ce79a86::t_7f376fcad77e29 15-16,53,288,290-291,323
+docs/README.md
+  s_8252619ce79a86::t_7f376fcad77e29 20-22
+scripts/check-navigation-reimplementation.mjs
+  s_8252619ce79a86::t_7f376fcad77e29 9
+apps/genesis-rn-starter/src/app/sign-in.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 5,19-21,26-27,36-37,48
+apps/genesis-rn-starter/src/lib/supabase.ts
+  s_8252619ce79a86::t_7f376fcad77e29 7,60-61
+packages/design-system/src/presets/nativewind.ts
+  s_8252619ce79a86::t_7f376fcad77e29 1-62
+packages/design-system/src/presets/__tests__/nativewind.test.ts
+  s_8252619ce79a86::t_7f376fcad77e29 1-51
+packages/supabase/src/index.ts
+  s_8252619ce79a86::t_7f376fcad77e29 6,8,10,42-53,60-61,72,75-77,91-94
+packages/supabase/src/native.ts
+  s_8252619ce79a86::t_7f376fcad77e29 10-17
+  s_8252619ce79a86::t_95c66c79a92505 9
+apps/genesis-rn-starter/.eas/scripts/rollout-health.mjs
+  s_8252619ce79a86::t_7f376fcad77e29 1-85
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_7f376fcad77e29 1-138
+packages/supabase/src/__tests__/web-crypto.test.ts
+  s_8252619ce79a86::t_7f376fcad77e29 1-188
+apps/genesis-rn-starter/.maestro/flows/settings-version.yaml
+  s_8252619ce79a86::t_7f376fcad77e29 1-28
+packages/design-system/tsup.config.ts
+  s_8252619ce79a86::t_7f376fcad77e29 24
+apps/genesis-rn-starter/.maestro/subflows/sign-in.yaml
+  s_8252619ce79a86::t_7f376fcad77e29 1-20
+apps/genesis-rn-starter/.maestro/flows/launch.yaml
+  s_8252619ce79a86::t_7f376fcad77e29 1-17
+packages/design-system/style-dictionary.config.ts
+  s_8252619ce79a86::t_7f376fcad77e29 22,40
+packages/ui/src/components/layout/__tests__/app-shell-collapse.test.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 71,93,100-101,117,127,143,153,157,162,176,195,197,206,211,213,219,228,236,238,247,261,274,276,282,290,293,296,305,313,329,346,359,376,391,399,463
+apps/genesis-rn-starter/tailwind.config.mjs
+  s_8252619ce79a86::t_7f376fcad77e29 1-2,4,9
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_7f376fcad77e29 1-109
+docs/NATIVE-RELEASE.md
+  s_8252619ce79a86::t_7f376fcad77e29 1-164
+apps/genesis-rn-starter/.eas/workflows/e2e.yml
+  s_8252619ce79a86::t_7f376fcad77e29 1-75
+packages/ui/src/components/layout/__tests__/app-shell-sub-nav.test.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 49,173,216,244,344,399,468
+templates/maestro/flows/settings-version.yaml
+  s_8252619ce79a86::t_7f376fcad77e29 1-28
+.changeset/neutral-sample-names.md
+  s_8252619ce79a86::t_7f376fcad77e29 1-7
+packages/design-system/src/schema/brand.ts
+  s_8252619ce79a86::t_7f376fcad77e29 11,29-30,46,75,143,180
+apps/genesis-rn-starter/supabase/tests/database/genesis_app_release_policy.test.sql
+  s_8252619ce79a86::t_7f376fcad77e29 1-148
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_7f376fcad77e29 5,10-11,14,29
+docs/component-reference.md
+  s_8252619ce79a86::t_7f376fcad77e29 876
+features.ts
+  s_8252619ce79a86::t_7f376fcad77e29 636,642,649,652,658-704,913,1063
+packages/design-system/src/factories/__tests__/from-brand.test.ts
+  s_8252619ce79a86::t_7f376fcad77e29 11-12,25,28-29,79-80,83,166,173,179,194-195,200,207-208,221,234,245,251-252,265,275,288,300,306,318,326-327,333,340,360,368,380,391-392,415-416,426-427,439,444,449
+packages/design-system/src/tokens/theme-css.ts
+  s_8252619ce79a86::t_7f376fcad77e29 13-14,219-222,225-233,296-328
+packages/design-system/src/providers/native.ts
+  s_8252619ce79a86::t_7f376fcad77e29 21-22,71,76
+AGENTS.md
+  s_8252619ce79a86::t_0807a79c8712f4 16
+packages/ui/src/components/data/__tests__/data-view-gaps.test.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 5
+packages/supabase/README.md
+  s_8252619ce79a86::t_7f376fcad77e29 9,16,23
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_7f376fcad77e29 16-21,46-51,77-79,82-92
+  s_8252619ce79a86::t_4f9cc873abed63 93
+packages/ui-native/src/layouts/keyboard.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 7-10,12-15
+packages/ui/src/components/layout/AppShell.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 122
+packages/design-system/schema/brand.schema.json
+  s_8252619ce79a86::t_7f376fcad77e29 14
+packages/genesis-cli/test/scaffolder.test.ts
+  s_8252619ce79a86::t_7f376fcad77e29 47-48,89,91-92,96,98,278-279
+templates/maestro/subflows/sign-in.yaml
+  s_8252619ce79a86::t_7f376fcad77e29 1-20
+apps/sample/app/routes/_layout.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 109
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_7f376fcad77e29 1,7,46-86,174-175
+  s_8252619ce79a86::t_1557e911138b73 168-173,176-184
+apps/genesis-rn-starter/.eas/workflows/rollout.yml
+  s_8252619ce79a86::t_7f376fcad77e29 1-118
+packages/design-system/__fixtures__/brand-full-divergence.json
+  s_8252619ce79a86::t_7f376fcad77e29 2
+templates/maestro/config.yaml
+  s_8252619ce79a86::t_7f376fcad77e29 1-5
+templates/maestro/flows/launch.yaml
+  s_8252619ce79a86::t_7f376fcad77e29 1-17
+apps/sample/stories/AppShell.stories.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 70-71,89-90,115-116,236-237,297,305-306
+docs/APP-CI.md
+  s_8252619ce79a86::t_7f376fcad77e29 6-10
+packages/ui/type-tests/nav-item-icon.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 7
+.changeset/starter-sim-fixes.md
+  s_8252619ce79a86::t_7f376fcad77e29 1-15
+templates/maestro/flows/sign-in-screen.yaml
+  s_8252619ce79a86::t_7f376fcad77e29 1-17
+packages/native/src/__tests__/app.test.tsx
+  s_8252619ce79a86::t_7f376fcad77e29 2,319-379
+packages/genesis-cli/src/scaffolder.ts
+  s_8252619ce79a86::t_7f376fcad77e29 84,250,342-345
+pnpm-lock.yaml
+  s_8252619ce79a86::t_0a0932b97035c2 83-85,110-112,186-188,5291-5293,6292-6296,6315-6317,6348-6350,6364-6368,6458-6477,13774-13775,14994-14997,15023-15024,15050-15051,15068-15072,15177-15207
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "03baf5da863f01e9c72b823f529729fc49b380a1",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
