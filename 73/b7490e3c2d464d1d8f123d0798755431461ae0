@@ -1,0 +1,55 @@
+.changeset/studio-server-core-peer.md
+  s_8252619ce79a86::t_7cc9af21d98fa4 2,6-10
+packages/core/CHANGELOG.md
+  s_8252619ce79a86::t_faedb7adb73849 3-10
+packages/core/package.json
+  s_8252619ce79a86::t_2c0f7ada5e91de 3
+packages/design-system/CHANGELOG.md
+  s_8252619ce79a86::t_02aa32250723c5 3-24
+packages/design-system/package.json
+  s_8252619ce79a86::t_5dc0889b7bd750 3
+packages/features/CHANGELOG.md
+  s_8252619ce79a86::t_ca56a51bb096f2 3-20
+packages/features/package.json
+  s_8252619ce79a86::t_136f186cb0f6fe 3
+packages/genesis-cli/CHANGELOG.md
+  s_8252619ce79a86::t_efd6c3c18571d7 3-36
+packages/genesis-cli/package.json
+  s_8252619ce79a86::t_b5ed3537558fbe 3,6,69,79
+packages/genesis/CHANGELOG.md
+  s_8252619ce79a86::t_8080663708e95a 3-30
+packages/genesis/package.json
+  s_8252619ce79a86::t_5c1e8234a60b6f 3,7
+packages/studio-server/package.json
+  s_8252619ce79a86::t_d5eb5ffe5e5c6b 53-55,57
+packages/supabase/CHANGELOG.md
+  s_8252619ce79a86::t_820ed2deb5d77d 1,3,5-19
+packages/supabase/package.json
+  s_8252619ce79a86::t_01900002f0a09e 3
+packages/ui-native/CHANGELOG.md
+  s_8252619ce79a86::t_9ed43aa2e9b3cd 3-33
+packages/ui-native/package.json
+  s_8252619ce79a86::t_a783df7af3d0d5 3
+packages/ui/CHANGELOG.md
+  s_8252619ce79a86::t_63425f8668c04c 3-13
+packages/ui/package.json
+  s_8252619ce79a86::t_3af90c4d2705a1 3
+pnpm-lock.yaml
+  s_8252619ce79a86::t_ba75df7d54a63f 935-937,1078-1080
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "73b7490e3c2d464d1d8f123d0798755431461ae0",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
