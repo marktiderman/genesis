@@ -239,6 +239,8 @@ describe("the content registry", () => {
     expect(parsed.ok).toBe(false);
     if (!parsed.ok) expect(parsed.issues).toEqual([{ path: "blocks[0].props.tone", message: "Must be text." }]);
     expect(parseForm(form("message", [{ ...block, props: { tone: "calm" } }])).ok).toBe(true);
+    const notObject = parseForm(form("message", [{ ...block, props: ["calm"] as never }]));
+    expect(!notObject.ok && notObject.issues).toEqual([{ path: "blocks[0].props", message: "Must be a JSON object." }]);
     // An unknown kind names every registered one.
     const unknown = parseForm(form("unknown", [{ kind: "content", id: "u", type: "test/nope", text: "" }]));
     expect(!unknown.ok && unknown.issues[0]!.message).toBe("Must be heading, text, test/throws or test/message.");

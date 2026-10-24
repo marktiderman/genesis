@@ -303,7 +303,8 @@ export function parseForm(input: unknown): ParseResult {
       if (!content) issue(`${path}.type`, `Must be ${contentKinds()}.`);
       text(block.text, `${path}.text`);
       if (content?.checkProps) {
-        if (block.props === undefined || isObject(block.props)) kindProps(content.checkProps, block.props ?? {}, `${path}.props`);
+        // Only for a kind that reads its props: built-in content kinds keep ignoring them, as before.
+        if (block.props === undefined || (isObject(block.props) && isJson(block.props))) kindProps(content.checkProps, block.props ?? {}, `${path}.props`);
         else issue(`${path}.props`, "Must be a JSON object.");
       }
     } else if (block.kind === "page-break") {
