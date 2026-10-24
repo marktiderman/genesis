@@ -129,6 +129,28 @@ Each type validates, normalizes (trimmed, blanks dropped, notes in time order), 
 samples for `coverage()`. Helpers: `listLimits`, `tableColumns`, `tableLimits`, `formatTimestamp`
 and `parseTimestamp`; types `TableColumn`, `MediaNote` and `Highlight`.
 
+### Photo fields
+
+A `photo` field asks for up to a few photos, such as a picture of broken equipment:
+`f.photo(key, { maxFiles, maxSizeMb, formats })`. The answer holds references the host's storage
+returned, never the bytes: `PhotoRef[]`, each `{ id, name, type, size }`. The renderer uploads
+through the host (`onUpload` on genesis-forms-web's `Form`), so the engine and `validateSubmission`
+stay storage-agnostic; the host's server should check that every reference is a file it stored
+for this respondent and form before saving.
+
+| Prop | Default | Rule |
+| --- | --- | --- |
+| `maxFiles` | 3 | 1 to `MAX_PHOTO_FILES` (5). |
+| `maxSizeMb` | 10 | 1 to `MAX_PHOTO_SIZE_MB` (25), per photo. |
+| `formats` | all four | One or more of `jpeg`, `png`, `heic` (also HEIF) and `webp` (`PHOTO_FORMATS` maps each to its MIME types). |
+
+A photo is neither `sensitive` nor `identifying` by default; set either on the field when it is.
+Validation checks each reference's shape, type and size and the count; `normalize` keeps only the
+four keys; `summarizeValue` lists the file names. Like the structured types it is opt-in in a
+builder palette: `UPLOAD_FIELD_TYPES` (`["photo"]`). Helpers: `photoLimits(field)` (`maxFiles`,
+`maxSizeMb`, `maxBytes`, `formats`, `mimeTypes`), `photoRefs(value)`, `isPhotoRef`,
+`photoFormatList`, and the messages `photoTypeMessage`, `photoSizeMessage` and `photoCountMessage`.
+
 ### Calculated fields
 
 A `calculated` field shows a value worked out from other answers, such as a total, an average or a

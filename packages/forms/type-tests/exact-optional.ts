@@ -21,6 +21,7 @@ export const form = defineForm({
     f.table("plan", { label: "Plan", columns: [{ key: "what", label: "What" }, { key: "why", label: "Why", long: true }] }),
     f.mediaNotes("moments", { label: "Moments", maxNotes: 5 }),
     f.textHighlights("article", { label: "Article", text: undefined }),
+    f.photo("photo", { label: "Add a photo (optional)", maxFiles: 2, maxSizeMb: undefined, formats: ["jpeg", "heic"] }),
   ],
   logic: [when("contact").is(true).show("email")],
   endings: [{ id: "default", title: "Thanks" }],

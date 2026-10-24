@@ -72,6 +72,28 @@ export {
   STRUCTURED_FIELD_TYPES,
 } from "./structured";
 export {
+  DEFAULT_PHOTO_FILES,
+  DEFAULT_PHOTO_SIZE_MB,
+  isPhotoFormat,
+  isPhotoRef,
+  MAX_PHOTO_FILES,
+  MAX_PHOTO_ID_LENGTH,
+  MAX_PHOTO_NAME_LENGTH,
+  MAX_PHOTO_SIZE_MB,
+  PHOTO_FORMATS,
+  PHOTO_TYPE,
+  photoCountMessage,
+  photoFormatList,
+  photoLimits,
+  photoRefs,
+  photoSizeMessage,
+  photoTypeMessage,
+  UPLOAD_FIELD_TYPES,
+  type PhotoFormat,
+  type PhotoLimits,
+  type PhotoRef,
+} from "./photo";
+export {
   CALCULATED_TYPE,
   COMPUTED_FIELD_TYPES,
   MAX_CALCULATED_DECIMALS,

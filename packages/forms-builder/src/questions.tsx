@@ -7,6 +7,7 @@ import {
   listFieldTypes,
   optionsSource,
   STRUCTURED_FIELD_TYPES,
+  UPLOAD_FIELD_TYPES,
   type Block,
   type FieldBlock,
   type FormDefinition,
@@ -87,12 +88,13 @@ export interface PaletteEntry {
 
 /**
  * The palette when the host names none: every registered type except the
- * opt-in ones, the structured types (`STRUCTURED_FIELD_TYPES`) and the
- * calculated type (`COMPUTED_FIELD_TYPES`), which a host offers by naming
+ * opt-in ones, the structured types (`STRUCTURED_FIELD_TYPES`), the
+ * calculated type (`COMPUTED_FIELD_TYPES`) and the types that need the host to
+ * store files (`UPLOAD_FIELD_TYPES`: photo), which a host offers by naming
  * them, e.g. `palette={[...defaultPalette(), ...STRUCTURED_FIELD_TYPES, ...COMPUTED_FIELD_TYPES]}`.
  */
 export function defaultPalette(): string[] {
-  const optIn = new Set<string>([...STRUCTURED_FIELD_TYPES, ...COMPUTED_FIELD_TYPES]);
+  const optIn = new Set<string>([...STRUCTURED_FIELD_TYPES, ...COMPUTED_FIELD_TYPES, ...UPLOAD_FIELD_TYPES]);
   return listFieldTypes()
     .map((t) => t.type)
     .filter((type) => !optIn.has(type));
