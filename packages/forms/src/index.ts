@@ -37,6 +37,10 @@ export { computePath, evaluate, ruleVisible, steps, type PathResult } from "./lo
 export { formProgress, furthestReached, type FormProgress } from "./progress";
 export {
   choiceOptions,
+  isHttpsUrl,
+  OPTION_LIMITS,
+  optionJson,
+  readOption,
   isOtherValue,
   otherOption,
   OTHER_MAX_LENGTH,
@@ -126,6 +130,33 @@ export {
   type FormulaRef,
   type FormulaValue,
 } from "./formula";
+export {
+  answerSnapshots,
+  answersFromSnapshots,
+  answersOnPath,
+  CHOICE_FIELD_TYPES,
+  clearFilteredAnswers,
+  filteredChoiceError,
+  hasOptionFilters,
+  hiddenByPrefill,
+  isPrefillParam,
+  isSearchable,
+  MAX_PREFILL_PARAM_LENGTH,
+  optionFilter,
+  optionMatches,
+  prefillFromLink,
+  prefillSetting,
+  respondentPath,
+  SEARCHABLE_OPTION_COUNT,
+  searchOptions,
+  visibleOptions,
+  type AnswerSnapshot,
+  type LinkParams,
+  type OptionSnapshot,
+  type PrefillSetting,
+  type PrefillState,
+  type RestoredAnswers,
+} from "./options";
 export { recall } from "./recall";
 export { validateField, REQUIRED_MESSAGE, type FieldValidator, type StandardSchemaV1 } from "./validate";
 export { canonicalJson, fingerprint } from "./hash";
@@ -139,3 +170,4 @@ export {
   type JumpTrace,
   type RuleTrace,
 } from "./explain";
+export { carryAnswers } from "./carry";

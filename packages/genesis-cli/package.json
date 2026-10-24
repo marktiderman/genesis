@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-cli",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": false,
   "type": "module",
   "description": "Genesis CLI — `genesis init` scaffolds a Genesis app; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on in an existing app; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts; `withGenesis()` (`app.plugin.js`, `/expo`) is the Expo config plugin.",

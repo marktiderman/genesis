@@ -127,7 +127,108 @@ From the outside in:
 | `fatal` | `FatalScreen` (`PlainFatalScreen` if the slot throws) | `{ error, retry }` |
 | `errorBoundary` | `GenesisErrorBoundary` | `{ children, fallback, onError, resetKey, onRetry }` |
 | `signedOut` | your screens | `{ children }` |
-| `updateBanner` | nothing (filled by the updates block later) | `{}` |
+| `forceUpgrade` | `ForceUpgradeScreen` (with `updates`) | `{ minimumVersion, installedVersion, storeUrl, openStore, retry, checking }` |
+| `maintenance` | `MaintenanceScreen` (with `updates`) | `{ message, retry, retrying }` |
+| `updateBanner` | `UpdateBanner` (with `updates`) | `{ reload, dismiss, canReload, blocked, reloading }` |
+| `whatsNew` | `WhatsNewSheet` (with `updates`) | `{ notes, version, dismiss }` |
+
+The last four render only when the `updates` prop is given. Ejecting a
+blocking one (`forceUpgrade: null`, `maintenance: null`) shows your screens
+instead: a slot that is turned off never blocks.
+
+## Updates: force upgrade, maintenance, update banner, what's new
+
+`@marktiderman/genesis-native/updates` is the updates block. Build it once
+and pass it in; deleting the `updates={updates}` line turns it off.
+
+```ts
+// lib/app.ts
+import * as Updates from "expo-updates";
+import * as Application from "expo-application";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppState, Linking, Platform } from "react-native";
+import { createUpdates, supabasePolicySource } from "@marktiderman/genesis-native/updates";
+
+export const updates = createUpdates({
+  platform: Platform.OS,
+  application: Application,
+  updates: Updates,
+  policy: supabasePolicySource(supabase), // or staticPolicySource({ … }), or your own
+  storage: AsyncStorage,
+  appState: AppState,
+  openURL: Linking.openURL,
+  channels: { enabled: __DEV__ || process.env.EXPO_PUBLIC_PREVIEW === "1" },
+});
+
+// app/_layout.tsx
+<GenesisNativeApp updates={updates} … />
+```
+
+- **Force upgrade.** The policy names the oldest store version per platform
+  (`minimumVersion: { ios: "1.4.0" }`) and its store link (`storeUrl`). An
+  older install sees the `forceUpgrade` slot, blocking, with "Update" (the
+  store link, opened with `openURL`) and "Check again". A minimum without a
+  store link for the platform forces nothing: there would be no way out.
+- **Blocking screens cover, they don't unmount.** The force-upgrade and
+  maintenance screens are drawn over your screens, which stay mounted (hidden
+  from touch and screen readers), so maintenance that starts and ends
+  mid-session keeps a half-filled form and the navigation state.
+- **Maintenance.** `maintenance: { active: true, message }` shows the
+  `maintenance` slot, blocking, with "Try again" (fetches the policy again).
+- **Update banner.** On launch and on coming to the front (at most every
+  `checkIntervalMs`, 15 minutes), expo-updates is asked for a newer update
+  for this binary's runtime version and it is downloaded; the `updateBanner`
+  slot then offers "Restart" and "Later". It **never reloads on its own**, and
+  never while anything is mid-edit: a form calls `useBlockReload(isDirty)`,
+  and `canReload` gives the app its own say (a throw counts as no). "Later"
+  loses nothing: a downloaded update also applies on the next cold start.
+- **What's new.** Notes (`{ version, title?, body }`, from the policy and from
+  `notes`) for the versions after the one last seen, up to this one, once, in
+  the `whatsNew` slot. A fresh install shows nothing; the version seen is in
+  `storage`.
+- **Version signature.** `useVersionSignature()` gives `short`
+  (`1.4.0 (37) · preview · 3f2a9c1b`) for a Settings "About" row and `text` (version,
+  build, platform, channel, runtime, update id, emergency launch) for a support
+  report. A value the modules can't give prints as `unknown`.
+- **Channel switching** (test builds only): `useUpdates().channels.switchTo("pr-42")`
+  overrides the `expo-channel-name` header, fetches and reloads (or reports
+  `blocked` mid-edit). It throws unless `channels: { enabled: true }`; never
+  enable it in a store build. `channels.reset()` goes back and always works.
+
+**Policy sources.** `UpdatePolicySource` is `{ load(): Promise<UpdatePolicy | null> }`.
+`staticPolicySource(policy)` is a policy written in the app;
+`supabasePolicySource(client, { appId })` reads `public.app_release_policy`
+(migration `0002_genesis_app_release_policy.sql` in
+`@marktiderman/genesis-supabase`, readable by anyone, written only with the
+service role).
+
+**It fails open.** A missing policy must never lock anyone out:
+
+- The first load (the policy and the version whose notes were seen) waits
+  behind the splash for at most `policyTimeoutMs` (3 s), then carries on, so
+  a hung network or a stalled storage read never fails the boot. An answer
+  that arrives later still applies.
+- No answer, an error, a malformed version (`1.2-beta`, `""`) or an unknown
+  installed version never blocks.
+- A policy fetched from the network is cached. Offline, a cached minimum
+  version still forces the upgrade if the cache is at most `cacheMaxAgeMs`
+  (7 days) old by the phone's clock, and not if its time is in the future (the
+  clock moved back). A cached maintenance flag never blocks: maintenance
+  needs a live answer. After a live maintenance answer, a "Try again" that
+  can't reach the server keeps the screen up.
+
+Each part on its own: `ForceUpgradeScreen`, `MaintenanceScreen`,
+`UpdateBanner`, `WhatsNewSheet`; `createPolicyStore` + `evaluatePolicy`,
+`createUpdateChecker` + `createReloadGuard`, `createWhatsNewStore`,
+`versionSignature`, `createChannelSwitcher`, `compareVersions`; and the hooks
+under `UpdatesProvider` (or the shell): `useForceUpgrade`, `useMaintenance`,
+`useUpdateBanner`, `useWhatsNew`, `useVersionSignature`, `useBlockReload`,
+`useCanReload`, `useUpdatePolicy`, `useUpdateCheck`.
+
+`expo-updates` and `expo-application` are optional peers passed in, never
+imported: without `updates` there is no banner and no channel switching;
+without `application` nothing is forced and no notes show. The banner uses
+`react-native-safe-area-context`, a peer (genesis-ui-native needs it too).
 
 ## Each part on its own
 
@@ -160,7 +261,8 @@ The package imports no Expo or native module beyond React Native's own
 splash (`expo-splash-screen`), storage (AsyncStorage or MMKV), `ErrorUtils`
 (the global by default), the rejection tracker (Hermes's by default),
 `AppState` and NetInfo are passed in, so it runs in tests with fakes. Peers:
-`react`, `react-native`, `@tanstack/react-query`, and for `/persist` the two
-TanStack persister packages.
+`react`, `react-native`, `@tanstack/react-query`, for `/persist` the two
+TanStack persister packages, and for `/updates` `react-native-safe-area-context`
+(with `expo-updates` and `expo-application` passed in).
 
 @stability Beta

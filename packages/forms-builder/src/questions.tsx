@@ -7,6 +7,8 @@ import {
   listFieldTypes,
   optionsSource,
   otherOption,
+  prefillSetting,
+  SEARCHABLE_OPTION_COUNT,
   STRUCTURED_FIELD_TYPES,
   UPLOAD_FIELD_TYPES,
   type Block,
@@ -33,7 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { useChecks } from "./checks";
 import { DraftRow, Editable, NumberRow, SectionLabel, Segmented, SelectRow, SwitchRow, TextRow, useLazyItems } from "./controls";
-import { hostListOf } from "./host-options";
+import { hostListAttributes, hostListOf } from "./host-options";
 import { BlockIcon } from "./type-icons";
 import type { Finding } from "./analyze";
 import {
@@ -48,7 +50,9 @@ import {
   moveBlock,
   removeBlock,
   setOptions,
+  setOptionsFilter,
   setOptionsSource,
+  setPrefill,
   updateBlock,
   withOptionValues,
 } from "./ops";
@@ -973,7 +977,7 @@ function FieldInspector({
         />,
       );
     }
-    if (isChoice) answer.push(<OptionsEditor key="options" field={field} apply={apply} />);
+    if (isChoice) answer.push(<OptionsEditor key="options" def={def} field={field} apply={apply} />);
   }
 
   return (
@@ -1070,7 +1074,7 @@ function FieldInspector({
  * the question already uses one) from the app, as "Options: Typed here | From
  * the app".
  */
-function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
+function OptionsEditor({ def, field, apply }: { def: FormDefinition; field: FieldBlock; apply: Apply }) {
   const { hostOptions: lists } = useBuilderConfig();
   const from = optionsSource(field);
   if (!from && !lists?.length)
@@ -1078,6 +1082,7 @@ function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
       <div className="space-y-4">
         <TypedOptions field={field} apply={apply} />
         <OtherSwitch field={field} apply={apply} />
+        <PickingSettings field={field} apply={apply} />
       </div>
     );
   return (
@@ -1104,8 +1109,102 @@ function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
           }}
         />
       </div>
-      {from ? <HostOptionsPicker field={field} apply={apply} /> : <TypedOptions field={field} apply={apply} />}
+      {from ? <HostOptionsPicker def={def} field={field} apply={apply} /> : <TypedOptions field={field} apply={apply} />}
       <OtherSwitch field={field} apply={apply} />
+      <PickingSettings field={field} apply={apply} />
+    </div>
+  );
+}
+
+/**
+ * How the options are picked: a search box over a long list (`props.searchable`), and
+ * preselecting from the link the form was opened from (`props.prefill`).
+ */
+function PickingSettings({ field, apply }: { field: FieldBlock; apply: Apply }) {
+  const prefill = prefillSetting(field);
+  const searchable = field.props?.searchable;
+  return (
+    <div className="space-y-4">
+      <SelectRow
+        label="Search box"
+        value={searchable === true ? "on" : searchable === false ? "off" : "auto"}
+        testID="builder-options-searchable"
+        options={[
+          { value: "auto", label: `When there are more than ${SEARCHABLE_OPTION_COUNT} options` },
+          { value: "on", label: "Always" },
+          { value: "off", label: "Never" },
+        ]}
+        onChange={(v) =>
+          apply((d) => {
+            const { searchable: _, ...rest } = field.props ?? {};
+            const props = v === "auto" ? rest : { ...rest, searchable: v === "on" };
+            return updateBlock(d, field.id, { props: Object.keys(props).length ? props : undefined });
+          })
+        }
+      />
+      <DraftRow
+        label="Fill in from the link"
+        value={prefill?.param ?? ""}
+        testID="builder-options-prefill"
+        hint={
+          prefill
+            ? `A link ending ?${prefill.param}=<option value> picks that option. Other values are ignored.`
+            : "Optional: a link parameter name, such as location. Letters, digits, _, - and . only."
+        }
+        onCommit={(raw) => {
+          const param = raw.trim().replace(/[^A-Za-z0-9_.-]/g, "");
+          apply((d) => setPrefill(d, field.id, param ? { param, hideWhenPrefilled: prefill?.hideWhenPrefilled } : null));
+        }}
+      />
+      {prefill ? (
+        <SwitchRow
+          label="Hide the question when the link fills it in"
+          hint="The answer is still saved."
+          checked={prefill.hideWhenPrefilled}
+          testID="builder-options-prefill-hide"
+          onChange={(hideWhenPrefilled) => apply((d) => setPrefill(d, field.id, { param: prefill.param, hideWhenPrefilled }))}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** "Only show options matching": filter the app's list by an attribute against an earlier answer. */
+function OptionsFilterPicker({ def, field, apply }: { def: FormDefinition; field: FieldBlock; apply: Apply }) {
+  const { hostOptions: lists } = useBuilderConfig();
+  const list = hostListOf(field, lists);
+  const filter = optionsSource(field)?.filter;
+  const index = def.blocks.findIndex((b) => b.id === field.id);
+  const earlier = def.blocks
+    .slice(0, Math.max(0, index))
+    .filter((b): b is FieldBlock => b.kind === "field" && CHOICE_TYPES.has(b.type));
+  const attributes = hostListAttributes(list);
+  if (filter && !attributes.includes(filter.attribute)) attributes.push(filter.attribute);
+  if (!earlier.length || !attributes.length) return null;
+  const NONE = "\u0000none";
+  const attribute = filter?.attribute ?? attributes[0]!;
+  return (
+    <div className="space-y-2" data-testid="builder-options-filter">
+      <SelectRow
+        label="Only show options matching"
+        value={filter ? filter.field : NONE}
+        testID="builder-options-filter-field"
+        hint={filter ? `Options whose “${filter.attribute}” is the answer to this question. Until it's answered, all show.` : undefined}
+        options={[
+          { value: NONE, label: "All options" },
+          ...earlier.map((b) => ({ value: b.key, label: `The answer to “${b.label || b.key}”` })),
+        ]}
+        onChange={(v) => apply((d) => setOptionsFilter(d, field.id, v === NONE ? null : { attribute, field: v }))}
+      />
+      {filter ? (
+        <SelectRow
+          label="Matched on"
+          value={filter.attribute}
+          testID="builder-options-filter-attribute"
+          options={attributes.map((a) => ({ value: a, label: a }))}
+          onChange={(v) => apply((d) => setOptionsFilter(d, field.id, { attribute: v, field: filter.field }))}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1131,7 +1230,7 @@ function OtherSwitch({ field, apply }: { field: FieldBlock; apply: Apply }) {
 }
 
 /** Which of the host's lists a question takes its options from, and what the preview shows of it. */
-function HostOptionsPicker({ field, apply }: { field: FieldBlock; apply: Apply }) {
+function HostOptionsPicker({ def, field, apply }: { def: FormDefinition; field: FieldBlock; apply: Apply }) {
   const { hostOptions: lists } = useBuilderConfig();
   const key = optionsSource(field)?.key ?? "";
   const list = hostListOf(field, lists);
@@ -1162,6 +1261,7 @@ function HostOptionsPicker({ field, apply }: { field: FieldBlock; apply: Apply }
             }`
           : "This app doesn't offer this list, so the question shows only its own options here."}
       </p>
+      <OptionsFilterPicker def={def} field={field} apply={apply} />
     </div>
   );
 }

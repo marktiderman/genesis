@@ -289,6 +289,22 @@ lists (`<Form hostOptions>`, `validateSubmission`'s `hostOptions`). A question u
 host doesn't offer keeps it, says so, and is a warning in the checks. Without `hostOptions` the
 switch isn't shown unless a question already uses a list.
 
+A list's `sample` options may carry a `description`, an `image` (https) and `attributes`, as the
+real list does, so the preview looks like the live form. `attributes` (or, by default, the
+attribute names on the samples; `hostListAttributes(list)`) are offered under the list picker as
+"Only show options matching": the answer to an earlier choice question, matched on one attribute
+(`props.optionsFrom.filter`, set with `setOptionsFilter` in `ops`; it stays with the same list, and
+follows a renamed key, and goes when the list changes or the question it reads is removed or moved
+after it).
+
+Every choice question also has:
+
+- **Search box:** "When there are more than 10 options" (default), "Always" or "Never"
+  (`props.searchable`).
+- **Fill in from the link:** a query parameter name, such as `location`, so `?location=cff` picks
+  that option (`props.prefill`, set with `setPrefill`), and a switch to hide the question when the
+  link fills it in (`hideWhenPrefilled`; the answer is still saved).
+
 The host still owns templates: pass the one it picked as `defaultValue`. `setIdGenerator(fn)`
 replaces the random id generator (for example with a counter in tests); `setIdGenerator()` restores it.
 New ids go through `freshId(prefix, def)`, which asks again while the id is already in the form, so
@@ -319,6 +335,31 @@ id or option value take it as an argument (`duplicateBlock(def, id, copyId)`, `w
 `defaultProps`), so make it outside a reducer and the edit stays pure. Use them on a server or
 in scripts too: `@marktiderman/genesis-forms-builder/ops` has the same functions without
 `"use client"`, so a server component or route handler can import them.
+
+### Option lists
+
+A host that keeps its own named lists (a practice's "Locations", "Coaches") can edit them with
+`<OptionListEditor list onChange>`: rename the list, add, remove and reorder options, edit each
+one's label, description, picture and attributes (a value per attribute, several separated by
+`|`), import from pasted CSV or a file with a preview, and export CSV. An option's value is made
+once from its label (`slugOptionValue`) and only shown after that, since answers store it.
+Saving is the host's: `onChange` gets the whole list after each change.
+
+```tsx
+import { OptionListEditor, hostOptionsOf, type OptionList } from "@marktiderman/genesis-forms-builder";
+
+<OptionListEditor list={locations} onChange={(next) => save(next)} />;
+<Form form={def} hostOptions={hostOptionsOf(allLists)} />; // the same lists, by key
+```
+
+The pieces are pure functions in `ops` too, for a server or a script:
+
+| Function | What it does |
+| --- | --- |
+| `parseOptionListCsv(text)` | Reads CSV or tab-separated text with a header (`value`, `label`, `description`, `image`, then attribute columns; a lone `label` column or a headerless list of names gets values made from the labels) into `{ options, rows, attributes, problems }`. Each row in `rows` has its option or its problems: no value or label, a value or label over 200 characters, a description over 500, an image that isn't https, an over-long attribute, or a value an earlier row used. |
+| `mergeOptions(existing, imported)` | Upserts by value: an existing option is updated in place (blank imported details keep the old ones), a new value is added at the end, nothing is removed. |
+| `optionListCsv(options)` | The options as CSV, which `parseOptionListCsv` reads back unchanged; a cell starting with `=`, `+`, `-` or `@` gets a leading `'` so a spreadsheet keeps it text. |
+| `parseCsvRows(text)`, `slugOptionValue(label)`, `hostOptionsOf(lists)` | The CSV reader, the value maker and the lists as `hostOptions`. |
 
 ### Templates
 

@@ -88,7 +88,12 @@ prefilled-link builder (`prefilledUrl`).
 
 `@marktiderman/genesis-forms-studio/rules` has the pure functions without React, for a server:
 `summarizeResponses`, the filters, `answerColumns`, `answersByKey`, `answerCell`, `toCsv`,
-`carryAnswers`, `formAvailability`, `takesResponses`, `prefilledUrl`, `embedSnippet` and the rest.
+`carryAnswers` (re-exported from genesis-forms), `formAvailability`, `takesResponses`,
+`prefilledUrl`, `embedSnippet` and the rest. For a forms list: `slugFromTitle` ("How was class?" →
+`how-was-class`), `SLUG_PATTERN` and `validateSlug`, and for a duplicate `copyTitle` ("Copy of …")
+and `freeSlug` (the first of `slug`, `slug-2`… not taken). `offersSubmitAnother` says whether a
+thank-you page offers "Send another response" (never on a one-response-per-person form that isn't
+anonymous).
 
 ## Generic pieces
 

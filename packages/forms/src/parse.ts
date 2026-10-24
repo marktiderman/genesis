@@ -1,6 +1,7 @@
 import { CALCULATED_TYPE, MAX_CALCULATED_DECIMALS, MAX_FORM_FORMULA_LENGTH } from "./calculated";
 import { isJson } from "./events";
-import { getFieldType, isIsoDate } from "./fields";
+import { getFieldType, isHttpsUrl, isIsoDate, OPTION_LIMITS } from "./fields";
+import { isPrefillParam, MAX_PREFILL_PARAM_LENGTH } from "./options";
 import { parseFormula } from "./formula";
 import { recallRefs } from "./recall";
 import { isPhotoFormat, MAX_PHOTO_FILES, MAX_PHOTO_SIZE_MB, PHOTO_TYPE } from "./photo";
@@ -104,6 +105,33 @@ export function parseForm(input: unknown): ParseResult {
   const optionalBoolean = (v: unknown, path: string) => {
     if (v !== undefined && typeof v !== "boolean") issue(path, "Must be true or false.");
   };
+  /** An option's description, image and attributes, each within `OPTION_LIMITS`. */
+  const optionDetails = (o: Record<string, unknown>, at: string) => {
+    if (o.description !== undefined && (typeof o.description !== "string" || o.description.length > OPTION_LIMITS.description)) {
+      issue(`${at}.description`, `Must be text of at most ${OPTION_LIMITS.description} characters.`);
+    }
+    if (o.image !== undefined && !isHttpsUrl(o.image)) {
+      issue(`${at}.image`, `Must be an https:// link of at most ${OPTION_LIMITS.image} characters.`);
+    }
+    if (o.attributes === undefined) return;
+    const attributes = o.attributes;
+    if (!isObject(attributes) || Object.keys(attributes).length > OPTION_LIMITS.attributes) {
+      issue(`${at}.attributes`, `Must be an object of at most ${OPTION_LIMITS.attributes} attributes.`);
+      return;
+    }
+    const fits = (x: unknown) => typeof x === "string" && x.length <= OPTION_LIMITS.attributeValue;
+    for (const [name, v] of Object.entries(attributes)) {
+      if (!name.trim() || name.length > OPTION_LIMITS.attributeName || RESERVED.has(name)) {
+        issue(`${at}.attributes`, `${shown(name)} isn't a usable attribute name (at most ${OPTION_LIMITS.attributeName} characters).`);
+      } else if (!fits(v) && !(Array.isArray(v) && v.length <= OPTION_LIMITS.attributeItems && v.every(fits))) {
+        issue(
+          `${at}.attributes.${name}`,
+          `Must be text, or a list of at most ${OPTION_LIMITS.attributeItems} texts, each at most ${OPTION_LIMITS.attributeValue} characters.`,
+        );
+      }
+    }
+  };
+
   /** An identifier: a non-empty string that is not an `Object.prototype` name. */
   const name = (v: unknown, path: string, what: string): v is string => {
     if (typeof v !== "string" || !v) {
@@ -292,7 +320,39 @@ export function parseForm(input: unknown): ParseResult {
           } else if (typeof block.type === "string" && !CHOICE_TYPES.has(block.type)) {
             warnings.push({ path: `${path}.props.optionsFrom`, message: "Only single choice, multiple choice and dropdown questions take options from the app." });
           }
+          const filter = isObject(from) ? from.filter : undefined;
+          if (filter !== undefined) {
+            const at = `${path}.props.optionsFrom.filter`;
+            if (
+              !isObject(filter) ||
+              typeof filter.attribute !== "string" ||
+              !filter.attribute ||
+              filter.attribute.length > OPTION_LIMITS.attributeName ||
+              typeof filter.field !== "string" ||
+              !filter.field
+            ) {
+              issue(at, `Must be { attribute, field }: an attribute name (at most ${OPTION_LIMITS.attributeName} characters) and an earlier question's key.`);
+            } else if (!keys.has(filter.field)) {
+              // Keys are recorded block by block, so only earlier questions are known here.
+              issue(`${at}.field`, `"${filter.field}" must be the key of an earlier question.`);
+            }
+          }
         }
+        const prefill = isObject(block.props) ? block.props.prefill : undefined;
+        if (prefill !== undefined) {
+          if (!isObject(prefill) || !isPrefillParam(prefill.param)) {
+            issue(
+              `${path}.props.prefill`,
+              `Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, "_", "-" or "." (at most ${MAX_PREFILL_PARAM_LENGTH} characters).`,
+            );
+          } else {
+            optionalBoolean(prefill.hideWhenPrefilled, `${path}.props.prefill.hideWhenPrefilled`);
+            if (typeof block.type === "string" && !CHOICE_TYPES.has(block.type)) {
+              warnings.push({ path: `${path}.props.prefill`, message: "Only single choice, multiple choice and dropdown questions are filled in from a link." });
+            }
+          }
+        }
+        if (isObject(block.props)) optionalBoolean(block.props.searchable, `${path}.props.searchable`);
         if (!isObject(block.props) || !isJson(block.props)) issue(`${path}.props`, "Must be a JSON object.");
         else if (block.props.options !== undefined) {
           const options = block.props.options;
@@ -301,7 +361,10 @@ export function parseForm(input: unknown): ParseResult {
             options.forEach((o, j) => {
               const at = `${path}.props.options[${j}]`;
               if (!isObject(o) || typeof o.value !== "string") issue(at, "Each option needs a string value.");
-              else optionalText(o.label, `${at}.label`);
+              else {
+                optionalText(o.label, `${at}.label`);
+                optionDetails(o, at);
+              }
             });
             // With options from the app, any value may be one of them: literals aren't checked against these.
             if (from === undefined) {
