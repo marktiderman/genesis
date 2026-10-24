@@ -1,0 +1,54 @@
+packages/forms/src/uploads.ts
+  s_738228bc0d81b1::t_f57667944a183d 1-184
+packages/forms/src/index.ts
+  s_738228bc0d81b1::t_f346e408b9ef91 105-110
+  s_738228bc0d81b1::t_a640a742a9dece 104
+packages/forms/src/upload-handler.ts
+  s_738228bc0d81b1::t_277bb9448ddb4e 1-286
+packages/forms/README.md
+  s_738228bc0d81b1::t_f725f84fa7d53d 146
+  s_738228bc0d81b1::t_c664bfee7044eb 433-490
+packages/forms/src/__tests__/uploads.test.ts
+  s_738228bc0d81b1::t_4ba9db847c8e9a 1-131,135-187,189-191,193-194,196-213,215-247,249-467
+  s_738228bc0d81b1::t_98a1974141519e 132-134,188,192,195,214,248
+packages/forms/src/server.ts
+  s_738228bc0d81b1::t_f346e408b9ef91 367-395
+.changeset/forms-uploads-phase2.md
+  s_738228bc0d81b1::t_f725f84fa7d53d 1-20
+packages/forms-web/README.md
+  s_738228bc0d81b1::t_c664bfee7044eb 162-183
+packages/forms-web/src/upload.ts
+  s_738228bc0d81b1::t_646d834f6fab87 11-12
+packages/forms-web/src/index.ts
+  s_738228bc0d81b1::t_646d834f6fab87 28-32
+  s_738228bc0d81b1::t_53249783f4d586 27
+packages/forms-web/src/__tests__/signed-upload.test.tsx
+  s_738228bc0d81b1::t_ebce70cf8a7b35 1-193
+packages/forms-web/package.json
+  s_738228bc0d81b1::t_f725f84fa7d53d 42
+packages/forms/type-tests/server.ts
+  s_738228bc0d81b1::t_5084338c212f70 6,8,13,67-96
+packages/forms-web/src/signed-upload.ts
+  s_738228bc0d81b1::t_19b6e290344551 1-80
+packages/forms/src/upload-protocol.ts
+  s_738228bc0d81b1::t_a722ef8cb83568 1-53,57-64
+  s_738228bc0d81b1::t_b216113679b3bc 54-56
+packages/forms-web/type-tests/exact-optional.tsx
+  s_738228bc0d81b1::t_5084338c212f70 4,40-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d0df9a38515456c9831ec640f81f42d22e9dc5e7",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
