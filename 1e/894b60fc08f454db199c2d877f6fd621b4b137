@@ -1,0 +1,78 @@
+packages/forms/type-tests/exact-optional.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 2
+packages/forms-builder/src/option-lists.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 103
+packages/forms/src/upload-handler.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 8,42
+packages/forms/src/uploads.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 8,59,177
+packages/forms/src/options.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 204
+packages/forms-builder/src/OptionListEditor.tsx
+  s_738228bc0d81b1::t_65704ca04817b7 292
+packages/forms-studio/src/generic/share.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 2
+packages/forms-web/src/__tests__/signed-upload.test.tsx
+  s_738228bc0d81b1::t_dc737ecb2454c6 2,28,32,117
+packages/forms/src/__tests__/edit-link.test.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 24,229,235-236,286,298,301,307,309
+packages/forms/src/__tests__/option-lists.test.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 31-32,35-37,95,149-150,156,159,167,169,173,177,183,188,190,210-211,219-221,225,229-230,239,253,261-262,269,271,283,286,293
+packages/forms-web/src/__tests__/option-lists.test.tsx
+  s_738228bc0d81b1::t_dc737ecb2454c6 9-10,15,44,46,61,64,84,86,90,102,106,109,114,118
+packages/forms/CHANGELOG.md
+  s_738228bc0d81b1::t_dc737ecb2454c6 52,56
+packages/forms-studio/src/respondent.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 2
+.changeset/forms-uploads-phase2.md
+  s_738228bc0d81b1::t_dc737ecb2454c6 6,10
+packages/forms-builder/src/__tests__/option-lists.test.tsx
+  s_738228bc0d81b1::t_dc737ecb2454c6 35-36,43,134-135,138,145-146,175,225-226,236,240-242,246,272-273,317
+  s_738228bc0d81b1::t_65704ca04817b7 264
+packages/forms/src/upload-protocol.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 8,55
+packages/forms/src/rate-limit.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 7
+packages/forms-react/src/__tests__/options.test.tsx
+  s_738228bc0d81b1::t_498043344697fb 15,21,54
+packages/forms/src/__tests__/uploads.test.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 5,125,145
+packages/forms-studio/CHANGELOG.md
+  s_738228bc0d81b1::t_dc737ecb2454c6 7,11,41
+packages/forms-studio/src/generic/ShareDialog.tsx
+  s_738228bc0d81b1::t_dc737ecb2454c6 72
+packages/forms-web/src/clean-url.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 8
+packages/forms-studio/src/availability.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 4
+packages/forms/src/edit-link.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 17
+packages/forms-web/CHANGELOG.md
+  s_738228bc0d81b1::t_dc737ecb2454c6 44,48
+packages/forms-studio/src/slug.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 2
+packages/forms/README.md
+  s_738228bc0d81b1::t_dc737ecb2454c6 271,273,291,310,338
+packages/forms/src/fields.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 106
+packages/forms-studio/src/answers.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 3
+packages/forms-studio/src/summary.ts
+  s_738228bc0d81b1::t_dc737ecb2454c6 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1e894b60fc08f454db199c2d877f6fd621b4b137",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
