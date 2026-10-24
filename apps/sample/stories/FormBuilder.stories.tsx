@@ -30,7 +30,7 @@ const meta: Meta<typeof FormBuilder> = {
   title: "Forms/FormBuilder",
   component: FormBuilder,
   parameters: { layout: "fullscreen" },
-  args: { defaultValue: checkIn(), brand: { name: "CrossFit Fairfield" } },
+  args: { defaultValue: checkIn(), brand: { name: "Hilltop Fitness" } },
   decorators: [(Story) => <div className="p-6">{Story()}</div>],
 };
 export default meta;

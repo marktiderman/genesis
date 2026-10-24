@@ -119,7 +119,7 @@ export interface AppShellOptions {
   collapseShortcut?: string | false;
   /**
    * Width of the collapsed icon rail in px: `56` (default, as before) or
-   * `64` (the Breakthrough design).
+   * `64` (a wider rail some apps use).
    */
   collapsedRailWidth?: 56 | 64;
   /**

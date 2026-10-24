@@ -67,8 +67,8 @@ export const Expanded: Story = {
   name: "Sidebar: expanded",
   render: () => (
     <AppShell
-      appName="Breakthrough"
-      appLogo="B"
+      appName="Riverside Gym"
+      appLogo="R"
       navItems={navItems}
       activePath="/tasks"
       defaultCollapsed={false}
@@ -86,8 +86,8 @@ export const CollapsedRail: Story = {
   name: "Sidebar: collapsed rail",
   render: () => (
     <AppShell
-      appName="Breakthrough"
-      appLogo="B"
+      appName="Riverside Gym"
+      appLogo="R"
       navItems={navItems}
       activePath="/tasks"
       defaultCollapsed
@@ -112,8 +112,8 @@ export const PageDefaultCollapsed: Story = {
   name: "Sidebar: page asks for collapsed",
   render: () => (
     <AppShell
-      appName="Breakthrough"
-      appLogo="B"
+      appName="Riverside Gym"
+      appLogo="R"
       navigation={{
         id: "app",
         path: "/",
@@ -233,8 +233,8 @@ const subNavShell = (
   collapsed?: boolean,
 ) => (
   <AppShell
-    appName="Breakthrough"
-    appLogo="B"
+    appName="Riverside Gym"
+    appLogo="R"
     navigation={formsTree}
     activePath="/forms/f1/edit/logic"
     subNav={subNav}
@@ -294,7 +294,7 @@ export const SubNavPhoneOff: Story = {
 };
 
 /**
- * An app-wide `mobileNavItems` (as Breakthrough passes) still yields to a
+ * An app-wide `mobileNavItems` (as an app may pass) still yields to a
  * page's children while sub-navigation is on.
  */
 export const SubNavPhoneOverAppBar: Story = {
@@ -302,8 +302,8 @@ export const SubNavPhoneOverAppBar: Story = {
   globals: { viewport: { value: "mobile1", isRotated: false } },
   render: () => (
     <AppShell
-      appName="Breakthrough"
-      appLogo="B"
+      appName="Riverside Gym"
+      appLogo="R"
       navigation={formsTree}
       activePath="/forms/f1/edit/logic"
       subNav="tabs"

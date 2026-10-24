@@ -46,7 +46,7 @@ const tree: NavigationNode<NavItem> = {
 
 function renderShell(activePath: string, props: Partial<AppShellProps> = {}) {
   return render(
-    <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath={activePath} {...props}>
+    <AppShell appName="Riverside Gym" navigation={tree} options={chrome} activePath={activePath} {...props}>
       {props.children ?? <div>content</div>}
     </AppShell>,
   );
@@ -170,7 +170,7 @@ describe("sub-navigation from the page: useAppShellSubNav", () => {
       const [show, setShow] = useState(true);
       const [count, setCount] = useState(3);
       return (
-        <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath="/forms/f1/edit">
+        <AppShell appName="Riverside Gym" navigation={tree} options={chrome} activePath="/forms/f1/edit">
           {show ? <FormPage responses={count} /> : null}
           <button type="button" onClick={() => setCount((c) => c + 1)}>more</button>
           <button type="button" onClick={() => setShow(false)}>leave</button>
@@ -213,7 +213,7 @@ describe("sub-navigation from the page: useAppShellSubNav", () => {
       return <button type="button" onClick={() => setN((v) => v + 1)}>page badge</button>;
     }
     render(
-      <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath="/forms/f1/edit">
+      <AppShell appName="Riverside Gym" navigation={tree} options={chrome} activePath="/forms/f1/edit">
         <Layout>
           <Page />
         </Layout>
@@ -241,7 +241,7 @@ describe("sub-navigation from the page: useAppShellSubNav", () => {
     function Harness() {
       const [show, setShow] = useState(false);
       return (
-        <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath="/forms/f1/edit">
+        <AppShell appName="Riverside Gym" navigation={tree} options={chrome} activePath="/forms/f1/edit">
           <Layout>{show ? <Page /> : null}</Layout>
           <button type="button" onClick={() => setShow(true)}>open page</button>
         </AppShell>
@@ -341,7 +341,7 @@ describe("phone bar vs an app-wide mobileNavItems", () => {
         "Settings",
       ]);
       rerender(
-        <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath="/clients" subNav={mode} mobileNavItems={appBar}>
+        <AppShell appName="Riverside Gym" navigation={tree} options={chrome} activePath="/clients" subNav={mode} mobileNavItems={appBar}>
           <div>content</div>
         </AppShell>,
       );
@@ -396,7 +396,7 @@ describe("sub-navigation on phones", () => {
     const { rerender } = renderShell("/forms/f1/edit");
     expect(screen.getByTestId("app-shell-mobile-back")).toBeTruthy();
     rerender(
-      <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath="/forms">
+      <AppShell appName="Riverside Gym" navigation={tree} options={chrome} activePath="/forms">
         <div>content</div>
       </AppShell>,
     );
@@ -465,7 +465,7 @@ describe("page header slot: AppShellPageHeader", () => {
     function Harness() {
       const [page, setPage] = useState(true);
       return (
-        <AppShell appName="Breakthrough" navigation={tree} options={chrome} activePath="/forms/f1/edit">
+        <AppShell appName="Riverside Gym" navigation={tree} options={chrome} activePath="/forms/f1/edit">
           <Title text="Layout" />
           {page ? <Title text="Page" /> : null}
           <button type="button" onClick={() => setPage(false)}>leave</button>

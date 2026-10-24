@@ -106,7 +106,7 @@ export default function Layout() {
       appLogo="G"
       navigation={navigation}
       optionsStorageKey="genesis-sample:app-shell"
-      // The Breakthrough design: a 64px rail and the opt-in `[` shortcut.
+      // A wider design: a 64px rail and the opt-in `[` shortcut.
       options={{ collapsedRailWidth: 64, collapseShortcut: "[" }}
       linkComponent={ReactRouterLink}
       activePath={activePath}

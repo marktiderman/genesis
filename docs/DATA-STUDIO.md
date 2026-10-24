@@ -12,8 +12,8 @@ This plan comes from three sources:
 - current Refine, react-admin and Supabase documentation (read 2026-10-18);
 - three adversarial reviews: architecture, security, and product.
 
-Gamify, the first consumer, is only one of three adoption tests. Its own plan for moving data access
-off its API is in `GamifyEducation/gamify-platform` `prds/api-shrink/`.
+The first consumer app is only one of three adoption tests. Its own plan for moving data access off
+its API lives in that app's repository.
 
 > **Revised 2026-10-19, at the maintainer's direction.** The goal is that any project embeds the
 > studio and it simply turns on, for every table. Three changes follow:
@@ -50,7 +50,7 @@ Three findings shape the build:
 
 1. **`ResourcePage` loads only the first 25 rows** and then searches, sorts and filters in the browser
    (`ResourcePage.tsx:653`, `core/src/hooks/use-resource.ts:106`). The fix must be **opt-in**, because
-   some providers reject server-side sort or search today: gamify's API provider throws on sort, and
+   some providers reject server-side sort or search today: one app's API provider throws on sort, and
    the switchboard bridge throws on search (`data-switchboard/src/data-provider.ts:110`).
 2. **Browsers can no longer read the schema from hosted Supabase.** Since 8 Apr 2026 the `/rest/v1/`
    OpenAPI document is refused to anon keys (Supabase changelog 42949), and publishable keys never
@@ -285,10 +285,10 @@ bulk-change a status, follow a link, export a filtered set, and five others.
 | ---------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
 | Genesis `apps/sample`  | Handler acting as the user                                                                 | The library works on its own                                    |
 | Stock Supabase project | Handler acting as the user                                                                 | Attaching a fresh project takes under 15 minutes                |
-| Gamify                 | The handler for tables with correct access rules; gamify's API provider for API-owned data | It works in a real app whose permissions live partly in its API |
+| A host app with an API | The handler for tables with correct access rules; its own API provider for API-owned data  | It works in a real app whose permissions live partly in its API |
 
-Gamify must first fix the access-rule gaps it found on 18 Oct. That is Phase 0 of its API-shrink
-proposal, and each later phase there makes more tables manageable with no gamify endpoint work.
+That app must first fix the access-rule gaps it found on 18 Oct. That is Phase 0 of its own plan to
+shrink its API, and each later phase there makes more tables manageable with no endpoint work.
 
 ## Decisions to finalize
 
@@ -320,7 +320,7 @@ proposal, and each later phase there makes more tables manageable with no gamify
 | 24  | More views                      | Kanban and calendar next; gantt only if asked                                                                                  | Later |
 | 25  | Versioning                      | New packages at 0.x; core and UI changes are additive minors with changesets                                                   | Now   |
 | 26  | Out of v1                       | React Native, realtime, translations, schema editing                                                                           | Now   |
-| 27  | Adoption tests                  | Sample app, a stock Supabase project and gamify, with time-to-attach under 15 minutes                                          | Now   |
+| 27  | Adoption tests                  | Sample app, a stock Supabase project and a host app, with time-to-attach under 15 minutes                                          | Now   |
 | 28  | Supasheet code                  | Rebuild the ideas rather than copy code, keeping Genesis MIT; archive the `marktiderman/supasheet` fork after porting          | Now   |
 | 29  | Rule-bearing writes             | Map create, update and delete per resource to the app's database functions; direct row writes only where none exists           | P1    |
 | 30  | Column permissions              | `describe()` returns per-user column read and update rights, and forms and the grid follow them                                | P0    |
