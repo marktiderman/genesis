@@ -4,6 +4,8 @@
  */
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Crypto from "expo-crypto";
+import Constants from "expo-constants";
+import { storeAppleToken } from "@marktiderman/genesis-supabase";
 import { signInWithApple } from "@marktiderman/genesis-supabase/native";
 import { copy } from "@/copy";
 import { supabase } from "./supabase";
@@ -45,8 +47,12 @@ export async function appleSignIn(): Promise<string | null> {
     const { error } = await supabase.auth.updateUser({ data: { full_name: fullName } });
     pendingName = error ? fullName : null;
   }
-  // Revoking Apple's tokens when the account is deleted needs result.authorizationCode on
-  // your server: see "Not covered yet" in @marktiderman/genesis-supabase's README.
+  // Hand Apple's single-use code to the genesis-apple-revoke function, so deleting the account
+  // can revoke the person's Apple tokens (App Review requires it). They're signed in either way.
+  if (result.authorizationCode) {
+    const stored = await storeAppleToken(supabase, { authorizationCode: result.authorizationCode, clientId: Constants.expoConfig?.ios?.bundleIdentifier });
+    if (!stored.ok) console.warn(`genesis-apple-revoke: couldn't keep the Apple token: ${stored.error.message}`);
+  }
   return null;
 }
 

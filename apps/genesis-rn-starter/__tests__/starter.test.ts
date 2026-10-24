@@ -123,4 +123,27 @@ describe("supabase/migrations", () => {
     const shipped = shippedSql("tests/0001_genesis_account_deletion.test.sql");
     expect(read("supabase/tests/database/genesis_account_deletion.test.sql")).toBe(shipped);
   });
+
+  it("carries the Apple token revocation migration and its pgTAP test unchanged", () => {
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_apple_token_revocation.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(shippedSql("0003_genesis_apple_token_revocation.sql"));
+    expect(read("supabase/tests/database/genesis_apple_token_revocation.test.sql")).toBe(shippedSql("tests/0003_genesis_apple_token_revocation.test.sql"));
+  });
+});
+
+describe("supabase/functions", () => {
+  it("carries @marktiderman/genesis-supabase's genesis-apple-revoke function unchanged", () => {
+    const shipped = join(supabasePackage, "functions", "genesis-apple-revoke");
+    const names = readdirSync(shipped).sort();
+    expect(names).toEqual(["apple.ts", "handler.ts", "index.ts"]);
+    expect(readdirSync(join(root, "supabase/functions/genesis-apple-revoke")).sort()).toEqual(names);
+    for (const name of names) {
+      expect(read(`supabase/functions/genesis-apple-revoke/${name}`), name).toBe(readFileSync(join(shipped, name), "utf8"));
+    }
+  });
+
+  it("deploys it without the gateway's JWT check (the function checks the caller itself)", () => {
+    expect(read("supabase/config.toml")).toMatch(/\[functions\.genesis-apple-revoke\]\s*\nverify_jwt = false/);
+  });
 });

@@ -25,7 +25,8 @@ const REASONS: Record<string, DeleteRefusal> = {
 
 export async function deleteAccount(): Promise<DeleteResult> {
   try {
-    await deleteMyAccount(supabase);
+    // The delete queues the person's Apple tokens; this asks genesis-apple-revoke to revoke them now.
+    await deleteMyAccount(supabase, { revokeAppleTokens: true });
     return { ok: true };
   } catch (error) {
     if (error instanceof SupabaseQueryError) {

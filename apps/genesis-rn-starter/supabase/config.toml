@@ -14,3 +14,9 @@ enable_confirmations = true
 enabled = true
 client_id = "com.example.genesisstarter,com.example.genesisstarter.dev,com.example.genesisstarter.preview"
 secret = ""
+
+# Keeps Apple's refresh token at sign-in and revokes it when the account is deleted. It checks
+# the caller itself (and its revoke step runs after the login is gone), so the gateway's JWT
+# check is off. Secrets: APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY, APPLE_CLIENT_IDS.
+[functions.genesis-apple-revoke]
+verify_jwt = false
