@@ -41,7 +41,15 @@ export interface FieldOptions {
 
 export interface ChoiceFieldOptions<O extends string> extends FieldOptions {
   /** The options. Optional only with `optionsFrom`, whose options follow these. */
-  options?: readonly { value: O; label?: string }[] | undefined;
+  options?:
+    | readonly {
+        value: O;
+        label?: string;
+        description?: string;
+        image?: string;
+        attributes?: Record<string, string | string[]>;
+      }[]
+    | undefined;
   /**
    * Options the app showing the form supplies, by key (`OptionsSource`), such
    * as `{ source: "host", key: "coaches" }`; pass the lists as `hostOptions`
@@ -53,6 +61,14 @@ export interface ChoiceFieldOptions<O extends string> extends FieldOptions {
    * the answer (one more item on a multiple choice). See `otherOption`.
    */
   other?: boolean | { label?: string } | undefined;
+  /**
+   * Preselect from the link the form was opened from: `{ param: "location" }` takes
+   * `?location=…` when it is one of the options; `hideWhenPrefilled` then skips the question.
+   * See `prefillFromLink`.
+   */
+  prefill?: { param: string; hideWhenPrefilled?: boolean } | undefined;
+  /** A search box over the options: true or false, or by default when there are more than 10 (`isSearchable`). */
+  searchable?: boolean | undefined;
 }
 
 function field<K extends string, V>(
@@ -84,9 +100,24 @@ const props = (all: Record<string, Json | undefined>): Record<string, Json> =>
 const choiceProps = (o: ChoiceFieldOptions<string>): Record<string, Json> => {
   const out: Record<string, Json> = {};
   if (o.options || !o.optionsFrom) {
-    out.options = (o.options ?? []).map((x): Json => (x.label ? { value: x.value, label: x.label } : { value: x.value }));
+    out.options = (o.options ?? []).map((x): Json =>
+      props({
+        value: x.value,
+        label: x.label || undefined,
+        description: x.description,
+        image: x.image,
+        attributes: x.attributes as Record<string, Json> | undefined,
+      }),
+    );
   }
-  if (o.optionsFrom) out.optionsFrom = { source: o.optionsFrom.source, key: o.optionsFrom.key };
+  if (o.optionsFrom) {
+    const { source, key, filter } = o.optionsFrom;
+    out.optionsFrom = filter ? { source, key, filter: { attribute: filter.attribute, field: filter.field } } : { source, key };
+  }
+  if (o.prefill) {
+    out.prefill = o.prefill.hideWhenPrefilled ? { param: o.prefill.param, hideWhenPrefilled: true } : { param: o.prefill.param };
+  }
+  if (o.searchable !== undefined) out.searchable = o.searchable;
   if (o.other) out.other = o.other === true ? true : props({ label: o.other.label });
   return out;
 };

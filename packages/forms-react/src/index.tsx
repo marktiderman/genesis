@@ -9,8 +9,13 @@ import {
   type ReactNode,
 } from "react";
 import {
+  answersOnPath,
   createForm,
+  optionFilter,
+  respondentPath,
+  visibleOptions,
   type Block,
+  type ChoiceOption,
   type CreateFormOptions,
   type FieldBlock,
   type FormDefinition,
@@ -80,6 +85,38 @@ export function useField(engine: FormEngine, id: string): FieldBinding {
     () => ({ field, value, error, visible, label, setValue: (v) => engine.setValue(id, v) }),
     [engine, field, id, value, error, visible, label],
   );
+}
+
+/**
+ * The options a choice question shows now (`visibleOptions` over `answersOnPath`): all of them,
+ * or, when its list is filtered by another answer (`props.optionsFrom.filter`), the ones matching
+ * that answer. It
+ * re-renders only when that list changes, so a renderer on any platform shows exactly what the
+ * engine accepts.
+ */
+export function useChoiceOptions(engine: FormEngine, id: string): ChoiceOption[] {
+  const field = engine.field(id);
+  if (!field) throw new Error(`useChoiceOptions: no field "${id}".`);
+  const filtered = optionFilter(field) !== undefined;
+  // The shown values as one string: stable while the list is the same.
+  const key = useFormSelector(engine, (s) =>
+    filtered ? visibleOptions(engine.definition, field, answersOnPath(s)).map((o) => o.value).join("\u0000") : "",
+  );
+  return useMemo(() => {
+    if (!filtered) return visibleOptions(engine.definition, field, {});
+    const shown = new Set(key ? key.split("\u0000") : []);
+    return visibleOptions(engine.definition, field, {}).filter((o) => shown.has(o.value));
+  }, [engine, field, filtered, key]);
+}
+
+/**
+ * The blocks the respondent steps through (`respondentPath`): the path without questions a
+ * prefill answered and hides (`props.prefill.hideWhenPrefilled`). Render these, not
+ * `state.path`, so a hidden question is neither shown nor counted.
+ */
+export function useRespondentPath(engine: FormEngine): string[] {
+  const key = useFormSelector(engine, (s) => respondentPath(engine.definition, s).join("\u0000"));
+  return useMemo(() => (key ? key.split("\u0000") : []), [key]);
 }
 
 // ── Renderer registry ────────────────────────────────────────────────────────
@@ -183,4 +220,4 @@ export function FieldRenderer({
   return <Component engine={engine} binding={binding} inputId={`${idPrefix}-${id}`} {...rest} />;
 }
 
-export type { Block, FieldBlock, FormEngine, FormState, Json };
+export type { Block, ChoiceOption, FieldBlock, FormEngine, FormState, Json };

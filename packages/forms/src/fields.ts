@@ -98,6 +98,99 @@ export function summarizeValue(value: Json | undefined, field: FieldBlock): stri
 export interface ChoiceOption {
   value: string;
   label?: string;
+  /** A muted line under the label, such as a location's address. At most `OPTION_LIMITS.description` characters. */
+  description?: string;
+  /** A small picture beside the label: an `https://` URL, at most `OPTION_LIMITS.image` characters. */
+  image?: string;
+  /**
+   * Facts about the option for filtering and recall, such as `{ location: ["cff", "cornerstone"] }`
+   * for a coach who works at two locations (see `props.optionsFrom.filter`). Names and values are
+   * text; a value is one text or a list of them.
+   */
+  attributes?: Record<string, string | string[]>;
+}
+
+/** Bounds on an option's extra details. A longer or malformed detail is dropped when options are read. */
+export const OPTION_LIMITS = {
+  /** Characters in a description. */
+  description: 500,
+  /** Characters in an image URL. */
+  image: 2048,
+  /** Attributes on one option. */
+  attributes: 20,
+  /** Characters in an attribute's name. */
+  attributeName: 64,
+  /** Characters in one attribute value. */
+  attributeValue: 200,
+  /** Values in one attribute's list. */
+  attributeItems: 50,
+} as const;
+
+/**
+ * Whether `url` is an `https://` link with a host and no spaces or control characters, within
+ * `OPTION_LIMITS.image`. A pattern rather than `new URL`, so it behaves the same in React Native.
+ */
+export function isHttpsUrl(url: unknown): url is string {
+  return (
+    typeof url === "string" &&
+    url.length <= OPTION_LIMITS.image &&
+    /^https:\/\/[^\s/?#@\\]+(?:[/?#][^\s]*)?$/i.test(url) &&
+    // No control characters anywhere (a line break would end a CSV row or an HTML attribute).
+    ![...url].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127)
+  );
+}
+
+/** A well-formed attribute name: text, not blank, not an `Object.prototype` name, within the limit. */
+function attributeName(name: string): boolean {
+  return name.trim() !== "" && name.length <= OPTION_LIMITS.attributeName && !(name in Object.prototype);
+}
+
+/** The attributes of a raw option that are well formed, or undefined when none are. */
+function readAttributes(raw: unknown): Record<string, string | string[]> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, string | string[]> = {};
+  let count = 0;
+  for (const name of Object.keys(raw)) {
+    if (count >= OPTION_LIMITS.attributes) break;
+    if (!attributeName(name)) continue;
+    const v = (raw as Record<string, unknown>)[name];
+    const fits = (x: unknown): x is string => typeof x === "string" && x.length <= OPTION_LIMITS.attributeValue;
+    if (fits(v)) out[name] = v;
+    else if (Array.isArray(v) && v.length <= OPTION_LIMITS.attributeItems && v.every(fits)) out[name] = [...v];
+    else continue;
+    count++;
+  }
+  return count ? out : undefined;
+}
+
+/**
+ * An option from untrusted JSON (a definition, the host's list): its string `value`, and its
+ * `label`, `description`, `image` and `attributes` when each is well formed and within
+ * `OPTION_LIMITS`; anything else is left out. Null when there is no string value.
+ */
+export function readOption(raw: unknown): ChoiceOption | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.value !== "string") return null;
+  const out: ChoiceOption = { value: o.value };
+  if (typeof o.label === "string") out.label = o.label;
+  if (typeof o.description === "string" && o.description.trim() && o.description.length <= OPTION_LIMITS.description) {
+    out.description = o.description;
+  }
+  if (isHttpsUrl(o.image)) out.image = o.image;
+  const attributes = readAttributes(o.attributes);
+  if (attributes) out.attributes = attributes;
+  return out;
+}
+
+/** An option as JSON, with only the details it has. */
+export function optionJson(option: ChoiceOption): Json {
+  const out: Record<string, Json> = { value: option.value };
+  if (option.label !== undefined) out.label = option.label;
+  if (option.description !== undefined) out.description = option.description;
+  if (option.image !== undefined) out.image = option.image;
+  if (option.attributes !== undefined) out.attributes = { ...option.attributes } as Record<string, Json>;
+  return out;
 }
 
 /** The longest answer an "Other" option takes. */
@@ -133,11 +226,10 @@ const typedOther = (field: FieldBlock, value: unknown) =>
 export function choiceOptions(field: FieldBlock): ChoiceOption[] {
   const raw = field.props?.options;
   if (!Array.isArray(raw)) return [];
-  return raw.flatMap((o) =>
-    o && typeof o === "object" && !Array.isArray(o) && typeof o.value === "string"
-      ? [{ value: o.value, label: typeof o.label === "string" ? o.label : undefined }]
-      : [],
-  );
+  return raw.flatMap((o) => {
+    const option = readOption(o);
+    return option ? [option] : [];
+  });
 }
 
 /**
@@ -146,11 +238,28 @@ export function choiceOptions(field: FieldBlock): ChoiceOption[] {
  */
 export type HostOptions = Readonly<Record<string, readonly ChoiceOption[]>>;
 
-/** A choice field's `props.optionsFrom`, when it is a well-formed `{ source: "host", key }`. */
+/**
+ * A choice field's `props.optionsFrom`, when it is a well-formed `{ source: "host", key }`, with its
+ * `filter` when that is well formed too (`{ attribute, field }`, both non-empty text).
+ */
 export function optionsSource(field: FieldBlock): OptionsSource | undefined {
   const raw = field.props?.optionsFrom;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
-  return raw.source === "host" && typeof raw.key === "string" && raw.key ? { source: "host", key: raw.key } : undefined;
+  if (raw.source !== "host" || typeof raw.key !== "string" || !raw.key) return undefined;
+  const out: OptionsSource = { source: "host", key: raw.key };
+  const filter = raw.filter;
+  if (
+    filter &&
+    typeof filter === "object" &&
+    !Array.isArray(filter) &&
+    typeof filter.attribute === "string" &&
+    filter.attribute &&
+    typeof filter.field === "string" &&
+    filter.field
+  ) {
+    out.filter = { attribute: filter.attribute, field: filter.field };
+  }
+  return out;
 }
 
 /** The host's list for `key`, as options: string values only, each value once, labels when they are text. */
@@ -161,11 +270,10 @@ function hostList(hostOptions: HostOptions | undefined, key: string): ChoiceOpti
   const seen = new Set<string>();
   const out: ChoiceOption[] = [];
   for (const o of list as unknown[]) {
-    if (!o || typeof o !== "object" || Array.isArray(o)) continue;
-    const { value, label } = o as { value?: unknown; label?: unknown };
-    if (typeof value !== "string" || !value || seen.has(value)) continue;
-    seen.add(value);
-    out.push(typeof label === "string" ? { value, label } : { value });
+    const option = readOption(o);
+    if (!option || !option.value || seen.has(option.value)) continue;
+    seen.add(option.value);
+    out.push(option);
   }
   return out;
 }
@@ -190,7 +298,7 @@ export function withHostOptions(definition: FormDefinition, hostOptions: HostOpt
     const added = hostList(hostOptions, from.key).filter((o) => !taken.has(o.value));
     if (!added.length) return block;
     changed = true;
-    const options = [...own, ...added].map((o): Json => (o.label === undefined ? { value: o.value } : { value: o.value, label: o.label }));
+    const options = [...own, ...added].map(optionJson);
     return { ...block, props: { ...block.props, options } };
   });
   return changed ? { ...definition, blocks } : definition;

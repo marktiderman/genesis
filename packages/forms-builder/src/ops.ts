@@ -11,7 +11,10 @@ import {
   canonicalJson,
   choiceOptions,
   getFieldType,
+  isPrefillParam,
+  optionJson,
   optionsSource,
+  type ChoiceOption,
   renameFormulaKey,
   type Block,
   type Condition,
@@ -279,7 +282,10 @@ export function updateBlock(def: FormDefinition, id: string, patch: BlockPatch):
   });
   if (!changed) return def;
   let out: FormDefinition = { ...def, blocks };
-  if (renamed) out = renameFormulaRefs(rewriteRecall(out, "field", renamed.from, renamed.to), renamed.from, renamed.to);
+  if (renamed) {
+    out = renameFormulaRefs(rewriteRecall(out, "field", renamed.from, renamed.to), renamed.from, renamed.to);
+    out = fixOptionFilters(out, renamed);
+  }
   if (!typeChanged) return out;
   const { from, to } = typeChanged;
   if (CHOICE_TYPES.has(from) && CHOICE_TYPES.has(to)) {
@@ -291,7 +297,7 @@ export function updateBlock(def: FormDefinition, id: string, patch: BlockPatch):
 
 const CHOICE_TYPES: ReadonlySet<string> = new Set(["single-choice", "multi-choice", "dropdown"]);
 
-/** Move a block to `toIndex` (clamped). Rules keep working: they point at ids. */
+/** Move a block to `toIndex` (clamped). Rules keep working: they point at ids. An option filter whose question now comes after it is removed. */
 export function moveBlock(def: FormDefinition, id: string, toIndex: number): FormDefinition {
   const from = def.blocks.findIndex((b) => b.id === id);
   const to = Math.max(0, Math.min(toIndex, def.blocks.length - 1));
@@ -299,7 +305,8 @@ export function moveBlock(def: FormDefinition, id: string, toIndex: number): For
   const blocks = [...def.blocks];
   const [block] = blocks.splice(from, 1);
   blocks.splice(to, 0, block!);
-  return { ...def, blocks };
+  // A list filtered by another answer needs that question first: a filter it now precedes goes.
+  return fixOptionFilters({ ...def, blocks });
 }
 
 /** The id prefix new blocks like `block` get. */
@@ -349,7 +356,7 @@ export function removeBlock(def: FormDefinition, id: string): FormDefinition {
   if (out.logic && retarget) {
     out.logic = out.logic.map((r) => (r.effect === "jump" && r.to === id && r.from !== id ? { ...r, to: retarget } : r));
   }
-  if (removed.kind === "field") out = rewriteRecall(out, "field", removed.key, null);
+  if (removed.kind === "field") out = fixOptionFilters(rewriteRecall(out, "field", removed.key, null));
   return removeRulesWhere(out, (rule) => ruleRefs(rule).has(id));
 }
 
@@ -377,15 +384,24 @@ export const newOptionValue = () => newId("opt");
 export function setOptions(
   def: FormDefinition,
   id: string,
-  options: readonly { value?: string; label: string }[],
+  options: readonly ({ value?: string; label: string } & Partial<Pick<ChoiceOption, "description" | "image" | "attributes">>)[],
 ): FormDefinition {
   const field = def.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id);
   if (!field) return def;
+  // An option's description, picture and attributes stay unless the edit gives new ones.
+  const before = new Map(choiceOptions(field).map((o) => [o.value, o]));
   const taken: string[] = [];
   const next = options.map((o) => {
     const value = uniqueName(o.value || newOptionValue(), taken);
     taken.push(value);
-    return { value, label: o.label };
+    const kept = o.value ? before.get(o.value) : undefined;
+    return optionJson({
+      value,
+      label: o.label,
+      description: "description" in o ? o.description : kept?.description,
+      image: "image" in o ? o.image : kept?.image,
+      attributes: "attributes" in o ? o.attributes : kept?.attributes,
+    } as ChoiceOption);
   });
   let out = updateBlock(def, id, { props: { ...field.props, options: next } });
   const allowed = new Set(taken);
@@ -421,15 +437,91 @@ export function setOptionsSource(
   const current = optionsSource(field);
   if ("key" in source) {
     if (current?.key === source.key && field.props?.options === undefined) return def;
-    // Typed options and the rules comparing them go first, then the source is set.
+    // Typed options and the rules comparing them go first, then the source is set. A filter stays
+    // with the same list; another list's options have other attributes, so it goes.
     const cleared = setOptions(def, id, []);
     const latest = cleared.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id)!;
     const { options: _options, ...rest } = latest.props ?? {};
-    return updateBlock(cleared, id, { props: { ...rest, optionsFrom: { source: "host", key: source.key } } });
+    const filter = current?.key === source.key ? current.filter : undefined;
+    const optionsFrom: Json = filter ? { source: "host", key: source.key, filter } : { source: "host", key: source.key };
+    return updateBlock(cleared, id, { props: { ...rest, optionsFrom } });
   }
   if (!current) return setOptions(def, id, source.options);
   const { optionsFrom: _from, ...rest } = field.props ?? {};
   return setOptions(updateBlock(def, id, { props: rest }), id, source.options);
+}
+
+/**
+ * Show a choice question only the app's options matching an earlier answer
+ * (`props.optionsFrom.filter: { attribute, field }`, `field` being that
+ * question's key), or, with `null`, all of them again. Does nothing to a
+ * question whose options aren't from the app, or (returning `def`) when the
+ * filter would read a question that isn't earlier in the form.
+ */
+export function setOptionsFilter(
+  def: FormDefinition,
+  id: string,
+  filter: { attribute: string; field: string } | null,
+): FormDefinition {
+  const index = def.blocks.findIndex((b) => b.kind === "field" && b.id === id);
+  const field = def.blocks[index] as FieldBlock | undefined;
+  const from = field ? optionsSource(field) : undefined;
+  if (!field || !from) return def;
+  if (filter) {
+    const earlier = def.blocks.slice(0, index).some((b) => b.kind === "field" && b.key === filter.field);
+    if (!filter.attribute.trim() || !earlier) return def;
+  }
+  const optionsFrom: Json = filter
+    ? { source: "host", key: from.key, filter: { attribute: filter.attribute.trim(), field: filter.field } }
+    : { source: "host", key: from.key };
+  return updateBlock(def, id, { props: { ...field.props, optionsFrom } });
+}
+
+/**
+ * Preselect a choice question from a link's query parameter
+ * (`props.prefill: { param, hideWhenPrefilled? }`), or, with `null`, stop.
+ * A parameter that isn't a well-formed name (`isPrefillParam`) changes nothing.
+ */
+export function setPrefill(
+  def: FormDefinition,
+  id: string,
+  prefill: { param: string; hideWhenPrefilled?: boolean } | null,
+): FormDefinition {
+  const field = def.blocks.find((b): b is FieldBlock => b.kind === "field" && b.id === id);
+  if (!field) return def;
+  const { prefill: _old, ...rest } = field.props ?? {};
+  if (!prefill) return updateBlock(def, id, { props: Object.keys(rest).length ? rest : undefined });
+  if (!isPrefillParam(prefill.param)) return def;
+  const value: Json = prefill.hideWhenPrefilled ? { param: prefill.param, hideWhenPrefilled: true } : { param: prefill.param };
+  return updateBlock(def, id, { props: { ...rest, prefill: value } });
+}
+
+/**
+ * Keep option filters pointing at questions that are earlier in the form:
+ * after a key is renamed (`from` to `to`) the filter follows it, and a filter
+ * whose question is gone or now comes later is removed.
+ */
+function fixOptionFilters(def: FormDefinition, renamed?: { from: string; to: string }): FormDefinition {
+  let changed = false;
+  const seen = new Set<string>();
+  const blocks = def.blocks.map((b) => {
+    if (b.kind !== "field") return b;
+    const from = optionsSource(b);
+    let out: Block = b;
+    if (from?.filter) {
+      const target = renamed && from.filter.field === renamed.from ? renamed.to : from.filter.field;
+      if (target !== from.filter.field || !seen.has(target)) {
+        changed = true;
+        const optionsFrom: Json = seen.has(target)
+          ? { source: "host", key: from.key, filter: { attribute: from.filter.attribute, field: target } }
+          : { source: "host", key: from.key };
+        out = { ...b, props: { ...b.props, optionsFrom } };
+      }
+    }
+    seen.add(b.key);
+    return out;
+  });
+  return changed ? { ...def, blocks } : def;
 }
 
 /** `options` with a new value, unused among them, for each one that has none. Call it outside a reducer. */
@@ -756,3 +848,5 @@ export function updateSettings(def: FormDefinition, patch: Partial<FormSettings>
 // ── Field outputs ────────────────────────────────────────────────────────────
 
 export * from "./outputs";
+
+export * from "./option-lists";

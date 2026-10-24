@@ -82,6 +82,21 @@ import { Form } from "@marktiderman/genesis-forms-web";
   `dropdown` (a native select), `number` (min, max, step; the decimal keypad on phones), `date` (the
   browser's date picker) and `consent` (one checkbox). A rating can show end labels (`lowLabel`,
   `highLabel`) and `display: "stars"`; NPS takes the same labels.
+- **Option lists:** an option's `description` is a muted line under its label and its `image` a
+  small picture beside it. A choice question with more than 10 options it shows (or with
+  `searchable: true`) gets a search box over an in-page list instead of radios, checkboxes or a
+  select: typing narrows it (`searchOptions`), arrow keys move, Enter or a tap picks, and it
+  works the same in classic and focus layouts and on a phone. A list filtered by another answer
+  (`optionsFrom.filter`) shows only the matching options and drops a pick that stops matching.
+  `linkParams` (such as `new URLSearchParams(location.search)`) preselects questions with
+  `prefill: { param }`; with `hideWhenPrefilled` a question the link answered isn't shown or
+  counted. Which options show, when to search and what a link picks are all decided in
+  genesis-forms (`visibleOptions`, `isSearchable`, `prefillFromLink`, `respondentPath`), so
+  every renderer agrees with the engine and the server:
+
+  ```tsx
+  <Form form={def} hostOptions={lists} linkParams={new URLSearchParams(location.search)} />
+  ```
 - **Submitting:** the ending shows once `onSubmit` resolves. If it rejects, the completed response
   stays on screen read-only (a completed response is final), Back is hidden, and "Try again"
   (`retryLabel`) resends the same answers.
