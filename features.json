@@ -1494,8 +1494,7 @@
       "name": "Doctor for native and Supabase",
       "summary": "Doctor rule packs for Expo apps (every screen uses a Genesis layout, no hand-built headers, literal colors only through theme roles, app-store readiness) and for migrations (grants by name, no edits to applied migrations, RLS on new tables).",
       "category": "Tooling",
-      "status": "planned",
-      "horizon": "now",
+      "status": "beta",
       "layer": "tool",
       "keywords": [
         "lint",
@@ -1504,7 +1503,9 @@
         "migrations",
         "grants",
         "rls",
-        "custom header"
+        "custom header",
+        "search_path",
+        "sign in with apple"
       ],
       "requires": [
         "cli-doctor"
@@ -1518,6 +1519,18 @@
         "agent"
       ],
       "visibility": "internal",
+      "acceptance": [
+        "With doctor.packs [\"native\"], a route screen without a Genesis screen layout, a raw Modal import, a literal style color and a missing camera usage string are each reported with the fix; without packs a web app's findings are unchanged.",
+        "With doctor.packs [\"supabase\"], a blanket function grant in a new migration, a public table without RLS, a security definer function without search_path and an edit to a migration on the base ref each fail the doctor."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/doctor/native.ts",
+          "packages/genesis-cli/src/doctor/supabase.ts",
+          "scripts/lib/native-primitives.mjs"
+        ]
+      },
       "access": "all",
       "flags": []
     },
