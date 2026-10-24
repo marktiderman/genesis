@@ -117,12 +117,21 @@ describe("resolveBlocks", () => {
     ]);
   });
 
-  it("treats a requirement that isn't a block as an app feature, checked against enabled", () => {
+  it("needs a requirement that isn't a block to be listed in enabled, so a forgotten block is loud", () => {
     const needsBilling = defineBlock({ id: "invoices", requires: ["billing"] });
-    expect(resolveBlocks([needsBilling]).has("invoices")).toBe(true);
+    expect(problems(() => resolveBlocks([needsBilling]))).toEqual([
+      'invoices.requires: "billing" is not one of the blocks given (pass it, or list the app feature in enabled); turn it on or turn invoices off',
+    ]);
     expect(resolveBlocks([needsBilling], ["invoices", "billing"]).has("invoices")).toBe(true);
     expect(problems(() => resolveBlocks([needsBilling], ["invoices"]))).toEqual([
       'invoices.requires: "billing" is not enabled; turn it on or turn invoices off',
+    ]);
+  });
+
+  it("refuses a fill for a slot the host doesn't have", () => {
+    const typo = defineBlock({ id: "typo", contributes: { slots: { fatl: "X", fatal: "Y" } } });
+    expect(problems(() => resolveBlocks([typo], undefined, { slots: ["boot", "fatal"] }))).toEqual([
+      'typo.contributes.slots: "fatl" is not a slot here (boot, fatal)',
     ]);
   });
 

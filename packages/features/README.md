@@ -164,10 +164,12 @@ with its `feature`. It throws a `BlockError` listing every problem at once:
 - an enabled block whose requirement is off, or doesn't run on `platform`. With `missing: "drop"` the
   block (and everything needing it) is left out instead and listed in `dropped`: for switches that
   change at run time, such as a tenant turning a feature off;
-- two enabled blocks contributing the same nav entry, Settings row, route or slot.
+- two enabled blocks contributing the same nav entry, Settings row, route or slot, or (with `slots`)
+  a fill for a slot the host doesn't have.
 
-A requirement that isn't one of the blocks is a feature the app owns: it is met unless `enabled`
-is given and leaves it out.
+A requirement that isn't one of the blocks is a feature the app owns: it is met only when
+`enabled` lists it, so a block that was never passed is an error, not a silent pass. With `slots`
+(the host's slot names), a fill for any other slot is an error too.
 
 Blocks shipped so far: `createUpdates(…)` (`app-updates`, in `@marktiderman/genesis-native/updates`),
 `accountBlock` and `tenantFeaturesBlock` (in `@marktiderman/genesis-supabase`).

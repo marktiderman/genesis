@@ -258,8 +258,10 @@ The shell resolves the blocks once, at start (`resolveBlocks` with `platform: "n
   `createUpdates` sets its title and section, or `false` turns it off). Call it at the top of the
   Settings screen and pass the result to `SettingsPage`.
 
-Blocks that don't resolve (a missing requirement, two blocks filling one slot) show the fatal
-screen and report a `BlockError` to `onError`: a set-up mistake, found at launch.
+A block may require your own features that aren't blocks: list them in `appFeatures`. Blocks that
+don't resolve (a required block that wasn't passed or is off, an unknown slot name, two blocks
+filling one slot) hide the splash, show the fatal screen and report a `BlockError` to `onError`:
+a set-up mistake, found at launch.
 
 ## Each part on its own
 

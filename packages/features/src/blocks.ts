@@ -140,8 +140,8 @@ export interface BlockDef<Id extends string = string, S = unknown> {
   /**
    * What must be on with it: other blocks' ids, or features the app owns that
    * aren't blocks. A requirement that is a block must be enabled (and on this
-   * platform); one that isn't a block must be in `enabled` when `enabled` is
-   * given.
+   * platform); one that isn't a block must be listed in `enabled`. A
+   * requirement that is neither is an error, so a forgotten block is loud.
    */
   readonly requires?: readonly string[];
   readonly contributes?: BlockContributions<S>;
@@ -243,6 +243,11 @@ export interface ResolveBlocksOptions {
    * a feature off).
    */
   missing?: "throw" | "drop";
+  /**
+   * The host's slot names (e.g. `GenesisNativeApp`'s). A block filling any
+   * other slot is an error, so a typo doesn't fill nothing silently.
+   */
+  slots?: readonly string[];
 }
 
 /** A contribution with the FeatureId of the block it came from. @stability Beta */
@@ -290,8 +295,8 @@ const byOrder = <T extends { order?: number }>(items: { item: T; at: number }[])
  * - every enabled block's requirements are on (see {@link ResolveBlocksOptions.missing});
  * - no two enabled blocks contribute the same nav id, settings row id, route path or slot.
  *
- * `enabled` left out means every block given is on. Throws a {@link BlockError}
- * listing every problem at once.
+ * `enabled` left out means every block given is on (and no app feature that
+ * isn't a block). Throws a {@link BlockError} listing every problem at once.
  *
  * @stability Beta
  */
@@ -300,7 +305,7 @@ export function resolveBlocks<B extends BlockDef<string, unknown>>(
   enabled?: EnabledBlocks,
   options: ResolveBlocksOptions = {},
 ): ResolvedBlocks<B> {
-  const { platform, features, missing = "throw" } = options;
+  const { platform, features, missing = "throw", slots: slotNames } = options;
   const problems: string[] = [];
   const byId = new Map<string, B>();
   for (const block of blocks) {
@@ -333,7 +338,7 @@ export function resolveBlocks<B extends BlockDef<string, unknown>>(
     if (!active.has(id)) continue;
     const off = (byId.get(id)!.requires ?? []).filter((req) => {
       if (byId.has(req)) return !active.has(req);
-      return isOn ? !isOn(req) : false;
+      return !isOn || !isOn(req);
     });
     if (!off.length) continue;
     if (missing === "drop") {
@@ -342,7 +347,13 @@ export function resolveBlocks<B extends BlockDef<string, unknown>>(
       continue;
     }
     for (const req of off) {
-      const why = !byId.has(req) ? "is not enabled" : !runsHere(byId.get(req)!) ? `doesn't run on ${platform}` : "is off";
+      const why = !byId.has(req)
+        ? isOn
+          ? "is not enabled"
+          : "is not one of the blocks given (pass it, or list the app feature in enabled)"
+        : !runsHere(byId.get(req)!)
+          ? `doesn't run on ${platform}`
+          : "is off";
       problems.push(`${id}.requires: "${req}" ${why}; turn it on or turn ${id} off`);
     }
   }
@@ -369,7 +380,13 @@ export function resolveBlocks<B extends BlockDef<string, unknown>>(
     for (const n of c.nav ?? []) if (claim("nav", n.id, feature, "the nav entry")) nav.push({ item: { ...n, feature }, at });
     for (const r of c.settings ?? []) if (claim("settings", r.id, feature, "the settings row")) settings.push({ item: { ...r, feature }, at });
     for (const r of c.routes ?? []) if (claim("routes", r.path, feature, "the route")) routes.push({ ...r, feature });
-    for (const [name, fill] of Object.entries(c.slots ?? {})) if (claim("slots", name, feature, "the slot")) slots[name] = fill as SlotOf<B>;
+    for (const [name, fill] of Object.entries(c.slots ?? {})) {
+      if (slotNames && !slotNames.includes(name)) {
+        problems.push(`${feature}.contributes.slots: "${name}" is not a slot here (${slotNames.join(", ")})`);
+        continue;
+      }
+      if (claim("slots", name, feature, "the slot")) slots[name] = fill as SlotOf<B>;
+    }
     for (const m of c.migrations ?? []) migrations.push({ ...m, feature });
     for (const path of c.skills ?? []) skills.push({ path, feature });
     if (c.privacy) privacy.push({ ...c.privacy, feature });

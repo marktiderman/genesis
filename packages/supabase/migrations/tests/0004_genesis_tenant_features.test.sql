@@ -10,12 +10,13 @@
 -- request.jwt.claim.sub on older images), so pg_temp.sign_in sets both.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(56);
+select plan(65);
 
--- People: a1 admin of tenant 1, b2 member of tenant 1, c3 admin of tenant 2, d4 nobody.
+-- People: a1 and e5 admins of tenant 1, b2 member of tenant 1, c3 admin of tenant 2,
+-- d4 nobody's admin but the owner of tenant 3.
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-0000000000' || n)::uuid, 'authenticated', 'authenticated', 'genesis-tenant-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
-from unnest(array['a1', 'b2', 'c3', 'd4']) n;
+from unnest(array['a1', 'b2', 'c3', 'd4', 'e5']) n;
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$ select ('00000000-0000-4000-8000-0000000000' || n)::uuid $$;
 create function pg_temp.tenant(n int) returns uuid language sql immutable as $$ select ('00000000-0000-4000-9000-00000000000' || n)::uuid $$;
@@ -24,7 +25,14 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', pg_temp.person(n), 'role', 'authenticated')::text, true);
   perform set_config('request.jwt.claim.sub', pg_temp.person(n)::text, true);
 end $$;
-grant execute on all functions in schema pg_temp to anon, authenticated, service_role;
+grant execute on function pg_temp.person(text), pg_temp.tenant(int), pg_temp.sign_in(text) to anon, authenticated, service_role;
+
+-- An app's tenant table, with the foreign keys the migration's header recommends.
+-- A tenant owned by a person goes when they do (a personal workspace).
+create table public.genesis_test_teams (id uuid primary key, owner uuid references auth.users (id) on delete cascade);
+insert into public.genesis_test_teams values (pg_temp.tenant(1), null), (pg_temp.tenant(2), null), (pg_temp.tenant(3), pg_temp.person('d4'));
+alter table public.tenant_features add foreign key (tenant_id) references public.genesis_test_teams (id) on delete cascade;
+alter table public.tenant_feature_changes add foreign key (tenant_id) references public.genesis_test_teams (id) on delete cascade;
 
 drop function if exists private.genesis_tenant_admin(uuid, uuid);
 drop function if exists private.genesis_tenant_member(uuid, uuid);
@@ -125,8 +133,17 @@ select ok(
 );
 select ok(
   not has_function_privilege('anon', 'private.tenant_feature_on(uuid, text)', 'execute')
-  and has_function_privilege('authenticated', 'private.tenant_feature_on(uuid, text)', 'execute'),
-  'the SQL gate is executable by authenticated, never anon'
+  and not has_function_privilege('authenticated', 'private.tenant_feature_on(uuid, text)', 'execute'),
+  'the SQL gate (no member check) is for definer functions, not anon or authenticated'
+);
+select ok(
+  not has_sequence_privilege('anon', 'public.tenant_feature_changes_id_seq', 'usage,select,update')
+  and not has_sequence_privilege('authenticated', 'public.tenant_feature_changes_id_seq', 'usage,select,update'),
+  'the history''s id sequence is not anon''s or authenticated''s'
+);
+select ok(
+  not has_table_privilege('service_role', 'public.tenant_features', 'truncate,references,trigger'),
+  'the service role cannot truncate the switches (which would skip the history)'
 );
 
 -- Without the hook, nobody may change anything --------------------------------------
@@ -148,6 +165,7 @@ reset role;
 create table private.genesis_test_members (tenant uuid, person uuid, admin boolean);
 insert into private.genesis_test_members values
   (pg_temp.tenant(1), pg_temp.person('a1'), true),
+  (pg_temp.tenant(1), pg_temp.person('e5'), true),
   (pg_temp.tenant(1), pg_temp.person('b2'), false),
   (pg_temp.tenant(2), pg_temp.person('c3'), true);
 create function private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean
@@ -247,6 +265,24 @@ select is(
   (select updated_by from public.tenant_features where tenant_id = pg_temp.tenant(1) and feature_id = 'chat'),
   pg_temp.person('a1'),
   '... with who set it'
+);
+
+select pg_temp.sign_in('e5');
+set local role authenticated;
+select lives_ok(
+  $$ select public.set_tenant_feature(pg_temp.tenant(1), 'chat', false, 'Launching next month') $$,
+  'another admin saves the same switch and reason'
+);
+reset role;
+select is(
+  (select updated_by from public.tenant_features where tenant_id = pg_temp.tenant(1) and feature_id = 'chat'),
+  pg_temp.person('a1'),
+  '... which changes nothing, not even who set it'
+);
+select is(
+  (select count(*)::int from public.tenant_feature_changes where tenant_id = pg_temp.tenant(1) and feature_id = 'chat'),
+  1,
+  '... and records nothing'
 );
 
 -- Who may read ------------------------------------------------------------------------
@@ -354,6 +390,21 @@ select throws_ok(
   'P0001', 'membership lookup failed', 'a hook that fails refuses the change'
 );
 reset role;
+
+-- Deleting a tenant, or a person whose tenant goes with them, never fails on these tables ----------
+select lives_ok($$ delete from public.genesis_test_teams where id = pg_temp.tenant(2) $$, 'deleting a tenant with switches and history succeeds');
+select ok(
+  not exists (select 1 from public.tenant_features where tenant_id = pg_temp.tenant(2))
+  and not exists (select 1 from public.tenant_feature_changes where tenant_id = pg_temp.tenant(2)),
+  '... and takes them with it'
+);
+set local role service_role;
+insert into public.tenant_features (tenant_id, feature_id, enabled, reason) values (pg_temp.tenant(3), 'chat', false, 'Platform: paused');
+reset role;
+-- As delete_my_account does it: the person's own JWT, then the delete.
+select pg_temp.sign_in('d4');
+select lives_ok($$ delete from auth.users where id = pg_temp.person('d4') $$, 'a person whose tenant (with a switch) goes with them can delete their account');
+select ok(not exists (select 1 from public.tenant_features where tenant_id = pg_temp.tenant(3)), '... and the tenant''s switches go too');
 
 -- Deleting a person never fails on these tables -------------------------------------------------
 select lives_ok($$ delete from auth.users where id = pg_temp.person('a1') $$, 'deleting the admin who made changes succeeds');

@@ -368,9 +368,14 @@ policies and no grants to anon or authenticated: they are reached only through t
 each security definer with an empty `search_path`, granted and revoked by name. Deleting a
 person never fails on these tables; their changes stay, without them.
 
-`private.tenant_feature_on` is executable by authenticated, but `private` isn't exposed and
-authenticated has no usage on it: call it from your own security definer functions (or grant
-usage yourself, knowingly).
+`private.tenant_feature_on` answers for any tenant, without the member check, so it is granted to
+nobody but the service role: call it from your own security definer functions (owned by the
+migration's role, they need no grant). Granting it to authenticated, with usage on `private`, lets
+every signed-in person ask about any tenant.
+
+A delete that cascades into `tenant_features` (from your tenant table, or a person whose tenant
+goes with them) isn't recorded, so it never refuses the tenant's or the person's deletion; saving
+the same switch and reason again changes nothing, not even who and when.
 
 ## Blocks
 

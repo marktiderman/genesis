@@ -84,6 +84,38 @@ describe("GenesisNativeApp blocks", () => {
     expect((error as BlockError).problems).toEqual(['support.requires: "account" doesn\'t run on native; turn it on or turn support off']);
   });
 
+  it("is loud about a required block that was never passed, a typo'd slot, and hides the splash so the error shows", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const onError = vi.fn();
+    const splash = { preventAutoHideAsync: vi.fn(async () => true), hideAsync: vi.fn(async () => true) };
+    const support: NativeBlock = defineBlock({ id: "support", requires: ["account"], contributes: { slots: { fatl: SupportFatal } } });
+    setup({ blocks: [support], onError, splash });
+    await act(settle);
+    expect(screen.getByTestId("genesis-fatal-plain")).toBeTruthy();
+    expect((onError.mock.calls[0]?.[0] as BlockError).problems).toEqual([
+      'support.requires: "account" is not one of the blocks given (pass it, or list the app feature in enabled); turn it on or turn support off',
+    ]);
+    expect(splash.hideAsync).toHaveBeenCalled();
+  });
+
+  it("refuses a slot fill for a slot the shell doesn't have", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const onError = vi.fn();
+    const typo: NativeBlock = defineBlock({ id: "typo", contributes: { slots: { fatl: SupportFatal } } });
+    setup({ blocks: [typo], onError });
+    await act(settle);
+    expect((onError.mock.calls[0]?.[0] as BlockError).problems).toEqual([
+      expect.stringMatching(/^typo\.contributes\.slots: "fatl" is not a slot here \(boot, fatal, /),
+    ]);
+  });
+
+  it("accepts a requirement on an app feature listed in appFeatures", async () => {
+    const invoices: NativeBlock = defineBlock({ id: "invoices", requires: ["billing"] });
+    setup({ blocks: [invoices], appFeatures: ["billing"] });
+    await act(settle);
+    expect(screen.getByTestId("screens")).toBeTruthy();
+  });
+
   it("runs the updates block once when it is given as `updates` and in `blocks`", async () => {
     const updates = createUpdates({ platform: "ios", policyTimeoutMs: 50 });
     const run = vi.spyOn(updates.bootStep, "run");

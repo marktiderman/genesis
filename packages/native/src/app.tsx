@@ -142,6 +142,12 @@ export interface GenesisNativeAppProps {
    * `BlockError` to `onError`. Read once.
    */
   blocks?: readonly NativeBlock[];
+  /**
+   * Your features (FeatureIds) that blocks may require but that aren't
+   * blocks. A block requiring anything that is neither one of `blocks` nor
+   * listed here is a `BlockError`. Read once.
+   */
+  appFeatures?: readonly string[];
   slots?: Slots<NativeAppSlots>;
   slotProps?: SlotPropsFor<NativeAppSlots>;
   children?: ReactNode;
@@ -176,11 +182,17 @@ export function GenesisNativeApp(props: GenesisNativeAppProps) {
   const [rootKey, setRootKey] = useState(0);
   const onErrorRef = useRef(props.onError);
   onErrorRef.current = props.onError;
+  const splashRef = useRef(props.splash);
+  splashRef.current = props.splash;
   return (
     <GenesisErrorBoundary
       key={rootKey}
       fallback={PlainFatalScreen}
-      onError={(e, r) => onErrorRef.current?.(e, r)}
+      onError={(e, r) => {
+        onErrorRef.current?.(e, r);
+        // The shell (which hides the splash) never mounted: hide it here, or the screen stays behind it.
+        splashRef.current?.hideAsync().catch(() => {});
+      }}
       onRetry={() => setRootKey((key) => key + 1)}
     >
       <ThemedShell {...props} />
@@ -227,7 +239,11 @@ function Shell(props: GenesisNativeAppProps) {
   const [parts] = useState(() => {
     // `updates` is a block too; given both ways, it runs once.
     const given = props.blocks ?? [];
-    const blocks = resolveBlocks(props.updates && !given.includes(props.updates) ? [...given, props.updates] : given, undefined, { platform: "native" });
+    const list = props.updates && !given.includes(props.updates) ? [...given, props.updates] : given;
+    const blocks = resolveBlocks(list, props.appFeatures ? [...list.map((b) => b.id), ...props.appFeatures] : undefined, {
+      platform: "native",
+      slots: NATIVE_APP_SLOT_NAMES,
+    });
     const client = queryOptions?.client ?? createNativeQueryClient(queryOptions?.config);
     const persistence = persist ? persist(client) : null;
     const session = createSessionStore(supabase, {
@@ -358,6 +374,19 @@ function Shell(props: GenesisNativeAppProps) {
     </GenesisProvider>
   );
 }
+
+// Every slot name, checked against NativeAppSlots by the compiler: a block filling any other is a BlockError.
+const SLOT_NAMES: Record<keyof NativeAppSlots, true> = {
+  boot: true,
+  fatal: true,
+  errorBoundary: true,
+  signedOut: true,
+  forceUpgrade: true,
+  maintenance: true,
+  updateBanner: true,
+  whatsNew: true,
+};
+const NATIVE_APP_SLOT_NAMES: readonly string[] = Object.keys(SLOT_NAMES);
 
 /** Blocks' slot fills under the app's own slots: the app's (a component or `null`) always win. */
 function withBlockSlots(fills: Readonly<Record<string, unknown>>, own: Slots<NativeAppSlots> | undefined): Slots<NativeAppSlots> | undefined {

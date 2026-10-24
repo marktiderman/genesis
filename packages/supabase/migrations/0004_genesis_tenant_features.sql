@@ -28,7 +28,8 @@
 --   revoke execute on function private.genesis_tenant_admin(uuid, uuid) from public, anon, authenticated;
 --
 -- Your tenant table: add the foreign key yourself in a later migration, so a
--- deleted tenant takes its switches and their history with it:
+-- deleted tenant takes its switches and their history with it (a delete that
+-- cascades from elsewhere isn't recorded, so it never refuses the tenant's deletion):
 --
 --   alter table public.tenant_features add foreign key (tenant_id) references public.teams (id) on delete cascade;
 --   alter table public.tenant_feature_changes add foreign key (tenant_id) references public.teams (id) on delete cascade;
@@ -170,7 +171,9 @@ begin
   insert into public.tenant_features as f (tenant_id, feature_id, enabled, reason, updated_by, updated_at)
   values (tenant, feature, enabled, why, me, now())
   on conflict (tenant_id, feature_id) do update
-    set enabled = excluded.enabled, reason = excluded.reason, updated_by = excluded.updated_by, updated_at = excluded.updated_at;
+    set enabled = excluded.enabled, reason = excluded.reason, updated_by = excluded.updated_by, updated_at = excluded.updated_at
+    -- Saving the same switch and reason again changes nothing, not even who and when.
+    where (f.enabled, f.reason) is distinct from (excluded.enabled, excluded.reason);
 end;
 $$;
 
@@ -260,13 +263,27 @@ begin
      and new.tenant_id = old.tenant_id and new.feature_id = old.feature_id then
     return null;
   end if;
+  if tg_op = 'DELETE' then
+    begin
+      insert into public.tenant_feature_changes (tenant_id, feature_id, enabled, reason, changed_by, changed_role)
+      values (old.tenant_id, old.feature_id, null, null, (select u.id from auth.users u where u.id = auth.uid()),
+              coalesce(nullif(claims ->> 'role', ''), 'database'));
+    exception when foreign_key_violation then
+      -- The delete cascades from the tenant's own (your foreign key, or a person whose
+      -- tenant goes with them): the tenant is gone, so there is nothing to record, and
+      -- recording it would refuse the tenant's or the person's deletion.
+      null;
+    end;
+    return null;
+  end if;
   insert into public.tenant_feature_changes (tenant_id, feature_id, enabled, reason, changed_by, changed_role)
   values (
-    coalesce(new.tenant_id, old.tenant_id),
-    coalesce(new.feature_id, old.feature_id),
-    case when tg_op = 'DELETE' then null else new.enabled end,
-    case when tg_op = 'DELETE' then null else new.reason end,
-    auth.uid(),
+    new.tenant_id,
+    new.feature_id,
+    new.enabled,
+    new.reason,
+    -- Only a login that still exists: one being deleted in this statement is no one.
+    (select u.id from auth.users u where u.id = auth.uid()),
     coalesce(nullif(claims ->> 'role', ''), 'database')
   );
   return null;
@@ -287,7 +304,10 @@ alter table public.tenant_feature_changes enable row level security;
 -- gives every function to public: take them back, then grant what's needed.
 revoke all on table public.tenant_features from public, anon, authenticated;
 revoke all on table public.tenant_feature_changes from public, anon, authenticated;
+-- No truncate (it would skip the history trigger), references or trigger for the service role.
+revoke all on table public.tenant_features from service_role;
 grant select, insert, update, delete on table public.tenant_features to service_role;
+revoke all on sequence public.tenant_feature_changes_id_seq from public, anon, authenticated;
 -- The history is the trigger's: the service role may read and purge it, never write it.
 revoke all on table public.tenant_feature_changes from service_role;
 grant select, delete on table public.tenant_feature_changes to service_role;
@@ -305,7 +325,9 @@ grant execute on function public.tenant_feature_history(uuid, integer) to authen
 revoke execute on function private.genesis_is_tenant_admin(uuid) from public, anon, authenticated;
 revoke execute on function private.genesis_is_tenant_member(uuid) from public, anon, authenticated;
 revoke execute on function private.genesis_record_tenant_feature_change() from public, anon, authenticated;
--- For gates in your own SQL: security definer functions, or policies once
--- you've granted authenticated usage on schema private yourself (this file doesn't).
-revoke execute on function private.tenant_feature_on(uuid, text) from public, anon;
-grant execute on function private.tenant_feature_on(uuid, text) to authenticated, service_role;
+-- For gates in your own SQL, called from security definer functions (owned
+-- by the migration's role, so they need no grant). It answers for any tenant,
+-- without the member check: grant it to authenticated (with usage on schema
+-- private) only if you mean every signed-in person to be able to ask.
+revoke execute on function private.tenant_feature_on(uuid, text) from public, anon, authenticated;
+grant execute on function private.tenant_feature_on(uuid, text) to service_role;
