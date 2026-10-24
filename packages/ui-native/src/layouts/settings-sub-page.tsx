@@ -166,9 +166,17 @@ export function SettingsSubPage({
   if (KeyboardScroll) {
     return (
       <ScreenContainer safeAreaEdges={["left", "right", "bottom"]} testID={testID}>
-        <KeyboardScroll testID={`${testID}-keyboard`} keyboardShouldPersistTaps="handled" bottomOffset={24} contentContainerStyle={{ padding: 16 }}>
-          <View testID={`${testID}-form`} className={cn("gap-4", className)}>
-            {children}
+        <KeyboardScroll
+          testID={`${testID}-keyboard`}
+          keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="automatic"
+          bottomOffset={24}
+        >
+          {/* Same padding and className as the fallback path, so `className` overrides it the same way. */}
+          <View className={cn("p-4", className)}>
+            <View testID={`${testID}-form`} className="gap-4">
+              {children}
+            </View>
           </View>
         </KeyboardScroll>
       </ScreenContainer>

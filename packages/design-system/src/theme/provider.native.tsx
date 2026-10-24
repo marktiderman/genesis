@@ -36,7 +36,7 @@ import {
   type ReactNode,
 } from "react";
 // eslint-disable-next-line import/no-unresolved
-import { Appearance, useColorScheme } from "react-native";
+import { Appearance, Platform, useColorScheme } from "react-native";
 import { GenesisThemeContext } from "./context";
 import {
   resolveTokens,
@@ -52,6 +52,14 @@ export interface GenesisThemeProviderProps {
   mode?: ThemeMode;
   defaultMode?: ThemeMode;
   onModeChange?: (mode: ResolvedThemeMode) => void;
+  /**
+   * Pass the mode to the platform (`Appearance.setColorScheme`), so iOS
+   * system colors and native controls follow an in-app light or dark
+   * choice. The setting is app-wide, so turn it on for one provider only,
+   * the root (the native app shell does). It is released when the provider
+   * unmounts. Default `false`.
+   */
+  syncNativeAppearance?: boolean;
   children: ReactNode;
 }
 
@@ -60,6 +68,7 @@ export function GenesisThemeProvider({
   mode: controlledMode,
   defaultMode = "system",
   onModeChange,
+  syncNativeAppearance = false,
   children,
 }: GenesisThemeProviderProps) {
   const isControlled = controlledMode !== undefined;
@@ -85,8 +94,10 @@ export function GenesisThemeProvider({
   // (PlatformColor) and native controls follow it, not just Genesis tokens.
   // "system" hands the decision back to the OS.
   useEffect(() => {
-    syncAppearance(choice);
-  }, [choice]);
+    if (!syncNativeAppearance) return;
+    setAppearance(choice === "system" ? null : choice);
+    return () => setAppearance(null);
+  }, [choice, syncNativeAppearance]);
 
   const setMode = useCallback(
     (next: ThemeMode) => {
@@ -128,18 +139,12 @@ export function GenesisThemeProvider({
   );
 }
 
-/** Override (or release) the OS color scheme for this app. */
-function syncAppearance(choice: ThemeMode) {
-  const set = (Appearance as { setColorScheme?: (scheme: "light" | "dark" | "unspecified" | null) => void }).setColorScheme;
+/** Override the OS color scheme for this app, or release it (`null`) back to the system. */
+function setAppearance(scheme: "light" | "dark" | null) {
+  const set = (Appearance as { setColorScheme?: (scheme: string) => void }).setColorScheme;
   if (!set) return;
-  if (choice === "system") {
-    // RN 0.80+ takes "unspecified"; older versions took null.
-    try {
-      set("unspecified");
-    } catch {
-      set(null);
-    }
-  } else {
-    set(choice);
-  }
+  if (scheme) return set(scheme);
+  // Release: "unspecified" since React Native 0.82; 0.87 renames it "auto".
+  const minor = (Platform as { constants?: { reactNativeVersion?: { minor?: number } } }).constants?.reactNativeVersion?.minor ?? 0;
+  set(minor >= 87 ? "auto" : "unspecified");
 }

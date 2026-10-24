@@ -90,6 +90,7 @@ export function AuthScreen({
         <KeyboardScroll
           testID={`${testID}-keyboard`}
           keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="automatic"
           bottomOffset={24}
           contentContainerStyle={{ flexGrow: 1, justifyContent: "center", gap: 24, paddingHorizontal: 24, paddingVertical: 32 }}
         >

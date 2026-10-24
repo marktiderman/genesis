@@ -21,6 +21,8 @@ export interface KeyboardScrollProps {
   testID?: string;
   keyboardShouldPersistTaps?: "always" | "never" | "handled";
   contentContainerStyle?: ViewStyle;
+  /** iOS: inset content under a translucent or large-title header, as `ScreenContainer` does. */
+  contentInsetAdjustmentBehavior?: "automatic" | "scrollableAxes" | "never" | "always";
   /** Extra space between the focused input and the keyboard. */
   bottomOffset?: number;
 }
