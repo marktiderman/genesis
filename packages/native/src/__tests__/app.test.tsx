@@ -328,8 +328,41 @@ describe("GenesisNativeApp", () => {
     expect(screen.getByTestId("keyboard").contains(screen.getByTestId("screens"))).toBe(true);
     // A fatal error swaps the screens for the fatal screen inside the provider; it stays mounted.
     act(() => fireGlobal(new Error("boom"), true));
-    expect(screen.getByTestId("keyboard")).toBeTruthy();
+    expect(screen.getByTestId("keyboard").contains(screen.getByTestId("genesis-fatal"))).toBe(true);
     expect(mounts).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the first keyboard provider, so an inline one can't remount the app", async () => {
+    const shellMounts = vi.fn();
+    function Probe() {
+      useEffect(() => shellMounts(), []);
+      return <span data-testid="screens">screens</span>;
+    }
+    const element = (n: number) => (
+      <GenesisNativeApp brand={genesisBrand} supabase={fakeSupabase({ user: { id: "u1" } }).client} provider={provider} rejectionTracker={null}
+        keyboardProvider={({ children }) => <div data-testid={`keyboard-${n}`}>{children}</div>}>
+        <Probe />
+      </GenesisNativeApp>
+    );
+    const { rerender } = render(element(1));
+    await act(flush);
+    rerender(element(2));
+    await act(flush);
+    expect(screen.getByTestId("keyboard-1")).toBeTruthy();
+    expect(shellMounts).toHaveBeenCalledOnce();
+  });
+
+  it("is quiet when keyboardScroll comes with its provider", async () => {
+    vi.stubGlobal("__DEV__", true);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      setup({ keyboardProvider: ({ children }) => <>{children}</>, keyboardScroll: () => null });
+      await act(flush);
+      expect(error).not.toHaveBeenCalledWith(expect.stringContaining("keyboardProvider"));
+    } finally {
+      error.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("says so in development when keyboardScroll has no keyboardProvider", async () => {

@@ -120,11 +120,72 @@ export function installWebCrypto(expoCrypto: ExpoCryptoLike, target: object = gl
     // A copy, so the hash reads these bytes even if the caller reuses its buffer.
     return expoCrypto.digest("SHA-256", bytes.slice());
   };
-  const subtle = typeof realSubtle?.digest === "function" ? realSubtle : { ...(realSubtle ?? {}), digest };
+  // A runtime's own `subtle` (without digest) stays the prototype, so none of its methods are lost.
+  const subtle = typeof realSubtle?.digest === "function" ? realSubtle : Object.assign(Object.create(realSubtle ?? Object.prototype) as object, { digest });
 
   const crypto = Object.assign(Object.create(existing ?? Object.prototype) as object, { getRandomValues, subtle, [POLYFILL]: true });
   Object.defineProperty(target, "crypto", { value: crypto, configurable: true, enumerable: false, writable: true });
   return "polyfill";
+}
+
+/**
+ * True when `globalThis.crypto.subtle` is this polyfill's digest-only stand-in
+ * (no `importKey` or `verify`), which supabase-js's `getClaims` can't use.
+ */
+export function isDigestOnlyPolyfill(target: object = globalThis): boolean {
+  const crypto = cryptoOf(target) as (CryptoLike & Record<symbol, unknown>) | undefined;
+  return Boolean(crypto?.[POLYFILL]) && typeof (crypto?.subtle as { importKey?: unknown } | undefined)?.importKey !== "function";
+}
+
+/** The parts of supabase-js's auth client that {@link claimsViaServer} uses. */
+export interface ClaimsAuthClient {
+  getSession(): Promise<{ data: { session: { access_token: string } | null }; error: unknown }>;
+  getUser(jwt?: string): Promise<{ error: unknown }>;
+}
+
+/** A JWT's three parts, decoded (header and payload as JSON, the signature as bytes). */
+function decodeJwt(token: string): { header: Record<string, unknown>; payload: Record<string, unknown>; signature: Uint8Array } | null {
+  const parts = token.split(".");
+  if (parts.length !== 3 || parts.some((p) => !/^[A-Za-z0-9_-]*$/.test(p))) return null;
+  const bytes = (part: string) => {
+    const binary = atob(part.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((part.length + 3) % 4));
+    return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  };
+  try {
+    const json = (part: string) => JSON.parse(new TextDecoder().decode(bytes(part))) as Record<string, unknown>;
+    return { header: json(parts[0]!), payload: json(parts[1]!), signature: bytes(parts[2]!) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `auth.getClaims` for a runtime whose `crypto.subtle` is the digest-only
+ * polyfill. supabase-js verifies an asymmetric JWT locally whenever
+ * `crypto.subtle` exists, and would throw on the missing `importKey`; this
+ * always takes supabase-js's own fallback instead: the server checks the
+ * token (`getUser`), and the claims are returned only if it accepts it.
+ * Same result shape as `getClaims`.
+ */
+export function claimsViaServer(auth: ClaimsAuthClient, invalidJwt: (message: string) => Error) {
+  return async (jwt?: string, options: { allowExpired?: boolean } = {}) => {
+    let token = jwt;
+    if (!token) {
+      const { data, error } = await auth.getSession();
+      if (error || !data.session) return { data: null, error: error ?? null };
+      token = data.session.access_token;
+    }
+    const decoded = decodeJwt(token);
+    if (!decoded) return { data: null, error: invalidJwt("Invalid JWT structure") };
+    if (!options.allowExpired) {
+      const exp = decoded.payload.exp;
+      if (typeof exp !== "number") return { data: null, error: invalidJwt("Missing exp claim") };
+      if (exp <= Math.floor(Date.now() / 1000)) return { data: null, error: invalidJwt("JWT has expired") };
+    }
+    const { error } = await auth.getUser(token);
+    if (error) return { data: null, error };
+    return { data: { claims: decoded.payload, header: decoded.header, signature: decoded.signature }, error: null };
+  };
 }
 
 declare const __DEV__: boolean | undefined;

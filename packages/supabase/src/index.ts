@@ -3,8 +3,8 @@
  * server import it. Native-only helpers (Keychain storage, foreground
  * refresh, reinstall wipe) are on `@marktiderman/genesis-supabase/native`.
  */
-import { createClient, type SupabaseClient, type SupabaseClientOptions } from "@supabase/supabase-js";
-import { assertPkceCrypto, installWebCrypto, type ExpoCryptoLike } from "./web-crypto";
+import { AuthInvalidJwtError, createClient, type SupabaseClient, type SupabaseClientOptions } from "@supabase/supabase-js";
+import { assertPkceCrypto, claimsViaServer, installWebCrypto, isDigestOnlyPolyfill, type ExpoCryptoLike } from "./web-crypto";
 
 export type { ExpoCryptoLike } from "./web-crypto";
 
@@ -35,8 +35,11 @@ export interface GenesisSupabaseOptions {
    * Hermes has no `crypto.subtle`, and without it supabase-js sends the PKCE
    * challenge as "plain"; this installs `crypto.getRandomValues` and a SHA-256
    * `crypto.subtle.digest` from it (real WebCrypto is kept), so the challenge
-   * is S256. On native, a client made without WebCrypto or this throws in
-   * development and logs an error in a release build.
+   * is S256. A PKCE client made where there is neither throws in development
+   * and logs an error in a release build. With the polyfill in place,
+   * `auth.getClaims` always has the server check the token (`getUser`), as
+   * supabase-js does where WebCrypto is missing: the polyfill can hash but
+   * not verify a signature.
    */
   crypto?: ExpoCryptoLike;
   /** Anything else for supabase-js, merged last. */
@@ -62,7 +65,7 @@ export function createGenesisSupabase<Database = unknown>({
 }: GenesisSupabaseOptions): SupabaseClient<Database> {
   if (crypto) installWebCrypto(crypto);
   // The PKCE flow needs WebCrypto for an S256 challenge; never let it fall back to "plain" quietly.
-  if (platform === "native" && (options.auth?.flowType ?? "pkce") === "pkce") assertPkceCrypto();
+  if ((options.auth?.flowType ?? "pkce") === "pkce") assertPkceCrypto();
   // supabase-js's generics over the schema don't survive being forwarded, so the
   // options are built untyped and the client is typed by the caller's Database.
   const client = createClient(url, publishableKey, {
@@ -76,6 +79,10 @@ export function createGenesisSupabase<Database = unknown>({
       ...options.auth,
     },
   });
+  if (isDigestOnlyPolyfill()) {
+    const auth = client.auth;
+    auth.getClaims = claimsViaServer(auth, (message) => new AuthInvalidJwtError(message)) as typeof auth.getClaims;
+  }
   return client as unknown as SupabaseClient<Database>;
 }
 

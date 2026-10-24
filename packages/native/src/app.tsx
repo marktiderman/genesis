@@ -98,7 +98,9 @@ export interface GenesisNativeAppProps {
   /**
    * `KeyboardProvider` from react-native-keyboard-controller, mounted once
    * around the app. Its keyboard views (`keyboardScroll` included) do nothing
-   * without it: give both or neither.
+   * without it: give both or neither. Read once: it wraps the whole app, so
+   * a different component later would remount everything below it. To pass
+   * it props, define the wrapper at module scope, not inline.
    */
   keyboardProvider?: ComponentType<{ children: ReactNode }>;
   /** `KeyboardAwareScrollView` from react-native-keyboard-controller, for form screens. Needs `keyboardProvider`. */
@@ -180,7 +182,9 @@ const MISSING_KEYBOARD_PROVIDER =
   'Pass `keyboardProvider={KeyboardProvider}` from "react-native-keyboard-controller" too.';
 
 function ThemedShell(props: GenesisNativeAppProps) {
-  const { brand, keyboardProvider: Keyboard, keyboardScroll } = props;
+  const { brand, keyboardScroll } = props;
+  // Frozen: a new component type here (an inline wrapper) would remount the shell and reset the app.
+  const [Keyboard] = useState(() => props.keyboardProvider);
   const missingProvider = Boolean(keyboardScroll) && !Keyboard;
   useEffect(() => {
     if (missingProvider && typeof __DEV__ !== "undefined" && __DEV__) console.error(MISSING_KEYBOARD_PROVIDER);
