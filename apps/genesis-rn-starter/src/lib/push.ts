@@ -18,6 +18,7 @@ import * as Notifications from "expo-notifications";
 import { router, type Href } from "expo-router";
 import { AppState, Linking, Platform } from "react-native";
 import { createPush, supabasePushBackend } from "@marktiderman/genesis-native/push";
+import starter from "../../starter.config";
 import { copy } from "@/copy";
 import { linkHold, links } from "./links";
 import { supabase } from "./supabase";
@@ -36,9 +37,10 @@ export function createStarterPush() {
     storage: AsyncStorage,
     appState: AppState,
     openSettings: Linking.openSettings,
-    links,
+    // With deepLinks off a tapped push opens `/`, as every other link does, and isn't held over sign-in.
+    links: starter.features.deepLinks ? links : { map: {} },
     onOpen: (path) => router.push(path as Href),
-    hold: linkHold,
+    hold: starter.features.deepLinks ? linkHold : undefined,
     // Settings gets the row through useBlockSettings, in its untitled `general` section.
     settingsRow: { title: copy.settings.notifications, section: "general", href: "/settings/notifications" },
     statusLabels: copy.push.status,

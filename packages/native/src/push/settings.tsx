@@ -346,7 +346,7 @@ function section<P extends object>(
   return { id, title, footnote, rows: rows(merged) };
 }
 
-/** The notification preferences screen. Needs the push block (GenesisNativeApp's `push`). */
+/** The notification preferences screen. Needs the push block (in GenesisNativeApp's `blocks`, or a `PushProvider`). */
 export function NotificationSettings({ copy: overrides, slots = {}, slotProps = {}, page, children, testID = "notification-settings" }: NotificationSettingsProps) {
   const copy = useMemo(() => ({ ...DEFAULT_COPY, ...overrides, status: { ...DEFAULT_COPY.status, ...overrides?.status } }), [overrides]);
   const block = usePush();

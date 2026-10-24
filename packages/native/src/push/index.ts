@@ -4,7 +4,7 @@
  * the badge, and the notification preferences screen (categories, quiet
  * hours, privacy previews), on migration 0005 of @marktiderman/genesis-supabase.
  *
- * Rung 1: `<GenesisNativeApp push={createPush(…)}>` and `<NotificationSettings />`.
+ * Rung 1: `<GenesisNativeApp blocks={[createPush(…)]}>` and `<NotificationSettings />`.
  * Rung 2: the `pushPrompt` slot, and NotificationSettings' `permission`,
  * `categories`, `quietHours` and `privacy` slots. Rung 3: the stores
  * (`createRegistration`, …) and row builders. Rung 4: the hooks

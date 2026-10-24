@@ -291,7 +291,7 @@ export const push = createPush({
 - **The token follows the session.** Once permission is granted, a signed-in
   person's Expo push token (`getExpoPushTokenAsync({ projectId })`) is
   registered with `genesis_push_register`, again when the OS rotates it
-  (`addPushTokenListener`) and at most daily otherwise. Sign-out, an account
+  (`addPushTokenListener`) and at most hourly otherwise. Sign-out, an account
   switch and deleting the account forget it (`genesis_push_forget`, which works
   without a session: holding the token is the proof); a forget that fails
   offline is kept on the phone and retried each time the app comes to the

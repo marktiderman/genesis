@@ -22,6 +22,8 @@ function resolveDateTimePicker(): React.ComponentType<{
   mode: "date" | "time";
   display?: string;
   onChange: (e: unknown, d?: Date) => void;
+  disabled?: boolean;
+  style?: object;
   testID?: string;
 }> | null {
   try {
@@ -89,6 +91,8 @@ function PickerButton({
         value={value}
         mode={mode}
         display="compact"
+        disabled={disabled}
+        style={disabled ? { opacity: 0.5 } : undefined}
         onChange={(_e, d) => {
           if (d && !disabled) onChange(d);
         }}

@@ -929,7 +929,7 @@ export const features = defineFeatures({
     visibility: "internal",
     acceptance: [
       "The block never calls the system permission prompt at launch: only the soft prompt's Turn on (offered by the app after a launch grace, not again within the cooldown after Not now, never after maxDeclines) or a tap in NotificationSettings does.",
-      "A signed-in person with permission granted has this device's token registered once (again when the OS rotates it, and at most daily otherwise); sign-out, an account switch and deleting the login remove it, and a forget that failed offline is retried at the next start without undoing a later registration.",
+      "A signed-in person with permission granted has this device's token registered once (again when the OS rotates it, and at most hourly otherwise); sign-out, an account switch and deleting the login remove it, and a forget that failed offline is retried when the app next comes to the front, without undoing a later registration.",
       "On Android every category's channel exists, with private lock-screen visibility, before the permission prompt and the token request.",
       "A tapped notification's data.url goes through normalizeLink once (an unknown path opens /, another app's URL never opens); signed out, it is held and followed after sign-in.",
       "NotificationSettings saves a change at once and puts it back, saying so, when the save fails; replacing a part with a slot keeps its section, and null drops it.",

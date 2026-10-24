@@ -2,7 +2,7 @@
  * This device's Expo push token, kept against whoever is signed in.
  *
  *   sync(userId)   permission granted → (Android) channels → token → backend.register,
- *                  again when the token changes and at most daily otherwise (last seen)
+ *                  again when the token changes and at most hourly otherwise (last seen)
  *   forget()       backend.forget(token) on sign-out, an account switch or deletion;
  *                  a forget that fails offline is kept and retried at the next start
  *

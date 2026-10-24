@@ -376,7 +376,7 @@ export function PushProvider({ block, children }: { block: PushBlock; children?:
 /** The block from `PushProvider` / `PushRoot` / `GenesisNativeApp`. Throws outside one. */
 export function usePush(): PushBlock {
   const block = useContext(PushContext);
-  if (!block) throw new Error("usePush: no push block. Pass `push={createPush(…)}` to GenesisNativeApp, or wrap in <PushProvider>.");
+  if (!block) throw new Error("usePush: no push block. Put `createPush(…)` in GenesisNativeApp's `blocks`, or wrap in <PushProvider>.");
   return block;
 }
 
