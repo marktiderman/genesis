@@ -3,6 +3,11 @@
 Genesis ships three reusable GitHub Actions workflows, so an app's CI is a short file that calls
 them. Ready-to-copy callers are in [`templates/ci/`](../templates/ci).
 
+A native app's builds, previews, store submissions and over-the-air updates run on EAS Workflows
+instead, from files in the app's `.eas/workflows/`: see [NATIVE-RELEASE.md](./NATIVE-RELEASE.md)
+and [`templates/eas/`](../templates/eas). The GitHub workflows here still run its typecheck, lint,
+tests, doctor and pgTAP tests.
+
 | Workflow | What it runs |
 |---|---|
 | [`app-ci.yml`](../.github/workflows/app-ci.yml) | Install from the lockfile, the app's typecheck, lint and test scripts, `genesis doctor`, and `genesis features check` when the app has a feature registry |

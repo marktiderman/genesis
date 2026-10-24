@@ -13,6 +13,12 @@ export interface StarterApp {
   scheme: string;
   /** iOS bundle id and Android package. Development and preview builds add `.dev` / `.preview`. */
   bundleId: string;
+  /**
+   * The EAS project id (a UUID, from `eas init`), or `""` before there is one. It sets the
+   * update URL (`https://u.expo.dev/<id>`) and `extra.eas.projectId`; empty, builds have no
+   * update URL, so expo-updates is off in them.
+   */
+  easProjectId: string;
 }
 
 /** Every universal feature the Genesis packages ship. `true` is on; set one to `false` to turn it off. */
@@ -37,6 +43,12 @@ export interface StarterFeatures {
   wipeSessionOnReinstall: boolean;
   /** Refresh the session only while the app is in front, as Supabase recommends on React Native. */
   refreshWhileActive: boolean;
+  /**
+   * The updates block (`createUpdates`): force upgrade and maintenance from the
+   * `app_release_policy` table, the update banner, what's new, and the version signature in
+   * Settings. JavaScript only: turning it off leaves the native build and its fingerprint alone.
+   */
+  updates: boolean;
 }
 
 export interface StarterConfig {
@@ -62,5 +74,20 @@ export function defineStarter<const C extends StarterConfig>(config: C): C {
   if (!/^[a-z][a-z0-9+.-]*$/.test(config.app.scheme)) {
     throw new Error(`[starter] app.scheme "${config.app.scheme}" in starter.config.ts must be lower case letters, digits, "+", "." or "-", without "://".`);
   }
+  if (config.app.easProjectId !== "" && !UUID.test(config.app.easProjectId)) {
+    throw new Error(`[starter] app.easProjectId "${config.app.easProjectId}" in starter.config.ts must be the UUID \`eas init\` prints, or "" for none.`);
+  }
   return config;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The EAS part of the Expo config: the update URL and the project id. Before `eas init` there is
+ * no project, so expo-updates is turned off in the build rather than left without a URL. Kept here
+ * so app.config.ts and the tests read one rule.
+ */
+export function easConfig(app: Pick<StarterApp, "easProjectId">): { updates: { enabled: boolean; url?: string }; extra?: { eas: { projectId: string } } } {
+  if (!app.easProjectId) return { updates: { enabled: false } };
+  return { updates: { enabled: true, url: `https://u.expo.dev/${app.easProjectId}` }, extra: { eas: { projectId: app.easProjectId } } };
 }
