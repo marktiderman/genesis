@@ -2,6 +2,7 @@
 import "tsx/cjs";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 import starter from "./starter.config";
+import { nativePlatforms } from "./src/lib/define-starter";
 
 // Name, ids and plugins only. The Genesis plugin (`@marktiderman/genesis-cli`) adds the rest:
 // APP_VARIANT variants (development / preview / production), associated domains and app links from
@@ -12,6 +13,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: starter.app.slug,
   scheme: starter.app.scheme,
   version: "1.0.0",
+  platforms: nativePlatforms(starter.features),
   orientation: "portrait",
   userInterfaceStyle: "automatic",
   ios: {

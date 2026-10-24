@@ -270,6 +270,8 @@ const SUPABASE_SIGN_IN = /\bsignInWith(?:OAuth|IdToken)\s*\(\s*\{\s*provider\s*:
 /** This package's Expo config plugin, as `plugins` lists it. */
 const GENESIS_PLUGIN = "@marktiderman/genesis-cli";
 const GENESIS_PLUGIN_TEXT = /["']@marktiderman\/genesis-cli(?:\/expo)?["']|\bwithGenesis\s*\(/;
+/** `from "…genesis-cli…"`, `require("…")` and `import("…")` of the package: naming it there isn't listing the plugin. */
+const GENESIS_PLUGIN_IMPORT = /\bfrom\s*["']@marktiderman\/genesis-cli[^"']*["']|\b(?:require|import)\s*\(\s*["']@marktiderman\/genesis-cli[^"']*["']\s*\)/g;
 
 /** The app's Expo config as data (JSON files) plus text (dynamic configs, scanned best-effort). */
 interface ExpoConfig {
@@ -355,7 +357,10 @@ export function checkStoreReadiness(ctx: DoctorContext): void {
         const options = pluginOptions(c.json, GENESIS_PLUGIN) ?? pluginOptions(c.json, `${GENESIS_PLUGIN}/expo`);
         return options !== null && options[option] !== false;
       }
-      return GENESIS_PLUGIN_TEXT.test(c.text) && !new RegExp(`\\b${option}\\s*:\\s*false\\b`).test(c.text);
+      // An import of the package (`import { withGenesis } from "@marktiderman/genesis-cli/expo"`)
+      // doesn't list the plugin; calling `withGenesis(` or naming it in `plugins` does.
+      const listed = c.text.replace(GENESIS_PLUGIN_IMPORT, "");
+      return GENESIS_PLUGIN_TEXT.test(listed) && !new RegExp(`\\b${option}\\s*:\\s*false\\b`).test(c.text);
     });
 
   const exportCompliance =

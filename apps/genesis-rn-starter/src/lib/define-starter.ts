@@ -17,7 +17,7 @@ export interface StarterApp {
 
 /** Every universal feature the Genesis packages ship. `true` is on; set one to `false` to turn it off. */
 export interface StarterFeatures {
-  /** Email and password sign-in and sign-up on `AuthScreen` (Supabase Auth). The only sign-in on Android. */
+  /** Email and password sign-in and sign-up on `AuthScreen` (Supabase Auth). The only sign-in on Android: off, the app builds for iOS only. */
   emailSignIn: boolean;
   /** Sign in with Apple on iOS (`signInWithApple` + `appleProvider`). Needs the Apple provider in Supabase Auth. */
   appleSignIn: boolean;
@@ -42,6 +42,15 @@ export interface StarterFeatures {
 export interface StarterConfig {
   app: StarterApp;
   features: StarterFeatures;
+}
+
+/**
+ * The platforms the app builds for. Sign in with Apple only shows on iOS, so
+ * with email sign-in off an Android build would have no way to sign in: the
+ * app is iOS only then (`platforms` in app.config.ts).
+ */
+export function nativePlatforms(features: Pick<StarterFeatures, "emailSignIn">): ("ios" | "android")[] {
+  return features.emailSignIn ? ["ios", "android"] : ["ios"];
 }
 
 /** Checks the config once, where it is written, so a combination that can't work fails at start-up. */

@@ -12,6 +12,7 @@ import { genesisBrand } from "@marktiderman/genesis-design-system";
 import type { GenesisNativeAppProps } from "@marktiderman/genesis-native";
 import { persistQueries } from "@marktiderman/genesis-native/persist";
 import starter from "../../starter.config";
+import { assertEnv } from "./env";
 import { linkHold } from "./links";
 import { sessionReady, supabase } from "./supabase";
 
@@ -23,7 +24,10 @@ export const persistedQueryKeys = ["me"] as const;
 export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   brand: genesisBrand,
   supabase,
-  steps: [{ id: "starter:session-storage", run: () => sessionReady }],
+  steps: [
+    { id: "starter:env", run: assertEnv },
+    { id: "starter:session-storage", run: sessionReady },
+  ],
   persist: features.queryPersistence
     ? persistQueries({ storage: AsyncStorage, keys: persistedQueryKeys, buster: Constants.expoConfig?.version ?? "0" })
     : undefined,

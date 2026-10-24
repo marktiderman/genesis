@@ -19,9 +19,9 @@ Genesis packages ship is on, and each one is turned off in one line of
 
 ## Create an app from it
 
-The starter uses the Genesis packages from this monorepo (`workspace:^`). Until
-`@marktiderman/genesis-native` and `@marktiderman/genesis-supabase` are published to npm, make new
-apps inside the monorepo:
+The starter uses the Genesis packages from this monorepo (`workspace:^`). Most are on npm
+(`@marktiderman/genesis-supabase` from 0.1.1), but `@marktiderman/genesis-native`, the app shell,
+isn't published yet. Until it is, make new apps inside the monorepo:
 
 1. Copy the folder: `cp -R apps/genesis-rn-starter apps/my-app`, and set `"name"` in its
    `package.json`.
@@ -34,7 +34,7 @@ apps inside the monorepo:
    local stack) and enable the providers you use in Supabase Auth (below).
 6. `pnpm install`, `pnpm build:packages` at the root, then `pnpm --filter my-app ios`.
 
-Once the packages are on npm, an app outside the monorepo is the same folder with each
+Once `genesis-native` is on npm, an app outside the monorepo is the same folder with each
 `workspace:^` replaced by a version range and `metro.config.js` reduced to
 `withNativeWind(getDefaultConfig(__dirname), { input: "./global.css" })` (the rest of it watches
 the workspace packages and keeps one copy of React, React Native and NativeWind's runtime).
@@ -48,19 +48,24 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 
 | Line | What it is | Off means |
 | --- | --- | --- |
-| `emailSignIn` | Email and password sign-in and sign-up on `AuthScreen`. | No form; Apple only (iOS). |
+| `emailSignIn` | Email and password sign-in and sign-up on `AuthScreen`. | No form; Apple only, so the app builds for iOS only (`platforms`). |
 | `appleSignIn` | Sign in with Apple (`signInWithApple`, `appleProvider`), iOS only. | No Apple button; `ios.usesAppleSignIn` off. |
 | `accountDeletion` | "Delete account" in Settings (`deleteMyAccount`). | No delete row. App Review requires it for apps with accounts. |
-| `notifications` | The Notifications tab (`NotificationsPage`). | The tab is hidden and its route redirects home. |
+| `notifications` | The Notifications tab (`NotificationsPage`). | The tab is hidden, its route redirects home and links to it open `/`. Drop `/notifications` from `links.paths` in `genesis.config.json` too. |
 | `queryPersistence` | The `persistedQueryKeys` queries (`src/lib/app.ts`) saved to the phone for 24 hours, per user. | Cache in memory only. |
 | `queryLifecycle` | Refetch when the app comes to the front; follow the network (AppState + NetInfo). | Queries refetch only on mount. |
 | `keyboardScroll` | The focused field stays above the keyboard on form screens. | `KeyboardAvoidingView` fallback. |
-| `deepLinks` | `scheme://` and universal links open their screen, after sign-in if needed (`normalizeLink`). | Every link opens `/`. |
+| `deepLinks` | `scheme://` and universal links open their screen, after sign-in if needed (`normalizeLink`). | Every link opens `/`. Universal links still open the app until you also delete the `links` block in `genesis.config.json`. |
 | `wipeSessionOnReinstall` | A reinstalled iOS app starts signed out (the Keychain outlives an uninstall). | The last session comes back after a reinstall. |
 | `refreshWhileActive` | The session refreshes only while the app is in front. | supabase-js's own timer runs in the background too. |
 
-A config with both sign-in methods off fails at start-up. Keep `emailSignIn` on if you ship to
-Android: Apple's button only shows on iOS.
+A config with both sign-in methods off fails at start-up. Apple's button only shows on iOS, so
+with `emailSignIn` off `app.config.ts` builds for iOS only.
+
+Switches that only change JavaScript don't change the build's fingerprint (`.fingerprintignore`
+leaves `starter.config.ts` out; what it means for the native build is in the evaluated config), so
+`eas update` still reaches installed builds after you turn one off. `appleSignIn` and
+`emailSignIn` change the native build and its runtime version.
 
 ## App variants
 
@@ -82,8 +87,11 @@ manifest for the packages installed, export compliance and the fingerprint runti
 ## Supabase
 
 - **Keys:** `.env` holds `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, the
-  publishable key only (everything in the bundle can be read off the phone). A missing value fails
-  at start-up with the variable's name.
+  publishable key only (everything in the bundle can be read off the phone). A missing value shows
+  the fatal screen at start-up, naming the variable (the first boot step checks it).
+- **Account deletion:** a refusal is shown in the catalog's words by its code: sign in again for
+  `GA002` (recent sign-in required) and `42501` (MFA step-up), contact support for `GA001` (your
+  hook refused) and `23503` (data or Storage files still point at the login).
 - **Client:** `src/lib/supabase.ts` makes the one client with `createGenesisSupabase`, the session
   in the Keychain (`keychainStorage`), `wipeSessionOnReinstall` before the first read and
   `refreshWhileActive`.
@@ -94,7 +102,7 @@ manifest for the packages installed, export compliance and the fingerprint runti
   yours that holds a person's data a foreign key to `auth.users(id)` with `on delete cascade`, or
   deleting their account is refused.
 - **Auth providers:** email works with Supabase's defaults (confirmation on: sign-up asks the
-  person to confirm, then sign in). For Apple, enable the Apple provider with the bundle ids of all
+  person to confirm, then sign in; the confirmation link opens `site_url`, not the app). For Apple, enable the Apple provider with the bundle ids of all
   three variants as client ids; `supabase/config.toml` does this for a local stack.
 
 ## Checks
@@ -111,10 +119,14 @@ pnpm --filter genesis-rn-starter export:ios  # bundles the app, no device needed
 
 ## Not covered yet
 
-- **Revoking Sign in with Apple tokens on account deletion.** App Review asks for it, and it needs
-  a server step the packages don't ship yet; see "Not covered yet" in
+- **Revoking Sign in with Apple tokens on account deletion. Required before you ship to the App
+  Store with the defaults.** With `appleSignIn` and `accountDeletion` both on, App Review expects
+  deletion to revoke the person's Apple tokens, which takes a server step the packages don't ship
+  yet (the `apple-token-revocation` feature in the repo's `features.ts`); see "Not covered yet" in
   [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#not-covered-yet).
   `src/lib/auth.ts` marks where the authorization code would be sent.
+- **`links.hosts` is `example.com`.** Replace it (step 3 above) before a release build, or the
+  build ships associated domains that never verify.
 - **Notifications have no source.** `src/lib/notifications.ts` returns an empty list; point its
   `queryFn` at yours. Push isn't part of the starter until the push block ships.
 - **Genesis's own default strings are English.** The starter's copy is all in `src/copy.ts`, but a

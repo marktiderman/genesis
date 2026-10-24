@@ -11,7 +11,10 @@ import starter from "../../starter.config";
 export const links: LinkOptions = {
   schemes: [starter.app.scheme],
   hosts: genesisConfig.links.hosts,
-  map: { "/notifications": "/notifications", "/settings": "/settings" },
+  map: {
+    ...(starter.features.notifications ? { "/notifications": "/notifications" } : {}),
+    "/settings": "/settings",
+  },
 };
 
 /** A link that arrives while signed out, followed once the person signs in. */

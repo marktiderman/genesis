@@ -15,30 +15,38 @@ const { features } = starter;
 const sessionKey = `${starter.app.slug}-auth-token`;
 const keychain = keychainStorage(SecureStore);
 
+let wipe: Promise<unknown> | undefined;
+
 /**
- * Settles once a session left by an earlier install is gone. It starts now,
- * before the client exists, and the boot waits for it (`steps` in `app.ts`),
- * so a failure shows the fatal screen.
+ * Settles once a session left by an earlier install is gone. The first call
+ * starts the wipe; later calls share it. A failed wipe is forgotten, so the
+ * next call (the fatal screen's "Try again", or the next storage read) runs it
+ * again instead of failing for the rest of the process. The boot waits for it
+ * (`steps` in `app.ts`), so a failure shows the fatal screen.
  */
-export const sessionReady: Promise<unknown> = features.wipeSessionOnReinstall
-  ? wipeSessionOnReinstall({ session: keychain, sessionKey, installMarker: AsyncStorage })
-  : Promise.resolve(false);
-// The boot step reports a failure; this keeps it from also counting as unhandled.
-sessionReady.catch(() => {});
+export function sessionReady(): Promise<unknown> {
+  if (!features.wipeSessionOnReinstall) return Promise.resolve(false);
+  wipe ??= wipeSessionOnReinstall({ session: keychain, sessionKey, installMarker: AsyncStorage }).catch((error: unknown) => {
+    wipe = undefined;
+    throw error;
+  });
+  return wipe;
+}
 
 // supabase-js reads the stored session as soon as the client is created, so
-// every read and write waits for the wipe.
+// every read and write waits for the wipe. The wipe itself uses `keychain`
+// directly, never this wrapper.
 const storage: SessionStorage = {
   async getItem(key) {
-    await sessionReady;
+    await sessionReady();
     return keychain.getItem(key);
   },
   async setItem(key, value) {
-    await sessionReady;
+    await sessionReady();
     return keychain.setItem(key, value);
   },
   async removeItem(key) {
-    await sessionReady;
+    await sessionReady();
     return keychain.removeItem(key);
   },
 };

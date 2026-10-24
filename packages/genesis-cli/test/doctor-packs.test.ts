@@ -295,6 +295,17 @@ describe("native pack", () => {
     });
     rmSync(path.join(root, "app.json"));
     expect(brief((await runDoctor({ root, config: NATIVE })).findings, "store-readiness")).toEqual([]);
+
+    // Importing the package isn't listing the plugin.
+    const importOnly = makeApp("native", {
+      "app.config.ts": 'import { doctor } from "@marktiderman/genesis-cli";\nexport default () => ({ plugins: ["expo-router"] });\n',
+      "package.json": withDeps(deps),
+    });
+    rmSync(path.join(importOnly, "app.json"));
+    expect(brief((await runDoctor({ root: importOnly, config: NATIVE })).findings, "store-readiness")).toEqual([
+      "store-readiness app.config.ts:0 usesNonExemptEncryption",
+      "store-readiness app.config.ts:0 privacyManifests",
+    ]);
   });
 
   it("store-readiness: no Expo config is a warning", async () => {

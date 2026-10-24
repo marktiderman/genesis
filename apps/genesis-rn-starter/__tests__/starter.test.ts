@@ -1,11 +1,12 @@
 // @feat:native-starter
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import starter from "../starter.config";
-import { defineStarter, type StarterConfig } from "../src/lib/define-starter";
+import { defineStarter, nativePlatforms, type StarterConfig } from "../src/lib/define-starter";
 import { copy, format } from "../src/copy";
+import { findInlineCopy } from "./inline-copy";
 
 const root = join(__dirname, "..");
 const read = (path: string) => readFileSync(join(root, path), "utf8");
@@ -29,14 +30,14 @@ describe("root layout", () => {
 });
 
 describe("starter.config.ts", () => {
-  it("ships with every universal feature on", () => {
-    const off = Object.entries(starter.features).filter(([, on]) => !on);
-    expect(off).toEqual([]);
-  });
-
   it("refuses a config with no way to sign in", () => {
     const none: StarterConfig = { ...starter, features: { ...starter.features, emailSignIn: false, appleSignIn: false } };
     expect(() => defineStarter(none)).toThrow(/nobody can sign in/);
+  });
+
+  it("builds for iOS only when email sign-in is off (Apple's button shows only on iOS)", () => {
+    expect(nativePlatforms({ emailSignIn: true })).toEqual(["ios", "android"]);
+    expect(nativePlatforms({ emailSignIn: false })).toEqual(["ios"]);
   });
 
   it("refuses a scheme written as a URL", () => {
@@ -61,17 +62,52 @@ describe("copy catalog", () => {
   });
 
   // Every user-facing string comes from src/copy.ts, so a translation covers the whole app.
-  it("is the only source of user-facing text in the screens", () => {
-    const offenders: string[] = [];
-    for (const file of filesUnder("src/app").filter((f) => f.endsWith(".tsx"))) {
-      const code = read(file).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
-      const jsxText = code.match(/>\s*[A-Za-z][^<>{}]*</g) ?? [];
-      // title="…" and title={"…"} (a JSX prop), or title: "…" (an options object).
-      const literalProps =
-        code.match(/\b(label|title|headline|subhead|body|placeholder|accessibilityLabel|submitLabel|headerTitle|emptyTitle|emptyBody|text)(?:=\s*\{?\s*|:\s*)["'`][A-Za-z]/g) ?? [];
-      for (const hit of [...jsxText, ...literalProps]) offenders.push(`${relative(root, join(root, file))}: ${hit.trim()}`);
-    }
+  it("is the only source of user-facing text in src", () => {
+    const files = filesUnder("src").filter((f) => /\.tsx?$/.test(f) && f !== join("src", "copy.ts"));
+    const offenders = files.flatMap((file) => findInlineCopy(read(file), file));
     expect(offenders).toEqual([]);
+  });
+
+  it("the check finds inline copy and ignores code that only looks like it", () => {
+    const flagged = findInlineCopy(
+      [
+        "const a = <Text>Signed in as {email}</Text>;",
+        'const b = <Text>{"Hello"}</Text>;',
+        "const c = <Text>{`Hi ${name}`}</Text>;",
+        'const d = <Screen title="Hi" subtitle={"There"} />;',
+        'Alert.alert("Oops", "It broke");',
+        'const e = { text: "Cancel", label: `Ünïcode` };',
+        'const f = <Text>3 items</Text>; const u = "https://x"; const g = <Text>Hi</Text>;',
+      ].join("\n"),
+      "probe.tsx",
+    );
+    expect(flagged.map((h) => h.slice(h.indexOf(": ") + 2))).toEqual([
+      "Signed in as",
+      '{"Hello"}',
+      "{`Hi ${name}`}",
+      'title="Hi"',
+      'subtitle={"There"}',
+      '"Oops"',
+      '"It broke"',
+      'text: "Cancel"',
+      "label: `Ünïcode`",
+      "3 items",
+      "Hi",
+    ]);
+    const clean = findInlineCopy(
+      [
+        "const a = x > y && z < w;",
+        "const b = () => useSession<Session>();",
+        "const c: Promise<Item[]> = load();",
+        'const d = <Redirect href="/sign-in" />;',
+        'const e = <Tab name="(home)" testID="home" md="home" variant="ghost" />;',
+        "const f = <Text>{copy.home.title}</Text>;",
+        "Alert.alert(t.title, t.body, [{ text: t.cancel }]);",
+        '// <Text>a comment</Text> and a "quoted" word',
+      ].join("\n"),
+      "probe.tsx",
+    );
+    expect(clean).toEqual([]);
   });
 });
 

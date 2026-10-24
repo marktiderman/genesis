@@ -58,7 +58,17 @@ const en = {
     deleteConfirm: "Delete",
     cancel: "Cancel",
     deleteFailedTitle: "Your account wasn't deleted",
-    deleteFailedBody: "Something went wrong. Try again, or sign in again first.",
+    deleteErrors: {
+      recentSignIn: "For your security, sign in again, then delete your account.",
+      notAllowed: "Sign in again (with your second factor, if you use one), then delete your account.",
+      refused: "This account can't be deleted yet. Contact support for help.",
+      inUse: "Some of your data couldn't be removed. Contact support to finish deleting your account.",
+      unknown: "Something went wrong. Check your connection and try again.",
+    },
+    signInAgain: "Sign in again",
+    ok: "OK",
+    deletedTitle: "Account deleted",
+    deletedBody: "Your account and its data have been deleted.",
   },
 } as const;
 
