@@ -8,7 +8,8 @@
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
  *         └ session + boot (splash held until both are known)
  *           └ updates (with `updates`: force upgrade, maintenance, banner, what's new)
- *             └ errorBoundary → your screens (or `signedOut`)
+ *             └ push (with `push`: token on sign-in, taps, the soft prompt)
+ *               └ errorBoundary → your screens (or `signedOut`)
  *
  * Global errors, render errors and a failed boot show the `fatal` slot with
  * "Try again". Every part is a slot (`slots` / `slotProps`, `null` drops it)
@@ -42,6 +43,8 @@ import { useHeldLink, type HeldLinkAuth, type LinkHold } from "./held-link";
 import { connectQueryLifecycle, createNativeQueryClient, type QueryLifecycleOptions, type QueryPersistence } from "./query";
 // Types only: the block's code is in the `/updates` entry and arrives with the `updates` prop.
 import type { UpdatesBlock, UpdatesSlots } from "./updates/block";
+// Types only, likewise: the push block's code is in the `/push` entry.
+import type { PushBlock, PushSlots } from "./push/block";
 
 /** `expo-splash-screen`, or a stand-in. Call `preventAutoHideAsync()` at module scope yourself too. */
 export interface SplashModule {
@@ -60,8 +63,9 @@ export interface SignedOutProps {
 
 // A type, not an interface, so it fits the slots contract's Record constraint.
 // The updates block's slots (`forceUpgrade`, `maintenance`, `updateBanner`,
-// `whatsNew`) render only when the `updates` prop is given.
-export type NativeAppSlots = UpdatesSlots & {
+// `whatsNew`) render only when the `updates` prop is given, and the push
+// block's `pushPrompt` only when `push` is.
+export type NativeAppSlots = UpdatesSlots & PushSlots & {
   /** Shown while booting: under the splash at launch, on its own after "Try again". Default `BootScreen`. */
   boot: BootScreenProps;
   /** A failed boot, a fatal global error or a render error. Default `FatalScreen`. */
@@ -129,6 +133,14 @@ export interface GenesisNativeAppProps {
    * boot. Read once; leave it out to turn the block off.
    */
   updates?: UpdatesBlock;
+  /**
+   * The push block: `createPush(…)` from `@marktiderman/genesis-native/push`
+   * (this device's token on sign-in and off on sign-out, tap routing through
+   * `links`, the foreground handler, the badge, the soft prompt). It never
+   * asks for permission at launch and never holds the splash. Read once;
+   * leave it out to turn the block off.
+   */
+  push?: PushBlock;
   slots?: Slots<NativeAppSlots>;
   slotProps?: SlotPropsFor<NativeAppSlots>;
   children?: ReactNode;
@@ -250,7 +262,16 @@ function Shell(props: GenesisNativeAppProps) {
         </GenesisErrorBoundary>
       );
     }
-    return { client, persistence, session, boot, FatalFallback, updates: props.updates, provider: provider ?? createSupabaseProvider(supabase) };
+    return {
+      client,
+      persistence,
+      session,
+      boot,
+      FatalFallback,
+      updates: props.updates,
+      push: props.push,
+      provider: provider ?? createSupabaseProvider(supabase),
+    };
   });
   const { boot, session, persistence, client, FatalFallback } = parts;
   const bootState = useSyncExternalStore(boot.subscribe, boot.getState, boot.getState);
@@ -313,13 +334,21 @@ function Shell(props: GenesisNativeAppProps) {
       { fallback: FatalFallback, onError, resetKey, onRetry: retry, children: screens },
       slotProps?.errorBoundary,
     );
+    const Push = parts.push?.Root;
+    const pushed = Push ? (
+      <Push slots={slots} slotProps={slotProps} hold={links?.hold} onOpen={links ? (path) => links.onRelease(path) : undefined}>
+        {guarded}
+      </Push>
+    ) : (
+      guarded
+    );
     const Updates = parts.updates?.Root;
     content = Updates ? (
       <Updates slots={slots} slotProps={slotProps}>
-        {guarded}
+        {pushed}
       </Updates>
     ) : (
-      guarded
+      pushed
     );
   }
 

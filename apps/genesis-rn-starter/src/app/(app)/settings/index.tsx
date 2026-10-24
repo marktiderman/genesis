@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { Alert } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { useSession } from "@marktiderman/genesis-native";
@@ -60,6 +60,9 @@ export default function SettingsScreen() {
         testID="settings"
         sections={[
           { id: "account", title: t.accountSection, rows: [{ id: "email", title: t.signedInAs, subtitle: session?.user.email ?? "" }] },
+          ...(starter.features.push
+            ? [{ id: "notifications", rows: [{ id: "notifications", title: t.notifications, showChevron: true, onPress: () => router.push("/settings/notifications") }] }]
+            : []),
           { id: "about", title: t.aboutSection, rows: [{ id: "version", title: t.version, subtitle: version }] },
         ]}
         dangerousActions={dangerousActions}

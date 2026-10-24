@@ -69,6 +69,13 @@ const en = {
     ok: "OK",
     deletedTitle: "Account deleted",
     deletedBody: "Your account and its data have been deleted.",
+    notifications: "Notifications",
+  },
+  push: {
+    settingsTitle: "Notifications",
+    activityTitle: "Activity",
+    activityDescription: "When something needs you",
+    promptReason: "when something needs you",
   },
 } as const;
 

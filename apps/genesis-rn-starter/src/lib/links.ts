@@ -14,6 +14,7 @@ export const links: LinkOptions = {
   map: {
     ...(starter.features.notifications ? { "/notifications": "/notifications" } : {}),
     "/settings": "/settings",
+    ...(starter.features.push ? { "/settings/notifications": "/settings/notifications" } : {}),
   },
 };
 

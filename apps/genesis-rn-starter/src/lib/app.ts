@@ -15,6 +15,7 @@ import starter from "../../starter.config";
 import { assertEnv } from "./env";
 import { linkHold } from "./links";
 import { sessionReady, supabase } from "./supabase";
+import { createStarterPush } from "./push";
 import { createStarterUpdates } from "./updates";
 
 const { features } = starter;
@@ -37,4 +38,5 @@ export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   keyboardScroll: features.keyboardScroll ? KeyboardAwareScrollView : undefined,
   links: features.deepLinks ? { hold: linkHold, onRelease: (path) => router.replace(path as Href) } : undefined,
   updates: features.updates ? createStarterUpdates() : undefined,
+  push: features.push ? createStarterPush() : undefined,
 };

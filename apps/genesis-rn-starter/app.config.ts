@@ -26,5 +26,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: { package: starter.app.bundleId },
   experiments: { typedRoutes: true, reactCompiler: true },
-  plugins: ["expo-router", "expo-secure-store", "expo-updates", "@marktiderman/genesis-cli"],
+  plugins: ["expo-router", "expo-secure-store", "expo-updates", "expo-notifications", "@marktiderman/genesis-cli"],
 });

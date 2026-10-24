@@ -1,0 +1,447 @@
+/**
+ * `createPush(options)`: the push block. Pass the result to
+ * `<GenesisNativeApp push={push}>` (removing that line turns the block off),
+ * or render `<PushRoot block={push}>` yourself, inside the session provider.
+ *
+ *   PushRoot
+ *   ├ follows the session: registers this device's token on sign-in (only
+ *   │ once permission is granted), forgets it on sign-out, clears the badge
+ *   ├ routes a tapped notification (the one that launched the app too)
+ *   │ through normalizeLink; signed out, the link is held until sign-in
+ *   ├ decides what shows while the app is open (the foreground handler)
+ *   ├ your screens
+ *   └ pushPrompt  (the soft pre-prompt, only after `usePushPrompt().offer()`)
+ *
+ * The block never asks for permission by itself, and never at launch.
+ * Every part is a slot or a primitive, and a hook (`usePushPermission`, …).
+ */
+import { createContext, useContext, useEffect, useRef, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
+import { View } from "react-native";
+import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
+import { useSession } from "../auth";
+import type { LinkHold } from "../held-link";
+import type { LinkOptions } from "../links";
+import type { NotificationPreferences, PushBackend } from "./backend";
+import {
+  report,
+  type NotificationLike,
+  type NotificationResponseLike,
+  type NotificationsModuleLike,
+  type PermissionRequestLike,
+  type PushAppStateLike,
+  type PushOnError,
+  type PushStorageLike,
+} from "./modules";
+import { canPush, createPermissionStore, createPromptStore, type PermissionState, type PermissionStore, type PromptOptions, type PromptState, type PromptStore } from "./permission";
+import { createPreferencesStore, type ChannelImportance, type NotificationCategory, type PreferencesState, type PreferencesStore } from "./preferences";
+import { createRegistration, type Registration, type RegistrationState } from "./registration";
+import { notificationData, pathForResponse } from "./routing";
+import { PushPromptSheet, type PushPromptProps } from "./screens";
+
+/** An Android channel beyond the categories' own (one per category is made for you). */
+export interface PushChannel {
+  id: string;
+  name: string;
+  description?: string;
+  importance?: ChannelImportance;
+}
+
+// A type, not an interface, so it fits the slots contract's Record constraint.
+export type PushSlots = {
+  /** The soft pre-prompt, shown after `usePushPrompt().offer()`. Default `PushPromptSheet`. */
+  pushPrompt: PushPromptProps;
+};
+
+export interface PushOptions {
+  /** `import * as Notifications from "expo-notifications"`. Without it the block does nothing (web, tests). */
+  notifications?: NotificationsModuleLike;
+  /** `Platform.OS`. */
+  platform: string;
+  /** The EAS project id (`Constants.expoConfig?.extra?.eas?.projectId`). Without it there is no push token; the block says so once through `onError`. */
+  projectId?: string | null;
+  /** The installed version, kept with the device row (`Application.nativeApplicationVersion`). */
+  appVersion?: string | null;
+  /** Devices and preferences: `supabasePushBackend(supabase)`. */
+  backend: PushBackend;
+  /** The kinds of notification the app sends; each is a toggle in NotificationSettings and an Android channel. */
+  categories?: readonly NotificationCategory[];
+  /** More Android channels. A `default` channel is always made. */
+  channels?: readonly PushChannel[];
+  /** AsyncStorage: this device's token (to forget it after sign-out), the prompt's "Not now"s. */
+  storage?: PushStorageLike;
+  /** `AppState`: read the permission again on coming to the front (the person may have changed it in Settings). */
+  appState?: PushAppStateLike;
+  /** `Linking.openSettings`, for "Turn on in Settings" once the system won't ask again. */
+  openSettings?: () => unknown;
+  /** Where a tap goes: the app's deep-link options, so a pushed path is normalized like any link. */
+  links?: LinkOptions;
+  /** Open a tapped notification's path (`router.push`). Default the `links.onRelease` GenesisNativeApp was given. */
+  onOpen?: (path: string) => void;
+  /** Every tap and action, after routing (an action button, analytics). */
+  onResponse?: (response: NotificationResponseLike) => void;
+  /** Show a notification that arrives while the app is open? Default yes; `useSuppressNotifications` adds rules. */
+  foreground?: (notification: NotificationLike) => boolean;
+  /** The iOS permissions asked for. Default alert, badge and sound. */
+  permissions?: PermissionRequestLike;
+  prompt?: PromptOptions;
+  /** Clear the badge whenever the app comes to the front. Default false (the server sets it). */
+  clearBadgeOnForeground?: boolean;
+  /** Storage key prefix. Default `"genesis:push"`. */
+  storageKeyPrefix?: string;
+  /** Every caught error, for reporting; none of them breaks the app. */
+  onError?: PushOnError;
+  now?: () => number;
+}
+
+export interface PushBlock {
+  readonly options: PushOptions;
+  readonly permission: PermissionStore;
+  readonly registration: Registration;
+  readonly preferences: PreferencesStore;
+  readonly prompt: PromptStore;
+  readonly categories: readonly NotificationCategory[];
+  readonly badge: { set(count: number): Promise<void>; clear(): Promise<void> };
+  /** Follow this signed-in user (null when signed out). `PushRoot` calls it from the session. */
+  setUser(userId: string | null): void;
+  /** Hide notifications that match while the app is open (the thread on screen); returns the removal. */
+  suppress(match: (data: Record<string, unknown>, notification: NotificationLike) => boolean): () => void;
+  /** Make the Android channels (once; again after a failure). */
+  ensureChannels(): Promise<void>;
+  /** Start the foreground handler and the listeners; returns the stop. `PushRoot` calls it. */
+  start(): () => void;
+  readonly Root: ComponentType<Omit<PushRootProps, "block">>;
+}
+
+/** Expo's `AndroidImportance` numbers (checked against expo-notifications 58.1). */
+const IMPORTANCE: Record<ChannelImportance, number> = { min: 3, low: 4, default: 5, high: 6, max: 7 };
+/** `AndroidNotificationVisibility.PRIVATE`: on a secure lock screen, Android shows that there is one, not what it says. */
+const VISIBILITY_PRIVATE = 2;
+
+/** Build the block once, at module scope, next to your Supabase client. */
+export function createPush(options: PushOptions): PushBlock {
+  const { notifications, platform, storage, onError, now = Date.now } = options;
+  const prefix = options.storageKeyPrefix ?? "genesis:push";
+  const categories = options.categories ?? [];
+  let userId: string | null = null;
+  let startedAt: number | null = null;
+  let channelsMade: Promise<void> | null = null;
+  const suppressors = new Set<(data: Record<string, unknown>, notification: NotificationLike) => boolean>();
+
+  const ensureChannels = (): Promise<void> => {
+    if (!notifications || platform !== "android") return Promise.resolve();
+    channelsMade ??= (async () => {
+      const all = [
+        { id: "default", name: "Notifications", importance: "default" as ChannelImportance, description: undefined as string | undefined },
+        ...categories.map((c) => ({ id: c.id, name: c.title, importance: c.importance ?? "default", description: c.description })),
+        ...(options.channels ?? []).map((c) => ({ ...c, importance: c.importance ?? "default" })),
+      ];
+      for (const channel of all) {
+        await notifications.setNotificationChannelAsync(channel.id, {
+          name: channel.name,
+          importance: IMPORTANCE[channel.importance],
+          description: channel.description ?? null,
+          lockscreenVisibility: VISIBILITY_PRIVATE,
+          showBadge: true,
+        });
+      }
+    })().catch((error) => {
+      channelsMade = null;
+      throw error;
+    });
+    return channelsMade;
+  };
+
+  const permission = createPermissionStore({ notifications, request: options.permissions, beforeRequest: ensureChannels, onError });
+  const registration = createRegistration({
+    notifications,
+    backend: options.backend,
+    projectId: options.projectId,
+    platform,
+    appVersion: options.appVersion,
+    storage,
+    storageKeyPrefix: prefix,
+    ensureChannels,
+    isCurrent: (id) => userId === id,
+    now,
+    onError,
+  });
+  const preferences = createPreferencesStore({ backend: options.backend, categories, onError });
+  const prompt = createPromptStore({
+    ...options.prompt,
+    permission,
+    storage,
+    storageKey: `${prefix}:prompt`,
+    signedIn: () => userId !== null,
+    startedAt: () => startedAt,
+    now,
+    onError,
+  });
+
+  const badge = {
+    async set(count: number) {
+      try {
+        await notifications?.setBadgeCountAsync(Math.max(0, Math.floor(count)));
+      } catch (error) {
+        report(onError, error, "badge");
+      }
+    },
+    clear: () => badge.set(0),
+  };
+
+  // Granted later (the prompt, Settings, another screen) while signed in: register now. The
+  // first read (from "unknown") is left to setUser, which registers after it.
+  let lastStatus = permission.getState().status;
+  permission.subscribe(() => {
+    const status = permission.getState().status;
+    if (status !== lastStatus && lastStatus !== "unknown" && canPush(status) && userId) void registration.sync(userId);
+    lastStatus = status;
+  });
+
+  const block: PushBlock = {
+    options,
+    permission,
+    registration,
+    preferences,
+    prompt,
+    categories,
+    badge,
+    ensureChannels,
+    setUser(next) {
+      if (next === userId) return;
+      const previous = userId;
+      userId = next;
+      if (previous !== null) {
+        // Signed out or switched: this phone stops getting the last person's pushes, and shows none of their count.
+        void registration.forget();
+        void badge.clear();
+        preferences.reset();
+        prompt.hide();
+      }
+      if (next !== null) {
+        void preferences.load(next);
+        void permission.refresh().then((status) => {
+          if (canPush(status) && userId === next) void registration.sync(next);
+        });
+      }
+    },
+    suppress(match) {
+      suppressors.add(match);
+      return () => {
+        suppressors.delete(match);
+      };
+    },
+    start() {
+      startedAt = now();
+      if (!notifications) return () => {};
+      notifications.setNotificationHandler({
+        handleNotification: async (notification) => {
+          let show = true;
+          try {
+            const data = notificationData(notification);
+            show = !userId ? false : ![...suppressors].some((match) => match(data, notification)) && (options.foreground?.(notification) ?? true);
+          } catch (error) {
+            report(onError, error, "routing");
+          }
+          return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: show, shouldSetBadge: true };
+        },
+      });
+      void registration.flush();
+      void permission.refresh();
+      const tokenSubscription = notifications.addPushTokenListener(() => {
+        // The OS rotated the device token: fetch the Expo token again and register it.
+        if (userId) void registration.sync(userId, { force: true });
+      });
+      const appSubscription = options.appState?.addEventListener("change", (state) => {
+        if (state !== "active") return;
+        void permission.refresh();
+        if (options.clearBadgeOnForeground && userId) void badge.clear();
+      });
+      return () => {
+        startedAt = null;
+        notifications.setNotificationHandler(null);
+        tokenSubscription.remove();
+        appSubscription?.remove();
+      };
+    },
+    Root: function PushBlockRoot(props) {
+      return <PushRoot block={block} {...props} />;
+    },
+  };
+  return block;
+}
+
+const PushContext = createContext<PushBlock | null>(null);
+
+/** Provides the block to the hooks, without rendering any of its parts (rung 4). */
+export function PushProvider({ block, children }: { block: PushBlock; children?: ReactNode }) {
+  return <PushContext.Provider value={block}>{children}</PushContext.Provider>;
+}
+
+/** The block from `PushProvider` / `PushRoot` / `GenesisNativeApp`. Throws outside one. */
+export function usePush(): PushBlock {
+  const block = useContext(PushContext);
+  if (!block) throw new Error("usePush: no push block. Pass `push={createPush(…)}` to GenesisNativeApp, or wrap in <PushProvider>.");
+  return block;
+}
+
+/** The block, or null when push is off: for a screen that works either way. */
+export function useOptionalPush(): PushBlock | null {
+  return useContext(PushContext);
+}
+
+export function usePushPermissionState(): PermissionState {
+  const { permission } = usePush();
+  return useSyncExternalStore(permission.subscribe, permission.getState, permission.getState);
+}
+
+export function usePushRegistration(): RegistrationState {
+  const { registration } = usePush();
+  return useSyncExternalStore(registration.subscribe, registration.getState, registration.getState);
+}
+
+export function useNotificationPreferences(): PreferencesState & { update: PreferencesStore["update"] } {
+  const { preferences } = usePush();
+  const state = useSyncExternalStore(preferences.subscribe, preferences.getState, preferences.getState);
+  return { ...state, update: preferences.update };
+}
+
+/** The soft prompt: `offer("to hear when someone replies")` at the right moment. */
+export function usePushPrompt(): PromptState & Pick<PromptStore, "offer" | "accept" | "decline"> {
+  const { prompt } = usePush();
+  const state = useSyncExternalStore(prompt.subscribe, prompt.getState, prompt.getState);
+  return { ...state, offer: prompt.offer, accept: prompt.accept, decline: prompt.decline };
+}
+
+/** The badge: `set(unread)`, `clear()`. */
+export function useBadge(): PushBlock["badge"] {
+  return usePush().badge;
+}
+
+/**
+ * Hide notifications that match while this screen is open (`data` is the
+ * notification's `data`): a chat screen hides pushes for its own thread.
+ * Does nothing without a push block.
+ */
+export function useSuppressNotifications(match: ((data: Record<string, unknown>) => boolean) | null) {
+  const block = useOptionalPush();
+  const latest = useRef(match);
+  latest.current = match;
+  const active = match !== null;
+  useEffect(() => (block && active ? block.suppress((data) => latest.current?.(data) ?? false) : undefined), [block, active]);
+}
+
+export interface PushRootProps {
+  block: PushBlock;
+  /** Where a tap that arrives signed out waits for sign-in (GenesisNativeApp passes its `links.hold`). */
+  hold?: LinkHold;
+  /** Open a path; used when the block's own `onOpen` isn't given. */
+  onOpen?: (path: string) => void;
+  slots?: Slots<PushSlots>;
+  slotProps?: SlotPropsFor<PushSlots>;
+  children?: ReactNode;
+}
+
+/** The block's parts around your screens. Must be inside GenesisNativeApp's session (or a `SessionProvider`). */
+export function PushRoot({ block, hold, onOpen, slots, slotProps, children }: PushRootProps) {
+  const { status, userId } = useSession();
+  useEffect(() => block.start(), [block]);
+  useEffect(() => {
+    if (status === "loading") return;
+    block.setUser(status === "signedIn" ? userId : null);
+  }, [block, status, userId]);
+  useTapRouting(block, status, hold, onOpen);
+
+  return (
+    <PushProvider block={block}>
+      <View style={{ flex: 1 }}>
+        {children}
+        <PushPromptPart slots={slots} slotProps={slotProps} />
+      </View>
+    </PushProvider>
+  );
+}
+
+function PushPromptPart({ slots, slotProps }: Pick<PushRootProps, "slots" | "slotProps">) {
+  const prompt = usePushPrompt();
+  if (!prompt.visible) return null;
+  return renderSlot(
+    PushPromptSheet,
+    slots?.pushPrompt,
+    { reason: prompt.reason, accept: () => void prompt.accept(), decline: () => void prompt.decline() },
+    slotProps?.pushPrompt,
+  );
+}
+
+/**
+ * Taps: the one that launched the app (read once), then each one while it
+ * runs. Signed in, the path opens on the next tick (after the navigator has
+ * mounted); signed out, it is held and GenesisNativeApp follows it after
+ * sign-in. Each notification is followed once, however many ways it arrives.
+ */
+function useTapRouting(block: PushBlock, status: string, hold: LinkHold | undefined, onOpen: ((path: string) => void) | undefined) {
+  const auth = useRef(status);
+  auth.current = status;
+  const latest = useRef({ hold, onOpen });
+  latest.current = { hold, onOpen };
+  const waiting = useRef<string | null>(null);
+
+  const follow = (path: string) => {
+    const open = block.options.onOpen ?? latest.current.onOpen;
+    if (auth.current === "signedIn") {
+      if (!open) {
+        report(block.options.onError, new Error("push: a tapped notification has nowhere to go; pass `onOpen` to createPush (router.push)."), "setup");
+        return;
+      }
+      // After this render: at a cold start the router's navigator mounts with the screens.
+      setTimeout(() => {
+        try {
+          open(path);
+        } catch (error) {
+          report(block.options.onError, error, "routing");
+        }
+      }, 0);
+    } else if (auth.current === "signedOut") {
+      latest.current.hold?.hold(path);
+    } else {
+      waiting.current = path;
+    }
+  };
+
+  useEffect(() => {
+    if (status === "loading" || waiting.current === null) return;
+    const path = waiting.current;
+    waiting.current = null;
+    follow(path);
+  }, [status]);
+
+  useEffect(() => {
+    const notifications = block.options.notifications;
+    if (!notifications) return;
+    const seen = new Set<string>();
+    const handle = (response: NotificationResponseLike | null) => {
+      if (!response) return;
+      try {
+        const id = response.notification.request.identifier;
+        if (seen.has(id)) return;
+        seen.add(id);
+        if (response.actionIdentifier === notifications.DEFAULT_ACTION_IDENTIFIER) {
+          const path = pathForResponse(response, block.options.links);
+          if (path) follow(path);
+        }
+        block.options.onResponse?.(response);
+      } catch (error) {
+        report(block.options.onError, error, "routing");
+      }
+    };
+    try {
+      handle(notifications.getLastNotificationResponse());
+      notifications.clearLastNotificationResponse();
+    } catch (error) {
+      report(block.options.onError, error, "routing");
+    }
+    const subscription = notifications.addNotificationResponseReceivedListener(handle);
+    return () => subscription.remove();
+  }, [block]);
+}
+
+export type { NotificationPreferences };

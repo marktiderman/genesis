@@ -233,6 +233,109 @@ imported: without `updates` there is no banner and no channel switching;
 without `application` nothing is forced and no notes show. The banner uses
 `react-native-safe-area-context`, a peer (genesis-ui-native needs it too).
 
+## Push: registration, taps, the badge, notification settings
+
+`@marktiderman/genesis-native/push` is the push block. Build it once and pass
+it in; deleting the `push={push}` line turns it off. It runs on migration
+0005 and the `genesis-push-send` function of
+[`@marktiderman/genesis-supabase`](../supabase/README.md#push-the-push-block).
+
+```ts
+// lib/push.ts
+import * as Notifications from "expo-notifications";
+import * as Application from "expo-application";
+import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
+import { AppState, Linking, Platform } from "react-native";
+import { createPush, supabasePushBackend } from "@marktiderman/genesis-native/push";
+
+export const push = createPush({
+  notifications: Notifications,
+  platform: Platform.OS,
+  projectId: Constants.expoConfig?.extra?.eas?.projectId,
+  appVersion: Application.nativeApplicationVersion,
+  backend: supabasePushBackend(supabase),
+  categories: [{ id: "messages", title: "Messages" }, { id: "digest", title: "Weekly digest", defaultOn: false }],
+  storage: AsyncStorage,
+  appState: AppState,
+  openSettings: Linking.openSettings,
+  links, // the same LinkOptions as +native-intent
+  onOpen: (path) => router.push(path),
+});
+
+// app/_layout.tsx
+<GenesisNativeApp push={push} links={{ hold: linkHold, onRelease: router.replace }} … />
+
+// app/settings/notifications.tsx
+<NotificationSettings />
+```
+
+- **Permission, asked well.** The block never asks at launch. Call
+  `usePushPrompt().offer("when someone replies")` at the moment push is worth
+  it; the `pushPrompt` slot (default `PushPromptSheet`) says why first, and only
+  its "Turn on" brings up the system prompt. `offer` is ignored for
+  `prompt.launchGraceMs` (10 s) after start, while signed out, once the system
+  can't ask again, for `cooldownMs` (3 days) after "Not now", and for good
+  after `maxDeclines` (3). A tap on "Allow notifications" in
+  `NotificationSettings` asks straight away (the tap is the intent); once the
+  system won't ask, it opens Settings (`openSettings`). iOS provisional
+  permission counts as granted.
+- **The token follows the session.** Once permission is granted, a signed-in
+  person's Expo push token (`getExpoPushTokenAsync({ projectId })`) is
+  registered with `genesis_push_register`, again when the OS rotates it
+  (`addPushTokenListener`) and at most daily otherwise. Sign-out, an account
+  switch and deleting the account forget it (`genesis_push_forget`, which works
+  without a session: holding the token is the proof); a forget that fails
+  offline is kept on the phone and retried at the next start, and never undoes
+  a later registration of the same token. Without a `projectId` there is no
+  token: the block says so once through `onError`, and Settings says so on
+  screen.
+- **Android channels.** A `default` channel, one per category (named after it,
+  so a person can mute a category in Android's own settings) and any
+  `channels` you add, all with private lock-screen visibility, made before the
+  permission prompt and the token (Android 13 shows its prompt only once a
+  channel exists). The sender uses the category as the channel id.
+- **While the app is open** the foreground handler shows a notification
+  (banner, list, sound, badge) unless `foreground(notification)` says no or a
+  screen hides its kind: `useSuppressNotifications((data) => data.threadId === id)`.
+  Signed out, nothing shows.
+- **Taps.** `data.url` of a tapped notification (and of the one that launched
+  the app, `getLastNotificationResponse`) goes through `normalizeLink` with
+  `links`, once per notification: an unknown path opens `/`, another app's URL
+  never opens. Signed in, `onOpen(path)` runs after the navigator mounts;
+  signed out, the path is held in GenesisNativeApp's `links.hold` and followed
+  after sign-in. Action buttons go to `onResponse`.
+- **Badge.** `useBadge().set(n)` / `clear()`; the sender can set it too. It is
+  cleared on sign-out (`clearBadgeOnForeground` clears it on every return to
+  the front).
+- **NotificationSettings** is a `SettingsPage` with four parts, each a slot and
+  a hook: `permission` (`usePushPermission`), `categories`
+  (`useNotificationCategories`, a switch per category), `quietHours`
+  (`useQuietHours`: a switch, from and to times with `NativeTimePicker`, and
+  the time zone; turning it on fills in the phone's zone, and a phone that has
+  travelled offers its new one) and `privacy` (`usePrivacyPreviews`: "Show
+  previews"). `slots={{ quietHours: Mine }}` renders yours in the same section
+  with the same props; `null` drops the section. Changes save at once and are
+  put back, with a note, when the save fails. The words are
+  `notificationSettingsCopy`, replaced with `copy`. The time pickers need
+  `@react-native-community/datetimepicker`; without it the times are shown, not
+  editable.
+- **What the server decides.** Quiet hours and hidden previews are applied by
+  the sender (`genesis_push_targets`), in the person's saved time zone, so a
+  phone with a wrong clock can't change them, and hidden previews never leave
+  the server. The phone only shows them (`isQuietAt`).
+
+Rung 3: `createPermissionStore`, `createPromptStore`, `createRegistration`,
+`createPreferencesStore`, `supabasePushBackend` (or your own `PushBackend`),
+`pathForResponse`, the row builders (`permissionRows`, …). Rung 4: the hooks
+under `PushProvider`, and `PushRoot` to mount the block without
+GenesisNativeApp (inside a `SessionProvider`).
+
+Not covered: delivery through Apple's and Google's push services hasn't been
+tried (it needs an EAS project with APNs and FCM credentials), and there is no
+in-app inbox: that is `inbox-thread` in the repo's `features.ts`.
+
 ## Each part on its own
 
 `createBoot` + `BootProvider` + `useBoot`; `GenesisErrorBoundary` +
@@ -265,7 +368,8 @@ splash (`expo-splash-screen`), storage (AsyncStorage or MMKV), `ErrorUtils`
 (the global by default), the rejection tracker (Hermes's by default),
 `AppState` and NetInfo are passed in, so it runs in tests with fakes. Peers:
 `react`, `react-native`, `@tanstack/react-query`, for `/persist` the two
-TanStack persister packages, and for `/updates` `react-native-safe-area-context`
-(with `expo-updates` and `expo-application` passed in).
+TanStack persister packages, for `/updates` `react-native-safe-area-context`
+(with `expo-updates` and `expo-application` passed in), and for `/push`
+`expo-notifications`, passed in too.
 
 @stability Beta
