@@ -1,0 +1,8 @@
+{
+  "expo": {
+    "name": "Native Fixture",
+    "slug": "native-fixture",
+    "ios": { "bundleIdentifier": "com.example.fixture" },
+    "plugins": ["expo-router", "expo-camera"]
+  }
+}

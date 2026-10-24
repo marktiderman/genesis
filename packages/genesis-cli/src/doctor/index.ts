@@ -22,17 +22,21 @@ import {
   checkTokens,
   unusedComponents,
 } from "./rules.js";
+import { checkNativePack } from "./native.js";
 import { scanFiles } from "./scan.js";
+import { checkSupabasePack } from "./supabase.js";
 import { checkVersionSkew } from "./versions.js";
 import type { DoctorConfig, DoctorContext, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
 export type * from "./types.js";
 export { DoctorConfigError, loadConfig, validateConfig } from "./config.js";
-export { loadGenesis, findPackageDir, parseExportNames } from "./genesis.js";
+export { loadGenesis, findPackageDir, parseExportNames, readPackageExports } from "./genesis.js";
 export { parseRulesMarkdown } from "./patterns.js";
 export { defineDoctorPlugin } from "./plugins.js";
 export { BUILTIN_RULES } from "./rules.js";
 export { globToRegExp } from "./glob.js";
+export { nativeLayouts } from "./native.js";
+export { sqlStatements } from "./supabase.js";
 export { readReleaseManifest, type ReleaseManifest } from "./versions.js";
 
 export interface RunDoctorOptions {
@@ -76,6 +80,8 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     { name: "tokens", check: checkTokens },
     { name: "shadowed-exports", check: checkShadowedExports },
     { name: "version-skew", check: checkVersionSkew },
+    ...(config.packs?.includes("native") ? [{ name: "native", check: checkNativePack }] : []),
+    ...(config.packs?.includes("supabase") ? [{ name: "supabase", check: checkSupabasePack }] : []),
   ];
   for (const plugin of [...builtins, ...(patterns ? [patterns.plugin] : []), ...plugins]) {
     try {

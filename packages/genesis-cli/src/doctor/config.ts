@@ -33,11 +33,20 @@ const KNOWN = new Set<string>([
   "allow",
   "patterns",
   "plugins",
+  "packs",
+  "native",
+  "supabase",
   "$schema",
   "$comment",
 ]);
 const LEVELS = new Set(["error", "warn", "off"]);
 const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "require", "path", "message"]);
+const PACKS = new Set(["native", "supabase"]);
+/** Each pack's settings: key → "string" or "list". */
+const PACK_KEYS: Record<string, Record<string, "string" | "list">> = {
+  native: { routerRoot: "string" },
+  supabase: { migrations: "string", base: "string", exposedSchemas: "list" },
+};
 
 export function loadConfig(root: string, configPath?: string): LoadedConfig {
   if (configPath) {
@@ -129,6 +138,22 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
         if (rule[k] !== undefined && !isStringList(rule[k])) fail(`patterns[${i}].${k} must be a list of globs`);
       }
     });
+  }
+  if (c.packs !== undefined) {
+    if (!isStringList(c.packs)) fail(`"packs" must be a list, e.g. ["native", "supabase"]`);
+    for (const p of c.packs as string[]) if (!PACKS.has(p)) fail(`packs: unknown pack "${p}" (known: ${[...PACKS].join(", ")})`);
+  }
+  for (const [pack, keys] of Object.entries(PACK_KEYS)) {
+    const block = c[pack];
+    if (block === undefined) continue;
+    if (!isObject(block)) fail(`"${pack}" must be an object`);
+    if (!((c.packs as string[] | undefined) ?? []).includes(pack)) fail(`"${pack}" settings are set but the ${pack} pack is not in "packs"`);
+    for (const [k, v] of Object.entries(block as object)) {
+      const want = keys[k];
+      if (!want) fail(`${pack}: unknown setting "${k}"`);
+      if (want === "string" && typeof v !== "string") fail(`${pack}.${k} must be a string`);
+      if (want === "list" && !isStringList(v)) fail(`${pack}.${k} must be a list of strings`);
+    }
   }
   if (c.plugins !== undefined) {
     const ok =

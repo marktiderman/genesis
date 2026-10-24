@@ -64,15 +64,38 @@ export interface PatternRule {
 /** A plugin entry in config: a module path, or `[path, options]`. */
 export type PluginSpec = string | [string, unknown];
 
+/** An opt-in rule pack. */
+export type DoctorPack = "native" | "supabase";
+
+/** Settings for the `native` pack. */
+export interface NativePackConfig {
+  /** The Expo Router root, relative to the app. Default: `src/app`, else `app`. */
+  routerRoot?: string;
+}
+
+/** Settings for the `supabase` pack. */
+export interface SupabasePackConfig {
+  /** The migrations folder. Default `supabase/migrations`. */
+  migrations?: string;
+  /** The git ref applied migrations are compared against. Default `origin/main`. */
+  base?: string;
+  /** Schemas whose tables need row level security. Default `["public"]`. */
+  exposedSchemas?: string[];
+}
+
 /** The `doctor` block of genesis.config.json (or package.json `genesis.doctor`). */
 export interface DoctorConfig {
-  /** Folders to scan, relative to the app root. Default `["src"]`. */
+  /** Opt-in rule packs: `native` (Expo apps) and `supabase` (migrations). Default none. */
+  packs?: DoctorPack[];
+  native?: NativePackConfig;
+  supabase?: SupabasePackConfig;
+  /** Folders to scan, relative to the app root. Default `["src"]` (`["app", "src", "components"]` with the native pack). */
   src?: string[];
   /** File extensions to scan. Default `.ts .tsx .js .jsx .mts .cts .css`. */
   extensions?: string[];
   /** Extra globs to skip, on top of the defaults (tests, fixtures, `.d.ts`, `*.gen.*`). */
   ignore?: string[];
-  /** The component package. Default `@marktiderman/genesis-ui`. */
+  /** The component package. Default `@marktiderman/genesis-ui` (`@marktiderman/genesis-ui-native` with the native pack). */
   uiPackage?: string;
   /**
    * Theme stylesheet(s) whose custom properties are the defined tokens: one

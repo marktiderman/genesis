@@ -116,6 +116,53 @@ before building something.
 Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__fixtures__`,
 `__mocks__`, `*.d.ts` and `*.gen.*`. Comments are ignored by every rule.
 
+### Rule packs
+
+Two packs are opt-in, so a web app is unaffected until it lists them. Turn them on explicitly
+(they are not auto-detected, so adding `expo` or a `supabase/` folder never changes a build's
+result on its own):
+
+```json
+{
+  "doctor": {
+    "packs": ["native", "supabase"],
+    "native": { "routerRoot": "app" },
+    "supabase": { "migrations": "supabase/migrations", "base": "origin/main", "exposedSchemas": ["public"] }
+  }
+}
+```
+
+Pack rule ids are built-in ids, so `rules` and `allow` work on them as on any other rule.
+
+**`native`**, for Expo apps on `@marktiderman/genesis-ui-native`. With the pack on, the core
+rules read the native package (unless `uiPackage` says otherwise) and the default scan is
+`app`, `src` and `components`. The screen layouts are every component the installed native
+package exports whose name ends in `Page`, `Screen` or `ScreenContainer` (`ScreenContainer`,
+`SettingsPage`, `SettingsSubPage`, `NotificationsPage`, `AuthScreen`, `NativeResourcePage`, …),
+so a new layout is recognized when Genesis ships it.
+
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `native-raw-primitive` | error | A React Native primitive Genesis wraps imported from `react-native` (`Modal`, `ActivityIndicator`; the list in the repo's `scripts/lib/native-primitives.mjs`, shared with `check:forbidden-imports`). Multi-line and aliased imports count. The message names the replacements the installed package exports. |
+| `native-literal-color` | error | Hex and `rgb()/hsl()` literals in native code (the same lexer as `raw-color`, which it replaces for script files). Use a theme role (`useThemeRoles()`), a token className or `PlatformColor(...)`. |
+| `native-custom-header` | warn | A file that sets `headerShown: false` and renders its own header (a non-Genesis `<…Header>` element or `styles.header`), or a hand-built tab bar (`<Tabs tabBar={…}>`, a `<…TabBar>` of the app's own). Use `ScreenContainer`'s header props, and the router's native tab bar. |
+| `native-screen-layout` | warn | A route screen under the router root (`native.routerRoot`, default `src/app`, else `app`) that renders no Genesis screen layout, directly or through one local import (`./`, `../`, `@/`, `~/`). `_layout`, `+html`, `+native-intent`, `+middleware`, `+api` files, re-export-only routes and `<Redirect>` routes are skipped. |
+| `store-readiness` | error / warn | Static checks of `app.json`, `app.config.json` and (as text, best-effort) `app.config.{ts,js,mjs,cjs}`: **error** when third-party sign-in (`expo-auth-session`, `@react-native-google-signin/google-signin`, `react-native-fbsdk-next`, or Supabase `signInWithOAuth` / a non-Apple `signInWithIdToken` in the scanned code) has no `expo-apple-authentication` (guideline 4.8), and when an installed module has no iOS usage string, either `ios.infoPlist.<Key>` or the module's plugin option (`expo-camera`, `expo-image-picker`, `expo-media-library`, `expo-location`, `expo-av`, `expo-audio`, `expo-contacts`); **warn** when neither `ios.config.usesNonExemptEncryption` nor `ITSAppUsesNonExemptEncryption` is set, when `ios.privacyManifests` is missing, and when there's no Expo config at all. |
+
+**`supabase`**, for `supabase/migrations/*.sql` (`supabase.migrations`). The SQL is read
+statement by statement with comments removed and string and dollar-quoted bodies blanked, so
+text inside a function body never matches.
+
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `migration-grants` | error | In new or changed migrations: `grant … on all functions in schema …`, `alter default privileges … grant … on functions`, and a `private.*` function granted to `anon` or `public`. Grant by name so an earlier revoke survives; blanket revokes are fine. |
+| `migration-rls` | error | A table created in an exposed schema (`supabase.exposedSchemas`, default `public`) that no migration enables row level security on (and doesn't drop). |
+| `migration-definer-search-path` | error | A `security definer` function or procedure without `set search_path`, unless a later migration runs `alter function … set search_path` or replaces it. |
+| `migration-edited` | error | A migration that already exists at the merge base with `supabase.base` (default `origin/main`) was modified, deleted or renamed. Applied migrations are never edited; add a new one. Skipped outside a git repo; a **warn** when the base ref isn't available (fetch it in CI). |
+
+"New or changed" comes from git: files added, modified or untracked since the merge base with
+`supabase.base`. Outside a git repo, or without the base ref, every migration counts as new.
+
 ### Config
 
 `genesis.config.json` (or `"genesis": { "doctor": { … } }` in package.json):
@@ -142,10 +189,13 @@ Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__f
 
 | Key | Default | |
 | --- | --- | --- |
-| `src` | `["src"]` | Folders (or files) to scan. |
+| `packs` | | Opt-in rule packs: `"native"`, `"supabase"`. See [Rule packs](#rule-packs). |
+| `native` | | `{ routerRoot }` for the native pack. |
+| `supabase` | | `{ migrations, base, exposedSchemas }` for the supabase pack. |
+| `src` | `["src"]` (`["app", "src", "components"]` with the native pack) | Folders (or files) to scan. |
 | `extensions` | `.ts .tsx .js .jsx .mts .cts .css` | |
 | `ignore` | | Globs to skip, added to the defaults. `*` stays in a folder, `**` crosses folders, a trailing `/` means the whole folder. |
-| `uiPackage` | `@marktiderman/genesis-ui` | |
+| `uiPackage` | `@marktiderman/genesis-ui` (`@marktiderman/genesis-ui-native` with the native pack) | |
 | `themeCss` | the design system's `dist/themes/*.css` + genesis-ui's styles | One stylesheet or a list: package paths (`@marktiderman/genesis-design-system/dist/themes/genesis.css`) or app paths. |
 | `tokenFiles` | every scanned `.css` | Globs of app files whose `--x:` declarations count as defined tokens. Files outside `src` work too. |
 | `ignoreTokenPrefixes` | `["--tw-", "--radix-"]` | |

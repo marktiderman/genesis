@@ -8,6 +8,8 @@ import { globMatcher } from "./glob.js";
 import type { DoctorConfig, SourceFile } from "./types.js";
 
 export const DEFAULT_SRC = ["src"];
+/** Expo apps keep routes in `app/` and shared UI in `components/` at the root. */
+export const DEFAULT_NATIVE_SRC = ["app", "src", "components"];
 export const DEFAULT_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".css"];
 /** Always skipped: tests, fixtures, declarations and generated files are not shipped UI. */
 export const DEFAULT_IGNORE = [
@@ -48,7 +50,7 @@ export function scanFiles(root: string, config: DoctorConfig): SourceFile[] {
       }
     }
   };
-  for (const src of config.src ?? DEFAULT_SRC) {
+  for (const src of config.src ?? (config.packs?.includes("native") ? DEFAULT_NATIVE_SRC : DEFAULT_SRC)) {
     const abs = path.resolve(root, src);
     if (!existsSync(abs)) continue;
     if (statSync(abs).isDirectory()) walk(abs);
