@@ -242,7 +242,7 @@ export function NotificationsPage({
         renderItem={({ item }) =>
           renderSlot(DefaultRow, slots.row, { ...item, testID: item.testID ?? `${testID}-row-${item.id}` }, slotProps.row)
         }
-        ItemSeparatorComponent={() => <View className="h-px bg-border ml-4" />}
+        ItemSeparatorComponent={RowSeparator}
         refreshControl={
           onRefresh ? (
             <RefreshControl
@@ -256,6 +256,10 @@ export function NotificationsPage({
       />
     </SafeAreaView>
   );
+}
+
+function RowSeparator() {
+  return <View className="h-px bg-border ml-4" />;
 }
 
 function DefaultSectionHeader({ title }: NotificationsPageSlotMap["sectionHeader"]) {

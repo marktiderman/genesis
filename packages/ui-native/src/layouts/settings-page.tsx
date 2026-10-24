@@ -14,6 +14,10 @@
  * passthrough. The composed options are rendered via the consumer's own
  * `<Stack.Screen options={...}>` — see `getStackScreenOptions()` helper.
  *
+ * Colors come from theme roles: on iOS the page is `systemGroupedBackground`
+ * with inset, rounded cells on `secondarySystemGroupedBackground`, like the
+ * Settings app; elsewhere, full-width cells on the Genesis tokens.
+ *
  * Slots: replace or drop one part without leaving the layout. `slots`
  * swaps a part (`sectionHeader`, `row`, `footnote`, `dangerousActions`) for
  * your component, which receives exactly the props the default would;
@@ -26,7 +30,8 @@
  */
 import { Fragment, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
+import { useThemeRoles } from "../hooks/use-theme-roles";
 import { NativeListItem, NativeListItemDivider } from "../components/list-item";
 import { NativeSectionListHeader } from "../components/section-list";
 import { NativeText } from "../components/text";
@@ -136,6 +141,8 @@ export function SettingsPage({
   // Note: header props (headerTitle, headerLeft, headerRight, etc.) are
   // accepted on the type for API ergonomics but consumed by
   // getSettingsPageStackOptions() at the consumer's <Stack.Screen> level.
+  const colors = useThemeRoles();
+  const inset = Platform.OS === "ios";
 
   return (
     <ScreenContainer
@@ -144,6 +151,7 @@ export function SettingsPage({
       testID={testID}
       contentClassName="pb-8"
       className={className}
+      style={{ backgroundColor: colors.groupedBackground }}
     >
       {children ? <View className="px-4 pt-2">{children}</View> : null}
 
@@ -161,7 +169,10 @@ export function SettingsPage({
                 slotProps.sectionHeader,
               )
             : null}
-          <View className="border-y border-border bg-background">
+          <View
+            className={inset ? "mx-4 overflow-hidden rounded-xl" : "border-y"}
+            style={{ backgroundColor: colors.surface, borderColor: colors.separator }}
+          >
             {section.rows.map((row, rowIndex) => (
               <Fragment key={row.id}>
                 {renderSlot(
