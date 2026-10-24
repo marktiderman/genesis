@@ -1,0 +1,73 @@
+packages/forms/src/server.ts
+  s_738228bc0d81b1::t_34b34ee54288e5 339
+  s_738228bc0d81b1::t_0612ff3ceb1488 340-366
+packages/forms-studio/src/slug.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-42
+packages/forms/src/__tests__/carry.test.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-36
+packages/forms-builder/package.json
+  s_738228bc0d81b1::t_9a6faadf2edc04 49
+packages/forms/src/carry.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-27
+packages/forms/src/edit-link.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-233
+packages/forms/README.md
+  s_738228bc0d81b1::t_0612ff3ceb1488 390-432
+packages/forms-studio/README.md
+  s_738228bc0d81b1::t_0612ff3ceb1488 91-96
+packages/forms-studio/src/rules.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 65-66
+packages/forms-web/src/__tests__/ending.test.tsx
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-53
+packages/forms/src/rate-limit.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-111
+packages/forms-studio/src/__tests__/slug.test.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-56
+packages/forms-studio/src/respondent.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-16
+packages/forms-web/README.md
+  s_738228bc0d81b1::t_0612ff3ceb1488 109-111,166-181
+  s_738228bc0d81b1::t_d8aa0377f77b6a 182
+packages/forms-web/src/Form.tsx
+  s_738228bc0d81b1::t_0612ff3ceb1488 106-111,370-374,376,398,409
+packages/forms-web/src/index.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 3,34
+packages/forms/type-tests/server.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 4-12,46-63
+packages/forms-web/src/__tests__/clean-url.test.tsx
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-82
+packages/forms/src/__tests__/rate-limit.test.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-98
+packages/forms/src/__tests__/edit-link.test.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-322
+.changeset/forms-server-phase1.md
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-20
+packages/forms-studio/package.json
+  s_738228bc0d81b1::t_0612ff3ceb1488 49
+packages/forms/src/index.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 173
+packages/forms-studio/src/answers.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 13-15
+packages/forms-web/src/clean-url.ts
+  s_738228bc0d81b1::t_0612ff3ceb1488 1-65
+packages/forms-react/package.json
+  s_738228bc0d81b1::t_9a6faadf2edc04 39
+packages/forms-web/package.json
+  s_738228bc0d81b1::t_9a6faadf2edc04 42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "79ae10ac9799bba4fe024d0b735d72009ca189a9",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
