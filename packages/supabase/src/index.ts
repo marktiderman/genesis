@@ -102,3 +102,30 @@ export function must<T>(result: { data: T; error: null } | { data: null; error: 
   if (result.error) throw new SupabaseQueryError(result.error);
   return result.data as T;
 }
+
+/** The parts of a Supabase client {@link deleteMyAccount} uses. A `SupabaseClient` fits. */
+export interface DeleteAccountClient {
+  // Loose on purpose: a client typed by an app's Database narrows `rpc`'s
+  // function names, and the app's generated types may not list this one yet.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rpc: (fn: any, ...rest: any[]) => PromiseLike<{ data: unknown; error: PostgrestErrorLike | null }>;
+  auth: { signOut(options?: { scope?: "global" | "local" | "others" }): Promise<unknown> };
+}
+
+/**
+ * In-app account deletion (App Store Review Guideline 5.1.1(v)), on web and
+ * native: calls the `delete_my_account` RPC (this package's
+ * `migrations/0001_genesis_account_deletion.sql`), which deletes the login
+ * and, through the app's `on delete cascade` foreign keys, its data; then
+ * clears the session on this device. Throws a {@link SupabaseQueryError} when
+ * the database refuses (`42501`: not signed in) and keeps the session then.
+ *
+ * Put it behind a confirmation; see the README.
+ *
+ * @stability Beta
+ */
+export async function deleteMyAccount(client: DeleteAccountClient): Promise<void> {
+  must((await client.rpc("delete_my_account")) as { data: unknown; error: null } | { data: null; error: PostgrestErrorLike });
+  // The login is gone and its refresh tokens with it: only this device's copy is left to clear.
+  await client.auth.signOut({ scope: "local" });
+}

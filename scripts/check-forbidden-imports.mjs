@@ -12,9 +12,10 @@
  * `Pressable`, `ScrollView`, `StyleSheet` etc. remain free imports because
  * they are foundational and often need raw-RN access for layout or perf.
  *
- * Forbidden today (Genesis re-exports these as themed wrappers):
- *   - `Modal`             → `<NativeModal />` from `@marktiderman/genesis-ui-native`
- *   - `ActivityIndicator` → `<NativeSpinner />` (theme-aware)
+ * Forbidden today: the list in scripts/lib/native-primitives.mjs
+ * (`Modal` → NativeDialog / NativeSheet / NativeDrawer, `ActivityIndicator` →
+ * NativeSkeleton / NativeProgress). `genesis doctor`'s native pack reads the
+ * same list (rule `native-raw-primitive`).
  *
  * Allowlist:
  *   - Files under `**\/tokens/**` — token tooling can introspect anything.
@@ -39,6 +40,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { NATIVE_WRAPPED_PRIMITIVES, wrappedPrimitivesIn } from './lib/native-primitives.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,10 +59,6 @@ const ALLOWLIST_PATTERNS = [
   /^packages\/ui-native\//, // Genesis itself owns the re-exports.
 ];
 
-// Symbols Genesis re-exports as tokenized wrappers. Importing the raw RN
-// version skips theming. Keep this list small + intentional; expanding it
-// is a design-system decision, not a CI tweak.
-const FORBIDDEN_NAMED_IMPORTS = new Set(['Modal', 'ActivityIndicator']);
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_VIOLATIONS_PRINTED = 20;
@@ -92,16 +90,13 @@ function isAllowlisted(relPath) {
 // imports here because every codebase using react-native single-line-
 // imports the named primitives, and `* as RN` followed by `RN.Modal` is
 // rare enough to handle later if it shows up.
-const RN_IMPORT_RE = /import\s*(?:type\s*)?\{([^}]+)\}\s*from\s*['"]react-native['"]/;
+// `import type { … }` is left out: a type-only import renders nothing.
+const RN_IMPORT_RE = /import\s*\{([^}]+)\}\s*from\s*['"]react-native['"]/;
 
 function findForbiddenInImport(line) {
   const m = line.match(RN_IMPORT_RE);
   if (!m) return [];
-  const names = m[1]
-    .split(',')
-    .map((n) => n.trim().split(/\s+as\s+/)[0].trim())
-    .filter(Boolean);
-  return names.filter((n) => FORBIDDEN_NAMED_IMPORTS.has(n));
+  return wrappedPrimitivesIn(m[1]);
 }
 
 const args = process.argv.slice(2);
@@ -142,7 +137,9 @@ if (violations.length === 0) {
 console.error(`FAIL Found ${violations.length} forbidden react-native import(s):`);
 console.error();
 for (const v of violations.slice(0, MAX_VIOLATIONS_PRINTED)) {
-  console.error(`  ${v.file}:${v.line}: ${v.symbol} should come from @marktiderman/genesis-ui-native`);
+  console.error(
+    `  ${v.file}:${v.line}: ${v.symbol} is wrapped by Genesis; use ${NATIVE_WRAPPED_PRIMITIVES[v.symbol].join(' / ')} from @marktiderman/genesis-ui-native`,
+  );
   console.error(`    ${v.content}`);
 }
 if (violations.length > MAX_VIOLATIONS_PRINTED) {
@@ -151,6 +148,6 @@ if (violations.length > MAX_VIOLATIONS_PRINTED) {
 console.error();
 console.error('Genesis re-exports these primitives as tokenized wrappers.');
 console.error('Import them from @marktiderman/genesis-ui-native instead. See');
-console.error('scripts/check-forbidden-imports.mjs FORBIDDEN_NAMED_IMPORTS');
+console.error('scripts/lib/native-primitives.mjs NATIVE_WRAPPED_PRIMITIVES');
 console.error('for the current list.');
 process.exit(1);

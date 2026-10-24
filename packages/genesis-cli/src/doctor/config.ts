@@ -57,11 +57,29 @@ const KNOWN = new Set<string>([
   "allow",
   "patterns",
   "plugins",
+  "packs",
+  "native",
+  "supabase",
   "$schema",
   "$comment",
 ]);
 const LEVELS = new Set(["error", "warn", "off"]);
 const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "require", "path", "message"]);
+const PACKS = new Set(["native", "supabase"]);
+/** Each pack's settings: key → "string", "path" (app-relative folder, normalized) or "list". */
+const PACK_KEYS: Record<string, Record<string, "string" | "path" | "list">> = {
+  native: { routerRoot: "path" },
+  supabase: { migrations: "path", base: "string", exposedSchemas: "list", since: "string" },
+};
+
+/** An app-relative folder in POSIX form (`./app/` → `app`); absolute paths and paths leaving the app are rejected. */
+function appPath(v: unknown, where: string, fail: (msg: string) => never): string {
+  if (typeof v !== "string" || !v.trim()) return fail(`${where} must be a non-empty path`);
+  if (path.isAbsolute(v) || /^[A-Za-z]:[\\/]/.test(v)) fail(`${where} must be relative to the app, not absolute ("${v}")`);
+  const norm = path.posix.normalize(v.replace(/\\/g, "/")).replace(/\/+$/, "");
+  if (norm === "." || norm === ".." || norm.startsWith("../")) fail(`${where} must be a folder inside the app ("${v}")`);
+  return norm;
+}
 
 export function loadConfig(root: string, configPath?: string): LoadedConfig {
   if (configPath) {
@@ -201,6 +219,28 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
       }
     });
   }
+  if (c.packs !== undefined) {
+    if (!isStringList(c.packs)) fail(`"packs" must be a list, e.g. ["native", "supabase"]`);
+    for (const p of c.packs as string[]) if (!PACKS.has(p)) fail(`packs: unknown pack "${p}" (known: ${[...PACKS].join(", ")})`);
+    if (new Set(c.packs as string[]).size !== (c.packs as string[]).length) fail(`packs: lists a pack twice`);
+  }
+  for (const [pack, keys] of Object.entries(PACK_KEYS)) {
+    const block = c[pack];
+    if (block === undefined) continue;
+    if (!isObject(block)) fail(`"${pack}" must be an object`);
+    if (!((c.packs as string[] | undefined) ?? []).includes(pack)) fail(`"${pack}" settings are set but the ${pack} pack is not in "packs"`);
+    for (const [k, v] of Object.entries(block as object)) {
+      const want = keys[k];
+      if (!want) fail(`${pack}: unknown setting "${k}"`);
+      if (want === "string" && typeof v !== "string") fail(`${pack}.${k} must be a string`);
+      if (want === "list" && !isStringList(v)) fail(`${pack}.${k} must be a list of strings`);
+      if (want === "string" && !(v as string).trim()) fail(`${pack}.${k} must not be empty`);
+      if (want === "path") (block as Record<string, unknown>)[k] = appPath(v, `${pack}.${k}`, fail);
+    }
+  }
+  // Schema names compare lowercased, like the SQL they're matched against.
+  const supa = c.supabase as Record<string, unknown> | undefined;
+  if (Array.isArray(supa?.exposedSchemas)) supa.exposedSchemas = (supa.exposedSchemas as string[]).map((s) => s.toLowerCase());
   if (c.plugins !== undefined) {
     const ok =
       Array.isArray(c.plugins) &&

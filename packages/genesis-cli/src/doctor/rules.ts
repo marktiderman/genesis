@@ -21,6 +21,17 @@ export const BUILTIN_RULES = [
   "undefined-token",
   "shadowed-export",
   "version-skew",
+  // native pack
+  "native-raw-primitive",
+  "native-literal-color",
+  "native-custom-header",
+  "native-screen-layout",
+  "store-readiness",
+  // supabase pack
+  "migration-grants",
+  "migration-rls",
+  "migration-definer-search-path",
+  "migration-edited",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];
@@ -106,7 +117,11 @@ export function checkColors(ctx: DoctorContext): void {
     `(?<![\\w-])(?:${COLOR_UTILITIES})-(?:${ctx.genesis.palette.join("|")})(?:-\\d{2,3})?(?:\\/\\d{1,3})?(?![\\w-])`,
     "g",
   );
+  // With the native pack, literals in code are style values: report them as native-literal-color with the native fix.
+  const native = ctx.config.packs?.includes("native") ?? false;
+  const themeRoles = ctx.genesis.values.has("useThemeRoles") ? "a theme role (useThemeRoles())" : "a theme role";
   for (const file of ctx.files) {
+    const nativeCode = native && SCRIPT_EXTS.has(file.ext);
     file.code.split("\n").forEach((text, i) => {
       const line = i + 1;
       for (const m of text.matchAll(palette)) {
@@ -121,6 +136,16 @@ export function checkColors(ctx: DoctorContext): void {
       for (const hit of [...findHexLiterals(text), ...findColorFunctions(text)]) {
         const at = hit.column - 1;
         if (arbitrary.some(([a, b]) => at >= a && at < b)) continue;
+        if (nativeCode) {
+          ctx.report({
+            rule: "native-literal-color",
+            file: file.path,
+            line,
+            subject: hit.literal,
+            message: `hardcodes the color ${hit.literal}; use ${themeRoles}, a token className (bg-primary, text-muted-foreground) or PlatformColor(...)`,
+          });
+          continue;
+        }
         ctx.report({ rule: "raw-color", file: file.path, line, subject: hit.literal, message: `hardcodes the color ${hit.literal}; color values come from Genesis tokens` });
       }
     });

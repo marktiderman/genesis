@@ -25,6 +25,9 @@ export function makeApp(fixture: string | null, extra: Record<string, string> = 
   put(path.join(GENESIS, "genesis-ui", "package.json"), path.join(scope, "genesis-ui", "package.json"));
   put(path.join(GENESIS, "genesis-ui", "index.d.ts"), path.join(scope, "genesis-ui", "dist", "index.d.ts"));
   put(path.join(GENESIS, "genesis-ui", "data.d.ts"), path.join(scope, "genesis-ui", "dist", "components", "data", "index.d.ts"));
+  put(path.join(GENESIS, "genesis-ui-native", "package.json"), path.join(scope, "genesis-ui-native", "package.json"));
+  put(path.join(GENESIS, "genesis-ui-native", "index.d.ts"), path.join(scope, "genesis-ui-native", "dist", "index.d.ts"));
+  put(path.join(GENESIS, "genesis-ui-native", "layouts.d.ts"), path.join(scope, "genesis-ui-native", "dist", "layouts", "index.d.ts"));
   put(path.join(GENESIS, "design-system", "package.json"), path.join(scope, "genesis-design-system", "package.json"));
   for (const css of ["genesis.css", "genesis-tailwind4.css"]) {
     put(path.join(GENESIS, "design-system", css), path.join(scope, "genesis-design-system", "dist", "themes", css));
@@ -40,5 +43,5 @@ export function makeApp(fixture: string | null, extra: Record<string, string> = 
 }
 
 export function cleanupApps(): void {
-  for (const dir of created.splice(0)) rmSync(dir, { recursive: true, force: true });
+  for (const dir of created.splice(0)) rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
 }
