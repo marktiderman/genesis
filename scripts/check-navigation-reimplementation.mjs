@@ -6,7 +6,7 @@
  * `NavigationNode`. Genesis ships both (`@marktiderman/genesis-ui/layout`),
  * and `AppShell navigation={tree}` derives the sidebar, contextual nav,
  * mobile tab bar and back-to-parent link from them. A local copy drifts:
- * Breakthrough wrote one before genesis-ui 2.6 and had to migrate off it.
+ * an app wrote one before genesis-ui 2.6 and had to migrate off it.
  *
  * Flags DECLARATIONS only (`function resolveNavigation`, `const
  * resolveNavigation =`, `interface NavigationNode`, `type NavigationNode =`),

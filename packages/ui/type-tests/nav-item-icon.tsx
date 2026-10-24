@@ -4,7 +4,7 @@
  * `pnpm --filter @marktiderman/genesis-ui typecheck` after a build.
  *
  * Locks in that `NavItem.icon` stays required, so apps that render
- * `<item.icon />` (Breakthrough's shell does) keep compiling, while
+ * `<item.icon />` (an app's shell does) keep compiling, while
  * sub-navigation items (`SubNavItem`) may omit it.
  */
 import type { ReactElement } from "react";

@@ -18,8 +18,8 @@
  *   </GenesisThemeProvider>
  *
  *   // Consumer app supplying its own brand primary:
- *   import { gamifyBrand } from "@gamify/brand/native";
- *   <GenesisThemeProvider primary={gamifyBrand.accent.DEFAULT} mode="light">
+ *   import { arcadeBrand } from "@arcade/brand/native";
+ *   <GenesisThemeProvider primary={arcadeBrand.accent.DEFAULT} mode="light">
  *     <App />
  *   </GenesisThemeProvider>
  *
@@ -68,12 +68,12 @@ export interface BrandColors {
  *
  *   declare module "@marktiderman/genesis-design-system" {
  *     interface BrandRegistry {
- *       gamify: true;
+ *       arcade: true;
  *       acme: true;
  *     }
  *   }
  *
- * After this declaration, `<GenesisThemeProvider brand="gamify">` is fully
+ * After this declaration, `<GenesisThemeProvider brand="arcade">` is fully
  * typed at every callsite. The registry must be an interface (not a type
  * alias) — TypeScript declaration merging works on interfaces and
  * namespaces, not on `type X = ...`.

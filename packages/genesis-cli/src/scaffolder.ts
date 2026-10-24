@@ -81,7 +81,7 @@ export function validateConsumerName(name: string): void {
   if (!VALID_NAME_PATTERN.test(name)) {
     throw new Error(
       `Invalid consumer name "${name}". Must be lowercase letters/digits/hyphens, ` +
-        `2-31 chars, starting with a letter (e.g., "acme", "gamify-mobile").`,
+        `2-31 chars, starting with a letter (e.g., "acme", "arcade-mobile").`,
     );
   }
 }
@@ -247,7 +247,7 @@ function brandSchema(consumer: string): string {
  * Genesis primitives consume tokens from this file via the design-system
  * provider. Edit colors/spacing/typography here to retheme every screen
  * at once. Domain-specific tokens (e.g., "mood" for Acme, "rarity" for
- * Gamify) go under \`extensions\` — Genesis primitives don't read these,
+ * a game app) go under \`extensions\` — Genesis primitives don't read these,
  * but consumer composites do via \`useGenesisExtension(key)\`.
  *
  * Schema is intentionally narrow at the top level. Add categories under
