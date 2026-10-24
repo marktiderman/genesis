@@ -1,0 +1,73 @@
+features.ts
+  s_8252619ce79a86::t_f5f1f13f96f223 676,692,694,697-699,705-716
+AGENTS.md
+  s_8252619ce79a86::t_e494027ead4354 16
+apps/genesis-rn-starter/src/lib/account.ts
+  s_8252619ce79a86::t_8d2d4a91e0469f 28-29
+apps/genesis-rn-starter/supabase/functions/genesis-apple-revoke/index.ts
+  s_8252619ce79a86::t_8d2d4a91e0469f 1-51
+packages/supabase/functions/genesis-apple-revoke/index.ts
+  s_8252619ce79a86::t_486492e709da21 1-51
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_f5f1f13f96f223 126-148
+packages/supabase/src/index.ts
+  s_8252619ce79a86::t_486492e709da21 7-16,123-135,146-149,154,156-158
+apps/genesis-rn-starter/src/lib/auth.ts
+  s_8252619ce79a86::t_8d2d4a91e0469f 7-8,50-55
+packages/supabase/functions/tests/genesis-apple-revoke_test.ts
+  s_8252619ce79a86::t_486492e709da21 1-79
+apps/genesis-rn-starter/supabase/config.toml
+  s_8252619ce79a86::t_f5f1f13f96f223 17-22
+apps/genesis-rn-starter/supabase/functions/genesis-apple-revoke/apple.ts
+  s_8252619ce79a86::t_8d2d4a91e0469f 1-206
+apps/genesis-rn-starter/tsconfig.json
+  s_8252619ce79a86::t_f5f1f13f96f223 11-12
+packages/supabase/migrations/tests/0003_genesis_apple_token_revocation.test.sql
+  s_8252619ce79a86::t_486492e709da21 1-197
+packages/supabase/functions/genesis-apple-revoke/apple.ts
+  s_8252619ce79a86::t_486492e709da21 1-206
+packages/supabase/README.md
+  s_8252619ce79a86::t_f5f1f13f96f223 26,35-37,44-45,56-60,173-266,270-275
+.changeset/apple-token-revocation.md
+  s_8252619ce79a86::t_f5f1f13f96f223 1-7
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_f5f1f13f96f223 104-111,130-132
+packages/supabase/src/__tests__/apple-revoke.test.ts
+  s_8252619ce79a86::t_486492e709da21 1-288
+features.json
+  s_8252619ce79a86::t_e494027ead4354 1523,1545,1547,1557-1559,1562-1566,1581-1598
+packages/supabase/functions/genesis-apple-revoke/handler.ts
+  s_8252619ce79a86::t_486492e709da21 1-184
+packages/supabase/migrations/0003_genesis_apple_token_revocation.sql
+  s_8252619ce79a86::t_486492e709da21 1-174
+apps/genesis-rn-starter/supabase/functions/genesis-apple-revoke/handler.ts
+  s_8252619ce79a86::t_8d2d4a91e0469f 1-184
+apps/genesis-rn-starter/supabase/tests/database/genesis_apple_token_revocation.test.sql
+  s_8252619ce79a86::t_8d2d4a91e0469f 1-197
+apps/genesis-rn-starter/supabase/migrations/20261024000100_genesis_apple_token_revocation.sql
+  s_8252619ce79a86::t_8d2d4a91e0469f 1-174
+packages/supabase/src/apple-tokens.ts
+  s_8252619ce79a86::t_486492e709da21 1-66
+packages/supabase/package.json
+  s_8252619ce79a86::t_486492e709da21 34
+packages/supabase/tsconfig.json
+  s_8252619ce79a86::t_486492e709da21 14
+apps/genesis-rn-starter/eslint.config.js
+  s_8252619ce79a86::t_f5f1f13f96f223 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "81144ed04e4fa7b2a83230108a6ac67db685bc9c",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
