@@ -79,9 +79,24 @@ function PickerButton({
     );
   }
 
-  // iOS: render the inline picker directly when consumer wants it that
-  // way; default exposes a button that toggles a sheet-like dialog. For
-  // simplicity in this primitive we render the button + the picker inline.
+  // iOS: the compact picker is itself the button (it shows the value and
+  // opens the wheel), so it renders alone; a button beside it showed the
+  // value twice.
+  if (isIOS) {
+    return (
+      <Picker
+        testID={testID ?? `native-${mode}-picker`}
+        value={value}
+        mode={mode}
+        display="compact"
+        onChange={(_e, d) => {
+          if (d && !disabled) onChange(d);
+        }}
+      />
+    );
+  }
+
+  // Android: a button that opens the platform dialog.
   return (
     <>
       <Pressable
