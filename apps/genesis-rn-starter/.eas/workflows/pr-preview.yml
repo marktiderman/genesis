@@ -7,7 +7,8 @@
 # 4. Comment on the pull request: the build's install link and QR code, and the update.
 #
 # Nothing here can reach production: the preview profile and EAS environment, internal
-# distribution, a pr-<number> channel, and no submit job.
+# distribution, a pr-<number> channel, and no submit job. EAS doesn't run pull_request workflows
+# for pull requests from forks, so the preview environment's variables stay with your branches.
 #
 # Genesis template (templates/eas/workflows/pr-preview.yml). Edit the copy in your app; see
 # docs/NATIVE-RELEASE.md in the Genesis repository.

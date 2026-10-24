@@ -40,12 +40,15 @@ function profile(name: string): (typeof easJson.build)[string] {
   return own.extends ? { ...profile(own.extends), ...own, ios: { ...profile(own.extends).ios, ...own.ios } } : own;
 }
 
-/** Every job a job waits on, directly or not. */
-function upstream(jobs: Workflow["jobs"], id: string, seen = new Set<string>()): Set<string> {
-  for (const dep of [...(jobs[id]?.needs ?? []), ...(jobs[id]?.after ?? [])]) {
+/**
+ * Every job a job `needs`, directly or not. Only `needs`: a job runs only when what it needs
+ * succeeded, while `after` also runs after a failure (a rejected approval).
+ */
+function needed(jobs: Workflow["jobs"], id: string, seen = new Set<string>()): Set<string> {
+  for (const dep of jobs[id]?.needs ?? []) {
     if (!seen.has(dep)) {
       seen.add(dep);
-      upstream(jobs, dep, seen);
+      needed(jobs, dep, seen);
     }
   }
   return seen;
@@ -134,22 +137,31 @@ describe("EAS workflows", () => {
     expect(read(`.eas/workflows/${file}`)).not.toMatch(/expo_[A-Za-z0-9]{20,}|-----BEGIN/);
   });
 
-  it("every store submission and production update waits for a person's approval", () => {
+  it("every store submission and production update needs a person's approval", () => {
+    let checked = 0;
     for (const file of workflowFiles) {
       const { jobs } = workflow(file);
       for (const [id, job] of Object.entries(jobs)) {
         const production = job.type === "submit" || (job.type === "update" && job.params?.channel === "production");
         if (!production) continue;
-        const approvals = [...upstream(jobs, id)].filter((dep) => jobs[dep]?.type === "require-approval");
+        checked++;
+        const approvals = [...needed(jobs, id)].filter((dep) => jobs[dep]?.type === "require-approval");
         expect(approvals, `${file} ${id}`).not.toEqual([]);
       }
     }
+    expect(checked).toBe(4);
+  });
+
+  it("the release approval isn't offered when a build failed", () => {
+    expect(workflow("deploy-production.yml").jobs.approve_release?.if).toBe(
+      "${{ after.build_ios.status != 'failure' && after.build_android.status != 'failure' }}",
+    );
   });
 
   it("deploy-production starts only from a pushed tag, and its updates start as a staged rollout", () => {
     const { on, jobs } = workflow("deploy-production.yml");
     expect(Object.keys(on)).toEqual(["push"]);
-    expect(on.push).toEqual({ tags: ["v*"] });
+    expect(on.push).toEqual({ tags: ["v*.*.*"] });
     const updates = Object.values(jobs).filter((j) => j.type === "update");
     expect(updates).toHaveLength(2);
     for (const job of updates) {
@@ -164,8 +176,10 @@ describe("EAS workflows", () => {
   });
 
   it.each(["pr-preview.yml", "e2e.yml"])("%s can't reach production", (file) => {
+    expect(read(`.eas/workflows/${file}`)).not.toMatch(/eas(-cli)?(@[\d.]+)? (update|submit)/);
     for (const [id, job] of Object.entries(workflow(file).jobs)) {
-      expect(job.type, `${file} ${id}`).not.toBe("submit");
+      expect(["submit", "testflight", "update-rollout"], `${file} ${id}`).not.toContain(job.type);
+      expect(job.steps, `${file} ${id}`).toBeUndefined();
       expect(job.environment ?? "", `${file} ${id}`).not.toBe("production");
       expect(job.params?.profile ?? "", `${file} ${id}`).not.toBe("production");
       expect(job.params?.channel ?? "", `${file} ${id}`).not.toBe("production");
@@ -176,9 +190,11 @@ describe("EAS workflows", () => {
     expect(workflow("pr-preview.yml").jobs.publish_update?.params?.channel).toBe("pr-${{ github.event.pull_request.number }}");
   });
 
-  it("rollout promotes only after the health check, and only on the production environment", () => {
+  it("rollout promotes only after the health check, whose limits no input can change", () => {
     const { on, jobs } = workflow("rollout.yml");
     expect(Object.keys(on)).toEqual(["workflow_dispatch"]);
+    expect(Object.keys((on.workflow_dispatch as { inputs: object }).inputs)).toEqual(["update_group_id", "action", "percentage"]);
+    expect(jobs.health_check?.env).toMatchObject({ MAX_FAILED_LAUNCH_PERCENT: "1", MIN_LAUNCHES: "200" });
     for (const [id, job] of Object.entries(jobs)) {
       expect(job.environment, id).toBe("production");
       if (job.type === "update-rollout") expect(job.needs, id).toEqual(["health_check"]);
@@ -214,6 +230,8 @@ describe("rollout health check", () => {
     expect(checkRollout({ platforms: [{ platform: "ios", totals: {} }] }, limits).ok).toBe(false);
     expect(checkRollout(insights(["ios", 990, 0]), { ...limits, maxFailedLaunchPercent: Number.NaN }).ok).toBe(false);
     expect(checkRollout(insights(["ios", 990, 0]), { ...limits, minLaunches: Number.NaN }).ok).toBe(false);
+    // Zero launches can't pass by asking for zero.
+    expect(checkRollout(insights(["ios", 0, 0]), { ...limits, minLaunches: 0 }).ok).toBe(false);
   });
 });
 

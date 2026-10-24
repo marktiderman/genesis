@@ -1,4 +1,7 @@
 # Deploy to production, started by pushing a release tag (`git tag v1.4.0 && git push origin v1.4.0`).
+# A release that changes native code is a new store version: bump `version` in app.config.ts in
+# the same change. The version isn't part of the fingerprint, so a bump on its own starts no
+# build, and a native change without one uploads the old version string again.
 #
 # 1. Fingerprint the native project as the production variant builds it.
 # 2. Per platform, look for a production build with that fingerprint.
@@ -11,11 +14,17 @@
 # - A tag push is the only trigger, so a run always builds a commit in git, never a local folder.
 #   Don't add `workflow_dispatch` without `--ref` discipline: `eas workflow:run` without `--ref`
 #   uploads the working directory as it is on that machine.
-# - Nothing is submitted or published before the `approve_release` job is approved.
+# - Nothing is submitted or published before the `approve_release` job is approved, and it isn't
+#   offered when a build failed, so one approval never ships half a release. Check that the tag's
+#   commit is on main before approving.
 # - Builds go to TestFlight and to the Play internal track as a draft (eas.json `submit`);
 #   releasing to the stores stays a person's step in App Store Connect and Play Console.
 # - EAS refuses to start a second rollout on the same channel, platform and runtime while one is
 #   in progress, so a new update can't silently replace a staged one (finish it with rollout.yml).
+# - Each platform's update is its own update group; promote or roll back each with rollout.yml.
+# - A production build whose approval was rejected (or whose submit failed) still matches its
+#   fingerprint: a later JavaScript-only tag sends an update to a binary nobody has. Submit that
+#   build by hand first (`eas submit --platform ios --id <build id> --profile production`).
 #
 # Genesis template (templates/eas/workflows/deploy-production.yml). Edit the copy in your app; see
 # docs/NATIVE-RELEASE.md in the Genesis repository.
@@ -23,7 +32,7 @@ name: Deploy production
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*.*.*"]
 
 jobs:
   fingerprint:
@@ -76,6 +85,7 @@ jobs:
   approve_release:
     name: Approve submitting the builds and publishing the updates
     after: [build_ios, build_android]
+    if: ${{ after.build_ios.status != 'failure' && after.build_android.status != 'failure' }}
     type: require-approval
 
   submit_ios:

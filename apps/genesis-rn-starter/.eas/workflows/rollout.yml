@@ -6,10 +6,16 @@
 #     --input update_group_id=<group id> --input action=promote --input percentage=50
 #   eas workflow:run rollout.yml --ref main --input update_group_id=<group id> --input action=rollback
 #
+# Always pass --ref: without it, eas workflow:run uploads your working directory as it is (the
+# health check included) and runs it with the production token.
+#
+# deploy-production.yml publishes one update group per platform: run this once per group.
+#
 # promote: first a health check reads EAS's insights for the update group
-# (`eas update:insights --json`) and stops the promotion when, on any platform, fewer than
-# `min_launches` launches were counted or more than `max_failed_launch_percent` of launches
-# failed. Then the rollout goes up to `percentage`. It never goes down; use rollback for that.
+# (`eas update:insights --json`) and stops the promotion when fewer than 200 launches were
+# counted or more than 1% of launches failed. The limits are in this file, not inputs, so a run
+# can't turn the check off. Then the rollout goes up to `percentage`. It never goes down; use
+# rollback for that.
 #
 # What the check sees, and what it doesn't: EAS's "crash rate" is failed launches of the update
 # (expo-updates couldn't start it and fell back to the previous code), not crash-free sessions. A
@@ -17,8 +23,9 @@
 # update in your crash reporter (the update id is in the version signature, Settings > About).
 # The workflow can't do that part for you.
 #
-# rollback: everyone on the channel goes back to what they ran before the staged update
-# (`eas update:revert-update-rollout`).
+# rollback: while the update is still staged (below 100%), everyone on the channel goes back to
+# what they ran before it (`eas update:revert-update-rollout`). At 100% the rollout is over and
+# this fails; republish the previous group instead (`eas update:republish --group <id>`).
 #
 # The custom jobs run EAS CLI, which needs `EXPO_TOKEN`: a robot token with access to this
 # project, as a secret variable of the production EAS environment.
@@ -44,14 +51,6 @@ on:
         options: ["25", "50", "100"]
         default: "50"
         description: The share of production installs to promote to.
-      max_failed_launch_percent:
-        type: string
-        default: "1"
-        description: Stop the promotion when more than this share of launches failed, on any platform.
-      min_launches:
-        type: string
-        default: "200"
-        description: Stop the promotion when fewer launches than this were counted, on any platform.
 
 jobs:
   health_check:
@@ -59,9 +58,10 @@ jobs:
     if: ${{ inputs.action == 'promote' }}
     environment: production
     env:
+      APP_VARIANT: production
       UPDATE_GROUP_ID: ${{ inputs.update_group_id }}
-      MAX_FAILED_LAUNCH_PERCENT: ${{ inputs.max_failed_launch_percent }}
-      MIN_LAUNCHES: ${{ inputs.min_launches }}
+      MAX_FAILED_LAUNCH_PERCENT: "1"
+      MIN_LAUNCHES: "200"
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
@@ -106,6 +106,7 @@ jobs:
     if: ${{ inputs.action == 'rollback' }}
     environment: production
     env:
+      APP_VARIANT: production
       UPDATE_GROUP_ID: ${{ inputs.update_group_id }}
     steps:
       - uses: eas/checkout

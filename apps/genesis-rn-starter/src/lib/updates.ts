@@ -5,9 +5,11 @@
  * Settings shows. `app.ts` passes it to `GenesisNativeApp`.
  *
  * Channel switching (`useUpdates().channels.switchTo("pr-42")`, a pull
- * request's preview update) is on only in development and in builds whose
- * channel is `development` or `preview` (eas.json); a production build can't
- * leave its channel.
+ * request's preview update) is on only in development and in the
+ * development and preview variants, told apart by the bundle id
+ * `APP_VARIANT` gave the build (`.dev`, `.preview`): a fact of the binary,
+ * so a build that has switched channels can switch again, and a production
+ * build (no suffix) never can.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Application from "expo-application";
@@ -17,8 +19,8 @@ import { createUpdates, supabasePolicySource, useVersionSignature, versionSignat
 import starter from "../../starter.config";
 import { supabase } from "./supabase";
 
-/** The build channels (eas.json) that may switch to another channel's updates. */
-const TEST_CHANNELS: readonly (string | null)[] = ["development", "preview"];
+/** The variants (withGenesis bundle id suffixes) that may switch to another channel's updates. */
+const TEST_BUILD = /\.(dev|preview)$/;
 
 export function createStarterUpdates() {
   return createUpdates({
@@ -29,7 +31,7 @@ export function createStarterUpdates() {
     storage: AsyncStorage,
     appState: AppState,
     openURL: Linking.openURL,
-    channels: { enabled: __DEV__ || TEST_CHANNELS.includes(Updates.channel) },
+    channels: { enabled: __DEV__ || TEST_BUILD.test(Application.applicationId ?? "") },
     onError: (error, source) => console.warn(`[updates] ${source}: ${error.message}`),
   });
 }

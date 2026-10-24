@@ -26,8 +26,8 @@ export function checkRollout(insights, { maxFailedLaunchPercent, minLaunches }) 
   if (!Number.isFinite(maxFailedLaunchPercent) || maxFailedLaunchPercent < 0 || maxFailedLaunchPercent > 100) {
     return { ok: false, lines: [`MAX_FAILED_LAUNCH_PERCENT must be a number from 0 to 100, got ${maxFailedLaunchPercent}.`] };
   }
-  if (!Number.isInteger(minLaunches) || minLaunches < 0) {
-    return { ok: false, lines: [`MIN_LAUNCHES must be a whole number, got ${minLaunches}.`] };
+  if (!Number.isInteger(minLaunches) || minLaunches < 1) {
+    return { ok: false, lines: [`MIN_LAUNCHES must be a whole number above 0, got ${minLaunches}.`] };
   }
   const platforms = Array.isArray(insights?.platforms) ? insights.platforms : [];
   if (platforms.length === 0) {
