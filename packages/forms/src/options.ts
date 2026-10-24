@@ -4,16 +4,20 @@
  * Pure and renderer-agnostic, so the engine, the server and every renderer (web and native)
  * decide the same way.
  */
-import { choiceOptions, isEmptyValue, optionsSource, readOption, type ChoiceOption } from "./fields";
+import { choiceKind, choiceOptions, getFieldType, isChoiceField, isEmptyValue, optionsSource, readOption, type ChoiceOption } from "./fields";
 import { MAX_HIDDEN_STRING_LENGTH } from "./hidden";
 import { own } from "./logic";
 import type { FieldBlock, FormDefinition, FormEvent, Json } from "./types";
 
-/** Field types whose answer is one or more of their options. */
+/**
+ * The built-in field types whose answer is one or more of their options. A host's own choice
+ * kinds (`FieldTypeManifest.choice`) aren't in it: ask `isChoiceField` or `choiceKind`.
+ */
 export const CHOICE_FIELD_TYPES: ReadonlySet<string> = new Set(["single-choice", "multi-choice", "dropdown"]);
 
-const isChoice = (block: unknown): block is FieldBlock =>
-  !!block && (block as FieldBlock).kind === "field" && CHOICE_FIELD_TYPES.has((block as FieldBlock).type);
+const isChoice = isChoiceField;
+/** Whether a choice field's answer is a list (`choice.multiple`), as `multi-choice`'s is. */
+const isMultiple = (field: FieldBlock) => choiceKind(field.type)?.multiple === true;
 
 /** Set `record[key]` as an own property, so a key such as `__proto__` is data, not a prototype. */
 function put<T>(record: Record<string, T>, key: string, value: T): void {
@@ -214,7 +218,7 @@ export function isPrefillParam(param: unknown): param is string {
 
 /** A choice field's `props.prefill` (`{ param, hideWhenPrefilled? }`), when it is well formed. */
 export function prefillSetting(field: FieldBlock): PrefillSetting | undefined {
-  if (!CHOICE_FIELD_TYPES.has(field.type)) return undefined;
+  if (!choiceKind(field.type)) return undefined;
   const raw = field.props?.prefill;
   if (!raw || typeof raw !== "object" || Array.isArray(raw) || !isPrefillParam(raw.param)) return undefined;
   return { param: raw.param, hideWhenPrefilled: raw.hideWhenPrefilled === true };
@@ -265,7 +269,7 @@ export function prefillFromLink(
     if (!raw.length) continue;
     const shown = new Set(visibleOptions(definition, block, seen).map((o) => o.value));
     let value: Json | undefined;
-    if (block.type === "multi-choice") {
+    if (isMultiple(block)) {
       const picked: string[] = [];
       for (const r of raw) {
         for (const v of shown.has(r) ? [r] : r.split(",").map((s) => s.trim())) {
@@ -358,6 +362,23 @@ export function answerSnapshots(
 ): Record<string, AnswerSnapshot> {
   const out: Record<string, AnswerSnapshot> = {};
   for (const block of definition.blocks) {
+    if (block.kind !== "field") continue;
+    // A kind with its own snapshot (`FieldTypeManifest.snapshot`) makes it; choice kinds use the one below.
+    const manifest = getFieldType(block.type);
+    const custom = manifest?.choice ? undefined : manifest?.snapshot;
+    if (custom) {
+      const value = own(answers as Record<string, Json | undefined>, block.id);
+      if (isEmptyValue(value, block)) continue;
+      let snapshot: AnswerSnapshot | undefined;
+      try {
+        snapshot = custom(value as Json, block);
+      } catch {
+        // A kind's snapshot that throws leaves this answer without one; the rest are kept.
+        snapshot = undefined;
+      }
+      if (snapshot !== undefined) put(out, block.id, snapshot);
+      continue;
+    }
     if (!isChoice(block) || !optionsSource(block)) continue;
     const value = own(answers as Record<string, Json | undefined>, block.id);
     if (isEmptyValue(value, block)) continue;
@@ -394,6 +415,23 @@ export function answersFromSnapshots(
   const answers: Record<string, Json> = {};
   const missing: Record<string, OptionSnapshot[]> = {};
   for (const block of definition.blocks) {
+    if (block.kind !== "field") continue;
+    const manifest = getFieldType(block.type);
+    const custom = manifest?.choice ? undefined : manifest?.fromSnapshot;
+    if (custom) {
+      const raw = own(snapshots as Record<string, unknown>, block.id);
+      if (raw === undefined) continue;
+      let restored: { value?: Json; missing?: OptionSnapshot[] } | undefined;
+      try {
+        restored = custom(raw, block);
+      } catch {
+        // A kind's restore that throws restores nothing for this answer.
+        restored = undefined;
+      }
+      if (restored?.value !== undefined) put(answers, block.id, restored.value);
+      if (Array.isArray(restored?.missing) && restored.missing.length) put(missing, block.id, restored.missing);
+      continue;
+    }
     if (!isChoice(block)) continue;
     const raw = own(snapshots as Record<string, unknown>, block.id);
     const list = (Array.isArray(raw) ? raw : raw === undefined ? [] : [raw]).flatMap((s): OptionSnapshot[] => {
@@ -416,7 +454,7 @@ export function answersFromSnapshots(
       if (value === undefined) lost.push(s);
       else if (!found.includes(value)) found.push(value);
     }
-    if (found.length) put(answers, block.id, block.type === "multi-choice" ? (found as Json) : found[0]!);
+    if (found.length) put(answers, block.id, isMultiple(block) ? (found as Json) : found[0]!);
     if (lost.length) put(missing, block.id, lost);
   }
   return { answers, missing };

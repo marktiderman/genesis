@@ -336,6 +336,7 @@ export {
   type RestoredAnswers,
 } from "./options";
 export { withHostOptions, type HostOptions } from "./fields";
+export { mergeResponses, type MergeOptions } from "./merge";
 export {
   EDIT_LINK_TTL_SECONDS,
   MIN_EDIT_SECRET_BYTES,

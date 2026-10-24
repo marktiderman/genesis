@@ -59,6 +59,16 @@ describe("NotificationSettings", () => {
     expect(sw("previews").checked).toBe(false);
   });
 
+  it("can't be changed until the saved settings have loaded, so a hidden preview is never saved back on", async () => {
+    const { b, block } = await mount(() => <NotificationSettings />, { saved: prefs({ hidePreviews: true }) });
+    b.backend.loadPreferences.mockRejectedValueOnce(new Error("offline"));
+    await act(() => block.preferences.load("u1"));
+    expect(sw("previews").disabled).toBe(true);
+    expect(screen.getByText(/Couldn't load your notification settings/)).toBeTruthy();
+    expect(await act(() => block.preferences.update((p) => ({ ...p, hidePreviews: false })))).toBe(false);
+    expect(b.backend.savePreferences).not.toHaveBeenCalled();
+  });
+
   it("puts a change back, and says so, when the save fails", async () => {
     const { b } = await mount(() => <NotificationSettings />);
     b.backend.savePreferences.mockRejectedValueOnce(new Error("offline"));

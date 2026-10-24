@@ -629,7 +629,7 @@
     {
       "id": "forms-engine",
       "name": "Forms engine",
-      "summary": "A serializable form definition with logic, navigation, validation and server-side checking. Zero dependencies.",
+      "summary": "A serializable form definition with logic, navigation, validation and server-side checking, one registry of field and content kinds hosts extend, and merging of partial responses. Zero dependencies.",
       "tagline": "Forms as data: logic, validation and a server check that can't be tampered with.",
       "category": "Forms",
       "status": "live",
@@ -660,7 +660,9 @@
       "visibility": "public",
       "highlight": true,
       "acceptance": [
-        "validateSubmission drops answers to hidden fields and forged server inputs."
+        "validateSubmission drops answers to hidden fields and forged server inputs.",
+        "A host's registered choice kind gets options from the app, prefill, Other answers and snapshots with no change to the engine.",
+        "mergeResponses drops answers on a path the merged answers no longer take, unless the form keeps hidden values."
       ],
       "reviewedAt": "2026-10-22",
       "links": {
@@ -678,13 +680,15 @@
     {
       "id": "forms-react",
       "name": "Forms for React",
-      "summary": "useForm, useField with one-field re-renders, a ranked renderer registry and a headless FormRuntime.",
+      "summary": "useForm, useField with one-field re-renders, a ranked renderer registry, a headless FormRuntime and useFormController, the step and send controller every renderer shares.",
       "status": "live",
       "layer": "hook",
       "keywords": [
         "useForm",
         "useField",
-        "form runtime"
+        "form runtime",
+        "useFormController",
+        "controller"
       ],
       "entry": {
         "web": "@marktiderman/genesis-forms-react",
@@ -702,7 +706,8 @@
         "developer"
       ],
       "acceptance": [
-        "Typing in one field re-renders only that field."
+        "Typing in one field re-renders only that field.",
+        "forms-web's <Form> renders useFormController, and its tests pass unchanged."
       ],
       "reviewedAt": "2026-10-22",
       "links": {
@@ -1166,6 +1171,76 @@
         ]
       },
       "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "define-block",
+      "name": "Blocks (defineBlock)",
+      "summary": "defineBlock declares a block by its FeatureId with what it requires and contributes (nav entries, Settings rows, routes, slot fills, migrations, skills, privacy), and resolveBlocks checks requirements and cycles with the registry's own checks, refuses two blocks contributing the same thing, and merges the enabled blocks' contributions for the shell, the nav tree and Settings. GenesisNativeApp takes blocks; the updates and account blocks are declared with it.",
+      "category": "Platform",
+      "status": "building",
+      "horizon": "now",
+      "layer": "provider",
+      "keywords": [
+        "block",
+        "blocks",
+        "defineBlock",
+        "resolveBlocks",
+        "contributions",
+        "plugin",
+        "module",
+        "requires",
+        "useBlockSettings"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building",
+        "server": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-features/blocks",
+        "native": "@marktiderman/genesis-features/blocks",
+        "server": "@marktiderman/genesis-features/blocks"
+      },
+      "requires": [
+        "feature-registry"
+      ],
+      "contributes": [
+        "blocks prop on GenesisNativeApp",
+        "useBlocks",
+        "useBlockSettings"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "agent"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "defineBlock and resolveBlocks list every problem at once: a bad id, a self or unknown requirement, a cycle, an unknown contribution key, a duplicate id, and two blocks contributing the same nav entry, Settings row, route or slot.",
+        "resolveBlocks orders blocks after what they require, keeps only enabled blocks on the platform, and refuses (or with missing: drop, leaves out) a block whose requirement is off.",
+        "GenesisNativeApp runs its blocks' boot steps behind the splash, mounts their roots with the first outermost, puts their slot fills under the app's own slots, and shows the fatal screen with a BlockError when blocks don't resolve.",
+        "Not yet adopted by the starter's Settings screen or by a web shell."
+      ],
+      "reviewedAt": "2026-10-24",
+      "links": {
+        "code": [
+          "packages/features/src/blocks.ts",
+          "packages/features/src/graph.ts",
+          "packages/native/src/blocks.tsx",
+          "packages/supabase/src/blocks.ts"
+        ],
+        "docs": [
+          "packages/features/README.md",
+          "packages/native/README.md"
+        ]
+      },
       "access": "all",
       "flags": []
     },
@@ -1972,7 +2047,7 @@
     {
       "id": "push",
       "name": "Push and notification preferences",
-      "summary": "The native push block: GenesisNativeApp's push prop registers this device's Expo push token for whoever signs in (once permission is granted) and forgets it on sign-out, account switch and deletion, makes the Android channels (one per category, private on the lock screen), decides what shows while the app is open, routes a tap (the one that launched the app too) through the deep-link normalizer and the held link, and keeps the badge. Permission is asked only through a soft pre-prompt the app offers at a moment of value, never at launch, with a cooldown after Not now. NotificationSettings (on SettingsPage) edits per-category switches, quiet hours with a time zone, and privacy previews; each part is a slot and a hook.",
+      "summary": "The native push block, a defineBlock block for GenesisNativeApp's blocks (a Settings row for notification settings, a boot step that reads the permission): it registers this device's Expo push token for whoever signs in (once permission is granted) and forgets it on sign-out, account switch and deletion, makes the Android channels (one per category, private on the lock screen), decides what shows while the app is open, routes a tap (the one that launched the app too) through the deep-link normalizer and the held link, and keeps the badge. Permission is asked only through a soft pre-prompt the app offers at a moment of value, never at launch, with a cooldown after Not now. NotificationSettings (on SettingsPage) edits per-category switches, quiet hours with a time zone, and privacy previews; each part is a slot and a hook.",
       "category": "Engagement",
       "status": "building",
       "claimedBy": "mark",
@@ -2322,6 +2397,74 @@
         "end user"
       ],
       "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "tenant-features",
+      "name": "Tenant feature switches",
+      "summary": "tenant_features in genesis-supabase: a tenant's admins turn a shipped feature off or back on for their tenant with a reason, every change kept (who, when, why); members read the ids that are off and hide them; private.tenant_feature_on gates SQL. Who is an admin or a member is the app's hook, never a table this package names. Exposure only, never authorization.",
+      "category": "Platform",
+      "status": "building",
+      "horizon": "now",
+      "layer": "service",
+      "keywords": [
+        "tenant",
+        "organization",
+        "workspace",
+        "team",
+        "per-tenant toggle",
+        "feature toggle",
+        "kill switch",
+        "set_tenant_feature",
+        "tenant_features_off"
+      ],
+      "platforms": {
+        "server": "building",
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-supabase",
+        "native": "@marktiderman/genesis-supabase"
+      },
+      "requires": [
+        "supabase-kit"
+      ],
+      "contributes": [
+        "table: tenant_features",
+        "table: tenant_feature_changes",
+        "rpc: set_tenant_feature",
+        "rpc: tenant_features_off",
+        "rpc: tenant_feature_settings",
+        "rpc: tenant_feature_history"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "set_tenant_feature changes a switch only for an admin by the app's private.genesis_tenant_admin hook, refuses everyone else (and everyone, without the hook) with 42501, needs a reason, and records the change with who and when.",
+        "tenant_features_off returns a tenant's off ids to its members and admins only; a feature with no row is on.",
+        "anon and authenticated reach the tables only through the functions, granted and revoked by name; deleting a person never fails on these tables.",
+        "Not yet used by an app with a real membership hook."
+      ],
+      "reviewedAt": "2026-10-24",
+      "links": {
+        "code": [
+          "packages/supabase/migrations/0004_genesis_tenant_features.sql",
+          "packages/supabase/src/tenant-features.ts"
+        ],
+        "docs": [
+          "packages/supabase/README.md"
+        ]
+      },
       "access": "all",
       "flags": []
     },

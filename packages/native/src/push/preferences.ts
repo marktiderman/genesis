@@ -90,7 +90,9 @@ export function createPreferencesStore(options: {
     update(change) {
       const id = userId;
       const mine = generation;
-      if (!id) return Promise.resolve(false);
+      // Only on top of the server's copy: a change made while it loads (or after a failed load)
+      // would save the defaults over it, turning a hidden preview back on.
+      if (!id || store.getState().status !== "ready") return Promise.resolve(false);
       const next = change(store.getState().preferences);
       if (!validPreferences(next)) return Promise.resolve(false);
       pending++;

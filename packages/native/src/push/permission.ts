@@ -173,6 +173,8 @@ export function createPromptStore(options: PromptOptions & {
       return permission.request();
     },
     async decline() {
+      // Only from the sheet: a dismissal that fires as it closes after "Turn on" isn't a "Not now".
+      if (!store.getState().visible) return;
       store.setState({ visible: false });
       const declines = await readDeclines();
       memory = { count: declines.count + 1, at: now() };

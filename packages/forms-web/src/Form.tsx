@@ -2,7 +2,6 @@ import {
   useContext,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -16,7 +15,7 @@ import { Button } from "@marktiderman/genesis-ui/button";
 import { Progress } from "@marktiderman/genesis-ui/progress";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import {
-  formProgress,
+  contentText,
   type CreateFormOptions,
   type FieldBlock,
   type FormDefinition,
@@ -25,15 +24,16 @@ import {
   type FormState,
   type HostOptions,
   type PhotoRef,
-  respondentPath,
   type LinkParams,
 } from "@marktiderman/genesis-forms";
 import {
   FieldRenderer,
+  formEngineOptions,
   FormRuntime,
   useForm,
   useFormContext,
-  useFormSelector,
+  useFormController,
+  type FocusTarget,
   type RendererRegistry,
 } from "@marktiderman/genesis-forms-react";
 import { FormPresentationProvider, useFormPresentation, type FormPresentation } from "./presentation";
@@ -562,11 +562,9 @@ export interface FormProps {
   testID?: string | undefined;
 }
 
-const ADVANCE_DELAY_MS = 250;
-/** How long after a step forward `onProgress` waits, so quick steps save once. */
-export const PROGRESS_DELAY_MS = 400;
-/** In classic layout, how long after the last answer changed. */
-export const CLASSIC_PROGRESS_DELAY_MS = 1500;
+// The step and send logic lives in `useFormController` (genesis-forms-react), shared with the
+// native renderer; these timings are its.
+export { CLASSIC_PROGRESS_DELAY_MS, PROGRESS_DELAY_MS } from "@marktiderman/genesis-forms-react";
 
 // A stable key per engine, so a new engine starts the form body over.
 const engineKeys = new WeakMap<FormEngine, number>();
@@ -585,14 +583,7 @@ export function Form(props: FormProps) {
 }
 
 function OwnedForm(props: FormProps) {
-  const options =
-    props.hostOptions || props.linkParams
-      ? {
-          ...props.options,
-          ...(props.hostOptions ? { hostOptions: props.hostOptions } : {}),
-          ...(props.linkParams ? { linkParams: props.linkParams } : {}),
-        }
-      : props.options;
+  const options = formEngineOptions(props.options, { hostOptions: props.hostOptions, linkParams: props.linkParams });
   const engine = useForm(props.form, options);
   return <FormWithEngine {...props} engine={engine} />;
 }
@@ -648,194 +639,66 @@ function FormBody({
 }: FormProps & { engine: FormEngine; pendingUploads: PendingUploads }) {
   const { idPrefix } = useFormContext();
   const def = engine.definition;
-  const layout = layoutProp ?? def.layout?.mode ?? "classic";
-  const status = useFormSelector(engine, (s) => s.status);
-  const current = useFormSelector(engine, (s) => s.current);
-  // The questions the respondent sees: the path without any a link prefilled and hides.
-  const pathKey = useFormSelector(engine, (s) => JSON.stringify(respondentPath(def, s)));
-  // A string, so typing (which builds a new errors object) doesn't re-render the whole form.
-  const errorsKey = useFormSelector(engine, (s) => JSON.stringify(s.errors));
-  const ending = useFormSelector(engine, (s) => s.ending);
-  const historyLength = useFormSelector(engine, (s) => s.history.length);
-  // The introduction recalls like endings do ({{field:name}}, {{hidden:owner}}), so it follows
-  // the answers; a string, so it re-renders only when the recalled text changes.
-  const description = useFormSelector(engine, () => (def.description ? engine.text(def.description) : undefined));
-  const path = JSON.parse(pathKey) as string[];
-  const errors = JSON.parse(errorsKey) as Record<string, string>;
   const formRef = useRef<HTMLFormElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
   const endingRef = useRef<HTMLDivElement>(null);
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const previousCurrent = useRef(current);
-  const [phase, setPhase] = useState<"idle" | "sending" | "sent" | "failed">("idle");
-  const [announcement, setAnnouncement] = useState("");
-  const [summaryRequest, setSummaryRequest] = useState(0);
-  const sending = useRef(false);
-  // Which way the last step went, so page mode slides the new question in from that side.
-  const direction = useRef<"forward" | "back">("forward");
   // "Ctrl" until mounted, so the server and the first client render agree.
   const [modKey, setModKey] = useState("Ctrl");
   const page = presentation === "page";
+
+  // The controller decides when focus moves; this decides where in the DOM.
+  const focus = (target: FocusTarget) => {
+    if (target.kind === "step") focusWithin(stepRef.current);
+    else if (target.kind === "ending") focusWithin(endingRef.current);
+    else if (target.kind === "errorSummary") {
+      const form = formRef.current;
+      const summary = form?.querySelector<HTMLElement>("[data-gf-error-summary]");
+      if (summary) summary.focus();
+      else form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    } else {
+      // The submit button is disabled while sending, which drops focus; put it back on "Try again".
+      const form = formRef.current;
+      if (form && !form.contains(document.activeElement)) form.querySelector<HTMLElement>('[type="submit"]')?.focus();
+    }
+  };
+  const controller = useFormController(engine, {
+    layout: layoutProp,
+    onSubmit,
+    onChange,
+    onProgress,
+    autoAdvance,
+    waitFor: () => (pendingUploads.count() === 0 ? null : UPLOAD_WAIT_MESSAGE),
+    focus,
+  });
+  const {
+    layout,
+    status,
+    current,
+    path,
+    historyLength,
+    description,
+    phase,
+    announcement,
+    showEnding,
+    locked,
+    saveProgress,
+  } = controller;
 
   useEffect(() => {
     if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) setModKey("⌘");
   }, []);
 
-  const showEnding = status === "completed" && (phase === "sent" || !onSubmit);
-  // A completed response is final: the engine ignores edits, so the fields say so.
-  const locked = status === "completed";
-
-  useEffect(() => {
-    if (!onChange) return;
-    return engine.subscribe(() => onChange(engine.getState(), engine));
-  }, [engine, onChange]);
-
-  // Save answers as they go: a moment after each step forward (or, in classic layout,
-  // after the answers change), off the respondent's path. The latest onProgress is
-  // read when it fires, so a host passing a new function each render keeps one timer.
-  const saveProgress = def.settings?.saveProgress === true && !!onProgress;
-  const onProgressRef = useRef(onProgress);
-  onProgressRef.current = onProgress;
+  // Leaving the page (closing the tab, switching away on a phone) sends a pending save now.
+  const { flushProgress } = controller;
   useEffect(() => {
     if (!saveProgress) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let last = engine.getState();
-    const fire = () => {
-      timer = undefined;
-      if (engine.getState().status === "completed") return;
-      try {
-        void Promise.resolve(onProgressRef.current?.(engine, formProgress(engine))).catch(() => {});
-      } catch {
-        // A host's error never reaches the respondent; the next step saves again.
-      }
-    };
-    const schedule = (delay: number) => {
-      clearTimeout(timer);
-      timer = setTimeout(fire, delay);
-    };
-    const unsubscribe = engine.subscribe(() => {
-      const state = engine.getState();
-      const previous = last;
-      last = state;
-      if (state.status === "completed") {
-        clearTimeout(timer);
-        timer = undefined;
-        return;
-      }
-      const event = state.events[state.events.length - 1];
-      if (layout === "focus") {
-        if (event?.type === "next" && state.current !== previous.current) schedule(PROGRESS_DELAY_MS);
-      } else if (event?.type === "answer") schedule(CLASSIC_PROGRESS_DELAY_MS);
-    });
-    // Leaving the page (closing the tab, switching away on a phone) sends a pending save now.
-    const flush = () => {
-      if (timer === undefined) return;
-      clearTimeout(timer);
-      fire();
-    };
-    window.addEventListener("pagehide", flush);
-    return () => {
-      unsubscribe();
-      window.removeEventListener("pagehide", flush);
-      flush();
-    };
-  }, [engine, saveProgress, layout]);
-
-  // A new question cancels a pending auto-advance and, in focus layout, takes
-  // focus: the input of a text field, otherwise the visible question. Comparing
-  // with the previous question (not a "mounted" flag) keeps StrictMode's
-  // double effect run from stealing focus on first render. A layout effect, so
-  // keys typed right after advancing land in the new input.
-  useLayoutEffect(() => {
-    if (previousCurrent.current === current) return;
-    previousCurrent.current = current;
-    clearTimeout(advanceTimer.current);
-    if (layout === "focus") focusWithin(stepRef.current);
-  }, [current, layout]);
-
-  useLayoutEffect(() => {
-    if (showEnding) focusWithin(endingRef.current);
-  }, [showEnding]);
-
-  useLayoutEffect(() => {
-    if (!summaryRequest) return;
-    const form = formRef.current;
-    const summary = form?.querySelector<HTMLElement>("[data-gf-error-summary]");
-    if (summary) summary.focus();
-    else form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
-  }, [summaryRequest]);
-
-  // The submit button is disabled while sending, which drops focus; put it back on "Try again".
-  useLayoutEffect(() => {
-    if (phase !== "failed") return;
-    const form = formRef.current;
-    if (form && !form.contains(document.activeElement)) form.querySelector<HTMLElement>('[type="submit"]')?.focus();
-  }, [phase]);
-
-  useEffect(() => () => clearTimeout(advanceTimer.current), []);
-
-  /** Say something once in the persistent live region, even if it's the same text as last time. */
-  const announce = (message: string) =>
-    setAnnouncement((previous) => (previous === message ? `${message} ` : message));
-  const announceStepError = () => {
-    const state = engine.getState();
-    const message = state.current ? state.errors[state.current] : undefined;
-    if (message) announce(message);
-  };
-
-  /** True (and says so) while a photo is still on its way: the form waits for it. */
-  const waitingForUploads = () => {
-    if (pendingUploads.count() === 0) return false;
-    announce(UPLOAD_WAIT_MESSAGE);
-    return true;
-  };
-
-  const finish = async () => {
-    if (sending.current) return;
-    if (engine.getState().status !== "completed" && waitingForUploads()) return;
-    // A retry after a failed onSubmit finds the response already completed.
-    if (engine.getState().status !== "completed" && !engine.submit()) {
-      if (layout === "classic") setSummaryRequest((n) => n + 1);
-      else announceStepError();
-      return;
-    }
-    if (!onSubmit) {
-      setPhase("sent");
-      return;
-    }
-    sending.current = true;
-    setPhase("sending");
-    try {
-      await onSubmit(engine);
-      setPhase("sent");
-    } catch {
-      setPhase("failed");
-    } finally {
-      sending.current = false;
-    }
-  };
-
-  const isLastStep = (state: FormState) => {
-    const shown = respondentPath(def, state);
-    return state.current === shown[shown.length - 1];
-  };
-
-  const advance = () => {
-    if (waitingForUploads()) return;
-    direction.current = "forward";
-    if (isLastStep(engine.getState())) void finish();
-    else if (!engine.next()) announceStepError();
-  };
-
-  const submit = () => {
-    clearTimeout(advanceTimer.current);
-    if (layout === "focus") advance();
-    else void finish();
-  };
+    window.addEventListener("pagehide", flushProgress);
+    return () => window.removeEventListener("pagehide", flushProgress);
+  }, [saveProgress, flushProgress]);
 
   const handleSubmit = (e: ReactFormEvent) => {
     e.preventDefault();
-    submit();
+    controller.submit();
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -845,7 +708,7 @@ function FormBody({
     if (target instanceof HTMLTextAreaElement) {
       if (e.metaKey || e.ctrlKey) {
         e.preventDefault();
-        submit();
+        controller.submit();
       }
       return;
     }
@@ -853,29 +716,13 @@ function FormBody({
     // it continues, like the OK button. A text input submits natively.
     if (layout === "focus" && target.matches('[role="radio"], [role="checkbox"]')) {
       e.preventDefault();
-      submit();
+      controller.submit();
     }
   };
 
   // Auto-advance never submits: on the last question the respondent presses Submit.
-  const scheduleAdvance =
-    layout === "focus" && autoAdvance
-      ? () => {
-          clearTimeout(advanceTimer.current);
-          advanceTimer.current = setTimeout(() => {
-            const state = engine.getState();
-            if (state.status === "completed" || isLastStep(state)) return;
-            direction.current = "forward";
-            if (!engine.next()) announceStepError();
-          }, ADVANCE_DELAY_MS);
-        }
-      : undefined;
-
-  const goBack = () => {
-    clearTimeout(advanceTimer.current);
-    direction.current = "back";
-    engine.back();
-  };
+  const scheduleAdvance = controller.onAdvance;
+  const goBack = controller.back;
 
   // Rendered in both branches at the same position, so it exists before anything is announced.
   const liveRegion = (
@@ -895,7 +742,7 @@ function FormBody({
     : null;
 
   if (showEnding) {
-    const end = def.endings?.find((x) => x.id === ending) ?? def.endings?.[0];
+    const end = controller.ending;
     const endingNode = renderSlot(
       DefaultEnding,
       slots?.ending,
@@ -961,7 +808,7 @@ function FormBody({
             )}
             {...focusable}
           >
-            {engine.text(block.text)}
+            {engine.text(contentText(block))}
           </h2>
         ) : (
           <p
@@ -969,7 +816,7 @@ function FormBody({
             className={cn("rounded-sm text-muted-foreground", pageFocus && "text-lg sm:text-xl text-pretty", focusRing)}
             {...focusable}
           >
-            {engine.text(block.text)}
+            {engine.text(contentText(block))}
           </p>
         );
       return pageClassic ? (
@@ -988,16 +835,8 @@ function FormBody({
     );
   };
 
-  const step = current ? Math.max(1, path.indexOf(current) + 1) : 1;
-  const isLast = layout === "classic" || current === path[path.length - 1];
-  const errorItems: ErrorSummaryItem[] = path
-    .filter((id) => errors[id])
-    .map((id) => ({
-      id,
-      label: engine.text(engine.field(id)?.label ?? id),
-      message: errors[id]!,
-      href: `#${idPrefix}-${id}`,
-    }));
+  const { step, isLast } = controller;
+  const errorItems: ErrorSummaryItem[] = controller.errorList.map((e) => ({ ...e, href: `#${idPrefix}-${e.id}` }));
   const currentField = pageFocus && current ? engine.field(current) : undefined;
   const keyHint = currentField ? (currentField.type === "long-text" ? `${modKey} + Enter` : "Enter ↵") : undefined;
 
@@ -1044,7 +883,7 @@ function FormBody({
             "outline-none",
             pageFocus &&
               "transition-[opacity,translate] duration-300 ease-out starting:opacity-0 motion-reduce:transition-none",
-            pageFocus && (direction.current === "back" ? "starting:-translate-y-6" : "starting:translate-y-6"),
+            pageFocus && (controller.direction === "back" ? "starting:-translate-y-6" : "starting:translate-y-6"),
           )}
         >
           {current ? renderBlock(current, true) : null}
@@ -1064,7 +903,7 @@ function FormBody({
     DefaultNavigation,
     slots?.navigation,
     {
-      canGoBack: layout === "focus" && historyLength > 0 && !locked,
+      canGoBack: controller.canGoBack,
       isLast: isLast || status === "completed",
       busy: phase === "sending",
       failed: phase === "failed",

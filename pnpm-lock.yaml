@@ -974,6 +974,9 @@ importers:
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../design-system
+      '@marktiderman/genesis-features':
+        specifier: workspace:^
+        version: link:../features
       '@marktiderman/genesis-ui-native':
         specifier: workspace:^
         version: link:../ui-native
@@ -1110,6 +1113,10 @@ importers:
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@20.11.1)(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
 
   packages/supabase:
+    dependencies:
+      '@marktiderman/genesis-features':
+        specifier: workspace:^
+        version: link:../features
     devDependencies:
       '@supabase/supabase-js':
         specifier: ^2.118.0

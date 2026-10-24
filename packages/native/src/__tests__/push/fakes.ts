@@ -85,3 +85,15 @@ export function fakeBackend(saved: NotificationPreferences | null = null) {
 }
 
 export const prefs = (change: Partial<NotificationPreferences> = {}): NotificationPreferences => ({ ...DEFAULT_PREFERENCES, ...change });
+
+/** React Native's AppState, faked: `emit("active")` plays a change. */
+export function fakeAppState() {
+  const listeners = new Set<(state: string) => void>();
+  return {
+    addEventListener: (_type: "change", listener: (state: string) => void) => {
+      listeners.add(listener);
+      return { remove: () => void listeners.delete(listener) };
+    },
+    emit: (state: string) => listeners.forEach((l) => l(state)),
+  };
+}

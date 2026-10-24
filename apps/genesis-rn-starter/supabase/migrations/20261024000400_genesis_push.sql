@@ -38,11 +38,13 @@
 -- for Push Notifications" in your Expo project and give the sender
 -- EXPO_ACCESS_TOKEN as well.
 --
--- Quiet hours are read in the person's time zone, may run past midnight
--- (22:00 to 07:00), and end at `quiet_hours_end` local time even across a
--- daylight-saving change. A start equal to the end means no quiet hours (not
--- all day). A zone that later vanishes from the server's tz database turns
--- quiet hours off rather than silencing the person.
+-- Quiet hours are read in the person's time zone and may run past midnight
+-- (22:00 to 07:00). Each night's window runs from the first moment the local
+-- clock reads the start to the first moment after it that it reads the end,
+-- so a daylight-saving change neither ends it early (a repeated hour) nor
+-- strands it (a skipped end time ends it at the change). A start equal to the
+-- end means no quiet hours (not all day). A zone that later vanishes from the
+-- server's tz database turns quiet hours off rather than silencing the person.
 --
 -- Deleting a login (any way) deletes its devices, preferences and receipts
 -- (foreign keys with on delete cascade).
@@ -213,12 +215,20 @@ begin
   if me is null then
     raise exception 'genesis_push_register: sign in first' using errcode = '42501';
   end if;
+  if p_token is null or p_platform is null then
+    raise exception 'genesis_push_register: malformed token, platform or app version' using errcode = '23514';
+  end if;
   delete from public.push_devices where token = p_token and user_id <> me;
   insert into public.push_devices as d (user_id, token, platform, app_version)
   values (me, p_token, p_platform, p_app_version)
   on conflict (token) do update
     set platform = excluded.platform, app_version = excluded.app_version, last_seen_at = now()
+    where d.user_id = me
   returning d.id into device;
+  if device is null then
+    -- Another login registered the same token in the same moment: never hand back its row.
+    raise exception 'genesis_push_register: the token changed hands; try again' using errcode = '40001';
+  end if;
   delete from public.push_devices d
   where d.user_id = me
     and d.id not in (
@@ -227,7 +237,7 @@ begin
     );
   return device;
 exception
-  when check_violation then
+  when check_violation or not_null_violation then
     -- Raised afresh so the error (and the server log) never carries the failing row, token and all.
     raise exception 'genesis_push_register: malformed token, platform or app version' using errcode = '23514';
 end;
@@ -248,6 +258,37 @@ $$;
 
 -- Server functions ----------------------------------------------------------
 
+-- The first instant at which the clock in `p_zone` reads `p_local` or later,
+-- coming from the day before: the first of a repeated (fall-back) time, the
+-- moment of the change for a skipped (spring-forward) one. Outside a change
+-- it is plain `at time zone`; near one (the zone's offset differs three hours
+-- either side) it walks back a minute at a time to the earliest crossing.
+create function private.genesis_push_local_instant(p_local timestamp, p_zone text)
+returns timestamptz
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  guess timestamptz := p_local at time zone p_zone;
+  t timestamptz;
+  found_at timestamptz := null;
+begin
+  if ((guess - interval '3 hours') at time zone p_zone) - (guess - interval '3 hours') at time zone 'UTC'
+     = ((guess + interval '3 hours') at time zone p_zone) - (guess + interval '3 hours') at time zone 'UTC' then
+    return guess;
+  end if;
+  t := guess + interval '1 hour';
+  while t > guess - interval '3 hours' loop
+    if (t at time zone p_zone) >= p_local and ((t - interval '1 minute') at time zone p_zone) < p_local then
+      found_at := t;
+    end if;
+    t := t - interval '1 minute';
+  end loop;
+  return coalesce(found_at, guess);
+end;
+$$;
+
 -- May `p_category` reach `p_user_id` at `p_at`? `deliver` is false with a
 -- `reason` ('category_off' or 'quiet_hours'; 'quiet_hours' says until when);
 -- `hide_previews` tells the sender to replace what the push says.
@@ -266,8 +307,11 @@ set search_path = ''
 as $$
 declare
   pref public.notification_preferences;
+  at_ timestamptz := coalesce(p_at, now());
   local_now timestamp;
-  local_end timestamp;
+  day date;
+  window_start timestamptz;
+  window_end timestamptz;
   quiet boolean := false;
 begin
   if p_category is null or p_category !~ '^[a-z0-9][a-z0-9._-]{0,63}$' then
@@ -286,23 +330,26 @@ begin
 
   if pref.quiet_hours_enabled and not coalesce(p_bypass_quiet_hours, false) and pref.quiet_hours_start <> pref.quiet_hours_end then
     begin
-      local_now := coalesce(p_at, now()) at time zone pref.time_zone;
+      local_now := at_ at time zone pref.time_zone;
     exception
       when invalid_parameter_value then
         local_now := null;
     end;
     if local_now is not null then
-      if pref.quiet_hours_start < pref.quiet_hours_end then
-        quiet := local_now::time >= pref.quiet_hours_start and local_now::time < pref.quiet_hours_end;
-      else
-        quiet := local_now::time >= pref.quiet_hours_start or local_now::time < pref.quiet_hours_end;
-      end if;
-      if quiet then
-        local_end := local_now::date + pref.quiet_hours_end;
-        if local_end <= local_now then
-          local_end := local_end + interval '1 day';
+      -- The latest window that has started: tonight's, or last night's.
+      foreach day in array array[local_now::date, local_now::date - 1] loop
+        window_start := private.genesis_push_local_instant(day + pref.quiet_hours_start, pref.time_zone);
+        if window_start <= at_ then
+          window_end := private.genesis_push_local_instant(
+            day + pref.quiet_hours_end + case when pref.quiet_hours_end < pref.quiet_hours_start then interval '1 day' else interval '0' end,
+            pref.time_zone
+          );
+          quiet := at_ < window_end;
+          exit;
         end if;
-        quiet_until := local_end at time zone pref.time_zone;
+      end loop;
+      if quiet then
+        quiet_until := window_end;
       end if;
     end if;
   end if;
@@ -407,7 +454,7 @@ set search_path = ''
 as $$
 declare
   settled integer;
-  dead uuid[];
+  dead jsonb;
 begin
   if jsonb_typeof(p_results) is distinct from 'array' or jsonb_array_length(p_results) > 1000 then
     raise exception 'genesis_push_receipts_settle: expected an array of at most 1000 results' using errcode = '22023';
@@ -421,14 +468,17 @@ begin
     set status = s.status, error = case when s.status = 'failed' then s.error end, check_after = null, checked_at = now()
     from results s
     where r.id = s.id and r.status = 'sent'
-    returning r.device_id, r.error
+    returning r.device_id, r.error, r.created_at
   )
-  select count(*), array_agg(u.device_id) filter (where u.error = 'DeviceNotRegistered' and u.device_id is not null)
+  select count(*), jsonb_agg(jsonb_build_object('device_id', u.device_id, 'sent_at', u.created_at)) filter (where u.error = 'DeviceNotRegistered' and u.device_id is not null)
   into settled, dead
   from updated u;
-  -- A separate statement: the receipts' foreign key sets their device_id to null.
+  -- A separate statement: the receipts' foreign key sets their device_id to null. A device
+  -- registered again after the push was sent is alive again, so it stays.
   if dead is not null then
-    delete from public.push_devices d where d.id = any (dead);
+    delete from public.push_devices d
+    using jsonb_to_recordset(dead) as x (device_id uuid, sent_at timestamptz)
+    where d.id = x.device_id and d.last_seen_at <= x.sent_at;
   end if;
   return settled;
 end;
@@ -455,6 +505,7 @@ $$;
 -- blanket `grant … on all functions` would hand them back, so such a grant
 -- must exclude them.
 revoke execute on function private.genesis_notification_preferences_check() from public, anon, authenticated;
+revoke execute on function private.genesis_push_local_instant(timestamp, text) from public, anon, authenticated;
 revoke execute on function public.genesis_push_register(text, text, text) from public, anon, authenticated;
 revoke execute on function public.genesis_push_forget(text) from public, anon, authenticated;
 revoke execute on function public.genesis_push_status(uuid, text, boolean, boolean, timestamptz) from public, anon, authenticated;

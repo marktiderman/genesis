@@ -182,3 +182,15 @@ export async function deleteMyAccount(client: DeleteAccountClient, options: Dele
   // The login is gone and its refresh tokens with it: only this device's copy is left to clear.
   await client.auth.signOut({ scope: "local" });
 }
+export {
+  tenantFeatures,
+  setTenantFeature,
+  tenantFeatureSettings,
+  tenantFeatureHistory,
+  type SetTenantFeatureInput,
+  type TenantFeatureChange,
+  type TenantFeatureSetting,
+  type TenantFeatures,
+  type TenantFeaturesClient,
+} from "./tenant-features";
+export { accountBlock, tenantFeaturesBlock } from "./blocks";

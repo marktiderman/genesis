@@ -38,5 +38,5 @@ export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   keyboardScroll: features.keyboardScroll ? KeyboardAwareScrollView : undefined,
   links: features.deepLinks ? { hold: linkHold, onRelease: (path) => router.replace(path as Href) } : undefined,
   updates: features.updates ? createStarterUpdates() : undefined,
-  push: features.push ? createStarterPush() : undefined,
+  blocks: features.push ? [createStarterPush()] : undefined,
 };

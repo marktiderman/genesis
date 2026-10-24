@@ -340,9 +340,11 @@ under a new timestamped name, its pgTAP test (`migrations/tests/0005_genesis_pus
   `genesis_push_devices_forget`.
 - **Who to push to:** `genesis_push_targets(user, category, default_on, bypass_quiet_hours, at)`
   returns the person's devices, or none when they turned the category off or are in quiet hours.
-  Quiet hours are read in their time zone (start inclusive, end exclusive, past midnight when the
-  start is later, ending at the local end time across a daylight-saving change); a start equal to
-  the end is no quiet hours, and a zone the server no longer knows never silences anyone.
+  Quiet hours are read in their time zone: each night's window runs from the first moment the
+  local clock reads the start to the first moment after it that it reads the end (past midnight
+  when the start is later), so a repeated fall-back hour doesn't restart it and a skipped
+  spring-forward end time ends it at the change. A start equal to the end is no quiet hours, and a
+  zone the server no longer knows never silences anyone.
   `genesis_push_status` says why and until when (`quiet_until`), so a caller can send later.
 - **An Expo push token is a credential.** Only its owner and the service role can read one. Turn
   on enhanced push security in your Expo project and give the function `EXPO_ACCESS_TOKEN`, so a
@@ -365,18 +367,23 @@ Authorization: Bearer <GENESIS_PUSH_SECRET>
     "url": "/messages/42", "badge": 3 } ] }
 ```
 
-Up to 100 messages a request; each may set `subtitle`, `data` (ids, not content), `sound: null`,
+Up to 100 messages a request, each at most 3500 bytes of title, subtitle, body, url and data
+(UTF-8, so it fits Expo's 4 KB); each may set `subtitle`, `data` (ids, not content), `sound: null`,
 `defaultOn`, `urgent` (through quiet hours), `channelId` and `ttlSeconds`. The answer has one result
 per message (`deliver`, `reason`: `ok`, `category_off`, `quiet_hours`, `no_devices`; `quietUntil`;
 `sent`, `failed`). It sends through Expo in batches of 100, resends a batch Expo refused outright
 one by one (so one bad token can't silence the rest), never resends one that timed out or got a
-429 or 5xx (it may have been delivered), records a receipt row per ticket and forgets the devices
-Expo calls `DeviceNotRegistered`. For someone who hides previews, the title and body are replaced
-and the subtitle and `data` dropped on the server; the tap still opens `url`.
+429 or 5xx (it may have been delivered), records the receipt rows of each batch as it goes and
+forgets the devices Expo calls `DeviceNotRegistered`. It starts no send after 100 seconds, so a
+large or refused run ends inside the function's wall clock; what it didn't send is answered as
+`unsent` (send those again). For someone who hides previews, the title and body are replaced and
+the subtitle and `data` dropped on the server; the tap still opens `url`, and `category` still
+travels, so keep both opaque (ids, never words or search text).
 
 Schedule `{ "action": "receipts" }` every 15 minutes (pg_cron with pg_net, or any scheduler): it
-claims the tickets that are due, asks Expo for their receipts, records delivered or failed, forgets
-dead devices, and logs `InvalidCredentials` loudly (your APNs or FCM credentials in EAS are wrong).
+claims the tickets that are due (1000 at a time, again while full claims come back, within the
+same time budget), asks Expo for their receipts, records delivered or failed, forgets dead devices
+(not one registered again since the push), and logs `InvalidCredentials` loudly (your APNs or FCM credentials in EAS are wrong).
 Logs and answers carry counts, statuses and Expo's error codes only: never a token, a title, a
 body or `data`.
 
@@ -386,6 +393,73 @@ body or `data`.
   nothing has been delivered through APNs or FCM (that needs an EAS project with push credentials).
 - **Scheduling for later.** A message held by quiet hours is answered with `quietUntil`, not queued:
   resend it then if it still matters.
+
+## Tenant features
+
+Per-tenant switches for shipped features: a tenant's admins turn a feature off (or back on) for
+their tenant with a reason, and its members hide what is off. "Tenant" is whatever your app groups
+people by (a team, an organization, a workspace), keyed by a uuid. A switch controls exposure,
+never authorization (that is RLS) and never paid access (that is an entitlement).
+
+Copy `migrations/0004_genesis_tenant_features.sql` into `supabase/migrations/` under a timestamped
+name, and its pgTAP test into `supabase/tests/database/`. Then give it your membership rule as a
+hook, in your own migration:
+
+```sql
+create function private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean
+language sql stable set search_path = '' as $$
+  select exists (select 1 from public.memberships m
+                 where m.team_id = tenant and m.user_id = person and m.role in ('owner', 'admin'))
+$$;
+revoke execute on function private.genesis_tenant_admin(uuid, uuid) from public, anon, authenticated;
+-- Optional: who may read which features are off (admins always may).
+-- create function private.genesis_tenant_member(tenant uuid, person uuid) returns boolean …
+alter table public.tenant_features add foreign key (tenant_id) references public.teams (id) on delete cascade;
+alter table public.tenant_feature_changes add foreign key (tenant_id) references public.teams (id) on delete cascade;
+```
+
+Without the admin hook nobody can change a switch (`42501`, with a hint): it fails closed.
+
+```ts
+import { setTenantFeature, tenantFeatures, tenantFeatureHistory } from "@marktiderman/genesis-supabase";
+
+const features = await tenantFeatures(supabase, teamId); // members and admins; 42501 for anyone else
+if (features.isOn("chat")) showChatTab();
+
+await setTenantFeature(supabase, { tenantId: teamId, featureId: "chat", enabled: false, reason: "Launching next month" });
+const history = await tenantFeatureHistory(supabase, teamId); // admins: who, when, why, newest first
+```
+
+| | |
+| --- | --- |
+| `public.set_tenant_feature(tenant, feature, enabled, reason)` | admins only (the hook); a reason of 1 to 500 characters; a FeatureId-shaped id |
+| `public.tenant_features_off(tenant)` | the ids that are off; members (`private.genesis_tenant_member`) and admins |
+| `public.tenant_feature_settings(tenant)` | every switch with its reason, who and when; admins |
+| `public.tenant_feature_history(tenant, max_rows)` | every change, newest first; admins |
+| `private.tenant_feature_on(tenant, feature)` | for SQL gates; a feature with no row is on |
+
+Every change, through the function or by the service role writing the table directly, is
+recorded by a trigger in `public.tenant_feature_changes` with the person (none for the service
+role or a migration), the JWT role and the time. The tables have row level security on with no
+policies and no grants to anon or authenticated: they are reached only through the functions,
+each security definer with an empty `search_path`, granted and revoked by name. Deleting a
+person never fails on these tables; their changes stay, without them.
+
+`private.tenant_feature_on` answers for any tenant, without the member check, so it is granted to
+nobody but the service role: call it from your own security definer functions (owned by the
+migration's role, they need no grant). Granting it to authenticated, with usage on `private`, lets
+every signed-in person ask about any tenant.
+
+A delete that cascades into `tenant_features` (from your tenant table, or a person whose tenant
+goes with them) isn't recorded, so it never refuses the tenant's or the person's deletion; saving
+the same switch and reason again changes nothing, not even who and when.
+
+## Blocks
+
+`accountBlock` and `tenantFeaturesBlock` are `defineBlock` declarations
+(`@marktiderman/genesis-features/blocks`) of what this package's blocks need: their migrations
+(with their tests) and, for the account, what it means for the stores' privacy forms. The
+functions above don't change; the declarations are for `resolveBlocks` and the shell.
 
 ## Choices, and why
 

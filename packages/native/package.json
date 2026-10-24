@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "The native app shell for Genesis Expo apps: one GenesisNativeApp root that runs boot steps behind the splash, catches errors into a fatal screen with retry, persists the query cache, gates on the Supabase session and normalizes deep links. An optional updates block (/updates) adds force upgrade, maintenance, an update banner and what's new; an optional push block (/push) adds push registration, tap routing, the badge and a notification settings screen with quiet hours and private previews. Every part is a slot and is also exported on its own. Part of the Genesis framework.",
+  "description": "The native app shell for Genesis Expo apps: one GenesisNativeApp root that runs boot steps behind the splash, catches errors into a fatal screen with retry, persists the query cache, gates on the Supabase session and normalizes deep links. An optional updates block (/updates) adds force upgrade, maintenance, an update banner and what's new; an optional push block (/push) adds push registration, tap routing, the badge and a notification settings screen with quiet hours and private previews. Blocks (defineBlock declarations, through `blocks`) add boot steps, roots, slot fills and Settings rows. Every part is a slot and is also exported on its own. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -50,6 +50,7 @@
   "dependencies": {
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-features": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^"
   },
   "peerDependencies": {

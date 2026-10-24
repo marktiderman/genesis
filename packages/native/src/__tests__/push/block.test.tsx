@@ -6,9 +6,10 @@ import { createMockProvider } from "@marktiderman/genesis-core/provider";
 import { GenesisNativeApp, type GenesisNativeAppProps } from "../../app";
 import type { ErrorUtilsLike } from "../../errors";
 import { createLinkHold } from "../../held-link";
+import { useBlockSettings } from "../../blocks";
 import { createPush, usePushPrompt, useSuppressNotifications, type PushOptions } from "../../push";
 import { fakeSupabase, memoryStorage, settle } from "../fakes";
-import { fakeBackend, fakeNotifications, permission, tap } from "./fakes";
+import { fakeAppState, fakeBackend, fakeNotifications, permission, tap } from "./fakes";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -36,7 +37,7 @@ function setup(options: Partial<PushOptions> & { user?: string | null } = {}, pr
   });
   const supabase = fakeSupabase(options.user === null ? null : { user: { id: options.user ?? "u1" } });
   const utils = render(
-    <GenesisNativeApp brand={genesisBrand} supabase={supabase.client} provider={provider} errorUtils={errorUtils} rejectionTracker={null} push={push} {...props}>
+    <GenesisNativeApp brand={genesisBrand} supabase={supabase.client} provider={provider} errorUtils={errorUtils} rejectionTracker={null} blocks={[push]} {...props}>
       {props.children ?? <span data-testid="screens">screens</span>}
     </GenesisNativeApp>,
   );
@@ -79,7 +80,7 @@ describe("the push block: registration follows the session", () => {
     expect(b.calls).toEqual(["register ExponentPushToken[device-1] ios 1.2.0", "forget ExponentPushToken[device-1]"]);
     expect(n.module.setBadgeCountAsync).toHaveBeenCalledWith(0);
     expect(storage.data.has("genesis:push:device")).toBe(false);
-    expect(await n.present({ url: "/x" })).toMatchObject({ shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false });
+    expect(await n.present({ url: "/x" })).toEqual({ shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false, shouldSetBadge: false });
   });
 
   it("keeps a forget that failed offline and retries it at the next start", async () => {
@@ -190,7 +191,7 @@ describe("the push block: taps", () => {
   it("holds a tap made while signed out and opens it after sign-in (GenesisNativeApp's held link)", async () => {
     const n = fakeNotifications({ last: tap("/settings") });
     const l = links();
-    const { supabase } = setup({ notifications: n.module, user: null }, { links: l });
+    const { supabase } = setup({ notifications: n.module, user: null, hold: l.hold }, { links: l });
     await act(settle);
     expect(l.hold.peek()).toBe("/settings");
     expect(l.onRelease).not.toHaveBeenCalled();
@@ -199,12 +200,69 @@ describe("the push block: taps", () => {
     expect(l.onRelease).toHaveBeenCalledWith("/settings");
   });
 
-  it("uses GenesisNativeApp's links.onRelease when the block has no onOpen", async () => {
-    const n = fakeNotifications({ last: tap("/settings") });
-    const l = links();
-    setup({ notifications: n.module }, { links: l });
+  it("says so, never silently, when a tap has nowhere to go", async () => {
+    const signedIn = setup({ notifications: fakeNotifications({ last: tap("/settings") }).module });
     await act(settle);
-    expect(l.onRelease).toHaveBeenCalledWith("/settings");
+    expect(signedIn.errors.join("\n")).toContain("pass `onOpen`");
+    signedIn.unmount();
+    const signedOut = setup({ notifications: fakeNotifications({ last: tap("/settings", "n2") }).module, onOpen: vi.fn(), user: null });
+    await act(settle);
+    expect(signedOut.errors.join("\n")).toContain("pass `hold`");
+  });
+});
+
+describe("the push block: as a block", () => {
+  it("contributes a Notifications row with the permission as its subtitle, and reads the permission behind the splash", async () => {
+    const n = fakeNotifications({ status: permission.denied });
+    const navigate = vi.fn();
+    function Settings() {
+      const sections = useBlockSettings([], { navigate });
+      return (
+        <ul>
+          {sections.flatMap((s) => s.rows).map((r) => (
+            <li key={r.id} data-testid={r.testID} onClick={r.onPress}>
+              {r.title}: {r.subtitle}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    const { push } = setup({ notifications: n.module }, { children: <Settings /> });
+    await act(settle);
+    expect(push.id).toBe("push");
+    expect(push.bootSteps.map((s) => s.id)).toEqual(["genesis:push"]);
+    expect(screen.getByTestId("genesis-push-settings").textContent).toBe("Notifications: Off in Settings");
+    fireEvent.click(screen.getByTestId("genesis-push-settings"));
+    expect(navigate).toHaveBeenCalledWith("/settings/notifications");
+  });
+
+  it("drops the row with settingsRow: false", () => {
+    const push = createPush({ platform: "ios", backend: fakeBackend().backend, settingsRow: false });
+    expect(push.contributes?.settings).toEqual([]);
+  });
+});
+
+describe("the push block: coming back to the front", () => {
+  it("retries a forget that failed offline, and registers again if the last try failed", async () => {
+    const appState = fakeAppState();
+    const first = setup({ appState });
+    await act(settle);
+    first.b.backend.forget.mockRejectedValueOnce(new Error("Failed to fetch"));
+    act(() => first.supabase.emit("SIGNED_OUT", null));
+    await act(settle);
+    expect(first.storage.data.has("genesis:push:forget")).toBe(true);
+    act(() => appState.emit("active"));
+    await act(settle);
+    expect(first.storage.data.has("genesis:push:forget")).toBe(false);
+    expect(first.b.calls.at(-1)).toBe("forget ExponentPushToken[device-1]");
+
+    first.b.backend.register.mockRejectedValueOnce(new Error("Failed to fetch"));
+    act(() => first.supabase.emit("SIGNED_IN", { user: { id: "u2" } }));
+    await act(settle);
+    expect(first.push.registration.getState().status).toBe("error");
+    act(() => appState.emit("active"));
+    await act(settle);
+    expect(first.push.registration.getState().status).toBe("registered");
   });
 });
 
@@ -288,6 +346,17 @@ describe("the push block: the soft prompt", () => {
     expect(results).toEqual([true, false, true, false]);
     expect(JSON.parse(storage.data.get("genesis:push:prompt")!)).toMatchObject({ count: 2 });
     expect(n.module.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it("a dismissal that fires as the sheet closes after Turn on is not a Not now", async () => {
+    const { advance, storage, push } = promptSetup();
+    await act(settle);
+    advance(10_000);
+    fireEvent.click(screen.getByTestId("offer"));
+    await act(settle);
+    fireEvent.click(screen.getByTestId("genesis-push-prompt-accept"));
+    await act(() => push.prompt.decline());
+    expect(storage.data.has("genesis:push:prompt")).toBe(false);
   });
 
   it("never offers once the system won't ask again, or when already granted", async () => {

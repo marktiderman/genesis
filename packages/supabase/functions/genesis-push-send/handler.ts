@@ -104,7 +104,14 @@ export interface HandlerDeps {
   fetch: typeof fetch;
   store: PushStore;
   log: (message: string) => void;
+  /** Milliseconds now. Default `Date.now`. */
+  now?: () => number;
 }
+
+/** Stop starting new sends after this long, so the run ends (and records what it sent) inside an Edge Function's wall clock. */
+export const SEND_BUDGET_MS = 100_000;
+/** How many single sends run at once when a refused batch is resent one by one. */
+const SINGLE_CONCURRENCY = 10;
 
 export interface MessageResult {
   deliver: boolean;
@@ -162,7 +169,11 @@ export async function authorized(req: Request, secret: string): Promise<boolean>
 const isText = (v: unknown, max: number) => typeof v === "string" && v.length > 0 && v.length <= max;
 const optionalText = (v: unknown, max: number) => v === undefined || v === null || isText(v, max);
 
-/** A valid request, or null. Content limits keep a message under Expo's 4 KB payload. */
+const bytes = (value: unknown) => new TextEncoder().encode(typeof value === "string" ? value : JSON.stringify(value ?? null)).length;
+/** Title, subtitle, body, url and data together, in UTF-8 bytes: leaves room in Expo's 4096 for the rest. */
+export const MAX_CONTENT_BYTES = 3500;
+
+/** A valid request, or null. The content limit is in bytes, so a message stays under Expo's 4 KB payload. */
 export function readPushRequest(value: unknown): PushRequest | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const m = value as Record<string, unknown>;
@@ -182,6 +193,7 @@ export function readPushRequest(value: unknown): PushRequest | null {
   if (m.urgent !== undefined && typeof m.urgent !== "boolean") return null;
   if (m.channelId !== undefined && m.channelId !== null && !(typeof m.channelId === "string" && ID.test(m.channelId))) return null;
   if (m.ttlSeconds !== undefined && m.ttlSeconds !== null && !(Number.isInteger(m.ttlSeconds) && (m.ttlSeconds as number) >= 0 && (m.ttlSeconds as number) <= 2_419_200)) return null;
+  if (bytes(m.title) + bytes(m.subtitle ?? "") + bytes(m.body ?? "") + bytes(m.url ?? "") + (m.data ? bytes(m.data) : 0) > MAX_CONTENT_BYTES) return null;
   return m as unknown as PushRequest;
 }
 
@@ -189,7 +201,8 @@ export function readPushRequest(value: unknown): PushRequest | null {
  * What goes to Expo for one device. With previews hidden, the title becomes
  * neutral text and the body, subtitle and extra data are dropped: the words
  * never leave the server, so no lock screen, watch or notification log can
- * show them. The tap still opens `url`.
+ * show them. The tap still opens `url`, and `category` still travels: keep
+ * both opaque (ids, not words; no search text in a query string).
  */
 export function toExpoMessage(request: PushRequest, target: PushTarget, hidden: { title: string; body?: string }): ExpoMessage {
   const hide = target.hide_previews;
@@ -284,8 +297,23 @@ export async function send(requests: PushRequest[], deps: HandlerDeps) {
     }
   }
 
-  const tickets: TicketRow[] = [];
-  const dead: string[] = [];
+  const now = deps.now ?? Date.now;
+  const started = now();
+  const overBudget = () => now() - started > SEND_BUDGET_MS;
+  let tickets: TicketRow[] = [];
+  let dead: string[] = [];
+  let forgotten = 0;
+  // Recorded after every batch, so a run cut short still has receipts for what it sent.
+  const record = async () => {
+    const [t, d] = [tickets, dead];
+    tickets = [];
+    dead = [];
+    if (t.length) await deps.store.recordTickets(t).catch((error) => deps.log(`genesis-push-send: couldn't record tickets: ${describe(error)}`));
+    if (d.length) {
+      forgotten += d.length;
+      await deps.store.forgetDevices(d).catch((error) => deps.log(`genesis-push-send: couldn't forget dead devices: ${describe(error)}`));
+    }
+  };
   const settle = (batch: Outgoing[], answers: ExpoTicket[]) => {
     batch.forEach((item, i) => {
       const ticket = answers[i]!;
@@ -303,8 +331,15 @@ export async function send(requests: PushRequest[], deps: HandlerDeps) {
   };
   const fail = (batch: Outgoing[], code: string) => settle(batch, batch.map(() => ({ status: "error", details: { error: code } }) as ExpoTicket));
 
+  let unsent = 0;
   for (let i = 0; i < outgoing.length; i += EXPO_SEND_BATCH) {
     const batch = outgoing.slice(i, i + EXPO_SEND_BATCH);
+    if (overBudget()) {
+      // Out of time: these were never sent, so they're failed (and may be sent again by the caller).
+      unsent += batch.length;
+      fail(batch, "NotSent");
+      continue;
+    }
     try {
       settle(batch, await sendBatch(deps.fetch, batch.map((o) => o.message), accessToken));
     } catch (error) {
@@ -317,48 +352,72 @@ export async function send(requests: PushRequest[], deps: HandlerDeps) {
       // Expo refuses a whole request for one bad message (a token from another project, say):
       // send that batch one by one, so one device can't silence everyone else's.
       deps.log(`genesis-push-send: a batch of ${batch.length} was refused (${describeExpoError(error)}); sending it one by one`);
-      for (const item of batch) {
-        try {
-          settle([item], await sendBatch(deps.fetch, [item.message], accessToken));
-        } catch (single) {
-          fail([item], refusedOutright(single) ? "Refused" : "SendFailed");
+      for (let j = 0; j < batch.length; j += SINGLE_CONCURRENCY) {
+        const group = batch.slice(j, j + SINGLE_CONCURRENCY);
+        if (overBudget()) {
+          unsent += group.length;
+          fail(group, "NotSent");
+          continue;
         }
+        await Promise.all(
+          group.map(async (item) => {
+            try {
+              settle([item], await sendBatch(deps.fetch, [item.message], accessToken));
+            } catch (single) {
+              fail([item], refusedOutright(single) ? "Refused" : "SendFailed");
+            }
+          }),
+        );
       }
     }
+    await record();
   }
+  await record();
 
-  if (tickets.length) {
-    await deps.store.recordTickets(tickets).catch((error) => deps.log(`genesis-push-send: couldn't record tickets: ${describe(error)}`));
-  }
-  if (dead.length) {
-    await deps.store.forgetDevices(dead).catch((error) => deps.log(`genesis-push-send: couldn't forget dead devices: ${describe(error)}`));
-  }
   const sent = results.reduce((n, r) => n + r.sent, 0);
   const failed = results.reduce((n, r) => n + r.failed, 0);
-  deps.log(`genesis-push-send: ${requests.length} messages, ${outgoing.length} devices, ${sent} sent, ${failed} failed, ${dead.length} forgotten`);
-  return { sent, failed, forgotten: dead.length, results };
+  deps.log(`genesis-push-send: ${requests.length} messages, ${outgoing.length} devices, ${sent} sent, ${failed} failed, ${forgotten} forgotten${unsent ? `, ${unsent} not sent (out of time)` : ""}`);
+  return { sent, failed, forgotten, unsent, results };
 }
 
 /** Polls Expo for due receipts; returns the counts, with Expo's error codes. */
 export async function pollReceipts(deps: HandlerDeps) {
-  const accessToken = deps.env("EXPO_ACCESS_TOKEN") || undefined;
+  const now = deps.now ?? Date.now;
+  const started = now();
   const counts = { checked: 0, delivered: 0, failed: 0, pending: 0, errors: {} as Record<string, number> };
+  // A full claim means more may be due: keep going, within the time budget.
+  for (let round = 0; round < 20; round++) {
+    const claimed = await pollReceiptsOnce(deps, counts);
+    if (claimed < EXPO_RECEIPTS_BATCH || now() - started > SEND_BUDGET_MS) break;
+  }
+  const codes = Object.entries(counts.errors).map(([code, n]) => `${code} ${n}`).join(", ");
+  if (counts.checked || counts.pending) deps.log(`genesis-push-send: receipts ${counts.delivered} delivered, ${counts.failed} failed${codes ? ` (${codes})` : ""}, ${counts.pending} pending`);
+  // Credentials are a setup problem, not a phone's: say so loudly.
+  if (counts.errors.InvalidCredentials) deps.log("genesis-push-send: Expo reports InvalidCredentials: upload the APNs key / FCM credentials to your Expo project (eas credentials)");
+  return counts;
+}
+
+type ReceiptCounts = { checked: number; delivered: number; failed: number; pending: number; errors: Record<string, number> };
+
+/** One claim's worth; returns how many were claimed. */
+async function pollReceiptsOnce(deps: HandlerDeps, counts: ReceiptCounts): Promise<number> {
+  const accessToken = deps.env("EXPO_ACCESS_TOKEN") || undefined;
   let due: { id: number; ticket_id: string }[];
   try {
     due = await deps.store.claimReceipts(EXPO_RECEIPTS_BATCH);
   } catch (error) {
     deps.log(`genesis-push-send: couldn't claim receipts: ${describe(error)}`);
-    return counts;
+    return 0;
   }
-  if (due.length === 0) return counts;
+  if (due.length === 0) return 0;
   let receipts: Awaited<ReturnType<typeof getReceipts>>;
   try {
     receipts = await getReceipts(deps.fetch, due.map((d) => d.ticket_id), accessToken);
   } catch (error) {
     // The lease runs out and they come round again.
     deps.log(`genesis-push-send: couldn't fetch receipts: ${describeExpoError(error)}`);
-    counts.pending = due.length;
-    return counts;
+    counts.pending += due.length;
+    return 0;
   }
   const results: ReceiptResult[] = [];
   for (const row of due) {
@@ -379,9 +438,5 @@ export async function pollReceipts(deps: HandlerDeps) {
     }
   }
   if (results.length) await deps.store.settleReceipts(results);
-  const codes = Object.entries(counts.errors).map(([code, n]) => `${code} ${n}`).join(", ");
-  deps.log(`genesis-push-send: receipts ${counts.delivered} delivered, ${counts.failed} failed${codes ? ` (${codes})` : ""}, ${counts.pending} pending`);
-  // Credentials are a setup problem, not a phone's: say so loudly.
-  if (counts.errors.InvalidCredentials) deps.log("genesis-push-send: Expo reports InvalidCredentials: upload the APNs key / FCM credentials to your Expo project (eas credentials)");
-  return counts;
+  return due.length;
 }

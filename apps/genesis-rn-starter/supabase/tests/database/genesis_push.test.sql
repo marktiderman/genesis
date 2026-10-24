@@ -5,7 +5,7 @@
 -- transaction.)
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(71);
+select plan(79);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-0000000005' || n)::uuid, 'authenticated', 'authenticated', 'genesis-push-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -98,8 +98,10 @@ select ok(
 );
 select ok(
   not has_function_privilege('authenticated', 'private.genesis_notification_preferences_check()', 'execute')
-  and not has_function_privilege('anon', 'private.genesis_notification_preferences_check()', 'execute'),
-  'nobody but the owner can call the preferences check directly'
+  and not has_function_privilege('anon', 'private.genesis_notification_preferences_check()', 'execute')
+  and not has_function_privilege('authenticated', 'private.genesis_push_local_instant(timestamp, text)', 'execute')
+  and not has_function_privilege('anon', 'private.genesis_push_local_instant(timestamp, text)', 'execute'),
+  'nobody but the owner can call the private helpers directly'
 );
 
 -- Registering a device ----------------------------------------------------------
@@ -123,6 +125,7 @@ select is(
 select is((select app_version from public.push_devices where token = pg_temp.tok('a1')), '1.0.1', '... and updates its app version');
 select throws_ok($$ select public.genesis_push_register('not-a-token', 'ios') $$, '23514', 'genesis_push_register: malformed token, platform or app version', 'a malformed token is refused without echoing it');
 select throws_ok($$ select public.genesis_push_register(pg_temp.tok('a9'), 'windows') $$, '23514', null, 'an unknown platform is refused');
+select throws_ok($$ select public.genesis_push_register(pg_temp.tok('a9'), null) $$, '23514', 'genesis_push_register: malformed token, platform or app version', 'a missing platform is refused without quoting the row (and its token)');
 select throws_ok($$ insert into public.push_devices (user_id, token, platform) values (pg_temp.u('a1'), pg_temp.tok('a8'), 'ios') $$, '42501', null, 'a person cannot insert a device row directly');
 select throws_ok($$ update public.push_devices set user_id = pg_temp.u('b2') $$, '42501', null, 'a person cannot update a device row');
 reset role;
@@ -268,6 +271,41 @@ select is(
 );
 reset role;
 
+-- Clock changes in New York: spring forward 2027-03-14 02:00 EST -> 03:00 EDT, fall back 2027-11-07 02:00 EDT -> 01:00 EST.
+reset role;
+update public.notification_preferences set quiet_hours_start = '01:00', quiet_hours_end = '02:30' where user_id = pg_temp.u('a1');
+set local role service_role;
+select is(
+  (select row(deliver, quiet_until)::text from public.genesis_push_status(pg_temp.u('a1'), 'messages', p_at => '2027-03-14 06:30Z')),
+  (select row(false, '2027-03-14 07:00Z'::timestamptz)::text),
+  'an end time the spring change skips (02:30) ends quiet hours at the change (03:00 EDT)'
+);
+select is(
+  (select deliver from public.genesis_push_status(pg_temp.u('a1'), 'messages', p_at => '2027-03-14 07:00Z')),
+  true, '... and at the change it is no longer quiet'
+);
+reset role;
+update public.notification_preferences set quiet_hours_start = '22:00', quiet_hours_end = '01:30' where user_id = pg_temp.u('a1');
+set local role service_role;
+select is(
+  (select row(deliver, quiet_until)::text from public.genesis_push_status(pg_temp.u('a1'), 'messages', p_at => '2027-11-07 05:15Z')),
+  (select row(false, '2027-11-07 05:30Z'::timestamptz)::text),
+  'on the fall-back night, 01:15 EDT is quiet until the first 01:30'
+);
+select is(
+  (select deliver from public.genesis_push_status(pg_temp.u('a1'), 'messages', p_at => '2027-11-07 06:15Z')),
+  true, '... and the repeated 01:15 (EST) is not quiet again'
+);
+reset role;
+update public.notification_preferences set quiet_hours_start = '22:00', quiet_hours_end = '07:00' where user_id = pg_temp.u('a1');
+set local role service_role;
+select is(
+  (select quiet_until from public.genesis_push_status(pg_temp.u('a1'), 'messages', p_at => '2027-11-07 06:15Z')),
+  '2027-11-07 12:00Z'::timestamptz,
+  'a night that spans the fall-back change still ends at 07:00 EST'
+);
+reset role;
+
 -- A window that doesn't cross midnight, in Tokyo (UTC+9, no daylight saving).
 update public.notification_preferences set quiet_hours_start = '09:00', quiet_hours_end = '17:00', time_zone = 'Asia/Tokyo'
 where user_id = pg_temp.u('a1');
@@ -339,6 +377,22 @@ select pg_temp.as_user('a1');
 set local role authenticated;
 select is((select count(*) from public.push_receipts), 2::bigint, '... and reads their own');
 reset role;
+
+-- A late DeviceNotRegistered for a device registered again since the push leaves it alone.
+select pg_temp.as_user('b2');
+set local role authenticated;
+do $$ begin perform public.genesis_push_register(pg_temp.tok('b2-late'), 'ios'); end $$;
+reset role;
+insert into public.push_receipts (user_id, device_id, category, ticket_id, status, created_at, check_after)
+select pg_temp.u('b2'), id, 'messages', 'ticket-late', 'sent', now() - interval '1 hour', now() - interval '1 second'
+from public.push_devices where token = pg_temp.tok('b2-late');
+set local role service_role;
+select is(
+  public.genesis_push_receipts_settle(jsonb_build_array(jsonb_build_object('id', (select id from public.push_receipts where ticket_id = 'ticket-late'), 'status', 'failed', 'error', 'DeviceNotRegistered'))),
+  1, 'a late receipt is settled ...'
+);
+reset role;
+select is((select count(*) from public.push_devices where token = pg_temp.tok('b2-late')), 1::bigint, '... without deleting a device registered again after the push');
 
 -- Deleting the login takes everything with it ----------------------------------------
 delete from auth.users where id = pg_temp.u('a1');

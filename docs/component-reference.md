@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 136 components · 463 other exports · 317 standalone types across 11 packages and entry points.
+**Totals:** 136 components · 473 other exports · 336 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -875,7 +875,7 @@ The native app shell: `GenesisNativeApp` (boot behind the splash, fatal screen, 
 | [`GenesisErrorBoundary`](../packages/native/src/errors.tsx) | `GenesisErrorBoundaryProps` | — | An error boundary whose fallback gets `{ error, retry }`. |
 | [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard, data, boot behind the splash, errors, session and held links. |
 
-### Other exports (19)
+### Other exports (22)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -894,14 +894,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`defaultRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Hermes's rejection tracker, when the app runs on Hermes. React Native sends unhandled rejections to `ExceptionsManager` (LogBox in development), never to `ErrorUtils`' global handler, so without this they never reach `onError`. |
 | [`installGlobalErrorHandler`](../packages/native/src/errors.tsx) | function | — | Route global errors to `onError`. A fatal one goes to `onFatal` instead of React Native's default handler, which would close the app; a non-fatal one still reaches the previous handler (LogBox in development). Returns a function that put... |
 | [`installRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Report unhandled promise rejections to `onError` (non-fatal). This replaces React Native's own tracker, so each rejection is also written with `console.warn`, which LogBox shows in development as before. |
+| [`mergeBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The merge `useBlockSettings` does, without hooks (subtitles already read). @stability Beta |
 | [`normalizeLink`](../packages/native/src/links.ts) | function | — | The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. |
 | [`PlainFatalScreen`](../packages/native/src/errors.tsx) | function | — | The last-resort fatal screen: React Native primitives only, no theme, no context, nothing that can itself fail. Shown when the providers could not start, or when the `fatal` slot threw. |
 | [`SessionProvider`](../packages/native/src/auth.tsx) | function | — | Makes a session store readable with `useSession()`. |
+| [`useBlocks`](../packages/native/src/blocks.tsx) | function | Beta | The resolved blocks: their ids, nav entries, Settings rows, routes and the rest, each tagged with its FeatureId. Throws outside `GenesisNativeApp`. |
+| [`useBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The app's Settings sections with every block's rows added: each row goes at the end of the section its `section` names (by `order`, then block order), and a section no one has yet is added after the rest. |
 | [`useBoot`](../packages/native/src/boot.tsx) | function | — | The boot's status, and `retry` after a failure. Inside `GenesisNativeApp` or a `BootProvider`. |
 | [`useHeldLink`](../packages/native/src/held-link.ts) | function | — | Follow the held link after a sign-in, drop it otherwise; returns the link still held. |
 | [`useSession`](../packages/native/src/auth.tsx) | function | — | The session and whether it is known yet. Inside `GenesisNativeApp` or a `SessionProvider`. |
 
-### Types (33)
+### Types (38)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -909,6 +912,7 @@ Type-only exports not consumed as a component's `Props`.
 export type { AppStateLike };
 export type { AsyncStorageLike };
 export type { AuthClientLike };
+export type { BlockSettingsSection };
 export type { BootController };
 export type { BootOptions };
 export type { BootState };
@@ -926,6 +930,8 @@ export type { LinkHold };
 export type { LinkOptions };
 export type { LinkTarget };
 export type { NativeAppSlots };
+export type { NativeBlock };
+export type { NativeBlockRootProps };
 export type { NativeQueryClientOptions };
 export type { NetInfoLike };
 export type { OnError };
@@ -935,8 +941,10 @@ export type { SessionState };
 export type { SessionStatus };
 export type { SessionStore };
 export type { SessionStoreOptions };
+export type { SettingsRowLike };
 export type { SignedOutProps };
 export type { SplashModule };
+export type { UseBlockSettingsOptions };
 export type { UseBootReturn };
 export type { UseHeldLinkOptions };
 ```
@@ -1169,7 +1177,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (29)
+### Other exports (36)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1177,13 +1185,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`AGENTS_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated block in AGENTS.md. |
 | [`AGENTS_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated block in AGENTS.md. |
+| [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
 | [`BrokenBlockError`](../packages/features/src/generate.ts) | class | — | Thrown when a generated block's markers are broken: one is missing, repeated or out of order. |
+| [`cycleProblems`](../packages/features/src/graph.ts) | function | Beta | Cycles through `requires`, each reported once, from where the depth-first search found it. @stability Beta |
+| [`defineBlock`](../packages/features/src/blocks.ts) | function | Beta | Declare a block. Validates it (id, requirements, platforms, contribution keys and duplicate ids within the block) and returns it frozen, so a typo fails where the block is written rather than where it is used: |
 | [`defineFeatures`](../packages/features/src/model.ts) | function | Beta | The one source of truth for a repo's features. Validates every entry and returns the same object, so running code reads it directly and the key type becomes the repo's `FeatureId`: |
 | [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner`, a `kind`, a `default` and its `scopes`; - `release` and `experiment` flags need an `expires` date, `ops` fl... |
+| [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
 | [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
-| [`FEATURE_PLATFORMS`](../packages/features/src/model.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
+| [`FEATURE_PLATFORMS`](../packages/features/src/model.ts) | value | — | _(no summary)_ |
 | [`FEATURE_STATUSES`](../packages/features/src/model.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
@@ -1197,6 +1209,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
+| [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
+| [`requiresProblems`](../packages/features/src/graph.ts) | function | Beta | Self-requirements, unknown requirements and cycles through `requires`, as problem strings (`a.requires: …`). Each cycle is reported once, from where the depth-first search found it: `a.requires: a cycle: a → b → a`. |
+| [`resolveBlocks`](../packages/features/src/blocks.ts) | function | Beta | The blocks that are on, checked and merged: |
 | [`statusOn`](../packages/features/src/model.ts) | function | Beta | A feature's status on one platform, or undefined when it isn't there. @stability Beta |
 | [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: deliberately short. It points agents at `find` and the skill and gives counts, never the whole list, so AGENTS.md stays small however many features there are. |
 | [`toJson`](../packages/features/src/generate.ts) | function | Beta | The registry as JSON, for tools that can't import TypeScript. Stable: no timestamps, features in declaration order, so `check` can compare it. It is also the record of every id ever used, which keeps ids permanent. |
@@ -1205,11 +1220,21 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (18)
+### Types (32)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BlockContributions };
+export type { BlockDataUse };
+export type { BlockDef };
+export type { BlockMigration };
+export type { BlockNavItem };
+export type { BlockPrivacy };
+export type { BlockRoute };
+export type { BlockSettingsRow };
+export type { Contributed };
+export type { EnabledBlocks };
 export type { FeatureAccess };
 export type { FeatureDef };
 export type { FeatureHorizon };
@@ -1228,6 +1253,10 @@ export type { FlagKind };
 export type { FlagValue };
 export type { Flags };
 export type { GenerateOptions };
+export type { RequiresNode };
+export type { RequiresProblemsOptions };
+export type { ResolveBlocksOptions };
+export type { ResolvedBlocks };
 ```
 
 ---

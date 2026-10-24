@@ -76,6 +76,14 @@ const en = {
     activityTitle: "Activity",
     activityDescription: "When something needs you",
     promptReason: "when something needs you",
+    status: {
+      unknown: "Checking…",
+      undetermined: "Off",
+      granted: "On",
+      provisional: "Delivered quietly",
+      denied: "Off in Settings",
+      unavailable: "Not available on this device",
+    },
   },
 } as const;
 

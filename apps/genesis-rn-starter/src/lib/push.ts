@@ -3,7 +3,8 @@
  * (once permission is granted) and off on sign-out, taps routed through the
  * deep-link map, the badge, the soft prompt and the Notification settings
  * screen, on Supabase's `push_devices` and `notification_preferences`
- * (migration in `supabase/migrations`). `app.ts` passes it to GenesisNativeApp.
+ * (migration in `supabase/migrations`). `app.ts` passes it to GenesisNativeApp's
+ * `blocks`; it adds the Notifications row to Settings (`useBlockSettings`).
  *
  * The sender is the `genesis-push-send` Edge Function in `supabase/functions`;
  * the app never sends a push itself. Without an EAS project id
@@ -18,7 +19,7 @@ import { router, type Href } from "expo-router";
 import { AppState, Linking, Platform } from "react-native";
 import { createPush, supabasePushBackend } from "@marktiderman/genesis-native/push";
 import { copy } from "@/copy";
-import { links } from "./links";
+import { linkHold, links } from "./links";
 import { supabase } from "./supabase";
 
 /** The kinds of notification the app sends: a switch each in Settings, an Android channel each. Add yours. */
@@ -37,6 +38,10 @@ export function createStarterPush() {
     openSettings: Linking.openSettings,
     links,
     onOpen: (path) => router.push(path as Href),
+    hold: linkHold,
+    // Settings gets the row through useBlockSettings, in its untitled `general` section.
+    settingsRow: { title: copy.settings.notifications, section: "general", href: "/settings/notifications" },
+    statusLabels: copy.push.status,
     onError: (error, source) => console.warn(`[push] ${source}: ${error.message}`),
   });
 }

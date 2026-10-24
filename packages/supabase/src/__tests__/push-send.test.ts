@@ -209,6 +209,35 @@ describe("genesis-push-send: send", () => {
   });
 });
 
+describe("genesis-push-send: limits", () => {
+  it("counts content in UTF-8 bytes, so a message in another script still fits Expo's 4 KB", () => {
+    expect(readPushRequest(message({ title: "あ".repeat(200), body: "あ".repeat(1000) }))).toBeNull();
+    expect(readPushRequest(message({ title: "a".repeat(200), body: "a".repeat(1000) }))).not.toBeNull();
+  });
+
+  it("records the tickets of each batch as it goes, and stops sending when out of time, saying how many weren't sent", async () => {
+    const many = Array.from({ length: 250 }, (_, i) => target(i));
+    const { store } = fakeStore({ [USER]: many });
+    let clock = 0;
+    const e = expo(
+      (b) => {
+        clock += 60_000;
+        return okTickets((b as unknown[]).length);
+      },
+      (b) => {
+        clock += 60_000;
+        return okTickets((b as unknown[]).length, 100);
+      },
+    );
+    const d = { ...deps(store, e.fetch), now: () => clock };
+    const body = await (await handle(request({ action: "send", messages: [message()] }), d)).json();
+    expect(e.calls).toHaveLength(2);
+    expect(body).toMatchObject({ sent: 200, unsent: 50, failed: 50 });
+    expect((store.recordTickets as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(d.logs.join("\n")).toContain("50 not sent");
+  });
+});
+
 describe("genesis-push-send: receipts", () => {
   it("settles delivered and failed receipts, leaves the ones Expo doesn't have yet, and logs only codes", async () => {
     const { store, settled } = fakeStore();

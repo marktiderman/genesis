@@ -12,11 +12,12 @@
  * (`useQuietHours()` …) for a screen of your own. Saving is immediate; a save
  * that fails is put back and said.
  */
-import { useMemo, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
+import { useEffect, useMemo, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import type { SlotPropsFor, Slots } from "@marktiderman/genesis-core/slots";
 import { NativeSwitch, NativeTimePicker } from "@marktiderman/genesis-ui-native/components";
 import { SettingsPage, type SettingsPageProps, type SettingsPageRow, type SettingsPageSection } from "@marktiderman/genesis-ui-native/layouts";
-import { usePush, useNotificationPreferences, usePushPermissionState, usePushRegistration } from "./block";
+import { useSession } from "../auth";
+import { PUSH_STATUS_LABELS, usePush, useNotificationPreferences, usePushPermissionState, usePushRegistration } from "./block";
 import type { PushPermissionStatus } from "./permission";
 import { clockOf, dateAt, deviceTimeZone, isQuietAt } from "./quiet-hours";
 
@@ -44,19 +45,13 @@ export interface NotificationSettingsCopy {
   showPreviews: string;
   previewsFootnote: string;
   saveFailed: string;
+  loadFailed: string;
 }
 
 export const notificationSettingsCopy: NotificationSettingsCopy = {
   permissionSection: "Notifications",
   allow: "Allow notifications",
-  status: {
-    unknown: "Checking…",
-    undetermined: "Off",
-    granted: "On",
-    provisional: "Delivered quietly",
-    denied: "Off in Settings",
-    unavailable: "Not available on this device",
-  },
+  status: PUSH_STATUS_LABELS,
   turnOn: "Turn on",
   openSettings: "Open Settings",
   noProjectId: "This build can't get notifications: it has no EAS project id.",
@@ -77,6 +72,7 @@ export const notificationSettingsCopy: NotificationSettingsCopy = {
   showPreviews: "Show previews",
   previewsFootnote: "When off, notifications say only that there's something new; what they say stays on the server, off your lock screen.",
   saveFailed: "Couldn't save that change. Check your connection and try again.",
+  loadFailed: "Couldn't load your notification settings, so they can't be changed yet. Check your connection; they load again when you come back here.",
 };
 
 /** The permission part's props: what `usePushPermission()` returns. */
@@ -100,6 +96,8 @@ export interface CategoryRow {
 }
 
 export interface CategoriesPartProps {
+  /** The saved settings aren't loaded (yet): nothing can change, so nothing overwrites them. */
+  disabled: boolean;
   categories: CategoryRow[];
   setOn: (id: string, on: boolean) => void;
   saving: boolean;
@@ -107,6 +105,8 @@ export interface CategoriesPartProps {
 }
 
 export interface QuietHoursPartProps {
+  /** The saved settings aren't loaded (yet): nothing can change, so nothing overwrites them. */
+  disabled: boolean;
   enabled: boolean;
   start: string;
   end: string;
@@ -124,6 +124,8 @@ export interface QuietHoursPartProps {
 }
 
 export interface PrivacyPartProps {
+  /** The saved settings aren't loaded (yet): nothing can change, so nothing overwrites them. */
+  disabled: boolean;
   hidePreviews: boolean;
   setHidePreviews: (hide: boolean) => void;
   saving: boolean;
@@ -165,7 +167,7 @@ export function usePushPermission(copy: NotificationSettingsCopy = DEFAULT_COPY)
 /** The categories part (rung 4). */
 export function useNotificationCategories(copy: NotificationSettingsCopy = DEFAULT_COPY): CategoriesPartProps {
   const block = usePush();
-  const { preferences, saving, update } = useNotificationPreferences();
+  const { preferences, saving, update, status } = useNotificationPreferences();
   const categories = useMemo(
     () =>
       block.categories.map((c) => ({
@@ -180,13 +182,14 @@ export function useNotificationCategories(copy: NotificationSettingsCopy = DEFAU
     categories,
     setOn: (id, on) => void update((p) => ({ ...p, categories: { ...p.categories, [id]: on } })),
     saving,
+    disabled: status !== "ready",
     copy,
   };
 }
 
 /** The quiet-hours part (rung 4). */
 export function useQuietHours(copy: NotificationSettingsCopy = DEFAULT_COPY): QuietHoursPartProps {
-  const { preferences, saving, update } = useNotificationPreferences();
+  const { preferences, saving, update, status } = useNotificationPreferences();
   const q = preferences.quietHours;
   const device = deviceTimeZone();
   // Re-read each minute only while shown; the server is what decides.
@@ -205,17 +208,19 @@ export function useQuietHours(copy: NotificationSettingsCopy = DEFAULT_COPY): Qu
     setEnd: (end) => setQuiet({ end }),
     adoptDeviceTimeZone: () => (device ? setQuiet({ timeZone: device }) : undefined),
     saving,
+    disabled: status !== "ready",
     copy,
   };
 }
 
 /** The privacy part (rung 4). */
 export function usePrivacyPreviews(copy: NotificationSettingsCopy = DEFAULT_COPY): PrivacyPartProps {
-  const { preferences, saving, update } = useNotificationPreferences();
+  const { preferences, saving, update, status } = useNotificationPreferences();
   return {
     hidePreviews: preferences.hidePreviews,
     setHidePreviews: (hidePreviews) => void update((p) => ({ ...p, hidePreviews })),
     saving,
+    disabled: status !== "ready",
     copy,
   };
 }
@@ -263,7 +268,7 @@ export function categoryRows(p: CategoriesPartProps): SettingsPageRow[] {
     title: c.title,
     subtitle: c.description,
     testID: `notification-settings-category-${c.id}`,
-    trailing: toggle(`category-${c.id}`, c.title, c.on, (on) => p.setOn(c.id, on)),
+    trailing: toggle(`category-${c.id}`, c.title, c.on, (on) => p.setOn(c.id, on), p.disabled),
   }));
 }
 
@@ -276,12 +281,12 @@ export function quietHoursRows(p: QuietHoursPartProps): SettingsPageRow[] {
       title: copy.quietHours,
       subtitle: p.enabled && p.activeNow ? copy.quietHoursOnNow : undefined,
       testID: "notification-settings-quiet-hours",
-      trailing: toggle("quiet-hours", copy.quietHours, p.enabled, p.setEnabled, !p.enabled && !p.timeZone && !p.deviceTimeZone),
+      trailing: toggle("quiet-hours", copy.quietHours, p.enabled, p.setEnabled, p.disabled || (!p.enabled && !p.timeZone && !p.deviceTimeZone)),
     },
   ];
   if (!p.enabled) return rows;
   const picker = (id: string, label: string, value: string, set: (clock: string) => void) => (
-    <NativeTimePicker testID={`notification-settings-${id}-time`} value={dateAt(value)} onChange={(d) => set(clockOf(d))} formatLabel={() => value} />
+    <NativeTimePicker testID={`notification-settings-${id}-time`} value={dateAt(value)} onChange={(d) => set(clockOf(d))} formatLabel={() => value} disabled={p.disabled} />
   );
   rows.push(
     { id: "quiet-from", title: copy.from, testID: "notification-settings-quiet-from", trailing: picker("quiet-from", copy.from, p.start, p.setStart) },
@@ -291,7 +296,7 @@ export function quietHoursRows(p: QuietHoursPartProps): SettingsPageRow[] {
       title: copy.timeZone,
       subtitle: p.timeZone ? (p.deviceTimeZone ? `${p.timeZone} · ${copy.useDeviceTimeZone} (${p.deviceTimeZone})` : p.timeZone) : copy.noTimeZone,
       testID: "notification-settings-time-zone",
-      ...(p.deviceTimeZone ? { onPress: p.adoptDeviceTimeZone, showChevron: true } : {}),
+      ...(p.deviceTimeZone && !p.disabled ? { onPress: p.adoptDeviceTimeZone, showChevron: true } : {}),
     },
   );
   return rows;
@@ -304,7 +309,7 @@ export function privacyRows(p: PrivacyPartProps): SettingsPageRow[] {
       id: "previews",
       title: p.copy.showPreviews,
       testID: "notification-settings-previews",
-      trailing: toggle("previews", p.copy.showPreviews, !p.hidePreviews, (show) => p.setHidePreviews(!show)),
+      trailing: toggle("previews", p.copy.showPreviews, !p.hidePreviews, (show) => p.setHidePreviews(!show), p.disabled),
     },
   ];
 }
@@ -349,10 +354,15 @@ export function NotificationSettings({ copy: overrides, slots = {}, slotProps = 
   const categories = useNotificationCategories(copy);
   const quietHours = useQuietHours(copy);
   const privacy = usePrivacyPreviews(copy);
-  const { error } = useNotificationPreferences();
+  const { error, status } = useNotificationPreferences();
+  const { userId } = useSession();
+  // A load that failed is tried again whenever the screen opens (the block also loads on sign-in).
+  useEffect(() => {
+    if (block.preferences.getState().status === "error" && userId) void block.preferences.load(userId);
+  }, [block, userId]);
 
   const sections = [
-    section("permission", copy.permissionSection, permission.problem ?? (error ? copy.saveFailed : undefined), permission, permissionRows, slots.permission, slotProps.permission),
+    section("permission", copy.permissionSection, permission.problem ?? (status === "error" ? copy.loadFailed : error ? copy.saveFailed : undefined), permission, permissionRows, slots.permission, slotProps.permission),
     block.categories.length > 0
       ? section("categories", copy.categoriesSection, copy.categoriesFootnote, categories, categoryRows, slots.categories, slotProps.categories)
       : null,

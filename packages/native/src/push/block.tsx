@@ -1,7 +1,12 @@
 /**
  * `createPush(options)`: the push block. Pass the result to
- * `<GenesisNativeApp push={push}>` (removing that line turns the block off),
- * or render `<PushRoot block={push}>` yourself, inside the session provider.
+ * `<GenesisNativeApp blocks={[push]}>` (removing it turns the block off), or
+ * render `<PushRoot block={push}>` yourself, inside the session provider.
+ *
+ * It is a `defineBlock` declaration (`id: "push"`): it contributes a Settings
+ * row for the notification settings (`useBlockSettings`, href
+ * `/settings/notifications`), a boot step that reads the permission behind
+ * the splash (bounded, never fails), and names migration 0005.
  *
  *   PushRoot
  *   ├ follows the session: registers this device's token on sign-in (only
@@ -18,7 +23,11 @@
 import { createContext, useContext, useEffect, useRef, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import { View } from "react-native";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
+import { defineBlock } from "@marktiderman/genesis-features/blocks";
 import { useSession } from "../auth";
+import type { NativeBlock, NativeBlockRootProps } from "../blocks";
+import type { BootStep } from "../boot";
+import { delay } from "../updates/store";
 import type { LinkHold } from "../held-link";
 import type { LinkOptions } from "../links";
 import type { NotificationPreferences, PushBackend } from "./backend";
@@ -32,7 +41,17 @@ import {
   type PushOnError,
   type PushStorageLike,
 } from "./modules";
-import { canPush, createPermissionStore, createPromptStore, type PermissionState, type PermissionStore, type PromptOptions, type PromptState, type PromptStore } from "./permission";
+import {
+  canPush,
+  createPermissionStore,
+  createPromptStore,
+  type PermissionState,
+  type PermissionStore,
+  type PromptOptions,
+  type PromptState,
+  type PromptStore,
+  type PushPermissionStatus,
+} from "./permission";
 import { createPreferencesStore, type ChannelImportance, type NotificationCategory, type PreferencesState, type PreferencesStore } from "./preferences";
 import { createRegistration, type Registration, type RegistrationState } from "./registration";
 import { notificationData, pathForResponse } from "./routing";
@@ -75,8 +94,18 @@ export interface PushOptions {
   openSettings?: () => unknown;
   /** Where a tap goes: the app's deep-link options, so a pushed path is normalized like any link. */
   links?: LinkOptions;
-  /** Open a tapped notification's path (`router.push`). Default the `links.onRelease` GenesisNativeApp was given. */
+  /** Open a tapped notification's path (`router.push`). Without it a tap opens nothing, and says so through `onError`. */
   onOpen?: (path: string) => void;
+  /** Where a tap that arrives signed out waits for sign-in: the same `linkHold` as GenesisNativeApp's `links.hold`. */
+  hold?: LinkHold;
+  /**
+   * The Settings row the block contributes (`useBlockSettings`), or `false`
+   * for none. Default `{ title: "Notifications", section: "notifications", href: "/settings/notifications" }`;
+   * its subtitle is the permission's status (`statusLabels`).
+   */
+  settingsRow?: false | { title?: string; section?: string; href?: string };
+  /** The words for each permission status (the Settings row's subtitle, NotificationSettings' default). */
+  statusLabels?: Partial<Record<PushPermissionStatus, string>>;
   /** Every tap and action, after routing (an action button, analytics). */
   onResponse?: (response: NotificationResponseLike) => void;
   /** Show a notification that arrives while the app is open? Default yes; `useSuppressNotifications` adds rules. */
@@ -93,7 +122,20 @@ export interface PushOptions {
   now?: () => number;
 }
 
-export interface PushBlock {
+/** The FeatureId of the push block. */
+export const PUSH_BLOCK_ID = "push";
+
+/** The default words for each permission status. */
+export const PUSH_STATUS_LABELS: Record<PushPermissionStatus, string> = {
+  unknown: "Checking…",
+  undetermined: "Off",
+  granted: "On",
+  provisional: "Delivered quietly",
+  denied: "Off in Settings",
+  unavailable: "Not available on this device",
+};
+
+export interface PushBlock extends NativeBlock<typeof PUSH_BLOCK_ID> {
   readonly options: PushOptions;
   readonly permission: PermissionStore;
   readonly registration: Registration;
@@ -109,7 +151,9 @@ export interface PushBlock {
   ensureChannels(): Promise<void>;
   /** Start the foreground handler and the listeners; returns the stop. `PushRoot` calls it. */
   start(): () => void;
-  readonly Root: ComponentType<Omit<PushRootProps, "block">>;
+  /** Reads the permission behind the splash, at most a second; never fails the boot. */
+  readonly bootSteps: readonly BootStep[];
+  readonly Root: ComponentType<NativeBlockRootProps>;
 }
 
 /** Expo's `AndroidImportance` numbers (checked against expo-notifications 58.1). */
@@ -197,7 +241,49 @@ export function createPush(options: PushOptions): PushBlock {
     lastStatus = status;
   });
 
+  const row = options.settingsRow;
+  const labels = { ...PUSH_STATUS_LABELS, ...options.statusLabels };
+  const declaration = defineBlock<typeof PUSH_BLOCK_ID, ComponentType<never>>({
+    id: PUSH_BLOCK_ID,
+    platforms: ["native"],
+    contributes: {
+      settings:
+        row === false
+          ? []
+          : [
+              {
+                id: "notifications",
+                section: row?.section ?? "notifications",
+                title: row?.title ?? "Notifications",
+                href: row?.href ?? "/settings/notifications",
+                testID: "genesis-push-settings",
+                // Bound to this block, so it needs no provider above the Settings screen.
+                useSubtitle: () => labels[useSyncExternalStore(permission.subscribe, permission.getState, permission.getState).status],
+              },
+            ],
+      routes: [{ path: row === false ? "/settings/notifications" : (row?.href ?? "/settings/notifications"), description: "Notification settings: categories, quiet hours, previews", signedIn: true }],
+      migrations: [
+        { package: "@marktiderman/genesis-supabase", file: "migrations/0005_genesis_push.sql", test: "migrations/tests/0005_genesis_push.test.sql" },
+      ],
+      privacy: {
+        collects: [{ type: "device ID", purposes: ["app functionality"], linked: true, tracking: false }],
+        notes: [
+          "Keeps this device's push token against the signed-in person, to send them notifications; forgotten on sign-out and account deletion.",
+          "Keeps notification preferences (categories, quiet hours and time zone, previews) per person.",
+        ],
+      },
+    },
+  });
+  const bootStep: BootStep = {
+    id: "genesis:push",
+    // Bounded and never rejects (refresh reports its own errors), so it can't fail or hold the boot.
+    run: () => Promise.race([permission.refresh(), delay(1000)]).then(() => undefined),
+    timeoutMs: 3000,
+  };
+
   const block: PushBlock = {
+    ...declaration,
+    bootSteps: [bootStep],
     options,
     permission,
     registration,
@@ -242,7 +328,8 @@ export function createPush(options: PushOptions): PushBlock {
           } catch (error) {
             report(onError, error, "routing");
           }
-          return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: show, shouldSetBadge: true };
+          // Nothing of a push that isn't shown, the badge included (it may be the last person's).
+          return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: show, shouldSetBadge: show };
         },
       });
       void registration.flush();
@@ -253,7 +340,12 @@ export function createPush(options: PushOptions): PushBlock {
       });
       const appSubscription = options.appState?.addEventListener("change", (state) => {
         if (state !== "active") return;
-        void permission.refresh();
+        // Back in front: a forget that failed offline goes now, and this phone's registration is
+        // confirmed (it may have failed, or another login may have taken the token since).
+        void registration.flush();
+        void permission.refresh().then((status) => {
+          if (canPush(status) && userId) void registration.sync(userId);
+        });
         if (options.clearBadgeOnForeground && userId) void badge.clear();
       });
       return () => {
@@ -263,8 +355,12 @@ export function createPush(options: PushOptions): PushBlock {
         appSubscription?.remove();
       };
     },
-    Root: function PushBlockRoot(props) {
-      return <PushRoot block={block} {...props} />;
+    Root: function PushBlockRoot({ slots, slotProps, children }: NativeBlockRootProps) {
+      return (
+        <PushRoot block={block} slots={slots} slotProps={slotProps}>
+          {children}
+        </PushRoot>
+      );
     },
   };
   return block;
@@ -401,7 +497,9 @@ function useTapRouting(block: PushBlock, status: string, hold: LinkHold | undefi
         }
       }, 0);
     } else if (auth.current === "signedOut") {
-      latest.current.hold?.hold(path);
+      const hold = block.options.hold ?? latest.current.hold;
+      if (hold) hold.hold(path);
+      else report(block.options.onError, new Error("push: a notification tapped while signed out was dropped; pass `hold` (your linkHold) to createPush."), "setup");
     } else {
       waiting.current = path;
     }

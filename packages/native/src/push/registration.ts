@@ -41,7 +41,8 @@ interface Saved {
   at: number;
 }
 
-const REFRESH_MS = 24 * 60 * 60_000;
+/** Registered again at most this often while nothing changed (last seen, and a token another login took comes back). */
+const REFRESH_MS = 60 * 60_000;
 
 export function createRegistration(options: {
   notifications?: NotificationsModuleLike;

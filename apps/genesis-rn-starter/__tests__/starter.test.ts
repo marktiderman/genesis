@@ -229,7 +229,7 @@ describe("supabase/functions", () => {
 describe("push", () => {
   it("ships with the push block on, behind the one `push` switch", () => {
     expect(starter.features.push).toBe(true);
-    expect(read("src/lib/app.ts")).toContain("push: features.push ? createStarterPush() : undefined");
+    expect(read("src/lib/app.ts")).toContain("blocks: features.push ? [createStarterPush()] : undefined");
   });
 
   it("keeps expo-notifications in the build whichever way the switch is, so turning push off is JavaScript only", () => {

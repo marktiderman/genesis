@@ -14,6 +14,7 @@
  */
 export {
   createUpdates,
+  UPDATES_BLOCK_ID,
   UpdatesProvider,
   UpdatesRoot,
   useUpdates,

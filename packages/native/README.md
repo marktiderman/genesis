@@ -235,8 +235,13 @@ without `application` nothing is forced and no notes show. The banner uses
 
 ## Push: registration, taps, the badge, notification settings
 
-`@marktiderman/genesis-native/push` is the push block. Build it once and pass
-it in; deleting the `push={push}` line turns it off. It runs on migration
+`@marktiderman/genesis-native/push` is the push block, a `defineBlock`
+declaration (`id: "push"`). Build it once and put it in `blocks`; taking it
+out turns it off. It contributes a Settings row (`useBlockSettings`: title
+"Notifications", section `notifications`, href `/settings/notifications`, the
+permission as its subtitle; `settingsRow` changes or drops it) and a boot step
+that reads the permission behind the splash (a second at most; it never fails
+the boot), and names its migration. It runs on migration
 0005 and the `genesis-push-send` function of
 [`@marktiderman/genesis-supabase`](../supabase/README.md#push-the-push-block).
 
@@ -261,11 +266,12 @@ export const push = createPush({
   appState: AppState,
   openSettings: Linking.openSettings,
   links, // the same LinkOptions as +native-intent
+  hold: linkHold, // the same hold as GenesisNativeApp's links
   onOpen: (path) => router.push(path),
 });
 
 // app/_layout.tsx
-<GenesisNativeApp push={push} links={{ hold: linkHold, onRelease: router.replace }} … />
+<GenesisNativeApp blocks={[push]} links={{ hold: linkHold, onRelease: router.replace }} … />
 
 // app/settings/notifications.tsx
 <NotificationSettings />
@@ -275,7 +281,8 @@ export const push = createPush({
   `usePushPrompt().offer("when someone replies")` at the moment push is worth
   it; the `pushPrompt` slot (default `PushPromptSheet`) says why first, and only
   its "Turn on" brings up the system prompt. `offer` is ignored for
-  `prompt.launchGraceMs` (10 s) after start, while signed out, once the system
+  `prompt.launchGraceMs` (10 s) after start (so offer on a screen's focus, not
+  only its mount), while signed out, once the system
   can't ask again, for `cooldownMs` (3 days) after "Not now", and for good
   after `maxDeclines` (3). A tap on "Allow notifications" in
   `NotificationSettings` asks straight away (the tap is the intent); once the
@@ -287,8 +294,10 @@ export const push = createPush({
   (`addPushTokenListener`) and at most daily otherwise. Sign-out, an account
   switch and deleting the account forget it (`genesis_push_forget`, which works
   without a session: holding the token is the proof); a forget that fails
-  offline is kept on the phone and retried at the next start, and never undoes
-  a later registration of the same token. Without a `projectId` there is no
+  offline is kept on the phone and retried each time the app comes to the
+  front, and never undoes a later registration of the same token. Coming to the
+  front also registers again when the last try failed, and at most hourly
+  otherwise (so a token another login took comes back). Without a `projectId` there is no
   token: the block says so once through `onError`, and Settings says so on
   screen.
 - **Android channels.** A `default` channel, one per category (named after it,
@@ -304,8 +313,10 @@ export const push = createPush({
   the app, `getLastNotificationResponse`) goes through `normalizeLink` with
   `links`, once per notification: an unknown path opens `/`, another app's URL
   never opens. Signed in, `onOpen(path)` runs after the navigator mounts;
-  signed out, the path is held in GenesisNativeApp's `links.hold` and followed
-  after sign-in. Action buttons go to `onResponse`.
+  signed out, the path is held in `hold` (the same `linkHold` as
+  GenesisNativeApp's `links.hold`) and followed after sign-in. Without `onOpen`
+  or `hold`, a tap opens nothing and says so through `onError`. Action buttons
+  go to `onResponse`.
 - **Badge.** `useBadge().set(n)` / `clear()`; the sender can set it too. It is
   cleared on sign-out (`clearBadgeOnForeground` clears it on every return to
   the front).
@@ -316,15 +327,22 @@ export const push = createPush({
   the time zone; turning it on fills in the phone's zone, and a phone that has
   travelled offers its new one) and `privacy` (`usePrivacyPreviews`: "Show
   previews"). `slots={{ quietHours: Mine }}` renders yours in the same section
-  with the same props; `null` drops the section. Changes save at once and are
-  put back, with a note, when the save fails. The words are
+  with the same props; `null` drops the section. Nothing can be changed until
+  the saved settings have loaded (a change on top of the defaults would save
+  them over the person's choices); a failed load says so and is tried again
+  when the screen opens. Changes save at once and are put back, with a note,
+  when the save fails. The words are
   `notificationSettingsCopy`, replaced with `copy`. The time pickers need
   `@react-native-community/datetimepicker`; without it the times are shown, not
   editable.
 - **What the server decides.** Quiet hours and hidden previews are applied by
   the sender (`genesis_push_targets`), in the person's saved time zone, so a
   phone with a wrong clock can't change them, and hidden previews never leave
-  the server. The phone only shows them (`isQuietAt`).
+  the server. The phone only shows them (`isQuietAt`, by time of day; the
+  server's window also handles clock-change nights). Android's private
+  lock-screen channel setting hides content only when the phone's own "hide
+  sensitive content" is on, and a channel's settings are the person's once it
+  exists: the server's hidden previews are the guarantee, not the channel.
 
 Rung 3: `createPermissionStore`, `createPromptStore`, `createRegistration`,
 `createPreferencesStore`, `supabasePushBackend` (or your own `PushBackend`),
@@ -335,6 +353,36 @@ GenesisNativeApp (inside a `SessionProvider`).
 Not covered: delivery through Apple's and Google's push services hasn't been
 tried (it needs an EAS project with APNs and FCM credentials), and there is no
 in-app inbox: that is `inbox-thread` in the repo's `features.ts`.
+
+## Blocks
+
+`blocks` takes `defineBlock` declarations (`@marktiderman/genesis-features/blocks`) a native shell
+can run: a `NativeBlock` may also carry `bootSteps` (run behind the splash after your `steps`,
+before the session) and a `Root` (mounted around your screens, inside the error boundary). The
+updates block is one, so these are the same:
+
+```tsx
+<GenesisNativeApp {...shell} updates={updates}>   // as before
+<GenesisNativeApp {...shell} blocks={[updates]}>  // the same block, as a block
+```
+
+The shell resolves the blocks once, at start (`resolveBlocks` with `platform: "native"`). Then:
+
+- their boot steps run in dependency order, and their roots wrap your screens, the first block's outermost;
+- their `contributes.slots` fill the shell's slots by name, under yours: your `slots` (a component
+  or `null`) always win;
+- `useBlocks()` returns the resolved blocks (ids, nav entries, routes, migrations…), each
+  contribution tagged with its FeatureId;
+- `useBlockSettings(sections, { navigate })` returns your Settings sections with every block's
+  rows added to the section they name (an unknown section is added at the end), live subtitles
+  included. The updates block adds the version signature to `about` (`versionRow` in
+  `createUpdates` sets its title and section, or `false` turns it off). Call it at the top of the
+  Settings screen and pass the result to `SettingsPage`.
+
+A block may require your own features that aren't blocks: list them in `appFeatures`. Blocks that
+don't resolve (a required block that wasn't passed or is off, an unknown slot name, two blocks
+filling one slot) hide the splash, show the fatal screen and report a `BlockError` to `onError`:
+a set-up mistake, found at launch.
 
 ## Each part on its own
 
