@@ -11,8 +11,8 @@ import type { ReleaseNote } from "./policy";
 export interface ForceUpgradeProps {
   minimumVersion: string;
   installedVersion: string;
-  /** `null` when the policy names no store link for this platform. */
-  storeUrl: string | null;
+  /** The policy's store link for this platform (a minimum without one forces nothing). */
+  storeUrl: string;
   /** Opens `storeUrl`. */
   openStore: () => void;
   /** Ask the policy again (it may have been lowered). */
@@ -21,7 +21,7 @@ export interface ForceUpgradeProps {
 }
 
 /** Blocking: this version is below the minimum. "Update" opens the store. */
-export function ForceUpgradeScreen({ minimumVersion, installedVersion, storeUrl, openStore, retry, checking }: ForceUpgradeProps) {
+export function ForceUpgradeScreen({ minimumVersion, installedVersion, openStore, retry, checking }: ForceUpgradeProps) {
   return (
     <View testID="genesis-force-upgrade" className="flex-1 justify-center bg-background">
       <NativeEmptyState
@@ -29,11 +29,9 @@ export function ForceUpgradeScreen({ minimumVersion, installedVersion, storeUrl,
         title="Update required"
         body={`This version (${installedVersion}) is no longer supported. Update to ${minimumVersion} or later to keep going.`}
         primaryAction={
-          storeUrl ? (
-            <NativeButton onPress={openStore} testID="genesis-force-upgrade-store">
-              Update
-            </NativeButton>
-          ) : undefined
+          <NativeButton onPress={openStore} testID="genesis-force-upgrade-store">
+            Update
+          </NativeButton>
         }
         secondaryAction={
           <NativeButton variant="ghost" onPress={retry} loading={checking} testID="genesis-force-upgrade-retry">

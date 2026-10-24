@@ -47,12 +47,12 @@ function setup(options: Partial<UpdatesOptions> = {}, props: Partial<GenesisNati
 const policy = (p: UpdatePolicy) => staticPolicySource(p);
 
 describe("the updates block in GenesisNativeApp", () => {
-  it("shows the force-upgrade screen instead of the screens, with the store link", async () => {
+  it("covers the screens with the force-upgrade screen, with the store link", async () => {
     const openURL = vi.fn();
     setup({ policy: policy({ minimumVersion: { ios: "1.3" }, storeUrl: { ios: "https://apps.apple.com/app/id1" } }), openURL });
     await act(settle);
     expect(screen.getByTestId("genesis-force-upgrade")).toBeTruthy();
-    expect(screen.queryByTestId("screens")).toBeNull();
+    expect(screen.getByTestId("genesis-updates-blocking")).toBeTruthy();
     fireEvent.click(screen.getByTestId("genesis-force-upgrade-store"));
     await act(settle);
     expect(openURL).toHaveBeenCalledWith("https://apps.apple.com/app/id1");
@@ -62,6 +62,40 @@ describe("the updates block in GenesisNativeApp", () => {
     setup({ policy: { load: never }, storage: memoryStorage() });
     await act(() => new Promise((resolve) => setTimeout(resolve, 120)));
     expect(screen.getByTestId("screens")).toBeTruthy();
+  });
+
+  it("never fails the boot when storage stalls", async () => {
+    const stalled = { getItem: never as () => Promise<string | null>, setItem: async () => {} };
+    setup({ policy: { load: never }, storage: stalled, notes: [{ version: "1.2.0", body: "x" }] });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
+    expect(screen.getByTestId("screens")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-fatal")).toBeNull();
+  });
+
+  it("keeps a half-filled form when maintenance starts and ends mid-session", async () => {
+    let active = false;
+    const updates = createUpdates({ platform: "ios", application, policyTimeoutMs: 50, policy: { load: async () => ({ maintenance: { active, message: null } }) } });
+    function Form() {
+      const [text, setText] = useState("");
+      return <input data-testid="field" value={text} onChange={(e) => setText(e.target.value)} />;
+    }
+    render(
+      <GenesisNativeApp brand={genesisBrand} supabase={fakeSupabase({ user: { id: "u1" } }).client} provider={provider} rejectionTracker={null} updates={updates}>
+        <Form />
+      </GenesisNativeApp>,
+    );
+    await act(settle);
+    fireEvent.change(screen.getByTestId("field"), { target: { value: "half-written" } });
+    active = true;
+    await act(async () => {
+      await updates.policy.refresh();
+    });
+    expect(screen.getByTestId("genesis-maintenance")).toBeTruthy();
+    active = false;
+    fireEvent.click(screen.getByTestId("genesis-maintenance-retry"));
+    await act(settle);
+    expect(screen.queryByTestId("genesis-maintenance")).toBeNull();
+    expect((screen.getByTestId("field") as HTMLInputElement).value).toBe("half-written");
   });
 
   it("shows maintenance with retry, and the screens once it's over", async () => {
@@ -144,7 +178,7 @@ describe("the updates block in GenesisNativeApp", () => {
   });
 
   it("takes slots: replace a renderer, or eject a blocking one so it never blocks", async () => {
-    const block = { policy: policy({ minimumVersion: { ios: "9" } }) };
+    const block = { policy: policy({ minimumVersion: { ios: "9" }, storeUrl: { ios: "https://apps.apple.com/app/id1" } }) };
     const first = setup(block, { slots: { forceUpgrade: ({ minimumVersion }) => <span data-testid="mine">{minimumVersion}</span> } });
     await act(settle);
     expect(screen.getByTestId("mine").textContent).toBe("9");
@@ -172,7 +206,7 @@ describe("the hooks, under UpdatesProvider", () => {
       platform: "ios",
       application,
       updates: fakeUpdates({ channel: "preview", updateId: "abcdef12-3456" }),
-      policy: policy({ minimumVersion: { ios: "2.0" } }),
+      policy: policy({ minimumVersion: { ios: "2.0" }, storeUrl: { ios: "itms-apps://apps.apple.com/app/id1" } }),
       storage: memoryStorage({ "genesis:updates:channel": "pr-7" }),
     });
     await block.bootStep.run();

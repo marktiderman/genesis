@@ -68,9 +68,6 @@
     },
     "expo-updates": {
       "optional": true
-    },
-    "react-native-safe-area-context": {
-      "optional": true
     }
   },
   "devDependencies": {

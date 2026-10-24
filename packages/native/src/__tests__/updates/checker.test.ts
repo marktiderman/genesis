@@ -85,6 +85,19 @@ describe("the update checker", () => {
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "offline" }), "check");
   });
 
+  it("checks again after a module that throws synchronously", async () => {
+    const updates = fakeUpdates({ next: { id: "next-1" } });
+    updates.checkForUpdateAsync.mockImplementationOnce(() => {
+      throw new Error("native module missing");
+    });
+    const checker = createUpdateChecker({ updates, guard: createReloadGuard() });
+    await checker.check();
+    expect(checker.getState().status).toBe("error");
+    await checker.check();
+    expect(updates.checkForUpdateAsync).toHaveBeenCalledTimes(2);
+    expect(checker.getState().status).toBe("ready");
+  });
+
   it("keeps the update ready when the reload is refused", async () => {
     const updates = fakeUpdates({ next: { id: "next-1111" } });
     updates.reloadAsync.mockRejectedValueOnce(new Error("cannot reload in development"));

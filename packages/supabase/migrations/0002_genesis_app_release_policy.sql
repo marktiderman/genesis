@@ -16,7 +16,8 @@
 -- Failing open: the client never blocks on a missing row, a malformed value
 -- or a failed read. The checks below keep malformed values out in the first
 -- place: a minimum version is plain dotted numbers (`1`, `1.4`, `1.4.0`),
--- store links are https (or the stores' own schemes), notes are an array of
+-- store links are https (or the stores' own schemes), a minimum version
+-- comes with its platform's store link, and notes are an array of
 -- `{ "version": "1.4.0", "title"?: "...", "body": "..." }`.
 --
 -- One row per app (`app_id`, default 'default'). For example:
@@ -46,12 +47,19 @@ create table if not exists public.app_release_policy (
   maintenance boolean not null default false,
   maintenance_message text
     constraint app_release_policy_maintenance_message_length check (char_length(maintenance_message) <= 500),
+  -- An array of objects, each with a string version and body (and a string title, if any).
+  -- `strict` stops lax mode unwrapping nested arrays; `.type()` rejects arrays where strings belong.
   notes jsonb not null default '[]'::jsonb
     constraint app_release_policy_notes_shape check (
       jsonb_typeof(notes) = 'array'
-      and not jsonb_path_exists(notes, '$[*] ? (!exists(@.version ? (@.type() == "string")) || !exists(@.body ? (@.type() == "string")))')
+      and not jsonb_path_exists(notes, 'strict $[*] ? (@.type() != "object")')
+      and not jsonb_path_exists(notes, '$[*] ? (!(@.version.type() == "string") || !(@.body.type() == "string") || (exists(@.title) && !(@.title.type() == "string")))')
     ),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  -- A minimum version needs a store link: the force-upgrade screen's only way out is the store.
+  -- (The client also forces nothing without one.)
+  constraint app_release_policy_ios_store_link check (min_version_ios is null or store_url_ios is not null),
+  constraint app_release_policy_android_store_link check (min_version_android is null or store_url_android is not null)
 );
 
 comment on table public.app_release_policy is

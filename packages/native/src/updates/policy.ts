@@ -8,7 +8,8 @@
  * What may block, and from where:
  * - Force upgrade: a policy fetched this session, or a cached one no older
  *   than `cacheMaxAgeMs` (7 days) by the phone's clock. A cache whose time is
- *   in the future (the clock moved back) is not trusted.
+ *   in the future (the clock moved back) is not trusted. A minimum without a
+ *   store link for the platform forces nothing (there would be no way out).
  * - Maintenance: only a policy fetched from the network this session. A
  *   cached maintenance flag never blocks a cold start.
  */
@@ -170,7 +171,8 @@ interface CacheEntry {
 }
 
 export function createPolicyStore(options: PolicyStoreOptions): PolicyStore {
-  const { source, storage, cacheKey = "genesis:updates:policy", timeoutMs = 3000, now = Date.now, onError } = options;
+  const { source, storage, cacheKey = "genesis:updates:policy", now = Date.now, onError } = options;
+  const timeoutMs = validTimeout(options.timeoutMs, 3000);
   const store = createStore<PolicyState>({ status: "loading", policy: null, origin: "none", fetchedAt: null, error: null, refreshing: false });
   let inflight: Promise<boolean> | null = null;
   let firstLoad: Promise<void> | null = null;
@@ -187,14 +189,20 @@ export function createPolicyStore(options: PolicyStoreOptions): PolicyStore {
     if (inflight) return inflight;
     lastAttempt = now();
     store.setState({ refreshing: true });
-    inflight = (async () => {
+    // eslint-disable-next-line prefer-const -- read in `finally`, after the assignment below
+    let run!: Promise<boolean>;
+    run = (async () => {
+      // Never settle synchronously: a source that throws before its first await must not leave a settled `inflight` behind.
+      await null;
       try {
         const policy = sanitizePolicy(await source.load());
         const fetchedAt = now();
         store.setState({ status: "ready", policy, origin: "network", fetchedAt, error: null });
         if (storage) {
           const entry: CacheEntry = { v: 1, savedAt: fetchedAt, policy };
-          storage.setItem(cacheKey, JSON.stringify(entry)).catch((error) => report(error, "storage"));
+          Promise.resolve()
+            .then(() => storage.setItem(cacheKey, JSON.stringify(entry)))
+            .catch((error) => report(error, "storage"));
         }
         return true;
       } catch (error) {
@@ -203,11 +211,12 @@ export function createPolicyStore(options: PolicyStoreOptions): PolicyStore {
         store.setState({ error: toError(error) });
         return false;
       } finally {
-        inflight = null;
+        if (inflight === run) inflight = null;
         store.setState({ refreshing: false });
       }
     })();
-    return inflight;
+    inflight = run;
+    return run;
   };
 
   const readCache = async () => {
@@ -247,6 +256,11 @@ export function createPolicyStore(options: PolicyStoreOptions): PolicyStore {
   };
 }
 
+/** A finite, non-negative timeout, or `fallback` (a NaN or Infinity would wait forever). */
+export function validTimeout(value: number | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
 function parseCache(raw: string | null): CacheEntry | null {
   if (!raw) return null;
   try {
@@ -261,7 +275,7 @@ function parseCache(raw: string | null): CacheEntry | null {
 /** What the policy says this install must do. */
 export type UpdateVerdict =
   | { kind: "ok" }
-  | { kind: "forceUpgrade"; minimumVersion: string; installedVersion: string; storeUrl: string | null }
+  | { kind: "forceUpgrade"; minimumVersion: string; installedVersion: string; storeUrl: string }
   | { kind: "maintenance"; message: string | null };
 
 export interface EvaluatePolicyOptions {
@@ -287,8 +301,10 @@ export function evaluatePolicy(state: PolicyState, options: EvaluatePolicyOption
   const trusted = origin === "network" || (origin === "cache" && age !== null && age >= -CLOCK_SKEW_MS && age <= cacheMaxAgeMs);
   if (trusted && (platform === "ios" || platform === "android")) {
     const minimum = policy.minimumVersion?.[platform];
-    if (minimum && installedVersion && isBelowMinimum(installedVersion, minimum)) {
-      return { kind: "forceUpgrade", minimumVersion: minimum.trim(), installedVersion, storeUrl: policy.storeUrl?.[platform] ?? null };
+    const storeUrl = policy.storeUrl?.[platform];
+    // Without a store link there is no way out of the screen, so no store link means no force upgrade.
+    if (minimum && storeUrl && installedVersion && isBelowMinimum(installedVersion, minimum)) {
+      return { kind: "forceUpgrade", minimumVersion: minimum.trim(), installedVersion, storeUrl };
     }
   }
   if (origin === "network" && policy.maintenance?.active === true) {

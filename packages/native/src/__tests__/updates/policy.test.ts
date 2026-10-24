@@ -125,6 +125,60 @@ describe("the policy store", () => {
     }
   });
 
+  it("keeps retrying a source that throws synchronously (no stale in-flight answer)", async () => {
+    let calls = 0;
+    let online = true;
+    const source: UpdatePolicySource = {
+      load: () => {
+        calls++;
+        if (!online) throw new Error("offline, thrown before any await");
+        return Promise.resolve({ maintenance: { active: true, message: null } });
+      },
+    };
+    const store = createPolicyStore({ source, now: () => NOW });
+    await store.load();
+    online = false;
+    expect(await store.refresh()).toBe(false);
+    online = true;
+    source.load = async () => {
+      calls++;
+      return {};
+    };
+    expect(await store.refresh()).toBe(true);
+    expect(calls).toBe(3);
+    expect(verdict(store.getState())).toEqual({ kind: "ok" });
+  });
+
+  it("treats a NaN or infinite timeout as the default rather than waiting forever", async () => {
+    vi.useFakeTimers();
+    try {
+      for (const timeoutMs of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+        const store = createPolicyStore({ source: { load: never }, timeoutMs, now: () => NOW });
+        const loading = store.load();
+        await vi.advanceTimersByTimeAsync(3000);
+        await loading;
+        expect(store.getState().status).toBe("ready");
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports success even when storage.setItem returns nothing or throws synchronously", async () => {
+    const storage = {
+      getItem: async () => null,
+      setItem: (() => {
+        throw new Error("sync write failure");
+      }) as unknown as (key: string, value: string) => Promise<void>,
+    };
+    const onError = vi.fn();
+    const store = createPolicyStore({ source: staticPolicySource(old), storage, now: () => NOW, onError });
+    expect(await store.refresh()).toBe(true);
+    await flush();
+    expect(onError).toHaveBeenCalledWith(expect.any(Error), "storage");
+    expect(onError).not.toHaveBeenCalledWith(expect.anything(), "policy");
+  });
+
   it("runs the first load once, and refreshes at most once per interval", async () => {
     const load = vi.fn(async () => ({}));
     let now = NOW;
@@ -145,7 +199,10 @@ describe("evaluatePolicy", () => {
 
   it("forces an upgrade below the platform's minimum, with its store link", () => {
     expect(verdict(live(old))).toEqual({ kind: "forceUpgrade", minimumVersion: "2.0.0", installedVersion: "1.0.0", storeUrl: "https://apps.apple.com/app/id1" });
-    expect(evaluatePolicy(live(old), { platform: "android", installedVersion: "1.0.0", now: NOW })).toMatchObject({ kind: "forceUpgrade", storeUrl: null });
+  });
+
+  it("forces nothing without a store link for the platform: there would be no way out", () => {
+    expect(evaluatePolicy(live(old), { platform: "android", installedVersion: "1.0.0", now: NOW })).toEqual({ kind: "ok" });
   });
 
   it("fails open on a malformed minimum, an unknown installed version, or another platform", () => {

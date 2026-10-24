@@ -198,7 +198,9 @@ and release notes (`notes`, an array of `{ version, title?, body }`). Copy it in
   anon and authenticated everything on a new public table, so the migration revokes them by name
   and grants back `select` alone.
 - **Malformed values stay out:** check constraints require plain dotted versions (`1.4.0`), https
-  (or `itms-apps://` / `market://`) store links, and notes with a string `version` and `body`.
+  (or `itms-apps://` / `market://`) store links, a store link beside each minimum version (the
+  force-upgrade screen's only way out), and notes that are objects with a string `version` and
+  `body` (and a string `title`, if any).
 - **Read it** with `supabasePolicySource(supabase)` from `@marktiderman/genesis-native/updates`,
   which fails open: no row, a failed read or a malformed value never blocks anyone.
 

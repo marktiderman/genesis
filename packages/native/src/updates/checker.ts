@@ -119,7 +119,11 @@ export function createUpdateChecker(options: UpdateCheckerOptions): UpdateChecke
     const { status } = store.getState();
     if (inflight || status === "ready" || status === "reloading") return inflight ?? Promise.resolve();
     lastCheck = now();
-    inflight = (async () => {
+    // eslint-disable-next-line prefer-const -- read in `finally`, after the assignment below
+    let run!: Promise<void>;
+    run = (async () => {
+      // Never settle synchronously (a module that throws before its first await).
+      await null;
       try {
         store.setState({ status: "checking", error: null });
         const result = await updates.checkForUpdateAsync();
@@ -145,10 +149,11 @@ export function createUpdateChecker(options: UpdateCheckerOptions): UpdateChecke
         report(error, "check");
         store.setState({ status: "error", error });
       } finally {
-        inflight = null;
+        if (inflight === run) inflight = null;
       }
     })();
-    return inflight;
+    inflight = run;
+    return run;
   };
 
   return {

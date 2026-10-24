@@ -61,13 +61,15 @@ export function createWhatsNewStore(options: WhatsNewOptions): WhatsNewStore {
   const remember = () => {
     if (!storage || !version) return;
     seen = version;
-    storage.setItem(storageKey, version).catch((error) => {
-      try {
-        onError?.(toError(error), "storage");
-      } catch {
-        // ignore a failing reporter
-      }
-    });
+    Promise.resolve()
+      .then(() => storage.setItem(storageKey, version))
+      .catch((error) => {
+        try {
+          onError?.(toError(error), "storage");
+        } catch {
+          // ignore a failing reporter
+        }
+      });
   };
 
   const compute = (notes: readonly ReleaseNote[], final: boolean) => {

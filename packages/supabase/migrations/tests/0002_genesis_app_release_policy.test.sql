@@ -4,7 +4,7 @@
 -- It writes only its own `genesis-test-*` rows and rolls everything back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(29);
 
 -- Shape -------------------------------------------------------------------------
 select has_table('public', 'app_release_policy', 'app_release_policy exists');
@@ -58,8 +58,8 @@ select ok(
 -- Writing and reading as each role ----------------------------------------------------------
 set local role service_role;
 select lives_ok(
-  $$ insert into public.app_release_policy (app_id, min_version_ios, min_version_android, store_url_ios, maintenance, maintenance_message, notes)
-     values ('genesis-test-a', '1.4.0', '1.4', 'https://apps.apple.com/app/id1', true, 'Back soon',
+  $$ insert into public.app_release_policy (app_id, min_version_ios, min_version_android, store_url_ios, store_url_android, maintenance, maintenance_message, notes)
+     values ('genesis-test-a', '1.4.0', '1.4', 'https://apps.apple.com/app/id1', 'market://details?id=x', true, 'Back soon',
              '[{"version": "1.4.0", "title": "Faster", "body": "Everything loads quicker."}]') $$,
   'the service role writes a policy'
 );
@@ -100,11 +100,11 @@ reset role;
 
 -- Checks keep malformed values out (the client fails open on them anyway) -------------------
 select throws_ok(
-  $$ insert into public.app_release_policy (app_id, min_version_ios) values ('genesis-test-c', '1.4-beta') $$,
+  $$ insert into public.app_release_policy (app_id, min_version_ios, store_url_ios) values ('genesis-test-c', '1.4-beta', 'https://apps.apple.com/app/id1') $$,
   '23514', null, 'a minimum version must be plain dotted numbers'
 );
 select throws_ok(
-  $$ insert into public.app_release_policy (app_id, min_version_android) values ('genesis-test-c', '1.2.3.4.5') $$,
+  $$ insert into public.app_release_policy (app_id, min_version_android, store_url_android) values ('genesis-test-c', '1.2.3.4.5', 'market://details?id=x') $$,
   '23514', null, '... of at most four parts'
 );
 select throws_ok(
@@ -122,6 +122,22 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.app_release_policy (app_id, notes) values ('genesis-test-c', '[{"version": "1.0"}]') $$,
   '23514', null, '... a note without a body is refused'
+);
+select throws_ok(
+  $$ insert into public.app_release_policy (app_id, notes) values ('genesis-test-c', '[{"version": ["1.0"], "body": ["x", "y"]}]') $$,
+  '23514', null, '... arrays where strings belong are refused'
+);
+select throws_ok(
+  $$ insert into public.app_release_policy (app_id, notes) values ('genesis-test-c', '[[{"version": "1.0", "body": "x"}]]') $$,
+  '23514', null, '... a nested array is refused'
+);
+select throws_ok(
+  $$ insert into public.app_release_policy (app_id, notes) values ('genesis-test-c', '[{"version": "1.0", "body": "x", "title": 3}]') $$,
+  '23514', null, '... a title must be a string'
+);
+select throws_ok(
+  $$ insert into public.app_release_policy (app_id, min_version_android) values ('genesis-test-c', '2.0') $$,
+  '23514', null, 'a minimum version without its store link is refused (no way out of the screen)'
 );
 select lives_ok(
   $$ insert into public.app_release_policy (app_id) values ('genesis-test-d') $$,

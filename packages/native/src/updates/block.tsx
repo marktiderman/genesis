@@ -18,9 +18,11 @@ import { View } from "react-native";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { createUpdateChecker, createReloadGuard, type ReloadGuard, type UpdateChecker, type UpdateCheckState } from "./checker";
 import { createChannelSwitcher, type ChannelSwitcher } from "./channels";
+import { delay } from "./store";
 import {
   WEEK_MS,
   createPolicyStore,
+  validTimeout,
   evaluatePolicy,
   type PolicyState,
   type PolicyStore,
@@ -123,7 +125,6 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     appState,
     canReload,
     channels,
-    policyTimeoutMs = 3000,
     policyRefreshMs = 5 * 60_000,
     checkIntervalMs = 15 * 60_000,
     reloadScreenOptions,
@@ -131,6 +132,7 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
     onError,
     now = Date.now,
   } = options;
+  const policyTimeoutMs = validTimeout(options.policyTimeoutMs, 3000);
   const guard = createReloadGuard(canReload);
   const policy = createPolicyStore({
     source: source ?? { load: async () => null },
@@ -167,8 +169,17 @@ export function createUpdates(options: UpdatesOptions): UpdatesBlock {
   policy.subscribe(syncNotes);
 
   let loaded: Promise<void> | null = null;
+  // Bounded and never rejects, so the boot step can't time out or fail the boot (a stalled storage read included).
   const load = () => {
-    loaded ??= Promise.all([policy.load(), whatsNew.load()]).then(syncNotes);
+    loaded ??= Promise.race([Promise.all([policy.load(), whatsNew.load()]), delay(policyTimeoutMs)])
+      .then(syncNotes)
+      .catch((error) => {
+        try {
+          onError?.(toError(error), "storage");
+        } catch {
+          // ignore a failing reporter
+        }
+      });
     return loaded;
   };
 
@@ -252,7 +263,7 @@ export function useForceUpgrade(): ForceUpgradeProps | null {
     checking: refreshing,
     retry: () => void block.policy.refresh(),
     openStore: () => {
-      if (!storeUrl || !block.options.openURL) return;
+      if (!block.options.openURL) return;
       Promise.resolve()
         .then(() => block.options.openURL?.(storeUrl))
         .catch((error) => block.options.onError?.(toError(error), "policy"));
@@ -340,19 +351,39 @@ export function UpdatesRoot({ block, slots, slotProps, children }: UpdatesRootPr
   );
 }
 
+const FILL = { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 } as const;
+
 function UpdatesParts({ slots, slotProps, children }: Omit<UpdatesRootProps, "block">) {
   const forceUpgrade = useForceUpgrade();
   const maintenance = useMaintenance();
   const banner = useUpdateBanner();
   const whatsNew = useWhatsNew();
   // An ejected blocking slot (`null`) falls through to the screens: a block that is turned off never blocks.
-  if (forceUpgrade && slots?.forceUpgrade !== null) return <>{renderSlot(ForceUpgradeScreen, slots?.forceUpgrade, forceUpgrade, slotProps?.forceUpgrade)}</>;
-  if (maintenance && slots?.maintenance !== null) return <>{renderSlot(MaintenanceScreen, slots?.maintenance, maintenance, slotProps?.maintenance)}</>;
+  const blocking =
+    forceUpgrade && slots?.forceUpgrade !== null
+      ? renderSlot(ForceUpgradeScreen, slots?.forceUpgrade, forceUpgrade, slotProps?.forceUpgrade)
+      : maintenance && slots?.maintenance !== null
+        ? renderSlot(MaintenanceScreen, slots?.maintenance, maintenance, slotProps?.maintenance)
+        : null;
+  // The screens stay mounted under a blocking screen, so a block that starts and ends
+  // mid-session (maintenance on, then off) keeps a half-filled form and the navigation state.
   return (
     <View style={{ flex: 1 }}>
-      {children}
-      {banner ? renderSlot(UpdateBanner, slots?.updateBanner, banner, slotProps?.updateBanner) : null}
-      {whatsNew ? renderSlot(WhatsNewSheet, slots?.whatsNew, whatsNew, slotProps?.whatsNew) : null}
+      <View
+        style={{ flex: 1 }}
+        pointerEvents={blocking ? "none" : "auto"}
+        accessibilityElementsHidden={Boolean(blocking)}
+        importantForAccessibility={blocking ? "no-hide-descendants" : "auto"}
+      >
+        {children}
+      </View>
+      {!blocking && banner ? renderSlot(UpdateBanner, slots?.updateBanner, banner, slotProps?.updateBanner) : null}
+      {!blocking && whatsNew ? renderSlot(WhatsNewSheet, slots?.whatsNew, whatsNew, slotProps?.whatsNew) : null}
+      {blocking ? (
+        <View style={FILL} testID="genesis-updates-blocking">
+          {blocking}
+        </View>
+      ) : null}
     </View>
   );
 }

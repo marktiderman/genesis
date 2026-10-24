@@ -165,9 +165,14 @@ export const updates = createUpdates({
 ```
 
 - **Force upgrade.** The policy names the oldest store version per platform
-  (`minimumVersion: { ios: "1.4.0" }`). An older install sees the
-  `forceUpgrade` slot, blocking, with "Update" (the policy's store link,
-  opened with `openURL`) and "Check again".
+  (`minimumVersion: { ios: "1.4.0" }`) and its store link (`storeUrl`). An
+  older install sees the `forceUpgrade` slot, blocking, with "Update" (the
+  store link, opened with `openURL`) and "Check again". A minimum without a
+  store link for the platform forces nothing: there would be no way out.
+- **Blocking screens cover, they don't unmount.** The force-upgrade and
+  maintenance screens are drawn over your screens, which stay mounted (hidden
+  from touch and screen readers), so maintenance that starts and ends
+  mid-session keeps a half-filled form and the navigation state.
 - **Maintenance.** `maintenance: { active: true, message }` shows the
   `maintenance` slot, blocking, with "Try again" (fetches the policy again).
 - **Update banner.** On launch and on coming to the front (at most every
@@ -199,9 +204,10 @@ service role).
 
 **It fails open.** A missing policy must never lock anyone out:
 
-- The first load waits for the policy behind the splash for at most
-  `policyTimeoutMs` (3 s), then carries on. An answer that arrives later still
-  applies.
+- The first load (the policy and the version whose notes were seen) waits
+  behind the splash for at most `policyTimeoutMs` (3 s), then carries on, so
+  a hung network or a stalled storage read never fails the boot. An answer
+  that arrives later still applies.
 - No answer, an error, a malformed version (`1.2-beta`, `""`) or an unknown
   installed version never blocks.
 - A policy fetched from the network is cached. Offline, a cached minimum
@@ -222,7 +228,7 @@ under `UpdatesProvider` (or the shell): `useForceUpgrade`, `useMaintenance`,
 `expo-updates` and `expo-application` are optional peers passed in, never
 imported: without `updates` there is no banner and no channel switching;
 without `application` nothing is forced and no notes show. The banner uses
-`react-native-safe-area-context` (already a peer of genesis-ui-native).
+`react-native-safe-area-context`, a peer (genesis-ui-native needs it too).
 
 ## Each part on its own
 

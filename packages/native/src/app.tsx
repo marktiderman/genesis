@@ -121,7 +121,7 @@ export interface GenesisNativeAppProps {
    * boot. Read once; leave it out to turn the block off.
    */
   updates?: UpdatesBlock;
-  slots?:Slots<NativeAppSlots>;
+  slots?: Slots<NativeAppSlots>;
   slotProps?: SlotPropsFor<NativeAppSlots>;
   children?: ReactNode;
 }
