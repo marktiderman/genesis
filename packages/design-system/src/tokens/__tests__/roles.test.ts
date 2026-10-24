@@ -60,5 +60,16 @@ describe("resolveThemeRoles", () => {
   it("lets a brand set the tint on native", () => {
     expect(resolveThemeRoles({ target: "android", tint: "#123456" }).tint).toBe("#123456");
     expect(resolveThemeRoles({ target: "ios" }).tint).toBe("#4f46e5");
+    expect(resolveThemeRoles({ target: "android", scheme: "dark" }).tint).toBe("#7b75eb");
+  });
+});
+
+describe("default tint contrast", () => {
+  it("is readable on the background in both schemes", () => {
+    const light = resolveThemeRoles({ target: "android", scheme: "light" });
+    const dark = resolveThemeRoles({ target: "android", scheme: "dark" });
+    expect(contrast(light.tint as string, light.background as string)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(dark.tint as string, dark.background as string)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast("#09090b", dark.tint as string)).toBeGreaterThanOrEqual(4.5);
   });
 });

@@ -443,6 +443,9 @@ importers:
       ajv:
         specifier: ^8.17.0
         version: 8.20.0
+      happy-dom:
+        specifier: ^20.9.0
+        version: 20.11.1
       style-dictionary:
         specifier: '4'
         version: 4.4.0

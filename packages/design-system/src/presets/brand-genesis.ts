@@ -1,7 +1,7 @@
 import type { ThemeConfig } from "../tokens/themes";
 import type { CanonicalBrand } from "../schema/brand";
 
-/** Genesis brand — emerald green. */
+/** Genesis brand — indigo (distinct from the emerald `success`). */
 export const genesisTheme: ThemeConfig = {
   primary: { h: 243, s: 75, l: 59 },
   radius: "0.625rem",
@@ -11,6 +11,8 @@ export const genesisColors = {
   // indigo-600 — matches genesisTheme (243 75% 59%) and the DTCG brand primary. Distinct from
   // `success` (emerald) so a primary button never reads as a success state; 6.3:1 on white.
   primary: "#4f46e5",
+  /** The primary in dark mode (`243 75% 69%`, as the web theme renders it). */
+  primaryDark: "#7b75eb",
 } as const;
 
 /**

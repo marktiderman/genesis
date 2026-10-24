@@ -78,7 +78,7 @@ function m(light: string, dark: string) {
 }
 
 /** The Genesis brand primary, the default `tint` on native. A brand passes its own. */
-const DEFAULT_TINT: string = genesisColors.primary;
+const DEFAULT_TINT = { light: genesisColors.primary as string, dark: genesisColors.primaryDark as string };
 const DYNAMIC_TINT = m("accent1_600", "accent1_200");
 
 const kebab = (token: string) => token.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
@@ -126,6 +126,6 @@ export function resolveThemeRoles<C = string>(options: ResolveThemeRolesOptions<
   if (target === "web") out.tint = "hsl(var(--primary))";
   else if (tint) out.tint = tint;
   else if (dynamic) out.tint = platformColor(DYNAMIC_TINT[scheme]);
-  else out.tint = DEFAULT_TINT;
+  else out.tint = DEFAULT_TINT[scheme];
   return out;
 }

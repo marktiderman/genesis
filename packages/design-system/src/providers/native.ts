@@ -84,8 +84,14 @@ export interface BrandRegistry {
 
 export type Brand = keyof BrandRegistry;
 
-/** Default `genesis` brand primary (emerald-500 — matches the DTCG brand primary). */
+/** Default `genesis` brand primary (indigo-600 — matches the DTCG brand primary). */
 export const GENESIS_PRIMARY = "#4f46e5";
+
+/**
+ * The default primary in dark mode: the same hue 10 points lighter, as the web
+ * theme renders it (`243 75% 69%`), so dark text on it stays above 4.5:1.
+ */
+export const GENESIS_PRIMARY_DARK = "#7b75eb";
 
 function resolveBrandColors(
   primary: string,
@@ -166,12 +172,12 @@ export interface GenesisThemeProviderProps {
   /**
    * Override the primary color (consumer brand packages source this from
    * their canonical brand object's `accent.DEFAULT`). Defaults to the
-   * Genesis emerald.
+   * Genesis indigo: `GENESIS_PRIMARY`, or `GENESIS_PRIMARY_DARK` in dark mode.
    */
   primary?: string;
   /**
    * Override the primary foreground color. The defaults (`#ffffff` light,
-   * `#09090b` dark) are tuned for the Genesis emerald primary; once
+   * `#09090b` dark) are tuned for the Genesis primaries (6.3:1 and 5.3:1); once
    * `primary` is overridden to an arbitrary brand color, the fixed
    * foreground may not satisfy WCAG contrast. Pass an explicit value
    * sourced from the consumer brand package to keep primary surfaces
@@ -184,11 +190,12 @@ export interface GenesisThemeProviderProps {
 export function GenesisThemeProvider({
   brand = "genesis",
   mode = "light",
-  primary = GENESIS_PRIMARY,
+  primary: primaryProp,
   primaryForeground,
   children,
 }: GenesisThemeProviderProps) {
   const theme = useMemo<GenesisTheme>(() => {
+    const primary = primaryProp ?? (mode === "dark" ? GENESIS_PRIMARY_DARK : GENESIS_PRIMARY);
     const brandColors = resolveBrandColors(primary, mode, primaryForeground);
     return {
       brand,
@@ -207,7 +214,7 @@ export function GenesisThemeProvider({
       fontFamily: nativeFontFamily,
       typography: nativeTypography,
     };
-  }, [brand, mode, primary, primaryForeground]);
+  }, [brand, mode, primaryProp, primaryForeground]);
 
   return createElement(
     GenesisThemeContext.Provider,
