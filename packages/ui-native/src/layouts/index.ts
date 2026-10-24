@@ -3,7 +3,7 @@
  *
  * Layer-2 primitive: ScreenContainer (composable chrome).
  * Layer-3/4 layouts: SettingsPage, SettingsSubPage, NotificationsPage,
- * AuthForm + SocialAuthRow + AuthBranding.
+ * AuthScreen (assembled from AuthForm + SocialAuthRow + AuthBranding).
  *
  * See standards/usage-doctrine.md for the Layer 1-4 progression.
  */
@@ -45,6 +45,7 @@ export {
   NotificationsPage,
   getNotificationsPageStackOptions,
   type NotificationsPageProps,
+  type NotificationsPageSlotMap,
   type NotificationItem,
 } from "./notifications-page";
 
@@ -59,3 +60,5 @@ export {
   type SocialAuthProvider,
   type AuthBrandingProps,
 } from "./auth";
+
+export { AuthScreen, type AuthScreenProps, type AuthScreenSlotMap } from "./auth-screen";
