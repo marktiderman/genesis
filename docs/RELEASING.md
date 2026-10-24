@@ -52,8 +52,9 @@ version of every Genesis package the umbrella depends on (packages it doesn't de
 the CLI, studio and supabase, release on their own and aren't listed), and the package exports it as
 `@marktiderman/genesis/versions.json`. In an app that has the umbrella installed, `genesis doctor`
 warns (`version-skew`) for every other installed Genesis package on a different version. Raise it to
-an error with `"rules": { "version-skew": "error" }`. Bump every Genesis package in an app together,
-for example with one Dependabot group for `@marktiderman/*`.
+an error with `"rules": { "version-skew": "error" }`. Bump every Genesis package in an app together:
+the reusable `genesis-upgrade` workflow does it weekly from that manifest and opens one pull request
+(see [App CI](./APP-CI.md), which also says which Genesis commit an app's CI should call).
 
 ## A brand-new package
 

@@ -1,0 +1,26 @@
+{
+  "generatedFrom": "features.ts",
+  "features": [
+    {
+      "id": "fixture-home",
+      "name": "Fixture home",
+      "summary": "The one screen of the CI fixture app.",
+      "status": "building",
+      "owner": "ci",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "reviewedAt": "2026-10-24",
+      "acceptance": [
+        "The app CI self-test runs typecheck, lint, test, the doctor and this check green."
+      ],
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    }
+  ],
+  "flags": {}
+}

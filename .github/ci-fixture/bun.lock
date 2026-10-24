@@ -1,0 +1,52 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 0,
+  "workspaces": {
+    "": {
+      "name": "genesis-ci-fixture",
+      "devDependencies": {
+        "@marktiderman/genesis-cli": "1.4.0",
+        "@marktiderman/genesis-design-system": "1.4.0",
+        "@marktiderman/genesis-features": "0.2.0",
+        "@marktiderman/genesis-ui": "2.12.1",
+      },
+    },
+  },
+  "packages": {
+    "@marktiderman/genesis-cli": ["@marktiderman/genesis-cli@1.4.0", "", { "dependencies": { "@marktiderman/genesis-features": "^0.2.0", "@marktiderman/genesis-studio-server": "^0.2.1", "commander": "^12.1.0", "jiti": "^2.4.0", "postgres": "^3.4.9" }, "peerDependencies": { "@expo/config-plugins": ">=54", "@expo/config-types": ">=54", "vite": ">=5" }, "optionalPeers": ["@expo/config-plugins", "@expo/config-types", "vite"], "bin": { "genesis": "dist/cli.js" } }, "sha512-q70fSMrZ0KcgfLhD5mgCrjP38yqznz7J7IG90vCO1kcqDNHk5Oh4cx7V8Zk1IokKSCNmlJP6F21UPhsOfmQFmg=="],
+
+    "@marktiderman/genesis-core": ["@marktiderman/genesis-core@1.7.0", "", { "peerDependencies": { "zod": "^3.0.0 || ^4.0.0" } }, "sha512-U6NjJ9pyPNfJh36UA9shlfaAsrY8OA23mDaSYT76aaNMv/J+unGy7f+odqqQHSBqzW8hp09tpP27x3rDhFLXdg=="],
+
+    "@marktiderman/genesis-design-system": ["@marktiderman/genesis-design-system@1.4.0", "", {}, "sha512-7httyt7mEZffgG5H9XQk9jotVYHfC4KXqZZLKN5KaQcSe+PK/dYShlwNXiwt5JZtLA90B3eVr4YqHX7xVZdRLA=="],
+
+    "@marktiderman/genesis-features": ["@marktiderman/genesis-features@0.2.0", "", { "dependencies": { "zod": "^3.25.0 || ^4.0.0" }, "peerDependencies": { "@marktiderman/genesis-ui": ">=2.7.0 <3.0.0", "lucide-react": "^1.0.0", "react": "^19.0.0" }, "optionalPeers": ["lucide-react", "react"] }, "sha512-unHTxMiF5mLVSTPl3/sIh2ZyvGcN/tzirJXY0vKAuoJUr3BhLlsKl7ukjsa45lXcC/pl0TYrU6Ddz6SwqV/lNA=="],
+
+    "@marktiderman/genesis-studio-server": ["@marktiderman/genesis-studio-server@0.2.1", "", { "dependencies": { "@marktiderman/genesis-core": "^1.3.0", "jose": "^6.2.12", "postgres": "^3.4.9" }, "bin": { "genesis-studio-server": "dist/cli.js" } }, "sha512-vOnTGmzDuH/HYps2ODcZe54GoLkPBPf/VaM/6DH6eAIQBcl88neBllwJjuRyu+RHMRN3WOh5fJxHl0rCp4xrhg=="],
+
+    "@marktiderman/genesis-ui": ["@marktiderman/genesis-ui@2.12.1", "", { "dependencies": { "@marktiderman/genesis-core": "^1.7.0", "@tanstack/react-table": "^8.21.3", "@tanstack/react-virtual": "^3.14.0", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "tailwind-merge": "^3.5.0" }, "peerDependencies": { "@marktiderman/genesis-design-system": "^1.4.0", "@tanstack/react-router": "^1.0.0", "@tiptap/core": "^3.31.0", "@tiptap/extensions": "^3.31.0", "@tiptap/pm": "^3.31.0", "@tiptap/react": "^3.31.0", "@tiptap/starter-kit": "^3.31.0", "react-router": "^7.0.0" }, "optionalPeers": ["@tanstack/react-router", "@tiptap/core", "@tiptap/extensions", "@tiptap/pm", "@tiptap/react", "@tiptap/starter-kit", "react-router"] }, "sha512-g5xJpYQjhZ2ZKEGEmU2arjo8B+wBgpem2GYlOC780QQarJs3kA6p9c50s6Sq1cfnbcOdpow///of4OT+4OrsBg=="],
+
+    "@tanstack/react-table": ["@tanstack/react-table@8.21.3", "", { "dependencies": { "@tanstack/table-core": "8.21.3" } }, "sha512-5nNMTSETP4ykGegmVkhjcS8tTLW6Vl4axfEGQN3v0zdHYbK4UfoqfPChclTrJ4EoK9QynqAu9oUf8VEmrpZ5Ww=="],
+
+    "@tanstack/react-virtual": ["@tanstack/react-virtual@3.14.22", "", { "dependencies": { "@tanstack/virtual-core": "3.19.7" } }, "sha512-zNiB9IF3prySTfAUrj9tPHjD/lonBYkfxrPP4v4ITUx+qwHajJR5cY/xirjvwc+KWkur10GX3TpsbKh7JkD8Lw=="],
+
+    "@tanstack/table-core": ["@tanstack/table-core@8.21.3", "", {}, "sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg=="],
+
+    "@tanstack/virtual-core": ["@tanstack/virtual-core@3.19.7", "", {}, "sha512-gxy5SvH0mFRJ0YujtrflB/1HAu9Wn1KGvL0bjZfQkYVVMsIpQiwcf1mR06/ViN4NjllUb4HNCjqE9FGwgTvMCQ=="],
+
+    "class-variance-authority": ["class-variance-authority@0.7.1", "", { "dependencies": { "clsx": "^2.1.1" } }, "sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg=="],
+
+    "clsx": ["clsx@2.1.1", "", {}, "sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA=="],
+
+    "commander": ["commander@12.1.0", "", {}, "sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA=="],
+
+    "jiti": ["jiti@2.7.0", "", { "bin": "lib/jiti-cli.mjs" }, "sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ=="],
+
+    "jose": ["jose@6.2.13", "", {}, "sha512-7TIg10ZE1x82YediN+lcrPNvGMKge9yFHQD+Qho/b8y2adfugU3AsvvHfxV0fzyFllT6l9xCjf4RWY9g/Z9PJQ=="],
+
+    "postgres": ["postgres@3.4.9", "", {}, "sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw=="],
+
+    "tailwind-merge": ["tailwind-merge@3.7.0", "", {}, "sha512-XPPUyAc+cvspz3lHTcR/QgPfW2A0lv/xQNIjX3HGhLR+Nq2lHaLq5MtTesHn8GUr3W3DguT2KT5x3NVgRtYwmA=="],
+
+    "zod": ["zod@4.6.7", "", {}, "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg=="],
+  }
+}

@@ -1,0 +1,51 @@
+# Runs the reusable app CI and Supabase CI workflows against the tiny fixture
+# app in .github/ci-fixture, once per package manager, whenever they (or the
+# fixture, or the caller templates) change. A same-repo `uses: ./` call, so a
+# pull request tests its own version of the workflows.
+#
+# genesis-upgrade isn't called here: its pull request job needs a write token,
+# which a pull_request workflow shouldn't hold. docs/APP-CI.md says how to try it.
+
+name: CI templates self-test
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/app-ci.yml"
+      - ".github/workflows/supabase-ci.yml"
+      - ".github/workflows/ci-templates-self-test.yml"
+      - ".github/ci-fixture/**"
+      - "templates/ci/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  app-ci:
+    name: app-ci (${{ matrix.package-manager }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package-manager: pnpm
+            version: 11.26.0
+          - package-manager: bun
+            version: 1.3.14
+          - package-manager: npm
+            version: ""
+    uses: ./.github/workflows/app-ci.yml
+    with:
+      package-manager: ${{ matrix.package-manager }}
+      package-manager-version: ${{ matrix.version }}
+      working-directory: .github/ci-fixture
+
+  supabase-ci:
+    name: supabase-ci
+    uses: ./.github/workflows/supabase-ci.yml
+    with:
+      working-directory: .github/ci-fixture
+      tests-path: supabase/tests
+      # The published @marktiderman/genesis-cli (1.4.0) predates doctor packs; turn the
+      # doctor job on here once a release with the supabase pack is out.
+      doctor: false

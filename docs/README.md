@@ -15,6 +15,9 @@
 - [`../packages/extension/README.md`](../packages/extension/README.md): building Chrome extensions
   with Genesis (messaging, settings, panel / top bar / side panel, an in-page bar, native helpers,
   React pages on Genesis UI, a `chrome.*` fake for tests).
+- [`APP-CI.md`](./APP-CI.md): the reusable workflows an app's CI calls (`app-ci`, `supabase-ci`,
+  `genesis-upgrade`), the caller templates in `templates/ci/`, and which Genesis ref to call.
+- [`RELEASING.md`](./RELEASING.md): how Genesis packages are published, and one Genesis version per app.
 - [`MIGRATION.md`](./MIGRATION.md) — per-version migration notes. Appended to at every
   release; newest on top.
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — setup, branch/PR flow, changesets, gates.
