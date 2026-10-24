@@ -19,6 +19,7 @@
 import { useCallback, type ReactNode } from "react";
 import { Alert, KeyboardAvoidingView, Platform, View } from "react-native";
 import { cn } from "../utils";
+import { useKeyboardScroll } from "./keyboard";
 import {
   ScreenContainer,
   composeHeaderOptions,
@@ -161,6 +162,18 @@ export function SettingsSubPage({
   );
   void _onConfirmLeave;
 
+  const KeyboardScroll = useKeyboardScroll();
+  if (KeyboardScroll) {
+    return (
+      <ScreenContainer safeAreaEdges={["left", "right", "bottom"]} testID={testID}>
+        <KeyboardScroll testID={`${testID}-keyboard`} keyboardShouldPersistTaps="handled" bottomOffset={24} contentContainerStyle={{ padding: 16 }}>
+          <View testID={`${testID}-form`} className={cn("gap-4", className)}>
+            {children}
+          </View>
+        </KeyboardScroll>
+      </ScreenContainer>
+    );
+  }
   return (
     <KeyboardAvoidingView
       testID={`${testID}-kav`}
