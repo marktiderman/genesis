@@ -892,6 +892,155 @@
       "flags": []
     },
     {
+      "id": "forms-submit",
+      "name": "Form submit contract",
+      "summary": "submitResponse on the server: re-checks a submission (validateSubmission, uploads), snapshots the options picked and stores it once per idempotency key through the app's SubmissionStore, answering one SubmitResult the client outbox reads.",
+      "category": "Forms",
+      "status": "beta",
+      "layer": "service",
+      "keywords": [
+        "submit",
+        "submission",
+        "idempotency",
+        "idempotency key",
+        "duplicate",
+        "submit endpoint",
+        "store response"
+      ],
+      "entry": {
+        "server": "@marktiderman/genesis-forms/server"
+      },
+      "requires": [
+        "forms-engine"
+      ],
+      "owner": "mark",
+      "apps": [
+        "node"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "A retry with the same idempotency key is answered duplicate with the first response's id and stores nothing new; a key reused for other answers is refused.",
+        "A choice outside the server's host options or its filter is refused, and stored answers carry each picked option's label as it was."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/forms/src/submit.ts",
+          "packages/forms/src/submit-protocol.ts"
+        ],
+        "docs": [
+          "packages/forms/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "forms-drafts",
+      "name": "Form drafts",
+      "summary": "Answers saved on the device as the respondent goes (debounced), put back where they left off, and discarded whole when a new version of the form no longer fits them. Memory, localStorage and AsyncStorage or MMKV storage.",
+      "category": "Forms",
+      "status": "beta",
+      "layer": "hook",
+      "keywords": [
+        "draft",
+        "autosave",
+        "resume",
+        "save progress",
+        "restore",
+        "local storage",
+        "asyncstorage",
+        "mmkv"
+      ],
+      "entry": {
+        "web": "@marktiderman/genesis-forms-react",
+        "native": "@marktiderman/genesis-forms-react"
+      },
+      "requires": [
+        "forms-react"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "respondent"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "Answers typed and left are put back on the next visit at the question reached, and a draft whose question was removed in a new version is discarded, not half restored."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/forms/src/drafts.ts",
+          "packages/forms/src/storage.ts",
+          "packages/forms-react/src/drafts.ts"
+        ],
+        "docs": [
+          "packages/forms/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "forms-outbox",
+      "name": "Offline submit outbox",
+      "summary": "Submissions queued on the device with an idempotency key, kept across restarts, sent when online with backoff, and never dropped: refused or exhausted ones stay as failed for retry or discard. Transport-agnostic.",
+      "category": "Forms",
+      "status": "beta",
+      "layer": "hook",
+      "keywords": [
+        "offline",
+        "outbox",
+        "queue",
+        "retry",
+        "backoff",
+        "submit offline",
+        "sync"
+      ],
+      "entry": {
+        "web": "@marktiderman/genesis-forms-react",
+        "native": "@marktiderman/genesis-forms-react"
+      },
+      "requires": [
+        "forms-react",
+        "forms-submit"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "respondent"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "A submission made offline is sent when the device comes online, survives an app restart, and is stored once however often it is retried.",
+        "A submission the server refuses, or that runs out of tries, stays in the outbox as failed until it is retried or discarded."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/forms/src/outbox.ts",
+          "packages/forms-react/src/outbox.ts"
+        ],
+        "docs": [
+          "packages/forms/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "cli-init",
       "name": "genesis init",
       "summary": "Scaffolds a Genesis consumer: a brand package, Tailwind or NativeWind config and token imports.",
