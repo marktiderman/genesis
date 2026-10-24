@@ -7,9 +7,13 @@
  *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens)
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
  *         └ session + boot (splash held until both are known)
- *           └ updates (with `updates`: force upgrade, maintenance, banner, what's new)
+ *           └ blocks' roots (with `blocks`, e.g. updates: force upgrade, maintenance, banner, what's new)
  *             └ errorBoundary → your screens (or `signedOut`)
  *
+ * `blocks` (`defineBlock` declarations a native shell can run) are resolved
+ * once: requirements checked, boot steps run behind the splash, roots
+ * mounted, slot fills put under your `slots`, Settings rows handed to
+ * `useBlockSettings`.
  * Global errors, render errors and a failed boot show the `fatal` slot with
  * "Try again". Every part is a slot (`slots` / `slotProps`, `null` drops it)
  * and is also exported on its own.
@@ -40,6 +44,8 @@ import {
 import { SessionProvider, createSessionStore, type AuthClientLike } from "./auth";
 import { useHeldLink, type HeldLinkAuth, type LinkHold } from "./held-link";
 import { connectQueryLifecycle, createNativeQueryClient, type QueryLifecycleOptions, type QueryPersistence } from "./query";
+import { resolveBlocks } from "@marktiderman/genesis-features/blocks";
+import { BlocksProvider, type NativeBlock } from "./blocks";
 // Types only: the block's code is in the `/updates` entry and arrives with the `updates` prop.
 import type { UpdatesBlock, UpdatesSlots } from "./updates/block";
 
@@ -129,6 +135,13 @@ export interface GenesisNativeAppProps {
    * boot. Read once; leave it out to turn the block off.
    */
   updates?: UpdatesBlock;
+  /**
+   * Blocks to run (`createUpdates(…)` is one). Resolved once at start: a
+   * block whose requirement is missing, or two blocks contributing the same
+   * slot, nav entry or Settings row, shows the fatal screen and reports a
+   * `BlockError` to `onError`. Read once.
+   */
+  blocks?: readonly NativeBlock[];
   slots?: Slots<NativeAppSlots>;
   slotProps?: SlotPropsFor<NativeAppSlots>;
   children?: ReactNode;
@@ -203,7 +216,7 @@ const SESSION_STEP_MARGIN_MS = 15_000;
 
 function Shell(props: GenesisNativeAppProps) {
   const { supabase, provider, queryClient: queryOptions, persist, splash, links, steps = [], bootOptions, sessionWaitMs = 5000 } = props;
-  const { errorUtils, rejectionTracker, lifecycle, slots, slotProps, children } = props;
+  const { errorUtils, rejectionTracker, lifecycle, slotProps, children } = props;
   const latest = useRef(props);
   latest.current = props;
   const onError: OnError = (error, report) => latest.current.onError?.(error, report);
@@ -212,6 +225,9 @@ function Shell(props: GenesisNativeAppProps) {
 
   // Created once: the shell's parts live as long as the app.
   const [parts] = useState(() => {
+    // `updates` is a block too; given both ways, it runs once.
+    const given = props.blocks ?? [];
+    const blocks = resolveBlocks(props.updates && !given.includes(props.updates) ? [...given, props.updates] : given, undefined, { platform: "native" });
     const client = queryOptions?.client ?? createNativeQueryClient(queryOptions?.config);
     const persistence = persist ? persist(client) : null;
     const session = createSessionStore(supabase, {
@@ -226,8 +242,8 @@ function Shell(props: GenesisNativeAppProps) {
     const boot = createBoot(
       [
         ...steps,
-        // Settles within its own timeout and never throws: a policy that can't load never blocks the app.
-        ...(props.updates ? [props.updates.bootStep] : []),
+        // Blocks' steps, in dependency order (the updates block's settles within its own timeout and never throws).
+        ...blocks.blocks.flatMap((block) => block.bootSteps ?? []),
         { id: "genesis:session", run: () => session.load(), timeoutMs: sessionWaitMs + SESSION_STEP_MARGIN_MS },
         // After the session, so only the cache saved for this user is restored.
         ...(persistence ? [{ id: "genesis:query-cache", run: () => persistence.restore(session.getState().userId ?? "") }] : []),
@@ -242,7 +258,8 @@ function Shell(props: GenesisNativeAppProps) {
           fatalShown.current--;
         };
       }, []);
-      const { slots: s, slotProps: sp } = latest.current;
+      const { slotProps: sp } = latest.current;
+      const s = withBlockSlots(blocks.slots, latest.current.slots);
       return (
         // A `fatal` slot that throws falls back to the plain screen.
         <GenesisErrorBoundary fallback={PlainFatalScreen} onError={onError} onRetry={fallbackProps.retry}>
@@ -250,9 +267,10 @@ function Shell(props: GenesisNativeAppProps) {
         </GenesisErrorBoundary>
       );
     }
-    return { client, persistence, session, boot, FatalFallback, updates: props.updates, provider: provider ?? createSupabaseProvider(supabase) };
+    return { client, persistence, session, boot, FatalFallback, blocks, provider: provider ?? createSupabaseProvider(supabase) };
   });
   const { boot, session, persistence, client, FatalFallback } = parts;
+  const slots = withBlockSlots(parts.blocks.slots, props.slots);
   const bootState = useSyncExternalStore(boot.subscribe, boot.getState, boot.getState);
   const sessionState = useSyncExternalStore(session.subscribe, session.getState, session.getState);
   const [fatal, setFatal] = useState<Error | null>(null);
@@ -313,27 +331,38 @@ function Shell(props: GenesisNativeAppProps) {
       { fallback: FatalFallback, onError, resetKey, onRetry: retry, children: screens },
       slotProps?.errorBoundary,
     );
-    const Updates = parts.updates?.Root;
-    content = Updates ? (
-      <Updates slots={slots} slotProps={slotProps}>
-        {guarded}
-      </Updates>
-    ) : (
-      guarded
-    );
+    // The first block's root is the outermost.
+    content = parts.blocks.blocks.reduceRight<ReactNode>((inner, block) => {
+      const Root = block.Root;
+      return Root ? (
+        <Root key={block.id} slots={slots} slotProps={slotProps}>
+          {inner}
+        </Root>
+      ) : (
+        inner
+      );
+    }, guarded);
   }
 
   return (
     <GenesisProvider provider={parts.provider} queryClient={client}>
       <SessionProvider store={session}>
         <BootProvider boot={boot}>
-          <GenesisErrorBoundary key={resetKey} fallback={FatalFallback} onError={onError} onRetry={retry}>
-            {content}
-          </GenesisErrorBoundary>
+          <BlocksProvider value={parts.blocks}>
+            <GenesisErrorBoundary key={resetKey} fallback={FatalFallback} onError={onError} onRetry={retry}>
+              {content}
+            </GenesisErrorBoundary>
+          </BlocksProvider>
         </BootProvider>
       </SessionProvider>
     </GenesisProvider>
   );
+}
+
+/** Blocks' slot fills under the app's own slots: the app's (a component or `null`) always win. */
+function withBlockSlots(fills: Readonly<Record<string, unknown>>, own: Slots<NativeAppSlots> | undefined): Slots<NativeAppSlots> | undefined {
+  if (Object.keys(fills).length === 0) return own;
+  return { ...(fills as Slots<NativeAppSlots>), ...own };
 }
 
 const NO_HOLD: LinkHold = {

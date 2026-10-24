@@ -8,5 +8,5 @@ export default defineConfig({
   clean: true,
   treeshake: true,
   target: "es2022",
-  external: ["@supabase/supabase-js"],
+  external: ["@supabase/supabase-js", /^@marktiderman\//],
 });

@@ -120,6 +120,59 @@ The flag scan ignores comments and test files. List the flags runtime itself (th
 
 The CLI loads TypeScript itself, so the registry needs no build step. Keep its imports to packages, with no path aliases.
 
+## Blocks
+
+A block is a feature an app adds whole: account, push, observability, support, updates. It is
+declared once, by its FeatureId, with what it needs and what it contributes. The app shell, the
+navigation tree and Settings read the contributions by FeatureId; the app still decides where they
+go. `@marktiderman/genesis-features/blocks` has no zod in it, so it ships to phones (the root
+re-exports it).
+
+```ts
+import { defineBlock, resolveBlocks } from "@marktiderman/genesis-features/blocks";
+import type { FeatureId } from "./features";
+
+export const supportBlock = defineBlock<FeatureId>({
+  id: "support",
+  requires: ["account"], // other blocks, or app features that aren't blocks
+  platforms: ["web", "native"], // default: everywhere
+  contributes: {
+    nav: [{ id: "help", label: "Help", path: "/help" }],
+    settings: [{ id: "contact-support", section: "about", title: "Contact support", href: "/support" }],
+    routes: [{ path: "/support", signedIn: true }],
+    slots: { fatal: SupportFatalScreen }, // fills the host shell's slots; the app's own slots win
+    migrations: [{ package: "@acme/support", file: "migrations/0001_support.sql" }],
+    skills: [".claude/skills/support/SKILL.md"],
+    privacy: { collects: [{ type: "email address", purposes: ["app functionality"], linked: true, tracking: false }] },
+  },
+});
+
+const blocks = resolveBlocks([accountBlock, supportBlock], enabledIds, { platform: "native", features });
+blocks.nav; // [{ feature: "support", id: "help", … }]: place them in your nav tree
+blocks.settings; // by `order`, then dependency order
+blocks.dropped; // with { missing: "drop" }: what was left out and why
+```
+
+`defineBlock` validates one block and freezes it. `resolveBlocks(blocks, enabled?, options?)`
+takes the blocks that exist, the ids that are on (a list, a predicate, or every block when left
+out) and returns the enabled ones in dependency order with their contributions merged, each tagged
+with its `feature`. It throws a `BlockError` listing every problem at once:
+
+- a bad id, a block requiring itself, an unknown contribution key, a duplicate id;
+- a cycle through `requires` (the registry's own check, from `graph.ts`);
+- with `features` (the registry), a block id or requirement that isn't a feature;
+- an enabled block whose requirement is off, or doesn't run on `platform`. With `missing: "drop"` the
+  block (and everything needing it) is left out instead and listed in `dropped`: for switches that
+  change at run time, such as a tenant turning a feature off;
+- two enabled blocks contributing the same nav entry, Settings row, route or slot.
+
+A requirement that isn't one of the blocks is a feature the app owns: it is met unless `enabled`
+is given and leaves it out.
+
+Blocks shipped so far: `createUpdates(…)` (`app-updates`, in `@marktiderman/genesis-native/updates`),
+`accountBlock` and `tenantFeaturesBlock` (in `@marktiderman/genesis-supabase`).
+`<GenesisNativeApp blocks={…}>` runs them; see that package's README.
+
 ## The page
 
 ```tsx
