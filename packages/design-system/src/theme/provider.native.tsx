@@ -36,7 +36,7 @@ import {
   type ReactNode,
 } from "react";
 // eslint-disable-next-line import/no-unresolved
-import { useColorScheme } from "react-native";
+import { Appearance, useColorScheme } from "react-native";
 import { GenesisThemeContext } from "./context";
 import {
   resolveTokens,
@@ -81,6 +81,13 @@ export function GenesisThemeProvider({
     onModeChange?.(resolvedMode);
   }, [resolvedMode, onModeChange]);
 
+  // Push an in-app choice down to the platform, so iOS system colors
+  // (PlatformColor) and native controls follow it, not just Genesis tokens.
+  // "system" hands the decision back to the OS.
+  useEffect(() => {
+    syncAppearance(choice);
+  }, [choice]);
+
   const setMode = useCallback(
     (next: ThemeMode) => {
       if (isControlled) {
@@ -119,4 +126,20 @@ export function GenesisThemeProvider({
     { value },
     children
   );
+}
+
+/** Override (or release) the OS color scheme for this app. */
+function syncAppearance(choice: ThemeMode) {
+  const set = (Appearance as { setColorScheme?: (scheme: "light" | "dark" | "unspecified" | null) => void }).setColorScheme;
+  if (!set) return;
+  if (choice === "system") {
+    // RN 0.80+ takes "unspecified"; older versions took null.
+    try {
+      set("unspecified");
+    } catch {
+      set(null);
+    }
+  } else {
+    set(choice);
+  }
 }
