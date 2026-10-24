@@ -364,6 +364,11 @@ export const RefreshControl = (props: AnyProps) =>
 
 export const StatusBar = (_props: AnyProps) => null;
 
+/** Records the names, like the real one does in its opaque value. */
+export function PlatformColor(...names: string[]) {
+  return { semantic: names };
+}
+
 export const Appearance = {
   getColorScheme(): "light" | "dark" | null {
     return "light";

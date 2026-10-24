@@ -22,6 +22,10 @@ export {
   generateDarkTheme,
   themeToCss,
   type ThemeConfig,
+  THEME_ROLES,
+  resolveThemeRoles,
+  type ResolveThemeRolesOptions,
+  type ThemeRole,
 } from "./tokens/index";
 
 // Canonical brand schema

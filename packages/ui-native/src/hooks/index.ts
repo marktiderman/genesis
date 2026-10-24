@@ -8,6 +8,7 @@
 
 export { useReducedMotion } from "./use-reduced-motion";
 export { useThemeMode, type ThemeMode } from "./use-theme-mode";
+export { useThemeRoles, type ThemeRoleColors } from "./use-theme-roles";
 export {
   BrandExtensionsProvider,
   useGenesisExtension,

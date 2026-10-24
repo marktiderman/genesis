@@ -247,6 +247,11 @@ declare module "react-native" {
 
   export type ColorSchemeName = "light" | "dark" | null | undefined;
 
+  /** A color string, or an opaque platform color from `PlatformColor`. */
+  export type OpaqueColorValue = symbol & { __TYPE__: "Color" };
+  export type ColorValue = string | OpaqueColorValue;
+  export function PlatformColor(...names: string[]): OpaqueColorValue;
+
   export interface AppearanceModule {
     getColorScheme(): ColorSchemeName;
     addChangeListener(
