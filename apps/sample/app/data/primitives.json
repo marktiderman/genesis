@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23",
+  "generatedAt": "2026-10-24",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -11003,9 +11003,19 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/navigation.tsx",
       "stability": "beta",
-      "summary": "Default active-path matcher, mirroring React Router's `NavLink` (prefix\nmatch, with `/` treated as exact). Consumers can override via an `isActive`\nprop where components accept one.\n\n`activePath` may carry a query and hash (`pathname + search + hash`). An\nitem whose `to` has neither compares against the path part only, exactly as\nbefore. An item that opts in by putting a query or hash in its `to`\n(`/admin?tab=users`, `/settings#profile`) is active only when the path\nmatches exactly AND every query param it names has the same value in\n`activePath` (extra params such as `&page=2` are ignored) AND, if it names a\nhash, the hash is equal.",
-      "primaryComponent": "isPathActive",
+      "summary": "Browser-native {@link SearchParamsAdapter} built on the History API. Reads\nthe current query string and writes updates via `pushState`/`replaceState`,\nstaying reactive to `popstate` events. No router required.",
+      "primaryComponent": "useBrowserSearchParams",
       "components": [
+        {
+          "name": "useBrowserSearchParams",
+          "summary": "Browser-native {@link SearchParamsAdapter} built on the History API. Reads\nthe current query string and writes updates via `pushState`/`replaceState`,\nstaying reactive to `popstate` events. No router required.",
+          "props": []
+        },
+        {
+          "name": "DefaultLink",
+          "summary": "Default link — a plain `<a>`. No router required.",
+          "props": []
+        },
         {
           "name": "isPathActive",
           "summary": "Default active-path matcher, mirroring React Router's `NavLink` (prefix\nmatch, with `/` treated as exact). Consumers can override via an `isActive`\nprop where components accept one.\n\n`activePath` may carry a query and hash (`pathname + search + hash`). An\nitem whose `to` has neither compares against the path part only, exactly as\nbefore. An item that opts in by putting a query or hash in its `to`\n(`/admin?tab=users`, `/settings#profile`) is active only when the path\nmatches exactly AND every query param it names has the same value in\n`activePath` (extra params such as `&page=2` are ignored) AND, if it names a\nhash, the hash is equal.",
@@ -11017,13 +11027,18 @@
           "props": []
         },
         {
-          "name": "useBrowserSearchParams",
-          "summary": "Browser-native {@link SearchParamsAdapter} built on the History API. Reads\nthe current query string and writes updates via `pushState`/`replaceState`,\nstaying reactive to `popstate` events. No router required.",
+          "name": "IsPathActiveOptions",
+          "summary": "Options for {@link isPathActive}.",
           "props": []
         },
         {
-          "name": "DefaultLink",
-          "summary": "Default link — a plain `<a>`. No router required.",
+          "name": "NavigationNode",
+          "summary": "One node of a logical navigation hierarchy. `path` is a route pattern whose\nsegments are either static (`clients`) or named params (`$clientId`). A\nnode's place in the tree is its LOGICAL parent, which need not share its URL\nprefix — `/clients/$clientId` can sit under `/dashboard`.",
+          "props": []
+        },
+        {
+          "name": "ResolvedNavigation",
+          "summary": "Result of {@link resolveNavigation}. `current`, `parent` and every `trail`\nentry are shallow copies of their tree nodes with `path` interpolated from\n`params` (a param the URL did not supply stays as `$name`).",
           "props": []
         },
         {
@@ -14115,9 +14130,24 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/slots.tsx",
       "stability": "stable",
-      "summary": "Renders one slot: the override if given, the default otherwise, nothing if\nejected with `null`.\n\n`extra` merges LAST, so `slotProps` wins over genesis's own value. That is\ndeliberate: a consumer reaching for `slotProps` is overriding on purpose,\nand a hatch that silently loses to the default is not a hatch. `className`\nis the one prop a caller should merge with `cn()` instead of replacing.",
-      "primaryComponent": "renderSlot",
+      "summary": "`{ [part]: Component | null }` — see {@link renderSlot}.",
+      "primaryComponent": "Slots",
       "components": [
+        {
+          "name": "SlotOverride",
+          "summary": "Replace a part (`ComponentType`), or eject it (`null`).",
+          "props": []
+        },
+        {
+          "name": "SlotPropsFor",
+          "summary": "`{ [part]: extraProps }` — merged over what genesis passes.",
+          "props": []
+        },
+        {
+          "name": "Slots",
+          "summary": "`{ [part]: Component | null }` — see {@link renderSlot}.",
+          "props": []
+        },
         {
           "name": "renderSlot",
           "summary": "Renders one slot: the override if given, the default otherwise, nothing if\nejected with `null`.\n\n`extra` merges LAST, so `slotProps` wins over genesis's own value. That is\ndeliberate: a consumer reaching for `slotProps` is overriding on purpose,\nand a hatch that silently loses to the default is not a hatch. `className`\nis the one prop a caller should merge with `cn()` instead of replacing.",
