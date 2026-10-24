@@ -173,7 +173,7 @@ program
 
 const features = program
   .command("features")
-  .description("The feature registry: one typed features.ts, everything else generated from it. Settings: package.json \"genesisFeatures\"");
+  .description("The feature registry: one typed features.ts, everything else generated from it. Settings: genesis.config.json \"features\" (or package.json \"genesisFeatures\")");
 
 function featureOptions(command: Command) {
   return command
