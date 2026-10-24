@@ -14,9 +14,14 @@
  * passthrough. The composed options are rendered via the consumer's own
  * `<Stack.Screen options={...}>` — see `getStackScreenOptions()` helper.
  *
- * Colors come from theme roles: on iOS the page is `systemGroupedBackground`
- * with inset, rounded cells on `secondarySystemGroupedBackground`, like the
- * Settings app; elsewhere, full-width cells on the Genesis tokens.
+ * Colors come from theme roles (`useThemeRoles`). On iOS it is the Settings
+ * app's inset grouped style: the page is `systemGroupedBackground`, each
+ * section a rounded group of cells on `secondarySystemGroupedBackground` with
+ * hairline `separator` lines between cells, inset from the leading edge to
+ * the cell text; the header is an uppercase footnote in `secondaryLabel`
+ * above the group and the footnote sits under it in the same color. On
+ * Android, cells are full width and the header is a Material subheader in the
+ * tint color. Neither platform draws a band or a rule behind a header.
  *
  * Slots: replace or drop one part without leaving the layout. `slots`
  * swaps a part (`sectionHeader`, `row`, `footnote`, `dangerousActions`) for
@@ -28,12 +33,11 @@
  *
  * @stability Beta
  */
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { Platform, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useThemeRoles } from "../hooks/use-theme-roles";
-import { NativeListItem, NativeListItemDivider } from "../components/list-item";
-import { NativeSectionListHeader } from "../components/section-list";
+import { NativeListItem } from "../components/list-item";
 import { NativeText } from "../components/text";
 import { NativeButton } from "../components/button";
 import { cn } from "../utils";
@@ -205,11 +209,50 @@ export function SettingsPage({
   );
 }
 
+/**
+ * iOS: the Settings app's inset grouped header, an uppercase footnote in
+ * `secondaryLabel` on the page background, inset to line up with the cell
+ * text. Android: a Material list subheader in the tint (primary) color.
+ * Neither draws a band or a rule. `textTransform`, not `toUpperCase()`, keeps
+ * the title as written for screen readers.
+ */
 function DefaultSectionHeader({ title, testID }: SettingsPageSlotMap["sectionHeader"]) {
-  return <NativeSectionListHeader title={title} testID={testID} />;
+  const colors = useThemeRoles();
+  if (Platform.OS === "ios") {
+    return (
+      <NativeText
+        testID={testID}
+        accessibilityRole="header"
+        className="mx-4 px-4 pb-1.5 pt-2"
+        style={{ color: colors.secondaryLabel, fontSize: 13, lineHeight: 18, textTransform: "uppercase" }}
+      >
+        {title}
+      </NativeText>
+    );
+  }
+  return (
+    <NativeText
+      testID={testID}
+      accessibilityRole="header"
+      className="px-4 pb-2 pt-4"
+      style={{ color: colors.tint, fontSize: 14, lineHeight: 20, fontWeight: "500" }}
+    >
+      {title}
+    </NativeText>
+  );
 }
 
-function DefaultRow({ isLast, id: _id, ...row }: SettingsPageSlotMap["row"]) {
+/** A cell's horizontal padding (`NativeListItem`'s `px-4`). */
+const CELL_INSET = 16;
+/** The gap between a cell's leading content and its text (`NativeListItem`'s `mr-3`). */
+const LEADING_GAP = 12;
+
+function DefaultRow({ isLast, id: _id, leading, ...row }: SettingsPageSlotMap["row"]) {
+  const colors = useThemeRoles();
+  // A separator starts at the cell text, past any leading icon, so the
+  // leading content is measured once it lays out.
+  const [leadingWidth, setLeadingWidth] = useState(0);
+  const separatorInset = CELL_INSET + (leading ? leadingWidth + LEADING_GAP : 0);
   return (
     <>
       <NativeListItem
@@ -218,20 +261,37 @@ function DefaultRow({ isLast, id: _id, ...row }: SettingsPageSlotMap["row"]) {
         className="bg-transparent"
         title={row.title}
         subtitle={row.subtitle}
-        leading={row.leading}
+        leading={
+          leading ? (
+            <View onLayout={(event) => setLeadingWidth(event.nativeEvent.layout.width)}>{leading}</View>
+          ) : undefined
+        }
         trailing={row.trailing}
         showChevron={row.showChevron}
         onPress={row.onPress}
         disabled={row.disabled}
       />
-      {isLast ? null : <NativeListItemDivider className="ml-4" />}
+      {isLast ? null : (
+        <View
+          testID={`${row.testID}-separator`}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={{ height: StyleSheet.hairlineWidth, marginLeft: separatorInset, backgroundColor: colors.separator }}
+        />
+      )}
     </>
   );
 }
 
 function DefaultFootnote({ text }: SettingsPageSlotMap["footnote"]) {
+  const colors = useThemeRoles();
+  const ios = Platform.OS === "ios";
   return (
-    <NativeText preset="body-sm" className="px-4 pt-2 text-muted-foreground">
+    <NativeText
+      preset="body-sm"
+      className={ios ? "mx-4 px-4 pt-1.5" : "px-4 pt-2"}
+      style={[{ color: colors.secondaryLabel }, ios ? { fontSize: 13, lineHeight: 18 } : null]}
+    >
       {text}
     </NativeText>
   );

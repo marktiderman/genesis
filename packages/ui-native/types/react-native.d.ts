@@ -326,6 +326,13 @@ declare module "react-native" {
     SectionT extends { data: ReadonlyArray<T> } = { data: ReadonlyArray<T> },
   > extends React.Component<SectionListProps<T, SectionT>> {}
 
+  export const StyleSheet: {
+    /** The thinnest line the screen can draw (one physical pixel). */
+    hairlineWidth: number;
+    create: <T>(styles: T) => T;
+    flatten: (style: unknown) => Record<string, any>;
+  };
+
   export const Platform: {
     OS: "ios" | "android" | "web";
     /** Android API level (number) or iOS version (string). */
