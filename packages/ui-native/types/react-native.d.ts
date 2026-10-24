@@ -64,6 +64,19 @@ declare module "react-native" {
     accessibilityState?: AccessibilityState;
     accessibilityElementsHidden?: boolean;
     importantForAccessibility?: "auto" | "yes" | "no" | "no-hide-descendants";
+    /** iOS: the Dynamic Type text style this text scales with. */
+    dynamicTypeRamp?:
+      | "caption2"
+      | "caption1"
+      | "footnote"
+      | "subheadline"
+      | "callout"
+      | "body"
+      | "headline"
+      | "title3"
+      | "title2"
+      | "title1"
+      | "largeTitle";
     onPress?: () => void;
     testID?: string;
     nativeID?: string;
@@ -325,6 +338,13 @@ declare module "react-native" {
     T,
     SectionT extends { data: ReadonlyArray<T> } = { data: ReadonlyArray<T> },
   > extends React.Component<SectionListProps<T, SectionT>> {}
+
+  export const StyleSheet: {
+    /** The thinnest line the screen can draw (one physical pixel). */
+    hairlineWidth: number;
+    create: <T>(styles: T) => T;
+    flatten: (style: unknown) => Record<string, any>;
+  };
 
   export const Platform: {
     OS: "ios" | "android" | "web";
