@@ -1,0 +1,76 @@
+packages/native/package.json
+  s_8252619ce79a86::t_9cec03b09f2ec3 26-29,55-58
+packages/native/src/__tests__/boot.test.tsx
+  s_8252619ce79a86::t_9cec03b09f2ec3 103-147
+packages/genesis/src/native-app-persist.ts
+  s_8252619ce79a86::t_2a0867312013c0 1
+packages/native/src/__tests__/app.test.tsx
+  s_8252619ce79a86::t_9cec03b09f2ec3 13-15,24-29,31-32,35-43,47-63,84,87,104-109,127-161,172-181,199-218,231-253,257-260,262-265,267-268,271-272,274-282,285,296-305
+  s_8252619ce79a86::t_c5ccc541c1097d 86,90,98-99
+  s_8252619ce79a86::t_7f4d8409852353 306
+packages/native/src/index.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 6,15,35,38,40-41,73
+packages/native/src/errors.tsx
+  s_8252619ce79a86::t_9cec03b09f2ec3 2-6,9,37-55,57,59,120-125,134,143,147-148,157-195
+packages/native/src/query.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 2-5,7,38-42,44-47,49-51
+packages/native/src/links.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 94-103,124-127
+packages/native/src/__tests__/hydration-gate.test.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 42-67
+packages/native/src/__tests__/query.test.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 4-6,23-31,33,35,41,45,47-54,56-58,60-61,66-67,69,71-81
+packages/genesis/tsup.config.ts
+  s_8252619ce79a86::t_2a0867312013c0 37
+packages/genesis/README.md
+  s_8252619ce79a86::t_2a0867312013c0 27
+packages/native/src/__tests__/fakes.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 9-17,19,21-22,24-35,44-48,64
+packages/native/src/__tests__/auth.test.tsx
+  s_8252619ce79a86::t_9cec03b09f2ec3 2,5-9,17-22,25-29,32-51,53-54,57-60,62-66,70-82
+.changeset/genesis-native.md
+  s_8252619ce79a86::t_2a0867312013c0 6
+packages/native/README.md
+  s_8252619ce79a86::t_64774231fe10f6 12,18-19,33-37,39,41,43-44,47-88,97-118,126-127,134-139,149-152,158-164
+packages/native/src/held-link.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 4-8,19-22,61-63,65-66,70-71,75-76,78-83,85-88
+docs/component-reference.md
+  s_8252619ce79a86::t_379e39df61a34d 7,864,869,874,890,892,894,897,914,918
+packages/native/src/__tests__/held-link.test.tsx
+  s_8252619ce79a86::t_9cec03b09f2ec3 4,17-23,25-28,31,33,38-39,41-50
+packages/native/src/__tests__/links.test.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 64-74
+packages/native/src/hydration-gate.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 13-16,67-69,71-84
+packages/native/src/persist.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 1-83
+packages/native/src/auth.tsx
+  s_8252619ce79a86::t_9cec03b09f2ec3 8-13,37-40,46,52-95,99-101,103-105,107-111,113,123-138,141-144
+packages/native/src/__tests__/errors.test.tsx
+  s_8252619ce79a86::t_9cec03b09f2ec3 5-13,111-159
+packages/native/src/boot.tsx
+  s_8252619ce79a86::t_9cec03b09f2ec3 18-21,64-65,78-79,81-89,103-125
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_9cec03b09f2ec3 5-10,12-14,16-17,28,30,32-33,40-41,60,85-92,97,102-103,106-107,112,119-127,144-163,171-180,185,187-189,192,198-200,204-220,222,233,236-237,241,243-246,258-259,261,265,269,271,273,275-276,283,294
+packages/native/tsup.config.ts
+  s_8252619ce79a86::t_9cec03b09f2ec3 4
+packages/genesis/package.json
+  s_8252619ce79a86::t_2a0867312013c0 7,97-99
+  s_8252619ce79a86::t_638ab3dbc1fcaa 100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "58f728588562072a95ce6663743d4d2ae0fc46ab",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
