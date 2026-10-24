@@ -932,6 +932,9 @@ importers:
       '@expo/config-types':
         specifier: ^55.0.6
         version: 55.0.6
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
       '@types/node':
         specifier: ^22.9.0
         version: 22.20.1
@@ -1065,9 +1068,6 @@ importers:
 
   packages/studio-server:
     dependencies:
-      '@marktiderman/genesis-core':
-        specifier: workspace:^
-        version: link:../core
       jose:
         specifier: ^6.2.12
         version: 6.2.12
@@ -1075,6 +1075,9 @@ importers:
         specifier: ^3.4.9
         version: 3.4.9
     devDependencies:
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
       '@types/node':
         specifier: ^22
         version: 22.20.1
