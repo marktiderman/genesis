@@ -1,0 +1,46 @@
+features.json
+  s_8252619ce79a86::t_9438b394ad8620 457,469-470,489-492,1219,1233,1236-1237,1254,1266,1276-1281,1295-1305
+packages/features/src/model.ts
+  s_8252619ce79a86::t_821a7e1f39a404 330,337,347,355,359-360,368,377,498-500
+packages/supabase/src/__tests__/native.test.ts
+  s_8252619ce79a86::t_259692d377b7de 123-164
+packages/features/src/__tests__/model.test.ts
+  s_8252619ce79a86::t_821a7e1f39a404 217-235
+docs/FRAMEWORK.md
+  s_8252619ce79a86::t_a5fb1121f38cf4 129
+features.ts
+  s_8252619ce79a86::t_a5fb1121f38cf4 213,216,223-226,544,549-550,557,565,568-569,575-580
+AGENTS.md
+  s_8252619ce79a86::t_9438b394ad8620 15
+scripts/__tests__/check-navigation-reimplementation.test.mjs
+  s_8252619ce79a86::t_9438b394ad8620 55-60
+.changeset/theme-roles-review-fixes.md
+  s_8252619ce79a86::t_a5fb1121f38cf4 7-8
+.changeset/theme-roles.md
+  s_8252619ce79a86::t_a5fb1121f38cf4 7-8
+scripts/check-navigation-reimplementation.mjs
+  s_8252619ce79a86::t_a5fb1121f38cf4 63
+.changeset/coderabbit-review-fixes.md
+  s_8252619ce79a86::t_600771c8a2001f 1-9
+packages/ui-native/src/layouts/settings-page.tsx
+  s_8252619ce79a86::t_a5fb1121f38cf4 217-218
+packages/supabase/src/native.ts
+  s_8252619ce79a86::t_259692d377b7de 71-79,88-92,102,104,134-137,162-167,194-203
+  s_8252619ce79a86::t_9002341649402c 204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e91765c4c3deb649ccc93ba930a34b0e698d6994",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
