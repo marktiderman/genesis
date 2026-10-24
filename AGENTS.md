@@ -12,7 +12,7 @@ apps (`apps/sample`, `apps/sample-native`).
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 61 features (19 idea, 7 planned, 2 building, 6 beta, 27 live).
+Every feature is in `features.ts`: 61 features (19 idea, 5 planned, 2 building, 8 beta, 27 live).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.
