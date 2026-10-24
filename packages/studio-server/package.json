@@ -51,7 +51,7 @@
     "postgres": "^3.4.9"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-core": "workspace:^"
+    "@marktiderman/genesis-core": "^1.6.0"
   },
   "devDependencies": {
     "@marktiderman/genesis-core": "workspace:^",

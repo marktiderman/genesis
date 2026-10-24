@@ -875,6 +875,9 @@ importers:
       '@expo/config-types':
         specifier: ^55.0.6
         version: 55.0.6
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
       '@types/node':
         specifier: ^22.9.0
         version: 22.20.1
