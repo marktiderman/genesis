@@ -1,0 +1,36 @@
+packages/core/src/__tests__/navigation-slots.test.tsx
+  s_8252619ce79a86::t_704978f700db0a 1-42
+packages/core/package.json
+  s_8252619ce79a86::t_179c921a9c8ff5 45-52
+packages/core/tsup.config.ts
+  s_8252619ce79a86::t_179c921a9c8ff5 16-17
+packages/core/src/slots.tsx
+  s_8252619ce79a86::t_179c921a9c8ff5 1-71
+scripts/check-navigation-reimplementation.mjs
+  s_8252619ce79a86::t_3a4bd9bb9a5352 51,146
+packages/ui/src/slots.tsx
+  s_8252619ce79a86::t_179c921a9c8ff5 1-2
+packages/ui/src/navigation.tsx
+  s_8252619ce79a86::t_fd00fe87cb9365 79-85
+packages/core/src/navigation.ts
+  s_8252619ce79a86::t_fd00fe87cb9365 1-10,12-243
+  s_8252619ce79a86::t_179c921a9c8ff5 11
+.changeset/core-slots-navigation.md
+  s_8252619ce79a86::t_26a400def532ef 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e5462fb3f5c8bf28a69c7b2386111d71879bd360",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
