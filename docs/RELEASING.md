@@ -48,7 +48,8 @@ Publishing" step fails for it and it needs the fix below.
 ## One Genesis version per app
 
 `@marktiderman/genesis` is the release train. Each build writes `dist/versions.json`, the exact
-version of every public Genesis package in that release, and the package exports it as
+version of every Genesis package the umbrella depends on (packages it doesn't depend on, such as
+the CLI, studio and supabase, release on their own and aren't listed), and the package exports it as
 `@marktiderman/genesis/versions.json`. In an app that has the umbrella installed, `genesis doctor`
 warns (`version-skew`) for every other installed Genesis package on a different version. Raise it to
 an error with `"rules": { "version-skew": "error" }`. Bump every Genesis package in an app together,

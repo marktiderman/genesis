@@ -41,6 +41,7 @@ program
     "--genesis-version <v>",
     "Pin @marktiderman/genesis-* version (default: 'workspace:^' for monorepo)",
   )
+  .option("--native", "An Expo app: add NativeWind's preset and scan genesis-ui-native", false)
   .option(
     "--emit-conflicts",
     "Emit `.genesis-next` siblings for files that already exist (so you can diff)",
@@ -50,6 +51,7 @@ program
     target: string;
     genesisVersion?: string;
     emitConflicts?: boolean;
+    native?: boolean;
   }) => {
     const fsImpl = createNodeFs();
     const result = await runScaffold(
@@ -58,6 +60,7 @@ program
         targetDir: opts.target,
         genesisVersion: opts.genesisVersion,
         emitConflicts: opts.emitConflicts ?? false,
+        native: opts.native ?? false,
         logger: {
           info: (msg) => console.log(msg),
           warn: (msg) => console.warn(msg),
@@ -227,7 +230,7 @@ featureOptions(
   const pick = <T extends string>(name: string, value: string | undefined, allowed: readonly T[]): T | undefined => {
     if (value === undefined) return undefined;
     if ((allowed as readonly string[]).includes(value)) return value as T;
-    throw new Error(`--${name} must be one of ${allowed.join(", ")}`);
+    return program.error(`--${name} must be one of ${allowed.join(", ")}`);
   };
   const { platform, layer, status, ...rest } = opts;
   const filters = {
@@ -235,7 +238,7 @@ featureOptions(
     layer: pick("layer", layer, FEATURE_LAYERS),
     status: pick("status", status, FEATURE_STATUSES),
   };
-  if (!term && !filters.platform && !filters.layer && !filters.status) throw new Error("Give a term, or --platform, --layer or --status");
+  if (!term && !filters.platform && !filters.layer && !filters.status) program.error("Give a term, or --platform, --layer or --status");
   const hits = await runFeaturesFind(rest, term, filters);
   const what = term ? `"${term}"` : "those filters";
   console.log(hits.length ? hits.map(formatFeature).join("\n\n") : `No feature matches ${what}. If this is new work, add it to the registry first (an idea is enough).`);
