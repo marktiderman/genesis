@@ -1,0 +1,77 @@
+.changeset/rn-starter-fixes.md
+  s_8252619ce79a86::t_14c1f1947fbd9f 10,12
+AGENTS.md
+  s_8252619ce79a86::t_3373e3e6eeac17 16
+apps/genesis-rn-starter/.fingerprintignore
+  s_8252619ce79a86::t_4e783858c03851 1-7
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_3a38182847ccc0 22-24,37,51,54,58,62-68,90-94,105,122-125,128-129
+apps/genesis-rn-starter/__tests__/inline-copy.ts
+  s_8252619ce79a86::t_6f130665e63412 1-59
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_3f06ff7ac32646 4,7,9,38-42,65-67,70-111
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_b1e5c0753d9e23 5,16
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_8252619ce79a86::t_b391b5ec9fe85b 1,10,18-45,50
+apps/genesis-rn-starter/src/copy.ts
+  s_8252619ce79a86::t_6e9a701b68f674 61-71
+apps/genesis-rn-starter/src/lib/account.ts
+  s_8252619ce79a86::t_41d33ebbb5ba93 1-41
+apps/genesis-rn-starter/src/lib/app.ts
+  s_8252619ce79a86::t_e34a9a38a409bc 15,27-30
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_400c83a7089355 20,47-55
+apps/genesis-rn-starter/src/lib/env.ts
+  s_8252619ce79a86::t_21cf780587f13b 6-10,12-25,30-32
+apps/genesis-rn-starter/src/lib/links.ts
+  s_8252619ce79a86::t_6ed1ac10efca66 14-17
+apps/genesis-rn-starter/src/lib/supabase.ts
+  s_8252619ce79a86::t_1e410554a309aa 18-19,21-25,27-34,37-38,41,45,49
+apps/genesis-rn-starter/supabase/config.toml
+  s_8252619ce79a86::t_109e9bd4d185e6 5-8
+apps/sample/app/data/primitives.json
+  s_738228bc0d81b1::t_6ee95e045172ab 5018
+apps/sample/package.json
+  s_8252619ce79a86::t_67e7fd6aed2435 74,76,96-97
+docs/RELEASING.md
+  s_8252619ce79a86::t_fa38b1091a516e 133-146
+features.json
+  s_8252619ce79a86::t_afa687f21b7a41 1472,1491-1526
+features.ts
+  s_8252619ce79a86::t_40a00af9d1c2b3 649,663-677
+packages/genesis-cli/src/doctor/native.ts
+  s_8252619ce79a86::t_23cbd6f8e33de9 273-274,360-363
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_8252619ce79a86::t_c07b1b9f98ca91 298-308
+packages/ui-native/src/components/textarea.tsx
+  s_8252619ce79a86::t_95979b497f7590 15
+pnpm-lock.yaml
+  s_738228bc0d81b1::t_14b5c9e8e570c5 398
+scripts/__tests__/rn-starter-template.test.mjs
+  s_8252619ce79a86::t_0130d8ae7060cd 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b343b46e4f1794877d7bb6d012d5967643dc8a9",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
