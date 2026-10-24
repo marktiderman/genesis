@@ -12,17 +12,17 @@ import { AppState } from "react-native";
 const session = keychainStorage(SecureStore);
 await wipeSessionOnReinstall({ session, sessionKey: "sb-<project-ref>-auth-token", installMarker: AsyncStorage });
 
-export const supabase = createGenesisSupabase<Database>({ url, publishableKey, storage: session, detectSessionInUrl: false });
+export const supabase = createGenesisSupabase<Database>({ url, publishableKey, storage: session, platform: "native" });
 refreshWhileActive(supabase, AppState);
 
 const rows = must(await supabase.from("tasks").select("*"));
 ```
 
-- **`createGenesisSupabase`**: a client with PKCE sign-in, a persisted session that refreshes itself, and the storage you pass. On native, pass `detectSessionInUrl: false` and exchange the OAuth redirect's code yourself.
-- **`keychainStorage(SecureStore)`**: session storage in the Keychain or Keystore. Values are split into chunks under the Keychain's size limit; a write switches to its new chunks only once they are all written, so a write cut short keeps the previous session; writes to one key run one at a time.
+- **`createGenesisSupabase`**: a client with PKCE sign-in, a persisted session that refreshes itself, and the storage you pass. `platform: "native"` turns off reading a session from the URL; exchange the OAuth redirect's code yourself.
+- **`keychainStorage(SecureStore)`**: session storage in the Keychain or Keystore. Values are split between characters into chunks under the Keychain's byte limit; a write switches to its new chunks only once they are all written, so a write cut short keeps the previous session, and its leftover chunks are swept on the next write; writes to one key run one at a time.
 - **`refreshWhileActive(client, AppState)`**: refreshes the session only while the app is in front.
-- **`wipeSessionOnReinstall`**: the iOS Keychain outlives an uninstall; this removes a leftover session on the first launch after an install.
-- **`must(result)`**: the data, or a thrown error with the database's message.
+- **`wipeSessionOnReinstall`**: the iOS Keychain outlives an uninstall; this removes a leftover session (and its PKCE verifier) on the first launch after an install.
+- **`must(result)`**: the data, or a thrown `SupabaseQueryError` carrying the database's `code`, `details` and `hint`.
 
 Nothing here imports React Native or Expo: you pass those modules in.
 

@@ -90,3 +90,33 @@ describe("wipeSessionOnReinstall", () => {
     expect(await session.getItem("sb-x-auth-token")).toBe("signed in again");
   });
 });
+
+describe("keychainStorage review fixes", () => {
+  it("never splits a character, and keeps chunks under the byte budget", async () => {
+    const { store, items } = fakeSecureStore();
+    const s = keychainStorage(store, { chunkSize: 8 });
+    const value = "ab😀cd😀éé😀"; // 4-byte emoji and 2-byte é at chunk boundaries
+    await s.setItem("sb", value);
+    expect(await s.getItem("sb")).toBe(value);
+    for (const [k, v] of items) if (k !== "sb.n") expect(new TextEncoder().encode(v).length).toBeLessThanOrEqual(8);
+  });
+
+  it("sweeps chunks left by a write that was cut short", async () => {
+    const fake = fakeSecureStore();
+    const s = keychainStorage(fake.store, { chunkSize: 4 });
+    await s.setItem("sb", "old");
+    fake.setFailAfter(3); // the pending marker and two chunks, then fail
+    await expect(s.setItem("sb", "a-much-longer-new-value")).rejects.toThrow();
+    fake.setFailAfter(1000);
+    await s.setItem("sb", "new");
+    expect(await s.getItem("sb")).toBe("new");
+    expect([...fake.items.keys()].sort()).toEqual(["sb.n", [...fake.items.keys()].find((k) => k !== "sb.n")!].sort());
+  });
+
+  it("wipes the PKCE verifier and user with the session", async () => {
+    const session = memory();
+    for (const k of ["sb", "sb-code-verifier", "sb-user"]) await session.setItem(k, "x");
+    await wipeSessionOnReinstall({ session, sessionKey: "sb", installMarker: memory() });
+    for (const k of ["sb", "sb-code-verifier", "sb-user"]) expect(await session.getItem(k)).toBeNull();
+  });
+});
