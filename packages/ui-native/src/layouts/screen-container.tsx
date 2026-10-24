@@ -139,6 +139,11 @@ export function composeHeaderOptions(
 
 const DEFAULT_EDGES: SafeAreaEdge[] = ["left", "right"];
 
+// A see-through Android status bar. React Native 0.88 dropped both props from StatusBar's types
+// (Android is always edge to edge there, so they do nothing); earlier versions still need them.
+// Spread untyped so the screen compiles against either.
+const TRANSLUCENT_ANDROID_BAR: Record<string, unknown> = { translucent: true, backgroundColor: "transparent" };
+
 /**
  * Resolve the StatusBar bar style from the user's `statusBar` setting +
  * the resolved theme mode. `"auto"` follows theme; explicit overrides
@@ -205,8 +210,7 @@ export function ScreenContainer({
               | "light-content"
               | "dark-content"
           }
-          translucent
-          backgroundColor="transparent"
+          {...TRANSLUCENT_ANDROID_BAR}
         />
       ) : (
         <StatusBar hidden />

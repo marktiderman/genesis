@@ -1,0 +1,12 @@
+{
+  "doctor": {
+    "packs": ["native", "supabase"],
+    "native": { "routerRoot": "src/app" },
+    "supabase": { "migrations": "supabase/migrations", "base": "origin/main", "exposedSchemas": ["public"] },
+    "src": ["src", "starter.config.ts", "app.config.ts"]
+  },
+  "links": {
+    "hosts": ["example.com"],
+    "paths": ["/notifications", "/settings"]
+  }
+}

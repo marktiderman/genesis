@@ -1,0 +1,15 @@
+# Smoke: a fresh install boots past the splash to the sign-in screen.
+#
+#   maestro test apps/genesis-rn-starter/.maestro/flows/sign-in-screen.yaml
+appId: com.example.genesisstarter.dev
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "auth-screen"
+    timeout: 20000
+- assertVisible:
+    id: "auth-screen-form-email"
+- assertVisible:
+    id: "sign-in-switch"

@@ -131,6 +131,20 @@ Then re-run Release (Run workflow on `main`) or merge the pending version PR.
 These commands need a recent npm 11 (`npx npm@latest trust ...`) and an npm
 login with 2FA.
 
+## Moving to a new Expo SDK
+
+The workspace holds one React and one React Native, the versions the native starter's Expo SDK
+pins, so a bump touches more than the starter:
+
+1. In `apps/genesis-rn-starter/package.json`, set `expo` and every Expo-managed package to the
+   new SDK's versions (`bundledNativeModules.json` in the `expo` package lists them).
+2. In `pnpm-workspace.yaml`, set the `overrides` for `react`, `react-dom`, `@types/react` and
+   `react-native` to that SDK's versions, and raise `apps/sample`'s `react` / `react-dom` ranges
+   to match.
+3. `pnpm install`, then the full check list: `pnpm build:packages`, `pnpm typecheck`,
+   `pnpm test`, `pnpm lint`, `pnpm lint:genesis`, `pnpm --filter sample docs:check`, and in the
+   starter `pnpm doctor` and `pnpm export:ios`.
+
 ## Things that break publishing
 
 - **Deleting and re-creating the GitHub repo**, even with the same name. That

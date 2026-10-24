@@ -1,0 +1,13 @@
+# Expo
+.expo/
+dist/
+android/
+ios/
+expo-env.d.ts
+
+# Dependencies
+node_modules/
+
+# Environment (copy .env.example)
+.env
+.env.local

@@ -90,16 +90,16 @@ export default function ShowcaseIndex() {
           <CardHeader>
             <CardTitle>Also available on iOS &amp; Android</CardTitle>
             <CardDescription>
-              The same showcase ships as a native app via Expo Router. Run the
-              sample-native app from the workspace root.
+              The native components ship in an Expo Router starter app. Run it
+              from the workspace root.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <code className="text-xs bg-muted px-2 py-1 rounded inline-block mr-2">
-              pnpm --filter sample-native ios
+              pnpm --filter genesis-rn-starter ios
             </code>
             <code className="text-xs bg-muted px-2 py-1 rounded inline-block">
-              pnpm --filter sample-native android
+              pnpm --filter genesis-rn-starter android
             </code>
           </CardContent>
         </Card>
