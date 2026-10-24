@@ -303,4 +303,18 @@ describe("CLI", () => {
     expect(broken.status).toBe(2);
     expect(broken.stderr).toContain("not valid JSON");
   });
+
+  it.skipIf(!existsSync(cli))("exits 2 with a message, not a stack, on a bad shared block or a non-object config", () => {
+    const badLinks = makeApp("clean", { "genesis.config.json": JSON.stringify({ links: { hosts: ["https://example.com"] } }) });
+    const text = spawnSync(process.execPath, [cli, "doctor", "--dir", badLinks], { encoding: "utf8" });
+    expect(text.status).toBe(2);
+    expect(text.stderr).toMatch(/^✗ .*links\.hosts: "https:\/\/example\.com" is not a bare/);
+    expect(text.stderr).not.toContain("    at ");
+    const json = spawnSync(process.execPath, [cli, "doctor", "--json", "--dir", badLinks], { encoding: "utf8" });
+    expect(json.status).toBe(2);
+    expect(JSON.parse(json.stdout)).toMatchObject({ ok: false, error: expect.stringContaining("links.hosts") });
+    const notObject = spawnSync(process.execPath, [cli, "doctor", "--dir", makeApp("clean", { "genesis.config.json": "[]" })], { encoding: "utf8" });
+    expect(notObject.status).toBe(2);
+    expect(notObject.stderr).toContain("the config must be a JSON object");
+  });
 });

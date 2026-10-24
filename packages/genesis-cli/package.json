@@ -3,7 +3,7 @@
   "version": "1.3.0",
   "private": false,
   "type": "module",
-  "description": "Genesis CLI — `genesis init` scaffolds a Genesis app; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on in an existing app; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts.",
+  "description": "Genesis CLI \u2014 `genesis init` scaffolds a Genesis app; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on in an existing app; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts; `withGenesis()` (`app.plugin.js`, `/expo`) is the Expo config plugin.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -36,10 +36,17 @@
     "./vite": {
       "types": "./dist/vite.d.ts",
       "import": "./dist/vite.js"
-    }
+    },
+    "./expo": {
+      "types": "./dist/expo.d.ts",
+      "import": "./dist/expo.js",
+      "default": "./dist/expo.js"
+    },
+    "./app.plugin.js": "./app.plugin.js"
   },
   "files": [
     "dist",
+    "app.plugin.js",
     "README.md"
   ],
   "scripts": {
@@ -56,16 +63,27 @@
     "postgres": "^3.4.9"
   },
   "devDependencies": {
+    "@expo/config": "^55.0.19",
+    "@expo/config-plugins": "^55.0.11",
+    "@expo/config-types": "^55.0.6",
     "@types/node": "^22.9.0",
     "tsup": "^8.3.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.12",
-    "vite": "^8.0.3"
+    "vite": "^8.0.3",
+    "vitest": "^4.1.12"
   },
   "peerDependencies": {
+    "@expo/config-plugins": ">=54",
+    "@expo/config-types": ">=54",
     "vite": ">=5"
   },
   "peerDependenciesMeta": {
+    "@expo/config-plugins": {
+      "optional": true
+    },
+    "@expo/config-types": {
+      "optional": true
+    },
     "vite": {
       "optional": true
     }
