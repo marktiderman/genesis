@@ -1,7 +1,7 @@
 // Whether a form is taking responses, and if not why: the one rule every surface uses
 // (the public page and its submit endpoint, a forms list, the form's header and
 // settings). Generic form settings (status, opening and closing times, paused and a
-// response cap). Pure. Moved up from Breakthrough's src/lib/forms/availability.ts; an app
+// response cap). Pure. Moved up from the host app's src/lib/forms/availability.ts; an app
 // that stores forms should apply the same rule on save.
 
 export type FormAvailability =

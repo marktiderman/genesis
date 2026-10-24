@@ -289,7 +289,7 @@ export function OptionListEditor({ list, onChange, readOnly, className, testID }
             id={`${id}-paste`}
             rows={4}
             value={pasted}
-            placeholder={"value,label,description\ncff,CrossFit Fairfield,12 Main St"}
+            placeholder={"value,label,description\nriverside,Riverside Gym,12 Main St"}
             data-testid="option-list-paste"
             onChange={(e) => setPasted(e.target.value)}
           />

@@ -1,5 +1,5 @@
 // Sharing a published form (ShareDialog): prefilled links and the embed snippet. Pure.
-// Moved up from Breakthrough's src/lib/forms/share.ts.
+// Moved up from the host app's src/lib/forms/share.ts.
 
 /** One search param a prefilled link may set, and the values staff pick from. */
 export interface PrefillChoice {

@@ -201,7 +201,7 @@ export const MAX_PREFILL_PARAM_LENGTH = 64;
 
 /** A choice question's `props.prefill`: the link parameter that preselects it, and whether it is then hidden. */
 export interface PrefillSetting {
-  /** The query parameter, as in `?location=cornerstone`. */
+  /** The query parameter, as in `?location=hilltop`. */
   param: string;
   /** Skip the question while the link has filled it in. */
   hideWhenPrefilled: boolean;

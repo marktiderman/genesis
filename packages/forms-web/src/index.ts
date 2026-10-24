@@ -25,6 +25,12 @@ export {
 } from "./upload";
 export { photoAccept, photoFileProblem, photoFileType } from "./photo";
 export {
+  signedUploadHost,
+  type SignedUploadHost,
+  type SignedUploadHostOptions,
+  type UploadClaim,
+} from "./signed-upload";
+export {
   SourceTextContext,
   MediaTimeContext,
   useSourceText,

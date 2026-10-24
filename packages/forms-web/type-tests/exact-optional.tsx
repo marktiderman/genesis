@@ -1,7 +1,7 @@
 // Compiled against the built .d.ts with exactOptionalPropertyTypes on: a
 // consumer's own optional props pass straight through to <Form>.
 import type { FormDefinition, FormState } from "@marktiderman/genesis-forms";
-import { Form, SourceTextContext, MediaTimeContext, type FormBrand, type FormPresentation, type MediaTime } from "@marktiderman/genesis-forms-web";
+import { Form, signedUploadHost, SourceTextContext, MediaTimeContext, type FormBrand, type FormPresentation, type MediaTime } from "@marktiderman/genesis-forms-web";
 
 declare const definition: FormDefinition;
 declare const maybe: {
@@ -37,3 +37,9 @@ export const structured = (
     </SourceTextContext.Provider>
   </MediaTimeContext.Provider>
 );
+
+declare const host: {
+  send?: (file: File, upload: { path: string; token: string }, contentType: string) => Promise<void>;
+  fetch?: typeof fetch;
+};
+export const uploads = signedUploadHost({ endpoint: "/u", claim: { attemptId: "a" }, send: host.send, fetch: host.fetch, readUrl: undefined });

@@ -14,7 +14,7 @@
  * edit links: signing returns null and every token fails to verify.
  *
  * Web Crypto only, no storage: the app keeps the nonce and checks it. Moved up from
- * Breakthrough's src/lib/forms/edit-link.ts unchanged, so links it signed still verify.
+ * The host app's src/lib/forms/edit-link.ts unchanged, so links it signed still verify.
  */
 
 /** How long a new edit link works: 30 days. */

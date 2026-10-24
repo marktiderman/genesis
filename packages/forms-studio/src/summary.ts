@@ -2,7 +2,7 @@
 // spread of each rating or NPS question, counts for each choice, the latest text answers.
 // Also the filters a Summary and its table share (dates, extra columns such as a class, a
 // low rating). Built on answers.ts, so every version's answers count under one key. Pure:
-// no storage, no React. Moved up from Breakthrough's src/lib/forms/summary.ts.
+// no storage, no React. Moved up from the host app's src/lib/forms/summary.ts.
 import {
   choiceOptions,
   isOtherValue,

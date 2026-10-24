@@ -103,7 +103,7 @@ export interface ChoiceOption {
   /** A small picture beside the label: an `https://` URL, at most `OPTION_LIMITS.image` characters. */
   image?: string;
   /**
-   * Facts about the option for filtering and recall, such as `{ location: ["cff", "cornerstone"] }`
+   * Facts about the option for filtering and recall, such as `{ location: ["riverside", "hilltop"] }`
    * for a coach who works at two locations (see `props.optionsFrom.filter`). Names and values are
    * text; a value is one text or a list of them.
    */

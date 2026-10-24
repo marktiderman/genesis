@@ -364,3 +364,32 @@ export {
   allow,
   type RateLimitStore,
 } from "./rate-limit";
+export {
+  attemptHash,
+  checkUploads,
+  NOT_UPLOADED_MESSAGE,
+  uploadFields,
+  uploadRules,
+  type BeginUploadInput,
+  type CheckedUploads,
+  type CheckUploadsOptions,
+  type StoredUpload,
+  type UploadOwner,
+  type UploadRules,
+  type UploadStore,
+} from "./uploads";
+export {
+  createUploadHandler,
+  UPLOAD_MESSAGES,
+  type EditableResponse,
+  type UploadForm,
+  type UploadHandlerOptions,
+  type UploadMessages,
+} from "./upload-handler";
+export {
+  MAX_UPLOAD_REQUEST_BYTES,
+  type SignedUpload,
+  type UploadGrant,
+  type UploadRefusal,
+  type UploadRequest,
+} from "./upload-protocol";
