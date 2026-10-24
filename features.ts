@@ -169,6 +169,18 @@ export const features = defineFeatures({
     reviewedAt,
     links: { code: ["packages/core/src/index.ts", "packages/core/src/provider", "packages/core/src/hooks"] },
   },
+  "supabase-kit": {
+    name: "Supabase kit",
+    summary: "Supabase for web and React Native: a client with PKCE sign-in, Keychain session storage that survives interrupted writes, refresh only while the app is in front, a wipe of sessions left by a reinstall, and a result helper.",
+    category: "Data",
+    status: "building",
+    owner: "mark",
+    apps: ["web", "native"],
+    audience: ["developer"],
+    visibility: "internal",
+    reviewedAt,
+    links: { code: ["packages/supabase"], docs: ["packages/supabase/README.md"] },
+  },
   "supabase-provider": {
     name: "Supabase provider",
     summary: "A DataProvider over Supabase under row-level security, with write outcomes that tell a refusal from a missing row.",
