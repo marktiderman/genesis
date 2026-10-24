@@ -1,0 +1,30 @@
+packages/ui-native/src/layouts/__tests__/settings-page-native-look.test.tsx
+  s_8252619ce79a86::t_dbbe40a2ae66e8 1-89
+packages/ui-native/test-utils/rn-mock.tsx
+  s_8252619ce79a86::t_dbbe40a2ae66e8 83-84,369-378
+  s_8252619ce79a86::t_89773a9a3e71e0 379
+.changeset/settings-native-headers.md
+  s_8252619ce79a86::t_a35eab14ff5794 1-5
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_90c4b834cd908a 2104,4042
+packages/ui-native/src/layouts/settings-page.tsx
+  s_8252619ce79a86::t_dbbe40a2ae66e8 17-24,36,38,40,212-218,220-242,245-255,264-268,274-281,287-288,290-294
+packages/ui-native/types/react-native.d.ts
+  s_8252619ce79a86::t_bb52f408bb3ccb 329-335
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3e596b93f62ada801833e41e1867082ab51ddccf",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
