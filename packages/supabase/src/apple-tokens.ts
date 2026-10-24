@@ -9,6 +9,11 @@
 /** The Edge Function's default name, as shipped in `functions/genesis-apple-revoke`. */
 export const APPLE_REVOKE_FUNCTION = "genesis-apple-revoke";
 
+/** The store call waits on Apple's token endpoint (10 s timeout in the function). */
+const STORE_TIMEOUT_MS = 20_000;
+/** The function answers the revoke call at once and works in the background; don't hold the delete screen for longer. */
+const REVOKE_TIMEOUT_MS = 5_000;
+
 /** The parts of a Supabase client these helpers use. A `SupabaseClient` fits. */
 export interface FunctionsClient {
   functions: {
@@ -42,7 +47,7 @@ export type StoreAppleTokenResult = { ok: true } | { ok: false; error: Error };
  */
 export async function storeAppleToken(client: FunctionsClient, { authorizationCode, clientId, functionName = APPLE_REVOKE_FUNCTION }: StoreAppleTokenOptions): Promise<StoreAppleTokenResult> {
   try {
-    const { error } = await client.functions.invoke(functionName, { body: { action: "store", code: authorizationCode, ...(clientId ? { clientId } : {}) } });
+    const { error } = await client.functions.invoke(functionName, { body: { action: "store", code: authorizationCode, ...(clientId ? { clientId } : {}) }, timeout: STORE_TIMEOUT_MS });
     if (error) return { ok: false, error: error instanceof Error ? error : new Error(String((error as { message?: unknown }).message ?? error)) };
     return { ok: true };
   } catch (error) {
@@ -58,7 +63,7 @@ export async function storeAppleToken(client: FunctionsClient, { authorizationCo
  */
 export async function requestAppleRevocation(client: FunctionsClient, functionName = APPLE_REVOKE_FUNCTION): Promise<boolean> {
   try {
-    const { error } = await client.functions.invoke(functionName, { body: { action: "revoke" } });
+    const { error } = await client.functions.invoke(functionName, { body: { action: "revoke" }, timeout: REVOKE_TIMEOUT_MS });
     return !error;
   } catch {
     return false;

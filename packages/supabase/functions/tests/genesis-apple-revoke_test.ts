@@ -40,7 +40,7 @@ function deps(queue: DueRevocation[], forms: Record<string, string>[]): HandlerD
       },
       claim: async () => queue.splice(0),
       done: async (id) => void done.push(id),
-      failed: async () => {},
+      failed: async () => "retry" as const,
     },
     log: () => {},
   };
@@ -73,7 +73,9 @@ Deno.test("revoke works through the queue with no caller", async () => {
   const d = deps([{ id: 9, client_id: "com.example.app", refresh_token: "queued-rt", attempts: 1 }], forms);
   const res = await handle(post({ action: "revoke" }), d);
   assertEquals(res.status, 200);
-  assertEquals(forms[0]!.url, "https://appleid.apple.com/auth/revoke");
-  assertEquals(forms[0]!.token_type_hint, "refresh_token");
+  // First the proof (the token is live with these secrets), then the revocation.
+  assertEquals(forms[0]!.grant_type, "refresh_token");
+  assertEquals(forms[1]!.url, "https://appleid.apple.com/auth/revoke");
+  assertEquals(forms[1]!.token_type_hint, "refresh_token");
   assertEquals(d.done, [9]);
 });

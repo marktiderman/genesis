@@ -112,7 +112,9 @@ manifest for the packages installed, export compliance and the fingerprint runti
   Function, copied the same way (and drift-tested the same way). After an Apple sign-in,
   `src/lib/auth.ts` sends Apple's code to the function (`storeAppleToken`); deleting the account
   queues the token and `src/lib/account.ts` asks the function to revoke it
-  (`deleteMyAccount(supabase, { revokeAppleTokens: true })`). Before a release, set the function's
+  (`deleteMyAccount(supabase, { revokeAppleTokens: true })`). `APPLE_CLIENT_IDS` must list all three
+  bundle ids (`…`, `….dev`, `….preview`), or that variant's sign-ins keep no token (a console
+  warning, `unknown_client`). Before a release, set the function's
   secrets, deploy it and schedule its retries: see "Revoking Apple's tokens" in
   [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#revoking-apples-tokens).
 - **Auth providers:** email works with Supabase's defaults (confirmation on: sign-up asks the

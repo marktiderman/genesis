@@ -9,7 +9,7 @@
 // Supabase. Deploy with `--no-verify-jwt` (or `verify_jwt = false` in
 // config.toml): the store action checks the caller itself, and the revoke
 // action must run after the caller's login is gone.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { handle, type CallerUser, type DueRevocation, type TokenStore } from "./handler.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
@@ -27,7 +27,7 @@ const store: TokenStore = {
     rpc<"stored" | "queued">("genesis_apple_token_save", { p_user_id: userId, p_client_id: clientId, p_refresh_token: refreshToken }),
   claim: (limit) => rpc<DueRevocation[]>("genesis_apple_revocations_claim", { p_limit: limit }),
   done: (id) => rpc<void>("genesis_apple_revocation_done", { p_id: id }),
-  failed: (id, error) => rpc<void>("genesis_apple_revocation_failed", { p_id: id, p_error: error }),
+  failed: (id, error) => rpc<"retry" | "gave_up">("genesis_apple_revocation_failed", { p_id: id, p_error: error }),
 };
 
 async function getUser(accessToken: string): Promise<CallerUser | null> {
@@ -40,6 +40,8 @@ async function getUser(accessToken: string): Promise<CallerUser | null> {
   return { id: data.user.id, appleUserIds };
 }
 
+const runtime = (globalThis as { EdgeRuntime?: { waitUntil(work: Promise<unknown>): void } }).EdgeRuntime;
+
 Deno.serve((req) =>
   handle(req, {
     env: (name) => Deno.env.get(name),
@@ -47,5 +49,7 @@ Deno.serve((req) =>
     getUser,
     store,
     log: (message) => console.error(message),
+    // Supabase's edge runtime keeps the worker alive for this after the response.
+    background: runtime?.waitUntil ? (work) => runtime.waitUntil(work) : undefined,
   }),
 );

@@ -20,6 +20,7 @@ export const APPLE_REVOKE_URL = "https://appleid.apple.com/auth/revoke";
 export const CLIENT_SECRET_TTL_SECONDS = 300;
 const CLIENT_SECRET_MAX_TTL_SECONDS = 15_777_000;
 const REQUEST_TIMEOUT_MS = 10_000;
+const CLOCK_SKEW_SECONDS = 30;
 
 /** Apple's error codes (ErrorResponse.error). Anything else reads as "unknown". */
 const APPLE_ERRORS = ["invalid_request", "invalid_client", "invalid_grant", "unauthorized_client", "unsupported_grant_type", "invalid_scope"] as const;
@@ -101,7 +102,8 @@ function signingKey(pem: string): Promise<CryptoKey> {
  * (64 bytes), which is the JWS encoding ES256 needs.
  */
 export async function appleClientSecret(config: AppleConfig, clientId: string, options: { now?: number; ttlSeconds?: number } = {}): Promise<string> {
-  const iat = Math.floor((options.now ?? Date.now()) / 1000);
+  // Backdated a little, so a clock slightly ahead of Apple's doesn't issue a secret "from the future".
+  const iat = Math.floor((options.now ?? Date.now()) / 1000) - CLOCK_SKEW_SECONDS;
   const ttl = Math.min(Math.max(1, options.ttlSeconds ?? CLIENT_SECRET_TTL_SECONDS), CLIENT_SECRET_MAX_TTL_SECONDS);
   const header = base64url(JSON.stringify({ alg: "ES256", kid: config.keyId }));
   const payload = base64url(JSON.stringify({ iss: config.teamId, iat, exp: iat + ttl, aud: APPLE_ISSUER, sub: clientId }));
@@ -147,7 +149,8 @@ async function postForm(fetchImpl: typeof fetch, url: string, form: Record<strin
 
 export type ExchangeResult =
   | { ok: true; refreshToken: string; appleUserId: string }
-  | { ok: false; error: AppleErrorCode; status?: number };
+  /** `mintedRefreshToken`: Apple issued a token the checks then refused; revoke it rather than drop it. */
+  | { ok: false; error: AppleErrorCode; status?: number; mintedRefreshToken?: string };
 
 /**
  * Exchanges a sign-in's single-use authorization code (valid for five
@@ -179,10 +182,36 @@ export async function exchangeAuthorizationCode(config: AppleConfig, clientId: s
   const claims = typeof body.id_token === "string" ? decodeJwtPayload(body.id_token) : null;
   const aud = claims?.aud;
   const audOk = aud === clientId || (Array.isArray(aud) && aud.includes(clientId));
-  if (typeof body.refresh_token !== "string" || !body.refresh_token || !claims || claims.iss !== APPLE_ISSUER || !audOk || typeof claims.sub !== "string" || !claims.sub) {
-    return { ok: false, error: "bad_response", status: res.status };
+  const minted = typeof body.refresh_token === "string" && body.refresh_token ? body.refresh_token : undefined;
+  if (!minted) return { ok: false, error: "bad_response", status: res.status };
+  if (!claims || claims.iss !== APPLE_ISSUER || !audOk || typeof claims.sub !== "string" || !claims.sub) {
+    return { ok: false, error: "bad_response", status: res.status, mintedRefreshToken: minted };
   }
-  return { ok: true, refreshToken: body.refresh_token, appleUserId: claims.sub };
+  return { ok: true, refreshToken: minted, appleUserId: claims.sub };
+}
+
+/**
+ * Checks a refresh token is still live with this client's secret:
+ * `grant_type=refresh_token` at /auth/token (Apple returns new access and id
+ * tokens, which are dropped). This is the proof a revocation needs, because
+ * /auth/revoke answers 200 to a token it doesn't know even when the client
+ * secret is garbage: a 200 here means the secret is right and the token is
+ * live; `invalid_grant` means the token is already dead (nothing left to
+ * revoke); `invalid_client` means the secrets are wrong.
+ */
+export async function checkRefreshToken(config: AppleConfig, clientId: string, refreshToken: string, fetchImpl: typeof fetch = fetch): Promise<RevokeResult> {
+  const res = await postForm(fetchImpl, APPLE_TOKEN_URL, {
+    client_id: clientId,
+    client_secret: await appleClientSecret(config, clientId),
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status === 200) {
+    await res.body?.cancel().catch(() => {});
+    return { ok: true };
+  }
+  return { ok: false, error: await appleError(res), status: res.status };
 }
 
 export type RevokeResult = { ok: true } | { ok: false; error: AppleErrorCode; status?: number };
@@ -190,8 +219,10 @@ export type RevokeResult = { ok: true } | { ok: false; error: AppleErrorCode; st
 /**
  * Revokes a refresh token: `client_id`, `client_secret`, `token` and
  * `token_type_hint=refresh_token`. Apple answers 200 with no body when it
- * revoked the token, and also when the token was already invalid, so only a
- * 200 counts; anything else is for a retry.
+ * revoked the token, and also when the token was already invalid. It also
+ * answered 200 to an unknown token with a garbage client secret (seen
+ * 2026-10-24), so a 200 alone proves nothing: check the token with
+ * {@link checkRefreshToken} first.
  */
 export async function revokeRefreshToken(config: AppleConfig, clientId: string, refreshToken: string, fetchImpl: typeof fetch = fetch): Promise<RevokeResult> {
   const res = await postForm(fetchImpl, APPLE_REVOKE_URL, {

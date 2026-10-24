@@ -1688,7 +1688,7 @@
       "acceptance": [
         "The client secret is an ES256 JWT with header { alg, kid } and claims { iss: team id, iat, exp at most six months on, aud: https://appleid.apple.com, sub: client id }, and verifies with the key's public half.",
         "The code exchange posts client_id, client_secret, code and grant_type=authorization_code to /auth/token, and keeps the refresh token only when the id token is Apple's, for that client, and names an Apple identity linked to the caller; otherwise it revokes the minted token.",
-        "Deleting a login queues its Apple tokens in the same transaction (a refused delete queues nothing), and the function revokes each with token_type_hint=refresh_token, deleting the row on 200 and retrying anything else with backoff.",
+        "Deleting a login queues its Apple tokens in the same transaction (a refused delete queues nothing; an Apple login with no stored token leaves a no_token record), and the function checks each token at /auth/token before revoking it with token_type_hint=refresh_token: it forgets the row on a 200 from both or an invalid_grant check, retries anything else with backoff, and gives up after 30 attempts, dropping the token and keeping the row.",
         "anon and authenticated can read no token and execute none of the functions; only service_role can, granted by name.",
         "Not yet run against Apple with a real Sign in with Apple key."
       ],

@@ -4,7 +4,7 @@
 -- cases push any other queued row out of reach first, inside this transaction.)
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(39);
+select plan(45);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-0000000003' || n)::uuid, 'authenticated', 'authenticated', 'genesis-apple-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -125,6 +125,16 @@ select throws_ok(
   '23514', null, 'a malformed client id is refused'
 );
 reset role;
+create function pg_temp.save_error_text() returns text language plpgsql as $f$
+declare msg text; det text;
+begin
+  perform public.genesis_apple_token_save('00000000-0000-4000-8000-0000000003b2', 'com.example.app', repeat('secret-token-', 400));
+  return 'no error';
+exception when others then
+  get stacked diagnostics msg = message_text, det = pg_exception_detail;
+  return coalesce(msg, '') || '|' || coalesce(det, '');
+end $f$;
+select ok(pg_temp.save_error_text() !~ 'secret-token', '... and a refused token never appears in the error');
 select is(pg_temp.queued('ff'), 1::bigint, '... and is queued once');
 
 -- Deleting the login queues its tokens -------------------------------------------
@@ -169,13 +179,13 @@ reset role;
 select set_config('genesis.failing', (select failing::text from ids), true);
 select set_config('genesis.revoked', (select revoked::text from ids), true);
 set local role service_role;
-select public.genesis_apple_revocation_failed(current_setting('genesis.failing')::bigint, repeat('x', 300));
+select is(public.genesis_apple_revocation_failed(current_setting('genesis.failing')::bigint, repeat('x', 300)), 'retry', 'a failure is kept for a retry');
 select public.genesis_apple_revocation_done(current_setting('genesis.revoked')::bigint);
 reset role;
 select is(
   (select length(last_error) from private.genesis_apple_revocations where refresh_token = 'rt-a1-dev'),
   200,
-  'a failure is kept for the retry, with its reason cut to 200 characters'
+  '... with its reason cut to 200 characters'
 );
 select is(
   (select count(*) from private.genesis_apple_revocations where refresh_token = 'rt-a1-new'),
@@ -192,6 +202,29 @@ select ok(
   (select next_attempt_at between now() + interval '23 hours 59 minutes' and now() + interval '1 day' from private.genesis_apple_revocations where refresh_token = 'rt-a1-dev'),
   'retries are at most a day apart'
 );
+
+-- Giving up: after the 30th attempt the token goes and the row stays as the record.
+set local role service_role;
+select is(public.genesis_apple_revocation_failed(current_setting('genesis.failing')::bigint, 'check: invalid_client (HTTP 400)'), 'gave_up', 'the 30th failed attempt gives up');
+select public.genesis_apple_revocation_done(current_setting('genesis.failing')::bigint);
+reset role;
+select ok(
+  (select refresh_token is null and last_error like 'gave_up after 31 attempts: check: invalid_client%' from private.genesis_apple_revocations where id = current_setting('genesis.failing')::bigint),
+  '... dropping the token and keeping the row, which done() leaves alone'
+);
+
+-- An Apple login with no stored token leaves a record -------------------------------
+insert into auth.identities (provider_id, user_id, identity_data, provider)
+values ('apple-sub-c3', pg_temp.u('c3'), '{"sub": "apple-sub-c3"}', 'apple');
+delete from auth.users where id = pg_temp.u('c3');
+select ok(
+  (select count(*) = 1 and bool_and(refresh_token is null and client_id is null and last_error like 'no_token:%') from private.genesis_apple_revocations where user_id = pg_temp.u('c3')),
+  'deleting an Apple login with no stored token records that nothing was revoked'
+);
+update private.genesis_apple_revocations set next_attempt_at = now() - interval '1 second' where user_id = pg_temp.u('c3');
+set local role service_role;
+select is((select count(*) from public.genesis_apple_revocations_claim(100)), 0::bigint, '... and a claim never hands out a row without a token');
+reset role;
 
 select * from finish();
 rollback;

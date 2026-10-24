@@ -204,15 +204,30 @@ whose Apple account (`sub`) isn't one linked to the caller (and revokes the toke
 minted), and stores the refresh token. Deleting the login, by `delete_my_account`, the dashboard or
 the admin API, fires the trigger, which queues its tokens in the same transaction. The app's
 `deleteMyAccount(supabase, { revokeAppleTokens: true })` then asks the function to work through the
-queue at once, and a schedule retries what's left.
+queue at once (it answers 202 straight away and finishes in the background), and a schedule retries
+what's left.
+
+**Each revocation is proved first.** Apple answers 200 to `/auth/revoke` for a token it doesn't
+know even when the client secret is garbage (seen 2026-10-24), so that 200 alone proves nothing.
+The function first checks the token at `/auth/token` (`grant_type=refresh_token`): a 200 means the
+secrets are right and the token is live, so it revokes it and forgets the row only on a 200 from
+`/auth/revoke`; `invalid_grant` means the token is already dead (the person revoked it, or it
+expired), so there's nothing left to revoke and the row goes; anything else (`invalid_client` for
+wrong secrets, Apple down) is retried.
 
 **When Apple fails, the account is deleted anyway.** The person asked for their data to go, and the
 GDPR's right to erasure doesn't wait on a third party's API; Apple asks for revocation, not for
 deletion to block on it. So deletion never calls Apple: a refused delete queues nothing (the
 trigger runs in its transaction), a committed one can't lose its token, and the function retries
-each queued token with backoff (one minute, doubling, at most a day apart) until Apple answers 200,
-then deletes the row. Every failure is logged with Apple's error code and kept in `last_error`; rows
-still in `private.genesis_apple_revocations` are the ones failing.
+each queued token with backoff (five minutes, doubling, at most a day apart). After 30 failed
+attempts (about four weeks) it gives up: the token is dropped, so a deleted person's token isn't
+kept for ever, and the row stays with `last_error` starting `gave_up`. A deleted login that signed in
+with Apple but has no stored token (the store step failed, or the account predates this) leaves a
+row with `last_error` starting `no_token`. Every failure is logged with Apple's error code; any row
+still in `private.genesis_apple_revocations` is one to look at.
+
+For a login with no stored token, the only fix is Apple's own: have the person sign in with Apple
+again at deletion, store the fresh code, then delete. This package doesn't do that for you.
 
 **Who can see a token.** Nobody but the migration's functions: the tables are in `private` (not in
 the Data API), with row level security on, no policies, and every table privilege revoked from anon
@@ -234,11 +249,13 @@ body.
    supabase secrets set APPLE_TEAM_ID=ABCDE12345 APPLE_KEY_ID=FGHIJ67890 \
      APPLE_CLIENT_IDS=com.example.app,com.example.app.dev APPLE_PRIVATE_KEY="$(cat AuthKey_FGHIJ67890.p8)"
    ```
-   `APPLE_CLIENT_IDS` lists every bundle id (or Services ID) the app signs in with; a store request
-   names one of them, or gets the first. Keep the .p8 out of the repo.
+   `APPLE_CLIENT_IDS` lists every bundle id (or Services ID) the app signs in with, each build
+   variant too (`.dev`, `.preview`); a store request names one of them, or gets the first, and one
+   outside the list is refused (`unknown_client`, logged). Keep the .p8 out of the repo.
 4. Deploy without the gateway's JWT check: the store action checks the caller itself, and the
-   revoke action runs after the login is gone and needs no caller (it only works through the queue,
-   20 rows at a time, each at most once per backoff step, and answers `{ ok: true }`).
+   revoke action runs after the login is gone and needs no caller. Anyone can call it, but all it
+   does is work through rows already due, 20 at a time, each at most once per backoff step, and
+   answer `{ ok: true }`; repeat calls find nothing due.
    ```toml
    # supabase/config.toml
    [functions.genesis-apple-revoke]
@@ -259,19 +276,23 @@ body.
    `deleteMyAccount(supabase, { revokeAppleTokens: true })`.
 7. Before release, sign in with Apple on a device build and check a row appears in
    `private.genesis_apple_tokens`; then delete the account and check the queue empties and the app
-   is gone from Settings → Apple ID → Sign in with Apple on the device. A successful exchange is the
-   only proof the secrets are right: Apple answers 200 to `/auth/revoke` for a token it doesn't
-   know even when the client secret is garbage (seen 2026-10-24), so a 200 there proves nothing on
-   its own.
+   is gone from Settings → Apple ID → Sign in with Apple on the device.
 
 To watch it: `select id, client_id, attempts, last_error, queued_at from private.genesis_apple_revocations order by queued_at;`
-(no tokens in that select). `invalid_client` means the secrets don't match the client id.
+(no tokens in that select). `check: invalid_client` means the secrets don't match the client id;
+`gave_up` and `no_token` rows are tokens that were never revoked.
+
+Each sign-in replaces the stored token for that client id without revoking the old one, which would
+end the authorization the new one belongs to (if Apple's revocation covers the whole authorization,
+which isn't verified here).
 
 ### Not covered yet
 
 - **Tried against Apple with a real key.** The client secret, the request shapes and the failure
   paths are unit-tested with a throwaway P-256 key and a mocked Apple, and the SQL with pgTAP, but
   no real Sign in with Apple key has been through the exchange and revocation yet (setup step 7).
+  That Apple answers `invalid_client` (not `invalid_grant`) to a live token with wrong secrets is
+  expected, not observed.
 - **Sign in with Apple on the web** (Services ID and redirect) isn't wired: the function accepts a
   Services ID in `APPLE_CLIENT_IDS`, but exchanges codes without a `redirect_uri`, as a native
   sign-in needs.

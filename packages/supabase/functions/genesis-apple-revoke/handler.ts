@@ -12,13 +12,14 @@
  *     Revokes the tokens of deleted accounts that are due (queued by the
  *     delete trigger, retried with backoff). It needs no caller: it only
  *     works through the queue, a bounded batch at a time, and answers
- *     `{ ok: true }` whatever was in it. The app calls it after
- *     `delete_my_account`; a schedule calls it to retry.
+ *     `{ ok: true }` (202, working in the background, when the runtime can)
+ *     whatever was in it. The app calls it after `delete_my_account`; a
+ *     schedule calls it to retry.
  *
  * Responses never carry a token, a secret, or Apple's response body: only an
- * `error` code from the list below.
+ * `error` code.
  */
-import { exchangeAuthorizationCode, readAppleConfig, revokeRefreshToken, type AppleConfig } from "./apple.ts";
+import { checkRefreshToken, exchangeAuthorizationCode, readAppleConfig, revokeRefreshToken, type AppleConfig } from "./apple.ts";
 
 /** The signed-in caller, as the auth server reports it. */
 export interface CallerUser {
@@ -42,8 +43,8 @@ export interface TokenStore {
   claim(limit: number): Promise<DueRevocation[]>;
   /** `genesis_apple_revocation_done`: forgets a revoked token. */
   done(id: number): Promise<void>;
-  /** `genesis_apple_revocation_failed`: keeps the row for its next retry, with why. */
-  failed(id: number, error: string): Promise<void>;
+  /** `genesis_apple_revocation_failed`: keeps the row for its next retry ("retry"), or drops its token after the last attempt ("gave_up"). */
+  failed(id: number, error: string): Promise<"retry" | "gave_up">;
 }
 
 export interface HandlerDeps {
@@ -53,10 +54,13 @@ export interface HandlerDeps {
   getUser(accessToken: string): Promise<CallerUser | null>;
   store: TokenStore;
   log: (message: string) => void;
+  /** Keeps work running after the response (`EdgeRuntime.waitUntil`). Without it, the revoke action answers when the batch is done. */
+  background?: (work: Promise<unknown>) => void;
 }
 
 export const REVOKE_BATCH = 20;
 const MAX_BODY_BYTES = 4096;
+const MAX_REFRESH_TOKEN = 4096;
 const CODE = /^[A-Za-z0-9._-]{1,1024}$/;
 
 const CORS = {
@@ -70,6 +74,7 @@ function json(status: number, body: Record<string, unknown>): Response {
 }
 
 async function readBody(req: Request): Promise<Record<string, unknown> | null> {
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return null;
   const text = await req.text().catch(() => null);
   if (text === null || text.length > MAX_BODY_BYTES) return null;
   try {
@@ -85,12 +90,14 @@ function bearer(req: Request): string | null {
   return match?.[1] ?? null;
 }
 
+const describe = (error: unknown) => (error instanceof Error ? `${error.name}: ${error.message}` : "unknown error");
+
 export async function handle(req: Request, deps: HandlerDeps): Promise<Response> {
   try {
     return await route(req, deps);
   } catch (error) {
     // e.g. APPLE_PRIVATE_KEY isn't a P-256 key, or the database is unreachable.
-    deps.log(`genesis-apple-revoke: failed: ${error instanceof Error ? `${error.name}: ${error.message}` : "unknown error"}`);
+    deps.log(`genesis-apple-revoke: failed: ${describe(error)}`);
     return json(500, { error: "internal" });
   }
 }
@@ -110,7 +117,13 @@ async function route(req: Request, deps: HandlerDeps): Promise<Response> {
 
   if (body.action === "store") return store(req, body, apple.config, deps);
   if (body.action === "revoke") {
-    await revokeDue(apple.config, deps);
+    const work = revokeDue(apple.config, deps);
+    if (deps.background) {
+      // The app waits on this right after deleting the account: answer now, finish the batch after.
+      deps.background(work);
+      return json(202, { ok: true });
+    }
+    await work;
     return json(200, { ok: true });
   }
   return json(400, { error: "bad_request" });
@@ -124,22 +137,32 @@ async function store(req: Request, body: Record<string, unknown>, config: AppleC
   const code = body.code;
   if (typeof code !== "string" || !CODE.test(code)) return json(400, { error: "bad_request" });
   const clientId = body.clientId === undefined || body.clientId === null ? config.clientIds[0]! : body.clientId;
-  if (typeof clientId !== "string" || !config.clientIds.includes(clientId)) return json(400, { error: "unknown_client" });
+  if (typeof clientId !== "string" || !config.clientIds.includes(clientId)) {
+    deps.log(`genesis-apple-revoke: a store named a client id outside APPLE_CLIENT_IDS; add every bundle id the app signs in with (each build variant too)`);
+    return json(400, { error: "unknown_client" });
+  }
   if (user.appleUserIds.length === 0) return json(403, { error: "no_apple_identity" });
 
   const exchanged = await exchangeAuthorizationCode(config, clientId, code, deps.fetch);
   if (!exchanged.ok) {
     deps.log(`genesis-apple-revoke: code exchange failed for ${clientId}: ${exchanged.error}${exchanged.status ? ` (HTTP ${exchanged.status})` : ""}`);
+    // Apple minted a token whose id token we refused: revoke it rather than drop it.
+    if (exchanged.mintedRefreshToken) await revokeMinted(config, clientId, exchanged.mintedRefreshToken, deps);
     return json(502, { error: "exchange_failed", apple: exchanged.error });
   }
 
   // The code must belong to this login's Apple identity: otherwise someone
   // could file another person's token under their own account.
   if (!user.appleUserIds.includes(exchanged.appleUserId)) {
-    // The exchange minted a refresh token we won't keep; revoke it straight away.
-    const revoked = await revokeRefreshToken(config, clientId, exchanged.refreshToken, deps.fetch);
-    deps.log(`genesis-apple-revoke: a code for another Apple account was refused (its token ${revoked.ok ? "revoked" : `not revoked: ${revoked.error}`})`);
+    deps.log("genesis-apple-revoke: a code for another Apple account was refused");
+    await revokeMinted(config, clientId, exchanged.refreshToken, deps);
     return json(403, { error: "apple_identity_mismatch" });
+  }
+  if (exchanged.refreshToken.length > MAX_REFRESH_TOKEN) {
+    // The column would refuse it (and a refused row's text can reach the database's log).
+    deps.log("genesis-apple-revoke: Apple's refresh token is longer than the table allows");
+    await revokeMinted(config, clientId, exchanged.refreshToken, deps);
+    return json(502, { error: "exchange_failed", apple: "bad_response" });
   }
 
   const saved = await deps.store.save(user.id, clientId, exchanged.refreshToken);
@@ -148,37 +171,57 @@ async function store(req: Request, body: Record<string, unknown>, config: AppleC
   return json(200, { ok: true });
 }
 
-/** Works through due revocations. Returns the counts (for logs and tests only). */
-export async function revokeDue(config: AppleConfig, deps: HandlerDeps): Promise<{ revoked: number; failed: number }> {
-  let revoked = 0;
-  let failed = 0;
+/** Revokes a token this request minted and won't keep (it was just issued with these secrets, so a 200 is meaningful). */
+async function revokeMinted(config: AppleConfig, clientId: string, refreshToken: string, deps: HandlerDeps): Promise<void> {
+  const revoked = await revokeRefreshToken(config, clientId, refreshToken, deps.fetch);
+  if (!revoked.ok) deps.log(`genesis-apple-revoke: couldn't revoke a token it refused to keep: ${revoked.error}`);
+}
+
+/**
+ * Works through due revocations. Each token is first checked at /auth/token
+ * (`checkRefreshToken`), because /auth/revoke's 200 proves nothing on its
+ * own: live → revoke, and only a 200 then forgets the row; already dead
+ * (`invalid_grant`) → nothing to revoke, forget it; anything else (wrong
+ * secrets, Apple down) → retry later. Returns the counts, for logs and tests.
+ */
+export async function revokeDue(config: AppleConfig, deps: HandlerDeps): Promise<{ revoked: number; gone: number; failed: number }> {
+  const counts = { revoked: 0, gone: 0, failed: 0 };
   let due: DueRevocation[];
   try {
     due = await deps.store.claim(REVOKE_BATCH);
   } catch (error) {
-    deps.log(`genesis-apple-revoke: couldn't read the queue: ${error instanceof Error ? error.message : String(error)}`);
-    return { revoked, failed };
+    deps.log(`genesis-apple-revoke: couldn't read the queue: ${describe(error)}`);
+    return counts;
   }
   for (const row of due) {
     // One row's trouble never stops the rest; a row whose result wasn't
-    // recorded comes round again when its lease ends (Apple answers 200 for
-    // a token it already revoked).
+    // recorded comes round again when its lease ends.
     try {
-      const result = await revokeRefreshToken(config, row.client_id, row.refresh_token, deps.fetch);
+      const check = await checkRefreshToken(config, row.client_id, row.refresh_token, deps.fetch);
+      if (!check.ok && check.error === "invalid_grant") {
+        await deps.store.done(row.id);
+        counts.gone++;
+        continue;
+      }
+      const result = check.ok ? await revokeRefreshToken(config, row.client_id, row.refresh_token, deps.fetch) : check;
       if (result.ok) {
         await deps.store.done(row.id);
-        revoked++;
-      } else {
-        const why = `${result.error}${result.status ? ` (HTTP ${result.status})` : ""}`;
-        failed++;
-        deps.log(`genesis-apple-revoke: revocation ${row.id} for ${row.client_id} failed (attempt ${row.attempts}): ${why}; it will be retried`);
-        await deps.store.failed(row.id, why);
+        counts.revoked++;
+        continue;
       }
+      const why = `${check.ok ? "revoke" : "check"}: ${result.error}${result.status ? ` (HTTP ${result.status})` : ""}`;
+      counts.failed++;
+      const next = await deps.store.failed(row.id, why);
+      deps.log(
+        next === "gave_up"
+          ? `genesis-apple-revoke: GAVE UP on revocation ${row.id} for ${row.client_id} after ${row.attempts} attempts (${why}); its token is dropped and the row kept as a record`
+          : `genesis-apple-revoke: revocation ${row.id} for ${row.client_id} failed (attempt ${row.attempts}): ${why}; it will be retried`,
+      );
     } catch (error) {
-      failed++;
-      deps.log(`genesis-apple-revoke: revocation ${row.id} couldn't be recorded: ${error instanceof Error ? error.message : String(error)}; it will be retried`);
+      counts.failed++;
+      deps.log(`genesis-apple-revoke: revocation ${row.id} couldn't be recorded: ${describe(error)}; it will be retried`);
     }
   }
-  if (due.length) deps.log(`genesis-apple-revoke: ${revoked} revoked, ${failed} to retry`);
-  return { revoked, failed };
+  if (due.length) deps.log(`genesis-apple-revoke: ${counts.revoked} revoked, ${counts.gone} already invalid, ${counts.failed} failed`);
+  return counts;
 }

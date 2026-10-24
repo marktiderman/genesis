@@ -5,6 +5,7 @@ import {
   APPLE_TOKEN_URL,
   appleClientSecret,
   base64url,
+  checkRefreshToken,
   decodeJwtPayload,
   exchangeAuthorizationCode,
   readAppleConfig,
@@ -70,7 +71,8 @@ describe("appleClientSecret", () => {
     const jwt = await appleClientSecret(config, "com.example.app", { now });
     const [h, p, s] = jwt.split(".") as [string, string, string];
     expect(decodeSegment(h)).toEqual({ alg: "ES256", kid: "KEY1234567" });
-    expect(decodeSegment(p)).toEqual({ iss: "TEAM123456", iat: now / 1000, exp: now / 1000 + 300, aud: "https://appleid.apple.com", sub: "com.example.app" });
+    // iat is backdated 30 s for clock skew; exp is five minutes on.
+    expect(decodeSegment(p)).toEqual({ iss: "TEAM123456", iat: now / 1000 - 30, exp: now / 1000 - 30 + 300, aud: "https://appleid.apple.com", sub: "com.example.app" });
     expect(jwt).not.toMatch(/[=+/]/); // base64url, unpadded
     expect(atob(s.replace(/-/g, "+").replace(/_/g, "/")).length).toBe(64); // r‖s, as JWS wants, not DER
     expect(await verifies(jwt)).toBe(true);
@@ -78,7 +80,7 @@ describe("appleClientSecret", () => {
 
   it("never asks for more than Apple's six-month maximum", async () => {
     const claims = decodeJwtPayload(await appleClientSecret(config, "com.example.app", { now: 0, ttlSeconds: 10 ** 9 }))!;
-    expect(claims.exp).toBe(15_777_000);
+    expect((claims.exp as number) - (claims.iat as number)).toBe(15_777_000);
   });
 
   it("refuses a key that isn't a P-256 PKCS#8 key", async () => {
@@ -110,8 +112,24 @@ describe("exchangeAuthorizationCode", () => {
   it("refuses a response whose id token isn't Apple's, for this client", async () => {
     const wrongAud = await exchangeAuthorizationCode(config, "com.example.app", "c", mockFetch(tokenResponse("s", "com.other.app")).fetch);
     expect(wrongAud).toMatchObject({ ok: false, error: "bad_response" });
+    expect(wrongAud).toMatchObject({ mintedRefreshToken: "apple-refresh-token" }); // so the caller can revoke it
     const noRefresh = appleJson(200, { id_token: fakeIdToken({ iss: "https://appleid.apple.com", aud: "com.example.app", sub: "s" }) });
     expect(await exchangeAuthorizationCode(config, "com.example.app", "c", mockFetch(noRefresh).fetch)).toMatchObject({ ok: false, error: "bad_response" });
+  });
+});
+
+describe("checkRefreshToken", () => {
+  it("posts grant_type=refresh_token to /auth/token; 200 means live with these secrets", async () => {
+    const { fetch, calls } = mockFetch(appleJson(200, { access_token: "at", id_token: "x.y.z" }));
+    expect(await checkRefreshToken(config, "com.example.app", "rt", fetch)).toEqual({ ok: true });
+    expect(calls[0]!.url).toBe(APPLE_TOKEN_URL);
+    expect(Object.keys(calls[0]!.form).sort()).toEqual(["client_id", "client_secret", "grant_type", "refresh_token"]);
+    expect(calls[0]!.form).toMatchObject({ client_id: "com.example.app", grant_type: "refresh_token", refresh_token: "rt" });
+  });
+
+  it("tells a dead token (invalid_grant) from wrong secrets (invalid_client)", async () => {
+    expect(await checkRefreshToken(config, "com.example.app", "rt", mockFetch(appleJson(400, { error: "invalid_grant" })).fetch)).toMatchObject({ error: "invalid_grant" });
+    expect(await checkRefreshToken(config, "com.example.app", "rt", mockFetch(appleJson(401, { error: "invalid_client" })).fetch)).toMatchObject({ error: "invalid_client" });
   });
 });
 
@@ -132,19 +150,21 @@ describe("revokeRefreshToken", () => {
 });
 
 describe("the Edge Function's handler", () => {
-  function setup(options: { user?: CallerUser | null; save?: "stored" | "queued"; due?: DueRevocation[]; apple?: Array<Response | Error>; env?: Record<string, string> } = {}) {
+  function setup(
+    options: { user?: CallerUser | null; save?: "stored" | "queued"; failed?: "retry" | "gave_up"; due?: DueRevocation[]; apple?: Array<Response | Error>; env?: Record<string, string>; background?: (w: Promise<unknown>) => void } = {},
+  ) {
     const logs: string[] = [];
     const due = [...(options.due ?? [])];
     const store = {
       save: vi.fn(async () => options.save ?? "stored"),
       claim: vi.fn(async () => due.splice(0)),
       done: vi.fn(async () => {}),
-      failed: vi.fn(async () => {}),
+      failed: vi.fn(async () => options.failed ?? "retry"),
     } satisfies TokenStore;
     const user = options.user === undefined ? { id: "user-1", appleUserIds: ["apple-sub-1"] } : options.user;
     const getUser = vi.fn(async (t: string) => (t === "good-access-token" ? user : null));
     const apple = mockFetch(...(options.apple ?? []));
-    const deps: HandlerDeps = { env: (n) => (options.env ?? env)[n], fetch: apple.fetch, getUser, store, log: (m) => logs.push(m) };
+    const deps: HandlerDeps = { env: (n) => (options.env ?? env)[n], fetch: apple.fetch, getUser, store, log: (m) => logs.push(m), background: options.background };
     const call = (body: unknown, token: string | null = "good-access-token") =>
       handle(new Request("https://x.supabase.co/functions/v1/genesis-apple-revoke", { method: "POST", headers: token ? { authorization: `Bearer ${token}` } : {}, body: JSON.stringify(body) }), deps);
     return { call, store, getUser, logs, appleCalls: apple.calls };
@@ -191,6 +211,14 @@ describe("the Edge Function's handler", () => {
     expect(t.appleCalls[1]!.form.token).toBe("apple-refresh-token");
   });
 
+  it("store: a token minted with an id token we refuse is revoked, not dropped", async () => {
+    const t = setup({ apple: [tokenResponse("apple-sub-1", "com.other.app"), new Response(null, { status: 200 })] });
+    expect((await t.call({ action: "store", code: "c" })).status).toBe(502);
+    expect(t.store.save).not.toHaveBeenCalled();
+    expect(t.appleCalls[1]!.url).toBe(APPLE_REVOKE_URL);
+    expect(t.appleCalls[1]!.form.token).toBe("apple-refresh-token");
+  });
+
   it("store: Apple's refusal comes back as a code, not Apple's body", async () => {
     const t = setup({ apple: [appleJson(400, { error: "invalid_grant", error_description: "spoof me" })] });
     const res = await t.call({ action: "store", code: "c" });
@@ -199,28 +227,64 @@ describe("the Edge Function's handler", () => {
   });
 
   it("store: if the login went while the code was exchanged, the queued token is revoked at once", async () => {
-    const t = setup({ save: "queued", apple: [tokenResponse()], due: [{ id: 7, client_id: "com.example.app", refresh_token: "rt-queued", attempts: 1 }] });
+    const t = setup({
+      save: "queued",
+      apple: [tokenResponse(), appleJson(200, { access_token: "at" }), new Response(null, { status: 200 })],
+      due: [{ id: 7, client_id: "com.example.app", refresh_token: "rt-queued", attempts: 1 }],
+    });
     expect((await t.call({ action: "store", code: "c" })).status).toBe(200);
-    expect(t.appleCalls[1]!.form.token).toBe("rt-queued");
+    expect(t.appleCalls[2]!.url).toBe(APPLE_REVOKE_URL);
+    expect(t.appleCalls[2]!.form.token).toBe("rt-queued");
     expect(t.store.done).toHaveBeenCalledWith(7);
   });
 
-  it("revoke: works through the queue without a caller, keeps failures for a retry, and answers only ok", async () => {
+  it("revoke: checks each token, then revokes it; keeps a failure for a retry; answers only ok, with no caller", async () => {
     const t = setup({
       due: [
         { id: 1, client_id: "com.example.app", refresh_token: "rt-queued", attempts: 1 },
         { id: 2, client_id: "com.example.app.dev", refresh_token: "rt-queued", attempts: 3 },
+        { id: 3, client_id: "com.example.app", refresh_token: "rt-queued", attempts: 1 },
       ],
-      apple: [new Response(null, { status: 200 }), appleJson(400, { error: "invalid_client" })],
+      apple: [
+        appleJson(200, { access_token: "at" }), // 1: live
+        new Response(null, { status: 200 }), // 1: revoked
+        appleJson(401, { error: "invalid_client" }), // 2: wrong secrets: no revoke call, retry
+        appleJson(400, { error: "invalid_grant" }), // 3: already dead: nothing to revoke
+      ],
     });
     const res = await t.call({ action: "revoke" }, null);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
     expect(t.getUser).not.toHaveBeenCalled();
-    expect(t.store.done).toHaveBeenCalledWith(1);
-    expect(t.store.failed).toHaveBeenCalledWith(2, "invalid_client (HTTP 400)");
-    expect(t.logs.join("\n")).toContain("revocation 2 for com.example.app.dev failed (attempt 3): invalid_client");
+    expect(t.appleCalls.map((c) => `${c.url === APPLE_REVOKE_URL ? "revoke" : c.form.grant_type}`)).toEqual(["refresh_token", "revoke", "refresh_token", "refresh_token"]);
+    expect(t.store.done.mock.calls).toEqual([[1], [3]]);
+    expect(t.store.failed).toHaveBeenCalledWith(2, "check: invalid_client (HTTP 401)");
+    expect(t.logs.join("\n")).toContain("revocation 2 for com.example.app.dev failed (attempt 3): check: invalid_client");
     expect(leaks(t.logs.join("\n"))).toEqual([]);
+  });
+
+  it("revoke: a 200 from /auth/revoke alone never forgets a row (it proves nothing); the check has to pass first", async () => {
+    const t = setup({ due: [{ id: 4, client_id: "com.example.app", refresh_token: "rt-queued", attempts: 2 }], apple: [new TypeError("offline")] });
+    await t.call({ action: "revoke" });
+    expect(t.appleCalls).toHaveLength(1);
+    expect(t.store.done).not.toHaveBeenCalled();
+    expect(t.store.failed).toHaveBeenCalledWith(4, "check: network");
+  });
+
+  it("revoke: says loudly when the retries give up", async () => {
+    const t = setup({ failed: "gave_up", due: [{ id: 5, client_id: "com.example.app", refresh_token: "rt-queued", attempts: 30 }], apple: [appleJson(401, { error: "invalid_client" })] });
+    await t.call({ action: "revoke" });
+    expect(t.logs.join("\n")).toContain("GAVE UP on revocation 5");
+  });
+
+  it("revoke: answers 202 at once and finishes in the background when the runtime allows", async () => {
+    const work: Promise<unknown>[] = [];
+    const t = setup({ background: (w) => work.push(w), due: [{ id: 6, client_id: "com.example.app", refresh_token: "rt-queued", attempts: 1 }], apple: [appleJson(200, {}), new Response(null, { status: 200 })] });
+    const res = await t.call({ action: "revoke" });
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ ok: true });
+    await Promise.all(work);
+    expect(t.store.done).toHaveBeenCalledWith(6);
   });
 
   it("is loud when a secret is missing, by name only, and touches nothing", async () => {
@@ -262,7 +326,7 @@ describe("app helpers", () => {
   it("storeAppleToken sends the code to the function and never throws", async () => {
     const { client, invoke } = fakeClient();
     expect(await storeAppleToken(client, { authorizationCode: "code", clientId: "com.example.app" })).toEqual({ ok: true });
-    expect(invoke).toHaveBeenCalledWith("genesis-apple-revoke", { body: { action: "store", code: "code", clientId: "com.example.app" } });
+    expect(invoke).toHaveBeenCalledWith("genesis-apple-revoke", { body: { action: "store", code: "code", clientId: "com.example.app" }, timeout: 20_000 });
     expect(await storeAppleToken(fakeClient({ data: null, error: new Error("404") }).client, { authorizationCode: "c" })).toMatchObject({ ok: false });
     expect(await storeAppleToken(fakeClient(new Error("offline")).client, { authorizationCode: "c" })).toMatchObject({ ok: false });
   });
@@ -271,7 +335,7 @@ describe("app helpers", () => {
     const { client, order, invoke } = fakeClient();
     await deleteMyAccount(client, { revokeAppleTokens: true });
     expect(order).toEqual(["rpc:delete_my_account", "invoke:genesis-apple-revoke", "signOut"]);
-    expect(invoke).toHaveBeenCalledWith("genesis-apple-revoke", { body: { action: "revoke" } });
+    expect(invoke).toHaveBeenCalledWith("genesis-apple-revoke", { body: { action: "revoke" }, timeout: 5_000 });
   });
 
   it("a failed revocation request never fails the deletion", async () => {
