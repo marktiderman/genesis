@@ -48,6 +48,7 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.git', '.next', 'co
 
 const ALLOWLIST_PATTERNS = [
   /^packages\/ui\//, // Genesis itself owns the originals.
+  /^packages\/core\/src\/navigation\.ts$/, // The DOM-free home of the originals; ui re-exports it.
   /\.(test|spec|stories)\.(ts|tsx|js|jsx|mts)$/,
   /(^|\/)__fixtures__\//,
   /(^|\/)__mocks__\//,
@@ -142,7 +143,7 @@ function main() {
     console.error(`    ${v.content}`);
   }
   console.error();
-  console.error('Import resolveNavigation / NavigationNode from @marktiderman/genesis-ui/layout,');
+  console.error('Import resolveNavigation / NavigationNode from @marktiderman/genesis-core/navigation (or @marktiderman/genesis-ui/layout),');
   console.error('and pass the tree to AppShell as `navigation` (see packages/ui/SKILL.md).');
   process.exit(1);
 }
