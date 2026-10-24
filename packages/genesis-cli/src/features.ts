@@ -20,7 +20,7 @@ import {
   type FeaturePrEvidence,
   type FeatureProjectOptions,
 } from "@marktiderman/genesis-features/node";
-import { findFeatures, type FeatureRecord, type Features, type Flags } from "@marktiderman/genesis-features";
+import { findFeatures, type FeatureRecord, type Features, type FindOptions, type Flags } from "@marktiderman/genesis-features";
 
 type Settings = Omit<FeatureProjectOptions, "root" | "features" | "flags" | "labels" | "today" | "evidence">;
 
@@ -157,14 +157,20 @@ export async function runFeaturesCheck(options: FeaturesCommandOptions): Promise
   return { ...result, summary };
 }
 
-export async function runFeaturesFind(options: FeaturesCommandOptions, term: string): Promise<FeatureRecord[]> {
+export async function runFeaturesFind(options: FeaturesCommandOptions, term: string, filters: FindOptions = {}): Promise<FeatureRecord[]> {
   const project = await loadRegistry(options);
-  return findFeatures(project.features, term, project.flags);
+  return findFeatures(project.features, term, project.flags, filters);
 }
 
 /** One search hit, for the terminal. */
 export function formatFeature(r: FeatureRecord): string {
-  const lines = [`${r.id} — ${r.name} [${r.status}${r.horizon ? `, ${r.horizon}` : ""}] (${r.owner})`, `  ${r.summary}`];
+  const kind = r.layer ? ` ${r.layer}` : "";
+  const lines = [`${r.id} — ${r.name} [${r.status}${r.horizon ? `, ${r.horizon}` : ""}]${kind} (${r.owner})`, `  ${r.summary}`];
+  if (r.platforms) lines.push(`  platforms: ${Object.entries(r.platforms).map(([p, s]) => `${p} ${s}`).join(", ")}`);
+  if (r.entry) lines.push(`  import: ${Object.entries(r.entry).map(([p, e]) => `${e} (${p})`).join(", ")}`);
+  if (r.extends) lines.push(`  variant of: ${r.extends}`);
+  if (r.slots?.length) lines.push(`  slots: ${r.slots.join(", ")}`);
+  if (r.requires?.length) lines.push(`  requires: ${r.requires.join(", ")}`);
   if (r.links?.code?.length) lines.push(`  code: ${r.links.code.join(", ")}`);
   if (r.flags.length) lines.push(`  flags: ${r.flags.join(", ")}`);
   if (r.claimedBy) lines.push(`  being built by ${r.claimedBy}`);

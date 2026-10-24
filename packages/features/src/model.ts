@@ -2,10 +2,12 @@ import { z } from "zod";
 
 /**
  * Where a feature is in its life. The order is the board's column order.
+ * `idea` is captured but not agreed: it is in the list so `find` turns it up
+ * before someone builds the same thing twice.
  *
  * @stability Beta
  */
-export const FEATURE_STATUSES = ["planned", "building", "beta", "live", "deprecated", "retired"] as const;
+export const FEATURE_STATUSES = ["idea", "planned", "building", "beta", "live", "deprecated", "retired"] as const;
 
 /** @stability Beta */
 export type FeatureStatus = (typeof FEATURE_STATUSES)[number];
@@ -51,6 +53,31 @@ export interface FeatureLinks {
   /** The tracking issue: a URL, `#123` or `owner/repo#123`. */
   issue?: string;
 }
+
+/**
+ * Where a feature runs. `server` covers Node, edge functions and the database.
+ *
+ * @stability Beta
+ */
+export const FEATURE_PLATFORMS = ["web", "native", "server", "cli"] as const;
+
+/** @stability Beta */
+export type FeaturePlatform = (typeof FEATURE_PLATFORMS)[number];
+
+/**
+ * What kind of thing a feature is, from smallest to largest, so an agent
+ * looking for a building block can tell a primitive from a whole block:
+ * `token`, `primitive` (one component), `pattern` (a composed component with
+ * slots), `layout` (a page or screen shell), `hook`, `provider` (data or
+ * context), `block` (a feature an app adds whole: UI, data and server),
+ * `service` (server code) and `tool` (CLI, CI, devtools).
+ *
+ * @stability Beta
+ */
+export const FEATURE_LAYERS = ["token", "primitive", "pattern", "layout", "hook", "provider", "block", "service", "tool"] as const;
+
+/** @stability Beta */
+export type FeatureLayer = (typeof FEATURE_LAYERS)[number];
 
 /** A picture or video for a marketing page. @stability Beta */
 export interface FeatureMedia {
@@ -100,6 +127,25 @@ export interface FeatureDef {
   media?: FeatureMedia;
   /** A hero item on a marketing page. */
   highlight?: boolean;
+  /** What kind of thing it is. */
+  layer?: FeatureLayer;
+  /**
+   * Status per platform, when it differs from `status`: `{ web: "live", native: "planned" }`.
+   * A platform left out doesn't have it.
+   */
+  platforms?: Partial<Record<FeaturePlatform, FeatureStatus>>;
+  /** What to import, per platform, e.g. `{ web: "@marktiderman/genesis-ui/settings-row" }`. */
+  entry?: Partial<Record<FeaturePlatform, string>>;
+  /** Other words people use for it, so `find` matches them: `["chat", "dm"]`. */
+  keywords?: readonly string[];
+  /** The feature this one is a variant of. */
+  extends?: string;
+  /** Features it needs. A beta or live feature can't require an idea, a planned or a retired one. */
+  requires?: readonly string[];
+  /** What it adds to an app, e.g. `["nav item", "settings row", "table: threads"]`. */
+  contributes?: readonly string[];
+  /** The parts an app can replace or drop through `slots`. */
+  slots?: readonly string[];
 }
 
 /**
@@ -181,6 +227,10 @@ const visibilitySchema = z.union([
   z.string().regex(/^client:\S+$/, "must be internal, customer, public or client:<name>"),
 ]);
 
+/** `{ web?, native?, server?, cli? }`, each holding `value`. (Not `z.partialRecord`, which zod 3 lacks.) */
+const perPlatform = <T extends z.ZodTypeAny>(value: T) =>
+  z.object(Object.fromEntries(FEATURE_PLATFORMS.map((p) => [p, value.optional()])) as Record<FeaturePlatform, z.ZodOptional<T>>).strict();
+
 /** The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. */
 export const featureSchema = z
   .object({
@@ -206,6 +256,14 @@ export const featureSchema = z
       .strict()
       .optional(),
     highlight: z.boolean().optional(),
+    layer: z.enum(FEATURE_LAYERS).optional(),
+    platforms: perPlatform(z.enum(FEATURE_STATUSES)).optional(),
+    entry: perPlatform(text).optional(),
+    keywords: z.array(text).optional(),
+    extends: z.string().regex(ID, "must be a feature id").optional(),
+    requires: z.array(z.string().regex(ID, "must be a feature id")).optional(),
+    contributes: z.array(text).optional(),
+    slots: z.array(text).optional(),
   })
   .strict();
 
@@ -284,8 +342,43 @@ export function defineFeatures<const T extends Record<string, FeatureDef>>(featu
       else owners.set(name, id);
     }
   }
+  problems.push(...relationProblems(features));
   if (problems.length) throw new FeatureRegistryError(problems);
   return Object.freeze(features);
+}
+
+const UNSHIPPED: readonly FeatureStatus[] = ["idea", "planned", "retired"];
+
+/** `extends` and `requires` name real, distinct features; `requires` has no cycles; shipped features need shipped ones. */
+function relationProblems(features: Record<string, FeatureDef>): string[] {
+  const problems: string[] = [];
+  const has = (id: string) => Object.hasOwn(features, id);
+  for (const [id, def] of Object.entries(features)) {
+    if (def.extends !== undefined) {
+      if (def.extends === id) problems.push(`${id}.extends: a feature can't extend itself`);
+      else if (!has(def.extends)) problems.push(`${id}.extends: "${def.extends}" is not a feature`);
+    }
+    for (const req of def.requires ?? []) {
+      if (req === id) problems.push(`${id}.requires: a feature can't require itself`);
+      else if (!has(req)) problems.push(`${id}.requires: "${req}" is not a feature`);
+      else if ((def.status === "beta" || def.status === "live") && UNSHIPPED.includes(features[req]!.status)) {
+        problems.push(`${id}.requires: a ${def.status} feature can't require "${req}", which is ${features[req]!.status}`);
+      }
+    }
+  }
+  // Depth-first search for a cycle through `requires`; report each cycle once, from where it was found.
+  const state = new Map<string, "open" | "done">();
+  const visit = (id: string, path: string[]): void => {
+    state.set(id, "open");
+    for (const req of features[id]?.requires ?? []) {
+      if (!has(req) || req === id) continue;
+      if (state.get(req) === "open") problems.push(`${id}.requires: a cycle: ${[...path.slice(path.indexOf(req)), id, req].join(" → ")}`);
+      else if (!state.has(req)) visit(req, [...path, id]);
+    }
+    state.set(id, "done");
+  };
+  for (const id of Object.keys(features)) if (!state.has(id)) visit(id, []);
+  return problems;
 }
 
 /**
@@ -383,22 +476,59 @@ export function toRecords(features: Features, flags?: Flags): FeatureRecord[] {
 }
 
 /**
- * Features matching `term` in their id, aliases, name, summary, tagline,
- * category or code paths, best matches (id and name) first.
+ * Narrows {@link findFeatures}: only features on a platform (from `platforms`,
+ * or `apps` when a feature has no `platforms`), of a layer, or in a status.
  *
  * @stability Beta
  */
-export function findFeatures(features: Features, term: string, flags?: Flags): FeatureRecord[] {
+export interface FindOptions {
+  platform?: FeaturePlatform;
+  layer?: FeatureLayer;
+  status?: FeatureStatus;
+}
+
+/** A feature's status on one platform, or undefined when it isn't there. @stability Beta */
+export function statusOn(def: FeatureDef, platform: FeaturePlatform): FeatureStatus | undefined {
+  if (def.platforms) return def.platforms[platform];
+  return def.apps.includes(platform) ? def.status : undefined;
+}
+
+/**
+ * Features matching `term` in their id, aliases, name, keywords, summary,
+ * tagline, category, import paths, slots, contributions or code paths, best
+ * matches (id, name and keywords) first. With `options` and an empty `term`,
+ * every feature that passes the filters.
+ *
+ * @stability Beta
+ */
+export function findFeatures(features: Features, term: string, flags?: Flags, options: FindOptions = {}): FeatureRecord[] {
   const needle = term.trim().toLowerCase();
-  if (!needle) return [];
+  const filtered = Boolean(options.platform || options.layer || options.status);
+  if (!needle && !filtered) return [];
+  const keep = (r: FeatureRecord) =>
+    (!options.platform || statusOn(r, options.platform) !== undefined) &&
+    (!options.layer || r.layer === options.layer) &&
+    (!options.status || r.status === options.status);
   const score = (r: FeatureRecord) => {
+    if (!needle) return 0;
     if (r.id === needle || r.aliases?.includes(needle)) return 0;
     if (r.id.includes(needle) || r.name.toLowerCase().includes(needle)) return 1;
+    if (r.keywords?.some((k) => k.toLowerCase().includes(needle))) return 1;
     if (r.flags.some((f) => f.toLowerCase().includes(needle))) return 2;
-    const rest = [r.summary, r.tagline, r.category, ...(r.links?.code ?? []), ...(r.aliases ?? [])];
+    const rest = [
+      r.summary,
+      r.tagline,
+      r.category,
+      ...(r.links?.code ?? []),
+      ...(r.aliases ?? []),
+      ...Object.values(r.entry ?? {}),
+      ...(r.slots ?? []),
+      ...(r.contributes ?? []),
+    ];
     return rest.some((v) => v?.toLowerCase().includes(needle)) ? 3 : -1;
   };
   return toRecords(features, flags)
+    .filter(keep)
     .map((r) => [score(r), r] as const)
     .filter(([s]) => s >= 0)
     .sort((a, b) => a[0] - b[0])

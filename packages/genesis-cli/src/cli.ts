@@ -213,13 +213,33 @@ featureOptions(features.command("check").description("Errors fail (stale output,
     process.exitCode = result.ok ? 0 : 1;
   });
 
-featureOptions(features.command("find").description("Search features by id, alias, name, summary, flag or code path").argument("<term>", "What to look for")).action(
-  async (term: string, opts: FeatureCliOptions) => {
-    const { runFeaturesFind, formatFeature } = await import("./features.js");
-    const hits = await runFeaturesFind(opts, term);
-    console.log(hits.length ? hits.map(formatFeature).join("\n\n") : `No feature matches "${term}". If this is new work, add it to the registry first.`);
-  },
-);
+featureOptions(
+  features
+    .command("find")
+    .description("Search features before building: reuse one, extend one, or add an idea first")
+    .argument("[term]", "What to look for (id, alias, name, keyword, summary, import, slot or code path)", "")
+    .option("--platform <platform>", "Only features on web, native, server or cli")
+    .option("--layer <layer>", "Only token, primitive, pattern, layout, hook, provider, block, service or tool")
+    .option("--status <status>", "Only idea, planned, building, beta, live, deprecated or retired"),
+).action(async (term: string, opts: FeatureCliOptions & { platform?: string; layer?: string; status?: string }) => {
+  const { FEATURE_LAYERS, FEATURE_PLATFORMS, FEATURE_STATUSES } = await import("@marktiderman/genesis-features");
+  const { runFeaturesFind, formatFeature } = await import("./features.js");
+  const pick = <T extends string>(name: string, value: string | undefined, allowed: readonly T[]): T | undefined => {
+    if (value === undefined) return undefined;
+    if ((allowed as readonly string[]).includes(value)) return value as T;
+    throw new Error(`--${name} must be one of ${allowed.join(", ")}`);
+  };
+  const { platform, layer, status, ...rest } = opts;
+  const filters = {
+    platform: pick("platform", platform, FEATURE_PLATFORMS),
+    layer: pick("layer", layer, FEATURE_LAYERS),
+    status: pick("status", status, FEATURE_STATUSES),
+  };
+  if (!term && !filters.platform && !filters.layer && !filters.status) throw new Error("Give a term, or --platform, --layer or --status");
+  const hits = await runFeaturesFind(rest, term, filters);
+  const what = term ? `"${term}"` : "those filters";
+  console.log(hits.length ? hits.map(formatFeature).join("\n\n") : `No feature matches ${what}. If this is new work, add it to the registry first (an idea is enough).`);
+});
 
 const studio = program.command("studio").description("The Genesis Data Studio");
 

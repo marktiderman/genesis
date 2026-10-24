@@ -93,7 +93,7 @@ export interface FeatureEvidence {
   prs?: Record<string, readonly FeaturePrEvidence[]>;
 }
 
-/** A feature still marked planned that already has shipped work tagged with it. @stability Beta */
+/** A feature still marked planned (or an idea) that already has shipped work tagged with it. @stability Beta */
 export interface PlannedButShipped {
   id: string;
   /** Changeset files with a `Features: <id>` line. */
@@ -509,7 +509,7 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
       if (!/^https?:\/\//.test(path) && !existsSync(join(root, path))) warnings.push(`${id}.links.docs: ${path} doesn't exist`);
     }
     if (def.claimedBy) claims.push([id, def.claimedBy]);
-    if (def.status !== "planned" && def.status !== "retired") {
+    if (def.status !== "idea" && def.status !== "planned" && def.status !== "retired") {
       if (!def.reviewedAt) warnings.push(`${id}: never reviewed (set reviewedAt)`);
       else if (def.reviewedAt < reviewCutoff) warnings.push(`${id}: last reviewed ${def.reviewedAt}, over ${options.reviewDays ?? 90} days ago`);
     }
@@ -587,10 +587,10 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
   const plannedButShipped: PlannedButShipped[] = [];
   for (const [id, def] of Object.entries(features)) {
     const found = shippedIn.get(id);
-    if (def.status !== "planned" || !found || (!found.changesets.length && !found.prs.length)) continue;
+    if ((def.status !== "planned" && def.status !== "idea") || !found || (!found.changesets.length && !found.prs.length)) continue;
     const prs = [...found.prs].sort((a, b) => a.number - b.number);
     plannedButShipped.push({ id, changesets: found.changesets, prs });
-    warnings.push(`${id} is still planned, but ${and([...found.changesets, ...prs.map((p) => `PR #${p.number}`)])} shipped work for it`);
+    warnings.push(`${id} is still ${def.status === "idea" ? "an idea" : "planned"}, but ${and([...found.changesets, ...prs.map((p) => `PR #${p.number}`)])} shipped work for it`);
   }
   for (const label of options.labels ?? []) {
     const id = /^feature:(.+)$/.exec(label.trim())?.[1];
