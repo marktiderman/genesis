@@ -5,7 +5,7 @@
  * link) and the rate limit, records the upload and signs it. The browser then sends the
  * bytes straight to storage; on submit, `checkUploads` checks each reference again.
  *
- * Moved up from Breakthrough's src/lib/feedback/uploads.server.ts (`handleFeedbackUpload`):
+ * Moved up from the host app's src/lib/feedback/uploads.server.ts (`handleFeedbackUpload`):
  * the same checks in the same order, the same JSON and status codes. What is the app's
  * own is passed in: finding the form, the store, the edit link's response, the counter.
  * Web APIs only (Request, Response, Web Crypto).
@@ -39,7 +39,7 @@ export interface EditableResponse {
   editNonce: string;
 }
 
-/** The handler's words; each default is what Breakthrough said. */
+/** The handler's words; each default is what the host app said. */
 export interface UploadMessages {
   /** 415 / 400: not a JSON object. */
   notJson: string;

@@ -5,7 +5,7 @@
  * then sends the bytes straight to storage with it; the answer keeps only the
  * reference the server handed back.
  *
- * Moved up from Breakthrough's feedback photo uploads; the field names and
+ * Moved up from the host app's feedback photo uploads; the field names and
  * status codes are the ones it used, so its browsers and server keep talking.
  */
 import type { PhotoRef } from "./photo";
@@ -52,7 +52,7 @@ export interface UploadGrant {
  * Any other status: words to show the respondent, and for some a `code`:
  * `closed` (409, an edit while the form takes no changes), `bad_link` (403, an
  * edit link that doesn't check out) or `too_many_photos` (429, the attempt or
- * edit has as many uploads as the store allows; the name Breakthrough's
+ * edit has as many uploads as the store allows; the name the host app's
  * browsers already know, kept for every upload field type).
  */
 export interface UploadRefusal {

@@ -100,7 +100,7 @@ function csvCell(text: string): string {
   return /[",\r\n]|^\s|\s$/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-/** Separates the values of a list attribute in one CSV cell: `cff|cornerstone`. */
+/** Separates the values of a list attribute in one CSV cell: `riverside|hilltop`. */
 export const ATTRIBUTE_VALUE_SEPARATOR = "|";
 
 /** The options as CSV, for a spreadsheet: `value,label,description,image`, then one column per attribute. */

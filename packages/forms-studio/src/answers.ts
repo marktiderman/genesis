@@ -1,6 +1,6 @@
 // Turning genesis-forms answers into plain cells and columns. Shared by everything that
 // shows or exports answers: a Sheet or email delivery, a responses table, a CSV. Pure: no
-// storage, no React. Moved up from Breakthrough's src/lib/forms/answers.ts.
+// storage, no React. Moved up from the host app's src/lib/forms/answers.ts.
 import {
   summarizeValue,
   type FieldBlock,

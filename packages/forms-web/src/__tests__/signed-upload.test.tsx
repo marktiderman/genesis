@@ -1,5 +1,5 @@
 // The browser half of the upload handshake: ask the endpoint for a signed upload, send the
-// bytes, keep the reference. Moved with the code from Breakthrough's
+// bytes, keep the reference. Moved with the code from the host app's
 // src/lib/feedback/photo-upload.ts (uploadFeedbackPhoto, feedbackPhotoUrl), and run here
 // against genesis-forms/server's createUploadHandler so both halves speak the same JSON.
 import { describe, expect, it, vi } from "vitest";
@@ -25,11 +25,11 @@ describe("signedUploadHost", () => {
     const upload = { bucket: "feedback-uploads", path: "p/f/u1", token: "t" };
     const fetch = vi.fn(async () => granted(ref, upload));
     const send = vi.fn(async () => {});
-    const host = signedUploadHost({ endpoint: "/api/upload/kit?practice=cff", claim: { attemptId: ATTEMPT }, send, fetch });
+    const host = signedUploadHost({ endpoint: "/api/upload/kit?practice=riverside", claim: { attemptId: ATTEMPT }, send, fetch });
     const photo = file("IMG_0042.jpg", "image/jpeg");
     expect(await host.upload(photo, field)).toEqual(ref);
     const [url, init] = fetch.mock.calls[0]! as unknown as [string, RequestInit];
-    expect(url).toBe("/api/upload/kit?practice=cff");
+    expect(url).toBe("/api/upload/kit?practice=riverside");
     expect(init.method).toBe("POST");
     expect(init.headers).toEqual({ "content-type": "application/json" });
     expect(JSON.parse(init.body as string)).toEqual({
@@ -114,7 +114,7 @@ describe("signedUploadHost", () => {
     await expect(noUrl.upload(photo, field)).rejects.toThrow(/pass `send`/);
   });
 
-  it("reads a stored file through readUrl, null when it can't (Breakthrough's feedbackPhotoUrl)", async () => {
+  it("reads a stored file through readUrl, null when it can't (the host app's feedbackPhotoUrl)", async () => {
     const ref = { id: "u1", name: "IMG_0042.jpg", type: "image/jpeg", size: 2048 };
     const readUrl = vi.fn(async (r: PhotoRef) => (r.id === "u1" ? "https://storage.test/signed" : null));
     const host = signedUploadHost({ endpoint: "/u", claim: { attemptId: ATTEMPT }, readUrl });

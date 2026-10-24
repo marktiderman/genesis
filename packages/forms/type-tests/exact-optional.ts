@@ -1,5 +1,5 @@
 // Compiled against the built .d.ts with exactOptionalPropertyTypes on, the
-// strictest setting a consumer is likely to use (Breakthrough uses it).
+// strictest setting a consumer is likely to use (the host app uses it).
 import { defineForm, f, when } from "@marktiderman/genesis-forms";
 
 export const form = defineForm({

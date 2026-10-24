@@ -5,7 +5,7 @@
  * fake, and the handshake that records uploads is `createUploadHandler`
  * (upload-handler.ts).
  *
- * Moved up from Breakthrough's src/lib/feedback/uploads.ts (`checkPhotoAnswers`).
+ * Moved up from the host app's src/lib/feedback/uploads.ts (`checkPhotoAnswers`).
  * Written for every upload field type (`UPLOAD_FIELD_TYPES`); `photo` is the only one.
  */
 import {
@@ -56,7 +56,7 @@ export interface StoredUpload {
 export interface UploadStore {
   /**
    * Records one upload and names its object in storage; `{ tooMany: true }` once the
-   * attempt or edit has as many as the app allows (Breakthrough: 20).
+   * attempt or edit has as many as the app allows (the host app: 20).
    */
   beginUpload(input: BeginUploadInput): Promise<{ id: string; objectName: string } | { tooMany: true }>;
   /** Signs an upload of that object, sent to the browser as `upload` (`SignedUpload`). */
@@ -174,7 +174,7 @@ export async function checkUploads(
 
 /**
  * The stored hash of a visit's attempt id: hex SHA-256 (Web Crypto). It equals
- * Breakthrough's `resumeTokenHash`, so uploads recorded before the move still match.
+ * The host app's `resumeTokenHash`, so uploads recorded before the move still match.
  */
 export async function attemptHash(attemptId: string): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(attemptId)));

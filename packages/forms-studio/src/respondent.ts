@@ -1,5 +1,5 @@
 // What a respondent's thank-you page offers. Pure: safe in the browser bundle and in
-// tests. Moved up from Breakthrough's src/lib/feedback/respondent.ts.
+// tests. Moved up from the host app's src/lib/feedback/respondent.ts.
 
 /**
  * Whether the thank-you page offers "Send another response" (on unless `submitAnother`

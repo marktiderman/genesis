@@ -21,7 +21,7 @@ const at = { now: NOW };
 const DAY = 24 * 60 * 60 * 1000;
 
 /**
- * Breakthrough's signer and verifier (src/lib/forms/edit-link.ts), copied as they were
+ * The host app's signer and verifier (src/lib/forms/edit-link.ts), copied as they were
  * when they moved here, so a link either side signs keeps working on the other.
  */
 const app = (() => {
@@ -226,14 +226,14 @@ describe("edit links", () => {
 
   it("adds the token to a form link with or without a query", () => {
     expect(withEditToken("https://gym.test/f/after-class", "t.s")).toBe("https://gym.test/f/after-class?edit=t.s");
-    expect(withEditToken("/f/after-class?practice=cff", "t.s")).toBe("/f/after-class?practice=cff&edit=t.s");
+    expect(withEditToken("/f/after-class?practice=riverside", "t.s")).toBe("/f/after-class?practice=riverside&edit=t.s");
     expect(withEditToken("/f/after-class", "t.s", "change")).toBe("/f/after-class?change=t.s");
   });
 
   it("signs and adds the token in one step, or gives no link without a secret", async () => {
     const token = await signEditToken({ id: ID, nonce: NONCE }, SECRET, at);
-    expect(await editLinkUrl("/f/after-class?practice=cff", { id: ID, nonce: NONCE }, SECRET, at)).toBe(
-      `/f/after-class?practice=cff&edit=${token}`,
+    expect(await editLinkUrl("/f/after-class?practice=riverside", { id: ID, nonce: NONCE }, SECRET, at)).toBe(
+      `/f/after-class?practice=riverside&edit=${token}`,
     );
     expect(await editLinkUrl("/f/a", { id: ID, nonce: NONCE }, SECRET, { now: NOW, param: "e" })).toBe(`/f/a?e=${token}`);
     expect(await editLinkUrl("/f/a", { id: ID, nonce: NONCE }, undefined, at)).toBeNull();
@@ -283,7 +283,7 @@ describe("edit link response headers", () => {
     });
 
   it("sends Referrer-Policy: no-referrer and no-store on /f/<slug>?edit=", async () => {
-    const res = withEditLinkHeaders(new Request("https://cff.growth90.com/f/after-class?edit=a.b.c.d"), page(), {
+    const res = withEditLinkHeaders(new Request("https://forms.example.com/f/after-class?edit=a.b.c.d"), page(), {
       isFormPage,
     });
     expect(res.headers.get("referrer-policy")).toBe("no-referrer");
@@ -295,18 +295,18 @@ describe("edit link response headers", () => {
 
   it("also with ?practice and an empty edit value, and a trailing slash", () => {
     const opts = { isFormPage };
-    expect(isEditLinkRequest(new URL("https://x.test/f/after-class?practice=cff&edit=t"), opts)).toBe(true);
+    expect(isEditLinkRequest(new URL("https://x.test/f/after-class?practice=riverside&edit=t"), opts)).toBe(true);
     expect(isEditLinkRequest(new URL("https://x.test/f/after-class/?edit="), opts)).toBe(true);
     // A default link names the practice in its path.
-    expect(isEditLinkRequest(new URL("https://app.x.test/f/cff/after-class?edit=t"), opts)).toBe(true);
+    expect(isEditLinkRequest(new URL("https://app.x.test/f/riverside/after-class?edit=t"), opts)).toBe(true);
   });
 
   it("leaves every other response alone", () => {
     for (const url of [
       "https://x.test/f/after-class",
-      "https://x.test/f/after-class?practice=cff",
+      "https://x.test/f/after-class?practice=riverside",
       "https://x.test/api/feedback/after-class?edit=t",
-      "https://x.test/f/cff/after-class/poster?edit=t",
+      "https://x.test/f/riverside/after-class/poster?edit=t",
       "https://x.test/?edit=t",
     ]) {
       const original = page();

@@ -268,9 +268,9 @@ An option can carry more than its value and label, from the question's own `opti
 app's list:
 
 ```ts
-{ value: "cff", label: "CrossFit Fairfield",
+{ value: "riverside", label: "Riverside Gym",
   description: "12 Main St",                    // a muted line under the label
-  image: "https://cdn.example.com/cff.png",      // a small picture; https only
+  image: "https://cdn.example.com/riverside.png",      // a small picture; https only
   attributes: { region: "north", coaches: ["ada", "sam"] } } // for filters and recall
 ```
 
@@ -288,7 +288,7 @@ f.singleChoice("coach", {
   label: "Who coached you?",
   optionsFrom: { source: "host", key: "coaches", filter: { attribute: "location", field: "location" } },
 });
-// a coach: { value: "ada", label: "Ada", attributes: { location: ["cff", "cornerstone"] } }
+// a coach: { value: "ada", label: "Ada", attributes: { location: ["riverside", "hilltop"] } }
 ```
 
 `field` is the earlier question's key (`parseForm` checks it exists and comes first). An option
@@ -307,7 +307,7 @@ options: `props.searchable` when it is true or false, else more than `SEARCHABLE
 query in the label, value or description, ignoring case and accents.
 
 **Preselect from a link.** `props.prefill: { param }` on a choice question takes a link's query
-parameter, such as `?location=cornerstone`:
+parameter, such as `?location=hilltop`:
 
 ```ts
 f.dropdown("location", { label: "Where?", optionsFrom: { source: "host", key: "locations" },
@@ -335,7 +335,7 @@ import { answerSnapshots, answersFromSnapshots, withHostOptions } from "@marktid
 
 const shown = withHostOptions(definition, lists);
 const snapshots = answerSnapshots(shown, result.submission.answers);
-// { location: { value: "cff", label: "CrossFit Fairfield" }, helpers: [{ value: "ada", label: "Ada" }] }
+// { location: { value: "riverside", label: "Riverside Gym" }, helpers: [{ value: "ada", label: "Ada" }] }
 
 // An edit link: find each pick again in today's lists.
 const { answers, missing } = answersFromSnapshots(withHostOptions(definition, listsNow), stored);

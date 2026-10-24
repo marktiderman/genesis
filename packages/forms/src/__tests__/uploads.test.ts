@@ -2,7 +2,7 @@
 // Upload fields on the server: the handshake that signs one upload per file (for the
 // form's upload field, its attempt or edit link, type and size, rate limited) and the
 // submit-time check that every file the answers name was uploaded by that attempt.
-// Moved with the code from Breakthrough's src/test/feedback-photo-uploads.test.ts; every
+// Moved with the code from the host app's src/test/feedback-photo-uploads.test.ts; every
 // refusal there is here, since these are the ownership checks.
 import { createHash, createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
@@ -122,7 +122,7 @@ function setup(options: Setup = {}) {
 }
 
 function request(body: unknown, headers: Record<string, string> = {}) {
-  return new Request("https://cff.example/api/upload/broken-kit", {
+  return new Request("https://riverside.example/api/upload/broken-kit", {
     method: "POST",
     headers: { "x-forwarded-for": "203.0.113.7", "content-type": "application/json", ...headers },
     body: typeof body === "string" ? body : JSON.stringify(body),
@@ -142,7 +142,7 @@ const photo = (over: Record<string, unknown> = {}) => ({
 });
 
 describe("attemptHash", () => {
-  it("is Breakthrough's resumeTokenHash: hex SHA-256 of the attempt id", async () => {
+  it("is the host app's resumeTokenHash: hex SHA-256 of the attempt id", async () => {
     expect(await attemptHash(ATTEMPT)).toBe(createHash("sha256").update(ATTEMPT).digest("hex"));
   });
 });
