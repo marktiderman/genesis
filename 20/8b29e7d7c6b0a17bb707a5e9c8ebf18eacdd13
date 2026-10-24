@@ -1,0 +1,73 @@
+.github/ci-fixture/.claude/skills/features/SKILL.md
+  s_8252619ce79a86::t_f23b220df5b250 1-54
+.github/ci-fixture/.npmrc
+  s_8252619ce79a86::t_5697d5869f2df0 1-2
+.github/ci-fixture/AGENTS.md
+  s_8252619ce79a86::t_9f853494bf1816 1-11
+.github/ci-fixture/CLAUDE.md
+  s_8252619ce79a86::t_218cd679118400 1
+.github/ci-fixture/bun.lock
+  s_8252619ce79a86::t_f5c160a9345b49 1-52
+.github/ci-fixture/bunfig.toml
+  s_8252619ce79a86::t_694186ed55bc35 1-3
+.github/ci-fixture/features.json
+  s_8252619ce79a86::t_6053397f7ce7ba 1-26
+.github/ci-fixture/features.ts
+  s_8252619ce79a86::t_2f35acab1b003a 1-15
+.github/ci-fixture/package-lock.json
+  s_8252619ce79a86::t_90ee036e17a6c6 1-331
+.github/ci-fixture/package.json
+  s_8252619ce79a86::t_53a232e15b0649 1-17
+.github/ci-fixture/pnpm-lock.yaml
+  s_8252619ce79a86::t_84ed2072f1ec98 1-259
+.github/ci-fixture/pnpm-workspace.yaml
+  s_8252619ce79a86::t_0f88baee9e4e71 1-10
+.github/ci-fixture/supabase/config.toml
+  s_8252619ce79a86::t_836336e7de0bd8 1-10
+.github/ci-fixture/supabase/migrations/20260101000000_notes.sql
+  s_8252619ce79a86::t_6809b8956200ba 1-7
+.github/ci-fixture/supabase/tests/database/notes.test.sql
+  s_8252619ce79a86::t_4468140f5cdeb3 1-13
+.github/workflows/app-ci.yml
+  s_8252619ce79a86::t_d1502b7e1cacb1 1-255
+.github/workflows/ci-templates-self-test.yml
+  s_8252619ce79a86::t_a68cabd8f16ab1 1-51
+.github/workflows/genesis-upgrade.yml
+  s_8252619ce79a86::t_768d534052e368 1-426
+.github/workflows/supabase-ci.yml
+  s_8252619ce79a86::t_e23ecf49c04a7f 1-257
+AGENTS.md
+  s_8252619ce79a86::t_3223865479702f 15
+docs/APP-CI.md
+  s_8252619ce79a86::t_c358b750a611a6 1-140
+docs/README.md
+  s_8252619ce79a86::t_b409b8e7376754 18-20
+docs/RELEASING.md
+  s_8252619ce79a86::t_a385b0771b8a81 55-57
+features.json
+  s_8252619ce79a86::t_241028a8feaa7a 961-1008
+features.ts
+  s_8252619ce79a86::t_36bc16f1f2d7b5 427-453
+templates/ci/app-ci.yml
+  s_8252619ce79a86::t_6751d9b506037c 1-17
+templates/ci/genesis-upgrade.yml
+  s_8252619ce79a86::t_2d426e0d0b7bd4 1-21
+templates/ci/supabase-ci.yml
+  s_8252619ce79a86::t_4939bfb55f2079 1-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "208b29e7d7c6b0a17bb707a5e9c8ebf18eacdd13",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
