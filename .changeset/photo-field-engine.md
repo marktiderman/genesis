@@ -1,0 +1,5 @@
+---
+"@marktiderman/genesis-forms": minor
+---
+
+A `photo` field type: a respondent attaches up to a few photos, such as a picture of broken equipment. The answer is a list of references the host's storage returned, `{ id, name, type, size }` (`PhotoRef`), never the bytes. Props: `maxFiles` (1–5, default 3), `maxSizeMb` (1–25, default 10) and `formats` (`jpeg`, `png`, `heic`, `webp`; default all four). Validation checks each reference's shape, type and size and the count; `normalize` keeps only the four keys; `summarizeValue` lists the file names. Not sensitive or identifying by default. `parseForm` checks the props, and a formula reading a photo field gets a warning. New: `f.photo`, `PHOTO_TYPE`, `UPLOAD_FIELD_TYPES` (opt-in for builder palettes), `PHOTO_FORMATS`, `photoLimits`, `photoRefs`, `isPhotoRef`, `isPhotoFormat`, `photoFormatList`, `photoTypeMessage`, `photoSizeMessage`, `photoCountMessage`, `DEFAULT_PHOTO_FILES`, `MAX_PHOTO_FILES`, `DEFAULT_PHOTO_SIZE_MB`, `MAX_PHOTO_SIZE_MB`, `MAX_PHOTO_ID_LENGTH`, `MAX_PHOTO_NAME_LENGTH`, and the types `PhotoRef`, `PhotoFormat`, `PhotoLimits`.

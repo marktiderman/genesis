@@ -34,7 +34,7 @@ export function formulaNames(def: FormDefinition, field: FieldBlock): string[] {
     if (b.kind !== "field" || b.id === field.id) return [];
     if (b.type === "calculated" && i > at) return [];
     if (b.type === "table") return tableColumns(b).map((c) => `${b.key}.${c.key}`);
-    if (b.type === "media-notes" || b.type === "text-highlights") return [];
+    if (b.type === "media-notes" || b.type === "text-highlights" || b.type === "photo") return [];
     return [b.key];
   });
 }
