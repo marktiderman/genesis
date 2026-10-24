@@ -1,0 +1,119 @@
+packages/ui-native/src/layouts/settings-sub-page.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 22,165-184
+packages/forms-builder/src/settings.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 268
+packages/forms-studio/src/summary.ts
+  s_8252619ce79a86::t_b625ac1db2a032 8-9,137-139,255-264
+packages/forms/src/index.ts
+  s_8252619ce79a86::t_b625ac1db2a032 40-42
+packages/forms-studio/src/__tests__/summary.test.ts
+  s_8252619ce79a86::t_b625ac1db2a032 436-468
+packages/ui-native/src/layouts/index.ts
+  s_8252619ce79a86::t_311eabf9117675 67
+packages/genesis-cli/test/fixtures/expo-app/package.json
+  s_8252619ce79a86::t_b625ac1db2a032 1-8
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_a8d639199aa1b5 18,561
+  s_8252619ce79a86::t_b625ac1db2a032 2097-2123
+  s_8252619ce79a86::t_573b74daa7e4a3 2124-2126
+docs/component-reference.md
+  s_8252619ce79a86::t_a8d639199aa1b5 7,783,819
+  s_8252619ce79a86::t_b625ac1db2a032 802,813,832
+packages/genesis-cli/tsup.config.ts
+  s_8252619ce79a86::t_b625ac1db2a032 11,22,38
+packages/genesis-cli/test/fixtures/expo-app/app.json
+  s_8252619ce79a86::t_b625ac1db2a032 1-15
+packages/genesis-cli/package.json
+  s_8252619ce79a86::t_b625ac1db2a032 6,39-45,49,66-68,72-73,76-77,81-86
+.changeset/forms-other-option.md
+  s_8252619ce79a86::t_b625ac1db2a032 1-8
+packages/genesis-cli/README.md
+  s_8252619ce79a86::t_b625ac1db2a032 62-156
+packages/ui-native/src/layouts/keyboard.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 1-39
+packages/ui-native/src/layouts/notifications-page.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 23,205
+.changeset/expo-config-plugin.md
+  s_8252619ce79a86::t_b625ac1db2a032 1-9
+packages/genesis-cli/src/index.ts
+  s_8252619ce79a86::t_b625ac1db2a032 51-55
+packages/forms-web/src/renderers.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 13-14,393-394,434-479,484-499,507-508,521-527,529-540,549-557,560-561,580-607,641,643-647,653-660,673,675-686
+packages/genesis-cli/app.plugin.js
+  s_8252619ce79a86::t_b625ac1db2a032 1-4
+packages/forms/src/__tests__/other-option.test.ts
+  s_8252619ce79a86::t_b625ac1db2a032 1-89
+packages/ui-native/package.json
+  s_8252619ce79a86::t_b625ac1db2a032 84
+packages/genesis-cli/src/expo.ts
+  s_8252619ce79a86::t_b625ac1db2a032 1-188
+packages/forms-web/src/photo.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 123-124,135,137,174-176,179-184
+packages/design-system/src/theme/__tests__/provider-native-appearance.test.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 1-42
+packages/genesis-cli/test/doctor.test.ts
+  s_8252619ce79a86::t_b625ac1db2a032 306-319
+packages/studio-server/test/unit.test.ts
+  s_8252619ce79a86::t_b625ac1db2a032 1,101-105,107-111,133,135-136,138-139
+AGENTS.md
+  s_8252619ce79a86::t_7051480297377a 15
+packages/ui-native/src/layouts/__tests__/keyboard-scroll.test.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 1-34
+features.json
+  s_8252619ce79a86::t_b625ac1db2a032 1554,1556,1564-1567,1570-1573,1584-1598,2095-2122
+  s_8252619ce79a86::t_b7142b11c63316 2123-2126
+packages/forms/src/define.ts
+  s_8252619ce79a86::t_b625ac1db2a032 51-55,90
+packages/forms/src/fields.ts
+  s_8252619ce79a86::t_b625ac1db2a032 103-132,349,363-365,368-369,394
+packages/forms-builder/src/questions.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 9,1076-1082,1108,1113-1129
+  s_8252619ce79a86::t_db9780969a2937 1130-1132
+packages/ui-native/src/layouts/auth-screen.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 8-10,34,82-84,91-111
+packages/forms/README.md
+  s_8252619ce79a86::t_b625ac1db2a032 265-279
+packages/genesis-cli/src/doctor/config.ts
+  s_8252619ce79a86::t_b625ac1db2a032 2,4-8,14-19,23-39,78-79,97-141
+  s_8252619ce79a86::t_28e3914bb66a74 142
+features.ts
+  s_8252619ce79a86::t_b625ac1db2a032 691,693,695-697,702-708,932-942
+  s_8252619ce79a86::t_f7d55efe8595de 943-944
+packages/genesis-cli/test/fixtures/expo-app/genesis.config.json
+  s_8252619ce79a86::t_b625ac1db2a032 1-10
+packages/supabase/README.md
+  s_8252619ce79a86::t_b625ac1db2a032 30,186-193
+packages/genesis-cli/test/expo.test.ts
+  s_8252619ce79a86::t_b625ac1db2a032 1-302
+packages/design-system/src/theme/provider.native.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 39,55-62,71,93-101,141-149
+  s_8252619ce79a86::t_88afa44e79850a 150
+packages/genesis-cli/src/doctor/index.ts
+  s_8252619ce79a86::t_b625ac1db2a032 30-39
+packages/forms-web/src/__tests__/other-option.test.tsx
+  s_8252619ce79a86::t_b625ac1db2a032 1-73
+packages/forms/src/parse.ts
+  s_8252619ce79a86::t_b625ac1db2a032 315-322
+packages/genesis-cli/src/cli.ts
+  s_8252619ce79a86::t_b625ac1db2a032 170-171
+.changeset/p0-polish.md
+  s_8252619ce79a86::t_b625ac1db2a032 1-9
+pnpm-lock.yaml
+  s_8252619ce79a86::t_5f252a30d33def 869-877,1205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "704c58d2c806ef02ce4dbe634dae1379b7cf9fc4",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
