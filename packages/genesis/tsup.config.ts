@@ -41,22 +41,31 @@ const ENTRY = [
 ];
 
 /**
- * The release train: the exact version of every public Genesis package in this
- * release, written to dist/versions.json. `genesis doctor` warns when an app
- * that has this umbrella installed runs a different version of any of them.
+ * The release train: the exact version of every Genesis package this umbrella
+ * depends on (and so releases with), written to dist/versions.json. Packages
+ * the umbrella doesn't depend on (the CLI, studio, supabase…) release on
+ * their own and are left out, so their patches can't look like skew.
+ * `genesis doctor` warns when an app that has this umbrella installed runs a
+ * different version of any listed package.
  */
 function writeReleaseManifest() {
-  const packages: Record<string, string> = {};
+  const own = JSON.parse(readFileSync("package.json", "utf8")) as { version: string; dependencies?: Record<string, string> };
+  const deps = Object.keys(own.dependencies ?? {}).filter((name) => name.startsWith("@marktiderman/genesis-"));
+  const versions = new Map<string, string>();
   for (const dir of readdirSync("..")) {
     const file = join("..", dir, "package.json");
     if (!existsSync(file)) continue;
-    const pkg = JSON.parse(readFileSync(file, "utf8")) as { name?: string; version?: string; private?: boolean };
-    if (!pkg.private && pkg.name?.startsWith("@marktiderman/genesis-") && pkg.version) packages[pkg.name] = pkg.version;
+    const pkg = JSON.parse(readFileSync(file, "utf8")) as { name?: string; version?: string };
+    if (pkg.name && pkg.version) versions.set(pkg.name, pkg.version);
   }
-  const own = JSON.parse(readFileSync("package.json", "utf8")) as { version: string };
-  const sorted = Object.fromEntries(Object.entries(packages).sort(([a], [b]) => a.localeCompare(b)));
-  writeFileSync("dist/versions.json", `${JSON.stringify({ version: own.version, packages: sorted }, null, 2)}\n`);
-  console.log(`  versions.json ✔ ${Object.keys(sorted).length} packages`);
+  const packages: Record<string, string> = {};
+  for (const name of deps.sort()) {
+    const version = versions.get(name);
+    if (!version) throw new Error(`[umbrella] ${name} is a dependency but isn't in the workspace`);
+    packages[name] = version;
+  }
+  writeFileSync("dist/versions.json", `${JSON.stringify({ version: own.version, packages }, null, 2)}\n`);
+  console.log(`  versions.json ✔ ${deps.length} packages`);
 }
 
 export default defineConfig({

@@ -39,6 +39,8 @@ export interface ScaffoldOptions {
   genesisVersion?: string;
   /** When true, even idempotent skips emit a write at `.genesis-next` for diffing. */
   emitConflicts?: boolean;
+  /** An Expo app: the Tailwind config adds NativeWind's preset and scans genesis-ui-native. */
+  native?: boolean;
   /**
    * Logger. Defaults to a no-op when running in tests; CLI passes
    * `console.log` etc.
@@ -89,7 +91,7 @@ export function validateConsumerName(name: string): void {
  * Pure function — no I/O. Tests use this directly.
  */
 export function planScaffold(
-  opts: Pick<ScaffoldOptions, "consumerName" | "genesisVersion">,
+  opts: Pick<ScaffoldOptions, "consumerName" | "genesisVersion" | "native">,
 ): { path: string; content: string }[] {
   const consumer = opts.consumerName;
   const genesisVersion = opts.genesisVersion ?? "workspace:^";
@@ -112,7 +114,7 @@ export function planScaffold(
     },
     {
       path: `tailwind.config.ts`,
-      content: tailwindConfig(consumer),
+      content: tailwindConfig(consumer, opts.native ?? false),
     },
     {
       path: `app/global.css`,
@@ -335,9 +337,11 @@ export const brand: Brand = {
 `;
 }
 
-function tailwindConfig(consumer: string): string {
+function tailwindConfig(consumer: string, native: boolean): string {
   return `import type { Config } from "tailwindcss";
-import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";
+import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";${native ? `
+// NativeWind v4 needs its preset; Genesis's goes after it.
+import nativewindPreset from "nativewind/preset";` : ""}
 import { brand } from "@${consumer}/brand";
 
 /**
@@ -353,9 +357,8 @@ const config: Config = {
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
-    "./node_modules/@marktiderman/genesis-ui-native/**/*.{js,ts,tsx}",
-  ],
-  presets: [genesisPreset],
+${native ? `    "./node_modules/@marktiderman/genesis-ui-native/**/*.{js,ts,tsx}",\n` : ""}  ],
+  presets: [${native ? "nativewindPreset, " : ""}genesisPreset],
   theme: {
     extend: {
       colors: {
