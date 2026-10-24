@@ -26,6 +26,7 @@ import { ChecksContext, visibleFindings, type ChecksState } from "./checks";
 import { createDraftRegistry, DraftsContext, RowLayoutContext, type SettingsRowSlotProps } from "./controls";
 import { BuilderConfigContext, type Apply, type BlockKinds, type BuilderConfig, type FieldPreset, type FieldTypeEditor } from "./editors";
 import { useBuilderHistory } from "./history";
+import { sampleHostOptions, type HostOptionList } from "./host-options";
 import type { OutputTarget } from "./outputs";
 import { updateForm, ruleRefs } from "./ops";
 import { FlowMap } from "./flow";
@@ -122,6 +123,15 @@ export interface FormBuilderProps {
    */
   outputs?: readonly OutputTarget[] | undefined;
   /**
+   * Option lists this app fills in when the form opens, such as a practice's
+   * current coaches. A choice question's options panel then offers "Options:
+   * Typed here | From the app" and a picker of these lists; choosing one sets
+   * `props.optionsFrom: { source: "host", key }`. The preview and the checks
+   * use each list's `sample`. Pass the real lists to `<Form hostOptions>` and
+   * `validateSubmission` where the form is answered.
+   */
+  hostOptions?: readonly HostOptionList[] | undefined;
+  /**
    * The preview's renderers. It replaces `defaultRegistry` (it is `<Form registry>`),
    * so extend that one rather than passing only your own types:
    * `defaultRegistry.extend([{ type: "acme/signature", Component: Signature }])`.
@@ -215,11 +225,13 @@ function parseOnce(def: FormDefinition): ParseResult {
   if (!result) parses.set(def, (result = parseForm(def)));
   return result;
 }
-const analyses = new WeakMap<FormDefinition, Analysis>();
-function analyseOnce(def: FormDefinition): Analysis {
-  let result = analyses.get(def);
-  if (!result) analyses.set(def, (result = analyze(def, { parsed: parseOnce(def) })));
-  return result;
+const analyses = new WeakMap<FormDefinition, { lists: readonly HostOptionList[] | undefined; analysis: Analysis }>();
+function analyseOnce(def: FormDefinition, lists: readonly HostOptionList[] | undefined): Analysis {
+  const hit = analyses.get(def);
+  if (hit && hit.lists === lists) return hit.analysis;
+  const analysis = analyze(def, { parsed: parseOnce(def), hostOptions: lists });
+  analyses.set(def, { lists, analysis });
+  return analysis;
 }
 
 /**
@@ -238,6 +250,7 @@ export function FormBuilder({
   presets,
   blockKinds,
   outputs,
+  hostOptions,
   previewRegistry,
   previewValidators,
   brand,
@@ -264,7 +277,13 @@ export function FormBuilder({
   const parsed = parseOnce(def);
   // Checks follow the edits at their own pace, so typing never waits for them.
   const analysed = useDeferredValue(def);
-  const analysis = useMemo(() => analyseOnce(analysed), [analysed]);
+  const analysis = useMemo(() => analyseOnce(analysed, hostOptions), [analysed, hostOptions]);
+  // Read by the handle's getAnalysis, which outlives renders.
+  const hostOptionsRef = useRef(hostOptions);
+  useEffect(() => {
+    hostOptionsRef.current = hostOptions;
+  });
+  const previewHostOptions = useMemo(() => sampleHostOptions(hostOptions), [hostOptions]);
   const [ownTab, setOwnTab] = useState<BuilderTab>(defaultTab);
   // "endings" is the merged panel's older name.
   const tab = (controlledTab ?? ownTab) === "endings" ? "logic" : (controlledTab ?? ownTab);
@@ -296,8 +315,8 @@ export function FormBuilder({
   const [drafts] = useState(createDraftRegistry);
   const readOnlyNoteId = useId();
   const config = useMemo<BuilderConfig>(
-    () => ({ palette, fieldEditors, presets, blockKinds, outputs, readOnly }),
-    [palette, fieldEditors, presets, blockKinds, outputs, readOnly],
+    () => ({ palette, fieldEditors, presets, blockKinds, outputs, hostOptions, readOnly }),
+    [palette, fieldEditors, presets, blockKinds, outputs, hostOptions, readOnly],
   );
   // Every edit goes through `apply`, so a read-only builder cannot change the
   // value (or call onChange) even from a control the panels forgot to hide.
@@ -306,7 +325,7 @@ export function FormBuilder({
   const handle = useMemo<FormBuilderHandle>(
     () => ({
       getValue: history.get,
-      getAnalysis: () => analyseOnce(history.get()),
+      getAnalysis: () => analyseOnce(history.get(), hostOptionsRef.current),
       flush: () => {
         drafts.flush();
         return history.get();
@@ -388,6 +407,7 @@ export function FormBuilder({
       theme={theme}
       submitLabel={submitLabel}
       hidden={previewHidden}
+      hostOptions={previewHostOptions}
       registry={previewRegistry}
       validators={previewValidators}
       outputs={outputs}

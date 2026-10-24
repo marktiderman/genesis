@@ -3,6 +3,7 @@ import { isJson } from "./events";
 import { getFieldType, isIsoDate } from "./fields";
 import { parseFormula } from "./formula";
 import { recallRefs } from "./recall";
+import { isPhotoFormat, MAX_PHOTO_FILES, MAX_PHOTO_SIZE_MB, PHOTO_TYPE } from "./photo";
 import { MAX_TABLE_COLUMNS } from "./structured";
 import type { Condition, FormDefinition, Operator } from "./types";
 
@@ -199,6 +200,22 @@ export function parseForm(input: unknown): ParseResult {
       }
     }
     if (type === "consent") optionalText(props.text, `${path}.text`);
+    if (type === PHOTO_TYPE) {
+      if (props.maxFiles !== undefined && !(isInt(props.maxFiles) && props.maxFiles >= 1 && props.maxFiles <= MAX_PHOTO_FILES)) {
+        issue(`${path}.maxFiles`, `Must be a whole number from 1 to ${MAX_PHOTO_FILES}.`);
+      }
+      if (props.maxSizeMb !== undefined && !(isInt(props.maxSizeMb) && props.maxSizeMb >= 1 && props.maxSizeMb <= MAX_PHOTO_SIZE_MB)) {
+        issue(`${path}.maxSizeMb`, `Must be a whole number from 1 to ${MAX_PHOTO_SIZE_MB}.`);
+      }
+      if (props.formats !== undefined) {
+        const formats = props.formats;
+        if (!Array.isArray(formats) || formats.length === 0 || !formats.every(isPhotoFormat)) {
+          issue(`${path}.formats`, "Must be a list of one or more of jpeg, png, heic and webp.");
+        } else if (new Set(formats).size !== formats.length) {
+          issue(`${path}.formats`, "Name each format once.");
+        }
+      }
+    }
   };
 
   if (!isObject(input)) {
@@ -268,6 +285,14 @@ export function parseForm(input: unknown): ParseResult {
         issue(`${path}.type`, `Unknown field type "${String(block.type)}".`);
       }
       if (block.props !== undefined) {
+        const from = isObject(block.props) ? block.props.optionsFrom : undefined;
+        if (from !== undefined) {
+          if (!isObject(from) || from.source !== "host" || typeof from.key !== "string" || !from.key) {
+            issue(`${path}.props.optionsFrom`, 'Must be { source: "host", key } with a non-empty key.');
+          } else if (typeof block.type === "string" && !CHOICE_TYPES.has(block.type)) {
+            warnings.push({ path: `${path}.props.optionsFrom`, message: "Only single choice, multiple choice and dropdown questions take options from the app." });
+          }
+        }
         if (!isObject(block.props) || !isJson(block.props)) issue(`${path}.props`, "Must be a JSON object.");
         else if (block.props.options !== undefined) {
           const options = block.props.options;
@@ -278,10 +303,13 @@ export function parseForm(input: unknown): ParseResult {
               if (!isObject(o) || typeof o.value !== "string") issue(at, "Each option needs a string value.");
               else optionalText(o.label, `${at}.label`);
             });
-            choices.set(
-              block.id,
-              new Set(options.flatMap((o) => (isObject(o) && typeof o.value === "string" ? [o.value] : []))),
-            );
+            // With options from the app, any value may be one of them: literals aren't checked against these.
+            if (from === undefined) {
+              choices.set(
+                block.id,
+                new Set(options.flatMap((o) => (isObject(o) && typeof o.value === "string" ? [o.value] : []))),
+              );
+            }
           }
         }
         // Renderers draw one button per point, so the scale is bounded.
@@ -364,6 +392,8 @@ export function parseForm(input: unknown): ParseResult {
       } else if (ref.column !== undefined) issue(path, `"${ref.key}" is not a table, so it has no column "${ref.column}".`);
       else if (targetType === "media-notes" || targetType === "text-highlights") {
         warnings.push({ path, message: `"${ref.key}" holds notes, not numbers; the formula reads it as blank.` });
+      } else if (targetType === PHOTO_TYPE) {
+        warnings.push({ path, message: `"${ref.key}" holds photos, not numbers; the formula reads it as blank.` });
       }
     }
   });

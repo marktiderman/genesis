@@ -1,7 +1,9 @@
 import {
+  useContext,
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -16,10 +18,13 @@ import { cn } from "@marktiderman/genesis-ui/utils";
 import {
   formProgress,
   type CreateFormOptions,
+  type FieldBlock,
   type FormDefinition,
   type FormEngine,
   type FormProgress,
   type FormState,
+  type HostOptions,
+  type PhotoRef,
 } from "@marktiderman/genesis-forms";
 import {
   FieldRenderer,
@@ -32,6 +37,7 @@ import {
 import { FormPresentationProvider, useFormPresentation, type FormPresentation } from "./presentation";
 import { defaultRegistry } from "./renderers";
 import { themeCss, type FormTheme } from "./theme";
+import { createPendingUploads, PendingUploadsContext, UPLOAD_WAIT_MESSAGE, UploadContext, type PendingUploads } from "./upload";
 
 // ── Slots (the Genesis extension ladder, EXTENDING.md) ──────────────────────
 
@@ -444,6 +450,16 @@ export interface FormProps {
   /** Bring your own engine (from `useForm`) to read state outside the form. `form` and `options` are then unused. */
   engine?: FormEngine | undefined;
   options?: CreateFormOptions | undefined;
+  /**
+   * Option lists this app supplies, by key, for choice questions whose
+   * options come from the app (`props.optionsFrom: { source: "host", key }`),
+   * such as `{ coaches: [{ value: "8c1…", label: "Ada Lovelace" }] }`. Shown
+   * after the question's own options. Like `options`, read when the response
+   * starts; unused with `engine` (pass `hostOptions` to `useForm` then). Check
+   * answers on the server with the same lists (`validateSubmission`'s
+   * `hostOptions`).
+   */
+  hostOptions?: HostOptions | undefined;
   /** Overrides the definition's layout. */
   layout?: "focus" | "classic" | undefined;
   /**
@@ -508,6 +524,14 @@ export interface FormProps {
   requiredLabel?: string | null | undefined;
   /** The submit button's label after `onSubmit` failed. Default "Try again". */
   retryLabel?: string | undefined;
+  /**
+   * Stores a file a respondent adds to a `photo` field and resolves to its
+   * reference (`{ id, name, type, size }`), which is all the answer keeps; a
+   * rejection shows under the field. While any upload is in flight the form
+   * neither moves on nor sends. Without it (and without an `UploadContext`
+   * above the form), photo fields say photos can't be added.
+   */
+  onUpload?: ((file: File, field: FieldBlock) => Promise<PhotoRef>) | undefined;
   slots?: { [K in keyof FormSlotMap]?: SlotOverride<FormSlotMap[K]> } | undefined;
   slotProps?: { [K in keyof FormSlotMap]?: Partial<FormSlotMap[K]> } | undefined;
   className?: string | undefined;
@@ -537,15 +561,24 @@ export function Form(props: FormProps) {
 }
 
 function OwnedForm(props: FormProps) {
-  const engine = useForm(props.form, props.options);
+  const engine = useForm(props.form, props.hostOptions ? { ...props.options, hostOptions: props.hostOptions } : props.options);
   return <FormWithEngine {...props} engine={engine} />;
 }
 
 function FormWithEngine(props: FormProps & { engine: FormEngine }) {
+  const { onUpload } = props;
+  // `onUpload` wins; otherwise a host's own UploadContext above the form is kept.
+  const outer = useContext(UploadContext);
+  const host = useMemo(() => (onUpload ? { upload: onUpload } : outer), [onUpload, outer]);
+  const [pending] = useState(createPendingUploads);
   return (
-    <FormRuntime engine={props.engine} registry={props.registry ?? defaultRegistry}>
-      <FormBody key={keyOf(props.engine)} {...props} />
-    </FormRuntime>
+    <UploadContext.Provider value={host}>
+      <PendingUploadsContext.Provider value={pending}>
+        <FormRuntime engine={props.engine} registry={props.registry ?? defaultRegistry}>
+          <FormBody key={keyOf(props.engine)} {...props} pendingUploads={pending} />
+        </FormRuntime>
+      </PendingUploadsContext.Provider>
+    </UploadContext.Provider>
   );
 }
 
@@ -579,7 +612,8 @@ function FormBody({
   slotProps,
   className,
   testID,
-}: FormProps & { engine: FormEngine }) {
+  pendingUploads,
+}: FormProps & { engine: FormEngine; pendingUploads: PendingUploads }) {
   const { idPrefix } = useFormContext();
   const def = engine.definition;
   const layout = layoutProp ?? def.layout?.mode ?? "classic";
@@ -716,8 +750,16 @@ function FormBody({
     if (message) announce(message);
   };
 
+  /** True (and says so) while a photo is still on its way: the form waits for it. */
+  const waitingForUploads = () => {
+    if (pendingUploads.count() === 0) return false;
+    announce(UPLOAD_WAIT_MESSAGE);
+    return true;
+  };
+
   const finish = async () => {
     if (sending.current) return;
+    if (engine.getState().status !== "completed" && waitingForUploads()) return;
     // A retry after a failed onSubmit finds the response already completed.
     if (engine.getState().status !== "completed" && !engine.submit()) {
       if (layout === "classic") setSummaryRequest((n) => n + 1);
@@ -743,6 +785,7 @@ function FormBody({
   const isLastStep = (state: FormState) => state.current === state.path[state.path.length - 1];
 
   const advance = () => {
+    if (waitingForUploads()) return;
     direction.current = "forward";
     if (isLastStep(engine.getState())) void finish();
     else if (!engine.next()) announceStepError();

@@ -67,6 +67,11 @@ useAppShellSubNav(
 - `DropOffByQuestion` from `dropOffByQuestion(items, definitions)`: for each question, how many
   people reached it, how many stopped there, and the drop-off share. A sent response reached
   every question; a partial one, every question up to its furthest; in-progress ones are left out.
+- `PhotoAnswer` (`{ photos, resolveUrl }`): a response's photos as thumbnails, each opening full
+  size in a new tab. The host resolves each reference to an address it may show (a short-lived
+  signed link, say) or null; a photo most browsers can't draw (HEIC) is a tile with its name and an
+  Open link, and one that can't be found says "Photo unavailable". In cells and CSVs a photo answer
+  is its file names.
 
 ## Settings
 

@@ -1,5 +1,5 @@
 import { calculator, isCalculated, spend, workStats, type WorkBudget } from "./calculated";
-import { isEmptyValue, normalizeValue } from "./fields";
+import { isEmptyValue, normalizeValue, withHostOptions, type HostOptions } from "./fields";
 import { coerceHidden } from "./hidden";
 import { computePath, fieldMap, own, type EvalScope } from "./logic";
 import { recall } from "./recall";
@@ -46,9 +46,18 @@ export interface CreateFormOptions {
    * nothing when the block isn't on the path.
    */
   resumeAt?: string | null | undefined;
+  /**
+   * The option lists this app supplies, by key, for choice fields with
+   * `props.optionsFrom: { source: "host", key }` (see `withHostOptions`).
+   * `engine.definition` is the definition with them filled in, so renderers
+   * show them and validation accepts only them (and the field's own options).
+   * Pass the same lists to `validateSubmission` on the server.
+   */
+  hostOptions?: HostOptions | undefined;
 }
 
 export interface FormEngine {
+  /** The definition being filled in, with `hostOptions` filled in (`withHostOptions`). */
   readonly definition: FormDefinition;
   getState(): FormState;
   subscribe(listener: () => void): () => void;
@@ -98,7 +107,8 @@ interface Built {
   finish(): void;
 }
 
-function build(definition: FormDefinition, options: CreateFormOptions, replaying = false, budget?: WorkBudget): Built {
+function build(given: FormDefinition, options: CreateFormOptions, replaying = false, budget?: WorkBudget): Built {
+  const definition = withHostOptions(given, options.hostOptions);
   const fields = fieldMap(definition);
   const byKey = new Map([...fields.values()].map((f) => [f.key, f]));
   const blocks = new Map(definition.blocks.map((b) => [b.id, b]));

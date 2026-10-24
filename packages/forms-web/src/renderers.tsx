@@ -19,6 +19,7 @@ import { useFormPresentation } from "./presentation";
 import { describedBy, FieldChrome } from "./chrome";
 import { calculatedRenderers } from "./calculated";
 import { structuredRenderers } from "./structured";
+import { photoRenderers } from "./photo";
 
 export { describedBy, FieldChrome, type FieldChromeProps } from "./chrome";
 
@@ -649,6 +650,7 @@ export const builtInRenderers: RendererEntry[] = [
   { type: "consent", Component: ConsentField },
   ...structuredRenderers,
   ...calculatedRenderers,
+  ...photoRenderers,
 ];
 
 /**

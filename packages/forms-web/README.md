@@ -121,6 +121,27 @@ choice, yes/no, and the structured types:
 
 `useMediaTime()` and `useSourceText()` read them in a custom renderer.
 
+**`photo`** (a picture of broken equipment) has "Choose a photo" and, on a phone or tablet, "Take a
+photo" (the camera), checks each file's type, size and the count before uploading, shows a thumbnail
+(or the file's name when the browser can't draw it, such as HEIC) and removes one. The file goes to
+the host, which stores it and resolves to its reference; the answer keeps only that:
+
+```tsx
+<Form
+  form={feedback}
+  onUpload={async (file, field) => {
+    const { ref } = await uploadSomewhere(file, field.id); // your storage
+    return ref; // { id, name, type, size }
+  }}
+  onSubmit={send}
+/>
+```
+
+A rejected upload shows under the field. While a photo is uploading the form neither moves on nor
+sends (it says "Wait for the photo to finish uploading."). Without `onUpload`, or an
+`UploadContext` around the form, a photo field says photos can't be added here. `photoFileProblem`,
+`photoFileType` and `photoAccept` are the renderer's own checks, for a custom one.
+
 A **`calculated`** field shows the value the engine worked out from other answers, read-only, in an
 `<output>` named by the question that announces changes politely. It follows the field's `format`
 and `decimals`, and shows a dash until there is a value.

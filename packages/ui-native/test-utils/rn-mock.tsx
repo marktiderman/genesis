@@ -303,6 +303,7 @@ export const SectionList = <T,>(props: {
 
 export const Platform = {
   OS: "ios" as "ios" | "android" | "web",
+  Version: "18.0" as number | string,
   select<T>(specifics: { ios?: T; android?: T; web?: T; default?: T }): T {
     return (specifics.ios ?? specifics.default) as T;
   },
@@ -363,6 +364,11 @@ export const RefreshControl = (props: AnyProps) =>
   React.createElement("div", { "data-testid": (props as AnyProps).testID });
 
 export const StatusBar = (_props: AnyProps) => null;
+
+/** Records the names, like the real one does in its opaque value. */
+export function PlatformColor(...names: string[]) {
+  return { semantic: names };
+}
 
 export const Appearance = {
   getColorScheme(): "light" | "dark" | null {

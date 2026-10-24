@@ -23,3 +23,4 @@ export { FORM_NAV_ICONS } from "./navIcons";
 export { ResponsesFilters, type ChoiceFilter } from "./ResponsesFilters";
 export { QuestionSummaryCards, QuestionSummaryCard } from "./QuestionSummaryCards";
 export { DropOffByQuestion } from "./DropOffByQuestion";
+export { PhotoAnswer } from "./PhotoAnswer";

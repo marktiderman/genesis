@@ -101,7 +101,7 @@ The AGENTS.md block is a short pointer with counts, not the list. Agents run `fi
 
 ### Settings
 
-The CLI reads settings from `package.json`, which also needs `"genesisFeatures"`. Command-line options win.
+The CLI reads settings from the `features` block of `genesis.config.json` (the app's one Genesis config, beside `doctor`), or from `"genesisFeatures"` in `package.json`. Command-line options win, then `genesis.config.json`.
 
 ```json
 "genesisFeatures": {

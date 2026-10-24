@@ -33,6 +33,19 @@ export interface FieldBlock {
   props?: Record<string, Json>;
 }
 
+/**
+ * Where a choice field (single choice, multiple choice, dropdown) also takes
+ * options from, as `props.optionsFrom`. `source: "host"`: the app showing the
+ * form supplies the list named `key` when the form opens and again when a
+ * response is checked (`hostOptions` on `createForm` and `validateSubmission`),
+ * such as a practice's current coaches. They follow the field's own
+ * `props.options`, if it has any.
+ */
+export interface OptionsSource {
+  source: "host";
+  key: string;
+}
+
 export interface ContentBlock {
   kind: "content";
   id: string;
