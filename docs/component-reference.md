@@ -187,7 +187,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`GENESIS_THEME_V2`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`genesisBrand`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis OOTB brand — the single source of truth for the full brand palette. |
 | [`genesisColors`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | _(no summary)_ |
-| [`genesisTheme`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis brand — emerald green. |
+| [`genesisTheme`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis brand — indigo (distinct from the emerald `success`). |
 | [`isColorScale`](../packages/design-system/src/schema/brand.ts) | function | — | Type guard: returns true when `value` looks like a `ColorScale`. |
 | [`neutral`](../packages/design-system/src/tokens/index.ts) | value | — | _(no summary)_ |
 | [`readGenesisThemeV2Flag`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |

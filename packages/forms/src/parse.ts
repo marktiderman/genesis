@@ -3,6 +3,7 @@ import { isJson } from "./events";
 import { getFieldType, isIsoDate } from "./fields";
 import { parseFormula } from "./formula";
 import { recallRefs } from "./recall";
+import { isPhotoFormat, MAX_PHOTO_FILES, MAX_PHOTO_SIZE_MB, PHOTO_TYPE } from "./photo";
 import { MAX_TABLE_COLUMNS } from "./structured";
 import type { Condition, FormDefinition, Operator } from "./types";
 
@@ -199,6 +200,22 @@ export function parseForm(input: unknown): ParseResult {
       }
     }
     if (type === "consent") optionalText(props.text, `${path}.text`);
+    if (type === PHOTO_TYPE) {
+      if (props.maxFiles !== undefined && !(isInt(props.maxFiles) && props.maxFiles >= 1 && props.maxFiles <= MAX_PHOTO_FILES)) {
+        issue(`${path}.maxFiles`, `Must be a whole number from 1 to ${MAX_PHOTO_FILES}.`);
+      }
+      if (props.maxSizeMb !== undefined && !(isInt(props.maxSizeMb) && props.maxSizeMb >= 1 && props.maxSizeMb <= MAX_PHOTO_SIZE_MB)) {
+        issue(`${path}.maxSizeMb`, `Must be a whole number from 1 to ${MAX_PHOTO_SIZE_MB}.`);
+      }
+      if (props.formats !== undefined) {
+        const formats = props.formats;
+        if (!Array.isArray(formats) || formats.length === 0 || !formats.every(isPhotoFormat)) {
+          issue(`${path}.formats`, "Must be a list of one or more of jpeg, png, heic and webp.");
+        } else if (new Set(formats).size !== formats.length) {
+          issue(`${path}.formats`, "Name each format once.");
+        }
+      }
+    }
   };
 
   if (!isObject(input)) {
@@ -222,6 +239,7 @@ export function parseForm(input: unknown): ParseResult {
     else {
       optionalBoolean(input.settings.anonymous, "settings.anonymous");
       optionalBoolean(input.settings.clearHiddenValues, "settings.clearHiddenValues");
+      optionalBoolean(input.settings.saveProgress, "settings.saveProgress");
     }
   }
   if (input.meta !== undefined && (!isObject(input.meta) || !isJson(input.meta))) {
@@ -374,6 +392,8 @@ export function parseForm(input: unknown): ParseResult {
       } else if (ref.column !== undefined) issue(path, `"${ref.key}" is not a table, so it has no column "${ref.column}".`);
       else if (targetType === "media-notes" || targetType === "text-highlights") {
         warnings.push({ path, message: `"${ref.key}" holds notes, not numbers; the formula reads it as blank.` });
+      } else if (targetType === PHOTO_TYPE) {
+        warnings.push({ path, message: `"${ref.key}" holds photos, not numbers; the formula reads it as blank.` });
       }
     }
   });

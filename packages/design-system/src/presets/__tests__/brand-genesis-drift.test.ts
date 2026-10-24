@@ -23,8 +23,9 @@
  *
  * SOURCE OF TRUTH = the DTCG tokens (`tokens/dtcg/*.json`). The preset mirrors
  * them; where the two disagree the DTCG value wins (the preset is reconciled
- * to it). Brand green is `160 84% 39%` (emerald-500) — the value documented in
- * docs/specs/2026-04-13-genesis-design-system.md and rendered as `--primary`.
+ * to it). The brand primary is `243 75% 59%` (indigo-600, #4f46e5), rendered as
+ * `--primary`. It was emerald until 2026-10-24, when it moved off the `success`
+ * green so a primary action never reads as a success state.
  *
  * Field-by-field mapping (preset leaf → DTCG source token):
  *
@@ -175,7 +176,7 @@ const HEX_MAP: ReadonlyArray<{ preset: string; presetHex: string; dtcgHex: strin
 /**
  * Preset leaves with no clean DTCG anchor. Documented, brand-authored:
  *   - name: an identifier, not a color.
- *   - accent.dark: the dark-mode emphasis (#34d399, emerald-400). The rendered
+ *   - accent.dark: the dark-mode emphasis (#818cf8, indigo-400). The rendered
  *     dark `--primary` is *computed* (lightness + 10) in src/tokens/theme-css.ts, not a
  *     stored DTCG token, so there is nothing to compare it against.
  */

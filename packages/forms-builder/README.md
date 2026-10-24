@@ -214,6 +214,13 @@ checked as it is typed with the same checks as `parseForm`, buttons for the answ
 type sample answers to see the value. A new one starts with the formula `0`; renaming an answer
 rewrites the formulas that read it. It has no Required switch, since it is never required.
 
+#### Photo fields
+
+The `photo` type stores files through the host, so it is opt-in as well:
+`palette={[...defaultPalette(), ...UPLOAD_FIELD_TYPES]}` (from `@marktiderman/genesis-forms`). Its
+settings panel has the most photos (1 to 5), the largest photo in MB (1 to 25) and the formats (JPEG,
+PNG, HEIC, WebP; at least one stays on). A formula can't read photos.
+
 #### Field outputs
 
 `outputs` tells the builder where a field's answer may also go, such as a column of the

@@ -171,10 +171,17 @@ export function LogicAndEndingsPanel({
 
 /**
  * The rows the form settings panel can show, for `settingsOmit`: the form's
- * title, introduction and layout, the two privacy switches, and the hidden
- * inputs list.
+ * title, introduction and layout, the two privacy switches, saving answers as
+ * they go, and the hidden inputs list.
  */
-export type FormSettingKey = "title" | "description" | "layout" | "anonymous" | "clearHiddenValues" | "hidden";
+export type FormSettingKey =
+  | "title"
+  | "description"
+  | "layout"
+  | "anonymous"
+  | "clearHiddenValues"
+  | "saveProgress"
+  | "hidden";
 
 export function SettingsPanel({
   def,
@@ -250,6 +257,18 @@ export function SettingsPanel({
               onChange={(clearHiddenValues) => apply((d) => updateSettings(d, { clearHiddenValues }))}
             />
           ) : null}
+        </section>
+      ) : null}
+      {shows("saveProgress") ? (
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold">Responses</h3>
+          <SwitchRow
+            label="Save answers as they go"
+            testID="builder-save-progress"
+            hint="Each Next saves the answers so far, so you keep what people filled in even if they never send it. Unfinished responses show as Partial. The form tells people their answers save as they go."
+            checked={def.settings?.saveProgress === true}
+            onChange={(saveProgress) => apply((d) => updateSettings(d, { saveProgress }))}
+          />
         </section>
       ) : null}
       {shows("hidden") ? <HiddenInputsSection def={def} apply={apply} readOnly={readOnly} /> : null}
