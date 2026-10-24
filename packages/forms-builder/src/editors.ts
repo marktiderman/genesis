@@ -1,5 +1,6 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from "react";
 import type { ContentBlock, FieldBlock, FormDefinition, Json, Operator } from "@marktiderman/genesis-forms";
+import type { HostOptionList } from "./host-options";
 import type { BlockPatch, FieldTypeDefaults } from "./ops";
 import type { OutputTarget } from "./outputs";
 import { BUILT_IN_FIELD_EDITORS } from "./structured-editors";
@@ -120,6 +121,8 @@ export interface BuilderConfig {
   blockKinds?: BlockKinds | undefined;
   /** Where a field's answer may also go, offered per question under "Saves to" (see `OutputTarget`). */
   outputs?: readonly OutputTarget[] | undefined;
+  /** Option lists the host fills in, offered to choice questions as "From the app" (see `HostOptionList`). */
+  hostOptions?: readonly HostOptionList[] | undefined;
   /**
    * Show the form without changing it: every panel stays visible, but its
    * controls are off and add, remove, reorder and drag are hidden. Panels

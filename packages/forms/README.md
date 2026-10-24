@@ -210,6 +210,29 @@ as `The formula uses "wage", which is not the answer name of a question in this 
 own; `formatCalculated` shows a value as the field does. Builders offer the type only when the host
 names it (`COMPUTED_FIELD_TYPES`).
 
+### Options from the app
+
+A single choice, multiple choice or dropdown question can take its options from the app showing
+the form, such as a coach picker that always lists the current coaches:
+
+```ts
+f.dropdown("coach", { label: "Who coached you?", optionsFrom: { source: "host", key: "coaches" } });
+// stored as props: { optionsFrom: { source: "host", key: "coaches" } }
+
+const lists = { coaches: [{ value: profileId, label: "Ada Lovelace" }] }; // loaded by the app
+createForm(definition, { hostOptions: lists }); // or <Form hostOptions={lists}>
+validateSubmission(definition, body, { hostOptions: lists }); // loaded again on the server
+```
+
+`withHostOptions(definition, lists)` fills them in: the question's own `props.options` first (it
+may have some), then the list for its key, each value once. The engine does it for
+`engine.definition`, so renderers show the list and an answer must be one of these options;
+`validateSubmission` does it with the server's lists, so a value the server doesn't offer now (a
+coach who left, a made-up id) is refused. Without a list for the key, the question offers its own
+options only. Answers store the option's value; `summarizeValue` shows its label while the list has
+it. `parseForm` checks the shape of `optionsFrom`, and doesn't warn about rules comparing with
+values only the app knows.
+
 ### Props for the host
 
 Props a field type doesn't use are kept and ignored: the engine, `parseForm` and
