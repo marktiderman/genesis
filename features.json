@@ -629,7 +629,7 @@
     {
       "id": "forms-engine",
       "name": "Forms engine",
-      "summary": "A serializable form definition with logic, navigation, validation and server-side checking. Zero dependencies.",
+      "summary": "A serializable form definition with logic, navigation, validation and server-side checking, one registry of field and content kinds hosts extend, and merging of partial responses. Zero dependencies.",
       "tagline": "Forms as data: logic, validation and a server check that can't be tampered with.",
       "category": "Forms",
       "status": "live",
@@ -660,7 +660,9 @@
       "visibility": "public",
       "highlight": true,
       "acceptance": [
-        "validateSubmission drops answers to hidden fields and forged server inputs."
+        "validateSubmission drops answers to hidden fields and forged server inputs.",
+        "A host's registered choice kind gets options from the app, prefill, Other answers and snapshots with no change to the engine.",
+        "mergeResponses drops answers on a path the merged answers no longer take, unless the form keeps hidden values."
       ],
       "reviewedAt": "2026-10-22",
       "links": {
@@ -678,13 +680,15 @@
     {
       "id": "forms-react",
       "name": "Forms for React",
-      "summary": "useForm, useField with one-field re-renders, a ranked renderer registry and a headless FormRuntime.",
+      "summary": "useForm, useField with one-field re-renders, a ranked renderer registry, a headless FormRuntime and useFormController, the step and send controller every renderer shares.",
       "status": "live",
       "layer": "hook",
       "keywords": [
         "useForm",
         "useField",
-        "form runtime"
+        "form runtime",
+        "useFormController",
+        "controller"
       ],
       "entry": {
         "web": "@marktiderman/genesis-forms-react",
@@ -702,7 +706,8 @@
         "developer"
       ],
       "acceptance": [
-        "Typing in one field re-renders only that field."
+        "Typing in one field re-renders only that field.",
+        "forms-web's <Form> renders useFormController, and its tests pass unchanged."
       ],
       "reviewedAt": "2026-10-22",
       "links": {
