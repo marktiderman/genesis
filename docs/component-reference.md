@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 130 components · 443 other exports · 282 standalone types across 10 packages and entry points.
+**Totals:** 134 components · 460 other exports · 315 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -851,6 +851,87 @@ export type { TextPreset };
 export type { ThemeMode };
 export type { ThemeRoleColors };
 export type { UseThemeRolesOptions };
+```
+
+---
+
+## @marktiderman/genesis-native
+
+The native app shell: `GenesisNativeApp` (boot behind the splash, fatal screen, persisted query client, auth gate, held deep links; each part a slot and exported on its own). See packages/native/README.md.
+
+**Barrel:** [`packages/native/src/index.ts`](../packages/native/src/index.ts)
+
+### Components (4)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`AuthGate`](../packages/native/src/auth.tsx) | `AuthGateProps` | — | Render one tree for a signed-in user and another for everyone else. |
+| [`FatalScreen`](../packages/native/src/errors.tsx) | `FatalScreenProps` | — | The default fatal screen: what went wrong and "Try again". |
+| [`GenesisErrorBoundary`](../packages/native/src/errors.tsx) | `GenesisErrorBoundaryProps` | — | An error boundary whose fallback gets `{ error, retry }`. |
+| [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard scrolling, data, boot behind the splash, errors, session and held links. |
+
+### Other exports (17)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`BootProvider`](../packages/native/src/boot.tsx) | function | — | Makes a boot readable with `useBoot()`. |
+| [`BootTimeoutError`](../packages/native/src/boot.tsx) | class | — | Thrown when a step takes longer than its timeout. |
+| [`connectQueryLifecycle`](../packages/native/src/query.ts) | function | — | Tell TanStack Query when the app comes to the front (refetch stale queries) and when the network comes and goes. Returns the cleanup. |
+| [`createBoot`](../packages/native/src/boot.tsx) | function | — | The boot controller: runs `steps` once each, in order, with a timeout per step. |
+| [`createHydrationGate`](../packages/native/src/hydration-gate.ts) | function | — | A gate that holds writes until a persisted store has hydrated. |
+| [`createLinkHold`](../packages/native/src/held-link.ts) | function | — | A place to hold one deep link until sign-in completes; lives outside React. |
+| [`createNativeQueryClient`](../packages/native/src/query.ts) | function | — | A QueryClient for a phone. `networkMode: "always"` runs a query or mutation even when the device reports offline, so it fails (and shows its error or cached data) instead of waiting forever for a network that may never come back. `gcTime... |
+| [`createQueryPersistence`](../packages/native/src/query.ts) | function | — | Save the allowlisted queries to async storage and restore them, with a max age and an app-version buster. |
+| [`createSessionStore`](../packages/native/src/auth.tsx) | function | — | The Supabase session as a store: `load` reads it once, `start` follows auth events. |
+| [`DAY_MS`](../packages/native/src/query.ts) | const | — | One day in milliseconds: the default max age of the saved query cache. |
+| [`defaultErrorUtils`](../packages/native/src/errors.tsx) | function | — | `globalThis.ErrorUtils` in a React Native runtime, undefined elsewhere. |
+| [`installGlobalErrorHandler`](../packages/native/src/errors.tsx) | function | — | Route global errors to `onError`. A fatal one goes to `onFatal` instead of React Native's default handler, which would close the app; a non-fatal one still reaches the previous handler (LogBox in development). Returns a function that put... |
+| [`normalizeLink`](../packages/native/src/links.ts) | function | — | The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. |
+| [`SessionProvider`](../packages/native/src/auth.tsx) | function | — | Makes a session store readable with `useSession()`. |
+| [`useBoot`](../packages/native/src/boot.tsx) | function | — | The boot's status, and `retry` after a failure. Inside `GenesisNativeApp` or a `BootProvider`. |
+| [`useHeldLink`](../packages/native/src/held-link.ts) | function | — | Release the held link once `ready`; returns the link still held. |
+| [`useSession`](../packages/native/src/auth.tsx) | function | — | The session and whether it is known yet. Inside `GenesisNativeApp` or a `SessionProvider`. |
+
+### Types (33)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AppStateLike };
+export type { AsyncStorageLike };
+export type { AuthClientLike };
+export type { BootController };
+export type { BootOptions };
+export type { BootScreenProps };
+export type { BootState };
+export type { BootStatus };
+export type { BootStep };
+export type { BootStepContext };
+export type { ErrorReport };
+export type { ErrorUtilsLike };
+export type { GlobalErrorHandlerOptions };
+export type { HydrationGate };
+export type { HydrationGateOptions };
+export type { LinkHold };
+export type { LinkOptions };
+export type { LinkTarget };
+export type { NativeAppSlots };
+export type { NativeQueryClientOptions };
+export type { NetInfoLike };
+export type { OnError };
+export type { QueryLifecycleOptions };
+export type { QueryPersistence };
+export type { QueryPersistenceOptions };
+export type { SessionState };
+export type { SessionStatus };
+export type { SessionStore };
+export type { SessionStoreOptions };
+export type { SignedOutProps };
+export type { SplashModule };
+export type { UseBootReturn };
+export type { UseHeldLinkOptions };
 ```
 
 ---

@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Genesis \u2014 one-install umbrella and single version coordinate for the Genesis system. Re-exports @marktiderman/genesis-core, -ui, -design-system, -switchboard, and -ui-native (as /native) and the forms packages (as /forms, /forms/server, /forms/destinations, /forms/react, /forms/web) via subpath exports and exact-pins each to a reproducible set. Holds no code of its own; each granular package remains independently installable.",
+  "description": "Genesis \u2014 one-install umbrella and single version coordinate for the Genesis system. Re-exports @marktiderman/genesis-core, -ui, -design-system, -switchboard, -ui-native (as /native) and -native (as /native-app) and the forms packages (as /forms, /forms/server, /forms/destinations, /forms/react, /forms/web) via subpath exports and exact-pins each to a reproducible set. Holds no code of its own; each granular package remains independently installable.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -88,6 +88,12 @@
       "import": "./dist/native.js",
       "default": "./dist/native.js"
     },
+    "./native-app": {
+      "types": "./dist/native-app.d.ts",
+      "react-native": "./dist/native-app.js",
+      "import": "./dist/native-app.js",
+      "default": "./dist/native-app.js"
+    },
     "./forms": {
       "types": "./dist/forms.d.ts",
       "import": "./dist/forms.js"
@@ -120,6 +126,7 @@
     "@marktiderman/genesis-design-system": "workspace:*",
     "@marktiderman/genesis-switchboard": "workspace:*",
     "@marktiderman/genesis-ui-native": "workspace:*",
+    "@marktiderman/genesis-native": "workspace:*",
     "@marktiderman/genesis-forms": "workspace:*",
     "@marktiderman/genesis-forms-react": "workspace:*",
     "@marktiderman/genesis-forms-web": "workspace:*",
