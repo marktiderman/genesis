@@ -13,7 +13,7 @@ import {
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Progress } from "@marktiderman/genesis-ui/progress";
 import { cn } from "@marktiderman/genesis-ui/utils";
-import type { CreateFormOptions, FormDefinition, FormEngine, FormState } from "@marktiderman/genesis-forms";
+import type { CreateFormOptions, FormDefinition, FormEngine, FormState, HostOptions } from "@marktiderman/genesis-forms";
 import {
   FieldRenderer,
   FormRuntime,
@@ -437,6 +437,16 @@ export interface FormProps {
   /** Bring your own engine (from `useForm`) to read state outside the form. `form` and `options` are then unused. */
   engine?: FormEngine | undefined;
   options?: CreateFormOptions | undefined;
+  /**
+   * Option lists this app supplies, by key, for choice questions whose
+   * options come from the app (`props.optionsFrom: { source: "host", key }`),
+   * such as `{ coaches: [{ value: "8c1…", label: "Ada Lovelace" }] }`. Shown
+   * after the question's own options. Like `options`, read when the response
+   * starts; unused with `engine` (pass `hostOptions` to `useForm` then). Check
+   * answers on the server with the same lists (`validateSubmission`'s
+   * `hostOptions`).
+   */
+  hostOptions?: HostOptions | undefined;
   /** Overrides the definition's layout. */
   layout?: "focus" | "classic" | undefined;
   /**
@@ -510,7 +520,7 @@ export function Form(props: FormProps) {
 }
 
 function OwnedForm(props: FormProps) {
-  const engine = useForm(props.form, props.options);
+  const engine = useForm(props.form, props.hostOptions ? { ...props.options, hostOptions: props.hostOptions } : props.options);
   return <FormWithEngine {...props} engine={engine} />;
 }
 

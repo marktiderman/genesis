@@ -35,6 +35,7 @@ export {
   type FieldTypeEditor,
 } from "./editors";
 export { RowLayoutContext, type SettingsRowSlotProps } from "./controls";
+export { sampleHostOptions, type HostOptionList } from "./host-options";
 export { analyze, PATH_FINDINGS, type Analysis, type Finding, type FindingCode, type FindingLevel } from "./analyze";
 export { diffDefinitions, isUnchanged, type Change, type ChangeKind } from "./diff";
 export {
