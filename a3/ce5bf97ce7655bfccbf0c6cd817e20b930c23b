@@ -1,0 +1,104 @@
+AGENTS.md
+  s_8252619ce79a86::t_bdd9b078b8eb47 15
+scripts/gen-component-reference.mjs
+  s_8252619ce79a86::t_d9ed21693f45f6 109-114
+  s_8252619ce79a86::t_211e4c2b35448d 108
+packages/native/README.md
+  s_8252619ce79a86::t_c7b7f242ab7c64 1-128
+packages/native/src/__tests__/held-link.test.tsx
+  s_8252619ce79a86::t_e2ae0e8c389032 1-39
+packages/genesis/package.json
+  s_8252619ce79a86::t_a635544865730f 7,91-96,129
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_be610c068103c7 142-146
+  s_8252619ce79a86::t_2e29bd7ede78e1 69-70,81
+  s_8252619ce79a86::t_319efe9656d837 95-96
+  s_8252619ce79a86::t_e2ae0e8c389032 1-68,71-80,82-94,97-141,147-302
+packages/native/package.json
+  s_8252619ce79a86::t_f91089935a03ca 1-55,57-69
+  s_8252619ce79a86::t_7f1f727df4fc4d 56
+packages/native/src/__tests__/app.test.tsx
+  s_8252619ce79a86::t_e2ae0e8c389032 1-131,133-134,137-138,140-141,143-189
+  s_8252619ce79a86::t_319efe9656d837 132,135-136,139,142
+packages/native/src/__tests__/hydration-gate.test.ts
+  s_8252619ce79a86::t_e2ae0e8c389032 1-41
+packages/native/tsconfig.json
+  s_8252619ce79a86::t_e2ae0e8c389032 1-18
+packages/native/src/auth.tsx
+  s_8252619ce79a86::t_e2ae0e8c389032 1-46,48-80,82-105
+  s_8252619ce79a86::t_be610c068103c7 47,81
+packages/native/src/hydration-gate.ts
+  s_8252619ce79a86::t_e2ae0e8c389032 1-40,42-79
+  s_8252619ce79a86::t_be610c068103c7 41
+packages/genesis/tsup.config.ts
+  s_8252619ce79a86::t_a635544865730f 14-17,36
+packages/native/src/__tests__/auth.test.tsx
+  s_8252619ce79a86::t_e2ae0e8c389032 1-59
+packages/native/src/errors.tsx
+  s_8252619ce79a86::t_e2ae0e8c389032 1-128
+.changeset/genesis-native.md
+  s_8252619ce79a86::t_719c4220ab67ae 1-8
+packages/native/vitest.config.ts
+  s_8252619ce79a86::t_e2ae0e8c389032 1-30
+packages/native/src/query.ts
+  s_8252619ce79a86::t_be610c068103c7 23,77
+  s_8252619ce79a86::t_e2ae0e8c389032 1-18,21-22,24-68,74-76,78-138
+  s_8252619ce79a86::t_2e29bd7ede78e1 19-20
+  s_8252619ce79a86::t_319efe9656d837 69-73
+docs/component-reference.md
+  s_8252619ce79a86::t_da4ce11ca83bec 871,879,882-884,886-888,892
+  s_8252619ce79a86::t_d9ed21693f45f6 7,858-870,872-878,880-881,885,889-891,893-934
+  s_8252619ce79a86::t_d8429b0431f6b3 935-938
+packages/native/tsup.config.ts
+  s_8252619ce79a86::t_e2ae0e8c389032 1-17
+packages/native/src/boot.tsx
+  s_8252619ce79a86::t_e2ae0e8c389032 1-90,92-148,150-164
+  s_8252619ce79a86::t_be610c068103c7 91,149
+packages/native/src/held-link.ts
+  s_8252619ce79a86::t_e2ae0e8c389032 1-32,34-76
+  s_8252619ce79a86::t_be610c068103c7 33
+packages/native/src/links.ts
+  s_8252619ce79a86::t_e2ae0e8c389032 1-126
+packages/genesis/src/native-app.ts
+  s_8252619ce79a86::t_a635544865730f 1
+packages/native/src/__tests__/supabase-types.test.ts
+  s_8252619ce79a86::t_7f1f727df4fc4d 1-16
+packages/genesis/README.md
+  s_8252619ce79a86::t_a635544865730f 26,34
+packages/native/src/__tests__/links.test.ts
+  s_8252619ce79a86::t_e2ae0e8c389032 1-63
+packages/native/src/__tests__/boot.test.tsx
+  s_8252619ce79a86::t_e2ae0e8c389032 1-102
+features.json
+  s_8252619ce79a86::t_bdd9b078b8eb47 1312,1314,1323-1327,1330-1333,1343,1345-1346,1356-1361,1363-1370
+  s_8252619ce79a86::t_28620dbd2ab455 1362
+features.ts
+  s_8252619ce79a86::t_bdd9b078b8eb47 584,586,589-591,593,598-603,605
+  s_8252619ce79a86::t_28620dbd2ab455 604
+packages/native/src/__tests__/fakes.ts
+  s_8252619ce79a86::t_e2ae0e8c389032 1-42
+packages/native/src/__tests__/query.test.ts
+  s_8252619ce79a86::t_e2ae0e8c389032 1-103
+packages/native/src/index.ts
+  s_8252619ce79a86::t_e2ae0e8c389032 1-69
+packages/native/src/__tests__/errors.test.tsx
+  s_8252619ce79a86::t_e2ae0e8c389032 1-102
+pnpm-lock.yaml
+  s_8252619ce79a86::t_1c10878916bd2b 825-827,888-939,4594-4596,4600-4602,13246-13250,13253-13256
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a3ce5bf97ce7655bfccbf0c6cd817e20b930c23b",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
