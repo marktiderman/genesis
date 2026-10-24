@@ -1,0 +1,21 @@
+packages/studio-server/test/unit.test.ts
+  s_8252619ce79a86::t_78f407a747b115 133,135-136,138-139
+  s_8252619ce79a86::t_e445a69da3d303 101-105,107-111
+  s_8252619ce79a86::t_792b10014189c7 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "895cb51ffae812721064765f3e2188f467679668",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
