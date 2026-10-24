@@ -339,9 +339,10 @@ export const brand: Brand = {
 
 function tailwindConfig(consumer: string, native: boolean): string {
   return `import type { Config } from "tailwindcss";
-import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";${native ? `
-// NativeWind v4 needs its preset; Genesis's goes after it.
-import nativewindPreset from "nativewind/preset";` : ""}
+${native ? `// NativeWind v4 needs its preset; Genesis's goes after it. The NativeWind preset also declares
+// the theme variables, which NativeWind can't import from genesis.css.
+import nativewindPreset from "nativewind/preset";
+import { genesisNativewindPreset as genesisPreset } from "@marktiderman/genesis-design-system/presets/nativewind";` : `import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";`}
 import { brand } from "@${consumer}/brand";
 
 /**

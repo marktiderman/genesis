@@ -6,19 +6,21 @@ Supabase for Genesis apps on web and React Native.
 import { createGenesisSupabase, must } from "@marktiderman/genesis-supabase";
 import { keychainStorage, refreshWhileActive, wipeSessionOnReinstall } from "@marktiderman/genesis-supabase/native";
 import * as SecureStore from "expo-secure-store";
+import * as ExpoCrypto from "expo-crypto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState } from "react-native";
 
 const session = keychainStorage(SecureStore);
 await wipeSessionOnReinstall({ session, sessionKey: "sb-<project-ref>-auth-token", installMarker: AsyncStorage });
 
-export const supabase = createGenesisSupabase<Database>({ url, publishableKey, storage: session, platform: "native" });
+export const supabase = createGenesisSupabase<Database>({ url, publishableKey, storage: session, platform: "native", crypto: ExpoCrypto });
 refreshWhileActive(supabase, AppState);
 
 const rows = must(await supabase.from("tasks").select("*"));
 ```
 
 - **`createGenesisSupabase`**: a client with PKCE sign-in, a persisted session that refreshes itself, and the storage you pass. `platform: "native"` turns off reading a session from the URL; exchange the OAuth redirect's code yourself.
+- **`crypto: ExpoCrypto`** (native): Hermes has no `crypto.subtle`, and without it supabase-js sends the PKCE challenge as `plain` (the verifier itself) and, with no `crypto` at all, makes the verifier with `Math.random`. Passing `expo-crypto` installs `crypto.getRandomValues` and a SHA-256-only `crypto.subtle.digest` on `globalThis` (real WebCrypto is never replaced), so the challenge is S256. A native client made with neither throws in development and logs an error in a release build. `installWebCrypto` and `hasPkceCrypto` on `/native` do the same by hand.
 - **`keychainStorage(SecureStore)`**: session storage in the Keychain or Keystore. Values are split between characters into chunks under the Keychain's byte limit; a write switches to its new chunks only once they are all written, so a write cut short keeps the previous session, and its leftover chunks are swept on the next write; writes to one key run one at a time.
 - **`refreshWhileActive(client, AppState)`**: refreshes the session only while the app is in front.
 - **`wipeSessionOnReinstall`**: the iOS Keychain outlives an uninstall; this removes a leftover session (and its PKCE verifier) on the first launch after an install.

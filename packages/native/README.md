@@ -6,7 +6,7 @@ everything above your screens, so the root layout is a few lines:
 ```tsx
 // app/_layout.tsx
 import * as SplashScreen from "expo-splash-screen";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView, KeyboardProvider } from "react-native-keyboard-controller";
 import { Stack, router } from "expo-router";
 import { GenesisNativeApp } from "@marktiderman/genesis-native";
 import { brand, supabase, steps, persist, linkHold } from "../lib/app";
@@ -16,7 +16,7 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   return (
     <GenesisNativeApp brand={brand} supabase={supabase} splash={SplashScreen} steps={steps} persist={persist}
-      keyboardScroll={KeyboardAwareScrollView} links={{ hold: linkHold, onRelease: (path) => router.replace(path) }}>
+      keyboardProvider={KeyboardProvider} keyboardScroll={KeyboardAwareScrollView} links={{ hold: linkHold, onRelease: (path) => router.replace(path) }}>
       <Stack />
     </GenesisNativeApp>
   );
@@ -36,8 +36,11 @@ From the outside in:
    `fatal` slot itself throws, this is what shows, and "Try again" starts over.
 2. **Theme**: `GenesisThemeProvider` with `syncNativeAppearance` on, so the
    root owns the platform color scheme.
-3. **Keyboard**: `KeyboardScrollProvider` with your `keyboardScroll`, so
-   Genesis form screens scroll the focused field into view.
+3. **Keyboard**: your `keyboardProvider` (react-native-keyboard-controller's
+   `KeyboardProvider`), mounted once, then `KeyboardScrollProvider` with your
+   `keyboardScroll`, so Genesis form screens scroll the focused field into
+   view. The scroll view does nothing without the provider: give both. In
+   development, `keyboardScroll` without `keyboardProvider` logs an error.
 4. **Data**: `GenesisProvider` over `createSupabaseProvider(supabase)` (or
    your `provider`) and the shell's QueryClient.
 5. **Boot**: your `steps` (wipe a session left by a reinstall, hydrate stores,

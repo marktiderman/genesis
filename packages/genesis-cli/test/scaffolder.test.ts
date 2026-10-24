@@ -275,6 +275,8 @@ describe("planScaffold native", () => {
   it("adds NativeWind's preset and the genesis-ui-native glob for an Expo app", () => {
     const config = tailwind(true);
     expect(config).toContain('import nativewindPreset from "nativewind/preset";');
+    expect(config).toContain('import { genesisNativewindPreset as genesisPreset } from "@marktiderman/genesis-design-system/presets/nativewind";');
+    expect(config).not.toContain("presets/tailwind");
     expect(config).toContain("presets: [nativewindPreset, genesisPreset]");
     expect(config).toContain("@marktiderman/genesis-ui-native");
   });

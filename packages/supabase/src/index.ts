@@ -4,6 +4,9 @@
  * refresh, reinstall wipe) are on `@marktiderman/genesis-supabase/native`.
  */
 import { createClient, type SupabaseClient, type SupabaseClientOptions } from "@supabase/supabase-js";
+import { assertPkceCrypto, installWebCrypto, type ExpoCryptoLike } from "./web-crypto";
+
+export type { ExpoCryptoLike } from "./web-crypto";
 
 /** The async key-value store Supabase auth keeps its session in. */
 export interface SessionStorage {
@@ -27,13 +30,23 @@ export interface GenesisSupabaseOptions {
    * `exchangeCodeForSession` itself.
    */
   detectSessionInUrl?: boolean;
+  /**
+   * `expo-crypto` (`import * as ExpoCrypto from "expo-crypto"`), on native.
+   * Hermes has no `crypto.subtle`, and without it supabase-js sends the PKCE
+   * challenge as "plain"; this installs `crypto.getRandomValues` and a SHA-256
+   * `crypto.subtle.digest` from it (real WebCrypto is kept), so the challenge
+   * is S256. On native, a client made without WebCrypto or this throws in
+   * development and logs an error in a release build.
+   */
+  crypto?: ExpoCryptoLike;
   /** Anything else for supabase-js, merged last. */
   options?: SupabaseClientOptions<"public">;
 }
 
 /**
  * A Supabase client with Genesis's defaults: PKCE sign-in (the code flow, not
- * tokens in a redirect URL), a persisted session that refreshes itself, and
+ * tokens in a redirect URL, with an S256 challenge: pass `crypto` on native),
+ * a persisted session that refreshes itself, and
  * the session storage you pass.
  *
  * @stability Beta
@@ -44,8 +57,12 @@ export function createGenesisSupabase<Database = unknown>({
   storage,
   platform = "web",
   detectSessionInUrl = platform === "web",
+  crypto,
   options = {},
 }: GenesisSupabaseOptions): SupabaseClient<Database> {
+  if (crypto) installWebCrypto(crypto);
+  // The PKCE flow needs WebCrypto for an S256 challenge; never let it fall back to "plain" quietly.
+  if (platform === "native" && (options.auth?.flowType ?? "pkce") === "pkce") assertPkceCrypto();
   // supabase-js's generics over the schema don't survive being forwarded, so the
   // options are built untyped and the client is typed by the caller's Database.
   const client = createClient(url, publishableKey, {

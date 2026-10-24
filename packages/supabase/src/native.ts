@@ -6,6 +6,8 @@
  */
 import type { SessionStorage } from "./index";
 
+export { assertPkceCrypto, hasPkceCrypto, installWebCrypto, type ExpoCryptoLike, type WebCryptoSource } from "./web-crypto";
+
 export {
   GenesisAuthError,
   completeOAuthRedirect,
