@@ -1,0 +1,59 @@
+packages/forms-react/src/drafts.ts
+  s_8252619ce79a86::t_467d17fada93df 1-185
+packages/forms/src/index.ts
+  s_8252619ce79a86::t_467d17fada93df 194-228
+packages/forms/README.md
+  s_8252619ce79a86::t_467d17fada93df 551-756
+packages/forms/src/submit.ts
+  s_8252619ce79a86::t_467d17fada93df 1-286
+packages/forms/src/server.ts
+  s_8252619ce79a86::t_467d17fada93df 397-414
+AGENTS.md
+  s_8252619ce79a86::t_6b584f4b79f58c 16
+packages/forms/src/outbox.ts
+  s_8252619ce79a86::t_467d17fada93df 1-571
+.changeset/forms-submit-drafts-outbox.md
+  s_8252619ce79a86::t_467d17fada93df 1-29
+features.json
+  s_8252619ce79a86::t_467d17fada93df 899-1047
+.changeset/forms-react-drafts-outbox.md
+  s_8252619ce79a86::t_467d17fada93df 1-14
+packages/forms-react/src/outbox.ts
+  s_8252619ce79a86::t_467d17fada93df 1-90
+packages/forms/src/storage.ts
+  s_8252619ce79a86::t_467d17fada93df 1-61
+packages/forms-react/src/__tests__/drafts-outbox.test.tsx
+  s_8252619ce79a86::t_467d17fada93df 1-226
+packages/forms-react/src/index.tsx
+  s_8252619ce79a86::t_467d17fada93df 192-199
+packages/forms/src/drafts.ts
+  s_8252619ce79a86::t_467d17fada93df 1-283
+packages/forms/src/__tests__/outbox.test.ts
+  s_8252619ce79a86::t_467d17fada93df 1-349
+packages/forms/src/__tests__/submit.test.ts
+  s_8252619ce79a86::t_467d17fada93df 1-391
+packages/forms/src/__tests__/drafts.test.ts
+  s_8252619ce79a86::t_467d17fada93df 1-245
+packages/forms-react/package.json
+  s_8252619ce79a86::t_467d17fada93df 39
+packages/forms/src/submit-protocol.ts
+  s_8252619ce79a86::t_467d17fada93df 1-108
+features.ts
+  s_8252619ce79a86::t_467d17fada93df 404-465
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "787fce956bce6d37b416a5c8c1ff3ec3052f84ab",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
