@@ -1,0 +1,21 @@
+docs/component-reference.md
+  s_8252619ce79a86::t_f58e58570d98a3 7,174,194,200,206,219,227,691,697,782,812,815,821,836,840,843,849-850,1081,1094-1096,1099,1109,1117,1126,1129,1134,1162
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_f58e58570d98a3 18,418-491,2754,2842,2914-2927,3512-3518,3876,3954,4001-4014
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "50eb19230667619dba978215aaadeb4e6ea7da50",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
