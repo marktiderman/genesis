@@ -324,3 +324,32 @@ export function validateSubmission(
 export function publicDefinition(definition: FormDefinition): FormDefinition {
   return JSON.parse(JSON.stringify(definition)) as FormDefinition;
 }
+
+export {
+  EDIT_LINK_TTL_SECONDS,
+  MIN_EDIT_SECRET_BYTES,
+  EDIT_LINK_PARAM,
+  isUsableEditSecret,
+  signEditToken,
+  verifyEditToken,
+  withEditToken,
+  editLinkUrl,
+  createEditSecretReader,
+  isEditLinkRequest,
+  withEditLinkHeaders,
+  type EditLinkClaims,
+  type EditLinkOptions,
+  type EditLinkUrlOptions,
+  type EditLinkRequestOptions,
+  type EditSecretLog,
+  type EditSecretReader,
+} from "./edit-link";
+export {
+  DEFAULT_TRUSTED_IP_HEADERS,
+  RATE_LIMIT_DEFAULTS,
+  clientIp,
+  addressPrefix,
+  rateLimitKey,
+  allow,
+  type RateLimitStore,
+} from "./rate-limit";
