@@ -1,9 +1,24 @@
 /**
  * React Native helpers for a Supabase session. Nothing here imports React
- * Native or Expo: pass in `expo-secure-store`, `AppState` and a plain store,
- * so the package stays light and the helpers are easy to test.
+ * Native or Expo: pass in `expo-secure-store`, `AppState`,
+ * `expo-apple-authentication` and a plain store, so the package stays light
+ * and the helpers are easy to test.
  */
 import type { SessionStorage } from "./index";
+
+export {
+  GenesisAuthError,
+  completeOAuthRedirect,
+  formatFullName,
+  redirectParams,
+  signInWithApple,
+  type AppleAuthenticationLike,
+  type AppleFullNameLike,
+  type OAuthRedirectResult,
+  type SignInClient,
+  type SignInWithAppleOptions,
+  type SignInWithAppleResult,
+} from "./sign-in";
 
 /** The parts of `expo-secure-store` the Keychain storage uses. */
 export interface SecureStoreLike {
