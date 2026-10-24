@@ -1,4 +1,5 @@
 import type { FieldTypeManifest } from "./fields";
+import { isWholeNumber } from "./props-check";
 import type { FieldBlock, Json } from "./types";
 
 /**
@@ -128,6 +129,22 @@ export const photoFieldType: FieldTypeManifest = {
   value: { json: true },
   operators: ["answered", "empty"],
   a11y: { semantics: "group" },
+  checkProps: (props, check) => {
+    if (props.maxFiles !== undefined && !(isWholeNumber(props.maxFiles) && props.maxFiles >= 1 && props.maxFiles <= MAX_PHOTO_FILES)) {
+      check.issue("maxFiles", `Must be a whole number from 1 to ${MAX_PHOTO_FILES}.`);
+    }
+    if (props.maxSizeMb !== undefined && !(isWholeNumber(props.maxSizeMb) && props.maxSizeMb >= 1 && props.maxSizeMb <= MAX_PHOTO_SIZE_MB)) {
+      check.issue("maxSizeMb", `Must be a whole number from 1 to ${MAX_PHOTO_SIZE_MB}.`);
+    }
+    if (props.formats !== undefined) {
+      const formats = props.formats;
+      if (!Array.isArray(formats) || formats.length === 0 || !formats.every(isPhotoFormat)) {
+        check.issue("formats", "Must be a list of one or more of jpeg, png, heic and webp.");
+      } else if (new Set(formats).size !== formats.length) {
+        check.issue("formats", "Name each format once.");
+      }
+    }
+  },
   isEmpty: (value) => value === undefined || value === null || (Array.isArray(value) && value.length === 0),
   validate: (value, field) => {
     if (!Array.isArray(value) || !value.every(isPhotoRef)) return "Add a photo.";

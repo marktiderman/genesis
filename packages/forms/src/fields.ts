@@ -1,11 +1,18 @@
-import type { Block, FieldBlock, FormDefinition, Json, Operator, OptionsSource } from "./types";
+import type { Block, ContentBlock, FieldBlock, FormDefinition, Json, Operator, OptionsSource } from "./types";
 import { calculatedFieldType } from "./calculated";
 import { structuredFieldTypes } from "./structured";
 import { photoFieldType } from "./photo";
+import { isFiniteNumber, type PropsCheck } from "./props-check";
+import type { AnswerSnapshot, OptionSnapshot } from "./options";
+
+/** The JSON type a comparison literal must have to match an answer (`parseForm` warns otherwise). */
+export type LiteralType = "string" | "number" | "boolean";
 
 /**
- * A field type, without any UI. Renderers are registered separately per
- * platform (`genesis-forms-react`), so a manifest runs anywhere.
+ * A field kind, without any UI: the one definition the engine, `parseForm`, validation, the
+ * server and snapshots all read, so a kind is described once instead of in a switch in each.
+ * Renderers are registered separately per platform (`genesis-forms-react`), so a manifest runs
+ * anywhere. Every hook is optional except where noted; a missing one means "nothing special".
  */
 export interface FieldTypeManifest {
   type: string;
@@ -23,30 +30,97 @@ export interface FieldTypeManifest {
     /** The HTML `inputmode` hint for on-screen keyboards, such as `"email"` or `"tel"`. */
     inputMode?: "text" | "email" | "tel" | "numeric" | "decimal" | "url" | "search";
   };
+  /**
+   * The props schema: `parseForm` calls it with the field's `props` (`{}` when it has none) and
+   * reports what it finds as issues at `blocks[i].props.<path>`. A check that throws is reported
+   * as one issue, never thrown.
+   */
+  checkProps?: PropsCheck;
+  /**
+   * The answer's shape. `choice`: the answer is one of `props.options` (`multiple: false`, a
+   * text) or several (`multiple: true`, a list of texts), so the field takes `optionsFrom`,
+   * `prefill`, `other` and filters, and its answers are snapshotted with their labels.
+   */
+  choice?: { multiple: boolean };
+  /**
+   * The JSON type a logic literal compared with this field must have, or a function of its props
+   * (`undefined`: not known). `parseForm` warns about a literal that can never match.
+   */
+  literal?: LiteralType | ((props: Readonly<Record<string, unknown>>) => LiteralType | undefined);
+  /** The empty-check: whether a value counts as no answer. Default: nothing, null, blank text or `[]`. */
   isEmpty?: (value: Json | undefined) => boolean;
-  /** Return an error message, or null when the (non-empty) value is valid. */
+  /**
+   * The validator: an error message, or null when the (non-empty) value is valid. A validator
+   * that throws refuses the answer (`VALIDATOR_FAILED_MESSAGE`) rather than throwing.
+   */
   validate?: (value: Json, field: FieldBlock) => string | null;
-  /** Plain text for recall, exports and emails. */
+  /** The display text: plain text for recall, exports and emails. */
   summarize?: (value: Json, field: FieldBlock) => string;
   /**
    * The form a (valid, non-empty) value is stored in, such as an email
    * without surrounding spaces. Applied by `engine.answers()` and the server.
    */
   normalize?: (value: Json, field: FieldBlock) => Json;
+  /**
+   * The snapshot of a (non-empty) answer as it was when stored, for `answerSnapshots`: the
+   * labels it showed, so history keeps them when the source changes. Choice kinds have one
+   * built in (for fields with `optionsFrom`); give another kind one here.
+   */
+  snapshot?: (value: Json, field: FieldBlock) => AnswerSnapshot | undefined;
+  /**
+   * The reverse of `snapshot`, for `answersFromSnapshots`: the answer to prefill from a stored
+   * snapshot (or none), and the picks that no longer exist.
+   */
+  fromSnapshot?: (snapshot: unknown, field: FieldBlock) => { value?: Json; missing: OptionSnapshot[] };
   /** Valid example answers, used by `coverage()` and other test tools to explore a path. */
   samples?: (field: FieldBlock) => Json[];
 }
 
+/** The message an answer gets when its kind's validator throws. */
+export const VALIDATOR_FAILED_MESSAGE = "This answer couldn't be checked.";
+
 // One registry per process, shared by every entry point (index, server,
 // testing are bundled separately), so a plugin registered once is seen by all.
 const REGISTRY = Symbol.for("@marktiderman/genesis-forms/field-types");
-const globalScope = globalThis as typeof globalThis & { [REGISTRY]?: Map<string, FieldTypeManifest> };
+const BUILT_IN = Symbol.for("@marktiderman/genesis-forms/built-in-field-types");
+const globalScope = globalThis as typeof globalThis & {
+  [REGISTRY]?: Map<string, FieldTypeManifest>;
+  [BUILT_IN]?: Set<string>;
+};
 const registry: Map<string, FieldTypeManifest> = (globalScope[REGISTRY] ??= new Map());
+const builtIn: Set<string> = (globalScope[BUILT_IN] ??= new Set());
 
-export function registerFieldType(manifest: FieldTypeManifest): void {
-  if (!manifest.type) throw new Error("registerFieldType: a field type needs a `type`.");
-  const value = manifest.value as { json: boolean; serialize?: unknown; deserialize?: unknown };
+export interface RegisterOptions {
+  /**
+   * Replace a built-in kind (`email`, `single-choice`…). Off by default: the registry is shared
+   * by every form in the process, the server's checks included, so changing what a built-in
+   * accepts must be deliberate.
+   */
+  replace?: boolean;
+}
+
+/**
+ * A frozen copy (its operator list copied too), so changing the object after registering it
+ * changes nothing the engine or the server reads.
+ */
+function frozen<T extends object>(manifest: T): T {
+  const copy = { ...manifest } as T & { operators?: unknown };
+  if (Array.isArray(copy.operators)) copy.operators = [...(copy.operators as unknown[])];
+  return Object.freeze(copy);
+}
+
+/**
+ * Register a field kind, or replace one a host registered before (re-registering is allowed,
+ * so hot reload works). Throws on a malformed manifest, and on a built-in kind's name unless
+ * `{ replace: true }`. Registered kinds are frozen copies.
+ */
+export function registerFieldType(manifest: FieldTypeManifest, options: RegisterOptions = {}): void {
+  if (!manifest || typeof manifest.type !== "string" || !manifest.type) {
+    throw new Error("registerFieldType: a field type needs a `type`.");
+  }
+  const value = manifest.value as { json: boolean; serialize?: unknown; deserialize?: unknown } | undefined;
   if (
+    value &&
     !value.json &&
     (typeof value.serialize !== "function" || typeof value.deserialize !== "function")
   ) {
@@ -54,7 +128,24 @@ export function registerFieldType(manifest: FieldTypeManifest): void {
       `registerFieldType: "${manifest.type}" stores a non-JSON value, so it must provide both serialize and deserialize.`,
     );
   }
-  registry.set(manifest.type, manifest);
+  if (!value || !Array.isArray(manifest.operators)) {
+    throw new Error(`registerFieldType: "${manifest.type}" needs a \`value\` and a list of \`operators\`.`);
+  }
+  if (manifest.choice !== undefined && typeof manifest.choice?.multiple !== "boolean") {
+    throw new Error(`registerFieldType: "${manifest.type}" has a \`choice\` without \`multiple: true | false\`.`);
+  }
+  if (builtIn.has(manifest.type) && options.replace !== true) {
+    throw new Error(
+      `registerFieldType: "${manifest.type}" is a built-in field type; pass { replace: true } to replace it for every form in this process.`,
+    );
+  }
+  registry.set(manifest.type, frozen(manifest));
+}
+
+/** Built-ins: the first copy loaded wins, so a later entry point never undoes a host's `replace`. */
+function registerBuiltIn(manifest: FieldTypeManifest): void {
+  builtIn.add(manifest.type);
+  if (!registry.has(manifest.type)) registry.set(manifest.type, frozen(manifest));
 }
 
 export function getFieldType(type: string): FieldTypeManifest | undefined {
@@ -63,6 +154,87 @@ export function getFieldType(type: string): FieldTypeManifest | undefined {
 
 export function listFieldTypes(): FieldTypeManifest[] {
   return [...registry.values()];
+}
+
+/** Whether `type` is one of the field kinds the package ships. */
+export function isBuiltInFieldType(type: string): boolean {
+  return builtIn.has(type);
+}
+
+/** A choice kind's answer shape (`FieldTypeManifest.choice`), or undefined for any other kind. */
+export function choiceKind(type: string): { multiple: boolean } | undefined {
+  return registry.get(type)?.choice;
+}
+
+/** Whether a block is a field of a choice kind: its answer is one or more of its options. */
+export function isChoiceField(block: unknown): block is FieldBlock {
+  return (
+    !!block &&
+    (block as FieldBlock).kind === "field" &&
+    typeof (block as FieldBlock).type === "string" &&
+    choiceKind((block as FieldBlock).type) !== undefined
+  );
+}
+
+/** The JSON type a logic literal must have to match a field of `type` with these props, when known. */
+export function literalType(type: string, props: Readonly<Record<string, unknown>>): LiteralType | undefined {
+  const literal = registry.get(type)?.literal;
+  return typeof literal === "function" ? literal(props) : literal;
+}
+
+// ── Content kinds ────────────────────────────────────────────────────────────
+
+/**
+ * A content kind (a block that shows something and takes no answer): `heading` and `text` are
+ * built in; a host registers others (a message screen, a media block) with
+ * `registerContentType`, plus a renderer per platform.
+ */
+export interface ContentTypeManifest {
+  type: string;
+  label: string;
+  /** The props schema, as for a field kind; the block's `props`, `{}` when it has none. */
+  checkProps?: PropsCheck;
+  /** The display text (recall, exports, a renderer with no special drawing). Default: `block.text`. */
+  text?: (block: ContentBlock) => string;
+}
+
+const CONTENT_REGISTRY = Symbol.for("@marktiderman/genesis-forms/content-types");
+const contentScope = globalThis as typeof globalThis & { [CONTENT_REGISTRY]?: Map<string, ContentTypeManifest> };
+const contentRegistry: Map<string, ContentTypeManifest> = (contentScope[CONTENT_REGISTRY] ??= new Map());
+const BUILT_IN_CONTENT: ReadonlySet<string> = new Set(["heading", "text"]);
+
+/** Register a content kind. Throws on a malformed manifest or a built-in kind's name (unless `{ replace: true }`). */
+export function registerContentType(manifest: ContentTypeManifest, options: RegisterOptions = {}): void {
+  if (!manifest || typeof manifest.type !== "string" || !manifest.type) {
+    throw new Error("registerContentType: a content type needs a `type`.");
+  }
+  if (BUILT_IN_CONTENT.has(manifest.type) && options.replace !== true) {
+    throw new Error(
+      `registerContentType: "${manifest.type}" is a built-in content type; pass { replace: true } to replace it for every form in this process.`,
+    );
+  }
+  contentRegistry.set(manifest.type, frozen(manifest));
+}
+
+export function getContentType(type: string): ContentTypeManifest | undefined {
+  return contentRegistry.get(type);
+}
+
+export function listContentTypes(): ContentTypeManifest[] {
+  return [...contentRegistry.values()];
+}
+
+/** A content block's display text: its kind's `text`, or `block.text`. */
+export function contentText(block: ContentBlock): string {
+  const text = contentRegistry.get(block.type)?.text;
+  return text ? text(block) : block.text;
+}
+
+for (const manifest of [
+  { type: "heading", label: "Heading" },
+  { type: "text", label: "Text" },
+] satisfies ContentTypeManifest[]) {
+  if (!contentRegistry.has(manifest.type)) contentRegistry.set(manifest.type, frozen(manifest));
 }
 
 export function isEmptyValue(value: Json | undefined, field?: FieldBlock): boolean {
@@ -365,6 +537,12 @@ function isPhoneNumber(value: string): boolean {
   return digits >= 7 && digits <= 15;
 }
 
+/** A rating's or NPS's words under the ends of the scale. */
+const scaleProps: PropsCheck = (props, check) => {
+  check.optionalText(props.lowLabel, "lowLabel");
+  check.optionalText(props.highLabel, "highLabel");
+};
+
 const builtins: FieldTypeManifest[] = [
   {
     type: "short-text",
@@ -373,6 +551,7 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: textOps,
     a11y: { semantics: "control" },
+    literal: "string",
     validate: textValidate(500),
   },
   {
@@ -382,6 +561,7 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: textOps,
     a11y: { semantics: "control" },
+    literal: "string",
     validate: textValidate(5000),
   },
   {
@@ -391,6 +571,7 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: textOps,
     a11y: { semantics: "control", autocomplete: "email", inputMode: "email" },
+    literal: "string",
     validate: (value) =>
       typeof value === "string" && isEmailAddress(value.trim())
         ? null
@@ -404,6 +585,7 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: ["eq", "neq", "answered", "empty"],
     a11y: { semantics: "control", autocomplete: "tel", inputMode: "tel" },
+    literal: "string",
     validate: (value) =>
       typeof value === "string" && isPhoneNumber(value.trim())
         ? null
@@ -418,6 +600,13 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: numberOps,
     a11y: { semantics: "group" },
+    literal: "number",
+    checkProps: (props, check) => {
+      scaleProps(props, check);
+      if (props.display !== undefined && props.display !== "numbers" && props.display !== "stars") {
+        check.issue("display", "Must be numbers or stars.");
+      }
+    },
     validate: (value, field) => {
       const { min, max } = intRange(field, 1, 5);
       return Number.isInteger(value) && (value as number) >= min && (value as number) <= max
@@ -437,6 +626,8 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: numberOps,
     a11y: { semantics: "group" },
+    literal: "number",
+    checkProps: scaleProps,
     validate: (value) =>
       Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 10
         ? null
@@ -453,6 +644,8 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: ["eq", "neq", "in", "answered", "empty"],
     a11y: { semantics: "group" },
+    literal: "string",
+    choice: { multiple: false },
     validate: (value, field) =>
       typeof value === "string" && (choiceOptions(field).some((o) => o.value === value) || typedOther(field, value))
         ? null
@@ -466,6 +659,8 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: ["contains", "answered", "empty"],
     a11y: { semantics: "group" },
+    literal: "string",
+    choice: { multiple: true },
     validate: (value, field) => {
       const allowed = new Set(choiceOptions(field).map((o) => o.value));
       // Each option at most once, plus at most one typed "Other" answer, so a value is never
@@ -488,6 +683,7 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: ["eq", "neq", "answered", "empty"],
     a11y: { semantics: "group" },
+    literal: "boolean",
     validate: (value) => (typeof value === "boolean" ? null : "Choose yes or no."),
     summarize: (value) => (value ? "Yes" : "No"),
   },
@@ -498,6 +694,8 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: ["eq", "neq", "in", "answered", "empty"],
     a11y: { semantics: "control" },
+    literal: "string",
+    choice: { multiple: false },
     validate: (value, field) =>
       typeof value === "string" && (choiceOptions(field).some((o) => o.value === value) || typedOther(field, value))
         ? null
@@ -511,6 +709,16 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: numberOps,
     a11y: { semantics: "control", inputMode: "decimal" },
+    literal: "number",
+    checkProps: (props, check) => {
+      for (const k of ["min", "max", "step"] as const) {
+        if (props[k] !== undefined && !isFiniteNumber(props[k])) check.issue(k, "Must be a number.");
+      }
+      if (isFiniteNumber(props.step) && props.step <= 0) check.issue("step", "Must be above 0.");
+      if (isFiniteNumber(props.min) && isFiniteNumber(props.max) && props.min > props.max) {
+        check.issue("min", "Can't be more than the largest number.");
+      }
+    },
     validate: (value, field) => {
       if (typeof value !== "number" || !Number.isFinite(value)) return "Enter a number.";
       const { min, max, step } = numberLimits(field);
@@ -539,6 +747,17 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: ["eq", "neq", "answered", "empty"],
     a11y: { semantics: "control" },
+    literal: "string",
+    checkProps: (props, check) => {
+      for (const k of ["min", "max"] as const) {
+        if (props[k] !== undefined && !(typeof props[k] === "string" && isIsoDate(props[k]))) {
+          check.issue(k, "Must be a date like 2026-10-22.");
+        }
+      }
+      if (typeof props.min === "string" && typeof props.max === "string" && isIsoDate(props.min) && isIsoDate(props.max) && props.min > props.max) {
+        check.issue("min", "Can't be after the latest date.");
+      }
+    },
     validate: (value, field) => {
       if (typeof value !== "string" || !isIsoDate(value.trim())) return "Enter a date like 2026-10-22.";
       const date = value.trim();
@@ -561,6 +780,8 @@ const builtins: FieldTypeManifest[] = [
     value: { json: true },
     operators: ["answered", "empty"],
     a11y: { semantics: "group" },
+    literal: "boolean",
+    checkProps: (props, check) => check.optionalText(props.text, "text"),
     // Unchecked is unanswered, so a required consent must be checked.
     isEmpty: (value) => value === undefined || value === null || value === false,
     validate: (value) => (value === true ? null : "Check the box to agree."),
@@ -629,4 +850,4 @@ export function dateLimits(field: FieldBlock): { min?: string; max?: string } {
   return out;
 }
 
-for (const manifest of [...builtins, ...structuredFieldTypes, calculatedFieldType, photoFieldType]) registerFieldType(manifest);
+for (const manifest of [...builtins, ...structuredFieldTypes, calculatedFieldType, photoFieldType]) registerBuiltIn(manifest);

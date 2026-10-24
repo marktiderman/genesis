@@ -1,4 +1,5 @@
 import type { FieldTypeManifest } from "./fields";
+import { isWholeNumber } from "./props-check";
 import { evaluateFormula, formulaNumber, ownFormulaList, parseFormula, type FormulaNode, type FormulaRef, type FormulaValue } from "./formula";
 import type { FieldBlock, FormDefinition, Json, Operator } from "./types";
 
@@ -355,6 +356,17 @@ export const calculatedFieldType: FieldTypeManifest = {
   value: { json: true },
   operators: numberOps,
   a11y: { semantics: "control" },
+  // A number, unless the format says text; without a format it can hold either, so it isn't known.
+  literal: (props) => (props.format === "text" ? "string" : props.format === "number" || props.format === "percent" ? "number" : undefined),
+  // The formula itself is checked once every key is known (`parseForm`).
+  checkProps: (props, check) => {
+    if (props.format !== undefined && props.format !== "number" && props.format !== "percent" && props.format !== "text") {
+      check.issue("format", "Must be number, percent or text.");
+    }
+    if (props.decimals !== undefined && !(isWholeNumber(props.decimals) && props.decimals >= 0 && props.decimals <= MAX_CALCULATED_DECIMALS)) {
+      check.issue("decimals", `Must be a whole number from 0 to ${MAX_CALCULATED_DECIMALS}.`);
+    }
+  },
   // The engine works the value out; any number, text or true / false it made is valid.
   validate: (value) => (typeof value === "number" || typeof value === "string" || typeof value === "boolean" ? null : "This value is worked out from other answers."),
   summarize: (value, field) => formatCalculated(value, field),

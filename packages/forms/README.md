@@ -78,7 +78,8 @@ const version = eventFeedback.hash();         // content fingerprint for publish
 | `parseForm(json)` | Check a stored or built definition: structure, text fields, references, operators, recall. Never throws. |
 | `createForm(def)` | The engine: values, visibility, path, Next/Back with history, validation, submit, an event log. Framework-agnostic `subscribe` / `getState`. |
 | `replay(def, events)` | Rebuild a response from its event log. |
-| `registerFieldType` | Add a field type. Non-JSON values must provide `serialize` and `deserialize`; `normalize` sets the stored form (email trims). A field whose type is not registered accepts no answer. |
+| `registerFieldType`, `registerContentType` | Add a field or content kind: one definition the engine, `parseForm`, validation, the server and snapshots all read. See [Kinds](#kinds-the-content-type-registry). A field whose type is not registered accepts no answer. |
+| `mergeResponses(def, base, patch)` | A saved draft plus what changed since, as the answers to store: for resuming and partial saves. See [Merging partial responses](#merging-partial-responses). |
 | `coerceHidden(def, raw, { sources })` | Type hidden inputs by their declarations; reports dropped names in `ignored`. |
 | `isFormEvent(value)` | Guard for one well-formed event-log entry. |
 | `isSensitive(block)` | `sensitive: true` on a field, or the `props.sensitive` alias. Hidden inputs take `sensitive: true` too (`f.hidden.string({ source: "server", sensitive: true })`); devtools masks both. |
@@ -361,6 +362,58 @@ single choice or dropdown, one more item on a multiple choice. `validateSubmissi
 one such value per question, not blank and at most `OTHER_MAX_LENGTH` (200) characters, and only on
 a question with `other`. `otherOption(field)` reads the setting; `isOtherValue(field, value)` tells a
 typed answer from an option.
+
+### Kinds: the content-type registry
+
+Every field kind (`short-text`, `single-choice`, `photo`…) and content kind (`heading`, `text`) is
+one registered definition. Nothing else in the package switches on a type name, so a host's own
+kind gets everything a built-in gets:
+
+| Member | What reads it |
+| --- | --- |
+| `checkProps(props, check)` | `parseForm`: the kind's settings, reported at `blocks[i].props.<path>`. `check` has `issue`, `text`, `optionalText`, `optionalBoolean`, `optionalInt`, `ordered` and `name`. |
+| `choice: { multiple }` | The answer shape: one option (a text) or several (a list). A choice kind takes `options`, `optionsFrom` (with filters), `prefill`, `other`, search, and snapshots, like `single-choice` and `multi-choice`. |
+| `literal` | `parseForm`'s warning about a logic literal that can never match: `"string"`, `"number"`, `"boolean"`, or a function of the props. |
+| `validate(value, field)` | The engine and `validateSubmission`. A validator that throws refuses the answer with `VALIDATOR_FAILED_MESSAGE`. |
+| `isEmpty`, `normalize`, `summarize` | The empty check, the stored form, the display text (recall, exports, emails). |
+| `snapshot`, `fromSnapshot` | `answerSnapshots` and `answersFromSnapshots` for a kind that isn't a choice. |
+| `samples` | `coverage()` and the other test tools. |
+
+```ts
+import { registerFieldType, registerContentType } from "@marktiderman/genesis-forms";
+
+registerFieldType({
+  type: "acme/cards", label: "Cards", category: "choice", value: { json: true },
+  operators: ["eq", "neq", "answered", "empty"], a11y: { semantics: "group" },
+  choice: { multiple: false }, literal: "string",
+  checkProps: (props, check) => check.optionalInt(props.columns, "columns", 1),
+});
+registerContentType({ type: "acme/message", label: "Message", text: (block) => block.text });
+```
+
+The registry is shared by every form in the process (the server's checks too), so:
+
+- a built-in kind's name is refused unless you pass `{ replace: true }`;
+- what you register is stored as a frozen copy: changing your object later changes nothing;
+- a `checkProps` that throws is one issue, never a crash in `parseForm`.
+
+A content block carries `text` and, for a host's kind, `props`. `contentText(block)` is its display
+text. A renderer draws a content kind it doesn't know as that text.
+
+### Merging partial responses
+
+`mergeResponses(definition, base, patch, { hidden?, hostOptions?, offPath? })` lays `patch` over
+`base` (both answers by field id) and returns the answers to store, in the form's order:
+
+1. a field in `patch` takes its value; `null` clears it;
+2. unknown ids, `calculated` fields (worked out again) and, on an anonymous form, identifying
+   fields are dropped; so are empty answers;
+3. a pick a filtered list no longer shows is dropped, whichever side changed;
+4. answers on a path the merged answers no longer take (hidden by logic, jumped over) are
+   **dropped**, unless `offPath: "keep"`. The default follows the form: kept only with
+   `settings.clearHiddenValues: false`, as `validateSubmission` keeps them.
+
+It checks nothing else: pass the result to `validateSubmission` or `createForm`'s `initialValues`.
 
 ### Props for the host
 
