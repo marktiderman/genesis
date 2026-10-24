@@ -1,5 +1,11 @@
 # @marktiderman/genesis-ui
 
+## 2.12.2
+
+### Patch Changes
+
+- 954fb55: Use made-up neutral names in doc comments, examples and the brand schema description instead of the names of private apps. No behaviour change; the CLI invalid-name error now gives `"arcade-mobile"` as its example slug.
+
 ## 2.12.1
 
 ### Patch Changes
