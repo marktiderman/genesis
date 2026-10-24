@@ -36,7 +36,18 @@ export { createForm, replay, type CreateFormOptions, type FormEngine, type FormS
 export { computePath, evaluate, ruleVisible, steps, type PathResult } from "./logic";
 export { formProgress, furthestReached, type FormProgress } from "./progress";
 export {
+  choiceKind,
   choiceOptions,
+  contentText,
+  getContentType,
+  isBuiltInFieldType,
+  isChoiceField,
+  listContentTypes,
+  registerContentType,
+  VALIDATOR_FAILED_MESSAGE,
+  type ContentTypeManifest,
+  type LiteralType,
+  type RegisterOptions,
   isHttpsUrl,
   OPTION_LIMITS,
   optionJson,
@@ -164,6 +175,8 @@ export {
   type PrefillState,
   type RestoredAnswers,
 } from "./options";
+export { mergeResponses, type MergeOptions } from "./merge";
+export { type PropsCheck, type PropsChecker } from "./props-check";
 export { recall } from "./recall";
 export { validateField, REQUIRED_MESSAGE, type FieldValidator, type StandardSchemaV1 } from "./validate";
 export { canonicalJson, fingerprint } from "./hash";
