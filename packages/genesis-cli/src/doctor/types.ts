@@ -79,8 +79,14 @@ export interface SupabasePackConfig {
   migrations?: string;
   /** The git ref applied migrations are compared against. Default `origin/main`. */
   base?: string;
-  /** Schemas whose tables need row level security. Default `["public"]`. */
+  /** Schemas the API exposes: their tables need row level security, and only their functions may be granted to anon/public. Default `["public"]`. */
   exposedSchemas?: string[];
+  /**
+   * A migration file name or timestamp prefix: files sorting before it are applied and
+   * trusted by `migration-grants`. Without it, grants are checked only when git can
+   * tell new migrations from applied ones.
+   */
+  since?: string;
 }
 
 /** The `doctor` block of genesis.config.json (or package.json `genesis.doctor`). */

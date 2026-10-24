@@ -13,7 +13,7 @@ import type { DoctorConfig, GenesisFacts } from "./types.js";
 
 export const DEFAULT_UI_PACKAGE = "@marktiderman/genesis-ui";
 export const NATIVE_UI_PACKAGE = "@marktiderman/genesis-ui-native";
-export const DESIGN_SYSTEM_PACKAGE ="@marktiderman/genesis-design-system";
+export const DESIGN_SYSTEM_PACKAGE = "@marktiderman/genesis-design-system";
 
 /**
  * Raw tags checked when Genesis ships a same-named component. `form` is left

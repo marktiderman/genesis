@@ -90,7 +90,8 @@ function isAllowlisted(relPath) {
 // imports here because every codebase using react-native single-line-
 // imports the named primitives, and `* as RN` followed by `RN.Modal` is
 // rare enough to handle later if it shows up.
-const RN_IMPORT_RE = /import\s*(?:type\s*)?\{([^}]+)\}\s*from\s*['"]react-native['"]/;
+// `import type { … }` is left out: a type-only import renders nothing.
+const RN_IMPORT_RE = /import\s*\{([^}]+)\}\s*from\s*['"]react-native['"]/;
 
 function findForbiddenInImport(line) {
   const m = line.match(RN_IMPORT_RE);

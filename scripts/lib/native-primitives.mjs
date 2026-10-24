@@ -18,10 +18,16 @@ export const NATIVE_WRAPPED_PRIMITIVES = Object.freeze({
   ActivityIndicator: Object.freeze(['NativeSkeleton', 'NativeProgress']),
 });
 
-/** The wrapped primitives named in one import clause's `{ ... }` list (aliases resolved to the imported name). */
+/**
+ * The wrapped primitives named in one import (or export-from) clause's `{ ... }` list,
+ * aliases resolved to the imported name. Type-only entries (`type Modal`) are skipped:
+ * they never render anything.
+ */
 export function wrappedPrimitivesIn(namedImports) {
   return namedImports
     .split(',')
-    .map((n) => n.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim())
+    .map((n) => n.trim())
+    .filter((n) => n && !/^type\s/.test(n))
+    .map((n) => n.split(/\s+as\s+/)[0].trim())
     .filter((n) => n && Object.hasOwn(NATIVE_WRAPPED_PRIMITIVES, n));
 }
