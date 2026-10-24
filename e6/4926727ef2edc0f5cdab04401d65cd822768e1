@@ -1,0 +1,44 @@
+.changeset/account-block-review.md
+  s_8252619ce79a86::t_a06dd2159c75e0 1-21
+packages/ui-native/src/layouts/apple-sign-in.tsx
+  s_8252619ce79a86::t_0eb0d3b7fffc75 18,32,49,51,68-70,72-83,89,96,98,108-113,117-118,125,129
+packages/supabase/src/__tests__/account.test.ts
+  s_8252619ce79a86::t_598fc09942fadf 5,21,37,39,42,44-55,57-58,60-65,93,97-108
+  s_8252619ce79a86::t_87a2b5a4bd76ad 109
+features.ts
+  s_8252619ce79a86::t_a06dd2159c75e0 628-632
+packages/ui-native/README.md
+  s_8252619ce79a86::t_a06dd2159c75e0 35-40
+packages/supabase/migrations/0001_genesis_account_deletion.sql
+  s_8252619ce79a86::t_e8b6cceae653ad 12-18,21-35,41-86,96,101-120,128-130,133
+packages/supabase/src/sign-in.ts
+  s_8252619ce79a86::t_598fc09942fadf 12-13,20-27,29,33-46,53-62,69,81,96-99,102-111,116,118-119,123-127,129-131,133,149-150,178-183,188-194,210,221-224,227,231,233-234,237-245,247
+features.json
+  s_8252619ce79a86::t_02b4412e0b0d52 1425-1429
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_e6a865117f92a7 275,282,337,344,350-351
+packages/ui-native/src/layouts/__tests__/apple-sign-in.test.tsx
+  s_8252619ce79a86::t_0eb0d3b7fffc75 2,11,14,76-95
+packages/supabase/migrations/tests/0001_genesis_account_deletion.test.sql
+  s_8252619ce79a86::t_e8b6cceae653ad 3-9,12,15-16,18-22,31-35,45-48,50,53,56,60,64-135
+  s_8252619ce79a86::t_5f3c5f43de5ecc 136
+packages/supabase/README.md
+  s_8252619ce79a86::t_14800599912c27 32-35,52-53,58-63,81-83,88-106,115-144,171-184
+  s_8252619ce79a86::t_21c9832e26f85b 185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e64926727ef2edc0f5cdab04401d65cd822768e1",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
