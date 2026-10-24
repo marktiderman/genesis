@@ -12,7 +12,16 @@ import {
   type FormDefinition,
   type KeyValueStorage,
 } from "@marktiderman/genesis-forms";
-import { useFormDraft, useSubmitOutbox, type FormDraftState, type SubmitOutboxState } from "../index";
+import {
+  outboxSubmit,
+  useFormController,
+  useFormDraft,
+  useSubmitOutbox,
+  type FormController,
+  type FormDraftState,
+  type SubmitOutboxState,
+} from "../index";
+import type { FormEngine, SubmitOutbox } from "@marktiderman/genesis-forms";
 
 afterEach(() => {
   cleanup();
@@ -162,5 +171,56 @@ describe("useSubmitOutbox", () => {
     expect(send).toHaveBeenCalledTimes(1);
     expect(state.online).toBe(true);
     outbox.stop();
+  });
+});
+
+describe("outboxSubmit with useFormController", () => {
+  const classic = defineForm({ id: "note", title: "Note", blocks: [f.shortText("text", { label: "Text" })] })
+    .definition as FormDefinition;
+  const textId = classic.blocks[0]!.id;
+
+  function Filled({ engine, outbox, clear, onController }: {
+    engine: FormEngine;
+    outbox: SubmitOutbox;
+    clear: () => Promise<void>;
+    onController: (c: FormController) => void;
+  }) {
+    onController(useFormController(engine, { onSubmit: outboxSubmit(outbox, { formId: "note", clearDraft: clear }) }));
+    return null;
+  }
+  function Page({ outbox, store, onController }: { outbox: SubmitOutbox; store: DraftStore; onController: (c: FormController) => void }) {
+    const { engine, clear } = useFormDraft(classic, { store, respondent: "s", version: "v1", delayMs: 10 });
+    return engine ? <Filled engine={engine} outbox={outbox} clear={clear} onController={onController} /> : null;
+  }
+
+  it("queues the submission, clears the draft and shows the ending while offline", async () => {
+    const draftStorage = memoryStorage();
+    const store = createDraftStore(draftStorage);
+    const send = vi.fn(async () => ({ ok: true, id: "r", receivedAt: "t" }));
+    const outbox = createSubmitOutbox({ storage: memoryStorage(), send, online: false, log: () => {} });
+    let controller!: FormController;
+    render(<Page outbox={outbox} store={store} onController={(c) => (controller = c)} />);
+    act(() => controller.engine.setValue(textId, "hello"));
+    await waitFor(() => expect(draftStorage.keys()).toHaveLength(1));
+    await act(async () => controller.submit());
+    await waitFor(() => expect(controller.showEnding).toBe(true));
+    expect(outbox.getSnapshot().items[0]!.request.events).toEqual(controller.engine.getState().events);
+    expect(draftStorage.keys()).toEqual([]);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("fails the send and keeps the draft when the outbox can't store it", async () => {
+    const draftStorage = memoryStorage();
+    const store = createDraftStore(draftStorage);
+    const full: KeyValueStorage = { getItem: () => null, setItem: () => { throw new Error("QuotaExceededError"); }, removeItem: () => {} };
+    const outbox = createSubmitOutbox({ storage: full, send: async () => ({}), online: false, log: () => {} });
+    let controller!: FormController;
+    render(<Page outbox={outbox} store={store} onController={(c) => (controller = c)} />);
+    act(() => controller.engine.setValue(textId, "hello"));
+    await waitFor(() => expect(draftStorage.keys()).toHaveLength(1));
+    await act(async () => controller.submit());
+    await waitFor(() => expect(controller.phase).toBe("failed"));
+    expect(controller.showEnding).toBe(false);
+    expect(draftStorage.keys()).toHaveLength(1);
   });
 });

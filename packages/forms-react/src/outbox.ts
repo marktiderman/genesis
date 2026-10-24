@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import type { OutboxSnapshot, SubmitOutbox } from "@marktiderman/genesis-forms";
+import type { FormEngine, Json, OutboxItem, OutboxSnapshot, SubmitOutbox } from "@marktiderman/genesis-forms";
 
 export interface UseSubmitOutboxOptions {
   /**
@@ -45,4 +45,46 @@ export function useSubmitOutbox(outbox: SubmitOutbox, options: UseSubmitOutboxOp
   }, [outbox, track]);
 
   return { ...snapshot, outbox };
+}
+
+export interface OutboxSubmitOptions {
+  formId: string;
+  /** The visit's attempt id, for a form with upload fields. */
+  attemptId?: string | undefined;
+  /** Shown in the outbox's list (a form's title), never sent. */
+  meta?: Record<string, Json> | undefined;
+  /** Called once the submission is in storage: the draft's `clear` (`useFormDraft`). */
+  clearDraft?: (() => void | Promise<void>) | undefined;
+  /** The queued submission, once it is in storage. */
+  onQueued?: ((item: OutboxItem) => void) | undefined;
+}
+
+/**
+ * An `onSubmit` for `useFormController` that queues the engine's event log in the outbox,
+ * then clears the draft. It resolves once the submission is in storage, so the controller
+ * shows the ending even while offline (the outbox sends it later). When storage can't take
+ * it, it rejects: the controller's phase is `failed`, the answers and the draft are kept.
+ *
+ * ```tsx
+ * const { engine, clear } = useFormDraft(definition, { store: drafts, respondent });
+ * // once engine is ready (a child component, say):
+ * const controller = useFormController(engine, { onSubmit: outboxSubmit(outbox, { formId, clearDraft: clear }) });
+ * ```
+ */
+export function outboxSubmit(outbox: SubmitOutbox, options: OutboxSubmitOptions): (engine: FormEngine) => Promise<void> {
+  return async (engine) => {
+    const item = await outbox.enqueue({
+      formId: options.formId,
+      submission: { events: engine.getState().events },
+      attemptId: options.attemptId,
+      meta: options.meta,
+    });
+    options.onQueued?.(item);
+    // The submission is safe; a draft that fails to clear only means a stale draft next visit.
+    try {
+      await options.clearDraft?.();
+    } catch (e) {
+      console.warn("[forms] The draft could not be cleared.", e);
+    }
+  };
 }

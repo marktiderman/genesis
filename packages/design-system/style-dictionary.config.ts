@@ -19,6 +19,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  GENESIS_THEME_BRAND,
   fontFamiliesFromTokens,
   renderTailwind4Bridge,
   renderThemeCss,
@@ -36,9 +37,7 @@ type BrandDef = ThemeBrand;
 // v0.2.0 (PRD-07 Phase A2): only the brand-genesis OOTB fallback ships
 // from Genesis. Other brand presets and their DTCG token JSONs moved into
 // their consumer's `@<consumer>/brand` package.
-const brands: BrandDef[] = [
-  { name: "genesis", h: 243, s: 75, l: 59, radius: "0.625rem" },
-];
+const brands: BrandDef[] = [GENESIS_THEME_BRAND];
 
 // ---------------------------------------------------------------------------
 // Helpers: hex -> HSL component string (Shadcn format: "160 84% 39%")

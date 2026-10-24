@@ -1,5 +1,5 @@
 import { CALCULATED_TYPE } from "./calculated";
-import { getFieldType, isEmptyValue } from "./fields";
+import { getFieldType, isEmptyValue, VALIDATOR_FAILED_MESSAGE } from "./fields";
 import type { FieldBlock, Json } from "./types";
 
 /** The Standard Schema interface (standardschema.dev), as far as validation needs it. */
@@ -47,7 +47,13 @@ export function validateField(
   const manifest = getFieldType(field.type);
   // A type with no manifest cannot say what a valid answer is, so none is accepted.
   if (!manifest) return `Unknown field type "${field.type}".`;
-  const builtIn = manifest.validate?.(value as Json, field) ?? null;
+  let builtIn: string | null;
+  try {
+    builtIn = manifest.validate?.(value as Json, field) ?? null;
+  } catch {
+    // A plugin's validator that throws refuses the answer: never accepted unchecked, never a crash on the server.
+    builtIn = VALIDATOR_FAILED_MESSAGE;
+  }
   if (builtIn) return builtIn;
   return options.custom ? runCustom(options.custom, value as Json) : null;
 }

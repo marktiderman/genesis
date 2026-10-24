@@ -11,7 +11,8 @@
     "doctor": "genesis doctor",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "maestro test .maestro/flows"
   },
   "dependencies": {
     "@expo/metro-runtime": "~58.0.15",
@@ -30,6 +31,7 @@
     "clsx": "^2.1.1",
     "expo": "~58.0.17",
     "expo-apple-authentication": "~58.0.2",
+    "expo-application": "~58.1.2",
     "expo-constants": "~58.0.13",
     "expo-crypto": "~58.0.7",
     "expo-haptics": "~58.0.7",
@@ -38,6 +40,7 @@
     "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~58.0.11",
     "expo-status-bar": "~58.0.4",
+    "expo-updates": "~58.0.18",
     "lucide-react-native": ">=0.400.0",
     "nativewind": "^4.2.7",
     "react": "19.3.0",
@@ -63,6 +66,7 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
-    "vitest": "^4.1.12"
+    "vitest": "^4.1.12",
+    "yaml": "^2.6.0"
   }
 }

@@ -873,7 +873,7 @@ The native app shell: `GenesisNativeApp` (boot behind the splash, fatal screen, 
 | [`BootScreen`](../packages/native/src/app.tsx) | `BootScreenProps` | — | The default boot slot: a plain loading view (the splash covers it at launch). |
 | [`FatalScreen`](../packages/native/src/errors.tsx) | `FatalScreenProps` | — | The default fatal screen: what went wrong and "Try again". |
 | [`GenesisErrorBoundary`](../packages/native/src/errors.tsx) | `GenesisErrorBoundaryProps` | — | An error boundary whose fallback gets `{ error, retry }`. |
-| [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard scrolling, data, boot behind the splash, errors, session and held links. |
+| [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard, data, boot behind the splash, errors, session and held links. |
 
 ### Other exports (19)
 

@@ -1,0 +1,7145 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: answer snapshots > answerSnapshots over host-sourced, own and typed answers 1`] = `
+"[
+ {},
+ {
+  "location": {
+   "value": "riverside",
+   "label": "Riverside Gym"
+  },
+  "coach": {
+   "value": "c-sam",
+   "label": "Sam"
+  },
+  "helpers": [
+   {
+    "value": "c-ada",
+    "label": "Ada"
+   },
+   {
+    "value": "nobody",
+    "label": "Nobody"
+   },
+   {
+    "value": "typed helper",
+    "label": "typed helper",
+    "other": true
+   }
+  ],
+  "room": {
+   "value": "a",
+   "label": "Room A"
+  }
+ },
+ {
+  "location": {
+   "value": "gone",
+   "label": "gone",
+   "other": true
+  },
+  "coach": {
+   "value": "typed coach",
+   "label": "typed coach",
+   "other": true
+  },
+  "room": {
+   "value": "zzz",
+   "label": "zzz",
+   "other": true
+  }
+ },
+ {
+  "helpers": [
+   {
+    "value": "c-img",
+    "label": "Pictured"
+   },
+   {
+    "value": "c-zoe",
+    "label": "Zoë"
+   }
+  ]
+ },
+ {
+  "coach": {
+   "value": "c-zoe",
+   "label": "Zoë"
+  }
+ }
+]"
+`;
+
+exports[`golden: answer snapshots > answerSnapshots over host-sourced, own and typed answers 2`] = `
+"{
+ "location": {
+  "value": "riverside",
+  "label": "riverside",
+  "other": true
+ },
+ "coach": {
+  "value": "c-sam",
+  "label": "c-sam",
+  "other": true
+ },
+ "helpers": [
+  {
+   "value": "c-ada",
+   "label": "c-ada",
+   "other": true
+  },
+  {
+   "value": "nobody",
+   "label": "Nobody"
+  },
+  {
+   "value": "typed helper",
+   "label": "typed helper",
+   "other": true
+  }
+ ],
+ "room": {
+  "value": "a",
+  "label": "Room A"
+ }
+}"
+`;
+
+exports[`golden: answer snapshots > answersFromSnapshots: kept, relabelled, typed and missing picks 1`] = `
+"[
+ {
+  "answers": {},
+  "missing": {}
+ },
+ {
+  "answers": {
+   "location": "riverside",
+   "coach": "c-sam",
+   "helpers": [
+    "c-ada",
+    "nobody",
+    "typed helper"
+   ]
+  },
+  "missing": {}
+ },
+ {
+  "answers": {
+   "coach": "c-zoe",
+   "helpers": [
+    "c-ada"
+   ]
+  },
+  "missing": {
+   "helpers": [
+    {
+     "value": "gone",
+     "label": "Gone"
+    }
+   ]
+  }
+ },
+ {
+  "answers": {
+   "coach": "typed"
+  },
+  "missing": {
+   "room": [
+    {
+     "value": "typed room",
+     "label": "typed room",
+     "other": true
+    }
+   ]
+  }
+ },
+ {
+  "answers": {
+   "location": "riverside"
+  },
+  "missing": {}
+ },
+ {
+  "answers": {
+   "helpers": [
+    "c-ada"
+   ]
+  },
+  "missing": {}
+ },
+ {
+  "answers": {},
+  "missing": {}
+ },
+ {
+  "answers": {
+   "coach": "c-zoe"
+  },
+  "missing": {}
+ }
+]"
+`;
+
+exports[`golden: choice options > choiceOptions over rich, malformed and missing options 1`] = `
+"[
+ [
+  "single",
+  [
+   {
+    "value": "riverside",
+    "label": "Riverside Gym",
+    "description": "12 Main St",
+    "image": "https://example.com/r.png"
+   },
+   {
+    "value": "hilltop",
+    "label": "Hilltop Fitness",
+    "attributes": {
+     "region": "north",
+     "tags": [
+      "indoor",
+      "pool"
+     ]
+    }
+   },
+   {
+    "value": "harbor"
+   },
+   {
+    "value": "bad-image",
+    "label": "Bad image"
+   },
+   {
+    "value": "long-desc"
+   },
+   {
+    "value": "blank-desc"
+   },
+   {
+    "value": "bad-attrs",
+    "attributes": {
+     "ok": "fine"
+    }
+   },
+   {
+    "value": "many-attrs",
+    "attributes": {
+     "a0": "v0",
+     "a1": "v1",
+     "a2": "v2",
+     "a3": "v3",
+     "a4": "v4",
+     "a5": "v5",
+     "a6": "v6",
+     "a7": "v7",
+     "a8": "v8",
+     "a9": "v9",
+     "a10": "v10",
+     "a11": "v11",
+     "a12": "v12",
+     "a13": "v13",
+     "a14": "v14",
+     "a15": "v15",
+     "a16": "v16",
+     "a17": "v17",
+     "a18": "v18",
+     "a19": "v19"
+    }
+   },
+   {
+    "value": "",
+    "label": "Empty value"
+   },
+   {
+    "value": "control"
+   }
+  ]
+ ],
+ [
+  "multi",
+  [
+   {
+    "value": "a",
+    "label": "A"
+   },
+   {
+    "value": "b"
+   }
+  ]
+ ],
+ [
+  "drop",
+  [
+   {
+    "value": "x",
+    "label": "X"
+   }
+  ]
+ ],
+ [
+  "no-options",
+  []
+ ],
+ [
+  "options-not-array",
+  []
+ ],
+ [
+  "other-blank",
+  [
+   {
+    "value": "x"
+   }
+  ]
+ ],
+ [
+  "other-false",
+  [
+   {
+    "value": "x"
+   }
+  ]
+ ],
+ [
+  "text-with-options",
+  [
+   {
+    "value": "x"
+   }
+  ]
+ ]
+]"
+`;
+
+exports[`golden: choice options > otherOption, isOtherValue and OTHER_MAX_LENGTH 1`] = `
+"{
+ "OTHER_MAX_LENGTH": 200,
+ "out": [
+  [
+   "single",
+   null,
+   [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  ],
+  [
+   "multi",
+   {
+    "label": "Other"
+   },
+   [
+    false,
+    false,
+    true,
+    true,
+    true,
+    true,
+    false,
+    false,
+    false,
+    true
+   ]
+  ],
+  [
+   "drop",
+   {
+    "label": "Something else"
+   },
+   [
+    true,
+    true,
+    true,
+    true,
+    true,
+    false,
+    false,
+    false,
+    false,
+    true
+   ]
+  ],
+  [
+   "no-options",
+   null,
+   [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  ],
+  [
+   "options-not-array",
+   null,
+   [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  ],
+  [
+   "other-blank",
+   {
+    "label": "Other"
+   },
+   [
+    true,
+    true,
+    true,
+    true,
+    true,
+    false,
+    false,
+    false,
+    false,
+    true
+   ]
+  ],
+  [
+   "other-false",
+   null,
+   [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  ],
+  [
+   "text-with-options",
+   null,
+   [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  ]
+ ]
+}"
+`;
+
+exports[`golden: choice options > visibleOptions, isSearchable and searchOptions 1`] = `
+"{
+ "visible": [
+  [
+   "c-ada",
+   "own",
+   "c-sam",
+   "c-zoe",
+   "c-img"
+  ],
+  [
+   "c-sam"
+  ],
+  [
+   "c-sam",
+   "c-zoe"
+  ],
+  [],
+  [
+   "c-sam",
+   "c-zoe"
+  ]
+ ],
+ "searchable": [
+  false,
+  true,
+  false,
+  true,
+  true,
+  true
+ ],
+ "search": [
+  [
+   "",
+   [
+    "c-ada",
+    "own",
+    "c-sam",
+    "c-zoe",
+    "c-img"
+   ]
+  ],
+  [
+   "  ",
+   [
+    "c-ada",
+    "own",
+    "c-sam",
+    "c-zoe",
+    "c-img"
+   ]
+  ],
+  [
+   "zoe",
+   [
+    "c-zoe"
+   ]
+  ],
+  [
+   "ZOË",
+   [
+    "c-zoe"
+   ]
+  ],
+  [
+   "ada own",
+   [
+    "c-ada"
+   ]
+  ],
+  [
+   "head",
+   [
+    "c-img"
+   ]
+  ],
+  [
+   "c-s",
+   [
+    "c-sam"
+   ]
+  ],
+  [
+   "nothing",
+   []
+  ]
+ ]
+}"
+`;
+
+exports[`golden: choice options > withHostOptions over host lists, missing keys and malformed entries 1`] = `
+"[
+ [
+  "none",
+  true,
+  {
+   "schemaVersion": 1,
+   "id": "host",
+   "title": "Form host",
+   "blocks": [
+    {
+     "kind": "field",
+     "id": "location",
+     "key": "location",
+     "type": "single-choice",
+     "label": "Label location",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "locations"
+      },
+      "prefill": {
+       "param": "location",
+       "hideWhenPrefilled": true
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "coach",
+     "key": "coach",
+     "type": "single-choice",
+     "label": "Label coach",
+     "required": true,
+     "props": {
+      "options": [
+       {
+        "value": "c-ada",
+        "label": "Ada (own)"
+       },
+       {
+        "value": "own",
+        "label": "Own option"
+       }
+      ],
+      "optionsFrom": {
+       "source": "host",
+       "key": "coaches",
+       "filter": {
+        "attribute": "location",
+        "field": "location"
+       }
+      },
+      "other": true,
+      "prefill": {
+       "param": "coach"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "helpers",
+     "key": "helpers",
+     "type": "multi-choice",
+     "label": "Label helpers",
+     "props": {
+      "options": [
+       {
+        "value": "nobody",
+        "label": "Nobody"
+       }
+      ],
+      "optionsFrom": {
+       "source": "host",
+       "key": "coaches"
+      },
+      "other": true,
+      "prefill": {
+       "param": "helpers"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "room",
+     "key": "room",
+     "type": "dropdown",
+     "label": "Label room",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "missing"
+      },
+      "options": [
+       {
+        "value": "a",
+        "label": "Room A"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "proto",
+     "key": "proto",
+     "type": "dropdown",
+     "label": "Label proto",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "__proto__"
+      },
+      "options": [
+       {
+        "value": "p"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "not-a-list",
+     "key": "not-a-list",
+     "type": "single-choice",
+     "label": "Label not-a-list",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "notAList"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "note",
+     "key": "note",
+     "type": "short-text",
+     "label": "Label note"
+    },
+    {
+     "kind": "field",
+     "id": "bad-source",
+     "key": "bad-source",
+     "type": "dropdown",
+     "label": "Label bad-source",
+     "props": {
+      "optionsFrom": {
+       "source": "server",
+       "key": "coaches"
+      },
+      "options": [
+       {
+        "value": "z"
+       }
+      ]
+     }
+    }
+   ],
+   "endings": [
+    {
+     "id": "default",
+     "title": "Thanks"
+    }
+   ]
+  }
+ ],
+ [
+  "empty",
+  true,
+  {
+   "schemaVersion": 1,
+   "id": "host",
+   "title": "Form host",
+   "blocks": [
+    {
+     "kind": "field",
+     "id": "location",
+     "key": "location",
+     "type": "single-choice",
+     "label": "Label location",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "locations"
+      },
+      "prefill": {
+       "param": "location",
+       "hideWhenPrefilled": true
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "coach",
+     "key": "coach",
+     "type": "single-choice",
+     "label": "Label coach",
+     "required": true,
+     "props": {
+      "options": [
+       {
+        "value": "c-ada",
+        "label": "Ada (own)"
+       },
+       {
+        "value": "own",
+        "label": "Own option"
+       }
+      ],
+      "optionsFrom": {
+       "source": "host",
+       "key": "coaches",
+       "filter": {
+        "attribute": "location",
+        "field": "location"
+       }
+      },
+      "other": true,
+      "prefill": {
+       "param": "coach"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "helpers",
+     "key": "helpers",
+     "type": "multi-choice",
+     "label": "Label helpers",
+     "props": {
+      "options": [
+       {
+        "value": "nobody",
+        "label": "Nobody"
+       }
+      ],
+      "optionsFrom": {
+       "source": "host",
+       "key": "coaches"
+      },
+      "other": true,
+      "prefill": {
+       "param": "helpers"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "room",
+     "key": "room",
+     "type": "dropdown",
+     "label": "Label room",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "missing"
+      },
+      "options": [
+       {
+        "value": "a",
+        "label": "Room A"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "proto",
+     "key": "proto",
+     "type": "dropdown",
+     "label": "Label proto",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "__proto__"
+      },
+      "options": [
+       {
+        "value": "p"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "not-a-list",
+     "key": "not-a-list",
+     "type": "single-choice",
+     "label": "Label not-a-list",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "notAList"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "note",
+     "key": "note",
+     "type": "short-text",
+     "label": "Label note"
+    },
+    {
+     "kind": "field",
+     "id": "bad-source",
+     "key": "bad-source",
+     "type": "dropdown",
+     "label": "Label bad-source",
+     "props": {
+      "optionsFrom": {
+       "source": "server",
+       "key": "coaches"
+      },
+      "options": [
+       {
+        "value": "z"
+       }
+      ]
+     }
+    }
+   ],
+   "endings": [
+    {
+     "id": "default",
+     "title": "Thanks"
+    }
+   ]
+  }
+ ],
+ [
+  "full",
+  false,
+  {
+   "schemaVersion": 1,
+   "id": "host",
+   "title": "Form host",
+   "blocks": [
+    {
+     "kind": "field",
+     "id": "location",
+     "key": "location",
+     "type": "single-choice",
+     "label": "Label location",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "locations"
+      },
+      "prefill": {
+       "param": "location",
+       "hideWhenPrefilled": true
+      },
+      "options": [
+       {
+        "value": "riverside",
+        "label": "Riverside Gym"
+       },
+       {
+        "value": "hilltop",
+        "label": "Hilltop Fitness"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "coach",
+     "key": "coach",
+     "type": "single-choice",
+     "label": "Label coach",
+     "required": true,
+     "props": {
+      "options": [
+       {
+        "value": "c-ada",
+        "label": "Ada (own)"
+       },
+       {
+        "value": "own",
+        "label": "Own option"
+       },
+       {
+        "value": "c-sam",
+        "label": "Sam",
+        "attributes": {
+         "location": [
+          "riverside",
+          "hilltop"
+         ]
+        }
+       },
+       {
+        "value": "c-zoe",
+        "label": "Zoë",
+        "attributes": {
+         "location": "hilltop"
+        }
+       },
+       {
+        "value": "c-img",
+        "label": "Pictured",
+        "description": "Head coach",
+        "image": "https://example.com/c.png"
+       }
+      ],
+      "optionsFrom": {
+       "source": "host",
+       "key": "coaches",
+       "filter": {
+        "attribute": "location",
+        "field": "location"
+       }
+      },
+      "other": true,
+      "prefill": {
+       "param": "coach"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "helpers",
+     "key": "helpers",
+     "type": "multi-choice",
+     "label": "Label helpers",
+     "props": {
+      "options": [
+       {
+        "value": "nobody",
+        "label": "Nobody"
+       },
+       {
+        "value": "c-ada",
+        "label": "Ada",
+        "attributes": {
+         "location": "riverside"
+        }
+       },
+       {
+        "value": "c-sam",
+        "label": "Sam",
+        "attributes": {
+         "location": [
+          "riverside",
+          "hilltop"
+         ]
+        }
+       },
+       {
+        "value": "c-zoe",
+        "label": "Zoë",
+        "attributes": {
+         "location": "hilltop"
+        }
+       },
+       {
+        "value": "c-img",
+        "label": "Pictured",
+        "description": "Head coach",
+        "image": "https://example.com/c.png"
+       }
+      ],
+      "optionsFrom": {
+       "source": "host",
+       "key": "coaches"
+      },
+      "other": true,
+      "prefill": {
+       "param": "helpers"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "room",
+     "key": "room",
+     "type": "dropdown",
+     "label": "Label room",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "missing"
+      },
+      "options": [
+       {
+        "value": "a",
+        "label": "Room A"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "proto",
+     "key": "proto",
+     "type": "dropdown",
+     "label": "Label proto",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "__proto__"
+      },
+      "options": [
+       {
+        "value": "p"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "not-a-list",
+     "key": "not-a-list",
+     "type": "single-choice",
+     "label": "Label not-a-list",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "notAList"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "note",
+     "key": "note",
+     "type": "short-text",
+     "label": "Label note"
+    },
+    {
+     "kind": "field",
+     "id": "bad-source",
+     "key": "bad-source",
+     "type": "dropdown",
+     "label": "Label bad-source",
+     "props": {
+      "optionsFrom": {
+       "source": "server",
+       "key": "coaches"
+      },
+      "options": [
+       {
+        "value": "z"
+       }
+      ]
+     }
+    }
+   ],
+   "endings": [
+    {
+     "id": "default",
+     "title": "Thanks"
+    }
+   ]
+  }
+ ],
+ [
+  "only-coaches",
+  false,
+  {
+   "schemaVersion": 1,
+   "id": "host",
+   "title": "Form host",
+   "blocks": [
+    {
+     "kind": "field",
+     "id": "location",
+     "key": "location",
+     "type": "single-choice",
+     "label": "Label location",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "locations"
+      },
+      "prefill": {
+       "param": "location",
+       "hideWhenPrefilled": true
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "coach",
+     "key": "coach",
+     "type": "single-choice",
+     "label": "Label coach",
+     "required": true,
+     "props": {
+      "options": [
+       {
+        "value": "c-ada",
+        "label": "Ada (own)"
+       },
+       {
+        "value": "own",
+        "label": "Own option"
+       },
+       {
+        "value": "c-sam",
+        "label": "Sam",
+        "attributes": {
+         "location": [
+          "riverside",
+          "hilltop"
+         ]
+        }
+       },
+       {
+        "value": "c-zoe",
+        "label": "Zoë",
+        "attributes": {
+         "location": "hilltop"
+        }
+       },
+       {
+        "value": "c-img",
+        "label": "Pictured",
+        "description": "Head coach",
+        "image": "https://example.com/c.png"
+       }
+      ],
+      "optionsFrom": {
+       "source": "host",
+       "key": "coaches",
+       "filter": {
+        "attribute": "location",
+        "field": "location"
+       }
+      },
+      "other": true,
+      "prefill": {
+       "param": "coach"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "helpers",
+     "key": "helpers",
+     "type": "multi-choice",
+     "label": "Label helpers",
+     "props": {
+      "options": [
+       {
+        "value": "nobody",
+        "label": "Nobody"
+       },
+       {
+        "value": "c-ada",
+        "label": "Ada",
+        "attributes": {
+         "location": "riverside"
+        }
+       },
+       {
+        "value": "c-sam",
+        "label": "Sam",
+        "attributes": {
+         "location": [
+          "riverside",
+          "hilltop"
+         ]
+        }
+       },
+       {
+        "value": "c-zoe",
+        "label": "Zoë",
+        "attributes": {
+         "location": "hilltop"
+        }
+       },
+       {
+        "value": "c-img",
+        "label": "Pictured",
+        "description": "Head coach",
+        "image": "https://example.com/c.png"
+       }
+      ],
+      "optionsFrom": {
+       "source": "host",
+       "key": "coaches"
+      },
+      "other": true,
+      "prefill": {
+       "param": "helpers"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "room",
+     "key": "room",
+     "type": "dropdown",
+     "label": "Label room",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "missing"
+      },
+      "options": [
+       {
+        "value": "a",
+        "label": "Room A"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "proto",
+     "key": "proto",
+     "type": "dropdown",
+     "label": "Label proto",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "__proto__"
+      },
+      "options": [
+       {
+        "value": "p"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "not-a-list",
+     "key": "not-a-list",
+     "type": "single-choice",
+     "label": "Label not-a-list",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "notAList"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "note",
+     "key": "note",
+     "type": "short-text",
+     "label": "Label note"
+    },
+    {
+     "kind": "field",
+     "id": "bad-source",
+     "key": "bad-source",
+     "type": "dropdown",
+     "label": "Label bad-source",
+     "props": {
+      "optionsFrom": {
+       "source": "server",
+       "key": "coaches"
+      },
+      "options": [
+       {
+        "value": "z"
+       }
+      ]
+     }
+    }
+   ],
+   "endings": [
+    {
+     "id": "default",
+     "title": "Thanks"
+    }
+   ]
+  }
+ ],
+ [
+  "proto",
+  false,
+  {
+   "schemaVersion": 1,
+   "id": "host",
+   "title": "Form host",
+   "blocks": [
+    {
+     "kind": "field",
+     "id": "location",
+     "key": "location",
+     "type": "single-choice",
+     "label": "Label location",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "locations"
+      },
+      "prefill": {
+       "param": "location",
+       "hideWhenPrefilled": true
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "coach",
+     "key": "coach",
+     "type": "single-choice",
+     "label": "Label coach",
+     "required": true,
+     "props": {
+      "options": [
+       {
+        "value": "c-ada",
+        "label": "Ada (own)"
+       },
+       {
+        "value": "own",
+        "label": "Own option"
+       }
+      ],
+      "optionsFrom": {
+       "source": "host",
+       "key": "coaches",
+       "filter": {
+        "attribute": "location",
+        "field": "location"
+       }
+      },
+      "other": true,
+      "prefill": {
+       "param": "coach"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "helpers",
+     "key": "helpers",
+     "type": "multi-choice",
+     "label": "Label helpers",
+     "props": {
+      "options": [
+       {
+        "value": "nobody",
+        "label": "Nobody"
+       }
+      ],
+      "optionsFrom": {
+       "source": "host",
+       "key": "coaches"
+      },
+      "other": true,
+      "prefill": {
+       "param": "helpers"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "room",
+     "key": "room",
+     "type": "dropdown",
+     "label": "Label room",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "missing"
+      },
+      "options": [
+       {
+        "value": "a",
+        "label": "Room A"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "proto",
+     "key": "proto",
+     "type": "dropdown",
+     "label": "Label proto",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "__proto__"
+      },
+      "options": [
+       {
+        "value": "p"
+       },
+       {
+        "value": "evil"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "not-a-list",
+     "key": "not-a-list",
+     "type": "single-choice",
+     "label": "Label not-a-list",
+     "props": {
+      "optionsFrom": {
+       "source": "host",
+       "key": "notAList"
+      }
+     }
+    },
+    {
+     "kind": "field",
+     "id": "note",
+     "key": "note",
+     "type": "short-text",
+     "label": "Label note"
+    },
+    {
+     "kind": "field",
+     "id": "bad-source",
+     "key": "bad-source",
+     "type": "dropdown",
+     "label": "Label bad-source",
+     "props": {
+      "optionsFrom": {
+       "source": "server",
+       "key": "coaches"
+      },
+      "options": [
+       {
+        "value": "z"
+       }
+      ]
+     }
+    }
+   ],
+   "endings": [
+    {
+     "id": "default",
+     "title": "Thanks"
+    }
+   ]
+  }
+ ]
+]"
+`;
+
+exports[`golden: link prefill > prefillFromLink and respondentPath 1`] = `
+"[
+ {
+  "prefill": {},
+  "withValues": {},
+  "path": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "respondent": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "current": "location"
+ },
+ {
+  "prefill": {},
+  "withValues": {},
+  "path": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "respondent": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "current": "location"
+ },
+ {
+  "prefill": {
+   "location": "hilltop",
+   "coach": "c-zoe",
+   "helpers": [
+    "c-ada",
+    "c-sam"
+   ]
+  },
+  "withValues": {
+   "location": "hilltop",
+   "helpers": [
+    "c-ada",
+    "c-sam"
+   ]
+  },
+  "path": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "respondent": [
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "current": "coach"
+ },
+ {
+  "prefill": {
+   "location": "hilltop"
+  },
+  "withValues": {
+   "location": "hilltop"
+  },
+  "path": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "respondent": [
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "current": "coach"
+ },
+ {
+  "prefill": {
+   "location": "riverside",
+   "helpers": [
+    "c-ada",
+    "c-zoe",
+    "nobody"
+   ]
+  },
+  "withValues": {
+   "location": "riverside",
+   "helpers": [
+    "c-ada",
+    "c-zoe",
+    "nobody"
+   ]
+  },
+  "path": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "respondent": [
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "current": "coach"
+ },
+ {
+  "prefill": {
+   "coach": "c-zoe",
+   "helpers": [
+    "c-ada"
+   ]
+  },
+  "withValues": {
+   "helpers": [
+    "c-ada"
+   ]
+  },
+  "path": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "respondent": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "current": "location"
+ },
+ {
+  "prefill": {
+   "location": "riverside",
+   "coach": "c-sam",
+   "helpers": [
+    "c-sam",
+    "nobody"
+   ]
+  },
+  "withValues": {
+   "location": "riverside",
+   "helpers": [
+    "c-sam",
+    "nobody"
+   ]
+  },
+  "path": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "respondent": [
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "current": "coach"
+ },
+ {
+  "prefill": {},
+  "withValues": {},
+  "path": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "respondent": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "current": "location"
+ },
+ {
+  "prefill": {},
+  "withValues": {},
+  "path": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "respondent": [
+   "location",
+   "coach",
+   "helpers",
+   "room",
+   "proto",
+   "not-a-list",
+   "note"
+  ],
+  "current": "location"
+ }
+]"
+`;
+
+exports[`golden: parseForm > checks content blocks 1`] = `
+"{
+ "ok": false,
+ "issues": [
+  {
+   "path": "blocks[2].type",
+   "message": "Must be heading or text."
+  },
+  {
+   "path": "blocks[3].text",
+   "message": "Required text."
+  },
+  {
+   "path": "blocks[5].type",
+   "message": "Must be heading or text."
+  },
+  {
+   "path": "blocks[5].text",
+   "message": "Required text."
+  }
+ ],
+ "warnings": []
+}"
+`;
+
+exports[`golden: parseForm > checks each kind's props when they are missing or ordered wrong 1`] = `
+"[
+ [
+  "short-text",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-short-text",
+    "title": "Form none-short-text",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "short-text",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-short-text",
+    "title": "Form order-short-text",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "short-text",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "long-text",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-long-text",
+    "title": "Form none-long-text",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "long-text",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-long-text",
+    "title": "Form order-long-text",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "long-text",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "email",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-email",
+    "title": "Form none-email",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "email",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-email",
+    "title": "Form order-email",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "email",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "phone",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-phone",
+    "title": "Form none-phone",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "phone",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-phone",
+    "title": "Form order-phone",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "phone",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "rating",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-rating",
+    "title": "Form none-rating",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "rating",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.max",
+     "message": "Must be a whole number from 2 to 10."
+    }
+   ],
+   "warnings": []
+  }
+ ],
+ [
+  "nps",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-nps",
+    "title": "Form none-nps",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "nps",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-nps",
+    "title": "Form order-nps",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "nps",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "single-choice",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-single-choice",
+    "title": "Form none-single-choice",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "single-choice",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-single-choice",
+    "title": "Form order-single-choice",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "single-choice",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "multi-choice",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-multi-choice",
+    "title": "Form none-multi-choice",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "multi-choice",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-multi-choice",
+    "title": "Form order-multi-choice",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "multi-choice",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "yes-no",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-yes-no",
+    "title": "Form none-yes-no",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "yes-no",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-yes-no",
+    "title": "Form order-yes-no",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "yes-no",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "dropdown",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-dropdown",
+    "title": "Form none-dropdown",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "dropdown",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-dropdown",
+    "title": "Form order-dropdown",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "dropdown",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "number",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-number",
+    "title": "Form none-number",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "number",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.min",
+     "message": "Can't be more than the largest number."
+    }
+   ],
+   "warnings": []
+  }
+ ],
+ [
+  "date",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-date",
+    "title": "Form none-date",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "date",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.min",
+     "message": "Must be a date like 2026-10-22."
+    },
+    {
+     "path": "blocks[0].props.max",
+     "message": "Must be a date like 2026-10-22."
+    }
+   ],
+   "warnings": []
+  }
+ ],
+ [
+  "consent",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-consent",
+    "title": "Form none-consent",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "consent",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-consent",
+    "title": "Form order-consent",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "consent",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "list",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-list",
+    "title": "Form none-list",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "list",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.min",
+     "message": "Can't be more than the most items."
+    }
+   ],
+   "warnings": []
+  }
+ ],
+ [
+  "table",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.columns",
+     "message": "Must be a list of 1 to 6 columns."
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.columns",
+     "message": "Must be a list of 1 to 6 columns."
+    },
+    {
+     "path": "blocks[0].props.minRows",
+     "message": "Can't be more than the most rows."
+    }
+   ],
+   "warnings": []
+  }
+ ],
+ [
+  "media-notes",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-media-notes",
+    "title": "Form none-media-notes",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "media-notes",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-media-notes",
+    "title": "Form order-media-notes",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "media-notes",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "text-highlights",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-text-highlights",
+    "title": "Form none-text-highlights",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "text-highlights",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "order-text-highlights",
+    "title": "Form order-text-highlights",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "text-highlights",
+      "label": "Label f",
+      "props": {
+       "min": 5,
+       "max": 1,
+       "minRows": 4,
+       "maxRows": 2,
+       "formats": [
+        "jpeg",
+        "jpeg"
+       ]
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  }
+ ],
+ [
+  "photo",
+  {
+   "ok": true,
+   "form": {
+    "schemaVersion": 1,
+    "id": "none-photo",
+    "title": "Form none-photo",
+    "blocks": [
+     {
+      "kind": "field",
+      "id": "f",
+      "key": "f",
+      "type": "photo",
+      "label": "Label f"
+     }
+    ],
+    "endings": [
+     {
+      "id": "default",
+      "title": "Thanks"
+     }
+    ]
+   },
+   "warnings": []
+  },
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.formats",
+     "message": "Name each format once."
+    }
+   ],
+   "warnings": []
+  }
+ ],
+ [
+  "calculated",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.formula",
+     "message": "A calculated field needs a formula."
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.formula",
+     "message": "A calculated field needs a formula."
+    }
+   ],
+   "warnings": []
+  }
+ ]
+]"
+`;
+
+exports[`golden: parseForm > reports bad props on every built-in kind 1`] = `
+"[
+ [
+  "short-text",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "long-text",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "email",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "phone",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "rating",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.max",
+     "message": "Must be a whole number from 2 to 10."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.lowLabel",
+     "message": "Must be text."
+    },
+    {
+     "path": "blocks[0].props.highLabel",
+     "message": "Must be text."
+    },
+    {
+     "path": "blocks[0].props.display",
+     "message": "Must be numbers or stars."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "nps",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.lowLabel",
+     "message": "Must be text."
+    },
+    {
+     "path": "blocks[0].props.highLabel",
+     "message": "Must be text."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "single-choice",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    }
+   ],
+   "warnings": []
+  }
+ ],
+ [
+  "multi-choice",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    }
+   ],
+   "warnings": []
+  }
+ ],
+ [
+  "yes-no",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "dropdown",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    }
+   ],
+   "warnings": []
+  }
+ ],
+ [
+  "number",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.min",
+     "message": "Must be a number."
+    },
+    {
+     "path": "blocks[0].props.max",
+     "message": "Must be a number."
+    },
+    {
+     "path": "blocks[0].props.step",
+     "message": "Must be above 0."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "date",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.min",
+     "message": "Must be a date like 2026-10-22."
+    },
+    {
+     "path": "blocks[0].props.max",
+     "message": "Must be a date like 2026-10-22."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "consent",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.text",
+     "message": "Must be text."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "list",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.min",
+     "message": "Must be a whole number of 0 or more."
+    },
+    {
+     "path": "blocks[0].props.max",
+     "message": "Must be a whole number of 1 or more."
+    },
+    {
+     "path": "blocks[0].props.itemMaxLength",
+     "message": "Must be a whole number of 1 or more."
+    },
+    {
+     "path": "blocks[0].props.placeholder",
+     "message": "Must be text."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "table",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.columns",
+     "message": "Must be a list of 1 to 6 columns."
+    },
+    {
+     "path": "blocks[0].props.minRows",
+     "message": "Must be a whole number of 0 or more."
+    },
+    {
+     "path": "blocks[0].props.maxRows",
+     "message": "Must be a whole number of 1 or more."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "media-notes",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.maxNotes",
+     "message": "Must be a whole number of 1 or more."
+    },
+    {
+     "path": "blocks[0].props.textMaxLength",
+     "message": "Must be a whole number of 1 or more."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "text-highlights",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.text",
+     "message": "Must be text."
+    },
+    {
+     "path": "blocks[0].props.maxHighlights",
+     "message": "Must be a whole number of 1 or more."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "photo",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.maxFiles",
+     "message": "Must be a whole number from 1 to 5."
+    },
+    {
+     "path": "blocks[0].props.maxSizeMb",
+     "message": "Must be a whole number from 1 to 25."
+    },
+    {
+     "path": "blocks[0].props.formats",
+     "message": "Must be a list of one or more of jpeg, png, heic and webp."
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ],
+ [
+  "calculated",
+  {
+   "ok": false,
+   "issues": [
+    {
+     "path": "blocks[0].props.optionsFrom.filter",
+     "message": "Must be { attribute, field }: an attribute name (at most 64 characters) and an earlier question's key."
+    },
+    {
+     "path": "blocks[0].props.prefill",
+     "message": "Must be { param, hideWhenPrefilled? }: a link parameter of letters, digits, \\"_\\", \\"-\\" or \\".\\" (at most 64 characters)."
+    },
+    {
+     "path": "blocks[0].props.searchable",
+     "message": "Must be true or false."
+    },
+    {
+     "path": "blocks[0].props.options[0].image",
+     "message": "Must be an https:// link of at most 2048 characters."
+    },
+    {
+     "path": "blocks[0].props.options[1]",
+     "message": "Each option needs a string value."
+    },
+    {
+     "path": "blocks[0].props.other",
+     "message": "Must be true, false or { label }."
+    },
+    {
+     "path": "blocks[0].props.maxLength",
+     "message": "Must be a whole number above 0."
+    },
+    {
+     "path": "blocks[0].props.format",
+     "message": "Must be number, percent or text."
+    },
+    {
+     "path": "blocks[0].props.decimals",
+     "message": "Must be a whole number from 0 to 10."
+    },
+    {
+     "path": "blocks[0].props.formula",
+     "message": "Expected a number, an answer or \\"(\\", but the formula ends there. (at character 4)"
+    }
+   ],
+   "warnings": [
+    {
+     "path": "blocks[0].props.optionsFrom",
+     "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+    }
+   ]
+  }
+ ]
+]"
+`;
+
+exports[`golden: parseForm > warns on literals that never match and on choice-only settings elsewhere 1`] = `
+"{
+ "out": [
+  [
+   "short-text",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a short-text field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a short-text field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a short-text field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a short-text field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a short-text field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a short-text field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a short-text field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a short-text field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a short-text field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a short-text field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     },
+     {
+      "path": "logic[1].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[6].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[21].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[22].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[23].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[24].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     }
+    ]
+   }
+  ],
+  [
+   "long-text",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a long-text field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a long-text field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a long-text field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a long-text field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a long-text field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a long-text field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a long-text field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a long-text field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a long-text field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a long-text field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     },
+     {
+      "path": "logic[1].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[6].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[21].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[22].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[23].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[24].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     }
+    ]
+   }
+  ],
+  [
+   "email",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a email field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a email field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a email field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a email field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a email field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a email field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a email field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a email field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a email field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a email field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     },
+     {
+      "path": "logic[1].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[6].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[21].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[22].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[23].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[24].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     }
+    ]
+   }
+  ],
+  [
+   "phone",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a phone field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a phone field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     },
+     {
+      "path": "logic[1].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[6].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is always true."
+     }
+    ]
+   }
+  ],
+  [
+   "rating",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a rating field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a rating field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a rating field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a rating field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a rating field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     },
+     {
+      "path": "logic[0].when.right",
+      "message": "\\"f\\" holds a number, but \\"text\\" is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a number, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a number, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a number, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[5].when.right",
+      "message": "\\"f\\" holds a number, but \\"text\\" is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a number, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a number, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a number, but null is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[10].when.right",
+      "message": "\\"f\\" holds a number, but \\"text\\" is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[12].when.right",
+      "message": "\\"f\\" holds a number, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[13].when.right",
+      "message": "\\"f\\" holds a number, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[14].when.right",
+      "message": "\\"f\\" holds a number, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[15].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[16].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[17].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[18].when.right",
+      "message": "\\"f\\" holds a number, but \\"list\\" is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[19].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     }
+    ]
+   }
+  ],
+  [
+   "nps",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a nps field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a nps field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a nps field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a nps field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a nps field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     },
+     {
+      "path": "logic[0].when.right",
+      "message": "\\"f\\" holds a number, but \\"text\\" is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a number, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a number, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a number, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[5].when.right",
+      "message": "\\"f\\" holds a number, but \\"text\\" is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a number, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a number, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a number, but null is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[10].when.right",
+      "message": "\\"f\\" holds a number, but \\"text\\" is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[12].when.right",
+      "message": "\\"f\\" holds a number, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[13].when.right",
+      "message": "\\"f\\" holds a number, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[14].when.right",
+      "message": "\\"f\\" holds a number, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[15].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[16].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[17].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[18].when.right",
+      "message": "\\"f\\" holds a number, but \\"list\\" is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[19].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     }
+    ]
+   }
+  ],
+  [
+   "single-choice",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a single-choice field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a single-choice field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a single-choice field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a single-choice field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a single-choice field."
+     },
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a single-choice field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a single-choice field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a single-choice field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a single-choice field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a single-choice field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "logic[1].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[6].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[15].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[16].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[17].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[19].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     }
+    ]
+   }
+  ],
+  [
+   "multi-choice",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[0].when.op",
+      "message": "\\"eq\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[1].when.op",
+      "message": "\\"eq\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[2].when.op",
+      "message": "\\"eq\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[3].when.op",
+      "message": "\\"eq\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[4].when.op",
+      "message": "\\"eq\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[5].when.op",
+      "message": "\\"neq\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[6].when.op",
+      "message": "\\"neq\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[7].when.op",
+      "message": "\\"neq\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[8].when.op",
+      "message": "\\"neq\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[9].when.op",
+      "message": "\\"neq\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a multi-choice field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a multi-choice field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "logic[21].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[22].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[23].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[24].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     }
+    ]
+   }
+  ],
+  [
+   "yes-no",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a yes-no field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a yes-no field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     },
+     {
+      "path": "logic[0].when.right",
+      "message": "\\"f\\" holds a boolean, but \\"text\\" is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[1].when.right",
+      "message": "\\"f\\" holds a boolean, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a boolean, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a boolean, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[5].when.right",
+      "message": "\\"f\\" holds a boolean, but \\"text\\" is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[6].when.right",
+      "message": "\\"f\\" holds a boolean, but 3 is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a boolean, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a boolean, but null is not one; this comparison is always true."
+     }
+    ]
+   }
+  ],
+  [
+   "dropdown",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a dropdown field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a dropdown field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a dropdown field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a dropdown field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a dropdown field."
+     },
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a dropdown field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a dropdown field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a dropdown field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a dropdown field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a dropdown field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "logic[1].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[6].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[15].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[16].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[17].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[19].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     }
+    ]
+   }
+  ],
+  [
+   "number",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a number field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a number field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a number field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a number field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a number field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     },
+     {
+      "path": "logic[0].when.right",
+      "message": "\\"f\\" holds a number, but \\"text\\" is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a number, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a number, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a number, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[5].when.right",
+      "message": "\\"f\\" holds a number, but \\"text\\" is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a number, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a number, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a number, but null is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[10].when.right",
+      "message": "\\"f\\" holds a number, but \\"text\\" is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[12].when.right",
+      "message": "\\"f\\" holds a number, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[13].when.right",
+      "message": "\\"f\\" holds a number, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[14].when.right",
+      "message": "\\"f\\" holds a number, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[15].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[16].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[17].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[18].when.right",
+      "message": "\\"f\\" holds a number, but \\"list\\" is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[19].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     }
+    ]
+   }
+  ],
+  [
+   "date",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a date field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a date field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     },
+     {
+      "path": "logic[1].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[6].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is always true."
+     }
+    ]
+   }
+  ],
+  [
+   "consent",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[0].when.op",
+      "message": "\\"eq\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[1].when.op",
+      "message": "\\"eq\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[2].when.op",
+      "message": "\\"eq\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[3].when.op",
+      "message": "\\"eq\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[4].when.op",
+      "message": "\\"eq\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[5].when.op",
+      "message": "\\"neq\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[6].when.op",
+      "message": "\\"neq\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[7].when.op",
+      "message": "\\"neq\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[8].when.op",
+      "message": "\\"neq\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[9].when.op",
+      "message": "\\"neq\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a consent field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a consent field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     }
+    ]
+   }
+  ],
+  [
+   "list",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[0].when.op",
+      "message": "\\"eq\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[1].when.op",
+      "message": "\\"eq\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[2].when.op",
+      "message": "\\"eq\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[3].when.op",
+      "message": "\\"eq\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[4].when.op",
+      "message": "\\"eq\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[5].when.op",
+      "message": "\\"neq\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[6].when.op",
+      "message": "\\"neq\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[7].when.op",
+      "message": "\\"neq\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[8].when.op",
+      "message": "\\"neq\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[9].when.op",
+      "message": "\\"neq\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a list field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a list field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     },
+     {
+      "path": "logic[21].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[22].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[23].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[24].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     }
+    ]
+   }
+  ],
+  [
+   "table",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[0].when.op",
+      "message": "\\"eq\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[1].when.op",
+      "message": "\\"eq\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[2].when.op",
+      "message": "\\"eq\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[3].when.op",
+      "message": "\\"eq\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[4].when.op",
+      "message": "\\"eq\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[5].when.op",
+      "message": "\\"neq\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[6].when.op",
+      "message": "\\"neq\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[7].when.op",
+      "message": "\\"neq\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[8].when.op",
+      "message": "\\"neq\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[9].when.op",
+      "message": "\\"neq\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a table field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a table field."
+     }
+    ],
+    "warnings": []
+   }
+  ],
+  [
+   "media-notes",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[0].when.op",
+      "message": "\\"eq\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[1].when.op",
+      "message": "\\"eq\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[2].when.op",
+      "message": "\\"eq\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[3].when.op",
+      "message": "\\"eq\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[4].when.op",
+      "message": "\\"eq\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[5].when.op",
+      "message": "\\"neq\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[6].when.op",
+      "message": "\\"neq\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[7].when.op",
+      "message": "\\"neq\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[8].when.op",
+      "message": "\\"neq\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[9].when.op",
+      "message": "\\"neq\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a media-notes field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a media-notes field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     }
+    ]
+   }
+  ],
+  [
+   "text-highlights",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[0].when.op",
+      "message": "\\"eq\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[1].when.op",
+      "message": "\\"eq\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[2].when.op",
+      "message": "\\"eq\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[3].when.op",
+      "message": "\\"eq\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[4].when.op",
+      "message": "\\"eq\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[5].when.op",
+      "message": "\\"neq\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[6].when.op",
+      "message": "\\"neq\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[7].when.op",
+      "message": "\\"neq\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[8].when.op",
+      "message": "\\"neq\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[9].when.op",
+      "message": "\\"neq\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a text-highlights field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a text-highlights field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     }
+    ]
+   }
+  ],
+  [
+   "photo",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[0].when.op",
+      "message": "\\"eq\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[1].when.op",
+      "message": "\\"eq\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[2].when.op",
+      "message": "\\"eq\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[3].when.op",
+      "message": "\\"eq\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[4].when.op",
+      "message": "\\"eq\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[5].when.op",
+      "message": "\\"neq\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[6].when.op",
+      "message": "\\"neq\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[7].when.op",
+      "message": "\\"neq\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[8].when.op",
+      "message": "\\"neq\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[9].when.op",
+      "message": "\\"neq\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[15].when.op",
+      "message": "\\"in\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[16].when.op",
+      "message": "\\"in\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[17].when.op",
+      "message": "\\"in\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[18].when.op",
+      "message": "\\"in\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[19].when.op",
+      "message": "\\"in\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a photo field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a photo field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "blocks[0].props.optionsFrom",
+      "message": "Only single choice, multiple choice and dropdown questions take options from the app."
+     },
+     {
+      "path": "blocks[0].props.prefill",
+      "message": "Only single choice, multiple choice and dropdown questions are filled in from a link."
+     },
+     {
+      "path": "blocks[0].props.other",
+      "message": "Only single choice, multiple choice and dropdown questions take an \\"Other\\" answer."
+     }
+    ]
+   }
+  ],
+  [
+   "calculated",
+   {
+    "ok": false,
+    "issues": [
+     {
+      "path": "logic[20].when.op",
+      "message": "\\"contains\\" does not apply to a calculated field."
+     },
+     {
+      "path": "logic[21].when.op",
+      "message": "\\"contains\\" does not apply to a calculated field."
+     },
+     {
+      "path": "logic[22].when.op",
+      "message": "\\"contains\\" does not apply to a calculated field."
+     },
+     {
+      "path": "logic[23].when.op",
+      "message": "\\"contains\\" does not apply to a calculated field."
+     },
+     {
+      "path": "logic[24].when.op",
+      "message": "\\"contains\\" does not apply to a calculated field."
+     }
+    ],
+    "warnings": [
+     {
+      "path": "logic[1].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[2].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[3].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[4].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is never true."
+     },
+     {
+      "path": "logic[6].when.right",
+      "message": "\\"f\\" holds a string, but 3 is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[7].when.right",
+      "message": "\\"f\\" holds a string, but true is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[8].when.right",
+      "message": "\\"f\\" holds a string, but [\\"list\\"] is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[9].when.right",
+      "message": "\\"f\\" holds a string, but null is not one; this comparison is always true."
+     },
+     {
+      "path": "logic[10].when.op",
+      "message": "\\"lt\\" compares numbers, but \\"f\\" holds a string; it is never true."
+     },
+     {
+      "path": "logic[11].when.op",
+      "message": "\\"lt\\" compares numbers, but \\"f\\" holds a string; it is never true."
+     },
+     {
+      "path": "logic[12].when.op",
+      "message": "\\"lt\\" compares numbers, but \\"f\\" holds a string; it is never true."
+     },
+     {
+      "path": "logic[13].when.op",
+      "message": "\\"lt\\" compares numbers, but \\"f\\" holds a string; it is never true."
+     },
+     {
+      "path": "logic[14].when.op",
+      "message": "\\"lt\\" compares numbers, but \\"f\\" holds a string; it is never true."
+     },
+     {
+      "path": "logic[15].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[16].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[17].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     },
+     {
+      "path": "logic[19].when.right",
+      "message": "\`in\` needs a list of values; it never matches."
+     }
+    ]
+   }
+  ]
+ ],
+ "own": {
+  "ok": true,
+  "form": {
+   "schemaVersion": 1,
+   "id": "own-options",
+   "title": "Form own-options",
+   "blocks": [
+    {
+     "kind": "field",
+     "id": "pick",
+     "key": "pick",
+     "type": "single-choice",
+     "label": "Label pick",
+     "props": {
+      "options": [
+       {
+        "value": "a"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "field",
+     "id": "calc",
+     "key": "calc",
+     "type": "calculated",
+     "label": "Label calc",
+     "props": {
+      "formula": "1"
+     }
+    },
+    {
+     "kind": "field",
+     "id": "calcn",
+     "key": "calcn",
+     "type": "calculated",
+     "label": "Label calcn",
+     "props": {
+      "formula": "1",
+      "format": "percent"
+     }
+    },
+    {
+     "kind": "field",
+     "id": "after",
+     "key": "after",
+     "type": "short-text",
+     "label": "Label after"
+    }
+   ],
+   "endings": [
+    {
+     "id": "default",
+     "title": "Thanks"
+    }
+   ],
+   "logic": [
+    {
+     "id": "x1",
+     "when": {
+      "op": "eq",
+      "left": {
+       "field": "pick"
+      },
+      "right": {
+       "value": "zzz"
+      }
+     },
+     "effect": "hide",
+     "target": "after"
+    },
+    {
+     "id": "x2",
+     "when": {
+      "op": "in",
+      "left": {
+       "field": "pick"
+      },
+      "right": {
+       "value": [
+        "a",
+        "q"
+       ]
+      }
+     },
+     "effect": "hide",
+     "target": "after"
+    },
+    {
+     "id": "x3",
+     "when": {
+      "op": "eq",
+      "left": {
+       "field": "calc"
+      },
+      "right": {
+       "value": "t"
+      }
+     },
+     "effect": "hide",
+     "target": "after"
+    },
+    {
+     "id": "x4",
+     "when": {
+      "op": "eq",
+      "left": {
+       "field": "calcn"
+      },
+      "right": {
+       "value": "t"
+      }
+     },
+     "effect": "hide",
+     "target": "after"
+    }
+   ]
+  },
+  "warnings": [
+   {
+    "path": "logic[0].when.right",
+    "message": "\\"zzz\\" is not an option of \\"pick\\"; this comparison is never true."
+   },
+   {
+    "path": "logic[1].when.right",
+    "message": "\\"q\\" is not an option of \\"pick\\"; this comparison is never true."
+   },
+   {
+    "path": "logic[3].when.right",
+    "message": "\\"calcn\\" holds a number, but \\"t\\" is not one; this comparison is never true."
+   }
+  ]
+ }
+}"
+`;
+
+exports[`golden: validateSubmission > accepts and normalizes every built-in kind 1`] = `
+"[
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "short": "  hello ",
+    "long": "Long answer",
+    "email": "ada@example.com",
+    "phone": "+1 (555) 010-0199",
+    "rating": 7,
+    "nps": 9,
+    "single": "typed other",
+    "multi": [
+     "a",
+     "c",
+     "my own"
+    ],
+    "yes": true,
+    "drop": "x",
+    "num": 2.5,
+    "day": "2026-05-01",
+    "agree": true,
+    "items": [
+     "one",
+     "two"
+    ],
+    "plan": [
+     {
+      "what": "Rent",
+      "cost": "100"
+     },
+     {
+      "what": "Food",
+      "cost": "20"
+     }
+    ],
+    "notes": [
+     {
+      "at": 5,
+      "text": "early"
+     },
+     {
+      "at": 20,
+      "text": "later"
+     }
+    ],
+    "marks": [
+     {
+      "start": 4,
+      "end": 9,
+      "quote": "quick",
+      "note": "fast"
+     }
+    ],
+    "pics": [
+     {
+      "id": "p1",
+      "name": "p1.jpg",
+      "type": "image/jpeg",
+      "size": 1000
+     },
+     {
+      "id": "p2",
+      "name": "p2.jpg",
+      "type": "image/png",
+      "size": 1000
+     }
+    ],
+    "total": 136
+   },
+   "hidden": {
+    "utm": "news",
+    "uid": "u1",
+    "count": 3
+   },
+   "context": {
+    "owner": "Riverside Gym"
+   },
+   "ending": "big",
+   "ignored": [
+    "hidden.owner",
+    "hidden.extra",
+    "unknown"
+   ]
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "short": "  hello ",
+    "long": "Long answer",
+    "email": "ada@example.com",
+    "phone": "+1 (555) 010-0199",
+    "rating": 7,
+    "nps": 9,
+    "single": "typed other",
+    "multi": [
+     "a",
+     "c",
+     "my own"
+    ],
+    "yes": false,
+    "drop": "x",
+    "num": 2.5,
+    "day": "2026-05-01",
+    "agree": true,
+    "items": [
+     "one",
+     "two"
+    ],
+    "plan": [
+     {
+      "what": "Rent",
+      "cost": "100"
+     },
+     {
+      "what": "Food",
+      "cost": "20"
+     }
+    ],
+    "notes": [
+     {
+      "at": 5,
+      "text": "early"
+     },
+     {
+      "at": 20,
+      "text": "later"
+     }
+    ],
+    "marks": [
+     {
+      "start": 4,
+      "end": 9,
+      "quote": "quick",
+      "note": "fast"
+     }
+    ],
+    "pics": [
+     {
+      "id": "p1",
+      "name": "p1.jpg",
+      "type": "image/jpeg",
+      "size": 1000
+     },
+     {
+      "id": "p2",
+      "name": "p2.jpg",
+      "type": "image/png",
+      "size": 1000
+     }
+    ],
+    "total": 136
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "big",
+   "ignored": [
+    "unknown"
+   ]
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "short": "only",
+    "label": "only"
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "default",
+   "ignored": []
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "draft",
+   "answers": {
+    "short": "  hello ",
+    "long": "Long answer",
+    "email": "ada@example.com",
+    "phone": "+1 (555) 010-0199",
+    "rating": 7,
+    "nps": 9,
+    "single": "typed other",
+    "multi": [
+     "a",
+     "c",
+     "my own"
+    ],
+    "yes": true,
+    "drop": "x",
+    "num": 2.5,
+    "day": "2026-05-01",
+    "agree": true,
+    "items": [
+     "one",
+     "two"
+    ],
+    "plan": [
+     {
+      "what": "Rent",
+      "cost": "100"
+     },
+     {
+      "what": "Food",
+      "cost": "20"
+     }
+    ],
+    "notes": [
+     {
+      "at": 5,
+      "text": "early"
+     },
+     {
+      "at": 20,
+      "text": "later"
+     }
+    ],
+    "marks": [
+     {
+      "start": 4,
+      "end": 9,
+      "quote": "quick",
+      "note": "fast"
+     }
+    ],
+    "pics": [
+     {
+      "id": "p1",
+      "name": "p1.jpg",
+      "type": "image/jpeg",
+      "size": 1000
+     },
+     {
+      "id": "p2",
+      "name": "p2.jpg",
+      "type": "image/png",
+      "size": 1000
+     }
+    ],
+    "total": 136
+   },
+   "hidden": {},
+   "context": {},
+   "ending": null,
+   "ignored": [
+    "unknown"
+   ]
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "short": "  hello ",
+    "long": "Long answer",
+    "phone": "+1 (555) 010-0199",
+    "rating": 7,
+    "nps": 9,
+    "single": "typed other",
+    "multi": [
+     "a",
+     "c",
+     "my own"
+    ],
+    "yes": true,
+    "drop": "x",
+    "num": 2.5,
+    "day": "2026-05-01",
+    "agree": true,
+    "items": [
+     "one",
+     "two"
+    ],
+    "plan": [
+     {
+      "what": "Rent",
+      "cost": "100"
+     },
+     {
+      "what": "Food",
+      "cost": "20"
+     }
+    ],
+    "notes": [
+     {
+      "at": 5,
+      "text": "early"
+     },
+     {
+      "at": 20,
+      "text": "later"
+     }
+    ],
+    "marks": [
+     {
+      "start": 4,
+      "end": 9,
+      "quote": "quick",
+      "note": "fast"
+     }
+    ],
+    "pics": [
+     {
+      "id": "p1",
+      "name": "p1.jpg",
+      "type": "image/jpeg",
+      "size": 1000
+     },
+     {
+      "id": "p2",
+      "name": "p2.jpg",
+      "type": "image/png",
+      "size": 1000
+     }
+    ],
+    "total": 136
+   },
+   "hidden": {
+    "utm": "x"
+   },
+   "context": {},
+   "ending": "big",
+   "ignored": [
+    "email",
+    "unknown",
+    "hidden.uid"
+   ]
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "short": "  hello ",
+    "long": "Long answer",
+    "email": "ada@example.com",
+    "phone": "+1 (555) 010-0199",
+    "rating": 7,
+    "nps": 9,
+    "single": "typed other",
+    "multi": [
+     "a",
+     "c",
+     "my own"
+    ],
+    "yes": false,
+    "drop": "x",
+    "num": 2.5,
+    "day": "2026-05-01",
+    "agree": true,
+    "items": [
+     "one",
+     "two"
+    ],
+    "plan": [
+     {
+      "what": "Rent",
+      "cost": "100"
+     },
+     {
+      "what": "Food",
+      "cost": "20"
+     }
+    ],
+    "notes": [
+     {
+      "at": 5,
+      "text": "early"
+     },
+     {
+      "at": 20,
+      "text": "later"
+     }
+    ],
+    "marks": [
+     {
+      "start": 4,
+      "end": 9,
+      "quote": "quick",
+      "note": "fast"
+     }
+    ],
+    "pics": [
+     {
+      "id": "p1",
+      "name": "p1.jpg",
+      "type": "image/jpeg",
+      "size": 1000
+     },
+     {
+      "id": "p2",
+      "name": "p2.jpg",
+      "type": "image/png",
+      "size": 1000
+     }
+    ],
+    "total": 136,
+    "label": "  hello ",
+    "after": "off path"
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "big",
+   "ignored": [
+    "unknown"
+   ]
+  }
+ }
+]"
+`;
+
+exports[`golden: validateSubmission > checks host options, filters and typed Other answers 1`] = `
+"[
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "location": "riverside",
+    "coach": "c-sam",
+    "helpers": [
+     "c-ada",
+     "typed"
+    ]
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "default",
+   "ignored": []
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "coach": "This question needs an answer."
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "coach": "c-zoe"
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "default",
+   "ignored": []
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "coach": "c-zoe"
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "default",
+   "ignored": []
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "coach": "own",
+    "room": "a",
+    "proto": "p"
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "default",
+   "ignored": [
+    "bad-source"
+   ]
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "helpers": "Choose from the options."
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "draft",
+   "answers": {
+    "location": "hilltop",
+    "coach": "c-zoe"
+   },
+   "hidden": {},
+   "context": {},
+   "ending": null,
+   "ignored": []
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "coach": "Choose one of the options."
+  }
+ }
+]"
+`;
+
+exports[`golden: validateSubmission > checks the forms the fixtures define 1`] = `
+"[
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "overall": 5,
+    "contact_me": true,
+    "name": "Ada",
+    "email": "ada@example.com"
+   },
+   "hidden": {},
+   "context": {
+    "owner": "Sam"
+   },
+   "ending": "default",
+   "ignored": []
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "overall": 2,
+    "improve": "More"
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "default",
+   "ignored": []
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "name": "This question needs an answer.",
+   "email": "This question needs an answer."
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "recommend": 10
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "promoter",
+   "ignored": []
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "frequency": "Choose one of the options."
+  }
+ }
+]"
+`;
+
+exports[`golden: validateSubmission > refuses an invalid answer of every built-in kind 1`] = `
+"[
+ [
+  {
+   "ok": false,
+   "errors": {
+    "short": "Keep it under 10 characters."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "short": "Keep it under 10 characters."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "email": "Enter an email address like name@example.com."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "email": "Enter an email address like name@example.com."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "phone": "Enter a phone number with 7 to 15 digits."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "phone": "Enter a phone number with 7 to 15 digits."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "rating": "Choose a rating from 1 to 7."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "rating": "Choose a rating from 1 to 7."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "rating": "Choose a rating from 1 to 7."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "rating": "Choose a rating from 1 to 7."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "nps": "Choose a score from 0 to 10."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "nps": "Choose a score from 0 to 10."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "single": "Choose one of the options."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "single": "Choose one of the options."
+   }
+  }
+ ],
+ [
+  {
+   "ok": true,
+   "submission": {
+    "status": "completed",
+    "answers": {
+     "short": "ok",
+     "label": "ok"
+    },
+    "hidden": {},
+    "context": {},
+    "ending": "default",
+    "ignored": []
+   }
+  },
+  {
+   "ok": true,
+   "submission": {
+    "status": "draft",
+    "answers": {
+     "short": "ok",
+     "label": "ok"
+    },
+    "hidden": {},
+    "context": {},
+    "ending": null,
+    "ignored": []
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "multi": "Choose from the options."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "multi": "Choose from the options."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "multi": "Choose from the options."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "multi": "Choose from the options."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "drop": "Choose one of the options."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "drop": "Choose one of the options."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "yes": "Choose yes or no."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "yes": "Choose yes or no."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "num": "Enter a number from 0 to 10."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "num": "Enter a number from 0 to 10."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "num": "Enter a number in steps of 0.5."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "num": "Enter a number in steps of 0.5."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "day": "Enter a date like 2026-10-22."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "day": "Enter a date like 2026-10-22."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "day": "Choose a date from 2026-01-01 to 2026-12-31."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "day": "Choose a date from 2026-01-01 to 2026-12-31."
+   }
+  }
+ ],
+ [
+  {
+   "ok": true,
+   "submission": {
+    "status": "completed",
+    "answers": {
+     "short": "ok",
+     "label": "ok"
+    },
+    "hidden": {},
+    "context": {},
+    "ending": "default",
+    "ignored": []
+   }
+  },
+  {
+   "ok": true,
+   "submission": {
+    "status": "draft",
+    "answers": {
+     "short": "ok",
+     "label": "ok"
+    },
+    "hidden": {},
+    "context": {},
+    "ending": null,
+    "ignored": []
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "items": "Add at most 3 items."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "items": "Add at most 3 items."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "items": "Keep each item under 20 characters."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "items": "Keep each item under 20 characters."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "plan": "Fill in at most 2 rows."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "plan": "Fill in at most 2 rows."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "plan": "An answer names a column this question doesn't have."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "plan": "An answer names a column this question doesn't have."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "notes": "Each note needs a time."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "notes": "Each note needs a time."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "marks": "Add a note to each highlight."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "marks": "Add a note to each highlight."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "marks": "A highlight doesn't match the text."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "marks": "A highlight doesn't match the text."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "pics": "Add at most 2 photos."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "pics": "Add at most 2 photos."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "pics": "Use a JPEG or PNG photo."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "pics": "Use a JPEG or PNG photo."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "pics": "Each photo must be 1 MB or smaller."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "pics": "Each photo must be 1 MB or smaller."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "pics": "Each photo can be added once."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "pics": "Each photo can be added once."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "pics": "Add a photo."
+   }
+  },
+  {
+   "ok": false,
+   "errors": {
+    "pics": "Add a photo."
+   }
+  }
+ ],
+ [
+  {
+   "ok": false,
+   "errors": {
+    "short": "This question needs an answer."
+   }
+  },
+  {
+   "ok": true,
+   "submission": {
+    "status": "draft",
+    "answers": {},
+    "hidden": {},
+    "context": {},
+    "ending": null,
+    "ignored": []
+   }
+  }
+ ]
+]"
+`;
+
+exports[`golden: validateSubmission > refuses malformed bodies and invalid definitions 1`] = `
+"[
+ {
+  "ok": false,
+  "errors": {
+   "": "Malformed submission."
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "": "Malformed submission."
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "": "Malformed submission."
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "": "Malformed submission."
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "": "Malformed submission."
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "": "Invalid form definition: blocks[0].props.max: Must be a whole number from 2 to 10.; blocks[1].props.columns: Must be a list of 1 to 6 columns.; blocks[2].type: Must be heading or text."
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "": "Invalid form definition: blocks[0].type: Unknown field type \\"no-such-type\\"."
+  }
+ },
+ {
+  "ok": false,
+  "issues": [
+   {
+    "path": "blocks[0].props.max",
+    "message": "Must be a whole number from 2 to 10."
+   },
+   {
+    "path": "blocks[1].props.columns",
+    "message": "Must be a list of 1 to 6 columns."
+   },
+   {
+    "path": "blocks[2].type",
+    "message": "Must be heading or text."
+   }
+  ],
+  "warnings": []
+ }
+]"
+`;
+
+exports[`golden: validateSubmission > replays event logs, including a submit and answers after it 1`] = `
+"[
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "short": "ab",
+    "rating": 3,
+    "label": "ab"
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "default",
+   "ignored": []
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "short": "  hello ",
+    "long": "Long answer",
+    "email": "ada@example.com",
+    "phone": "+1 (555) 010-0199",
+    "rating": 7,
+    "nps": 9,
+    "single": "typed other",
+    "multi": [
+     "a",
+     "c",
+     "my own"
+    ],
+    "yes": true,
+    "drop": "x",
+    "num": 2.5,
+    "day": "2026-05-01",
+    "agree": true,
+    "items": [
+     "one",
+     "two"
+    ],
+    "plan": [
+     {
+      "what": "Rent",
+      "cost": "100"
+     },
+     {
+      "what": "Food",
+      "cost": "20"
+     }
+    ],
+    "notes": [
+     {
+      "at": 5,
+      "text": "early"
+     },
+     {
+      "at": 20,
+      "text": "later"
+     }
+    ],
+    "marks": [
+     {
+      "start": 4,
+      "end": 9,
+      "quote": "quick",
+      "note": "fast"
+     }
+    ],
+    "pics": [
+     {
+      "id": "p1",
+      "name": "p1.jpg",
+      "type": "image/jpeg",
+      "size": 1000
+     },
+     {
+      "id": "p2",
+      "name": "p2.jpg",
+      "type": "image/png",
+      "size": 1000
+     }
+    ],
+    "total": 136
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "big",
+   "ignored": [
+    "unknown"
+   ]
+  }
+ },
+ {
+  "ok": true,
+  "submission": {
+   "status": "completed",
+   "answers": {
+    "short": "x",
+    "label": "x"
+   },
+   "hidden": {},
+   "context": {},
+   "ending": "default",
+   "ignored": []
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "": "Too many events: 1 sent; the limit is 0 before compaction."
+  }
+ },
+ {
+  "ok": false,
+  "errors": {
+   "": "Too much data: the answers hold more than 1 values (items, rows and cells); the limit is 1."
+  }
+ }
+]"
+`;

@@ -1,22 +1,26 @@
 import { useState } from "react";
-import Constants from "expo-constants";
 import { Stack } from "expo-router";
 import { Alert } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { useSession } from "@marktiderman/genesis-native";
+import { useBlockReload } from "@marktiderman/genesis-native/updates";
 import { SettingsPage, getSettingsPageStackOptions, type SettingsPageDangerousAction } from "@marktiderman/genesis-ui-native";
 import starter from "../../../../starter.config";
 import { copy } from "@/copy";
 import { deleteAccount } from "@/lib/account";
 import { supabase } from "@/lib/supabase";
+import { useAppVersion } from "@/lib/updates";
 
 const t = copy.settings;
 
-/** The Settings tab: who is signed in, the app version, sign out and (`features.accountDeletion`) delete account. */
+/** The Settings tab: who is signed in, the version signature (`features.updates`), sign out and (`features.accountDeletion`) delete account. */
 export default function SettingsScreen() {
   const { session } = useSession<Session>();
   // While the request runs, "Delete account" does nothing (each try also goes through the confirmation).
   const [busy, setBusy] = useState(false);
+  // An update never reloads the app while the deletion request runs.
+  useBlockReload(busy);
+  const version = useAppVersion();
 
   const runDelete = async () => {
     setBusy(true);
@@ -56,7 +60,7 @@ export default function SettingsScreen() {
         testID="settings"
         sections={[
           { id: "account", title: t.accountSection, rows: [{ id: "email", title: t.signedInAs, subtitle: session?.user.email ?? "" }] },
-          { id: "about", title: t.aboutSection, rows: [{ id: "version", title: t.version, subtitle: Constants.expoConfig?.version ?? "" }] },
+          { id: "about", title: t.aboutSection, rows: [{ id: "version", title: t.version, subtitle: version }] },
         ]}
         dangerousActions={dangerousActions}
       />

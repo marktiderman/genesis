@@ -42,9 +42,7 @@ function toDom<T extends AnyProps>(
   void pointerEvents;
   void hitSlop;
   void collapsable;
-  void style;
   void importantForAccessibility;
-  void accessibilityElementsHidden;
   void accessibilityViewIsModal;
   void accessibilityLiveRegion;
 
@@ -52,6 +50,7 @@ function toDom<T extends AnyProps>(
   if (testID !== undefined) out["data-testid"] = testID;
   if (accessibilityLabel !== undefined) out["aria-label"] = accessibilityLabel;
   if (accessibilityHint !== undefined) out["aria-describedby"] = accessibilityHint;
+  if (accessibilityElementsHidden) out["aria-hidden"] = "true";
   if (accessibilityRole !== undefined) out["role"] = accessibilityRole;
   else if (defaultRole) out["role"] = defaultRole;
   if (accessibilityState !== undefined) {
@@ -81,6 +80,8 @@ function toDom<T extends AnyProps>(
     if (v.text !== undefined) out["aria-valuetext"] = v.text;
   }
   if (className !== undefined) out["className"] = className;
+  // RN styles aren't CSS; tests read them back with `JSON.parse(el.dataset.style)`.
+  if (style !== undefined) out["data-style"] = JSON.stringify(style);
   if (onPress) out["onClick"] = onPress;
   if (onLongPress) out["onContextMenu"] = onLongPress;
   return out;
@@ -364,6 +365,17 @@ export const RefreshControl = (props: AnyProps) =>
   React.createElement("div", { "data-testid": (props as AnyProps).testID });
 
 export const StatusBar = (_props: AnyProps) => null;
+
+export const StyleSheet = {
+  hairlineWidth: 0.5,
+  create<T>(styles: T): T {
+    return styles;
+  },
+  flatten(style: unknown): Record<string, unknown> {
+    if (Array.isArray(style)) return Object.assign({}, ...style.map((s) => StyleSheet.flatten(s)));
+    return (style as Record<string, unknown>) ?? {};
+  },
+};
 
 /** Records the names, like the real one does in its opaque value. */
 export function PlatformColor(...names: string[]) {

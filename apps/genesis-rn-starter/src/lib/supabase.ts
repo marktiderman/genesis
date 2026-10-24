@@ -4,6 +4,7 @@
  */
 import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ExpoCrypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import { AppState } from "react-native";
 import { createGenesisSupabase, type SessionStorage } from "@marktiderman/genesis-supabase";
@@ -56,6 +57,8 @@ export const supabase = createGenesisSupabase({
   publishableKey: env.supabasePublishableKey,
   storage,
   platform: "native",
+  // Hermes has no crypto.subtle: without this, supabase-js would send PKCE challenges as "plain".
+  crypto: ExpoCrypto,
   options: { auth: { storageKey: sessionKey } },
 });
 

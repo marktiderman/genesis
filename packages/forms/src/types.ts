@@ -56,8 +56,14 @@ export interface OptionsSource {
 export interface ContentBlock {
   kind: "content";
   id: string;
-  type: "heading" | "text";
+  /**
+   * A registered content kind: `heading` and `text` are built in; a host adds others with
+   * `registerContentType`.
+   */
+  type: "heading" | "text" | (string & {});
   text: string;
+  /** Settings for a host's own content kind, checked by its `checkProps`. */
+  props?: Record<string, Json>;
 }
 
 export interface PageBreakBlock {

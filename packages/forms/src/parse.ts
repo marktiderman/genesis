@@ -1,11 +1,11 @@
-import { CALCULATED_TYPE, MAX_CALCULATED_DECIMALS, MAX_FORM_FORMULA_LENGTH } from "./calculated";
+import { CALCULATED_TYPE, MAX_FORM_FORMULA_LENGTH } from "./calculated";
 import { isJson } from "./events";
-import { getFieldType, isHttpsUrl, isIsoDate, OPTION_LIMITS } from "./fields";
+import { choiceKind, getContentType, getFieldType, isHttpsUrl, listContentTypes, literalType, OPTION_LIMITS, type LiteralType } from "./fields";
 import { isPrefillParam, MAX_PREFILL_PARAM_LENGTH } from "./options";
 import { parseFormula } from "./formula";
 import { recallRefs } from "./recall";
-import { isPhotoFormat, MAX_PHOTO_FILES, MAX_PHOTO_SIZE_MB, PHOTO_TYPE } from "./photo";
-import { MAX_TABLE_COLUMNS } from "./structured";
+import { PHOTO_TYPE } from "./photo";
+import { propsChecker, RESERVED_NAMES as RESERVED, type PropsCheck } from "./props-check";
 import type { Condition, FormDefinition, Operator } from "./types";
 
 /** A value for a message. Never throws: parseForm accepts any input, including BigInts, cycles and deep nesting. */
@@ -34,29 +34,6 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
 
 const isInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
 
-/** The JSON type a comparison operand must have to match a built-in field type's value. */
-const LITERAL_TYPE: Readonly<Record<string, "string" | "number" | "boolean">> = {
-  "short-text": "string",
-  "long-text": "string",
-  email: "string",
-  phone: "string",
-  rating: "number",
-  nps: "number",
-  "single-choice": "string",
-  "multi-choice": "string",
-  "yes-no": "boolean",
-  list: "string",
-  dropdown: "string",
-  number: "number",
-  date: "string",
-  consent: "boolean",
-  // A calculated field holds a number unless its format says text; see `literalType`.
-  calculated: "number",
-};
-
-/** Field types whose answer is one of `props.options`. */
-const CHOICE_TYPES: ReadonlySet<string> = new Set(["single-choice", "multi-choice", "dropdown"]);
-
 const ORDERING: ReadonlySet<string> = new Set<Operator>(["lt", "lte", "gt", "gte"]);
 
 const OPERATORS: ReadonlySet<string> = new Set<Operator>([
@@ -72,21 +49,21 @@ const OPERATORS: ReadonlySet<string> = new Set<Operator>([
   "empty",
 ]);
 
-/**
- * Names an id, key or hidden input may not take: they collide with
- * `Object.prototype` (`__proto__`, `constructor`, `toString`…) when used as a
- * record key.
- */
-const RESERVED: ReadonlySet<string> = new Set(Object.getOwnPropertyNames(Object.prototype));
-
 /** Deepest nesting of `all` / `any` / `not` a condition may have. */
 const MAX_CONDITION_DEPTH = 32;
+
+/** The registered content kinds, for a message: "heading or text". */
+function contentKinds(): string {
+  const names = listContentTypes().map((c) => c.type);
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}` : (names[0] ?? "a registered content type");
+}
 
 /**
  * Check a definition before it is stored or rendered: structure, the types of
  * text fields, unique ids and keys, known field types, references that
- * resolve, operators that fit the field type. Warnings flag things that work
- * but are probably mistakes. Never throws, whatever the input.
+ * resolve, operators that fit the field type. Each field and content kind
+ * checks its own `props` (`checkProps` in the registry). Warnings flag things
+ * that work but are probably mistakes. Never throws, whatever the input.
  */
 export function parseForm(input: unknown): ParseResult {
   const issues: FormIssue[] = [];
@@ -145,104 +122,16 @@ export function parseForm(input: unknown): ParseResult {
     return true;
   };
 
-  /** An optional whole number of at least `floor`. */
-  const optionalInt = (v: unknown, path: string, floor: number) => {
-    if (v !== undefined && !(isInt(v) && v >= floor)) issue(path, `Must be a whole number of ${floor} or more.`);
-  };
-  /** `low` may not exceed `high` when both are whole numbers. */
-  const ordered = (low: unknown, high: unknown, path: string, what: string) => {
-    if (isInt(low) && isInt(high) && low > high) issue(path, `Can't be more than the ${what}.`);
-  };
-  /** The props of the structured types (list, table, media-notes, text-highlights). */
-  const structuredProps = (type: string, props: Record<string, unknown>, path: string) => {
-    if (type === "list") {
-      optionalInt(props.min, `${path}.min`, 0);
-      optionalInt(props.max, `${path}.max`, 1);
-      optionalInt(props.itemMaxLength, `${path}.itemMaxLength`, 1);
-      optionalText(props.placeholder, `${path}.placeholder`);
-      ordered(props.min, props.max ?? 10, `${path}.min`, "most items");
-    } else if (type === "table") {
-      const columns = props.columns;
-      if (!Array.isArray(columns) || columns.length < 1 || columns.length > MAX_TABLE_COLUMNS) {
-        issue(`${path}.columns`, `Must be a list of 1 to ${MAX_TABLE_COLUMNS} columns.`);
-      } else {
-        const seen = new Set<string>();
-        columns.forEach((c, j) => {
-          const at = `${path}.columns[${j}]`;
-          if (!isObject(c)) return issue(at, "Each column needs a key and a label.");
-          if (name(c.key, `${at}.key`, "A column key")) {
-            if (seen.has(c.key)) issue(`${at}.key`, `Duplicate column key "${c.key}".`);
-            seen.add(c.key);
-          }
-          text(c.label, `${at}.label`);
-          optionalBoolean(c.long, `${at}.long`);
-        });
-      }
-      optionalInt(props.minRows, `${path}.minRows`, 0);
-      optionalInt(props.maxRows, `${path}.maxRows`, 1);
-      ordered(props.minRows, props.maxRows ?? 3, `${path}.minRows`, "most rows");
-    } else if (type === "media-notes") {
-      optionalInt(props.maxNotes, `${path}.maxNotes`, 1);
-      optionalInt(props.textMaxLength, `${path}.textMaxLength`, 1);
-    } else if (type === "text-highlights") {
-      optionalText(props.text, `${path}.text`);
-      optionalInt(props.maxHighlights, `${path}.maxHighlights`, 1);
-    } else if (type === CALCULATED_TYPE) {
-      // The formula itself is checked once every key is known, below.
-      if (props.format !== undefined && props.format !== "number" && props.format !== "percent" && props.format !== "text") {
-        issue(`${path}.format`, "Must be number, percent or text.");
-      }
-      if (props.decimals !== undefined && !(isInt(props.decimals) && props.decimals >= 0 && props.decimals <= MAX_CALCULATED_DECIMALS)) {
-        issue(`${path}.decimals`, `Must be a whole number from 0 to ${MAX_CALCULATED_DECIMALS}.`);
-      }
-    }
-  };
-
-  const isFiniteNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-  /** The props of the scale, number, date and consent types. */
-  const fieldProps = (type: string, props: Record<string, unknown>, path: string) => {
-    if (type === "rating" || type === "nps") {
-      optionalText(props.lowLabel, `${path}.lowLabel`);
-      optionalText(props.highLabel, `${path}.highLabel`);
-    }
-    if (type === "rating" && props.display !== undefined && props.display !== "numbers" && props.display !== "stars") {
-      issue(`${path}.display`, "Must be numbers or stars.");
-    }
-    if (type === "number") {
-      for (const k of ["min", "max", "step"] as const) {
-        if (props[k] !== undefined && !isFiniteNumber(props[k])) issue(`${path}.${k}`, "Must be a number.");
-      }
-      if (isFiniteNumber(props.step) && props.step <= 0) issue(`${path}.step`, "Must be above 0.");
-      if (isFiniteNumber(props.min) && isFiniteNumber(props.max) && props.min > props.max) {
-        issue(`${path}.min`, "Can't be more than the largest number.");
-      }
-    }
-    if (type === "date") {
-      for (const k of ["min", "max"] as const) {
-        if (props[k] !== undefined && !(typeof props[k] === "string" && isIsoDate(props[k]))) {
-          issue(`${path}.${k}`, "Must be a date like 2026-10-22.");
-        }
-      }
-      if (typeof props.min === "string" && typeof props.max === "string" && isIsoDate(props.min) && isIsoDate(props.max) && props.min > props.max) {
-        issue(`${path}.min`, "Can't be after the latest date.");
-      }
-    }
-    if (type === "consent") optionalText(props.text, `${path}.text`);
-    if (type === PHOTO_TYPE) {
-      if (props.maxFiles !== undefined && !(isInt(props.maxFiles) && props.maxFiles >= 1 && props.maxFiles <= MAX_PHOTO_FILES)) {
-        issue(`${path}.maxFiles`, `Must be a whole number from 1 to ${MAX_PHOTO_FILES}.`);
-      }
-      if (props.maxSizeMb !== undefined && !(isInt(props.maxSizeMb) && props.maxSizeMb >= 1 && props.maxSizeMb <= MAX_PHOTO_SIZE_MB)) {
-        issue(`${path}.maxSizeMb`, `Must be a whole number from 1 to ${MAX_PHOTO_SIZE_MB}.`);
-      }
-      if (props.formats !== undefined) {
-        const formats = props.formats;
-        if (!Array.isArray(formats) || formats.length === 0 || !formats.every(isPhotoFormat)) {
-          issue(`${path}.formats`, "Must be a list of one or more of jpeg, png, heic and webp.");
-        } else if (new Set(formats).size !== formats.length) {
-          issue(`${path}.formats`, "Name each format once.");
-        }
-      }
+  /**
+   * A kind's own props check (`checkProps`), reporting under `path`. Never throws: a check that
+   * does is one issue, so `parseForm` stays safe for a plugin's manifest.
+   */
+  const kindProps = (check: PropsCheck | undefined, props: Record<string, unknown>, path: string) => {
+    if (!check) return;
+    try {
+      check(props, propsChecker(path, issue));
+    } catch {
+      issue(path, "These settings couldn't be checked.");
     }
   };
 
@@ -287,8 +176,8 @@ export function parseForm(input: unknown): ParseResult {
   const tableColumnKeys = new Map<string, Set<string>>();
   /** Option values of fields with `props.options`, for the operand check. */
   const choices = new Map<string, Set<string>>();
-  /** Calculated fields that don't hold a number: `format: "text"` holds text, no format can hold either. */
-  const calculatedLiteral = new Map<string, "string" | undefined>();
+  /** The JSON type each field's answers have, when its kind says (`literal`), for the operand check. */
+  const literals = new Map<string, LiteralType | undefined>();
 
   input.blocks.forEach((block: unknown, i) => {
     const path = `blocks[${i}]`;
@@ -317,7 +206,7 @@ export function parseForm(input: unknown): ParseResult {
         if (from !== undefined) {
           if (!isObject(from) || from.source !== "host" || typeof from.key !== "string" || !from.key) {
             issue(`${path}.props.optionsFrom`, 'Must be { source: "host", key } with a non-empty key.');
-          } else if (typeof block.type === "string" && !CHOICE_TYPES.has(block.type)) {
+          } else if (typeof block.type === "string" && !choiceKind(block.type)) {
             warnings.push({ path: `${path}.props.optionsFrom`, message: "Only single choice, multiple choice and dropdown questions take options from the app." });
           }
           const filter = isObject(from) ? from.filter : undefined;
@@ -347,7 +236,7 @@ export function parseForm(input: unknown): ParseResult {
             );
           } else {
             optionalBoolean(prefill.hideWhenPrefilled, `${path}.props.prefill.hideWhenPrefilled`);
-            if (typeof block.type === "string" && !CHOICE_TYPES.has(block.type)) {
+            if (typeof block.type === "string" && !choiceKind(block.type)) {
               warnings.push({ path: `${path}.props.prefill`, message: "Only single choice, multiple choice and dropdown questions are filled in from a link." });
             }
           }
@@ -379,11 +268,12 @@ export function parseForm(input: unknown): ParseResult {
         if (other !== undefined) {
           if (other !== true && other !== false && !(isObject(other) && (other.label === undefined || typeof other.label === "string"))) {
             issue(`${path}.props.other`, "Must be true, false or { label }.");
-          } else if (other !== false && typeof block.type === "string" && !CHOICE_TYPES.has(block.type)) {
+          } else if (other !== false && typeof block.type === "string" && !choiceKind(block.type)) {
             warnings.push({ path: `${path}.props.other`, message: "Only single choice, multiple choice and dropdown questions take an \"Other\" answer." });
           }
         }
-        // Renderers draw one button per point, so the scale is bounded.
+        // Renderers draw one button per point, so the scale is bounded. Checked here rather than in
+        // the rating kind's `checkProps`, so issues keep the order they had before the registry.
         const { max, maxLength } = isObject(block.props) ? block.props : {};
         if (block.type === "rating" && max !== undefined && !(isInt(max) && max >= 2 && max <= 10)) {
           issue(`${path}.props.max`, "Must be a whole number from 2 to 10.");
@@ -394,19 +284,14 @@ export function parseForm(input: unknown): ParseResult {
       }
       // Checked with or without props: a table with no columns would block every submission.
       if (typeof block.type === "string" && (block.props === undefined || isObject(block.props))) {
-        structuredProps(block.type, block.props ?? {}, `${path}.props`);
-        fieldProps(block.type, block.props ?? {}, `${path}.props`);
+        kindProps(getFieldType(block.type)?.checkProps, block.props ?? {}, `${path}.props`);
       }
       if (validKey) {
         if (keys.has(block.key as string)) issue(`${path}.key`, `Duplicate key "${String(block.key)}".`);
         keys.set(block.key as string, block.id);
       }
       fieldTypes.set(block.id, typeof block.type === "string" ? block.type : "");
-      if (block.type === CALCULATED_TYPE) {
-        const format = isObject(block.props) ? block.props.format : undefined;
-        if (format === "text") calculatedLiteral.set(block.id, "string");
-        else if (format !== "number" && format !== "percent") calculatedLiteral.set(block.id, undefined);
-      }
+      literals.set(block.id, typeof block.type === "string" ? literalType(block.type, isObject(block.props) ? block.props : {}) : undefined);
       if (block.type === "table" && isObject(block.props) && Array.isArray(block.props.columns)) {
         tableColumnKeys.set(
           block.id,
@@ -414,8 +299,14 @@ export function parseForm(input: unknown): ParseResult {
         );
       }
     } else if (block.kind === "content") {
-      if (block.type !== "heading" && block.type !== "text") issue(`${path}.type`, "Must be heading or text.");
+      const content = typeof block.type === "string" ? getContentType(block.type) : undefined;
+      if (!content) issue(`${path}.type`, `Must be ${contentKinds()}.`);
       text(block.text, `${path}.text`);
+      if (content?.checkProps) {
+        // Only for a kind that reads its props: built-in content kinds keep ignoring them, as before.
+        if (block.props === undefined || (isObject(block.props) && isJson(block.props))) kindProps(content.checkProps, block.props ?? {}, `${path}.props`);
+        else issue(`${path}.props`, "Must be a JSON object.");
+      }
     } else if (block.kind === "page-break") {
       optionalText(block.title, `${path}.title`);
     } else {
@@ -558,8 +449,8 @@ export function parseForm(input: unknown): ParseResult {
     if (typeof left.field === "string" && fieldTypes.has(left.field)) {
       const fieldType = fieldTypes.get(left.field)!;
       what = `"${keyOf(left.field)}"`;
-      type = calculatedLiteral.has(left.field) ? calculatedLiteral.get(left.field) : LITERAL_TYPE[fieldType];
-      if (CHOICE_TYPES.has(fieldType)) options = choices.get(left.field);
+      type = literals.get(left.field);
+      if (choiceKind(fieldType)) options = choices.get(left.field);
     } else if (typeof left.hidden === "string" && hiddenTypes.has(left.hidden)) {
       what = `hidden input "${left.hidden}"`;
       type = hiddenTypes.get(left.hidden);
