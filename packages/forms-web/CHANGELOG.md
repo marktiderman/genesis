@@ -41,11 +41,11 @@
 
   Features: option-lists
 
-- bdcb233: Edit links, rate-limit keys and clean form links, moved up from Breakthrough's forms.
+- bdcb233: Edit links, rate-limit keys and clean form links, moved up from the host app's forms.
 
   - `genesis-forms/server`: signed edit links (`signEditToken`, `verifyEditToken`, `editLinkUrl`,
     `withEditToken`, `createEditSecretReader`, `isEditLinkRequest`, `withEditLinkHeaders` and their
-    constants), byte-for-byte the format Breakthrough signs, so its links keep working. Rate-limit
+    constants), byte-for-byte the format the host app signs, so its links keep working. Rate-limit
     pieces without the counter: `clientIp`, `addressPrefix`, `rateLimitKey` (an HMAC of the address's
     /64, never the address), `allow` (fails open) and `RATE_LIMIT_DEFAULTS`. Web Crypto only.
   - `genesis-forms`: `carryAnswers` moves here from genesis-forms-studio, which re-exports it from its

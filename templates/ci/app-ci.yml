@@ -1,0 +1,17 @@
+# Copy to .github/workflows/ci.yml. Replace GENESIS_SHA with the commit of the
+# Genesis release you run (docs/APP-CI.md in marktiderman/genesis says how).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    uses: marktiderman/genesis/.github/workflows/app-ci.yml@GENESIS_SHA # @marktiderman/genesis@X.Y.Z
+    with:
+      package-manager: pnpm # or bun, npm

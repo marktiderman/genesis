@@ -32,15 +32,15 @@ const lists: HostOptionList[] = [
     key: "locations",
     label: "Locations",
     sample: [
-      { value: "cff", label: "CrossFit Fairfield", description: "12 Main St", image: "https://example.com/cff.png" },
-      { value: "cs", label: "Cornerstone" },
+      { value: "riverside", label: "Riverside Gym", description: "12 Main St", image: "https://example.com/riverside.png" },
+      { value: "cs", label: "Hilltop" },
     ],
   },
   {
     key: "coaches",
     label: "Coaches",
     sample: [
-      { value: "ada", label: "Ada", attributes: { location: "cff" } },
+      { value: "ada", label: "Ada", attributes: { location: "riverside" } },
       { value: "zoe", label: "Zoe", attributes: { location: "cs" } },
     ],
   },
@@ -131,19 +131,19 @@ describe("CSV import and export", () => {
   it("previews rows, flagging duplicates, blanks, long values and bad images", () => {
     const csv = [
       "Value,Label,Description,Image,location",
-      "cff,CrossFit Fairfield,12 Main St,https://example.com/a.png,north|south",
-      "cff,Again,,,",
+      "riverside,Riverside Gym,12 Main St,https://example.com/a.png,north|south",
+      "riverside,Again,,,",
       ",,just a description,,",
       `${"x".repeat(201)},Long,,,`,
-      "cs,Cornerstone,,http://insecure.test/a.png,",
+      "cs,Hilltop,,http://insecure.test/a.png,",
       "zoe,Zoë,,,north",
     ].join("\n");
     const result = parseOptionListCsv(csv);
     expect(result.attributes).toEqual(["location"]);
     expect(result.options).toEqual([
       {
-        value: "cff",
-        label: "CrossFit Fairfield",
+        value: "riverside",
+        label: "Riverside Gym",
         description: "12 Main St",
         image: "https://example.com/a.png",
         attributes: { location: ["north", "south"] },
@@ -172,7 +172,7 @@ describe("CSV import and export", () => {
 
   it("exports CSV that imports back to the same options, with formulas kept as text", () => {
     const options: ChoiceOption[] = [
-      { value: "cff", label: "CrossFit, Fairfield", description: 'The "big" one', attributes: { location: ["n", "s"] } },
+      { value: "riverside", label: "Riverside, Gym", description: 'The "big" one', attributes: { location: ["n", "s"] } },
       { value: "minus", label: "=SUM(A1)" },
     ];
     const csv = optionListCsv(options);
@@ -222,8 +222,8 @@ describe("<OptionListEditor>", () => {
     key: "locations",
     label: "Locations",
     options: [
-      { value: "cff", label: "CrossFit Fairfield" },
-      { value: "cs", label: "Cornerstone" },
+      { value: "riverside", label: "Riverside Gym" },
+      { value: "cs", label: "Hilltop" },
     ],
   };
 
@@ -233,17 +233,17 @@ describe("<OptionListEditor>", () => {
     fireEvent.change(screen.getByTestId("option-list-name"), { target: { value: "Gyms" } });
     expect(last.label).toBe("Gyms");
     expect(last.key).toBe("locations");
-    fireEvent.change(screen.getByTestId("option-list-label-1"), { target: { value: "Cornerstone Fitness" } });
+    fireEvent.change(screen.getByTestId("option-list-label-1"), { target: { value: "Hilltop Fitness" } });
     fireEvent.change(screen.getByLabelText("Description", { selector: "#" + CSS.escape(screen.getAllByLabelText("Description")[0]!.id) }), {
       target: { value: "12 Main St" },
     });
-    expect(last.options[0]).toEqual({ value: "cff", label: "CrossFit Fairfield", description: "12 Main St" });
-    fireEvent.click(screen.getByRole("button", { name: "Move Cornerstone Fitness up" }));
-    expect(last.options.map((o) => o.value)).toEqual(["cs", "cff"]);
+    expect(last.options[0]).toEqual({ value: "riverside", label: "Riverside Gym", description: "12 Main St" });
+    fireEvent.click(screen.getByRole("button", { name: "Move Hilltop Fitness up" }));
+    expect(last.options.map((o) => o.value)).toEqual(["cs", "riverside"]);
     fireEvent.click(screen.getByTestId("option-list-add"));
     expect(last.options[2]).toEqual({ value: "new-option", label: "New option" });
     fireEvent.click(screen.getByTestId("option-list-remove-0"));
-    expect(last.options.map((o) => o.value)).toEqual(["cff", "new-option"]);
+    expect(last.options.map((o) => o.value)).toEqual(["riverside", "new-option"]);
   });
 
   it("adds an attribute column and sets list values with |", () => {
@@ -261,7 +261,7 @@ describe("<OptionListEditor>", () => {
     let last: OptionList = start;
     render(<Host initial={start} spy={(l) => (last = l)} />);
     fireEvent.change(screen.getByTestId("option-list-paste"), {
-      target: { value: "value,label\ncs,Cornerstone Fitness\nzoe,Zoë's\n,\ncff,Dup\ncff,Dup again" },
+      target: { value: "value,label\ncs,Hilltop Fitness\nzoe,Zoë's\n,\nriverside,Dup\nriverside,Dup again" },
     });
     fireEvent.click(screen.getByTestId("option-list-preview"));
     const preview = screen.getByTestId("option-list-import-preview");
@@ -269,8 +269,8 @@ describe("<OptionListEditor>", () => {
     expect(within(preview).getByText(/Line 6: Same value as line 5/)).toBeTruthy();
     fireEvent.click(screen.getByTestId("option-list-import"));
     expect(last.options).toEqual([
-      { value: "cff", label: "Dup" },
-      { value: "cs", label: "Cornerstone Fitness" },
+      { value: "riverside", label: "Dup" },
+      { value: "cs", label: "Hilltop Fitness" },
       { value: "zoe", label: "Zoë's" },
     ]);
     expect(screen.queryByTestId("option-list-import-preview")).toBeNull();
@@ -314,6 +314,6 @@ describe("builder: filter, prefill and search settings", () => {
   it("shows sample descriptions and pictures in the preview", () => {
     render(<FormBuilder defaultValue={form()} hostOptions={lists} />);
     const preview = screen.getByTestId("builder-preview");
-    expect(within(preview).getAllByText(/CrossFit Fairfield/).length).toBeGreaterThan(0);
+    expect(within(preview).getAllByText(/Riverside Gym/).length).toBeGreaterThan(0);
   });
 });

@@ -28,13 +28,13 @@ import { validateSubmission } from "../server";
 
 const lists: HostOptions = {
   locations: [
-    { value: "cff", label: "CrossFit Fairfield", description: "12 Main St", image: "https://example.com/cff.png" },
-    { value: "cornerstone", label: "Cornerstone Fitness" },
+    { value: "riverside", label: "Riverside Gym", description: "12 Main St", image: "https://example.com/riverside.png" },
+    { value: "hilltop", label: "Hilltop Fitness" },
   ],
   coaches: [
-    { value: "ada", label: "Ada", attributes: { location: "cff" } },
-    { value: "sam", label: "Sam", attributes: { location: ["cff", "cornerstone"] } },
-    { value: "zoe", label: "Zoë", attributes: { location: "cornerstone" } },
+    { value: "ada", label: "Ada", attributes: { location: "riverside" } },
+    { value: "sam", label: "Sam", attributes: { location: ["riverside", "hilltop"] } },
+    { value: "zoe", label: "Zoë", attributes: { location: "hilltop" } },
   ],
 };
 
@@ -92,7 +92,7 @@ describe("richer options", () => {
 
   it("withHostOptions fills in the details, and choiceOptions reads them", () => {
     expect(choiceOptions(fieldOf(filled, "location"))[0]).toEqual(lists.locations![0]);
-    expect(choiceOptions(fieldOf(filled, "coach"))[1]!.attributes).toEqual({ location: ["cff", "cornerstone"] });
+    expect(choiceOptions(fieldOf(filled, "coach"))[1]!.attributes).toEqual({ location: ["riverside", "hilltop"] });
   });
 
   it("parseForm checks option details, the filter and the prefill", () => {
@@ -146,17 +146,17 @@ describe("lists filtered by another answer", () => {
   it("shows every option until the other question is answered, then the matching ones", () => {
     const coach = fieldOf(filled, "coach");
     expect(values(visibleOptions(filled, coach, {}))).toEqual(["ada", "sam", "zoe"]);
-    expect(values(visibleOptions(filled, coach, { location: "cff" }))).toEqual(["ada", "sam"]);
-    expect(values(visibleOptions(filled, coach, { location: "cornerstone" }))).toEqual(["sam", "zoe"]);
+    expect(values(visibleOptions(filled, coach, { location: "riverside" }))).toEqual(["ada", "sam"]);
+    expect(values(visibleOptions(filled, coach, { location: "hilltop" }))).toEqual(["sam", "zoe"]);
   });
 
   it("clears a pick the new answer no longer shows, and keeps one it still shows", () => {
     const engine = createForm(def, { hostOptions: lists });
     const id = (k: string) => engine.idOf(k);
-    engine.setValue(id("location"), "cff");
+    engine.setValue(id("location"), "riverside");
     engine.setValue(id("coach"), "ada");
     engine.setValue(id("helpers"), ["ada", "sam", "my cousin"]);
-    engine.setValue(id("location"), "cornerstone");
+    engine.setValue(id("location"), "hilltop");
     const s = engine.getState();
     expect(s.values[id("coach")]).toBeUndefined();
     // Sam works at both; a typed "Other" answer isn't an option, so it stays.
@@ -164,30 +164,30 @@ describe("lists filtered by another answer", () => {
   });
 
   it("clearFilteredAnswers returns the same object when nothing changes", () => {
-    const v = { location: "cff", coach: "sam" };
+    const v = { location: "riverside", coach: "sam" };
     expect(clearFilteredAnswers(filled, v, "location")).toBe(v);
-    expect(clearFilteredAnswers(filled, { location: "cornerstone", coach: "ada" }, "location")).toEqual({ location: "cornerstone", coach: undefined });
+    expect(clearFilteredAnswers(filled, { location: "hilltop", coach: "ada" }, "location")).toEqual({ location: "hilltop", coach: undefined });
   });
 
   it("refuses a pick outside the filtered list in the engine and on the server", () => {
-    const engine = createForm(def, { hostOptions: lists, initialValues: { location: "cornerstone", coach: "ada" } });
+    const engine = createForm(def, { hostOptions: lists, initialValues: { location: "hilltop", coach: "ada" } });
     expect(engine.submit()).toBe(false);
     expect(engine.getState().errors.coach).toBe("Choose one of the options.");
 
-    const answers = { location: "cornerstone", coach: "ada" };
+    const answers = { location: "hilltop", coach: "ada" };
     const result = validateSubmission(def, { answers }, { hostOptions: lists });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors.coach).toBe("Choose one of the options.");
     const draft = validateSubmission(def, { answers }, { hostOptions: lists, complete: false });
     expect(draft.ok).toBe(false);
-    expect(validateSubmission(def, { answers: { location: "cornerstone", coach: "zoe" } }, { hostOptions: lists }).ok).toBe(true);
+    expect(validateSubmission(def, { answers: { location: "hilltop", coach: "zoe" } }, { hostOptions: lists }).ok).toBe(true);
   });
 
   it("replays to the same cleared answers", () => {
     const engine = createForm(def, { hostOptions: lists });
-    engine.setValue("location", "cff");
+    engine.setValue("location", "riverside");
     engine.setValue("coach", "ada");
-    engine.setValue("location", "cornerstone");
+    engine.setValue("location", "hilltop");
     engine.setValue("coach", "zoe");
     expect(engine.submit()).toBe(true);
     const again = replay(def, engine.getState().events, { hostOptions: lists });
@@ -207,8 +207,8 @@ describe("search for long lists", () => {
 
   it("matches every word in the label, value or description, ignoring case and accents", () => {
     const options = choiceOptions(fieldOf(filled, "location"));
-    expect(values(searchOptions(options, "main"))).toEqual(["cff"]);
-    expect(values(searchOptions(options, "FITNESS corner"))).toEqual(["cornerstone"]);
+    expect(values(searchOptions(options, "main"))).toEqual(["riverside"]);
+    expect(values(searchOptions(options, "FITNESS hill"))).toEqual(["hilltop"]);
     expect(values(searchOptions(choiceOptions(fieldOf(filled, "coach")), "zoe"))).toEqual(["zoe"]);
     expect(searchOptions(options, "  ")).toHaveLength(2);
   });
@@ -216,18 +216,18 @@ describe("search for long lists", () => {
 
 describe("preselect from a link", () => {
   it("takes a parameter that is one of the options and ignores anything else", () => {
-    expect(prefillFromLink(filled, new URLSearchParams("location=cornerstone&coach=ada&helper=sam,zoe,nobody"))).toEqual({
-      location: "cornerstone",
-      // Ada isn't at Cornerstone: the filtered list is respected.
+    expect(prefillFromLink(filled, new URLSearchParams("location=hilltop&coach=ada&helper=sam,zoe,nobody"))).toEqual({
+      location: "hilltop",
+      // Ada isn't at Hilltop: the filtered list is respected.
       helpers: ["sam", "zoe"],
     });
     expect(prefillFromLink(filled, { location: "nowhere", helper: ["ada", "ada"] })).toEqual({ helpers: ["ada"] });
-    expect(prefillFromLink(filled, { location: "cff" }, { location: "cornerstone" })).toEqual({});
+    expect(prefillFromLink(filled, { location: "riverside" }, { location: "hilltop" })).toEqual({});
   });
 
   it("prefills through createForm, with initialValues winning, and the server checks it", () => {
-    const engine = createForm(def, { hostOptions: lists, linkParams: { location: "cff", coach: "ada" }, initialValues: { coach: "sam" } });
-    expect(engine.answers()).toEqual({ location: "cff", coach: "sam" });
+    const engine = createForm(def, { hostOptions: lists, linkParams: { location: "riverside", coach: "ada" }, initialValues: { coach: "sam" } });
+    expect(engine.answers()).toEqual({ location: "riverside", coach: "sam" });
     expect(engine.getState().events[0]).toMatchObject({ type: "answer", source: "prefill" });
     expect(engine.submit()).toBe(true);
     // A crafted value the list doesn't have is refused on the server like any answer.
@@ -236,7 +236,7 @@ describe("preselect from a link", () => {
   });
 
   it("hides a question the link filled in, steps over it, and stores its answer", () => {
-    const engine = createForm(def, { hostOptions: lists, linkParams: { location: "cff" } });
+    const engine = createForm(def, { hostOptions: lists, linkParams: { location: "riverside" } });
     const s = engine.getState();
     expect(hiddenByPrefill(engine.definition, s)).toEqual(["location"]);
     expect(respondentPath(engine.definition, s)).toEqual(["coach", "helpers", "note"]);
@@ -250,7 +250,7 @@ describe("preselect from a link", () => {
     engine.back();
     expect(engine.getState().current).toBe("coach");
     expect(engine.submit()).toBe(true);
-    expect(engine.answers()).toMatchObject({ location: "cff", coach: "ada" });
+    expect(engine.answers()).toMatchObject({ location: "riverside", coach: "ada" });
 
     const again = replay(def, engine.getState().events, { hostOptions: lists });
     expect(again.getState().current).toBe(engine.getState().current);
@@ -258,17 +258,17 @@ describe("preselect from a link", () => {
   });
 
   it("shows the question again once the respondent's own answer replaces the prefill", () => {
-    const engine = createForm(def, { hostOptions: lists, linkParams: { location: "cff" } });
-    engine.setValue("location", "cornerstone");
+    const engine = createForm(def, { hostOptions: lists, linkParams: { location: "riverside" } });
+    engine.setValue("location", "hilltop");
     expect(hiddenByPrefill(engine.definition, engine.getState())).toEqual([]);
   });
 });
 
 describe("answer snapshots", () => {
   it("pairs each host-option answer with its label now", () => {
-    const snaps = answerSnapshots(filled, { location: "cff", coach: "sam", helpers: ["zoe", "my cousin"], note: "hi" });
+    const snaps = answerSnapshots(filled, { location: "riverside", coach: "sam", helpers: ["zoe", "my cousin"], note: "hi" });
     expect(snaps).toEqual({
-      location: { value: "cff", label: "CrossFit Fairfield" },
+      location: { value: "riverside", label: "Riverside Gym" },
       coach: { value: "sam", label: "Sam" },
       helpers: [
         { value: "zoe", label: "Zoë" },
@@ -280,17 +280,17 @@ describe("answer snapshots", () => {
   it("finds the value again for an edit link: by value, then by label, else missing", () => {
     const renamed = withHostOptions(def, {
       ...lists,
-      locations: [{ value: "cff-2", label: "crossfit fairfield" }],
+      locations: [{ value: "riverside-2", label: "riverside gym" }],
     });
     const restored = answersFromSnapshots(renamed, {
-      location: { value: "cff", label: "CrossFit Fairfield" },
+      location: { value: "riverside", label: "Riverside Gym" },
       coach: { value: "gone", label: "Nobody now" },
       helpers: [
         { value: "sam", label: "Sam (old name)" },
         { value: "my cousin", label: "my cousin", other: true },
       ],
     });
-    expect(restored.answers).toEqual({ location: "cff-2", helpers: ["sam", "my cousin"] });
+    expect(restored.answers).toEqual({ location: "riverside-2", helpers: ["sam", "my cousin"] });
     expect(restored.missing).toEqual({ coach: [{ value: "gone", label: "Nobody now" }] });
   });
 });

@@ -12,13 +12,13 @@ const form = defineForm({
   blocks: [
     f.dropdown("location", {
       label: "Where?",
-      options: [{ value: "cff" }, { value: "cs" }],
+      options: [{ value: "riverside" }, { value: "cs" }],
       prefill: { param: "location", hideWhenPrefilled: true },
     }),
     f.singleChoice("coach", {
       label: "Coach",
       options: [
-        { value: "ada", attributes: { location: "cff" } },
+        { value: "ada", attributes: { location: "riverside" } },
         { value: "zoe", attributes: { location: "cs" } },
       ],
       optionsFrom: { source: "host", key: "coaches", filter: { attribute: "location", field: "location" } },
@@ -51,7 +51,7 @@ describe("useChoiceOptions and useRespondentPath", () => {
 
   it("leave out a question the link filled in and hides", () => {
     function Host() {
-      const engine = useForm(form, { linkParams: { location: "cff" } });
+      const engine = useForm(form, { linkParams: { location: "riverside" } });
       return <span data-testid="path">{useRespondentPath(engine).join(",")}</span>;
     }
     render(<Host />);

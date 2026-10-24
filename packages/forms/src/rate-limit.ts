@@ -4,7 +4,7 @@
  * and a check that fails open. The counter itself is the app's (`RateLimitStore`), so
  * every server instance can share it (a row in Postgres, a key in Redis).
  *
- * Web Crypto only. Moved up from Breakthrough's src/lib/feedback/rate-limit.server.ts;
+ * Web Crypto only. Moved up from the host app's src/lib/feedback/rate-limit.server.ts;
  * keys made here equal the ones it made, so a deploy doesn't reset anyone's count.
  */
 

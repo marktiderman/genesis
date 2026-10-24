@@ -68,7 +68,7 @@ beforeEach(() => {
 describe("AppShell collapsible sidebar", () => {
   it("expanded: icon + label rows, collapse beside the logo with its pre-existing markup", () => {
     render(
-      <AppShell appName="Breakthrough" appLogo="B" navItems={items} activePath="/clients" options={chrome}>
+      <AppShell appName="Riverside Gym" appLogo="R" navItems={items} activePath="/clients" options={chrome}>
         <div>content</div>
       </AppShell>,
     );
@@ -90,15 +90,15 @@ describe("AppShell collapsible sidebar", () => {
 
   it("collapsed: 56px rail, logo mark, named icon links, expand button after the nav", () => {
     render(
-      <AppShell appName="Breakthrough" appLogo="B" navItems={items} activePath="/clients" options={chrome}>
+      <AppShell appName="Riverside Gym" appLogo="R" navItems={items} activePath="/clients" options={chrome}>
         <div>content</div>
       </AppShell>,
     );
     fireEvent.click(toggle());
     expect(isCollapsed()).toBe(true);
     expect(sidebar().className).toContain("md:w-14");
-    expect(within(sidebar()).getByText("B")).toBeTruthy();
-    expect(within(sidebar()).queryByText("Breakthrough")).toBeNull();
+    expect(within(sidebar()).getByText("R")).toBeTruthy();
+    expect(within(sidebar()).queryByText("Riverside Gym")).toBeNull();
 
     const active = within(sidebar()).getByRole("link", { name: "Clients (3)" });
     expect(active.getAttribute("aria-current")).toBe("page");
@@ -114,7 +114,7 @@ describe("AppShell collapsible sidebar", () => {
 
   it("is 64px when collapsedRailWidth asks for it", () => {
     render(
-      <AppShell appName="Breakthrough" navItems={items} collapsed options={{ ...chrome, collapsedRailWidth: 64 }}>
+      <AppShell appName="Riverside Gym" navItems={items} collapsed options={{ ...chrome, collapsedRailWidth: 64 }}>
         <div>content</div>
       </AppShell>,
     );
@@ -124,7 +124,7 @@ describe("AppShell collapsible sidebar", () => {
   it("announces a disabled rail item as a disabled link", () => {
     render(
       <AppShell
-        appName="Breakthrough"
+        appName="Riverside Gym"
         navItems={[...items, { to: "/data", icon: Layers, label: "Data", disabled: true }]}
         collapsed
         options={chrome}
@@ -140,7 +140,7 @@ describe("AppShell collapsible sidebar", () => {
 
   it("titles the toggle with the shortcut when one is on", () => {
     render(
-      <AppShell appName="Breakthrough" navItems={items} options={withKey}>
+      <AppShell appName="Riverside Gym" navItems={items} options={withKey}>
         <div>content</div>
       </AppShell>,
     );
@@ -150,16 +150,16 @@ describe("AppShell collapsible sidebar", () => {
 
   it("falls back to the app name's first letter when there is no logo", () => {
     render(
-      <AppShell appName="breakthrough" navItems={items} collapsed options={chrome}>
+      <AppShell appName="riverside gym" navItems={items} collapsed options={chrome}>
         <div>content</div>
       </AppShell>,
     );
-    expect(within(sidebar()).getByText("B")).toBeTruthy();
+    expect(within(sidebar()).getByText("R")).toBeTruthy();
   });
 
   it("shows the item's name in a tooltip on keyboard focus", async () => {
     render(
-      <AppShell appName="Breakthrough" navItems={items} activePath="/" collapsed options={chrome}>
+      <AppShell appName="Riverside Gym" navItems={items} activePath="/" collapsed options={chrome}>
         <div>content</div>
       </AppShell>,
     );
@@ -173,7 +173,7 @@ describe("AppShell collapsible sidebar", () => {
 
   it("opens a nested group's items in a popover from the rail", async () => {
     render(
-      <AppShell appName="Breakthrough" navItems={items} activePath="/library/courses" collapsed options={chrome}>
+      <AppShell appName="Riverside Gym" navItems={items} activePath="/library/courses" collapsed options={chrome}>
         <div>content</div>
       </AppShell>,
     );
@@ -192,9 +192,9 @@ describe("AppShell collapsible sidebar", () => {
   });
 
   it("reads the stored choice on the first render, with no expanded flash", () => {
-    localStorage.setItem("bt-shell:collapsed", "1");
+    localStorage.setItem("rg-shell:collapsed", "1");
     const { container } = render(
-      <AppShell appName="Breakthrough" navItems={items} optionsStorageKey="bt-shell" options={chrome}>
+      <AppShell appName="Riverside Gym" navItems={items} optionsStorageKey="rg-shell" options={chrome}>
         <div>content</div>
       </AppShell>,
     );
@@ -203,20 +203,20 @@ describe("AppShell collapsible sidebar", () => {
 
   it("persists the toggle under the app-scoped key", () => {
     render(
-      <AppShell appName="Breakthrough" navItems={items} optionsStorageKey="bt-shell" options={chrome}>
+      <AppShell appName="Riverside Gym" navItems={items} optionsStorageKey="rg-shell" options={chrome}>
         <div>content</div>
       </AppShell>,
     );
     fireEvent.click(toggle());
-    expect(localStorage.getItem("bt-shell:collapsed")).toBe("1");
+    expect(localStorage.getItem("rg-shell:collapsed")).toBe("1");
     fireEvent.click(toggle());
-    expect(localStorage.getItem("bt-shell:collapsed")).toBe("0");
+    expect(localStorage.getItem("rg-shell:collapsed")).toBe("0");
   });
 
   describe("page defaults", () => {
     it("defaultCollapsed prop collapses the page; the user's toggle wins after", () => {
       const { rerender } = render(
-        <AppShell appName="Breakthrough" navItems={items} defaultCollapsed optionsStorageKey="bt" options={chrome}>
+        <AppShell appName="Riverside Gym" navItems={items} defaultCollapsed optionsStorageKey="rg" options={chrome}>
           <div>content</div>
         </AppShell>,
       );
@@ -225,7 +225,7 @@ describe("AppShell collapsible sidebar", () => {
       expect(isCollapsed()).toBe(false);
       // Another page that also asks for collapsed: the user's choice holds.
       rerender(
-        <AppShell appName="Breakthrough" navItems={items} defaultCollapsed optionsStorageKey="bt" options={chrome}>
+        <AppShell appName="Riverside Gym" navItems={items} defaultCollapsed optionsStorageKey="rg" options={chrome}>
           <div>other page</div>
         </AppShell>,
       );
@@ -233,9 +233,9 @@ describe("AppShell collapsible sidebar", () => {
     });
 
     it("a stored choice beats the page default", () => {
-      localStorage.setItem("bt:collapsed", "0");
+      localStorage.setItem("rg:collapsed", "0");
       render(
-        <AppShell appName="Breakthrough" navItems={items} defaultCollapsed optionsStorageKey="bt" options={chrome}>
+        <AppShell appName="Riverside Gym" navItems={items} defaultCollapsed optionsStorageKey="rg" options={chrome}>
           <div>content</div>
         </AppShell>,
       );
@@ -244,7 +244,7 @@ describe("AppShell collapsible sidebar", () => {
 
     it("follows the navigation node's defaultCollapsed as the route changes", () => {
       const shell = (path: string) => (
-        <AppShell appName="Breakthrough" navigation={tree} activePath={path} options={chrome}>
+        <AppShell appName="Riverside Gym" navigation={tree} activePath={path} options={chrome}>
           <div>content</div>
         </AppShell>
       );
@@ -258,7 +258,7 @@ describe("AppShell collapsible sidebar", () => {
 
     it("without a storage key, the in-session toggle still wins over route defaults", () => {
       const shell = (path: string) => (
-        <AppShell appName="Breakthrough" navigation={tree} activePath={path} options={chrome}>
+        <AppShell appName="Riverside Gym" navigation={tree} activePath={path} options={chrome}>
           <div>content</div>
         </AppShell>
       );
@@ -271,15 +271,15 @@ describe("AppShell collapsible sidebar", () => {
     });
 
     it("the prop beats the navigation node, and controlled `collapsed` beats everything", () => {
-      localStorage.setItem("bt:collapsed", "1");
+      localStorage.setItem("rg:collapsed", "1");
       const { rerender } = render(
-        <AppShell appName="Breakthrough" navigation={tree} activePath="/forms/f1/edit" defaultCollapsed={false} options={chrome}>
+        <AppShell appName="Riverside Gym" navigation={tree} activePath="/forms/f1/edit" defaultCollapsed={false} options={chrome}>
           <div>content</div>
         </AppShell>,
       );
       expect(isCollapsed()).toBe(false);
       rerender(
-        <AppShell appName="Breakthrough" navigation={tree} activePath="/" optionsStorageKey="bt" collapsed={false} options={chrome}>
+        <AppShell appName="Riverside Gym" navigation={tree} activePath="/" optionsStorageKey="rg" collapsed={false} options={chrome}>
           <div>content</div>
         </AppShell>,
       );
@@ -287,13 +287,13 @@ describe("AppShell collapsible sidebar", () => {
     });
 
     it("Reset to defaults hands the sidebar back to the page default", () => {
-      localStorage.setItem("bt:collapsed", "0");
+      localStorage.setItem("rg:collapsed", "0");
       render(
         <AppShell
-          appName="Breakthrough"
+          appName="Riverside Gym"
           navItems={items}
           defaultCollapsed
-          optionsStorageKey="bt"
+          optionsStorageKey="rg"
           options={{ showThemeToggle: false, configurable: true }}
         >
           <div>content</div>
@@ -302,7 +302,7 @@ describe("AppShell collapsible sidebar", () => {
       expect(isCollapsed()).toBe(false);
       fireEvent.click(screen.getByTestId("app-shell-options"));
       fireEvent.click(screen.getByTestId("app-shell-options-reset"));
-      expect(localStorage.getItem("bt:collapsed")).toBeNull();
+      expect(localStorage.getItem("rg:collapsed")).toBeNull();
       expect(isCollapsed()).toBe(true);
     });
   });
@@ -310,7 +310,7 @@ describe("AppShell collapsible sidebar", () => {
   describe("keeps keyboard focus across the collapse", () => {
     it("clicking the toggle leaves focus on the (moved) toggle, both ways", () => {
       render(
-        <AppShell appName="Breakthrough" navItems={items} options={withKey}>
+        <AppShell appName="Riverside Gym" navItems={items} options={withKey}>
           <div>content</div>
         </AppShell>,
       );
@@ -326,7 +326,7 @@ describe("AppShell collapsible sidebar", () => {
 
     it("pressing [ on a sidebar link keeps focus on that link", () => {
       render(
-        <AppShell appName="Breakthrough" navItems={items} options={withKey}>
+        <AppShell appName="Riverside Gym" navItems={items} options={withKey}>
           <div>content</div>
         </AppShell>,
       );
@@ -343,7 +343,7 @@ describe("AppShell collapsible sidebar", () => {
 
     it("falls back to the toggle when the focused link isn't on the rail", () => {
       render(
-        <AppShell appName="Breakthrough" navItems={items} activePath="/library/lessons" options={withKey}>
+        <AppShell appName="Riverside Gym" navItems={items} activePath="/library/lessons" options={withKey}>
           <div>content</div>
         </AppShell>,
       );
@@ -356,7 +356,7 @@ describe("AppShell collapsible sidebar", () => {
 
     it("restores focus when a route's defaultCollapsed collapses the sidebar", () => {
       const shell = (path: string) => (
-        <AppShell appName="Breakthrough" navigation={tree} activePath={path} options={chrome}>
+        <AppShell appName="Riverside Gym" navigation={tree} activePath={path} options={chrome}>
           <div>content</div>
         </AppShell>
       );
@@ -373,7 +373,7 @@ describe("AppShell collapsible sidebar", () => {
 
     it("leaves focus alone when it was outside the sidebar", () => {
       render(
-        <AppShell appName="Breakthrough" navItems={items} options={withKey}>
+        <AppShell appName="Riverside Gym" navItems={items} options={withKey}>
           <button type="button">page action</button>
         </AppShell>,
       );
@@ -388,7 +388,7 @@ describe("AppShell collapsible sidebar", () => {
   describe("[ shortcut", () => {
     const renderShell = (extra?: { collapseShortcut?: string | false }, children?: React.ReactNode) =>
       render(
-        <AppShell appName="Breakthrough" navItems={items} options={{ ...withKey, ...extra }}>
+        <AppShell appName="Riverside Gym" navItems={items} options={{ ...withKey, ...extra }}>
           <input aria-label="Title" />
           {children}
         </AppShell>,
@@ -396,7 +396,7 @@ describe("AppShell collapsible sidebar", () => {
 
     it("is off by default", () => {
       render(
-        <AppShell appName="Breakthrough" navItems={items} options={chrome}>
+        <AppShell appName="Riverside Gym" navItems={items} options={chrome}>
           <div>content</div>
         </AppShell>,
       );
@@ -460,7 +460,7 @@ describe("AppShell collapsible sidebar", () => {
 
   it("leaves the mobile drawer as it was: full labels, no rail", () => {
     const { container } = render(
-      <AppShell appName="Breakthrough" navItems={items} collapsed options={chrome}>
+      <AppShell appName="Riverside Gym" navItems={items} collapsed options={chrome}>
         <div>content</div>
       </AppShell>,
     );

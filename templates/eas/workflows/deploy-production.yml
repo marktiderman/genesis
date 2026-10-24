@@ -1,0 +1,138 @@
+# Deploy to production, started by pushing a release tag (`git tag v1.4.0 && git push origin v1.4.0`).
+# A release that changes native code is a new store version: bump `version` in app.config.ts in
+# the same change. The version isn't part of the fingerprint, so a bump on its own starts no
+# build, and a native change without one uploads the old version string again.
+#
+# 1. Fingerprint the native project as the production variant builds it.
+# 2. Per platform, look for a production build with that fingerprint.
+#    - None (native code changed): build one. The store submission waits for a person to approve
+#      it in the run's page on expo.dev.
+#    - One exists (JavaScript only): publish an over-the-air update to the `production` channel,
+#      also after that approval, to 10% of installs. rollout.yml raises it or rolls it back.
+#
+# Safety:
+# - A tag push is the only trigger, so a run always builds a commit in git, never a local folder.
+#   Don't add `workflow_dispatch` without `--ref` discipline: `eas workflow:run` without `--ref`
+#   uploads the working directory as it is on that machine.
+# - Nothing is submitted or published before the `approve_release` job is approved, and it isn't
+#   offered when a build failed, so one approval never ships half a release. Check that the tag's
+#   commit is on main before approving.
+# - Builds go to TestFlight and to the Play internal track as a draft (eas.json `submit`);
+#   releasing to the stores stays a person's step in App Store Connect and Play Console.
+# - EAS refuses to start a second rollout on the same channel, platform and runtime while one is
+#   in progress, so a new update can't silently replace a staged one (finish it with rollout.yml).
+# - Each platform's update is its own update group; promote or roll back each with rollout.yml.
+# - A production build whose approval was rejected (or whose submit failed) still matches its
+#   fingerprint: a later JavaScript-only tag sends an update to a binary nobody has. Submit that
+#   build by hand first (`eas submit --platform ios --id <build id> --profile production`).
+#
+# Genesis template (templates/eas/workflows/deploy-production.yml). Edit the copy in your app; see
+# docs/NATIVE-RELEASE.md in the Genesis repository.
+name: Deploy production
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: production
+    env:
+      APP_VARIANT: production
+
+  get_ios_build:
+    name: Find a production iOS build with this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  get_android_build:
+    name: Find a production Android build with this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: android
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  build_ios:
+    name: Build iOS (native code changed)
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    environment: production
+    params:
+      platform: ios
+      profile: production
+
+  build_android:
+    name: Build Android (native code changed)
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    type: build
+    environment: production
+    params:
+      platform: android
+      profile: production
+
+  approve_release:
+    name: Approve submitting the builds and publishing the updates
+    # Both lookups must have succeeded (needs) and neither build failed (after): a failure on one
+    # platform never leaves the other to ship alone.
+    needs: [get_ios_build, get_android_build]
+    after: [build_ios, build_android]
+    if: ${{ after.build_ios.status != 'failure' && after.build_android.status != 'failure' }}
+    type: require-approval
+
+  submit_ios:
+    name: Submit iOS to TestFlight
+    needs: [build_ios, approve_release]
+    if: ${{ needs.build_ios.outputs.build_id }}
+    type: submit
+    environment: production
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
+
+  submit_android:
+    name: Submit Android to the internal track (draft)
+    needs: [build_android, approve_release]
+    if: ${{ needs.build_android.outputs.build_id }}
+    type: submit
+    environment: production
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      profile: production
+
+  update_ios:
+    name: Update iOS (10% of production installs)
+    needs: [get_ios_build, approve_release]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: update
+    environment: production
+    env:
+      APP_VARIANT: production
+    params:
+      channel: production
+      platform: ios
+      rollout_percentage: 10
+
+  update_android:
+    name: Update Android (10% of production installs)
+    needs: [get_android_build, approve_release]
+    if: ${{ needs.get_android_build.outputs.build_id }}
+    type: update
+    environment: production
+    env:
+      APP_VARIANT: production
+    params:
+      channel: production
+      platform: android
+      rollout_percentage: 10

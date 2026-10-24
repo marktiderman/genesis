@@ -1,0 +1,10 @@
+# Makes this folder its own pnpm root, apart from the Genesis workspace above it.
+# The doctor reads genesis-ui's type declarations only, so its React peers are not installed.
+autoInstallPeers: false
+minimumReleaseAgeExclude:
+  - '@marktiderman/genesis-cli@1.4.0'
+  - '@marktiderman/genesis-core@1.7.0'
+  - '@marktiderman/genesis-design-system@1.4.0'
+  - '@marktiderman/genesis-features@0.2.0'
+  - '@marktiderman/genesis-ui@2.12.1'
+strictPeerDependencies: false

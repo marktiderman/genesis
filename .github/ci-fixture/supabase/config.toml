@@ -1,0 +1,10 @@
+# The CI fixture's local Supabase project: supabase-ci starts its database
+# (`supabase db start`) and runs the pgTAP tests in tests/. Every other
+# setting is the CLI's default.
+project_id = "genesis-ci-fixture"
+
+[db]
+major_version = 17
+
+[db.seed]
+enabled = false

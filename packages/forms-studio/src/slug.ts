@@ -1,5 +1,5 @@
 // A form's public link and a duplicate's name: what a forms list needs to make a form or
-// copy one, without storage. Pure. Moved up from Breakthrough's src/lib/feedback/admin.ts.
+// copy one, without storage. Pure. Moved up from the host app's src/lib/feedback/admin.ts.
 
 /**
  * "How was class?" → "how-was-class": the public link's last part (lowercase words and

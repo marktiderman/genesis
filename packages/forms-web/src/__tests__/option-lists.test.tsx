@@ -6,13 +6,13 @@ import { useForm } from "@marktiderman/genesis-forms-react";
 import { Form } from "../index";
 
 const locations = [
-  { value: "cff", label: "CrossFit Fairfield", description: "12 Main St", image: "https://example.com/cff.png" },
-  { value: "cornerstone", label: "Cornerstone Fitness" },
+  { value: "riverside", label: "Riverside Gym", description: "12 Main St", image: "https://example.com/riverside.png" },
+  { value: "hilltop", label: "Hilltop Fitness" },
 ];
 const coaches = Array.from({ length: 12 }, (_, i) => ({
   value: `c${i}`,
   label: i === 3 ? "Zoë Park" : `Coach ${i}`,
-  attributes: { location: i % 2 ? "cff" : "cornerstone" },
+  attributes: { location: i % 2 ? "riverside" : "hilltop" },
 }));
 
 const form = defineForm({
@@ -41,9 +41,9 @@ const lists = { locations, coaches };
 describe("option details", () => {
   it("shows an option's description and picture on its row", () => {
     render(<Form form={form} hostOptions={lists} />);
-    const row = screen.getByRole("radio", { name: /CrossFit Fairfield/ }).closest("label")!;
+    const row = screen.getByRole("radio", { name: /Riverside Gym/ }).closest("label")!;
     expect(within(row).getByText("12 Main St")).toBeTruthy();
-    expect(row.querySelector("img")?.getAttribute("src")).toBe("https://example.com/cff.png");
+    expect(row.querySelector("img")?.getAttribute("src")).toBe("https://example.com/riverside.png");
   });
 });
 
@@ -58,10 +58,10 @@ describe("search for long lists", () => {
     expect(items.map((i) => i.textContent)).toEqual(["Zoë Park"]);
     fireEvent.click(items[0]!);
     expect(within(picker).getByText(/Your choice: Zoë Park/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("radio", { name: /Cornerstone/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /Hilltop/ }));
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByText(/thank/i);
-    expect(sent?.answers()).toMatchObject({ coach: "c3", location: "cornerstone" });
+    expect(sent?.answers()).toMatchObject({ coach: "c3", location: "hilltop" });
   });
 
   it("stays a plain list at 10 options or fewer", () => {
@@ -81,13 +81,13 @@ describe("lists filtered by another answer", () => {
     render(<Host />);
     const picker = () => screen.getByLabelText("Search: Who helped?").closest("[data-gf-searchable]") as HTMLElement;
     expect(within(picker()).getAllByRole("option")).toHaveLength(12);
-    fireEvent.click(screen.getByRole("radio", { name: /CrossFit Fairfield/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /Riverside Gym/ }));
     expect(within(picker()).getAllByRole("option").map((o) => o.textContent)).toEqual(
-      coaches.filter((c) => c.attributes.location === "cff").map((c) => c.label),
+      coaches.filter((c) => c.attributes.location === "riverside").map((c) => c.label),
     );
     fireEvent.click(within(picker()).getByRole("option", { name: "Coach 1" }));
     expect(engine.getState().values.helpers).toEqual(["c1"]);
-    act(() => engine.setValue("location", "cornerstone"));
+    act(() => engine.setValue("location", "hilltop"));
     expect(engine.getState().values.helpers).toBeUndefined();
   });
 });
@@ -99,23 +99,23 @@ describe("preselect from a link", () => {
       <Form
         form={form}
         hostOptions={lists}
-        linkParams={new URLSearchParams("location=cornerstone")}
+        linkParams={new URLSearchParams("location=hilltop")}
         onSubmit={(e) => void (sent = e)}
       />,
     );
-    expect(screen.queryByRole("radio", { name: /Cornerstone/ })).toBeNull();
+    expect(screen.queryByRole("radio", { name: /Hilltop/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByText(/thank/i);
-    expect(sent?.answers()).toEqual({ location: "cornerstone" });
+    expect(sent?.answers()).toEqual({ location: "hilltop" });
   });
 
   it("ignores a value that isn't one of the options", () => {
     render(<Form form={form} hostOptions={lists} linkParams={{ location: "nowhere" }} />);
-    expect(screen.getByRole("radio", { name: /Cornerstone/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /Hilltop/ })).toBeTruthy();
   });
 
   it("starts the focus layout on the first question it shows", () => {
-    render(<Form form={form} layout="focus" hostOptions={lists} linkParams={{ location: "cff" }} />);
+    render(<Form form={form} layout="focus" hostOptions={lists} linkParams={{ location: "riverside" }} />);
     expect(screen.getByLabelText("Search: Coach")).toBeTruthy();
     expect(screen.getByText(/1 of 2|Question 1/)).toBeTruthy();
   });

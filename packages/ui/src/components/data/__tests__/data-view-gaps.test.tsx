@@ -2,7 +2,7 @@
  * The pieces an app's data view needed and hand-rolled before:
  * typed px column widths, card click on DataGrid, a non-red
  * AlertDialogAction, a header without its title, and per-row edit rights
- * plus card-click-opens-detail on ResourcePage (Breakthrough's RecordTable).
+ * plus card-click-opens-detail on ResourcePage (the host app's RecordTable).
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";

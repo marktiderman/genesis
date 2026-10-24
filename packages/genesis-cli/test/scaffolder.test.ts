@@ -44,8 +44,8 @@ function createMemoryFs(initial: Record<string, string> = {}): {
 describe("validateConsumerName", () => {
   it.each([
     ["acme"],
-    ["gamify"],
-    ["gamify-mobile"],
+    ["arcade"],
+    ["arcade-mobile"],
     ["a1"],
     ["my-app-2026"],
   ])("accepts %s", (name) => {
@@ -86,16 +86,16 @@ describe("planScaffold", () => {
   });
 
   it("interpolates the consumer name into brand schema", () => {
-    const plan = planScaffold({ consumerName: "gamify" });
+    const plan = planScaffold({ consumerName: "arcade" });
     const brand = plan.find((f) => f.path.endsWith("brand.ts"))!;
-    expect(brand.content).toContain('name: "gamify"');
-    expect(brand.content).toContain("@gamify/brand");
+    expect(brand.content).toContain('name: "arcade"');
+    expect(brand.content).toContain("@arcade/brand");
   });
 
   it("interpolates the consumer name into tailwind config", () => {
-    const plan = planScaffold({ consumerName: "gamify" });
+    const plan = planScaffold({ consumerName: "arcade" });
     const tw = plan.find((f) => f.path === "tailwind.config.ts")!;
-    expect(tw.content).toContain('from "@gamify/brand"');
+    expect(tw.content).toContain('from "@arcade/brand"');
   });
 
   it("uses workspace:^ as default genesisVersion", () => {

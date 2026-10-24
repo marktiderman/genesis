@@ -5,7 +5,7 @@
 //
 // Cosmetic, not security: the server checks every value it is sent, and anyone holding
 // the link still has it. It keeps the parameters out of screenshots, shared addresses and
-// over-the-shoulder reads. Moved up from Breakthrough's src/lib/forms/clean-url.ts.
+// over-the-shoulder reads. Moved up from the host app's src/lib/forms/clean-url.ts.
 
 const KEY_PREFIX = "form-query:";
 /** How long a reload brings the query back: 30 minutes. */

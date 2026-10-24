@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert } from "react-native";
 import { Redirect } from "expo-router";
 import { useSession } from "@marktiderman/genesis-native";
+import { useBlockReload } from "@marktiderman/genesis-native/updates";
 import { AuthScreen, NativeButton, appleProvider } from "@marktiderman/genesis-ui-native";
 import starter from "../../starter.config";
 import { copy, format } from "@/copy";
@@ -15,11 +16,15 @@ export default function SignInScreen() {
   const { status } = useSession();
   const [create, setCreate] = useState(false);
   const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  // An update never reloads the app mid sign-in.
+  useBlockReload(busy);
   if (status === "signedIn") return <Redirect href="/" />;
 
   const onEmail = async ({ email, password }: { email: string; password: string }) => {
     setError(undefined);
-    const result = await emailSignIn(email, password, create);
+    setBusy(true);
+    const result = await emailSignIn(email, password, create).finally(() => setBusy(false));
     if (!result.ok) return setError(result.message);
     if (result.confirmEmail) {
       Alert.alert(t.checkInboxTitle, format(t.checkInboxBody, { email }));
@@ -28,7 +33,8 @@ export default function SignInScreen() {
   };
   const onApple = async () => {
     setError(undefined);
-    const message = await appleSignIn();
+    setBusy(true);
+    const message = await appleSignIn().finally(() => setBusy(false));
     if (message) setError(message);
   };
 
@@ -39,6 +45,7 @@ export default function SignInScreen() {
       form={{
         onSubmit: onEmail,
         submitLabel: create ? t.createSubmit : t.submit,
+        loading: busy,
         errorMessage: error,
         validate: ({ email, password }) => (!email ? t.emailRequired : !password ? t.passwordRequired : null),
       }}

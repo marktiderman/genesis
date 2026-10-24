@@ -92,7 +92,7 @@ First `@marktiderman`-scoped publish. Versions: umbrella `@marktiderman/genesis`
 
 - **Everyone:** update every import specifier and dependency entry to the `@marktiderman/*` names (and `-data-switchboard` → `-switchboard`). The old pre-public-scope packages will be `npm deprecate`d with a pointer once the new ones publish. (The legacy `genesis@2.0.0` umbrella under the old scope is a separate lineage, unaffected.)
 - **React Router consumers of `genesis-ui`:** inject your router's link + current path. `AppShell`/`StatCard` stay type-safe, but `ResourcePage` route-clicks fall back to a full-page reload until you wire `onNavigate`.
-- **Next.js / no-router consumers:** the new defaults (`<a>` + History API) work out of the box — this is what unblocks the Gamify dashboard consuming `@marktiderman/genesis/*`.
+- **Next.js / no-router consumers:** the new defaults (`<a>` + History API) work out of the box — this is what unblocks a Next.js dashboard consuming `@marktiderman/genesis/*`.
 
 ### Concrete changes
 
@@ -180,7 +180,7 @@ const { brand, mode, setMode, tokens } = useTheme();
 
 ### Migration steps
 
-1. **Construct a `CanonicalBrand` object.** The unified provider takes a full brand object (not the v1 brand-id string). Use the OOTB Genesis brand inline, or import a consumer brand package (`@gamify/brand`, `@acme/brand`).
+1. **Construct a `CanonicalBrand` object.** The unified provider takes a full brand object (not the v1 brand-id string). Use the OOTB Genesis brand inline, or import a consumer brand package (`@arcade/brand`, `@acme/brand`).
 2. **Replace the v1 native import.** Swap `@marktiderman/genesis-design-system/providers/native` for the root `@marktiderman/genesis-design-system`. Remove `useGenesisTheme()` calls; replace with the unified `useTheme()`.
 3. **Wire the factory output once at brand-package build time.** `tailwindFromBrand(brand).css` lands in your web `app/styles/tailwind.css`; `themeFromBrand(brand).css` lands in your native `apps/<app>/global.css`. The provider is the runtime layer; the factories are build-time.
 4. **(During the dual-mode window) Beta-test behind `GENESIS_THEME_V2=true`.** Observe rendering against your existing v1 setup. Report regressions before the v1 path is removed.
@@ -217,7 +217,7 @@ This is the first publish from the canonical `marktiderman/genesis` repo. The pa
 ### Concrete changes from prior fork-published v0.1.0
 
 - `@marktiderman/genesis-ui-native` package description updated: `"(NativeWind v4)"` → `"(NativeWind v4-5)"` (matches the existing peerDeps range `^4.0.0 || ^5.0.0-preview`).
-- NativeWind peer-dep range widened from `"^4.0.0 || ^5.0.0"` to `"^4.0.0 || ^5.0.0-preview"` so consumers on NativeWind 5 prereleases (e.g., Gamify mobile on `5.0.0-preview.2`) can resolve. Stable `^5.0.0` continues to satisfy.
+- NativeWind peer-dep range widened from `"^4.0.0 || ^5.0.0"` to `"^4.0.0 || ^5.0.0-preview"` so consumers on NativeWind 5 prereleases (e.g., an app on `5.0.0-preview.2`) can resolve. Stable `^5.0.0` continues to satisfy.
 - Hook namespace convention locked at root `@marktiderman/genesis-core` (PRD-07 Phase A1.8). See `packages/core/src/hooks/index.ts` for the convention. **No existing hook signatures change.**
 
 ### Publishing infrastructure migrated to OIDC Trusted Publishing
@@ -287,7 +287,7 @@ and `CHROMATIC_ENABLED=true` as a repository variable.
 🔴 **Action required for any consumer reading from the schema.**
 
 Will document at release. Highlights:
-- 4 brand presets removed from `@marktiderman/genesis-design-system` (`brand-{acme,gamify,breakthrough,team-tiderman}` move to consumer brand packages). `brand-genesis` stays as OOTB fallback.
+- 4 brand presets removed from `@marktiderman/genesis-design-system` (`brand-acme` and three app-specific presets move to consumer brand packages). `brand-genesis` stays as OOTB fallback.
 - `rank` token category dropped from canonical schema (move to consumer brand packages under the new `extensions` slot).
 - New `extensions: Record<string, ColorScale>` slot on the canonical token schema for consumer-domain categories.
 - Migration: consumers either depend on the new `@<consumer>/brand` packages (which fill the schema) OR fall back to `brand-genesis`.
