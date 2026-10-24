@@ -1,0 +1,45 @@
+.changeset/app-updates-block.md
+  s_8252619ce79a86::t_608d3b88bb5436 8,15,17
+packages/native/README.md
+  s_8252619ce79a86::t_d88567fa7f2759 168-175,207-210,231
+packages/native/src/__tests__/updates/block.test.tsx
+  s_8252619ce79a86::t_a746989071e1e7 50,55,67-100,181,209
+packages/native/src/__tests__/updates/checker.test.ts
+  s_8252619ce79a86::t_976bd894452098 88-100
+packages/native/src/__tests__/updates/policy.test.ts
+  s_8252619ce79a86::t_f2d718ab99ff8f 128-181,202-205
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_129d94ddf0b6b9 124
+packages/native/src/updates/block.tsx
+  s_8252619ce79a86::t_769b9a299da398 21,25,135,172,174-182,266,354-355,362-369,372-386
+packages/native/src/updates/checker.ts
+  s_8252619ce79a86::t_948e972a596b8f 122-126,152,155-156
+packages/native/src/updates/policy.ts
+  s_8252619ce79a86::t_04d3a676c2a67f 11-12,174-175,192-196,203-205,214,218-219,259-263,278,304-307
+packages/native/src/updates/screens.tsx
+  s_8252619ce79a86::t_8e4cc7d8a816d4 14-15,24,32-34
+packages/native/src/updates/whats-new.ts
+  s_8252619ce79a86::t_aab6adddd4d92d 64-72
+packages/supabase/README.md
+  s_8252619ce79a86::t_a406bc354bc91e 201-203
+packages/supabase/migrations/0002_genesis_app_release_policy.sql
+  s_8252619ce79a86::t_f84d6ad35ee0a7 19-20,50-51,55-56,58-62
+packages/supabase/migrations/tests/0002_genesis_app_release_policy.test.sql
+  s_8252619ce79a86::t_267e2038f681ca 7,61-62,103,107,126-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c0de23745bd51b842fd520bc59a4e3fadcdba0bf",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
