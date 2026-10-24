@@ -20,7 +20,7 @@
  *
  * @stability Beta
  */
-import { type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import {
   Pressable,
@@ -202,7 +202,7 @@ export function NotificationsPage({
   // ergonomics but consumed by getNotificationsPageStackOptions() at the
   // consumer's <Stack.Screen> level — not by this component.
 
-  const sections = groupByDate(items);
+  const sections = useMemo(() => groupByDate(items), [items]);
 
   if (items.length === 0) {
     return (

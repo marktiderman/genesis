@@ -866,6 +866,15 @@ importers:
         specifier: ^3.4.9
         version: 3.4.9
     devDependencies:
+      '@expo/config':
+        specifier: ^55.0.19
+        version: 55.0.19(supports-color@8.1.1)(typescript@5.9.3)
+      '@expo/config-plugins':
+        specifier: ^55.0.11
+        version: 55.0.11(supports-color@8.1.1)
+      '@expo/config-types':
+        specifier: ^55.0.6
+        version: 55.0.6
       '@types/node':
         specifier: ^22.9.0
         version: 22.20.1
@@ -1193,7 +1202,7 @@ importers:
         specifier: '>=2.0.0'
         version: 3.1.0(react-native@0.83.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1))(react@19.2.8)
       react-native-keyboard-controller:
-        specifier: '>=1.0.0'
+        specifier: '>=1.11.0'
         version: 1.22.2(react-native-reanimated@4.5.3(react-native-worklets@0.11.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.83.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1))(react@19.2.8)(supports-color@8.1.1))(react-native@0.83.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1))(react@19.2.8))(react-native@0.83.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1))(react@19.2.8)
       react-native-reanimated:
         specifier: '>=3.0.0'

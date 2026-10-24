@@ -1,16 +1,40 @@
 /**
- * Finds and validates the doctor's config.
+ * Finds and validates the app's genesis.config.json.
  *
- * Lookup order: `--config <path>`, then `genesis.config.json` in the app
- * root, then the `genesis` key of package.json. Either file holds the
- * settings under `doctor`, leaving room for other commands' settings.
+ * The doctor's lookup order: `--config <path>`, then `genesis.config.json`
+ * in the app root, then the `genesis` key of package.json. Either file holds
+ * the settings under `doctor`, beside other blocks: `features` (read by
+ * `genesis features`) and `links` (validated here, read by the Expo config
+ * plugin).
  */
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import type { DoctorConfig } from "./types.js";
 
-export class DoctorConfigError extends Error {
+/** A genesis.config.json that can't be read or has a block of the wrong shape. */
+export class GenesisConfigError extends Error {
+  override name = "GenesisConfigError";
+}
+
+export class DoctorConfigError extends GenesisConfigError {
   override name = "DoctorConfigError";
+}
+
+/** The `links` block: the web hosts (and optional path prefixes) the app opens as universal / app links. */
+export interface GenesisLinks {
+  /** Bare host names, such as `example.com` or `app.example.com`: no scheme, path or port. */
+  hosts: string[];
+  /** Path prefixes the app handles, each starting with `/`. Default: every path. */
+  paths?: string[];
+  /** Also add `webcredentials:` domains (password autofill). Default true. */
+  webcredentials?: boolean;
+}
+
+/** genesis.config.json, parsed, with its shared blocks validated. */
+export interface GenesisConfigFile {
+  /** The whole parsed file, for blocks other readers own (`doctor`, `features`). */
+  raw: Record<string, unknown>;
+  links?: GenesisLinks;
 }
 
 export interface LoadedConfig {
@@ -60,7 +84,8 @@ export function loadConfig(root: string, configPath?: string): LoadedConfig {
   }
   const own = path.join(root, "genesis.config.json");
   if (existsSync(own)) {
-    return { config: validateConfig(readJson(own)?.doctor ?? {}, own), file: own, dir: root };
+    const block = readGenesisConfig(root)?.raw.doctor;
+    return { config: validateConfig(block ?? {}, own), file: own, dir: root };
   }
   const pkg = path.join(root, "package.json");
   if (existsSync(pkg)) {
@@ -76,6 +101,52 @@ function readJson(file: string) {
   } catch (err) {
     throw new DoctorConfigError(`${file} is not valid JSON: ${(err as Error).message}`);
   }
+}
+
+/**
+ * Reads `<root>/genesis.config.json` and validates its shared blocks (today:
+ * `links`). Returns null when the file doesn't exist; throws a
+ * GenesisConfigError naming the file when it isn't valid.
+ */
+export function readGenesisConfig(root: string): GenesisConfigFile | null {
+  const file = path.join(root, "genesis.config.json");
+  if (!existsSync(file)) return null;
+  const raw: unknown = readJson(file);
+  if (!isObject(raw)) throw new GenesisConfigError(`${file}: the config must be a JSON object`);
+  const links = raw.links === undefined ? undefined : validateLinks(raw.links, file);
+  return links ? { raw, links } : { raw };
+}
+
+const LINK_KEYS = new Set(["hosts", "paths", "webcredentials"]);
+const HOST = /^(?=.{1,253}$)(\*\.)?([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+
+/** Check the `links` block, so a typo'd host fails the build instead of shipping links that never open. */
+export function validateLinks(raw: unknown, source = "config"): GenesisLinks {
+  const fail = (msg: string): never => {
+    throw new GenesisConfigError(`${source}: ${msg}`);
+  };
+  if (!isObject(raw)) fail(`"links" must be an object`);
+  const c = raw as Record<string, unknown>;
+  for (const key of Object.keys(c)) if (!LINK_KEYS.has(key)) fail(`links: unknown setting "${key}"`);
+  if (!isStringList(c.hosts) || c.hosts.length === 0) fail(`links.hosts must be a non-empty list of host names`);
+  for (const host of c.hosts as string[]) {
+    if (!HOST.test(host)) {
+      fail(`links.hosts: "${host}" is not a bare lower-case host name (no scheme, path or port), e.g. "example.com"`);
+    }
+  }
+  if (c.paths !== undefined) {
+    if (!isStringList(c.paths)) fail(`links.paths must be a list of path prefixes`);
+    for (const p of c.paths as string[]) {
+      if (!p.startsWith("/") || /[\s?#*]/.test(p)) {
+        fail(`links.paths: "${p}" must start with "/" and hold no spaces, "?", "#" or "*"`);
+      }
+    }
+  }
+  if (c.webcredentials !== undefined && typeof c.webcredentials !== "boolean") fail(`links.webcredentials must be true or false`);
+  const links: GenesisLinks = { hosts: [...new Set(c.hosts as string[])] };
+  if (c.paths !== undefined) links.paths = [...new Set(c.paths as string[])];
+  if (c.webcredentials !== undefined) links.webcredentials = c.webcredentials as boolean;
+  return links;
 }
 
 /** Check the shape, so a typo fails loudly instead of silently disabling a check. */
