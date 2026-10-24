@@ -214,3 +214,22 @@ describe("findFeatures with reuse fields", () => {
     expect(ids(findFeatures(catalog, "inbox", undefined, { platform: "server" }))).toEqual([]);
   });
 });
+
+describe("second review", () => {
+  it("reports a schema-invalid entry once, without throwing in the relation scans", () => {
+    const found = problems(() =>
+      defineFeatures({
+        // @ts-expect-error requires must be an array
+        a: { ...base, requires: 5 },
+        b: { ...base, requires: ["a"] },
+      }),
+    );
+    expect(found.some((p) => p.startsWith("a.requires"))).toBe(true);
+    expect(found.some((p) => p.includes('"a" is not a feature'))).toBe(false);
+  });
+
+  it("treats node in apps as the server platform", () => {
+    const catalog = defineFeatures({ engine: { ...base, apps: ["web", "node"] } });
+    expect(findFeatures(catalog, "", undefined, { platform: "server" }).map((r) => r.id)).toEqual(["engine"]);
+  });
+});

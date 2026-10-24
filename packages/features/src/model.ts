@@ -327,12 +327,14 @@ function featureProblems(id: string, def: FeatureDef): string[] {
  */
 export function defineFeatures<const T extends Record<string, FeatureDef>>(features: T): T {
   const problems: string[] = [];
+  const invalid = new Set<string>();
   const owners = new Map<string, string>();
   for (const [id, def] of Object.entries(features)) {
     if (!ID.test(id)) problems.push(`${id}: the id must be lowercase letters and digits, joined by -, _ or .`);
     const parsed = featureSchema.safeParse(def);
     if (!parsed.success) {
       problems.push(...issues(id, parsed.error));
+      invalid.add(id);
       continue;
     }
     problems.push(...featureProblems(id, def));
@@ -342,7 +344,7 @@ export function defineFeatures<const T extends Record<string, FeatureDef>>(featu
       else owners.set(name, id);
     }
   }
-  problems.push(...relationProblems(features));
+  problems.push(...relationProblems(features, invalid));
   if (problems.length) throw new FeatureRegistryError(problems);
   return Object.freeze(features);
 }
@@ -350,10 +352,12 @@ export function defineFeatures<const T extends Record<string, FeatureDef>>(featu
 const UNSHIPPED: readonly FeatureStatus[] = ["idea", "planned", "retired"];
 
 /** `extends` and `requires` name real, distinct features; `requires` has no cycles; shipped features need shipped ones. */
-function relationProblems(features: Record<string, FeatureDef>): string[] {
+function relationProblems(features: Record<string, FeatureDef>, skip: ReadonlySet<string>): string[] {
   const problems: string[] = [];
   const has = (id: string) => Object.hasOwn(features, id);
   for (const [id, def] of Object.entries(features)) {
+    // A schema-invalid entry is already reported; its fields can't be trusted here.
+    if (skip.has(id)) continue;
     if (def.extends !== undefined) {
       if (def.extends === id) problems.push(`${id}.extends: a feature can't extend itself`);
       else if (!has(def.extends)) problems.push(`${id}.extends: "${def.extends}" is not a feature`);
@@ -361,7 +365,7 @@ function relationProblems(features: Record<string, FeatureDef>): string[] {
     for (const req of def.requires ?? []) {
       if (req === id) problems.push(`${id}.requires: a feature can't require itself`);
       else if (!has(req)) problems.push(`${id}.requires: "${req}" is not a feature`);
-      else if ((def.status === "beta" || def.status === "live") && UNSHIPPED.includes(features[req]!.status)) {
+      else if (!skip.has(req) && (def.status === "beta" || def.status === "live") && UNSHIPPED.includes(features[req]!.status)) {
         problems.push(`${id}.requires: a ${def.status} feature can't require "${req}", which is ${features[req]!.status}`);
       }
     }
@@ -370,6 +374,7 @@ function relationProblems(features: Record<string, FeatureDef>): string[] {
   const state = new Map<string, "open" | "done">();
   const visit = (id: string, path: string[]): void => {
     state.set(id, "open");
+    if (skip.has(id)) return;
     for (const req of features[id]?.requires ?? []) {
       if (!has(req) || req === id) continue;
       if (state.get(req) === "open") problems.push(`${id}.requires: a cycle: ${[...path.slice(path.indexOf(req)), id, req].join(" → ")}`);
@@ -490,7 +495,9 @@ export interface FindOptions {
 /** A feature's status on one platform, or undefined when it isn't there. @stability Beta */
 export function statusOn(def: FeatureDef, platform: FeaturePlatform): FeatureStatus | undefined {
   if (def.platforms) return def.platforms[platform];
-  return def.apps.includes(platform) ? def.status : undefined;
+  // Registries often call the server "node" in `apps`.
+  const apps = def.apps.map((a) => (a === "node" ? "server" : a));
+  return apps.includes(platform) ? def.status : undefined;
 }
 
 /**

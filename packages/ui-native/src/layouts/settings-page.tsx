@@ -214,6 +214,8 @@ function DefaultRow({ isLast, id: _id, ...row }: SettingsPageSlotMap["row"]) {
     <>
       <NativeListItem
         testID={row.testID}
+        // The cell wrapper carries the surface color from theme roles.
+        className="bg-transparent"
         title={row.title}
         subtitle={row.subtitle}
         leading={row.leading}

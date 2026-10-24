@@ -454,7 +454,7 @@
       "name": "Supabase kit",
       "summary": "Supabase for web and React Native: a client with PKCE sign-in, Keychain session storage that survives interrupted writes, refresh only while the app is in front, a wipe of sessions left by a reinstall, and a result helper.",
       "category": "Data",
-      "status": "building",
+      "status": "beta",
       "layer": "service",
       "keywords": [
         "supabase",
@@ -466,8 +466,8 @@
         "migrations"
       ],
       "platforms": {
-        "web": "building",
-        "native": "building",
+        "web": "beta",
+        "native": "beta",
         "server": "planned"
       },
       "entry": {
@@ -486,6 +486,10 @@
         "developer"
       ],
       "visibility": "internal",
+      "acceptance": [
+        "A session survives a Keychain write that is cut short, and an emoji at a chunk boundary round-trips.",
+        "A reinstalled iOS app starts signed out."
+      ],
       "reviewedAt": "2026-10-22",
       "links": {
         "code": [
@@ -1212,7 +1216,7 @@
     {
       "id": "slots-contract",
       "name": "Slots",
-      "summary": "The slots and slotProps contract: replace, feed or drop (null) one part of a pattern without forking it. Web patterns use it today; native patterns and the core package are next.",
+      "summary": "The slots and slotProps contract: replace, feed or drop (null) one part of a pattern without forking it. It lives in core (no DOM), so web patterns (ResourcePage) and native layouts (SettingsPage, NotificationsPage, AuthScreen) share it.",
       "category": "Design system",
       "status": "live",
       "layer": "hook",
@@ -1226,10 +1230,11 @@
       ],
       "platforms": {
         "web": "live",
-        "native": "planned"
+        "native": "beta"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui"
+        "web": "@marktiderman/genesis-core/slots",
+        "native": "@marktiderman/genesis-core/slots"
       },
       "owner": "mark",
       "apps": [
@@ -1246,6 +1251,7 @@
       "reviewedAt": "2026-10-22",
       "links": {
         "code": [
+          "packages/core/src/slots.tsx",
           "packages/ui/src/slots.tsx"
         ]
       },
@@ -1257,8 +1263,7 @@
       "name": "Theme roles",
       "summary": "Semantic color roles (label, background, separator, tint, destructive…) that each platform resolves itself: CSS variables on web, system colors on iOS, Material You on Android. A brand overrides the tint.",
       "category": "Design system",
-      "status": "planned",
-      "horizon": "now",
+      "status": "beta",
       "layer": "token",
       "keywords": [
         "PlatformColor",
@@ -1268,8 +1273,12 @@
         "material you"
       ],
       "platforms": {
-        "web": "planned",
-        "native": "planned"
+        "web": "beta",
+        "native": "beta"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-design-system",
+        "native": "@marktiderman/genesis-ui-native"
       },
       "requires": [
         "design-tokens"
@@ -1283,6 +1292,17 @@
         "developer"
       ],
       "visibility": "internal",
+      "acceptance": [
+        "Every role resolves on web, iOS and Android, in light and dark.",
+        "Dark-mode destructive text keeps at least 4.5:1 contrast on the background."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/design-system/src/tokens/roles.ts",
+          "packages/ui-native/src/hooks/use-theme-roles.ts"
+        ]
+      },
       "access": "all",
       "flags": []
     },

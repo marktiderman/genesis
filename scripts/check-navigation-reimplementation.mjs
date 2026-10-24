@@ -60,7 +60,7 @@ const DECLARATIONS = [
 ];
 
 // An alias of the Genesis type is a use of it, not a copy.
-const GENESIS_ALIAS_RE = /\btype\s+NavigationNode\b[^=]*=.*@marktiderman\/genesis-ui/;
+const GENESIS_ALIAS_RE = /\btype\s+NavigationNode\b[^=]*=.*@marktiderman\/genesis-(?:ui|core)/;
 
 /** Blank every line inside a `declare module "…"` / `declare global` block (augmentations). */
 function blankDeclareModules(lines) {

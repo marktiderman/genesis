@@ -120,3 +120,45 @@ describe("keychainStorage review fixes", () => {
     for (const k of ["sb", "sb-code-verifier", "sb-user"]) expect(await session.getItem(k)).toBeNull();
   });
 });
+
+describe("keychainStorage second review", () => {
+  it("serializes a read behind a write, so it never sees the old generation vanish", async () => {
+    const { store } = fakeSecureStore();
+    const s = keychainStorage(store, { chunkSize: 4 });
+    await s.setItem("sb", "old-value");
+    const [, read] = await Promise.all([s.setItem("sb", "new-value"), s.getItem("sb")]);
+    expect(read).toBe("new-value");
+  });
+
+  it("removes chunks before the manifest", async () => {
+    const order: string[] = [];
+    const { store } = fakeSecureStore();
+    const del = store.deleteItemAsync.bind(store);
+    store.deleteItemAsync = async (k, o) => (order.push(k), del(k, o));
+    const s = keychainStorage(store, { chunkSize: 4 });
+    await s.setItem("sb", "abcdefgh");
+    order.length = 0;
+    await s.removeItem("sb");
+    expect(order.at(-1)).toBe("sb.n");
+  });
+});
+
+describe("refreshWhileActive cleanup", () => {
+  it("stops refreshing when unsubscribed", () => {
+    const auth = { startAutoRefresh: vi.fn(), stopAutoRefresh: vi.fn() };
+    const stop = refreshWhileActive({ auth }, { currentState: "active", addEventListener: () => ({ remove() {} }) });
+    stop();
+    expect(auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("wipeSessionOnReinstall PKCE flows", () => {
+  it("removes every indexed verifier slot and the index", async () => {
+    const session = memory();
+    await session.setItem("sb-flows-code-verifier", JSON.stringify(["a1", "b2"]));
+    await session.setItem("sb-flow-a1-code-verifier", "x");
+    await session.setItem("sb-flow-b2-code-verifier", "y");
+    await wipeSessionOnReinstall({ session, sessionKey: "sb", installMarker: memory() });
+    for (const k of ["sb-flows-code-verifier", "sb-flow-a1-code-verifier", "sb-flow-b2-code-verifier"]) expect(await session.getItem(k)).toBeNull();
+  });
+});

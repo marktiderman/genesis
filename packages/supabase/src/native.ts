@@ -68,12 +68,15 @@ export function keychainStorage(secureStore: SecureStoreLike, options: KeychainS
   };
 
   return {
-    async getItem(key) {
-      await queues.get(key)?.catch(() => undefined);
-      const m = await manifest(key);
-      if (!m) return null;
-      const parts = await Promise.all(Array.from({ length: m.count }, (_, i) => secureStore.getItemAsync(chunkKey(key, m.gen, i), opts)));
-      return parts.some((p) => p === null) ? null : parts.join("");
+    getItem(key) {
+      // Reads queue with writes, so a write can't swap the manifest and drop
+      // the old chunks halfway through a read.
+      return serial(key, async () => {
+        const m = await manifest(key);
+        if (!m) return null;
+        const parts = await Promise.all(Array.from({ length: m.count }, (_, i) => secureStore.getItemAsync(chunkKey(key, m.gen, i), opts)));
+        return parts.some((p) => p === null) ? null : parts.join("");
+      });
     },
     setItem(key, value) {
       return serial(key, async () => {
@@ -82,7 +85,11 @@ export function keychainStorage(secureStore: SecureStoreLike, options: KeychainS
         const gen = `${Date.now().toString(36)}${(counter++).toString(36)}`;
         const parts = splitUtf8(value, size);
         await secureStore.setItemAsync(`${key}.p`, `${gen}:${parts.length}`, opts);
-        await Promise.all(parts.map((p, i) => secureStore.setItemAsync(chunkKey(key, gen, i), p, opts)));
+        // Let every chunk write settle before failing, so a late write can't land
+        // after the next operation has swept this generation.
+        const written = await Promise.allSettled(parts.map((p, i) => secureStore.setItemAsync(chunkKey(key, gen, i), p, opts)));
+        const failed = written.find((r): r is PromiseRejectedResult => r.status === "rejected");
+        if (failed) throw failed.reason;
         await secureStore.setItemAsync(`${key}.n`, `${gen}:${parts.length}`, opts);
         await secureStore.deleteItemAsync(`${key}.p`, opts);
         if (before) await drop(key, before.gen, before.count);
@@ -92,8 +99,9 @@ export function keychainStorage(secureStore: SecureStoreLike, options: KeychainS
       return serial(key, async () => {
         const m = await manifest(key);
         await sweepPending(key, m?.gen);
-        await secureStore.deleteItemAsync(`${key}.n`, opts);
+        // Chunks first: the manifest is what finds them, so it goes last.
         if (m) await drop(key, m.gen, m.count);
+        await secureStore.deleteItemAsync(`${key}.n`, opts);
       });
     },
   };
@@ -123,7 +131,10 @@ export function refreshWhileActive(client: AutoRefreshAuth, appState: AppStateLi
   };
   apply(appState.currentState ?? "active");
   const sub = appState.addEventListener("change", apply);
-  return () => sub.remove();
+  return () => {
+    sub.remove();
+    void client.auth.stopAutoRefresh();
+  };
 }
 
 /** @stability Beta */
@@ -148,8 +159,12 @@ export interface WipeOnReinstallOptions {
  */
 export async function wipeSessionOnReinstall({ session, sessionKey, installMarker, markerKey = "genesis.installed" }: WipeOnReinstallOptions): Promise<boolean> {
   if ((await installMarker.getItem(markerKey)) !== null) return false;
-  // The session, plus what supabase-js keeps beside it: the PKCE code verifier and, with userStorage, the user.
-  for (const key of [sessionKey, `${sessionKey}-code-verifier`, `${sessionKey}-user`]) await session.removeItem(key);
+  // The session, plus what supabase-js keeps beside it: the PKCE verifier (the
+  // single legacy slot, each indexed flow's slot and the index) and, with
+  // userStorage, the user.
+  const indexKey = `${sessionKey}-flows-code-verifier`;
+  for (const flowId of parseFlowIndex(await session.getItem(indexKey))) await session.removeItem(`${sessionKey}-flow-${flowId}-code-verifier`);
+  for (const key of [sessionKey, `${sessionKey}-code-verifier`, indexKey, `${sessionKey}-user`]) await session.removeItem(key);
   await installMarker.setItem(markerKey, "1");
   return true;
 }
@@ -175,4 +190,15 @@ export function splitUtf8(text: string, maxBytes: number): string[] {
   }
   parts.push(current);
   return parts;
+}
+
+/** supabase-js's PKCE flow index: a JSON array of flow ids. Anything else is ignored. */
+function parseFlowIndex(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const ids: unknown = JSON.parse(raw);
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string" && /^[\w-]{1,128}$/.test(id)) : [];
+  } catch {
+    return [];
+  }
 }
