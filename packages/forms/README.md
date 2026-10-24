@@ -548,6 +548,212 @@ The request is `{ fieldId, name, type, size }` plus `attemptId` or `edit`. `atte
 is the hex SHA-256 the store keeps for the attempt. `messages` overrides any of the words
 (`UPLOAD_MESSAGES`). genesis-forms-web's `signedUploadHost` is the browser half.
 
+### Submitting: `submitResponse`
+
+The one call a submit endpoint makes. It checks the submission again (`validateSubmission`, then
+`checkUploads`), snapshots the options picked (`answerSnapshots`) and hands one record to the app's
+store, keyed by the device's idempotency key, so a retry never stores a second response. No HTTP and
+no delivery: the endpoint, the store and the destinations' outbox are the app's.
+
+```ts
+import { submitResponse, type SubmissionStore } from "@marktiderman/genesis-forms/server";
+
+const result = await submitResponse(await request.json(), {
+  definition: published, // loaded by the server
+  hostOptions: { locations: await locationsFor(practice) }, // loaded afresh, never from the client
+  context: { member: memberId }, // server inputs
+  store, // SubmissionStore
+  formId: form.id, // how the store keys it; default definition.id
+  version: form.publishedVersion, // stored as definitionVersion; default fingerprint(definition)
+  open: form.acceptingResponses, // false answers "closed"
+  rateLimit: async () => allow(counter, { key: await rateLimitKey({ kind: "submit", scope: practice, ip, secret }), ...RATE_LIMIT_DEFAULTS.submit }),
+  uploads: { store: uploadStore }, // needed when the form has upload fields; the owner is the request's attemptId
+});
+return Response.json(result, { status: result.ok ? 201 : 200 });
+```
+
+The contract, which the client outbox and the server side are both built against:
+
+```ts
+function submitResponse(input: SubmitRequest, options: SubmitResponseOptions): Promise<SubmitResult>;
+
+interface SubmitRequest extends SubmissionInput { // answers | events, hidden
+  idempotencyKey: string; // made once on the device (a UUID); /^[A-Za-z0-9_-]{16,128}$/
+  clientSubmittedAt?: number; // the device's clock, untrusted
+  attemptId?: string; // the visit's attempt, for upload fields
+}
+
+type SubmitResult =
+  | { ok: true; id: string; receivedAt: string }
+  | { ok: false; reason: "duplicate"; id: string; receivedAt: string }
+  | { ok: false; reason: "invalid"; errors: Record<string, string> }
+  | { ok: false; reason: "conflict" }
+  | { ok: false; reason: "closed" }
+  | { ok: false; reason: "rate_limited"; retryAfterSeconds?: number }
+  | { ok: false; reason: "store_failed" };
+
+interface SubmissionStore {
+  find(formId: string, idempotencyKey: string): Promise<StoredSubmissionRef | null>;
+  save(record: SubmissionRecord): Promise<{ id: string } | { duplicate: StoredSubmissionRef }>;
+}
+interface StoredSubmissionRef { id: string; receivedAt: string; inputHash: string }
+```
+
+The checks run in this order: the idempotency key, `store.find` (a response already stored under
+it), `open`, `rateLimit`, `validateSubmission` (always complete; drafts are never submitted), the
+uploads named, then `store.save`.
+
+| Result | Meaning | The device |
+|---|---|---|
+| `ok: true` | Stored now, as `id`. Queue its deliveries. | Drops it from the outbox. |
+| `duplicate` | Already stored under this key with these answers, as `id`. Deliver nothing again. | Drops it: the earlier try went through. |
+| `invalid` | `errors` keyed by field id, `""` for the whole: a failed check, or a malformed body or key. | Keeps it as failed, for the respondent to fix or discard. |
+| `conflict` | A response is stored under this key with other answers (the hashes differ). | Keeps it as failed. |
+| `closed` | `open: false`. | Keeps it as failed. |
+| `rate_limited` | `rateLimit` answered false, or `{ retryAfterSeconds }` (sent back, rounded up). A throw lets it on (fails open) and is logged. | Retries later, no sooner than `retryAfterSeconds`. |
+| `store_failed` | `find`, `save` or the upload store threw, `save` answered no id, or a duplicate came back without its id, time or hash. The cause is logged, without answers. | Retries later. |
+
+More reasons may be added; a device treats one it doesn't know as a retry, so it keeps the submission.
+
+Answer every result as JSON with whatever status code suits (the outbox reads the body, not the
+status). `submitResponse` throws only for the server's own mistakes: a published definition that
+doesn't parse, or a form with upload fields and no `uploads`; answer those 500 and the device retries.
+
+The store's side:
+
+- **One response per `formId` and `idempotencyKey`.** Put a unique index on the pair. `find` reads
+  the row under a key (it is asked first, so a retry of a response that went through is answered
+  `duplicate` even after the form closed, the client is rate limited, the definition changed or its
+  uploads were taken). When `save`'s insert hits the index anyway (two retries raced), read that row
+  and answer `{ duplicate: { id, receivedAt, inputHash } }`.
+- **Keep `inputHash`.** It is the hex SHA-256 of the answers, events and hidden inputs as sent. A
+  duplicate is answered `duplicate` only when the hashes match; a key reused for other answers is
+  `conflict`, never taken as delivered. A ref without its hash is answered `store_failed`.
+- **Mark `uploadIds` taken by the response** in the same transaction (the checked ids of the files
+  the answers name), so they aren't purged as abandoned.
+- **Save and queue deliveries in one transaction**, so a stored response is always delivered. For a
+  destination, `{ id, answers, hidden, context, ending, submittedAt: receivedAt }` is a
+  `DeliverySubmission`.
+
+`SubmissionRecord` holds `formId`, `idempotencyKey`, `inputHash`, `definitionVersion`, `receivedAt`
+(ISO), `clientSubmittedAt` (ISO or null, untrusted), the checked `answers` (uploads as stored,
+calculated fields worked out here), `hidden`, `context`, `ending`, `ignored`, `snapshots` and
+`uploadIds`.
+
+## Drafts and the offline outbox
+
+Both run on the device, in the browser and in React Native, and keep their data in a
+`KeyValueStorage`: `{ getItem, setItem, removeItem }`, each answering at once or with a promise.
+`localStorage` is one (`webStorage()` looks it up on each call, so server rendering is safe), React
+Native's AsyncStorage is one, and MMKV takes three lines:
+
+```ts
+const storage: KeyValueStorage = {
+  getItem: (key) => mmkv.getString(key) ?? null,
+  setItem: (key, value) => mmkv.set(key, value),
+  removeItem: (key) => mmkv.delete(key),
+};
+```
+
+`memoryStorage()` keeps nothing past the page or app, for tests.
+
+### Drafts
+
+```ts
+import { createDraftStore, webStorage } from "@marktiderman/genesis-forms";
+import { useFormDraft } from "@marktiderman/genesis-forms-react";
+
+const drafts = createDraftStore(webStorage()); // or AsyncStorage, MMKV
+const { engine, draft, savedAt, clear } = useFormDraft(definition, { store: drafts, respondent: sessionId });
+```
+
+`useFormDraft` is `useForm` with a draft: the saved answers are put back when the form opens, at
+the furthest question reached (`resumeAt`), saved again 800 ms after each change (`delayMs`), and
+flushed when the page is hidden or the component unmounts. With a store that answers at once the
+engine is ready on the first render; with an async one `engine` is null until the draft is read.
+`draft` says what happened: `restored`, `discarded`, `none`, `error` (it couldn't be read: the form
+starts empty, and the stored draft is left alone until the respondent answers something) or
+`loading`. In React Native, call `flush()` from an `AppState` listener when the app goes to the
+background; on the web the hook flushes on `pagehide` and when the page is hidden.
+
+- A draft is keyed by form and respondent (a user id, or a session id made once on the device).
+  `version` (default `fingerprint(definition)`) is stored inside it. At the same version it is put
+  back as it is. At another version it is put back only when every answer still fits (the question
+  is there, of the same type, and the answer passes its format checks); otherwise the whole draft is
+  removed, never half put back (`restoreDraft`, reason `version`). Drafts older than 30 days
+  (`maxAgeMs`) are removed too (`expired`).
+- Sensitive answers (`isSensitive`) are left out unless `keepSensitive: true`, so they never sit in
+  the device's storage; calculated fields and withheld identifying ones are never saved.
+- Answers cleared to nothing remove the draft (one that was restored, or one this visit saved). A
+  save that fails goes to `onError` (default `console.warn`); autosave never throws.
+- Call `clear()` only once the submission is safe: after `outbox.enqueue` resolved.
+
+Without React: `createDraftAutosave(engine, store, key, options)` (with `flush`, `clear`,
+`dispose`), `draftOf(engine, key)` and `restoreDraft(definition, draft, { version })`.
+
+### The outbox
+
+```ts
+import { createSubmitOutbox, webStorage } from "@marktiderman/genesis-forms";
+import { useSubmitOutbox } from "@marktiderman/genesis-forms-react";
+
+// Once, for the whole app.
+export const outbox = createSubmitOutbox({
+  storage: webStorage(),
+  send: async (item, { signal }) => {
+    const res = await fetch(`/api/forms/${item.formId}/submit`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(item.request),
+      signal,
+    });
+    return res.json(); // the SubmitResult, whatever the status
+  },
+});
+
+// On submit: queue it, then clear the draft.
+if (engine.submit()) {
+  await outbox.enqueue({ formId, submission: { events: engine.getState().events }, attemptId });
+  await clear();
+}
+
+// Or with useFormController: the same thing as its onSubmit. It resolves once the submission
+// is stored on the device, so the ending shows offline; a storage failure sets phase "failed".
+const controller = useFormController(engine, { onSubmit: outboxSubmit(outbox, { formId, attemptId, clearDraft: clear }) });
+
+// Anywhere: what's waiting.
+const { pending, failed, items, online } = useSubmitOutbox(outbox);
+```
+
+- `enqueue` resolves once the submission is in storage, with a new idempotency key (or the one
+  passed: the same key twice queues it once). It rejects when storage can't take it; keep the draft
+  then and tell the respondent.
+- It sends when online, oldest first and one at a time, and backs off between tries (about 2 s,
+  doubling to 15 min, with jitter; `backoff`), the same body and key every time. Coming online sends
+  what's pending at once. `useSubmitOutbox` follows the browser's `online` and `offline` events; in
+  React Native pass `trackOnline: false` and call `outbox.setOnline` from NetInfo.
+- `send` answers the endpoint's `SubmitResult` (`submitOutcome` maps it). `ok` and `duplicate` are
+  delivered and removed (`onDelivered`). `invalid` and `closed` keep it as `failed` with the server's
+  `rejection`. Anything else (a throw, a timeout after 30 s, `rate_limited`, `store_failed`, a body
+  that isn't a `SubmitResult`) is tried again, up to 10 tries (`maxAttempts`), then kept as `failed`.
+  Nothing is dropped silently: a failed submission stays, in storage too, until `retry(id)` or
+  `discard(id)`. One that ran out of tries (not one the server refused) starts again from its first
+  try each time the outbox starts and each time the device comes back online. A `rate_limited`
+  answer's `retryAfterSeconds` is waited out.
+- To let the respondent fix a refused submission, open the form from `item.request` (`replay` its
+  `events`, or `initialValues` from its `answers`), `discard` the old one and `enqueue` the corrected
+  one: it gets a new key.
+- `discard` takes it out of the queue at once: no send starts after it is called.
+- The outbox holds the whole submission, sensitive answers too, in the device's storage until the
+  server has it. Pick the storage with that in mind (MMKV with encryption, say).
+- It is kept across restarts: each submission under its own key and an index beside it. The index
+  is changed one outbox at a time (in one JS context, and across tabs where Web Locks exist), and
+  each change writes back every submission that outbox holds, so two tabs on one storage keep each
+  other's. Both may send one; its key makes the server store it once. An entry that can't be read is
+  logged, listed in `unreadable` and left in storage.
+- Where there is no `crypto.randomUUID` (React Native without a polyfill) pass `createKey`
+  (expo-crypto's `randomUUID`); `createSubmitOutbox` throws without one.
+
 ## Destinations
 
 `@marktiderman/genesis-forms/destinations` sends a checked submission somewhere. No dependencies:
