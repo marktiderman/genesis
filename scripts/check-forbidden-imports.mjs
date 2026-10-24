@@ -29,7 +29,7 @@
  *
  * Usage:
  *   node scripts/check-forbidden-imports.mjs
- *   node scripts/check-forbidden-imports.mjs apps/sample-native
+ *   node scripts/check-forbidden-imports.mjs apps/genesis-rn-starter
  *   pnpm check:forbidden-imports
  *
  * Wired into:

@@ -16,7 +16,7 @@
  * @stability Beta
  */
 import { useRef, useState, type ComponentType } from "react";
-import { Platform, View } from "react-native";
+import { Platform, View, type ViewStyle } from "react-native";
 import { useThemeMode } from "../hooks/use-theme-mode";
 import type { SocialAuthProvider } from "./auth";
 
@@ -27,7 +27,9 @@ export interface AppleButtonModuleLike {
     buttonStyle: number;
     cornerRadius?: number;
     onPress: () => void;
-    style?: unknown;
+    // The style the button is given, typed as the module types it: with `unknown` here the real
+    // module's button (which takes a ViewStyle) wasn't assignable under strictFunctionTypes.
+    style?: ViewStyle;
     testID?: string;
     accessibilityState?: { disabled?: boolean; busy?: boolean };
   }>;

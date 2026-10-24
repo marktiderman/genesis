@@ -1,7 +1,8 @@
 # Genesis: agent notes
 
-Genesis is a pnpm monorepo of `@marktiderman/genesis-*` packages (`packages/`) and two reference
-apps (`apps/sample`, `apps/sample-native`).
+Genesis is a pnpm monorepo of `@marktiderman/genesis-*` packages (`packages/`) and two apps: the
+web reference app (`apps/sample`) and the Expo starter new native apps are made from
+(`apps/genesis-rn-starter`).
 
 - Build before you test or typecheck: `pnpm build:packages`, then `pnpm test` and `pnpm typecheck`.
   `pnpm lint:genesis` runs the repo's own rules.
@@ -12,7 +13,7 @@ apps (`apps/sample`, `apps/sample-native`).
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 61 features (19 idea, 5 planned, 2 building, 8 beta, 27 live).
+Every feature is in `features.ts`: 62 features (19 idea, 5 planned, 2 building, 9 beta, 27 live).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.
