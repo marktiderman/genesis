@@ -100,6 +100,36 @@ export interface ChoiceOption {
   label?: string;
 }
 
+/** The longest answer an "Other" option takes. */
+export const OTHER_MAX_LENGTH = 200;
+
+/**
+ * A choice question's "Other" option (`props.other: true` or `{ label }`): the respondent types
+ * their own answer, stored as the answer's value itself (single choice, dropdown) or as one more
+ * item (multiple choice). Null when the question has none.
+ */
+export function otherOption(field: FieldBlock): { label: string } | null {
+  const other = field.props?.other;
+  if (other === true) return { label: "Other" };
+  if (other && typeof other === "object" && !Array.isArray(other)) {
+    const label = typeof other.label === "string" && other.label.trim() ? other.label.trim() : "Other";
+    return { label };
+  }
+  return null;
+}
+
+/** Whether a value is a typed "Other" answer: text that isn't one of the question's options. */
+export function isOtherValue(field: FieldBlock, value: unknown): value is string {
+  return (
+    otherOption(field) !== null &&
+    typeof value === "string" &&
+    !choiceOptions(field).some((o) => o.value === value)
+  );
+}
+
+const typedOther = (field: FieldBlock, value: unknown) =>
+  isOtherValue(field, value) && value.trim() !== "" && value.length <= OTHER_MAX_LENGTH;
+
 export function choiceOptions(field: FieldBlock): ChoiceOption[] {
   const raw = field.props?.options;
   if (!Array.isArray(raw)) return [];
@@ -316,7 +346,7 @@ const builtins: FieldTypeManifest[] = [
     operators: ["eq", "neq", "in", "answered", "empty"],
     a11y: { semantics: "group" },
     validate: (value, field) =>
-      typeof value === "string" && choiceOptions(field).some((o) => o.value === value)
+      typeof value === "string" && (choiceOptions(field).some((o) => o.value === value) || typedOther(field, value))
         ? null
         : "Choose one of the options.",
     summarize: (value, field) => optionLabel(field, String(value)),
@@ -330,11 +360,13 @@ const builtins: FieldTypeManifest[] = [
     a11y: { semantics: "group" },
     validate: (value, field) => {
       const allowed = new Set(choiceOptions(field).map((o) => o.value));
-      // Each option at most once, so a value is never longer than the option list.
+      // Each option at most once, plus at most one typed "Other" answer, so a value is never
+      // longer than the option list and one.
+      const others = Array.isArray(value) ? value.filter((v) => typeof v === "string" && !allowed.has(v)) : [];
       return Array.isArray(value) &&
-        value.length <= allowed.size &&
         new Set(value).size === value.length &&
-        value.every((v) => typeof v === "string" && allowed.has(v))
+        value.every((v) => typeof v === "string") &&
+        (others.length === 0 || (others.length === 1 && typedOther(field, others[0])))
         ? null
         : "Choose from the options.";
     },
@@ -359,7 +391,7 @@ const builtins: FieldTypeManifest[] = [
     operators: ["eq", "neq", "in", "answered", "empty"],
     a11y: { semantics: "control" },
     validate: (value, field) =>
-      typeof value === "string" && choiceOptions(field).some((o) => o.value === value)
+      typeof value === "string" && (choiceOptions(field).some((o) => o.value === value) || typedOther(field, value))
         ? null
         : "Choose one of the options.",
     summarize: (value, field) => optionLabel(field, String(value)),

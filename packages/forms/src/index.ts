@@ -37,6 +37,9 @@ export { computePath, evaluate, ruleVisible, steps, type PathResult } from "./lo
 export { formProgress, furthestReached, type FormProgress } from "./progress";
 export {
   choiceOptions,
+  isOtherValue,
+  otherOption,
+  OTHER_MAX_LENGTH,
   dateLimits,
   getFieldType,
   isIsoDate,

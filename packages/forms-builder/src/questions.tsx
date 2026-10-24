@@ -6,6 +6,7 @@ import {
   COMPUTED_FIELD_TYPES,
   listFieldTypes,
   optionsSource,
+  otherOption,
   STRUCTURED_FIELD_TYPES,
   UPLOAD_FIELD_TYPES,
   type Block,
@@ -1072,7 +1073,13 @@ function FieldInspector({
 function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
   const { hostOptions: lists } = useBuilderConfig();
   const from = optionsSource(field);
-  if (!from && !lists?.length) return <TypedOptions field={field} apply={apply} />;
+  if (!from && !lists?.length)
+    return (
+      <div className="space-y-4">
+        <TypedOptions field={field} apply={apply} />
+        <OtherSwitch field={field} apply={apply} />
+      </div>
+    );
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
@@ -1098,7 +1105,28 @@ function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
         />
       </div>
       {from ? <HostOptionsPicker field={field} apply={apply} /> : <TypedOptions field={field} apply={apply} />}
+      <OtherSwitch field={field} apply={apply} />
     </div>
+  );
+}
+
+/** "Allow an Other answer": one more option with a text box, whose text is the answer. */
+function OtherSwitch({ field, apply }: { field: FieldBlock; apply: Apply }) {
+  const other = otherOption(field);
+  return (
+    <SwitchRow
+      label="Allow an “Other” answer"
+      hint="Adds an Other option with a text box. What they type is their answer."
+      checked={other !== null}
+      testID="builder-options-other"
+      onChange={(on) =>
+        apply((d) => {
+          const { other: _, ...rest } = field.props ?? {};
+          const props = on ? { ...rest, other: true } : rest;
+          return updateBlock(d, field.id, { props: Object.keys(props).length ? props : undefined });
+        })
+      }
+    />
   );
 }
 
