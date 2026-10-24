@@ -23,6 +23,7 @@ import {
   unusedComponents,
 } from "./rules.js";
 import { scanFiles } from "./scan.js";
+import { checkVersionSkew } from "./versions.js";
 import type { DoctorConfig, DoctorContext, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
 export type * from "./types.js";
@@ -32,6 +33,7 @@ export { parseRulesMarkdown } from "./patterns.js";
 export { defineDoctorPlugin } from "./plugins.js";
 export { BUILTIN_RULES } from "./rules.js";
 export { globToRegExp } from "./glob.js";
+export { readReleaseManifest, type ReleaseManifest } from "./versions.js";
 
 export interface RunDoctorOptions {
   /** The app root. Default `process.cwd()`. */
@@ -73,6 +75,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     { name: "colors", check: checkColors },
     { name: "tokens", check: checkTokens },
     { name: "shadowed-exports", check: checkShadowedExports },
+    { name: "version-skew", check: checkVersionSkew },
   ];
   for (const plugin of [...builtins, ...(patterns ? [patterns.plugin] : []), ...plugins]) {
     try {

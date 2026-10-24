@@ -807,6 +807,9 @@ importers:
       '@marktiderman/genesis-design-system':
         specifier: workspace:*
         version: link:../design-system
+      '@marktiderman/genesis-features':
+        specifier: workspace:*
+        version: link:../features
       '@marktiderman/genesis-forms':
         specifier: workspace:*
         version: link:../forms
