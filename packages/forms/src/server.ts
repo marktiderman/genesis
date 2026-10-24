@@ -395,6 +395,7 @@ export {
 } from "./upload-protocol";
 export {
   submitResponse,
+  type RateLimitAnswer,
   type StoredSubmissionRef,
   type SubmissionRecord,
   type SubmissionStore,

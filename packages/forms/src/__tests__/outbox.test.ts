@@ -100,17 +100,53 @@ describe("createSubmitOutbox", () => {
     expect(outbox.getSnapshot().failed).toBe(1);
     void send;
 
-    // Stored as failed, so a restart doesn't quietly start again or lose it.
+    outbox.stop();
+
+    // Stored as failed, so it isn't lost; a restart tries it again from the start.
     const reopened = setup({}, storage);
     await reopened.outbox.ready;
-    expect(reopened.outbox.getSnapshot().items[0]).toMatchObject({ id: item.id, state: "failed" });
+    expect(reopened.outbox.getSnapshot().items[0]).toMatchObject({ id: item.id });
     reopened.outbox.start();
-    await vi.advanceTimersByTimeAsync(60_000);
-    expect(reopened.send).not.toHaveBeenCalled();
-
-    await reopened.outbox.retry(item.id);
+    await vi.advanceTimersByTimeAsync(0);
     expect(reopened.send).toHaveBeenCalledTimes(1);
     expect(reopened.outbox.getSnapshot().items).toEqual([]);
+  });
+
+  it("retry sends a refused submission again, from its first try", async () => {
+    const { outbox, send, replies } = setup();
+    replies.push(async () => ({ ok: false, reason: "closed" }));
+    outbox.start();
+    const item = await outbox.enqueue({ formId: "visit", submission });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(outbox.getSnapshot().items[0]).toMatchObject({ state: "failed", attempts: 1 });
+    await outbox.retry(item.id);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(outbox.getSnapshot().items).toEqual([]);
+  });
+
+  it("tries what ran out of tries again when the device comes back online, but not what the server refused", async () => {
+    let fail = true;
+    const { outbox, replies } = setup({
+      maxAttempts: 1,
+      send: async () => {
+        if (fail) throw new Error("captive portal");
+        return replies.shift()?.() ?? ok();
+      },
+    });
+    outbox.start();
+    const exhausted = await outbox.enqueue({ formId: "visit", submission });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(outbox.getSnapshot().items[0]).toMatchObject({ id: exhausted.id, state: "failed", rejection: null });
+    fail = false;
+    replies.push(async () => ({ ok: false, reason: "closed" }));
+    await outbox.enqueue({ formId: "visit", submission });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(outbox.getSnapshot().failed).toBe(2);
+    outbox.setOnline(false);
+    outbox.setOnline(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(outbox.getSnapshot().items).toHaveLength(1);
+    expect(outbox.getSnapshot().items[0]).toMatchObject({ state: "failed", rejection: { reason: "closed" } });
   });
 
   it("keeps a refused submission as failed with the server's errors, and discard removes it", async () => {
@@ -189,6 +225,93 @@ describe("createSubmitOutbox", () => {
     expect(outbox.getSnapshot()).toMatchObject({ items: [], storageError: expect.stringMatching(/Quota/) });
   });
 
+  it("never sends a submission once discard was called, even with slow storage", async () => {
+    const map = new Map<string, string>();
+    const slow: KeyValueStorage = {
+      getItem: async (k) => map.get(k) ?? null,
+      setItem: (k, v) => new Promise((r) => setTimeout(() => r(void map.set(k, v)), 50)),
+      removeItem: (k) => new Promise((r) => setTimeout(() => r(void map.delete(k)), 50)),
+    };
+    const { outbox, send, delivered } = setup({ online: false }, slow);
+    outbox.start();
+    const item = await (async () => {
+      const p = outbox.enqueue({ formId: "visit", submission });
+      await vi.advanceTimersByTimeAsync(200);
+      return p;
+    })();
+    const discarding = outbox.discard(item.id);
+    outbox.setOnline(true);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(await discarding).toBe(true);
+    expect(send).not.toHaveBeenCalled();
+    expect(delivered).toEqual([]);
+  });
+
+  it("two outboxes enqueueing at once on one async storage keep both in the index", async () => {
+    const map = new Map<string, string>();
+    const asyncStorage: KeyValueStorage = {
+      getItem: async (k) => map.get(k) ?? null,
+      setItem: async (k, v) => void map.set(k, v),
+      removeItem: async (k) => void map.delete(k),
+    };
+    const a = setup({ online: false }, asyncStorage);
+    const b = setup({ online: false }, asyncStorage);
+    const [x, y] = await Promise.all([
+      a.outbox.enqueue({ formId: "visit", submission }),
+      b.outbox.enqueue({ formId: "visit", submission }),
+    ]);
+    expect(JSON.parse(map.get("genesis-forms:outbox:index")!).sort()).toEqual([x.id, y.id].sort());
+    const later = setup({ online: false }, asyncStorage);
+    await later.outbox.ready;
+    expect(later.outbox.getSnapshot().items).toHaveLength(2);
+  });
+
+  it("sends a submission put off far into the future (the clock moved back) instead of spinning", async () => {
+    const storage = memoryStorage();
+    const entry = {
+      id: "far-future-key-0001",
+      formId: "visit",
+      request: { ...submission, idempotencyKey: "far-future-key-0001" },
+      meta: null,
+      createdAt: 0,
+      attempts: 1,
+      nextAttemptAt: Date.now() + 365 * 24 * 3600 * 1000,
+      state: "pending",
+      lastError: null,
+      rejection: null,
+    };
+    storage.setItem("genesis-forms:outbox:index", JSON.stringify([entry.id]));
+    storage.setItem(`genesis-forms:outbox:item:${entry.id}`, JSON.stringify(entry));
+    const { outbox, send } = setup({}, storage);
+    outbox.start();
+    await vi.advanceTimersByTimeAsync(10);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits as long as the server's retryAfterSeconds when it is longer than the backoff", async () => {
+    const { outbox, send, replies } = setup();
+    replies.push(async () => ({ ok: false, reason: "rate_limited", retryAfterSeconds: 120 }));
+    outbox.start();
+    await outbox.enqueue({ formId: "visit", submission });
+    await vi.advanceTimersByTimeAsync(119_000);
+    expect(send).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it("sends the attempt id with the submission, and refuses to start without a way to make keys", async () => {
+    const { outbox } = setup({ online: false });
+    const item = await outbox.enqueue({ formId: "visit", submission, attemptId: "attempt-1" });
+    expect(item.request.attemptId).toBe("attempt-1");
+    const crypto = globalThis.crypto;
+    vi.stubGlobal("crypto", {});
+    try {
+      expect(() => createSubmitOutbox({ storage: memoryStorage(), send: async () => ok() })).toThrow(/createKey/);
+    } finally {
+      vi.stubGlobal("crypto", crypto);
+    }
+  });
+
   it("two outboxes on one storage (two tabs) keep each other's submissions", async () => {
     const storage = memoryStorage();
     const tabA = setup({ online: false }, storage);
@@ -209,6 +332,7 @@ describe("createSubmitOutbox", () => {
     const logs: string[] = [];
     const { outbox } = setup({ log: (m) => logs.push(m) }, storage);
     await outbox.ready;
+    expect(outbox.getSnapshot().unreadable).toEqual(["broken-key-000000001"]);
     await outbox.enqueue({ formId: "visit", submission });
     expect(logs.join()).toMatch(/couldn't be read/);
     expect(storage.getItem("genesis-forms:outbox:item:broken-key-000000001")).toBe("{oops");

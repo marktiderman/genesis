@@ -23,10 +23,16 @@ export interface SubmitRequest extends SubmissionInput {
    * `receivedAt`.
    */
   clientSubmittedAt?: number | undefined;
+  /**
+   * The visit's attempt id (a UUID made when the form opened), when the form has upload
+   * fields: the server hashes it (`attemptHash`) to find the uploads this visit made. Sent in
+   * the body so a retry from the outbox, after a restart or from a native app, still carries it.
+   */
+  attemptId?: string | undefined;
 }
 
 /** Why a submission was not stored as a new response. */
-export type SubmitFailureReason = "invalid" | "duplicate" | "closed" | "rate_limited" | "store_failed";
+export type SubmitFailureReason = "invalid" | "duplicate" | "conflict" | "closed" | "rate_limited" | "store_failed";
 
 /**
  * What `submitResponse` answers. A new response was stored only when `ok` is true.
@@ -36,16 +42,23 @@ export type SubmitFailureReason = "invalid" | "duplicate" | "closed" | "rate_lim
  * - `duplicate`: a response with this idempotency key and these answers is already stored,
  *   as `id`. The device's earlier attempt went through: treat it as delivered, and deliver
  *   nothing again.
+ * - `conflict`: a response with this idempotency key is stored, with other answers. The
+ *   device must not take it as delivered, and sending it again won't help.
  * - `closed`: the form isn't taking responses. Sending it again won't help.
- * - `rate_limited`: too many from this client; try again later.
+ * - `rate_limited`: too many from this client; try again later, after `retryAfterSeconds`
+ *   when it is given.
  * - `store_failed`: it couldn't be checked or stored this time; try again later.
+ *
+ * More reasons may be added. A device treats one it doesn't know as `retry`
+ * (`submitOutcome`), so it keeps the submission.
  */
 export type SubmitResult =
   | { ok: true; id: string; receivedAt: string }
   | { ok: false; reason: "duplicate"; id: string; receivedAt: string }
   | { ok: false; reason: "invalid"; errors: Record<string, string> }
+  | { ok: false; reason: "conflict" }
   | { ok: false; reason: "closed" }
-  | { ok: false; reason: "rate_limited" }
+  | { ok: false; reason: "rate_limited"; retryAfterSeconds?: number }
   | { ok: false; reason: "store_failed" };
 
 /** What an idempotency key matches: 16 to 128 letters, digits, `-` and `_`. */
@@ -67,7 +80,7 @@ export type SubmitOutcome = "delivered" | "retry" | "rejected";
 export function submitOutcome(result: unknown): SubmitOutcome {
   if (!isSubmitResult(result)) return "retry";
   if (result.ok || result.reason === "duplicate") return "delivered";
-  if (result.reason === "invalid" || result.reason === "closed") return "rejected";
+  if (result.reason === "invalid" || result.reason === "conflict" || result.reason === "closed") return "rejected";
   return "retry";
 }
 
@@ -83,8 +96,10 @@ export function isSubmitResult(value: unknown): value is SubmitResult {
       return stored;
     case "invalid":
       return !!v.errors && typeof v.errors === "object" && !Array.isArray(v.errors);
-    case "closed":
     case "rate_limited":
+      return v.retryAfterSeconds === undefined || (typeof v.retryAfterSeconds === "number" && Number.isFinite(v.retryAfterSeconds));
+    case "conflict":
+    case "closed":
     case "store_failed":
       return true;
     default:

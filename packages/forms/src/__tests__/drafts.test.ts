@@ -198,6 +198,27 @@ describe("createDraftAutosave", () => {
     await saver.dispose();
   });
 
+  it("never removes a stored draft it didn't write before anything is answered", async () => {
+    const store = createDraftStore(memoryStorage());
+    await store.set({ ...key, values: { [id("name")]: "Riley" }, types: { [id("name")]: "short-text" }, resumeAt: null, savedAt: 1 });
+    // The read failed, so the form started empty: moving about must not wipe the stored draft.
+    const engine = createForm(def);
+    const saver = createDraftAutosave(engine, store, key, { delayMs: 10 });
+    engine.next();
+    engine.back();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(await store.get(key)).not.toBeNull();
+    await saver.dispose();
+
+    // Restored (`stored: true`), and every answer cleared: removed.
+    const restored = createForm(def, { initialValues: { [id("name")]: "Riley" } });
+    const again = createDraftAutosave(restored, store, key, { delayMs: 10, stored: true });
+    restored.setValue(id("name"), "");
+    await vi.advanceTimersByTimeAsync(10);
+    expect(await store.get(key)).toBeNull();
+    await again.dispose();
+  });
+
   it("reports a failed save and keeps going", async () => {
     const errors: unknown[] = [];
     let full = true;

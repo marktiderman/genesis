@@ -52,6 +52,8 @@ export interface OutboxSnapshot {
   failed: number;
   /** Reading or writing the storage failed; null once it works again. */
   storageError: string | null;
+  /** Stored submissions that couldn't be read back, by id: left in storage, never sent or removed. */
+  unreadable: readonly string[];
 }
 
 export interface EnqueueInput {
@@ -61,6 +63,8 @@ export interface EnqueueInput {
   idempotencyKey?: string | undefined;
   /** Default: now. */
   clientSubmittedAt?: number | undefined;
+  /** The visit's attempt id, for a form with upload fields (`SubmitRequest.attemptId`). */
+  attemptId?: string | undefined;
   meta?: Record<string, Json> | undefined;
 }
 
@@ -76,7 +80,11 @@ export interface SubmitOutboxOptions {
   now?: (() => number) | undefined;
   /** Storage keys start with this. Default `genesis-forms:outbox`. One outbox per prefix. */
   prefix?: string | undefined;
-  /** Tries before a submission is marked `failed` (it is kept). Default 10. */
+  /**
+   * Tries before a submission is marked `failed` (it is kept). Default 10. A submission that
+   * ran out of tries (not one the server refused) is tried again from the start each time the
+   * outbox starts and each time the device comes back online.
+   */
   maxAttempts?: number | undefined;
   /** Wait before try n+1: about `baseMs * 2^(n-1)`, at most `maxMs`, with jitter. Default 2 seconds and 15 minutes. */
   backoff?: { baseMs?: number | undefined; maxMs?: number | undefined } | undefined;
@@ -84,7 +92,10 @@ export interface SubmitOutboxOptions {
   timeoutMs?: number | undefined;
   /** Whether the device is online to begin with. Default true. Keep it current with `setOnline`. */
   online?: boolean | undefined;
-  /** Makes idempotency keys. Default `crypto.randomUUID`; React Native without it needs one (expo-crypto's `randomUUID`). */
+  /**
+   * Makes idempotency keys. Default `crypto.randomUUID`; where there is none (React Native
+   * without a polyfill) pass one (expo-crypto's `randomUUID`), or `createSubmitOutbox` throws.
+   */
   createKey?: (() => string) | undefined;
   /** 0 to 1, for jitter. Default `Math.random`. */
   random?: (() => number) | undefined;
@@ -120,10 +131,33 @@ export interface SubmitOutbox {
 
 const DEFAULT_PREFIX = "genesis-forms:outbox";
 
-function defaultKey(): string {
+function defaultKey(): () => string {
   const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  if (c && typeof c.randomUUID === "function") return () => c.randomUUID!();
   throw new Error("createSubmitOutbox: crypto.randomUUID isn't available here; pass createKey (expo-crypto's randomUUID, say).");
+}
+
+/** The longest a timer may wait (setTimeout's limit), and the longest a submission may be put off. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+const MAX_WAIT_MS = 24 * 60 * 60 * 1000;
+
+// Index changes on one storage, one at a time, across every outbox in this JS context.
+const indexChains = new WeakMap<object, Map<string, Promise<unknown>>>();
+type LockManager = { request<T>(name: string, run: () => Promise<T>): Promise<T> };
+
+/**
+ * Run `step` alone for this storage and prefix: after any other outbox's index change in this
+ * JS context, and, where Web Locks exist (browsers), inside a lock other tabs respect too.
+ */
+function withIndexLock<T>(storage: object, prefix: string, step: () => Promise<T>): Promise<T> {
+  let chains = indexChains.get(storage);
+  if (!chains) indexChains.set(storage, (chains = new Map()));
+  const locks = (globalThis as { navigator?: { locks?: LockManager } }).navigator?.locks;
+  const locked = () => (locks && typeof locks.request === "function" ? locks.request(`genesis-forms-outbox:${prefix}`, step) : step());
+  const previous = chains.get(prefix) ?? Promise.resolve();
+  const run = previous.then(locked, locked);
+  chains.set(prefix, run.catch(() => undefined));
+  return run;
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -178,13 +212,14 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
   const baseMs = options.backoff?.baseMs ?? 2_000;
   const maxMs = options.backoff?.maxMs ?? 15 * 60_000;
   const timeoutMs = options.timeoutMs ?? 30_000;
-  const createKey = options.createKey ?? defaultKey;
+  const createKey = options.createKey ?? defaultKey();
   const random = options.random ?? Math.random;
   const log = options.log ?? ((m: string) => console.warn(`[forms outbox] ${m}`));
   const indexKey = `${prefix}:index`;
   const itemKey = (id: string) => `${prefix}:item:${id}`;
 
   const entries = new Map<string, OutboxEntry>();
+  const unreadable = new Set<string>();
   let sendingId: string | null = null;
   let online = options.online ?? true;
   let loaded = false;
@@ -207,6 +242,7 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
       pending: items.filter((i) => i.state === "pending").length,
       failed: items.filter((i) => i.state === "failed").length,
       storageError,
+      unreadable: [...unreadable],
     };
   }
   function changed() {
@@ -221,10 +257,18 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
     writes = run.catch(() => undefined);
     return run;
   }
-  async function updateIndex(change: (ids: Set<string>) => void) {
-    const ids = new Set(readIndex(await storage.getItem(indexKey)));
-    change(ids);
-    await storage.setItem(indexKey, JSON.stringify([...ids]));
+  /**
+   * Rewrites the index: what is stored now, plus every submission this outbox holds (so one
+   * another outbox's write left out comes back), with `change` applied last.
+   */
+  function updateIndex(change: (ids: Set<string>) => void) {
+    return withIndexLock(storage, prefix, async () => {
+      const ids = new Set(readIndex(await storage.getItem(indexKey)));
+      for (const id of entries.keys()) ids.add(id);
+      for (const id of unreadable) ids.add(id);
+      change(ids);
+      await storage.setItem(indexKey, JSON.stringify([...ids]));
+    });
   }
   function storageOk() {
     if (storageError !== null) {
@@ -256,13 +300,24 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
   async function load() {
     try {
       const ids = readIndex(await storage.getItem(indexKey));
+      const gone: string[] = [];
       for (const id of ids) {
         if (entries.has(id)) continue;
-        const entry = readEntry(await storage.getItem(itemKey(id)), id);
+        const raw = await storage.getItem(itemKey(id));
+        // Named in the index but not stored: delivered (or discarded) by another outbox.
+        if (raw === null || raw === undefined) {
+          gone.push(id);
+          continue;
+        }
+        const entry = readEntry(raw, id);
         // Unreadable entries are left where they are, never removed: reported, not lost.
         if (entry) entries.set(id, entry);
-        else log(`A stored submission (${id}) couldn't be read; it was left in storage.`);
+        else if (!unreadable.has(id)) {
+          unreadable.add(id);
+          log(`A stored submission (${id}) couldn't be read; it was left in storage.`);
+        }
       }
+      if (gone.length) await serial(() => updateIndex((set) => gone.forEach((id) => set.delete(id))));
       loaded = true;
       storageError = null;
     } catch (e) {
@@ -272,6 +327,23 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
     changed();
   }
   let ready = load();
+
+  /** Due now, or put off further than anything should be (the clock moved back). */
+  const isDue = (e: OutboxEntry, t: number) => e.state === "pending" && (e.nextAttemptAt <= t || e.nextAttemptAt - t > MAX_WAIT_MS);
+
+  /** Submissions that ran out of tries go back to pending, from their first try. The server's refusals stay. */
+  function revive(): OutboxEntry[] {
+    const at = now();
+    const revived: OutboxEntry[] = [];
+    for (const [id, e] of entries) {
+      if (e.state === "failed" && e.rejection === null) {
+        const next: OutboxEntry = { ...e, state: "pending", attempts: 0, nextAttemptAt: at };
+        entries.set(id, next);
+        revived.push(next);
+      }
+    }
+    return revived;
+  }
 
   function delayFor(attempts: number): number {
     const full = Math.min(maxMs, baseMs * 2 ** Math.max(0, attempts - 1));
@@ -283,9 +355,10 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
     timer = null;
     if (!running || !online) return;
     let next = Infinity;
-    for (const e of entries.values()) if (e.state === "pending") next = Math.min(next, e.nextAttemptAt);
+    const t = now();
+    for (const e of entries.values()) if (e.state === "pending") next = Math.min(next, isDue(e, t) ? t : e.nextAttemptAt);
     if (next === Infinity) return;
-    timer = setTimeout(() => void outbox.flush(), Math.max(0, next - now()));
+    timer = setTimeout(() => void outbox.flush(), Math.min(MAX_TIMER_MS, Math.max(0, next - t)));
   }
 
   async function attempt(entry: OutboxEntry): Promise<void> {
@@ -329,10 +402,15 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
     }
     const next: OutboxEntry = { ...entry, attempts: entry.attempts + 1 };
     if (outcome === "rejected") {
-      const r = result as Extract<SubmitResult, { reason: "invalid" | "closed" }>;
+      const r = result as Extract<SubmitResult, { reason: "invalid" | "conflict" | "closed" }>;
       next.state = "failed";
       next.rejection = r.reason === "invalid" ? { reason: r.reason, errors: r.errors } : { reason: r.reason };
-      next.lastError = r.reason === "closed" ? "The form isn't taking responses." : "The server refused the answers.";
+      next.lastError =
+        r.reason === "closed"
+          ? "The form isn't taking responses."
+          : r.reason === "conflict"
+            ? "The server holds another response under this submission's key."
+            : "The server refused the answers.";
     } else {
       next.lastError =
         error ??
@@ -340,7 +418,13 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
       if (next.attempts >= maxAttempts) {
         next.state = "failed";
         next.lastError = `Gave up after ${next.attempts} tries. Last: ${next.lastError}`;
-      } else next.nextAttemptAt = now() + delayFor(next.attempts);
+      } else {
+        let wait = delayFor(next.attempts);
+        if (isSubmitResult(result) && !result.ok && result.reason === "rate_limited" && result.retryAfterSeconds !== undefined) {
+          wait = Math.max(wait, Math.min(MAX_WAIT_MS, result.retryAfterSeconds * 1000));
+        }
+        next.nextAttemptAt = now() + wait;
+      }
     }
     entries.set(entry.id, next);
     changed();
@@ -356,8 +440,9 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
         await ready;
       }
       while (online) {
+        const t = now();
         const due = [...entries.values()]
-          .filter((e) => e.state === "pending" && e.nextAttemptAt <= now())
+          .filter((e) => isDue(e, t))
           .sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1))[0];
         if (!due) break;
         await attempt(due);
@@ -380,7 +465,12 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
       const entry: OutboxEntry = {
         id,
         formId: input.formId,
-        request: { ...submission, idempotencyKey: id, clientSubmittedAt: input.clientSubmittedAt ?? at },
+        request: {
+          ...submission,
+          idempotencyKey: id,
+          clientSubmittedAt: input.clientSubmittedAt ?? at,
+          ...(input.attemptId !== undefined ? { attemptId: input.attemptId } : {}),
+        },
         meta: input.meta ? (JSON.parse(JSON.stringify(input.meta)) as Record<string, Json>) : null,
         createdAt: at,
         attempts: 0,
@@ -428,20 +518,30 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
     },
     async discard(id) {
       await ready;
-      if (!entries.has(id) || sendingId === id) return false;
-      await forget(id);
+      const entry = entries.get(id);
+      if (!entry || sendingId === id) return false;
+      // Out of the queue before anything waits, so no send can pick it up meanwhile.
       entries.delete(id);
       changed();
       schedule();
+      try {
+        await forget(id);
+        storageOk();
+      } catch (e) {
+        entries.set(id, entry);
+        storageFailed("Couldn't discard the submission", e);
+        throw e;
+      }
       return true;
     },
     setOnline(value) {
       if (online === value) return;
       online = value;
       if (online) {
-        // Back online: what's pending goes now, not when its backoff ends.
+        // Back online: what's pending goes now, not when its backoff ends, and what ran out of tries starts again.
         const at = now();
         for (const [id, e] of entries) if (e.state === "pending" && e.nextAttemptAt > at) entries.set(id, { ...e, nextAttemptAt: at });
+        for (const e of revive()) void persist(e);
       }
       changed();
       if (online && running) void outbox.flush();
@@ -450,7 +550,12 @@ export function createSubmitOutbox(options: SubmitOutboxOptions): SubmitOutbox {
     start() {
       if (running) return;
       running = true;
-      void outbox.flush();
+      void ready.then(() => {
+        const revived = revive();
+        if (revived.length) changed();
+        for (const e of revived) void persist(e);
+        return outbox.flush();
+      });
     },
     stop() {
       running = false;

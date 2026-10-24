@@ -12,7 +12,8 @@ import { parseForm } from "./parse";
 import { validateSubmission, type SubmissionOptions } from "./server";
 import { isIdempotencyKey, type SubmitRequest, type SubmitResult } from "./submit-protocol";
 import type { FormDefinition, Json } from "./types";
-import { checkUploads, uploadFields, type UploadOwner, type UploadStore } from "./uploads";
+import { photoRefs } from "./photo";
+import { attemptHash, checkUploads, uploadFields, type UploadOwner, type UploadStore } from "./uploads";
 
 /** What the store keeps for one response: everything `submitResponse` checked, as JSON. */
 export interface SubmissionRecord {
@@ -43,6 +44,8 @@ export interface SubmissionRecord {
   ignored: string[];
   /** Each answer to a question with options from the app, as `{ value, label }` now (`answerSnapshots`). */
   snapshots: Record<string, AnswerSnapshot>;
+  /** The ids of the uploads the answers name, checked: mark them taken by this response in the same transaction. */
+  uploadIds: string[];
 }
 
 /** A response the store already holds under an idempotency key. */
@@ -65,12 +68,12 @@ export interface SubmissionStore {
    */
   save(record: SubmissionRecord): Promise<{ id: string } | { duplicate: StoredSubmissionRef }>;
   /**
-   * The response stored under this key, or null. Optional, and recommended: with it, a retry
-   * of a response that went through is answered `duplicate` even after the form has closed
-   * or the client is rate limited. `save` must still refuse a duplicate on its own (two
-   * retries can race).
+   * The response stored under this key, or null. Asked first, so a retry of a response that
+   * went through is answered `duplicate` even after the form has closed, the client is rate
+   * limited, the definition changed or its uploads were taken. `save` must still refuse a
+   * duplicate on its own (two retries can race).
    */
-  find?(formId: string, idempotencyKey: string): Promise<StoredSubmissionRef | null>;
+  find(formId: string, idempotencyKey: string): Promise<StoredSubmissionRef | null>;
 }
 
 export interface SubmitResponseOptions extends Omit<SubmissionOptions, "complete" | "hostOptions"> {
@@ -89,16 +92,19 @@ export interface SubmitResponseOptions extends Omit<SubmissionOptions, "complete
   /** Whether the form takes responses now (not paused, closed, full). Default true; false answers `closed`. */
   open?: boolean | undefined;
   /**
-   * The rate limit: true lets the submission on, false answers `rate_limited`. Typically
+   * The rate limit: true lets the submission on; false, or `{ retryAfterSeconds }`, answers
+   * `rate_limited`. Typically
    * `() => allow(store, { key: await rateLimitKey(...), ...RATE_LIMIT_DEFAULTS.submit })`.
    * A throw lets it on (fails open, as `allow` does) and is logged.
    */
-  rateLimit?: (() => boolean | Promise<boolean>) | undefined;
+  rateLimit?: (() => RateLimitAnswer | Promise<RateLimitAnswer>) | undefined;
   /**
-   * Needed when the form has upload fields: who may use the uploads named (the visit's
-   * attempt) and where they are recorded. Without it such a form throws, on every submit.
+   * Needed when the form has upload fields: where uploads are recorded, and who may use the
+   * ones named. `owner` defaults to the request's attempt (`attemptHash(input.attemptId)`);
+   * without either, answers that name files are refused. Without `uploads` such a form
+   * throws, on every submit.
    */
-  uploads?: { owner: UploadOwner; store: Pick<UploadStore, "uploadRefs"> } | undefined;
+  uploads?: { store: Pick<UploadStore, "uploadRefs">; owner?: UploadOwner | undefined } | undefined;
   /** The current time (tests). */
   now?: (() => Date) | undefined;
   /** Where failures are said; `console.error` with a `[submit]` prefix by default. Never holds an answer. */
@@ -111,11 +117,10 @@ const INVALID_KEY: SubmitResult = {
   errors: { "": "Missing or malformed idempotency key: 16 to 128 letters, digits, - or _." },
 };
 const MALFORMED: SubmitResult = { ok: false, reason: "invalid", errors: { "": "Malformed submission." } };
-const KEY_REUSED: SubmitResult = {
-  ok: false,
-  reason: "invalid",
-  errors: { "": "This idempotency key was already used for a different submission." },
-};
+const CONFLICT: SubmitResult = { ok: false, reason: "conflict" };
+
+/** What `rateLimit` answers: true to let the submission on. */
+export type RateLimitAnswer = boolean | { retryAfterSeconds: number };
 
 const parsed = new WeakMap<object, true>();
 
@@ -147,16 +152,31 @@ function isoOrNull(ms: unknown): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-/** A stored response for this key, answered as `duplicate` when it was these answers, else refused. */
-function duplicateOf(ref: StoredSubmissionRef, inputHash: string): SubmitResult {
-  if (ref.inputHash !== inputHash) return KEY_REUSED;
+function isRef(ref: unknown): ref is StoredSubmissionRef {
+  if (!ref || typeof ref !== "object") return false;
+  const r = ref as Record<string, unknown>;
+  return typeof r.id === "string" && r.id !== "" && typeof r.receivedAt === "string" && typeof r.inputHash === "string" && r.inputHash !== "";
+}
+
+/**
+ * A stored response for this key: `duplicate` when it was these answers, `conflict` when it
+ * wasn't. A ref the store answered without its id, time or hash is the store's mistake:
+ * logged and answered `store_failed`, so the device keeps the submission and retries.
+ */
+function duplicateOf(ref: unknown, inputHash: string, log: (m: string) => void, formId: string): SubmitResult {
+  if (!isRef(ref)) {
+    log(`the store answered a duplicate for form ${formId} without its id, receivedAt and inputHash`);
+    return { ok: false, reason: "store_failed" };
+  }
+  if (ref.inputHash !== inputHash) return CONFLICT;
   return { ok: false, reason: "duplicate", id: ref.id, receivedAt: ref.receivedAt };
 }
 
 /**
  * Check one submission and store it once. In order: the idempotency key, a response already
- * stored under it (`store.find`), the form being open, the rate limit, `validateSubmission`
- * (always complete: drafts aren't submitted here), the uploads named, then `store.save`.
+ * stored under it (`store.find`: `duplicate` or `conflict`), the form being open, the rate
+ * limit, `validateSubmission` (always complete: drafts aren't submitted here), the uploads
+ * named, then `store.save`.
  *
  * Never throws for anything the client sent. It throws for the server's own mistakes: a
  * published definition that doesn't parse, or a form with upload fields and no `uploads`.
@@ -176,25 +196,29 @@ export async function submitResponse(input: SubmitRequest, options: SubmitRespon
   let hash: Promise<string> | undefined;
   const inputHash = () => (hash ??= hashInput(input));
 
-  if (store.find) {
-    let existing: StoredSubmissionRef | null;
-    try {
-      existing = await store.find(formId, key);
-    } catch (e) {
-      log(`find failed for form ${formId}: ${e instanceof Error ? e.message : String(e)}`);
-      return { ok: false, reason: "store_failed" };
-    }
-    if (existing) return duplicateOf(existing, await inputHash());
+  let existing: StoredSubmissionRef | null;
+  try {
+    existing = await store.find(formId, key);
+  } catch (e) {
+    log(`find failed for form ${formId}: ${e instanceof Error ? e.message : String(e)}`);
+    return { ok: false, reason: "store_failed" };
   }
+  if (existing) return duplicateOf(existing, await inputHash(), log, formId);
   if (options.open === false) return { ok: false, reason: "closed" };
   if (options.rateLimit) {
-    let allowed = true;
+    let answer: RateLimitAnswer = true;
     try {
-      allowed = await options.rateLimit();
+      answer = await options.rateLimit();
     } catch (e) {
       log(`the rate limit could not be checked; letting the submission through: ${e instanceof Error ? e.message : String(e)}`);
     }
-    if (!allowed) return { ok: false, reason: "rate_limited" };
+    if (answer === false) return { ok: false, reason: "rate_limited" };
+    if (answer !== true && answer && typeof answer === "object") {
+      const after = answer.retryAfterSeconds;
+      return Number.isFinite(after) && after >= 0
+        ? { ok: false, reason: "rate_limited", retryAfterSeconds: Math.ceil(after) }
+        : { ok: false, reason: "rate_limited" };
+    }
   }
 
   const checked = validateSubmission(
@@ -216,7 +240,13 @@ export async function submitResponse(input: SubmitRequest, options: SubmitRespon
   let answers = submission.answers;
   if (options.uploads) {
     try {
-      const files = await checkUploads(definition, answers, { formId, owner: options.uploads.owner, store: options.uploads.store });
+      const owner =
+        options.uploads.owner ??
+        (typeof input.attemptId === "string" && input.attemptId !== ""
+          ? { attemptHash: await attemptHash(input.attemptId) }
+          : // No attempt: no upload can be this visit's, so any file named is refused.
+            { attemptHash: "" });
+      const files = await checkUploads(definition, answers, { formId, owner, store: options.uploads.store });
       if (!files.ok) return { ok: false, reason: "invalid", errors: files.errors };
       answers = files.answers;
     } catch (e) {
@@ -238,6 +268,7 @@ export async function submitResponse(input: SubmitRequest, options: SubmitRespon
     ending: submission.ending,
     ignored: submission.ignored,
     snapshots: answerSnapshots(withHostOptions(definition, options.hostOptions), answers),
+    uploadIds: uploadFields(definition).flatMap((field) => photoRefs(answers[field.id]).map((ref) => ref.id)),
   };
   let saved: Awaited<ReturnType<SubmissionStore["save"]>>;
   try {
@@ -246,8 +277,8 @@ export async function submitResponse(input: SubmitRequest, options: SubmitRespon
     log(`save failed for form ${formId}: ${e instanceof Error ? e.message : String(e)}`);
     return { ok: false, reason: "store_failed" };
   }
-  if ("duplicate" in saved) return duplicateOf(saved.duplicate, record.inputHash);
-  if (typeof saved.id !== "string" || saved.id === "") {
+  if (saved && typeof saved === "object" && "duplicate" in saved) return duplicateOf(saved.duplicate, record.inputHash, log, formId);
+  if (!saved || typeof saved.id !== "string" || saved.id === "") {
     log(`save for form ${formId} answered without an id`);
     return { ok: false, reason: "store_failed" };
   }

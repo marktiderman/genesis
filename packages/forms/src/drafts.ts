@@ -179,6 +179,12 @@ export interface DraftAutosaveOptions extends DraftOptions {
   onError?: ((error: unknown) => void) | undefined;
   /** Each save that landed, with its time. */
   onSaved?: ((draft: FormDraft) => void) | undefined;
+  /**
+   * A draft is stored for this key already (it was just restored). Answers cleared to nothing
+   * remove a stored draft; without this, only one this autosave wrote. Default false, so a
+   * draft that couldn't be read is never removed before the respondent answers anything.
+   */
+  stored?: boolean | undefined;
 }
 
 export interface DraftAutosave {
@@ -195,8 +201,8 @@ export interface DraftAutosave {
 
 /**
  * Save the engine's answers to `store` as they change, `delayMs` after the last change, one
- * write at a time and in order. Answers cleared to nothing remove the draft, so an emptied
- * form doesn't come back filled.
+ * write at a time and in order. Answers cleared to nothing remove the draft (one this
+ * autosave wrote, or the one restored: `stored`), so an emptied form doesn't come back filled.
  */
 export function createDraftAutosave(
   engine: Pick<FormEngine, "definition" | "getState" | "subscribe">,
@@ -211,6 +217,8 @@ export function createDraftAutosave(
   /** Set by `clear`: nothing is written after it, not even a write already waiting. */
   let cleared = false;
   let listening = true;
+  /** Whether a draft for this key is in the store, as far as this autosave knows. */
+  let stored = options.stored === true;
   let chain: Promise<void> = Promise.resolve();
 
   const run = (step: () => MaybePromise<void>) => {
@@ -234,8 +242,16 @@ export function createDraftAutosave(
     const draft = draftOf(engine, key, options);
     return run(() => {
       if (cleared) return;
-      if (!draft) return store.remove(key);
-      return andThen(store.set(draft), () => options.onSaved?.(draft));
+      if (!draft) {
+        if (!stored) return;
+        return andThen(store.remove(key), () => {
+          stored = false;
+        });
+      }
+      return andThen(store.set(draft), () => {
+        stored = true;
+        options.onSaved?.(draft);
+      });
     });
   };
 

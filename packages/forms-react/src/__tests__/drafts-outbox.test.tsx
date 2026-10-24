@@ -97,6 +97,33 @@ describe("useFormDraft", () => {
     expect(storage.keys()).toEqual([]);
   });
 
+  it("says error when the draft can't be read, and leaves the stored one alone", async () => {
+    const storage = memoryStorage();
+    const good = createDraftStore(storage);
+    await good.set({
+      formId: "checkin",
+      version: "v1",
+      respondent: "session-1",
+      values: { [id("name")]: "Riley" },
+      types: { [id("name")]: "short-text" },
+      resumeAt: null,
+      savedAt: Date.now(),
+    });
+    const broken: DraftStore = { ...good, get: () => Promise.reject(new Error("storage busy")) };
+    let state!: FormDraftState;
+    const errors: unknown[] = [];
+    function Broken() {
+      state = useFormDraft(def, { store: broken, respondent: "session-1", version: "v1", delayMs: 10, onError: (e) => errors.push(e) });
+      return null;
+    }
+    render(<Broken />);
+    await waitFor(() => expect(state.draft).toBe("error"));
+    act(() => state.engine!.next());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(errors).toHaveLength(1);
+    expect(await good.get({ formId: "checkin", version: "v1", respondent: "session-1" })).not.toBeNull();
+  });
+
   it("saves as the respondent types, and clear removes it for good", async () => {
     const storage = memoryStorage();
     const store = createDraftStore(storage);

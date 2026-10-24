@@ -41,9 +41,11 @@ export interface FormDraftState {
   engine: FormEngine | null;
   /**
    * `restored`: the draft was put back. `discarded`: there was one, but the form changed so it
-   * no longer fits (or it was too old), and it was removed. `none`: no draft (or it couldn't be read).
+   * no longer fits (or it was too old), and it was removed. `none`: no draft. `error`: the
+   * draft couldn't be read (`onError` has why); the form starts empty, and the stored draft is
+   * left alone until the respondent answers something. `loading`: an async store is reading.
    */
-  draft: "restored" | "discarded" | "none" | "loading";
+  draft: "restored" | "discarded" | "none" | "error" | "loading";
   /** When the draft was last saved, in milliseconds since 1970. */
   savedAt: number | null;
   /** Save now whatever is waiting. */
@@ -103,19 +105,20 @@ export function useFormDraft(form: FormLike, options: UseFormDraftOptions): Form
     return { engine, draft: "restored" };
   };
 
+  const failed = (e: unknown): Pick<Held, "engine" | "draft"> => {
+    onError(e);
+    return { engine: createForm(definition, options), draft: "error" };
+  };
+
   const begin = (): Held => {
     let saved: FormDraft | null | Promise<FormDraft | null>;
     try {
       saved = options.store.get(key);
     } catch (e) {
-      onError(e);
-      saved = null;
+      return { definition, id, ...failed(e) };
     }
     if (!isThenable(saved)) return { definition, id, ...open(saved) };
-    const read = Promise.resolve(saved).then(open, (e: unknown) => {
-      onError(e);
-      return open(null);
-    });
+    const read = Promise.resolve(saved).then(open, failed);
     return { definition, id, engine: null, draft: "loading", read };
   };
 
@@ -141,6 +144,7 @@ export function useFormDraft(form: FormLike, options: UseFormDraftOptions): Form
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [autosave, setAutosave] = useState<DraftAutosave | null>(null);
   const engine = current.engine;
+  const restored = current.draft === "restored";
   useEffect(() => {
     if (!engine) return;
     const saver = createDraftAutosave(engine, options.store, key, {
@@ -148,13 +152,22 @@ export function useFormDraft(form: FormLike, options: UseFormDraftOptions): Form
       keepSensitive: options.keepSensitive,
       onError,
       onSaved: (d) => setSavedAt(d.savedAt),
+      stored: restored,
     });
     setAutosave(saver);
-    const target = (globalThis as { addEventListener?: Window["addEventListener"]; removeEventListener?: Window["removeEventListener"] });
+    // Web: save before the page goes away or to the background (mobile Safari often sends
+    // only visibilitychange). React Native: call `flush` from an AppState listener.
+    const w = (globalThis as { window?: Window }).window;
+    const d = (globalThis as { document?: Document }).document;
     const onHide = () => void saver.flush();
-    target.addEventListener?.("pagehide", onHide);
+    const onVisibility = () => {
+      if (d?.visibilityState === "hidden") void saver.flush();
+    };
+    w?.addEventListener?.("pagehide", onHide);
+    d?.addEventListener?.("visibilitychange", onVisibility);
     return () => {
-      target.removeEventListener?.("pagehide", onHide);
+      w?.removeEventListener?.("pagehide", onHide);
+      d?.removeEventListener?.("visibilitychange", onVisibility);
       void saver.dispose();
     };
     // The engine is the identity: a new one (new definition or key) gets a new autosave.

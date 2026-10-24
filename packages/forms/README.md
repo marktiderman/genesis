@@ -507,7 +507,7 @@ const result = await submitResponse(await request.json(), {
   version: form.publishedVersion, // stored as definitionVersion; default fingerprint(definition)
   open: form.acceptingResponses, // false answers "closed"
   rateLimit: async () => allow(counter, { key: await rateLimitKey({ kind: "submit", scope: practice, ip, secret }), ...RATE_LIMIT_DEFAULTS.submit }),
-  uploads: { owner: { attemptHash: await attemptHash(attemptId) }, store: uploadStore }, // needed when the form has upload fields
+  uploads: { store: uploadStore }, // needed when the form has upload fields; the owner is the request's attemptId
 });
 return Response.json(result, { status: result.ok ? 201 : 200 });
 ```
@@ -520,19 +520,21 @@ function submitResponse(input: SubmitRequest, options: SubmitResponseOptions): P
 interface SubmitRequest extends SubmissionInput { // answers | events, hidden
   idempotencyKey: string; // made once on the device (a UUID); /^[A-Za-z0-9_-]{16,128}$/
   clientSubmittedAt?: number; // the device's clock, untrusted
+  attemptId?: string; // the visit's attempt, for upload fields
 }
 
 type SubmitResult =
   | { ok: true; id: string; receivedAt: string }
   | { ok: false; reason: "duplicate"; id: string; receivedAt: string }
   | { ok: false; reason: "invalid"; errors: Record<string, string> }
+  | { ok: false; reason: "conflict" }
   | { ok: false; reason: "closed" }
-  | { ok: false; reason: "rate_limited" }
+  | { ok: false; reason: "rate_limited"; retryAfterSeconds?: number }
   | { ok: false; reason: "store_failed" };
 
 interface SubmissionStore {
+  find(formId: string, idempotencyKey: string): Promise<StoredSubmissionRef | null>;
   save(record: SubmissionRecord): Promise<{ id: string } | { duplicate: StoredSubmissionRef }>;
-  find?(formId: string, idempotencyKey: string): Promise<StoredSubmissionRef | null>;
 }
 interface StoredSubmissionRef { id: string; receivedAt: string; inputHash: string }
 ```
@@ -545,10 +547,13 @@ uploads named, then `store.save`.
 |---|---|---|
 | `ok: true` | Stored now, as `id`. Queue its deliveries. | Drops it from the outbox. |
 | `duplicate` | Already stored under this key with these answers, as `id`. Deliver nothing again. | Drops it: the earlier try went through. |
-| `invalid` | `errors` keyed by field id, `""` for the whole: a failed check, a malformed body or key, or a key used before for other answers. | Keeps it as failed, for the respondent to fix or discard. |
+| `invalid` | `errors` keyed by field id, `""` for the whole: a failed check, or a malformed body or key. | Keeps it as failed, for the respondent to fix or discard. |
+| `conflict` | A response is stored under this key with other answers (the hashes differ). | Keeps it as failed. |
 | `closed` | `open: false`. | Keeps it as failed. |
-| `rate_limited` | `rateLimit` answered false. A throw lets it on (fails open) and is logged. | Retries later. |
-| `store_failed` | `find`, `save` or the upload store threw, or `save` answered no id. The cause is logged, without answers. | Retries later. |
+| `rate_limited` | `rateLimit` answered false, or `{ retryAfterSeconds }` (sent back, rounded up). A throw lets it on (fails open) and is logged. | Retries later, no sooner than `retryAfterSeconds`. |
+| `store_failed` | `find`, `save` or the upload store threw, `save` answered no id, or a duplicate came back without its id, time or hash. The cause is logged, without answers. | Retries later. |
+
+More reasons may be added; a device treats one it doesn't know as a retry, so it keeps the submission.
 
 Answer every result as JSON with whatever status code suits (the outbox reads the body, not the
 status). `submitResponse` throws only for the server's own mistakes: a published definition that
@@ -556,20 +561,24 @@ doesn't parse, or a form with upload fields and no `uploads`; answer those 500 a
 
 The store's side:
 
-- **One response per `formId` and `idempotencyKey`.** Put a unique index on the pair. When the insert
-  hits it, read that row and answer `{ duplicate: { id, receivedAt, inputHash } }`. `find` is
-  optional and recommended: with it, a retry of a response that went through is answered `duplicate`
-  even after the form has closed or the client is rate limited.
+- **One response per `formId` and `idempotencyKey`.** Put a unique index on the pair. `find` reads
+  the row under a key (it is asked first, so a retry of a response that went through is answered
+  `duplicate` even after the form closed, the client is rate limited, the definition changed or its
+  uploads were taken). When `save`'s insert hits the index anyway (two retries raced), read that row
+  and answer `{ duplicate: { id, receivedAt, inputHash } }`.
 - **Keep `inputHash`.** It is the hex SHA-256 of the answers, events and hidden inputs as sent. A
   duplicate is answered `duplicate` only when the hashes match; a key reused for other answers is
-  `invalid`, never taken as delivered.
+  `conflict`, never taken as delivered. A ref without its hash is answered `store_failed`.
+- **Mark `uploadIds` taken by the response** in the same transaction (the checked ids of the files
+  the answers name), so they aren't purged as abandoned.
 - **Save and queue deliveries in one transaction**, so a stored response is always delivered. For a
   destination, `{ id, answers, hidden, context, ending, submittedAt: receivedAt }` is a
   `DeliverySubmission`.
 
 `SubmissionRecord` holds `formId`, `idempotencyKey`, `inputHash`, `definitionVersion`, `receivedAt`
 (ISO), `clientSubmittedAt` (ISO or null, untrusted), the checked `answers` (uploads as stored,
-calculated fields worked out here), `hidden`, `context`, `ending`, `ignored` and `snapshots`.
+calculated fields worked out here), `hidden`, `context`, `ending`, `ignored`, `snapshots` and
+`uploadIds`.
 
 ## Drafts and the offline outbox
 
@@ -602,7 +611,10 @@ const { engine, draft, savedAt, clear } = useFormDraft(definition, { store: draf
 the furthest question reached (`resumeAt`), saved again 800 ms after each change (`delayMs`), and
 flushed when the page is hidden or the component unmounts. With a store that answers at once the
 engine is ready on the first render; with an async one `engine` is null until the draft is read.
-`draft` says what happened: `restored`, `discarded`, `none` or `loading`.
+`draft` says what happened: `restored`, `discarded`, `none`, `error` (it couldn't be read: the form
+starts empty, and the stored draft is left alone until the respondent answers something) or
+`loading`. In React Native, call `flush()` from an `AppState` listener when the app goes to the
+background; on the web the hook flushes on `pagehide` and when the page is hidden.
 
 - A draft is keyed by form and respondent (a user id, or a session id made once on the device).
   `version` (default `fingerprint(definition)`) is stored inside it. At the same version it is put
@@ -612,8 +624,8 @@ engine is ready on the first render; with an async one `engine` is null until th
   (`maxAgeMs`) are removed too (`expired`).
 - Sensitive answers (`isSensitive`) are left out unless `keepSensitive: true`, so they never sit in
   the device's storage; calculated fields and withheld identifying ones are never saved.
-- Answers cleared to nothing remove the draft. A save that fails goes to `onError` (default
-  `console.warn`); autosave never throws.
+- Answers cleared to nothing remove the draft (one that was restored, or one this visit saved). A
+  save that fails goes to `onError` (default `console.warn`); autosave never throws.
 - Call `clear()` only once the submission is safe: after `outbox.enqueue` resolved.
 
 Without React: `createDraftAutosave(engine, store, key, options)` (with `flush`, `clear`,
@@ -641,7 +653,7 @@ export const outbox = createSubmitOutbox({
 
 // On submit: queue it, then clear the draft.
 if (engine.submit()) {
-  await outbox.enqueue({ formId, submission: { events: engine.getState().events } });
+  await outbox.enqueue({ formId, submission: { events: engine.getState().events }, attemptId });
   await clear();
 }
 
@@ -661,11 +673,22 @@ const { pending, failed, items, online } = useSubmitOutbox(outbox);
   `rejection`. Anything else (a throw, a timeout after 30 s, `rate_limited`, `store_failed`, a body
   that isn't a `SubmitResult`) is tried again, up to 10 tries (`maxAttempts`), then kept as `failed`.
   Nothing is dropped silently: a failed submission stays, in storage too, until `retry(id)` or
-  `discard(id)`.
-- It is kept across restarts: each submission under its own key and an index beside it, merged on
-  every change, so two tabs on one storage keep each other's. Both may send one; its key makes the
-  server store it once. An entry that can't be read is logged and left in storage.
-- React Native without `crypto.randomUUID` needs `createKey` (expo-crypto's `randomUUID`).
+  `discard(id)`. One that ran out of tries (not one the server refused) starts again from its first
+  try each time the outbox starts and each time the device comes back online. A `rate_limited`
+  answer's `retryAfterSeconds` is waited out.
+- To let the respondent fix a refused submission, open the form from `item.request` (`replay` its
+  `events`, or `initialValues` from its `answers`), `discard` the old one and `enqueue` the corrected
+  one: it gets a new key.
+- `discard` takes it out of the queue at once: no send starts after it is called.
+- The outbox holds the whole submission, sensitive answers too, in the device's storage until the
+  server has it. Pick the storage with that in mind (MMKV with encryption, say).
+- It is kept across restarts: each submission under its own key and an index beside it. The index
+  is changed one outbox at a time (in one JS context, and across tabs where Web Locks exist), and
+  each change writes back every submission that outbox holds, so two tabs on one storage keep each
+  other's. Both may send one; its key makes the server store it once. An entry that can't be read is
+  logged, listed in `unreadable` and left in storage.
+- Where there is no `crypto.randomUUID` (React Native without a polyfill) pass `createKey`
+  (expo-crypto's `randomUUID`); `createSubmitOutbox` throws without one.
 
 ## Destinations
 

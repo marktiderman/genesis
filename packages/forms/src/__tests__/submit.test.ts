@@ -13,6 +13,7 @@ import {
   type HostOptions,
 } from "../index";
 import {
+  attemptHash,
   isSubmitResult,
   submitOutcome,
   submitResponse,
@@ -66,6 +67,7 @@ const request = (over: Partial<SubmitRequest> = {}): SubmitRequest => ({
   ...over,
 });
 
+/** `find: false`: find answers null, as when two retries race past it. */
 function memoryStore(options: { find?: boolean } = {}) {
   const rows = new Map<string, SubmissionRecord & { id: string }>();
   let n = 0;
@@ -79,13 +81,12 @@ function memoryStore(options: { find?: boolean } = {}) {
       rows.set(k, { ...record, id });
       return { id };
     },
-  };
-  if (options.find !== false) {
-    store.find = async (formId, key) => {
+    async find(formId, key) {
+      if (options.find === false) return null;
       const r = rows.get(`${formId}:${key}`);
       return r ? ref(r) : null;
-    };
-  }
+    },
+  };
   return { store, rows };
 }
 
@@ -162,7 +163,7 @@ describe("submitResponse", () => {
     expect(submitOutcome(again)).toBe("delivered");
   });
 
-  it("relies on save alone when the store has no find (a race), still storing one", async () => {
+  it("stores one when two retries race past find, through save's duplicate", async () => {
     const { store, rows } = memoryStore({ find: false });
     const [a, b] = await Promise.all([submitResponse(request(), opts(store)), submitResponse(request(), opts(store))]);
     expect([a.ok, b.ok].sort()).toEqual([false, true]);
@@ -170,27 +171,48 @@ describe("submitResponse", () => {
     expect(rows.size).toBe(1);
   });
 
-  it("refuses a key used before for other answers instead of calling it delivered", async () => {
+  it("answers conflict for a key used before for other answers, never delivered", async () => {
     for (const find of [true, false]) {
       const { store, rows } = memoryStore({ find });
       await submitResponse(request(), opts(store));
       const reused = await submitResponse(request({ answers: { location: "hilltop", overall: 1 } }), opts(store));
-      expect(reused).toMatchObject({ ok: false, reason: "invalid", errors: { "": expect.stringContaining("already used") } });
+      expect(reused).toEqual({ ok: false, reason: "conflict" });
+      expect(submitOutcome(reused)).toBe("rejected");
       expect(rows.size).toBe(1);
     }
   });
 
-  it("answers a retry as a duplicate even after the form closed or the client is rate limited (with find)", async () => {
+  it("answers a retry as a duplicate even after the form closed, the client is rate limited or the form changed", async () => {
     const { store } = memoryStore();
     await submitResponse(request(), opts(store));
     expect(await submitResponse(request(), opts(store, { open: false }))).toMatchObject({ reason: "duplicate" });
     expect(await submitResponse(request(), opts(store, { rateLimit: () => false }))).toMatchObject({ reason: "duplicate" });
+    // Republished with "overall" removed: the stored response still counts.
+    const republished = { ...def, blocks: def.blocks.filter((b) => b.id !== fieldOf("overall").id) };
+    expect(await submitResponse(request(), opts(store, { definition: republished }))).toMatchObject({ reason: "duplicate" });
+  });
+
+  it("answers store_failed for a duplicate the store answered without its hash", async () => {
+    const logs: string[] = [];
+    const sloppy: SubmissionStore = {
+      find: async () => ({ id: "resp-1", receivedAt: "t" }) as StoredSubmissionRef,
+      save: async () => ({ id: "x" }),
+    };
+    expect(await submitResponse(request(), opts(sloppy, { log: (m: string) => logs.push(m) }))).toEqual({ ok: false, reason: "store_failed" });
+    expect(logs.join()).toContain("inputHash");
+    const sloppySave: SubmissionStore = { find: async () => null, save: async () => ({ duplicate: { id: "resp-1" } as StoredSubmissionRef }) };
+    expect(await submitResponse(request(), opts(sloppySave))).toEqual({ ok: false, reason: "store_failed" });
   });
 
   it("answers closed and rate_limited, and lets a submission on when the rate limit throws", async () => {
     const { store, rows } = memoryStore();
     expect(await submitResponse(request(), opts(store, { open: false }))).toEqual({ ok: false, reason: "closed" });
     expect(await submitResponse(request(), opts(store, { rateLimit: async () => false }))).toEqual({ ok: false, reason: "rate_limited" });
+    expect(await submitResponse(request(), opts(store, { rateLimit: () => ({ retryAfterSeconds: 89.2 }) }))).toEqual({
+      ok: false,
+      reason: "rate_limited",
+      retryAfterSeconds: 90,
+    });
     expect(rows.size).toBe(0);
     const logs: string[] = [];
     const through = await submitResponse(
@@ -209,6 +231,7 @@ describe("submitResponse", () => {
   it("answers store_failed when the store throws, and logs no answer", async () => {
     const logs: string[] = [];
     const store: SubmissionStore = {
+      find: async () => null,
       save: async () => {
         throw new Error("connection reset");
       },
@@ -226,7 +249,7 @@ describe("submitResponse", () => {
       },
     };
     expect(await submitResponse(request(), opts(findFails))).toEqual({ ok: false, reason: "store_failed" });
-    const noId: SubmissionStore = { save: async () => ({ id: "" }) };
+    const noId: SubmissionStore = { find: async () => null, save: async () => ({ id: "" }) };
     expect(await submitResponse(request(), opts(noId))).toEqual({ ok: false, reason: "store_failed" });
   });
 
@@ -314,6 +337,21 @@ describe("submitResponse", () => {
     const ok = await submitResponse(request({ answers: { [photoId]: [ref] } }), opts(store, { definition: withPhoto, uploads }));
     expect(ok.ok).toBe(true);
     expect([...rows.values()][0]!.answers[photoId]).toEqual([{ id: "up-1", name: "a.jpg", type: "image/jpeg", size: 1200 }]);
+    expect([...rows.values()][0]!.uploadIds).toEqual(["up-1"]);
+
+    // Without an owner, the request's attempt id is the owner.
+    const attemptId = "7d1c5a7e-2b9f-4a8e-9c3d-1f2e3a4b5c6d";
+    const byAttempt = { ...stored, attemptHash: await attemptHash(attemptId) };
+    const fromBody = await submitResponse(
+      request({ idempotencyKey: "c".repeat(20), attemptId, answers: { [photoId]: [ref] } }),
+      opts(store, { definition: withPhoto, uploads: { store: { uploadRefs: async () => [byAttempt] } } }),
+    );
+    expect(fromBody.ok).toBe(true);
+    const noAttempt = await submitResponse(
+      request({ idempotencyKey: "d".repeat(20), answers: { [photoId]: [ref] } }),
+      opts(store, { definition: withPhoto, uploads: { store: { uploadRefs: async () => [byAttempt] } } }),
+    );
+    expect(noAttempt).toMatchObject({ reason: "invalid" });
 
     const notMine = { owner: { attemptHash: "someone-else" }, store: { uploadRefs: async () => [stored] } };
     const refused = await submitResponse(
@@ -335,8 +373,10 @@ describe("submitOutcome and isSubmitResult", () => {
       [{ ok: true, id: "r", receivedAt: "t" }, "delivered"],
       [{ ok: false, reason: "duplicate", id: "r", receivedAt: "t" }, "delivered"],
       [{ ok: false, reason: "invalid", errors: {} }, "rejected"],
+      [{ ok: false, reason: "conflict" }, "rejected"],
       [{ ok: false, reason: "closed" }, "rejected"],
       [{ ok: false, reason: "rate_limited" }, "retry"],
+      [{ ok: false, reason: "rate_limited", retryAfterSeconds: 30 }, "retry"],
       [{ ok: false, reason: "store_failed" }, "retry"],
     ];
     for (const [result, outcome] of cases) {
