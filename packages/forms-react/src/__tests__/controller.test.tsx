@@ -190,6 +190,25 @@ describe("useFormController", () => {
     expect([seen.controller.engine, seen.controller.phase]).toEqual([two, "sent"]);
   });
 
+  it("treats a new engine like a fresh mount: no focus on its first question", () => {
+    const targets: FocusTarget[] = [];
+    const one = createForm(survey.definition, { initialValues: { [survey.definition.blocks[0]!.id]: "Ada" } });
+    const { seen, rerender } = harness(one, { focus: (t) => targets.push(t) });
+    act(() => seen.controller.advance());
+    act(() => seen.controller.back());
+    expect(seen.controller.direction).toBe("back");
+    targets.length = 0;
+    // A new engine on its second question, so `current` changes with the swap.
+    const two = createForm(survey.definition, {
+      initialValues: { [survey.definition.blocks[0]!.id]: "Sam" },
+      resumeAt: survey.definition.blocks[1]!.id,
+    });
+    rerender(two, { focus: (t) => targets.push(t) });
+    expect(seen.controller.current).toBe(two.idOf("member"));
+    expect(targets).toEqual([]);
+    expect(seen.controller.direction).toBe("forward");
+  });
+
   it("saves progress after a step, and flushes a pending save at once", () => {
     vi.useFakeTimers();
     const onProgress = vi.fn();

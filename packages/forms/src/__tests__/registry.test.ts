@@ -215,6 +215,16 @@ describe("the content registry", () => {
   it("has the built-ins, and a host registers more", () => {
     expect(getContentType("heading")?.label).toBe("Heading");
     expect(() => registerContentType({ type: "text", label: "Text" })).toThrow(/built-in content type/);
+    expect(() => registerContentType({ type: "test/no-label" } as never)).toThrow(/label/);
+    expect(() => registerContentType({ type: "test/bad-text", label: "x", text: "nope" } as never)).toThrow(/text/);
+    registerContentType({
+      type: "test/throws",
+      label: "Throws",
+      text: () => {
+        throw new Error("boom");
+      },
+    });
+    expect(contentText({ kind: "content", id: "x", type: "test/throws", text: "Fallback" })).toBe("Fallback");
     registerContentType({
       type: "test/message",
       label: "Message",
@@ -231,6 +241,6 @@ describe("the content registry", () => {
     expect(parseForm(form("message", [{ ...block, props: { tone: "calm" } }])).ok).toBe(true);
     // An unknown kind names every registered one.
     const unknown = parseForm(form("unknown", [{ kind: "content", id: "u", type: "test/nope", text: "" }]));
-    expect(!unknown.ok && unknown.issues[0]!.message).toBe("Must be heading, text or test/message.");
+    expect(!unknown.ok && unknown.issues[0]!.message).toBe("Must be heading, text, test/throws or test/message.");
   });
 });

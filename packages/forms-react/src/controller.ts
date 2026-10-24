@@ -211,7 +211,8 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
   // The engine whose `onSubmit` is running: a send still on its way for an earlier engine
   // never blocks this one's.
   const sending = useRef<FormEngine | null>(null);
-  const direction = useRef<"forward" | "back">("forward");
+  // Which way the last step went, for the engine it went on: a new engine starts "forward".
+  const direction = useRef<{ engine: FormEngine | null; way: "forward" | "back" }>({ engine: null, way: "forward" });
   const progress = useRef<{ flush(): void } | null>(null);
 
   const showEnding = status === "completed" && (phase === "sent" || !options.onSubmit);
@@ -271,6 +272,13 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
       flush();
     };
   }, [engine, saveProgress, layout]);
+
+  // A new engine is a new form, as if mounted afresh: its first question doesn't take focus,
+  // and no pending auto-advance carries over from the last one.
+  useLayoutEffect(() => {
+    previousCurrent.current = engine.getState().current;
+    clearTimeout(advanceTimer.current);
+  }, [engine]);
 
   // A new question cancels a pending auto-advance and, in focus layout, takes focus. Comparing
   // with the previous question (not a "mounted" flag) keeps StrictMode's double effect run from
@@ -349,8 +357,8 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
     };
     const advance = () => {
       if (waiting()) return;
-      direction.current = "forward";
       const e = latest.current.engine;
+      direction.current = { engine: e, way: "forward" };
       if (isLastStep(e.getState())) void finish();
       else if (!e.next()) announceStepError();
     };
@@ -364,8 +372,9 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
       },
       back() {
         clearTimeout(advanceTimer.current);
-        direction.current = "back";
-        latest.current.engine.back();
+        const e = latest.current.engine;
+        direction.current = { engine: e, way: "back" };
+        e.back();
       },
       cancelAdvance: () => clearTimeout(advanceTimer.current),
       flushProgress: () => progress.current?.flush(),
@@ -377,7 +386,7 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
           if (latest.current.engine !== e) return;
           const state = e.getState();
           if (state.status === "completed" || isLastStep(state)) return;
-          direction.current = "forward";
+          direction.current = { engine: e, way: "forward" };
           if (!e.next()) announceStepError();
         }, ADVANCE_DELAY_MS);
       },
@@ -413,7 +422,7 @@ export function useFormController(engine: FormEngine, options: FormControllerOpt
     failed: phase === "failed",
     saveProgress,
     announcement,
-    direction: direction.current,
+    direction: direction.current.engine === engine ? direction.current.way : "forward",
     onAdvance: layout === "focus" && autoAdvance ? schedule : undefined,
     ...act,
   };

@@ -228,6 +228,12 @@ export function registerContentType(manifest: ContentTypeManifest, options: Regi
   if (!manifest || typeof manifest.type !== "string" || !manifest.type) {
     throw new Error("registerContentType: a content type needs a `type`.");
   }
+  if (typeof manifest.label !== "string") throw new Error(`registerContentType: "${manifest.type}" needs a \`label\`.`);
+  for (const hook of ["checkProps", "text"] as const) {
+    if (manifest[hook] !== undefined && typeof manifest[hook] !== "function") {
+      throw new Error(`registerContentType: "${manifest.type}" has a \`${hook}\` that isn't a function.`);
+    }
+  }
   if (BUILT_IN_CONTENT.has(manifest.type) && options.replace !== true) {
     throw new Error(
       `registerContentType: "${manifest.type}" is a built-in content type; pass { replace: true } to replace it for every form in this process.`,
@@ -244,10 +250,16 @@ export function listContentTypes(): ContentTypeManifest[] {
   return [...contentRegistry.values()];
 }
 
-/** A content block's display text: its kind's `text`, or `block.text`. */
+/** A content block's display text: its kind's `text` (when it gives a string without throwing), or `block.text`. */
 export function contentText(block: ContentBlock): string {
   const text = contentRegistry.get(block.type)?.text;
-  return text ? text(block) : block.text;
+  if (!text) return block.text;
+  try {
+    const shown = text(block);
+    return typeof shown === "string" ? shown : block.text;
+  } catch {
+    return block.text;
+  }
 }
 
 for (const manifest of [

@@ -54,7 +54,9 @@ export function mergeResponses(
   const keepable = (field: FieldBlock | undefined): field is FieldBlock =>
     !!field && !isCalculated(field) && !withheld(def, field);
 
-  // Rules 1 to 3, in form order (a filter's source comes before the list it filters).
+  // Rules 1 to 3, in form order (a filter's source comes before the list it filters). The null
+  // prototype doesn't survive rule 4 (`clearFilteredAnswers` copies); that is fine, since only
+  // field ids are read back and the output is written with `put`.
   let values: Record<string, Json | undefined> = Object.create(null) as Record<string, Json | undefined>;
   const record = (r: unknown): Record<string, Json | undefined> =>
     r && typeof r === "object" && !Array.isArray(r) ? (r as Record<string, Json | undefined>) : {};
