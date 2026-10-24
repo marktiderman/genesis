@@ -85,7 +85,15 @@ export function SearchableOptions({
   const chosen = options.filter((o) => selected.includes(o.value));
   const labelOf = (o: ChoiceOption) => o.label ?? o.value;
   return (
-    <div className="space-y-2" data-gf-searchable="">
+    <div
+      className="space-y-2"
+      data-gf-searchable=""
+      // Enter in the search box picks the highlighted option (the list handles it first); it must
+      // never also send the form, as Enter in a text box would.
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") e.preventDefault();
+      }}
+    >
       <Command shouldFilter={false} label={binding.label} className="rounded-md border border-input bg-background">
         <CommandInput
           id={inputId}

@@ -603,10 +603,12 @@ function SearchableMultiField(props: FieldRendererProps) {
   );
 }
 
-/** Whether to draw a question's options with a search box: `isSearchable` over the options it shows now. */
+/**
+ * Whether to draw a question's options with a search box: `isSearchable` over all its options,
+ * not just those a filter shows now, so the control doesn't change while the respondent answers.
+ */
 function useSearchable(props: FieldRendererProps): boolean {
-  const options = useChoiceOptions(props.engine, props.binding.field.id);
-  return isSearchable(props.binding.field, options.length);
+  return isSearchable(props.binding.field);
 }
 
 function SingleChoiceField(props: FieldRendererProps) {

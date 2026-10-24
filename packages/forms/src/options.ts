@@ -165,8 +165,9 @@ export const SEARCHABLE_OPTION_COUNT = 10;
 
 /**
  * Whether a choice question shows a search box over its options: `props.searchable` when it is
- * true or false, otherwise when it has more than `SEARCHABLE_OPTION_COUNT` options. Pass the
- * number it shows (`visibleOptions(...).length`); the default counts `choiceOptions(field)`.
+ * true or false, otherwise when it has more than `SEARCHABLE_OPTION_COUNT` options. The default
+ * counts all its options (`choiceOptions(field)`, with the host's lists filled in), so a list a
+ * filter narrows keeps its search box while the respondent answers.
  */
 export function isSearchable(field: FieldBlock, optionCount: number = choiceOptions(field).length): boolean {
   const setting = field.props?.searchable;
