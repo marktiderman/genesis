@@ -322,6 +322,8 @@ declare module "react-native" {
 
   export const Platform: {
     OS: "ios" | "android" | "web";
+    /** Android API level (number) or iOS version (string). */
+    Version: number | string;
     select: <T>(specifics: { ios?: T; android?: T; web?: T; default?: T }) => T;
   };
 

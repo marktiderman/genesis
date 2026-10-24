@@ -303,6 +303,7 @@ export const SectionList = <T,>(props: {
 
 export const Platform = {
   OS: "ios" as "ios" | "android" | "web",
+  Version: "18.0" as number | string,
   select<T>(specifics: { ios?: T; android?: T; web?: T; default?: T }): T {
     return (specifics.ios ?? specifics.default) as T;
   },
