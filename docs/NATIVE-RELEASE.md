@@ -7,11 +7,11 @@ builds, store submissions and staged over-the-air updates, and Maestro smoke flo
 
 | File | What it does |
 | --- | --- |
-| `eas.json` | Build profiles `development`, `preview`, `e2e` (a development simulator build) and `production`, each with its `APP_VARIANT`, EAS environment and channel; app versions from EAS (`appVersionSource: remote`); store submission with placeholder ids. |
+| `eas.json` | Build profiles `development` (a release build of the development variant, not a dev client: the starter has no `expo-dev-client`), `preview`, `e2e` (a development simulator build) and `production`, each with its `APP_VARIANT`, EAS environment and channel; app versions from EAS (`appVersionSource: remote`); store submission with placeholder ids. |
 | `.eas/workflows/pr-preview.yml` | Each pull request: fingerprint, then repack a preview build with the same fingerprint (or build one when native code changed), publish an update to the channel `pr-<number>`, and comment the install link and QR code. |
 | `.eas/workflows/deploy-production.yml` | A pushed `v*.*.*` tag: per platform, a new store build only when the native fingerprint changed, otherwise an over-the-air update to `production` at 10%. Both wait for a person's approval. |
 | `.eas/workflows/rollout.yml` | By hand: promote the staged update (after a failed-launch check) or roll it back. |
-| `.eas/workflows/e2e.yml` | Each pull request: the Maestro flows on an iOS simulator build (repacked when the fingerprint matches). |
+| `.eas/workflows/e2e.yml` | Each pull request: the Maestro flows on an iOS simulator build (repacked when the fingerprint matches). The `account` flow is left out until its secrets exist. |
 | `.eas/scripts/rollout-health.mjs` | The check `rollout.yml` runs before promoting. |
 | `.maestro/` | Smoke flows: launch, the sign-in screen, Settings' version row (after signing in). |
 

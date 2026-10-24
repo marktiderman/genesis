@@ -40,7 +40,7 @@ on:
       update_group_id:
         type: string
         required: true
-        description: The update group deploy-production.yml published (its update job's log, or `eas update:list --branch production`).
+        description: One platform's update group from deploy-production.yml (its update job's log, or `eas update:list --branch production`).
       action:
         type: choice
         required: true
@@ -64,6 +64,7 @@ jobs:
       MIN_LAUNCHES: "200"
     steps:
       - uses: eas/checkout
+      # EAS CLI evaluates app.config.ts (tsx, the Genesis config plugin), so it needs the packages.
       - uses: eas/install_node_modules
       - name: Read the update group's insights and check them
         run: |

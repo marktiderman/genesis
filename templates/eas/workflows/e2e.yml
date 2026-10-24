@@ -6,10 +6,11 @@
 #    JavaScript. None exists: build one.
 # 3. Run every flow in .maestro/flows on it.
 #
-# The `account` flows sign in: put MAESTRO_TEST_EMAIL and MAESTRO_TEST_PASSWORD (a test account
-# on the development Supabase project) in the development EAS environment as secret variables.
-# Maestro reads MAESTRO_* variables from the environment. Without them, keep only the other flows
-# (`exclude_tags: account`).
+# The `account` flows sign in, so they are left out (`exclude_tags: account`) until the
+# development EAS environment has MAESTRO_TEST_EMAIL and MAESTRO_TEST_PASSWORD (a test account on
+# the development Supabase project) as secret variables; then delete that line. Maestro reads
+# MAESTRO_* variables from the environment. This runs the pull request's code with that
+# environment's variables: keep nothing there that production depends on.
 #
 # Genesis template (templates/eas/workflows/e2e.yml). Edit the copy in your app; see
 # docs/NATIVE-RELEASE.md in the Genesis repository.
@@ -70,4 +71,5 @@ jobs:
     params:
       build_id: ${{ after.repack_ios.outputs.build_id || after.build_ios.outputs.build_id }}
       flow_path: [".maestro/flows"]
+      exclude_tags: account
       retries: 1

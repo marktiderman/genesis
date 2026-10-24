@@ -152,10 +152,11 @@ describe("EAS workflows", () => {
     expect(checked).toBe(4);
   });
 
-  it("the release approval isn't offered when a build failed", () => {
-    expect(workflow("deploy-production.yml").jobs.approve_release?.if).toBe(
-      "${{ after.build_ios.status != 'failure' && after.build_android.status != 'failure' }}",
-    );
+  it("the release approval isn't offered when a lookup or a build failed", () => {
+    const approval = workflow("deploy-production.yml").jobs.approve_release;
+    expect(approval?.needs).toEqual(["get_ios_build", "get_android_build"]);
+    expect(approval?.after).toEqual(["build_ios", "build_android"]);
+    expect(approval?.if).toBe("${{ after.build_ios.status != 'failure' && after.build_android.status != 'failure' }}");
   });
 
   it("deploy-production starts only from a pushed tag, and its updates start as a staged rollout", () => {

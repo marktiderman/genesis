@@ -10,6 +10,8 @@
  * platform's launches failed. A threshold that isn't a number is an error, never a pass.
  *
  * "Failed launches" are what EAS counts: expo-updates couldn't start the update and fell back.
+ * A platform's launches are `installs + failedInstalls`, the denominator eas-cli's own crash rate
+ * uses (update/insights/formatInsights.js in eas-cli 25.3.0).
  * Crash-free sessions are not in EAS's insights; read them in your crash reporter.
  *
  * Genesis template (templates/eas/scripts/rollout-health.mjs).

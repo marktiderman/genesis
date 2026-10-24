@@ -7,7 +7,8 @@ import { easConfig, nativePlatforms } from "./src/lib/define-starter";
 // Name, ids and plugins only. The Genesis plugin (`@marktiderman/genesis-cli`) adds the rest:
 // APP_VARIANT variants (development / preview / production), associated domains and app links from
 // genesis.config.json, the privacy manifest, export compliance and the fingerprint runtime version.
-// `easConfig` adds the EAS update URL and project id from starter.config.ts `app.easProjectId`.
+// `easConfig` adds the EAS update URL and project id from starter.config.ts `app.easProjectId`. It
+// sets `updates` and `extra` whole: there is no app.json, so nothing else writes them.
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   ...easConfig(starter.app),

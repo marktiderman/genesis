@@ -21,5 +21,8 @@ tags:
     timeout: 10000
 - assertVisible:
     id: "settings-row-version"
+# The version signature, `1.0.0 (1) · …`, not an empty row.
+- assertVisible:
+    text: "\\d+\\.\\d+\\.\\d+ \\(.+\\).*"
 - assertVisible:
     id: "sign-out"

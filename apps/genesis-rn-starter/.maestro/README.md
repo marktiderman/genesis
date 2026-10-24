@@ -7,7 +7,7 @@ Smoke flows for the starter, run against the development variant on a simulator 
 | --- | --- | --- |
 | `flows/launch.yaml` | smoke | A fresh install runs every boot step and leaves the splash, with no fatal screen. |
 | `flows/sign-in-screen.yaml` | smoke | It lands on the sign-in screen: the email form and the sign-in / create-account switch. |
-| `flows/settings-version.yaml` | smoke, account | Signs in with email, opens the Settings tab, and finds the About row's version signature (`settings-row-version`) and sign-out. |
+| `flows/settings-version.yaml` | smoke, account | Signs in with email, opens the Settings tab, and finds the About row (`settings-row-version`) showing a version signature (`1.0.0 (1) · …`), and sign-out. `e2e.yml` leaves it out until its secrets exist. |
 
 `subflows/sign-in.yaml` is the sign-in steps `settings-version.yaml` runs; it isn't a flow of its
 own, so it lives outside `flows/`.
