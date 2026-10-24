@@ -21,7 +21,8 @@
  * the cell text; the header is an uppercase footnote in `secondaryLabel`
  * above the group and the footnote sits under it in the same color. On
  * Android, cells are full width and the header is a Material subheader in the
- * tint color. Neither platform draws a band or a rule behind a header.
+ * theme's primary color. Neither platform draws a band or a rule behind a
+ * header. Cell content itself is `NativeListItem`'s.
  *
  * Slots: replace or drop one part without leaving the layout. `slots`
  * swaps a part (`sectionHeader`, `row`, `footnote`, `dangerousActions`) for
@@ -174,8 +175,12 @@ export function SettingsPage({
               )
             : null}
           <View
-            className={inset ? "mx-4 overflow-hidden rounded-xl" : "border-y"}
-            style={{ backgroundColor: colors.surface, borderColor: colors.separator }}
+            testID={`${testID}-section-${section.id}-group`}
+            className={inset ? "overflow-hidden" : "border-y"}
+            style={[
+              { backgroundColor: colors.surface, borderColor: colors.separator },
+              inset ? { marginHorizontal: IOS_GROUP_MARGIN, borderRadius: iosGroupRadius() } : null,
+            ]}
           >
             {section.rows.map((row, rowIndex) => (
               <Fragment key={row.id}>
@@ -209,12 +214,27 @@ export function SettingsPage({
   );
 }
 
+/** UIKit's inset grouped margin on a phone, in points. */
+const IOS_GROUP_MARGIN = 16;
+
+/** UIKit's inset grouped corner radius: 10pt through iOS 18, 26pt from iOS 26. */
+function iosGroupRadius(): number {
+  return Number.parseFloat(String(Platform.Version)) >= 26 ? 26 : 10;
+}
+
+/** From iOS 26 a separator also stops short of the trailing edge. */
+function iosTrailingSeparatorInset(): boolean {
+  return Platform.OS === "ios" && Number.parseFloat(String(Platform.Version)) >= 26;
+}
+
 /**
  * iOS: the Settings app's inset grouped header, an uppercase footnote in
- * `secondaryLabel` on the page background, inset to line up with the cell
- * text. Android: a Material list subheader in the tint (primary) color.
- * Neither draws a band or a rule. `textTransform`, not `toUpperCase()`, keeps
- * the title as written for screen readers.
+ * `secondaryLabel` on the page background. It sits over the group (same
+ * margin) and is padded like a cell (`px-4`), so it lines up with the cell
+ * text. Android: a Material list subheader in the brand's primary color
+ * (`text-primary`, which follows the app's theme). Neither draws a band or a
+ * rule. iOS reads uppercased text as written in capitals, so the label is the
+ * title as written, and VoiceOver doesn't spell short words out.
  */
 function DefaultSectionHeader({ title, testID }: SettingsPageSlotMap["sectionHeader"]) {
   const colors = useThemeRoles();
@@ -223,8 +243,16 @@ function DefaultSectionHeader({ title, testID }: SettingsPageSlotMap["sectionHea
       <NativeText
         testID={testID}
         accessibilityRole="header"
-        className="mx-4 px-4 pb-1.5 pt-2"
-        style={{ color: colors.secondaryLabel, fontSize: 13, lineHeight: 18, textTransform: "uppercase" }}
+        accessibilityLabel={title}
+        dynamicTypeRamp="footnote"
+        className="px-4 pb-1.5 pt-2"
+        style={{
+          marginHorizontal: IOS_GROUP_MARGIN,
+          color: colors.secondaryLabel,
+          fontSize: 13,
+          lineHeight: 18,
+          textTransform: "uppercase",
+        }}
       >
         {title}
       </NativeText>
@@ -234,25 +262,21 @@ function DefaultSectionHeader({ title, testID }: SettingsPageSlotMap["sectionHea
     <NativeText
       testID={testID}
       accessibilityRole="header"
-      className="px-4 pb-2 pt-4"
-      style={{ color: colors.tint, fontSize: 14, lineHeight: 20, fontWeight: "500" }}
+      className="px-4 pb-2 pt-4 text-primary"
+      style={{ fontSize: 14, lineHeight: 20, fontWeight: "500" }}
     >
       {title}
     </NativeText>
   );
 }
 
-/** A cell's horizontal padding (`NativeListItem`'s `px-4`). */
-const CELL_INSET = 16;
-/** The gap between a cell's leading content and its text (`NativeListItem`'s `mr-3`). */
-const LEADING_GAP = 12;
-
 function DefaultRow({ isLast, id: _id, leading, ...row }: SettingsPageSlotMap["row"]) {
   const colors = useThemeRoles();
-  // A separator starts at the cell text, past any leading icon, so the
-  // leading content is measured once it lays out.
+  // A separator starts at the cell text: the same `px-4` (and `mr-3` past a
+  // leading icon, measured once it lays out) as `NativeListItem`, so it lines
+  // up whatever the NativeWind rem is. A row lays out start to end, so this
+  // follows right-to-left layouts too.
   const [leadingWidth, setLeadingWidth] = useState(0);
-  const separatorInset = CELL_INSET + (leading ? leadingWidth + LEADING_GAP : 0);
   return (
     <>
       <NativeListItem
@@ -276,8 +300,14 @@ function DefaultRow({ isLast, id: _id, leading, ...row }: SettingsPageSlotMap["r
           testID={`${row.testID}-separator`}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
-          style={{ height: StyleSheet.hairlineWidth, marginLeft: separatorInset, backgroundColor: colors.separator }}
-        />
+          className="flex-row"
+          style={{ height: StyleSheet.hairlineWidth }}
+        >
+          <View className="w-4" />
+          {leading ? <View className="mr-3" style={{ width: leadingWidth }} /> : null}
+          <View testID={`${row.testID}-separator-line`} className="flex-1" style={{ backgroundColor: colors.separator }} />
+          {iosTrailingSeparatorInset() ? <View className="w-4" /> : null}
+        </View>
       )}
     </>
   );
@@ -285,13 +315,19 @@ function DefaultRow({ isLast, id: _id, leading, ...row }: SettingsPageSlotMap["r
 
 function DefaultFootnote({ text }: SettingsPageSlotMap["footnote"]) {
   const colors = useThemeRoles();
-  const ios = Platform.OS === "ios";
+  if (Platform.OS === "ios") {
+    return (
+      <NativeText
+        dynamicTypeRamp="footnote"
+        className="px-4 pt-1.5"
+        style={{ marginHorizontal: IOS_GROUP_MARGIN, color: colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}
+      >
+        {text}
+      </NativeText>
+    );
+  }
   return (
-    <NativeText
-      preset="body-sm"
-      className={ios ? "mx-4 px-4 pt-1.5" : "px-4 pt-2"}
-      style={[{ color: colors.secondaryLabel }, ios ? { fontSize: 13, lineHeight: 18 } : null]}
-    >
+    <NativeText preset="body-sm" className="px-4 pt-2" style={{ color: colors.secondaryLabel }}>
       {text}
     </NativeText>
   );

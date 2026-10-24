@@ -43,7 +43,6 @@ function toDom<T extends AnyProps>(
   void hitSlop;
   void collapsable;
   void importantForAccessibility;
-  void accessibilityElementsHidden;
   void accessibilityViewIsModal;
   void accessibilityLiveRegion;
 
@@ -51,6 +50,7 @@ function toDom<T extends AnyProps>(
   if (testID !== undefined) out["data-testid"] = testID;
   if (accessibilityLabel !== undefined) out["aria-label"] = accessibilityLabel;
   if (accessibilityHint !== undefined) out["aria-describedby"] = accessibilityHint;
+  if (accessibilityElementsHidden) out["aria-hidden"] = "true";
   if (accessibilityRole !== undefined) out["role"] = accessibilityRole;
   else if (defaultRole) out["role"] = defaultRole;
   if (accessibilityState !== undefined) {
