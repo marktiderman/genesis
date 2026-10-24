@@ -1,0 +1,32 @@
+packages/ui-native/src/layouts/auth-screen.tsx
+  s_8252619ce79a86::t_bdd8d6d4450521 1-90
+packages/ui-native/src/layouts/__tests__/auth-screen.test.tsx
+  s_8252619ce79a86::t_bc8783544abf1f 1-49
+packages/ui-native/src/layouts/__tests__/notifications-page-slots.test.tsx
+  s_8252619ce79a86::t_15cb0a4a2c8c8d 1-23
+packages/ui-native/src/layouts/notifications-page.tsx
+  s_8252619ce79a86::t_50d33352568c2a 14-17,24,61-67,77,79-82,197-198,214-224,239-244,261-279
+  s_8252619ce79a86::t_5c4fe4baf1a36f 280
+packages/ui-native/src/layouts/index.ts
+  s_8252619ce79a86::t_2a487d480749b0 48
+  s_8252619ce79a86::t_bc8783544abf1f 63-64
+  s_8252619ce79a86::t_15cb0a4a2c8c8d 6
+.changeset/native-auth-notifications-slots.md
+  s_8252619ce79a86::t_d1d00c8e2335ad 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ddac1fcb099726024ea47f6a0cc2f79ab8e61425",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
