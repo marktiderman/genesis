@@ -3,11 +3,14 @@
 import { createForm, f, type FieldValidator, type Json } from "@marktiderman/genesis-forms";
 import {
   allow,
+  checkUploads,
   createEditSecretReader,
+  createUploadHandler,
   editLinkUrl,
   isEditLinkRequest,
   validateSubmission,
   type RateLimitStore,
+  type UploadStore,
   type SubmissionInput,
 } from "@marktiderman/genesis-forms/server";
 import { form } from "./exact-optional";
@@ -61,3 +64,33 @@ export const link = editLinkUrl("/f/a", { id: "x", nonce: "y" }, undefined, {
 export const isEdit = isEditLinkRequest(new URL("https://x.test/f/a"), { param: optional.param, isFormPage: optional.isFormPage });
 export const readSecret = createEditSecretReader({ variable: "FORM_EDIT_SECRET", log: optional.log });
 export const allowed = allow(store, { key: "k", limit: 1, windowSeconds: 1 }, { log: optional.log, message: optional.message });
+
+declare const uploads: UploadStore;
+declare const upload: {
+  allowsEdits?: boolean;
+  label?: string;
+  limit?: number;
+  trustedIpHeaders?: readonly string[];
+  now?: () => Date;
+  log?: (message: string) => void;
+  messages?: { notOpen?: string };
+};
+export const handler = createUploadHandler<string>({
+  resolveForm: async () => ({
+    id: "f",
+    definition: form.definition,
+    open: true,
+    scope: "s",
+    allowsEdits: upload.allowsEdits,
+    label: upload.label,
+  }),
+  store: uploads,
+  edit: undefined,
+  rateLimit: { store, secret: "s", limit: upload.limit, windowSeconds: undefined, trustedIpHeaders: upload.trustedIpHeaders },
+  hashAttempt: undefined,
+  maxRequestBytes: undefined,
+  now: upload.now,
+  log: upload.log,
+  messages: upload.messages,
+});
+export const checked = checkUploads(form.definition, {}, { formId: "f", owner: { attemptHash: "h" }, store: undefined });

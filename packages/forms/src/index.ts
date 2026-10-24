@@ -102,6 +102,13 @@ export {
   type PhotoRef,
 } from "./photo";
 export {
+  MAX_UPLOAD_REQUEST_BYTES,
+  type SignedUpload,
+  type UploadGrant,
+  type UploadRefusal,
+  type UploadRequest,
+} from "./upload-protocol";
+export {
   CALCULATED_TYPE,
   COMPUTED_FIELD_TYPES,
   MAX_CALCULATED_DECIMALS,

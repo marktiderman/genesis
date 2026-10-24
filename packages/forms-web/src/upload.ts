@@ -8,6 +8,8 @@ import type { FieldBlock, PhotoRef } from "@marktiderman/genesis-forms";
  */
 export interface UploadHost {
   upload(file: File, field: FieldBlock): Promise<PhotoRef>;
+  /** A link to read a stored file (the host's storage signs it), or null when it can't be read. */
+  url?(ref: PhotoRef, field?: FieldBlock): Promise<string | null>;
 }
 
 /** Provide it around `<Form>` (or pass `onUpload`) so `photo` fields can store files. */

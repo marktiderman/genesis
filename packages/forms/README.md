@@ -143,7 +143,7 @@ A `photo` field asks for up to a few photos, such as a picture of broken equipme
 returned, never the bytes: `PhotoRef[]`, each `{ id, name, type, size }`. The renderer uploads
 through the host (`onUpload` on genesis-forms-web's `Form`), so the engine and `validateSubmission`
 stay storage-agnostic; the host's server should check that every reference is a file it stored
-for this respondent and form before saving.
+for this respondent and form before saving (`checkUploads`, see [Uploads](#uploads)).
 
 | Prop | Default | Rule |
 | --- | --- | --- |
@@ -429,6 +429,64 @@ they go and 120 photo uploads per 10 minutes.
 const key = await rateLimitKey({ kind: "submit", scope: practiceId, ip: clientIp(request.headers), secret });
 if (!(await allow(store, { key, ...RATE_LIMIT_DEFAULTS.submit }, { log }))) return tooMany();
 ```
+
+### Uploads
+
+A `photo` answer holds references, never bytes, so the server must check each one is a file it
+stored for this respondent. Two pieces do it, with the app's database and storage behind an
+`UploadStore` (`beginUpload`, `signUpload`, `uploadRefs`):
+
+- `createUploadHandler({ resolveForm, store, edit?, rateLimit?, ... })` is the endpoint the browser
+  asks for one signed upload per file (`(request, params) => Response`). It checks the form is open,
+  the field takes files and the file's type and size, the visit's attempt id or the edit link
+  (`edit.response` loads the response, the handler compares its nonce), and the rate limit
+  (`kind: "upload"`, 120 per 10 minutes by default), then records the upload and signs it.
+- `checkUploads(definition, answers, { formId, owner, store })`, on submit after
+  `validateSubmission`: every reference must be an upload this attempt (`{ attemptHash }`) or this
+  edit (`{ responseId }`: the response's own files, or ones uploaded for the edit) made, for that
+  field, finished, of a type and size the field takes, and no more than it takes. The stored name,
+  type and size replace what the browser sent; a refusal is keyed by field id.
+
+```ts
+import { attemptHash, checkUploads, createUploadHandler } from "@marktiderman/genesis-forms/server";
+
+export const POST = createUploadHandler<{ slug: string }>({
+  resolveForm: async (request, { slug }) => {
+    const found = await loadForm(request, slug); // null: 404
+    return found && { id: found.id, definition: found.definition, open: found.open, scope: found.practiceId, allowsEdits: found.allowEdit };
+  },
+  store: uploadStore, // beginUpload, signUpload, uploadRefs
+  edit: { secret: editSecret, response: (id, form) => loadSentResponse(id, form) }, // { id, editNonce } or null
+  rateLimit: { store: counter, secret: rateLimitSecret },
+});
+
+// On submit:
+const checked = await checkUploads(definition, result.submission.answers, {
+  formId,
+  owner: editing ? { responseId } : { attemptHash: await attemptHash(body.attemptId) },
+  store: uploadStore,
+}); // throws when the store can't read: answer 503
+if (!checked.ok) return Response.json({ errors: checked.errors }, { status: 422 });
+```
+
+The JSON (`UploadRequest`, `UploadGrant`, `UploadRefusal` in the main entry, for the browser; every
+response is `cache-control: no-store`):
+
+| Status | Body | When |
+| --- | --- | --- |
+| 200 | `{ ref: { id, name, type, size }, upload: { path, token, bucket?, url? } }` | Recorded and signed; `upload` is what `signUpload` returned. |
+| 400 | `{ error }` | Not a JSON object; no `attemptId` (a UUID) without `edit`; the field isn't an upload field. |
+| 403 | `{ error, code: "bad_link" }` | An edit link that doesn't verify, isn't the response's newest, or a form without edits. |
+| 404 | `{ error }` | `resolveForm` found no form. |
+| 409 | `{ error }`, or `code: "closed"` for an edit | The form isn't open. |
+| 413 | `{ error }` | The request is over 4,000 bytes, or the file is empty, not whole bytes or over the field's size. |
+| 415 | `{ error }` | Not `application/json`, or a file type the field doesn't take. |
+| 429 | `{ error }`, or `code: "too_many_photos"` | The rate limit, or the store's `{ tooMany: true }`. |
+| 500 / 503 | `{ error }` | Recording or signing failed / the form or the edit's response couldn't be loaded; the cause is logged, never sent. |
+
+The request is `{ fieldId, name, type, size }` plus `attemptId` or `edit`. `attemptHash(attemptId)`
+is the hex SHA-256 the store keeps for the attempt. `messages` overrides any of the words
+(`UPLOAD_MESSAGES`). genesis-forms-web's `signedUploadHost` is the browser half.
 
 ## Destinations
 

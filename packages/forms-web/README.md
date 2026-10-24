@@ -159,6 +159,28 @@ sends (it says "Wait for the photo to finish uploading."). Without `onUpload`, o
 `UploadContext` around the form, a photo field says photos can't be added here. `photoFileProblem`,
 `photoFileType` and `photoAccept` are the renderer's own checks, for a custom one.
 
+`signedUploadHost` is an upload host for genesis-forms/server's `createUploadHandler`: for each file
+it asks your endpoint for a signed upload, sends the bytes with `send`, and resolves to the
+server's reference. A refusal rejects with the server's words. `url(ref)` reads a stored file
+through your `readUrl`, null when it can't (for thumbnails in a staff view):
+
+```tsx
+const host = signedUploadHost({
+  endpoint: `/api/upload/${slug}`,
+  claim: () => (editToken ? { edit: editToken } : { attemptId }), // read at each upload
+  // Supabase Storage; without `send`, the file is PUT to `upload.url`.
+  send: async (file, upload, contentType) => {
+    const { error } = await supabase.storage
+      .from(upload.bucket!)
+      .uploadToSignedUrl(upload.path, upload.token, file, { contentType });
+    if (error) throw error;
+  },
+  readUrl: async (ref) => signedReadUrl(ref), // your storage, or null
+});
+
+<Form form={feedback} onUpload={host.upload} onSubmit={send} />;
+```
+
 A **`calculated`** field shows the value the engine worked out from other answers, read-only, in an
 `<output>` named by the question that announces changes politely. It follows the field's `format`
 and `decimals`, and shows a dash until there is a value.
