@@ -37,7 +37,7 @@ type BrandDef = ThemeBrand;
 // from Genesis. Other brand presets and their DTCG token JSONs moved into
 // their consumer's `@<consumer>/brand` package.
 const brands: BrandDef[] = [
-  { name: "genesis", h: 160, s: 84, l: 39, radius: "0.625rem" },
+  { name: "genesis", h: 243, s: 75, l: 59, radius: "0.625rem" },
 ];
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@
  * stylesheets in dist/themes/:
  *
  *   - {brand}.css            `:root` + `.dark` blocks of Shadcn HSL-component
- *                            variables (`--primary: 160 84% 39%`).
+ *                            variables (`--primary: 243 75% 59%`).
  *   - genesis-tailwind4.css  the Tailwind v4 `@theme inline` bridge that maps
  *                            every variable above to a Tailwind theme key
  *                            (`--color-primary: hsl(var(--primary))`).

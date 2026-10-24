@@ -3,13 +3,14 @@ import type { CanonicalBrand } from "../schema/brand";
 
 /** Genesis brand — emerald green. */
 export const genesisTheme: ThemeConfig = {
-  primary: { h: 160, s: 84, l: 39 },
+  primary: { h: 243, s: 75, l: 59 },
   radius: "0.625rem",
 };
 
 export const genesisColors = {
-  // emerald-500 — matches genesisTheme (160 84% 39%) and the DTCG brand primary.
-  primary: "#10b981",
+  // indigo-600 — matches genesisTheme (243 75% 59%) and the DTCG brand primary. Distinct from
+  // `success` (emerald) so a primary button never reads as a success state; 6.3:1 on white.
+  primary: "#4f46e5",
 } as const;
 
 /**
@@ -41,8 +42,8 @@ export const genesisBrand: CanonicalBrand = {
   },
   surface: { DEFAULT: "#ffffff", light: "#ffffff", dark: "#09090b" },
   text: { DEFAULT: "#09090b", light: "#09090b", dark: "#fafafa" },
-  // accent mirrors the DTCG brand primary (brands/genesis.json → #10b981, emerald-500).
-  accent: { DEFAULT: "#10b981", light: "#10b981", dark: "#34d399" },
+  // accent mirrors the DTCG brand primary (brands/genesis.json → #4f46e5, indigo-600).
+  accent: { DEFAULT: "#4f46e5", light: "#4f46e5", dark: "#818cf8" },
   status: {
     // success mirrors colors.json color.semantic.success.DEFAULT (#10b981).
     success: { DEFAULT: "#10b981" },

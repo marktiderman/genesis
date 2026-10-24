@@ -24,7 +24,7 @@
  *   </GenesisThemeProvider>
  *
  *   const theme = useGenesisTheme();
- *   theme.colors.primary  // "#10b981" by default, or whatever the consumer passed
+ *   theme.colors.primary  // "#4f46e5" by default, or whatever the consumer passed
  *   theme.spacing["page-x"] // 16
  */
 
@@ -85,7 +85,7 @@ export interface BrandRegistry {
 export type Brand = keyof BrandRegistry;
 
 /** Default `genesis` brand primary (emerald-500 — matches the DTCG brand primary). */
-export const GENESIS_PRIMARY = "#10b981";
+export const GENESIS_PRIMARY = "#4f46e5";
 
 function resolveBrandColors(
   primary: string,

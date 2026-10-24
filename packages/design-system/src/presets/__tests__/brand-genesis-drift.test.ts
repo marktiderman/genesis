@@ -23,8 +23,9 @@
  *
  * SOURCE OF TRUTH = the DTCG tokens (`tokens/dtcg/*.json`). The preset mirrors
  * them; where the two disagree the DTCG value wins (the preset is reconciled
- * to it). Brand green is `160 84% 39%` (emerald-500) — the value documented in
- * docs/specs/2026-04-13-genesis-design-system.md and rendered as `--primary`.
+ * to it). The brand primary is `243 75% 59%` (indigo-600, #4f46e5), rendered as
+ * `--primary`. It was emerald until 2026-10-24, when it moved off the `success`
+ * green so a primary action never reads as a success state.
  *
  * Field-by-field mapping (preset leaf → DTCG source token):
  *

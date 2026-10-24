@@ -59,6 +59,6 @@ describe("resolveThemeRoles", () => {
 
   it("lets a brand set the tint on native", () => {
     expect(resolveThemeRoles({ target: "android", tint: "#123456" }).tint).toBe("#123456");
-    expect(resolveThemeRoles({ target: "ios" }).tint).toBe("#10b981");
+    expect(resolveThemeRoles({ target: "ios" }).tint).toBe("#4f46e5");
   });
 });
