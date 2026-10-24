@@ -4,11 +4,15 @@
  * `KeyboardAvoidingView` for real apps; it is an optional peer here, so an app
  * that has it passes it once:
  *
- *   import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
- *   <KeyboardScrollProvider component={KeyboardAwareScrollView}>…</KeyboardScrollProvider>
+ *   import { KeyboardAwareScrollView, KeyboardProvider } from "react-native-keyboard-controller";
+ *   <KeyboardProvider>
+ *     <KeyboardScrollProvider component={KeyboardAwareScrollView}>…</KeyboardScrollProvider>
+ *   </KeyboardProvider>
  *
- * (The native app shell does this for you.) Without it, form screens fall back
- * to `KeyboardAvoidingView`.
+ * `KeyboardAwareScrollView` does nothing without react-native-keyboard-controller's
+ * `KeyboardProvider` above it, mounted once at the root. (The native app
+ * shell does both, with `keyboardProvider` and `keyboardScroll`.) Without a
+ * scroll view here, form screens fall back to `KeyboardAvoidingView`.
  *
  * @stability Beta
  */

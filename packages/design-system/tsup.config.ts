@@ -21,6 +21,7 @@ export default defineConfig({
     "src/tokens/native.ts",
     "src/providers/native.ts",
     "src/presets/tailwind.ts",
+    "src/presets/nativewind.ts",
     "src/presets/brand-genesis.ts",
     "src/schema/brand.ts",
     // PRD-07 A4.0 — cross-platform factories.

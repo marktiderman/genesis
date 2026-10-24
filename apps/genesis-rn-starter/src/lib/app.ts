@@ -7,7 +7,7 @@ import NetInfo from "@react-native-community/netinfo";
 import Constants from "expo-constants";
 import { router, type Href } from "expo-router";
 import { AppState } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView, KeyboardProvider } from "react-native-keyboard-controller";
 import { genesisBrand } from "@marktiderman/genesis-design-system";
 import type { GenesisNativeAppProps } from "@marktiderman/genesis-native";
 import { persistQueries } from "@marktiderman/genesis-native/persist";
@@ -33,6 +33,7 @@ export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
     ? persistQueries({ storage: AsyncStorage, keys: persistedQueryKeys, buster: Constants.expoConfig?.version ?? "0" })
     : undefined,
   lifecycle: features.queryLifecycle ? { appState: AppState, netInfo: NetInfo } : undefined,
+  keyboardProvider: features.keyboardScroll ? KeyboardProvider : undefined,
   keyboardScroll: features.keyboardScroll ? KeyboardAwareScrollView : undefined,
   links: features.deepLinks ? { hold: linkHold, onRelease: (path) => router.replace(path as Href) } : undefined,
   updates: features.updates ? createStarterUpdates() : undefined,
