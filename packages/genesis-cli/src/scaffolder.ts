@@ -9,7 +9,6 @@
  *   - `packages/<consumer>-brand/package.json`
  *   - `tailwind.config.ts`                       (genesis preset import)
  *   - `app/global.css`                            (genesis tokens import)
- *   - `.genesis/cli.yml`                          (design-system rules + version pin)
  *   - `CLAUDE.md`                                 (cross-link + workflow)
  *
  * Idempotent: existing files are NOT overwritten. The scaffolder reads
@@ -118,10 +117,6 @@ export function planScaffold(
     {
       path: `app/global.css`,
       content: globalCss(),
-    },
-    {
-      path: `.genesis/cli.yml`,
-      content: genesisConfig(consumer),
     },
     {
       path: `CLAUDE.md`,
@@ -342,6 +337,7 @@ export const brand: Brand = {
 
 function tailwindConfig(consumer: string): string {
   return `import type { Config } from "tailwindcss";
+import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";
 import { brand } from "@${consumer}/brand";
 
 /**
@@ -359,7 +355,7 @@ const config: Config = {
     "./components/**/*.{ts,tsx}",
     "./node_modules/@marktiderman/genesis-ui-native/**/*.{js,ts,tsx}",
   ],
-  presets: [require("@marktiderman/genesis-design-system/tailwind-preset")],
+  presets: [genesisPreset],
   theme: {
     extend: {
       colors: {
@@ -382,46 +378,14 @@ export default config;
 
 function globalCss(): string {
   return `/**
- * Genesis global stylesheet entry. Imports the canonical token sheet
- * + the consumer's tailwind layers. The token sheet wires CSS variables
- * (--color-primary, --color-foreground, etc.) used by every Genesis
- * primitive's tailwind classes.
+ * Genesis global stylesheet entry. Imports the Genesis theme (the CSS
+ * variables every Genesis primitive's classes read: --background,
+ * --foreground, --primary, …) and the consumer's tailwind layers.
  */
-@import "@marktiderman/genesis-design-system/tokens.css";
+@import "@marktiderman/genesis-design-system/themes/genesis.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-`;
-}
-
-function genesisConfig(consumer: string): string {
-  return `# Genesis DESIGN-SYSTEM consumer pin — read by the genesis CLI + .claude/hooks/*
-# NOT the harness config: the schema-validated harness/root config lives at
-# genesis.config.yml (see genesis.config.example.yml). This file only pins the
-# @marktiderman/genesis-* version + design-system rules for this consumer.
-#
-# version pin: which @marktiderman/genesis-* major are we on. The genesis CLI
-# uses this to validate that an upgrade hasn't drifted past breaking-change
-# boundaries.
-version: "1"
-consumer: "${consumer}"
-
-rules:
-  # Block raw hex in consumer code — must use brand tokens.
-  no-raw-hex: error
-  # Block StyleSheet.create() in NativeWind-first projects.
-  no-stylesheet-create: error
-  # Block fork-and-modify of Genesis primitives.
-  no-genesis-fork: error
-  # Layouts must compose Genesis primitives, not rebuild them.
-  prefer-genesis-layout: warn
-
-# Path map — where consumer composites + brand live. Default values match
-# the scaffolder's output; adjust if your layout differs.
-paths:
-  brand: "packages/${consumer}-brand"
-  composites: "components"
-  app: "app"
 `;
 }
 
@@ -432,8 +396,9 @@ This consumer was bootstrapped with \`@marktiderman/genesis-cli init ${consumer}
 
 ## Workflow
 
-- **Reuse before extend, extend before create.** See the Genesis usage
-  doctrine: \`docs/prds/PRD-07-genesis-consumption-architecture/standards/usage-doctrine.md\`
+- **Reuse before extend, extend before create.** Before building anything,
+  run \`npx @marktiderman/genesis-cli features find <term>\` and read
+  https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md
 - **Brand changes live in \`packages/${consumer}-brand\`.** Don't fork Genesis
   primitives — edit your brand schema instead (Layer 1).
 - **Layout customization has 4 layers.** Default → named props →
@@ -441,9 +406,9 @@ This consumer was bootstrapped with \`@marktiderman/genesis-cli init ${consumer}
 
 ## Critical rules
 
-- \`.genesis/cli.yml\` design-system rules are enforced via Claude Code hooks. Don't
-  bypass with \`StyleSheet.create()\` or raw hex; use brand tokens.
-- Run \`pnpm test\` before every commit.
+- \`genesis doctor\` enforces the design-system rules. Don't bypass them with
+  \`StyleSheet.create()\` or raw hex; use brand tokens and theme roles.
+- Run your test script before every commit.
 - Open RFCs in the genesis repo for missing primitives — don't fork
   locally and forget.
 
