@@ -27,7 +27,16 @@ import { checkVersionSkew } from "./versions.js";
 import type { DoctorConfig, DoctorContext, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
 export type * from "./types.js";
-export { DoctorConfigError, loadConfig, validateConfig } from "./config.js";
+export {
+  DoctorConfigError,
+  GenesisConfigError,
+  loadConfig,
+  readGenesisConfig,
+  validateConfig,
+  validateLinks,
+  type GenesisConfigFile,
+  type GenesisLinks,
+} from "./config.js";
 export { loadGenesis, findPackageDir, parseExportNames } from "./genesis.js";
 export { parseRulesMarkdown } from "./patterns.js";
 export { defineDoctorPlugin } from "./plugins.js";

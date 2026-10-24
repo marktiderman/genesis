@@ -59,6 +59,75 @@ Writes the marked feature block in `AGENTS.md` (and a JSON copy with `--json <fi
 repo's `src/features.ts`; `check` exits 1 when that output is stale or a feature's `links.code`
 path doesn't exist. See [genesis-features](../features/README.md) for the registry and the options.
 
+## Expo config plugin
+
+`withGenesis()` keeps an Expo app's `app.config.ts` to a name, ids and plugins:
+
+```ts
+// app.config.ts
+import type { ExpoConfig } from "expo/config";
+
+export default (): ExpoConfig => ({
+  name: "My App",
+  slug: "my-app",
+  scheme: "myapp",
+  ios: { bundleIdentifier: "com.example.myapp" },
+  android: { package: "com.example.myapp" },
+  plugins: ["expo-router", "@marktiderman/genesis-cli"],
+});
+```
+
+Install the CLI in the app (`pnpm add -D @marktiderman/genesis-cli`); Expo finds the plugin
+through the package's `app.plugin.js`. To pass options, use `["@marktiderman/genesis-cli", { … }]`,
+or call it yourself: `import { withGenesis } from "@marktiderman/genesis-cli/expo"`.
+
+| Step | What it sets | Option to turn it off |
+| --- | --- | --- |
+| App variants | `APP_VARIANT` = `development` / `preview` / `production` (default) suffixes `ios.bundleIdentifier` and `android.package` with `.dev` / `.preview` and `name` with ` (Dev)` / ` (Preview)`, so the three install side by side. Any other value fails the build. Change the suffixes with `variants: { development: { id: ".debug", name: " (Debug)" } }`. | pass `variant: "production"` |
+| Links | `ios.associatedDomains` (`applinks:` and `webcredentials:` per host) and one Android `intentFilters` entry with `autoVerify`, from the `links` block of `genesis.config.json`. | `links: false` |
+| Privacy manifest | `ios.privacyManifests.NSPrivacyAccessedAPITypes` for the packages in `dependencies`: `@react-native-async-storage/async-storage` and `expo-secure-store` need UserDefaults, reason `CA92.1`. | `privacyManifest: false` |
+| Export compliance | `ios.config.usesNonExemptEncryption = false`. | `exportCompliance: false` |
+| Runtime version | `runtimeVersion: { policy: "fingerprint" }`. | `fingerprint: false` |
+
+The app's own values always win: the plugin fills gaps and appends to lists, merges privacy
+reasons into an entry the app already declares, never overwrites or removes anything, and
+running it twice changes nothing.
+
+Set the variant per build profile in `eas.json`:
+
+```json
+{
+  "build": {
+    "development": { "developmentClient": true, "env": { "APP_VARIANT": "development" } },
+    "preview": { "distribution": "internal", "env": { "APP_VARIANT": "preview" } },
+    "production": {}
+  }
+}
+```
+
+The `links` block in `genesis.config.json` (validated by the same loader the doctor uses, so a
+bad block fails `genesis doctor` too):
+
+```json
+{
+  "links": { "hosts": ["example.com", "app.example.com"], "paths": ["/invite", "/c"] }
+}
+```
+
+`hosts` are bare lower-case host names (`*.example.com` allowed; no scheme, path or port);
+`paths` are optional prefixes, each starting with `/`. The web side still has to serve
+`/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` for these hosts.
+
+**Determinism.** The plugin reads exactly two committed files in the project root,
+`genesis.config.json` and `package.json`, and one environment variable, `APP_VARIANT`. It makes no
+network calls and reads no clock or other environment, so the same commit and variant always give
+the same config and the EAS fingerprint (`runtimeVersion` policy `fingerprint`) stays stable. Keep
+it that way: anything else that changes the config belongs in a committed file.
+
+`@expo/config-plugins` and `@expo/config-types` are optional peer dependencies used for types
+only; the plugin bundles neither and has no runtime dependency on them. Node 20.19 or 22.12+ is
+needed (Expo `require()`s `app.plugin.js`, which is an ES module).
+
 ## Settings in comments
 
 Put labels and widgets next to the schema, in table and column comments:

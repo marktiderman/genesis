@@ -1528,10 +1528,9 @@
     {
       "id": "expo-config-plugin",
       "name": "Expo config plugin",
-      "summary": "withGenesis() keeps app.config.ts to a name, ids and plugins: app variants per channel, the privacy manifest for the packages installed, associated domains from the config's links, push entitlements and the fingerprint runtime.",
+      "summary": "withGenesis() keeps app.config.ts to a name, ids and plugins: app variants from APP_VARIANT, associated domains and verified app links from genesis.config.json's links, the privacy manifest for the packages installed, export compliance and the fingerprint runtime. It reads only committed files and APP_VARIANT, so EAS fingerprints stay stable.",
       "category": "Tooling",
-      "status": "planned",
-      "horizon": "next",
+      "status": "beta",
       "layer": "tool",
       "keywords": [
         "app.config",
@@ -1539,14 +1538,17 @@
         "app variants",
         "privacy manifest",
         "associated domains",
-        "eas"
+        "app links",
+        "universal links",
+        "eas",
+        "fingerprint"
       ],
       "platforms": {
-        "native": "planned"
+        "native": "beta"
       },
-      "requires": [
-        "genesis-config"
-      ],
+      "entry": {
+        "native": "@marktiderman/genesis-cli/expo"
+      },
       "owner": "mark",
       "apps": [
         "native",
@@ -1556,6 +1558,21 @@
         "developer"
       ],
       "visibility": "internal",
+      "acceptance": [
+        "APP_VARIANT=development and preview suffix the bundle id, package and name, so all three variants install side by side.",
+        "links.hosts in genesis.config.json become applinks: and webcredentials: domains and one autoVerify Android intent filter; a malformed host fails the build.",
+        "Values the app sets itself (privacy reasons, encryption flag, runtime version, domains, filters) are kept, and running the plugin twice changes nothing."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/expo.ts",
+          "packages/genesis-cli/app.plugin.js"
+        ],
+        "docs": [
+          "packages/genesis-cli/README.md"
+        ]
+      },
       "access": "all",
       "flags": []
     },
