@@ -66,6 +66,7 @@
     "@expo/config": "^55.0.19",
     "@expo/config-plugins": "^55.0.11",
     "@expo/config-types": "^55.0.6",
+    "@marktiderman/genesis-core": "workspace:^",
     "@types/node": "^22.9.0",
     "tsup": "^8.3.0",
     "typescript": "^5.9.3",
@@ -75,6 +76,7 @@
   "peerDependencies": {
     "@expo/config-plugins": ">=54",
     "@expo/config-types": ">=54",
+    "@marktiderman/genesis-core": "^1.6.0",
     "vite": ">=5"
   },
   "peerDependenciesMeta": {
