@@ -1,0 +1,25 @@
+.changeset/studio-server-core-peer.md
+  s_8252619ce79a86::t_7607c4b0e233ea 3,6-10
+packages/genesis-cli/package.json
+  s_8252619ce79a86::t_9e93e7c9a7e492 69,79
+packages/studio-server/package.json
+  s_8252619ce79a86::t_8ccdabd4b8c879 54
+pnpm-lock.yaml
+  s_8252619ce79a86::t_ab975c989c70a4 878-880
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d87e51d7682f1514525e8215f0db70bdbfa7e7cb",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
