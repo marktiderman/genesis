@@ -1,0 +1,10 @@
+{
+  "links": {
+    "hosts": [
+      "example.com"
+    ],
+    "paths": [
+      "/invite"
+    ]
+  }
+}

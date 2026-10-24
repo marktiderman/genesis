@@ -26,6 +26,8 @@ export interface GenesisLinks {
   hosts: string[];
   /** Path prefixes the app handles, each starting with `/`. Default: every path. */
   paths?: string[];
+  /** Also add `webcredentials:` domains (password autofill). Default true. */
+  webcredentials?: boolean;
 }
 
 /** genesis.config.json, parsed, with its shared blocks validated. */
@@ -106,6 +108,7 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   return links ? { raw, links } : { raw };
 }
 
+const LINK_KEYS = new Set(["hosts", "paths", "webcredentials"]);
 const HOST = /^(?=.{1,253}$)(\*\.)?([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 /** Check the `links` block, so a typo'd host fails the build instead of shipping links that never open. */
@@ -115,7 +118,7 @@ export function validateLinks(raw: unknown, source = "config"): GenesisLinks {
   };
   if (!isObject(raw)) fail(`"links" must be an object`);
   const c = raw as Record<string, unknown>;
-  for (const key of Object.keys(c)) if (key !== "hosts" && key !== "paths") fail(`links: unknown setting "${key}"`);
+  for (const key of Object.keys(c)) if (!LINK_KEYS.has(key)) fail(`links: unknown setting "${key}"`);
   if (!isStringList(c.hosts) || c.hosts.length === 0) fail(`links.hosts must be a non-empty list of host names`);
   for (const host of c.hosts as string[]) {
     if (!HOST.test(host)) {
@@ -130,8 +133,10 @@ export function validateLinks(raw: unknown, source = "config"): GenesisLinks {
       }
     }
   }
+  if (c.webcredentials !== undefined && typeof c.webcredentials !== "boolean") fail(`links.webcredentials must be true or false`);
   const links: GenesisLinks = { hosts: [...new Set(c.hosts as string[])] };
   if (c.paths !== undefined) links.paths = [...new Set(c.paths as string[])];
+  if (c.webcredentials !== undefined) links.webcredentials = c.webcredentials as boolean;
   return links;
 }
 

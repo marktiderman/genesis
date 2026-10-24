@@ -83,9 +83,9 @@ or call it yourself: `import { withGenesis } from "@marktiderman/genesis-cli/exp
 
 | Step | What it sets | Option to turn it off |
 | --- | --- | --- |
-| App variants | `APP_VARIANT` = `development` / `preview` / `production` (default) suffixes `ios.bundleIdentifier` and `android.package` with `.dev` / `.preview` and `name` with ` (Dev)` / ` (Preview)`, so the three install side by side. Any other value fails the build. Change the suffixes with `variants: { development: { id: ".debug", name: " (Debug)" } }`. | pass `variant: "production"` |
-| Links | `ios.associatedDomains` (`applinks:` and `webcredentials:` per host) and one Android `intentFilters` entry with `autoVerify`, from the `links` block of `genesis.config.json`. | `links: false` |
-| Privacy manifest | `ios.privacyManifests.NSPrivacyAccessedAPITypes` for the packages in `dependencies`: `@react-native-async-storage/async-storage` and `expo-secure-store` need UserDefaults, reason `CA92.1`. | `privacyManifest: false` |
+| App variants | `APP_VARIANT` = `development` / `preview` / `production` (default) suffixes `ios.bundleIdentifier` and `android.package` with `.dev` / `.preview` and `name` with ` (Dev)` / ` (Preview)`, so the three install side by side. Any other value fails. A value that already ends in the suffix is left alone. Change the suffixes with `variants: { development: { id: ".debug", name: " (Debug)" } }`. | pass `variant: "production"` |
+| Links | `ios.associatedDomains` (`applinks:` and, unless `links.webcredentials` is `false`, `webcredentials:` per host) and one Android `intentFilters` entry with `autoVerify`, from the `links` block of `genesis.config.json`. | `links: false` |
+| Privacy manifest | `ios.privacyManifests.NSPrivacyAccessedAPITypes` for the packages in `dependencies`: `@react-native-async-storage/async-storage` needs FileTimestamp, reason `C617.1` (what its own `PrivacyInfo.xcprivacy` declares). | `privacyManifest: false` |
 | Export compliance | `ios.config.usesNonExemptEncryption = false`. | `exportCompliance: false` |
 | Runtime version | `runtimeVersion: { policy: "fingerprint" }`. | `fingerprint: false` |
 
@@ -93,36 +93,62 @@ The app's own values always win: the plugin fills gaps and appends to lists, mer
 reasons into an entry the app already declares, never overwrites or removes anything, and
 running it twice changes nothing.
 
-Set the variant per build profile in `eas.json`:
+### Setting APP_VARIANT
 
-```json
-{
-  "build": {
-    "development": { "developmentClient": true, "env": { "APP_VARIANT": "development" } },
-    "preview": { "distribution": "internal", "env": { "APP_VARIANT": "preview" } },
-    "production": {}
-  }
-}
+`APP_VARIANT` has to be the same wherever the config is evaluated for a build, not only in
+`eas build`. `eas update` and EAS fingerprint checks evaluate the config too, and they don't read
+the `env` of a build profile in `eas.json`. If an update is published without the variant, it is
+built for the production ids and runtime, and preview and development builds never receive it.
+
+Set it per EAS environment instead, so builds, updates and fingerprints all see it:
+
+```bash
+eas env:create --environment preview --name APP_VARIANT --value preview --visibility plaintext
+eas env:create --environment development --name APP_VARIANT --value development --visibility plaintext
 ```
 
-The `links` block in `genesis.config.json` (validated by the same loader the doctor uses, so a
-bad block fails `genesis doctor` too):
+Point each build profile at its environment (`"preview": { "environment": "preview" }`), and
+publish with `eas update --environment preview` (SDK 55 requires `--environment`). On SDK 54 or
+earlier without EAS environments, set it on the command line every time:
+`APP_VARIANT=preview eas update --branch preview`.
+
+### Links
+
+The `links` block in `genesis.config.json` is validated by the same loader the doctor uses, so a
+bad block fails `genesis doctor` too:
 
 ```json
 {
-  "links": { "hosts": ["example.com", "app.example.com"], "paths": ["/invite", "/c"] }
+  "links": { "hosts": ["example.com", "app.example.com"], "paths": ["/invite", "/c"], "webcredentials": true }
 }
 ```
 
 `hosts` are bare lower-case host names (`*.example.com` allowed; no scheme, path or port);
-`paths` are optional prefixes, each starting with `/`. The web side still has to serve
-`/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` for these hosts.
+`paths` are optional prefixes, each starting with `/`; `webcredentials` (default `true`) adds the
+`webcredentials:` domains for password autofill. Set it to `false` if the site doesn't share
+credentials with the app.
 
-**Determinism.** The plugin reads exactly two committed files in the project root,
-`genesis.config.json` and `package.json`, and one environment variable, `APP_VARIANT`. It makes no
-network calls and reads no clock or other environment, so the same commit and variant always give
-the same config and the EAS fingerprint (`runtimeVersion` policy `fingerprint`) stays stable. Keep
-it that way: anything else that changes the config belongs in a committed file.
+The web side has to list every variant you want links to open, because each variant is a
+different app to Apple and Google:
+
+- `/.well-known/apple-app-site-association`: one app id per variant, `TEAMID.com.example.myapp`,
+  `TEAMID.com.example.myapp.dev` and `TEAMID.com.example.myapp.preview`, under `applinks` (in
+  `details[].appIDs`) and, when `webcredentials` is on, under `webcredentials.apps`.
+- `/.well-known/assetlinks.json`: one entry per package (`com.example.myapp`,
+  `com.example.myapp.dev`, `com.example.myapp.preview`), each with that build's own signing
+  certificate SHA-256 fingerprint (`eas credentials` shows it).
+
+A variant the web files leave out installs fine, but its links open in the browser.
+
+### Determinism
+
+The plugin reads exactly two committed files in the project root, `genesis.config.json` and
+`package.json`, and one environment variable, `APP_VARIANT`. It makes no network calls and reads
+no clock or other environment, so for a given commit and `APP_VARIANT` it always gives the same
+config. That makes the EAS fingerprint (`runtimeVersion` policy `fingerprint`) stable only when
+`APP_VARIANT` is set the same way in every place the config is evaluated: builds, `eas update` and
+fingerprint checks (see [Setting APP_VARIANT](#setting-app_variant)). Keep the rest of the config
+in committed files too.
 
 `@expo/config-plugins` and `@expo/config-types` are optional peer dependencies used for types
 only; the plugin bundles neither and has no runtime dependency on them. Node 20.19 or 22.12+ is

@@ -15,12 +15,15 @@
  * 5. `runtimeVersion: { policy: "fingerprint" }`.
  *
  * Anything the app already sets wins: the plugin fills gaps and appends to
- * lists, and never overwrites or removes a value.
+ * lists, never overwrites or removes a value, and running it twice changes
+ * nothing.
  *
  * Determinism: the plugin reads two committed files in the project root,
  * genesis.config.json and package.json, and one environment variable,
  * APP_VARIANT. No network, no clock, no other environment. The same commit
- * and variant always give the same config, so EAS fingerprints stay stable.
+ * and variant always give the same config; the EAS fingerprint is stable only
+ * if APP_VARIANT is set the same way for builds, `eas update` and fingerprint
+ * checks (an EAS environment variable, not a build profile's `env`).
  */
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
@@ -68,18 +71,19 @@ export const DEFAULT_VARIANT_SUFFIXES: Record<Exclude<AppVariant, "production">,
   preview: { id: ".preview", name: " (Preview)" },
 };
 
-const USER_DEFAULTS: PrivacyApi = {
-  NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults",
-  NSPrivacyAccessedAPITypeReasons: ["CA92.1"],
-};
-
 /**
- * The required-reason APIs each package needs the app to declare. A package
- * is matched when the app's package.json lists it in `dependencies`.
+ * The required-reason APIs each package needs the app to declare, copied from
+ * the package's own PrivacyInfo.xcprivacy. A package is matched when the
+ * app's package.json lists it in `dependencies`.
+ *
+ * - async-storage (2.2.0 `ios/PrivacyInfo.xcprivacy`): FileTimestamp, C617.1.
+ *
+ * expo-secure-store is not listed: the Keychain is not a required-reason API.
  */
 export const PRIVACY_APIS: Record<string, PrivacyApi[]> = {
-  "@react-native-async-storage/async-storage": [USER_DEFAULTS],
-  "expo-secure-store": [USER_DEFAULTS],
+  "@react-native-async-storage/async-storage": [
+    { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp", NSPrivacyAccessedAPITypeReasons: ["C617.1"] },
+  ],
 };
 
 /** The variant from options, else `APP_VARIANT`, else production. An unknown value throws. */
@@ -94,15 +98,18 @@ export function resolveVariant(given?: string): AppVariant {
 export function applyVariant(config: ExpoConfig, variant: AppVariant, options: WithGenesisOptions["variants"] = {}): ExpoConfig {
   if (variant === "production") return config;
   const suffix = { ...DEFAULT_VARIANT_SUFFIXES[variant], ...options[variant] };
-  const next: ExpoConfig = { ...config, name: `${config.name}${suffix.name}` };
-  if (config.ios?.bundleIdentifier) next.ios = { ...config.ios, bundleIdentifier: config.ios.bundleIdentifier + suffix.id };
-  if (config.android?.package) next.android = { ...config.android, package: config.android.package + suffix.id };
+  // A value that already ends in the suffix was suffixed by an earlier run: leave it.
+  const add = (value: string, end: string) => (end && value.endsWith(end) ? value : value + end);
+  const next: ExpoConfig = { ...config, name: add(config.name, suffix.name) };
+  if (config.ios?.bundleIdentifier) next.ios = { ...config.ios, bundleIdentifier: add(config.ios.bundleIdentifier, suffix.id) };
+  if (config.android?.package) next.android = { ...config.android, package: add(config.android.package, suffix.id) };
   return next;
 }
 
 export function applyLinks(config: ExpoConfig, links: GenesisLinks | undefined): ExpoConfig {
   if (!links) return config;
-  const domains = links.hosts.flatMap((host) => [`applinks:${host}`, `webcredentials:${host}`]);
+  const services = links.webcredentials === false ? ["applinks"] : ["applinks", "webcredentials"];
+  const domains = links.hosts.flatMap((host) => services.map((service) => `${service}:${host}`));
   const associatedDomains = union(config.ios?.associatedDomains ?? [], domains);
 
   const data = links.hosts.flatMap((host) =>

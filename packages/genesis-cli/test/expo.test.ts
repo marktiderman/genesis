@@ -3,10 +3,11 @@
  * withGenesis() on plain ExpoConfig objects, and the `links` block of
  * genesis.config.json it reads through the CLI's config loader.
  */
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExpoConfig } from "@expo/config-types";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadConfig } from "../src/doctor/config";
@@ -73,6 +74,13 @@ describe("app variants", () => {
       "com.example.sample.preview",
       "com.example.sample.preview",
     ]);
+  });
+
+  it("does not suffix twice when it runs twice", () => {
+    process.env.APP_VARIANT = "development";
+    const once = run();
+    expect(run(once)).toEqual(once);
+    expect(once.ios?.bundleIdentifier).toBe("com.example.sample.dev");
   });
 
   it("takes configured suffixes and an explicit variant", () => {
@@ -144,7 +152,13 @@ describe("links", () => {
     expect(() => validateLinks({ hosts: ["Example.com"] })).toThrow(/bare lower-case host/);
     expect(() => validateLinks({ hosts: ["example.com"], paths: ["invite"] })).toThrow(/must start with "\/"/);
     expect(() => validateLinks({ hosts: ["example.com"], host: "x" })).toThrow(/unknown setting "host"/);
+    expect(() => validateLinks({ hosts: ["example.com"], webcredentials: "no" })).toThrow(/true or false/);
     expect(validateLinks({ hosts: ["*.example.com", "*.example.com"] })).toEqual({ hosts: ["*.example.com"] });
+  });
+
+  it("leaves out webcredentials: when links.webcredentials is false", () => {
+    write("genesis.config.json", { links: { hosts: ["example.com"], webcredentials: false } });
+    expect(run().ios?.associatedDomains).toEqual(["applinks:example.com"]);
   });
 
   it("is the same loader the doctor reads, so a bad links block fails the doctor too", () => {
@@ -157,19 +171,19 @@ describe("links", () => {
 });
 
 describe("privacy manifest", () => {
-  it("declares UserDefaults (CA92.1) when async-storage or expo-secure-store is installed", () => {
-    write("package.json", { dependencies: { "expo-secure-store": "~15.0.0", "@react-native-async-storage/async-storage": "^2.0.0" } });
+  it("declares FileTimestamp (C617.1) when async-storage is installed, as its own manifest does", () => {
+    write("package.json", { dependencies: { "@react-native-async-storage/async-storage": "^2.2.0" } });
     expect(run().ios?.privacyManifests).toEqual({
       NSPrivacyAccessedAPITypes: [
-        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults", NSPrivacyAccessedAPITypeReasons: ["CA92.1"] },
+        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp", NSPrivacyAccessedAPITypeReasons: ["C617.1"] },
       ],
     });
   });
 
-  it("adds nothing for an app without those packages", () => {
-    write("package.json", { dependencies: { expo: "~55.0.0" } });
+  it("adds nothing for expo-secure-store (the Keychain is not a required-reason API) or other packages", () => {
+    write("package.json", { dependencies: { expo: "~55.0.0", "expo-secure-store": "~55.0.0" } });
     expect(run().ios?.privacyManifests).toBeUndefined();
-    expect(privacyApisFor({ "expo-secure-store": "*" })).toHaveLength(1);
+    expect(privacyApisFor({ "expo-secure-store": "*" })).toEqual([]);
   });
 
   it("merges into the app's entries without overwriting them", () => {
@@ -177,21 +191,22 @@ describe("privacy manifest", () => {
     config.ios!.privacyManifests = {
       NSPrivacyTracking: false,
       NSPrivacyAccessedAPITypes: [
-        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults", NSPrivacyAccessedAPITypeReasons: ["1C8F.1"] },
-        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp", NSPrivacyAccessedAPITypeReasons: ["C617.1"] },
+        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults", NSPrivacyAccessedAPITypeReasons: ["CA92.1"] },
+        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp", NSPrivacyAccessedAPITypeReasons: ["3B52.1"] },
       ],
     };
     const before = JSON.stringify(config);
-    const out = applyPrivacyApis(config, privacyApisFor({ "expo-secure-store": "*" }));
+    const asyncStorage = privacyApisFor({ "@react-native-async-storage/async-storage": "*" });
+    const out = applyPrivacyApis(config, asyncStorage);
     expect(JSON.stringify(config)).toBe(before);
     expect(out.ios?.privacyManifests).toEqual({
       NSPrivacyTracking: false,
       NSPrivacyAccessedAPITypes: [
-        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults", NSPrivacyAccessedAPITypeReasons: ["1C8F.1", "CA92.1"] },
-        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp", NSPrivacyAccessedAPITypeReasons: ["C617.1"] },
+        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults", NSPrivacyAccessedAPITypeReasons: ["CA92.1"] },
+        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp", NSPrivacyAccessedAPITypeReasons: ["3B52.1", "C617.1"] },
       ],
     });
-    expect(applyPrivacyApis(out, privacyApisFor({ "expo-secure-store": "*" }))).toEqual(out);
+    expect(applyPrivacyApis(out, asyncStorage)).toEqual(out);
   });
 });
 
@@ -216,7 +231,7 @@ describe("export compliance and fingerprint runtime", () => {
 
   it("each step can be turned off", () => {
     write("genesis.config.json", { links: { hosts: ["example.com"] } });
-    write("package.json", { dependencies: { "expo-secure-store": "*" } });
+    write("package.json", { dependencies: { "@react-native-async-storage/async-storage": "*" } });
     const out = run(base(), { links: false, privacyManifest: false, exportCompliance: false, fingerprint: false });
     expect(out).toEqual(base());
   });
@@ -225,7 +240,7 @@ describe("export compliance and fingerprint runtime", () => {
 describe("determinism", () => {
   it("gives the same config for the same files and variant, whatever else is in the environment", () => {
     write("genesis.config.json", { links: { hosts: ["example.com"] } });
-    write("package.json", { dependencies: { "expo-secure-store": "*" } });
+    write("package.json", { dependencies: { "@react-native-async-storage/async-storage": "*" } });
     const first = JSON.stringify(run(base(), { variant: "preview" }));
     process.env.NODE_ENV = "something-else";
     process.env.EAS_BUILD_PROFILE = "other";
@@ -243,6 +258,33 @@ describe("determinism", () => {
     const before = JSON.stringify(config);
     run(config, { variant: "development" });
     expect(JSON.stringify(config)).toBe(before);
+  });
+});
+
+// These two load the built plugin (app.plugin.js re-exports dist/expo.js), so
+// they need `pnpm build:packages` first, as every test in this repo does. They
+// fail rather than skip without it: a missing build must not read as a pass.
+const here = path.dirname(fileURLToPath(import.meta.url));
+
+describe("through Expo's own config loader", () => {
+  it("resolves plugins: [\"@marktiderman/genesis-cli\"] from a project and applies every step", async () => {
+    expect(existsSync(path.join(here, "../dist/expo.js")), "run pnpm build:packages first").toBe(true);
+    // The fixture project sits inside this workspace, so Node finds
+    // @marktiderman/genesis-cli (this package) the way an app's node_modules would.
+    const project = path.join(here, "fixtures/expo-app");
+    const { getConfig } = await import("@expo/config");
+    process.env.APP_VARIANT = "preview";
+    const { exp } = getConfig(project, { skipSDKVersionRequirement: true, isPublicConfig: false });
+    expect(exp.name).toBe("Fixture (Preview)");
+    expect(exp.ios?.bundleIdentifier).toBe("com.example.fixture.preview");
+    expect(exp.android?.package).toBe("com.example.fixture.preview");
+    expect(exp.ios?.associatedDomains).toEqual(["applinks:example.com", "webcredentials:example.com"]);
+    expect(exp.android?.intentFilters?.[0]).toMatchObject({ autoVerify: true, data: [{ scheme: "https", host: "example.com", pathPrefix: "/invite" }] });
+    expect(exp.ios?.privacyManifests?.NSPrivacyAccessedAPITypes).toEqual([
+      { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp", NSPrivacyAccessedAPITypeReasons: ["C617.1"] },
+    ]);
+    expect(exp.ios?.config?.usesNonExemptEncryption).toBe(false);
+    expect(exp.runtimeVersion).toEqual({ policy: "fingerprint" });
   });
 });
 

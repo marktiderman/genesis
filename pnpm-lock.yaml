@@ -866,6 +866,9 @@ importers:
         specifier: ^3.4.9
         version: 3.4.9
     devDependencies:
+      '@expo/config':
+        specifier: ^55.0.19
+        version: 55.0.19(supports-color@8.1.1)(typescript@5.9.3)
       '@expo/config-plugins':
         specifier: ^55.0.11
         version: 55.0.11(supports-color@8.1.1)
