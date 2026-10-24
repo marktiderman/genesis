@@ -45,6 +45,16 @@ publish uses it. So after trusting a package by hand, get a CI publish of it out
 within 48 hours (merge its next version PR), or the "Verify npm Trusted
 Publishing" step fails for it and it needs the fix below.
 
+## One Genesis version per app
+
+`@marktiderman/genesis` is the release train. Each build writes `dist/versions.json`, the exact
+version of every Genesis package the umbrella depends on (packages it doesn't depend on, such as
+the CLI, studio and supabase, release on their own and aren't listed), and the package exports it as
+`@marktiderman/genesis/versions.json`. In an app that has the umbrella installed, `genesis doctor`
+warns (`version-skew`) for every other installed Genesis package on a different version. Raise it to
+an error with `"rules": { "version-skew": "error" }`. Bump every Genesis package in an app together,
+for example with one Dependabot group for `@marktiderman/*`.
+
 ## A brand-new package
 
 npm can't attach a Trusted Publisher to a package that doesn't exist yet, so a

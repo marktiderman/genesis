@@ -11,13 +11,17 @@
  *     requires gesture-handler — consumers wire it via their own row
  *     wrapper; this layout exposes the unread state via row props).
  *
- * Layer-3 customization: `headerTitle`, `headerLeft`, `headerRight`,
+ * Slots: replace or drop (`null`) `sectionHeader`, `row` or `empty`
+ * through `slots`; feed a default part through `slotProps`.
+ *
+ * Header customization: `headerTitle`, `headerLeft`, `headerRight`,
  * `headerOptions`. Use `getNotificationsPageStackOptions()` to wire a
  * "Mark all read" action via `headerRight` automatically.
  *
  * @stability Beta
  */
 import { type ReactNode } from "react";
+import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import {
   Pressable,
   RefreshControl,
@@ -54,6 +58,13 @@ export interface NotificationItem {
   testID?: string;
 }
 
+/** The parts of a {@link NotificationsPage} that `slots` and `slotProps` reach. */
+export type NotificationsPageSlotMap = {
+  sectionHeader: { title: string };
+  row: NotificationItem & { testID: string };
+  empty: { title: string; body: string; testID: string };
+};
+
 export interface NotificationsPageProps extends ScreenHeaderProps {
   /** Notification items. Empty array → empty state. */
   items: NotificationItem[];
@@ -63,8 +74,12 @@ export interface NotificationsPageProps extends ScreenHeaderProps {
   onRefresh?: () => void | Promise<void>;
   /** Mark-all-read handler. When provided, exposes a header action. */
   onMarkAllRead?: () => void;
-  /** Override the auto-rendered empty state. */
+  /** Override the auto-rendered empty state. Prefer `slots.empty`. */
   emptyState?: ReactNode;
+  /** Replace (a component) or drop (`null`) one part. */
+  slots?: Slots<NotificationsPageSlotMap>;
+  /** More props for a default part, merged over what the layout passes. */
+  slotProps?: SlotPropsFor<NotificationsPageSlotMap>;
   /** Optional override of the empty-state title. */
   emptyTitle?: string;
   /** Optional override of the empty-state body copy. */
@@ -179,6 +194,8 @@ export function NotificationsPage({
   emptyBody,
   className,
   testID = "notifications-page",
+  slots = {},
+  slotProps = {},
 }: NotificationsPageProps) {
   // Note: header props (headerTitle, headerLeft, headerRight, large,
   // scrollEdgeBehavior, headerOptions) are accepted on the type for API
@@ -194,17 +211,17 @@ export function NotificationsPage({
         edges={["left", "right", "bottom"]}
         className={cn("flex-1 bg-background", className)}
       >
-        {emptyState ?? (
-          <NativeEmptyState
-            variant="first-run"
-            title={emptyTitle ?? "No notifications"}
-            body={
-              emptyBody ??
-              "When you get a notification, it'll show up here."
-            }
-            testID={`${testID}-empty`}
-          />
-        )}
+        {emptyState ??
+          renderSlot(
+            DefaultEmpty,
+            slots.empty,
+            {
+              title: emptyTitle ?? "No notifications",
+              body: emptyBody ?? "When you get a notification, it'll show up here.",
+              testID: `${testID}-empty`,
+            },
+            slotProps.empty,
+          )}
       </SafeAreaView>
     );
   }
@@ -219,26 +236,13 @@ export function NotificationsPage({
         testID={`${testID}-list`}
         sections={sections}
         keyExtractor={(item) => item.id}
-        renderSectionHeader={({ section }) => (
-          <NativeSectionListHeader title={section.title} />
-        )}
-        renderItem={({ item }) => (
-          <NativeListItem
-            testID={item.testID ?? `${testID}-row-${item.id}`}
-            title={item.title}
-            subtitle={item.body}
-            leading={
-              item.leading ?? (
-                <UnreadDot
-                  unread={!!item.unread}
-                  testID={`${testID}-row-${item.id}-unread`}
-                />
-              )
-            }
-            onPress={item.onPress}
-          />
-        )}
-        ItemSeparatorComponent={() => <View className="h-px bg-border ml-4" />}
+        renderSectionHeader={({ section }) =>
+          renderSlot(DefaultSectionHeader, slots.sectionHeader, { title: section.title }, slotProps.sectionHeader)
+        }
+        renderItem={({ item }) =>
+          renderSlot(DefaultRow, slots.row, { ...item, testID: item.testID ?? `${testID}-row-${item.id}` }, slotProps.row)
+        }
+        ItemSeparatorComponent={RowSeparator}
         refreshControl={
           onRefresh ? (
             <RefreshControl
@@ -252,6 +256,30 @@ export function NotificationsPage({
       />
     </SafeAreaView>
   );
+}
+
+function RowSeparator() {
+  return <View className="h-px bg-border ml-4" />;
+}
+
+function DefaultSectionHeader({ title }: NotificationsPageSlotMap["sectionHeader"]) {
+  return <NativeSectionListHeader title={title} />;
+}
+
+function DefaultRow(item: NotificationsPageSlotMap["row"]) {
+  return (
+    <NativeListItem
+      testID={item.testID}
+      title={item.title}
+      subtitle={item.body}
+      leading={item.leading ?? <UnreadDot unread={!!item.unread} testID={`${item.testID}-unread`} />}
+      onPress={item.onPress}
+    />
+  );
+}
+
+function DefaultEmpty({ title, body, testID }: NotificationsPageSlotMap["empty"]) {
+  return <NativeEmptyState variant="first-run" title={title} body={body} testID={testID} />;
 }
 
 function UnreadDot({

@@ -22,6 +22,7 @@ import {
 } from "./model";
 
 const BOARD_STATUS: Record<FeatureStatus, ColumnStatus> = {
+  idea: "neutral",
   planned: "neutral",
   building: "info",
   beta: "warning",
@@ -31,6 +32,7 @@ const BOARD_STATUS: Record<FeatureStatus, ColumnStatus> = {
 };
 
 const LABEL: Record<FeatureStatus, string> = {
+  idea: "Idea",
   planned: "Planned",
   building: "Building",
   beta: "Beta",
@@ -41,12 +43,12 @@ const LABEL: Record<FeatureStatus, string> = {
 
 const HORIZON_LABEL: Record<FeatureHorizon, string> = { now: "Now", next: "Next", later: "Later" };
 
-/** The statuses the main list shows. Planned work is on the roadmap instead. */
-const SHIPPING = FEATURE_STATUSES.filter((s) => s !== "planned");
+/** The statuses the main list shows. Ideas and planned work are on the roadmap instead. */
+const SHIPPING = FEATURE_STATUSES.filter((s) => s !== "idea" && s !== "planned");
 
 /**
  * A feature's status as a badge. `StatusBadge` covers the active states and
- * deprecated; planned and retired have no status there, so they use the
+ * deprecated; idea, planned and retired have no status there, so they use the
  * secondary and outline `Badge`.
  *
  * @stability Beta
@@ -56,7 +58,7 @@ export function FeatureStatusBadge({ status }: { status: FeatureStatus }) {
   if (status === "beta") return <StatusBadge status="atRisk">{LABEL[status]}</StatusBadge>;
   if (status === "live") return <StatusBadge status="done">{LABEL[status]}</StatusBadge>;
   if (status === "deprecated") return <StatusBadge status="offTrack">{LABEL[status]}</StatusBadge>;
-  return <Badge variant={status === "planned" ? "secondary" : "outline"}>{LABEL[status]}</Badge>;
+  return <Badge variant={status === "planned" || status === "idea" ? "secondary" : "outline"}>{LABEL[status]}</Badge>;
 }
 
 /** @stability Beta */
@@ -315,6 +317,7 @@ export function FeatureList({
       records.filter(
         (r) =>
           r.status !== "planned" &&
+          r.status !== "idea" &&
           (apps.length === 0 || r.apps.some((a) => apps.includes(a))) &&
           (audience.length === 0 || r.audience.some((a) => audience.includes(a))) &&
           (visibility.length === 0 || visibility.includes(r.visibility)),

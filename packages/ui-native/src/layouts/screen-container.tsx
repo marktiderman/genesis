@@ -27,7 +27,7 @@
  * @stability Beta
  */
 import type { ReactNode } from "react";
-import { ScrollView, StatusBar, View } from "react-native";
+import { ScrollView, StatusBar, View, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { cn } from "../utils";
 import { useThemeMode } from "../hooks/use-theme-mode";
@@ -64,6 +64,8 @@ export interface ScreenContainerProps {
    * Only used when `scroll` is true.
    */
   keyboardShouldPersistTaps?: "always" | "never" | "handled";
+  /** Style on the root, e.g. a theme-role background color. */
+  style?: ViewStyle;
   /** testID on the root container. */
   testID?: string;
 }
@@ -163,6 +165,7 @@ export function ScreenContainer({
   className,
   contentClassName,
   keyboardShouldPersistTaps = "handled",
+  style,
   testID,
 }: ScreenContainerProps) {
   const osMode = useThemeMode();
@@ -192,6 +195,7 @@ export function ScreenContainer({
       testID={testID ?? "screen-container"}
       edges={safeAreaEdges}
       className={cn("flex-1 bg-background", className)}
+      style={style}
     >
       {statusBar !== "hidden" ? (
         <StatusBar

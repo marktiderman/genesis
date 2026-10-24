@@ -13,6 +13,7 @@ export type {
   LogicRule,
   Operand,
   Operator,
+  OptionsSource,
   PageBreakBlock,
 } from "./types";
 export {
@@ -45,10 +46,13 @@ export {
   isSensitive,
   listFieldTypes,
   normalizeValue,
+  optionsSource,
   registerFieldType,
   summarizeValue,
+  withHostOptions,
   type ChoiceOption,
   type FieldTypeManifest,
+  type HostOptions,
 } from "./fields";
 export {
   formatTimestamp,

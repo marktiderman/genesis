@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 129 components · 436 other exports · 273 standalone types across 10 packages and entry points.
+**Totals:** 130 components · 441 other exports · 281 standalone types across 10 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -171,7 +171,7 @@ DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer bra
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (23)
+### Other exports (25)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -191,17 +191,19 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isColorScale`](../packages/design-system/src/schema/brand.ts) | function | — | Type guard: returns true when `value` looks like a `ColorScale`. |
 | [`neutral`](../packages/design-system/src/tokens/index.ts) | value | — | _(no summary)_ |
 | [`readGenesisThemeV2Flag`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
+| [`resolveThemeRoles`](../packages/design-system/src/tokens/index.ts) | value | — | _(no summary)_ |
 | [`resolveTokens`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`semantic`](../packages/design-system/src/tokens/index.ts) | value | — | _(no summary)_ |
 | [`spacing`](../packages/design-system/src/tokens/index.ts) | value | — | _(no summary)_ |
 | [`status`](../packages/design-system/src/tokens/index.ts) | value | — | _(no summary)_ |
 | [`tailwindFromBrand`](../packages/design-system/src/factories/from-brand.ts) | function | — | Derive a Tailwind v4 preset from a {@link CanonicalBrand} config. |
+| [`THEME_ROLES`](../packages/design-system/src/tokens/index.ts) | value | — | _(no summary)_ |
 | [`themeFromBrand`](../packages/design-system/src/factories/from-brand.ts) | function | — | Derive a NativeWind v5 theme from a {@link CanonicalBrand} config. |
 | [`themeToCss`](../packages/design-system/src/tokens/index.ts) | value | — | _(no summary)_ |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
 
-### Types (17)
+### Types (19)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -214,6 +216,7 @@ export type { ColorScale };
 export type { GradientToken };
 export type { NativeBrandOutput };
 export type { PlatformOverridable };
+export type { ResolveThemeRolesOptions };
 export type { ResolvedColorScale };
 export type { ResolvedThemeMode };
 export type { ResolvedTokens };
@@ -221,6 +224,7 @@ export type { ShadowToken };
 export type { TailwindBrandOutput };
 export type { ThemeConfig };
 export type { ThemeMode };
+export type { ThemeRole };
 export type { TypographyTokens };
 export type { UseThemeReturn };
 ```
@@ -275,7 +279,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (243)
+### Other exports (242)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -418,7 +422,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`InputOTPGroup`](../packages/ui/src/components/ui/input-otp.tsx) | value | — | _(no summary)_ |
 | [`InputOTPSeparator`](../packages/ui/src/components/ui/input-otp.tsx) | value | — | _(no summary)_ |
 | [`InputOTPSlot`](../packages/ui/src/components/ui/input-otp.tsx) | value | — | _(no summary)_ |
-| [`isPathActive`](../packages/ui/src/navigation.tsx) | function | Beta | Default active-path matcher, mirroring React Router's `NavLink` (prefix match, with `/` treated as exact). Consumers can override via an `isActive` prop where components accept one. |
+| [`isPathActive`](../packages/ui/src/navigation.tsx) | value | — | _(no summary)_ |
 | [`Label`](../packages/ui/src/components/ui/label.tsx) | value | — | _(no summary)_ |
 | [`Large`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`Lead`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
@@ -466,11 +470,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Progress`](../packages/ui/src/components/ui/progress.tsx) | value | — | _(no summary)_ |
 | [`RadioGroup`](../packages/ui/src/components/ui/radio-group.tsx) | value | — | _(no summary)_ |
 | [`RadioGroupItem`](../packages/ui/src/components/ui/radio-group.tsx) | value | — | _(no summary)_ |
-| [`renderSlot`](../packages/ui/src/slots.tsx) | function | — | Renders one slot: the override if given, the default otherwise, nothing if ejected with `null`. |
 | [`ResizableHandle`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanel`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanelGroup`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
-| [`resolveNavigation`](../packages/ui/src/navigation.tsx) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
+| [`resolveNavigation`](../packages/ui/src/navigation.tsx) | value | — | _(no summary)_ |
 | [`ScrollArea`](../packages/ui/src/components/ui/scroll-area.tsx) | value | — | _(no summary)_ |
 | [`sectionHeadingVariants`](../packages/ui/src/components/layout/section.tsx) | value | — | _(no summary)_ |
 | [`Select`](../packages/ui/src/components/ui/select.tsx) | value | — | _(no summary)_ |
@@ -525,7 +528,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 
-### Types (21)
+### Types (18)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -542,9 +545,6 @@ export type { NavigationNode };
 export type { ResolvedNavigation };
 export type { SearchParamsAdapter };
 export type { SettingsPageSection };
-export type { SlotOverride };
-export type { SlotPropsFor };
-export type { Slots };
 export type { SortableListItemContext };
 export type { SortableListReorder };
 export type { SpaceToken };
@@ -688,12 +688,13 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (85)
+### Components (86)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`AuthBranding`](../packages/ui-native/src/layouts/auth.tsx) | `AuthBrandingProps` | — | _(no summary)_ |
 | [`AuthForm`](../packages/ui-native/src/layouts/auth.tsx) | `AuthFormProps` | — | _(no summary)_ |
+| [`AuthScreen`](../packages/ui-native/src/layouts/auth-screen.tsx) | `AuthScreenProps` | — | _(no summary)_ |
 | [`Box`](../packages/ui-native/src/components/layout/index.ts) | `BoxProps` | — | _(no summary)_ |
 | [`BrandExtensionsProvider`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | `BrandExtensionsProviderProps` | — | _(no summary)_ |
 | [`Grid`](../packages/ui-native/src/components/layout/index.ts) | `GridProps` | — | _(no summary)_ |
@@ -778,7 +779,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`SocialAuthRow`](../packages/ui-native/src/layouts/auth.tsx) | `SocialAuthRowProps` | — | _(no summary)_ |
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 
-### Other exports (25)
+### Other exports (26)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -808,14 +809,16 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useGenesisExtension`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | function | — | Read an extension scale by key. Returns `undefined` when the provider isn't mounted OR when the key isn't declared on the brand. The return type follows the consumer's augmented `BrandExtensions[K]`. |
 | [`useReducedMotion`](../packages/ui-native/src/hooks/use-reduced-motion.ts) | function | — | _(no summary)_ |
 | [`useThemeMode`](../packages/ui-native/src/hooks/use-theme-mode.ts) | function | — | _(no summary)_ |
+| [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (25)
+### Types (31)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { AuthFormValues };
+export type { AuthScreenSlotMap };
 export type { BoxBackground };
 export type { BrandExtensionsValue };
 export type { FlexAlign };
@@ -830,16 +833,21 @@ export type { NativeStepperStep };
 export type { NativeToastOptions };
 export type { NativeToastVariant };
 export type { NotificationItem };
+export type { NotificationsPageSlotMap };
 export type { SafeAreaEdge };
 export type { ScreenHeaderProps };
 export type { ScrollEdgeBehavior };
+export type { SettingsPageDangerousAction };
 export type { SettingsPageRow };
 export type { SettingsPageSection };
+export type { SettingsPageSlotMap };
 export type { SocialAuthProvider };
 export type { SpaceToken };
 export type { SpacingPrefix };
 export type { TextPreset };
 export type { ThemeMode };
+export type { ThemeRoleColors };
+export type { UseThemeRolesOptions };
 ```
 
 ---
@@ -1070,7 +1078,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (26)
+### Other exports (29)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1083,10 +1091,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner`, a `kind`, a `default` and its `scopes`; - `release` and `experiment` flags need an `expires` date, `ops` fl... |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
-| [`FEATURE_STATUSES`](../packages/features/src/model.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. |
+| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
+| [`FEATURE_PLATFORMS`](../packages/features/src/model.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
+| [`FEATURE_STATUSES`](../packages/features/src/model.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
-| [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, summary, tagline, category or code paths, best matches (id and name) first. |
+| [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, keywords, summary, tagline, category, import paths, slots, contributions or code paths, best matches (id, name and keywords) first. With `options` and an empty `term`, every feature th... |
 | [`FLAG_KINDS`](../packages/features/src/model.ts) | const | Beta | Why a flag exists. `release` and `experiment` flags need `expires`, `ops` flags need a `runbook`, and `permission` flags fail `check`: paid access belongs in entitlements (`access`), not flags. |
 | [`flagSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FlagDef}. Cross-flag rules live in {@link defineFlags}. |
 | [`flagsForFeature`](../packages/features/src/model.ts) | function | Beta | The names of the flags that belong to a feature, in declaration order. |
@@ -1096,6 +1106,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
+| [`statusOn`](../packages/features/src/model.ts) | function | Beta | A feature's status on one platform, or undefined when it isn't there. @stability Beta |
 | [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: deliberately short. It points agents at `find` and the skill and gives counts, never the whole list, so AGENTS.md stays small however many features there are. |
 | [`toJson`](../packages/features/src/generate.ts) | function | Beta | The registry as JSON, for tools that can't import TypeScript. Stable: no timestamps, features in declaration order, so `check` can compare it. It is also the record of every id ever used, which keeps ids permanent. |
 | [`toMarketingMarkdown`](../packages/features/src/generate.ts) | function | Beta | A benefit-led feature list for a README or a marketing page: public, shipped features with a tagline, highlights first, grouped by category. |
@@ -1103,7 +1114,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (15)
+### Types (18)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1112,12 +1123,15 @@ export type { FeatureAccess };
 export type { FeatureDef };
 export type { FeatureHorizon };
 export type { FeatureIdOf };
+export type { FeatureLayer };
 export type { FeatureLinks };
 export type { FeatureMedia };
+export type { FeaturePlatform };
 export type { FeatureRecord };
 export type { FeatureStatus };
 export type { FeatureVisibility };
 export type { Features };
+export type { FindOptions };
 export type { FlagDef };
 export type { FlagKind };
 export type { FlagValue };
@@ -1145,7 +1159,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`FeatureStatusBadge`](../packages/features/src/react.tsx) | function | Beta | A feature's status as a badge. `StatusBadge` covers the active states and deprecated; planned and retired have no status there, so they use the secondary and outline `Badge`. |
+| [`FeatureStatusBadge`](../packages/features/src/react.tsx) | function | Beta | A feature's status as a badge. `StatusBadge` covers the active states and deprecated; idea, planned and retired have no status there, so they use the secondary and outline `Badge`. |
 
 ---
 

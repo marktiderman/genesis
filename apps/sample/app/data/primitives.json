@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23",
+  "generatedAt": "2026-10-24",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 59
+      "count": 60
     }
   },
   "primitives": [
@@ -410,6 +410,80 @@
               "required": false,
               "defaultValue": "auth-forgot-password",
               "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "auth-screen",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/auth-screen.tsx",
+      "stability": "beta",
+      "summary": "AuthScreen — a whole sign-in screen: branding, social providers, the\nemail form with a \"Forgot password?\" link, and a footer (terms, a\nsign-up link). It assembles the auth primitives (`AuthBranding`,\n`SocialAuthRow`, `AuthForm`, `ForgotPasswordLink`) so an app passes\nprops instead of composing them.\n\nThe form stays above the keyboard on small phones. In development, on\niOS, it warns when a third-party provider is offered without Sign in with\nApple (App Store Review Guideline 4.8 rejects that).\n\nSlots: replace or drop (`null`) `branding`, `social`, `form` or `footer`;\n`slotProps` feeds a default part. Composing the primitives yourself is\nstill the escape hatch.",
+      "primaryComponent": "AuthScreen",
+      "components": [
+        {
+          "name": "AuthScreen",
+          "summary": "",
+          "props": [
+            {
+              "name": "form",
+              "type": "AuthFormProps",
+              "required": true,
+              "defaultValue": null,
+              "description": "The email form."
+            },
+            {
+              "name": "branding",
+              "type": "AuthBrandingProps",
+              "required": false,
+              "defaultValue": null,
+              "description": "Logo, headline and subhead above everything else."
+            },
+            {
+              "name": "footer",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Below the form: terms, a sign-up link."
+            },
+            {
+              "name": "onForgotPassword",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Adds a \"Forgot password?\" link below the fields (password mode only)."
+            },
+            {
+              "name": "providers",
+              "type": "SocialAuthProvider[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Sign-in providers (Apple, Google…). None: no social row."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<AuthScreenSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "More props for a default part, merged over what the screen passes."
+            },
+            {
+              "name": "slots",
+              "type": "Slots<AuthScreenSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "Replace (a component) or drop (`null`) one part."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "auth-screen",
+              "description": "testID on the root container. Default `\"auth-screen\"`."
             }
           ]
         }
@@ -2677,7 +2751,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/notifications-page.tsx",
       "stability": "beta",
-      "summary": "NotificationsPage — feed-style notifications list.\n\nComposes:\n  - SectionList grouped by relative date (Today / Yesterday / Earlier)\n  - Pull-to-refresh\n  - Empty state slot (auto-rendered when `items` is empty)\n  - Mark-all-read action surfaced via `headerRight` helper\n  - Per-row \"mark read\" action exposed via the consumer's row press\n    (swipe-to-mark-read is documented as Maestro / E2E only because it\n    requires gesture-handler — consumers wire it via their own row\n    wrapper; this layout exposes the unread state via row props).\n\nLayer-3 customization: `headerTitle`, `headerLeft`, `headerRight`,\n`headerOptions`. Use `getNotificationsPageStackOptions()` to wire a\n\"Mark all read\" action via `headerRight` automatically.",
+      "summary": "NotificationsPage — feed-style notifications list.\n\nComposes:\n  - SectionList grouped by relative date (Today / Yesterday / Earlier)\n  - Pull-to-refresh\n  - Empty state slot (auto-rendered when `items` is empty)\n  - Mark-all-read action surfaced via `headerRight` helper\n  - Per-row \"mark read\" action exposed via the consumer's row press\n    (swipe-to-mark-read is documented as Maestro / E2E only because it\n    requires gesture-handler — consumers wire it via their own row\n    wrapper; this layout exposes the unread state via row props).\n\nSlots: replace or drop (`null`) `sectionHeader`, `row` or `empty`\nthrough `slots`; feed a default part through `slotProps`.\n\nHeader customization: `headerTitle`, `headerLeft`, `headerRight`,\n`headerOptions`. Use `getNotificationsPageStackOptions()` to wire a\n\"Mark all read\" action via `headerRight` automatically.",
       "primaryComponent": "NotificationsPage",
       "components": [
         {
@@ -2765,7 +2839,7 @@
               "type": "ReactNode",
               "required": false,
               "defaultValue": null,
-              "description": "Override the auto-rendered empty state."
+              "description": "Override the auto-rendered empty state. Prefer `slots.empty`."
             },
             {
               "name": "emptyTitle",
@@ -2836,6 +2910,20 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<NotificationsPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "More props for a default part, merged over what the layout passes."
+            },
+            {
+              "name": "slots",
+              "type": "Slots<NotificationsPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "Replace (a component) or drop (`null`) one part."
             },
             {
               "name": "testID",
@@ -3422,6 +3510,13 @@
               "description": "StatusBar appearance. `\"auto\"` follows the resolved theme mode."
             },
             {
+              "name": "style",
+              "type": "ViewStyle",
+              "required": false,
+              "defaultValue": null,
+              "description": "Style on the root, e.g. a theme-role background color."
+            },
+            {
               "name": "testID",
               "type": "string",
               "required": false,
@@ -3778,7 +3873,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/settings-page.tsx",
       "stability": "beta",
-      "summary": "SettingsPage — top-level settings layout.\n\nComposes `<ScreenContainer scroll>` underneath, renders a sectioned\n`ListItem` list, and surfaces an optional dangerous-action footer\n(e.g., \"Sign out\", \"Delete account\") in destructive tone.\n\nWhy ship a layout: every consumer rebuilds this list with the same\nthree pieces (sections → rows → footer). Genesis ships the assembly so\nconsumers compose, not rebuild.\n\nLayer-3 customization: pass `headerTitle`, `headerLeft`, `headerRight`,\n`large`, `scrollEdgeBehavior`, OR a direct `headerOptions={...}`\npassthrough. The composed options are rendered via the consumer's own\n`<Stack.Screen options={...}>` — see `getStackScreenOptions()` helper.\n\nLayer-2 escape hatch: drop down to `<ScreenContainer>` if the layout\nstructure doesn't fit (see standards/usage-doctrine.md).",
+      "summary": "SettingsPage — top-level settings layout.\n\nComposes `<ScreenContainer scroll>` underneath, renders a sectioned\n`ListItem` list, and surfaces an optional dangerous-action footer\n(e.g., \"Sign out\", \"Delete account\") in destructive tone.\n\nWhy ship a layout: every consumer rebuilds this list with the same\nthree pieces (sections → rows → footer). Genesis ships the assembly so\nconsumers compose, not rebuild.\n\nLayer-3 customization: pass `headerTitle`, `headerLeft`, `headerRight`,\n`large`, `scrollEdgeBehavior`, OR a direct `headerOptions={...}`\npassthrough. The composed options are rendered via the consumer's own\n`<Stack.Screen options={...}>` — see `getStackScreenOptions()` helper.\n\nColors come from theme roles: on iOS the page is `systemGroupedBackground`\nwith inset, rounded cells on `secondarySystemGroupedBackground`, like the\nSettings app; elsewhere, full-width cells on the Genesis tokens.\n\nSlots: replace or drop one part without leaving the layout. `slots`\nswaps a part (`sectionHeader`, `row`, `footnote`, `dangerousActions`) for\nyour component, which receives exactly the props the default would;\n`slotProps` feeds the default more props; `null` drops the part.\n\nEscape hatch: drop down to `<ScreenContainer>` if the layout structure\ndoesn't fit.",
       "primaryComponent": "SettingsPage",
       "components": [
         {
@@ -3856,7 +3951,7 @@
             },
             {
               "name": "dangerousActions",
-              "type": "{ label: string; onPress: () => void; emphasized?: boolean; testID?: string; }[] | undefined",
+              "type": "SettingsPageDangerousAction[]",
               "required": false,
               "defaultValue": null,
               "description": "Optional dangerous-action row(s) shown after the last section in a\ndestructive-tone footer. Typical: \"Sign out\", \"Delete account\"."
@@ -3902,6 +3997,20 @@
               "required": false,
               "defaultValue": null,
               "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<SettingsPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "More props for a default part, merged over what the layout passes."
+            },
+            {
+              "name": "slots",
+              "type": "Slots<SettingsPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "Replace (a component) or drop (`null`) one part."
             },
             {
               "name": "testID",
@@ -11003,9 +11112,19 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/navigation.tsx",
       "stability": "beta",
-      "summary": "Default active-path matcher, mirroring React Router's `NavLink` (prefix\nmatch, with `/` treated as exact). Consumers can override via an `isActive`\nprop where components accept one.\n\n`activePath` may carry a query and hash (`pathname + search + hash`). An\nitem whose `to` has neither compares against the path part only, exactly as\nbefore. An item that opts in by putting a query or hash in its `to`\n(`/admin?tab=users`, `/settings#profile`) is active only when the path\nmatches exactly AND every query param it names has the same value in\n`activePath` (extra params such as `&page=2` are ignored) AND, if it names a\nhash, the hash is equal.",
-      "primaryComponent": "isPathActive",
+      "summary": "Browser-native {@link SearchParamsAdapter} built on the History API. Reads\nthe current query string and writes updates via `pushState`/`replaceState`,\nstaying reactive to `popstate` events. No router required.",
+      "primaryComponent": "useBrowserSearchParams",
       "components": [
+        {
+          "name": "useBrowserSearchParams",
+          "summary": "Browser-native {@link SearchParamsAdapter} built on the History API. Reads\nthe current query string and writes updates via `pushState`/`replaceState`,\nstaying reactive to `popstate` events. No router required.",
+          "props": []
+        },
+        {
+          "name": "DefaultLink",
+          "summary": "Default link — a plain `<a>`. No router required.",
+          "props": []
+        },
         {
           "name": "isPathActive",
           "summary": "Default active-path matcher, mirroring React Router's `NavLink` (prefix\nmatch, with `/` treated as exact). Consumers can override via an `isActive`\nprop where components accept one.\n\n`activePath` may carry a query and hash (`pathname + search + hash`). An\nitem whose `to` has neither compares against the path part only, exactly as\nbefore. An item that opts in by putting a query or hash in its `to`\n(`/admin?tab=users`, `/settings#profile`) is active only when the path\nmatches exactly AND every query param it names has the same value in\n`activePath` (extra params such as `&page=2` are ignored) AND, if it names a\nhash, the hash is equal.",
@@ -11017,13 +11136,18 @@
           "props": []
         },
         {
-          "name": "useBrowserSearchParams",
-          "summary": "Browser-native {@link SearchParamsAdapter} built on the History API. Reads\nthe current query string and writes updates via `pushState`/`replaceState`,\nstaying reactive to `popstate` events. No router required.",
+          "name": "IsPathActiveOptions",
+          "summary": "Options for {@link isPathActive}.",
           "props": []
         },
         {
-          "name": "DefaultLink",
-          "summary": "Default link — a plain `<a>`. No router required.",
+          "name": "NavigationNode",
+          "summary": "One node of a logical navigation hierarchy. `path` is a route pattern whose\nsegments are either static (`clients`) or named params (`$clientId`). A\nnode's place in the tree is its LOGICAL parent, which need not share its URL\nprefix — `/clients/$clientId` can sit under `/dashboard`.",
+          "props": []
+        },
+        {
+          "name": "ResolvedNavigation",
+          "summary": "Result of {@link resolveNavigation}. `current`, `parent` and every `trail`\nentry are shallow copies of their tree nodes with `path` interpolated from\n`params` (a param the URL did not supply stays as `$name`).",
           "props": []
         },
         {
@@ -14115,9 +14239,24 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/slots.tsx",
       "stability": "stable",
-      "summary": "Renders one slot: the override if given, the default otherwise, nothing if\nejected with `null`.\n\n`extra` merges LAST, so `slotProps` wins over genesis's own value. That is\ndeliberate: a consumer reaching for `slotProps` is overriding on purpose,\nand a hatch that silently loses to the default is not a hatch. `className`\nis the one prop a caller should merge with `cn()` instead of replacing.",
-      "primaryComponent": "renderSlot",
+      "summary": "`{ [part]: Component | null }` — see {@link renderSlot}.",
+      "primaryComponent": "Slots",
       "components": [
+        {
+          "name": "SlotOverride",
+          "summary": "Replace a part (`ComponentType`), or eject it (`null`).",
+          "props": []
+        },
+        {
+          "name": "SlotPropsFor",
+          "summary": "`{ [part]: extraProps }` — merged over what genesis passes.",
+          "props": []
+        },
+        {
+          "name": "Slots",
+          "summary": "`{ [part]: Component | null }` — see {@link renderSlot}.",
+          "props": []
+        },
         {
           "name": "renderSlot",
           "summary": "Renders one slot: the override if given, the default otherwise, nothing if\nejected with `null`.\n\n`extra` merges LAST, so `slotProps` wins over genesis's own value. That is\ndeliberate: a consumer reaching for `slotProps` is overriding on purpose,\nand a hatch that silently loses to the default is not a hatch. `className`\nis the one prop a caller should merge with `cn()` instead of replacing.",

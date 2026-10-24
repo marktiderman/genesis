@@ -14,13 +14,23 @@ import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { readFileSync } from "node:fs";
+
+/** The installed CLI's version, from its own package.json (dist/ sits beside it). */
+function cliVersion(): string {
+  try {
+    return (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version;
+  } catch {
+    return "unknown";
+  }
+}
 
 const program = new Command();
 
 program
   .name("genesis")
   .description("Genesis CLI — scaffolders + workspace tooling")
-  .version("0.1.0");
+  .version(cliVersion());
 
 program
   .command("init")
@@ -31,6 +41,7 @@ program
     "--genesis-version <v>",
     "Pin @marktiderman/genesis-* version (default: 'workspace:^' for monorepo)",
   )
+  .option("--native", "An Expo app: add NativeWind's preset and scan genesis-ui-native", false)
   .option(
     "--emit-conflicts",
     "Emit `.genesis-next` siblings for files that already exist (so you can diff)",
@@ -40,6 +51,7 @@ program
     target: string;
     genesisVersion?: string;
     emitConflicts?: boolean;
+    native?: boolean;
   }) => {
     const fsImpl = createNodeFs();
     const result = await runScaffold(
@@ -48,6 +60,7 @@ program
         targetDir: opts.target,
         genesisVersion: opts.genesisVersion,
         emitConflicts: opts.emitConflicts ?? false,
+        native: opts.native ?? false,
         logger: {
           info: (msg) => console.log(msg),
           warn: (msg) => console.warn(msg),
@@ -70,8 +83,8 @@ program
     console.log("");
     console.log("Next steps:");
     console.log(`  1. Edit packages/${consumer}-brand/src/brand.ts with your colors`);
-    console.log(`  2. pnpm install`);
-    console.log(`  3. Read docs/prds/PRD-07-genesis-consumption-architecture/standards/usage-doctrine.md`);
+    console.log(`  2. Install dependencies with your package manager`);
+    console.log(`  3. Run genesis doctor, and read https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md`);
   });
 
 program
@@ -163,7 +176,7 @@ program
 
 const features = program
   .command("features")
-  .description("The feature registry: one typed features.ts, everything else generated from it. Settings: package.json \"genesisFeatures\"");
+  .description("The feature registry: one typed features.ts, everything else generated from it. Settings: genesis.config.json \"features\" (or package.json \"genesisFeatures\")");
 
 function featureOptions(command: Command) {
   return command
@@ -203,13 +216,33 @@ featureOptions(features.command("check").description("Errors fail (stale output,
     process.exitCode = result.ok ? 0 : 1;
   });
 
-featureOptions(features.command("find").description("Search features by id, alias, name, summary, flag or code path").argument("<term>", "What to look for")).action(
-  async (term: string, opts: FeatureCliOptions) => {
-    const { runFeaturesFind, formatFeature } = await import("./features.js");
-    const hits = await runFeaturesFind(opts, term);
-    console.log(hits.length ? hits.map(formatFeature).join("\n\n") : `No feature matches "${term}". If this is new work, add it to the registry first.`);
-  },
-);
+featureOptions(
+  features
+    .command("find")
+    .description("Search features before building: reuse one, extend one, or add an idea first")
+    .argument("[term]", "What to look for (id, alias, name, keyword, summary, import, slot or code path)", "")
+    .option("--platform <platform>", "Only features on web, native, server or cli")
+    .option("--layer <layer>", "Only token, primitive, pattern, layout, hook, provider, block, service or tool")
+    .option("--status <status>", "Only idea, planned, building, beta, live, deprecated or retired"),
+).action(async (term: string, opts: FeatureCliOptions & { platform?: string; layer?: string; status?: string }) => {
+  const { FEATURE_LAYERS, FEATURE_PLATFORMS, FEATURE_STATUSES } = await import("@marktiderman/genesis-features");
+  const { runFeaturesFind, formatFeature } = await import("./features.js");
+  const pick = <T extends string>(name: string, value: string | undefined, allowed: readonly T[]): T | undefined => {
+    if (value === undefined) return undefined;
+    if ((allowed as readonly string[]).includes(value)) return value as T;
+    return program.error(`--${name} must be one of ${allowed.join(", ")}`);
+  };
+  const { platform, layer, status, ...rest } = opts;
+  const filters = {
+    platform: pick("platform", platform, FEATURE_PLATFORMS),
+    layer: pick("layer", layer, FEATURE_LAYERS),
+    status: pick("status", status, FEATURE_STATUSES),
+  };
+  if (!term && !filters.platform && !filters.layer && !filters.status) program.error("Give a term, or --platform, --layer or --status");
+  const hits = await runFeaturesFind(rest, term, filters);
+  const what = term ? `"${term}"` : "those filters";
+  console.log(hits.length ? hits.map(formatFeature).join("\n\n") : `No feature matches ${what}. If this is new work, add it to the registry first (an idea is enough).`);
+});
 
 const studio = program.command("studio").description("The Genesis Data Studio");
 

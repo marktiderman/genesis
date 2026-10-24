@@ -1,4 +1,4 @@
-import type { Block, FieldBlock, Json, Operator } from "./types";
+import type { Block, FieldBlock, FormDefinition, Json, Operator, OptionsSource } from "./types";
 import { calculatedFieldType } from "./calculated";
 import { structuredFieldTypes } from "./structured";
 import { photoFieldType } from "./photo";
@@ -108,6 +108,62 @@ export function choiceOptions(field: FieldBlock): ChoiceOption[] {
       ? [{ value: o.value, label: typeof o.label === "string" ? o.label : undefined }]
       : [],
   );
+}
+
+/**
+ * Option lists the app showing a form supplies, by key (`OptionsSource.key`):
+ * `{ coaches: [{ value: "8c1…", label: "Ada Lovelace" }] }`.
+ */
+export type HostOptions = Readonly<Record<string, readonly ChoiceOption[]>>;
+
+/** A choice field's `props.optionsFrom`, when it is a well-formed `{ source: "host", key }`. */
+export function optionsSource(field: FieldBlock): OptionsSource | undefined {
+  const raw = field.props?.optionsFrom;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  return raw.source === "host" && typeof raw.key === "string" && raw.key ? { source: "host", key: raw.key } : undefined;
+}
+
+/** The host's list for `key`, as options: string values only, each value once, labels when they are text. */
+function hostList(hostOptions: HostOptions | undefined, key: string): ChoiceOption[] {
+  if (!hostOptions || !Object.prototype.hasOwnProperty.call(hostOptions, key)) return [];
+  const list = hostOptions[key];
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  const out: ChoiceOption[] = [];
+  for (const o of list as unknown[]) {
+    if (!o || typeof o !== "object" || Array.isArray(o)) continue;
+    const { value, label } = o as { value?: unknown; label?: unknown };
+    if (typeof value !== "string" || !value || seen.has(value)) continue;
+    seen.add(value);
+    out.push(typeof label === "string" ? { value, label } : { value });
+  }
+  return out;
+}
+
+/**
+ * The definition with each `optionsFrom: { source: "host" }` field's options
+ * filled in from `hostOptions`: its own `props.options` first, then the host's
+ * list for its key (a value the field already has is not added twice). A key
+ * the host does not supply adds nothing, so the field offers its own options
+ * only. `createForm` and `validateSubmission` call it with their `hostOptions`,
+ * so a respondent sees, and a submit accepts, exactly these. Returns
+ * `definition` itself when no field takes options from the host.
+ */
+export function withHostOptions(definition: FormDefinition, hostOptions: HostOptions | undefined): FormDefinition {
+  let changed = false;
+  const blocks = definition.blocks.map((block) => {
+    if (block.kind !== "field") return block;
+    const from = optionsSource(block);
+    if (!from) return block;
+    const own = choiceOptions(block);
+    const taken = new Set(own.map((o) => o.value));
+    const added = hostList(hostOptions, from.key).filter((o) => !taken.has(o.value));
+    if (!added.length) return block;
+    changed = true;
+    const options = [...own, ...added].map((o): Json => (o.label === undefined ? { value: o.value } : { value: o.value, label: o.label }));
+    return { ...block, props: { ...block.props, options } };
+  });
+  return changed ? { ...definition, blocks } : definition;
 }
 
 function optionLabel(field: FieldBlock, value: string): string {

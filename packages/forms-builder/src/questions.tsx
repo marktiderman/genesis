@@ -5,6 +5,7 @@ import {
   getFieldType,
   COMPUTED_FIELD_TYPES,
   listFieldTypes,
+  optionsSource,
   STRUCTURED_FIELD_TYPES,
   UPLOAD_FIELD_TYPES,
   type Block,
@@ -30,7 +31,8 @@ import { SortableList } from "@marktiderman/genesis-ui/patterns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { useChecks } from "./checks";
-import { DraftRow, Editable, NumberRow, SectionLabel, Segmented, SwitchRow, TextRow, useLazyItems } from "./controls";
+import { DraftRow, Editable, NumberRow, SectionLabel, Segmented, SelectRow, SwitchRow, TextRow, useLazyItems } from "./controls";
+import { hostListOf } from "./host-options";
 import { BlockIcon } from "./type-icons";
 import type { Finding } from "./analyze";
 import {
@@ -45,6 +47,7 @@ import {
   moveBlock,
   removeBlock,
   setOptions,
+  setOptionsSource,
   updateBlock,
   withOptionValues,
 } from "./ops";
@@ -1061,7 +1064,81 @@ function FieldInspector({
   );
 }
 
+/**
+ * A choice question's options: typed here, or (when the host offers lists, or
+ * the question already uses one) from the app, as "Options: Typed here | From
+ * the app".
+ */
 function OptionsEditor({ field, apply }: { field: FieldBlock; apply: Apply }) {
+  const { hostOptions: lists } = useBuilderConfig();
+  const from = optionsSource(field);
+  if (!from && !lists?.length) return <TypedOptions field={field} apply={apply} />;
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">Options</p>
+        <Segmented
+          ariaLabel="Options"
+          testID="builder-options-source"
+          value={from ? "host" : "typed"}
+          options={[
+            { value: "typed", label: "Typed here", testID: "builder-options-typed" },
+            { value: "host", label: "From the app", testID: "builder-options-host" },
+          ]}
+          onChange={(v) => {
+            if (v === "host") {
+              const key = from?.key ?? lists?.[0]?.key;
+              if (key) apply((d) => setOptionsSource(d, field.id, { key }));
+              return;
+            }
+            // Values are made here, not in the edit: edits must stay pure.
+            const options = withOptionValues([{ label: "Option 1" }, { label: "Option 2" }]);
+            apply((d) => setOptionsSource(d, field.id, { options }));
+          }}
+        />
+      </div>
+      {from ? <HostOptionsPicker field={field} apply={apply} /> : <TypedOptions field={field} apply={apply} />}
+    </div>
+  );
+}
+
+/** Which of the host's lists a question takes its options from, and what the preview shows of it. */
+function HostOptionsPicker({ field, apply }: { field: FieldBlock; apply: Apply }) {
+  const { hostOptions: lists } = useBuilderConfig();
+  const key = optionsSource(field)?.key ?? "";
+  const list = hostListOf(field, lists);
+  const choices = (lists ?? []).map((l) => ({ value: l.key, label: l.label }));
+  // A list this app doesn't offer (a form made in another app) stays chosen, and says so.
+  if (!list && key) choices.push({ value: key, label: `${key} (not offered here)` });
+  const own = choiceOptions(field);
+  const sample = list?.sample ?? [];
+  return (
+    <div className="space-y-2">
+      <SelectRow
+        label="List"
+        value={key}
+        options={choices}
+        testID="builder-options-list"
+        hint={list?.description}
+        onChange={(next) => apply((d) => setOptionsSource(d, field.id, { key: next }))}
+      />
+      {own.length ? (
+        <p className="text-xs text-muted-foreground" data-testid="builder-options-own">
+          Listed first: {own.map((o) => o.label ?? o.value).join(", ")}.
+        </p>
+      ) : null}
+      <p className="text-xs text-muted-foreground" data-testid="builder-options-host-note">
+        {list
+          ? `The app fills in this list each time the form opens, so it stays current.${
+              sample.length ? ` The preview shows examples: ${sample.map((o) => o.label ?? o.value).join(", ")}.` : ""
+            }`
+          : "This app doesn't offer this list, so the question shows only its own options here."}
+      </p>
+    </div>
+  );
+}
+
+function TypedOptions({ field, apply }: { field: FieldBlock; apply: Apply }) {
   const { readOnly } = useBuilderConfig();
   const options = choiceOptions(field).map((o) => ({ value: o.value, label: o.label ?? o.value }));
   const save = (next: { value?: string; label: string }[], coalesce?: string) => {
