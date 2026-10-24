@@ -1,0 +1,63 @@
+packages/forms-react/package.json
+  s_8252619ce79a86::t_f1fa09cf5bca37 39
+packages/forms/src/__tests__/outbox.test.ts
+  s_8252619ce79a86::t_9c5dbca2e32741 1-225
+packages/forms/src/submit-protocol.ts
+  s_8252619ce79a86::t_a64d26973456b8 1-93
+packages/forms-react/src/drafts.ts
+  s_8252619ce79a86::t_94d7424ebc6a12 1-172
+.changeset/forms-react-drafts-outbox.md
+  s_8252619ce79a86::t_912539ffb3302e 1-12
+packages/forms/src/submit.ts
+  s_8252619ce79a86::t_a64d26973456b8 1-255
+packages/forms/src/index.ts
+  s_8252619ce79a86::t_f97889687055c2 181-215
+packages/forms/src/server.ts
+  s_8252619ce79a86::t_f97889687055c2 396-412
+.changeset/forms-submit-drafts-outbox.md
+  s_8252619ce79a86::t_912539ffb3302e 1-27
+packages/forms/src/drafts.ts
+  s_8252619ce79a86::t_a64d26973456b8 1-14,16-79,81-237,239-267
+  s_8252619ce79a86::t_cea50f1908e072 15,80,238
+features.ts
+  s_8252619ce79a86::t_7238ab3770f5fd 397-458
+packages/forms/src/storage.ts
+  s_8252619ce79a86::t_a64d26973456b8 1-58,60-61
+  s_8252619ce79a86::t_cea50f1908e072 59
+packages/forms-react/src/index.tsx
+  s_8252619ce79a86::t_b4c4b506a8e485 224-225
+packages/forms-react/src/outbox.ts
+  s_8252619ce79a86::t_94d7424ebc6a12 1-48
+packages/forms/src/__tests__/drafts.test.ts
+  s_8252619ce79a86::t_9c5dbca2e32741 1-224
+packages/forms/README.md
+  s_8252619ce79a86::t_7238ab3770f5fd 491-669
+AGENTS.md
+  s_8252619ce79a86::t_e38466fba0e311 16
+packages/forms-react/src/__tests__/drafts-outbox.test.tsx
+  s_8252619ce79a86::t_58ba635f3de1f7 1-139
+packages/forms/src/outbox.ts
+  s_8252619ce79a86::t_a64d26973456b8 1-123,125-466
+  s_8252619ce79a86::t_69132c616dc3fd 124
+features.json
+  s_8252619ce79a86::t_e38466fba0e311 894-1042
+packages/forms/src/__tests__/submit.test.ts
+  s_8252619ce79a86::t_9c5dbca2e32741 1-39,41-351
+  s_8252619ce79a86::t_1209faf0e0285f 40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e73f96fe03f425de6e78b3bb71f0fb97c5b383b4",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
