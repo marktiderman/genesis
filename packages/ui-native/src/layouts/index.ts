@@ -32,6 +32,8 @@ export {
   type SettingsPageProps,
   type SettingsPageSection,
   type SettingsPageRow,
+  type SettingsPageSlotMap,
+  type SettingsPageDangerousAction,
 } from "./settings-page";
 
 export {
