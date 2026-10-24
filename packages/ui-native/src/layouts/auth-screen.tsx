@@ -5,7 +5,9 @@
  * `SocialAuthRow`, `AuthForm`, `ForgotPasswordLink`) so an app passes
  * props instead of composing them.
  *
- * The form stays above the keyboard on small phones. In development, on
+ * The form stays above the keyboard on small phones: with the app's
+ * `KeyboardScrollProvider` (react-native-keyboard-controller), else with
+ * `KeyboardAvoidingView`. In development, on
  * iOS, it warns when a third-party provider is offered without Sign in with
  * Apple (App Store Review Guideline 4.8 rejects that).
  *
@@ -28,6 +30,7 @@ import {
   type SocialAuthProvider,
 } from "./auth";
 import { ScreenContainer } from "./screen-container";
+import { useKeyboardScroll } from "./keyboard";
 
 /** The parts of an {@link AuthScreen} that `slots` and `slotProps` reach. */
 export type AuthScreenSlotMap = {
@@ -70,15 +73,36 @@ export function AuthScreen({
   const forgot =
     onForgotPassword && (form.mode ?? "password") === "password" ? <ForgotPasswordLink onPress={onForgotPassword} /> : null;
   const formProps: AuthFormProps = { ...form, belowFields: form.belowFields ?? forgot, testID: form.testID ?? `${testID}-form` };
-  return (
-    <KeyboardAvoidingView testID={`${testID}-kav`} style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScreenContainer scroll keyboardShouldPersistTaps="handled" testID={testID} contentClassName="flex-grow justify-center gap-6 px-6 py-8">
+  const KeyboardScroll = useKeyboardScroll();
+  const content = (
+    <>
       {branding ? renderSlot(AuthBranding, slots.branding, { ...branding, testID: branding.testID ?? `${testID}-branding` }, slotProps.branding) : null}
       {providers?.length
         ? renderSlot(DefaultSocial, slots.social, { providers, testID: `${testID}-social` }, slotProps.social)
         : null}
       {renderSlot(AuthForm, slots.form, formProps, slotProps.form)}
       {footer ? renderSlot(DefaultFooter, slots.footer, { children: footer, testID: `${testID}-footer` }, slotProps.footer) : null}
+    </>
+  );
+  if (KeyboardScroll) {
+    return (
+      <ScreenContainer testID={testID}>
+        <KeyboardScroll
+          testID={`${testID}-keyboard`}
+          keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="automatic"
+          bottomOffset={24}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center", gap: 24, paddingHorizontal: 24, paddingVertical: 32 }}
+        >
+          {content}
+        </KeyboardScroll>
+      </ScreenContainer>
+    );
+  }
+  return (
+    <KeyboardAvoidingView testID={`${testID}-kav`} style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScreenContainer scroll keyboardShouldPersistTaps="handled" testID={testID} contentClassName="flex-grow justify-center gap-6 px-6 py-8">
+        {content}
       </ScreenContainer>
     </KeyboardAvoidingView>
   );

@@ -81,7 +81,7 @@
     "react-hook-form": "^7.0.0",
     "react-native": ">=0.76.0",
     "react-native-gesture-handler": ">=2.0.0",
-    "react-native-keyboard-controller": ">=1.0.0",
+    "react-native-keyboard-controller": ">=1.11.0",
     "react-native-reanimated": ">=3.0.0",
     "react-native-safe-area-context": ">=4.0.0",
     "tailwind-merge": "^3.0.0",
