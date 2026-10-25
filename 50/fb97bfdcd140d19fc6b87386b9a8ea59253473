@@ -1,0 +1,23 @@
+.changeset/sites-reserved-redirects.md
+  s_8252619ce79a86::t_75be27677482be 6
+packages/sites/migrations/0001_genesis_sites.sql
+  s_8252619ce79a86::t_7778337d20cd50 346-347,349-350,353-361
+packages/sites/migrations/tests/0001_genesis_sites.test.sql
+  s_8252619ce79a86::t_12e82062558818 12,340-347
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "50fb97bfdcd140d19fc6b87386b9a8ea59253473",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
