@@ -79,11 +79,22 @@ export function createOutbox(opts: OutboxOptions) {
   const newId = opts.newId ?? randomId;
 
   // Saved copies: a file held as bytes is kept only as a URI (persistFile) or marked lost.
-  const saveable = (q: QueuedMessage): QueuedMessage => ({
-    ...q,
-    files: q.files.filter((f) => typeof f.data === "string"),
-    pendingFiles: q.files.map((f) => ({ ...describe(f), lost: typeof f.data !== "string" })),
-  });
+  // `files` holds the files still here, in slot order; `pendingFiles` holds every slot.
+  const saveable = (q: QueuedMessage): QueuedMessage => {
+    const slots = q.pendingFiles?.length ? q.pendingFiles : q.files.map(describe);
+    const here = [...q.files];
+    const files: LocalFile[] = [];
+    const pendingFiles = slots.map((slot) => {
+      if (slot.lost) return slot;
+      const f = here.shift();
+      if (f && typeof f.data === "string") {
+        files.push(f);
+        return { ...slot, lost: false };
+      }
+      return { ...slot, lost: true };
+    });
+    return { ...q, files, pendingFiles };
+  };
 
   const emit = () => {
     opts.onChange?.([...queue]);
@@ -219,14 +230,49 @@ export function createOutbox(opts: OutboxOptions) {
       void run(q.input.conversationId);
     },
 
-    /** Gives a message whose files were lost on a relaunch its files again, and sends it. */
+    /**
+     * Gives a message the files it lost on a relaunch and sends it. `files` fill the lost
+     * slots in order (`PendingMessage.files[i].lost`); the files that were kept stay. Pass
+     * one per lost slot; with fewer, the message keeps waiting for the rest.
+     */
     async reattach(clientId: string, files: LocalFile[]) {
       await ensureLoaded();
       const q = queue.find((x) => x.clientId === clientId);
       if (!q) return;
-      q.files = [...files];
-      q.pendingFiles = files.map(describe);
-      q.lostFiles = 0;
+      const slots = q.pendingFiles ?? [];
+      const kept = [...q.files];
+      const given = [...files];
+      const merged: LocalFile[] = [];
+      const described: PendingFile[] = [];
+      for (const slot of slots) {
+        if (slot.lost) {
+          const f = given.shift();
+          if (f) {
+            merged.push(f);
+            described.push(describe(f));
+          } else {
+            described.push(slot);
+          }
+        } else {
+          const f = kept.shift();
+          if (f) {
+            merged.push(f);
+            described.push(slot);
+          }
+        }
+      }
+      // A message saved before slots were recorded: the given files are all of them.
+      if (slots.length === 0) {
+        merged.push(...given);
+        described.push(...given.map(describe));
+      }
+      q.files = merged;
+      q.pendingFiles = described;
+      q.lostFiles = described.filter((d) => d.lost).length;
+      if (q.lostFiles > 0) {
+        emit();
+        return;
+      }
       await persist(q);
       q.status = "sending";
       emit();
