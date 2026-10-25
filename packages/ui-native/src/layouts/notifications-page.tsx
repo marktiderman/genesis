@@ -25,6 +25,7 @@ import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis
 import {
   Pressable,
   RefreshControl,
+  ScrollView,
   SectionList,
   Text,
   View,
@@ -247,23 +248,36 @@ export function NotificationsPage({
   );
 
   if (items.length === 0) {
+    // A scroll view, like the lists below: iOS insets only scroll views for the large-title
+    // header and the tab bar, so a plain view would sit under the header (and the Dynamic Island).
     return (
       <SafeAreaView
         testID={testID}
         edges={["left", "right", "bottom"]}
         className={cn("flex-1 bg-background", className)}
       >
-        {emptyState ??
-          renderSlot(
-            DefaultEmpty,
-            slots.empty,
-            {
-              title: emptyTitle ?? "No notifications",
-              body: emptyBody ?? "When you get a notification, it'll show up here.",
-              testID: `${testID}-empty`,
-            },
-            slotProps.empty,
-          )}
+        <ScrollView
+          testID={`${testID}-empty-scroll`}
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl testID={`${testID}-refresh`} refreshing={!!refreshing} onRefresh={onRefresh} />
+            ) : undefined
+          }
+        >
+          {emptyState ??
+            renderSlot(
+              DefaultEmpty,
+              slots.empty,
+              {
+                title: emptyTitle ?? "No notifications",
+                body: emptyBody ?? "When you get a notification, it'll show up here.",
+                testID: `${testID}-empty`,
+              },
+              slotProps.empty,
+            )}
+        </ScrollView>
       </SafeAreaView>
     );
   }

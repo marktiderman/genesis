@@ -13,6 +13,8 @@ export const links: LinkOptions = {
   hosts: genesisConfig.links.hosts,
   map: {
     ...(starter.features.notifications ? { "/notifications": "/notifications" } : {}),
+    // The check-in example's link (`genesis-starter://check-in?gym=hilltop` fills in the gym).
+    ...(starter.features.checkIn ? { "/check-in": "/check-in" } : {}),
     "/settings": "/settings",
     ...(starter.features.push ? { "/settings/notifications": "/settings/notifications" } : {}),
   },
