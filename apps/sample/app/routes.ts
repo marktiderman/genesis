@@ -11,6 +11,8 @@ export default [
   route("forms-frame", "routes/forms-frame.tsx"),
   // What a respondent sees: the form full screen, no app nav.
   route("preview/:scenario", "routes/preview.$scenario.tsx"),
+  // The genesis-sites editor: full screen, outside the app shell.
+  route("sites-editor", "routes/sites-editor.tsx"),
   layout("routes/_layout.tsx", [
     route("dashboard", "routes/dashboard.tsx"),
     route("items", "routes/items.tsx"),

@@ -466,10 +466,10 @@ export const features = defineFeatures({
   // Sites
   "genesis-sites": {
     name: "Sites and landing pages",
-    summary: "@marktiderman/genesis-sites: multi-page sites and one-click landing pages from the brand. Zod 4 documents (SiteDoc, PageDoc, SectionNode, SEO, menus, redirects) in Puck's shape, a section registry with JSON Schema per section for the editor and AI, props migrations, SEO (meta, Open Graph and Twitter, canonical, sitemap.xml, robots.txt, JSON-LD), publish-time accessibility checks, the theme from the brand, templates, and a SiteStore with drafts, publish and rollback. The Puck editor is the next step and isn't built.",
+    summary: "@marktiderman/genesis-sites: multi-page sites and one-click landing pages from the brand. Zod 4 documents (SiteDoc, PageDoc, SectionNode, SEO, menus, redirects) in Puck's shape, a section registry with JSON Schema per section for the editor and AI, props migrations, SEO (meta, Open Graph and Twitter, canonical, sitemap.xml, robots.txt, JSON-LD), publish-time accessibility checks, the theme from the brand, templates, and a SiteStore with drafts, publish and rollback. The visual editor is sites-editor.",
     tagline: "A landing page from your brand in one click, and a whole site when you need it.",
     category: "Sites",
-    // In a pull request into staging/genesis-rn. The editor (Puck) is the next pull request.
+    // In staging/genesis-rn; the editor (sites-editor) follows in its own pull request.
     status: "building",
     claimedBy: "mark",
     layer: "block",
@@ -624,6 +624,30 @@ export const features = defineFeatures({
     acceptance: ["A landing page from a brand and a headline publishes once its placeholder quotes are replaced, and passes every publish check."],
     reviewedAt: "2026-10-25",
     links: { code: ["packages/sites/src/core/templates.ts", "apps/sample/sites-demo", "apps/sample/app/routes/sites.tsx"] },
+  },
+  "sites-editor": {
+    name: "Site editor",
+    summary: "<SiteEditor siteId store brand />: a visual editor on Puck whose config is generated from the section registry (fields from each section's JSON Schema, presets in the Add picker, limits enforced), with a canvas drawn by the sections' own renderers and the brand's theme, autosave by compare-and-swap with a conflict choice, undo and redo, a Pages panel (templates, address changes that leave a redirect, the menu), publish checks that block errors, preview through the /web renderer, release history and rollback, per-page SEO and an image picker that asks for alt text. Puck stays inside /editor; published pages never load it.",
+    category: "Sites",
+    status: "building",
+    claimedBy: "mark",
+    layer: "block",
+    keywords: ["page builder", "visual editor", "drag and drop", "wysiwyg", "puck", "autosave", "undo"],
+    platforms: { web: "building" },
+    entry: { web: "@marktiderman/genesis-sites/editor" },
+    requires: ["genesis-sites", "sites-sections", "sites-renderer"],
+    owner: "mark",
+    apps: ["web"],
+    audience: ["developer", "operator"],
+    visibility: "internal",
+    acceptance: [
+      "Every built-in section gets a component with a field for every prop, generated from its JSON Schema, and a section registered later appears with no editor change.",
+      "An autosave that meets another editor's save stops, keeps every local edit, and offers loading their version or keeping yours.",
+      "Publish is refused while the checks report an error; changing a page's address leaves a 301 from the old one, and reserved paths are refused.",
+      "The /web build contains no Puck code.",
+    ],
+    reviewedAt: "2026-10-25",
+    links: { code: ["packages/sites/src/editor", "apps/sample/app/routes/sites-editor.tsx"], docs: ["packages/sites/README.md", "docs/SITES.md"] },
   },
 
   // Tooling
