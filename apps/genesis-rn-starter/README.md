@@ -156,12 +156,22 @@ manifest for the packages installed, export compliance and the fingerprint runti
 ## Checks
 
 ```bash
-pnpm --filter genesis-rn-starter test        # layout length, toggles, copy catalog, migration copies, EAS and Maestro files
+pnpm --filter genesis-rn-starter test        # both suites below
+pnpm --filter genesis-rn-starter exec vitest run   # files: layout length, toggles, copy catalog, migration copies, EAS and Maestro files
+pnpm --filter genesis-rn-starter test:components   # screens: jest-expo + React Native Testing Library
 pnpm --filter genesis-rn-starter typecheck
 pnpm --filter genesis-rn-starter lint
 pnpm --filter genesis-rn-starter doctor      # genesis doctor: native and supabase packs
 pnpm --filter genesis-rn-starter export:ios  # bundles the app, no device needed
 ```
+
+The component tests (`__tests__/components`, `jest.config.js`) render the real `src/app` tree
+with expo-router's `renderRouter`: the root layout and its boot through `GenesisNativeApp`,
+sign-in, the tabs, Settings and account deletion. Supabase is the fake in
+`__tests__/components/fake-supabase.ts` (`setup.ts` swaps it in for `src/lib/supabase.ts`), and
+native modules use jest-expo's mocks or their library's own. A test fails when the app reports an
+error (`[push]`, `[updates]`, `[observability]`) or React warns about act(); see `reports.ts`.
+Add a screen's test there; tests that only read files stay in vitest, outside that folder.
 
 ## Releasing
 
