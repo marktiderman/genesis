@@ -27,7 +27,7 @@ export { ChatStartSheet, ChatStartButton, type ChatStartPerson, type ChatStartSh
 export { ChatComposer, type ChatComposerProps } from "./composer";
 export { MessageBubble, displayBody, formatClock, type MessageBubbleProps } from "./message-bubble";
 export { MessageActionsSheet, type MessageActionsSheetProps } from "./message-actions-sheet";
-export { VoiceNotePlayer, claimPlayback, releasePlayback, activePlaybackId, toggleVoiceNote, cycleVoiceNoteRate, useVoiceNotePlaying, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
+export { VoiceNotePlayer, claimPlayback, releasePlayback, activePlaybackId, toggleVoiceNote, cycleVoiceNoteRate, usePlayingVoiceNote, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
 export { ChatMediaViewer, MessageAttachments, attachmentPaths, type BubbleAttachment, type ChatMediaViewerProps } from "./media";
 export { ChatNativeProvider, useChatNative, initials, type ChatNativeProviderProps, type ChatNativeContextValue, type ChatPerson } from "./context";
 export { chatNativeCopy, resolveChatCopy, fill, type ChatNativeCopy, type ChatNativeCopyOverrides } from "./copy";
@@ -81,6 +81,7 @@ export {
   replyClientId,
   replyClientIdFor,
   failedReply,
+  PUSH_REPLY_WAIT_MS,
   handleChatPushResponse,
   chatThreadMatch,
   type ChatPushCopy,

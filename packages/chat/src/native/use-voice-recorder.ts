@@ -30,6 +30,8 @@ export interface UseVoiceRecorderOptions extends Omit<RecorderConfig, "limitMs">
 
 /** Reads in a row that show the recorder stopped (or can't be read) before it counts as interrupted. */
 export const RECORDER_STALL_READS = 3;
+/** Reads after `record()` that may pass before the recorder says it is recording; then the attempt failed. */
+export const RECORDER_START_READS = 10;
 
 /** The voice note a finished recording becomes. */
 export function voiceNoteFile(uri: string, durationMs: number, levelsDb: readonly number[]): LocalFile {
@@ -108,7 +110,9 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
           // mean something else has the microphone, and the attempt ends instead of freezing.
           let stalled = 0;
           let sawRecording = false;
+          let reads = 0;
           timer.current = setInterval(() => {
+            reads++;
             let s: ReturnType<typeof recorder.getStatus> | null = null;
             try {
               s = recorder.getStatus();
@@ -120,6 +124,8 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
             const bad = !s || (sawRecording && !s.isRecording);
             stalled = bad ? stalled + 1 : 0;
             if (stalled >= RECORDER_STALL_READS) return dispatch({ type: "interrupted" });
+            // record() that never started (the microphone was taken before it began): not a frozen 0:00.
+            if (!sawRecording && reads >= RECORDER_START_READS) return dispatch({ type: "failed", reason: "error" });
             if (s && !bad) dispatch({ type: "tick", durationMs: s.durationMillis, meteringDb: s.metering });
           }, latest.current.intervalMs ?? 100);
           return;
@@ -129,10 +135,19 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
           stopping.current = true;
           void (async () => {
             let ok = false;
+            const read = <T,>(get: () => T): T | null => {
+              try {
+                return get();
+              } catch {
+                return null;
+              }
+            };
             try {
               const status = recorder.getStatus();
+              // Known before the stop (from prepare): the native recorder may be released while it stops.
+              const before = read(() => recorder.uri) ?? status.url;
               await recorder.stop();
-              const uri = recorder.uri ?? status.url;
+              const uri = read(() => recorder.uri) ?? before;
               const durationMs = Math.max(after.durationMs, status.durationMillis || 0);
               if (uri) {
                 latest.current.onRecorded(voiceNoteFile(uri, durationMs, after.levels));
@@ -206,10 +221,11 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recorder]);
 
-  // The app going to the background ends a recording (iOS takes the microphone from a backgrounded app).
+  // The app going to the background ends a recording (iOS takes the microphone from a backgrounded
+  // app). Only once recording: Android reports the microphone permission dialog as the background.
   useEffect(() => {
     const sub = AppState?.addEventListener?.("change", (next) => {
-      if (next === "background") dispatchRef.current({ type: "interrupted" });
+      if (next === "background" && stateRef.current.phase === "recording") dispatchRef.current({ type: "interrupted" });
     });
     return () => sub?.remove?.();
   }, []);

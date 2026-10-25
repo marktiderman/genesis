@@ -19,7 +19,7 @@ import type { ChatMessage, PendingFile } from "../core/types";
 import { fill } from "./copy";
 import { initials, useChatNative } from "./context";
 import { fromPending, fromServer, MessageAttachments, type BubbleAttachment } from "./media";
-import { cycleVoiceNoteRate, toggleVoiceNote, useVoiceNotePlaying } from "./voice-player";
+import { cycleVoiceNoteRate, toggleVoiceNote, usePlayingVoiceNote } from "./voice-player";
 import type { ThreadRow } from "./rows";
 
 type MessageRow = Extract<ThreadRow, { type: "message" }>;
@@ -84,7 +84,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   // The controls the accessible bubble hides, as its own actions.
   const voices = attachments.filter((a) => a.kind === "voice" && a.uri && modules.audio);
   const photos = attachments.filter((a) => a.kind === "image" && a.uri && props.onOpenImage);
-  const voicePlaying = useVoiceNotePlaying(voices.map((a) => a.key));
+  const playingVoice = usePlayingVoiceNote(voices.map((a) => a.key));
 
   // ---- Swipe to reply ----
   const x = useRef(new Animated.Value(0)).current;
@@ -144,8 +144,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     .join(", ");
 
   const actions = [
-    ...voices.flatMap((_, i) => [
-      { name: `voice-${i}`, label: voicePlaying ? copy.pauseVoice : copy.playVoice },
+    ...voices.flatMap((a, i) => [
+      { name: `voice-${i}`, label: playingVoice === a.key ? copy.pauseVoice : copy.playVoice },
       { name: `voice-rate-${i}`, label: copy.changeSpeed },
     ]),
     ...photos.map((_, i) => ({ name: `photo-${i}`, label: photos.length > 1 ? fill(copy.openPhotoN, { n: i + 1 }) : copy.openImage })),

@@ -206,7 +206,9 @@ export interface ComposerDraft {
   replyTo?: ReplyTarget | null;
 }
 
-const DRAFT_PREFIX = "genesis-chat:draft:";
+const DRAFT_PREFIX = "genesis-chat:drafts:";
+/** Drafts saved before they were kept per person: no one's, so any sign-out clears them. */
+const LEGACY_DRAFT_PREFIX = "genesis-chat:draft:";
 
 /**
  * One draft per signed-in person, per conversation, and per thread within it.
@@ -218,21 +220,27 @@ export function draftKey(userId: string, conversationId: string, threadRootId?: 
 }
 
 /**
- * Removes every draft this person left on the phone (call it on sign-out).
- * Needs the storage's `getAllKeys` (AsyncStorage has it); without it, it
- * reports that through `onError` and removes nothing. Never throws.
+ * Removes drafts from the phone: one person's (`clearDrafts(storage, userId)`,
+ * on sign-out), or everyone's but one (`{ except: userId }`, on sign-in, which
+ * also covers a session that ended while the app was closed). Drafts saved
+ * before drafts were kept per person go either way. Needs the storage's
+ * `getAllKeys` (AsyncStorage has it); without it, it reports that through
+ * `onError` and removes nothing. Never throws. Returns how many it removed.
  */
-export async function clearDrafts(storage: DraftStorageLike, userId: string, onError?: (error: unknown) => void): Promise<number> {
+export async function clearDrafts(storage: DraftStorageLike, who: string | { except: string }, onError?: (error: unknown) => void): Promise<number> {
   try {
     if (typeof storage.getAllKeys !== "function") {
       onError?.(new Error("chat drafts: the draft storage has no getAllKeys, so drafts weren't cleared"));
       return 0;
     }
-    const mine = (await storage.getAllKeys()).filter((k) => k.startsWith(`${DRAFT_PREFIX}${userId}:`));
-    if (mine.length === 0) return 0;
-    if (typeof storage.multiRemove === "function") await storage.multiRemove(mine);
-    else await Promise.all(mine.map((k) => storage.removeItem(k)));
-    return mine.length;
+    const goes = (k: string) =>
+      k.startsWith(LEGACY_DRAFT_PREFIX) ||
+      (k.startsWith(DRAFT_PREFIX) && (typeof who === "string" ? k.startsWith(`${DRAFT_PREFIX}${who}:`) : !k.startsWith(`${DRAFT_PREFIX}${who.except}:`)));
+    const keys = (await storage.getAllKeys()).filter(goes);
+    if (keys.length === 0) return 0;
+    if (typeof storage.multiRemove === "function") await storage.multiRemove(keys);
+    else await Promise.all(keys.map((k) => storage.removeItem(k)));
+    return keys.length;
   } catch (error) {
     onError?.(error);
     return 0;

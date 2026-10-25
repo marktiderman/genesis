@@ -119,11 +119,38 @@ describe("handleChatPushResponse", () => {
     const store = memoryOutboxStore();
     const outbox = createOutbox({ client: client as unknown as ChatClient, userId: "u1", store });
     const r = response("reply", { userText: "on my way" }, { conversationId: CONV, messageId: "m1" });
-    expect(await handleChatPushResponse(r, { client, outbox })).toBe("replied");
-    expect(await handleChatPushResponse(r, { client, outbox: () => outbox })).toBe("replied");
-    await vi.waitFor(() => expect(outbox.pending(CONV)[0]?.status).toBe("failed"));
+    expect(await handleChatPushResponse(r, { client, outbox })).toBe("queued");
+    expect(await handleChatPushResponse(r, { client, outbox: () => outbox })).toBe("queued");
+    expect(client.markRead).not.toHaveBeenCalled();
+    expect(outbox.pending(CONV)[0]?.status).toBe("failed");
     expect(outbox.pending(CONV)).toHaveLength(1);
     expect(outbox.pending(CONV)[0]).toMatchObject({ input: { body: "on my way", clientId: replyClientIdFor("push-123", r.notification.request.content.data, "on my way") } });
+    expect(await store.load()).toHaveLength(1);
+  });
+
+  it("with the live outbox online, waits for the reply to go, then marks read", async () => {
+    const client = fakeClient();
+    const outbox = createOutbox({ client: client as unknown as ChatClient, userId: "u1", store: memoryOutboxStore() });
+    const r = response("reply", { userText: "on my way" }, { conversationId: CONV, messageId: "m1" });
+    expect(await handleChatPushResponse(r, { client, outbox })).toBe("replied");
+    expect(client.send).toHaveBeenCalledTimes(1);
+    expect(client.markRead).toHaveBeenCalledWith(CONV);
+    expect(outbox.pending(CONV)).toHaveLength(0);
+  });
+
+  it("when the chat screens open while a direct send fails, the reply goes to their outbox, not behind its back", async () => {
+    const client = fakeClient();
+    const store = memoryOutboxStore();
+    const outbox = createOutbox({ client: client as unknown as ChatClient, userId: "u1", store });
+    let live: typeof outbox | null = null;
+    client.send.mockImplementationOnce(async () => {
+      live = outbox; // Messages mounted meanwhile.
+      throw new Error("Network request failed");
+    });
+    client.send.mockRejectedValue(new Error("Network request failed"));
+    const r = response("reply", { userText: "on my way" }, { conversationId: CONV });
+    expect(await handleChatPushResponse(r, { client, outbox: () => live, store, userId: "u1" })).toBe("queued");
+    expect(outbox.pending(CONV)).toHaveLength(1);
     expect(await store.load()).toHaveLength(1);
   });
 

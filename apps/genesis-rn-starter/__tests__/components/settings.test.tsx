@@ -57,16 +57,27 @@ describe("settings screen", () => {
     await expectPathname(app, "/sign-in");
   });
 
-  it("signing out takes that person's chat drafts off the phone, and no one else's", async () => {
+  it("signing out takes that person's chat drafts off the phone, and nothing else of the app's", async () => {
     const mine = draftKey("user-person@example.com", "c1");
-    const theirs = draftKey("user-other@example.com", "c1");
-    await AsyncStorage.multiSet([[mine, JSON.stringify({ text: "half written" })], [theirs, JSON.stringify({ text: "not mine" })]]);
+    const theirs = "genesis-starter:something-else";
+    await AsyncStorage.multiSet([[mine, JSON.stringify({ text: "half written" })], [theirs, "kept"]]);
     await renderApp("/settings", "person@example.com");
     await userEvent.setup().press(await screen.findByTestId("sign-out"));
     expect(await screen.findByText(copy.signIn.headline)).toBeOnTheScreen();
     await act(async () => undefined);
     expect(await AsyncStorage.getItem(mine)).toBeNull();
     expect(await AsyncStorage.getItem(theirs)).not.toBeNull();
+  });
+
+  it("signing in takes other people's chat drafts off the phone (a session that ended while the app was closed)", async () => {
+    const mine = draftKey("user-person@example.com", "c1");
+    const left = draftKey("user-before@example.com", "c1");
+    await AsyncStorage.multiSet([[mine, JSON.stringify({ text: "mine" })], [left, JSON.stringify({ text: "left behind" })]]);
+    await renderApp("/settings", "person@example.com");
+    await screen.findByTestId("sign-out");
+    await act(async () => undefined);
+    expect(await AsyncStorage.getItem(left)).toBeNull();
+    expect(await AsyncStorage.getItem(mine)).not.toBeNull();
   });
 
   it("asks before deleting the account, and Cancel deletes nothing", async () => {

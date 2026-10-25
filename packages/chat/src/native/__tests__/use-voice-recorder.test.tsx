@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LocalFile } from "../../core/outbox";
 import type { ExpoAudioLike, RecorderStateLike } from "../modules";
-import { RECORDER_STALL_READS, useVoiceRecorder } from "../use-voice-recorder";
+import { RECORDER_START_READS, RECORDER_STALL_READS, useVoiceRecorder } from "../use-voice-recorder";
 
 // AppState, which the shared React Native shim leaves out: the test moves the app to the background.
 const appState = vi.hoisted(() => {
@@ -259,6 +259,34 @@ describe("useVoiceRecorder when something goes wrong", () => {
     const before = appState.listeners.size;
     hook.unmount();
     expect(appState.listeners.size).toBe(before - 1);
+  });
+
+  it("a record() that never starts ends the attempt with an error notice, not a frozen 0:00", async () => {
+    const { audio, recorder } = fakeAudio();
+    recorder.record.mockImplementation(() => undefined);
+    const hook = renderHook(() => useVoiceRecorder(audio, { limitMs: 60_000, onRecorded: vi.fn() }));
+    await act(async () => {
+      hook.result.current.dispatch({ type: "press" });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(hook.result.current.state.phase).toBe("recording");
+    await act(async () => void (await vi.advanceTimersByTimeAsync(100 * RECORDER_START_READS)));
+    expect(hook.result.current.state).toMatchObject({ phase: "idle", notice: "error" });
+  });
+
+  it("the background while the microphone is still starting (Android's permission dialog) doesn't end the attempt", async () => {
+    const { audio, recorder } = fakeAudio();
+    let grant!: (v: { granted: boolean }) => void;
+    (audio.requestRecordingPermissionsAsync as ReturnType<typeof vi.fn>).mockImplementationOnce(() => new Promise((r) => (grant = r)));
+    const hook = renderHook(() => useVoiceRecorder(audio, { limitMs: 60_000, onRecorded: vi.fn() }));
+    act(() => hook.result.current.dispatch({ type: "press" }));
+    act(() => appState.emit("background"));
+    await act(async () => {
+      grant({ granted: true });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(recorder.record).toHaveBeenCalled();
+    expect(hook.result.current.state).toMatchObject({ phase: "recording", notice: null });
   });
 
   it("leaving the screen while the stop is under way lets it finish, stops once, and still sends the note", async () => {

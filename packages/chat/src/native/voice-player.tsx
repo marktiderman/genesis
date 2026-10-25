@@ -47,13 +47,13 @@ const subscribePlayback = (l: () => void) => {
   return () => void playbackListeners.delete(l);
 };
 
-/** Whether one of these voice notes is the one playing (re-renders only when that answer changes). */
-export function useVoiceNotePlaying(ids: readonly string[]): boolean {
+/** Which of these voice notes is playing, or null (re-renders only when that answer changes). */
+export function usePlayingVoiceNote(ids: readonly string[]): string | null {
   const key = ids.join("|");
   return useSyncExternalStore(
     subscribePlayback,
-    () => (active ? key.split("|").includes(active.id) : false),
-    () => false,
+    () => (active && key.split("|").includes(active.id) ? active.id : null),
+    () => null,
   );
 }
 
@@ -64,18 +64,20 @@ interface VoiceNoteControls {
   cycleRate: () => void;
 }
 
-const controls = new Map<string, VoiceNoteControls>();
+// Every mounted player per id (one attachment can show in the timeline and in its thread): the newest answers.
+const controls = new Map<string, VoiceNoteControls[]>();
+const controlsFor = (id: string) => controls.get(id)?.at(-1);
 
 /** Plays or pauses the voice note with this id; false when none with it is on screen with playback. */
 export function toggleVoiceNote(id: string): boolean {
-  const c = controls.get(id);
+  const c = controlsFor(id);
   c?.toggle();
   return Boolean(c);
 }
 
 /** Moves the voice note with this id to its next speed; false when none is on screen with playback. */
 export function cycleVoiceNoteRate(id: string): boolean {
-  const c = controls.get(id);
+  const c = controlsFor(id);
   c?.cycleRate();
   return Boolean(c);
 }
@@ -182,9 +184,11 @@ function AudioVoiceNote({ id, uri, durationMs, waveform, mine, testID, audio }: 
   handles.current = { toggle, cycleRate };
   useEffect(() => {
     const entry: VoiceNoteControls = { toggle: () => handles.current.toggle(), cycleRate: () => handles.current.cycleRate() };
-    controls.set(id, entry);
+    controls.set(id, [...(controls.get(id) ?? []), entry]);
     return () => {
-      if (controls.get(id) === entry) controls.delete(id);
+      const rest = (controls.get(id) ?? []).filter((e) => e !== entry);
+      if (rest.length) controls.set(id, rest);
+      else controls.delete(id);
     };
   }, [id]);
 

@@ -153,21 +153,25 @@ function ShareOutbox({ userId }: { userId: string }) {
 let lastChatUser: string | null = null;
 
 /**
- * On sign-out (any way: Settings, account deletion, a session that ends), the person's unsent
- * drafts leave the phone, so the next login never sees them. Mounted once, in the signed-in layout.
+ * Chat drafts never outlive the person who wrote them on this phone: signing out (Settings,
+ * account deletion) clears theirs, and signing in clears everyone else's, which covers a session
+ * that ended while the app was closed and a switch from one person to another. Mounted once, in
+ * the signed-in layout.
  */
 export function useClearChatOnSignOut() {
   const { status, userId } = useSession();
   useEffect(() => {
     if (!starter.features.chat) return;
+    const onError = (e: unknown) => console.warn("[chat] clearing drafts:", e);
     if (status === "signedIn" && userId) {
+      if (lastChatUser !== userId) void clearDrafts(modules.drafts!, { except: userId }, onError);
       lastChatUser = userId;
       return;
     }
     if (status !== "signedOut" || !lastChatUser) return;
     const who = lastChatUser;
     lastChatUser = null;
-    void clearDrafts(modules.drafts!, who, (e) => console.warn("[chat] clearing drafts:", e));
+    void clearDrafts(modules.drafts!, who, onError);
     // TODO(chat clearOutbox): also empty this person's unsent messages here, through
     // `useChat().clearOutbox()` once genesis-chat ships it (the chat owner's PR); until then they
     // stay under `genesis-chat:outbox:<userId>` and come back if the same person signs in again.

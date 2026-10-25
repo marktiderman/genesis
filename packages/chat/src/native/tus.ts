@@ -117,9 +117,24 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
     if (typeof data === "string") {
       if (!options.openFile) return inMemory(await readFile(data));
       const handle = await options.openFile(data);
+      if (!Number.isFinite(handle.size) || handle.size <= 0) {
+        try {
+          handle.close?.();
+        } catch {
+          // Already closed.
+        }
+        throw new ChatError(`${file.name} can't be read on this device`, "22023", "upload");
+      }
       return {
         size: handle.size,
-        read: async (from, to) => exact(await handle.read(from, to - from)),
+        read: async (from, to) => {
+          const bytes = await handle.read(from, to - from).catch((e: unknown) => {
+            throw new ChatError(`${file.name} can't be read on this device${e instanceof Error ? `: ${e.message}` : ""}`, "22023", "upload");
+          });
+          // A short read would send a hole in the file: fail instead.
+          if (bytes.byteLength !== to - from) throw new ChatError(`${file.name} changed while it was sent`, "22023", "upload");
+          return exact(bytes);
+        },
         close: () => {
           try {
             handle.close?.();
@@ -133,12 +148,18 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
     return { size: data.size, read: (from, to) => data.slice(from, to).arrayBuffer(), close: () => undefined };
   }
 
-  /** Whether the object is really in the bucket (a 409 on create says so, and may be wrong). */
+  /**
+   * Whether the object is really in the bucket (a 409 on create says so, and may be wrong).
+   * Storage answers a missing object with 400 (or 404); a refusal is a refusal, anything else is
+   * asked again.
+   */
   async function objectExists(path: string): Promise<boolean> {
     const base = options.supabaseUrl.replace(/\/+$/, "");
     const encoded = path.split("/").map(encodeURIComponent).join("/");
     const res = await doFetch(`${base}/storage/v1/object/authenticated/${bucket}/${encoded}`, { method: "HEAD", headers: await headers() });
-    return res.ok;
+    if (res.ok) return true;
+    if (res.status === 400 || res.status === 404) return false;
+    return refuse(res, "upload");
   }
 
   async function withRetry<T>(op: string, run: () => Promise<T>): Promise<T> {

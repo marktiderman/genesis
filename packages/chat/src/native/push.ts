@@ -141,14 +141,14 @@ export function replyClientId(notificationId: string): string {
 }
 
 /**
- * The client id for one reply: from the notification's id and the message it
- * is about (`data.messageId`), else the reply's text. The same reply delivered
+ * The client id for one reply: from the notification's id, the message it is
+ * about (`data.messageId`) and the reply's text. The same reply delivered
  * twice posts once; two replies to one conversation never share an id, even
  * when iOS reuses the notification's id for a collapsed push.
  */
 export function replyClientIdFor(notificationId: string, data: Record<string, unknown> | null | undefined, body: string): string {
-  const messageId = typeof data?.messageId === "string" ? data.messageId : typeof data?.message_id === "string" ? data.message_id : null;
-  return replyClientId(`${notificationId}|${messageId ? `m:${messageId.toLowerCase()}` : `t:${body}`}`);
+  const messageId = typeof data?.messageId === "string" ? data.messageId : typeof data?.message_id === "string" ? data.message_id : "";
+  return replyClientId(`${notificationId}|m:${messageId.toLowerCase()}|t:${body}`);
 }
 
 /** The part of a notification response this reads (expo-notifications' `NotificationResponse`). */
@@ -162,10 +162,15 @@ export interface ChatPushResponseLike {
 /** "queued": the reply couldn't go now and waits in the outbox, failed, for Retry. */
 export type ChatPushOutcome = "replied" | "queued" | "marked-read" | "ignored" | "failed";
 
+type LiveOutbox = Pick<Outbox, "send" | "pending"> & Partial<Pick<Outbox, "load">>;
+
+/** How long a reply queued in the live outbox is waited for before it counts as queued, not sent. */
+export const PUSH_REPLY_WAIT_MS = 15_000;
+
 /** Where a reply waits when it can't go now. */
 export interface ChatPushOutboxDeps {
-  /** The live outbox (`useChat().outbox`), or a getter for it: the reply is queued there and sent in order. */
-  outbox?: Pick<Outbox, "send" | "pending"> | null | (() => Pick<Outbox, "send" | "pending"> | null | undefined);
+  /** The live outbox (`useChat().outbox`), or a getter for it (read again after a slow failure): the reply is queued there and sent in order. */
+  outbox?: LiveOutbox | null | (() => LiveOutbox | null | undefined);
   /** Without a live outbox: the persisted store (`ChatProvider outboxStore`) a reply that failed is added to. */
   store?: OutboxStore | null;
   /** Whose store it is (the signed-in user's id). */
@@ -200,6 +205,8 @@ export async function handleChatPushResponse(
     client: Pick<ChatClient, "send" | "markRead">;
     notifications?: Pick<NotificationCategoriesLike, "dismissNotificationAsync">;
     onError?: (error: unknown) => void;
+    /** How long to wait for a reply queued in the live outbox to go. Default PUSH_REPLY_WAIT_MS. */
+    waitMs?: number;
   } & ChatPushOutboxDeps,
 ): Promise<ChatPushOutcome> {
   const action = response.actionIdentifier;
@@ -232,23 +239,40 @@ export async function handleChatPushResponse(
 
 async function sendReply(
   input: { conversationId: string; clientId: string; body: string },
-  deps: { client: Pick<ChatClient, "send">; onError?: (error: unknown) => void } & ChatPushOutboxDeps,
+  deps: { client: Pick<ChatClient, "send">; onError?: (error: unknown) => void; waitMs?: number } & ChatPushOutboxDeps,
 ): Promise<ChatPushOutcome> {
-  const live = typeof deps.outbox === "function" ? deps.outbox() : deps.outbox;
-  if (live) {
-    // The same reply delivered twice is queued once.
-    if (!live.pending(input.conversationId).some((p) => p.clientId === input.clientId)) await live.send(input);
-    return "replied";
-  }
+  const liveOutbox = () => (typeof deps.outbox === "function" ? deps.outbox() : deps.outbox) ?? null;
+  const live = liveOutbox();
+  if (live) return queueLive(live, input, deps.waitMs);
   try {
     await deps.client.send(input);
     return "replied";
   } catch (error) {
+    // The chat screens may have opened while the send failed: their outbox owns the saved copy now.
+    const opened = liveOutbox();
+    if (opened) return queueLive(opened, input, 0);
     if (!deps.store || !deps.userId) throw error;
     deps.onError?.(error);
     const queue = await deps.store.load();
     if (!queue.some((q) => q.clientId === input.clientId)) await deps.store.save([...queue, failedReply(input, deps.userId)]);
     return "queued";
+  }
+}
+
+/**
+ * Queues the reply in the live outbox (once) and waits, briefly, for it to go: "replied" once it
+ * has left the queue, "queued" while it is still there or failed (it waits there for Retry).
+ */
+async function queueLive(live: LiveOutbox, input: { conversationId: string; clientId: string; body: string }, waitMs = PUSH_REPLY_WAIT_MS): Promise<ChatPushOutcome> {
+  await live.load?.();
+  const mine = () => live.pending(input.conversationId).find((p) => p.clientId === input.clientId);
+  if (!mine()) await live.send(input);
+  const until = Date.now() + waitMs;
+  for (;;) {
+    const p = mine();
+    if (!p) return "replied";
+    if (p.status === "failed" || Date.now() >= until) return "queued";
+    await new Promise((r) => setTimeout(r, 100));
   }
 }
 

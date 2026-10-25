@@ -112,9 +112,18 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const listRef = useRef<{ scrollToEnd?: (o?: { animated?: boolean }) => void } | null>(null);
   // FlatList follows by hand: at the bottom (or not yet scrolled), new rows and a shorter list keep it there.
   const atBottom = useRef(true);
+  // FlatList opens at the top and is moved to the bottom a frame later: until it has been, the top
+  // isn't "reached" (it would load an earlier page on every open).
+  const placed = useRef(!mode.followsByHand);
   const toBottom = useCallback(
     (animated: boolean) => {
-      requestAnimationFrame(() => listRef.current?.scrollToEnd?.({ animated: animated && !reducedMotion }));
+      const go = (a: boolean) => listRef.current?.scrollToEnd?.({ animated: a && !reducedMotion });
+      requestAnimationFrame(() => {
+        go(animated);
+        placed.current = true;
+      });
+      // Once more after the new row has its size (FlashList measures it after the first pass).
+      if (animated) setTimeout(() => go(true), 180);
     },
     [reducedMotion],
   );
@@ -284,7 +293,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
                 keyExtractor={(row) => row.key}
                 getItemType={(row) => (row.type === "message" ? (row.mine ? "mine" : "theirs") : row.type)}
                 onStartReached={() => {
-                  if (conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
+                  if (placed.current && conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
                 }}
                 onStartReachedThreshold={0.5}
                 keyboardShouldPersistTaps="handled"
