@@ -28,6 +28,7 @@ interface ChatContextValue {
   userId: string;
   outbox: Outbox;
   queue: QueuedMessage[];
+  loadPeople?: (userIds: string[]) => Promise<Record<string, ChatPerson>>;
   /** Subscribe to inbox hints (one channel for the app, fanned out here). */
   onInbox(listener: (s: ChatSignal) => void): () => void;
 }
@@ -44,11 +45,23 @@ export interface ChatProviderProps {
   readFile?: (uri: string) => Promise<Blob | ArrayBuffer>;
   /** Replaces the plain upload (resumable uploads on native). */
   upload?: (conversationId: string, file: LocalFile) => Promise<string>;
+  /** Makes client ids (default: a random UUID that works without crypto.randomUUID). */
+  newId?: () => string;
+  /** Keeps a byte file (a pasted image, a recording) across launches: write it, return a URI. */
+  persistFile?: (file: LocalFile) => Promise<string>;
+  /** Names and avatars for user ids, fetched in batches (usePeople, usePerson). */
+  loadPeople?: (userIds: string[]) => Promise<Record<string, ChatPerson>>;
   children: ReactNode;
 }
 
+/** How the app shows a person. */
+export interface ChatPerson {
+  name: string;
+  avatarUrl?: string | null;
+}
+
 /** Puts chat in reach of every hook below it. Needs a TanStack QueryClientProvider above it. */
-export function ChatProvider({ client, userId, outboxStore, readFile, upload, children }: ChatProviderProps) {
+export function ChatProvider({ client, userId, outboxStore, readFile, upload, newId, persistFile, loadPeople, children }: ChatProviderProps) {
   const queryClient = useQueryClient();
   const [queue, setQueue] = useState<QueuedMessage[]>([]);
   const listeners = useRef(new Set<(s: ChatSignal) => void>());
@@ -61,6 +74,8 @@ export function ChatProvider({ client, userId, outboxStore, readFile, upload, ch
         store: outboxStore,
         readFile,
         upload,
+        newId,
+        persistFile,
         onChange: setQueue,
         onSent: (message) => {
           queryClient.setQueryData<ChatMessage[]>([...chatKeys.conversation(message.conversationId), "messages"], (prev) =>
@@ -90,12 +105,13 @@ export function ChatProvider({ client, userId, outboxStore, readFile, upload, ch
       userId,
       outbox,
       queue,
+      loadPeople,
       onInbox: (l) => {
         listeners.current.add(l);
         return () => listeners.current.delete(l);
       },
     }),
-    [client, userId, outbox, queue],
+    [client, userId, outbox, queue, loadPeople],
   );
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }
@@ -143,6 +159,12 @@ export function useConversation(conversationId: string | null | undefined, opts:
 
   const conversation = useQuery({ queryKey: chatKeys.conversation(id), queryFn: () => client.conversation(id), enabled });
   const members = useQuery({ queryKey: chatKeys.members(id), queryFn: () => client.members(id), enabled, staleTime: 60_000 });
+  const kindRules = useQuery({
+    queryKey: ["genesis-chat", "kind", conversation.data?.kind ?? ""],
+    queryFn: () => client.kind(conversation.data!.kind),
+    enabled: Boolean(conversation.data?.kind),
+    staleTime: 10 * 60_000,
+  });
   const access = useQuery({
     queryKey: chatKeys.role(id),
     queryFn: async () => ({ role: await client.myRole(id), canPost: await client.canPost(id) }),
@@ -263,7 +285,7 @@ export function useConversation(conversationId: string | null | undefined, opts:
           q.input.conversationId === id &&
           (q.input.threadRootId ?? null) === (opts.threadRootId ?? null) &&
           (!opts.topic || q.input.topic === opts.topic),
-      ),
+      ).map((q) => ({ ...q, files: q.pendingFiles })),
     [queue, id, opts.threadRootId, opts.topic],
   );
   const items: ThreadItem[] = useMemo(() => mergeThread(list, pending), [list, pending]);
@@ -286,6 +308,17 @@ export function useConversation(conversationId: string | null | undefined, opts:
     members: members.data ?? [],
     role: access.data?.role ?? null,
     canPost: access.data?.canPost ?? false,
+    /** Your role and posting rights are still loading: show the composer as waiting, not refused. */
+    accessLoading: enabled && access.isLoading,
+    /** The kind's rules (max members, threads, who posts). */
+    kind: kindRules.data ?? null,
+    /** May you pin here: owners and admins, or anyone in a two-person conversation. */
+    canPin:
+      access.data?.role === "owner" ||
+      access.data?.role === "admin" ||
+      (access.data?.role === "member" && kindRules.data?.maxMembers === 2),
+    /** Gives a message whose files were lost on a relaunch its files again. */
+    reattach: outbox.reattach,
     items,
     messages: list,
     isLoading: messages.isLoading || conversation.isLoading,
@@ -312,32 +345,57 @@ export type ConversationState = ReturnType<typeof useConversation>;
 export function useMessageActions() {
   const { client } = useChat();
   const queryClient = useQueryClient();
-  const refresh = async (conversationId: string, messageId: string) => {
-    const m = await client.message(messageId);
-    queryClient.setQueriesData<ChatMessage[]>({ queryKey: chatKeys.conversation(conversationId) }, (prev) =>
-      Array.isArray(prev) && m ? upsertMessages(prev, [m]) : prev,
-    );
-  };
-  return {
-    edit: async (m: ChatMessage, body: string, mentions: string[] = []) => {
-      await client.edit(m.id, body, mentions);
-      await refresh(m.conversationId, m.id);
-    },
-    remove: async (m: ChatMessage) => {
-      await client.remove(m.id);
-      await refresh(m.conversationId, m.id);
-    },
-    react: async (m: ChatMessage, emoji: string, on: boolean) => {
-      await client.react(m.id, emoji, on);
-      await refresh(m.conversationId, m.id);
-    },
-    pin: async (m: ChatMessage, on: boolean) => {
-      await client.pin(m.id, on);
-      void queryClient.invalidateQueries({ queryKey: chatKeys.pins(m.conversationId) });
-    },
-    save: (m: ChatMessage, on: boolean, note?: string) => client.save(m.id, on, note),
-    report: (m: ChatMessage, reason: "spam" | "harassment" | "safety" | "other", note?: string) => client.report(m.id, reason, note),
-  };
+  return useMemo(() => {
+    const refresh = async (conversationId: string, messageId: string) => {
+      const m = await client.message(messageId);
+      queryClient.setQueriesData<ChatMessage[]>({ queryKey: chatKeys.conversation(conversationId) }, (prev) =>
+        Array.isArray(prev) && m ? upsertMessages(prev, [m]) : prev,
+      );
+    };
+    return {
+      edit: async (m: ChatMessage, body: string, mentions: string[] = []) => {
+        await client.edit(m.id, body, mentions);
+        await refresh(m.conversationId, m.id);
+      },
+      remove: async (m: ChatMessage) => {
+        await client.remove(m.id);
+        await refresh(m.conversationId, m.id);
+      },
+      react: async (m: ChatMessage, emoji: string, on: boolean) => {
+        await client.react(m.id, emoji, on);
+        await refresh(m.conversationId, m.id);
+      },
+      pin: async (m: ChatMessage, on: boolean) => {
+        await client.pin(m.id, on);
+        void queryClient.invalidateQueries({ queryKey: chatKeys.pins(m.conversationId) });
+      },
+      save: (m: ChatMessage, on: boolean, note?: string) => client.save(m.id, on, note),
+      report: (m: ChatMessage, reason: "spam" | "harassment" | "safety" | "other", note?: string) => client.report(m.id, reason, note),
+    };
+  }, [client, queryClient]);
+}
+
+/**
+ * Names and avatars for these people, from the provider's `loadPeople`, fetched as one
+ * batch per set of ids and cached. Unknown ids are left out.
+ */
+export function usePeople(userIds: (string | null | undefined)[]): Record<string, ChatPerson> {
+  const { loadPeople } = useChat();
+  const ids = useMemo(() => [...new Set(userIds.filter((x): x is string => Boolean(x)))].sort(), [userIds]);
+  return (
+    useQuery({
+      queryKey: ["genesis-chat", "people", ids],
+      queryFn: () => loadPeople!(ids),
+      enabled: Boolean(loadPeople) && ids.length > 0,
+      staleTime: 5 * 60_000,
+    }).data ?? {}
+  );
+}
+
+/** One person's name and avatar (see usePeople). */
+export function usePerson(userId: string | null | undefined): ChatPerson | null {
+  const people = usePeople(useMemo(() => [userId], [userId]));
+  return userId ? (people[userId] ?? null) : null;
 }
 
 /** The pinned message ids of a conversation. */

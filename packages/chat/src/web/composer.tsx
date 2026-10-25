@@ -20,7 +20,7 @@ import {
 } from "react";
 import { FileText, Lock, Mic, Paperclip, SendHorizontal, Trash2, X } from "lucide-react";
 import { Alert, AlertDescription, Button, Skeleton, Textarea, Toggle, Tooltip, cn, toast } from "@marktiderman/genesis-ui";
-import { CHAT_LIMITS, attachmentKindFor, fileExtension, formatDuration, isAllowedExtension, recordingLimitMs } from "../core/media";
+import { CHAT_LIMITS, attachmentKindFor, fileExtension, formatDuration, isAllowedExtension, randomId, recordingLimitMs } from "../core/media";
 import type { LocalFile } from "../core/outbox";
 import { parseMentions, previewText } from "../core/thread";
 import type { ChatMessage } from "../core/types";
@@ -136,7 +136,7 @@ export function ChatComposer({
         break;
       }
       room -= 1;
-      next.push({ id: crypto.randomUUID(), file, kind, previewUrl: kind === "image" || kind === "video" ? objectUrl(file) : null });
+      next.push({ id: randomId(), file, kind, previewUrl: kind === "image" || kind === "video" ? objectUrl(file) : null });
     }
     if (next.length) setDrafts((d) => [...d, ...next]);
   }, []);
