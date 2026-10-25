@@ -1,0 +1,104 @@
+{
+  "name": "@marktiderman/genesis-support",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Support and feedback for Genesis apps, in the app's own Supabase: a feedback record (bug, idea, question, praise) with the app's context and screenshots, collector and sink seams with a Supabase sink, a web feedback panel and launcher, a native feedback screen with screenshot capture, annotation and shake to report, the person's reports with staff replies, and an idea board with votes and \"you asked, we shipped\". Declared as a defineBlock block. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/support"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "import": "./dist/web.js"
+    },
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "import": "./dist/native.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@marktiderman/genesis-features": "workspace:^"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-native": "workspace:>=0.1.0 <1.0.0",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
+    "@supabase/supabase-js": "^2.118.0",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-native": ">=0.76.0"
+  },
+  "peerDependenciesMeta": {
+    "@marktiderman/genesis-native": {
+      "optional": true
+    },
+    "@marktiderman/genesis-ui": {
+      "optional": true
+    },
+    "@marktiderman/genesis-ui-native": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-view-shot": {
+      "optional": true
+    },
+    "expo-sensors": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-native": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
+    "@supabase/supabase-js": "^2.118.0",
+    "@tanstack/react-query": "^5.75.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.9.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
+  }
+}
