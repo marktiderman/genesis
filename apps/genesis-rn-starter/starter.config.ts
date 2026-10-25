@@ -10,10 +10,15 @@ export default defineStarter({
     slug: "genesis-rn-starter",
     scheme: "genesis-starter",
     bundleId: "com.example.genesisstarter",
+    // PLACEHOLDER: your EAS project id (a UUID), printed by `eas init`. Empty means no EAS project:
+    // the app runs, builds carry no update URL and `eas update` can't reach them.
+    easProjectId: "",
   },
   features: {
     emailSignIn: true,
     appleSignIn: true,
+    // Off: it needs Google client ids and the Universal sign-in module. README, "Google sign-in".
+    googleSignIn: false,
     accountDeletion: true,
     notifications: true,
     queryPersistence: true,
@@ -22,5 +27,11 @@ export default defineStarter({
     deepLinks: true,
     wipeSessionOnReinstall: true,
     refreshWhileActive: true,
+    updates: true,
+    push: true,
+    observability: true,
+    devtools: true,
+    checkIn: true,
+    support: true,
   },
 });

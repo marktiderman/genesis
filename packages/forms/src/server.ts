@@ -336,6 +336,7 @@ export {
   type RestoredAnswers,
 } from "./options";
 export { withHostOptions, type HostOptions } from "./fields";
+export { mergeResponses, type MergeOptions } from "./merge";
 export {
   EDIT_LINK_TTL_SECONDS,
   MIN_EDIT_SECRET_BYTES,
@@ -393,3 +394,21 @@ export {
   type UploadRefusal,
   type UploadRequest,
 } from "./upload-protocol";
+export {
+  submitResponse,
+  type RateLimitAnswer,
+  type StoredSubmissionRef,
+  type SubmissionRecord,
+  type SubmissionStore,
+  type SubmitResponseOptions,
+} from "./submit";
+export {
+  IDEMPOTENCY_KEY_PATTERN,
+  isIdempotencyKey,
+  isSubmitResult,
+  submitOutcome,
+  type SubmitFailureReason,
+  type SubmitOutcome,
+  type SubmitRequest,
+  type SubmitResult,
+} from "./submit-protocol";

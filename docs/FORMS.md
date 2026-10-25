@@ -4,26 +4,27 @@ Plan v0.3, 2026-10-21. Status: **R1 built** (see [Releases](#releases-current)),
 destinations (`/destinations`, 2026-10-22); later releases are the plan. Where this document
 describes something beyond those, it is not built yet.
 
-## Built today (checked against the code, 2026-10-23)
+## Built today (checked against the code, 2026-10-24)
 
 This plan describes the target. What the packages actually do today:
 
 | Area | Built | Planned, not built |
 | --- | --- | --- |
-| Blocks | Fields, content blocks (`heading`, `text`) and page breaks | Open content types (message, media, summary), host steps |
+| Blocks | Fields, content blocks (`heading`, `text`) and page breaks. Every field and content kind is one registered definition (props check, answer shape, validator, empty check, display text, snapshot), so a host registers its own (`registerFieldType`, `registerContentType`) and gets what a built-in gets | Built-in open content types (message, media, summary) and their renderers, host steps |
 | Layouts | `classic` and `focus` (one question at a time) | `paged` as a layout mode |
 | Logic | `show`, `hide` and `jump` rules, recall, typed hidden inputs | Variables and the `set`/`add`/… effects, `require`, `disable`, `setOptions` |
-| Fields | 13 built-in types (short and long text, email, phone, rating, NPS, single and multi choice, yes/no, dropdown, number, date, consent), `calculated` fields with formulas, and structured fields (`list`, `table`, `media-notes`, `text-highlights`) | Uploads as a field type, field plugins beyond the registry |
-| Responses | `validateSubmission` on the server, the event log and `replay` | `FormStore`, partials and resume |
+| Fields | 13 built-in types (short and long text, email, phone, rating, NPS, single and multi choice, yes/no, dropdown, number, date, consent), `calculated` fields with formulas, structured fields (`list`, `table`, `media-notes`, `text-highlights`) and `photo` uploads | `file` and `signature` types |
+| Responses | `validateSubmission` on the server, the event log and `replay`, and `mergeResponses` (a saved draft plus what changed, with answers on a path no longer taken dropped by default) | `FormStore` |
 | Delivery | Destinations: email, Google Sheets, signed webhooks | Payments and other plugins |
-| Rendering | `forms-react` (headless, DOM-free) and `forms-web`, whose `<Form>` slots are `header`, `brand`, `progress`, `navigation`, `ending` and `errorSummary` | `genesis-forms-native`; the send phase and step advance still live inside `forms-web`'s `<Form>`, not in a shared controller |
+| Rendering | `forms-react` (headless, DOM-free) with `useFormController`, the shared controller (step and path, Next and Back, sending with retry, auto-advance, saving progress, announcements, focus targets), and `forms-web`, whose `<Form>` renders it; its slots are `header`, `brand`, `progress`, `navigation`, `ending` and `errorSummary` | Classic and paged layouts on native |
+| Native | `forms-native`'s `<FormFocus>` (0.1, beta): focus layout on `useFormController`, one question or content step (heading, text, a host's callout) per screen; field renderers registered by kind for every check-in type (photo through a host's picker); filtered and searchable lists, Other answers, `respondentPath` counts; keyboard-aware scrolling, accessibility focus and announcements, Dynamic Type, reduced motion, haptics; the platform header through `screen`; the web's slots plus `notice` and `status`; `useFormDraft` drafts and the `createSubmitOutbox` outbox wired in. Walked on the iOS simulator in the starter's check-in example | A date picker (dates are typed), structured field types, classic layout, Android device check |
 | Tooling | `/testing` (`simulate`, `coverage`, `runScenario`, `recordScenario`), `explain()`, devtools, builder, studio | MCP server, AI assist |
 
 Native flows (onboarding, check-ins, guided exercises) extend this engine rather than adding a
-second one: open content types, timed and host steps, a paged layout, a shared controller in
-`forms-react`, and a `genesis-forms-native` renderer with a theme seam for system or Genesis
-colors. Step types must be registered in a shared package so web, native and the server all
-parse the same definitions.
+second one: open content types, timed and host steps, a paged layout, and a
+`genesis-forms-native` renderer with a theme seam for system or Genesis colors, over the shared
+`useFormController`. Step types are registered in `genesis-forms` (`registerContentType`,
+`registerFieldType`), so web, native and the server all parse the same definitions.
 
 > **Revised 2026-10-21, at the maintainer's direction.**
 >
@@ -179,7 +180,7 @@ so every Genesis app gets it, not just forms.
 | `@marktiderman/genesis-forms` | Definition types and their schema, `defineForm` DSL, migrations, expression evaluator, logic graph, navigation, reactive store, validation, recall, scoring, i18n, `toJsonSchema`. Subpaths: `/server` (`validateSubmission`, `createSubmitHandler` as web-standard `Request → Response`), `/destinations` (email with a Resend provider, Google Sheets, Standard Webhooks signing and verifying; built), `/testing` (simulation, branch coverage), `/stores/memory`, `/stores/local`, `/stores/rest`. | No dependencies. Runs in browsers, React Native, Node, Deno, Workers. Budget: ≤ 15 kB gzipped for the root entry. |
 | `@marktiderman/genesis-forms-react` | `useForm`, `useField`, `useNavigation`, `useResponse`; field and layout registries; `<FormRuntime>` (headless) | Fine-grained subscriptions via `useSyncExternalStore`: typing in one field re-renders one field. |
 | `@marktiderman/genesis-forms-web` | Web renderer kit: field renderers, layouts, chrome | Built on `genesis-ui` and `genesis-design-system`. Each field renderer on its own subpath and lazy-loaded. |
-| `@marktiderman/genesis-forms-native` | React Native renderer kit | Not built. Plain React Native renderers with a theme seam (iOS system colors or Genesis tokens through theme roles), so it works with or without NativeWind. Same vocabulary and slots as the web kit. |
+| `@marktiderman/genesis-forms-native` | React Native renderer kit | 0.1 built: `<FormFocus>` (see Built today). Plain React Native renderers with a theme seam (iOS system colors or Genesis tokens through theme roles), so it works with or without NativeWind. Same vocabulary and slots as the web kit. |
 | `@marktiderman/genesis-forms-supabase` | `FormStore` for Supabase: SQL for forms, versions, responses, grades; RLS; storage policies; edge-function submit handler | The backend most consuming apps already use. |
 | `@marktiderman/genesis-forms-builder` | Visual builder | Edits a definition; no storage of its own. The product hosts it; any app can embed it (e.g. teachers authoring exercises inside a learning app). |
 | `@marktiderman/genesis-forms-devtools` (R1) | `<Inspector>` (state, event-log time travel, server check with tamper mode), share links, and the flow map, logic trace and coverage panels | Development only; powers the `/forms` playground in `apps/sample`. Sensitive values are masked unless revealed. |
@@ -432,6 +433,14 @@ The store being framework-agnostic is what makes `@marktiderman/genesis-forms/se
 and later Vue or Svelte bindings cheap.
 
 ## The field-type registry
+
+> **Built (2026-10-24):** the registry covers field and content kinds. A field kind's manifest
+> carries `checkProps`, `choice: { multiple }`, `literal`, `validate`, `isEmpty`, `normalize`,
+> `summarize`, `snapshot`/`fromSnapshot` and `samples`; nothing in the engine, `parseForm`,
+> validation or the snapshots switches on a type name (the rating scale's 2 to 10 bound stays in
+> `parseForm`, so issues keep their order). A built-in kind's name is refused unless
+> `{ replace: true }`, and kinds are stored frozen. The design below (Standard Schema props,
+> scoped registries) is still the target.
 
 The single biggest extensibility lever. A field type is a React-free manifest plus one renderer per
 platform:

@@ -1,0 +1,47 @@
+{
+  "cli": {
+    "version": ">= 18.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "environment": "development",
+      "channel": "development",
+      "distribution": "internal",
+      "env": { "APP_VARIANT": "development", "EXPO_PUBLIC_APP_VARIANT": "development" }
+    },
+    "preview": {
+      "environment": "preview",
+      "channel": "preview",
+      "distribution": "internal",
+      "uploadSourceMaps": true,
+      "env": { "APP_VARIANT": "preview", "EXPO_PUBLIC_APP_VARIANT": "preview" },
+      "android": { "buildType": "apk" }
+    },
+    "e2e": {
+      "extends": "development",
+      "ios": { "simulator": true }
+    },
+    "production": {
+      "environment": "production",
+      "channel": "production",
+      "distribution": "store",
+      "uploadSourceMaps": true,
+      "autoIncrement": true,
+      "env": { "APP_VARIANT": "production", "EXPO_PUBLIC_APP_VARIANT": "production" }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "REPLACE_WITH_PATH_TO_GOOGLE_SERVICE_ACCOUNT_JSON",
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
+  }
+}

@@ -25,6 +25,7 @@ export default defineConfig({
       nativewind: path.join(uiNative, "test-utils/nativewind-mock.ts"),
       "@marktiderman/genesis-ui-native/components": path.join(uiNative, "src/components/index.ts"),
       "@marktiderman/genesis-ui-native/layouts": path.join(uiNative, "src/layouts/index.ts"),
+      "@marktiderman/genesis-ui-native/hooks": path.join(uiNative, "src/hooks/index.ts"),
     },
   },
 });

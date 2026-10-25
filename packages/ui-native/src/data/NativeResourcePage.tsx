@@ -19,6 +19,7 @@ import { NativeButton } from "../components/button";
 import { NativeSkeleton } from "../components/skeleton";
 import { NativeDataFilters } from "./NativeDataFilters";
 import { NativeEmptyState } from "./NativeEmptyState";
+import { useGenesisModules } from "../native-modules";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,6 +61,12 @@ export interface NativeResourcePageProps<T extends BaseRecord = BaseRecord> {
   // Slots
   headerRight?: ReactNode;
   emptyState?: ReactNode;
+  /**
+   * Shown while the list has nothing saved and its fetch is paused because
+   * the device is offline (`networkMode: "offlineFirst"`), instead of an empty
+   * list that says there is nothing. Default: a one-line offline message.
+   */
+  offlineState?: ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,11 +195,13 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
   createLabel = "New",
   headerRight,
   emptyState,
+  offlineState,
 }: NativeResourcePageProps<T>) {
   // -------------------------------------------------------------------------
   // State
   // -------------------------------------------------------------------------
 
+  const { list: FlashList } = useGenesisModules();
   const [search, setSearchLocal] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
@@ -266,6 +275,8 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
   const items: T[] = list.data?.data ?? [];
   const isLoading = list.isLoading;
   const hasError = list.isError;
+  // Paused offline with nothing saved: not loading (no request in flight), not empty either.
+  const isOfflineEmpty = list.isPaused && list.data === undefined;
 
   // -------------------------------------------------------------------------
   // Resolve card fields
@@ -410,7 +421,17 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
 
   const ListEmptyComponent = useMemo(
     () =>
-      isLoading ? null : (
+      isLoading ? null : isOfflineEmpty ? (
+        // In the list, under its header, so search and filters stay usable offline: clearing a
+        // search brings back the saved rows.
+        <View testID="native-resource-offline" className="flex-1 items-center justify-center px-4 py-12 gap-4">
+          {offlineState ?? (
+            <NativeText preset="body" className="text-muted-foreground text-center">
+              You're offline. This list loads when you're back online.
+            </NativeText>
+          )}
+        </View>
+      ) : (
         <>
           {emptyState ?? (
             <NativeEmptyState
@@ -420,7 +441,7 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
           )}
         </>
       ),
-    [isLoading, emptyState, hasActiveFilters, handleClearFilters]
+    [isLoading, isOfflineEmpty, offlineState, emptyState, hasActiveFilters, handleClearFilters]
   );
 
   // -------------------------------------------------------------------------
@@ -454,15 +475,39 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
       );
     }
 
+    // FlashList v2 (`modules.list`) when the app passed it: it recycles rows
+    // and sizes them itself (no `estimatedItemSize` in v2). Its content
+    // container takes padding only, so `flexGrow` (which centers the empty
+    // state in a FlatList) is FlatList's alone.
+    if (FlashList) {
+      return (
+        <FlashList
+          testID="native-resource-page-list"
+          data={items}
+          keyExtractor={keyExtractor}
+          renderItem={renderFlatListItem}
+          ListHeaderComponent={ListHeaderComponent}
+          ListEmptyComponent={ListEmptyComponent}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          // offlineFirst: as FlatList below, the spinner follows the fetch, not the paused promise.
+          refreshing={refreshing && !list.isPaused}
+          onRefresh={handleRefresh}
+        />
+      );
+    }
+
     return (
       <FlatList<T>
+        testID="native-resource-page-list"
         data={items}
         keyExtractor={keyExtractor}
         renderItem={renderFlatListItem}
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={ListEmptyComponent}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
-        refreshing={refreshing}
+        // offlineFirst: a refetch offline pauses (its promise waits for the network), so the
+        // spinner follows the fetch, not the promise; it comes back if the fetch resumes.
+        refreshing={refreshing && !list.isPaused}
         onRefresh={handleRefresh}
       />
     );

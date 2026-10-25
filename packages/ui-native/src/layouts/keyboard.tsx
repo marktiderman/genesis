@@ -4,15 +4,24 @@
  * `KeyboardAvoidingView` for real apps; it is an optional peer here, so an app
  * that has it passes it once:
  *
- *   import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
- *   <KeyboardScrollProvider component={KeyboardAwareScrollView}>…</KeyboardScrollProvider>
+ *   import { KeyboardAwareScrollView, KeyboardProvider, KeyboardToolbar } from "react-native-keyboard-controller";
+ *   <KeyboardProvider>
+ *     <KeyboardScrollProvider component={KeyboardAwareScrollView} toolbar={KeyboardToolbar}>…</KeyboardScrollProvider>
+ *   </KeyboardProvider>
  *
- * (The native app shell does this for you.) Without it, form screens fall back
- * to `KeyboardAvoidingView`.
+ * `KeyboardAwareScrollView` does nothing without react-native-keyboard-controller's
+ * `KeyboardProvider` above it, mounted once at the root. (The native app
+ * shell does both, with `keyboardProvider` and `keyboardScroll`.) Without a
+ * scroll view here, form screens fall back to `KeyboardAvoidingView`.
+ *
+ * `toolbar` (optional, `KeyboardToolbar`) adds the previous / next / done bar
+ * above the keyboard on Genesis's multi-field form layouts (`AuthScreen`,
+ * `SettingsSubPage`). It needs `component` too: the bar sits beside the
+ * keyboard-aware scroll view. Without it, nothing changes.
  *
  * @stability Beta
  */
-import { createContext, createElement, useContext, type ComponentType, type ReactNode } from "react";
+import { createContext, createElement, useContext, useMemo, type ComponentType, type ReactNode } from "react";
 import type { ViewStyle } from "react-native";
 
 /** The props Genesis passes to a keyboard-aware scroll view. */
@@ -27,13 +36,47 @@ export interface KeyboardScrollProps {
   bottomOffset?: number;
 }
 
-const KeyboardScrollContext = createContext<ComponentType<KeyboardScrollProps> | null>(null);
+/**
+ * The props Genesis passes to a keyboard toolbar: none. `KeyboardToolbar`
+ * draws its default previous / next / done buttons; to theme it, pass a
+ * wrapper defined at module scope that renders it with your props.
+ */
+export type KeyboardToolbarProps = object;
 
-export function KeyboardScrollProvider({ component, children }: { component: ComponentType<KeyboardScrollProps>; children: ReactNode }) {
-  return createElement(KeyboardScrollContext.Provider, { value: component }, children);
+/**
+ * Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear
+ * above the focused input. Mirrors `KEYBOARD_TOOLBAR_HEIGHT` in the library's
+ * `src/components/KeyboardToolbar/constants.ts` (1.22): move them together.
+ */
+export const KEYBOARD_TOOLBAR_HEIGHT = 42;
+
+interface KeyboardScrollValue {
+  component: ComponentType<KeyboardScrollProps>;
+  toolbar: ComponentType<KeyboardToolbarProps> | null;
+}
+
+const KeyboardScrollContext = createContext<KeyboardScrollValue | null>(null);
+
+export function KeyboardScrollProvider({
+  component,
+  toolbar,
+  children,
+}: {
+  component: ComponentType<KeyboardScrollProps>;
+  /** `KeyboardToolbar` from react-native-keyboard-controller: previous / next / done above the keyboard. */
+  toolbar?: ComponentType<KeyboardToolbarProps>;
+  children: ReactNode;
+}) {
+  const value = useMemo(() => ({ component, toolbar: toolbar ?? null }), [component, toolbar]);
+  return createElement(KeyboardScrollContext.Provider, { value }, children);
 }
 
 /** The app's keyboard-aware scroll view, or null when none was provided. */
 export function useKeyboardScroll(): ComponentType<KeyboardScrollProps> | null {
-  return useContext(KeyboardScrollContext);
+  return useContext(KeyboardScrollContext)?.component ?? null;
+}
+
+/** The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it). */
+export function useKeyboardToolbar(): ComponentType<KeyboardToolbarProps> | null {
+  return useContext(KeyboardScrollContext)?.toolbar ?? null;
 }

@@ -4,12 +4,19 @@
  *
  *   last-resort boundary (React Native primitives only)
  *   └ theme (GenesisThemeProvider, owning the platform color scheme)
- *     └ keyboard-aware scrolling (when `keyboardScroll` is given)
+ *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens)
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
  *         └ session + boot (splash held until both are known)
- *           └ updates (with `updates`: force upgrade, maintenance, banner, what's new)
- *             └ errorBoundary → your screens (or `signedOut`)
+ *           └ blocks' roots (with `blocks`, e.g. updates: force upgrade, maintenance, banner, what's new)
+ *             └ errorBoundary → `bottomSheet`'s provider, if given → your screens (or `signedOut`)
  *
+ * Every error the shell catches goes to each block's `onError` (the
+ * observability block reports it) and then to the app's own `onError`.
+ *
+ * `blocks` (`defineBlock` declarations a native shell can run) are resolved
+ * once: requirements checked, boot steps run behind the splash, roots
+ * mounted, slot fills put under your `slots`, Settings rows handed to
+ * `useBlockSettings`.
  * Global errors, render errors and a failed boot show the `fatal` slot with
  * "Try again". Every part is a slot (`slots` / `slotProps`, `null` drops it)
  * and is also exported on its own.
@@ -21,7 +28,8 @@ import { GenesisThemeProvider } from "@marktiderman/genesis-design-system/theme"
 import type { CanonicalBrand } from "@marktiderman/genesis-design-system";
 import { GenesisProvider, createSupabaseProvider, type DataProvider, type SupabaseClientInput } from "@marktiderman/genesis-core/provider";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { KeyboardScrollProvider, type KeyboardScrollProps } from "@marktiderman/genesis-ui-native/layouts";
+import { KeyboardScrollProvider, type KeyboardScrollProps, type KeyboardToolbarProps } from "@marktiderman/genesis-ui-native/layouts";
+import { GenesisModulesProvider, NativeSheetProvider, type GenesisModules, type NativeSheetLibrary } from "@marktiderman/genesis-ui-native/components";
 import { BootProvider, createBoot, type BootOptions, type BootStatus, type BootStep } from "./boot";
 import {
   FatalScreen,
@@ -40,8 +48,13 @@ import {
 import { SessionProvider, createSessionStore, type AuthClientLike } from "./auth";
 import { useHeldLink, type HeldLinkAuth, type LinkHold } from "./held-link";
 import { connectQueryLifecycle, createNativeQueryClient, type QueryLifecycleOptions, type QueryPersistence } from "./query";
+import { resolveBlocks } from "@marktiderman/genesis-features/blocks";
+import { BlocksProvider, reportToBlocks, type NativeBlock } from "./blocks";
+import type { DevtoolsSlots } from "./devtools/slots";
 // Types only: the block's code is in the `/updates` entry and arrives with the `updates` prop.
 import type { UpdatesBlock, UpdatesSlots } from "./updates/block";
+// Types only, likewise: the push block (`/push`) arrives in `blocks`.
+import type { PushSlots } from "./push/block";
 
 /** `expo-splash-screen`, or a stand-in. Call `preventAutoHideAsync()` at module scope yourself too. */
 export interface SplashModule {
@@ -61,7 +74,9 @@ export interface SignedOutProps {
 // A type, not an interface, so it fits the slots contract's Record constraint.
 // The updates block's slots (`forceUpgrade`, `maintenance`, `updateBanner`,
 // `whatsNew`) render only when the `updates` prop is given.
-export type NativeAppSlots = UpdatesSlots & {
+export type NativeAppSlots = UpdatesSlots &
+  PushSlots &
+  DevtoolsSlots & {
   /** Shown while booting: under the splash at launch, on its own after "Try again". Default `BootScreen`. */
   boot: BootScreenProps;
   /** A failed boot, a fatal global error or a render error. Default `FatalScreen`. */
@@ -95,8 +110,40 @@ export interface GenesisNativeAppProps {
   persist?: (client: QueryClient) => QueryPersistence;
   /** `expo-splash-screen`: hidden once boot has finished and the session is known. */
   splash?: SplashModule;
-  /** `KeyboardAwareScrollView` from react-native-keyboard-controller, for form screens. */
+  /**
+   * `KeyboardProvider` from react-native-keyboard-controller, mounted once
+   * around the app. Its keyboard views (`keyboardScroll` included) do nothing
+   * without it: give both or neither. Read once: it wraps the whole app, so
+   * a different component later would remount everything below it. To pass
+   * it props, define the wrapper at module scope, not inline.
+   */
+  keyboardProvider?: ComponentType<{ children: ReactNode }>;
+  /** `KeyboardAwareScrollView` from react-native-keyboard-controller, for form screens. Needs `keyboardProvider`. */
   keyboardScroll?: ComponentType<KeyboardScrollProps>;
+  /**
+   * `KeyboardToolbar` from react-native-keyboard-controller: previous / next /
+   * done above the keyboard on Genesis's form layouts. Needs `keyboardScroll`
+   * (and so `keyboardProvider`); without them it is ignored.
+   */
+  keyboardToolbar?: ComponentType<KeyboardToolbarProps>;
+  /**
+   * The optional native modules the app installed, for Genesis components to
+   * use (`GenesisModulesProvider` from `@marktiderman/genesis-ui-native`):
+   * FlashList, expo-image, Reanimated, expo-glass-effect, expo-symbols, a
+   * lucide icon set, the @expo/ui date picker. Each one left out falls back
+   * to plain React Native. Read once.
+   */
+  modules?: GenesisModules;
+  /**
+   * `@gorhom/bottom-sheet` v5, to opt every `NativeSheet` into it (snap
+   * points, drag between heights): `import * as BottomSheet from "@gorhom/bottom-sheet"`,
+   * then `bottomSheet={BottomSheet}`. The app mounts `NativeSheetProvider`
+   * (and so the library's `BottomSheetModalProvider`) for you; the app's root
+   * must still be inside gesture-handler's `GestureHandlerRootView`, with
+   * Reanimated set up. Leave it out and sheets are React Native's own modal
+   * (an iOS page sheet), which needs neither. Read once.
+   */
+  bottomSheet?: NativeSheetLibrary;
   /** Follow a link held while signed out, once the user signs in. */
   links?: { hold: LinkHold; onRelease: (path: string) => void };
   /** Run before first render, in order (wipe-on-reinstall, hydrate stores, fonts). Read once. */
@@ -110,7 +157,11 @@ export interface GenesisNativeAppProps {
   rejectionTracker?: EnableRejectionTracker | null;
   /** `AppState` and NetInfo, so queries refetch on focus and know the network. */
   lifecycle?: QueryLifecycleOptions;
-  /** Every caught error, for reporting (Sentry). */
+  /**
+   * Every caught error, after the blocks' own `onError` (the observability
+   * block, `createObservability` from `/observability`, reports to Sentry
+   * there). A throwing reporter is ignored.
+   */
   onError?: OnError;
   /** After a signed-in user signs out, once the query cache is cleared. */
   onSignedOut?: () => void;
@@ -121,6 +172,19 @@ export interface GenesisNativeAppProps {
    * boot. Read once; leave it out to turn the block off.
    */
   updates?: UpdatesBlock;
+  /**
+   * Blocks to run (`createUpdates(…)` is one). Resolved once at start: a
+   * block whose requirement is missing, or two blocks contributing the same
+   * slot, nav entry or Settings row, shows the fatal screen and reports a
+   * `BlockError` to `onError`. Read once.
+   */
+  blocks?: readonly NativeBlock[];
+  /**
+   * Your features (FeatureIds) that blocks may require but that aren't
+   * blocks. A block requiring anything that is neither one of `blocks` nor
+   * listed here is a `BlockError`. Read once.
+   */
+  appFeatures?: readonly string[];
   slots?: Slots<NativeAppSlots>;
   slotProps?: SlotPropsFor<NativeAppSlots>;
   children?: ReactNode;
@@ -145,7 +209,7 @@ const ThemeProvider = GenesisThemeProvider as ComponentType<{
 }>;
 
 /**
- * The root of an Expo app: theme, keyboard scrolling, data, boot behind the splash, errors, session and held links.
+ * The root of an Expo app: theme, keyboard, data, boot behind the splash, errors, session and held links.
  *
  * @stability Beta
  */
@@ -155,11 +219,24 @@ export function GenesisNativeApp(props: GenesisNativeAppProps) {
   const [rootKey, setRootKey] = useState(0);
   const onErrorRef = useRef(props.onError);
   onErrorRef.current = props.onError;
+  // The blocks as given, before they are resolved: an error here may come from resolving them.
+  const blocksRef = useRef(givenBlocks(props));
+  const splashRef = useRef(props.splash);
+  splashRef.current = props.splash;
   return (
     <GenesisErrorBoundary
       key={rootKey}
       fallback={PlainFatalScreen}
-      onError={(e, r) => onErrorRef.current?.(e, r)}
+      onError={(e, r) => {
+        reportToBlocks(blocksRef.current, e, r);
+        try {
+          onErrorRef.current?.(e, r);
+        } catch {
+          // A failing reporter must not stop the fatal screen.
+        }
+        // The shell (which hides the splash) never mounted: hide it here, or the screen stays behind it.
+        splashRef.current?.hideAsync().catch(() => {});
+      }}
       onRetry={() => setRootKey((key) => key + 1)}
     >
       <ThemedShell {...props} />
@@ -167,12 +244,36 @@ export function GenesisNativeApp(props: GenesisNativeAppProps) {
   );
 }
 
+declare const __DEV__: boolean | undefined;
+
+const MISSING_KEYBOARD_PROVIDER =
+  "GenesisNativeApp: `keyboardScroll` was given without `keyboardProvider`, so form screens won't move above the keyboard. " +
+  'Pass `keyboardProvider={KeyboardProvider}` from "react-native-keyboard-controller" too.';
+
+const TOOLBAR_WITHOUT_SCROLL =
+  "GenesisNativeApp: `keyboardToolbar` was given without `keyboardScroll`, so it is ignored. " +
+  'Pass `keyboardScroll={KeyboardAwareScrollView}` and `keyboardProvider={KeyboardProvider}` from "react-native-keyboard-controller" too.';
+
 function ThemedShell(props: GenesisNativeAppProps) {
-  const { brand, keyboardScroll } = props;
-  const body = <Shell {...props} />;
+  const { brand, keyboardScroll, keyboardToolbar } = props;
+  // Frozen: a new component type here (an inline wrapper) would remount the shell and reset the app.
+  const [Keyboard] = useState(() => props.keyboardProvider);
+  // Frozen too: an inline object would hand every component a new module set each render.
+  const [modules] = useState(() => props.modules);
+  const missingProvider = Boolean(keyboardScroll) && !Keyboard;
+  const toolbarWithoutScroll = Boolean(keyboardToolbar) && !keyboardScroll;
+  useEffect(() => {
+    if (typeof __DEV__ === "undefined" || !__DEV__) return;
+    if (missingProvider) console.error(MISSING_KEYBOARD_PROVIDER);
+    if (toolbarWithoutScroll) console.error(TOOLBAR_WITHOUT_SCROLL);
+  }, [missingProvider, toolbarWithoutScroll]);
+  let body = <Shell {...props} />;
+  if (modules) body = <GenesisModulesProvider modules={modules}>{body}</GenesisModulesProvider>;
+  if (keyboardScroll) body = <KeyboardScrollProvider component={keyboardScroll} toolbar={keyboardToolbar}>{body}</KeyboardScrollProvider>;
+  if (Keyboard) body = <Keyboard>{body}</Keyboard>;
   return (
     <ThemeProvider brand={brand} syncNativeAppearance>
-      {keyboardScroll ? <KeyboardScrollProvider component={keyboardScroll}>{body}</KeyboardScrollProvider> : body}
+      {body}
     </ThemeProvider>
   );
 }
@@ -181,15 +282,30 @@ const SESSION_STEP_MARGIN_MS = 15_000;
 
 function Shell(props: GenesisNativeAppProps) {
   const { supabase, provider, queryClient: queryOptions, persist, splash, links, steps = [], bootOptions, sessionWaitMs = 5000 } = props;
-  const { errorUtils, rejectionTracker, lifecycle, slots, slotProps, children } = props;
+  const { errorUtils, rejectionTracker, lifecycle, slotProps, children } = props;
   const latest = useRef(props);
   latest.current = props;
-  const onError: OnError = (error, report) => latest.current.onError?.(error, report);
+  const [blockList] = useState(() => givenBlocks(props));
+  // Read once, like the keyboard provider: a different module later would remount the screens.
+  const [bottomSheet] = useState(() => props.bottomSheet);
+  const onError: OnError = (error, report) => {
+    reportToBlocks(blockList, error, report);
+    try {
+      latest.current.onError?.(error, report);
+    } catch {
+      // A failing reporter must not take the shell down with it.
+    }
+  };
   // How many fatal screens are up (the global handler lets a second fatal error end the app).
   const fatalShown = useRef(0);
 
   // Created once: the shell's parts live as long as the app.
   const [parts] = useState(() => {
+    const list = blockList;
+    const blocks = resolveBlocks(list, props.appFeatures ? [...list.map((b) => b.id), ...props.appFeatures] : undefined, {
+      platform: "native",
+      slots: NATIVE_APP_SLOT_NAMES,
+    });
     const client = queryOptions?.client ?? createNativeQueryClient(queryOptions?.config);
     const persistence = persist ? persist(client) : null;
     const session = createSessionStore(supabase, {
@@ -204,8 +320,8 @@ function Shell(props: GenesisNativeAppProps) {
     const boot = createBoot(
       [
         ...steps,
-        // Settles within its own timeout and never throws: a policy that can't load never blocks the app.
-        ...(props.updates ? [props.updates.bootStep] : []),
+        // Blocks' steps, in dependency order (the updates block's settles within its own timeout and never throws).
+        ...blocks.blocks.flatMap((block) => block.bootSteps ?? []),
         { id: "genesis:session", run: () => session.load(), timeoutMs: sessionWaitMs + SESSION_STEP_MARGIN_MS },
         // After the session, so only the cache saved for this user is restored.
         ...(persistence ? [{ id: "genesis:query-cache", run: () => persistence.restore(session.getState().userId ?? "") }] : []),
@@ -220,7 +336,8 @@ function Shell(props: GenesisNativeAppProps) {
           fatalShown.current--;
         };
       }, []);
-      const { slots: s, slotProps: sp } = latest.current;
+      const { slotProps: sp } = latest.current;
+      const s = withBlockSlots(blocks.slots, latest.current.slots);
       return (
         // A `fatal` slot that throws falls back to the plain screen.
         <GenesisErrorBoundary fallback={PlainFatalScreen} onError={onError} onRetry={fallbackProps.retry}>
@@ -228,9 +345,10 @@ function Shell(props: GenesisNativeAppProps) {
         </GenesisErrorBoundary>
       );
     }
-    return { client, persistence, session, boot, FatalFallback, updates: props.updates, provider: provider ?? createSupabaseProvider(supabase) };
+    return { client, persistence, session, boot, FatalFallback, blocks, provider: provider ?? createSupabaseProvider(supabase) };
   });
   const { boot, session, persistence, client, FatalFallback } = parts;
+  const slots = withBlockSlots(parts.blocks.slots, props.slots);
   const bootState = useSyncExternalStore(boot.subscribe, boot.getState, boot.getState);
   const sessionState = useSyncExternalStore(session.subscribe, session.getState, session.getState);
   const [fatal, setFatal] = useState<Error | null>(null);
@@ -291,27 +409,60 @@ function Shell(props: GenesisNativeAppProps) {
       { fallback: FatalFallback, onError, resetKey, onRetry: retry, children: screens },
       slotProps?.errorBoundary,
     );
-    const Updates = parts.updates?.Root;
-    content = Updates ? (
-      <Updates slots={slots} slotProps={slotProps}>
-        {guarded}
-      </Updates>
-    ) : (
-      guarded
-    );
+    // The first block's root is the outermost.
+    content = parts.blocks.blocks.reduceRight<ReactNode>((inner, block) => {
+      const Root = block.Root;
+      return Root ? (
+        <Root key={block.id} slots={slots} slotProps={slotProps}>
+          {inner}
+        </Root>
+      ) : (
+        inner
+      );
+    }, guarded);
   }
 
   return (
     <GenesisProvider provider={parts.provider} queryClient={client}>
       <SessionProvider store={session}>
         <BootProvider boot={boot}>
-          <GenesisErrorBoundary key={resetKey} fallback={FatalFallback} onError={onError} onRetry={retry}>
-            {content}
-          </GenesisErrorBoundary>
+          <BlocksProvider value={parts.blocks}>
+            <GenesisErrorBoundary key={resetKey} fallback={FatalFallback} onError={onError} onRetry={retry}>
+              {/* Sheet content renders in the library's portal, here: below data, session, boot and blocks. */}
+              {bottomSheet ? <NativeSheetProvider bottomSheet={bottomSheet}>{content}</NativeSheetProvider> : content}
+            </GenesisErrorBoundary>
+          </BlocksProvider>
         </BootProvider>
       </SessionProvider>
     </GenesisProvider>
   );
+}
+
+// Every slot name, checked against NativeAppSlots by the compiler: a block filling any other is a BlockError.
+const SLOT_NAMES: Record<keyof NativeAppSlots, true> = {
+  boot: true,
+  fatal: true,
+  errorBoundary: true,
+  signedOut: true,
+  forceUpgrade: true,
+  maintenance: true,
+  updateBanner: true,
+  whatsNew: true,
+  devtoolsFeedback: true,
+  pushPrompt: true,
+};
+const NATIVE_APP_SLOT_NAMES: readonly string[] = Object.keys(SLOT_NAMES);
+
+/** Blocks' slot fills under the app's own slots: the app's (a component or `null`) always win. */
+function withBlockSlots(fills: Readonly<Record<string, unknown>>, own: Slots<NativeAppSlots> | undefined): Slots<NativeAppSlots> | undefined {
+  if (Object.keys(fills).length === 0) return own;
+  return { ...(fills as Slots<NativeAppSlots>), ...own };
+}
+
+/** `blocks`, with `updates` added when it was given on its own (given both ways, it runs once). */
+function givenBlocks(props: Pick<GenesisNativeAppProps, "blocks" | "updates">): readonly NativeBlock[] {
+  const given = props.blocks ?? [];
+  return props.updates && !given.includes(props.updates) ? [...given, props.updates] : given;
 }
 
 const NO_HOLD: LinkHold = {

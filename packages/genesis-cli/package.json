@@ -3,7 +3,7 @@
   "version": "1.6.0",
   "private": false,
   "type": "module",
-  "description": "Genesis CLI — `genesis init` scaffolds a Genesis app; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on in an existing app; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts; `withGenesis()` (`app.plugin.js`, `/expo`) is the Expo config plugin.",
+  "description": "Genesis CLI — `genesis init` scaffolds a Genesis app (`--template native`: a new Expo app from the RN starter); `genesis add <block>` adds a block from what its package declares; `genesis migrate` copies new package migrations in and never rewrites an applied one; `genesis upgrade` moves every Genesis package to one release and refreshes the files Genesis owns; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts; `withGenesis()` (`app.plugin.js`, `/expo`) is the Expo config plugin.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -69,7 +69,7 @@
     "@marktiderman/genesis-core": "workspace:^",
     "@types/node": "^22.9.0",
     "tsup": "^8.3.0",
-    "typescript": "^5.9.3",
+    "typescript": "~6.0.3",
     "vite": "^8.0.3",
     "vitest": "^4.1.12"
   },

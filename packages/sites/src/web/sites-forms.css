@@ -1,0 +1,15 @@
+/*
+ * The form stylesheet: what a genesis-forms <Form> needs on a site page,
+ * linked only on pages with a form embed. Theme variables come from the
+ * page's sites stylesheet and its brand <style>.
+ */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
+
+@source "../../../forms-web/src";
+@source "../../../ui/src/components/ui";
+@source "../../../ui/src/components/patterns";
+@source "../sections/form-header.tsx";

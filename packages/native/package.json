@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "The native app shell for Genesis Expo apps: one GenesisNativeApp root that runs boot steps behind the splash, catches errors into a fatal screen with retry, persists the query cache, gates on the Supabase session and normalizes deep links. An optional updates block (/updates) adds force upgrade, maintenance, an update banner and what's new. Every part is a slot and is also exported on its own. Part of the Genesis framework.",
+  "description": "The native app shell for Genesis Expo apps: one GenesisNativeApp root that runs boot steps behind the splash, catches errors into a fatal screen with retry, persists the query cache, gates on the Supabase session and normalizes deep links. An optional updates block (/updates) adds force upgrade, maintenance, an update banner and what's new; an optional push block (/push) adds push registration, tap routing, the badge and a notification settings screen with quiet hours and private previews; the observability block (/observability) reports errors, breadcrumbs, typed analytics events and timings through vendor-neutral sinks (Sentry, EAS Observe, console) with PII scrubbed on the device; the devtools overlay (/devtools) is a debug sheet for development and preview builds. Blocks (defineBlock declarations, through `blocks`) add boot steps, roots, slot fills and Settings rows. Every part is a slot and is also exported on its own. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -18,23 +18,45 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "source": "./src/index.ts",
+  "react-native": "./src/index.ts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "types": "./dist/index.d.ts",
+      "react-native": "./src/index.ts",
       "import": "./dist/index.js"
     },
     "./persist": {
       "types": "./dist/persist.d.ts",
+      "react-native": "./src/persist.ts",
       "import": "./dist/persist.js"
     },
     "./updates": {
       "types": "./dist/updates.d.ts",
+      "react-native": "./src/updates/index.ts",
       "import": "./dist/updates.js"
+    },
+    "./push": {
+      "types": "./dist/push.d.ts",
+      "react-native": "./src/push/index.ts",
+      "import": "./dist/push.js"
+    },
+    "./observability": {
+      "types": "./dist/observability.d.ts",
+      "react-native": "./src/observability/index.ts",
+      "import": "./dist/observability.js"
+    },
+    "./devtools": {
+      "types": "./dist/devtools.d.ts",
+      "react-native": "./src/devtools/index.ts",
+      "import": "./dist/devtools.js"
     }
   },
   "files": [
     "dist",
+    "src",
+    "!src/**/__tests__",
     "README.md"
   ],
   "scripts": {
@@ -46,6 +68,7 @@
   "dependencies": {
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-features": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^"
   },
   "peerDependencies": {
@@ -57,6 +80,9 @@
     "react-native-safe-area-context": ">=4.0.0"
   },
   "peerDependenciesMeta": {
+    "@sentry/react-native": {
+      "optional": true
+    },
     "@tanstack/query-async-storage-persister": {
       "optional": true
     },
@@ -66,7 +92,16 @@
     "expo-application": {
       "optional": true
     },
+    "expo-observe": {
+      "optional": true
+    },
+    "expo-sensors": {
+      "optional": true
+    },
     "expo-updates": {
+      "optional": true
+    },
+    "expo-notifications": {
       "optional": true
     }
   },
@@ -81,7 +116,184 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
-    "typescript": "^5.9.3",
+    "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "blocks": {
+      "push": {
+        "feature": {
+          "name": "Push and notification preferences",
+          "summary": "Registers this device's push token for whoever signs in, routes taps, and edits per-category preferences, quiet hours and previews.",
+          "keywords": [
+            "notifications",
+            "push token",
+            "quiet hours"
+          ],
+          "audience": [
+            "person"
+          ]
+        },
+        "platforms": [
+          "native"
+        ],
+        "packages": [
+          "@marktiderman/genesis-native",
+          "@marktiderman/genesis-supabase"
+        ],
+        "migrations": [
+          {
+            "package": "@marktiderman/genesis-supabase",
+            "file": "migrations/0005_genesis_push.sql",
+            "test": "migrations/tests/0005_genesis_push.test.sql"
+          }
+        ],
+        "functions": [
+          {
+            "package": "@marktiderman/genesis-supabase",
+            "dir": "functions/genesis-push-send",
+            "verifyJwt": false,
+            "secrets": [
+              "GENESIS_PUSH_SECRET",
+              "EXPO_ACCESS_TOKEN"
+            ]
+          }
+        ],
+        "routes": [
+          {
+            "path": "/settings/notifications",
+            "description": "Notification settings: categories, quiet hours, previews",
+            "signedIn": true
+          }
+        ],
+        "steps": [
+          "npx expo install expo-notifications, and add \"expo-notifications\" to the plugins in app.config.",
+          "Create the block with createPush (@marktiderman/genesis-native/push) and pass it to <GenesisNativeApp blocks>; render NotificationSettings on the /settings/notifications screen (genesis-native README, Push).",
+          "A push token needs an EAS project id (eas init)."
+        ],
+        "privacy": {
+          "collects": [
+            {
+              "type": "device ID",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            }
+          ]
+        }
+      },
+      "app-updates": {
+        "feature": {
+          "name": "App updates",
+          "summary": "Force upgrade, a maintenance screen, an update banner and a what's new sheet, from the app_release_policy row.",
+          "keywords": [
+            "force upgrade",
+            "maintenance",
+            "ota"
+          ],
+          "audience": [
+            "person"
+          ]
+        },
+        "platforms": [
+          "native"
+        ],
+        "packages": [
+          "@marktiderman/genesis-native",
+          "@marktiderman/genesis-supabase"
+        ],
+        "migrations": [
+          {
+            "package": "@marktiderman/genesis-supabase",
+            "file": "migrations/0002_genesis_app_release_policy.sql",
+            "test": "migrations/tests/0002_genesis_app_release_policy.test.sql"
+          }
+        ],
+        "steps": [
+          "npx expo install expo-updates expo-application.",
+          "Create the block with createUpdates (@marktiderman/genesis-native/updates) and pass it to <GenesisNativeApp updates> (genesis-native README, Updates)."
+        ]
+      },
+      "observability": {
+        "feature": {
+          "name": "Observability",
+          "summary": "Crash reports, breadcrumbs, timings and typed analytics events, scrubbed on the device, through vendor-neutral sinks (Sentry included).",
+          "keywords": [
+            "crash reporting",
+            "sentry",
+            "analytics",
+            "breadcrumbs"
+          ],
+          "audience": [
+            "developer"
+          ]
+        },
+        "platforms": [
+          "native"
+        ],
+        "steps": [
+          "npx expo install @sentry/react-native if you report to Sentry, and set the DSN in your environment (genesis-native README, Observability).",
+          "Create the block with createObservability (@marktiderman/genesis-native/observability) at module scope, pass it to <GenesisNativeApp blocks>, and export observability.wrap(RootLayout)."
+        ],
+        "privacy": {
+          "collects": [
+            {
+              "type": "crash data",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "performance data",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "other diagnostic data",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "user id",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            }
+          ]
+        }
+      },
+      "devtools-overlay": {
+        "feature": {
+          "name": "Devtools overlay",
+          "summary": "An on-device overlay for development, preview and internal builds: what the app knows about itself, recent activity, a crash test.",
+          "keywords": [
+            "debug menu",
+            "devtools",
+            "shake to debug"
+          ],
+          "audience": [
+            "developer"
+          ]
+        },
+        "platforms": [
+          "native"
+        ],
+        "steps": [
+          "Create the block with createDevtools (@marktiderman/genesis-native/devtools), enabled only outside production builds, and pass it to <GenesisNativeApp blocks> (genesis-native README)."
+        ]
+      }
+    }
   }
 }

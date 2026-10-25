@@ -36,7 +36,18 @@ export { createForm, replay, type CreateFormOptions, type FormEngine, type FormS
 export { computePath, evaluate, ruleVisible, steps, type PathResult } from "./logic";
 export { formProgress, furthestReached, type FormProgress } from "./progress";
 export {
+  choiceKind,
   choiceOptions,
+  contentText,
+  getContentType,
+  isBuiltInFieldType,
+  isChoiceField,
+  listContentTypes,
+  registerContentType,
+  VALIDATOR_FAILED_MESSAGE,
+  type ContentTypeManifest,
+  type LiteralType,
+  type RegisterOptions,
   isHttpsUrl,
   OPTION_LIMITS,
   optionJson,
@@ -164,6 +175,8 @@ export {
   type PrefillState,
   type RestoredAnswers,
 } from "./options";
+export { mergeResponses, type MergeOptions } from "./merge";
+export { type PropsCheck, type PropsChecker } from "./props-check";
 export { recall } from "./recall";
 export { validateField, REQUIRED_MESSAGE, type FieldValidator, type StandardSchemaV1 } from "./validate";
 export { canonicalJson, fingerprint } from "./hash";
@@ -178,3 +191,38 @@ export {
   type RuleTrace,
 } from "./explain";
 export { carryAnswers } from "./carry";
+export {
+  IDEMPOTENCY_KEY_PATTERN,
+  isIdempotencyKey,
+  isSubmitResult,
+  submitOutcome,
+  type SubmitFailureReason,
+  type SubmitOutcome,
+  type SubmitRequest,
+  type SubmitResult,
+} from "./submit-protocol";
+export { memoryStorage, webStorage, type KeyValueStorage, type MaybePromise } from "./storage";
+export {
+  createDraftAutosave,
+  createDraftStore,
+  DRAFT_KEY_PREFIX,
+  DRAFT_MAX_AGE_MS,
+  draftOf,
+  restoreDraft,
+  type DraftAutosave,
+  type DraftAutosaveOptions,
+  type DraftKey,
+  type DraftOptions,
+  type DraftRestore,
+  type DraftStore,
+  type FormDraft,
+} from "./drafts";
+export {
+  createSubmitOutbox,
+  type EnqueueInput,
+  type OutboxEntry,
+  type OutboxItem,
+  type OutboxSnapshot,
+  type SubmitOutbox,
+  type SubmitOutboxOptions,
+} from "./outbox";

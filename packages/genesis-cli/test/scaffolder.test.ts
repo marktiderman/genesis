@@ -272,11 +272,13 @@ describe("runScaffold logger", () => {
 describe("planScaffold native", () => {
   const tailwind = (native: boolean) => planScaffold({ consumerName: "acme", native }).find((f) => f.path === "tailwind.config.ts")!.content;
 
-  it("adds NativeWind's preset and the genesis-ui-native glob for an Expo app", () => {
+  it("adds NativeWind's preset and the Genesis native packages' content for an Expo app", () => {
     const config = tailwind(true);
     expect(config).toContain('import nativewindPreset from "nativewind/preset";');
+    expect(config).toContain('import { genesisNativewindContent, genesisNativewindPreset as genesisPreset } from "@marktiderman/genesis-design-system/presets/nativewind";');
+    expect(config).not.toContain("presets/tailwind");
     expect(config).toContain("presets: [nativewindPreset, genesisPreset]");
-    expect(config).toContain("@marktiderman/genesis-ui-native");
+    expect(config).toContain('...genesisNativewindContent({ root: fileURLToPath(new URL(".", import.meta.url)) }),');
   });
 
   it("leaves both out for a web app", () => {

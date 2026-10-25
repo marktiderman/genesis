@@ -45,6 +45,7 @@ declare module "react-native" {
     accessibilityElementsHidden?: boolean;
     accessibilityViewIsModal?: boolean;
     importantForAccessibility?: "auto" | "yes" | "no" | "no-hide-descendants";
+    onAccessibilityEscape?: () => void;
     pointerEvents?: "none" | "auto" | "box-none" | "box-only";
     onLayout?: (e: any) => void;
     collapsable?: boolean;
@@ -64,6 +65,19 @@ declare module "react-native" {
     accessibilityState?: AccessibilityState;
     accessibilityElementsHidden?: boolean;
     importantForAccessibility?: "auto" | "yes" | "no" | "no-hide-descendants";
+    /** iOS: the Dynamic Type text style this text scales with. */
+    dynamicTypeRamp?:
+      | "caption2"
+      | "caption1"
+      | "footnote"
+      | "subheadline"
+      | "callout"
+      | "body"
+      | "headline"
+      | "title3"
+      | "title2"
+      | "title1"
+      | "largeTitle";
     onPress?: () => void;
     testID?: string;
     nativeID?: string;
@@ -108,6 +122,8 @@ declare module "react-native" {
 
   export interface AccessibilityInfoModule {
     isReduceMotionEnabled(): Promise<boolean>;
+    /** iOS: the Reduce Transparency setting. */
+    isReduceTransparencyEnabled?(): Promise<boolean>;
     addEventListener(
       eventName: string,
       handler: (...args: any[]) => void
@@ -148,7 +164,12 @@ declare module "react-native" {
     accessibilityHint?: string;
     accessibilityState?: AccessibilityState;
     accessibilityValue?: AccessibilityValue;
+    importantForAccessibility?: "auto" | "yes" | "no" | "no-hide-descendants";
     accessibilityLiveRegion?: "none" | "polite" | "assertive";
+    accessibilityActions?: ReadonlyArray<{ name: string; label?: string }>;
+    onAccessibilityAction?: (event: { nativeEvent: { actionName: string } }) => void;
+    onPressIn?: () => void;
+    onPressOut?: () => void;
     testID?: string;
     ref?: React.Ref<any>;
     hitSlop?: number | { top?: number; bottom?: number; left?: number; right?: number };
@@ -180,7 +201,18 @@ declare module "react-native" {
     visible?: boolean;
     transparent?: boolean;
     animationType?: "none" | "slide" | "fade";
+    /** iOS. */
+    presentationStyle?: "fullScreen" | "pageSheet" | "formSheet" | "overFullScreen";
+    /** iOS: a swipe down dismisses (then `onRequestClose`); otherwise it only asks. */
+    allowSwipeDismissal?: boolean;
+    /** The container's color when not `transparent`. */
+    backdropColor?: string | OpaqueColorValue;
+    /** Android. */
+    statusBarTranslucent?: boolean;
+    /** Android. */
+    navigationBarTranslucent?: boolean;
     onRequestClose?: () => void;
+    onDismiss?: () => void;
     children?: React.ReactNode;
     testID?: string;
   }
@@ -189,6 +221,7 @@ declare module "react-native" {
     size?: "small" | "large" | number;
     color?: string;
     animating?: boolean;
+    accessibilityLabel?: string;
     testID?: string;
   }
 
@@ -207,6 +240,7 @@ declare module "react-native" {
     bounces?: boolean;
     scrollEnabled?: boolean;
     refreshControl?: React.ReactElement | undefined;
+    onContentSizeChange?: (width: number, height: number) => void;
   }
 
   export interface SectionListProps<
@@ -281,6 +315,8 @@ declare module "react-native" {
     onEndReachedThreshold?: number;
     refreshing?: boolean;
     onRefresh?: () => void;
+    refreshControl?: React.ReactElement | undefined;
+    contentInsetAdjustmentBehavior?: "automatic" | "scrollableAxes" | "never" | "always";
     testID?: string;
   }
 
@@ -325,6 +361,13 @@ declare module "react-native" {
     T,
     SectionT extends { data: ReadonlyArray<T> } = { data: ReadonlyArray<T> },
   > extends React.Component<SectionListProps<T, SectionT>> {}
+
+  export const StyleSheet: {
+    /** The thinnest line the screen can draw (one physical pixel). */
+    hairlineWidth: number;
+    create: <T>(styles: T) => T;
+    flatten: (style: unknown) => Record<string, any>;
+  };
 
   export const Platform: {
     OS: "ios" | "android" | "web";
@@ -417,4 +460,23 @@ declare module "lucide-react-native" {
   export const Heart: ComponentType<IconProps>;
   export const Star: ComponentType<IconProps>;
   export const Home: ComponentType<IconProps>;
+  // The icons `src/icons/lucide.ts` maps (lucide-react-native >= 0.475 names).
+  export const ArrowLeft: ComponentType<IconProps>;
+  export const Bell: ComponentType<IconProps>;
+  export const Calendar: ComponentType<IconProps>;
+  export const CircleCheck: ComponentType<IconProps>;
+  export const CircleX: ComponentType<IconProps>;
+  export const Clock: ComponentType<IconProps>;
+  export const Ellipsis: ComponentType<IconProps>;
+  export const ExternalLink: ComponentType<IconProps>;
+  export const Funnel: ComponentType<IconProps>;
+  export const House: ComponentType<IconProps>;
+  export const Lock: ComponentType<IconProps>;
+  export const LogOut: ComponentType<IconProps>;
+  export const Mail: ComponentType<IconProps>;
+  export const Pencil: ComponentType<IconProps>;
+  export const RefreshCw: ComponentType<IconProps>;
+  export const Share: ComponentType<IconProps>;
+  export const Trash2: ComponentType<IconProps>;
+  export const TriangleAlert: ComponentType<IconProps>;
 }

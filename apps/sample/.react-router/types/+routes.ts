@@ -75,6 +75,9 @@ type Pages = {
   "/features": {
     params: {};
   };
+  "/sites": {
+    params: {};
+  };
   "/showcase": {
     params: {};
   };
@@ -110,7 +113,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/forms-frame" | "/preview/:scenario" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects" | "/projects/:projectId/:tab?" | "/studio" | "/features" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/" | "/forms-frame" | "/preview/:scenario" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects" | "/projects/:projectId/:tab?" | "/studio" | "/features" | "/sites" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/_index.tsx": {
     id: "routes/_index";
@@ -126,7 +129,7 @@ type RouteFiles = {
   };
   "routes/_layout.tsx": {
     id: "routes/_layout";
-    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects" | "/projects/:projectId/:tab?" | "/studio" | "/features" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects" | "/projects/:projectId/:tab?" | "/studio" | "/features" | "/sites" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -196,6 +199,10 @@ type RouteFiles = {
     id: "routes/features";
     page: "/features";
   };
+  "routes/sites.tsx": {
+    id: "routes/sites";
+    page: "/sites";
+  };
   "routes/showcase._index.tsx": {
     id: "routes/showcase._index";
     page: "/showcase";
@@ -253,6 +260,7 @@ type RouteModules = {
   "routes/projects.$projectId": typeof import("./app/routes/projects.$projectId.tsx");
   "routes/studio": typeof import("./app/routes/studio.tsx");
   "routes/features": typeof import("./app/routes/features.tsx");
+  "routes/sites": typeof import("./app/routes/sites.tsx");
   "routes/showcase._index": typeof import("./app/routes/showcase._index.tsx");
   "routes/showcase.tokens._index": typeof import("./app/routes/showcase.tokens._index.tsx");
   "routes/showcase.tokens.$category": typeof import("./app/routes/showcase.tokens.$category.tsx");

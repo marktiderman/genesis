@@ -1,10 +1,12 @@
 // @feat:native-app-shell
+import { useEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { genesisBrand } from "@marktiderman/genesis-design-system";
 import { createMockProvider } from "@marktiderman/genesis-core/provider";
-import { useKeyboardScroll } from "@marktiderman/genesis-ui-native/layouts";
+import { useKeyboardScroll, useKeyboardToolbar } from "@marktiderman/genesis-ui-native/layouts";
+import { useGenesisModules } from "@marktiderman/genesis-ui-native/components";
 import { GenesisNativeApp, type GenesisNativeAppProps } from "../app";
 import { useBoot } from "../boot";
 import { useSession } from "../auth";
@@ -314,5 +316,127 @@ describe("GenesisNativeApp", () => {
     setup({ keyboardScroll: Scroll, children: <Probe /> });
     await act(flush);
     expect(screen.getByTestId("probe").textContent).toBe("ready:true");
+  });
+
+  it("provides the keyboard toolbar with the scroll view", async () => {
+    const Scroll = () => null;
+    const Toolbar = () => null;
+    function Probe() {
+      return <span data-testid="probe">{String(useKeyboardToolbar() === Toolbar)}</span>;
+    }
+    setup({ keyboardProvider: ({ children }) => <>{children}</>, keyboardScroll: Scroll, keyboardToolbar: Toolbar, children: <Probe /> });
+    await act(flush);
+    expect(screen.getByTestId("probe").textContent).toBe("true");
+  });
+
+  it("says in development that a keyboard toolbar without a scroll view is ignored", async () => {
+    (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      function Probe() {
+        return <span data-testid="probe">{String(useKeyboardToolbar())}</span>;
+      }
+      setup({ keyboardToolbar: () => null, children: <Probe /> });
+      await act(flush);
+      expect(screen.getByTestId("probe").textContent).toBe("null");
+      expect(error.mock.calls.some(([m]) => String(m).includes("`keyboardToolbar` was given without `keyboardScroll`"))).toBe(true);
+    } finally {
+      error.mockRestore();
+      delete (globalThis as { __DEV__?: boolean }).__DEV__;
+    }
+  });
+
+  it("hands the optional native modules to Genesis components, frozen at first render", async () => {
+    const list = () => null;
+    function Probe() {
+      return <span data-testid="probe">{String(useGenesisModules().list === list)}</span>;
+    }
+    setup({ modules: { list }, children: <Probe /> });
+    await act(flush);
+    expect(screen.getByTestId("probe").textContent).toBe("true");
+  });
+
+  it("mounts the keyboard provider once, around the screens and the fatal screen", async () => {
+    const mounts = vi.fn();
+    function Keyboard({ children }: { children: ReactNode }) {
+      useEffect(() => mounts(), []);
+      return <div data-testid="keyboard">{children}</div>;
+    }
+    const { fireGlobal } = setup({ keyboardProvider: Keyboard, keyboardScroll: () => null });
+    await act(flush);
+    expect(screen.getByTestId("keyboard").contains(screen.getByTestId("screens"))).toBe(true);
+    // A fatal error swaps the screens for the fatal screen inside the provider; it stays mounted.
+    act(() => fireGlobal(new Error("boom"), true));
+    expect(screen.getByTestId("keyboard").contains(screen.getByTestId("genesis-fatal"))).toBe(true);
+    expect(mounts).toHaveBeenCalledOnce();
+  });
+
+  it("mounts the bottom-sheet provider only when the app passes the library in", async () => {
+    const mounted = vi.fn();
+    const bottomSheet = {
+      // The real one hosts the portal sheets render into: what it can read, sheet content can.
+      BottomSheetModalProvider: ({ children }: { children: ReactNode }) => {
+        useQueryClient();
+        mounted();
+        return <div data-testid="sheet-provider">{children}</div>;
+      },
+      BottomSheetModal: () => null,
+      BottomSheetView: () => null,
+      BottomSheetBackdrop: () => null,
+    };
+    const first = setup({});
+    await act(flush);
+    expect(screen.queryByTestId("sheet-provider")).toBeNull();
+    first.unmount();
+    setup({ bottomSheet });
+    await act(flush);
+    expect(screen.getByTestId("sheet-provider").contains(screen.getByTestId("screens"))).toBe(true);
+    expect(mounted).toHaveBeenCalled();
+  });
+
+  it("keeps the first keyboard provider, so an inline one can't remount the app", async () => {
+    const shellMounts = vi.fn();
+    function Probe() {
+      useEffect(() => shellMounts(), []);
+      return <span data-testid="screens">screens</span>;
+    }
+    const element = (n: number) => (
+      <GenesisNativeApp brand={genesisBrand} supabase={fakeSupabase({ user: { id: "u1" } }).client} provider={provider} rejectionTracker={null}
+        keyboardProvider={({ children }) => <div data-testid={`keyboard-${n}`}>{children}</div>}>
+        <Probe />
+      </GenesisNativeApp>
+    );
+    const { rerender } = render(element(1));
+    await act(flush);
+    rerender(element(2));
+    await act(flush);
+    expect(screen.getByTestId("keyboard-1")).toBeTruthy();
+    expect(shellMounts).toHaveBeenCalledOnce();
+  });
+
+  it("is quiet when keyboardScroll comes with its provider", async () => {
+    vi.stubGlobal("__DEV__", true);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      setup({ keyboardProvider: ({ children }) => <>{children}</>, keyboardScroll: () => null });
+      await act(flush);
+      expect(error).not.toHaveBeenCalledWith(expect.stringContaining("keyboardProvider"));
+    } finally {
+      error.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("says so in development when keyboardScroll has no keyboardProvider", async () => {
+    vi.stubGlobal("__DEV__", true);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      setup({ keyboardScroll: () => null });
+      await act(flush);
+      expect(error).toHaveBeenCalledWith(expect.stringContaining("keyboardProvider"));
+    } finally {
+      error.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 });

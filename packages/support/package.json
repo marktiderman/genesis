@@ -1,0 +1,255 @@
+{
+  "name": "@marktiderman/genesis-support",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Support and feedback for Genesis apps, in the app's own Supabase: a feedback record (bug, idea, question, praise) with the app's context and screenshots, collector and sink seams with a Supabase sink, a web feedback panel and launcher, a native feedback screen with screenshot capture, annotation and shake to report, the person's reports with staff replies, and an idea board with votes and \"you asked, we shipped\". Declared as a defineBlock block. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/support"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "import": "./dist/web.js"
+    },
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "import": "./dist/native.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@marktiderman/genesis-features": "workspace:^"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-native": "workspace:>=0.1.0 <1.0.0",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
+    "@supabase/supabase-js": "^2.118.0",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-native": ">=0.76.0",
+    "react-native-safe-area-context": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@marktiderman/genesis-native": {
+      "optional": true
+    },
+    "@marktiderman/genesis-ui": {
+      "optional": true
+    },
+    "@marktiderman/genesis-ui-native": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-safe-area-context": {
+      "optional": true
+    },
+    "react-native-view-shot": {
+      "optional": true
+    },
+    "expo-sensors": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-native": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
+    "@supabase/supabase-js": "^2.118.0",
+    "@tanstack/react-query": "^5.75.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.9.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "blocks": {
+      "support-feedback": {
+        "feature": {
+          "name": "Support and feedback",
+          "summary": "Send feedback with a marked-up screenshot (shake to report on native), read staff replies, and vote on an idea board, in the app's own Supabase.",
+          "keywords": [
+            "feedback",
+            "bug report",
+            "screenshot",
+            "shake to report",
+            "idea board",
+            "votes",
+            "help"
+          ],
+          "audience": [
+            "person"
+          ]
+        },
+        "requires": [
+          "account"
+        ],
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "packages": [
+          "@marktiderman/genesis-support",
+          "@marktiderman/genesis-supabase"
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "migrations": [
+          {
+            "package": "@marktiderman/genesis-supabase",
+            "file": "migrations/0006_genesis_support.sql",
+            "test": "migrations/tests/0006_genesis_support.test.sql"
+          }
+        ],
+        "functions": [
+          {
+            "package": "@marktiderman/genesis-supabase",
+            "dir": "functions/genesis-support-cleanup",
+            "verifyJwt": false,
+            "secrets": [
+              "GENESIS_SUPPORT_CLEANUP_SECRET"
+            ]
+          },
+          {
+            "package": "@marktiderman/genesis-supabase",
+            "dir": "functions/genesis-support-notify",
+            "verifyJwt": false,
+            "secrets": [
+              "GENESIS_SUPPORT_WEBHOOK_SECRET",
+              "GITHUB_TOKEN",
+              "GITHUB_REPO",
+              "SUPPORT_WEBHOOK_URL",
+              "SUPPORT_WEBHOOK_SIGNING_SECRET"
+            ]
+          }
+        ],
+        "routes": [
+          {
+            "path": "/settings/support",
+            "description": "Help: the person's reports and staff replies",
+            "signedIn": true
+          },
+          {
+            "path": "/settings/support/new",
+            "description": "Send feedback, with a screenshot",
+            "signedIn": true
+          },
+          {
+            "path": "/settings/support/[id]",
+            "description": "One report's conversation",
+            "signedIn": true
+          },
+          {
+            "path": "/settings/support/ideas",
+            "description": "The idea board, with votes",
+            "signedIn": true
+          },
+          {
+            "path": "/settings/support/shipped",
+            "description": "Ideas the person asked for that shipped",
+            "signedIn": true
+          }
+        ],
+        "steps": [
+          "npx expo install react-native-view-shot expo-sensors (screenshots and shake to report; both optional).",
+          "Create the block with createSupport (@marktiderman/genesis-support/native), pass it to <GenesisNativeApp blocks> with appFeatures [\"account\"], and add the five route files (genesis-support README, Native).",
+          "Make someone staff: create private.genesis_support_staff(person uuid) returns boolean in a migration of your own, and revoke execute on it from public, anon, authenticated. Without it nobody is staff.",
+          "Optional: deploy genesis-support-cleanup on a schedule to remove deleted screenshots, and genesis-support-notify behind a Database Webhook for a GitHub issue or webhook per report."
+        ],
+        "privacy": {
+          "collects": [
+            {
+              "type": "user ID",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "customer support",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "other user content",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "photos or videos",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "other diagnostic data",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            }
+          ],
+          "notes": [
+            "Feedback is sent only when the person taps Send, and a screenshot only when they include it, after they can hide parts of it.",
+            "Reports, screenshots and replies are visible to the person and the app's support staff only, and go when the person deletes them or their account.",
+            "Feedback includes the app version, the screen's path (never its query string; private-looking segments are replaced), the platform and basic device facts."
+          ]
+        }
+      }
+    }
+  }
+}

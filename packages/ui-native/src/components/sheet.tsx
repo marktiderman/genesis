@@ -5,188 +5,331 @@
  * from preserving screen context. For blocking confirmations, use
  * <NativeDialog>. For full-screen flows, use a navigation route.
  *
- * Implementation prefers @gorhom/bottom-sheet (gesture-driven, snap
- * points, native feel). Consumers must install @gorhom/bottom-sheet,
- * react-native-gesture-handler, and react-native-reanimated as peer
- * deps; wrap the app root in <GestureHandlerRootView> +
- * <BottomSheetModalProvider>. If the peer is not installed, this
- * primitive falls back to a simple RN Modal with a slide animation —
- * acceptable for samples but not production.
+ * By default this is React Native's own `Modal`, which needs nothing mounted
+ * above it: the system page sheet on iOS (swipe down to close) and a bottom
+ * panel over a scrim on Android (back button or a tap on the scrim closes
+ * it). Content gets its own safe area (`useSafeAreaInsets` inside the sheet
+ * is the sheet's), and the bottom inset is padded. Put scrolling content in
+ * `NativeSheetScrollView`. The sheet doesn't move above the keyboard.
+ *
+ * `@gorhom/bottom-sheet` (snap points, drag between heights) is used only
+ * when the app opts in by mounting `<NativeSheetProvider bottomSheet={…}>`
+ * (or passing `bottomSheet` to `GenesisNativeApp`), never because the
+ * library happens to be installed: it throws on open unless its
+ * `BottomSheetModalProvider` is mounted, and it needs gesture-handler's
+ * `GestureHandlerRootView` at the root and Reanimated set up.
+ * `snapPoints` and `initialSnapIndex` apply only to that path.
+ *
+ * A sheet that is a screen of its own (a link can open it) belongs in the
+ * router instead: an expo-router screen with `presentation: "formSheet"` and
+ * `sheetAllowedDetents` (e.g. `[0.5, 1]`) is the system sheet with detents.
  *
  * @stability Beta
  */
-import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Modal, Pressable, View } from "react-native";
-import { cn } from "../utils";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
+import { AccessibilityInfo, Modal, Platform, Pressable, ScrollView, View, type ScrollViewProps, type ViewStyle } from "react-native";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useThemeRoles } from "../hooks/use-theme-roles";
 
 export interface NativeSheetProps {
   /** Controlled visibility. */
   open: boolean;
-  /** Fired when the user dismisses the sheet (backdrop, gesture, swipe). */
+  /** Fired when the user dismisses the sheet (backdrop, swipe down, Android back). Set `open` false in it. */
   onOpenChange: (open: boolean) => void;
-  /** Snap points (gorhom-style). e.g. ["25%", "50%", "90%"]. */
+  /** Snap points, with `@gorhom/bottom-sheet` only (see `NativeSheetProvider`). e.g. ["25%", "50%", "90%"]. */
   snapPoints?: (string | number)[];
-  /** Index of initial snap point. Default 0. */
+  /** Index of initial snap point, with `@gorhom/bottom-sheet` only. Default 0. */
   initialSnapIndex?: number;
-  /** Disable dismissing by tapping the backdrop. Default false. */
+  /** Keep the sheet open when the user taps the backdrop, swipes it down or presses Android back. Default false. */
   disableBackdropDismiss?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
   testID?: string;
 }
 
-// Lazy-load gorhom once at module scope so consumers that don't install it
-// can still build / typecheck, and consumers that do install it don't pay
-// the require() cost on every render.
-type GorhomModule = {
-  BottomSheetModal: React.ComponentType<Record<string, unknown>>;
-  BottomSheetView: React.ComponentType<Record<string, unknown>>;
-  BottomSheetBackdrop: React.ComponentType<Record<string, unknown>>;
-};
+type AnyComponent = ComponentType<Record<string, unknown>>;
 
-const GORHOM: GorhomModule | null = (() => {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("@gorhom/bottom-sheet");
-    return {
-      BottomSheetModal: mod.BottomSheetModal,
-      BottomSheetView: mod.BottomSheetView,
-      BottomSheetBackdrop: mod.BottomSheetBackdrop,
-    };
-  } catch {
-    return null;
-  }
-})();
+/**
+ * The parts of `@gorhom/bottom-sheet` (v5) the sheet uses. Pass the whole
+ * module: `import * as BottomSheet from "@gorhom/bottom-sheet"`.
+ */
+export interface NativeSheetLibrary {
+  BottomSheetModal: unknown;
+  BottomSheetView: unknown;
+  BottomSheetBackdrop: unknown;
+  BottomSheetModalProvider: unknown;
+  /** Used by `NativeSheetScrollView` when present. */
+  BottomSheetScrollView?: unknown;
+}
 
-export function NativeSheet({
+const REQUIRED_EXPORTS = ["BottomSheetModal", "BottomSheetView", "BottomSheetBackdrop", "BottomSheetModalProvider"] as const;
+
+const SheetLibraryContext = createContext<NativeSheetLibrary | null>(null);
+
+export interface NativeSheetProviderProps {
+  /**
+   * `@gorhom/bottom-sheet` v5 (`import * as BottomSheet from "@gorhom/bottom-sheet"`).
+   * Read once. The app must also wrap its root in gesture-handler's
+   * `GestureHandlerRootView` and set Reanimated up, as the library requires.
+   * Sheet content renders in the library's portal, inside this provider:
+   * mount it below the providers sheets read (data, session, navigation).
+   */
+  bottomSheet: NativeSheetLibrary;
+  children: ReactNode;
+}
+
+/**
+ * Opts every `NativeSheet` below it into `@gorhom/bottom-sheet` and mounts
+ * the library's `BottomSheetModalProvider`. A module missing any export the
+ * sheet needs is reported with `console.error` and ignored, so sheets fall
+ * back to the native modal instead of crashing on open.
+ *
+ * @stability Beta
+ */
+export function NativeSheetProvider({ bottomSheet, children }: NativeSheetProviderProps) {
+  // Frozen: a different module later would remount everything below the provider.
+  const [library] = useState(() => (isSheetLibrary(bottomSheet) ? bottomSheet : null));
+  const [problem] = useState(() => (library ? null : invalidLibraryMessage(bottomSheet)));
+  useEffect(() => {
+    if (problem) console.error(problem);
+  }, [problem]);
+  if (!library) return <>{children}</>;
+  const Provider = library.BottomSheetModalProvider as ComponentType<{ children: ReactNode }>;
+  return (
+    <SheetLibraryContext.Provider value={library}>
+      <Provider>{children}</Provider>
+    </SheetLibraryContext.Provider>
+  );
+}
+
+function isSheetLibrary(value: unknown): value is NativeSheetLibrary {
+  if (!value || typeof value !== "object") return false;
+  const mod = value as Record<string, unknown>;
+  return REQUIRED_EXPORTS.every((name) => mod[name] != null);
+}
+
+function invalidLibraryMessage(value: unknown): string {
+  const mod = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const missing = REQUIRED_EXPORTS.filter((name) => mod[name] == null);
+  return (
+    `NativeSheetProvider: \`bottomSheet\` is missing ${missing.join(", ")}, so sheets use the native modal. ` +
+    'Pass the whole module: `import * as BottomSheet from "@gorhom/bottom-sheet"`.'
+  );
+}
+
+/** @stability Beta */
+export function NativeSheet(props: NativeSheetProps) {
+  const library = useContext(SheetLibraryContext);
+  if (library) return <LibrarySheet library={library} {...props} />;
+  return <ModalSheet {...props} />;
+}
+
+/**
+ * A `ScrollView` for sheet content: the library's `BottomSheetScrollView`
+ * under `NativeSheetProvider` (so scrolling and dragging the sheet don't
+ * fight), React Native's otherwise. Sized to its content until it reaches
+ * the sheet's height.
+ *
+ * @stability Beta
+ */
+export function NativeSheetScrollView({ style, ...props }: ScrollViewProps) {
+  const library = useContext(SheetLibraryContext);
+  const Scroll = (library?.BottomSheetScrollView as ComponentType<ScrollViewProps> | undefined) ?? ScrollView;
+  const own: ViewStyle = { flexGrow: 0 };
+  return <Scroll style={[own, ...(Array.isArray(style) ? style : style ? [style] : [])]} {...props} />;
+}
+
+type SheetHandle = { present: () => void; dismiss: () => void };
+
+function LibrarySheet({
+  library,
   open,
   onOpenChange,
   snapPoints = ["50%", "90%"],
   initialSnapIndex = 0,
   disableBackdropDismiss = false,
-  children,
-  testID,
-}: NativeSheetProps) {
-  if (GORHOM) {
-    return (
-      <GorhomSheet
-        gorhom={GORHOM}
-        open={open}
-        onOpenChange={onOpenChange}
-        snapPoints={snapPoints}
-        initialSnapIndex={initialSnapIndex}
-        disableBackdropDismiss={disableBackdropDismiss}
-        testID={testID}
-      >
-        {children}
-      </GorhomSheet>
-    );
-  }
-  return (
-    <FallbackSheet
-      open={open}
-      onOpenChange={onOpenChange}
-      disableBackdropDismiss={disableBackdropDismiss}
-      testID={testID}
-    >
-      {children}
-    </FallbackSheet>
-  );
-}
-
-interface GorhomSheetProps extends NativeSheetProps {
-  gorhom: GorhomModule;
-}
-
-type GorhomSheetHandle = { present: () => void; dismiss: () => void };
-
-function GorhomSheet({
-  gorhom,
-  open,
-  onOpenChange,
-  snapPoints,
-  initialSnapIndex,
-  disableBackdropDismiss,
   testID,
   children,
-}: GorhomSheetProps) {
-  const ref = useRef<GorhomSheetHandle | null>(null);
+}: NativeSheetProps & { library: NativeSheetLibrary }) {
+  const sheet = useRef<SheetHandle | null>(null);
+  // What the app asked for last, read when the library reports a dismiss: a dismiss
+  // that finishes after the app reopened the sheet is not the user closing it.
+  const wanted = useRef(open);
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
 
+  // Child refs are attached before this runs, so the first render presents too.
   useEffect(() => {
-    if (open) ref.current?.present();
-    else ref.current?.dismiss();
+    wanted.current = open;
+    if (open) sheet.current?.present();
+    else sheet.current?.dismiss();
   }, [open]);
 
-  const { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } = gorhom;
+  const BottomSheetModal = library.BottomSheetModal as AnyComponent;
+  const BottomSheetView = library.BottomSheetView as AnyComponent;
+  const BottomSheetBackdrop = library.BottomSheetBackdrop as AnyComponent;
+
+  const onDismiss = useCallback(() => {
+    if (wanted.current) {
+      wanted.current = false;
+      onOpenChangeRef.current(false);
+    }
+  }, []);
+  const backdrop = useCallback(
+    (p: Record<string, unknown>) => (
+      <BottomSheetBackdrop
+        {...p}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+        pressBehavior={disableBackdropDismiss ? "none" : "close"}
+      />
+    ),
+    [BottomSheetBackdrop, disableBackdropDismiss],
+  );
 
   return (
     <BottomSheetModal
-      ref={ref}
+      ref={sheet}
       snapPoints={snapPoints}
       index={initialSnapIndex}
-      onDismiss={() => onOpenChange(false)}
+      // v5 sizes to the content by default and adds that as a snap point, which would shift the indexes.
+      enableDynamicSizing={false}
+      onDismiss={onDismiss}
       enablePanDownToClose={!disableBackdropDismiss}
-      backdropComponent={(p: Record<string, unknown>) => (
-        <BottomSheetBackdrop
-          {...p}
-          appearsOnIndex={0}
-          disappearsOnIndex={-1}
-          pressBehavior={disableBackdropDismiss ? "none" : "close"}
-        />
-      )}
+      backdropComponent={backdrop}
     >
-      <BottomSheetView testID={testID ?? "native-sheet"}>
-        {children}
-      </BottomSheetView>
+      <BottomSheetView testID={testID ?? "native-sheet"}>{children}</BottomSheetView>
     </BottomSheetModal>
   );
 }
 
-interface FallbackSheetProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  disableBackdropDismiss?: boolean;
-  testID?: string;
-  children: React.ReactNode;
+/**
+ * Whether Reduce Motion is on, or `null` until the system has answered: a
+ * sheet mounted open waits for it, since the presentation animation is
+ * chosen when the sheet is presented.
+ */
+function useReduceMotionAnswer(): boolean | null {
+  const [reduced, setReduced] = useState<boolean | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled().then(
+      (value) => mounted && setReduced(value),
+      () => mounted && setReduced(false),
+    );
+    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", (value: boolean) => setReduced(value));
+    return () => {
+      mounted = false;
+      sub?.remove?.();
+    };
+  }, []);
+  return reduced;
 }
 
-function FallbackSheet({
-  open,
-  onOpenChange,
-  disableBackdropDismiss,
-  testID,
-  children,
-}: FallbackSheetProps) {
-  const [reducedMotion, setReducedMotion] = useState(false);
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReducedMotion);
-  }, []);
+/**
+ * React Native's `Modal`, which needs no provider. iOS: the system page
+ * sheet (`presentationStyle="pageSheet"`), following the finger when swiped
+ * down (`allowSwipeDismissal`); with `disableBackdropDismiss` a swipe only
+ * asks and the sheet springs back. Android: a transparent modal with a scrim
+ * and a panel at the bottom, drawn under the system bars.
+ */
+function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, testID, children }: NativeSheetProps) {
+  const reducedMotion = useReduceMotionAnswer();
+  const roles = useThemeRoles();
+  const requestClose = () => {
+    if (!disableBackdropDismiss) onOpenChange(false);
+  };
+  const visible = open && reducedMotion !== null;
+  const animationType = reducedMotion ? "none" : "slide";
+  const id = testID ?? "native-sheet";
+
+  if (Platform.OS === "ios") {
+    return (
+      <Modal
+        visible={visible}
+        animationType={animationType}
+        presentationStyle="pageSheet"
+        allowSwipeDismissal={!disableBackdropDismiss}
+        backdropColor={roles.background}
+        onRequestClose={requestClose}
+      >
+        <SafeAreaProvider>
+          <SheetBody
+            testID={id}
+            onAccessibilityEscape={disableBackdropDismiss ? undefined : requestClose}
+            style={{ flex: 1, backgroundColor: roles.background }}
+          >
+            {children}
+          </SheetBody>
+        </SafeAreaProvider>
+      </Modal>
+    );
+  }
+
   return (
     <Modal
-      visible={open}
+      visible={visible}
       transparent
-      animationType={reducedMotion ? "none" : "slide"}
-      onRequestClose={() => onOpenChange(false)}
+      animationType={animationType}
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={requestClose}
     >
-      <Pressable
-        className="flex-1 justify-end bg-black/50"
-        onPress={() => {
-          if (!disableBackdropDismiss) onOpenChange(false);
-        }}
-      >
-        <Pressable onPress={() => {}}>
-          <View
-            testID={testID ?? "native-sheet"}
-            accessibilityViewIsModal
-            accessibilityRole="alert"
-            className={cn(
-              "min-h-[200px] rounded-t-2xl border-t border-border bg-background p-4 shadow-lg"
-            )}
+      <SafeAreaProvider>
+        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+          <Pressable
+            testID={`${id}-backdrop`}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            disabled={disableBackdropDismiss}
+            importantForAccessibility={disableBackdropDismiss ? "no-hide-descendants" : "auto"}
+            onPress={requestClose}
+            style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.4)" }}
+          />
+          <SheetBody
+            testID={id}
+            style={{
+              maxHeight: "90%",
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              backgroundColor: roles.surface,
+              paddingTop: 12,
+            }}
           >
-            <View className="mb-3 self-center h-1 w-12 rounded-full bg-muted" />
+            <View
+              style={{ alignSelf: "center", width: 32, height: 4, borderRadius: 2, marginBottom: 8, backgroundColor: roles.tertiaryLabel }}
+            />
             {children}
-          </View>
-        </Pressable>
-      </Pressable>
+          </SheetBody>
+        </View>
+      </SafeAreaProvider>
     </Modal>
+  );
+}
+
+/** The sheet's root, padded by the sheet's own bottom inset (the home indicator, the navigation bar). */
+function SheetBody({
+  testID,
+  style,
+  onAccessibilityEscape,
+  children,
+}: {
+  testID: string;
+  style: ViewStyle;
+  onAccessibilityEscape?: () => void;
+  children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View testID={testID} accessibilityViewIsModal onAccessibilityEscape={onAccessibilityEscape} style={{ ...style, paddingBottom: insets.bottom }}>
+      {children}
+    </View>
   );
 }

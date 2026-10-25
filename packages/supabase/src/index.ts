@@ -3,7 +3,19 @@
  * server import it. Native-only helpers (Keychain storage, foreground
  * refresh, reinstall wipe) are on `@marktiderman/genesis-supabase/native`.
  */
-import { createClient, type SupabaseClient, type SupabaseClientOptions } from "@supabase/supabase-js";
+import { AuthInvalidJwtError, createClient, type SupabaseClient, type SupabaseClientOptions } from "@supabase/supabase-js";
+import { APPLE_REVOKE_FUNCTION, requestAppleRevocation, type FunctionsClient } from "./apple-tokens";
+import { assertPkceCrypto, claimsViaServer, installWebCrypto, isDigestOnlyPolyfill, type ExpoCryptoLike } from "./web-crypto";
+
+export type { ExpoCryptoLike } from "./web-crypto";
+export {
+  APPLE_REVOKE_FUNCTION,
+  requestAppleRevocation,
+  storeAppleToken,
+  type FunctionsClient,
+  type StoreAppleTokenOptions,
+  type StoreAppleTokenResult,
+} from "./apple-tokens";
 
 /** The async key-value store Supabase auth keeps its session in. */
 export interface SessionStorage {
@@ -27,13 +39,26 @@ export interface GenesisSupabaseOptions {
    * `exchangeCodeForSession` itself.
    */
   detectSessionInUrl?: boolean;
+  /**
+   * `expo-crypto` (`import * as ExpoCrypto from "expo-crypto"`), on native.
+   * Hermes has no `crypto.subtle`, and without it supabase-js sends the PKCE
+   * challenge as "plain"; this installs `crypto.getRandomValues` and a SHA-256
+   * `crypto.subtle.digest` from it (real WebCrypto is kept), so the challenge
+   * is S256. A PKCE client made where there is neither throws in development
+   * and logs an error in a release build. With the polyfill in place,
+   * `auth.getClaims` always has the server check the token (`getUser`), as
+   * supabase-js does where WebCrypto is missing: the polyfill can hash but
+   * not verify a signature.
+   */
+  crypto?: ExpoCryptoLike;
   /** Anything else for supabase-js, merged last. */
   options?: SupabaseClientOptions<"public">;
 }
 
 /**
  * A Supabase client with Genesis's defaults: PKCE sign-in (the code flow, not
- * tokens in a redirect URL), a persisted session that refreshes itself, and
+ * tokens in a redirect URL, with an S256 challenge: pass `crypto` on native),
+ * a persisted session that refreshes itself, and
  * the session storage you pass.
  *
  * @stability Beta
@@ -44,8 +69,12 @@ export function createGenesisSupabase<Database = unknown>({
   storage,
   platform = "web",
   detectSessionInUrl = platform === "web",
+  crypto,
   options = {},
 }: GenesisSupabaseOptions): SupabaseClient<Database> {
+  if (crypto) installWebCrypto(crypto);
+  // The PKCE flow needs WebCrypto for an S256 challenge; never let it fall back to "plain" quietly.
+  if ((options.auth?.flowType ?? "pkce") === "pkce") assertPkceCrypto();
   // supabase-js's generics over the schema don't survive being forwarded, so the
   // options are built untyped and the client is typed by the caller's Database.
   const client = createClient(url, publishableKey, {
@@ -59,6 +88,10 @@ export function createGenesisSupabase<Database = unknown>({
       ...options.auth,
     },
   });
+  if (isDigestOnlyPolyfill()) {
+    const auth = client.auth;
+    auth.getClaims = claimsViaServer(auth, (message) => new AuthInvalidJwtError(message)) as typeof auth.getClaims;
+  }
   return client as unknown as SupabaseClient<Database>;
 }
 
@@ -110,6 +143,19 @@ export interface DeleteAccountClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rpc: (fn: any, ...rest: any[]) => PromiseLike<{ data: unknown; error: PostgrestErrorLike | null }>;
   auth: { signOut(options?: { scope?: "global" | "local" | "others" }): Promise<unknown> };
+  /** Needed only with `revokeAppleTokens`. */
+  functions?: FunctionsClient["functions"];
+}
+
+/** @stability Beta */
+export interface DeleteMyAccountOptions {
+  /**
+   * After the delete, ask the `genesis-apple-revoke` Edge Function to revoke
+   * the person's Sign in with Apple tokens now (`true`, or the function's
+   * name). Best effort: the delete has already queued them and the
+   * function's schedule retries, so a failure here never fails the call.
+   */
+  revokeAppleTokens?: boolean | string;
 }
 
 /**
@@ -120,12 +166,31 @@ export interface DeleteAccountClient {
  * clears the session on this device. Throws a {@link SupabaseQueryError} when
  * the database refuses (`42501`: not signed in) and keeps the session then.
  *
+ * With Sign in with Apple, ship the `genesis-apple-revoke` function and
+ * migration 0003 and pass `{ revokeAppleTokens: true }`: App Review requires
+ * the person's Apple tokens to be revoked.
+ *
  * Put it behind a confirmation; see the README.
  *
  * @stability Beta
  */
-export async function deleteMyAccount(client: DeleteAccountClient): Promise<void> {
+export async function deleteMyAccount(client: DeleteAccountClient, options: DeleteMyAccountOptions = {}): Promise<void> {
   must((await client.rpc("delete_my_account")) as { data: unknown; error: null } | { data: null; error: PostgrestErrorLike });
+  const revoke = options.revokeAppleTokens;
+  // The function needs no login (it works through the queue the delete just filled), so this runs after it.
+  if (revoke && client.functions) await requestAppleRevocation({ functions: client.functions }, typeof revoke === "string" ? revoke : APPLE_REVOKE_FUNCTION);
   // The login is gone and its refresh tokens with it: only this device's copy is left to clear.
   await client.auth.signOut({ scope: "local" });
 }
+export {
+  tenantFeatures,
+  setTenantFeature,
+  tenantFeatureSettings,
+  tenantFeatureHistory,
+  type SetTenantFeatureInput,
+  type TenantFeatureChange,
+  type TenantFeatureSetting,
+  type TenantFeatures,
+  type TenantFeaturesClient,
+} from "./tenant-features";
+export { accountBlock, tenantFeaturesBlock } from "./blocks";

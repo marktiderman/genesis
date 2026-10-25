@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { cycleProblems, requirementProblem } from "./graph";
+import { FEATURE_PLATFORMS, type FeaturePlatform } from "./platforms";
 
 /**
  * Where a feature is in its life. The order is the board's column order.
@@ -54,15 +56,8 @@ export interface FeatureLinks {
   issue?: string;
 }
 
-/**
- * Where a feature runs. `server` covers Node, edge functions and the database.
- *
- * @stability Beta
- */
-export const FEATURE_PLATFORMS = ["web", "native", "server", "cli"] as const;
-
-/** @stability Beta */
-export type FeaturePlatform = (typeof FEATURE_PLATFORMS)[number];
+// Where a feature runs: in its own file so the zod-free blocks entry shares it.
+export { FEATURE_PLATFORMS, type FeaturePlatform };
 
 /**
  * What kind of thing a feature is, from smallest to largest, so an agent
@@ -362,27 +357,16 @@ function relationProblems(features: Record<string, FeatureDef>, skip: ReadonlySe
       if (def.extends === id) problems.push(`${id}.extends: a feature can't extend itself`);
       else if (!has(def.extends)) problems.push(`${id}.extends: "${def.extends}" is not a feature`);
     }
+    // Itself and unknown ids: the same checks `resolveBlocks` runs on blocks.
     for (const req of def.requires ?? []) {
-      if (req === id) problems.push(`${id}.requires: a feature can't require itself`);
-      else if (!has(req)) problems.push(`${id}.requires: "${req}" is not a feature`);
+      const problem = requirementProblem(features, id, req, { noun: "feature" });
+      if (problem) problems.push(problem);
       else if (!skip.has(req) && (def.status === "beta" || def.status === "live") && UNSHIPPED.includes(features[req]!.status)) {
         problems.push(`${id}.requires: a ${def.status} feature can't require "${req}", which is ${features[req]!.status}`);
       }
     }
   }
-  // Depth-first search for a cycle through `requires`; report each cycle once, from where it was found.
-  const state = new Map<string, "open" | "done">();
-  const visit = (id: string, path: string[]): void => {
-    state.set(id, "open");
-    if (skip.has(id)) return;
-    for (const req of features[id]?.requires ?? []) {
-      if (!has(req) || req === id) continue;
-      if (state.get(req) === "open") problems.push(`${id}.requires: a cycle: ${[...path.slice(path.indexOf(req)), id, req].join(" → ")}`);
-      else if (!state.has(req)) visit(req, [...path, id]);
-    }
-    state.set(id, "done");
-  };
-  for (const id of Object.keys(features)) if (!state.has(id)) visit(id, []);
+  problems.push(...cycleProblems(features, skip));
   return problems;
 }
 

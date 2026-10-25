@@ -39,7 +39,7 @@ export interface ScaffoldOptions {
   genesisVersion?: string;
   /** When true, even idempotent skips emit a write at `.genesis-next` for diffing. */
   emitConflicts?: boolean;
-  /** An Expo app: the Tailwind config adds NativeWind's preset and scans genesis-ui-native. */
+  /** An Expo app: the Tailwind config adds NativeWind's preset and scans the Genesis React Native packages. */
   native?: boolean;
   /**
    * Logger. Defaults to a no-op when running in tests; CLI passes
@@ -339,9 +339,12 @@ export const brand: Brand = {
 
 function tailwindConfig(consumer: string, native: boolean): string {
   return `import type { Config } from "tailwindcss";
-import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";${native ? `
-// NativeWind v4 needs its preset; Genesis's goes after it.
-import nativewindPreset from "nativewind/preset";` : ""}
+${native ? `// NativeWind v4 needs its preset; Genesis's goes after it. The NativeWind preset also declares
+// the theme variables, which NativeWind can't import from genesis.css. genesisNativewindContent
+// lists the Genesis React Native packages the app uses, wherever they are installed.
+import { fileURLToPath } from "node:url";
+import nativewindPreset from "nativewind/preset";
+import { genesisNativewindContent, genesisNativewindPreset as genesisPreset } from "@marktiderman/genesis-design-system/presets/nativewind";` : `import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";`}
 import { brand } from "@${consumer}/brand";
 
 /**
@@ -357,7 +360,7 @@ const config: Config = {
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
-${native ? `    "./node_modules/@marktiderman/genesis-ui-native/**/*.{js,ts,tsx}",\n` : ""}  ],
+${native ? `    ...genesisNativewindContent({ root: fileURLToPath(new URL(".", import.meta.url)) }),\n` : ""}  ],
   presets: [${native ? "nativewindPreset, " : ""}genesisPreset],
   theme: {
     extend: {

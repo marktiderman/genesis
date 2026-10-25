@@ -1,10 +1,15 @@
-// NativeWind (Tailwind v3). The Genesis preset brings the token classes
-// (semantic colors, radius scale, fonts) the ui-native components use.
+// NativeWind (Tailwind v3). `genesisNativewindContent` adds the Genesis React Native packages the
+// app uses (ui-native, genesis-native: the update screens, the push prompt), wherever they are
+// installed, so the classes inside them are generated. Metro reads those packages from `src`
+// (their `react-native` export condition), so the app's NativeWind JSX transform applies to them.
+// The Genesis NativeWind preset brings the token classes
+// (role colors and their variables, radius scale, fonts) the ui-native components use.
+import { fileURLToPath } from "node:url";
 import nativewindPreset from "nativewind/preset";
-import { genesisPreset } from "@marktiderman/genesis-design-system/presets/tailwind";
+import { genesisNativewindContent, genesisNativewindPreset } from "@marktiderman/genesis-design-system/presets/nativewind";
 
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./src/**/*.{ts,tsx}", "./node_modules/@marktiderman/genesis-ui-native/src/**/*.{ts,tsx}", "../../packages/ui-native/src/**/*.{ts,tsx}"],
-  presets: [nativewindPreset, genesisPreset],
+  content: ["./src/**/*.{ts,tsx}", ...genesisNativewindContent({ root: fileURLToPath(new URL(".", import.meta.url)) })],
+  presets: [nativewindPreset, genesisNativewindPreset],
 };

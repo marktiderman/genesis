@@ -49,6 +49,7 @@ import { Button } from "@marktiderman/genesis-ui";
 - **Page layouts** — Pages that look consistent without a designer on every screen.
 - **AppShell navigation** — One navigation tree drives the sidebar, mobile nav and command palette.
 - **React Native components** — The same components on iOS and Android.
+- **Optional native modules** (beta) — Native lists, images, motion, glass and symbols when the app has them.
 
 ### Data
 
@@ -62,6 +63,7 @@ import { Button } from "@marktiderman/genesis-ui";
 - **Form renderer** — Beautiful, accessible forms, one question at a time or all at once.
 - **Form builder** — Build forms visually, with logic, and see problems as you go.
 - **Form destinations** — Send every response to email, Google Sheets or your own webhook.
+- **Forms on native** (beta) — The same forms, one question at a time, native on iOS and Android.
 
 ### Tooling
 

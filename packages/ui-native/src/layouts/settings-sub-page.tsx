@@ -19,7 +19,7 @@
 import { useCallback, type ReactNode } from "react";
 import { Alert, KeyboardAvoidingView, Platform, View } from "react-native";
 import { cn } from "../utils";
-import { useKeyboardScroll } from "./keyboard";
+import { KEYBOARD_TOOLBAR_HEIGHT, useKeyboardScroll, useKeyboardToolbar } from "./keyboard";
 import {
   ScreenContainer,
   composeHeaderOptions,
@@ -163,14 +163,19 @@ export function SettingsSubPage({
   void _onConfirmLeave;
 
   const KeyboardScroll = useKeyboardScroll();
+  const KeyboardToolbar = useKeyboardToolbar();
   if (KeyboardScroll) {
+    // No bottom edge here: the toolbar sticks to the keyboard from the container's bottom, so a
+    // bottom inset (the home indicator, or a tab bar's height) would float it that far above the
+    // keyboard, and leave it showing above the tab bar with the keyboard closed. The scroll view's
+    // automatic content inset keeps the last field clear of the bottom instead.
     return (
-      <ScreenContainer safeAreaEdges={["left", "right", "bottom"]} testID={testID}>
+      <ScreenContainer safeAreaEdges={["left", "right"]} testID={testID}>
         <KeyboardScroll
           testID={`${testID}-keyboard`}
           keyboardShouldPersistTaps="handled"
           contentInsetAdjustmentBehavior="automatic"
-          bottomOffset={24}
+          bottomOffset={KeyboardToolbar ? 24 + KEYBOARD_TOOLBAR_HEIGHT : 24}
         >
           {/* Same padding and className as the fallback path, so `className` overrides it the same way. */}
           <View className={cn("p-4", className)}>
@@ -179,6 +184,7 @@ export function SettingsSubPage({
             </View>
           </View>
         </KeyboardScroll>
+        {KeyboardToolbar ? <KeyboardToolbar /> : null}
       </ScreenContainer>
     );
   }

@@ -1,10 +1,10 @@
-// @feat:native-starter
+// @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay @feat:support-feedback
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import starter from "../starter.config";
-import { defineStarter, nativePlatforms, type StarterConfig } from "../src/lib/define-starter";
+import { defineStarter, easConfig, nativePlatforms, privacyBlocks, type StarterConfig } from "../src/lib/define-starter";
 import { copy, format } from "../src/copy";
 import { findInlineCopy } from "./inline-copy";
 
@@ -38,10 +38,95 @@ describe("starter.config.ts", () => {
   it("builds for iOS only when email sign-in is off (Apple's button shows only on iOS)", () => {
     expect(nativePlatforms({ emailSignIn: true })).toEqual(["ios", "android"]);
     expect(nativePlatforms({ emailSignIn: false })).toEqual(["ios"]);
+    expect(nativePlatforms({ emailSignIn: false, googleSignIn: true })).toEqual(["ios", "android"]);
+  });
+
+  it("ships Google sign-in off, and refuses it without Apple (Guideline 4.8)", () => {
+    expect(starter.features.googleSignIn).toBe(false);
+    const googleOnly: StarterConfig = { ...starter, features: { ...starter.features, appleSignIn: false, googleSignIn: true } };
+    expect(() => defineStarter(googleOnly)).toThrow(/Guideline 4.8/);
+    expect(() => defineStarter({ ...starter, features: { ...starter.features, googleSignIn: true } })).not.toThrow();
+  });
+
+  it("declares in the privacy manifest only the blocks that are on", () => {
+    expect(privacyBlocks(starter.features)).toEqual(["account", "observability", "push", "support"]);
+    expect(privacyBlocks({ observability: false, push: false, support: false })).toEqual(["account"]);
+  });
+
+  it("leaves the Apple nonce to the package default (32 random bytes), not a UUID", () => {
+    const auth = read("src/lib/auth.ts");
+    expect(auth).not.toMatch(/randomUUID/);
+    expect(auth).not.toMatch(/randomNonce/);
   });
 
   it("refuses a scheme written as a URL", () => {
     expect(() => defineStarter({ ...starter, app: { ...starter.app, scheme: "myapp://" } })).toThrow(/app\.scheme/);
+  });
+
+  it("refuses an EAS project id that isn't a UUID", () => {
+    expect(() => defineStarter({ ...starter, app: { ...starter.app, easProjectId: "my-project" } })).toThrow(/easProjectId/);
+    expect(() => defineStarter({ ...starter, app: { ...starter.app, easProjectId: "" } })).not.toThrow();
+  });
+
+  it("ships with the updates block on and no EAS project (a placeholder for `eas init`)", () => {
+    expect(starter.features.updates).toBe(true);
+    expect(starter.app.easProjectId).toBe("");
+  });
+});
+
+describe("EAS config", () => {
+  it("turns expo-updates off in builds until there is an EAS project", () => {
+    expect(easConfig({ easProjectId: "" })).toEqual({ updates: { enabled: false } });
+  });
+
+  it("points updates at the project and links it", () => {
+    const id = "0b5a2c7e-1d3f-4a6b-9c8d-7e6f5a4b3c2d";
+    expect(easConfig({ easProjectId: id })).toEqual({
+      updates: { enabled: true, url: `https://u.expo.dev/${id}` },
+      extra: { eas: { projectId: id } },
+    });
+  });
+});
+
+describe("fingerprint", () => {
+  // app.config.ts imports starter.config.ts and define-starter.ts, so the fingerprint would hash
+  // them as files and a JavaScript-only switch (updates, queryPersistence…) would change the
+  // runtime version: installed builds would stop getting updates. .fingerprintignore leaves them
+  // out; what they mean for the native build is in the evaluated config, which is hashed.
+  it("leaves the files app.config.ts imports out, and app.config.ts imports nothing else", () => {
+    const ignored = read(".fingerprintignore").split("\n").filter((l) => l && !l.startsWith("#"));
+    expect(ignored).toEqual(["starter.config.ts", "src/lib/define-starter.ts"]);
+    const imports = [...read("app.config.ts").matchAll(/^import .*from "(.+)";$/gm)].map((m) => m[1]);
+    expect(imports).toEqual(["expo/config", "./starter.config", "./src/lib/define-starter"]);
+  });
+
+  it("app.config.ts reads no JavaScript-only switch", () => {
+    expect(read("app.config.ts")).not.toMatch(/features\.(updates|queryPersistence|queryLifecycle|keyboardScroll|deepLinks|notifications|accountDeletion|wipeSessionOnReinstall|refreshWhileActive|observability|devtools)/);
+  });
+});
+
+describe("devtools overlay", () => {
+  // Metro folds `__DEV__` and `process.env.EXPO_PUBLIC_*` at build time and drops the dead branch
+  // before it collects dependencies, so the overlay is in a bundle only behind this condition.
+  it("is imported only from devtools-overlay.ts, which only devtools.ts requires, behind the build-time condition", () => {
+    const importers = filesUnder("src").filter((f) => /\.tsx?$/.test(f) && /from "@marktiderman\/genesis-native\/devtools"/.test(read(f)));
+    // devtools.ts imports a type only, which the compiler erases.
+    expect(importers.sort()).toEqual([join("src", "lib", "devtools-overlay.ts"), join("src", "lib", "devtools.ts")]);
+    expect(read("src/lib/devtools.ts")).toMatch(/^import type \{ DevtoolsBlock \} from "@marktiderman\/genesis-native\/devtools";$/m);
+    const requirers = filesUnder("src").filter((f) => /devtools-overlay/.test(read(f)) && !f.endsWith("devtools-overlay.ts"));
+    expect(requirers).toEqual([join("src", "lib", "devtools.ts")]);
+    const gate = read("src/lib/devtools.ts");
+    expect(gate).toContain(
+      '__DEV__ || process.env.EXPO_PUBLIC_APP_VARIANT === "development" || process.env.EXPO_PUBLIC_APP_VARIANT === "preview"\n    ? starter.features.devtools',
+    );
+    expect(gate).not.toMatch(/^import .*devtools-overlay/m);
+  });
+
+  it("every EAS build profile sets EXPO_PUBLIC_APP_VARIANT to its APP_VARIANT", () => {
+    const eas = JSON.parse(read("eas.json")) as { build: Record<string, { env?: Record<string, string> }> };
+    for (const [name, profile] of Object.entries(eas.build)) {
+      if (profile.env?.APP_VARIANT) expect(profile.env.EXPO_PUBLIC_APP_VARIANT, name).toBe(profile.env.APP_VARIANT);
+    }
   });
 });
 
@@ -122,5 +207,113 @@ describe("supabase/migrations", () => {
   it("carries its pgTAP test unchanged", () => {
     const shipped = shippedSql("tests/0001_genesis_account_deletion.test.sql");
     expect(read("supabase/tests/database/genesis_account_deletion.test.sql")).toBe(shipped);
+  });
+
+  it("carries the app-release-policy migration unchanged (the updates block reads it)", () => {
+    const shipped = shippedSql("0002_genesis_app_release_policy.sql");
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_app_release_policy.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(shipped);
+  });
+
+  it("carries its pgTAP test unchanged", () => {
+    const shipped = shippedSql("tests/0002_genesis_app_release_policy.test.sql");
+    expect(read("supabase/tests/database/genesis_app_release_policy.test.sql")).toBe(shipped);
+  });
+
+  it("applies account deletion before the release policy", () => {
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.findIndex((f) => f.endsWith("_genesis_account_deletion.sql"))).toBeLessThan(order.findIndex((f) => f.endsWith("_genesis_app_release_policy.sql")));
+  });
+
+  it("carries the Apple token revocation migration and its pgTAP test unchanged", () => {
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_apple_token_revocation.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(shippedSql("0003_genesis_apple_token_revocation.sql"));
+    expect(read("supabase/tests/database/genesis_apple_token_revocation.test.sql")).toBe(shippedSql("tests/0003_genesis_apple_token_revocation.test.sql"));
+  });
+
+  it("carries the push migration and its pgTAP test unchanged (the push block reads it), after the Apple one", () => {
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_push.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(shippedSql("0005_genesis_push.sql"));
+    expect(read("supabase/tests/database/genesis_push.test.sql")).toBe(shippedSql("tests/0005_genesis_push.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_apple_token_revocation.sql")));
+  });
+
+  it("carries the support migration and its pgTAP test unchanged (the support block reads it), after the push one", () => {
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_support.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(shippedSql("0006_genesis_support.sql"));
+    expect(read("supabase/tests/database/genesis_support.test.sql")).toBe(shippedSql("tests/0006_genesis_support.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_push.sql")));
+  });
+});
+
+describe("supabase/functions", () => {
+  it("carries @marktiderman/genesis-supabase's genesis-apple-revoke function unchanged", () => {
+    const shipped = join(supabasePackage, "functions", "genesis-apple-revoke");
+    const names = readdirSync(shipped).sort();
+    expect(names).toEqual(["apple.ts", "handler.ts", "index.ts"]);
+    expect(readdirSync(join(root, "supabase/functions/genesis-apple-revoke")).sort()).toEqual(names);
+    for (const name of names) {
+      expect(read(`supabase/functions/genesis-apple-revoke/${name}`), name).toBe(readFileSync(join(shipped, name), "utf8"));
+    }
+  });
+
+  it("deploys it without the gateway's JWT check (the function checks the caller itself)", () => {
+    expect(read("supabase/config.toml")).toMatch(/\[functions\.genesis-apple-revoke\]\s*\nverify_jwt = false/);
+  });
+
+  it("carries the genesis-push-send function unchanged, deployed without the gateway's JWT check (it checks GENESIS_PUSH_SECRET)", () => {
+    const shipped = join(supabasePackage, "functions", "genesis-push-send");
+    const names = readdirSync(shipped).sort();
+    expect(names).toEqual(["expo.ts", "handler.ts", "index.ts"]);
+    expect(readdirSync(join(root, "supabase/functions/genesis-push-send")).sort()).toEqual(names);
+    for (const name of names) {
+      expect(read(`supabase/functions/genesis-push-send/${name}`), name).toBe(readFileSync(join(shipped, name), "utf8"));
+    }
+    expect(read("supabase/config.toml")).toMatch(/\[functions\.genesis-push-send\]\s*\nverify_jwt = false/);
+  });
+});
+
+describe("push", () => {
+  it("ships with the push block on, behind the one `push` switch", () => {
+    expect(starter.features.push).toBe(true);
+    expect(read("src/lib/app.ts")).toContain("features.push ? createStarterPush() : undefined");
+  });
+
+  it("keeps expo-notifications in the build whichever way the switch is, so turning push off is JavaScript only", () => {
+    expect(read("app.config.ts")).toMatch(/plugins: \[[^\]]*"expo-notifications"/);
+    expect(read("app.config.ts")).not.toContain("features.push");
+  });
+
+  it("asks for permission only through the soft prompt, never from the root layout", () => {
+    expect(read("src/app/_layout.tsx")).not.toMatch(/requestPermissions|offer\(/);
+    const asking = filesUnder("src").filter((f) => /requestPermissionsAsync/.test(read(f)));
+    expect(asking).toEqual([]);
+  });
+});
+
+describe("support", () => {
+  it("ships with the support block on, behind the one `support` switch, needing a signed-in person", () => {
+    expect(starter.features.support).toBe(true);
+    expect(read("src/lib/app.ts")).toMatch(/blocks: \[[^\]]*\bsupport\b/);
+    expect(read("src/lib/support.ts")).toContain("starter.features.support ? createStarterSupport() : undefined");
+    expect(read("src/lib/app.ts")).toContain('appFeatures: ["account"]');
+  });
+
+  it("has a route file for every route the block declares, each sending you back to Settings when support is off", () => {
+    const routes = ["index", "new", "[id]", "ideas", "shipped"].map((name) => join("src/app/(app)/settings/support", `${name}.tsx`));
+    for (const route of routes) expect(read(route), route).toContain("if (!starter.features.support");
+    expect(read("src/lib/support.ts")).toContain('supportBasePath = "/settings/support"');
+  });
+
+  it("keeps view-shot and expo-sensors in the build whichever way the switch is, so turning support off is JavaScript only", () => {
+    expect(read("app.config.ts")).not.toContain("features.support");
+    const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+    expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["react-native-view-shot", "expo-sensors", "@marktiderman/genesis-support"]));
   });
 });

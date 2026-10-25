@@ -3,6 +3,11 @@
 Genesis ships three reusable GitHub Actions workflows, so an app's CI is a short file that calls
 them. Ready-to-copy callers are in [`templates/ci/`](../templates/ci).
 
+A native app's builds, previews, store submissions and over-the-air updates run on EAS Workflows
+instead, from files in the app's `.eas/workflows/`: see [NATIVE-RELEASE.md](./NATIVE-RELEASE.md)
+and [`templates/eas/`](../templates/eas). The GitHub workflows here still run its typecheck, lint,
+tests, doctor and pgTAP tests.
+
 | Workflow | What it runs |
 |---|---|
 | [`app-ci.yml`](../.github/workflows/app-ci.yml) | Install from the lockfile, the app's typecheck, lint and test scripts, `genesis doctor`, and `genesis features check` when the app has a feature registry |
@@ -61,7 +66,7 @@ installed).
 | `package-manager-version` | from `packageManager` | pnpm or Bun version. Leave it empty when package.json has `packageManager` (pnpm refuses two different versions). Ignored for npm. |
 | `working-directory` | `.` | The app's folder. Its lockfile can be there or in a workspace root above it; the install runs where the lockfile is, the checks run in the app. |
 | `node-version` | `22` | |
-| `typecheck-script`, `lint-script`, `test-script` | `typecheck`, `lint`, `test` | The package.json scripts to run. A named script the app doesn't have fails the run; pass `""` to skip a step. |
+| `typecheck-script`, `lint-script`, `test-script` | `typecheck`, `lint`, `test` | The package.json scripts to run. A named script the app doesn't have fails the run; pass `""` to skip a step. An app made from the native starter needs no change: its `test` runs the vitest file checks and then the jest-expo component tests. |
 | `doctor` | `true` | `genesis doctor`. `doctor-strict: true` adds `--strict` (warnings fail). |
 | `features` | `auto` | `genesis features check` when the app has `src/features.ts`, `features.ts` or features settings; `true` or `false` to force it. On a pull request it also checks `feature:<id>` labels. |
 | `timeout-minutes` | `20` | |
@@ -107,6 +112,12 @@ The schedule is the caller's (the template runs Mondays at 06:00 UTC, and on dem
    updates one pull request into that branch. When nothing changed since the last run the branch
    is left as it is. Once anyone else pushes to the branch (say, a fix for a doctor finding), runs
    leave it alone and say so, until its pull request is merged or closed and the branch deleted.
+
+The bump is the same code `genesis upgrade` runs (`packages/genesis-cli/src/upgrade/bump-core.mjs`,
+embedded in the workflow by `scripts/sync-genesis-bump.mjs`). The workflow doesn't call `genesis
+upgrade` itself: its pull request job runs no dependency code, and the CLI is one. So the workflow
+moves versions only; run `genesis upgrade` on its branch to also refresh the templates, functions
+and skills Genesis owns in the app (see the CLI's README).
 
 A doctor failure is written into the pull request and fails the run. `dry-run: true` does steps
 1 to 3, writes the run summary and pushes nothing. The secret `npm-token` works as in app-ci.

@@ -26,6 +26,10 @@ function toDom<T extends AnyProps>(
     onPress,
     onLongPress,
     onLayout,
+    accessibilityActions,
+    onAccessibilityAction,
+    onPressIn,
+    onPressOut,
     pointerEvents,
     hitSlop,
     collapsable,
@@ -39,12 +43,12 @@ function toDom<T extends AnyProps>(
     onLayout?: (e: unknown) => void;
   };
   void onLayout;
+  void onPressIn;
+  void onPressOut;
   void pointerEvents;
   void hitSlop;
   void collapsable;
-  void style;
   void importantForAccessibility;
-  void accessibilityElementsHidden;
   void accessibilityViewIsModal;
   void accessibilityLiveRegion;
 
@@ -52,6 +56,7 @@ function toDom<T extends AnyProps>(
   if (testID !== undefined) out["data-testid"] = testID;
   if (accessibilityLabel !== undefined) out["aria-label"] = accessibilityLabel;
   if (accessibilityHint !== undefined) out["aria-describedby"] = accessibilityHint;
+  if (accessibilityElementsHidden) out["aria-hidden"] = "true";
   if (accessibilityRole !== undefined) out["role"] = accessibilityRole;
   else if (defaultRole) out["role"] = defaultRole;
   if (accessibilityState !== undefined) {
@@ -81,8 +86,24 @@ function toDom<T extends AnyProps>(
     if (v.text !== undefined) out["aria-valuetext"] = v.text;
   }
   if (className !== undefined) out["className"] = className;
+  // RN styles aren't CSS; tests read them back with `JSON.parse(el.dataset.style)`.
+  if (style !== undefined) out["data-style"] = JSON.stringify(style);
   if (onPress) out["onClick"] = onPress;
   if (onLongPress) out["onContextMenu"] = onLongPress;
+  // Accessibility actions: their names as a data attribute, and a custom
+  // `accessibilityaction` DOM event (detail: the action's name) that runs the handler.
+  const a11yActions = accessibilityActions as { name: string }[] | undefined;
+  if (a11yActions?.length) out["data-a11y-actions"] = a11yActions.map((a) => a.name).join(",");
+  if (onAccessibilityAction) {
+    const handler = onAccessibilityAction as (e: { nativeEvent: { actionName: string } }) => void;
+    out["ref"] = (node: HTMLElement | null) => {
+      if (!node) return;
+      const el = node as HTMLElement & { __a11y?: (e: Event) => void };
+      if (el.__a11y) el.removeEventListener("accessibilityaction", el.__a11y);
+      el.__a11y = (e: Event) => handler({ nativeEvent: { actionName: String((e as CustomEvent).detail) } });
+      el.addEventListener("accessibilityaction", el.__a11y);
+    };
+  }
   return out;
 }
 
@@ -90,7 +111,8 @@ export const View = React.forwardRef<HTMLDivElement, AnyProps>(function View(
   props,
   ref
 ) {
-  return React.createElement("div", { ...toDom(props), ref });
+  const dom = toDom(props);
+  return React.createElement("div", { ...dom, ref: ref ?? (dom.ref as React.Ref<HTMLDivElement> | undefined) });
 });
 View.displayName = "View";
 
@@ -121,7 +143,7 @@ export const Pressable = React.forwardRef<HTMLButtonElement, AnyProps>(
       type: "button",
       disabled: !!disabled,
       ...dom,
-      ref,
+      ref: ref ?? (dom.ref as React.Ref<HTMLButtonElement> | undefined),
     });
   }
 );
@@ -233,13 +255,35 @@ export const Modal = ({
   children,
   onRequestClose,
   testID,
-}: AnyProps & { visible?: boolean; onRequestClose?: () => void }) => {
+  presentationStyle,
+  transparent,
+  animationType,
+  allowSwipeDismissal,
+  statusBarTranslucent,
+  navigationBarTranslucent,
+}: AnyProps & {
+  visible?: boolean;
+  onRequestClose?: () => void;
+  presentationStyle?: string;
+  transparent?: boolean;
+  animationType?: string;
+  allowSwipeDismissal?: boolean;
+  statusBarTranslucent?: boolean;
+  navigationBarTranslucent?: boolean;
+}) => {
   if (!visible) return null;
   return React.createElement(
     "div",
     {
       role: "dialog",
       "data-testid": testID,
+      // How the real Modal would be presented, for assertions.
+      "data-presentation-style": presentationStyle,
+      "data-transparent": transparent ? "true" : undefined,
+      "data-animation-type": animationType,
+      "data-allow-swipe-dismissal": allowSwipeDismissal ? "true" : undefined,
+      "data-status-bar-translucent": statusBarTranslucent ? "true" : undefined,
+      "data-navigation-bar-translucent": navigationBarTranslucent ? "true" : undefined,
       onKeyDown: (e: React.KeyboardEvent) => {
         if (e.key === "Escape") onRequestClose?.();
       },
@@ -255,19 +299,31 @@ export const FlatList = <T,>(props: {
   data?: T[];
   renderItem?: (info: { item: T; index: number }) => React.ReactNode;
   keyExtractor?: (item: T, index: number) => string;
+  ListHeaderComponent?: React.ReactNode | React.ComponentType;
+  ListFooterComponent?: React.ReactNode | React.ComponentType;
+  ListEmptyComponent?: React.ReactNode | React.ComponentType;
+  refreshControl?: React.ReactNode;
   testID?: string;
 }) => {
-  const { data = [], renderItem, keyExtractor, testID } = props;
+  const { data = [], renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, testID } = props;
+  // Slots render like FlatList's: an element as is, a component type as <C />.
+  const slot = (s: React.ReactNode | React.ComponentType | undefined) =>
+    typeof s === "function" ? React.createElement(s as React.ComponentType) : (s ?? null);
   return React.createElement(
     "div",
     { "data-testid": testID, role: "list" },
-    data.map((item, index) =>
-      React.createElement(
-        "div",
-        { key: keyExtractor ? keyExtractor(item, index) : String(index) },
-        renderItem?.({ item, index })
-      )
-    )
+    refreshControl ?? null,
+    slot(ListHeaderComponent),
+    ...(data.length === 0
+      ? [slot(ListEmptyComponent)]
+      : data.map((item, index) =>
+          React.createElement(
+            "div",
+            { key: keyExtractor ? keyExtractor(item, index) : String(index) },
+            renderItem?.({ item, index })
+          )
+        )),
+    slot(ListFooterComponent)
   );
 };
 
@@ -364,6 +420,17 @@ export const RefreshControl = (props: AnyProps) =>
   React.createElement("div", { "data-testid": (props as AnyProps).testID });
 
 export const StatusBar = (_props: AnyProps) => null;
+
+export const StyleSheet = {
+  hairlineWidth: 0.5,
+  create<T>(styles: T): T {
+    return styles;
+  },
+  flatten(style: unknown): Record<string, unknown> {
+    if (Array.isArray(style)) return Object.assign({}, ...style.map((s) => StyleSheet.flatten(s)));
+    return (style as Record<string, unknown>) ?? {};
+  },
+};
 
 /** Records the names, like the real one does in its opaque value. */
 export function PlatformColor(...names: string[]) {

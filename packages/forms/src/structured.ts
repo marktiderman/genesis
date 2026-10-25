@@ -1,4 +1,5 @@
 import type { FieldTypeManifest } from "./fields";
+import { isPlainRecord, type PropsCheck } from "./props-check";
 import type { FieldBlock, Json } from "./types";
 
 type JsonObject = { [key: string]: Json };
@@ -110,9 +111,41 @@ const sourceText = (field: FieldBlock) => (typeof field.props?.text === "string"
  */
 export const STRUCTURED_FIELD_TYPES = ["list", "table", "media-notes", "text-highlights"] as const;
 
+const listProps: PropsCheck = (props, check) => {
+  check.optionalInt(props.min, "min", 0);
+  check.optionalInt(props.max, "max", 1);
+  check.optionalInt(props.itemMaxLength, "itemMaxLength", 1);
+  check.optionalText(props.placeholder, "placeholder");
+  check.ordered(props.min, props.max ?? 10, "min", "most items");
+};
+
+// Checked with or without props: a table with no columns would block every submission.
+const tableProps: PropsCheck = (props, check) => {
+  const columns = props.columns;
+  if (!Array.isArray(columns) || columns.length < 1 || columns.length > MAX_TABLE_COLUMNS) {
+    check.issue("columns", `Must be a list of 1 to ${MAX_TABLE_COLUMNS} columns.`);
+  } else {
+    const seen = new Set<string>();
+    columns.forEach((c, j) => {
+      const at = `columns[${j}]`;
+      if (!isPlainRecord(c)) return check.issue(at, "Each column needs a key and a label.");
+      if (check.name(c.key, `${at}.key`, "A column key")) {
+        if (seen.has(c.key)) check.issue(`${at}.key`, `Duplicate column key "${c.key}".`);
+        seen.add(c.key);
+      }
+      check.text(c.label, `${at}.label`);
+      check.optionalBoolean(c.long, `${at}.long`);
+    });
+  }
+  check.optionalInt(props.minRows, "minRows", 0);
+  check.optionalInt(props.maxRows, "maxRows", 1);
+  check.ordered(props.minRows, props.maxRows ?? 3, "minRows", "most rows");
+};
+
 export const structuredFieldTypes: FieldTypeManifest[] = [
   {
-    type: "list", label: "List", category: "text", value: { json: true },
+    type: "list", label: "List", category: "text", value: { json: true }, literal: "string",
+    checkProps: listProps,
     // logic.ts `contains` on an array is exact item equality, same as multi-choice, so it is offered.
     operators: ["contains", "answered", "empty"], a11y: { semantics: "group" },
     isEmpty: (value) => emptyList(value, blankText),
@@ -134,6 +167,7 @@ export const structuredFieldTypes: FieldTypeManifest[] = [
   },
   {
     type: "table", label: "Table", category: "advanced", value: { json: true },
+    checkProps: tableProps,
     operators: ["answered", "empty"], a11y: { semantics: "group" },
     isEmpty: (value) => emptyList(value, (r) => isObject(r) && Object.values(r).every(blankText)),
     validate: (value, field) => {
@@ -177,6 +211,10 @@ export const structuredFieldTypes: FieldTypeManifest[] = [
   },
   {
     type: "media-notes", label: "Notes at moments", category: "media", value: { json: true },
+    checkProps: (props, check) => {
+      check.optionalInt(props.maxNotes, "maxNotes", 1);
+      check.optionalInt(props.textMaxLength, "textMaxLength", 1);
+    },
     operators: ["answered", "empty"], a11y: { semantics: "group" },
     isEmpty: (value) => emptyList(value, (n) => isObject(n) && blankText(n.text)),
     validate: (value, field) => {
@@ -202,6 +240,10 @@ export const structuredFieldTypes: FieldTypeManifest[] = [
   },
   {
     type: "text-highlights", label: "Highlights", category: "media", value: { json: true },
+    checkProps: (props, check) => {
+      check.optionalText(props.text, "text");
+      check.optionalInt(props.maxHighlights, "maxHighlights", 1);
+    },
     operators: ["answered", "empty"], a11y: { semantics: "group" },
     isEmpty: (value) => emptyList(value, () => false),
     validate: (value, field) => {

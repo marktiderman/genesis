@@ -27,9 +27,10 @@
     "@marktiderman/genesis-forms": "workspace:^",
     "@marktiderman/genesis-forms-builder": "workspace:^",
     "@marktiderman/genesis-forms-devtools": "workspace:^",
-    "@marktiderman/genesis-forms-studio": "workspace:^",
     "@marktiderman/genesis-forms-react": "workspace:^",
+    "@marktiderman/genesis-forms-studio": "workspace:^",
     "@marktiderman/genesis-forms-web": "workspace:^",
+    "@marktiderman/genesis-sites": "workspace:^",
     "@marktiderman/genesis-studio": "workspace:^",
     "@marktiderman/genesis-studio-server": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
@@ -105,7 +106,7 @@
     "storybook": "^10.6.3",
     "tailwindcss": "^4.2.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
+    "typescript": "~6.0.3",
     "vite": "^8.0.3",
     "vitest": "^4.1.12"
   }

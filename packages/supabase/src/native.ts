@@ -7,17 +7,30 @@
 import type { SessionStorage } from "./index";
 
 export {
+  assertPkceCrypto,
+  hasPkceCrypto,
+  installWebCrypto,
+  isDigestOnlyPolyfill,
+  type ExpoCryptoLike,
+  type WebCryptoSource,
+} from "./web-crypto";
+
+export {
   GenesisAuthError,
   completeOAuthRedirect,
   formatFullName,
   redirectParams,
   signInWithApple,
+  signInWithGoogle,
   type AppleAuthenticationLike,
   type AppleFullNameLike,
+  type GoogleSignInLike,
   type OAuthRedirectResult,
   type SignInClient,
   type SignInWithAppleOptions,
   type SignInWithAppleResult,
+  type SignInWithGoogleOptions,
+  type SignInWithGoogleResult,
 } from "./sign-in";
 
 /** The parts of `expo-secure-store` the Keychain storage uses. */

@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 136 components · 463 other exports · 317 standalone types across 11 packages and entry points.
+**Totals:** 146 components · 490 other exports · 361 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -237,12 +237,14 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (37)
+### Components (40)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`AccessibleIcon`](../packages/ui/src/components/ui/accessible-icon.tsx) | `AccessibleIconProps` | Beta | AccessibleIcon — gives a decorative icon an accessible name. |
 | [`Badge`](../packages/ui/src/components/ui/badge.tsx) | `BadgeProps` | — | _(no summary)_ |
+| [`Band`](../packages/ui/src/components/layout/band.tsx) | `BandProps` | Beta | Band: a full-bleed, full-width marketing section. The background runs edge to edge; the content sits in a centered column with the page gutter. It is what a landing page is made of: a hero, a features band, a call to action, a footer. |
+| [`BandLead`](../packages/ui/src/components/layout/band.tsx) | `BandLeadProps` | Beta | _(no summary)_ |
 | [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link. |
 | [`ButtonGroup`](../packages/ui/src/components/ui/button-group.tsx) | `ButtonGroupProps` | — | _(no summary)_ |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
@@ -250,6 +252,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`DashboardPage`](../packages/ui/src/components/layout/dashboard-page.tsx) | `DashboardPageProps` | Beta | DashboardPage — a stat row over a flexible region of charts, tables and sections. |
 | [`DatePicker`](../packages/ui/src/components/ui/date-picker.tsx) | `DatePickerProps` | — | _(no summary)_ |
 | [`DetailPage`](../packages/ui/src/components/layout/detail-page.tsx) | `DetailPageProps` | Beta | DetailPage — one record's full view: a title row with actions, a primary content region, and a metadata sidebar that drops below the content on small screens. |
+| [`Display`](../packages/ui/src/components/layout/band.tsx) | `DisplayProps` | Beta | Display: a heading in the marketing type scale (`displayVariants`). |
 | [`EmptyState`](../packages/ui/src/components/patterns/empty-state.tsx) | `EmptyStateProps` | Beta | EmptyState — what to show when a list, page, or panel has no data. |
 | [`FormPage`](../packages/ui/src/components/layout/form-page.tsx) | `FormPageProps` | Beta | FormPage — a titled form: header, validation summary, a body of sections, and a sticky action bar. |
 | [`Grid`](../packages/ui/src/components/layout/grid.tsx) | `GridProps` | Beta | Grid — two-dimensional flow for card and tile collections. |
@@ -279,7 +282,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (242)
+### Other exports (245)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -308,6 +311,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Avatar`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
 | [`AvatarFallback`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
 | [`AvatarImage`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
+| [`bandVariants`](../packages/ui/src/components/layout/band.tsx) | value | — | _(no summary)_ |
 | [`Breadcrumb`](../packages/ui/src/components/ui/breadcrumb.tsx) | value | — | _(no summary)_ |
 | [`BreadcrumbEllipsis`](../packages/ui/src/components/ui/breadcrumb.tsx) | value | — | _(no summary)_ |
 | [`BreadcrumbItem`](../packages/ui/src/components/ui/breadcrumb.tsx) | value | — | _(no summary)_ |
@@ -376,6 +380,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DialogPortal`](../packages/ui/src/components/ui/dialog.tsx) | value | — | _(no summary)_ |
 | [`DialogTitle`](../packages/ui/src/components/ui/dialog.tsx) | value | — | _(no summary)_ |
 | [`DialogTrigger`](../packages/ui/src/components/ui/dialog.tsx) | value | — | _(no summary)_ |
+| [`displayVariants`](../packages/ui/src/components/layout/band.tsx) | value | — | _(no summary)_ |
 | [`Drawer`](../packages/ui/src/components/ui/drawer.tsx) | value | — | _(no summary)_ |
 | [`DrawerClose`](../packages/ui/src/components/ui/drawer.tsx) | value | — | _(no summary)_ |
 | [`DrawerContent`](../packages/ui/src/components/ui/drawer.tsx) | value | — | _(no summary)_ |
@@ -426,6 +431,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Label`](../packages/ui/src/components/ui/label.tsx) | value | — | _(no summary)_ |
 | [`Large`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`Lead`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
+| [`leadVariants`](../packages/ui/src/components/layout/band.tsx) | value | — | _(no summary)_ |
 | [`Menubar`](../packages/ui/src/components/ui/menubar.tsx) | value | — | _(no summary)_ |
 | [`MenubarCheckboxItem`](../packages/ui/src/components/ui/menubar.tsx) | value | — | _(no summary)_ |
 | [`MenubarContent`](../packages/ui/src/components/ui/menubar.tsx) | value | — | _(no summary)_ |
@@ -688,7 +694,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (87)
+### Components (94)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -698,7 +704,9 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`AuthScreen`](../packages/ui-native/src/layouts/auth-screen.tsx) | `AuthScreenProps` | — | _(no summary)_ |
 | [`Box`](../packages/ui-native/src/components/layout/index.ts) | `BoxProps` | — | _(no summary)_ |
 | [`BrandExtensionsProvider`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | `BrandExtensionsProviderProps` | — | _(no summary)_ |
+| [`GenesisModulesProvider`](../packages/ui-native/src/native-modules.tsx) | `GenesisModulesProviderProps` | — | Pass the optional native modules the app has installed. Nested providers merge: an inner one adds to or replaces what an outer one gave. Define the `modules` object once at module scope (as the starter's `src/lib/native-modules.ts` does)... |
 | [`Grid`](../packages/ui-native/src/components/layout/index.ts) | `GridProps` | — | _(no summary)_ |
+| [`InboxPage`](../packages/ui-native/src/layouts/inbox-page.tsx) | `InboxPageProps` | — | _(no summary)_ |
 | [`Inline`](../packages/ui-native/src/components/layout/index.ts) | `InlineProps` | — | _(no summary)_ |
 | [`NativeAccordion`](../packages/ui-native/src/components/accordion.tsx) | `NativeAccordionProps` | — | _(no summary)_ |
 | [`NativeAccordionContent`](../packages/ui-native/src/components/accordion.tsx) | `NativeAccordionContentProps` | — | _(no summary)_ |
@@ -730,7 +738,10 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeDropdownMenuItem`](../packages/ui-native/src/components/dropdown-menu.tsx) | `NativeDropdownMenuItemProps` | — | _(no summary)_ |
 | [`NativeDropdownMenuTrigger`](../packages/ui-native/src/components/dropdown-menu.tsx) | `NativeDropdownMenuTriggerProps` | — | _(no summary)_ |
 | [`NativeEmptyState`](../packages/ui-native/src/components/empty-state.tsx) | `NativeEmptyStateProps` | — | _(no summary)_ |
+| [`NativeGlassSurface`](../packages/ui-native/src/components/glass-surface.tsx) | `NativeGlassSurfaceProps` | — | _(no summary)_ |
 | [`NativeHeaderCard`](../packages/ui-native/src/components/header-card.tsx) | `NativeHeaderCardProps` | — | _(no summary)_ |
+| [`NativeIcon`](../packages/ui-native/src/components/icon.tsx) | `NativeIconProps` | — | _(no summary)_ |
+| [`NativeImage`](../packages/ui-native/src/components/image.tsx) | `NativeImageProps` | — | _(no summary)_ |
 | [`NativeInlineAlert`](../packages/ui-native/src/components/inline-alert.tsx) | `NativeInlineAlertProps` | — | _(no summary)_ |
 | [`NativeInput`](../packages/ui-native/src/components/input.tsx) | `NativeInputProps` | — | _(no summary)_ |
 | [`NativeLabel`](../packages/ui-native/src/components/label.tsx) | `NativeLabelProps` | — | _(no summary)_ |
@@ -753,7 +764,8 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeSelectItem`](../packages/ui-native/src/components/select.tsx) | `NativeSelectItemProps` | — | _(no summary)_ |
 | [`NativeSelectTrigger`](../packages/ui-native/src/components/select.tsx) | `NativeSelectTriggerProps` | — | _(no summary)_ |
 | [`NativeSeparator`](../packages/ui-native/src/components/separator.tsx) | `NativeSeparatorProps` | — | _(no summary)_ |
-| [`NativeSheet`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProps` | — | _(no summary)_ |
+| [`NativeSheet`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProps` | Beta | _(no summary)_ |
+| [`NativeSheetProvider`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProviderProps` | Beta | Opts every `NativeSheet` below it into `@gorhom/bottom-sheet` and mounts the library's `BottomSheetModalProvider`. A module missing any export the sheet needs is reported with `console.error` and ignored, so sheets fall back to the nativ... |
 | [`NativeSkeleton`](../packages/ui-native/src/components/skeleton.tsx) | `NativeSkeletonProps` | — | _(no summary)_ |
 | [`NativeSlider`](../packages/ui-native/src/components/slider.tsx) | `NativeSliderProps` | — | _(no summary)_ |
 | [`NativeStepper`](../packages/ui-native/src/components/stepper.tsx) | `NativeStepperProps` | — | _(no summary)_ |
@@ -779,8 +791,9 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`SettingsSubPage`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | `SettingsSubPageProps` | — | _(no summary)_ |
 | [`SocialAuthRow`](../packages/ui-native/src/layouts/auth.tsx) | `SocialAuthRowProps` | — | _(no summary)_ |
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
+| [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (29)
+### Other exports (43)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -796,27 +809,41 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`composeHeaderOptions`](../packages/ui-native/src/layouts/screen-container.tsx) | function | — | Compose a `<Stack.Screen options={...}>` object from Layer-3 named props + a direct `headerOptions` passthrough. Layouts call this and pass the result to `<Stack.Screen>` so the host's expo-router stack renders a platform-native large ti... |
 | [`confirmDiscardChanges`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Default leave-guard helper. Pops a native Alert with Discard / Keep Editing buttons; calls `proceed()` only if the user opts to discard. |
 | [`ForgotPasswordLink`](../packages/ui-native/src/layouts/auth.tsx) | function | — | _(no summary)_ |
+| [`formatInboxTime`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | The default row time: `9:41`, `Yesterday`, `Monday`, then a short date. |
+| [`getInboxPageStackOptions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | `<Stack.Screen options>` for an InboxPage: a large title that collapses on scroll. |
 | [`getNotificationsPageStackOptions`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | Compose `<Stack.Screen options={...}>` for a NotificationsPage. Wires a "Mark all read" action via `headerRight` when `onMarkAllRead` is passed. |
 | [`getSettingsPageStackOptions`](../packages/ui-native/src/layouts/settings-page.tsx) | function | — | Convenience helper for callers that want to wire `<Stack.Screen options={...}>` without re-importing composeHeaderOptions. Defaults `large: true` and `scrollEdgeBehavior: "match"` to match the Apple HIG large-title settings pattern out o... |
 | [`getSettingsSubPageStackOptions`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Compose `<Stack.Screen options={...}>` for a SettingsSubPage. Wires the nav-bar Save button via `headerRight` automatically when `onSave` is passed. |
+| [`getThreadPageStackOptions`](../packages/ui-native/src/layouts/thread-page.tsx) | function | — | `<Stack.Screen options>` for a ThreadPage: a standard (not large) title, like Messages. |
+| [`googleProvider`](../packages/ui-native/src/layouts/google-sign-in.tsx) | function | Beta | A `SocialAuthProvider` (id `"google"`) for `AuthScreen`'s `providers`, or `null` when `enabled` is false. |
+| [`KEYBOARD_TOOLBAR_HEIGHT`](../packages/ui-native/src/layouts/keyboard.tsx) | const | — | Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input. Mirrors `KEYBOARD_TOOLBAR_HEIGHT` in the library's `src/components/KeyboardToolbar/constants.ts` (1.22): move them together. |
 | [`KeyboardScrollProvider`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | _(no summary)_ |
+| [`NATIVE_ICON_NAMES`](../packages/ui-native/src/icon-names.ts) | const | — | Every semantic icon name. |
 | [`NativeCardContent`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeCardDescription`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeCardFooter`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeCardHeader`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeListItemDivider`](../packages/ui-native/src/components/list-item.tsx) | function | — | _(no summary)_ |
+| [`NativeSheetScrollView`](../packages/ui-native/src/components/sheet.tsx) | function | Beta | A `ScrollView` for sheet content: the library's `BottomSheetScrollView` under `NativeSheetProvider` (so scrolling and dragging the sheet don't fight), React Native's otherwise. Sized to its content until it reaches the sheet's height. |
+| [`readReceiptFor`](../packages/ui-native/src/layouts/thread-page.tsx) | function | — | The newest of my messages the other side has read, or null. |
+| [`SF_SYMBOLS`](../packages/ui-native/src/icon-names.ts) | const | Beta | The semantic icon names Genesis components ask for, and the SF Symbol each one draws on iOS. Components say "settings" or "bell", never a library's own name; `lucideIcons` (`/icons/lucide`) maps the same names for Android, web and the SF... |
+| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as a menu (long press). |
 | [`spaceScale`](../packages/ui-native/src/components/layout/index.ts) | value | — | _(no summary)_ |
 | [`spacingClass`](../packages/ui-native/src/components/layout/index.ts) | value | — | _(no summary)_ |
 | [`textVariants`](../packages/ui-native/src/components/text.tsx) | value | — | _(no summary)_ |
 | [`toggleVariants`](../packages/ui-native/src/components/toggle.tsx) | value | — | _(no summary)_ |
 | [`useGenesisExtension`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | function | — | Read an extension scale by key. Returns `undefined` when the provider isn't mounted OR when the key isn't declared on the brand. The return type follows the consumer's augmented `BrandExtensions[K]`. |
+| [`useGenesisModules`](../packages/ui-native/src/native-modules.tsx) | function | — | The modules given to the nearest `GenesisModulesProvider`; `{}` without one. |
 | [`useKeyboardScroll`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-aware scroll view, or null when none was provided. |
+| [`useKeyboardToolbar`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it). |
+| [`useLiquidGlass`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | expo-glass-effect's `GlassView` when Liquid Glass can be drawn here, else `null`. |
 | [`useReducedMotion`](../packages/ui-native/src/hooks/use-reduced-motion.ts) | function | — | _(no summary)_ |
+| [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
 | [`useThemeMode`](../packages/ui-native/src/hooks/use-theme-mode.ts) | function | — | _(no summary)_ |
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (34)
+### Types (59)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -829,13 +856,33 @@ export type { BoxBackground };
 export type { BrandExtensionsValue };
 export type { FlexAlign };
 export type { FlexJustify };
+export type { GenesisDatePickerComponent };
+export type { GenesisDatePickerProps };
+export type { GenesisGlassModule };
+export type { GenesisIconComponent };
+export type { GenesisIconSet };
+export type { GenesisImageComponent };
+export type { GenesisImageProps };
+export type { GenesisListComponent };
+export type { GenesisListProps };
+export type { GenesisModules };
+export type { GenesisReanimatedModule };
+export type { GenesisSymbolComponent };
+export type { GenesisSymbolProps };
+export type { GoogleProviderOptions };
+export type { InboxItem };
+export type { InboxPageSlotMap };
+export type { InboxSwipeAction };
 export type { KeyboardScrollProps };
+export type { KeyboardToolbarProps };
 export type { NativeAccordionType };
 export type { NativeChipGroupMode };
 export type { NativeComboboxOption };
 export type { NativeEmptyStateVariant };
+export type { NativeIconName };
 export type { NativeInlineAlertVariant };
 export type { NativeSegmentedControlOption };
+export type { NativeSheetLibrary };
 export type { NativeStepperStep };
 export type { NativeToastOptions };
 export type { NativeToastVariant };
@@ -854,6 +901,11 @@ export type { SpacingPrefix };
 export type { TextPreset };
 export type { ThemeMode };
 export type { ThemeRoleColors };
+export type { ThreadAttachment };
+export type { ThreadComposer };
+export type { ThreadLabels };
+export type { ThreadMessage };
+export type { ThreadPageSlotMap };
 export type { UseThemeRolesOptions };
 ```
 
@@ -873,9 +925,9 @@ The native app shell: `GenesisNativeApp` (boot behind the splash, fatal screen, 
 | [`BootScreen`](../packages/native/src/app.tsx) | `BootScreenProps` | — | The default boot slot: a plain loading view (the splash covers it at launch). |
 | [`FatalScreen`](../packages/native/src/errors.tsx) | `FatalScreenProps` | — | The default fatal screen: what went wrong and "Try again". |
 | [`GenesisErrorBoundary`](../packages/native/src/errors.tsx) | `GenesisErrorBoundaryProps` | — | An error boundary whose fallback gets `{ error, retry }`. |
-| [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard scrolling, data, boot behind the splash, errors, session and held links. |
+| [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard, data, boot behind the splash, errors, session and held links. |
 
-### Other exports (19)
+### Other exports (22)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -887,21 +939,24 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createBoot`](../packages/native/src/boot.tsx) | function | — | The boot controller: runs `steps` once each, in order, with a timeout per step. |
 | [`createHydrationGate`](../packages/native/src/hydration-gate.ts) | function | — | A gate that holds writes until a persisted store has hydrated. |
 | [`createLinkHold`](../packages/native/src/held-link.ts) | function | — | A place to hold one deep link until sign-in completes; lives outside React. |
-| [`createNativeQueryClient`](../packages/native/src/query.ts) | function | — | A QueryClient for a phone. `networkMode: "always"` runs a query or mutation even when the device reports offline, so it fails (and shows its error or cached data) instead of waiting forever for a network that may never come back. `gcTime... |
+| [`createNativeQueryClient`](../packages/native/src/query.ts) | function | — | A QueryClient for a phone. `networkMode: "offlineFirst"` runs a query or mutation once whatever the network says, then pauses its retries while the device is offline (`onlineManager`, which `connectQueryLifecycle` feeds from NetInfo), co... |
 | [`createSessionStore`](../packages/native/src/auth.tsx) | function | — | The Supabase session as a store: `load` reads it once, `start` follows auth events. |
 | [`DAY_MS`](../packages/native/src/query.ts) | const | — | One day in milliseconds: the default max age of the saved query cache. |
 | [`defaultErrorUtils`](../packages/native/src/errors.tsx) | function | — | `globalThis.ErrorUtils` in a React Native runtime, undefined elsewhere. |
 | [`defaultRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Hermes's rejection tracker, when the app runs on Hermes. React Native sends unhandled rejections to `ExceptionsManager` (LogBox in development), never to `ErrorUtils`' global handler, so without this they never reach `onError`. |
 | [`installGlobalErrorHandler`](../packages/native/src/errors.tsx) | function | — | Route global errors to `onError`. A fatal one goes to `onFatal` instead of React Native's default handler, which would close the app; a non-fatal one still reaches the previous handler (LogBox in development). Returns a function that put... |
 | [`installRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Report unhandled promise rejections to `onError` (non-fatal). This replaces React Native's own tracker, so each rejection is also written with `console.warn`, which LogBox shows in development as before. |
+| [`mergeBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The merge `useBlockSettings` does, without hooks (subtitles already read). @stability Beta |
 | [`normalizeLink`](../packages/native/src/links.ts) | function | — | The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. |
 | [`PlainFatalScreen`](../packages/native/src/errors.tsx) | function | — | The last-resort fatal screen: React Native primitives only, no theme, no context, nothing that can itself fail. Shown when the providers could not start, or when the `fatal` slot threw. |
 | [`SessionProvider`](../packages/native/src/auth.tsx) | function | — | Makes a session store readable with `useSession()`. |
+| [`useBlocks`](../packages/native/src/blocks.tsx) | function | Beta | The resolved blocks: their ids, nav entries, Settings rows, routes and the rest, each tagged with its FeatureId. Throws outside `GenesisNativeApp`. |
+| [`useBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The app's Settings sections with every block's rows added: each row goes at the end of the section its `section` names (by `order`, then block order), and a section no one has yet is added after the rest. |
 | [`useBoot`](../packages/native/src/boot.tsx) | function | — | The boot's status, and `retry` after a failure. Inside `GenesisNativeApp` or a `BootProvider`. |
 | [`useHeldLink`](../packages/native/src/held-link.ts) | function | — | Follow the held link after a sign-in, drop it otherwise; returns the link still held. |
 | [`useSession`](../packages/native/src/auth.tsx) | function | — | The session and whether it is known yet. Inside `GenesisNativeApp` or a `SessionProvider`. |
 
-### Types (33)
+### Types (38)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -909,6 +964,7 @@ Type-only exports not consumed as a component's `Props`.
 export type { AppStateLike };
 export type { AsyncStorageLike };
 export type { AuthClientLike };
+export type { BlockSettingsSection };
 export type { BootController };
 export type { BootOptions };
 export type { BootState };
@@ -926,6 +982,8 @@ export type { LinkHold };
 export type { LinkOptions };
 export type { LinkTarget };
 export type { NativeAppSlots };
+export type { NativeBlock };
+export type { NativeBlockRootProps };
 export type { NativeQueryClientOptions };
 export type { NetInfoLike };
 export type { OnError };
@@ -935,8 +993,10 @@ export type { SessionState };
 export type { SessionStatus };
 export type { SessionStore };
 export type { SessionStoreOptions };
+export type { SettingsRowLike };
 export type { SignedOutProps };
 export type { SplashModule };
+export type { UseBlockSettingsOptions };
 export type { UseBootReturn };
 export type { UseHeldLinkOptions };
 ```
@@ -1169,7 +1229,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (29)
+### Other exports (36)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1177,13 +1237,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`AGENTS_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated block in AGENTS.md. |
 | [`AGENTS_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated block in AGENTS.md. |
+| [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
 | [`BrokenBlockError`](../packages/features/src/generate.ts) | class | — | Thrown when a generated block's markers are broken: one is missing, repeated or out of order. |
+| [`cycleProblems`](../packages/features/src/graph.ts) | function | Beta | Cycles through `requires`, each reported once, from where the depth-first search found it. @stability Beta |
+| [`defineBlock`](../packages/features/src/blocks.ts) | function | Beta | Declare a block. Validates it (id, requirements, platforms, contribution keys and duplicate ids within the block) and returns it frozen, so a typo fails where the block is written rather than where it is used: |
 | [`defineFeatures`](../packages/features/src/model.ts) | function | Beta | The one source of truth for a repo's features. Validates every entry and returns the same object, so running code reads it directly and the key type becomes the repo's `FeatureId`: |
 | [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner`, a `kind`, a `default` and its `scopes`; - `release` and `experiment` flags need an `expires` date, `ops` fl... |
+| [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
 | [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
-| [`FEATURE_PLATFORMS`](../packages/features/src/model.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
+| [`FEATURE_PLATFORMS`](../packages/features/src/model.ts) | value | — | _(no summary)_ |
 | [`FEATURE_STATUSES`](../packages/features/src/model.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
@@ -1197,6 +1261,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
+| [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
+| [`requiresProblems`](../packages/features/src/graph.ts) | function | Beta | Self-requirements, unknown requirements and cycles through `requires`, as problem strings (`a.requires: …`). Each cycle is reported once, from where the depth-first search found it: `a.requires: a cycle: a → b → a`. |
+| [`resolveBlocks`](../packages/features/src/blocks.ts) | function | Beta | The blocks that are on, checked and merged: |
 | [`statusOn`](../packages/features/src/model.ts) | function | Beta | A feature's status on one platform, or undefined when it isn't there. @stability Beta |
 | [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: deliberately short. It points agents at `find` and the skill and gives counts, never the whole list, so AGENTS.md stays small however many features there are. |
 | [`toJson`](../packages/features/src/generate.ts) | function | Beta | The registry as JSON, for tools that can't import TypeScript. Stable: no timestamps, features in declaration order, so `check` can compare it. It is also the record of every id ever used, which keeps ids permanent. |
@@ -1205,11 +1272,21 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (18)
+### Types (32)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BlockContributions };
+export type { BlockDataUse };
+export type { BlockDef };
+export type { BlockMigration };
+export type { BlockNavItem };
+export type { BlockPrivacy };
+export type { BlockRoute };
+export type { BlockSettingsRow };
+export type { Contributed };
+export type { EnabledBlocks };
 export type { FeatureAccess };
 export type { FeatureDef };
 export type { FeatureHorizon };
@@ -1228,6 +1305,10 @@ export type { FlagKind };
 export type { FlagValue };
 export type { Flags };
 export type { GenerateOptions };
+export type { RequiresNode };
+export type { RequiresProblemsOptions };
+export type { ResolveBlocksOptions };
+export type { ResolvedBlocks };
 ```
 
 ---
