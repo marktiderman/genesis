@@ -117,7 +117,11 @@ export const View = React.forwardRef<HTMLDivElement, AnyProps>(function View(
 View.displayName = "View";
 
 export const SafeAreaView = View;
-export const ScrollView = View;
+// A View that also renders its `refreshControl` (as FlatList's mock does), so pull to refresh can be pressed.
+export const ScrollView = React.forwardRef<HTMLDivElement, AnyProps>(function ScrollView({ refreshControl, children, ...props }, ref) {
+  return React.createElement(View, { ...props, ref }, (refreshControl as React.ReactNode) ?? null, children as React.ReactNode);
+});
+ScrollView.displayName = "ScrollView";
 
 export const Text = React.forwardRef<HTMLSpanElement, AnyProps>(function Text(
   props,
@@ -430,8 +434,16 @@ export const PanResponder = {
   create: () => ({ panHandlers: {} }),
 };
 
-export const RefreshControl = (props: AnyProps) =>
-  React.createElement("div", { "data-testid": (props as AnyProps).testID });
+export const RefreshControl = (props: AnyProps) => {
+  const { testID, tintColor, refreshing, onRefresh } = props as AnyProps & { testID?: string; tintColor?: unknown; refreshing?: boolean; onRefresh?: () => void };
+  // A click stands in for the pull.
+  return React.createElement("div", {
+    "data-testid": testID,
+    "data-tint-color": tintColor === undefined ? undefined : typeof tintColor === "string" ? tintColor : JSON.stringify(tintColor),
+    "data-refreshing": refreshing === undefined ? undefined : String(refreshing),
+    onClick: onRefresh,
+  });
+};
 
 export const StatusBar = (_props: AnyProps) => null;
 
