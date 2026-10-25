@@ -1,0 +1,476 @@
+/**
+ * @feat:chat
+ * A chat client held in memory, for demos, stories and tests: the same shape
+ * as `createChatClient`, with no Supabase behind it. It also plays the other
+ * side (`receive`, `activity`) so a demo looks alive.
+ */
+import { ChatError, type ChatClient, type ChatSupabase, type ConversationChannel, type MessagePage } from "../core/client";
+import type {
+  ChatActivity,
+  ChatAttachment,
+  ChatConversation,
+  ChatInboxItem,
+  ChatMember,
+  ChatMessage,
+  ChatRole,
+  ChatSignal,
+  SendInput,
+} from "../core/types";
+
+export interface MemoryConversationSeed {
+  id: string;
+  kind?: string;
+  title?: string | null;
+  settings?: ChatConversation["settings"];
+  members: { userId: string; role?: ChatRole; lastReadSeq?: number }[];
+  /** Your role when you aren't a member (an observer). */
+  myRole?: ChatRole | null;
+  canPost?: boolean;
+  muted?: boolean;
+  pinned?: boolean;
+  messages?: (Partial<Omit<ChatMessage, "attachments">> & { attachments?: Partial<ChatAttachment>[] })[];
+  pins?: string[];
+}
+
+export interface MemoryChatOptions {
+  /** The signed-in user. */
+  me: string;
+  conversations: MemoryConversationSeed[];
+  /** Signed URLs for attachment paths. */
+  files?: Record<string, string>;
+  /** Milliseconds each call waits, to show loading states. Default 0. */
+  latencyMs?: number;
+}
+
+interface Conv {
+  conversation: ChatConversation;
+  members: ChatMember[];
+  myRole: ChatRole | null;
+  canPost: boolean;
+  muted: boolean;
+  pinned: boolean;
+  messages: ChatMessage[];
+  pins: string[];
+}
+
+export type MemoryChatClient = ChatClient & {
+  /** Someone else posts (a demo's other side). */
+  receive(conversationId: string, senderId: string, body: string, extra?: Partial<ChatMessage>): ChatMessage;
+  /** Someone else starts typing or recording. */
+  activity(conversationId: string, userId: string, activity: ChatActivity["activity"]): void;
+  /** The next `count` sends fail as if the connection dropped. */
+  failNextSends(count?: number): void;
+  /** The next send waits until the returned function is called (a test watching the sending state). */
+  holdNextSend(): () => void;
+  /** Every call made, for tests. */
+  calls: { method: string; args: unknown[] }[];
+};
+
+let counter = 0;
+const uuid = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `00000000-0000-4000-8000-${String(++counter).padStart(12, "0")}`;
+
+function attachment(messageId: string, a: Partial<ChatAttachment>, i: number): ChatAttachment {
+  return {
+    id: a.id ?? uuid(),
+    messageId,
+    position: a.position ?? i,
+    kind: a.kind ?? "file",
+    ref: a.ref ?? {},
+    provider: a.provider ?? "storage",
+    path: a.path ?? null,
+    providerId: a.providerId ?? null,
+    playbackId: a.playbackId ?? null,
+    url: a.url ?? null,
+    status: a.status ?? "ready",
+    name: a.name ?? null,
+    mime: a.mime ?? null,
+    bytes: a.bytes ?? null,
+    width: a.width ?? null,
+    height: a.height ?? null,
+    durationMs: a.durationMs ?? null,
+    waveform: a.waveform ?? null,
+    posterPath: a.posterPath ?? null,
+    thumbhash: a.thumbhash ?? null,
+    transcript: a.transcript ?? null,
+    transcriptStatus: a.transcriptStatus ?? null,
+  };
+}
+
+export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatClient {
+  const { me } = options;
+  const files: Record<string, string> = { ...(options.files ?? {}) };
+  const convs = new Map<string, Conv>();
+  const convListeners = new Map<string, Set<{ onSignal: (s: ChatSignal) => void; onActivity?: (a: ChatActivity) => void }>>();
+  const inboxListeners = new Set<(s: ChatSignal) => void>();
+  const calls: { method: string; args: unknown[] }[] = [];
+  let failing = 0;
+  let held: Promise<void> | null = null;
+  const wait = () => new Promise<void>((r) => setTimeout(r, options.latencyMs ?? 0));
+
+  const makeMessage = (c: Conv, m: Partial<Omit<ChatMessage, "attachments">> & { attachments?: Partial<ChatAttachment>[] }): ChatMessage => {
+    const id = m.id ?? uuid();
+    const seq = ++c.conversation.lastSeq;
+    const createdAt = m.createdAt ?? new Date().toISOString();
+    c.conversation.lastMessageAt = createdAt;
+    return {
+      id,
+      conversationId: c.conversation.id,
+      seq,
+      clientId: m.clientId ?? id,
+      senderId: m.senderId ?? null,
+      senderRole: m.senderRole ?? (m.kind === "system" ? "system" : "member"),
+      kind: m.kind ?? "text",
+      body: m.body ?? "",
+      mentions: m.mentions ?? [],
+      replyToId: m.replyToId ?? null,
+      threadRootId: m.threadRootId ?? null,
+      threadCount: m.threadCount ?? 0,
+      threadLastAt: m.threadLastAt ?? null,
+      topic: m.topic ?? null,
+      visibility: m.visibility ?? "everyone",
+      silent: m.silent ?? false,
+      meta: m.meta ?? {},
+      createdAt,
+      editedAt: m.editedAt ?? null,
+      deletedAt: m.deletedAt ?? null,
+      attachments: (m.attachments ?? []).map((a, i) => attachment(id, a, i)),
+      reactions: m.reactions ?? [],
+    };
+  };
+
+  for (const seed of options.conversations) {
+    const c: Conv = {
+      conversation: {
+        id: seed.id,
+        kind: seed.kind ?? (seed.members.length === 2 ? "direct" : "group"),
+        title: seed.title ?? null,
+        subjectType: null,
+        subjectId: null,
+        settings: seed.settings ?? {},
+        status: null,
+        assigneeId: null,
+        lastSeq: 0,
+        lastMessageAt: null,
+        createdAt: new Date().toISOString(),
+        archivedAt: null,
+      },
+      members: seed.members.map((m) => ({
+        conversationId: seed.id,
+        userId: m.userId,
+        role: m.role ?? "member",
+        lastReadSeq: m.lastReadSeq ?? 0,
+        joinedAt: new Date().toISOString(),
+      })),
+      myRole: seed.myRole !== undefined ? seed.myRole : (seed.members.find((m) => m.userId === me)?.role ?? "member"),
+      canPost: seed.canPost ?? true,
+      muted: seed.muted ?? false,
+      pinned: seed.pinned ?? false,
+      messages: [],
+      pins: seed.pins ?? [],
+    };
+    for (const m of seed.messages ?? []) c.messages.push(makeMessage(c, m));
+    convs.set(seed.id, c);
+  }
+
+  const get = (id: string) => {
+    const c = convs.get(id);
+    if (!c) throw new ChatError("Conversation not found", "42501", "conversation");
+    return c;
+  };
+  const findMessage = (id: string) => {
+    for (const c of convs.values()) {
+      const m = c.messages.find((x) => x.id === id);
+      if (m) return { c, m };
+    }
+    throw new ChatError("Message not found", "42501", "message");
+  };
+  const visible = (c: Conv, m: ChatMessage) => m.visibility !== "observers" || c.myRole === "observer";
+  const clone = (m: ChatMessage): ChatMessage => ({ ...m, attachments: m.attachments.map((a) => ({ ...a })), reactions: [...m.reactions] });
+  const emit = (conversationId: string, s: ChatSignal) => {
+    for (const l of convListeners.get(conversationId) ?? []) l.onSignal(s);
+    for (const l of inboxListeners) l({ type: "inbox", conversationId });
+  };
+  const log = (method: string, ...args: unknown[]) => calls.push({ method, args });
+
+  function inboxItem(c: Conv): ChatInboxItem {
+    const mine = c.members.find((m) => m.userId === me);
+    const lastRead = mine?.lastReadSeq ?? 0;
+    const seen = c.messages.filter((m) => visible(c, m));
+    const last = seen[seen.length - 1];
+    const others = c.members.filter((m) => m.userId !== me);
+    const unreadList = seen.filter((m) => m.seq > lastRead && m.senderId !== me && !m.deletedAt);
+    return {
+      conversationId: c.conversation.id,
+      kind: c.conversation.kind,
+      title: c.conversation.title,
+      subjectType: null,
+      subjectId: null,
+      status: null,
+      role: c.myRole ?? "member",
+      otherUserId: c.members.length === 2 && others.length === 1 ? others[0]!.userId : null,
+      memberCount: c.members.length,
+      lastSeq: c.conversation.lastSeq,
+      lastReadSeq: lastRead,
+      unread: Math.min(99, unreadList.length),
+      mentioned: unreadList.some((m) => m.mentions.includes(me)),
+      muted: c.muted,
+      pinned: c.pinned,
+      archived: false,
+      lastMessageAt: c.conversation.lastMessageAt,
+      lastMessage: last
+        ? {
+            id: last.id,
+            seq: last.seq,
+            senderId: last.senderId,
+            kind: last.kind,
+            body: last.body,
+            deleted: Boolean(last.deletedAt),
+            createdAt: last.createdAt,
+            attachment: last.attachments[0]?.kind ?? null,
+          }
+        : null,
+    };
+  }
+
+  const client: MemoryChatClient = {
+    supabase: null as unknown as ChatSupabase,
+    calls,
+
+    async inbox(opts: { kind?: string; archived?: boolean; limit?: number; before?: string } = {}) {
+      log("inbox", opts);
+      await wait();
+      if (opts.archived) return [];
+      return [...convs.values()]
+        .filter((c) => !opts.kind || c.conversation.kind === opts.kind)
+        .map(inboxItem)
+        .sort((a, b) => Number(b.pinned) - Number(a.pinned) || (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""));
+    },
+    async observed() {
+      return [];
+    },
+    async unreadTotal() {
+      return [...convs.values()].reduce((n, c) => n + inboxItem(c).unread, 0);
+    },
+    async conversation(id: string) {
+      await wait();
+      return convs.has(id) ? { ...get(id).conversation } : null;
+    },
+    async kind(kind: string) {
+      return { kind, label: kind, maxMembers: kind === "direct" ? 2 : null, whoPosts: "members" as const, membership: "admins" as const, threads: true, observersPost: false };
+    },
+
+    async myRole(id: string) {
+      return convs.get(id)?.myRole ?? null;
+    },
+    async canPost(id: string) {
+      return convs.get(id)?.canPost ?? false;
+    },
+    async members(id: string) {
+      return get(id).members.map((m) => ({ ...m }));
+    },
+    async messages(id: string, opts: { beforeSeq?: number; afterSeq?: number; limit?: number; threadRootId?: string; topic?: string } = {}): Promise<MessagePage> {
+      log("messages", id, opts);
+      await wait();
+      const c = get(id);
+      const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+      let list = c.messages.filter((m) => visible(c, m) && (opts.threadRootId ? m.threadRootId === opts.threadRootId : m.threadRootId === null));
+      if (opts.topic) list = list.filter((m) => m.topic === opts.topic);
+      if (opts.afterSeq != null) return { messages: list.filter((m) => m.seq > opts.afterSeq!).slice(0, limit).map(clone), hasEarlier: false };
+      if (opts.beforeSeq != null) list = list.filter((m) => m.seq < opts.beforeSeq!);
+      const page = list.slice(-limit);
+      return { messages: page.map(clone), hasEarlier: list.length > page.length };
+    },
+    async message(id: string) {
+      try {
+        const { c, m } = findMessage(id);
+        return visible(c, m) ? clone(m) : null;
+      } catch {
+        return null;
+      }
+    },
+    async startConversation(kind: string, memberIds: string[], opts: { title?: string } = {}) {
+      const id = uuid();
+      convs.set(id, {
+        conversation: {
+          id,
+          kind,
+          title: opts.title ?? null,
+          subjectType: null,
+          subjectId: null,
+          settings: {},
+          status: null,
+          assigneeId: null,
+          lastSeq: 0,
+          lastMessageAt: null,
+          createdAt: new Date().toISOString(),
+          archivedAt: null,
+        },
+        members: [me, ...memberIds.filter((m) => m !== me)].map((userId) => ({ conversationId: id, userId, role: userId === me ? "owner" : "member", lastReadSeq: 0, joinedAt: new Date().toISOString() })),
+        myRole: "owner",
+        canPost: true,
+        muted: false,
+        pinned: false,
+        messages: [],
+        pins: [],
+      });
+      for (const l of inboxListeners) l({ type: "inbox", conversationId: id });
+      return id;
+    },
+    async send(input: SendInput) {
+      log("send", input);
+      await wait();
+      if (held) {
+        const hold = held;
+        held = null;
+        await hold;
+      }
+      if (failing > 0) {
+        failing -= 1;
+        throw new ChatError("Failed to fetch", undefined, "send_message");
+      }
+      const c = get(input.conversationId);
+      if (!c.canPost) throw new ChatError("You can't post here", "42501", "send_message");
+      const existing = c.messages.find((m) => m.clientId === input.clientId);
+      if (existing) return clone(existing);
+      const m = makeMessage(c, {
+        clientId: input.clientId,
+        senderId: me,
+        senderRole: c.myRole ?? "member",
+        body: input.body ?? "",
+        mentions: input.mentions ?? [],
+        replyToId: input.replyToId ?? null,
+        threadRootId: input.threadRootId ?? null,
+        topic: input.topic ?? null,
+        visibility: input.visibility ?? "everyone",
+        silent: input.silent ?? false,
+        attachments: (input.attachments ?? []).map((a) => ({ ...a, durationMs: a.durationMs ?? null, transcriptStatus: a.kind === "voice" ? "pending" : null })) as Partial<ChatAttachment>[],
+      });
+      c.messages.push(m);
+      const mine = c.members.find((x) => x.userId === me);
+      if (mine) mine.lastReadSeq = m.seq;
+      emit(c.conversation.id, { type: "message", conversationId: c.conversation.id, id: m.id, seq: m.seq, op: "insert" });
+      return clone(m);
+    },
+    async edit(messageId: string, body: string, mentions: string[] = []) {
+      log("edit", messageId, body);
+      const { c, m } = findMessage(messageId);
+      if (m.senderId !== me) throw new ChatError("You can't edit this message", "42501", "edit_message");
+      Object.assign(m, { body, mentions, editedAt: new Date().toISOString() });
+      emit(c.conversation.id, { type: "message", conversationId: c.conversation.id, id: m.id, op: "update" });
+      return clone(m);
+    },
+    async remove(messageId: string) {
+      log("remove", messageId);
+      const { c, m } = findMessage(messageId);
+      Object.assign(m, { body: "", attachments: [], reactions: [], deletedAt: new Date().toISOString() });
+      emit(c.conversation.id, { type: "message", conversationId: c.conversation.id, id: m.id, op: "update" });
+    },
+    async react(messageId: string, emoji: string, on = true) {
+      log("react", messageId, emoji, on);
+      const { c, m } = findMessage(messageId);
+      m.reactions = m.reactions.filter((r) => !(r.emoji === emoji && r.userId === me));
+      if (on) m.reactions.push({ emoji, userId: me });
+      emit(c.conversation.id, { type: "reaction", conversationId: c.conversation.id, messageId });
+    },
+    async markRead(conversationId: string, seq?: number) {
+      const c = get(conversationId);
+      const mine = c.members.find((x) => x.userId === me);
+      if (mine) mine.lastReadSeq = Math.max(mine.lastReadSeq, seq ?? c.conversation.lastSeq);
+      return mine?.lastReadSeq ?? 0;
+    },
+    async setMySettings(conversationId: string, s: { mutedUntil?: string | null; archived?: boolean; pinned?: boolean }) {
+      const c = get(conversationId);
+      if (s.mutedUntil !== undefined) c.muted = s.mutedUntil !== null;
+      if (s.pinned !== undefined) c.pinned = s.pinned;
+    },
+    async updateConversation(conversationId: string, s: { title?: string; settings?: Record<string, unknown> }) {
+      const c = get(conversationId);
+      if (s.title !== undefined) c.conversation.title = s.title;
+      if (s.settings) c.conversation.settings = { ...c.conversation.settings, ...s.settings };
+    },
+    async addMembers(conversationId: string, userIds: string[]) {
+      const c = get(conversationId);
+      for (const userId of userIds) if (!c.members.some((m) => m.userId === userId)) c.members.push({ conversationId, userId, role: "member", lastReadSeq: 0, joinedAt: new Date().toISOString() });
+    },
+    async removeMember(conversationId: string, userId?: string) {
+      const c = get(conversationId);
+      c.members = c.members.filter((m) => m.userId !== (userId ?? me));
+    },
+    async setStatus(conversationId: string, status: ChatConversation["status"], assigneeId?: string | null) {
+      const c = get(conversationId);
+      c.conversation.status = status;
+      c.conversation.assigneeId = assigneeId ?? null;
+    },
+    async pin(messageId: string, on = true) {
+      log("pin", messageId, on);
+      const { c } = findMessage(messageId);
+      c.pins = c.pins.filter((p) => p !== messageId);
+      if (on) c.pins.push(messageId);
+      emit(c.conversation.id, { type: "conversation", conversationId: c.conversation.id });
+    },
+    async pins(conversationId: string) {
+      return [...(convs.get(conversationId)?.pins ?? [])];
+    },
+    async save(messageId: string, on = true, note?: string) {
+      log("save", messageId, on, note);
+    },
+    async report(messageId: string, reason: "spam" | "harassment" | "safety" | "other", note?: string) {
+      log("report", messageId, reason, note);
+      return uuid();
+    },
+    async upload(conversationId: string, userId: string, file: Blob | ArrayBuffer, opts: { name: string; contentType: string; id?: string }) {
+      log("upload", conversationId, opts.name);
+      await wait();
+      const path = `${conversationId}/${userId}/${opts.id ?? uuid()}-${opts.name}`;
+      const blob = file instanceof Blob ? file : new Blob([file], { type: opts.contentType });
+      files[path] = typeof URL !== "undefined" && typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : `memory://${path}`;
+      return path;
+    },
+    async fileUrls(paths: string[]) {
+      const out: Record<string, string> = {};
+      for (const p of paths) if (files[p]) out[p] = files[p]!;
+      return out;
+    },
+    subscribeInbox(_userId: string, onSignal: (s: ChatSignal) => void) {
+      inboxListeners.add(onSignal);
+      return { unsubscribe: () => void inboxListeners.delete(onSignal) };
+    },
+    subscribeConversation(
+      conversationId: string,
+      _me: string,
+      handlers: { onSignal: (s: ChatSignal) => void; onActivity?: (a: ChatActivity) => void; onReconnect?: () => void },
+    ): ConversationChannel {
+      const set = convListeners.get(conversationId) ?? new Set();
+      convListeners.set(conversationId, set);
+      const entry = { onSignal: handlers.onSignal, onActivity: handlers.onActivity };
+      set.add(entry);
+      return {
+        signal(activity) {
+          log("signal", conversationId, activity);
+        },
+        unsubscribe: () => void set.delete(entry),
+      };
+    },
+
+    receive(conversationId: string, senderId: string, body: string, extra: Partial<ChatMessage> = {}) {
+      const c = get(conversationId);
+      const m = makeMessage(c, { senderId, body, ...extra } as Partial<ChatMessage>);
+      c.messages.push(m);
+      emit(conversationId, { type: "message", conversationId, id: m.id, seq: m.seq, op: "insert" });
+      return clone(m);
+    },
+    activity(conversationId: string, userId: string, activity: ChatActivity["activity"]) {
+      for (const l of convListeners.get(conversationId) ?? []) l.onActivity?.({ userId, activity, at: Date.now() });
+    },
+    failNextSends(count = 1) {
+      failing = count;
+    },
+    holdNextSend() {
+      let release!: () => void;
+      held = new Promise<void>((r) => (release = r));
+      return () => release();
+    },
+  };
+  return client;
+}

@@ -12,6 +12,7 @@
 //   /sites-demo/<site>/api/forms/:slug
 //                               the forms endpoint (answers 200; nothing is stored).
 //                               /api is reserved, so handleSiteRequest leaves it to the app.
+//   /sites-demo/uploads         the editor demo's image uploads (dev and preview servers only).
 import { defineForm, f } from "@marktiderman/genesis-forms";
 import {
   createMemorySiteStore,
@@ -178,6 +179,9 @@ export async function handleDemoRequest(request: Request, base = "/"): Promise<R
     return Response.json({ ok: true, stored: false });
   }
 
+  // The editor demo's uploads (app/routes/sites-editor.tsx): raster images only, kept in memory.
+  if (rest === "/uploads" || rest.startsWith("/uploads/")) return handleUpload(request, rest, root);
+
   // The price list the plans page offers: a one-page PDF, made here (a real site stores it under sites/<id>/files/).
   if (rest === "/classes/files/riverside-prices.pdf") {
     return new Response(PRICE_LIST_PDF, { headers: { "content-type": "application/pdf", "cache-control": "public, max-age=3600" } });
@@ -196,6 +200,62 @@ export async function handleDemoRequest(request: Request, base = "/"): Promise<R
     forms,
     unknownPath: "not-found",
   });
+}
+
+const UPLOAD_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif"]);
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_UPLOADS = 20;
+const uploads = new Map<string, { type: string; body: ArrayBuffer }>();
+
+/** The request body, or null once it passes `limit` bytes: reading stops there, so an oversized upload is never held whole. */
+async function readBody(request: Request, limit: number): Promise<ArrayBuffer | null> {
+  if (!request.body) return new ArrayBuffer(0);
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    out.set(c, at);
+    at += c.byteLength;
+  }
+  return out.buffer;
+}
+
+/**
+ * The editor demo's uploads: POST an image, GET it back. At most 20 of 5 MB, in this server's memory.
+ * The editor's pages live in the browser, so this server can't tell which images they still use:
+ * none is ever dropped, and a 21st upload is refused until the server restarts.
+ */
+async function handleUpload(request: Request, rest: string, root: string): Promise<Response> {
+  if (request.method === "POST" && rest === "/uploads") {
+    const type = (request.headers.get("content-type") ?? "").split(";")[0]!.trim();
+    if (!UPLOAD_TYPES.has(type)) return new Response("Only PNG, JPEG, WebP, AVIF or GIF images.\n", { status: 415 });
+    if (uploads.size >= MAX_UPLOADS) return new Response(`The demo keeps at most ${MAX_UPLOADS} uploads. Restart the dev server to upload more.\n`, { status: 507 });
+    if (Number(request.headers.get("content-length") ?? 0) > MAX_UPLOAD_BYTES) return new Response("At most 5 MB.\n", { status: 413 });
+    const body = await readBody(request, MAX_UPLOAD_BYTES);
+    if (!body) return new Response("At most 5 MB.\n", { status: 413 });
+    const name = (new URL(request.url).searchParams.get("name") ?? "image").toLowerCase().replace(/[^a-z0-9.]+/g, "-").slice(0, 60);
+    // Unique per upload: two of the same name never share an address.
+    const id = `${crypto.randomUUID()}-${name}`;
+    uploads.set(id, { type, body });
+    return Response.json({ id, url: `${root}/uploads/${id}` });
+  }
+  const file = uploads.get(rest.slice("/uploads/".length));
+  if (request.method === "GET" && file) {
+    return new Response(file.body, { headers: { "content-type": file.type, "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'", "cache-control": "no-store" } });
+  }
+  return new Response("Not found\n", { status: 404 });
 }
 
 /** Every page of both demo sites, for the static build. */

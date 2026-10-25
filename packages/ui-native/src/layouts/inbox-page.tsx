@@ -16,6 +16,10 @@
  * react-native-gesture-handler, an optional peer); it receives the actions
  * and the row.
  *
+ * Rows: `avatar` puts a picture of who it is between the unread dot and the
+ * text (an unread count shows at the end of the row, as in Mail); `leading`
+ * replaces the dot.
+ *
  * Slots: `row`, `swipeable`, `header` (above the group), `footer` (below it,
  * the paging spinner by default) and `empty`. `slots` swaps a part for your
  * component (same props), `slotProps` feeds the default more props, `null`
@@ -27,13 +31,14 @@
  */
 import { Fragment, useState, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { NativeEmptyState } from "../components/empty-state";
 import { NativeText } from "../components/text";
 import { NativeButton } from "../components/button";
 import { NativeBadge } from "../components/badge";
+import { NativeRefreshControl } from "../components/refresh-control";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
 
 /** An action on a row: swipe, long press, or an accessibility action. */
@@ -59,8 +64,17 @@ export interface InboxItem {
   unreadCount?: number;
   /** A short status shown under the preview ("In progress", "12 votes"). */
   meta?: string;
-  /** Replaces the unread dot (an avatar, an icon). */
+  /** Replaces the unread dot (an icon). For a picture of who it is, use `avatar`, which keeps the dot. */
   leading?: ReactNode;
+  /**
+   * A picture of who or what it is (a `NativeAvatar`, about 40pt), between the
+   * unread dot and the text. The separator then starts at the text. It is hidden
+   * from screen readers; when it shows someone `title` doesn't name, say who in
+   * `avatarLabel`.
+   */
+  avatar?: ReactNode;
+  /** Who the avatar shows, read before the title, when `title` doesn't name them. */
+  avatarLabel?: string;
   /** Shown at the end of the row (a vote button, a badge). Replaces the chevron. */
   trailing?: ReactNode;
   /** Opens the conversation. Rows with `onPress` show a chevron unless `trailing` is set. */
@@ -137,6 +151,12 @@ export function formatInboxTime(date: Date, now: Date): string {
   return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: date.getFullYear() === now.getFullYear() ? undefined : "numeric" });
 }
 
+/** The row's leading padding, the unread dot's column, an avatar's default size and its gap to the text. */
+const ROW_PADDING = 16;
+const LEADING_WIDTH = 18;
+const DEFAULT_AVATAR = 40;
+const AVATAR_GAP = 12;
+
 /** UIKit's inset grouped margin on a phone, in points (as SettingsPage). */
 const IOS_GROUP_MARGIN = 16;
 
@@ -183,9 +203,21 @@ export function InboxPage({
     </View>
   );
 
+  const refreshControl = onRefresh ? <NativeRefreshControl testID={`${testID}-refresh`} refreshing={!!refreshing} onRefresh={() => void onRefresh()} /> : undefined;
+
   if (items.length === 0) {
+    // A scroll view, not a plain view: under a large-title (or translucent) header only a
+    // scroll view's automatic content inset moves the content below the header, and pull to
+    // refresh needs one too.
     return (
       <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+        <ScrollView
+          testID={`${testID}-empty-scroll`}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ flexGrow: 1, paddingTop: 8, paddingBottom: 32 }}
+          refreshControl={refreshControl}
+        >
         {headerNode}
         {loading ? (
           <View testID={`${testID}-loading`} style={{ paddingVertical: 32 }}>
@@ -213,6 +245,7 @@ export function InboxPage({
             slotProps.empty,
           )
         )}
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -232,7 +265,7 @@ export function InboxPage({
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
-        refreshControl={onRefresh ? <RefreshControl testID={`${testID}-refresh`} refreshing={!!refreshing} onRefresh={onRefresh} /> : undefined}
+        refreshControl={refreshControl}
         renderItem={({ item: row }) => {
           const content = renderSlot(DefaultRow, slots.row, row, slotProps.row);
           const actions = row.swipeActions ?? [];
@@ -292,7 +325,10 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
   const actions = row.swipeActions ?? [];
   const radius = iosGroupRadius();
   const unreadLabel = row.unreadCount && row.unreadCount > 0 ? `${row.unreadCount} unread` : row.unread ? "Unread" : null;
-  const label = [unreadLabel, row.title, row.timeLabel, row.preview, row.meta].filter(Boolean).join(", ");
+  const label = [unreadLabel, row.avatar ? row.avatarLabel : null, row.title, row.timeLabel, row.preview, row.meta].filter(Boolean).join(", ");
+  // The separator starts at the text: the row's padding, the dot's column, and the avatar when there is one.
+  const [avatarWidth, setAvatarWidth] = useState(0);
+  const separatorInset = ROW_PADDING + LEADING_WIDTH + (row.avatar ? (avatarWidth || DEFAULT_AVATAR) + AVATAR_GAP : 0);
   return (
     <View
       testID={`${row.testID}-cell`}
@@ -320,11 +356,22 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
         onLongPress={actions.length ? () => showInboxActions(row.title, actions) : undefined}
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}
-        style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 11, minHeight: 60, backgroundColor: pressed && row.onPress ? colors.fill : undefined }}
+        style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: ROW_PADDING, paddingVertical: 11, minHeight: 60, backgroundColor: pressed && row.onPress ? colors.fill : undefined }}
       >
-        <View style={{ width: 18, alignItems: "flex-start" }}>
+        <View style={{ width: LEADING_WIDTH, alignItems: "flex-start" }}>
           {row.leading ?? (row.unreadCount && row.unreadCount > 0 ? null : <UnreadDot unread={!!row.unread} testID={`${row.testID}-unread`} color={colors.tint} />)}
         </View>
+        {row.avatar ? (
+          <View
+            testID={`${row.testID}-avatar`}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            onLayout={(e) => setAvatarWidth(Math.round(e.nativeEvent.layout.width))}
+            style={{ marginRight: AVATAR_GAP }}
+          >
+            {row.avatar}
+          </View>
+        ) : null}
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "baseline" }}>
             <NativeText
@@ -359,7 +406,7 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
       </Pressable>
       {row.isLast ? null : (
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: "row", height: StyleSheet.hairlineWidth }}>
-          <View style={{ width: 34 }} />
+          <View testID={`${row.testID}-separator-inset`} style={{ width: separatorInset }} />
           <View testID={`${row.testID}-separator-line`} style={{ flex: 1, backgroundColor: colors.separator }} />
         </View>
       )}

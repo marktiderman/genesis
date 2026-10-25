@@ -152,4 +152,49 @@ describe("InboxPage", () => {
   it("composes a large-title header by default", () => {
     expect(getInboxPageStackOptions({ headerTitle: "Help" })).toMatchObject({ title: "Help", headerLargeTitle: true });
   });
+
+  it("puts the empty state in a scroll view that insets below a large-title header, with pull to refresh", () => {
+    const onRefresh = vi.fn();
+    render(<InboxPage testID="inbox" items={[]} emptyTitle="No messages" onRefresh={onRefresh} />);
+    const scroll = screen.getByTestId("inbox-empty-scroll");
+    expect(scroll.getAttribute("contentInsetAdjustmentBehavior")).toBe("automatic");
+    expect(scroll.contains(screen.getByTestId("inbox-empty"))).toBe(true);
+    fireEvent.click(screen.getByTestId("inbox-refresh"));
+    expect(onRefresh).toHaveBeenCalled();
+  });
+
+  it("uses the themed refresh control (safe under the native app shell) on the list", () => {
+    render(<InboxPage testID="inbox" items={items} now={now} refreshing onRefresh={() => {}} />);
+    expect(screen.getByTestId("inbox-refresh").dataset.refreshing).toBe("true");
+    expect(screen.getByTestId("inbox-refresh").dataset.tintColor).toBeTruthy();
+  });
+
+  it("has room for an avatar beside the unread dot or count, and starts the separator at the text", () => {
+    const withAvatars: InboxItem[] = [
+      { ...items[0]!, avatar: <span data-testid="avatar-a" /> },
+      { ...items[1]!, avatar: <span data-testid="avatar-b" /> },
+      items[2]!,
+    ];
+    render(<InboxPage testID="inbox" items={withAvatars} now={now} />);
+    // Count and avatar together; dot and avatar together.
+    expect(screen.getByTestId("inbox-row-a-count").textContent).toBe("2");
+    expect(screen.getByTestId("inbox-row-a-avatar").contains(screen.getByTestId("avatar-a"))).toBe(true);
+    expect(styleOf(screen.getByTestId("inbox-row-b-unread")).borderRadius).toBe(5);
+    expect(screen.getByTestId("avatar-b")).toBeTruthy();
+    // The avatar isn't read out twice: the row's label already names it.
+    expect(screen.getByTestId("inbox-row-a-avatar").getAttribute("aria-hidden")).toBe("true");
+    // 16 padding + 18 dot column + 40 avatar + 12 gap; without an avatar, 34 as before.
+    expect(styleOf(screen.getByTestId("inbox-row-a-separator-inset")).width).toBe(86);
+    expect(screen.queryByTestId("inbox-row-c-avatar")).toBeNull();
+  });
+
+  it("reads who an avatar shows when the title doesn't name them", () => {
+    const rows: InboxItem[] = [
+      { ...items[0]!, title: "Morning crew", avatar: <span />, avatarLabel: "Sam" },
+      { ...items[1]!, avatarLabel: "Ignored without an avatar" },
+    ];
+    render(<InboxPage testID="inbox" items={rows} now={now} />);
+    expect(screen.getByTestId("inbox-row-a").getAttribute("aria-label")).toMatch(/^2 unread, Sam, Morning crew/);
+    expect(screen.getByTestId("inbox-row-b").getAttribute("aria-label")).not.toContain("Ignored");
+  });
 });

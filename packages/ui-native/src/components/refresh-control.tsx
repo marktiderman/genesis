@@ -2,23 +2,14 @@
  * RefreshControl wrapper — token-aware tint over RN's RefreshControl.
  *
  * Use as the `refreshControl` prop on ScrollView / FlatList / SectionList.
- * The tint defaults to a CSS-variable resolved at runtime via the theme
- * provider; consumers can override per-call. We re-export RN's
+ * The tint defaults to the theme's `tint` role; consumers can override
+ * per-call. We re-export RN's
  * RefreshControl shape so the API mirrors what consumers already know.
  *
  * @stability Beta
  */
-// Lazy resolve of the RN export so we don't break in environments where
-// react-native isn't fully bundled (e.g. metro server warm-up).
-function resolveRefreshControl(): React.ComponentType<NativeRefreshControlProps> | null {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const rn = require("react-native");
-    return rn.RefreshControl as React.ComponentType<NativeRefreshControlProps>;
-  } catch {
-    return null;
-  }
-}
+import { RefreshControl } from "react-native";
+import { useThemeRoles } from "../hooks/use-theme-roles";
 
 export interface NativeRefreshControlProps {
   refreshing: boolean;
@@ -37,37 +28,12 @@ export interface NativeRefreshControlProps {
 }
 
 /**
- * Resolves the active theme's primary color for use as the RefreshControl
- * tint. Returns undefined on platforms where the theme provider isn't
- * mounted (consumer can still pass `tintColor` explicitly).
+ * Pull to refresh, tinted with the theme's `tint` role. Works under any Genesis root.
  */
-// Keep the design-system hook resolution outside the render path. We
-// resolve the hook reference once at module load; if the consumer isn't
-// using genesis-design-system, we fall back to undefined and only the
-// caller-provided tintColor / colors apply. Using a ref-style closure
-// avoids conditional hooks (which would violate the rules of hooks).
-const useGenesisThemeRef: (() => { colors?: { primary?: string } }) | null =
-  (() => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const provider = require("@marktiderman/genesis-design-system/providers/native");
-      return provider.useGenesisTheme ?? null;
-    } catch {
-      return null;
-    }
-  })();
-
-export function NativeRefreshControl(props: NativeRefreshControlProps) {
-  const RC = resolveRefreshControl();
-  const theme = useGenesisThemeRef ? useGenesisThemeRef() : null;
-  const themePrimary = theme?.colors?.primary;
-  if (!RC) return null;
-  return (
-    <RC
-      tintColor={props.tintColor ?? themePrimary}
-      colors={props.colors ?? (themePrimary ? [themePrimary] : undefined)}
-      {...props}
-      testID={props.testID ?? "native-refresh-control"}
-    />
-  );
+// The tint comes from `useThemeRoles`, not `useGenesisTheme` from `providers/native`: that is
+// another context, which the native app shell's `GenesisThemeProvider` never mounts, so it threw there.
+export function NativeRefreshControl({ tintColor, colors, testID, ...rest }: NativeRefreshControlProps) {
+  const tint = useThemeRoles().tint;
+  const androidTint = typeof tint === "string" ? [tint] : undefined;
+  return <RefreshControl {...rest} tintColor={tintColor ?? (tint as string)} colors={colors ?? androidTint} testID={testID ?? "native-refresh-control"} />;
 }

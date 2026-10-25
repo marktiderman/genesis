@@ -5,9 +5,10 @@
   "type": "module",
   "sideEffects": [
     "./dist/sections.js",
+    "./dist/editor.js",
     "*.css"
   ],
-  "description": "Sites and landing pages for Genesis apps: a section registry with zod 4 schemas, 20 server-rendered sections on Genesis UI (timetable, team, blog, map, timeline and downloads among them), a blog with drafts, published posts, RSS and Article JSON-LD, a guarded asset import, a per-request renderer with no hydration, SEO (meta, sitemap, robots, JSON-LD, redirects), publish-time accessibility checks, one-click landing pages from a brand, and a Supabase schema with draft, publish and rollback. Part of the Genesis framework.",
+  "description": "Sites and landing pages for Genesis apps: a section registry with zod 4 schemas, 20 server-rendered sections on Genesis UI (timetable, team, blog, map, timeline and downloads among them), a blog with drafts, published posts, RSS and Article JSON-LD, a guarded asset import (/import), a per-request renderer with no hydration, SEO (meta, sitemap, robots, JSON-LD, redirects), publish-time accessibility checks, one-click landing pages from a brand, a Supabase schema with draft, publish and rollback, and a visual editor on Puck (/editor) that published pages never load. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -47,6 +48,10 @@
       "types": "./dist/blocks.d.ts",
       "import": "./dist/blocks.js"
     },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "import": "./dist/editor.js"
+    },
     "./import": {
       "types": "./dist/import.d.ts",
       "import": "./dist/import.js"
@@ -74,6 +79,7 @@
     "@marktiderman/genesis-forms": "workspace:>=0.6.0 <1.0.0",
     "@marktiderman/genesis-forms-web": "workspace:>=0.5.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
+    "@puckeditor/core": "^0.23.0",
     "@supabase/supabase-js": "^2.118.0",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0",
@@ -81,6 +87,9 @@
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "@puckeditor/core": {
+      "optional": true
+    },
     "@supabase/supabase-js": {
       "optional": true
     }
@@ -91,6 +100,7 @@
     "@marktiderman/genesis-forms-react": "workspace:^",
     "@marktiderman/genesis-forms-web": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
+    "@puckeditor/core": "^0.23.0",
     "@supabase/supabase-js": "^2.118.0",
     "@tailwindcss/cli": "4.3.3",
     "@types/node": "^22",
