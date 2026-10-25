@@ -452,10 +452,9 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
   /** The menu editor's every edit: kept as typed, and saved whenever every link is valid. */
   const onMenuEdit = React.useCallback(
     (items: MenuItem[]) => {
-      if (items.every((i) => menuItemProblems(i).length === 0)) {
-        setMenuDraft(null);
-        onNavChange(items.map((i) => ({ label: i.label.trim(), href: i.href.trim() })));
-      } else setMenuDraft(items);
+      // The menu stays as typed (a space after a word survives); the saved copy is trimmed.
+      setMenuDraft(items);
+      if (items.every((i) => menuItemProblems(i).length === 0)) onNavChange(items.map((i) => ({ label: i.label.trim(), href: i.href.trim() })));
     },
     [onNavChange],
   );
@@ -700,6 +699,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
       const theirs = siteSaver.current?.reload();
       if (theirs) {
         setSite(theirs);
+        setMenuDraft(null);
         const page = pageSaver.current?.latest;
         if (page) setOpen({ ...open, data: toEditorData(page, theirs, slotKeys) });
         setEditorKey((k) => k + 1);

@@ -4,7 +4,7 @@
  * Puck data and back, autosave with compare-and-swap conflicts, publish
  * blocked by the checks, and page moves writing redirects.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
@@ -38,8 +38,8 @@ describe("the published renderer", () => {
           continue;
         }
         const base = resolve(dirname(file), spec);
-        const target = [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts")].find((p) => existsSync(p) && !p.endsWith("/"))!;
-        if (target && /\.tsx?$/.test(target)) visit(target);
+        const target = [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts"), join(base, "index.tsx")].find((p) => /\.tsx?$/.test(p) && existsSync(p) && statSync(p).isFile());
+        if (target) visit(target);
       }
     };
     visit(join(src, "web/index.ts"));
