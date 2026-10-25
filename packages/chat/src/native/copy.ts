@@ -44,7 +44,17 @@ export interface ChatNativeCopy {
   cancelRecording: string;
   micDenied: string;
   tooShort: string;
+  /** A recording whose stop failed or left no file. */
+  recordingFailed: string;
+  /** A recording ended by a call, Siri, another app or the app leaving the screen. */
+  recordingInterrupted: string;
   play: string;
+  /** The bubble's VoiceOver actions on a voice note. */
+  playVoice: string;
+  pauseVoice: string;
+  changeSpeed: string;
+  /** The bubble's VoiceOver action for the nth of several photos. */
+  openPhotoN: string;
   pause: string;
   speed: string;
   voiceMessage: string;
@@ -118,7 +128,13 @@ export const chatNativeCopy: ChatNativeCopy = {
   cancelRecording: "Delete recording",
   micDenied: "Turn on the microphone for this app in Settings to record.",
   tooShort: "Hold to record a voice message.",
+  recordingFailed: "The voice message couldn't be saved. Try recording it again.",
+  recordingInterrupted: "Recording stopped, so it wasn't sent. Hold to record again.",
   play: "Play",
+  playVoice: "Play voice message",
+  pauseVoice: "Pause voice message",
+  changeSpeed: "Change playback speed",
+  openPhotoN: "Open photo {n}",
   pause: "Pause",
   speed: "Playback speed {rate}",
   voiceMessage: "Voice message, {duration}",
