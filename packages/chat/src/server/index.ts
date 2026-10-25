@@ -22,7 +22,7 @@ export {
 } from "./expo";
 export { chatRunnerHandler, type ChatRunnerHandlerOptions } from "./handler";
 export { openAiModerator, moderationVerdict, OPENAI_MODERATIONS_URL, OPENAI_MODERATION_CATEGORIES, type OpenAiModeratorOptions, type ModerationThresholds } from "./moderation";
-export { createLinkUnfurler, isPrivateAddress, parseOpenGraph, decodeEntities, type LinkUnfurlerOptions } from "./unfurl";
+export { createLinkUnfurler, isPrivateAddress, parseOpenGraph, decodeEntities, carriesCredential, guardedLookup, type LinkUnfurlerOptions } from "./unfurl";
 export {
   notificationsDeliver,
   chatNotifyInput,
@@ -48,4 +48,10 @@ export {
   type DraftReplyInput,
   type RecapInput,
 } from "./assistant";
-export { createVideoUploadHandler, type VideoUploadHandlerOptions } from "./upload";
+export {
+  createVideoUploadHandler,
+  chatUploadPassthrough,
+  parseChatUploadPassthrough,
+  type ChatUploadBinding,
+  type VideoUploadHandlerOptions,
+} from "./upload";

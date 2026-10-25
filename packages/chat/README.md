@@ -112,7 +112,9 @@ answers `{ claimed, done, failed, scheduled }` (plus `purged` and `errors` when 
 claims `push`, `transcribe`, `storage.remove` and `video.remove`, plus `moderate` with a `moderator`
 and `unfurl` with an `unfurler` (or the `kinds` you pass); after the 8th attempt an effect is left
 alone. Each run also posts due scheduled messages (`due_scheduled`, then `post_scheduled` each, as
-their sender, with every check `send_message` makes; `scheduled: false` turns it off) and, with
+their sender, with every check `send_message` makes; a refusal is recorded on the row at once, a
+passing error such as a deadlock is tried again on the next run, up to five times; `scheduled:
+false` turns it off) and, with
 `retention: true`, removes messages past their kind's retention (`purge_expired`, up to 10 000 a run,
 never in a conversation on legal hold). A failure there is reported in `errors`, never thrown.
 
@@ -162,11 +164,14 @@ those up.
 
 ### Mux
 
-The client asks your server for an upload (`video.createUpload({ corsOrigin, passthrough })`), puts
-the file to its `url`, and sends the message with an attachment `{ kind: "video", provider: "mux",
-provider_id: uploadId, status: "pending" }`. Point a Mux webhook (Settings → Webhooks) at a route
-that calls `video.handleWebhook(request, { supabase })`. It checks `mux-signature` (HMAC-SHA256,
-5 minutes' tolerance), and on `video.asset.ready` sets the attachment ready with its asset id,
+The client asks your server for an upload (`createVideoUploadHandler`, below), puts the file to its
+`url`, and sends the message with an attachment `{ kind: "video", provider: "mux", provider_id:
+uploadId, status: "pending" }`. Point a Mux webhook (Settings → Webhooks) at a route that calls
+`video.handleWebhook(request, { supabase })`. It checks `mux-signature` (HMAC-SHA256, 5 minutes'
+tolerance) and finds the attachment only by that upload id (unique per attachment). It applies an
+asset event only when the upload's passthrough, which the upload handler sets, names the
+attachment's conversation (and its sender, when `authorize` named the uploader); anything else
+answers 409 and changes nothing. On `video.asset.ready` it sets the attachment ready with its asset id,
 playback id and duration; on `video.asset.errored` failed; on the English auto-generated caption
 track's `video.asset.track.ready` it stores the caption text as the transcript. An event for an
 attachment not there yet answers 404, so Mux retries it. Playback is public by default
@@ -197,41 +202,61 @@ genesis-notifications'.
 ### Moderation
 
 `set_kind_options('cohort', p_moderate => true)` (a migration of yours) queues a `moderate` effect
-for each new text message in that kind. Give the runner
+for each new or edited text message in that kind, and holds the message's push until the verdict:
+clean or flagged sends it, hidden never does (nor counts the message in a badge or shows it in the
+inbox). So a runner without a moderator sends no pushes for that kind. Give the runner
 `moderator: openAiModerator({ apiKey: process.env.OPENAI_API_KEY! })`: it sends the text and up to
 four photos (signed 10 minute URLs; the text with the first, the others one request each) to
 `omni-moderation-latest`. A category score at or over `hide` (default 0.9) hides the message from
 members and files a report for observers; at or over `flag` (default 0.5), or flagged by OpenAI,
 files the report only. `sexual/minors` hides at 0.5; `self-harm/intent` and
 `self-harm/instructions` flag at 0.3 so a coach sees them. Change them with `thresholds` and
-`categories`. The report names the categories and scores, never the text.
+`categories`. The report names the categories and scores, never the text. A verdict never lowers
+one already given (a retry can't un-hide a message), the same verdict on the same text files one
+report, and a moderator still failing on the last of 8 attempts files `flagged` with the reason
+"moderation unavailable", so observers see it and the push goes.
 
 ### Link previews
 
-`unfurler: createLinkUnfurler()` works `unfurl` effects (a message's first three https links) and
-stores `ok`, `failed` or `blocked` with `save_link_preview`; clients read `genesis_chat.link_previews`.
+`unfurler: createLinkUnfurler()` works `unfurl` effects (a message's first three https links,
+leaving out any whose query carries a credential such as `token=`, `sig=`, `code=` or
+`X-Amz-Signature=`) and stores `ok`, `failed` or `blocked` with `save_link_preview`. Clients read
+previews with `genesis_chat.link_previews_for(message_id)`, which returns them only for a message
+the caller can read; the table itself is not readable, since its URLs come from private messages.
 It fetches https on port 443 only, follows at most 3 redirects and checks each one, refuses private,
-loopback, link-local, carrier-grade NAT and cloud metadata addresses (and `localhost`, `*.local`,
-`*.internal`, single-label names), reads HTML only, up to 512 KiB, in 5 seconds, and runs nothing.
-It resolves the host first through `node:dns` or `Deno.resolveDns`; where neither exists (some edge
-runtimes) it can only refuse IP literals and local names, so pass `resolve` there or run the
-runner in Node. fetch resolves the name again, so DNS rebinding is not caught: firewall private
-ranges from the runner if that matters to you.
+loopback, link-local, carrier-grade NAT and cloud metadata addresses and the IPv6 forms that carry
+them (and `localhost`, `*.local`, `*.internal`, single-label names), holds og:image to the same
+rules (else drops it), reads HTML only, up to 512 KiB, in 5 seconds (the DNS lookup included), and
+runs nothing. It resolves the host first through `node:dns` or `Deno.resolveDns`; where neither
+exists (some edge runtimes) it refuses every named host and logs once, unless you pass `resolve`,
+or `allowUnresolved: true` behind an egress firewall. fetch resolves the name again; on Node, close
+that rebinding gap with `dispatcher: new Agent({ connect: { lookup: guardedLookup } })` (`Agent`
+from `undici`), which checks the address each connection actually uses. Elsewhere, firewall private
+ranges from the runner.
 
 ### Video uploads
 
 ```ts
 import { createVideoUploadHandler } from "@marktiderman/genesis-chat/server";
-export const POST = createVideoUploadHandler({
+const handler = createVideoUploadHandler({
   video, // muxVideo(...) from above
-  // Confirm the session's user may post there: e.g. a select on genesis_chat.members as that user.
-  authorize: async (request, { conversationId }) => mayPost(await userFrom(request), conversationId),
-  corsOrigin: ["https://app.example.com"],
+  // Confirm the session's user may post there (e.g. a select on genesis_chat.members as that
+  // user) and name them, so the upload is bound to its uploader.
+  authorize: async (request, { conversationId }) => {
+    const user = await userFrom(request);
+    return user && (await mayPost(user, conversationId)) ? { userId: user.id } : false;
+  },
+  corsOrigin: ["https://app.example.com"], // required; native apps send no origin and get the first
+  rateLimit: async (_request, { userId }) => underUploadCap(userId), // optional: 429 when false
 });
+export const POST = handler;
+export const OPTIONS = handler; // CORS preflight for a web client on another origin
 ```
 
-The composer POSTs `{ conversationId, attachmentId? }` and gets `{ url, providerId, provider: "mux" }`;
-it PUTs the file to `url` and sends the attachment with `provider_id: providerId`. A refusal answers 403.
+The composer POSTs `{ conversationId }` and gets `{ url, providerId, provider: "mux" }`; it PUTs
+the file to `url` and sends the attachment with `provider_id: providerId`. The client chooses
+nothing the webhook trusts: the server sets the upload's passthrough to the conversation and
+uploader. A refusal answers 403; over the cap, 429.
 
 ### AI recaps and reply drafts
 
@@ -244,10 +269,13 @@ const draft = await assistant.draftReply({ messages, me: coachId, voice: "warm, 
 
 Default model `claude-sonnet-5-5`, low effort, with `fallbacks: "default"` (a declined request is
 re-run on Anthropic's recommended model; `fallbacks: false` turns it off). Nothing is sent: show the
-text as written by AI (`labelled: true`) and let the person edit and send it. Internal notes are
-left out unless you pass `observer: true` for a staff reader. The transcript goes in as data, and
+text as written by AI (`labelled: true`) and let the person edit and send it. Internal notes and
+hidden messages are left out unless you pass `observer: true` for a staff reader: take it from
+`genesis_chat.i_observe(conversation)` asked as that reader, never from the request. The transcript
+goes in as data, with `<` and `>` in bodies and names replaced so nothing can close its tags, and
 the prompt tells the model to ignore instructions inside it. Call it from your server only, for a
-user you have checked may read the conversation.
+user you have checked may read the conversation. `fallbacks` is a Claude API feature: Bedrock,
+Vertex AI and Foundry clients reject it, so pass `fallbacks: false` with those.
 
 ### Retention once a day
 

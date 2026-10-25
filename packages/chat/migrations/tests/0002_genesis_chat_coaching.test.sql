@@ -6,7 +6,7 @@
 -- People: a1 owns a group with b2 and e5 in it; c3 is outside; d4 is staff (an observer).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(50);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c2' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat2-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -94,6 +94,28 @@ select ok((select error is not null from genesis_chat.scheduled where id = pg_te
 select pg_temp.sign_in('a1');
 select throws_ok($$ select genesis_chat.post_scheduled(pg_temp.v('sch2')) $$, '42501', null, 'only the server posts scheduled messages');
 
+-- A failure that may pass (here a deadlock) is tried again on the next run, not recorded for good.
+select pg_temp.sign_in('b2');
+insert into t select 'sch3', genesis_chat.schedule_message(pg_temp.v('grp'), gen_random_uuid(), now() + interval '1 hour', 'Flaky one');
+reset role;
+update genesis_chat.scheduled set send_at = now() - interval '1 minute' where id = pg_temp.v('sch3');
+create function public.genesis_chat2_test_flaky() returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new.body = 'Flaky one' then raise exception 'deadlock detected' using errcode = '40P01'; end if;
+  return new;
+end $$;
+create trigger zz_genesis_chat2_test_flaky before insert on genesis_chat.messages
+  for each row execute function public.genesis_chat2_test_flaky();
+select pg_temp.as_server();
+select is(genesis_chat.post_scheduled(pg_temp.v('sch3')), null, 'a deadlock posts nothing yet');
+select ok((select error is null and attempts = 1 from genesis_chat.scheduled where id = pg_temp.v('sch3')),
+          'but keeps the message due, counting the try');
+reset role;
+drop trigger zz_genesis_chat2_test_flaky on genesis_chat.messages;
+select pg_temp.as_server();
+select ok(genesis_chat.post_scheduled(pg_temp.v('sch3')) is not null, 'and the next run posts it');
+select pg_temp.sign_in('a1');
+
 -- Availability ------------------------------------------------------------------------------------
 
 select genesis_chat.set_availability('Back Monday', null, 'America/New_York', '{"mon": [["09:00","17:00"]]}');
@@ -143,6 +165,56 @@ select pg_temp.sign_in('a1');
 select is((select count(*)::integer from genesis_chat.messages where id = pg_temp.v('bad')), 0, 'a hidden message leaves members'' view');
 select pg_temp.sign_in('d4');
 select is((select count(*)::integer from genesis_chat.messages where id = pg_temp.v('bad')), 1, 'observers still see it, with a report');
+
+-- Pushes wait for moderation; a hidden message is never pushed, counted or previewed.
+select pg_temp.as_server();
+select ok((select done_at is not null from genesis_chat.effects where key = 'push:' || pg_temp.v('bad')),
+          'a hidden message''s push is settled unsent');
+select is((select count(*)::integer from genesis_chat.push_targets(pg_temp.v('bad'))), 0, 'and push_targets has nobody for it');
+select is(genesis_chat.unread_count(pg_temp.v('grp'), pg_temp.person('a1'),
+            (select seq - 1 from genesis_chat.messages where id = pg_temp.v('bad'))), 0, 'it counts toward nobody''s badge');
+select pg_temp.sign_in('a1');
+select ok((select last_message ->> 'id' from genesis_chat.inbox() where conversation_id = pg_temp.v('grp')) is distinct from pg_temp.v('bad')::text,
+          'nor shows in members'' inbox');
+select pg_temp.sign_in('b2');
+insert into t select 'ok1', (genesis_chat.send_message(pg_temp.v('grp'), gen_random_uuid(), 'All good here')).id;
+select pg_temp.as_server();
+select is((select run_after from genesis_chat.effects where key = 'push:' || pg_temp.v('ok1')), 'infinity'::timestamptz,
+          'a push in a kind that moderates waits for the verdict');
+select genesis_chat.moderate_message(pg_temp.v('ok1'), 'clean');
+select ok((select run_after <= now() and done_at is null from genesis_chat.effects where key = 'push:' || pg_temp.v('ok1')),
+          'and goes once the message is clean');
+
+-- A retried or repeated verdict never un-hides a message, nor files the same report twice.
+select genesis_chat.moderate_message(pg_temp.v('bad'), 'hidden', 'again');
+select genesis_chat.moderate_message(pg_temp.v('bad'), 'flagged', 'moderation unavailable');
+select is((select moderation from genesis_chat.messages where id = pg_temp.v('bad')), 'hidden', 'a later verdict never un-hides a message');
+select is((select count(*)::integer from genesis_chat.reports where message_id = pg_temp.v('bad') and snapshot ->> 'automatic' = 'true'), 2,
+          'one report per verdict');
+
+-- An edit is moderated again.
+select pg_temp.sign_in('b2');
+select genesis_chat.edit_message(pg_temp.v('ok1'), 'Edited into something else');
+select pg_temp.as_server();
+select ok(exists (select 1 from genesis_chat.effects where kind = 'moderate' and key like 'moderate:' || pg_temp.v('ok1') || ':%'),
+          'an edited message is judged again');
+
+-- Link previews are read through a message you can read, never as a table.
+select genesis_chat.save_link_preview('https://example.com/page', 'ok', 'Example page');
+select pg_temp.sign_in('b2');
+select throws_ok($$ select count(*) from genesis_chat.link_previews $$, '42501', null, 'people don''t read the preview cache directly');
+insert into t select 'linked', (genesis_chat.send_message(pg_temp.v('grp'), gen_random_uuid(), 'look at https://example.com/page')).id;
+select is((select title from genesis_chat.link_previews_for(pg_temp.v('linked'))), 'Example page',
+          'a member reads the previews of a message they can read');
+select pg_temp.sign_in('a1');
+select is((select count(*)::integer from genesis_chat.link_previews_for(pg_temp.v('bad'))), 0, 'not those of a hidden message');
+select pg_temp.sign_in('c3');
+select is((select count(*)::integer from genesis_chat.link_previews_for(pg_temp.v('linked'))), 0, 'and someone outside reads none');
+select pg_temp.sign_in('b2');
+select genesis_chat.send_message(pg_temp.v('grp'), gen_random_uuid(), 'reset it at https://example.com/reset?token=abc123');
+select pg_temp.as_server();
+select ok(not exists (select 1 from genesis_chat.effects where kind = 'unfurl' and payload ->> 'url' like '%token=%'),
+          'a link carrying a credential is never fetched');
 
 reset role;
 update genesis_chat.messages set created_at = now() - interval '60 days' where conversation_id = pg_temp.v('grp');

@@ -8,7 +8,10 @@
  *   transcribe      signed URL (10 min) → transcriber → update_attachment
  *   storage.remove  storage.from(bucket).remove([path]); not found is done
  *   video.remove    video.remove(provider id), when a video provider is given
- *   moderate        the message's text and photos (signed URLs) → moderator → moderate_message
+ *   moderate        the message's text and photos (signed URLs) → moderator → moderate_message;
+ *                   nothing to judge is `clean` (it releases the push held for the verdict), and
+ *                   a moderator still failing on the last attempt files `flagged` with the
+ *                   reason "moderation unavailable", so observers see it and the push goes
  *   unfurl          unfurler(url) → save_link_preview (ok, failed or blocked)
  *
  * `moderate` and `unfurl` are claimed only when their adapter is given. Each run
@@ -276,8 +279,12 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
       .eq("id", messageId)
       .maybeSingle()) as Result<MessageRow>;
     if (error) throw errorText("messages", error);
-    // Deleted since: nothing left to judge.
-    if (!message || message.deleted_at) return;
+    // Nothing to judge: say clean, which releases the push held for the verdict (none for a deleted message).
+    const clean = () => rpc("moderate_message", { p_message_id: messageId, p_result: "clean", p_reason: null });
+    if (!message || message.deleted_at) {
+      await clean();
+      return;
+    }
     const { data: rows, error: attachmentsError } = (await db()
       .from("attachments")
       .select("id, kind, provider, path, mime")
@@ -293,8 +300,20 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
       imageUrls.push(signed.data.signedUrl);
     }
     const text = message.body ?? "";
-    if (!text.trim() && imageUrls.length === 0) return;
-    const verdict = await options.moderator.moderate({ text, imageUrls });
+    if (!text.trim() && imageUrls.length === 0) {
+      await clean();
+      return;
+    }
+    let verdict: Awaited<ReturnType<Moderator["moderate"]>>;
+    try {
+      verdict = await options.moderator.moderate({ text, imageUrls });
+    } catch (e) {
+      // The last attempt: never fail open silently. Observers get a report and the push goes.
+      if (effect.attempts >= CHAT_MAX_ATTEMPTS) {
+        await rpc("moderate_message", { p_message_id: messageId, p_result: "flagged", p_reason: "moderation unavailable" });
+      }
+      throw e;
+    }
     await rpc("moderate_message", { p_message_id: messageId, p_result: verdict.result, p_reason: verdict.reason?.slice(0, 1000) ?? null });
   }
 
@@ -317,7 +336,7 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
   }
 
   async function postScheduled(report: ChatRunReport, errors: string[]): Promise<void> {
-    const counts = { due: 0, posted: 0, failed: 0 };
+    const counts = { due: 0, posted: 0, skipped: 0, failed: 0 };
     report.scheduled = counts;
     let due: string[];
     try {
@@ -331,10 +350,10 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
     counts.due = due.length;
     await pool(due, concurrency, async (id) => {
       try {
-        // Null: refused (the reason is on the row) or taken by another runner.
+        // Null: refused (the reason is on the row), to be tried again, or taken by another runner.
         const messageId = await rpc<string | null>("post_scheduled", { p_id: id });
         if (messageId) counts.posted++;
-        else counts.failed++;
+        else counts.skipped++;
       } catch (e) {
         counts.failed++;
         log(`genesis-chat: posting scheduled ${id} failed: ${e instanceof Error ? e.message : "error"}`);

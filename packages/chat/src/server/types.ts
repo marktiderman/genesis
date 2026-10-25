@@ -141,8 +141,12 @@ export interface ChatRunReport {
   done: number;
   /** Failed this time; retried later with backoff until the 8th attempt. */
   failed: number;
-  /** Scheduled messages that were due: posted, or refused (the reason is on the row). Absent with `scheduled: false`. */
-  scheduled?: { due: number; posted: number; failed: number } | undefined;
+  /**
+   * Scheduled messages that were due. `skipped`: not posted this run (refused, with the reason
+   * on the row; a passing error, tried again next run; or taken by another runner).
+   * `failed`: the call itself failed. Absent with `scheduled: false`.
+   */
+  scheduled?: { due: number; posted: number; skipped: number; failed: number } | undefined;
   /** Messages removed past their kind's retention. Present only with `retention: true`. */
   purged?: number | undefined;
   /** Steps besides the outbox that failed this run (scheduled posting, retention), as short messages. */

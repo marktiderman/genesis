@@ -34,7 +34,7 @@ describe("createChatRunner: moderate", () => {
     expect(sb.rpcCalls[0]!.args.p_kinds).not.toContain("moderate");
   });
 
-  it("leaves a deleted message alone, and retries a provider failure", async () => {
+  it("calls a deleted message clean (releasing its held push) without judging it, and retries a provider failure", async () => {
     const moderate = vi.fn(async () => ({ result: "clean" as const }));
     const gone = fakeSupabase({
       rpc: { claim_effects: () => [effect(1, "moderate", { message_id: "m1" })] },
@@ -42,12 +42,23 @@ describe("createChatRunner: moderate", () => {
     });
     expect(await createChatRunner({ supabase: gone.client, deliver, moderator: { name: "fake", moderate } }).run()).toMatchObject({ done: 1 });
     expect(moderate).not.toHaveBeenCalled();
+    expect(gone.rpcCalls).toContainEqual({ fn: "moderate_message", args: { p_message_id: "m1", p_result: "clean", p_reason: null } });
 
     const down = fakeSupabase({ rpc: { claim_effects: () => [effect(1, "moderate", { message_id: "m1" })] }, tables: { messages: [message] } });
     const failing: Moderator = { name: "fake", moderate: () => Promise.reject(new Error("OpenAI moderation answered HTTP 503")) };
     expect(await createChatRunner({ supabase: down.client, deliver, moderator: failing }).run()).toMatchObject({ failed: 1 });
     expect(down.rpcCalls).toContainEqual({ fn: "complete_effect", args: { p_id: 1, p_error: "OpenAI moderation answered HTTP 503" } });
     expect(down.rpcCalls.some((c) => c.fn === "moderate_message")).toBe(false);
+  });
+
+  it("never fails open silently: on the last attempt it files flagged, moderation unavailable", async () => {
+    const sb = fakeSupabase({ rpc: { claim_effects: () => [effect(1, "moderate", { message_id: "m1" }, 8)] }, tables: { messages: [message] } });
+    const failing: Moderator = { name: "fake", moderate: () => Promise.reject(new Error("OpenAI moderation answered HTTP 503")) };
+    expect(await createChatRunner({ supabase: sb.client, deliver, moderator: failing }).run()).toMatchObject({ failed: 1 });
+    expect(sb.rpcCalls).toContainEqual({
+      fn: "moderate_message",
+      args: { p_message_id: "m1", p_result: "flagged", p_reason: "moderation unavailable" },
+    });
   });
 });
 
@@ -86,7 +97,7 @@ describe("createChatRunner: scheduled messages", () => {
       },
     });
     const report = await createChatRunner({ supabase: sb.client, deliver }).run();
-    expect(report.scheduled).toEqual({ due: 3, posted: 2, failed: 1 });
+    expect(report.scheduled).toEqual({ due: 3, posted: 2, skipped: 1, failed: 0 });
     expect(sb.rpcCalls).toContainEqual({ fn: "due_scheduled", args: { p_limit: 50 } });
     expect(sb.rpcCalls.filter((c) => c.fn === "post_scheduled").map((c) => c.args.p_id)).toEqual(["s1", "s2", "s3"]);
   });
@@ -101,7 +112,7 @@ describe("createChatRunner: scheduled messages", () => {
       },
     });
     const report = await createChatRunner({ supabase: sb.client, deliver }).run();
-    expect(report).toMatchObject({ claimed: 0, scheduled: { due: 0, posted: 0, failed: 0 }, errors: ["due_scheduled: 42501"] });
+    expect(report).toMatchObject({ claimed: 0, scheduled: { due: 0, posted: 0, skipped: 0, failed: 0 }, errors: ["due_scheduled: 42501"] });
 
     const off = fakeSupabase({ rpc: { claim_effects: () => [] } });
     const quiet = await createChatRunner({ supabase: off.client, deliver, scheduled: false }).run();

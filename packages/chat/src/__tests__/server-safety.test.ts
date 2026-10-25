@@ -1,6 +1,6 @@
 /** @feat:chat Moderation mapping and the SSRF-safe link unfurler. */
-import { describe, expect, it } from "vitest";
-import { createLinkUnfurler, isPrivateAddress, moderationVerdict, openAiModerator, parseOpenGraph } from "../server";
+import { describe, expect, it, vi } from "vitest";
+import { carriesCredential, createLinkUnfurler, guardedLookup, isPrivateAddress, moderationVerdict, openAiModerator, parseOpenGraph } from "../server";
 import { fakeFetch, jsonResponse } from "./server-fakes";
 
 describe("moderationVerdict", () => {
@@ -71,10 +71,18 @@ describe("isPrivateAddress", () => {
     "::ffff:127.0.0.1",
     "::ffff:7f00:1",
     "64:ff9b::a9fe:a9fe",
+    "::ffff:0:7f00:1", // IPv4-translated 127.0.0.1
+    "::ffff:0:a00:1", // IPv4-translated 10.0.0.1
+    "2002:7f00:1::", // 6to4 of 127.0.0.1
+    "2002:a9fe:a9fe::1", // 6to4 of 169.254.169.254
+    "2001::1", // Teredo
+    "64:ff9b:1::1", // local-use NAT64
+    "3fff::1", // documentation
+    "192.88.99.1", // 6to4 relay
     "not-an-ip",
   ])("blocks %s", (ip) => expect(isPrivateAddress(ip)).toBe(true));
 
-  it.each(["93.184.216.34", "1.1.1.1", "2606:4700:4700::1111", "::ffff:93.184.216.34"])("allows %s", (ip) => expect(isPrivateAddress(ip)).toBe(false));
+  it.each(["93.184.216.34", "1.1.1.1", "2606:4700:4700::1111", "::ffff:93.184.216.34", "2002:5db8:d822::1", "2001:4860:4860::8888"])("allows %s", (ip) => expect(isPrivateAddress(ip)).toBe(false));
 });
 
 const html = (head: string, extra = "") => `<!doctype html><html><head>${head}</head><body>${extra}</body></html>`;
@@ -199,10 +207,64 @@ describe("createLinkUnfurler", () => {
     expect(pulled).toBeLessThan(10);
   });
 
-  it("without a resolver, still refuses literal and local hosts", async () => {
+  it("without a resolver, refuses every named host (logged once) unless allowUnresolved", async () => {
     const f = fakeFetch(() => page(html("<title>x</title>")));
-    const u = createLinkUnfurler({ fetch: f.fetch, resolve: async () => null });
+    const log = vi.fn();
+    const u = createLinkUnfurler({ fetch: f.fetch, resolve: async () => null, log });
     expect((await u.unfurl("https://10.0.0.1/")).status).toBe("blocked");
-    expect((await u.unfurl("https://coach.example/")).status).toBe("ok");
+    expect((await u.unfurl("https://localtest.me/")).status).toBe("blocked");
+    expect((await u.unfurl("https://coach.example/")).status).toBe("blocked");
+    expect(f.calls).toHaveLength(0);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0]![0]).toContain("allowUnresolved");
+
+    const opted = createLinkUnfurler({ fetch: f.fetch, resolve: async () => null, allowUnresolved: true, log });
+    expect((await opted.unfurl("https://coach.example/")).status).toBe("ok");
+    expect((await opted.unfurl("https://10.0.0.1/")).status).toBe("blocked");
+  });
+
+  it("times out a DNS lookup that hangs", async () => {
+    const f = fakeFetch(() => page(html("<title>x</title>")));
+    const u = createLinkUnfurler({ fetch: f.fetch, resolve: () => new Promise<string[]>(() => {}), timeoutMs: 50 });
+    expect((await u.unfurl("https://slow.example/")).status).toBe("failed");
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("never fetches a link whose query carries a credential", async () => {
+    const f = fakeFetch(() => page(html("<title>x</title>")));
+    const u = createLinkUnfurler({ fetch: f.fetch, resolve: publicDns });
+    for (const url of ["https://app.example/reset?token=abc", "https://s3.example/f?X-Amz-Signature=1&a=b", "https://app.example/login?a=1&code=xyz"]) {
+      expect((await u.unfurl(url)).status).toBe("blocked");
+    }
+    expect(f.calls).toHaveLength(0);
+    expect(carriesCredential("https://app.example/page?ref=newsletter")).toBe(false);
+  });
+
+  it("drops an og:image whose host is private or local", async () => {
+    const run = async (image: string, resolve: (host: string) => Promise<string[]> = publicDns) =>
+      (await createLinkUnfurler({ fetch: fakeFetch(() => page(html(`<title>T</title><meta property="og:image" content="${image}">`))).fetch, resolve }).unfurl(
+        "https://coach.example/",
+      )).imageUrl;
+    expect(await run("https://10.0.0.1/i.png")).toBeNull();
+    expect(await run("https://intranet.local/i.png")).toBeNull();
+    expect(await run("https://cdn.example/i.png", async (h) => (h === "cdn.example" ? ["192.168.1.9"] : ["93.184.216.34"]))).toBeNull();
+    expect(await run("https://cdn.example/i.png?sig=abc")).toBe("https://cdn.example/i.png?sig=abc");
+  });
+
+  it("passes a dispatcher to fetch, and guardedLookup refuses a private answer at connect time", async () => {
+    const f = fakeFetch(() => page(html("<title>x</title>")));
+    const dispatcher = { pinned: true };
+    await createLinkUnfurler({ fetch: f.fetch, resolve: publicDns, dispatcher }).unfurl("https://coach.example/");
+    expect((f.calls[0]!.init as RequestInit & { dispatcher?: unknown }).dispatcher).toBe(dispatcher);
+
+    const lookup = (host: string, all: boolean) =>
+      new Promise<{ error: Error | null; address?: unknown }>((resolve) =>
+        guardedLookup(host, { all }, (error, address) => resolve({ error, address })),
+      );
+    const local = await lookup("localhost", false);
+    expect(local.error?.message).toContain("private address");
+    const ip = await lookup("1.1.1.1", true);
+    expect(ip.error).toBeNull();
+    expect(ip.address).toEqual([{ address: "1.1.1.1", family: 4 }]);
   });
 });
