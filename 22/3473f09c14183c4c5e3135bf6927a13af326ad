@@ -1,0 +1,195 @@
+.changeset/dev-warnings-tab-tap.md
+  s_c0870a827920ef::t_77a28ec24ab1ab 1-7
+.changeset/feedback-after-sheet-closes.md
+  s_c0870a827920ef::t_e9002a57e13cc2 1-8
+.changeset/keyboard-toolbar-forms.md
+  s_c0870a827920ef::t_e9080242d40c37 1-10
+.changeset/push-prompt-runtime-row.md
+  s_c0870a827920ef::t_95e088e0982118 1-7
+.changeset/sticky-headers-under-nav-bar.md
+  s_c0870a827920ef::t_09ef7d892fd9c4 1-7
+.changeset/toast-provider.md
+  s_c0870a827920ef::t_7e493f12bc7154 1-9
+.changeset/variant-url-schemes.md
+  s_c0870a827920ef::t_fd45868dbfb0bc 1-9
+apps/genesis-rn-starter/.maestro/README.md
+  s_c0870a827920ef::t_408996d4531c12 11
+apps/genesis-rn-starter/.maestro/flows/deep-link.yaml
+  s_c0870a827920ef::t_e549ce65419987 1-22
+apps/genesis-rn-starter/README.md
+  s_c0870a827920ef::t_f0f470276949fb 102-114,120-130,299-302
+apps/genesis-rn-starter/__tests__/app-config.test.ts
+  s_c0870a827920ef::t_3fa4503aa842de 1-51
+apps/genesis-rn-starter/__tests__/check-in-photos.test.ts
+  s_c0870a827920ef::t_ce5a9ea79541be 1-57
+apps/genesis-rn-starter/__tests__/components/links.test.ts
+  s_c0870a827920ef::t_98578fede8bd22 4,11-21
+apps/genesis-rn-starter/__tests__/components/sign-in.test.tsx
+  s_c0870a827920ef::t_35d21ed61a1038 72-74
+apps/genesis-rn-starter/__tests__/entry.test.ts
+  s_c0870a827920ef::t_ee3aa86600895d 1-28
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_c0870a827920ef::t_1e1cf9fc6b35fd 254-255
+apps/genesis-rn-starter/app.config.ts
+  s_c0870a827920ef::t_d001c7ed3071f3 34-35
+apps/genesis-rn-starter/index.ts
+  s_c0870a827920ef::t_bed3ba4c51df77 1-14
+apps/genesis-rn-starter/package.json
+  s_c0870a827920ef::t_586e69aaff65fe 5,49
+apps/genesis-rn-starter/src/app/(app)/(home)/check-in.tsx
+  s_c0870a827920ef::t_ed091b7be3e04d 9,33
+apps/genesis-rn-starter/src/app/(app)/settings/support/new.tsx
+  s_c0870a827920ef::t_8add856f16ea69 3,7-11,13,19-31
+apps/genesis-rn-starter/src/app/sign-in.tsx
+  s_c0870a827920ef::t_be4f3d637d4cff 49
+apps/genesis-rn-starter/src/copy.ts
+  s_c0870a827920ef::t_46013c617395de 20,95-98
+apps/genesis-rn-starter/src/lib/check-in-photos.ts
+  s_c0870a827920ef::t_12da6d8ff27f5b 1-66
+apps/genesis-rn-starter/src/lib/check-in.ts
+  s_c0870a827920ef::t_932410bb4e4179 16,28,77-79
+apps/genesis-rn-starter/src/lib/links.ts
+  s_c0870a827920ef::t_a8938f5baf8c2e 6,11-25,28,32
+apps/sample/app/data/primitives.json
+  s_c0870a827920ef::t_cff638601d1ab4 2697,3609-3618,3735-3741,5934
+apps/sample/sites-demo/site.ts
+  s_c0870a827920ef::t_245eef71c20630 171
+docs/SITES.md
+  s_c0870a827920ef::t_ed6414ef07a72b 397
+docs/component-reference.md
+  s_c0870a827920ef::t_78f1ab2e897086 7,796,811,820
+packages/forms-builder/src/__tests__/scale.test.tsx
+  s_c0870a827920ef::t_4cb701d42a86b8 62,64
+packages/forms-native/README.md
+  s_c0870a827920ef::t_52900610e422d4 77
+packages/forms-native/src/FormFocus.tsx
+  s_c0870a827920ef::t_28eef8a2298cbe 40,47,277,461-462,465,616-619,624-626,636-649
+packages/forms-native/src/__tests__/review-fixes.test.tsx
+  s_c0870a827920ef::t_4791527c0491b4 3,6-7,10-11,130-173,175,177-179,181-198
+packages/forms-native/src/context.tsx
+  s_c0870a827920ef::t_3249711b8965b5 75-89
+packages/forms-native/src/renderers/text.tsx
+  s_c0870a827920ef::t_3bc2e38dd6bb8e 7,11,53,58-61,78-85
+packages/genesis-cli/README.md
+  s_c0870a827920ef::t_2f23220e4dd82b 241
+packages/genesis-cli/src/expo.ts
+  s_c0870a827920ef::t_e34b58e4c47ffd 7-10,70-71,86,107-108,245-247
+packages/genesis-cli/test/expo.test.ts
+  s_c0870a827920ef::t_01761e71a47ea3 33,85-97,103
+packages/native/README.md
+  s_c0870a827920ef::t_c91894f1244c82 146-161,177,399-401
+packages/native/package.json
+  s_c0870a827920ef::t_c4ca299697b9e4 54-58
+packages/native/src/__tests__/app.test.tsx
+  s_c0870a827920ef::t_b08d5fc2479ab4 9,359-385
+packages/native/src/__tests__/dev-warnings.test.ts
+  s_c0870a827920ef::t_3af1cf77894c77 1-35
+packages/native/src/__tests__/devtools/devtools.test.tsx
+  s_c0870a827920ef::t_3250cbf4f1c5dc 163-194
+packages/native/src/__tests__/push/block.test.tsx
+  s_c0870a827920ef::t_0ec109b476feb3 323-324
+packages/native/src/__tests__/updates/signature-channels.test.ts
+  s_c0870a827920ef::t_36a8aad6a3390e 36-47
+packages/native/src/app.tsx
+  s_c0870a827920ef::t_3eb7d28dcfeaa6 8,33-40,155-160,277,286-287
+packages/native/src/dev-warnings.ts
+  s_c0870a827920ef::t_7cfe20debff527 1-43
+packages/native/src/devtools/block.tsx
+  s_c0870a827920ef::t_70f617c238f653 86-87,108-127,146-171,210,212-213,232,270-272,274-275,307,362-369,375
+packages/native/src/devtools/slots.ts
+  s_c0870a827920ef::t_83c3e790eb5460 10-14
+packages/native/src/push/screens.tsx
+  s_c0870a827920ef::t_f9b2e71a62dd15 23-26,30
+packages/native/src/updates/signature.ts
+  s_c0870a827920ef::t_f70491c5f938e7 9-12,46-48,50-51,53-55,75
+packages/native/tsup.config.ts
+  s_c0870a827920ef::t_8acfa3911c9e22 11
+packages/sites/README.md
+  s_738228bc0d81b1::t_6c90af53488d69 337-338,380-384
+packages/sites/src/__tests__/editor-mount.test.tsx
+  s_c0870a827920ef::t_ad4e42e0aaf252 109,181,198
+packages/sites/src/__tests__/editor.test.tsx
+  s_c0870a827920ef::t_414e85ccc83b2d 7,16-17,42-43,100,153,270,275-289,469-492
+packages/sites/src/editor/asset-picker.tsx
+  s_c0870a827920ef::t_34098cace7d213 29-30,53,83,145,150-151,169-171,183
+packages/sites/src/editor/canvas-dom.ts
+  s_c0870a827920ef::t_16fe795049febc 3-9
+packages/sites/src/editor/data.ts
+  s_c0870a827920ef::t_27d8c592a39f3d 12,45-46,49,83-84,113-127,158
+packages/sites/src/editor/field-components.tsx
+  s_c0870a827920ef::t_328d856ba7efaf 48-51,110,135,137
+packages/sites/src/editor/fields.ts
+  s_c0870a827920ef::t_30f1f7038a99d6 142-143
+packages/sites/src/editor/index.ts
+  s_c0870a827920ef::t_5fd73bcebea0ba 29
+packages/sites/src/editor/overrides.tsx
+  s_c0870a827920ef::t_8027b68665a037 25,115-117,123,141,158,196-261,263-268,285
+packages/sites/src/editor/pages-panel.tsx
+  s_c0870a827920ef::t_5d38e5c98a49fb 228-229,233,235,237-241,243,245-246,253-257,263,265,286,289
+packages/sites/src/editor/publish-panel.tsx
+  s_c0870a827920ef::t_b4c2879fe40e38 148
+packages/sites/src/editor/services.ts
+  s_c0870a827920ef::t_e2488081d76e96 31-36
+packages/sites/src/editor/site-actions.ts
+  s_c0870a827920ef::t_f579913d98af85 36-37,39-41
+packages/sites/src/editor/site-editor.tsx
+  s_c0870a827920ef::t_c612dab7003008 44,64-69,122-124,130,139-143,192,203-205,225,298,303-304,306-311,319-320,336-345,348,353,360,404,407,414,417,447-448,452,472,487-496,503-506,514,516-522,525-536,538-539,541-545,547-553,556,586,595-609,614,617-620,622,624,627-628,646,650,696,743,749,757-758,764-794,801,817,837,863-866,889-890,899,910,920,926-927,929-930,976
+packages/support/src/__tests__/native.test.tsx
+  s_c0870a827920ef::t_9d9f52301b2808 134-148,177-198,229-230
+packages/support/src/native/feedback-form.tsx
+  s_c0870a827920ef::t_4fc34ddb609828 22,24-25,29,72
+packages/support/src/native/support.tsx
+  s_c0870a827920ef::t_4130716e0eb2bd 92-94,165-167,172-176
+packages/ui-native/src/__tests__/fake-modules.tsx
+  s_c0870a827920ef::t_d6d5dd377a71d1 84-89
+packages/ui-native/src/__tests__/native-modules.test.tsx
+  s_c0870a827920ef::t_5c3e70c7fbd0f6 23,584-626
+packages/ui-native/src/components/__tests__/toast.test.tsx
+  s_c0870a827920ef::t_fcdf4a2b09013f 3-4,23-35
+packages/ui-native/src/components/toast.tsx
+  s_c0870a827920ef::t_bd1326821bbf16 9-10,33,170-178,209,211,222,245
+packages/ui-native/src/layouts/__tests__/inbox-page.test.tsx
+  s_c0870a827920ef::t_31c5f614ac2440 58-62
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_c0870a827920ef::t_c2acdcf87ffee0 227-229
+packages/ui-native/src/layouts/index.ts
+  s_c0870a827920ef::t_cd372d0fb0c44b 50-51
+packages/ui-native/src/layouts/keyboard.tsx
+  s_c0870a827920ef::t_235489d4933c31 40-44,46-53
+packages/ui-native/src/layouts/notifications-page.tsx
+  s_c0870a827920ef::t_3e5c679f2182c4 23,26,34,90-99,222-239,254,256-258,331-332,359-362
+packages/ui-native/src/native-modules.tsx
+  s_c0870a827920ef::t_35ccfa87c8692b 49-50
+packages/ui-native/test-utils/rn-mock.tsx
+  s_c0870a827920ef::t_683cc2736da2bc 257,268,276-281,314,317,323,344,347,350-354
+packages/ui-native/types/react-native.d.ts
+  s_c0870a827920ef::t_6d50a61ced2cd0 263,321
+pnpm-lock.yaml
+  s_c0870a827920ef::t_b2f6ada802cc65 128-130,7424-7433,17612-17620
+templates/maestro/flows/deep-link.yaml
+  s_c0870a827920ef::t_5e3170a6e8260b 1-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "223473f09c14183c4c5e3135bf6927a13af326ad",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
