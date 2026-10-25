@@ -36,7 +36,10 @@ describe("ChatComposer", () => {
     );
     expect(screen.getByTestId("cmp-send").getAttribute("aria-disabled")).toBe("true");
     fireEvent.change(screen.getByTestId("cmp-input"), { target: { value: "hello" } });
+    // Two quick taps send once.
     fireEvent.click(screen.getByTestId("cmp-send"));
+    fireEvent.click(screen.getByTestId("cmp-send"));
+    expect(onSend).toHaveBeenCalledTimes(1);
     expect(onSend).toHaveBeenCalledWith({ input: { body: "hello", replyToId: null, mentions: [] }, files: [] });
     expect(haptics.impactAsync).toHaveBeenCalledWith("l");
     await waitFor(() => expect((screen.getByTestId("cmp-input") as HTMLInputElement).value).toBe(""));

@@ -39,13 +39,23 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
   latest.current = options;
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const recording = useRef(false);
+  // Each press is an attempt; an async step that finishes after its attempt ended is dropped.
+  const attempt = useRef(0);
+  const mounted = useRef(true);
 
   const stopTimer = () => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
   };
 
-  const releaseAudio = () => void audio.setAudioModeAsync({ allowsRecording: false }).catch(() => undefined);
+  // Never throws: letting the microphone go is best effort.
+  const releaseAudio = () => {
+    try {
+      void Promise.resolve(audio.setAudioModeAsync({ allowsRecording: false })).catch(() => undefined);
+    } catch {
+      // The audio module is already gone.
+    }
+  };
 
   const dispatchRef = useRef<(event: RecorderEvent) => void>(() => undefined);
 
@@ -53,19 +63,26 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
     (effect: RecorderEffect, after: RecorderState) => {
       const dispatch = dispatchRef.current;
       switch (effect.type) {
-        case "prepare":
+        case "prepare": {
+          const mine = ++attempt.current;
+          const current = () => mounted.current && attempt.current === mine && stateRef.current.phase === "starting";
           void (async () => {
             try {
               const permission = await audio.requestRecordingPermissionsAsync();
+              if (!current()) return;
               if (!permission.granted) return dispatch({ type: "failed", reason: "denied" });
               await audio.setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+              if (!current()) return releaseAudio();
               await recorder.prepareToRecordAsync();
+              if (!current()) return releaseAudio();
               dispatch({ type: "ready" });
             } catch {
-              dispatch({ type: "failed", reason: "error" });
+              if (current()) dispatch({ type: "failed", reason: "error" });
+              else releaseAudio();
             }
           })();
           return;
+        }
         case "record":
           recorder.record();
           recording.current = true;
@@ -98,6 +115,7 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
           })();
           return;
         case "discard":
+          attempt.current++;
           stopTimer();
           if (recording.current) {
             recording.current = false;
@@ -119,6 +137,7 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
 
   const dispatch = useCallback(
     (event: RecorderEvent) => {
+      if (!mounted.current) return;
       const { limitMs, minMs, cancelDistance, lockDistance, maxLevels } = latest.current;
       const step = recorderStep(stateRef.current, event, { limitMs, minMs, cancelDistance, lockDistance, maxLevels });
       if (step.state !== stateRef.current) {
@@ -132,18 +151,21 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
   dispatchRef.current = dispatch;
 
   // Leaving the screen mid-recording throws the recording away.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      attempt.current++;
+      stateRef.current = idleRecorder;
       stopTimer();
       if (recording.current) {
         recording.current = false;
         void recorder.stop().catch(() => undefined);
-        releaseAudio();
       }
-    },
+      releaseAudio();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [recorder],
-  );
+  }, [recorder]);
 
   return { state, dispatch };
 }

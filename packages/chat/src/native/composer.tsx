@@ -57,13 +57,25 @@ type Voice = ReturnType<typeof useVoiceRecorder>;
 function ComposerWithVoice(props: ChatComposerProps & { audio: ExpoAudioLike }) {
   const { modules } = useChatNative();
   const { composer, role, onSend } = props;
+  // What the note replies to is taken when recording starts: the composer may change before it lands.
+  const replyAtStart = useRef<string | null>(null);
   const voice = useVoiceRecorder(props.audio, {
     limitMs: recordingLimitMs(role),
     haptics: modules.haptics,
     signalRecording: props.signalRecording,
-    // A voice note goes on its own, with what it replies to.
-    onRecorded: (file: LocalFile) => onSend({ input: { body: "", replyToId: composer.state.replyTo?.messageId ?? null, mentions: [] }, files: [file] }),
+    // A voice note goes on its own, with what it replied to when recording started.
+    onRecorded: (file: LocalFile) => {
+      const replyToId = replyAtStart.current;
+      replyAtStart.current = null;
+      onSend({ input: { body: "", replyToId, mentions: [] }, files: [file] });
+      if (replyToId && composer.state.replyTo?.messageId === replyToId) composer.setReply(null);
+    },
   });
+  const phase = voice.state.phase;
+  useEffect(() => {
+    if (phase === "starting") replyAtStart.current = composer.state.replyTo?.messageId ?? null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
   return <ComposerBody {...props} voice={voice} />;
 }
 
@@ -83,15 +95,11 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, testID =
 
   const send = () => {
     if (!sendable) return;
+    const payload = composer.take();
+    if (!payload) return;
     haptic(modules.haptics, "send");
-    onSend(composer.take());
+    onSend(payload);
   };
-
-  // The reply goes with the voice note too; afterwards the composer is clear of it.
-  useEffect(() => {
-    if (voice?.state.phase === "finishing") composer.setReply(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voice?.state.phase]);
 
   const openAttach = async () => {
     setAttachOpen(true);
@@ -103,10 +111,13 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, testID =
   };
 
   const remaining = CHAT_LIMITS.attachmentsPerMessage - state.attachments.length;
+  // The picker opens once the sheet has gone: iOS won't present one modal while another is dismissing.
+  const afterSheet = () => new Promise<void>((resolve) => setTimeout(resolve, 450));
   const pick = async (from: "library" | "camera") => {
     setAttachOpen(false);
     const picker = modules.imagePicker;
     if (!picker) return;
+    await afterSheet();
     try {
       if (from === "camera") {
         const permission = await picker.requestCameraPermissionsAsync?.();

@@ -89,7 +89,8 @@ export function recorderStep(state: RecorderState, event: RecorderEvent, config:
       return { state: { ...idleRecorder, phase: "starting" }, effects: [{ type: "prepare" }] };
 
     case "ready":
-      if (state.phase !== "starting") return stay(state);
+      // A prepare that finished after its attempt was cancelled: let the microphone go.
+      if (state.phase !== "starting") return { state, effects: [{ type: "discard" }] };
       if (state.releasedEarly) {
         return { state: { ...idleRecorder, notice: "too-short" }, effects: [{ type: "discard" }] };
       }

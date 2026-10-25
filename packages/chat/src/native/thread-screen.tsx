@@ -9,7 +9,7 @@
  * the keyboard. Render it as the screen's only content, under the
  * navigator's header (`getThreadPageStackOptions` from genesis-ui-native).
  */
-import { useCallback, useMemo, useState, type ComponentType } from "react";
+import { useCallback, useMemo, useRef, useState, type ComponentType } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeEmptyState, NativeSkeleton, NativeText, useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
@@ -67,12 +67,18 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const genesis = useGenesisModules();
   const List = (genesis.list ?? FlatList) as unknown as ComponentType<ChatListProps>;
   const composer = useChatComposer(conversationId, threadRootId);
+  const { setReply } = composer;
+  // useMessageActions returns new functions each render; read the latest through a ref.
+  const actionsRef = useRef(messageActions);
+  actionsRef.current = messageActions;
   const [actionsFor, setActionsFor] = useState<ChatMessage | null>(null);
   const [viewer, setViewer] = useState<{ uri: string; alt: string } | null>(null);
 
   const kind = conv.conversation?.kind ?? null;
-  const direct = kind === "direct" || conv.members.length === 2;
-  const group = !direct && (conv.members.length > 2 || kind !== null);
+  // Pin for members follows the kind's max_members = 2, which the client can't read; the built-in
+  // `direct` kind is the one known to be two-person. The server stays the judge.
+  const direct = kind === "direct";
+  const group = !direct && conv.members.length !== 2 && (conv.members.length > 2 || kind !== null);
 
   const rows = useMemo(() => invertedRows(conv.items, { me: userId, firstUnreadId: conv.firstUnreadId, group }), [conv.items, userId, conv.firstUnreadId, group]);
   const paths = useMemo(() => conv.items.flatMap((i) => (i.type === "message" ? attachmentPaths(i.message.attachments) : [])), [conv.items]);
@@ -87,9 +93,9 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
 
   const reply = useCallback(
     (m: ChatMessage) => {
-      composer.setReply(replyTargetFor(m, nameOf(m.senderId), previewText(displayBody(m.body), m.attachments[0]?.kind, Boolean(m.deletedAt))));
+      setReply(replyTargetFor(m, nameOf(m.senderId), previewText(displayBody(m.body), m.attachments[0]?.kind, Boolean(m.deletedAt))));
     },
-    [composer, nameOf],
+    [setReply, nameOf],
   );
 
   const onAction = useCallback(
@@ -118,10 +124,24 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const react = useCallback(
     (m: ChatMessage, emoji: string, on: boolean) => {
       haptic(modules.haptics, "select");
-      void messageActions.react(m, emoji, on).catch(fail);
+      void actionsRef.current.react(m, emoji, on).catch(fail);
     },
-    [modules.haptics, messageActions, fail],
+    [modules.haptics, fail],
   );
+
+  // Stable handlers, so MessageBubble's memo holds while someone types or a row elsewhere changes.
+  const { retry, discard, canPost: allowed } = conv;
+  const onLongPress = useCallback(
+    (message: ChatMessage) => {
+      haptic(modules.haptics, "select");
+      setActionsFor(message);
+    },
+    [modules.haptics],
+  );
+  const onSwipeReply = useCallback(() => haptic(modules.haptics, "select"), [modules.haptics]);
+  const onRetry = useCallback((clientId: string) => void retry(clientId), [retry]);
+  const onDiscard = useCallback((clientId: string) => void discard(clientId), [discard]);
+  const onOpenImage = useCallback((uri: string, alt: string) => setViewer({ uri, alt }), []);
 
   const renderItem = useCallback(
     ({ item: row }: { item: ThreadRow }) => {
@@ -137,21 +157,18 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
           repliedTo={replyTo ? byId.get(replyTo) : null}
           group={group}
           reducedMotion={reducedMotion}
-          onLongPress={(message) => {
-            haptic(modules.haptics, "select");
-            setActionsFor(message);
-          }}
-          onReply={conv.canPost ? reply : undefined}
-          onSwipeReply={() => haptic(modules.haptics, "select")}
-          onRetry={(clientId) => void conv.retry(clientId)}
-          onDiscard={(clientId) => void conv.discard(clientId)}
-          onToggleReaction={conv.canPost ? react : undefined}
-          onOpenImage={(uri, alt) => setViewer({ uri, alt })}
+          onLongPress={onLongPress}
+          onReply={allowed ? reply : undefined}
+          onSwipeReply={onSwipeReply}
+          onRetry={onRetry}
+          onDiscard={onDiscard}
+          onToggleReaction={allowed ? react : undefined}
+          onOpenImage={onOpenImage}
           testID={`${testID}-message-${m?.id ?? row.key}`}
         />
       );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, modules.haptics, conv, reply, react],
+    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage],
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));

@@ -6,7 +6,7 @@
  * sheet can set what the next message replies to.
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
-import { composerReducer, createDraftSaver, draftKey, emptyComposer, loadDraft, memoryDraftStorage, toSend, type ComposerAction, type ReplyTarget } from "./composer-state";
+import { composerReducer, createDraftSaver, draftKey, emptyComposer, loadDraft, memoryDraftStorage, toSend, type ComposerAction, type ComposerState, type ReplyTarget } from "./composer-state";
 import { useChatNative } from "./context";
 
 const memoryDrafts = memoryDraftStorage();
@@ -40,8 +40,12 @@ export function useChatComposer(conversationId: string, threadRootId?: string | 
 
   const setReply = useCallback((to: ReplyTarget | null) => dispatch({ type: "reply", to }), []);
 
-  /** What to send, and empties the composer and its draft. */
+  // A second tap before the re-render must not send the same message again.
+  const taken = useRef<ComposerState | null>(null);
+  /** What to send (null when this state was already sent), and empties the composer and its draft. */
   const take = useCallback(() => {
+    if (taken.current === state) return null;
+    taken.current = state;
     const payload = toSend(state);
     dispatch({ type: "sent" });
     saver.clear();

@@ -12,6 +12,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Audio from "expo-audio";
 import * as Clipboard from "expo-clipboard";
+import * as ExpoCrypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Notifications from "expo-notifications";
@@ -32,6 +33,11 @@ import starter from "../../starter.config";
 import { copy } from "@/copy";
 import { env } from "./env";
 import { supabase } from "./supabase";
+
+// genesis-chat makes each message's client id with `crypto.randomUUID`, which Hermes may not have:
+// expo-crypto's stands in (after supabase.ts, which installs `crypto.getRandomValues`).
+const webCrypto = ((globalThis as { crypto?: Partial<Crypto> }).crypto ??= {}) as Partial<Crypto>;
+if (typeof webCrypto.randomUUID !== "function") webCrypto.randomUUID = ExpoCrypto.randomUUID as Crypto["randomUUID"];
 
 export const chatClient = createChatClient(supabase);
 
@@ -79,7 +85,7 @@ function forUser(userId: string) {
   if (!s) {
     s = {
       store: outboxStore(userId),
-      upload: createTusUpload({ supabaseUrl: env.supabaseUrl, apikey: env.supabasePublishableKey, userId, getAccessToken: accessToken }),
+      upload: createTusUpload({ supabaseUrl: env.supabaseUrl, apikey: env.supabasePublishableKey, userId, getAccessToken: accessToken, newId: ExpoCrypto.randomUUID }),
     };
     stores.set(userId, s);
   }

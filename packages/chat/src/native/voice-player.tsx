@@ -124,8 +124,8 @@ function AudioVoiceNote({ id, uri, durationMs, waveform, mine, testID, audio }: 
   const responder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > Math.abs(g.dy),
+        // Only a sideways drag scrubs, so a scroll that starts on a voice note still scrolls.
+        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: (e) => setScrubbing(scrubSeconds(e.nativeEvent.locationX, width.current, latest.current.durationSec)),
         onPanResponderMove: (e) => setScrubbing(scrubSeconds(e.nativeEvent.locationX, width.current, latest.current.durationSec)),

@@ -124,4 +124,42 @@ describe("useVoiceRecorder (expo-audio mocked)", () => {
     hook.unmount();
     expect(recorder.stop).toHaveBeenCalled();
   });
+
+  it("a press cancelled while the microphone starts never records, and lets the microphone go", async () => {
+    const { audio, recorder } = fakeAudio();
+    let grant!: (v: { granted: boolean }) => void;
+    (audio.requestRecordingPermissionsAsync as ReturnType<typeof vi.fn>).mockImplementationOnce(() => new Promise((r) => (grant = r)));
+    const hook = renderHook(() => useVoiceRecorder(audio, { limitMs: 60_000, onRecorded: vi.fn() }));
+    act(() => hook.result.current.dispatch({ type: "press" }));
+    act(() => hook.result.current.dispatch({ type: "cancel" }));
+    await act(async () => {
+      grant({ granted: true });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(recorder.prepareToRecordAsync).not.toHaveBeenCalled();
+    expect(recorder.record).not.toHaveBeenCalled();
+    expect(audio.setAudioModeAsync).not.toHaveBeenCalledWith({ allowsRecording: true, playsInSilentMode: true });
+    expect(hook.result.current.state.phase).toBe("idle");
+  });
+
+  it("a second press after a cancelled one isn't started by the first one's late answer", async () => {
+    const { audio, recorder } = fakeAudio();
+    const grants: ((v: { granted: boolean }) => void)[] = [];
+    (audio.requestRecordingPermissionsAsync as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise((r) => grants.push(r)));
+    const hook = renderHook(() => useVoiceRecorder(audio, { limitMs: 60_000, onRecorded: vi.fn() }));
+    act(() => hook.result.current.dispatch({ type: "press" }));
+    act(() => hook.result.current.dispatch({ type: "cancel" }));
+    act(() => hook.result.current.dispatch({ type: "press" }));
+    await act(async () => {
+      grants[0]!({ granted: true });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(recorder.record).not.toHaveBeenCalled();
+    expect(hook.result.current.state.phase).toBe("starting");
+    await act(async () => {
+      grants[1]!({ granted: true });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(recorder.record).toHaveBeenCalledTimes(1);
+  });
 });

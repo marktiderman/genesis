@@ -34,6 +34,7 @@ export interface TusUploadOptions {
   chunkBytes?: number;
   /** Network failures retried per chunk before the send fails (it can be retried). Default 3. */
   retries?: number;
+  /** A uuid for each file's name. Default `crypto.randomUUID()`, which not every React Native runtime has: pass expo-crypto's `randomUUID`. */
   newId?: () => string;
   bucket?: string;
 }
@@ -66,9 +67,9 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
   const endpoint = `${options.supabaseUrl.replace(/\/+$/, "")}/storage/v1/upload/resumable`;
   const newId = options.newId ?? (() => crypto.randomUUID());
   const readFile = options.readFile ?? (async (uri: string) => (await doFetch(uri)).arrayBuffer());
-  // By file object (a retry in this session) and by URI (the same file queued again).
+  // By file object: a retry of the same message in this session resumes it. Two messages never
+  // share an object, so deleting one never breaks the other.
   const byFile = new WeakMap<LocalFile, UploadRecord>();
-  const byUri = new Map<string, UploadRecord>();
 
   async function headers(extra: Record<string, string> = {}) {
     const token = await options.getAccessToken();
@@ -110,14 +111,12 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
   return async function upload(conversationId: string, file: LocalFile): Promise<string> {
     const ext = fileExtension(file.name, file.contentType);
     if (!isAllowedExtension(ext)) throw new ChatError(`Files of type .${ext} can't be sent`, "22023", "upload");
-    const uriKey = typeof file.data === "string" ? `${conversationId}|${file.data}` : null;
-    let record = byFile.get(file) ?? (uriKey ? byUri.get(uriKey) : undefined);
+    let record = byFile.get(file);
     if (!record) {
       const userId = typeof options.userId === "function" ? options.userId() : options.userId;
       record = { path: `${conversationId}/${userId}/${newId()}.${ext}` };
     }
     byFile.set(file, record);
-    if (uriKey) byUri.set(uriKey, record);
     if (record.done) return record.path;
 
     const bytes = new Uint8Array(await bytesOf(file));
@@ -174,7 +173,10 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
         if (res.status === 409) {
           // Out of step (an earlier chunk did land): ask where the server is.
           const head = await doFetch(rec.location!, { method: "HEAD", headers: await headers() });
-          return Number(head.headers.get("upload-offset") ?? from);
+          const at = Number(head.headers.get("upload-offset"));
+          // No answer: a transient failure, so the backoff applies before the next try.
+          if (!head.ok || !Number.isFinite(at) || at === from) throw new ChatError("The upload is out of step", undefined, "upload");
+          return at;
         }
         if (res.status !== 204 && !res.ok) return refuse(res, "upload");
         return Number(res.headers.get("upload-offset") ?? from + chunk);

@@ -204,7 +204,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                 {copy.deleted}
               </NativeText>
             ) : body ? (
-              <NativeText selectable className={fg} style={[textStyle, attachments.length ? { paddingHorizontal: 8, paddingBottom: 4 } : null]}>
+              <NativeText className={fg} style={[textStyle, attachments.length ? { paddingHorizontal: 8, paddingBottom: 4 } : null]}>
                 {displayBody(body)}
               </NativeText>
             ) : null}

@@ -83,7 +83,9 @@ export function ChatInboxScreen({ onOpen, onStart, kind, archived, pageProps, te
         label: item.pinned ? copy.unpin : copy.pin,
         onPress: () => void client.setMySettings(item.conversationId, { pinned: !item.pinned }).then(settle, settle),
       },
-      { id: "archive", label: copy.archive, onPress: () => void client.setMySettings(item.conversationId, { archived: true }).then(settle, settle) },
+      ...(item.archived
+        ? []
+        : [{ id: "archive", label: copy.archive, onPress: () => void client.setMySettings(item.conversationId, { archived: true }).then(settle, settle) }]),
     ],
   }));
 

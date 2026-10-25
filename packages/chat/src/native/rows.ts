@@ -45,7 +45,7 @@ export function buildThreadRows(items: ThreadItem[], options: BuildRowsOptions):
   const rows: ThreadRow[] = [];
   for (let i = 0; i < items.length; i++) {
     const item = items[i]!;
-    if (startsDay(items, i)) rows.push({ type: "day", key: `d:${itemTime(item).slice(0, 10)}:${i}`, label: dayLabel(itemTime(item), now, locale) });
+    if (startsDay(items, i)) rows.push({ type: "day", key: `d:${rowKey(item)}`, label: dayLabel(itemTime(item), now, locale) });
     if (item.type === "message" && item.message.id === firstUnreadId) rows.push({ type: "unread", key: "unread" });
     const senderId = itemSender(item);
     const mine = item.type === "pending" || senderId === me;
