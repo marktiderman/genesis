@@ -50,6 +50,9 @@ export default defineConfig({
     // anyone who guesses those paths. `scripts/check-exports-resolve.mjs`
     // catches the opposite omission — a declared subpath with nothing
     // emitted — after every build.
+    // Marketing bands, on their own subpath so a server-rendered site imports
+    // just this file, not the layout barrel (AppShell and its peers).
+    "src/components/layout/band.tsx",
     "src/components/layout/dashboard-page.tsx",
     "src/components/layout/detail-page.tsx",
     "src/components/layout/form-page.tsx",

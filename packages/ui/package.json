@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-ui",
-  "version": "2.12.1",
+  "version": "2.12.2",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -117,6 +117,10 @@
     "./badge": {
       "types": "./dist/components/ui/badge.d.ts",
       "import": "./dist/components/ui/badge.js"
+    },
+    "./band": {
+      "types": "./dist/components/layout/band.d.ts",
+      "import": "./dist/components/layout/band.js"
     },
     "./breadcrumb": {
       "types": "./dist/components/ui/breadcrumb.d.ts",

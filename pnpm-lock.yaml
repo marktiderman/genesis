@@ -279,6 +279,9 @@ importers:
       '@marktiderman/genesis-forms-web':
         specifier: workspace:^
         version: link:../../packages/forms-web
+      '@marktiderman/genesis-sites':
+        specifier: workspace:^
+        version: link:../../packages/sites
       '@marktiderman/genesis-studio':
         specifier: workspace:^
         version: link:../../packages/studio
@@ -1122,6 +1125,79 @@ importers:
       vitest:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@20.11.1)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
+
+  packages/sites:
+    dependencies:
+      '@marktiderman/genesis-features':
+        specifier: workspace:^
+        version: link:../features
+    devDependencies:
+      '@marktiderman/genesis-design-system':
+        specifier: workspace:^
+        version: link:../design-system
+      '@marktiderman/genesis-forms':
+        specifier: workspace:^
+        version: link:../forms
+      '@marktiderman/genesis-forms-react':
+        specifier: workspace:^
+        version: link:../forms-react
+      '@marktiderman/genesis-forms-web':
+        specifier: workspace:^
+        version: link:../forms-web
+      '@marktiderman/genesis-ui':
+        specifier: workspace:^
+        version: link:../ui
+      '@supabase/supabase-js':
+        specifier: ^2.118.0
+        version: 2.118.0
+      '@tailwindcss/cli':
+        specifier: 4.3.3
+        version: 4.3.3
+      '@types/node':
+        specifier: ^22
+        version: 22.20.1
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.3.0(@types/react@19.3.0)
+      axe-core:
+        specifier: ^4.14.0
+        version: 4.14.0
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.1
+      happy-dom:
+        specifier: ^20.9.0
+        version: 20.11.1
+      lucide-react:
+        specifier: ^1.0.0
+        version: 1.28.0(react@19.3.0)
+      radix-ui:
+        specifier: ^1.6.7
+        version: 1.6.7(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      tailwindcss:
+        specifier: 4.3.3
+        version: 4.3.3
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.12
+        version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@20.11.1)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   packages/studio:
     devDependencies:

@@ -46,7 +46,7 @@ export function FieldChrome({ props, children, className }: FieldChromeProps) {
   const body = (
     <>
       {description ? (
-        <FormDescription id={`${inputId}-desc`} className={cn(pageFocus && "text-base sm:text-lg text-pretty")}>
+        <FormDescription id={`${inputId}-desc`} className={cn("whitespace-pre-line", pageFocus && "text-base sm:text-lg text-pretty")}>
           {description}
         </FormDescription>
       ) : null}

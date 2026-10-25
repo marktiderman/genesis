@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 110
+      "count": 111
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -2694,7 +2694,7 @@
             },
             {
               "name": "toolbar",
-              "type": "ComponentType<object>",
+              "type": "ComponentType<KeyboardToolbarProps>",
               "required": false,
               "defaultValue": null,
               "description": "`KeyboardToolbar` from react-native-keyboard-controller: previous / next / done above the keyboard."
@@ -3607,6 +3607,16 @@
           ]
         },
         {
+          "name": "iosCompactNavigationBarHeight",
+          "summary": "The height of iOS's compact navigation bar, below the status bar: 44 pt up to iOS 18, 54 pt\nfrom iOS 26 (measured on an iOS 26 simulator, the collapsed large-title bar of a native stack).",
+          "props": []
+        },
+        {
+          "name": "defaultStickyHeaderOffset",
+          "summary": "Where a list's section headers stick by default: on iOS, the bottom of the collapsed\nnavigation bar (the safe area's top plus the compact bar), since the list runs under the\nheader; elsewhere 0 (the header sits above the list).",
+          "props": []
+        },
+        {
           "name": "NotificationsPage",
           "summary": "",
           "props": [
@@ -3721,6 +3731,13 @@
               "required": false,
               "defaultValue": "{}",
               "description": "Replace (a component) or drop (`null`) one part."
+            },
+            {
+              "name": "stickyHeaderOffset",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Where a section header sticks, in points from the top of the list. Under a large-title header\n(`getNotificationsPageStackOptions`' default) the list runs under the native header (iOS\ninsets its rows, and the title collapses as it scrolls), so a header stuck at 0 would sit\nunder the status bar. Default on iOS: under the collapsed navigation bar of an iPhone in\nportrait (`defaultStickyHeaderOffset`); elsewhere 0. Pass 0 when the list starts below an\nopaque header (a standard one before iOS 26), the safe area's top with no header, and your own\nvalue on iPad (a 50 pt bar) or in landscape (32 pt)."
             },
             {
               "name": "testID",
@@ -5914,7 +5931,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/toast.tsx",
       "stability": "beta",
-      "summary": "Toast / Snackbar — transient feedback message that auto-dismisses.\n\nUse for confirmation of completed actions (\"Saved.\", \"Copied to\nclipboard.\"). Don't use for errors that need acknowledgment (use\n<NativeAlert> or <NativeBanner>) or for destructive confirmations\n(use <NativeDialog>).\n\nWrap the app in <NativeToastProvider>. Components anywhere in the tree\ncall `useToast()` and invoke `toast.show({ title, description, variant })`.\nToasts are queued — the next one shows once the current one dismisses\n(or the user dismisses early).\n\nAnimates with Reanimated 4 when the app passes it (`modules.reanimated`\non `GenesisModulesProvider`), else with React Native's Animated; either\nway it appears without motion while Reduce Motion is on. A default toast\nis Liquid Glass on iOS 26 when `modules.glass` (expo-glass-effect) is\ngiven and the device can draw it.",
+      "summary": "Toast / Snackbar — transient feedback message that auto-dismisses.\n\nUse for confirmation of completed actions (\"Saved.\", \"Copied to\nclipboard.\"). Don't use for errors that need acknowledgment (use\n<NativeAlert> or <NativeBanner>) or for destructive confirmations\n(use <NativeDialog>).\n\n`GenesisNativeApp` (genesis-native) mounts <NativeToastProvider> for you, at the top; elsewhere,\nwrap the app in it (its own default position is the bottom). Components anywhere in the tree\ncall `useToast()` and invoke `toast.show({ title, description, variant })`.\nToasts are queued — the next one shows once the current one dismisses\n(or the user dismisses early).\n\nAnimates with Reanimated 4 when the app passes it (`modules.reanimated`\non `GenesisModulesProvider`), else with React Native's Animated; either\nway it appears without motion while Reduce Motion is on. A default toast\nis Liquid Glass on iOS 26 when `modules.glass` (expo-glass-effect) is\ngiven and the device can draw it.",
       "primaryComponent": "NativeToastProvider",
       "components": [
         {
@@ -6610,6 +6627,113 @@
             {
               "name": "variant",
               "type": "\"default\" | \"secondary\" | \"destructive\" | \"outline\" | \"success\" | \"warning\" | \"info\" | \"muted\" | null",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "band",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/band.tsx",
+      "stability": "beta",
+      "summary": "Band: a full-bleed, full-width marketing section. The background runs\nedge to edge; the content sits in a centered column with the page gutter.\nIt is what a landing page is made of: a hero, a features band, a call to\naction, a footer.\n\n```tsx\n<Band surface=\"accent\" spacing=\"lg\" aria-labelledby=\"cta-title\">\n  <Display as=\"h2\" id=\"cta-title\" size=\"lg\">Start today</Display>\n</Band>\n```\n\nUnlike `Section` (a titled region inside an app page), a band carries no\nheading of its own: a marketing page decides its heading levels per page\n(one `h1`, then `h2`s), so the caller places a `Display` and names the\nregion with `aria-labelledby`. Server-safe: no state, no effects.",
+      "primaryComponent": "Band",
+      "components": [
+        {
+          "name": "Band",
+          "summary": "Band: a full-bleed, full-width marketing section. The background runs\nedge to edge; the content sits in a centered column with the page gutter.\nIt is what a landing page is made of: a hero, a features band, a call to\naction, a footer.\n\n```tsx\n<Band surface=\"accent\" spacing=\"lg\" aria-labelledby=\"cta-title\">\n  <Display as=\"h2\" id=\"cta-title\" size=\"lg\">Start today</Display>\n</Band>\n```\n\nUnlike `Section` (a titled region inside an app page), a band carries no\nheading of its own: a marketing page decides its heading levels per page\n(one `h1`, then `h2`s), so the caller places a `Display` and names the\nregion with `aria-labelledby`. Server-safe: no state, no effects.",
+          "props": [
+            {
+              "name": "as",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "h2",
+              "description": "The element to render. `section` (default) for a region of the page,\n`header` / `footer` for the site's banner and footer, `div` for a band\nthat is not a region of its own."
+            },
+            {
+              "name": "innerClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the inner column, after the width and gutter."
+            },
+            {
+              "name": "spacing",
+              "type": "\"none\" | \"sm\" | \"md\" | \"lg\" | null",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "surface",
+              "type": "\"base\" | \"muted\" | \"accent\" | \"inverse\" | null",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Stable test/automation selector (emitted as `data-testid`)."
+            },
+            {
+              "name": "width",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "lg",
+              "description": "The inner column's width (Container's named widths). Default `lg`."
+            }
+          ]
+        },
+        {
+          "name": "Display",
+          "summary": "Display: a heading in the marketing type scale (`displayVariants`).\n\n```tsx\n<Display as=\"h1\" size=\"xl\">Train with people who know your name</Display>\n```",
+          "props": [
+            {
+              "name": "as",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "h2",
+              "description": "The heading level: document structure, not a size. Default `h2`."
+            },
+            {
+              "name": "size",
+              "type": "\"sm\" | \"md\" | \"lg\" | \"xl\" | null",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Stable test/automation selector (emitted as `data-testid`)."
+            }
+          ]
+        },
+        {
+          "name": "BandLead",
+          "summary": "",
+          "props": [
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "tone",
+              "type": "\"muted\" | \"inherit\" | null",
               "required": false,
               "defaultValue": null,
               "description": ""

@@ -73,3 +73,5 @@ export {
 export { Section, sectionHeadingVariants, type SectionProps } from "./section";
 export { Container, containerVariants, type ContainerProps } from "./container";
 export { GAP_CLASSES, spaceScale, type SpaceToken } from "./spacing";
+// Marketing bands (full-bleed sections and the display type scale).
+export { Band, BandLead, Display, bandVariants, displayVariants, leadVariants, type BandProps, type BandLeadProps, type DisplayProps } from "./band";
