@@ -131,6 +131,21 @@ describe("FeedbackForm", () => {
     expect(vi.mocked(Alert.alert)).toHaveBeenCalledWith("Thanks for the feedback", expect.any(String));
   });
 
+  it("leaves the confirmation to onSent with sentAlert={false} (the app's toast)", async () => {
+    const { block, wrap } = harness((call) => (call.table === "support_reports" ? { data: { id: REPORT }, error: null } : { data: null, error: null }));
+    const onSent = vi.fn();
+    const view = render(wrap(<span />));
+    await block.openFeedback({ screenshot: false });
+    view.rerender(wrap(<FeedbackForm sentAlert={false} onSent={onSent} />));
+    fireEvent.change(screen.getByTestId("genesis-support-feedback-message"), { target: { value: "Works now" } });
+    vi.mocked(Alert.alert).mockClear();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-feedback-send"));
+    });
+    await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(Alert.alert)).not.toHaveBeenCalled();
+  });
+
   it("sends no screenshot unless the person includes it", async () => {
     const { fake, block, wrap } = harness(() => ({ data: { id: REPORT }, error: null }), { viewShot: viewShot() });
     const view = render(wrap(<span />));

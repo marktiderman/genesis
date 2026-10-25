@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { StyleSheet } from "react-native";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { NativeToastProvider, useToast } from "../toast";
 
 function TestHarness() {
@@ -18,6 +20,19 @@ function TestHarness() {
 }
 
 describe("NativeToast", () => {
+  it("puts a top toast below the safe area's top (the status bar, the Dynamic Island)", () => {
+    render(
+      <SafeAreaInsetsContext.Provider value={{ top: 62, bottom: 34, left: 0, right: 0 }}>
+        <NativeToastProvider position="top" disableAnimation>
+          <TestHarness />
+        </NativeToastProvider>
+      </SafeAreaInsetsContext.Provider>,
+    );
+    fireEvent.click(screen.getByTestId("trigger"));
+    const region = screen.getByLabelText("Saved. All good.");
+    expect(StyleSheet.flatten(JSON.parse(region.dataset.style ?? "null"))).toMatchObject({ top: 70 });
+  });
+
   it("queues + renders a toast on show()", () => {
     render(
       <NativeToastProvider disableAnimation>

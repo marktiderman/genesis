@@ -92,6 +92,10 @@ const en = {
       unavailable: "Not available on this device",
     },
   },
+  toasts: {
+    feedbackSent: "Thanks. Your feedback was sent.",
+    feedbackSentWithoutScreenshot: "The screenshot couldn't be sent with it.",
+  },
   // The support block's own strings (genesis-support's catalog); the ones here override its English.
   // Add any key from `supportCopy` to reword or translate it.
   support: {

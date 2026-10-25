@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { genesisBrand } from "@marktiderman/genesis-design-system";
 import { createMockProvider } from "@marktiderman/genesis-core/provider";
 import { useKeyboardScroll, useKeyboardToolbar } from "@marktiderman/genesis-ui-native/layouts";
-import { useGenesisModules } from "@marktiderman/genesis-ui-native/components";
+import { useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
 import { GenesisNativeApp, type GenesisNativeAppProps } from "../app";
 import { useBoot } from "../boot";
 import { useSession } from "../auth";
@@ -354,6 +354,33 @@ describe("GenesisNativeApp", () => {
     setup({ modules: { list }, children: <Probe /> });
     await act(flush);
     expect(screen.getByTestId("probe").textContent).toBe("true");
+  });
+
+  it("mounts a toast provider, so useToast() works on any screen, at the top by default", async () => {
+    function Saver() {
+      const toast = useToast();
+      return <button data-testid="save" onClick={() => toast.show({ title: "Saved", testID: "saved-toast", duration: 0 })} />;
+    }
+    setup({ children: <Saver /> });
+    await act(flush);
+    fireEvent.click(screen.getByTestId("save"));
+    expect(screen.getByTestId("saved-toast")).toBeTruthy();
+    expect(screen.getByLabelText("Saved").className).toMatch(/top-12/);
+  });
+
+  it("mounts no toast provider with toast={null} (the app mounts its own)", async () => {
+    function Saver() {
+      let error = "";
+      try {
+        useToast();
+      } catch (e) {
+        error = (e as Error).message;
+      }
+      return <span data-testid="toast-error">{error}</span>;
+    }
+    setup({ toast: null, children: <Saver /> });
+    await act(flush);
+    expect(screen.getByTestId("toast-error").textContent).toMatch(/inside <NativeToastProvider>/);
   });
 
   it("mounts the keyboard provider once, around the screens and the fatal screen", async () => {

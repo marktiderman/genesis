@@ -5,6 +5,7 @@
  *   last-resort boundary (React Native primitives only)
  *   └ theme (GenesisThemeProvider, owning the platform color scheme)
  *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens)
+ *       └ toasts (`NativeToastProvider`, so `useToast()` works on every screen; `toast={null}` drops it)
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
  *         └ session + boot (splash held until both are known)
  *           └ blocks' roots (with `blocks`, e.g. updates: force upgrade, maintenance, banner, what's new)
@@ -29,7 +30,14 @@ import type { CanonicalBrand } from "@marktiderman/genesis-design-system";
 import { GenesisProvider, createSupabaseProvider, type DataProvider, type SupabaseClientInput } from "@marktiderman/genesis-core/provider";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { KeyboardScrollProvider, type KeyboardScrollProps, type KeyboardToolbarProps } from "@marktiderman/genesis-ui-native/layouts";
-import { GenesisModulesProvider, NativeSheetProvider, type GenesisModules, type NativeSheetLibrary } from "@marktiderman/genesis-ui-native/components";
+import {
+  GenesisModulesProvider,
+  NativeSheetProvider,
+  NativeToastProvider,
+  type GenesisModules,
+  type NativeSheetLibrary,
+  type NativeToastProviderProps,
+} from "@marktiderman/genesis-ui-native/components";
 import { BootProvider, createBoot, type BootOptions, type BootStatus, type BootStep } from "./boot";
 import {
   FatalScreen,
@@ -144,6 +152,12 @@ export interface GenesisNativeAppProps {
    * (an iOS page sheet), which needs neither. Read once.
    */
   bottomSheet?: NativeSheetLibrary;
+  /**
+   * Toasts (`useToast()` from `@marktiderman/genesis-ui-native`): `NativeToastProvider` is
+   * mounted around the screens, at the top of the screen by default (a bottom toast would sit on
+   * a tab bar). Pass its options to place it, or `null` to mount your own. Read once.
+   */
+  toast?: Pick<NativeToastProviderProps, "position" | "disableAnimation"> | null;
   /** Follow a link held while signed out, once the user signs in. */
   links?: { hold: LinkHold; onRelease: (path: string) => void };
   /** Run before first render, in order (wipe-on-reinstall, hydrate stores, fonts). Read once. */
@@ -260,6 +274,7 @@ function ThemedShell(props: GenesisNativeAppProps) {
   const [Keyboard] = useState(() => props.keyboardProvider);
   // Frozen too: an inline object would hand every component a new module set each render.
   const [modules] = useState(() => props.modules);
+  const [toast] = useState(() => (props.toast === null ? null : { position: "top" as const, ...props.toast }));
   const missingProvider = Boolean(keyboardScroll) && !Keyboard;
   const toolbarWithoutScroll = Boolean(keyboardToolbar) && !keyboardScroll;
   useEffect(() => {
@@ -268,6 +283,8 @@ function ThemedShell(props: GenesisNativeAppProps) {
     if (toolbarWithoutScroll) console.error(TOOLBAR_WITHOUT_SCROLL);
   }, [missingProvider, toolbarWithoutScroll]);
   let body = <Shell {...props} />;
+  // Inside the modules: a toast animates with Reanimated and draws Liquid Glass when the app gave them.
+  if (toast) body = <NativeToastProvider {...toast}>{body}</NativeToastProvider>;
   if (modules) body = <GenesisModulesProvider modules={modules}>{body}</GenesisModulesProvider>;
   if (keyboardScroll) body = <KeyboardScrollProvider component={keyboardScroll} toolbar={keyboardToolbar}>{body}</KeyboardScrollProvider>;
   if (Keyboard) body = <Keyboard>{body}</Keyboard>;

@@ -20,7 +20,7 @@
  *
  * @stability Beta
  */
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useContext, useMemo, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import {
   Platform,
@@ -31,7 +31,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaInsetsContext, SafeAreaView } from "react-native-safe-area-context";
 import { NativeSectionListHeader } from "../components/section-list";
 import { NativeListItem } from "../components/list-item";
 import { NativeEmptyState } from "../components/empty-state";
@@ -250,8 +250,9 @@ export function NotificationsPage({
   slotProps = NO_SLOTS,
   stickyHeaderOffset,
 }: NotificationsPageProps) {
-  const insets = useSafeAreaInsets();
-  const stickAt = stickyHeaderOffset ?? defaultStickyHeaderOffset(Platform.OS, Platform.Version, insets.top);
+  // The context, not useSafeAreaInsets(): before a provider has measured (tests, the first frame) it is null, not a throw.
+  const safeTop = useContext(SafeAreaInsetsContext)?.top ?? 0;
+  const stickAt = stickyHeaderOffset ?? defaultStickyHeaderOffset(Platform.OS, Platform.Version, safeTop);
   // Note: header props (headerTitle, headerLeft, headerRight, large,
   // scrollEdgeBehavior, headerOptions) are accepted on the type for API
   // ergonomics but consumed by getNotificationsPageStackOptions() at the
