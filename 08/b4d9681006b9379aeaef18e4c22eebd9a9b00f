@@ -1,0 +1,48 @@
+packages/chat/src/server/upload.ts
+  s_c0870a827920ef::t_bcf89fa72e4e96 98
+  s_c0870a827920ef::t_eb147b9459841d 6-7,10-17,22-43,52-67,69-71,75-97,99-101,103-115,119,121-122,124,127-132,136,138-146,149-153,155
+.changeset/chat-server-review-fixes.md
+  s_c0870a827920ef::t_2bbc09459ffba8 1-5
+packages/chat/README.md
+  s_c0870a827920ef::t_396cc64ed3bc21 115-117,167-174,205-207,214-217,221-225,227-235,241,243-250,252-253,256-259,272-275,277-278
+packages/chat/migrations/0002_genesis_chat_coaching.sql
+  s_c0870a827920ef::t_7d331c60a01cc5 12-13,19-20,25-30,175-177,267-269,292-300,467,469,473-514,533-538,540-542,551,553,556-563,567-583,587-602,615,618-623,625,638-771,824-826,836-838,847-849,858-860
+packages/chat/migrations/tests/0002_genesis_chat_coaching.test.sql
+  s_c0870a827920ef::t_e2320de8924065 9,97-118,169-218
+packages/chat/src/__tests__/server-effects.test.ts
+  s_c0870a827920ef::t_80ebd685d13cbe 37,45,53-62,100,115
+packages/chat/src/__tests__/server-integrations.test.ts
+  s_c0870a827920ef::t_f50121ef6296d1 12,126-139,183-194,197-198,202,207-209,214,217-219,221-244
+packages/chat/src/__tests__/server-providers.test.ts
+  s_c0870a827920ef::t_c9e6d609109bc0 8,46-58,95,108,110-112,116-140
+packages/chat/src/__tests__/server-safety.test.ts
+  s_c0870a827920ef::t_088ab6c623d98d 2-3,74-81,85,210,212-213,215-268
+packages/chat/src/server/assistant.ts
+  s_c0870a827920ef::t_bb2341a01bc781 6-9,14-18,39-40,60-64,116-120,127,143,148,156-157,177
+packages/chat/src/server/index.ts
+  s_c0870a827920ef::t_e86d97ce85156f 25,51-57
+packages/chat/src/server/mux.ts
+  s_c0870a827920ef::t_f444f5a0e78b36 6-7,18-23,28,147-157,159-166,168,173-183,250,252-253,272
+packages/chat/src/server/runner.ts
+  s_c0870a827920ef::t_09aa8292d3f369 11-14,282-287,303-316,339,353,356
+packages/chat/src/server/types.ts
+  s_c0870a827920ef::t_8bb8b9aba54bd8 144-149
+packages/chat/src/server/unfurl.ts
+  s_c0870a827920ef::t_c16d199f1db7b7 9-15,19-20,24-36,54-66,90,129-130,133,135-136,139-142,173-223,339-341,344-353,355,363,366,370,387-388,393,426-427
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "08b4d9681006b9379aeaef18e4c22eebd9a9b00f",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
