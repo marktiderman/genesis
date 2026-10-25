@@ -1,16 +1,29 @@
-# The team
+# The team and its settings
 
-Who owns which area right now. An owner is a named agent session. Change this file when ownership
-changes.
+This product's settings and who holds each role. It is the only file that names sessions:
+[RULES.md](./RULES.md) speaks in roles. Change this file when ownership changes, including when a
+session adopts an orphaned area.
 
-| Session | Owns |
+## Settings
+
+| Setting | Value |
 |---|---|
-| Owner (human) | Direction, every schema decision, secrets, npm publishes and store submissions |
-| Compass | The product system (features, feedback and insights, roadmap, releases and changelog) and this package (the agent process) |
-| Weaver | `genesis-sites` and `genesis-chat`, end to end, including their wiring into apps |
-| Forge | React Native (`genesis-native`, `genesis-ui-native`, the native starter, chat's `/native`) and `genesis-notifications`; releases `staging/genesis-rn` to main and hands the owner first-publish commands |
-| Quill | The forms packages; app staging batches and releases, with whoever cut the batch |
+| Staging batch | `staging/genesis-rn` |
+| Release path | the batch's release pull request into `main`, then the version packages pull request |
+| Lease length | 24 hours without a push |
+| Owner's stops | npm publishes (first versions by hand), the version packages merge, store and TestFlight submissions, destructive actions |
 
-Shared, so every owner is told before a change: `genesis-support`, `genesis-supabase` (its
-migrations), `genesis-ui`, `genesis-design-system`, `genesis-core`, `genesis-features` and
-`genesis-cli`. The owner may name an owner for any of these.
+## Areas
+
+| Area | Paths | Area owner |
+|---|---|---|
+| Product system and agent process | `packages/agents`, `packages/product` (planned) | Compass |
+| Sites and chat, including their wiring into apps | `packages/sites`, `packages/chat` except `src/native` | Weaver |
+| React Native and notifications | `packages/native`, `packages/ui-native`, `packages/chat/src/native`, `packages/notifications`, `apps/genesis-rn-starter` | Forge (also the releaser of the batch, and hands the owner first-publish commands) |
+| Forms, and app batches and releases | `packages/forms*` | Quill (app batches with whoever cut them) |
+
+Shared, so every area owner is told before a change: `packages/support`, `packages/supabase` (its
+migrations), `packages/ui`, `packages/design-system`, `packages/core`, `packages/features` and
+`packages/genesis-cli`. The owner may name an area owner for any of these.
+
+The owner (human) holds direction, every schema decision, secrets and the stops above.
