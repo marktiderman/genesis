@@ -1,0 +1,37 @@
+packages/supabase/src/__tests__/push-send.test.ts
+  s_8252619ce79a86::t_5a1ee70aa6bab6 241-261
+packages/native/src/push/backend.ts
+  s_8252619ce79a86::t_15305a908f95c7 39,55,109-111
+packages/native/src/__tests__/push/fakes.ts
+  s_8252619ce79a86::t_15305a908f95c7 79
+apps/genesis-rn-starter/supabase/functions/genesis-push-send/handler.ts
+  s_8252619ce79a86::t_65e50a88ebfd6f 115-116,128-129,147,149,275-278,284,288-291,299,302,306,308-312,452-459
+  s_8252619ce79a86::t_1c541ba633c95c 460
+packages/supabase/functions/genesis-push-send/handler.ts
+  s_8252619ce79a86::t_15305a908f95c7 115-116,128-129,147,149,275-278,284,288-291,299,302,306,308-312,452-459
+  s_8252619ce79a86::t_e97dee7fc1851f 460
+packages/supabase/README.md
+  s_8252619ce79a86::t_65e50a88ebfd6f 386-388
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_65e50a88ebfd6f 124-126
+packages/native/src/push/preferences.ts
+  s_8252619ce79a86::t_15305a908f95c7 80
+packages/native/src/__tests__/push/settings.test.tsx
+  s_8252619ce79a86::t_15305a908f95c7 154-155,161,166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f58205f0a2a66e0ac9cf45ee70cb8129beb8037b",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
