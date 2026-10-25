@@ -1,0 +1,21 @@
+.github/workflows/ci.yml
+  s_8252619ce79a86::t_a112c428e04822 60-61,63
+packages/forms-native/vitest.config.ts
+  s_8252619ce79a86::t_67d40aa98e37c2 19-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9d530ede5d8035139a6c922842218b9e6950a9f1",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
