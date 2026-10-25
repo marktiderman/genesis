@@ -1,9 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
-
-// Autosave must listen before anyone can answer: a passive effect runs after paint, and an answer
-// given in between was never saved. A layout effect runs before the form can be touched; on a
-// server (no window) a passive one avoids the warning, and there is no one to answer anyway.
-const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 import {
   createDraftAutosave,
   createForm,
@@ -18,6 +13,12 @@ import {
   type FormDraft,
   type FormEngine,
 } from "@marktiderman/genesis-forms";
+
+// Autosave must listen before anyone can answer: a passive effect runs after paint, and an answer
+// given in between was never saved. A layout effect runs before the form can be touched. React
+// Native has a window too, so it takes the layout effect; only a server (no window) uses a passive
+// one, which avoids React's warning there, and no one can answer on a server anyway.
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 type FormLike = FormDefinition | { definition: FormDefinition };
 const definitionOf = (form: FormLike) => ("definition" in form ? form.definition : form);

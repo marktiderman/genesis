@@ -187,4 +187,14 @@ describe("InboxPage", () => {
     expect(styleOf(screen.getByTestId("inbox-row-a-separator-inset")).width).toBe(86);
     expect(screen.queryByTestId("inbox-row-c-avatar")).toBeNull();
   });
+
+  it("reads who an avatar shows when the title doesn't name them", () => {
+    const rows: InboxItem[] = [
+      { ...items[0]!, title: "Morning crew", avatar: <span />, avatarLabel: "Sam" },
+      { ...items[1]!, avatarLabel: "Ignored without an avatar" },
+    ];
+    render(<InboxPage testID="inbox" items={rows} now={now} />);
+    expect(screen.getByTestId("inbox-row-a").getAttribute("aria-label")).toMatch(/^2 unread, Sam, Morning crew/);
+    expect(screen.getByTestId("inbox-row-b").getAttribute("aria-label")).not.toContain("Ignored");
+  });
 });
