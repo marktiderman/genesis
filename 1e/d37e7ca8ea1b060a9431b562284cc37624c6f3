@@ -1,0 +1,34 @@
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_f45286cf0221c3 284-287
+apps/genesis-rn-starter/__tests__/check-in-photos.test.ts
+  s_8252619ce79a86::t_5c0d46c672f5d1 1-57
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_5c0d46c672f5d1 34-35
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_a4fa153b39a0b1 49
+apps/genesis-rn-starter/src/app/(app)/(home)/check-in.tsx
+  s_8252619ce79a86::t_5c0d46c672f5d1 9,33
+apps/genesis-rn-starter/src/lib/check-in-photos.ts
+  s_8252619ce79a86::t_5c0d46c672f5d1 1-66
+apps/genesis-rn-starter/src/lib/check-in.ts
+  s_8252619ce79a86::t_5c0d46c672f5d1 16,28,77-78
+  s_8252619ce79a86::t_dd93ad38fc9dce 79
+pnpm-lock.yaml
+  s_8252619ce79a86::t_7304161a012f6f 128-130,7293-7302,17336-17344
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1ed37e7ca8ea1b060a9431b562284cc37624c6f3",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
