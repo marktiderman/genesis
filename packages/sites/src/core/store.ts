@@ -3,7 +3,23 @@
  * store shares, cache invalidation, and an in-memory store for tests, demos
  * and previews. `@marktiderman/genesis-sites/supabase` has the Postgres one.
  */
-import { checkRelease, isPublishable, type SiteIssue } from "./a11y";
+import { checkPost, checkRelease, isPublishable, type SiteIssue } from "./a11y";
+import {
+  MAX_IMPORT_POSTS,
+  MAX_LIVE_POSTS,
+  PostDoc,
+  postSummary,
+  validatePostSlug,
+  type ImportPost,
+  type ImportPostsResult,
+  type LivePost,
+  type PostDraft,
+  type PostMeta,
+  type PostStatus,
+  type PostSummary,
+  type SavePostInput,
+  type SavePostResult,
+} from "./posts";
 import { migratePage, migrateSite } from "./migrate";
 import {
   PageDoc,
@@ -23,6 +39,22 @@ import { DEFAULT_RESERVED_PATHS, validatePagePath, type ReservedPaths } from "./
 export type SaveResult<T> = { rev: number } | { conflict: T; rev: number };
 
 export const isConflict = <T>(result: SaveResult<T>): result is { conflict: T; rev: number } => "conflict" in result;
+
+/**
+ * The file types a site asset may be, as the database checks them: images
+ * and PDF. Never SVG or HTML, which a browser runs as a page.
+ */
+export const ASSET_TYPES: readonly string[] = Object.freeze(["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif", "application/pdf"]);
+
+/**
+ * The storage key for an upload: `sites/<siteId>/<id>-<name>` for an image,
+ * `sites/<siteId>/files/<id>-<name>` for a file to download (a PDF), so
+ * storage policies scope by site with `can_edit`.
+ */
+export function assetPath(siteId: string, id: string, name: string | undefined, mime: string): string {
+  const clean = (name ?? "file").toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/\.{2,}/g, ".").replace(/^[.-]+/, "").slice(0, 80) || "file";
+  return `sites/${siteId}/${mime === "application/pdf" ? "files/" : ""}${id}-${clean}`;
+}
 
 export interface AssetMeta {
   alt?: string;
@@ -97,7 +129,31 @@ export interface SiteStore {
   publish(siteId: string, options?: PublishOptions): Promise<Release>;
   rollback(siteId: string, releaseId: string): Promise<Release>;
   listReleases(siteId: string): Promise<ReleaseMeta[]>;
+  /** Store an upload under `sites/<siteId>/...` (a PDF under `files/`) and record it. Images and PDF only. */
   putAsset?(siteId: string, file: Blob, meta?: AssetMeta): Promise<Asset>;
+
+  // Posts. Optional: a store without them serves a site with no blog.
+
+  /** The published posts, newest first, without bodies (at most `MAX_LIVE_POSTS`). Public, like `getLive`. */
+  listLivePosts?(siteId: string): Promise<PostSummary[]>;
+  /** One published post. Public, like `getLive`. Null for a draft, an unknown slug, or a site that isn't live. */
+  getLivePost?(siteId: string, slug: string): Promise<LivePost | null>;
+  /** Every post's meta for the editor (drafts too), newest first. */
+  listPosts?(siteId: string): Promise<PostMeta[]>;
+  getPost?(postId: string): Promise<PostDraft | null>;
+  /** Create a post (no `id`) or save its draft by compare-and-swap. A post keeps its slug once published. */
+  savePost?(siteId: string, input: SavePostInput): Promise<SavePostResult>;
+  /** Check the draft (`checkPost`) and make it the published copy. Throws `PublishBlockedError`. */
+  publishPost?(postId: string): Promise<PostMeta>;
+  /** Take the post down; its draft stays. */
+  unpublishPost?(postId: string): Promise<PostMeta>;
+  deletePost?(postId: string): Promise<void>;
+  /**
+   * A one-time import from another site: each post keeps its slug and its
+   * date, and is published unless asked otherwise or a check fails (then it
+   * is a draft, with its issues). A slug the site already has is skipped.
+   */
+  importPosts?(siteId: string, posts: readonly ImportPost[]): Promise<ImportPostsResult>;
 }
 
 /** A publish the checks refused: `issues` lists why. */
@@ -173,7 +229,8 @@ export function formCacheTag(slug: string): string {
 /** Why a site's cache is being purged. */
 export interface InvalidationInfo {
   siteId: string;
-  action: "publish" | "rollback";
+  /** `post`: a post was published, taken down, deleted or imported. */
+  action: "publish" | "rollback" | "post";
 }
 
 /**
@@ -217,6 +274,47 @@ export function withCacheInvalidation(store: SiteStore, invalidate: (tags: strin
     deletePage: (id) => store.deletePage(id),
     listReleases: (id) => store.listReleases(id),
     ...(store.putAsset ? { putAsset: store.putAsset.bind(store) } : {}),
+    ...(store.listLivePosts ? { listLivePosts: store.listLivePosts.bind(store) } : {}),
+    ...(store.getLivePost ? { getLivePost: store.getLivePost.bind(store) } : {}),
+    ...(store.listPosts ? { listPosts: store.listPosts.bind(store) } : {}),
+    ...(store.getPost ? { getPost: store.getPost.bind(store) } : {}),
+    ...(store.savePost ? { savePost: store.savePost.bind(store) } : {}),
+    ...(store.publishPost
+      ? {
+          async publishPost(postId: string) {
+            const meta = await store.publishPost!(postId);
+            await purge(meta.siteId, "post");
+            return meta;
+          },
+        }
+      : {}),
+    ...(store.unpublishPost
+      ? {
+          async unpublishPost(postId: string) {
+            const meta = await store.unpublishPost!(postId);
+            await purge(meta.siteId, "post");
+            return meta;
+          },
+        }
+      : {}),
+    ...(store.deletePost
+      ? {
+          async deletePost(postId: string) {
+            const before = await store.getPost?.(postId);
+            await store.deletePost!(postId);
+            if (before) await purge(before.siteId, "post");
+          },
+        }
+      : {}),
+    ...(store.importPosts
+      ? {
+          async importPosts(siteId: string, list: readonly ImportPost[]) {
+            const result = await store.importPosts!(siteId, list);
+            await purge(siteId, "post");
+            return result;
+          },
+        }
+      : {}),
     async publish(siteId, options) {
       const release = await store.publish(siteId, options);
       await purge(siteId, "publish");
@@ -228,6 +326,27 @@ export function withCacheInvalidation(store: SiteStore, invalidate: (tags: strin
       return release;
     },
   };
+}
+
+/**
+ * One post of an import, checked: its document parsed, its status (a draft
+ * when asked for, or when a check fails, with the reasons) and its date.
+ * Every store's `importPosts` runs it.
+ */
+export function prepareImportPost(item: ImportPost): { doc: PostDoc; status: PostStatus; publishedAt: string; issues: string[] } | { slug: string; reason: string } {
+  const slug = typeof item?.slug === "string" ? item.slug : String(item?.slug);
+  try {
+    validatePostSlug(slug);
+  } catch (err) {
+    return { slug, reason: (err as Error).message };
+  }
+  const parsed = PostDoc.safeParse(item.doc);
+  if (!parsed.success) return { slug, reason: `The post doesn't parse: ${parsed.error.issues.map((i) => `${i.path.join(".") || "post"} ${i.message}`).join("; ")}` };
+  const date = item.publishedAt ? new Date(item.publishedAt) : new Date();
+  if (Number.isNaN(date.getTime())) return { slug, reason: `"${item.publishedAt}" isn't a date.` };
+  const errors = checkPost(slug, parsed.data).filter((i) => i.severity === "error").map((i) => i.message);
+  const status: PostStatus = item.status === "draft" || errors.length ? "draft" : "published";
+  return { doc: parsed.data, status, publishedAt: date.toISOString(), issues: errors };
 }
 
 // ── In memory ───────────────────────────────────────────────────────────────
@@ -251,6 +370,18 @@ interface MemSite {
   rev: number;
   liveReleaseId: string | null;
   status: "draft" | "live" | "archived";
+}
+interface MemPost {
+  id: string;
+  siteId: string;
+  slug: string;
+  doc: PostDoc;
+  rev: number;
+  status: PostStatus;
+  published: { doc: PostDoc; at: string } | null;
+  publishedAt: string | null;
+  updatedAt: string;
+  deleted: boolean;
 }
 interface MemPage {
   id: string;
@@ -286,6 +417,7 @@ export function createMemorySiteStore(options: MemoryStoreOptions = {}): MemoryS
   const sites = new Map<string, MemSite>();
   const pages = new Map<string, MemPage>();
   const releases = new Map<string, Release>();
+  const posts = new Map<string, MemPost>();
   let seq = 0;
   const id = (prefix: string) => `${prefix}_${(++seq).toString(36).padStart(4, "0")}`;
 
@@ -299,6 +431,22 @@ export function createMemorySiteStore(options: MemoryStoreOptions = {}): MemoryS
   const meta = (p: MemPage): PageMeta => ({ id: p.id, siteId: p.siteId, path: p.path, kind: p.kind, title: p.doc.root.props.title, sort: p.sort, rev: p.rev });
   const releaseMeta = ({ snapshot: _s, ...m }: Release): ReleaseMeta => clone(m);
   const pathTaken = (siteId: string, path: string, except?: string) => livePages(siteId).some((p) => p.path === path && p.id !== except);
+  const sitePosts = (siteId: string) => [...posts.values()].filter((p) => p.siteId === siteId && !p.deleted);
+  const postMeta = (p: MemPost): PostMeta => ({ id: p.id, siteId: p.siteId, slug: p.slug, title: p.doc.title, status: p.status, rev: p.rev, publishedAt: p.publishedAt, updatedAt: p.updatedAt });
+  const byNewest = (a: { publishedAt: string | null; updatedAt: string }, b: { publishedAt: string | null; updatedAt: string }) =>
+    (b.publishedAt ?? b.updatedAt).localeCompare(a.publishedAt ?? a.updatedAt);
+  const livePost = (p: MemPost): LivePost | null =>
+    p.status === "published" && p.published && p.publishedAt ? { slug: p.slug, publishedAt: p.publishedAt, updatedAt: p.published.at, doc: clone(p.published.doc) } : null;
+  const siteIsLive = (siteId: string) => {
+    const s = sites.get(siteId);
+    return Boolean(s && s.status === "live" && s.liveReleaseId);
+  };
+  const editablePost = (postId: string): MemPost => {
+    const p = posts.get(postId);
+    if (!p || p.deleted) throw new Error(`No post ${postId}.`);
+    editable(p.siteId);
+    return p;
+  };
 
   const store: MemorySiteStore = {
     async createSite(input) {
@@ -435,10 +583,108 @@ export function createMemorySiteStore(options: MemoryStoreOptions = {}): MemoryS
     },
     async putAsset(siteId, file, assetMeta = {}) {
       editable(siteId);
+      const mime = file.type || "application/octet-stream";
+      if (!ASSET_TYPES.includes(mime)) throw new Error(`${mime} isn't an image (PNG, JPEG, WebP, AVIF, GIF) or a PDF.`);
       const assetId = id("asset");
-      const name = (assetMeta.name ?? "file").toLowerCase().replace(/[^a-z0-9.]+/g, "-").slice(0, 80) || "file";
-      const path = `sites/${siteId}/${assetId}-${name}`;
-      return { id: assetId, siteId, path, url: `/${path}`, mime: file.type || "application/octet-stream", alt: assetMeta.alt ?? null, width: assetMeta.width ?? null, height: assetMeta.height ?? null };
+      const path = assetPath(siteId, assetId, assetMeta.name, mime);
+      return { id: assetId, siteId, path, url: `/${path}`, mime, alt: assetMeta.alt ?? null, width: assetMeta.width ?? null, height: assetMeta.height ?? null };
+    },
+    async listLivePosts(siteId) {
+      if (!siteIsLive(siteId)) return [];
+      return sitePosts(siteId)
+        .map(livePost)
+        .filter((p): p is LivePost => p !== null)
+        .sort(byNewest)
+        .slice(0, MAX_LIVE_POSTS)
+        .map(postSummary);
+    },
+    async getLivePost(siteId, slug) {
+      if (!siteIsLive(siteId)) return null;
+      const p = sitePosts(siteId).find((x) => x.slug === slug);
+      return p ? livePost(p) : null;
+    },
+    async listPosts(siteId) {
+      if (options.canEdit && !options.canEdit(siteId)) return [];
+      return sitePosts(siteId).map(postMeta).sort(byNewest);
+    },
+    async getPost(postId) {
+      const p = posts.get(postId);
+      if (!p || p.deleted || (options.canEdit && !options.canEdit(p.siteId))) return null;
+      return { ...postMeta(p), doc: clone(p.doc) };
+    },
+    async savePost(siteId, input) {
+      editable(siteId);
+      validatePostSlug(input.slug);
+      const doc = PostDoc.parse(clone(input.doc));
+      const at = now().toISOString();
+      if (!input.id) {
+        if (sitePosts(siteId).some((p) => p.slug === input.slug)) throw new Error(`A post is already at ${input.slug}.`);
+        const postId = id("post");
+        posts.set(postId, { id: postId, siteId, slug: input.slug, doc, rev: 1, status: "draft", published: null, publishedAt: null, updatedAt: at, deleted: false });
+        return { id: postId, rev: 1 };
+      }
+      const p = editablePost(input.id);
+      if (p.siteId !== siteId) throw new Error(`Post ${input.id} isn't one of site ${siteId}'s.`);
+      if (p.rev !== input.rev) return { id: p.id, conflict: clone(p.doc), rev: p.rev };
+      if (input.slug !== p.slug) {
+        if (p.publishedAt) throw new Error("A post keeps its slug once it has been published: its address is out in the world.");
+        if (sitePosts(siteId).some((x) => x.slug === input.slug && x.id !== p.id)) throw new Error(`A post is already at ${input.slug}.`);
+        p.slug = input.slug;
+      }
+      p.doc = doc;
+      p.rev += 1;
+      p.updatedAt = at;
+      return { id: p.id, rev: p.rev };
+    },
+    async publishPost(postId) {
+      const p = editablePost(postId);
+      const issues = checkPost(p.slug, p.doc);
+      if (!isPublishable(issues)) throw new PublishBlockedError(issues);
+      const at = now().toISOString();
+      p.published = { doc: clone(p.doc), at };
+      p.status = "published";
+      p.publishedAt ??= at;
+      p.updatedAt = at;
+      return postMeta(p);
+    },
+    async unpublishPost(postId) {
+      const p = editablePost(postId);
+      p.status = "draft";
+      p.published = null;
+      p.updatedAt = now().toISOString();
+      return postMeta(p);
+    },
+    async deletePost(postId) {
+      const p = posts.get(postId);
+      if (!p || p.deleted) return;
+      editable(p.siteId);
+      p.deleted = true;
+      p.status = "draft";
+      p.published = null;
+    },
+    async importPosts(siteId, list) {
+      editable(siteId);
+      if (list.length > MAX_IMPORT_POSTS) throw new Error(`Import at most ${MAX_IMPORT_POSTS} posts at a time.`);
+      const result: ImportPostsResult = { imported: [], skipped: [] };
+      const seen = new Set(sitePosts(siteId).map((p) => p.slug));
+      for (const item of list) {
+        const prepared = prepareImportPost(item);
+        if ("reason" in prepared) {
+          result.skipped.push(prepared);
+          continue;
+        }
+        if (seen.has(item.slug)) {
+          result.skipped.push({ slug: item.slug, reason: "The site already has a post at this slug." });
+          continue;
+        }
+        seen.add(item.slug);
+        const postId = id("post");
+        const at = now().toISOString();
+        const published = prepared.status === "published" ? { doc: clone(prepared.doc), at: prepared.publishedAt } : null;
+        posts.set(postId, { id: postId, siteId, slug: item.slug, doc: prepared.doc, rev: 1, status: prepared.status, published, publishedAt: published ? prepared.publishedAt : null, updatedAt: at, deleted: false });
+        result.imported.push({ slug: item.slug, id: postId, status: prepared.status, ...(prepared.issues.length ? { issues: prepared.issues } : {}) });
+      }
+      return result;
     },
   };
   return store;

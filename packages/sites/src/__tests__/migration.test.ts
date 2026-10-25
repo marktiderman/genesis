@@ -64,6 +64,8 @@ describe("the genesis-sites migrations", () => {
     expect(toAnon).toEqual([
       "grant usage on schema genesis_sites to anon, authenticated, service_role;",
       "grant execute on function genesis_sites.live_release(uuid) to anon, authenticated, service_role;",
+      "grant execute on function genesis_sites.live_posts(uuid) to anon, authenticated, service_role;",
+      "grant execute on function genesis_sites.live_post(uuid, text) to anon, authenticated, service_role;",
     ]);
   });
 

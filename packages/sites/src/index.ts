@@ -8,11 +8,14 @@
  */
 export {
   Copy,
+  FileRef,
   FontChoice,
   Href,
   Image,
   Line,
   Link,
+  LinkEvent,
+  opensInNewTab,
   MAX_DOC_BYTES,
   MenuItem,
   PageDoc,
@@ -65,6 +68,7 @@ export {
   unregisterSection,
   type AnySectionDefinition,
   type BuiltInSectionType,
+  type PostsContext,
   type RegisterSectionOptions,
   type RenderContext,
   type SectionCategory,
@@ -78,23 +82,48 @@ export {
 export { migrateNode, migratePage, migrateSite, type MigratedNode, type MigratedPage, type MigrationIssue } from "./core/migrate";
 export {
   absoluteUrl,
+  articleJsonLd,
   breadcrumbJsonLd,
   escapeXml,
   matchRedirect,
   organizationJsonLd,
   pageMeta,
   pageTitle,
+  postDescription,
+  postPath,
   redirectsAfterMove,
   robotsTxt,
+  rssXml,
   safeJsonForHtml,
   sitemapXml,
   websiteJsonLd,
   type PageMeta as SeoPageMeta,
   type PageMetaInput,
   type RobotsInput,
+  type RssInput,
   type SitemapInput,
 } from "./core/seo";
-export { checkContrast, checkHtmlOutline, checkPage, checkRelease, checkSiteDoc, isPublishable, type CheckReleaseOptions, type SiteIssue } from "./core/a11y";
+export { checkBlog, checkContrast, checkHtmlOutline, checkPage, checkPost, checkRelease, checkSiteDoc, isPublishable, type CheckReleaseOptions, type SiteIssue } from "./core/a11y";
+export {
+  MAX_IMPORT_POSTS,
+  MAX_LIVE_POSTS,
+  PostAuthor,
+  PostDoc,
+  PostSlug,
+  postSummary,
+  richTextPlain,
+  validatePostSlug,
+  type ImportPost,
+  type ImportPostsResult,
+  type LivePost,
+  type PostDocInput,
+  type PostDraft,
+  type PostMeta,
+  type PostStatus,
+  type PostSummary,
+  type SavePostInput,
+  type SavePostResult,
+} from "./core/posts";
 export {
   FONT_CHOICES,
   brandDisplayName,
@@ -116,8 +145,11 @@ export {
   type ThemePair,
 } from "./core/theme";
 export { landingPage, onePageSite, starterSite, type OnePageSiteInput, type TemplateInput, type TemplateMessage, type TemplateResult } from "./core/templates";
-export type { FormsResolver, FormsResolverContext, ResolvedForm } from "./core/forms";
+export { isPlainEmail, mailtoHref, type FormsResolver, type FormsResolverContext, type ResolvedForm } from "./core/forms";
 export {
+  ASSET_TYPES,
+  assetPath,
+  prepareImportPost,
   PublishBlockedError,
   SiteConflictError,
   createMemorySiteStore,

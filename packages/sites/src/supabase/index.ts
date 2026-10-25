@@ -11,13 +11,15 @@
  * @packageDocumentation
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { checkPost, isPublishable } from "../core/a11y";
+import { MAX_IMPORT_POSTS, PostDoc, validatePostSlug, type ImportPostsResult, type LivePost, type PostMeta, type PostStatus, type PostSummary } from "../core/posts";
 import { PageDoc, ReleaseSnapshot, SiteDoc, parseSnapshot, type PageKind, type PageMeta, type Release, type ReleaseMeta } from "../core/schemas";
-import { prepareRelease, type Asset, type AssetMeta, type PublishOptions, type SaveResult, type SiteStore } from "../core/store";
+import { ASSET_TYPES, PublishBlockedError, assetPath, prepareImportPost, prepareRelease, type Asset, type AssetMeta, type PublishOptions, type SaveResult, type SiteStore } from "../core/store";
 
 export const SITES_SCHEMA = "genesis_sites";
 
 /** The file types a site asset may be, as the database checks them. */
-export const ASSET_TYPES: readonly string[] = Object.freeze(["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif", "application/pdf"]);
+export { ASSET_TYPES };
 
 export interface SupabaseSiteStoreOptions {
   /** The storage bucket for `putAsset`. Default `site-assets`. */
@@ -93,6 +95,31 @@ interface PageRow {
 }
 
 const pageMeta = (r: PageRow): PageMeta => ({ id: r.id, siteId: r.site_id, path: r.path, kind: r.kind, title: r.title ?? "", sort: r.sort, rev: r.draft_rev });
+
+interface PostRow {
+  id: string;
+  site_id: string;
+  slug: string;
+  status: PostStatus;
+  draft_rev: number;
+  published_at: string | null;
+  updated_at: string;
+  title?: string | null;
+  draft?: unknown;
+}
+
+const POST_META = "id, site_id, slug, status, draft_rev, published_at, updated_at, title:draft->>title";
+const postMeta = (r: PostRow): PostMeta => ({ id: r.id, siteId: r.site_id, slug: r.slug, title: r.title ?? "", status: r.status, rev: r.draft_rev, publishedAt: r.published_at, updatedAt: r.updated_at });
+const fromPostJson = (j: { id: string; siteId: string; slug: string; title: string | null; status: PostStatus; rev: number; publishedAt: string | null; updatedAt: string }): PostMeta => ({
+  id: j.id,
+  siteId: j.siteId,
+  slug: j.slug,
+  title: j.title ?? "",
+  status: j.status,
+  rev: j.rev,
+  publishedAt: j.publishedAt,
+  updatedAt: j.updatedAt,
+});
 
 /**
  * A `SiteStore` on Supabase.
@@ -227,9 +254,9 @@ export function createSupabaseSiteStore(client: SupabaseClient, options: Supabas
       return ((data ?? []) as ReleaseRow[]).map((r) => metaOf(fromRow(r)));
     },
     async putAsset(siteId, file: Blob, meta: AssetMeta = {}): Promise<Asset> {
-      const name = (meta.name ?? "file").toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/\.{2,}/g, ".").slice(0, 80) || "file";
-      const path = `sites/${siteId}/${crypto.randomUUID()}-${name}`;
       const mime = file.type || "application/octet-stream";
+      // Images under sites/<id>/, files to download (a PDF) under sites/<id>/files/.
+      const path = assetPath(siteId, crypto.randomUUID(), meta.name, mime);
       // The types the database records (no SVG or HTML: a browser runs them as pages). Checked before the upload,
       // so a refused file never reaches the bucket.
       if (!ASSET_TYPES.includes(mime)) throw new SiteStoreError(`uploading: ${mime} isn't an image (PNG, JPEG, WebP, AVIF, GIF) or a PDF.`, "22023");
@@ -246,6 +273,93 @@ export function createSupabaseSiteStore(client: SupabaseClient, options: Supabas
       }
       const url = client.storage.from(bucket).getPublicUrl(path).data.publicUrl;
       return { id: (data as { id: string }).id, siteId, path, url, mime, alt: meta.alt ?? null, width: meta.width ?? null, height: meta.height ?? null };
+    },
+
+    // ── Posts ──
+    async listLivePosts(siteId): Promise<PostSummary[]> {
+      const { data, error } = await db.rpc("live_posts", { site_id: siteId });
+      if (error) fail(error, "reading the posts");
+      return Array.isArray(data) ? (data as PostSummary[]) : [];
+    },
+    async getLivePost(siteId, slug): Promise<LivePost | null> {
+      const { data, error } = await db.rpc("live_post", { site_id: siteId, slug });
+      if (error) fail(error, "reading the post");
+      if (!data) return null;
+      const raw = data as { slug: string; publishedAt: string; updatedAt: string; doc: unknown };
+      // A stored post that no longer parses is left out (and logged), as a page would be.
+      const doc = PostDoc.safeParse(raw.doc);
+      if (!doc.success) {
+        console.error(`[genesis-sites] the post ${JSON.stringify(slug)} of site ${siteId} doesn't parse and is left out: ${doc.error.message}`);
+        return null;
+      }
+      return { slug: raw.slug, publishedAt: raw.publishedAt, updatedAt: raw.updatedAt, doc: doc.data };
+    },
+    async listPosts(siteId) {
+      const { data, error } = await db.from("site_posts").select(POST_META).eq("site_id", siteId).is("deleted_at", null).order("published_at", { ascending: false, nullsFirst: true }).order("updated_at", { ascending: false });
+      if (error) fail(error, "listing posts");
+      return ((data ?? []) as unknown as PostRow[]).map(postMeta);
+    },
+    async getPost(postId) {
+      const { data, error } = await db.from("site_posts").select(`${POST_META}, draft`).eq("id", postId).is("deleted_at", null).maybeSingle();
+      if (error) fail(error, "reading the post");
+      if (!data) return null;
+      const row = data as unknown as PostRow;
+      return { ...postMeta(row), doc: PostDoc.parse(row.draft) };
+    },
+    async savePost(siteId, input) {
+      validatePostSlug(input.slug);
+      const doc = PostDoc.parse(input.doc);
+      const { data, error } = await db.rpc("save_post", { site_id: siteId, post_id: input.id ?? null, slug: input.slug, expected_rev: input.rev ?? null, doc });
+      if (error?.code === "GS409" && input.id) {
+        const current = await store.getPost!(input.id);
+        if (!current) fail(error, "saving the post");
+        return { id: input.id, conflict: current.doc, rev: current.rev };
+      }
+      if (error) fail(error, "saving the post");
+      const saved = data as { id: string; rev: number };
+      return { id: saved.id, rev: saved.rev };
+    },
+    async publishPost(postId) {
+      const draft = await store.getPost!(postId);
+      if (!draft) throw new SiteStoreError(`No post ${postId} (or you can't see it).`, "P0002");
+      const issues = checkPost(draft.slug, draft.doc);
+      if (!isPublishable(issues)) throw new PublishBlockedError(issues);
+      // The revision just checked: if someone saved since, the database refuses (GS409).
+      const { data, error } = await db.rpc("publish_post", { post_id: postId, expected_rev: draft.rev });
+      if (error) fail(error, "publishing the post");
+      return fromPostJson(data as Parameters<typeof fromPostJson>[0]);
+    },
+    async unpublishPost(postId) {
+      const { data, error } = await db.rpc("unpublish_post", { post_id: postId });
+      if (error) fail(error, "taking the post down");
+      return fromPostJson(data as Parameters<typeof fromPostJson>[0]);
+    },
+    async deletePost(postId) {
+      const { error } = await db.rpc("delete_post", { post_id: postId });
+      if (error) fail(error, "deleting the post");
+    },
+    async importPosts(siteId, list): Promise<ImportPostsResult> {
+      if (list.length > MAX_IMPORT_POSTS) throw new SiteStoreError(`Import at most ${MAX_IMPORT_POSTS} posts at a time.`, "22023");
+      // The checks run here; a post that fails one is imported as a draft, with its issues.
+      const result: ImportPostsResult = { imported: [], skipped: [] };
+      const issues = new Map<string, string[]>();
+      const rows: { slug: string; doc: PostDoc; status: PostStatus; publishedAt: string }[] = [];
+      for (const item of list) {
+        const prepared = prepareImportPost(item);
+        if ("reason" in prepared) result.skipped.push(prepared);
+        else {
+          rows.push({ slug: item.slug, doc: prepared.doc, status: prepared.status, publishedAt: prepared.publishedAt });
+          if (prepared.issues.length) issues.set(item.slug, prepared.issues);
+        }
+      }
+      if (rows.length) {
+        const { data, error } = await db.rpc("import_posts", { site_id: siteId, posts: rows });
+        if (error) fail(error, "importing posts");
+        const out = data as ImportPostsResult;
+        for (const imported of out.imported) result.imported.push({ ...imported, ...(issues.has(imported.slug) ? { issues: issues.get(imported.slug)! } : {}) });
+        result.skipped.push(...out.skipped);
+      }
+      return result;
     },
   };
   return store;
