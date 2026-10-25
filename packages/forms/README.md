@@ -553,7 +553,7 @@ is the hex SHA-256 the store keeps for the attempt. `messages` overrides any of 
 The one call a submit endpoint makes. It checks the submission again (`validateSubmission`, then
 `checkUploads`), snapshots the options picked (`answerSnapshots`) and hands one record to the app's
 store, keyed by the device's idempotency key, so a retry never stores a second response. No HTTP and
-no delivery: the endpoint, the store and the destinations' outbox are the app's.
+no delivery: the endpoint, the store and the destinations' outbox are the app's. Edits to a stored response and progress saves are out of scope: it takes a finished submission only.
 
 ```ts
 import { submitResponse, type SubmissionStore } from "@marktiderman/genesis-forms/server";
@@ -571,6 +571,8 @@ const result = await submitResponse(await request.json(), {
 });
 return Response.json(result, { status: result.ok ? 201 : 200 });
 ```
+
+Answer `duplicate` as a success: the response is already stored, so the device must clear it from its outbox, not retry it. The outbox treats `ok: true` and `reason: "duplicate"` alike.
 
 The contract, which the client outbox and the server side are both built against:
 
