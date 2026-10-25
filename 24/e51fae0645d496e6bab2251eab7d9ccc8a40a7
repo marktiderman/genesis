@@ -1,0 +1,40 @@
+packages/sites/src/editor/site-actions.ts
+  s_8252619ce79a86::t_af363a0ecb237d 36-37,39-41
+packages/sites/src/__tests__/editor.test.tsx
+  s_8252619ce79a86::t_9c59b7db77834f 413-436
+packages/sites/src/editor/fields.ts
+  s_8252619ce79a86::t_af363a0ecb237d 142-143
+packages/sites/src/editor/autosave.ts
+  s_8252619ce79a86::t_af363a0ecb237d 72,128,218-228
+  s_8252619ce79a86::t_b4a7efcf9b5df0 229
+packages/sites/src/editor/services.ts
+  s_8252619ce79a86::t_af363a0ecb237d 31-36
+packages/sites/src/editor/canvas-dom.ts
+  s_8252619ce79a86::t_af363a0ecb237d 3-9
+packages/sites/src/editor/data.ts
+  s_8252619ce79a86::t_af363a0ecb237d 82-83
+packages/sites/src/editor/asset-picker.tsx
+  s_8252619ce79a86::t_af363a0ecb237d 29-30,53,83,167-169,181
+packages/sites/src/editor/site-editor.tsx
+  s_8252619ce79a86::t_af363a0ecb237d 117-121,276,292-293,326,333,417,437,488,493-494,507-508,516,522,561-575,593-594,637-639,647-648,657-658,704,712,723-724,761,841,924
+packages/sites/src/editor/field-components.tsx
+  s_8252619ce79a86::t_af363a0ecb237d 110,135,137
+packages/sites/src/editor/overrides.tsx
+  s_8252619ce79a86::t_af363a0ecb237d 25,115-117,123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "24e51fae0645d496e6bab2251eab7d9ccc8a40a7",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
