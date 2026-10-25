@@ -3,7 +3,8 @@
  * Mux Video behind `VideoProvider` (https://www.mux.com/docs):
  *
  *   createUpload   POST /video/v1/uploads: a direct upload, its asset with English
- *                  auto-generated captions and the attachment's id as passthrough
+ *                  auto-generated captions and the passthrough the upload handler
+ *                  sets (the conversation and uploader, never the client's choice)
  *   remove         DELETE /video/v1/assets/{id}; 404 counts as removed
  *   handleWebhook  verifies `mux-signature` (HMAC-SHA256 of `t.body`, 5 minutes'
  *                  tolerance) and applies:
@@ -14,17 +15,20 @@
  *                                              text becomes the transcript
  *                    video.asset.track.errored a generated text track: transcript failed
  *
- * The attachment is found by passthrough (its id) or by provider_id (the upload
- * id the client sent with it, or the asset id once ready). An event for an
- * attachment not there yet answers 404, so Mux retries it.
+ * The attachment is found only by provider_id: the upload id the client sent
+ * with its message (unique per attachment), or the asset id once ready. An
+ * asset event is applied only when its passthrough names that attachment's
+ * conversation, and its sender when it names one; otherwise it answers 409 and
+ * changes nothing. An event for an attachment not there yet answers 404, so Mux
+ * retries it.
  */
 import { CHAT_SCHEMA, type ChatSupabase } from "../core/client";
 import { hmacSha256Hex, importRsaPrivateKey, safeEqual, signJwtRs256 } from "./crypto";
 import type { VideoProvider } from "./types";
+import { parseChatUploadPassthrough } from "./upload";
 
 const API = "https://api.mux.com/video/v1";
 const TOLERANCE_SECONDS = 300;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface MuxSigningKey {
   /** The signing key's id (`kid`). */
@@ -140,21 +144,41 @@ export function muxVideo(options: MuxVideoOptions): VideoProvider & {
     if (error) throw new Error(`update_attachment: ${error.code ?? "error"}`);
   }
 
-  /** The attachment an event is about, by passthrough (its id) or provider_id. */
-  async function find(supabase: ChatSupabase, ids: { passthrough?: string | undefined; providerIds: (string | undefined)[] }) {
-    const table = () => supabase.schema(CHAT_SCHEMA).from("attachments").select("id, playback_id, transcript_status").eq("provider", "mux");
-    if (ids.passthrough && UUID.test(ids.passthrough)) {
-      const { data, error } = await table().eq("id", ids.passthrough).maybeSingle();
-      if (error) throw new Error(`attachments: ${error.code ?? "error"}`);
-      if (data) return data as { id: string; playback_id: string | null; transcript_status: string | null };
-    }
-    for (const providerId of ids.providerIds) {
+  interface FoundAttachment {
+    id: string;
+    conversation_id: string;
+    message_id: string;
+    playback_id: string | null;
+    transcript_status: string | null;
+  }
+
+  /** The attachment an event is about, by provider_id only (the upload id, or the asset id once ready). */
+  async function find(supabase: ChatSupabase, providerIds: (string | undefined)[]): Promise<FoundAttachment | null> {
+    for (const providerId of providerIds) {
       if (!providerId) continue;
-      const { data, error } = await table().eq("provider_id", providerId).limit(1).maybeSingle();
+      const { data, error } = await supabase
+        .schema(CHAT_SCHEMA)
+        .from("attachments")
+        .select("id, conversation_id, message_id, playback_id, transcript_status")
+        .eq("provider", "mux")
+        .eq("provider_id", providerId)
+        .limit(1)
+        .maybeSingle();
       if (error) throw new Error(`attachments: ${error.code ?? "error"}`);
-      if (data) return data as { id: string; playback_id: string | null; transcript_status: string | null };
+      if (data) return data as FoundAttachment;
     }
     return null;
+  }
+
+  /** Does the upload's passthrough (set by the upload handler) name this attachment's conversation and sender? */
+  async function boundTo(supabase: ChatSupabase, attachment: FoundAttachment, passthrough: string | undefined): Promise<boolean> {
+    const binding = parseChatUploadPassthrough(passthrough);
+    if (!binding || binding.conversationId !== String(attachment.conversation_id).toLowerCase()) return false;
+    if (!binding.userId) return true;
+    const { data, error } = await supabase.schema(CHAT_SCHEMA).from("messages").select("sender_id").eq("id", attachment.message_id).maybeSingle();
+    if (error) throw new Error(`messages: ${error.code ?? "error"}`);
+    const sender = (data as { sender_id: string | null } | null)?.sender_id;
+    return typeof sender === "string" && sender.toLowerCase() === binding.userId;
   }
 
   async function transcriptOf(playbackId: string, trackId: string): Promise<string | null> {
@@ -223,8 +247,10 @@ export function muxVideo(options: MuxVideoOptions): VideoProvider & {
       switch (event.type) {
         case "video.asset.ready":
         case "video.asset.errored": {
-          const attachment = await find(supabase, { passthrough: data.passthrough, providerIds: [data.upload_id, data.id] });
+          const attachment = await find(supabase, [data.upload_id, data.id]);
           if (!attachment) return json(404, { error: "attachment not found" });
+          // Someone else's upload id on this attachment, or an upload not made for this conversation.
+          if (!(await boundTo(supabase, attachment, data.passthrough))) return json(409, { error: "upload not made for this attachment" });
           if (event.type === "video.asset.errored") {
             await update(supabase, attachment.id, { status: "failed", ...(data.id ? { provider_id: data.id } : {}) });
           } else {
@@ -243,7 +269,7 @@ export function muxVideo(options: MuxVideoOptions): VideoProvider & {
         case "video.asset.track.ready":
         case "video.asset.track.errored": {
           if (data.type !== "text" || data.text_source !== "generated_vod") return json(200, { ignored: true });
-          const attachment = await find(supabase, { providerIds: [data.asset_id] });
+          const attachment = await find(supabase, [data.asset_id]);
           if (!attachment) return json(404, { error: "attachment not found" });
           if (event.type === "video.asset.track.errored") {
             await update(supabase, attachment.id, { transcript_status: "failed" });
