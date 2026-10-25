@@ -113,8 +113,8 @@ export function nativePlatforms(features: Pick<StarterFeatures, "emailSignIn"> &
  * (`withGenesis({ privacy: { blocks } })` in app.config.ts): a switch turned
  * off declares nothing. Sign-in is always on, so `account` always is.
  */
-export function privacyBlocks(features: Pick<StarterFeatures, "observability" | "push">): string[] {
-  return ["account", ...(features.observability ? ["observability"] : []), ...(features.push ? ["push"] : [])];
+export function privacyBlocks(features: Pick<StarterFeatures, "observability" | "push" | "support">): string[] {
+  return ["account", ...(features.observability ? ["observability"] : []), ...(features.push ? ["push"] : []), ...(features.support ? ["support"] : [])];
 }
 
 /** Checks the config once, where it is written, so a combination that can't work fails at start-up. */

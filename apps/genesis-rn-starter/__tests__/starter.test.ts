@@ -49,8 +49,8 @@ describe("starter.config.ts", () => {
   });
 
   it("declares in the privacy manifest only the blocks that are on", () => {
-    expect(privacyBlocks(starter.features)).toEqual(["account", "observability", "push"]);
-    expect(privacyBlocks({ observability: false, push: false })).toEqual(["account"]);
+    expect(privacyBlocks(starter.features)).toEqual(["account", "observability", "push", "support"]);
+    expect(privacyBlocks({ observability: false, push: false, support: false })).toEqual(["account"]);
   });
 
   it("leaves the Apple nonce to the package default (32 random bytes), not a UUID", () => {

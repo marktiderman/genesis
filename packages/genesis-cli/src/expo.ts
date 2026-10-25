@@ -35,8 +35,8 @@ import type { ConfigPlugin } from "@expo/config-plugins";
 import type { ExpoConfig } from "@expo/config-types";
 import {
   GenesisConfigError,
-  PRIVACY_DATA_TYPES,
   PRIVACY_PURPOSES,
+  privacyDataType,
   readGenesisConfig,
   validatePrivacy,
   type GenesisDataUse,
@@ -48,6 +48,7 @@ export {
   GenesisConfigError,
   PRIVACY_DATA_TYPES,
   PRIVACY_PURPOSES,
+  privacyDataType,
   validateLinks,
   validatePrivacy,
   readGenesisConfig,
@@ -183,6 +184,11 @@ const appFunctionality = (type: string, ...more: string[]): GenesisDataUse => ({
  *   should leave this block out.
  * - `push` (`@marktiderman/genesis-native` `createPush`): the device's push
  *   token against the person (a device-level id).
+ * - `support` (`@marktiderman/genesis-support` `supportContributions`):
+ *   feedback and support requests the person sends, with their text, an
+ *   optional screenshot, the account id and basic device facts.
+ *
+ * Tests keep each entry equal to its block's own list.
  */
 export const PRIVACY_BLOCKS: Record<string, PrivacyBlock> = {
   account: {
@@ -202,6 +208,16 @@ export const PRIVACY_BLOCKS: Record<string, PrivacyBlock> = {
   push: {
     packages: ["@marktiderman/genesis-native", "expo-notifications"],
     collects: [appFunctionality("device ID")],
+  },
+  support: {
+    packages: ["@marktiderman/genesis-support"],
+    collects: [
+      appFunctionality("user id"),
+      appFunctionality("customer support"),
+      appFunctionality("other user content"),
+      appFunctionality("photos or videos"),
+      appFunctionality("other diagnostic data"),
+    ],
   },
 };
 
@@ -289,9 +305,11 @@ export function collectedDataFor(privacy: GenesisPrivacy, dependencies: Record<s
 function mergeDataUses(uses: readonly GenesisDataUse[]): GenesisDataUse[] {
   const byType = new Map<string, GenesisDataUse>();
   for (const use of uses) {
-    const seen = byType.get(use.type);
+    // By Apple's type, so "user ID" and "user id" are one entry.
+    const key = privacyDataType(use.type) ?? use.type;
+    const seen = byType.get(key);
     byType.set(
-      use.type,
+      key,
       seen
         ? { type: use.type, purposes: union(seen.purposes, use.purposes), linked: seen.linked || use.linked, tracking: seen.tracking || use.tracking }
         : { ...use, purposes: [...use.purposes] },
@@ -322,7 +340,7 @@ export function applyPrivacyData(config: ExpoConfig, uses: GenesisDataUse[], tra
   const listed = new Set(existing.map((t) => t.NSPrivacyCollectedDataType));
   const added = uses
     .map((u) => ({
-      NSPrivacyCollectedDataType: PRIVACY_DATA_TYPES[u.type]!,
+      NSPrivacyCollectedDataType: privacyDataType(u.type)!,
       NSPrivacyCollectedDataTypeLinked: u.linked,
       NSPrivacyCollectedDataTypeTracking: u.tracking,
       NSPrivacyCollectedDataTypePurposes: u.purposes.map((p) => PRIVACY_PURPOSES[p]!),

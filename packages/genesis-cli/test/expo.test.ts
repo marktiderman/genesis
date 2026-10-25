@@ -18,10 +18,12 @@ import {
   PRIVACY_DATA_TYPES,
   PRIVACY_PURPOSES,
   privacyApisFor,
+  privacyDataType,
   readGenesisConfig,
   resolveVariant,
   validateLinks,
   withGenesis,
+  type GenesisDataUse,
   type WithGenesisOptions,
 } from "../src/expo";
 
@@ -300,16 +302,34 @@ describe("privacy manifest", () => {
     it("every block entry uses Apple's vocabulary", () => {
       for (const [id, block] of Object.entries(PRIVACY_BLOCKS)) {
         for (const use of block.collects) {
-          expect(PRIVACY_DATA_TYPES[use.type], `${id} ${use.type}`).toMatch(/^NSPrivacyCollectedDataType[A-Z]/);
+          expect(privacyDataType(use.type), `${id} ${use.type}`).toMatch(/^NSPrivacyCollectedDataType[A-Z]/);
           for (const p of use.purposes) expect(PRIVACY_PURPOSES[p], `${id} ${p}`).toMatch(/^NSPrivacyCollectedDataTypePurpose[A-Z]/);
         }
       }
     });
 
+    it("reads a block's type whatever its case, and merges \"user ID\" with \"user id\"", () => {
+      expect(privacyDataType("user ID")).toBe(PRIVACY_DATA_TYPES["user id"]);
+      write("package.json", { dependencies: { "@marktiderman/genesis-supabase": "*", "@marktiderman/genesis-support": "*" } });
+      const out = run(base(), { privacy: { collects: [
+        { type: "user ID", purposes: ["app functionality"], linked: true, tracking: false },
+        { type: "user id", purposes: ["analytics"], linked: true, tracking: false },
+      ] } });
+      expect(types(out)).toEqual({ UserID: { linked: true, tracking: false, purposes: ["AppFunctionality", "Analytics"] } });
+    });
+
+    // Each entry against the block it mirrors (type, purposes, linked, tracking), so they can't drift.
+    const same = (uses: readonly GenesisDataUse[]) =>
+      uses.map((u) => `${privacyDataType(u.type)} ${[...u.purposes].sort().join("+")} ${u.linked} ${u.tracking}`).sort();
+
     it("the account entry says what the supabase account block says", async () => {
       const { accountBlock } = await import("../../supabase/src/blocks");
-      const declared = accountBlock.contributes?.privacy?.collects ?? [];
-      expect(PRIVACY_BLOCKS.account!.collects.map((u) => u.type).sort()).toEqual(declared.map((u) => u.type).sort());
+      expect(same(PRIVACY_BLOCKS.account!.collects)).toEqual(same(accountBlock.contributes?.privacy?.collects ?? []));
+    });
+
+    it("the support entry says what the support block says", async () => {
+      const { supportContributions } = await import("../../support/src/block");
+      expect(same(PRIVACY_BLOCKS.support!.collects)).toEqual(same(supportContributions().privacy?.collects ?? []));
     });
   });
 

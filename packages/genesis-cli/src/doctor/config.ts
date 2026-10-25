@@ -32,9 +32,11 @@ export interface GenesisLinks {
 
 /**
  * Apple's collected data types (`NSPrivacyCollectedDataType`), every one in
- * Apple's reference, keyed by the stores' own words as Genesis blocks name
- * them in `privacy.collects` (`"device ID"` keeps the case the push block
- * uses). The values are Apple's exact strings, `PhotosorVideos` included.
+ * Apple's reference, keyed by the stores' own words, lower case, as Genesis
+ * blocks name them in `privacy.collects`. Look one up with
+ * {@link privacyDataType}, which ignores case (blocks write `"device ID"`,
+ * `"user ID"`). The values are Apple's exact strings, `PhotosorVideos`
+ * included.
  */
 export const PRIVACY_DATA_TYPES: Readonly<Record<string, string>> = {
   name: "NSPrivacyCollectedDataTypeName",
@@ -60,7 +62,7 @@ export const PRIVACY_DATA_TYPES: Readonly<Record<string, string>> = {
   "browsing history": "NSPrivacyCollectedDataTypeBrowsingHistory",
   "search history": "NSPrivacyCollectedDataTypeSearchHistory",
   "user id": "NSPrivacyCollectedDataTypeUserID",
-  "device ID": "NSPrivacyCollectedDataTypeDeviceID",
+  "device id": "NSPrivacyCollectedDataTypeDeviceID",
   "purchase history": "NSPrivacyCollectedDataTypePurchaseHistory",
   "product interaction": "NSPrivacyCollectedDataTypeProductInteraction",
   "advertising data": "NSPrivacyCollectedDataTypeAdvertisingData",
@@ -73,6 +75,11 @@ export const PRIVACY_DATA_TYPES: Readonly<Record<string, string>> = {
   head: "NSPrivacyCollectedDataTypeHead",
   "other data types": "NSPrivacyCollectedDataTypeOtherDataTypes",
 };
+
+/** Apple's string for a data type in the stores' words, whatever its case, or undefined. */
+export function privacyDataType(type: string): string | undefined {
+  return PRIVACY_DATA_TYPES[type.toLowerCase()];
+}
 
 /** Apple's collection purposes (`NSPrivacyCollectedDataTypePurposes`), by the stores' words. */
 export const PRIVACY_PURPOSES: Readonly<Record<string, string>> = {
@@ -238,7 +245,7 @@ export function validatePrivacy(raw: unknown, source = "config"): GenesisPrivacy
       const where = `privacy.collects[${i}]`;
       if (!isObject(entry)) return fail(`${where} must be an object`);
       for (const key of Object.keys(entry)) if (!DATA_USE_KEYS.has(key)) fail(`${where}: unknown setting "${key}"`);
-      if (typeof entry.type !== "string" || !(entry.type in PRIVACY_DATA_TYPES)) {
+      if (typeof entry.type !== "string" || !privacyDataType(entry.type)) {
         fail(`${where}.type "${String(entry.type)}" is not one of ${Object.keys(PRIVACY_DATA_TYPES).join(", ")}`);
       }
       if (!isStringList(entry.purposes) || entry.purposes.length === 0) fail(`${where}.purposes must be a non-empty list`);
