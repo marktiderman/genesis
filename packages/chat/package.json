@@ -56,12 +56,28 @@
     "@marktiderman/genesis-features": "workspace:^"
   },
   "peerDependencies": {
-    "@supabase/supabase-js": "^2.118.0"
+    "@supabase/supabase-js": "^2.118.0",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.0.0"
   },
-  "peerDependenciesMeta": {},
+  "peerDependenciesMeta": {
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@supabase/supabase-js": "^2.118.0",
+    "@tanstack/react-query": "^5.75.0",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^22",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.9.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
@@ -72,17 +88,35 @@
         "feature": {
           "name": "Chat",
           "summary": "Direct messages, groups and the app's own kinds of conversation (cohorts, support tickets), with photos, files, voice notes and videos, reactions, replies and threads, read state, live updates and push, in the app's own Supabase.",
-          "keywords": ["chat", "messages", "dm", "group chat", "voice notes", "video messages", "inbox", "support tickets"],
-          "audience": ["person", "admin"]
+          "keywords": [
+            "chat",
+            "messages",
+            "dm",
+            "group chat",
+            "voice notes",
+            "video messages",
+            "inbox",
+            "support tickets"
+          ],
+          "audience": [
+            "person",
+            "admin"
+          ]
         },
-        "platforms": ["web", "native", "server"],
+        "platforms": [
+          "web",
+          "native",
+          "server"
+        ],
         "migrations": [
           {
             "file": "migrations/0001_genesis_chat.sql",
             "test": "migrations/tests/0001_genesis_chat.test.sql"
           }
         ],
-        "install": ["@supabase/supabase-js@^2.118.0"],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
         "steps": [
           "Expose the genesis_chat schema to the API: add it to `schemas` under [api] in supabase/config.toml, and to Exposed schemas in the dashboard.",
           "Register your kinds' rules in a migration of your own, after this one: a start check for direct (who may message whom) and any kinds of your own, with an observer check where staff read without being members (genesis-chat README, Kinds and rules).",
