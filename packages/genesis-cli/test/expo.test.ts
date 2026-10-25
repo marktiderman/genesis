@@ -89,6 +89,8 @@ describe("app variants", () => {
     // Every scheme in a list, and a configured suffix.
     expect(run({ ...base(), scheme: ["sample", "sample-alt"] }, { variant: "preview" }).scheme).toEqual(["sample-preview", "sample-alt-preview"]);
     expect(run(base(), { variant: "development", variants: { development: { scheme: "-debug" } } }).scheme).toBe("sample-debug");
+    // An empty suffix keeps the base scheme (the old behaviour, for an app that needs it).
+    expect(run(base(), { variant: "preview", variants: { preview: { scheme: "" } } }).scheme).toBe("sample");
     // No scheme set: none invented.
     expect(run({ name: "Sample", slug: "sample" }, { variant: "development" }).scheme).toBeUndefined();
   });

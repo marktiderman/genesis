@@ -9,12 +9,18 @@ import genesisConfig from "../../genesis.config.json";
 import starter from "../../starter.config";
 
 /**
- * The schemes this build answers to: `starter.app.scheme`, and the one the build registered.
- * withGenesis gives each APP_VARIANT its own (`genesis-starter-dev://`, `genesis-starter-preview://`,
- * production keeps `genesis-starter://`), so a link opens the build it names.
+ * The schemes this build answers to. withGenesis gives each APP_VARIANT its own
+ * (`genesis-starter-dev://`, `genesis-starter-preview://`, production keeps `genesis-starter://`),
+ * so the OS hands a link to the build it names, and only that build. Every variant's is accepted
+ * here, plus the one in the served config: a `.dev` binary running against a plain `expo start`
+ * (no APP_VARIANT) gets the production config from Metro, but still receives `-dev` links.
+ * The suffixes are withGenesis's defaults; change both together.
  */
+export const VARIANT_SCHEME_SUFFIXES = ["", "-dev", "-preview"] as const;
+
 export function appSchemes(base: string, built: string | readonly string[] | undefined): string[] {
-  return [...new Set([base, ...(built === undefined ? [] : typeof built === "string" ? [built] : built)])];
+  const served = built === undefined ? [] : typeof built === "string" ? [built] : built;
+  return [...new Set([...VARIANT_SCHEME_SUFFIXES.map((suffix) => base + suffix), ...served])];
 }
 
 /** Incoming link paths and the screens they open. `/` is always known; anything else opens `/`. */

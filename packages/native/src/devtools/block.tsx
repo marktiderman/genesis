@@ -110,11 +110,14 @@ export function createDevtools(options: DevtoolsOptions): DevtoolsBlock {
   // DISMISS_FALLBACK_MS where a platform doesn't report it.
   let sheetShown = false;
   let dismissed: Array<() => void> = [];
-  const settleDismissed = () => {
-    sheetShown = false;
+  const resolveWaiting = () => {
     const waiting = dismissed;
     dismissed = [];
     waiting.forEach((resolve) => resolve());
+  };
+  const settleDismissed = () => {
+    sheetShown = false;
+    resolveWaiting();
   };
   const close = (): Promise<void> => {
     set({ open: false });
@@ -144,8 +147,12 @@ export function createDevtools(options: DevtoolsOptions): DevtoolsBlock {
     // when it's gone (`onDismiss`); then it unmounts.
     const [mounted, setMounted] = useState(open);
     const shown = open || mounted;
+    // Unmounted (the crash test, a shell remount): nothing will report a dismissal, so nobody waits.
+    useEffect(() => () => settleDismissed(), []);
     useEffect(() => {
       if (open) {
+        // Opened again before the last close finished: that wait is over, the sheet stays.
+        resolveWaiting();
         setMounted(true);
         sheetShown = true;
         return;
@@ -309,7 +316,6 @@ function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, o
   const [status, setStatus] = useState<string | null>(null);
   const channels = options.updates?.channels;
   const close = () => block.close();
-  const closeForFeedback = () => block.close();
 
   const info = () =>
     buildDebugInfo({ signature, userId, blocks: [...blocks.ids], flags: options.flags, baseUrl: options.baseUrl ?? null, recent });
@@ -452,7 +458,7 @@ function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, o
             <NativeButton size="sm" variant="outline" onPress={copy} testID="genesis-devtools-copy">
               Copy debug info
             </NativeButton>
-            {renderSlot(NoFeedback, Feedback, { debugInfo: info(), close: closeForFeedback }, feedbackProps)}
+            {renderSlot(NoFeedback, Feedback, { debugInfo: info(), close }, feedbackProps)}
             <NativeButton size="sm" variant="outline" onPress={clearCache} testID="genesis-devtools-clear-cache">
               Clear cache
             </NativeButton>

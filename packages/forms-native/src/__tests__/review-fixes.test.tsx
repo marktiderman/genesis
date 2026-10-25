@@ -136,10 +136,19 @@ describe("return keys", () => {
 
   // The app's KeyboardToolbar (react-native-keyboard-controller), as GenesisNativeApp provides it.
   const toolbarProps: KeyboardToolbarProps[] = [];
+  // Whether each press let the toolbar close the keyboard (KeyboardToolbar does unless prevented).
+  const dismissedKeyboard: boolean[] = [];
   function FakeToolbar(props: KeyboardToolbarProps) {
     toolbarProps.push(props);
     return (
-      <button data-testid="keyboard-toolbar-done" onClick={() => props.onDoneCallback?.()}>
+      <button
+        data-testid="keyboard-toolbar-done"
+        onClick={() => {
+          let prevented = false;
+          props.onDoneCallback?.({ preventDefault: () => (prevented = true) });
+          dismissedKeyboard.push(!prevented);
+        }}
+      >
         {props.doneText}
       </button>
     );
@@ -165,6 +174,8 @@ describe("return keys", () => {
     type("form-n", "3");
     press("keyboard-toolbar-done");
     expect(engine.getState().current).toBe(engine.idOf("last"));
+    // Next kept the keyboard up for the next answer.
+    expect(dismissedKeyboard).toEqual([false]);
     // A text keyboard has its own return key (Send here): no bar repeating it.
     expect(byTestId("form-last").getAttribute("data-return-key")).toBe("send");
     expect(queryTestId("keyboard-toolbar-done")).toBeNull();

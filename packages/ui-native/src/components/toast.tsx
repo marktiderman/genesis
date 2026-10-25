@@ -6,7 +6,8 @@
  * <NativeAlert> or <NativeBanner>) or for destructive confirmations
  * (use <NativeDialog>).
  *
- * Wrap the app in <NativeToastProvider>. Components anywhere in the tree
+ * `GenesisNativeApp` (genesis-native) mounts <NativeToastProvider> for you, at the top; elsewhere,
+ * wrap the app in it (its own default position is the bottom). Components anywhere in the tree
  * call `useToast()` and invoke `toast.show({ title, description, variant })`.
  * Toasts are queued — the next one shows once the current one dismisses
  * (or the user dismisses early).

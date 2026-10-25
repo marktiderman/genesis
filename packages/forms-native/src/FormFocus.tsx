@@ -622,7 +622,7 @@ function Shell({ children, testID, keyName }: { children: ReactNode; testID: str
   const s = useFormStyles();
   const KeyboardScroll = useKeyboardScroll();
   const KeyboardToolbar = useKeyboardToolbar();
-  const { submit, submitLabel, locked, needsKeysBar } = useFormNative();
+  const { submit, submitLabel, locked, needsKeysBar, isLast } = useFormNative();
   const showBar = Boolean(KeyboardToolbar) && needsKeysBar && !locked;
   const common = {
     testID: `${testID}-scroll`,
@@ -635,7 +635,17 @@ function Shell({ children, testID, keyName }: { children: ReactNode; testID: str
       {KeyboardScroll ? (
         <>
           {createElement(KeyboardScroll, { key: keyName, ...common, bottomOffset: showBar ? 96 + KEYBOARD_TOOLBAR_HEIGHT : 96 }, children)}
-          {showBar && KeyboardToolbar ? <KeyboardToolbar showArrows={false} doneText={submitLabel} onDoneCallback={() => submit()} /> : null}
+          {showBar && KeyboardToolbar ? (
+            <KeyboardToolbar
+              showArrows={false}
+              doneText={submitLabel}
+              onDoneCallback={(event) => {
+                // Next keeps the keyboard up for the next answer (and for this one if it's refused); Send closes it.
+                if (!isLast) event.preventDefault();
+                submit();
+              }}
+            />
+          ) : null}
         </>
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>

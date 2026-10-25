@@ -48,8 +48,8 @@ export interface KeyboardToolbarProps {
   showArrows?: boolean;
   /** The done button's label. */
   doneText?: ReactNode;
-  /** Called when done is pressed (the keyboard closes too). */
-  onDoneCallback?: () => void;
+  /** Called when done is pressed. The keyboard closes too, unless the callback calls `event.preventDefault()`. */
+  onDoneCallback?: (event: { preventDefault(): void }) => void;
 }
 
 /**

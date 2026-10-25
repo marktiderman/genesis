@@ -88,10 +88,13 @@ export interface NotificationsPageProps extends ScreenHeaderProps {
   /** Optional override of the empty-state body copy. */
   emptyBody?: string;
   /**
-   * Where a section header sticks, in points from the top of the list. The list runs under the
-   * native header (iOS insets its rows, and the large title collapses as it scrolls), so a header
-   * stuck at 0 would sit under the status bar. Default on iOS: under the collapsed navigation bar
-   * (`defaultStickyHeaderOffset`); elsewhere 0. Without a header, pass the safe area's top.
+   * Where a section header sticks, in points from the top of the list. Under a large-title header
+   * (`getNotificationsPageStackOptions`' default) the list runs under the native header (iOS
+   * insets its rows, and the title collapses as it scrolls), so a header stuck at 0 would sit
+   * under the status bar. Default on iOS: under the collapsed navigation bar of an iPhone in
+   * portrait (`defaultStickyHeaderOffset`); elsewhere 0. Pass 0 when the list starts below an
+   * opaque header (a standard one before iOS 26), the safe area's top with no header, and your own
+   * value on iPad (a 50 pt bar) or in landscape (32 pt).
    */
   stickyHeaderOffset?: number;
   /** Override root container styling. */

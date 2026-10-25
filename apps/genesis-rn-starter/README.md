@@ -125,7 +125,9 @@ LogBox.
 
 All three install side by side, and each registers its own scheme, so a link opens the build it
 names (`genesis-starter-dev://check-in?gym=hilltop` in a development build). `src/lib/links.ts`
-reads the build's scheme from its config. Any other value fails the build. Set it per EAS environment so
+accepts every variant's scheme (the OS only delivers the one the build registered). Redirect URLs
+that use the scheme (Supabase Auth, OAuth clients) need each variant's. Any other value fails the
+build. Set it per EAS environment so
 builds, updates and fingerprints all see it; see the
 [plugin's README](../../packages/genesis-cli/README.md#setting-app_variant). The plugin also adds
 the associated domains and Android app links from `genesis.config.json`'s `links`, the privacy
