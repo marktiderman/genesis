@@ -41,6 +41,16 @@ From the outside in:
    `keyboardScroll`, so Genesis form screens scroll the focused field into
    view. The scroll view does nothing without the provider: give both. In
    development, `keyboardScroll` without `keyboardProvider` logs an error.
+   `keyboardToolbar` (`KeyboardToolbar`) adds the previous / next / done bar
+   above the keyboard on Genesis's form layouts (`AuthScreen`,
+   `SettingsSubPage`); it needs `keyboardScroll`, and logs an error in
+   development without it.
+   Then `modules`, the optional native modules your app installed
+   (`GenesisModulesProvider` from `@marktiderman/genesis-ui-native`: FlashList,
+   expo-image, Reanimated, expo-glass-effect, expo-symbols, a lucide icon
+   set, the @expo/ui date picker). Each one you leave out falls back to plain
+   React Native. Read once. The update banner is Liquid Glass on iOS 26 when
+   `modules.glass` is given. See that package's README.
 4. **Data**: `GenesisProvider` over `createSupabaseProvider(supabase)` (or
    your `provider`) and the shell's QueryClient.
 5. **Boot**: your `steps` (wipe a session left by a reinstall, hydrate stores,

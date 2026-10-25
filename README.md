@@ -49,6 +49,7 @@ import { Button } from "@marktiderman/genesis-ui";
 - **Page layouts** — Pages that look consistent without a designer on every screen.
 - **AppShell navigation** — One navigation tree drives the sidebar, mobile nav and command palette.
 - **React Native components** — The same components on iOS and Android.
+- **Optional native modules** (beta) — Native lists, images, motion, glass and symbols when the app has them.
 
 ### Data
 

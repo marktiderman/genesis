@@ -5,7 +5,16 @@
  */
 import { View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { NativeBanner, NativeButton, NativeEmptyState, NativeSheet, NativeSheetScrollView, NativeText } from "@marktiderman/genesis-ui-native/components";
+import {
+  NativeBanner,
+  NativeButton,
+  NativeEmptyState,
+  NativeGlassSurface,
+  NativeSheet,
+  NativeSheetScrollView,
+  NativeText,
+  useLiquidGlass,
+} from "@marktiderman/genesis-ui-native/components";
 import type { ReleaseNote } from "./policy";
 
 export interface ForceUpgradeProps {
@@ -82,26 +91,34 @@ export interface UpdateBannerProps {
   reloading: boolean;
 }
 
-/** Non-blocking: floats over the top of the screens while an update is downloaded. */
+/**
+ * Non-blocking: floats over the top of the screens while an update is
+ * downloaded. Liquid Glass on iOS 26 when the app passed expo-glass-effect
+ * (`modules.glass`); the solid secondary surface otherwise.
+ */
 export function UpdateBanner({ reload, dismiss, canReload, blocked, reloading }: UpdateBannerProps) {
+  // On glass the message drops its own fill, or it would cover the glass.
+  const onGlass = useLiquidGlass() !== null;
   return (
     <SafeAreaView edges={["top"]} pointerEvents="box-none" style={{ position: "absolute", top: 0, left: 0, right: 0 }}>
-      <View testID="genesis-update-banner" className="mx-3 mt-2 overflow-hidden rounded-lg border border-border bg-secondary">
-        <NativeBanner
-          variant="info"
-          title="An update is ready"
-          description={blocked || !canReload ? "Finish what you're doing, then restart to use it." : "Restart to use the latest version."}
-          className="border-b-0"
-          testID="genesis-update-banner-message"
-        />
-        <View className="flex-row justify-end gap-2 px-4 pb-3">
-          <NativeButton variant="ghost" size="sm" onPress={dismiss} testID="genesis-update-banner-later">
-            Later
-          </NativeButton>
-          <NativeButton size="sm" onPress={reload} disabled={!canReload} loading={reloading} testID="genesis-update-banner-restart">
-            Restart
-          </NativeButton>
-        </View>
+      <View className="mx-3 mt-2">
+        <NativeGlassSurface testID="genesis-update-banner" fallbackClassName="overflow-hidden rounded-lg border border-border bg-secondary">
+          <NativeBanner
+            variant="info"
+            title="An update is ready"
+            description={blocked || !canReload ? "Finish what you're doing, then restart to use it." : "Restart to use the latest version."}
+            className={onGlass ? "border-b-0 border-transparent bg-transparent" : "border-b-0"}
+            testID="genesis-update-banner-message"
+          />
+          <View className="flex-row justify-end gap-2 px-4 pb-3">
+            <NativeButton variant="ghost" size="sm" onPress={dismiss} testID="genesis-update-banner-later">
+              Later
+            </NativeButton>
+            <NativeButton size="sm" onPress={reload} disabled={!canReload} loading={reloading} testID="genesis-update-banner-restart">
+              Restart
+            </NativeButton>
+          </View>
+        </NativeGlassSurface>
       </View>
     </SafeAreaView>
   );

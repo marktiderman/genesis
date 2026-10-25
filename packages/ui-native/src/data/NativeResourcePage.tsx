@@ -19,6 +19,7 @@ import { NativeButton } from "../components/button";
 import { NativeSkeleton } from "../components/skeleton";
 import { NativeDataFilters } from "./NativeDataFilters";
 import { NativeEmptyState } from "./NativeEmptyState";
+import { useGenesisModules } from "../native-modules";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -200,6 +201,7 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
   // State
   // -------------------------------------------------------------------------
 
+  const { list: FlashList } = useGenesisModules();
   const [search, setSearchLocal] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
@@ -473,8 +475,30 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
       );
     }
 
+    // FlashList v2 (`modules.list`) when the app passed it: it recycles rows
+    // and sizes them itself (no `estimatedItemSize` in v2). Its content
+    // container takes padding only, so `flexGrow` (which centers the empty
+    // state in a FlatList) is FlatList's alone.
+    if (FlashList) {
+      return (
+        <FlashList
+          testID="native-resource-page-list"
+          data={items}
+          keyExtractor={keyExtractor}
+          renderItem={renderFlatListItem}
+          ListHeaderComponent={ListHeaderComponent}
+          ListEmptyComponent={ListEmptyComponent}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          // offlineFirst: as FlatList below, the spinner follows the fetch, not the paused promise.
+          refreshing={refreshing && !list.isPaused}
+          onRefresh={handleRefresh}
+        />
+      );
+    }
+
     return (
       <FlatList<T>
+        testID="native-resource-page-list"
         data={items}
         keyExtractor={keyExtractor}
         renderItem={renderFlatListItem}

@@ -1486,6 +1486,55 @@
       "flags": []
     },
     {
+      "id": "native-modules",
+      "name": "Optional native modules",
+      "summary": "GenesisModulesProvider (or GenesisNativeApp's `modules`): an app passes the native modules it installed and the components use them, each falling back to plain React Native without it. FlashList v2 for NativeResourcePage and NotificationsPage, expo-image for NativeAvatar and NativeImage, Reanimated 4 for Toast, Drawer and Skeleton (Reduce Motion respected), Liquid Glass (expo-glass-effect) for toasts, the update banner, popovers and menus on iOS 26, SF Symbols (expo-symbols) behind NativeIcon's semantic names with lucide on Android and web, and @expo/ui's SwiftUI / Jetpack Compose date picker. KeyboardScrollProvider's `toolbar` adds react-native-keyboard-controller's KeyboardToolbar to AuthScreen and SettingsSubPage.",
+      "tagline": "Native lists, images, motion, glass and symbols when the app has them.",
+      "category": "Design system",
+      "status": "beta",
+      "layer": "primitive",
+      "keywords": [
+        "flashlist",
+        "expo-image",
+        "reanimated",
+        "liquid glass",
+        "sf symbols",
+        "icon",
+        "keyboard toolbar",
+        "expo ui",
+        "date picker"
+      ],
+      "entry": {
+        "native": "@marktiderman/genesis-ui-native"
+      },
+      "requires": [
+        "native-components",
+        "native-layouts"
+      ],
+      "owner": "mark",
+      "apps": [
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "Without any module given, every component renders as it did before (FlatList, RN Image, RN Animated, solid surfaces, the community date picker).",
+        "The starter passes every module and shows FlashList rows, an expo-image avatar, a glass toast on iOS 26, SF Symbols and the keyboard toolbar on sign-in."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/ui-native/src/native-modules.tsx",
+          "packages/ui-native/src/components/icon.tsx",
+          "packages/ui-native/src/components/glass-surface.tsx"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "slots-contract",
       "name": "Slots",
       "summary": "The slots and slotProps contract: replace, feed or drop (null) one part of a pattern without forking it. It lives in core (no DOM), so web patterns (ResourcePage) and native layouts (SettingsPage, NotificationsPage, AuthScreen) share it.",

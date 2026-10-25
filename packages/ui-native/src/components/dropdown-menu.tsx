@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import { cn } from "../utils";
+import { NativeGlassSurface } from "./glass-surface";
 
 interface DropdownMenuContextValue {
   open: boolean;
@@ -73,14 +74,14 @@ function NativeDropdownMenuContent({
         <View className="flex-1 items-center justify-center">
           {/* Captures touch to prevent backdrop press from closing menu when tapping content */}
           <Pressable onPress={() => {}}>
-            <View
-              className={cn(
-                "min-w-[8rem] rounded-md border border-border bg-popover p-1 shadow-md",
-                className
-              )}
+            {/* Liquid Glass on iOS 26 with `modules.glass`; the popover surface otherwise. */}
+            <NativeGlassSurface
+              radius={14}
+              fallbackClassName="rounded-md border border-border bg-popover shadow-md"
+              className={cn("min-w-[8rem] p-1", className)}
             >
               {children}
-            </View>
+            </NativeGlassSurface>
           </Pressable>
         </View>
       </Pressable>
