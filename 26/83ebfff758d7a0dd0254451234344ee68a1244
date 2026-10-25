@@ -1,0 +1,172 @@
+packages/native/tsup.config.ts
+  s_8252619ce79a86::t_64162fb7fea914 8
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_03cab228b2a4d8 71
+  s_8252619ce79a86::t_a9e236acd66218 63,123-129,170-174
+apps/genesis-rn-starter/starter.config.ts
+  s_8252619ce79a86::t_723b2d29671849 29
+packages/native/package.json
+  s_8252619ce79a86::t_64162fb7fea914 7,35-38,93
+  s_8252619ce79a86::t_5af31bcf4bce20 94-95
+apps/genesis-rn-starter/src/lib/updates.ts
+  s_8252619ce79a86::t_723b2d29671849 36-37
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_8252619ce79a86::t_e5860a1b64ceb0 30-38
+  s_8252619ce79a86::t_6e62323dd8639d 2,5,26-29,39-41,82-83,89
+features.ts
+  s_8252619ce79a86::t_0523c0c28aa312 733
+  s_8252619ce79a86::t_b5098544747f2a 404-465,749,976,978-981,983-987,989,992-1033
+apps/genesis-rn-starter/src/lib/app.ts
+  s_8252619ce79a86::t_723b2d29671849 45
+  s_8252619ce79a86::t_d48921bf639a08 21
+packages/native/README.md
+  s_8252619ce79a86::t_0523c0c28aa312 555-556
+  s_8252619ce79a86::t_f8be6df204e812 369-488,552-554
+features.json
+  s_8252619ce79a86::t_72b38554c9559f 1653
+  s_8252619ce79a86::t_0ad63058b01667 899-1047,1694,2200,2202-2204,2208-2211,2213,2216-2240,2244,2251-2326
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_64162fb7fea914 77
+  s_8252619ce79a86::t_3693c23005403d 55-56,414
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_62e0c3fde9bb40 257
+  s_8252619ce79a86::t_03cab228b2a4d8 1
+  s_8252619ce79a86::t_4f1678498358c1 216-224,241-256,258-269
+AGENTS.md
+  s_8252619ce79a86::t_72b38554c9559f 16
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_723b2d29671849 53-59
+  s_8252619ce79a86::t_468bf9de4c19b6 52
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_723b2d29671849 33
+.changeset/forms-react-drafts-outbox.md
+  s_8252619ce79a86::t_68088c867ee508 1-14
+.changeset/forms-submit-drafts-outbox.md
+  s_8252619ce79a86::t_cfc53d504d1f87 1-29
+.changeset/push-block.md
+  s_8252619ce79a86::t_fb763d80de1524 1-19
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_41fd54fab3fad8 26,41
+apps/genesis-rn-starter/src/app/(app)/notifications/index.tsx
+  s_8252619ce79a86::t_93d8c505848234 1-3,12-19
+apps/genesis-rn-starter/src/app/(app)/settings/notifications.tsx
+  s_8252619ce79a86::t_63746c67cf7ffd 1-16
+apps/genesis-rn-starter/src/copy.ts
+  s_8252619ce79a86::t_771d8375e15106 73-87
+apps/genesis-rn-starter/src/lib/links.ts
+  s_8252619ce79a86::t_952d7d1a229e51 17
+apps/genesis-rn-starter/src/lib/push.ts
+  s_8252619ce79a86::t_dbcf4526a06474 1-49
+apps/genesis-rn-starter/supabase/config.toml
+  s_8252619ce79a86::t_cb05c885ea9979 23-26
+apps/genesis-rn-starter/supabase/functions/genesis-push-send/expo.ts
+  s_8252619ce79a86::t_2983ee7d508e95 1-117
+apps/genesis-rn-starter/supabase/functions/genesis-push-send/handler.ts
+  s_8252619ce79a86::t_e763382ca406be 1-462
+apps/genesis-rn-starter/supabase/functions/genesis-push-send/index.ts
+  s_8252619ce79a86::t_002684747ec583 1-54
+apps/genesis-rn-starter/supabase/migrations/20261024000400_genesis_push.sql
+  s_8252619ce79a86::t_09e387c996e3c1 1-524
+apps/genesis-rn-starter/supabase/tests/database/genesis_push.test.sql
+  s_8252619ce79a86::t_dee9099b259e87 1-407
+docs/component-reference.md
+  s_8252619ce79a86::t_614264390881b5 7,878,897,901-902,907,915,933-934,944,947,1180,1188,1190-1191,1194,1198,1212-1214,1223,1228-1237,1256-1259
+packages/forms-react/package.json
+  s_8252619ce79a86::t_4d30727551b62f 39
+packages/forms-react/src/__tests__/drafts-outbox.test.tsx
+  s_8252619ce79a86::t_c90a17d04c1e84 1-226
+packages/forms-react/src/drafts.ts
+  s_8252619ce79a86::t_2a47ae913989ce 1-185
+packages/forms-react/src/index.tsx
+  s_8252619ce79a86::t_8fee42789428ca 192-199
+packages/forms-react/src/outbox.ts
+  s_8252619ce79a86::t_0a8dff034ee556 1-90
+packages/forms/README.md
+  s_8252619ce79a86::t_7d6c71f9bca7c6 551-756
+packages/forms/src/__tests__/drafts.test.ts
+  s_8252619ce79a86::t_51cdb657618945 1-245
+packages/forms/src/__tests__/outbox.test.ts
+  s_8252619ce79a86::t_218505e0aa1244 1-349
+packages/forms/src/__tests__/submit.test.ts
+  s_8252619ce79a86::t_03030182338ca9 1-391
+packages/forms/src/drafts.ts
+  s_8252619ce79a86::t_3917c2702078ea 1-283
+packages/forms/src/index.ts
+  s_8252619ce79a86::t_d26185740feed9 194-228
+packages/forms/src/outbox.ts
+  s_8252619ce79a86::t_e494307db60368 1-571
+packages/forms/src/server.ts
+  s_8252619ce79a86::t_817a13434e180c 397-414
+packages/forms/src/storage.ts
+  s_8252619ce79a86::t_11b942df376b0e 1-61
+packages/forms/src/submit-protocol.ts
+  s_8252619ce79a86::t_28c005b46381d0 1-108
+packages/forms/src/submit.ts
+  s_8252619ce79a86::t_afa9512f05bf92 1-286
+packages/native/src/__tests__/push/block.test.tsx
+  s_8252619ce79a86::t_eca40f0db7c3dc 1-373
+packages/native/src/__tests__/push/fakes.ts
+  s_8252619ce79a86::t_ad7f35fc079866 1-99
+packages/native/src/__tests__/push/settings.test.tsx
+  s_8252619ce79a86::t_49442054ec86ac 1-172
+packages/native/src/push/backend.ts
+  s_8252619ce79a86::t_3e4cfb667fc6ae 1-129
+packages/native/src/push/block.tsx
+  s_8252619ce79a86::t_98973d60e76813 1-545
+packages/native/src/push/index.ts
+  s_8252619ce79a86::t_3ab73021283f95 1-102
+packages/native/src/push/modules.ts
+  s_8252619ce79a86::t_08b25670f9110a 1-111
+packages/native/src/push/permission.ts
+  s_8252619ce79a86::t_2830f469678ce9 1-191
+packages/native/src/push/preferences.ts
+  s_8252619ce79a86::t_0b2ae106ef0e3a 1-136
+packages/native/src/push/quiet-hours.ts
+  s_8252619ce79a86::t_f849ae4b8df9ed 1-71
+packages/native/src/push/registration.ts
+  s_8252619ce79a86::t_22b7bb25b8a05c 1-189
+packages/native/src/push/routing.ts
+  s_8252619ce79a86::t_3320fe212cadfc 1-27
+packages/native/src/push/screens.tsx
+  s_8252619ce79a86::t_905022f88e0475 1-42
+packages/native/src/push/settings.tsx
+  s_8252619ce79a86::t_7f5332b38b53be 1-378
+packages/supabase/README.md
+  s_8252619ce79a86::t_4471cfc5f857d9 320-398
+packages/supabase/functions/genesis-push-send/expo.ts
+  s_8252619ce79a86::t_9ea7cafc6e1114 1-117
+packages/supabase/functions/genesis-push-send/handler.ts
+  s_8252619ce79a86::t_98aaa3170e495d 1-462
+packages/supabase/functions/genesis-push-send/index.ts
+  s_8252619ce79a86::t_c1e5c9df82b40e 1-54
+packages/supabase/functions/tests/genesis-push-send_test.ts
+  s_8252619ce79a86::t_4acfa7b0a2f978 1-53
+packages/supabase/migrations/0005_genesis_push.sql
+  s_8252619ce79a86::t_abf7f4a7e846b6 1-524
+packages/supabase/migrations/tests/0005_genesis_push.test.sql
+  s_8252619ce79a86::t_e84dd1f02e0394 1-407
+packages/supabase/src/__tests__/push-send.test.ts
+  s_8252619ce79a86::t_fde55ccc30ee10 1-297
+packages/ui-native/src/components/date-time-picker.tsx
+  s_8252619ce79a86::t_f6eef196f468c7 25-26,84-103,113,122,127,129
+packages/ui-native/src/layouts/settings-page.tsx
+  s_8252619ce79a86::t_945de7fb667813 79-84,201
+pnpm-lock.yaml
+  s_8252619ce79a86::t_a6ee478a9eae44 59-61,104-106,3932-3944,5454-5457,5680-5682,6524-6527,6657-6663,12591-12598,14171-14174,14472-14473,15456-15457,15599-15612
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2683ebfff758d7a0dd0254451234344ee68a1244",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
