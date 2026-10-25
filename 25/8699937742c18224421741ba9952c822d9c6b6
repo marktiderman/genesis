@@ -1,0 +1,125 @@
+packages/sites/src/core/seo.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 9-10,23-24,62,78-84,154-237,265-266,270,281-287
+packages/sites/src/__tests__/import.test.ts
+  s_8252619ce79a86::t_18d4c6270dc17a 1-44,46-141,143,145-153,157-219,221-222,224-236
+  s_8252619ce79a86::t_397530504224f1 45
+  s_8252619ce79a86::t_2deb7eb91c5e8c 142,144,154-156,220,223
+packages/sites/src/sections/file.tsx
+  s_8252619ce79a86::t_0a929f7e9ad4bc 1-99
+features.json
+  s_8252619ce79a86::t_27300c7e1e4c39 1113,1128-1137,1159-1162,1177,1226,1274-1387
+packages/sites/src/core/a11y.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 24,47-48,183,199-256
+  s_8252619ce79a86::t_99873f0d4363a1 257
+packages/sites/src/core/posts.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 1-154
+packages/sites/src/sections/form-embed.tsx
+  s_8252619ce79a86::t_0a929f7e9ad4bc 6,13,29,32,49-61
+  s_8252619ce79a86::t_f1f9da19b28492 62
+packages/sites/migrations/tests/0002_genesis_sites_posts.test.sql
+  s_8252619ce79a86::t_2a50e2e28bb799 1-194,196-205,207-229
+  s_8252619ce79a86::t_2deb7eb91c5e8c 195,206
+packages/sites/src/web/sites.css
+  s_8252619ce79a86::t_0a929f7e9ad4bc 16,45-58
+  s_8252619ce79a86::t_d0b125f4607716 59-60
+packages/sites/src/islands/loader.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 3,13-14,123-138
+  s_8252619ce79a86::t_0bd6afbc41e078 139-141
+packages/sites/src/import/guard.ts
+  s_8252619ce79a86::t_bbb039cfdda56e 1-146
+packages/sites/src/__tests__/blog.test.ts
+  s_8252619ce79a86::t_18d4c6270dc17a 1-49,51,53-107,109-122,124-150,152,154-156,158-164,166-169,172-173,176-177,180,182,184-192,194,196-200,202-217,219-223,225-261
+  s_8252619ce79a86::t_c3c544a9ff4fe4 193
+  s_8252619ce79a86::t_2deb7eb91c5e8c 50,52,108,123,151,153,157,165,170-171,174,178-179,181,183,195,201,218,224
+  s_8252619ce79a86::t_41c7682ac44093 175
+packages/sites/src/core/registry.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 19,62-76,113-121,158,222-228
+packages/sites/src/core/store.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 6-22,43-58,132,134-156,232-233,277-317,331-351,374-385,420,434-449,586-587,589-687
+packages/sites/src/sections/map.tsx
+  s_8252619ce79a86::t_0a929f7e9ad4bc 1-189
+packages/sites/src/sections/timeline.tsx
+  s_8252619ce79a86::t_2deb7eb91c5e8c 2,39
+  s_8252619ce79a86::t_0a929f7e9ad4bc 1,3-38,40-119
+packages/sites/src/__tests__/migration.test.ts
+  s_8252619ce79a86::t_bbb039cfdda56e 67-68
+packages/sites/src/web/handler.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 21-23,25,36-41,97,102-106,161-213,287-288,291-304,314-323,366-387,403,422
+packages/sites/src/supabase/index.ts
+  s_8252619ce79a86::t_bbb039cfdda56e 14-15,17,22,99-123,258-259,277-363
+features.ts
+  s_8252619ce79a86::t_27300c7e1e4c39 495,500,511-513,520,542,563-608
+packages/sites/src/import/index.ts
+  s_8252619ce79a86::t_bbb039cfdda56e 1-239
+packages/sites/src/blocks.ts
+  s_8252619ce79a86::t_bbb039cfdda56e 12,22-25,30
+packages/sites/src/sections/index.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 4,25-31,48-54,73-79,81-84
+packages/sites/src/sections/schedule.tsx
+  s_8252619ce79a86::t_0a929f7e9ad4bc 1-330
+AGENTS.md
+  s_8252619ce79a86::t_27300c7e1e4c39 16
+packages/sites/src/sections/team.tsx
+  s_8252619ce79a86::t_0a929f7e9ad4bc 1-179
+packages/sites/src/sections/logos.tsx
+  s_8252619ce79a86::t_0a929f7e9ad4bc 4,12,14-15,22,37,46-48,50,53-86,91-95
+  s_8252619ce79a86::t_2deb7eb91c5e8c 21,49
+packages/sites/src/sections/features.tsx
+  s_8252619ce79a86::t_2deb7eb91c5e8c 75
+  s_8252619ce79a86::t_0a929f7e9ad4bc 5,13-16,25-28,46,67-74,76-78,83-100,111-135,140,144,149,158-159,167,170,174,178-179,186,189-190,193,195,198-199
+packages/sites/src/sections/pricing.tsx
+  s_8252619ce79a86::t_0a929f7e9ad4bc 6,18-19,21,24-25,28,32-47,50-67,82-87,90-92,108-110,112-114,117,130-134,144-145,167-192
+  s_8252619ce79a86::t_2deb7eb91c5e8c 23,88-89
+packages/sites/src/import/sniff.ts
+  s_8252619ce79a86::t_bbb039cfdda56e 1-78
+packages/sites/src/web/document.tsx
+  s_8252619ce79a86::t_0a929f7e9ad4bc 9,13,44-49,92-98,122,132,144-146,149-156,161-163,199-200
+packages/sites/src/sections/blog-list.tsx
+  s_8252619ce79a86::t_0a929f7e9ad4bc 1-163
+packages/sites/package.json
+  s_8252619ce79a86::t_bbb039cfdda56e 10,50-53,138-141
+packages/sites/src/__tests__/sections-v1.test.tsx
+  s_8252619ce79a86::t_2deb7eb91c5e8c 144-146,148,150,165,172,182
+  s_8252619ce79a86::t_18d4c6270dc17a 1-143,147,149,151-164,166-171,173-181,183-226
+.changeset/sites-sections-v1.md
+  s_8252619ce79a86::t_8774c4694f7781 1-13
+packages/sites/migrations/0002_genesis_sites_posts.sql
+  s_8252619ce79a86::t_2a50e2e28bb799 1-397
+packages/sites/src/core/schemas.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 28-44,49,51-55,57,61-83,177-183
+packages/sites/src/index.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 11,17-18,71,85,92-93,96,103,106-126,148,150-152
+packages/sites/src/sections/post-body.tsx
+  s_8252619ce79a86::t_0a929f7e9ad4bc 1-114
+packages/sites/src/sections/shared.tsx
+  s_8252619ce79a86::t_9bab3083c0b241 114-119,139
+  s_8252619ce79a86::t_0a929f7e9ad4bc 37,89-105,108-110,120-124,141,154,169-195
+  s_8252619ce79a86::t_a810267cef375d 196
+packages/sites/src/__tests__/fixtures.ts
+  s_8252619ce79a86::t_2deb7eb91c5e8c 98,101,105,112,137-138,140-142,150,223-225
+  s_8252619ce79a86::t_9bab3083c0b241 6-18,84-97,99-100,102-104,106-111,113-136,139,143-149,151-152,206-222,226-235,245
+packages/sites/tsup.config.ts
+  s_8252619ce79a86::t_bbb039cfdda56e 10
+packages/sites/src/core/forms.ts
+  s_8252619ce79a86::t_0a929f7e9ad4bc 6-14,27-37,56-67
+packages/sites/src/__tests__/sections.test.tsx
+  s_8252619ce79a86::t_18d4c6270dc17a 54
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_8252619ce79a86::t_0a6a018e97d6ae 3-6,23-27,29,31-33,49-55,57,65,67-71,77-80,85-88,92-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "258699937742c18224421741ba9952c822d9c6b6",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
