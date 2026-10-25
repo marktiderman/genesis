@@ -107,7 +107,9 @@ serves:
 4. the page: streamed HTML from `renderToReadableStream`, with no hydration, an
    inline theme `<style>`, a Content-Security-Policy, `Cache-Control: public,
    max-age=0, s-maxage=31536000, stale-while-revalidate=86400` and
-   `Vercel-Cache-Tag: site:<id>`.
+   `Vercel-Cache-Tag: site:<id>` (plus `form:<slug>` for each form the page
+   embeds: purge that tag when you change the form, since the page cached the
+   form it was rendered with).
 
 The page loads one script, the islands loader (2.3 KB), and only when it has a
 phone menu or a form. Pass `basePath` to mount a site under a path.

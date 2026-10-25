@@ -264,3 +264,13 @@ describe("templates", () => {
     expect(t.site.nav!.map((n) => n.href)).toEqual(["/", "/about", "/contact"]);
   });
 });
+
+describe("redirect checks", () => {
+  it("refuses a redirect from a page's own path, and warns about one to a path with no page", () => {
+    const snap = snapshotOf(starterSite({ brand, message: { headline: "Train with us" } }));
+    const site = { ...snap.site, redirects: [{ from: "/about", to: "/contact", status: 301 as const }, { from: "/team", to: "/gone", status: 301 as const }] };
+    const issues = checkRelease({ ...snap, site });
+    expect(issues.find((i) => i.code === "redirect-shadows-page")?.severity).toBe("error");
+    expect(issues.find((i) => i.code === "redirect-to-missing-page")).toMatchObject({ severity: "warning", path: "/team" });
+  });
+});

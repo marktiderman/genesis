@@ -179,7 +179,12 @@ export function checkRelease(snapshot: ReleaseSnapshot, options: CheckReleaseOpt
   }
   if (!paths.has("/")) issues.push({ severity: "error", code: "no-home", message: "The site has no home page (a page at /)." });
   for (const r of snapshot.site.redirects) {
-    if (paths.has(r.from)) issues.push({ severity: "warning", code: "redirect-shadows-page", path: r.from, message: `The redirect from ${r.from} hides the page there.` });
+    // Redirects answer before pages, so the page there could never be reached.
+    if (paths.has(r.from)) issues.push({ severity: "error", code: "redirect-shadows-page", path: r.from, message: `The redirect from ${r.from} hides the page there; remove the redirect.` });
+    const target = r.to.split(/[?#]/)[0]!;
+    if (r.to.startsWith("/") && !paths.has(target)) {
+      issues.push({ severity: "warning", code: "redirect-to-missing-page", path: r.from, message: `The redirect from ${r.from} goes to ${target}, where there's no page (was it deleted?).` });
+    }
     if (options.reserved !== undefined ? isReservedPath(r.from, options.reserved) : isReservedPath(r.from)) {
       issues.push({ severity: "error", code: "redirect-reserved", path: r.from, message: `${r.from} is reserved for the app; a site can't redirect it.` });
     }

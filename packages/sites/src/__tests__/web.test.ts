@@ -23,7 +23,8 @@ describe("serving a page", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(res.headers.get("cache-control")).toBe("public, max-age=0, s-maxage=31536000, stale-while-revalidate=86400");
-    expect(res.headers.get("vercel-cache-tag")).toBe("site:landing");
+    // The site's tag, and one per embedded form, so a host that edits the form can purge its pages.
+    expect(res.headers.get("vercel-cache-tag")).toBe("site:landing,form:free-class");
     expect(res.headers.get("x-genesis-release")).toBe("1");
     const html = await res.text();
     expect(html.startsWith("<!DOCTYPE html>")).toBe(true);
@@ -224,7 +225,7 @@ describe("the cache after publish and rollback", () => {
     const res = (await handleSiteRequest(get("/"), { ...o, onPublishedTags: tags }))!;
     expect(res.headers.get("x-genesis-release")).toBe(String(r2.number));
     expect(await res.text()).toContain("Release two");
-    expect(tags).toHaveBeenCalledWith(["site:landing"], expect.objectContaining({ releaseId: r2.id, status: 200 }));
+    expect(tags).toHaveBeenCalledWith(["site:landing", "form:free-class"], expect.objectContaining({ releaseId: r2.id, status: 200 }));
 
     const r1 = (await store.listReleases("landing")).find((r) => r.number === 1)!;
     await store.rollback("landing", r1.id);
@@ -296,6 +297,21 @@ describe("the memory store", () => {
 });
 
 describe("review hardening", () => {
+  it("keeps the query string on a moved page's redirect, and falls back to the default theme for a bad brand", async () => {
+    const o = await opts({ siteId: "starter" });
+    const store = o.store as Awaited<ReturnType<typeof seededStore>>;
+    const about = (await store.listPages("starter")).find((p) => p.path === "/about")!;
+    await store.movePage(about.id, "/our-story");
+    await store.publish("starter", { brand: exampleBrands.hilltop });
+    const res = (await handleSiteRequest(get("/about?utm_source=flyer"), o))!;
+    expect(res.headers.get("location")).toBe("/our-story?utm_source=flyer");
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const bad = (await handleSiteRequest(get("/"), { ...o, brand: { getBrand: () => ({ name: "Hilltop", colors: { primary: "orange" } }) } }))!;
+    expect(bad.status).toBe(200);
+    expect(error.mock.calls.some((c) => String(c[0]).includes("can't make a theme"))).toBe(true);
+    error.mockRestore();
+  });
+
   it("leaves a hidden section out of the release, so it is never public", async () => {
     const store = await seededStore();
     const home = (await store.listPages("landing"))[0]!;

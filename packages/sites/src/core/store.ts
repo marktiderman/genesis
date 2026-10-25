@@ -165,6 +165,11 @@ export function siteCacheTag(siteId: string): string {
   return `site:${siteId}`;
 }
 
+/** The cache tag of every page that embeds a form: purge it when the host changes that form. */
+export function formCacheTag(slug: string): string {
+  return `form:${slug}`;
+}
+
 /** Why a site's cache is being purged. */
 export interface InvalidationInfo {
   siteId: string;

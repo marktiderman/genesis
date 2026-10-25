@@ -21,8 +21,8 @@ import type { FormsResolver, ResolvedForm } from "../core/forms";
 import { migratePage, migrateSite } from "../core/migrate";
 import { ReleaseSnapshot, parseSnapshot, type Release, type ReleasePage } from "../core/schemas";
 import { matchRedirect, robotsTxt, sitemapXml } from "../core/seo";
-import { siteCacheTag, type SiteStore } from "../core/store";
-import { brandDisplayName, siteTheme, themeCss, type BrandSource, type FontInfo } from "../core/theme";
+import { formCacheTag, siteCacheTag, type SiteStore } from "../core/store";
+import { brandDisplayName, siteTheme, themeCss, type BrandSource, type FontInfo, type SiteTheme } from "../core/theme";
 import { DEFAULT_RESERVED_PATHS, isReservedPath, normalizeRequestPath, type ReservedPaths } from "../core/urls";
 import { ASSETS } from "./assets.generated";
 import { SiteRenderer, collectFormSlugs, googleFontHref } from "./document";
@@ -228,7 +228,9 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   // Redirects first: a moved page's old path.
   const redirect = matchRedirect(snapshot.site.redirects, path);
   if (redirect) {
-    return new Response(null, { status: redirect.status, headers: { location: redirectLocation(redirect.to, basePath), ...cacheHeaders(redirect.status) } });
+    // A moved page keeps the link's query string (campaign parameters, say); an outside URL is used as written.
+    const location = redirectLocation(redirect.to, basePath) + (redirect.to.startsWith("/") ? url.search : "");
+    return new Response(null, { status: redirect.status, headers: { location, ...cacheHeaders(redirect.status) } });
   }
   const page = snapshot.pages.find((p) => p.path === path) ?? null;
   // One address per page: lowercase, no trailing slash, and the home page under a base path
@@ -246,7 +248,14 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   if (!brand) {
     console.error(`[genesis-sites] the BrandSource has no brand for site ${options.siteId}; rendering with Genesis's default theme.`);
   }
-  const theme = siteTheme(brand ?? { name: snapshot.site.name, colors: { primary: "#4f46e5" } }, snapshot.site.theme);
+  const fallbackBrand = { name: snapshot.site.name, colors: { primary: "#4f46e5" } };
+  let theme: SiteTheme;
+  try {
+    theme = siteTheme(brand ?? fallbackBrand, snapshot.site.theme);
+  } catch (err) {
+    console.error(`[genesis-sites] the brand for site ${options.siteId} can't make a theme (a colour that isn't #rrggbb?); rendering with Genesis's default theme.`, err);
+    theme = siteTheme(fallbackBrand, snapshot.site.theme);
+  }
   // The brand changed since the release was checked: its colours haven't passed the contrast
   // check. Serve it, but cache it briefly and say so; republishing checks it (and purges).
   const brandChanged = Boolean(release?.brandHash) && release!.brandHash !== theme.brandHash;
@@ -257,6 +266,8 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   const slugs = collectFormSlugs(snapshot, page);
   if (slugs.length && !options.forms) console.error(`[genesis-sites] ${path} embeds forms (${slugs.join(", ")}) but handleSiteRequest has no forms resolver.`);
   for (const slug of slugs) {
+    // A page caches the forms it was rendered with: the host purges `form:<slug>` when it changes one.
+    tags.push(formCacheTag(slug));
     try {
       forms.set(slug, options.forms ? await options.forms(slug, { siteId: options.siteId, pagePath: path, mode }) : null);
     } catch (err) {

@@ -124,6 +124,7 @@ export {
   isConflict,
   prepareRelease,
   siteCacheTag,
+  formCacheTag,
   withCacheInvalidation,
   type InvalidationInfo,
   type Asset,

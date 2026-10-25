@@ -14,7 +14,7 @@ export type ResolvedForm =
       kind: "definition";
       /** A canonical genesis-forms definition (`defineForm(...).definition`, or a stored one). */
       definition: unknown;
-      /** Where the island POSTs `{ slug, answers }`: a site path or an https URL. */
+      /** Where the form POSTs `{ form, answers }` (form: the slug): a site path or an https URL. */
       submitUrl: string;
       layout?: "classic" | "focus";
       submitLabel?: string;
