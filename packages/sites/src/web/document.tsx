@@ -6,11 +6,11 @@
  */
 import * as React from "react";
 import "../sections/index";
-import type { RenderContext } from "../core/registry";
+import type { PostsContext, RenderContext } from "../core/registry";
 import { getSection } from "../core/registry";
 import { migrateNode } from "../core/migrate";
 import type { ReleasePage, ReleaseSnapshot, SectionNode } from "../core/schemas";
-import { breadcrumbJsonLd, organizationJsonLd, pageMeta, safeJsonForHtml, websiteJsonLd } from "../core/seo";
+import { absoluteUrl, articleJsonLd, breadcrumbJsonLd, organizationJsonLd, pageMeta, safeJsonForHtml, websiteJsonLd } from "../core/seo";
 import { themeCss, type FontInfo, type SiteTheme } from "../core/theme";
 import type { ResolvedForm } from "../core/forms";
 import { formDrawMode } from "../sections/form-embed";
@@ -41,6 +41,12 @@ export interface SiteRendererProps {
   assets: SiteAssets;
   /** The stylesheet URL for a font, or null to rely on installed fonts. Default: Google Fonts. */
   fontHref?: ((font: FontInfo) => string | null) | false;
+  /**
+   * The blog, when the site has a post page: its path, the posts, the post
+   * this page shows (`page` is then that post on the post page) and the
+   * list's page number.
+   */
+  posts?: PostsContext;
 }
 
 export const googleFontHref = (font: FontInfo): string | null =>
@@ -83,7 +89,13 @@ function renderNodes(nodes: readonly SectionNode[], base: Omit<RenderContext, "h
     if (headingLevel === 1) h1.given = true;
     const ctx: RenderContext = { ...base, headingLevel, idPrefix: `gs-${node.id}` };
     try {
-      out.push({ key: node.id, type: node.type, element: def.render({ props: node.props, variant: node.variant, node, ctx }) });
+      const element = def.render({ props: node.props, variant: node.variant, node, ctx });
+      // A section with nothing to show (the post section on the blog's index) gives the h1 back.
+      if (element === null || element === undefined || element === false) {
+        if (headingLevel === 1) h1.given = false;
+        continue;
+      }
+      out.push({ key: node.id, type: node.type, element });
     } catch (err) {
       if (headingLevel === 1) h1.given = false;
       console.error(`[genesis-sites] ${base.pagePath}: section ${node.id} (${node.type}) failed to render and was left out.`, err);
@@ -107,7 +119,7 @@ function hrefFor(basePath: string) {
  *
  * @stability Beta
  */
-export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mode = "live", logo, forms = new Map(), assets, fontHref = googleFontHref }: SiteRendererProps) {
+export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mode = "live", logo, forms = new Map(), assets, fontHref = googleFontHref, posts }: SiteRendererProps) {
   const site = snapshot.site;
   const preview = mode === "preview";
   const path = page?.path ?? "/404";
@@ -117,6 +129,7 @@ export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mod
     href: hrefFor(basePath),
     forms,
     mode,
+    ...(posts ? { posts } : {}),
   };
   const chrome = !page?.doc.root.props.hideSiteChrome;
   const h1 = { given: false };
@@ -128,14 +141,26 @@ export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mod
   const hasForm = formModes.includes("light") || formModes.includes("island");
   const hasFormBundle = formModes.includes("island");
   const hasMenu = header.some((r) => r.type === "nav") && site.nav.length > 0;
+  // A section that asks for the loader (a click-to-load map).
+  const hasIsland = body.some((r) => getSection(r.type)?.islands === true);
+  const post = posts?.current ?? null;
 
   const meta = page
-    ? pageMeta({ site, page, origin, basePath, preview })
+    ? pageMeta({
+        site,
+        page,
+        origin,
+        basePath,
+        preview,
+        ...(post ? { article: { publishedTime: post.publishedAt, modifiedTime: post.updatedAt, ...(post.doc.author ? { author: post.doc.author.name } : {}), ...(post.doc.category ? { section: post.doc.category } : {}) } } : {}),
+      })
     : { title: `Page not found · ${site.name}`, canonical: "", robots: "noindex, nofollow", openGraph: {}, twitter: {} as Record<string, string> };
   const jsonLd: Record<string, unknown>[] = [];
   if (page && !preview) {
     if (page.path === "/") jsonLd.push(organizationJsonLd(site, origin, basePath), websiteJsonLd(site, origin, basePath));
-    const crumbs = breadcrumbJsonLd(snapshot.pages, page, origin, basePath);
+    if (post) jsonLd.push(articleJsonLd(site, post, meta.canonical || absoluteUrl(origin, basePath, page.path), origin, basePath));
+    // A post's trail runs through the blog's index to the post itself.
+    const crumbs = breadcrumbJsonLd(post ? [...snapshot.pages, page] : snapshot.pages, page, origin, basePath);
     if (crumbs) jsonLd.push(crumbs);
   }
   const fontLinks = fontHref ? theme.fonts.map(fontHref).filter((h): h is string => Boolean(h)) : [];
@@ -171,7 +196,8 @@ export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mod
         {jsonLd.map((data, i) => (
           <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonForHtml(data) }} />
         ))}
-        {hasMenu || hasForm ? <script type="module" src={assets.islands} /> : null}
+        {posts ? <link rel="alternate" type="application/rss+xml" title={site.name} href={base.href("/rss.xml")} /> : null}
+        {hasMenu || hasForm || hasIsland ? <script type="module" src={assets.islands} /> : null}
       </head>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <a

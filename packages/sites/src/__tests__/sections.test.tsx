@@ -51,7 +51,7 @@ describe("the axe harness", () => {
 });
 
 describe("the built-in catalog", () => {
-  it("registers all 13 sections, each with 2 to 4 variants and a preset", () => {
+  it("registers every built-in section, each with 2 to 4 variants and a preset", () => {
     expect(builtInSections.map((d) => d.type).sort()).toEqual([...BUILT_IN_SECTION_TYPES].sort());
     for (const def of builtInSections) {
       expect(getSection(def.type), def.type).toBe(def);

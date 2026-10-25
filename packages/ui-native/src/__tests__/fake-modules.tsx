@@ -81,7 +81,12 @@ export function fakeFlashList() {
     const header = props.ListHeaderComponent as React.ReactNode;
     const empty = props.ListEmptyComponent as React.ReactNode;
     return (
-      <div data-testid={props.testID} data-flash-list="true" data-sticky={JSON.stringify(props.stickyHeaderIndices ?? [])}>
+      <div
+        data-testid={props.testID}
+        data-flash-list="true"
+        data-sticky={JSON.stringify(props.stickyHeaderIndices ?? [])}
+        data-sticky-offset={props.stickyHeaderConfig?.offset}
+      >
         {header}
         {props.data.length === 0
           ? empty

@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { z } from "zod";
 import type { MenuItem, PageKind, SectionNode } from "./schemas";
 import type { ResolvedForm } from "./forms";
+import type { LivePost, PostSummary } from "./posts";
 
 export const SECTION_CATEGORIES = ["header", "intro", "content", "social-proof", "conversion", "footer"] as const;
 export type SectionCategory = (typeof SECTION_CATEGORIES)[number];
@@ -58,6 +59,21 @@ export interface RenderContext {
   mode: "live" | "preview";
   /** A prefix that makes ids unique on the page: the section node's id. */
   idPrefix: string;
+  /**
+   * The site's blog, when it has a post page: its path, the published posts
+   * (newest first, without bodies), the post this page shows (on
+   * `<path>/<slug>`), and the list's page number (`?page=`).
+   */
+  posts?: PostsContext;
+}
+
+export interface PostsContext {
+  /** The post page's path (`/blog`): posts live at `<path>/<slug>`. */
+  path: string;
+  list: readonly PostSummary[];
+  current: LivePost | null;
+  /** The list's page, from `?page=` (1 when absent). */
+  page: number;
 }
 
 export interface SectionRenderProps<P> {
@@ -94,7 +110,15 @@ export interface SectionDefinition<P = Record<string, unknown>> {
    * the renderer, and a publish writes the result into the release.
    */
   migrations?: Readonly<Record<number, (props: Record<string, unknown>) => Record<string, unknown>>>;
-  /** Server-safe React: no state, no effects, no browser APIs. */
+  /**
+   * The https origins this section frames (a map), so the page's
+   * Content-Security-Policy allows them in `frame-src`. Only origins the
+   * section builds itself, never a URL an editor typed.
+   */
+  frameOrigins?: (props: P) => readonly string[];
+  /** It needs the islands loader (a click-to-load map, say). */
+  islands?: boolean;
+  /** Server-safe React: no state, no effects, no browser APIs. Returning null gives the page's h1 back. */
   render: (input: SectionRenderProps<P>) => ReactNode;
 }
 
@@ -131,6 +155,7 @@ function definitionProblems(def: AnySectionDefinition): string[] {
   if (!ids.has(def.defaultVariant)) problems.push(`${at}: \`defaultVariant\` "${String(def.defaultVariant)}" is not one of its variants`);
   if (def.limit !== undefined && (!Number.isInteger(def.limit) || def.limit < 1)) problems.push(`${at}: \`limit\` is a whole number from 1`);
   if (def.placement !== undefined && !["header", "body", "footer"].includes(def.placement)) problems.push(`${at}: \`placement\` is header, body or footer`);
+  if (def.frameOrigins !== undefined && typeof def.frameOrigins !== "function") problems.push(`${at}: \`frameOrigins\` is a function`);
   for (const [key, fn] of Object.entries(def.migrations ?? {})) {
     const n = Number(key);
     if (!Number.isInteger(n) || n < 2 || n > def.version) problems.push(`${at}: migration ${key} must be between 2 and the version (${def.version})`);
@@ -194,6 +219,13 @@ export const BUILT_IN_SECTION_TYPES = Object.freeze([
   "rich-text",
   "form-embed",
   "footer",
+  "schedule",
+  "team",
+  "blog-list",
+  "post-body",
+  "map",
+  "timeline",
+  "file",
 ] as const);
 export type BuiltInSectionType = (typeof BUILT_IN_SECTION_TYPES)[number];
 

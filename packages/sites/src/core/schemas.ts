@@ -25,16 +25,61 @@ export const Href = z
   .refine(isSafeHref, { message: "Use a site path (/about), a #section, or an https, mailto or tel link." })
   .meta({ title: "Link", format: "uri-reference" });
 
-/** A labelled link: a button, a menu entry, a footer link. */
+/** An analytics event name for a link: `data-gs-event` on the page (default `cta` on buttons). */
+export const LinkEvent = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9_.:-]{0,47}$/, "An event name is lowercase letters, digits and _ . : -")
+  .meta({ title: "Analytics event" });
+
+/**
+ * A labelled link: a button, a menu entry, a footer link, an outbound
+ * booking link.
+ *
+ * - `external: true` marks a link that leaves the site (a booking or
+ *   membership system): it must be an `http(s)` URL, and it renders with
+ *   `rel="noopener noreferrer"` and `data-gs-outbound` for analytics.
+ * - `target` (`_blank` for a new tab) applies to http(s) links only;
+ *   `newTab: true` is the older spelling of `target: "_blank"`.
+ * - `event` names the click for the host's analytics (`data-gs-event`).
+ */
 export const Link = z
   .object({
     label: z.string().trim().min(1).max(80),
     href: Href,
-    /** Opens in a new tab (external links only). */
+    /** Opens in a new tab (http(s) links only). The same as `target: "_blank"`. */
     newTab: z.boolean().optional(),
+    /** Where an http(s) link opens: this tab (`_self`, the default) or a new one (`_blank`). */
+    target: z.enum(["_self", "_blank"]).optional().meta({ title: "Opens in" }),
+    /** A link that leaves the site (a booking system): http(s) only, `rel="noopener noreferrer"`. */
+    external: z.boolean().optional().meta({ title: "Outbound link" }),
+    event: LinkEvent.optional(),
   })
+  .refine((link) => !link.external || /^https?:\/\//i.test(link.href), { message: "An outbound link is an http(s) URL.", path: ["href"] })
   .meta({ title: "Link" });
 export type Link = z.infer<typeof Link>;
+
+/** Does this link open in a new tab? Only an http(s) link can. */
+export const opensInNewTab = (link: Pick<Link, "href" | "newTab" | "target">): boolean =>
+  /^https?:\/\//i.test(link.href) && (link.target === "_blank" || (link.target === undefined && link.newTab === true));
+
+/**
+ * A downloadable file (a PDF timetable, a waiver): a site path (an upload
+ * under `sites/<site_id>/files/`) or an https URL. `bytes` and `mime` say
+ * what the visitor is about to download.
+ */
+export const FileRef = z
+  .object({
+    src: z
+      .string()
+      .max(MAX_URL_LENGTH)
+      .refine(isSafeImageSrc, { message: "A file loads from a site path or an https URL." }),
+    /** The file's type; PDF unless it is an image. */
+    mime: z.enum(["application/pdf", "image/png", "image/jpeg", "image/webp", "image/avif", "image/gif"]).default("application/pdf"),
+    /** Its size, shown beside the link ("PDF, 1.2 MB"). */
+    bytes: z.number().int().positive().max(100 * 1024 * 1024).optional(),
+  })
+  .meta({ title: "File", "x-genesis-kind": "file" });
+export type FileRef = z.infer<typeof FileRef>;
 
 /**
  * An image. `alt` describes it for someone who can't see it; an image that
@@ -129,7 +174,13 @@ export const PageDoc = z.object({
 });
 export type PageDoc = z.infer<typeof PageDoc>;
 
-export const PageKind = z.enum(["page", "landing"]);
+/**
+ * What a page is: an ordinary `page`, a focused `landing` page, or the
+ * `post` page: the template every blog post renders in. A site has at most
+ * one post page; at its own path (`/blog`) it is the blog's index, and at
+ * `/blog/<slug>` it shows that post in its `post-body` section.
+ */
+export const PageKind = z.enum(["page", "landing", "post"]);
 export type PageKind = z.infer<typeof PageKind>;
 
 export const PagePath = z.string().max(200).regex(PAGE_PATH, 'A page path looks like "/" or "/about".');

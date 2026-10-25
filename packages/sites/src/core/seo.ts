@@ -6,6 +6,8 @@
  * Canonical and absolute URLs are built from `origin`, the site's primary
  * address, which the host passes in. Nothing here reads a request's Host.
  */
+import type { LivePost, PostSummary } from "./posts";
+import { richTextPlain } from "./posts";
 import type { Image, PageDoc, Redirect, ReleasePage, SiteDoc } from "./schemas";
 import { isSafeHref } from "./urls";
 
@@ -18,6 +20,8 @@ export interface PageMetaInput {
   basePath?: string;
   /** A preview: always `noindex`. */
   preview?: boolean;
+  /** The page is a blog post: Open Graph says `article`, with its dates. */
+  article?: { publishedTime: string; modifiedTime?: string; author?: string; section?: string };
 }
 
 export interface PageMeta {
@@ -55,7 +59,7 @@ export function pageTitle(site: SiteDoc, doc: PageDoc, _path: string): string {
 }
 
 /** Every meta value a page prints in its `<head>`. */
-export function pageMeta({ site, page, origin, basePath = "", preview = false }: PageMetaInput): PageMeta {
+export function pageMeta({ site, page, origin, basePath = "", preview = false, article }: PageMetaInput): PageMeta {
   const doc = page.doc;
   const title = pageTitle(site, doc, page.path);
   const description = doc.seo?.description?.trim() || site.seo.description?.trim() || undefined;
@@ -71,6 +75,13 @@ export function pageMeta({ site, page, origin, basePath = "", preview = false }:
     "og:locale": site.lang.replace("-", "_"),
   };
   if (description) openGraph["og:description"] = description;
+  if (article) {
+    openGraph["og:type"] = "article";
+    openGraph["article:published_time"] = new Date(article.publishedTime).toISOString();
+    if (article.modifiedTime) openGraph["article:modified_time"] = new Date(article.modifiedTime).toISOString();
+    if (article.author) openGraph["article:author"] = article.author;
+    if (article.section) openGraph["article:section"] = article.section;
+  }
   if (img) {
     openGraph["og:image"] = img;
     if (image?.alt) openGraph["og:image:alt"] = image.alt;
@@ -140,6 +151,102 @@ export function breadcrumbJsonLd(pages: readonly ReleasePage[], page: ReleasePag
   };
 }
 
+/** An ISO date, or null when the value isn't a date (a stored row that skipped the checks). */
+function isoDate(value: unknown): string | null {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Text for a feed, or undefined when the value isn't text. */
+const textOf = (value: unknown): string | undefined => (typeof value === "string" && value ? value : undefined);
+
+/** The URL of a post: `<post page path>/<slug>`. */
+export function postPath(postsPath: string, slug: string): string {
+  return `${postsPath === "/" ? "" : postsPath}/${slug}`;
+}
+
+/** `Article` JSON-LD for a blog post. */
+export function articleJsonLd(site: SiteDoc, post: LivePost, url: string, origin: string, basePath = ""): Record<string, unknown> {
+  const d = post.doc;
+  const org = site.seo.organization;
+  const publisher: Record<string, unknown> = { "@type": "Organization", name: org?.name ?? site.name, url: absoluteUrl(origin, basePath, "/") };
+  if (org?.logo) publisher.logo = { "@type": "ImageObject", url: org.logo.startsWith("/") ? absoluteUrl(origin, basePath, org.logo) : org.logo };
+  const description = d.excerpt ?? d.seo?.description;
+  const image = imageUrl(d.cover ?? d.seo?.ogImage, origin, basePath);
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: d.title.slice(0, 110),
+    ...(description ? { description } : {}),
+    ...(image ? { image: [image] } : {}),
+    datePublished: new Date(post.publishedAt).toISOString(),
+    dateModified: new Date(post.updatedAt).toISOString(),
+    author: d.author
+      ? { "@type": "Person", name: d.author.name, ...(d.author.url && isSafeHref(d.author.url) ? { url: d.author.url.startsWith("/") ? absoluteUrl(origin, basePath, d.author.url) : d.author.url } : {}) }
+      : { "@type": "Organization", name: org?.name ?? site.name },
+    publisher,
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    ...(d.category ? { articleSection: d.category } : {}),
+    ...(d.tags?.length ? { keywords: d.tags.join(", ") } : {}),
+    inLanguage: site.lang,
+  };
+}
+
+export interface RssInput {
+  site: SiteDoc;
+  /** Published posts, newest first. */
+  posts: readonly PostSummary[];
+  /** The post page's path (`/blog`). */
+  postsPath: string;
+  /** Its title, the feed's (default: the site's name). */
+  title?: string;
+  origin: string;
+  basePath?: string;
+  /** The most items (default 20). */
+  limit?: number;
+}
+
+/** The blog's RSS 2.0 feed: the newest posts, with their excerpts. */
+export function rssXml({ site, posts, postsPath, title, origin, basePath = "", limit = 20 }: RssInput): string {
+  const link = absoluteUrl(origin, basePath, postsPath);
+  const self = absoluteUrl(origin, basePath, "/rss.xml");
+  // A post whose stored fields aren't what they should be is left out, not the whole feed.
+  const usable = posts.filter((p) => !p.noindex && textOf(p.title) && textOf(p.slug) && isoDate(p.publishedAt));
+  const items = usable.slice(0, limit).map((p) => {
+    const url = absoluteUrl(origin, basePath, postPath(postsPath, p.slug));
+    const excerpt = textOf(p.excerpt);
+    const category = textOf(p.category);
+    const author = textOf(p.author?.name);
+    return [
+      "<item>",
+      `<title>${escapeXml(p.title)}</title>`,
+      `<link>${escapeXml(url)}</link>`,
+      `<guid isPermaLink="true">${escapeXml(url)}</guid>`,
+      `<pubDate>${new Date(isoDate(p.publishedAt)!).toUTCString()}</pubDate>`,
+      excerpt ? `<description>${escapeXml(excerpt)}</description>` : "",
+      category ? `<category>${escapeXml(category)}</category>` : "",
+      author ? `<dc:creator>${escapeXml(author)}</dc:creator>` : "",
+      "</item>",
+    ].join("");
+  });
+  const newest = usable[0];
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel>` +
+    `<title>${escapeXml(title ?? site.name)}</title>` +
+    `<link>${escapeXml(link)}</link>` +
+    `<description>${escapeXml(site.seo.description ?? `Posts from ${site.name}`)}</description>` +
+    `<language>${escapeXml(site.lang)}</language>` +
+    `<atom:link href="${escapeXml(self)}" rel="self" type="application/rss+xml"/>` +
+    (newest ? `<lastBuildDate>${new Date(isoDate(newest.updatedAt) ?? isoDate(newest.publishedAt)!).toUTCString()}</lastBuildDate>` : "") +
+    `${items.join("")}</channel></rss>\n`
+  );
+}
+
+/** A post's description for a feed or a page with no excerpt: its first words. */
+export const postDescription = (doc: LivePost["doc"]): string | undefined => doc.excerpt ?? doc.seo?.description ?? (richTextPlain(doc.body, 200) || undefined);
+
 /**
  * JSON for a `<script type="application/ld+json">` (or any JSON inside HTML):
  * `<`, `>`, `&` and the line separators are escaped as `\uXXXX`, so stored
@@ -167,10 +274,12 @@ export interface SitemapInput {
   basePath?: string;
   /** The release's publish time, as every page's `lastmod`. */
   lastModified?: string | null;
+  /** The blog: its post page's path and the published posts (each with its own `lastmod`). */
+  posts?: { path: string; items: readonly PostSummary[] };
 }
 
 /** sitemap.xml: every indexable page (not `noindex`, not one whose canonical points elsewhere). */
-export function sitemapXml({ site, pages, origin, basePath = "", lastModified }: SitemapInput): string {
+export function sitemapXml({ site, pages, origin, basePath = "", lastModified, posts }: SitemapInput): string {
   const urls = site.seo.noindex
     ? []
     : pages
@@ -181,6 +290,14 @@ export function sitemapXml({ site, pages, origin, basePath = "", lastModified }:
           const mod = lastModified ? `<lastmod>${escapeXml(new Date(lastModified).toISOString())}</lastmod>` : "";
           return `<url>${loc}${mod}</url>`;
         });
+  const blogPage = posts ? pages.find((p) => p.path === posts.path) : undefined;
+  if (posts && !site.seo.noindex && blogPage && !blogPage.doc.seo?.noindex) {
+    for (const p of posts.items) {
+      if (p.noindex) continue;
+      const mod = isoDate(p.updatedAt) ?? isoDate(p.publishedAt);
+      urls.push(`<url><loc>${escapeXml(absoluteUrl(origin, basePath, postPath(posts.path, p.slug)))}</loc>${mod ? `<lastmod>${escapeXml(mod)}</lastmod>` : ""}</url>`);
+    }
+  }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>\n`;
 }
 

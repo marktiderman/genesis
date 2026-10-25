@@ -55,6 +55,11 @@ describe("InboxPage", () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
+  it("lets a tap in the header (a text field's button) land while the keyboard is up", () => {
+    render(<InboxPage testID="inbox" items={items} now={now} />);
+    expect(screen.getByTestId("inbox-list").dataset.keyboardShouldPersistTaps).toBe("handled");
+  });
+
   it("renders every row with its time, preview and status, newest first as given", () => {
     render(<InboxPage testID="inbox" items={items} now={now} />);
     const rows = ["a", "b", "c"].map((id) => screen.getByTestId(`inbox-row-${id}`));

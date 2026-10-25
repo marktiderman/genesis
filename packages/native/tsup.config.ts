@@ -8,6 +8,7 @@ export default defineConfig({
     push: "src/push/index.ts",
     observability: "src/observability/index.ts",
     devtools: "src/devtools/index.ts",
+    "dev-warnings": "src/dev-warnings.ts",
   },
   format: ["esm"],
   dts: true,

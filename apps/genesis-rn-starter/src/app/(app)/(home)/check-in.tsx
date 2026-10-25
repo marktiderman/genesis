@@ -6,7 +6,7 @@ import { useFormDraft } from "@marktiderman/genesis-forms-react";
 import { ScreenContainer } from "@marktiderman/genesis-ui-native";
 import starter from "../../../../starter.config";
 import { copy } from "@/copy";
-import { checkInDrafts, checkInForm, checkInHaptics, checkInHostOptions, checkInKey, checkInOutbox } from "@/lib/check-in";
+import { checkInDrafts, checkInForm, checkInHaptics, checkInHostOptions, checkInKey, checkInOutbox, checkInPhotos } from "@/lib/check-in";
 
 /**
  * The check-in example (`features.checkIn`): one question per screen, the title in the native
@@ -30,6 +30,7 @@ export default function CheckInScreen() {
         outbox={checkInOutbox}
         createKey={checkInKey}
         haptics={checkInHaptics}
+        photos={checkInPhotos}
         screen={Stack.Screen}
         headerOptions={{ headerBackTitle: copy.home.title }}
         testID="check-in-form"
