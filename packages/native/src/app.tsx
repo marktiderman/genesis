@@ -10,6 +10,9 @@
  *           └ blocks' roots (with `blocks`, e.g. updates: force upgrade, maintenance, banner, what's new)
  *             └ errorBoundary → your screens (or `signedOut`)
  *
+ * Every error the shell catches goes to each block's `onError` (the
+ * observability block reports it) and then to the app's own `onError`.
+ *
  * `blocks` (`defineBlock` declarations a native shell can run) are resolved
  * once: requirements checked, boot steps run behind the splash, roots
  * mounted, slot fills put under your `slots`, Settings rows handed to
@@ -45,7 +48,8 @@ import { SessionProvider, createSessionStore, type AuthClientLike } from "./auth
 import { useHeldLink, type HeldLinkAuth, type LinkHold } from "./held-link";
 import { connectQueryLifecycle, createNativeQueryClient, type QueryLifecycleOptions, type QueryPersistence } from "./query";
 import { resolveBlocks } from "@marktiderman/genesis-features/blocks";
-import { BlocksProvider, type NativeBlock } from "./blocks";
+import { BlocksProvider, reportToBlocks, type NativeBlock } from "./blocks";
+import type { DevtoolsSlots } from "./devtools/slots";
 // Types only: the block's code is in the `/updates` entry and arrives with the `updates` prop.
 import type { UpdatesBlock, UpdatesSlots } from "./updates/block";
 // Types only, likewise: the push block (`/push`) arrives in `blocks`.
@@ -69,7 +73,9 @@ export interface SignedOutProps {
 // A type, not an interface, so it fits the slots contract's Record constraint.
 // The updates block's slots (`forceUpgrade`, `maintenance`, `updateBanner`,
 // `whatsNew`) render only when the `updates` prop is given.
-export type NativeAppSlots = UpdatesSlots & PushSlots & {
+export type NativeAppSlots = UpdatesSlots &
+  PushSlots &
+  DevtoolsSlots & {
   /** Shown while booting: under the splash at launch, on its own after "Try again". Default `BootScreen`. */
   boot: BootScreenProps;
   /** A failed boot, a fatal global error or a render error. Default `FatalScreen`. */
@@ -126,7 +132,11 @@ export interface GenesisNativeAppProps {
   rejectionTracker?: EnableRejectionTracker | null;
   /** `AppState` and NetInfo, so queries refetch on focus and know the network. */
   lifecycle?: QueryLifecycleOptions;
-  /** Every caught error, for reporting (Sentry). */
+  /**
+   * Every caught error, after the blocks' own `onError` (the observability
+   * block, `createObservability` from `/observability`, reports to Sentry
+   * there). A throwing reporter is ignored.
+   */
   onError?: OnError;
   /** After a signed-in user signs out, once the query cache is cleared. */
   onSignedOut?: () => void;
@@ -184,6 +194,8 @@ export function GenesisNativeApp(props: GenesisNativeAppProps) {
   const [rootKey, setRootKey] = useState(0);
   const onErrorRef = useRef(props.onError);
   onErrorRef.current = props.onError;
+  // The blocks as given, before they are resolved: an error here may come from resolving them.
+  const blocksRef = useRef(givenBlocks(props));
   const splashRef = useRef(props.splash);
   splashRef.current = props.splash;
   return (
@@ -191,7 +203,12 @@ export function GenesisNativeApp(props: GenesisNativeAppProps) {
       key={rootKey}
       fallback={PlainFatalScreen}
       onError={(e, r) => {
-        onErrorRef.current?.(e, r);
+        reportToBlocks(blocksRef.current, e, r);
+        try {
+          onErrorRef.current?.(e, r);
+        } catch {
+          // A failing reporter must not stop the fatal screen.
+        }
         // The shell (which hides the splash) never mounted: hide it here, or the screen stays behind it.
         splashRef.current?.hideAsync().catch(() => {});
       }}
@@ -233,15 +250,21 @@ function Shell(props: GenesisNativeAppProps) {
   const { errorUtils, rejectionTracker, lifecycle, slotProps, children } = props;
   const latest = useRef(props);
   latest.current = props;
-  const onError: OnError = (error, report) => latest.current.onError?.(error, report);
+  const [blockList] = useState(() => givenBlocks(props));
+  const onError: OnError = (error, report) => {
+    reportToBlocks(blockList, error, report);
+    try {
+      latest.current.onError?.(error, report);
+    } catch {
+      // A failing reporter must not take the shell down with it.
+    }
+  };
   // How many fatal screens are up (the global handler lets a second fatal error end the app).
   const fatalShown = useRef(0);
 
   // Created once: the shell's parts live as long as the app.
   const [parts] = useState(() => {
-    // `updates` is a block too; given both ways, it runs once.
-    const given = props.blocks ?? [];
-    const list = props.updates && !given.includes(props.updates) ? [...given, props.updates] : given;
+    const list = blockList;
     const blocks = resolveBlocks(list, props.appFeatures ? [...list.map((b) => b.id), ...props.appFeatures] : undefined, {
       platform: "native",
       slots: NATIVE_APP_SLOT_NAMES,
@@ -387,6 +410,7 @@ const SLOT_NAMES: Record<keyof NativeAppSlots, true> = {
   maintenance: true,
   updateBanner: true,
   whatsNew: true,
+  devtoolsFeedback: true,
   pushPrompt: true,
 };
 const NATIVE_APP_SLOT_NAMES: readonly string[] = Object.keys(SLOT_NAMES);
@@ -395,6 +419,12 @@ const NATIVE_APP_SLOT_NAMES: readonly string[] = Object.keys(SLOT_NAMES);
 function withBlockSlots(fills: Readonly<Record<string, unknown>>, own: Slots<NativeAppSlots> | undefined): Slots<NativeAppSlots> | undefined {
   if (Object.keys(fills).length === 0) return own;
   return { ...(fills as Slots<NativeAppSlots>), ...own };
+}
+
+/** `blocks`, with `updates` added when it was given on its own (given both ways, it runs once). */
+function givenBlocks(props: Pick<GenesisNativeAppProps, "blocks" | "updates">): readonly NativeBlock[] {
+  const given = props.blocks ?? [];
+  return props.updates && !given.includes(props.updates) ? [...given, props.updates] : given;
 }
 
 const NO_HOLD: LinkHold = {

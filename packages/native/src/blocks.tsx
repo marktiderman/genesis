@@ -10,6 +10,7 @@ import { createContext, useContext, type ComponentType, type ReactNode } from "r
 import type { SlotPropsFor, Slots } from "@marktiderman/genesis-core/slots";
 import type { BlockDef, BlockSettingsRow, Contributed, ResolvedBlocks } from "@marktiderman/genesis-features/blocks";
 import type { BootStep } from "./boot";
+import type { ErrorReport } from "./errors";
 import type { NativeAppSlots } from "./app";
 
 /** What a block's `Root` is given: the app's slots, with every block's fills merged under them. @stability Beta */
@@ -30,6 +31,24 @@ export interface NativeBlock<Id extends string = string> extends BlockDef<Id, Co
   readonly bootSteps?: readonly BootStep[];
   /** Mounted around the screens, inside the shell's error boundary. The first block's root is the outermost. */
   readonly Root?: ComponentType<NativeBlockRootProps>;
+  /**
+   * Every error the shell catches (render, global, boot, rejection), before
+   * the app's own `onError`. The observability block reports them here. A
+   * throw is ignored.
+   */
+  readonly onError?: (error: Error, report: ErrorReport) => void;
+}
+
+/** @internal Hand an error to each block's `onError`; one that throws never stops the rest. */
+export function reportToBlocks(blocks: readonly NativeBlock[], error: Error, report: ErrorReport): void {
+  for (const block of blocks) {
+    if (!block.onError) continue;
+    try {
+      block.onError(error, report);
+    } catch {
+      // A failing reporter must not take the error path down with it.
+    }
+  }
 }
 
 const BlocksContext = createContext<ResolvedBlocks<NativeBlock> | null>(null);
