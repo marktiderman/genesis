@@ -83,6 +83,10 @@ describe("recipientsToJson", () => {
       { email: "a@example.test", name: "A", ref: "people:1" },
     ]);
   });
+  it("carries a recipient's own badge (chat's unread count per person)", () => {
+    expect(recipientsToJson([{ userId: USER, badge: 3 }])).toEqual([{ user_id: USER, badge: 3 }]);
+    expect(() => recipientsToJson([{ userId: USER, badge: -1 }])).toThrow(/badge/);
+  });
   it("refuses malformed ones", () => {
     expect(() => recipientsToJson([])).toThrow(/no recipients/);
     expect(() => recipientsToJson(["nope"])).toThrow(/not a user id/);

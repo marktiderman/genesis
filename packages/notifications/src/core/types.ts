@@ -7,6 +7,8 @@ import type { Channel, NotificationData } from "./registry";
 /** A recipient with a login, by user id. */
 export interface UserRecipient {
   userId: string;
+  /** Their own app icon badge (an unread count), over the call's `badge`. */
+  badge?: number;
 }
 
 /**

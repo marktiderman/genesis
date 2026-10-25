@@ -810,7 +810,8 @@ $$;
 
 -- What a domain calls (through notify() in TypeScript, or from its own SQL):
 -- one notification per recipient, and a send job per channel that is on.
--- p_recipients: [{ "user_id": uuid } | { "email", "name"?, "ref"? }], at most 1000.
+-- p_recipients: [{ "user_id": uuid, "badge"? } | { "email", "name"?, "ref"? }], at most 1000;
+-- a recipient's own badge (their unread count) wins over p_badge.
 -- The same idempotency key again for a recipient finds the first one
 -- (created false) and sends nothing more. A login that no longer exists is
 -- skipped (no row returned). A collapse key replaces the recipient's older
@@ -901,7 +902,8 @@ begin
     email_on := private.genesis_notifications_channel_on(uid, p_tenant_id, p_type, 'email');
 
     insert into public.notifications as n (type, category, tenant_id, user_id, email, recipient_name, person_ref, idempotency_key, data, thread_key, collapse_key, badge, brand, in_feed)
-    values (p_type, t.category, p_tenant_id, uid, addr, left(r ->> 'name', 200), left(r ->> 'ref', 200), p_idempotency_key, data_, p_thread_key, p_collapse_key, p_badge, p_brand, feed)
+    values (p_type, t.category, p_tenant_id, uid, addr, left(r ->> 'name', 200), left(r ->> 'ref', 200), p_idempotency_key, data_, p_thread_key, p_collapse_key,
+            case when jsonb_typeof(r -> 'badge') = 'number' then (r ->> 'badge')::numeric::integer else p_badge end, p_brand, feed)
     on conflict on constraint notifications_once do nothing
     returning n.id, n.recipient_key into n_id, n_key;
 

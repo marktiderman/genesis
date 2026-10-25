@@ -139,6 +139,21 @@ await notify(admin, {
 });
 ```
 
+With genesis-chat's runner, its `deliver` hands each message's push on as it is (each recipient
+carries their own unread count as `badge`):
+
+```ts
+deliver: (n) =>
+  notify(admin, {
+    type: "chat.message",
+    recipients: n.recipients.map((r) => ({ userId: r.userId, badge: r.badge })),
+    data: { ...n.data, conversation_id: n.conversationId, sender_name: n.title, preview: n.body },
+    idempotencyKey: n.idempotencyKey,   // push:<message id>
+    threadKey: n.threadKey,
+    collapseKey: n.collapseKey,
+  }, { registry: notifications }),
+```
+
 The phone hides the push for the conversation already on screen (`useSuppressNotifications`, in
 the push block), and handles the action buttons:
 

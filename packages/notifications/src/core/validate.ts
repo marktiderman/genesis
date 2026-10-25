@@ -42,7 +42,7 @@ export function assertNoSecrets(data: NotificationData | undefined, path = ""): 
 }
 
 /** The recipients as `genesis_notify` takes them; throws on a malformed one. */
-export function recipientsToJson(recipients: readonly Recipient[]): ({ user_id: string } | { email: string; name?: string; ref?: string })[] {
+export function recipientsToJson(recipients: readonly Recipient[]): ({ user_id: string; badge?: number } | { email: string; name?: string; ref?: string })[] {
   if (!Array.isArray(recipients) || recipients.length === 0) throw new Error("notify: no recipients");
   if (recipients.length > 1000) throw new Error("notify: at most 1000 recipients a call");
   return recipients.map((r, i) => {
@@ -52,7 +52,9 @@ export function recipientsToJson(recipients: readonly Recipient[]): ({ user_id: 
     }
     if ("userId" in r) {
       if (!UUID.test(r.userId)) throw new Error(`notify: recipient ${i} is not a user id`);
-      return { user_id: r.userId };
+      if (r.badge === undefined) return { user_id: r.userId };
+      if (!Number.isInteger(r.badge) || r.badge < 0 || r.badge > 99999) throw new Error(`notify: recipient ${i}'s badge is a whole number from 0`);
+      return { user_id: r.userId, badge: r.badge };
     }
     if ("email" in r) {
       const email = r.email.trim();

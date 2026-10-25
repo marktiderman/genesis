@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(118);
+select plan(119);
 
 -- People: a1 and b2 have logins; c3 is an admin; "outside" has no login.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -115,6 +115,8 @@ select is((select count(*) from public.notifications where user_id = pg_temp.u('
 select is((select count(*) from public.notification_deliveries where notification_id = pg_temp.k('m1')), 2::bigint, '... with one push and one email job, not two of each');
 select is((select count(*) from public.genesis_notify('gntest.message', jsonb_build_array(pg_temp.u('b2')), '{}', 'push:msg-1') where created), 1::bigint,
   'the same key for another recipient is theirs');
+insert into k select 'b1', notification_id from public.genesis_notify('gntest.message', jsonb_build_array(jsonb_build_object('user_id', pg_temp.u('c3'), 'badge', 7)), '{}', 'push:msg-badge', null, null, 1);
+select is((select badge from public.notifications where id = pg_temp.k('b1')), 7, 'a recipient''s own badge wins over the call''s');
 select is((select count(*) from public.genesis_notify('gntest.message', '[{"user_id": "00000000-0000-4000-8000-0000000000ff"}]', '{}', 'push:msg-2')), 0::bigint,
   'a login that no longer exists is skipped');
 select throws_ok($$ select * from public.genesis_notify('gntest.nope', '["00000000-0000-4000-8000-0000000000a1"]', '{}', 'x') $$, '22023', null, 'an unknown type is refused');
