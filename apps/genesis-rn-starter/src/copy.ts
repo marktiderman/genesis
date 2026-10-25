@@ -51,6 +51,7 @@ const en = {
     signedInAs: "Signed in as",
     aboutSection: "About",
     version: "Version",
+    devtools: "Developer tools",
     signOut: "Sign out",
     deleteAccount: "Delete account",
     deleteConfirmTitle: "Delete your account?",

@@ -56,6 +56,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-su
       const route = origin?.route && !origin.route.startsWith(block.paths.inbox) ? origin.route : undefined;
       if (route) context.route = route;
       else delete context.route;
+      if (origin?.extra) context.extra = { ...context.extra, ...origin.extra };
       const delivery = await block.client.submit({
         type,
         message: message.trim(),

@@ -26,6 +26,16 @@ import { arg, fakeSupabase } from "./fake-supabase";
 const ME = "00000000-0000-4000-8000-0000000000a1";
 const REPORT = "11111111-1111-4111-8111-111111111111";
 
+describe("cleanRoute", () => {
+  it("names private path segments instead of keeping them", () => {
+    expect(cleanRoute("/users/jane@example.test/reset/abc123token456xyz789")).toBe("/users/:email/reset/:token");
+    expect(cleanRoute("/orders/12345")).toBe("/orders/:id");
+    expect(cleanRoute("/r/0b5a2c7e-1d3f-4a6b-9c8d-7e6f5a4b3c2d/edit")).toBe("/r/:id/edit");
+    expect(cleanRoute("/settings/notifications")).toBe("/settings/notifications");
+    expect(cleanRoute("/u/jane%40example.test")).toBe("/u/:email");
+  });
+});
+
 describe("the wire contract", () => {
   it("is byte-identical to the intake function's copy", () => {
     const pkg = readFileSync(join(__dirname, "../contract.ts"), "utf8");
@@ -145,11 +155,14 @@ describe("the support client", () => {
     const fake = fakeSupabase({
       respond: (call) =>
         call.table === "support_ideas"
-          ? { data: [{ id: "i1", title: "Dark mode", status: "open", vote_count: 3, author_id: ME, created_at: "x" }, { id: "i2", title: "Export", status: "planned", vote_count: 1, author_id: "other", created_at: "x" }], error: null }
+          ? { data: [{ id: "i1", title: "Dark mode", status: "open", vote_count: 3, created_at: "x" }, { id: "i2", title: "Export", status: "planned", vote_count: 1, created_at: "x" }], error: null }
           : { data: [{ idea_id: "i2" }], error: null },
+      // Who suggested an idea isn't readable; the database answers "mine".
+      rpc: (fn) => (fn === "support_my_idea_ids" ? { data: ["i1"], error: null } : { data: null, error: null }),
     });
     const ideas = await createSupportClient(fake.client).ideas();
     expect(fake.calls[0]!.ops).toContainEqual(["neq", ["status", "hidden"]]);
+    expect(String(arg(fake.calls[0], "select"))).not.toContain("author_id");
     expect(ideas.map((i) => [i.id, i.mine, i.voted])).toEqual([["i1", true, false], ["i2", false, true]]);
   });
 
@@ -161,8 +174,7 @@ describe("the support client", () => {
 
   it("reads 'you asked, we shipped' from support_shipped_for_me", async () => {
     const fake = fakeSupabase({
-      rpc: () => ({ data: [{ id: "i1", title: "Dark mode", status: "shipped", feature_id: "charts-dark-mode", vote_count: 4, author_id: "x", created_at: "x", shipped_at: "y" }], error: null }),
-      respond: () => ({ data: [{ idea_id: "i1" }], error: null }),
+      rpc: () => ({ data: [{ id: "i1", title: "Dark mode", status: "shipped", feature_id: "charts-dark-mode", vote_count: 4, created_at: "x", shipped_at: "y", mine: false, voted: true }], error: null }),
     });
     const [idea] = await createSupportClient(fake.client).shippedForMe();
     expect(fake.rpcs[0]).toEqual({ fn: "support_shipped_for_me", args: { max_rows: 50 } });

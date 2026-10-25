@@ -18,6 +18,7 @@ import { createContext, useContext, useEffect, useSyncExternalStore, type Compon
 import { Dimensions, Platform } from "react-native";
 import type { NativeBlock, NativeBlockRootProps } from "@marktiderman/genesis-native";
 import { useQuery } from "@tanstack/react-query";
+import { NativeButton } from "@marktiderman/genesis-ui-native/components";
 import { defineSupportBlock, supportPaths, SUPPORT_BLOCK_ID, type SupportPaths } from "../block";
 import { createSupportClient, type SupportClient, type SupportSupabase } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
@@ -36,6 +37,8 @@ export interface PendingScreenshot {
 export interface PendingFeedback {
   route: string | null;
   screenshot: PendingScreenshot | null;
+  /** Extra context to send with the report (the devtools overlay's debug report). */
+  extra?: Record<string, unknown>;
 }
 
 export interface SupportOptions {
@@ -74,7 +77,7 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   readonly paths: SupportPaths;
   readonly collector: ContextCollector;
   /** Capture the screen (if it can and `screenshot` isn't false), then open the feedback screen. */
-  openFeedback(options?: { screenshot?: boolean }): Promise<void>;
+  openFeedback(options?: { screenshot?: boolean; extra?: Record<string, unknown>; delayMs?: number }): Promise<void>;
   /** Hand the feedback screen what it opens with (`takePending` empties it). */
   takePending(): PendingFeedback | null;
   peekPending(): PendingFeedback | null;
@@ -155,18 +158,38 @@ export function createSupport(options: SupportOptions): SupportBlock {
   };
 
   let opening = false;
+  // The devtools overlay's "Send feedback" (its `devtoolsFeedback` slot): closes the overlay,
+  // captures the screen under it and opens the feedback screen with the debug report attached.
+  function DevtoolsFeedback({ debugInfo, close }: { debugInfo: string; close: () => void }) {
+    return (
+      <NativeButton
+        variant="outline"
+        testID="genesis-support-devtools-feedback"
+        onPress={() => {
+          close();
+          void block.openFeedback({ extra: { debugInfo: debugInfo.slice(0, 8000) }, delayMs: 400 });
+        }}
+      >
+        {copy.settings.sendFeedback}
+      </NativeButton>
+    );
+  }
+
   const block: SupportBlock = {
     ...declaration,
+    contributes: { ...declaration.contributes, slots: { devtoolsFeedback: DevtoolsFeedback as ComponentType<never> } },
     platforms: ["native"],
     options,
     client,
     copy,
     paths,
     collector,
-    async openFeedback({ screenshot = true } = {}) {
+    async openFeedback({ screenshot = true, extra, delayMs = 0 } = {}) {
       if (opening) return;
       opening = true;
       try {
+        // Let a sheet that is closing (the devtools overlay) get out of the picture first.
+        if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
         let shot: PendingScreenshot | null = null;
         if (screenshot && options.viewShot) {
           try {
@@ -178,7 +201,7 @@ export function createSupport(options: SupportOptions): SupportBlock {
             report(error, "capture");
           }
         }
-        setPending({ route, screenshot: shot });
+        setPending({ route, screenshot: shot, extra });
         options.navigate(paths.feedback);
       } finally {
         opening = false;

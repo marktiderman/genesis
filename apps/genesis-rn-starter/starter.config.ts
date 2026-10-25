@@ -27,6 +27,8 @@ export default defineStarter({
     refreshWhileActive: true,
     updates: true,
     push: true,
+    observability: true,
+    devtools: true,
     support: true,
   },
 });

@@ -63,11 +63,13 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `push` | The push block (`createPush`, `src/lib/push.ts`): this phone's push token on sign-in once permission is granted, off on sign-out; Settings > Notifications (`NotificationSettings`: categories, quiet hours, previews); the soft prompt, offered when the Notifications tab opens, never at launch; taps open their screen through the link map. Needs an EAS project id for a token. | No token, no prompt, no Notifications row in Settings; expo-notifications stays in the build. |
 | `support` | The support block (`createSupport`, `src/lib/support.ts`): Settings > Support > Send feedback and Help; shake the phone to capture the screen you're on and open the feedback screen with it (mark it up, hide private parts, or drop it); Help lists your reports with staff replies; the idea board with one vote each and "you asked, we shipped". Screens: `src/app/(app)/settings/support/`. | No Support rows, no shake; react-native-view-shot and expo-sensors stay in the build. |
 | `updates` | The updates block (`createUpdates`, `src/lib/updates.ts`): force upgrade and maintenance from the `app_release_policy` row, the update banner (never reloads mid sign-in or mid deletion: `useBlockReload`), what's new, and the version signature in Settings > About. | No blocking screens, banner or notes; About shows the version and build from `expo-application`. |
+| `observability` | The observability block (`src/lib/observability.ts`): every error the shell catches, route breadcrumbs and timings, the user's id and the typed events in `events`, to Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set and to the console in development, scrubbed of emails, tokens and query strings on the phone. | Errors only reach `console` (LogBox in development). |
+| `devtools` | The devtools overlay (`src/lib/devtools.ts`) in development and preview builds: a three-finger hold, "Open devtools" in the dev menu or Settings > About > Developer tools open a sheet with the version signature, channel switch, user id, blocks, flags and recent errors. Never in a production bundle. | No overlay and no Settings row. |
 
 A config with both sign-in methods off fails at start-up. Apple's button only shows on iOS, so
 with `emailSignIn` off `app.config.ts` builds for iOS only.
 
-Switches that only change JavaScript (`updates`, `push` and `support` included) don't change the build's fingerprint (`.fingerprintignore`
+Switches that only change JavaScript (`updates`, `push`, `observability`, `devtools` and `support` included) don't change the build's fingerprint (`.fingerprintignore`
 leaves `starter.config.ts` out; what it means for the native build is in the evaluated config), so
 `eas update` still reaches installed builds after you turn one off. `appleSignIn` and
 `emailSignIn` change the native build and its runtime version.
@@ -189,3 +191,19 @@ fails if they drift.
 - **Genesis's own default strings are English.** The starter's copy is all in `src/copy.ts`, but a
   few labels inside the Genesis layouts ("Email", "Password", "or", the boot and fatal screens)
   have no override yet; that is the `i18n` feature in the repo's `features.ts`.
+
+## Observability and devtools
+
+- **Sentry.** Set `EXPO_PUBLIC_SENTRY_DSN` in `.env` (and in each EAS environment). Without it,
+  nothing is sent. `src/lib/observability.ts` starts Sentry at module scope; `src/lib/app.ts`
+  imports it first, and the root layout is exported wrapped (`wrapRoot`). Release and dist come
+  from the version signature, with the update id and channel as tags. Source map upload is
+  optional: the commented plugin line in `app.config.ts` says what to turn on.
+- **Events.** Add an event to `events` in `src/lib/observability.ts` before calling
+  `observability?.track(…)`; props are closed lists, numbers or booleans, so no free text can be
+  sent.
+- **Devtools.** In a development build, open the overlay from the dev menu, Settings > About >
+  Developer tools, or a three-finger hold. Preview builds (`.preview` bundle id, built or updated
+  with `EXPO_PUBLIC_APP_VARIANT=preview`) get it too. A production bundle doesn't contain it:
+  `npx expo export --platform ios` with `EXPO_PUBLIC_APP_VARIANT` unset or `production`, then
+  search the bundle for `genesis-devtools`, finds nothing.

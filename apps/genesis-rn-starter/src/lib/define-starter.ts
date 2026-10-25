@@ -58,6 +58,20 @@ export interface StarterFeatures {
    */
   push: boolean;
   /**
+   * The observability block (`createObservability`, `src/lib/observability.ts`): every error the
+   * shell catches, route breadcrumbs and timings, the user's id and typed analytics events, to
+   * Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set (and the console in development), scrubbed of
+   * emails, tokens and query strings on the phone. JavaScript only.
+   */
+  observability: boolean;
+  /**
+   * The devtools overlay (`createDevtools`, `src/lib/devtools.ts`) in development and preview
+   * builds: a three-finger hold, the dev menu or Settings > About open a sheet with the version
+   * signature, channel switch, user id, blocks, flags and recent errors. Left out of production
+   * bundles at build time. JavaScript only.
+   */
+  devtools: boolean;
+  /**
    * The support block (`createSupport` from @marktiderman/genesis-support): Send feedback and Help
    * in Settings, a feedback screen with a screenshot (shake the phone to capture the screen you're
    * on), the person's reports with staff replies, and the idea board with votes, on the

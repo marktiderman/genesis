@@ -120,6 +120,7 @@ describe("FeedbackForm", () => {
     await block.openFeedback();
     view.rerender(wrap(<FeedbackForm />));
     expect(screen.getByTestId("genesis-support-feedback-screenshot")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("genesis-support-feedback-include-screenshot"));
     fireEvent.change(screen.getByTestId("genesis-support-feedback-message"), { target: { value: "The save button does nothing" } });
     await act(async () => {
       fireEvent.click(screen.getByTestId("genesis-support-feedback-send"));
@@ -128,6 +129,34 @@ describe("FeedbackForm", () => {
     const report = arg(fake.calls.find((c) => c.table === "support_reports"), "insert") as Record<string, unknown>;
     expect(report).toMatchObject({ type: "bug", message: "The save button does nothing", route: "/home", app_version: "1.4.0 (37)", platform: "ios" });
     expect(vi.mocked(Alert.alert)).toHaveBeenCalledWith("Thanks for the feedback", expect.any(String));
+  });
+
+  it("sends no screenshot unless the person includes it", async () => {
+    const { fake, block, wrap } = harness(() => ({ data: { id: REPORT }, error: null }), { viewShot: viewShot() });
+    const view = render(wrap(<span />));
+    await block.openFeedback();
+    view.rerender(wrap(<FeedbackForm />));
+    expect(screen.getByTestId("genesis-support-feedback-screenshot")).toBeTruthy();
+    fireEvent.change(screen.getByTestId("genesis-support-feedback-message"), { target: { value: "x" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-feedback-send"));
+    });
+    await waitFor(() => expect(fake.calls.some((c) => c.table === "support_reports")).toBe(true));
+    expect(fake.uploads).toHaveLength(0);
+  });
+
+  it("sends the devtools overlay's debug report with the feedback", async () => {
+    const { fake, block, wrap } = harness(() => ({ data: { id: REPORT }, error: null }));
+    const Fill = block.contributes!.slots!.devtoolsFeedback as unknown as (p: { debugInfo: string; close: () => void }) => ReactNode;
+    const close = vi.fn();
+    render(wrap(<Fill debugInfo="version 1.4.0" close={close} />));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-devtools-feedback"));
+      await new Promise((r) => setTimeout(r, 450));
+    });
+    expect(close).toHaveBeenCalled();
+    expect(block.peekPending()?.extra).toEqual({ debugInfo: "version 1.4.0" });
+    void fake;
   });
 
   it("sends no screenshot once the person removes it", async () => {
@@ -165,6 +194,7 @@ describe("FeedbackForm", () => {
       fireEvent.click(screen.getByTestId("genesis-support-feedback-annotator-done"));
     });
     expect(shot.captureRef).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("genesis-support-feedback-include-screenshot"));
     fireEvent.change(screen.getByTestId("genesis-support-feedback-message"), { target: { value: "x" } });
     await act(async () => {
       fireEvent.click(screen.getByTestId("genesis-support-feedback-send"));

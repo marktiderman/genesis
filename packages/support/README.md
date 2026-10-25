@@ -66,9 +66,11 @@ TanStack Query under the `genesis-support` key root; leave it out of query persi
 
 **Shake to report.** With an accelerometer, a shake (two strong jolts within a second, then a
 three second rest) captures the screen and opens the feedback screen with it. The screenshot is
-sent only if the person keeps it; **Mark up** lets them draw on it and **Hide** paints solid boxes
+sent only if the person turns on **Include this screenshot** (off by default); **Mark up** lets them draw on it and **Hide** paints solid boxes
 over anything private. The marks are flattened into the image (`captureRef`) before it is sent; if
-flattening fails, the unmarked image is never sent in its place.
+flattening fails, the unmarked image is never sent in its place, and leaving the mark-up
+without saving turns Include off again. On the web, marks stay a list until Send and are drawn
+into the image once.
 
 **From anywhere** (a devtools overlay's "Send feedback" slot, a help icon):
 `<SendFeedbackButton />`, or `useSupport().openFeedback()`.
@@ -87,7 +89,8 @@ const unmount = mountSupportWidget({ client });   // on any page (needs Genesis 
 `FeedbackPanel` is the panel on its own. A screenshot uses `getDisplayMedia` with
 `preferCurrentTab`: the browser asks, and when the person says no there is no screenshot (never a
 placeholder). Routes are sent as paths only: query strings and fragments are dropped on the client,
-in the contract's validation and by a database check.
+in the contract's validation and by a database check, and path segments that look private (an
+email, an id, a long token) become `:email`, `:id` or `:token`.
 
 ## Core
 
@@ -115,7 +118,7 @@ A GitHub issue per report, or a signed webhook, is a server-side sink: the
 ## Access, in the database
 
 A person sees, edits (while open) and deletes their own reports, replies on them and sees their
-own screenshots. Every signed-in person reads the idea board; one vote per person and idea, and a
+own screenshots. Every signed-in person reads the idea board (not who suggested an idea); one vote per person and idea, and a
 Supabase anonymous sign-in can neither vote nor suggest. Staff are whoever your
 `private.genesis_support_staff(person uuid)` hook says (none until you add it). Status, owner,
 feature id, vote counts and read receipts are the server's. See the migration's header.

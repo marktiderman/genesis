@@ -421,7 +421,14 @@ into your app under a new timestamp; it stands alone.
   delete by anyone but the service role; images only, 5 MB each, at most 5 per report. Deleting a
   report or an account queues its objects in `support_attachment_purges` (Supabase refuses direct
   deletes from `storage.objects`); the cleanup function removes them.
-- **Limits** raise SQLSTATE `GS429`: 20 reports and 60 replies per person an hour.
+- **Limits** raise SQLSTATE `GS429`: 20 reports and 60 replies per person an hour, counted in a
+  log that deleting doesn't touch, under a per-person lock.
+- **Whatever else the app allows on storage**, restrictive policies hold the bucket to these rules
+  for every role but the service role. A deleted report's screenshots can't be opened again, by
+  staff or the person, before the cleanup removes them.
+- **The notify sinks keep copies.** An issue or webhook made for a report isn't withdrawn when the
+  report or the account is deleted: point the GitHub sink at a private repository and delete issues
+  yourself when someone asks to be forgotten.
 
 Functions (templates; copy the folder into `supabase/functions/`):
 

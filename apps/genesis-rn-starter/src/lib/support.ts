@@ -4,7 +4,8 @@
  * the screen you're on and mark it up), your reports with staff replies, and
  * the idea board with votes, on Supabase's `support_*` tables and the private
  * `genesis-support` bucket (migration in `supabase/migrations`). `app.ts`
- * passes it to GenesisNativeApp's `blocks`.
+ * passes it to GenesisNativeApp's `blocks`; it also fills the devtools overlay's
+ * "Send feedback" (its `devtoolsFeedback` slot).
  *
  * Staff: nobody is, until you add `private.genesis_support_staff(person uuid)`
  * in a migration of your own (see the migration's header).
@@ -17,6 +18,7 @@ import { Platform } from "react-native";
 import * as ViewShot from "react-native-view-shot";
 import { versionSignature } from "@marktiderman/genesis-native/updates";
 import { createSupport } from "@marktiderman/genesis-support/native";
+import starter from "../../starter.config";
 import { copy } from "@/copy";
 import { supabase } from "./supabase";
 
@@ -37,3 +39,6 @@ export function createStarterSupport() {
     onError: (error, where) => console.warn(`[support] ${where}: ${error.message}`),
   });
 }
+
+/** The support block, or `undefined` with `features.support` off. */
+export const support = starter.features.support ? createStarterSupport() : undefined;

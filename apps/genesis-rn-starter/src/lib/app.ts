@@ -2,6 +2,8 @@
  * Everything `<GenesisNativeApp>` is given, built from `starter.config.ts`,
  * so the root layout stays a few lines. A feature that is off is left out.
  */
+// First: Sentry starts here, before the rest of the app loads.
+import { observability } from "./observability";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import Constants from "expo-constants";
@@ -15,9 +17,10 @@ import starter from "../../starter.config";
 import { assertEnv } from "./env";
 import { linkHold } from "./links";
 import { sessionReady, supabase } from "./supabase";
+import { devtools } from "./devtools";
 import { createStarterPush } from "./push";
-import { createStarterSupport } from "./support";
-import { createStarterUpdates } from "./updates";
+import { support } from "./support";
+import { updatesBlock } from "./updates";
 
 const { features } = starter;
 
@@ -38,8 +41,9 @@ export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   keyboardProvider: features.keyboardScroll ? KeyboardProvider : undefined,
   keyboardScroll: features.keyboardScroll ? KeyboardAwareScrollView : undefined,
   links: features.deepLinks ? { hold: linkHold, onRelease: (path) => router.replace(path as Href) } : undefined,
-  updates: features.updates ? createStarterUpdates() : undefined,
-  blocks: [...(features.push ? [createStarterPush()] : []), ...(features.support ? [createStarterSupport()] : [])],
+  updates: updatesBlock,
+  // The first block's root is the outermost: observability sees everything below it.
+  blocks: [observability, features.push ? createStarterPush() : undefined, support, devtools].filter((block) => block !== undefined),
   // Support needs a signed-in person: the account feature (sign-in in AuthScreen) is the app's own, not a block.
   appFeatures: ["account"],
 };
