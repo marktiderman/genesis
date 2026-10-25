@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 136 components · 473 other exports · 336 standalone types across 11 packages and entry points.
+**Totals:** 137 components · 473 other exports · 337 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -688,7 +688,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (87)
+### Components (88)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -753,7 +753,8 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeSelectItem`](../packages/ui-native/src/components/select.tsx) | `NativeSelectItemProps` | — | _(no summary)_ |
 | [`NativeSelectTrigger`](../packages/ui-native/src/components/select.tsx) | `NativeSelectTriggerProps` | — | _(no summary)_ |
 | [`NativeSeparator`](../packages/ui-native/src/components/separator.tsx) | `NativeSeparatorProps` | — | _(no summary)_ |
-| [`NativeSheet`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProps` | — | _(no summary)_ |
+| [`NativeSheet`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProps` | Beta | _(no summary)_ |
+| [`NativeSheetProvider`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProviderProps` | Beta | Opts every `NativeSheet` below it into `@gorhom/bottom-sheet` and mounts the library's `BottomSheetModalProvider`. A module missing any export the sheet needs is reported with `console.error` and ignored, so sheets fall back to the nativ... |
 | [`NativeSkeleton`](../packages/ui-native/src/components/skeleton.tsx) | `NativeSkeletonProps` | — | _(no summary)_ |
 | [`NativeSlider`](../packages/ui-native/src/components/slider.tsx) | `NativeSliderProps` | — | _(no summary)_ |
 | [`NativeStepper`](../packages/ui-native/src/components/stepper.tsx) | `NativeStepperProps` | — | _(no summary)_ |
@@ -816,7 +817,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (34)
+### Types (35)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -836,6 +837,7 @@ export type { NativeComboboxOption };
 export type { NativeEmptyStateVariant };
 export type { NativeInlineAlertVariant };
 export type { NativeSegmentedControlOption };
+export type { NativeSheetLibrary };
 export type { NativeStepperStep };
 export type { NativeToastOptions };
 export type { NativeToastVariant };

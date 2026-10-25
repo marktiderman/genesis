@@ -193,7 +193,14 @@ declare module "react-native" {
     visible?: boolean;
     transparent?: boolean;
     animationType?: "none" | "slide" | "fade";
+    /** iOS. */
+    presentationStyle?: "fullScreen" | "pageSheet" | "formSheet" | "overFullScreen";
+    /** Android. */
+    statusBarTranslucent?: boolean;
+    /** Android. */
+    navigationBarTranslucent?: boolean;
     onRequestClose?: () => void;
+    onDismiss?: () => void;
     children?: React.ReactNode;
     testID?: string;
   }

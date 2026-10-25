@@ -4,7 +4,7 @@
  *
  *   last-resort boundary (React Native primitives only)
  *   └ theme (GenesisThemeProvider, owning the platform color scheme)
- *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens)
+ *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens; `bottomSheet` opts sheets into @gorhom/bottom-sheet)
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
  *         └ session + boot (splash held until both are known)
  *           └ blocks' roots (with `blocks`, e.g. updates: force upgrade, maintenance, banner, what's new)
@@ -29,6 +29,7 @@ import type { CanonicalBrand } from "@marktiderman/genesis-design-system";
 import { GenesisProvider, createSupabaseProvider, type DataProvider, type SupabaseClientInput } from "@marktiderman/genesis-core/provider";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { KeyboardScrollProvider, type KeyboardScrollProps } from "@marktiderman/genesis-ui-native/layouts";
+import { NativeSheetProvider, type NativeSheetLibrary } from "@marktiderman/genesis-ui-native/components";
 import { BootProvider, createBoot, type BootOptions, type BootStatus, type BootStep } from "./boot";
 import {
   FatalScreen,
@@ -119,6 +120,16 @@ export interface GenesisNativeAppProps {
   keyboardProvider?: ComponentType<{ children: ReactNode }>;
   /** `KeyboardAwareScrollView` from react-native-keyboard-controller, for form screens. Needs `keyboardProvider`. */
   keyboardScroll?: ComponentType<KeyboardScrollProps>;
+  /**
+   * `@gorhom/bottom-sheet` v5, to opt every `NativeSheet` into it (snap
+   * points, drag between heights): `import * as BottomSheet from "@gorhom/bottom-sheet"`,
+   * then `bottomSheet={BottomSheet}`. The app mounts `NativeSheetProvider`
+   * (and so the library's `BottomSheetModalProvider`) for you; the app's root
+   * must still be inside gesture-handler's `GestureHandlerRootView`, with
+   * Reanimated set up. Leave it out and sheets are React Native's own modal
+   * (an iOS page sheet), which needs neither. Read once.
+   */
+  bottomSheet?: NativeSheetLibrary;
   /** Follow a link held while signed out, once the user signs in. */
   links?: { hold: LinkHold; onRelease: (path: string) => void };
   /** Run before first render, in order (wipe-on-reinstall, hydrate stores, fonts). Read once. */
@@ -229,11 +240,13 @@ function ThemedShell(props: GenesisNativeAppProps) {
   const { brand, keyboardScroll } = props;
   // Frozen: a new component type here (an inline wrapper) would remount the shell and reset the app.
   const [Keyboard] = useState(() => props.keyboardProvider);
+  const [bottomSheet] = useState(() => props.bottomSheet);
   const missingProvider = Boolean(keyboardScroll) && !Keyboard;
   useEffect(() => {
     if (missingProvider && typeof __DEV__ !== "undefined" && __DEV__) console.error(MISSING_KEYBOARD_PROVIDER);
   }, [missingProvider]);
   let body = <Shell {...props} />;
+  if (bottomSheet) body = <NativeSheetProvider bottomSheet={bottomSheet}>{body}</NativeSheetProvider>;
   if (keyboardScroll) body = <KeyboardScrollProvider component={keyboardScroll}>{body}</KeyboardScrollProvider>;
   if (Keyboard) body = <Keyboard>{body}</Keyboard>;
   return (

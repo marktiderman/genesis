@@ -234,13 +234,26 @@ export const Modal = ({
   children,
   onRequestClose,
   testID,
-}: AnyProps & { visible?: boolean; onRequestClose?: () => void }) => {
+  presentationStyle,
+  transparent,
+  animationType,
+}: AnyProps & {
+  visible?: boolean;
+  onRequestClose?: () => void;
+  presentationStyle?: string;
+  transparent?: boolean;
+  animationType?: string;
+}) => {
   if (!visible) return null;
   return React.createElement(
     "div",
     {
       role: "dialog",
       "data-testid": testID,
+      // How the real Modal would be presented, for assertions.
+      "data-presentation-style": presentationStyle,
+      "data-transparent": transparent ? "true" : undefined,
+      "data-animation-type": animationType,
       onKeyDown: (e: React.KeyboardEvent) => {
         if (e.key === "Escape") onRequestClose?.();
       },
