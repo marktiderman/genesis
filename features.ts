@@ -709,7 +709,7 @@ export const features = defineFeatures({
   },
   "agent-rules": {
     name: "Agent rules of engagement",
-    summary: "How agent sessions and the owner work together: who owns what, how work is claimed, verified, reviewed and shipped through staging batches, each rule marked agreed, practice or proposed.",
+    summary: "How agent sessions and the owner work together: who owns what, how work is claimed, verified, reviewed and shipped through staging batches, each rule marked agreed, reported, practice or proposed.",
     category: "Tooling",
     status: "building",
     horizon: "now",
@@ -719,7 +719,8 @@ export const features = defineFeatures({
     owner: "compass",
     apps: ["cli"],
     audience: ["developer"],
-    reviewedAt,
+    visibility: "internal",
+    reviewedAt: "2026-10-25",
     links: { code: ["packages/agents"] },
   },
   "cli-introspect": {

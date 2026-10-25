@@ -1611,7 +1611,7 @@
     {
       "id": "agent-rules",
       "name": "Agent rules of engagement",
-      "summary": "How agent sessions and the owner work together: who owns what, how work is claimed, verified, reviewed and shipped through staging batches, each rule marked agreed, practice or proposed.",
+      "summary": "How agent sessions and the owner work together: who owns what, how work is claimed, verified, reviewed and shipped through staging batches, each rule marked agreed, reported, practice or proposed.",
       "category": "Tooling",
       "status": "building",
       "horizon": "now",
@@ -1633,13 +1633,13 @@
       "audience": [
         "developer"
       ],
-      "reviewedAt": "2026-10-22",
+      "visibility": "internal",
+      "reviewedAt": "2026-10-25",
       "links": {
         "code": [
           "packages/agents"
         ]
       },
-      "visibility": "customer",
       "access": "all",
       "flags": []
     },
