@@ -57,6 +57,14 @@ export interface StarterFeatures {
    * stays in the build either way. Needs an EAS project id for a push token.
    */
   push: boolean;
+  /**
+   * The support block (`createSupport` from @marktiderman/genesis-support): Send feedback and Help
+   * in Settings, a feedback screen with a screenshot (shake the phone to capture the screen you're
+   * on), the person's reports with staff replies, and the idea board with votes, on the
+   * `genesis_support` migration. JavaScript only: react-native-view-shot and expo-sensors stay in
+   * the build either way.
+   */
+  support: boolean;
 }
 
 export interface StarterConfig {

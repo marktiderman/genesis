@@ -25,6 +25,8 @@ export default function SettingsScreen() {
     [
       { id: "account", title: t.accountSection, rows: [{ id: "email", title: t.signedInAs, subtitle: session?.user.email ?? "" }] },
       { id: "general", rows: [] },
+      // The support block's Send feedback and Help rows (`features.support`).
+      { id: "support", title: copy.support.settings.section, rows: [] },
       { id: "about", title: t.aboutSection, rows: [{ id: "version", title: t.version, subtitle: version }] },
     ],
     { navigate: (href) => router.push(href as Href) },
@@ -61,7 +63,7 @@ export default function SettingsScreen() {
   if (starter.features.accountDeletion) {
     dangerousActions.push({ label: t.deleteAccount, testID: "delete-account", emphasized: true, onPress: busy ? () => {} : confirmDelete });
   }
-  // Blocks add their rows (the push block's Notifications row, in `general`); a section left empty is dropped.
+  // Blocks add their rows (push's Notifications row in `general`, support's in `support`); a section left empty is dropped.
   const sections = blockSettings.filter((section) => section.rows.length > 0);
   return (
     <>

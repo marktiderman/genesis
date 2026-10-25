@@ -61,12 +61,13 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `wipeSessionOnReinstall` | A reinstalled iOS app starts signed out (the Keychain outlives an uninstall). | The last session comes back after a reinstall. |
 | `refreshWhileActive` | The session refreshes only while the app is in front. | supabase-js's own timer runs in the background too. |
 | `push` | The push block (`createPush`, `src/lib/push.ts`): this phone's push token on sign-in once permission is granted, off on sign-out; Settings > Notifications (`NotificationSettings`: categories, quiet hours, previews); the soft prompt, offered when the Notifications tab opens, never at launch; taps open their screen through the link map. Needs an EAS project id for a token. | No token, no prompt, no Notifications row in Settings; expo-notifications stays in the build. |
+| `support` | The support block (`createSupport`, `src/lib/support.ts`): Settings > Support > Send feedback and Help; shake the phone to capture the screen you're on and open the feedback screen with it (mark it up, hide private parts, or drop it); Help lists your reports with staff replies; the idea board with one vote each and "you asked, we shipped". Screens: `src/app/(app)/settings/support/`. | No Support rows, no shake; react-native-view-shot and expo-sensors stay in the build. |
 | `updates` | The updates block (`createUpdates`, `src/lib/updates.ts`): force upgrade and maintenance from the `app_release_policy` row, the update banner (never reloads mid sign-in or mid deletion: `useBlockReload`), what's new, and the version signature in Settings > About. | No blocking screens, banner or notes; About shows the version and build from `expo-application`. |
 
 A config with both sign-in methods off fails at start-up. Apple's button only shows on iOS, so
 with `emailSignIn` off `app.config.ts` builds for iOS only.
 
-Switches that only change JavaScript (`updates` and `push` included) don't change the build's fingerprint (`.fingerprintignore`
+Switches that only change JavaScript (`updates`, `push` and `support` included) don't change the build's fingerprint (`.fingerprintignore`
 leaves `starter.config.ts` out; what it means for the native build is in the evaluated config), so
 `eas update` still reaches installed builds after you turn one off. `appleSignIn` and
 `emailSignIn` change the native build and its runtime version.
@@ -125,6 +126,13 @@ manifest for the packages installed, export compliance and the fingerprint runti
   (which also keeps `push_receipts` to 30 days). Turn on enhanced push security in the Expo project
   and give the function `EXPO_ACCESS_TOKEN`, so a leaked token alone can't push to a phone:
   see "Push" in [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#push-the-push-block).
+- **Support:** `supabase/migrations/20261024000600_genesis_support.sql` is the package's migration
+  0006 (reports, screenshots in the private `genesis-support` bucket, replies, ideas and votes),
+  copied and drift-tested the same way. Nobody is staff until you add
+  `private.genesis_support_staff(person uuid)` in a migration of your own (the migration's header
+  has an example). To get an issue or a webhook per report, or to remove deleted screenshots from
+  storage, copy the `genesis-support-notify` and `genesis-support-cleanup` templates: see "Support"
+  in [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#support-the-support-block).
 - **Auth providers:** email works with Supabase's defaults (confirmation on: sign-up asks the
   person to confirm, then sign in; the confirmation link opens `site_url`, not the app). For Apple, enable the Apple provider with the bundle ids of all
   three variants as client ids; `supabase/config.toml` does this for a local stack.

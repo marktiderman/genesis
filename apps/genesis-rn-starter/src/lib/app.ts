@@ -16,6 +16,7 @@ import { assertEnv } from "./env";
 import { linkHold } from "./links";
 import { sessionReady, supabase } from "./supabase";
 import { createStarterPush } from "./push";
+import { createStarterSupport } from "./support";
 import { createStarterUpdates } from "./updates";
 
 const { features } = starter;
@@ -38,5 +39,7 @@ export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   keyboardScroll: features.keyboardScroll ? KeyboardAwareScrollView : undefined,
   links: features.deepLinks ? { hold: linkHold, onRelease: (path) => router.replace(path as Href) } : undefined,
   updates: features.updates ? createStarterUpdates() : undefined,
-  blocks: features.push ? [createStarterPush()] : undefined,
+  blocks: [...(features.push ? [createStarterPush()] : []), ...(features.support ? [createStarterSupport()] : [])],
+  // Support needs a signed-in person: the account feature (sign-in in AuthScreen) is the app's own, not a block.
+  appFeatures: ["account"],
 };

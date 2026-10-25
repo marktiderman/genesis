@@ -46,6 +46,9 @@
 -- them, screenshots and votes cascade; ideas and replies on other people's reports keep
 -- their text without the person). A deleted screenshot's storage object is queued in
 -- support_attachment_purges, because Supabase refuses direct deletes from storage.objects.
+-- Supabase documents that a login owning Storage objects can't be deleted (see 0001): where
+-- that holds, delete the person's reports first (their screenshots are queued) and run the
+-- cleanup function, then delete the account. Not verified against a hosted project.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped
 -- name. Never edit it once applied; change it with a new migration. It stands alone (it

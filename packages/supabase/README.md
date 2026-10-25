@@ -396,6 +396,49 @@ body or `data`.
 - **Scheduling for later.** A message held by quiet hours is answered with `quietUntil`, not queued:
   resend it then if it still matters.
 
+## Support (the support block)
+
+`migrations/0006_genesis_support.sql` is the database half of `@marktiderman/genesis-support`:
+reports (`support_reports`), their screenshots (`support_attachments`, in the private
+`genesis-support` bucket under `<user id>/<report id>/`), the conversation on each
+(`support_replies`), the idea board (`support_ideas`) and one vote per person and idea
+(`support_idea_votes`). Copy it and its test (`migrations/tests/0006_genesis_support.test.sql`)
+into your app under a new timestamp; it stands alone.
+
+- **Who sees what.** A person sees, edits while open and deletes their own reports, replies on
+  them and sees their own screenshots. Every signed-in person reads the idea board; a person sees
+  only their own votes, and the count is kept on the idea by a trigger. anon reaches nothing.
+- **Staff** are whoever `private.genesis_support_staff(person uuid) returns boolean` says, a hook
+  you add (like the tenant-admin hook of 0004). Without it nobody is staff. Staff read every report
+  and screenshot, reply, and set statuses through `support_set_report_status` and
+  `support_set_idea_status` (shipped stamps `shipped_at` and takes the FeatureId it shipped as).
+- **The server's columns.** Status, owner, feature id, read receipts and vote counts can't be
+  written by a person (column privileges); a reply's author and staff flag come from the session.
+- **Vote stuffing.** One vote per person and idea (the primary key); a Supabase anonymous sign-in
+  (`is_anonymous`) can report but never vote or suggest; votes only on open, planned and in
+  progress ideas; at most 10 ideas per person a day.
+- **Screenshots.** Uploads only into the person's own open report's folder, no overwrite and no
+  delete by anyone but the service role; images only, 5 MB each, at most 5 per report. Deleting a
+  report or an account queues its objects in `support_attachment_purges` (Supabase refuses direct
+  deletes from `storage.objects`); the cleanup function removes them.
+- **Limits** raise SQLSTATE `GS429`: 20 reports and 60 replies per person an hour.
+
+Functions (templates; copy the folder into `supabase/functions/`):
+
+| Function | What it does | Secrets |
+|---|---|---|
+| `genesis-support-intake` | The wire contract over HTTP (boot, submit, list) for clients without supabase-js; acts as the caller, never the service role | `GENESIS_SUPPORT_ORIGINS` (web origins) |
+| `genesis-support-notify` | A Database Webhook on new reports: a GitHub issue per report and/or a signed webhook, with a summary only (no person, device, context or screenshot) | `GENESIS_SUPPORT_WEBHOOK_SECRET`, `GITHUB_TOKEN` + `GITHUB_REPO`, `SUPPORT_WEBHOOK_URL` (+ `SUPPORT_WEBHOOK_SIGNING_SECRET`) |
+| `genesis-support-cleanup` | On a schedule: removes queued and orphaned screenshots through the Storage API | `GENESIS_SUPPORT_CLEANUP_SECRET` |
+
+All three deploy with `verify_jwt = false` (each checks its caller or secret itself).
+
+### Not covered yet
+
+- Not applied to a hosted project yet: the SQL is pgTAP-tested on a local database and the
+  functions unit-tested with fakes.
+- Staff screens, Realtime, and an email when staff reply.
+
 ## Tenant features
 
 Per-tenant switches for shipped features: a tenant's admins turn a feature off (or back on) for
