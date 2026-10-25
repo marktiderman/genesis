@@ -43,6 +43,18 @@ describe("InboxPage", () => {
     expect(onEmptyAction).toHaveBeenCalled();
   });
 
+  it("shows a spinner while the first page loads, and an error (with Try again) when the read failed", () => {
+    const onRefresh = vi.fn();
+    const { unmount } = render(<InboxPage testID="inbox" items={[]} loading emptyTitle="No reports" />);
+    expect(screen.getByTestId("inbox-loading")).toBeTruthy();
+    expect(screen.queryByTestId("inbox-empty")).toBeNull();
+    unmount();
+    render(<InboxPage testID="inbox" items={[]} error errorTitle="Couldn't load" onRefresh={onRefresh} />);
+    expect(screen.getByTestId("inbox-error").textContent).toContain("Couldn't load");
+    fireEvent.click(screen.getByTestId("inbox-error-action"));
+    expect(onRefresh).toHaveBeenCalled();
+  });
+
   it("renders every row with its time, preview and status, newest first as given", () => {
     render(<InboxPage testID="inbox" items={items} now={now} />);
     const rows = ["a", "b", "c"].map((id) => screen.getByTestId(`inbox-row-${id}`));

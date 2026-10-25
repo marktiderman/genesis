@@ -8,7 +8,7 @@
  * Plain views and React Native's PanResponder: no Skia, SVG or gesture library.
  */
 import { useRef, useState, type ComponentRef } from "react";
-import { Image, PanResponder, View, type LayoutChangeEvent } from "react-native";
+import { Dimensions, Image, PanResponder, View, type LayoutChangeEvent } from "react-native";
 import { NativeButton, NativeSegmentedControl, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import type { SupportCopy } from "../copy";
@@ -37,6 +37,12 @@ export function strokeDots(points: readonly Point[], spacing = DOT / 2): Point[]
   return dots;
 }
 
+/** A point inside the picture; a missing or odd coordinate counts as its edge. */
+export function clamp(p: Point, size: { width: number; height: number }): Point {
+  const fix = (v: number, max: number) => (Number.isFinite(v) ? Math.min(Math.max(v, 0), max || v) : 0);
+  return { x: fix(p.x, size.width), y: fix(p.y, size.height) };
+}
+
 export function boxOf(from: Point, to: Point) {
   return { left: Math.min(from.x, to.x), top: Math.min(from.y, to.y), width: Math.abs(to.x - from.x), height: Math.abs(to.y - from.y) };
 }
@@ -54,7 +60,12 @@ export interface ScreenshotAnnotatorProps {
 
 export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCancel, testID = "genesis-support-annotator" }: ScreenshotAnnotatorProps) {
   const colors = useThemeRoles();
-  const surface = useRef<ComponentRef<typeof View>>(null);
+  const surface = useRef<ComponentRef<typeof View> | null>(null);
+  // A callback ref, not the ref object: NativeWind's interop walks object props on re-render, and
+  // walking a mounted view's instance throws (it reaches navigation contexts).
+  const setSurface = useRef((node: ComponentRef<typeof View> | null) => {
+    surface.current = node;
+  }).current;
   const [tool, setTool] = useState<"pen" | "hide">("pen");
   const [marks, setMarks] = useState<Mark[]>([]);
   const [draft, setDraft] = useState<Mark | null>(null);
@@ -65,7 +76,14 @@ export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCanc
   toolRef.current = tool;
   const draftRef = useRef<Mark | null>(null);
 
-  const height = width ? Math.round((width * screenshot.height) / Math.max(1, screenshot.width)) : 0;
+  // The whole picture on screen with the buttons under it: at most about half the window tall.
+  const ratio = screenshot.width / Math.max(1, screenshot.height);
+  const maxHeight = Math.round(Dimensions.get("window").height * 0.55);
+  const fitWidth = width ? Math.min(width, Math.round(maxHeight * ratio)) : 0;
+  const height = fitWidth ? Math.round(fitWidth / ratio) : 0;
+  const size = useRef({ width: 0, height: 0 });
+  size.current = { width: fitWidth, height };
+  const start = useRef<Point>({ x: 0, y: 0 });
 
   const responder = useRef(
     PanResponder.create({
@@ -74,12 +92,14 @@ export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCanc
       // Drawing inside a scroll view: keep the touch, don't hand it to the scroll.
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (event) => {
-        const p = { x: event.nativeEvent.locationX, y: event.nativeEvent.locationY };
+        const p = clamp({ x: event.nativeEvent.locationX, y: event.nativeEvent.locationY }, size.current);
+        start.current = p;
         draftRef.current = toolRef.current === "pen" ? { kind: "pen", points: [p] } : { kind: "hide", from: p, to: p };
         setDraft(draftRef.current);
       },
-      onPanResponderMove: (event) => {
-        const p = { x: event.nativeEvent.locationX, y: event.nativeEvent.locationY };
+      onPanResponderMove: (_event, gesture) => {
+        // From where the touch started, so a touch over a child or outside the picture stays in it.
+        const p = clamp({ x: start.current.x + gesture.dx, y: start.current.y + gesture.dy }, size.current);
         const d = draftRef.current;
         if (!d) return;
         draftRef.current = d.kind === "pen" ? { kind: "pen", points: [...d.points, p] } : { ...d, to: p };
@@ -91,9 +111,12 @@ export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCanc
         setDraft(null);
         if (d) setMarks((all) => [...all, d]);
       },
+      // A scroll view above can still take the touch (iOS's own pan): keep what was drawn so far.
       onPanResponderTerminate: () => {
+        const d = draftRef.current;
         draftRef.current = null;
         setDraft(null);
+        if (d) setMarks((all) => [...all, d]);
       },
     }),
   ).current;
@@ -106,7 +129,7 @@ export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCanc
     setSaving(true);
     setFailed(false);
     try {
-      const uri = await viewShot.captureRef(surface, { format: "jpg", quality: 0.85, result: "data-uri" });
+      const uri = await viewShot.captureRef(surface.current, { format: "jpg", quality: 0.85, result: "data-uri" });
       setSaving(false);
       onDone({ ...screenshot, uri, contentType: "image/jpeg" }, true);
     } catch {
@@ -131,7 +154,7 @@ export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCanc
         onChange={(v) => setTool(v as "pen" | "hide")}
       />
       <View onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)} style={{ width: "100%" }}>
-        <View ref={surface} collapsable={false} testID={`${testID}-surface`} style={{ width: width || "100%", height: height || 320, overflow: "hidden", borderRadius: 12 }} {...responder.panHandlers}>
+        <View ref={setSurface} collapsable={false} testID={`${testID}-surface`} style={{ alignSelf: "center", width: fitWidth || "100%", height: height || 320, overflow: "hidden", borderRadius: 12 }} {...responder.panHandlers}>
           <Image source={{ uri: screenshot.uri }} style={{ width: "100%", height: "100%" }} resizeMode="stretch" accessibilityIgnoresInvertColors />
           {all.map((mark, i) => {
             if (mark.kind === "hide") {

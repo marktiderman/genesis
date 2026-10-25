@@ -26,6 +26,9 @@ export interface NativeSegmentedControlProps<T = string> {
   testID?: string;
 }
 
+const SELECTED_LIFT = { shadowColor: "black", shadowOpacity: 0.08, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 } as const;
+const UNSELECTED_LIFT = { shadowColor: "black", shadowOpacity: 0, shadowRadius: 0, shadowOffset: { width: 0, height: 0 }, elevation: 0 } as const;
+
 export function NativeSegmentedControl<T = string>({
   options,
   value,
@@ -60,8 +63,11 @@ export function NativeSegmentedControl<T = string>({
             onPress={() => onChange(opt.value)}
             className={cn(
               "min-h-[36px] flex-1 items-center justify-center rounded px-3 py-1",
-              selected && "bg-background shadow-sm"
+              selected && "bg-background"
             )}
+            // The lift as a style, not a `shadow-sm` class toggled on select: NativeWind treats a
+            // shadow class that appears later as an upgrade and, in development, crashes printing it.
+            style={selected ? SELECTED_LIFT : UNSELECTED_LIFT}
           >
             <Text
               className={cn(

@@ -9,7 +9,7 @@
 -- request.jwt.claim.sub on older images), so pg_temp.sign_in sets both.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(118);
+select plan(119);
 
 -- People: a1 reports, b2 is someone else, c3 is staff (once the hook exists),
 -- d4 is a Supabase anonymous sign-in, e5 never votes.
@@ -237,6 +237,7 @@ select is(
   'the person sees the status and feature staff set'
 );
 select is(pg_temp.affected($q$ update public.support_reports set message = 'changed' $q$), 0, 'a report staff picked up is no longer editable');
+
 select throws_ok(
   $$ select public.support_set_report_status(pg_temp.id('r1'), 'addressed') $$,
   '42501', null, 'the person cannot set the status either'
@@ -292,6 +293,15 @@ select ok(
   '... and it is read'
 );
 select is((select count(*)::int from public.support_replies), 2, 'the person reads both sides of the thread');
+reset role;
+select pg_temp.remember('r3', $$ insert into public.support_reports (user_id, message) values ('00000000-0000-4000-8000-0000000000a1', 'Answered') returning id $$);
+select pg_temp.sign_in('c3');
+set local role authenticated;
+insert into public.support_replies (report_id, body) values (pg_temp.id('r3'), 'Here is how');
+reset role;
+select pg_temp.sign_in('a1');
+set local role authenticated;
+select is(pg_temp.affected($q$ update public.support_reports set message = 'Rewritten' where id = pg_temp.id('r3') $q$), 0, 'once staff answer, the report is no longer editable');
 
 -- Screenshots ---------------------------------------------------------------------------
 select pg_temp.remember('r2', $$ insert into public.support_reports (message) values ('Layout is off') returning id $$);

@@ -133,13 +133,18 @@ begin
 end;
 $$;
 
+-- updated_at moves when what was said or decided changes, not when a thread is read or a
+-- vote is counted.
 create or replace function private.genesis_support_touch()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 begin
-  new.updated_at := now();
+  if (to_jsonb(new) - array['updated_at', 'user_read_at', 'staff_read_at', 'last_user_reply_at', 'last_staff_reply_at', 'vote_count'])
+     is distinct from (to_jsonb(old) - array['updated_at', 'user_read_at', 'staff_read_at', 'last_user_reply_at', 'last_staff_reply_at', 'vote_count']) then
+    new.updated_at := now();
+  end if;
   return new;
 end;
 $$;
@@ -475,10 +480,11 @@ create policy support_reports_read on public.support_reports
 create policy support_reports_send on public.support_reports
   for insert to authenticated
   with check (user_id = (select auth.uid()));
+-- Only until staff pick it up or answer: nobody's reply ends up under words it didn't answer.
 create policy support_reports_edit on public.support_reports
   for update to authenticated
-  using (user_id = (select auth.uid()) and status = 'open')
-  with check (user_id = (select auth.uid()) and status = 'open');
+  using (user_id = (select auth.uid()) and status = 'open' and last_staff_reply_at is null)
+  with check (user_id = (select auth.uid()) and status = 'open' and last_staff_reply_at is null);
 create policy support_reports_delete on public.support_reports
   for delete to authenticated
   using (user_id = (select auth.uid()));
@@ -540,7 +546,8 @@ on conflict (id) do update
   set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 -- May the signed-in person upload `object_name`? Only `<own id>/<own open report>/<name>.<image>`,
--- and at most 5 objects in that report's folder. A function, so the policy can count the folder.
+-- within an hour of sending the report, and at most 5 objects in its folder. A function, so the
+-- policy can count the folder.
 create or replace function public.support_can_upload(object_name text)
 returns boolean
 language plpgsql
@@ -558,7 +565,8 @@ begin
     return false;
   end if;
   if not exists (select 1 from public.support_reports r
-                 where r.id::text = split_part(object_name, '/', 2) and r.user_id = me and r.status = 'open') then
+                 where r.id::text = split_part(object_name, '/', 2) and r.user_id = me and r.status = 'open'
+                   and r.created_at > now() - interval '1 hour') then
     return false;
   end if;
   folder := split_part(object_name, '/', 1) || '/' || split_part(object_name, '/', 2) || '/';

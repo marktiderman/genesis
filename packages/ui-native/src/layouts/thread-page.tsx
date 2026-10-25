@@ -72,8 +72,19 @@ export interface ThreadComposer {
   maxLength?: number;
 }
 
+/** What the default parts say. */
+export interface ThreadLabels {
+  /** Who "mine" is, to VoiceOver. */
+  you: string;
+  sending: string;
+  notSent: string;
+  retryHint: string;
+}
+
+const DEFAULT_LABELS: ThreadLabels = { you: "You", sending: "Sending", notSent: "Not sent. Tap to retry.", retryHint: "Double tap to send again" };
+
 export type ThreadPageSlotMap = {
-  message: ThreadMessage & { testID: string; timeLabel: string; showReadReceipt: boolean };
+  message: ThreadMessage & { testID: string; timeLabel: string; showReadReceipt: boolean; labels: ThreadLabels };
   attachment: ThreadAttachment & { testID: string; mine: boolean };
   readReceipt: { label: string; testID: string };
   /** `accessory` is the `composerAccessory` slot, already rendered. */
@@ -107,6 +118,8 @@ export interface ThreadPageProps extends ScreenHeaderProps {
   emptyTitle?: string;
   emptyBody?: string;
   formatTime?: (date: Date) => string;
+  /** The words the defaults say, for translating. */
+  labels?: Partial<ThreadLabels>;
   slots?: Slots<ThreadPageSlotMap>;
   slotProps?: SlotPropsFor<ThreadPageSlotMap>;
   /** testID on the root. Default `"thread-page"`. */
@@ -160,6 +173,7 @@ export function ThreadPage({
   emptyTitle,
   emptyBody,
   formatTime = defaultTime,
+  labels: labelOverrides,
   slots = {},
   slotProps = {},
   testID = "thread-page",
@@ -168,6 +182,7 @@ export function ThreadPage({
   const KeyboardScroll = useKeyboardScroll();
   const scrollRef = useRef<ScrollLike | null>(null);
   const receiptFor = readReceiptFor(messages, readAt);
+  const labels: ThreadLabels = { ...DEFAULT_LABELS, ...labelOverrides };
   const newest = messages[messages.length - 1]?.id;
 
   // Keep the newest message in view when one arrives (or is sent).
@@ -204,6 +219,7 @@ export function ThreadPage({
                     testID: `${testID}-message-${message.id}`,
                     timeLabel: formatTime(toDate(message.timestamp)),
                     showReadReceipt: message.id === receiptFor,
+                    labels,
                   },
                   slotProps.message,
                 )}
@@ -308,10 +324,14 @@ function DefaultEmpty({ title, body, testID }: ThreadPageSlotMap["empty"]) {
   return <NativeEmptyState variant="first-run" title={title} body={body} testID={testID} />;
 }
 
+// No `color` key on mine: an undefined color in the style would override the class's.
+const MINE_TEXT = { fontSize: 17, lineHeight: 22 } as const;
+
 function DefaultMessage(message: ThreadPageSlotMap["message"]) {
   const colors = useThemeRoles();
   const failed = message.status === "failed";
-  const label = [message.mine ? "You" : (message.authorName ?? ""), message.body, message.timeLabel, failed ? "Not sent" : message.status === "sending" ? "Sending" : null]
+  const { labels } = message;
+  const label = [message.mine ? labels.you : (message.authorName ?? ""), message.body, message.timeLabel, failed ? labels.notSent : message.status === "sending" ? labels.sending : null]
     .filter(Boolean)
     .join(", ");
   return (
@@ -323,7 +343,7 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
         testID={message.testID}
         accessible
         accessibilityLabel={label}
-        accessibilityHint={failed && message.onRetry ? "Double tap to send again" : undefined}
+        accessibilityHint={failed && message.onRetry ? labels.retryHint : undefined}
         onPress={failed ? message.onRetry : undefined}
         style={{
           maxWidth: "80%",
@@ -334,7 +354,7 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
           opacity: message.status === "sending" ? 0.6 : 1,
         }}
       >
-        <NativeText className={message.mine ? "text-primary-foreground" : undefined} style={{ fontSize: 17, lineHeight: 22, color: message.mine ? undefined : colors.label }}>
+        <NativeText className={message.mine ? "text-primary-foreground" : undefined} style={message.mine ? MINE_TEXT : { ...MINE_TEXT, color: colors.label }}>
           {message.body}
         </NativeText>
       </Pressable>
@@ -342,7 +362,7 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
         testID={`${message.testID}-time`}
         style={{ marginTop: 2, marginHorizontal: 12, color: failed ? colors.destructive : colors.tertiaryLabel, fontSize: 11, lineHeight: 14 }}
       >
-        {failed ? "Not sent. Tap to retry." : message.timeLabel}
+        {failed ? labels.notSent : message.timeLabel}
       </NativeText>
     </View>
   );

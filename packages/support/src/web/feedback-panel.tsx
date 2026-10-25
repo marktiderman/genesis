@@ -236,6 +236,19 @@ function MyReports({ load, copy, refreshKey }: { load: NonNullable<SupportClient
   );
 }
 
+/** The box being dragged, while it is dragged. */
+function DraftBox({ drag }: { drag: { start: { x: number; y: number }; points: Stroke } }) {
+  const end = drag.points[drag.points.length - 1] ?? drag.start;
+  const x = Math.min(drag.start.x, end.x);
+  const y = Math.min(drag.start.y, end.y);
+  return (
+    <div
+      className="pointer-events-none absolute border-2 border-dashed border-foreground bg-foreground/60"
+      style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: `${Math.abs(end.x - drag.start.x) * 100}%`, height: `${Math.abs(end.y - drag.start.y) * 100}%` }}
+    />
+  );
+}
+
 /** Pen strokes and hidden areas, in fractions of the image. */
 export interface Marks {
   strokes: Stroke[];
@@ -302,10 +315,13 @@ function ScreenshotEditor({
         className="relative cursor-crosshair touch-none overflow-hidden rounded-md border"
         data-testid="genesis-support-screenshot-surface"
         onPointerDown={(e) => {
+          // Keep the gesture when the pointer leaves the image, so a release outside still ends it.
+          e.currentTarget.setPointerCapture?.(e.pointerId);
           const p = point(e);
           setDrag({ start: p, points: [p] });
         }}
-        onPointerMove={(e) => drag && tool === "pen" && setDrag({ ...drag, points: [...drag.points, point(e)] })}
+        onPointerCancel={() => setDrag(null)}
+        onPointerMove={(e) => drag && setDrag({ ...drag, points: tool === "pen" ? [...drag.points, point(e)] : [drag.start, point(e)] })}
         onPointerUp={(e) => finish(point(e))}
       >
         <img src={shot.dataUrl} alt={copy.feedback.screenshotLabel} className="block w-full select-none" draggable={false} />
@@ -322,6 +338,7 @@ function ScreenshotEditor({
             />
           ))}
         </svg>
+        {drag && tool === "hide" ? <DraftBox drag={drag} /> : null}
         {marks.redactions.map((r, i) => (
           <div
             key={i}

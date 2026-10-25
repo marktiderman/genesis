@@ -7,7 +7,8 @@
  *   <SettingsSubPage testID="support-feedback"><FeedbackForm onSent={() => router.back()} /></SettingsSubPage>
  */
 import { useEffect, useState } from "react";
-import { Alert, Image, View } from "react-native";
+import { Alert, Image, Modal, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { NativeButton, NativeLabel, NativeSegmentedControl, NativeSwitch, NativeText, NativeTextarea } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -76,27 +77,6 @@ export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-su
     }
   };
 
-  if (annotating && screenshot && block.options.viewShot) {
-    return (
-      <ScreenshotAnnotator
-        screenshot={screenshot}
-        viewShot={block.options.viewShot}
-        copy={copy.annotate}
-        onCancel={(hadMarks) => {
-          // Marks left unsaved: the screenshot would go without the parts the person meant to hide.
-          if (hadMarks) setInclude(false);
-          setAnnotating(false);
-        }}
-        onDone={(next, marked) => {
-          setScreenshot(next);
-          if (marked) setInclude(true);
-          setAnnotating(false);
-        }}
-        testID={`${testID}-annotator`}
-      />
-    );
-  }
-
   return (
     <View testID={testID} style={{ gap: 16 }}>
       <View style={{ gap: 8 }}>
@@ -157,6 +137,31 @@ export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-su
             </View>
           </View>
         </View>
+      ) : null}
+      {/* Full screen, outside the page's scroll view: on iOS a scroll view takes a drag before the drawing can. */}
+      {annotating && screenshot && block.options.viewShot ? (
+        <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setAnnotating(false)}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <View style={{ flex: 1, padding: 16, justifyContent: "center" }}>
+              <ScreenshotAnnotator
+                screenshot={screenshot}
+                viewShot={block.options.viewShot}
+                copy={copy.annotate}
+                onCancel={(hadMarks) => {
+                  // Marks left unsaved: the screenshot would go without the parts the person meant to hide.
+                  if (hadMarks) setInclude(false);
+                  setAnnotating(false);
+                }}
+                onDone={(next, marked) => {
+                  setScreenshot(next);
+                  if (marked) setInclude(true);
+                  setAnnotating(false);
+                }}
+                testID={`${testID}-annotator`}
+              />
+            </View>
+          </SafeAreaView>
+        </Modal>
       ) : null}
       <NativeButton onPress={() => void send()} loading={sending} disabled={sending} testID={`${testID}-send`}>
         {sending ? copy.feedback.sending : copy.feedback.send}

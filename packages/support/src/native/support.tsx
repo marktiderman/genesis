@@ -220,7 +220,9 @@ export function createSupport(options: SupportOptions): SupportBlock {
     currentRoute: () => route,
     Root: function SupportRoot({ children }) {
       const current = (options.useCurrentRoute ?? noRoute)();
-      route = current || route;
+      useEffect(() => {
+        if (current) route = current;
+      }, [current]);
       useEffect(() => {
         if (!options.accelerometer || options.shake === false) return;
         try {

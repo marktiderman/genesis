@@ -104,7 +104,7 @@ export interface SupportClient extends FeedbackSink {
   /** Deletes the person's own report; its screenshots are queued for removal. */
   deleteReport(reportId: string): Promise<void>;
   attachments(reportId: string): Promise<SupportAttachmentView[]>;
-  /** The board, most votes first. Hidden ideas are left out (except the person's own). */
+  /** The board, most votes first. Hidden ideas are left out, the person's own included. */
   ideas(options?: { limit?: number; statuses?: IdeaStatus[] }): Promise<SupportIdea[]>;
   suggestIdea(input: { title: string; body?: string }): Promise<SupportIdea>;
   vote(ideaId: string): Promise<void>;

@@ -23,8 +23,8 @@ const key = (...parts: string[]) => [SUPPORT_QUERY_ROOT, ...parts];
 
 type InboxProps = Pick<
   InboxPageProps,
-  "items" | "refreshing" | "onRefresh" | "emptyTitle" | "emptyBody" | "emptyActionLabel" | "onEmptyAction" | "sectionTitle" | "header" | "testID"
-> & { headerTitle: string; loading: boolean; error: boolean };
+  "items" | "refreshing" | "onRefresh" | "emptyTitle" | "emptyBody" | "emptyActionLabel" | "onEmptyAction" | "sectionTitle" | "header" | "testID" | "loading" | "error" | "errorTitle" | "errorBody"
+> & { headerTitle: string };
 
 /** Help: the person's reports, newest first, with unread staff replies, and links to the idea board. */
 export function useSupportInbox(): InboxProps {
@@ -93,6 +93,8 @@ export function useSupportInbox(): InboxProps {
     header,
     emptyTitle: copy.inbox.emptyTitle,
     emptyBody: copy.inbox.emptyBody,
+    errorTitle: copy.inbox.errorTitle,
+    errorBody: copy.inbox.errorBody,
   };
 }
 
@@ -101,10 +103,12 @@ function firstLine(text: string): string {
   return line.length > 120 ? `${line.slice(0, 119)}…` : line;
 }
 
-type ThreadProps = Pick<ThreadPageProps, "messages" | "composer" | "closedNotice" | "readAt" | "readLabel" | "emptyTitle" | "emptyBody" | "testID"> & {
+type ThreadProps = Pick<ThreadPageProps, "messages" | "composer" | "closedNotice" | "readAt" | "readLabel" | "emptyTitle" | "emptyBody" | "labels" | "testID"> & {
   headerTitle: string;
   report: SupportReport | null;
   loading: boolean;
+  /** Read, and there is no such report (deleted, or not the person's): leave the screen. */
+  notFound: boolean;
 };
 
 const CLOSED = new Set(["addressed", "wont_fix"]);
@@ -180,6 +184,8 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
     headerTitle: r ? r.title || copy.feedback.types[r.type] : copy.thread.title,
     report: r,
     loading: report.isPending,
+    notFound: report.isSuccess && r === null,
+    labels: { you: copy.thread.you, sending: copy.thread.sending, notSent: copy.thread.notSent, retryHint: copy.thread.retryHint },
     messages,
     readAt: r?.staffReadAt ?? null,
     readLabel: copy.thread.read,
@@ -219,7 +225,9 @@ export function VoteButton({ idea, onToggle, testID }: { idea: SupportIdea; onTo
   );
 }
 
-type BoardProps = Pick<InboxPageProps, "items" | "refreshing" | "onRefresh" | "emptyTitle" | "emptyBody" | "header" | "testID"> & { headerTitle: string };
+type BoardProps = Pick<InboxPageProps, "items" | "refreshing" | "onRefresh" | "emptyTitle" | "emptyBody" | "header" | "testID" | "loading" | "error" | "errorTitle" | "errorBody"> & {
+  headerTitle: string;
+};
 
 /** The idea board: most votes first, a vote button on each, and a field to suggest one. */
 export function useIdeaBoard(): BoardProps {
@@ -259,6 +267,8 @@ export function useIdeaBoard(): BoardProps {
     title: idea.title,
     preview: idea.body ?? undefined,
     meta: copy.ideas.statuses[idea.status],
+    // Swipe or long press: the same vote, for people who don't see the button.
+    swipeActions: [{ id: "vote", label: idea.voted ? copy.ideas.voted : copy.ideas.vote, onPress: () => toggle.mutate(idea) }],
     leading: <View />,
     trailing: <VoteButton idea={idea} onToggle={() => toggle.mutate(idea)} testID={`genesis-support-vote-${idea.id}`} />,
     testID: `genesis-support-idea-${idea.id}`,
@@ -296,6 +306,10 @@ export function useIdeaBoard(): BoardProps {
       await query.refetch();
     },
     header,
+    loading: query.isPending,
+    error: query.isError,
+    errorTitle: copy.inbox.errorTitle,
+    errorBody: copy.inbox.errorBody,
     emptyTitle: copy.ideas.emptyTitle,
     emptyBody: copy.ideas.emptyBody,
   };
@@ -322,6 +336,10 @@ export function useShippedIdeas(): Omit<BoardProps, "header"> {
     onRefresh: async () => {
       await query.refetch();
     },
+    loading: query.isPending,
+    error: query.isError,
+    errorTitle: copy.inbox.errorTitle,
+    errorBody: copy.inbox.errorBody,
     emptyTitle: copy.shipped.emptyTitle,
     emptyBody: copy.shipped.emptyBody,
   };

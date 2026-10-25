@@ -69,6 +69,7 @@ export {
   readReceiptFor,
   type ThreadAttachment,
   type ThreadComposer,
+  type ThreadLabels,
   type ThreadMessage,
   type ThreadPageProps,
   type ThreadPageSlotMap,

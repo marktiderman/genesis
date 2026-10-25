@@ -11,7 +11,9 @@ export default function SupportThreadScreen() {
 }
 
 function Thread({ id }: { id: string }) {
-  const { headerTitle, ...thread } = useSupportThread(id);
+  const { headerTitle, notFound, ...thread } = useSupportThread(id);
+  // Deleted, or not yours: back to the list.
+  if (notFound) return <Redirect href="/settings/support" />;
   return (
     <>
       <Stack.Screen options={getThreadPageStackOptions({ headerTitle })} />

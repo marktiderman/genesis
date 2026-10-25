@@ -94,6 +94,12 @@ export interface InboxPageProps extends ScreenHeaderProps {
   sectionTitle?: string;
   emptyTitle?: string;
   emptyBody?: string;
+  /** The first page is loading: a spinner instead of the empty state. */
+  loading?: boolean;
+  /** The read failed: the empty slot shows `errorTitle` / `errorBody` instead (and pull to refresh retries). */
+  error?: boolean;
+  errorTitle?: string;
+  errorBody?: string;
   /** A button in the empty state ("Send feedback"). */
   emptyActionLabel?: string;
   onEmptyAction?: () => void;
@@ -150,6 +156,10 @@ export function InboxPage({
   emptyBody,
   emptyActionLabel,
   onEmptyAction,
+  loading = false,
+  error = false,
+  errorTitle,
+  errorBody,
   formatTime = formatInboxTime,
   now = () => new Date(),
   slots = {},
@@ -177,17 +187,31 @@ export function InboxPage({
     return (
       <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
         {headerNode}
-        {renderSlot(
-          DefaultEmpty,
-          slots.empty,
-          {
-            title: emptyTitle ?? "Nothing here yet",
-            body: emptyBody ?? "When there's something new, it shows up here.",
-            actionLabel: emptyActionLabel,
-            onAction: onEmptyAction,
-            testID: `${testID}-empty`,
-          },
-          slotProps.empty,
+        {loading ? (
+          <View testID={`${testID}-loading`} style={{ paddingVertical: 32 }}>
+            <ActivityIndicator accessibilityLabel="Loading" />
+          </View>
+        ) : (
+          renderSlot(
+            DefaultEmpty,
+            slots.empty,
+            error
+              ? {
+                  title: errorTitle ?? "Couldn't load this",
+                  body: errorBody ?? "Check your connection, then pull to refresh.",
+                  actionLabel: onRefresh ? "Try again" : undefined,
+                  onAction: onRefresh ? () => void onRefresh() : undefined,
+                  testID: `${testID}-error`,
+                }
+              : {
+                  title: emptyTitle ?? "Nothing here yet",
+                  body: emptyBody ?? "When there's something new, it shows up here.",
+                  actionLabel: emptyActionLabel,
+                  onAction: onEmptyAction,
+                  testID: `${testID}-empty`,
+                },
+            slotProps.empty,
+          )
         )}
       </SafeAreaView>
     );

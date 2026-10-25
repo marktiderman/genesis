@@ -6,9 +6,9 @@
  */
 
 export interface WebCapture {
-  /** `data:image/webp;base64,…` (or png where webp isn't supported). */
+  /** `data:image/webp;base64,…` (or JPEG where WebP isn't encoded). */
   dataUrl: string;
-  contentType: "image/webp" | "image/png";
+  contentType: "image/webp" | "image/jpeg";
   width: number;
   height: number;
 }
@@ -56,10 +56,22 @@ export async function captureScreenshot(doc: Document = document): Promise<WebCa
   }
 }
 
-function fromCanvas(canvas: HTMLCanvasElement): WebCapture {
+/** The longest side a screenshot keeps: enough to read, well under the bucket's 5 MB. */
+export const MAX_SCREENSHOT_SIDE = 2000;
+
+function fromCanvas(source: HTMLCanvasElement): WebCapture {
+  let canvas = source;
+  const scale = Math.min(1, MAX_SCREENSHOT_SIDE / Math.max(source.width, source.height));
+  if (scale < 1) {
+    canvas = source.ownerDocument.createElement("canvas");
+    canvas.width = Math.round(source.width * scale);
+    canvas.height = Math.round(source.height * scale);
+    canvas.getContext("2d")?.drawImage(source, 0, 0, canvas.width, canvas.height);
+  }
+  // WebP where the browser encodes it, else JPEG (never PNG: a full tab as PNG can pass 5 MB).
   const webp = canvas.toDataURL("image/webp", 0.9);
-  const isWebp = webp.startsWith("data:image/webp");
-  return { dataUrl: isWebp ? webp : canvas.toDataURL("image/png"), contentType: isWebp ? "image/webp" : "image/png", width: canvas.width, height: canvas.height };
+  if (webp.startsWith("data:image/webp")) return { dataUrl: webp, contentType: "image/webp", width: canvas.width, height: canvas.height };
+  return { dataUrl: canvas.toDataURL("image/jpeg", 0.88), contentType: "image/jpeg", width: canvas.width, height: canvas.height };
 }
 
 /** A stroke in fractions of the image (0 to 1), so it survives resizing. */
