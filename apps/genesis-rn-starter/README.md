@@ -99,6 +99,19 @@ import at the top of that file, and its package from `package.json`. FlashList v
 needs the New Architecture (the starter's default). Liquid Glass needs a build made with Xcode 26
 and iOS 26 on the device; otherwise the surfaces stay solid.
 
+## Entry file
+
+`package.json`'s `main` is `index.ts`, not `expo-router/entry`. In development it first keeps the
+warnings the app can't act on out of LogBox (`ignoreKnownDependencyWarnings` from
+`@marktiderman/genesis-native/dev-warnings`), then requires expo-router's entry. Why: in React
+Native 0.88 (Expo SDK 58) the first warning pins LogBox's "Open debugger to view warnings." pill to
+the bottom of the screen, over the native tab bar, so the first tab tap after a launch (or after a
+link brought the app forward) lands on the pill and seems ignored; the second works. The warning
+was NativeWind's runtime reading React Native's deprecated `ImageBackground` as expo-router loads
+the first screen, too early for anything in `_layout.tsx`. A warning your own code causes still
+shows the pill: open the debugger (`j` in Metro) to read it, then fix it. Release builds have no
+LogBox.
+
 ## App variants
 
 `app.config.ts` lists the Genesis config plugin (`withGenesis()`, from `@marktiderman/genesis-cli`).
