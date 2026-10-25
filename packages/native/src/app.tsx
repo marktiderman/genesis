@@ -48,6 +48,8 @@ import { resolveBlocks } from "@marktiderman/genesis-features/blocks";
 import { BlocksProvider, type NativeBlock } from "./blocks";
 // Types only: the block's code is in the `/updates` entry and arrives with the `updates` prop.
 import type { UpdatesBlock, UpdatesSlots } from "./updates/block";
+// Types only, likewise: the push block (`/push`) arrives in `blocks`.
+import type { PushSlots } from "./push/block";
 
 /** `expo-splash-screen`, or a stand-in. Call `preventAutoHideAsync()` at module scope yourself too. */
 export interface SplashModule {
@@ -67,7 +69,7 @@ export interface SignedOutProps {
 // A type, not an interface, so it fits the slots contract's Record constraint.
 // The updates block's slots (`forceUpgrade`, `maintenance`, `updateBanner`,
 // `whatsNew`) render only when the `updates` prop is given.
-export type NativeAppSlots = UpdatesSlots & {
+export type NativeAppSlots = UpdatesSlots & PushSlots & {
   /** Shown while booting: under the splash at launch, on its own after "Try again". Default `BootScreen`. */
   boot: BootScreenProps;
   /** A failed boot, a fatal global error or a render error. Default `FatalScreen`. */
@@ -385,6 +387,7 @@ const SLOT_NAMES: Record<keyof NativeAppSlots, true> = {
   maintenance: true,
   updateBanner: true,
   whatsNew: true,
+  pushPrompt: true,
 };
 const NATIVE_APP_SLOT_NAMES: readonly string[] = Object.keys(SLOT_NAMES);
 

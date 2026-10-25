@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { index: "src/index.ts", persist: "src/persist.ts", updates: "src/updates/index.ts" },
+  entry: { index: "src/index.ts", persist: "src/persist.ts", updates: "src/updates/index.ts", push: "src/push/index.ts" },
   format: ["esm"],
   dts: true,
   sourcemap: true,

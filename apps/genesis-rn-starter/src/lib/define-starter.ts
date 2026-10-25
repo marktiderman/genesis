@@ -49,6 +49,14 @@ export interface StarterFeatures {
    * Settings. JavaScript only: turning it off leaves the native build and its fingerprint alone.
    */
   updates: boolean;
+  /**
+   * The push block (`createPush`): this device's push token on sign-in and off on sign-out, taps
+   * routed through the deep-link map, the badge, the soft prompt (offered on the Notifications tab,
+   * never at launch) and Settings → Notifications (categories, quiet hours, previews), on the
+   * `push_devices` and `notification_preferences` migration. JavaScript only: expo-notifications
+   * stays in the build either way. Needs an EAS project id for a push token.
+   */
+  push: boolean;
 }
 
 export interface StarterConfig {

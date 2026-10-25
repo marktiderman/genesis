@@ -20,3 +20,7 @@ secret = ""
 # check is off. Secrets: APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY, APPLE_CLIENT_IDS.
 [functions.genesis-apple-revoke]
 verify_jwt = false
+
+# Checks GENESIS_PUSH_SECRET itself; never called by the app.
+[functions.genesis-push-send]
+verify_jwt = false
