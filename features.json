@@ -2733,6 +2733,7 @@
       "summary": "@marktiderman/genesis-chat, in the app's own Supabase (the genesis_chat schema): conversations of kinds the app registers (direct, group, its own such as a cohort or a support ticket) with start and observer checks the app writes, members with roles and read state (last_read_seq), messages numbered per conversation with an idempotent client id, replies, one level of threads, topics, mentions, reactions, edits, tombstoned deletes and internal notes for observers; photos, files, voice notes with waveforms and videos in a private bucket; live hints on private Realtime topics with typing and recording signals; pins, saved messages and reports; an outbox (push, transcripts, storage cleanup) worked by a server runner. A headless core, React hooks, and web and native renderers on Genesis UI.",
       "category": "Social",
       "status": "building",
+      "horizon": "now",
       "claimedBy": "mark",
       "layer": "block",
       "keywords": [
