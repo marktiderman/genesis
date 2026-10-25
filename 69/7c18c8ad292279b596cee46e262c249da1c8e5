@@ -1,0 +1,38 @@
+packages/ui-native/src/layouts/notifications-page.tsx
+  s_8252619ce79a86::t_4393ca05728288 23,34,253-255
+packages/ui-native/src/components/__tests__/toast.test.tsx
+  s_8252619ce79a86::t_2b725c2b45a5bf 3-4,23-35
+packages/support/src/native/feedback-form.tsx
+  s_8252619ce79a86::t_9425e5bbac7833 22,24-25,29,72
+packages/support/src/__tests__/native.test.tsx
+  s_8252619ce79a86::t_2b725c2b45a5bf 134-148
+.changeset/toast-provider.md
+  s_8252619ce79a86::t_997c413a98f1d2 1-9
+apps/genesis-rn-starter/src/app/(app)/settings/support/new.tsx
+  s_8252619ce79a86::t_9425e5bbac7833 3,7-11,13,19-31
+apps/genesis-rn-starter/src/copy.ts
+  s_8252619ce79a86::t_9425e5bbac7833 95-98
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_9425e5bbac7833 8,33-40,155-160,277,286-287
+packages/ui-native/src/components/toast.tsx
+  s_8252619ce79a86::t_9425e5bbac7833 32,169-177,208,210,221,244
+packages/native/src/__tests__/app.test.tsx
+  s_8252619ce79a86::t_2b725c2b45a5bf 9,359-384
+  s_8252619ce79a86::t_382a1ad7b9a52f 385
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "697c18c8ad292279b596cee46e262c249da1c8e5",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
