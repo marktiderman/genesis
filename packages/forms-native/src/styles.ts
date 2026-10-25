@@ -145,6 +145,7 @@ export function formStyles(t: FormTheme) {
     photoName: tx({ fontSize: 12, color: t.secondaryLabel, padding: 4, textAlign: "center" }),
     photoRemove: v({ position: "absolute", top: 0, right: 0, minWidth: MIN_TARGET, minHeight: MIN_TARGET, alignItems: "flex-end", padding: 4 }),
     photoRemoveMark: tx({ width: 24, height: 24, borderRadius: 12, overflow: "hidden", textAlign: "center", lineHeight: 24, fontSize: 14, fontWeight: "700", color: t.label, backgroundColor: t.background }),
+    accessory: v({ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: t.separator, backgroundColor: t.surface }),
     loading: v({ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }),
   };
 }

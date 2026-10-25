@@ -57,12 +57,15 @@ async function send(item: { id: string }): Promise<SubmitResult> {
   return { ok: true, id: `stub-${item.id}`, receivedAt: new Date().toISOString() };
 }
 
+/** Idempotency keys: one per check-in, so a retry is stored once. */
+export const checkInKey = (): string => Crypto.randomUUID();
+
 /** One outbox for the whole app: submissions wait on the phone until the server has them. */
 export const checkInOutbox = createSubmitOutbox({
   storage: AsyncStorage,
   prefix: "genesis-starter:check-in-outbox",
   send,
-  createKey: Crypto.randomUUID,
+  createKey: checkInKey,
 });
 checkInOutbox.start();
 NetInfo.addEventListener((state) => checkInOutbox.setOnline(state.isConnected !== false && state.isInternetReachable !== false));

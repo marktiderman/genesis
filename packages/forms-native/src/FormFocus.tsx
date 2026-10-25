@@ -8,6 +8,7 @@ import {
   createElement,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -215,9 +216,22 @@ const STATUS_MESSAGES: Record<SubmissionStatus, string> = {
   failed: "We couldn't send your answers. They're kept on this device.",
 };
 
-function randomKey(): string | undefined {
+/**
+ * An idempotency key: `crypto.randomUUID` where there is one, else a random v4-shaped id (Hermes
+ * has no `crypto` without a polyfill). Never none, so a retry always queues the same submission.
+ */
+export function randomKey(): string {
   const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  return typeof c?.randomUUID === "function" ? c.randomUUID() : undefined;
+  if (typeof c?.randomUUID === "function") return c.randomUUID();
+  const hex = (n: number) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+  return `${hex(8)}-${hex(4)}-4${hex(3)}-${"89ab"[Math.floor(Math.random() * 4)]}${hex(3)}-${hex(12)}`;
+}
+
+/** Said when a send (or storing it on the device) failed. */
+export function failedMessage(queued: boolean, retryLabel: string): string {
+  return queued
+    ? `We couldn't save your answers on this device. Press ${retryLabel} to save them again.`
+    : `We couldn't send your answers. They're kept here: press ${retryLabel} to send them again.`;
 }
 
 function FormBody(props: FormFocusProps & { engine: FormEngine }) {
@@ -255,22 +269,27 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
   latest.current = props;
   const keyRef = useRef<string | undefined>(undefined);
   const [queued, setQueued] = useState<string | null>(null);
+  // The submission once it is stored: a retry after that never queues it again.
+  const queuedItem = useRef<OutboxItemLike | null>(null);
 
   const send = async (e: FormEngine) => {
     const p = latest.current;
+    let item: OutboxItemLike | null = null;
     try {
       if (p.outbox) {
-        // One key per response: "Try again" after a failed store queues the same submission.
-        keyRef.current ??= p.createKey?.() ?? randomKey();
-        const state = e.getState();
-        const item = await p.outbox.enqueue({
-          formId: p.formId ?? def.id,
-          submission: { events: state.events, ...(Object.keys(state.hidden).length ? { hidden: state.hidden as Record<string, Json> } : {}) },
-          ...(keyRef.current ? { idempotencyKey: keyRef.current } : {}),
-          meta: { title: def.title, ...p.submissionMeta },
-        });
-        setQueued(item.id);
-        p.onQueued?.(item, e);
+        if (!queuedItem.current) {
+          // One key per response: "Try again" after a failed store queues the same submission.
+          keyRef.current ??= p.createKey?.() ?? randomKey();
+          const state = e.getState();
+          queuedItem.current = await p.outbox.enqueue({
+            formId: p.formId ?? def.id,
+            submission: { events: state.events, ...(Object.keys(state.hidden).length ? { hidden: state.hidden as Record<string, Json> } : {}) },
+            idempotencyKey: keyRef.current,
+            meta: { title: def.title, ...p.submissionMeta },
+          });
+          item = queuedItem.current;
+        }
+        setQueued(queuedItem.current.id);
       } else {
         await p.onSubmit?.(e);
       }
@@ -279,6 +298,14 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
       throw error;
     }
     haptics.success?.();
+    // The host's callback can't turn a stored submission into a failed send.
+    if (item) {
+      try {
+        p.onQueued?.(item, e);
+      } catch (error) {
+        console.warn("[forms-native] onQueued threw.", error);
+      }
+    }
     // Only now is the submission safe; a draft that can't be removed is reported, not fatal.
     try {
       await p.draft?.clear();
@@ -318,6 +345,12 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [announcement]);
 
+  // A failed send is said, not only shown: iOS has no live alert role.
+  useEffect(() => {
+    if (phase === "failed") AccessibilityInfo.announceForAccessibility(failedMessage(!!outbox, retryLabel));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   // Going to the background saves what is waiting: the draft and any progress save.
   const { flushProgress } = controller;
   useEffect(() => {
@@ -354,11 +387,29 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
     return () => clearTimeout(t);
   }, [othersKey]);
   const goTo = (id: string) => {
-    // Back through the questions answered so far; answers survive Back.
+    const start = engine.getState();
+    if (start.current === id) return;
+    if (start.history.includes(id)) {
+      // Back through the questions answered so far; answers survive Back.
+      for (let i = 0; i < 1000; i++) {
+        const state = engine.getState();
+        if (state.current === id || state.history.length === 0) break;
+        controller.back();
+      }
+      return;
+    }
+    // Later on the path: forward, as Next does. It stops (and says why) at a question that
+    // still needs an answer, since the engine never skips one.
     for (let i = 0; i < 1000; i++) {
       const state = engine.getState();
-      if (state.current === id || state.history.length === 0) break;
-      controller.back();
+      if (state.current === id) break;
+      const before = state.current;
+      if (!engine.next()) {
+        const message = engine.getState().current ? engine.getState().errors[engine.getState().current!] : undefined;
+        if (message) controller.announce(message);
+        break;
+      }
+      if (engine.getState().current === before) break;
     }
   };
 
@@ -372,7 +423,8 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
 
   // The step's entry: a short slide and fade in the direction it went, none with reduced motion.
   const enter = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
+  // Before paint, so a new step never flashes fully shown first.
+  useLayoutEffect(() => {
     if (reducedMotion) {
       enter.setValue(1);
       return;
@@ -386,9 +438,18 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
     : { opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [offset, 0] }) }] };
 
   const context = useMemo<FormNativeContextValue>(
-    () => ({ focus: focusTargets, photos: props.photos ?? null, pending, haptics, submit: controller.submit, locked }),
+    () => ({
+      focus: focusTargets,
+      photos: props.photos ?? null,
+      pending,
+      haptics,
+      submit: controller.submit,
+      locked,
+      submitLabel: controller.isLast ? submitLabel : nextLabel,
+      isLast: controller.isLast,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [focusTargets, props.photos, pending, props.haptics, controller.submit, locked],
+    [focusTargets, props.photos, pending, props.haptics, controller.submit, locked, controller.isLast, submitLabel, nextLabel],
   );
 
   const header = Screen ? <Screen options={composeHeaderOptions({ headerTitle: def.title, headerOptions })} /> : null;
@@ -483,9 +544,7 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
         {notice ? renderSlot(DefaultNotice, slots?.notice, notice, slotProps?.notice) : null}
         {phase === "failed" ? (
           <Text style={s.error} accessibilityRole="alert" testID={`${testID}-failed`}>
-            {outbox
-              ? `We couldn't save your answers on this device. Press ${retryLabel} to save them again.`
-              : `We couldn't send your answers. They're kept here: press ${retryLabel} to send them again.`}
+            {failedMessage(!!outbox, retryLabel)}
           </Text>
         ) : null}
         {renderSlot(

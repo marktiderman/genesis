@@ -1,4 +1,4 @@
-export { FormFocus, UPLOAD_WAIT_MESSAGE, type FormFocusProps, type HeaderScreen } from "./FormFocus";
+export { failedMessage, FormFocus, randomKey, UPLOAD_WAIT_MESSAGE, type FormFocusProps, type HeaderScreen } from "./FormFocus";
 export {
   DefaultBrand,
   DefaultEnding,

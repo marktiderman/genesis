@@ -44,16 +44,14 @@ export function PhotoField(props: FieldRendererProps) {
   const [problem, setProblem] = useState<string | null>(null);
   // Local pictures of photos picked here, by reference id, to draw thumbnails.
   const previews = useRef(new Map<string, string>());
-  // Uploads still counted as in flight, released on unmount so a form left mid-upload can still send.
+  // Uploads stay counted as in flight until they settle, even after Back leaves this step, so
+  // the form never sends without a photo that is still on its way.
   const releases = useRef(new Set<() => void>());
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
-    const pendingReleases = releases.current;
     return () => {
       mounted.current = false;
-      for (const release of pendingReleases) release();
-      pendingReleases.clear();
     };
   }, []);
 

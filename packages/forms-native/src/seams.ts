@@ -45,6 +45,7 @@ export interface OutboxEnqueueLike {
  */
 export interface OutboxLike {
   enqueue(input: OutboxEnqueueLike): Promise<OutboxItemLike>;
+  /** The same object until something changes (it backs `useSyncExternalStore`). */
   getSnapshot(): OutboxSnapshotLike;
   subscribe(listener: () => void): () => void;
   /** Try a failed submission again. */

@@ -68,6 +68,10 @@ export interface FormNativeContextValue {
   submit(): void;
   /** True once the response is completed: answers are read-only. */
   locked: boolean;
+  /** The step on screen is the last: its return key sends. */
+  isLast: boolean;
+  /** What the main button says now (Next, or Send on the last step). */
+  submitLabel: string;
 }
 
 export const FormNativeContext = createContext<FormNativeContextValue | null>(null);

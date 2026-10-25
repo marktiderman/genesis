@@ -4,13 +4,16 @@
  * except in long text, where it starts a new line.
  */
 import { useCallback, useEffect, useState, type ComponentRef } from "react";
-import { Platform, Text, TextInput, type KeyboardTypeOptions, type TextInputProps } from "react-native";
+import { InputAccessoryView, Platform, Text, TextInput, View, type KeyboardTypeOptions, type TextInputProps } from "react-native";
 import { dateLimits, getFieldType, isIsoDate, numberLimits } from "@marktiderman/genesis-forms";
 import type { FieldRendererProps } from "@marktiderman/genesis-forms-react";
 import { accessibilityHint, FieldChrome, questionLabel } from "../chrome";
 import { useFormNative } from "../context";
 import { useFormStyles } from "../styles";
 import { useFormTheme } from "../theme";
+import { Button } from "../parts";
+
+const NO_RETURN_KEY = new Set(["number-pad", "decimal-pad", "phone-pad", "numeric"]);
 
 /** The placeholder a focus-layout answer line shows. */
 export const ANSWER_PLACEHOLDER = "Type your answer here…";
@@ -50,14 +53,18 @@ export function AnswerInput({
 }) {
   const s = useFormStyles();
   const theme = useFormTheme();
-  const { focus, submit, locked } = useFormNative();
+  const { focus, submit, locked, isLast, submitLabel } = useFormNative();
   const [focused, setFocused] = useState(false);
   const { field, error } = props.binding;
   const id = field.id;
   const ref = useCallback((node: ComponentRef<typeof TextInput> | null) => focus.setControl(id, locked ? null : node), [focus, id, locked]);
+  // iOS's number and phone pads have no return key: a bar above them carries Next (or Send).
+  const accessoryID = Platform.OS === "ios" && !multiline && NO_RETURN_KEY.has(String(hints?.keyboardType)) ? `${props.inputId}-keys` : undefined;
   return (
+    <>
     <TextInput
       ref={ref}
+      inputAccessoryViewID={accessoryID}
       testID={props.inputId}
       value={value}
       onChangeText={onChangeText}
@@ -68,7 +75,7 @@ export function AnswerInput({
       accessibilityLabel={questionLabel(props)}
       accessibilityHint={accessibilityHint(props)}
       accessibilityState={{ disabled: locked }}
-      returnKeyType={multiline ? "default" : "next"}
+      returnKeyType={multiline ? "default" : isLast ? "send" : "next"}
       submitBehavior={multiline ? "newline" : "submit"}
       onSubmitEditing={multiline ? undefined : () => submit()}
       onFocus={() => setFocused(true)}
@@ -76,6 +83,16 @@ export function AnswerInput({
       style={[s.input, multiline ? s.multiline : null, focused ? s.inputFocused : null, error ? s.inputInvalid : null]}
       {...hints}
     />
+    {accessoryID ? (
+      <InputAccessoryView nativeID={accessoryID}>
+        <View style={s.accessory}>
+          <Button variant="plain" onPress={() => submit()} testID={`${props.inputId}-keys-next`}>
+            {submitLabel}
+          </Button>
+        </View>
+      </InputAccessoryView>
+    ) : null}
+    </>
   );
 }
 

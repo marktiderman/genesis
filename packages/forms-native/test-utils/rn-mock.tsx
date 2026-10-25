@@ -24,6 +24,10 @@ export const AccessibilityInfo = {
 
 export const Keyboard = { dismiss: vi.fn() };
 
+/** Drawn in place, so tests can find the bar above a keyboard. */
+export const InputAccessoryView = ({ nativeID, children }: { nativeID?: string; children?: React.ReactNode }) =>
+  React.createElement("div", { "data-accessory": nativeID }, children);
+
 type AppStateListener = (state: string) => void;
 export const appStateListeners = new Set<AppStateListener>();
 export const AppState = {
@@ -51,6 +55,7 @@ type InputProps = {
   accessibilityState?: { disabled?: boolean };
   keyboardType?: string;
   returnKeyType?: string;
+  inputAccessoryViewID?: string;
   textContentType?: string;
   autoComplete?: string;
 };
@@ -70,6 +75,7 @@ export const TextInput = React.forwardRef<HTMLInputElement, InputProps>(function
     "data-testid": props.testID,
     "data-keyboard": props.keyboardType,
     "data-return-key": props.returnKeyType,
+    "data-accessory-id": props.inputAccessoryViewID,
     "data-content-type": props.textContentType,
     "data-autocomplete": props.autoComplete,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => props.onChangeText?.(e.target.value),
