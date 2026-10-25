@@ -46,11 +46,14 @@ export interface SiteRendererProps {
 export const googleFontHref = (font: FontInfo): string | null =>
   font.google ? `https://fonts.googleapis.com/css2?family=${font.google}&display=swap` : null;
 
-/** The form slugs a page uses, to resolve before rendering. */
-export function collectFormSlugs(snapshot: ReleaseSnapshot, page: ReleasePage | null): string[] {
-  const nodes = [...snapshot.site.header, ...(page?.doc.content ?? []), ...snapshot.site.footer];
+const FORM_SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
+
+/** The form slugs a page uses, to resolve before rendering: well-formed slugs of visible form embeds in the page body. */
+export function collectFormSlugs(_snapshot: ReleaseSnapshot, page: ReleasePage | null): string[] {
   const slugs = new Set<string>();
-  for (const n of nodes) if (n.type === "form-embed" && !n.hidden && typeof n.props.form === "string") slugs.add(n.props.form);
+  for (const n of page?.doc.content ?? []) {
+    if (n.type === "form-embed" && !n.hidden && typeof n.props.form === "string" && FORM_SLUG.test(n.props.form)) slugs.add(n.props.form);
+  }
   return [...slugs];
 }
 
@@ -60,7 +63,7 @@ interface Rendered {
   type: string;
 }
 
-function renderNodes(nodes: readonly SectionNode[], base: Omit<RenderContext, "headingLevel" | "idPrefix">, h1: { given: boolean }): Rendered[] {
+function renderNodes(nodes: readonly SectionNode[], base: Omit<RenderContext, "headingLevel" | "idPrefix">, h1: { given: boolean }, where: "header" | "body" | "footer"): Rendered[] {
   const out: Rendered[] = [];
   for (const raw of nodes) {
     if (raw.hidden) continue;
@@ -71,6 +74,11 @@ function renderNodes(nodes: readonly SectionNode[], base: Omit<RenderContext, "h
       continue;
     }
     const def = getSection(node.type)!;
+    // The publish check refuses a section out of its place; a document that skipped it renders without it.
+    if ((def.placement ?? "body") !== where) {
+      console.error(`[genesis-sites] ${base.pagePath}: section ${node.id} (${node.type}) belongs in the ${def.placement ?? "body"}, not the ${where}; left out.`);
+      continue;
+    }
     const headingLevel: 1 | 2 = def.providesH1 && !h1.given ? 1 : 2;
     if (headingLevel === 1) h1.given = true;
     const ctx: RenderContext = { ...base, headingLevel, idPrefix: `gs-${node.id}` };
@@ -89,7 +97,8 @@ function hrefFor(basePath: string) {
   return (href: string) => {
     if (!href.startsWith("/") || href.startsWith("//")) return href;
     if (!base) return href;
-    return href === "/" ? base : `${base}${href}`;
+    // The home page under a base path is `/base/`, as its canonical URL is.
+    return href === "/" ? `${base}/` : `${base}${href}`;
   };
 }
 
@@ -111,9 +120,9 @@ export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mod
   };
   const chrome = !page?.doc.root.props.hideSiteChrome;
   const h1 = { given: false };
-  const header = chrome ? renderNodes(site.header, base, { given: true }) : [];
-  const body = page ? renderNodes(page.doc.content, base, h1) : [];
-  const footer = chrome ? renderNodes(site.footer, base, { given: true }) : [];
+  const header = chrome ? renderNodes(site.header, base, { given: true }, "header") : [];
+  const body = page ? renderNodes(page.doc.content, base, h1, "body") : [];
+  const footer = chrome ? renderNodes(site.footer, base, { given: true }, "footer") : [];
   // Light forms need only the islands loader; a form that needs the engine also gets the form stylesheet and bundle.
   const formModes = body.some((r) => r.type === "form-embed") ? [...forms.values()].map(formDrawMode) : [];
   const hasForm = formModes.includes("light") || formModes.includes("island");

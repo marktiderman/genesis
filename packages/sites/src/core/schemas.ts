@@ -235,6 +235,32 @@ export const ReleaseSnapshot = z.object({
 });
 export type ReleaseSnapshot = z.infer<typeof ReleaseSnapshot>;
 
+/**
+ * Read a stored snapshot page by page: a page that no longer parses (a
+ * schema this release tightened, a document written past the checks) is
+ * left out and reported, so one bad page doesn't take the whole site down.
+ * Null only when the site document itself doesn't parse.
+ */
+export function parseSnapshot(value: unknown, report: (message: string) => void = (m) => console.error(`[genesis-sites] ${m}`)): ReleaseSnapshot | null {
+  const raw = value && typeof value === "object" ? (value as { schemaVersion?: unknown; site?: unknown; pages?: unknown }) : {};
+  if (raw.schemaVersion !== 1) {
+    report("the snapshot isn't schemaVersion 1.");
+    return null;
+  }
+  const site = SiteDoc.safeParse(raw.site);
+  if (!site.success) {
+    report(`the snapshot's site document doesn't parse: ${site.error.message}`);
+    return null;
+  }
+  const pages: ReleasePage[] = [];
+  for (const page of Array.isArray(raw.pages) ? raw.pages.slice(0, 500) : []) {
+    const parsed = ReleasePage.safeParse(page);
+    if (parsed.success) pages.push(parsed.data);
+    else report(`the page ${JSON.stringify((page as { path?: unknown })?.path ?? "?")} doesn't parse and is left out: ${parsed.error.message}`);
+  }
+  return { schemaVersion: 1, site: site.data, pages };
+}
+
 export interface ReleaseMeta {
   id: string;
   siteId: string;

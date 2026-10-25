@@ -15,6 +15,11 @@ declare const __FORM_ISLAND__: string;
 
 const menus = document.querySelectorAll<HTMLDetailsElement>('details[data-gs-island="menu"]');
 menus.forEach((menu) => {
+  // Tabbing out of the open menu closes it, so it never covers the page behind the focus.
+  menu.addEventListener("focusout", (event) => {
+    const next = event.relatedTarget as Node | null;
+    if (menu.open && next && !menu.contains(next)) menu.open = false;
+  });
   menu.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && menu.open) {
       menu.open = false;
@@ -35,9 +40,9 @@ if (menus.length) {
 
 type Answer = string | number | boolean | string[];
 
-/** One field's answer, by how the light form drew it (`data-gs-kind`); undefined when unanswered. */
-function answerOf(form: HTMLFormElement, name: string, kind: string): Answer | undefined {
-  const all = [...form.querySelectorAll<HTMLInputElement>(`[name="${CSS.escape(name)}"]`)];
+/** One field's answer, read inside its own wrapper, by how the light form drew it (`data-gs-kind`); undefined when unanswered. */
+function answerOf(field: HTMLElement, name: string, kind: string): Answer | undefined {
+  const all = [...field.querySelectorAll<HTMLInputElement>(`[name="${CSS.escape(name)}"]`)];
   if (kind === "multi") {
     const values = all.filter((i) => i.checked).map((i) => i.value);
     return values.length ? values : undefined;
@@ -81,7 +86,7 @@ document.querySelectorAll<HTMLFormElement>('form[data-gs-island="light-form"]').
     const answers: Record<string, Answer> = {};
     form.querySelectorAll<HTMLElement>("[data-gs-field]").forEach((field) => {
       const id = field.dataset.gsField!;
-      const value = answerOf(form, id, field.dataset.gsKind ?? "text");
+      const value = answerOf(field, id, field.dataset.gsKind ?? "text");
       if (value !== undefined) answers[id] = value;
     });
     if (button) button.disabled = true;
@@ -104,7 +109,11 @@ document.querySelectorAll<HTMLFormElement>('form[data-gs-island="light-form"]').
     } catch (err) {
       console.error(`[genesis-sites] the form "${form.dataset.gsForm}" couldn't be sent.`, err);
       say("That didn't send. Check your connection and try again.");
-      if (button) button.disabled = false;
+      if (button) {
+        button.disabled = false;
+        // Focus went to the page while the button was disabled: put it back where the person was.
+        button.focus();
+      }
     }
   });
 });

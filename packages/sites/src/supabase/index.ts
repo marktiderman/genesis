@@ -16,6 +16,9 @@ import { prepareRelease, type Asset, type AssetMeta, type PublishOptions, type S
 
 export const SITES_SCHEMA = "genesis_sites";
 
+/** The file types a site asset may be, as the database checks them. */
+export const ASSET_TYPES: readonly string[] = Object.freeze(["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif", "application/pdf"]);
+
 export interface SupabaseSiteStoreOptions {
   /** The storage bucket for `putAsset`. Default `site-assets`. */
   bucket?: string;
@@ -229,6 +232,9 @@ export function createSupabaseSiteStore(client: SupabaseClient, options: Supabas
       const name = (meta.name ?? "file").toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/\.{2,}/g, ".").slice(0, 80) || "file";
       const path = `sites/${siteId}/${crypto.randomUUID()}-${name}`;
       const mime = file.type || "application/octet-stream";
+      // The types the database records (no SVG or HTML: a browser runs them as pages). Checked before the upload,
+      // so a refused file never reaches the bucket.
+      if (!ASSET_TYPES.includes(mime)) throw new SiteStoreError(`uploading: ${mime} isn't an image (PNG, JPEG, WebP, AVIF, GIF) or a PDF.`, "22023");
       const upload = await client.storage.from(bucket).upload(path, file, { contentType: mime, upsert: false });
       if (upload.error) throw new SiteStoreError(`uploading: ${upload.error.message}`, undefined);
       const { data, error } = await db

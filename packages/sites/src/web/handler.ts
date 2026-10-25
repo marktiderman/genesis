@@ -19,7 +19,7 @@ import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import type { FormsResolver, ResolvedForm } from "../core/forms";
 import { migratePage, migrateSite } from "../core/migrate";
-import { ReleaseSnapshot, type Release, type ReleasePage } from "../core/schemas";
+import { ReleaseSnapshot, parseSnapshot, type Release, type ReleasePage } from "../core/schemas";
 import { matchRedirect, robotsTxt, sitemapXml } from "../core/seo";
 import { siteCacheTag, type SiteStore } from "../core/store";
 import { brandDisplayName, siteTheme, themeCss, type BrandSource, type FontInfo } from "../core/theme";
@@ -147,6 +147,20 @@ async function draftSnapshot(store: SiteRequestOptions["store"], siteId: string)
   return parsed.data;
 }
 
+/** Percent-encode what a header can't carry (anything outside printable ASCII), leaving existing escapes alone. */
+const headerSafe = (value: string) => value.replace(/[^\x21-\x7e]/gu, (c) => encodeURIComponent(c));
+
+/** A redirect's Location: a site path or fragment under the base path, or an absolute URL. */
+function redirectLocation(to: string, basePath: string): string {
+  if (to.startsWith("#")) return headerSafe(`${basePath}/${to}`);
+  if (to.startsWith("/")) return headerSafe(to === "/" ? `${basePath}/` : `${basePath}${to}`);
+  try {
+    return new URL(to).href;
+  } catch {
+    return headerSafe(`${basePath}/`);
+  }
+}
+
 /**
  * Serve a site request, or return null when the request isn't the site's.
  *
@@ -184,9 +198,8 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     snapshot = await draftSnapshot(options.store, options.siteId);
   } else {
     release = await options.store.getLive(options.siteId);
-    const parsed = release ? ReleaseSnapshot.safeParse(release.snapshot) : null;
-    if (parsed && !parsed.success) console.error(`[genesis-sites] release ${release!.id} of site ${options.siteId} isn't a valid snapshot: ${parsed.error.message}`);
-    snapshot = parsed?.success ? parsed.data : null;
+    const id = release?.id;
+    snapshot = release ? parseSnapshot(release.snapshot, (m) => console.error(`[genesis-sites] release ${id} of site ${options.siteId}: ${m}`)) : null;
   }
   // Not published (or not visible): the host decides what this address shows.
   if (!snapshot) return null;
@@ -215,14 +228,15 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   // Redirects first: a moved page's old path.
   const redirect = matchRedirect(snapshot.site.redirects, path);
   if (redirect) {
-    const location = redirect.to.startsWith("/") ? `${basePath}${redirect.to === "/" && basePath ? "" : redirect.to}` || "/" : redirect.to;
-    return new Response(null, { status: redirect.status, headers: { location, ...cacheHeaders(redirect.status) } });
+    return new Response(null, { status: redirect.status, headers: { location: redirectLocation(redirect.to, basePath), ...cacheHeaders(redirect.status) } });
   }
   const page = snapshot.pages.find((p) => p.path === path) ?? null;
-  // One address per page: no trailing slash, lowercase. Only for the site's own pages, so
-  // the host's paths (with their own casing or slashes) fall through untouched.
-  if (page && rawPath !== path && !(path === "/" && rawPath === "/")) {
-    const location = `${basePath}${path === "/" ? (basePath ? "" : "/") : path}${url.search}`;
+  // One address per page: lowercase, no trailing slash, and the home page under a base path
+  // ends in one (`/base/`, as its canonical URL does). Only for the site's own pages, so the
+  // host's paths (with their own casing or slashes) fall through untouched.
+  const bareBase = Boolean(basePath) && url.pathname === basePath;
+  if (page && (bareBase || (rawPath !== path && !(path === "/" && rawPath === "/")))) {
+    const location = `${headerSafe(`${basePath}${path === "/" ? "/" : path}`)}${url.search}`;
     return new Response(null, { status: 308, headers: { location, ...cacheHeaders(308) } });
   }
   if (!page && (options.unknownPath ?? "fall-through") === "fall-through") return null;
@@ -233,6 +247,12 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     console.error(`[genesis-sites] the BrandSource has no brand for site ${options.siteId}; rendering with Genesis's default theme.`);
   }
   const theme = siteTheme(brand ?? { name: snapshot.site.name, colors: { primary: "#4f46e5" } }, snapshot.site.theme);
+  // The brand changed since the release was checked: its colours haven't passed the contrast
+  // check. Serve it, but cache it briefly and say so; republishing checks it (and purges).
+  const brandChanged = Boolean(release?.brandHash) && release!.brandHash !== theme.brandHash;
+  if (brandChanged) {
+    console.warn(`[genesis-sites] site ${options.siteId}: the brand changed since release ${release!.number} was checked; republish to check its colours. Caching this page for 5 minutes only.`);
+  }
   const forms = new Map<string, ResolvedForm | null>();
   const slugs = collectFormSlugs(snapshot, page);
   if (slugs.length && !options.forms) console.error(`[genesis-sites] ${path} embeds forms (${slugs.join(", ")}) but handleSiteRequest has no forms resolver.`);
@@ -275,7 +295,7 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     "content-type": "text/html; charset=utf-8",
     "x-content-type-options": "nosniff",
     "referrer-policy": "strict-origin-when-cross-origin",
-    ...cacheHeaders(status, page ? LIVE_CACHE : MISS_CACHE),
+    ...cacheHeaders(status, page && !brandChanged ? LIVE_CACHE : MISS_CACHE),
   };
   if (options.csp !== false) headers["content-security-policy"] = await contentSecurityPolicy(themeCss(theme), forms, fontHref !== false && theme.fonts.some((f) => f.google));
   return new Response(head ? null : stream, { status, headers });

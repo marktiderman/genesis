@@ -9,7 +9,7 @@
 -- request.jwt.claim.sub on older images), so pg_temp.sign_in sets both.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(71);
+select plan(74);
 
 -- People: e1 edits site A, b2 may view site A, c3 is nobody's.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -52,6 +52,7 @@ select has_table('genesis_sites', 'sites', 'sites exists');
 select has_table('genesis_sites', 'site_pages', 'site_pages exists');
 select has_table('genesis_sites', 'site_releases', 'site_releases exists');
 select has_table('genesis_sites', 'site_assets', 'site_assets exists');
+select has_trigger('genesis_sites', 'sites', 'genesis_notify_served', 'a change to what a site serves notifies a cache purger');
 select ok((select bool_and(relrowsecurity) from pg_class where oid in ('genesis_sites.sites'::regclass, 'genesis_sites.site_pages'::regclass, 'genesis_sites.site_releases'::regclass, 'genesis_sites.site_assets'::regclass)), 'RLS is on for every table');
 
 -- Privileges ----------------------------------------------------------------------
@@ -273,7 +274,14 @@ reset role;
 
 -- Rollback ---------------------------------------------------------------------------
 select pg_temp.sign_in('e1');
+select genesis_sites.save_page_draft(pg_temp.id('home'), (select draft_rev from genesis_sites.site_pages where id = pg_temp.id('home')),
+  jsonb_build_object('schemaVersion', 1, 'root', jsonb_build_object('props', jsonb_build_object('title', 'Welcome')),
+    'content', jsonb_build_array(jsonb_build_object('id', 'secret', 'type', 'hero', 'v', 1, 'hidden', true, 'props', jsonb_build_object('heading', 'Hidden plans')))));
 select is((genesis_sites.publish_site(pg_temp.id('a'), pg_temp.site_rev(), pg_temp.revs())) ->> 'number', '2', 'a second publish is release 2');
+select ok(
+  (select snapshot::text from genesis_sites.site_releases where site_id = pg_temp.id('a') and number = 2) not like '%Hidden plans%',
+  'a hidden section is left out of the release, so it is never public'
+);
 select is((genesis_sites.rollback_site(pg_temp.id('a'), pg_temp.id('r1'))) ->> 'number', '1', 'rolling back points the site at release 1');
 reset role;
 select pg_temp.as_anon();
@@ -300,6 +308,12 @@ reset role;
 update genesis_sites.sites set status = 'archived' where id = pg_temp.id('a');
 select pg_temp.as_anon();
 select is(genesis_sites.live_release(pg_temp.id('a')), null, 'an archived site has no public release');
+reset role;
+select pg_temp.sign_in('e1');
+select throws_ok(
+  format('select genesis_sites.rollback_site(%L, %L)', pg_temp.id('a'), pg_temp.id('r1')),
+  '22023', null, 'an editor can''t bring an archived site back by rolling back'
+);
 reset role;
 
 select * from finish();

@@ -249,8 +249,14 @@ host's own RLS doesn't filter inside them.
   (`prepareRelease`) before `publish_site`; the database checks shape, size,
   paths and revisions. An editor calling the function directly can skip the
   accessibility checks, never the access rules.
+- **Takedowns.** An archived site serves nothing, and an editor can't
+  publish or roll it back. A hidden section is left out of every release, so
+  it is never public. A trigger on `sites` sends
+  `pg_notify('genesis_sites', …)` whenever what a site serves changes
+  (publish, rollback, archive, unarchive), for a listener that purges the
+  cache.
 - **Audit.** Hosts add their own triggers (for example, genesis-studio's audit
-  trail). Publish and rollback send `pg_notify('genesis_sites', …)`.
+  trail).
 
 ### Storage interface (core)
 
@@ -303,7 +309,7 @@ demos and previews with the same rules.
 - **Caching.** Pages carry `Cache-Control: public, max-age=0,
   s-maxage=31536000, stale-while-revalidate=86400` and `Vercel-Cache-Tag:
   site:<id>`. A store wrapped in `withCacheInvalidation` purges the tag after
-  publish and rollback (for example with `invalidateByTags` from
+  publish and rollback (for example with `invalidateByTag` from
   `@vercel/functions`); invalidation serves stale content once while it
   regenerates, which avoids a stampede
   ([Vercel cache tags](https://vercel.com/changelog/tag-based-cache-invalidation-now-available-for-all-responses),

@@ -113,9 +113,28 @@ The page loads one script, the islands loader (2.3 KB), and only when it has a
 phone menu or a form. Pass `basePath` to mount a site under a path.
 
 **Publishing and the cache.** Wrap the editor's store with
-`withCacheInvalidation(store, (tags) => invalidateByTags(tags))` (from
-`@vercel/functions`, or your CDN's purge) so publish and rollback purge
-`site:<id>`. A failed purge is logged and rethrown.
+`withCacheInvalidation` so publish and rollback purge `site:<id>`. Mind what
+the purge does: on Vercel, `invalidateByTag` serves each cached page once more
+while it regenerates, and `dangerouslyDeleteByTag` drops it. Use the delete
+for a rollback that takes something down:
+
+```ts
+import { dangerouslyDeleteByTag, invalidateByTag } from "@vercel/functions";
+
+const editorStore = withCacheInvalidation(store, (tags, { action }) =>
+  action === "rollback" ? dangerouslyDeleteByTag(tags) : invalidateByTag(tags),
+);
+```
+
+Archiving a site, or editing its brand, doesn't go through the store: purge
+the tag there too (the database sends a `genesis_sites` notification on every
+publish, rollback and archive, for a listener). A page rendered with a brand
+that changed since the release was checked is served with a 5-minute cache
+and a warning until you publish again. A failed purge is logged and rethrown.
+
+A hidden section stays in the draft and is left out of the release, so it is
+never public. A stored page that no longer parses is left out of the site
+(and logged) rather than taking the whole site down.
 
 **Preview.** `mode: "preview"` renders the drafts, with `noindex` and
 `Cache-Control: private, no-store`, through a store signed in as the viewer,
@@ -224,6 +243,7 @@ forms: (slug) =>
       : null,
 ```
 
+- `submitUrl` is a site path or an https URL.
 - A genesis-forms definition with no logic, pages, recall or hidden inputs
   (most contact and sign-up forms) renders as a plain HTML form. The islands
   loader sends `{ form, answers }` as JSON, with answers keyed by field id as
@@ -264,11 +284,20 @@ stub, so neither `genesis migrate` nor a later genesis-sites migration ever
 overwrites your version. `genesis_sites.reserved_paths()` works the same way
 for the page paths your app keeps.
 
+The accessibility and content checks run in the stores (`prepareRelease`)
+before `publish_site`; the database checks shape, paths and revisions. So the
+checks guide editors but are not a security boundary: an editor calling the
+function directly can skip them (and reports its own `brand_hash`). Access
+rules can't be skipped, and the renderer checks every link again. An archived
+site stays down: an editor can't publish or roll it back.
+
 Anon reads only `genesis_sites.live_release(site_id)`: the published snapshot
 of a live site. Drafts, page rows and release notes are never readable by
 anon. Sites are created with the service role (`genesis_sites.create_site`).
 Store uploads under `sites/<site_id>/...` so your storage policies can scope
-by site with `can_edit`; the migration's header has an example policy.
+by site with `can_edit`; the migration's header has an example policy. Limit
+the bucket's `allowed_mime_types` to images and PDF: never SVG or HTML, which
+a browser runs as a page. `putAsset` refuses other types before it uploads.
 
 ## Stores
 

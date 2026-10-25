@@ -145,7 +145,13 @@ export function prepareRelease(
     if (m.changed) migratedPages.push({ id: p.id, doc: m.doc });
     return { id: p.id, path: p.path, kind: p.kind, doc: m.doc };
   });
-  const snapshot: ReleaseSnapshot = ReleaseSnapshot.parse({ schemaVersion: 1, site: migratedSite.site, pages: releasePages });
+  // A hidden section stays in the draft, never in the release: a release is public.
+  const visible = <T extends { hidden?: boolean | undefined }>(nodes: T[]) => nodes.filter((n) => !n.hidden);
+  const snapshot: ReleaseSnapshot = ReleaseSnapshot.parse({
+    schemaVersion: 1,
+    site: { ...migratedSite.site, header: visible(migratedSite.site.header), footer: visible(migratedSite.site.footer) },
+    pages: releasePages.map((p) => ({ ...p, doc: { ...p.doc, content: visible(p.doc.content) } })),
+  });
   const theme = options.brand ? siteTheme(options.brand, snapshot.site.theme) : undefined;
   const issues = checkRelease(snapshot, { ...(theme ? { theme } : {}), reserved: options.reserved ?? DEFAULT_RESERVED_PATHS });
   // The contrast check needs the brand: without it a publish can't show its colours are readable.
@@ -159,18 +165,35 @@ export function siteCacheTag(siteId: string): string {
   return `site:${siteId}`;
 }
 
+/** Why a site's cache is being purged. */
+export interface InvalidationInfo {
+  siteId: string;
+  action: "publish" | "rollback";
+}
+
 /**
  * A store that purges the site's cached pages after every publish and
- * rollback: `invalidate` gets `["site:<id>"]` (for example
- * `invalidateByTags` from `@vercel/functions`). A failed purge is logged and
- * rethrown, so the editor shows that the live site may be stale.
+ * rollback: `invalidate` gets `["site:<id>"]` and what happened.
+ *
+ * Mind what your CDN's purge does. On Vercel, `invalidateByTag` marks pages
+ * stale, so each cached URL serves the old release once more while it
+ * regenerates (no stampede); `dangerouslyDeleteByTag` drops them, so the
+ * next request waits for a render. Use the delete for a rollback that takes
+ * something down:
+ *
+ *   withCacheInvalidation(store, (tags, { action }) =>
+ *     action === "rollback" ? dangerouslyDeleteByTag(tags) : invalidateByTag(tags));
+ *
+ * Archiving a site goes through your own server or the database (the
+ * `genesis_sites` notification), so purge there too. A failed purge is
+ * logged and rethrown, so the editor shows that the live site may be stale.
  *
  * @stability Beta
  */
-export function withCacheInvalidation(store: SiteStore, invalidate: (tags: string[]) => Promise<void> | void): SiteStore {
-  const purge = async (siteId: string) => {
+export function withCacheInvalidation(store: SiteStore, invalidate: (tags: string[], info: InvalidationInfo) => Promise<void> | void): SiteStore {
+  const purge = async (siteId: string, action: InvalidationInfo["action"]) => {
     try {
-      await invalidate([siteCacheTag(siteId)]);
+      await invalidate([siteCacheTag(siteId)], { siteId, action });
     } catch (err) {
       console.error(`[genesis-sites] published site ${siteId}, but purging its cache failed; the old pages may be served until their cache expires.`, err);
       throw err;
@@ -191,12 +214,12 @@ export function withCacheInvalidation(store: SiteStore, invalidate: (tags: strin
     ...(store.putAsset ? { putAsset: store.putAsset.bind(store) } : {}),
     async publish(siteId, options) {
       const release = await store.publish(siteId, options);
-      await purge(siteId);
+      await purge(siteId, "publish");
       return release;
     },
     async rollback(siteId, releaseId) {
       const release = await store.rollback(siteId, releaseId);
-      await purge(siteId);
+      await purge(siteId, "rollback");
       return release;
     },
   };

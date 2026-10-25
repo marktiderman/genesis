@@ -228,7 +228,8 @@ export interface LightFormProps {
  */
 export function LightForm({ form, slug, submitUrl, submitLabel, idPrefix }: LightFormProps) {
   const ending = form.endings?.[0];
-  const statusId = `${idPrefix}-status`;
+  // Field ids are the form's; this suffix keeps the status's id apart from any of them.
+  const statusId = `${idPrefix}--gs-status`;
   return (
     <form
       method="post"

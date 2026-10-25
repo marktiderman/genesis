@@ -67,7 +67,7 @@ function EmbeddedForm({ slug, heading, ctx }: { slug: string; heading: string; c
     console.error(`[genesis-sites] the form "${slug}" isn't a valid genesis-forms definition: ${parsed.issues.map((i) => `${i.path} ${i.message}`).join("; ")}`);
     return null;
   }
-  if (!isSafeHref(resolved.submitUrl) || resolved.submitUrl.startsWith("#") || /^(mailto|tel):/i.test(resolved.submitUrl)) {
+  if (!isSafeHref(resolved.submitUrl) || !(resolved.submitUrl.startsWith("/") || resolved.submitUrl.startsWith("https://"))) {
     console.error(`[genesis-sites] the form "${slug}" has no usable submitUrl (a site path or an https URL).`);
     return null;
   }

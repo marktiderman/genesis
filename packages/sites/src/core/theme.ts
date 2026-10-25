@@ -2,7 +2,10 @@
  * A site's theme, from its brand: one `<style>` of CSS variables per site.
  *
  * The brand comes from the host (`BrandSource`) at render time, never copied
- * into the site, so a brand edit restyles the site on its next publish. It
+ * into the site. A publish checks the brand's colours and records its hash;
+ * a page rendered with a different brand (edited since) is served with a
+ * short cache and a warning until the site is published again, which checks
+ * the new colours and purges the old pages. It
  * may be a full `CanonicalBrand` or the minimal shape a brand screen collects
  * (`SiteBrand`: a name, a primary colour for light and dark, a heading and a
  * body font from a fixed list, a logo).

@@ -59,12 +59,24 @@
 --
 --   create policy "site editors upload" on storage.objects for insert to authenticated
 --     with check (bucket_id = 'site-assets' and (storage.foldername(name))[1] = 'sites'
+--                 and lower(storage.extension(name)) in ('png', 'jpg', 'jpeg', 'webp', 'avif', 'gif', 'pdf')
 --                 and genesis_sites.can_edit(((storage.foldername(name))[2])::uuid));
 --
+-- and set the bucket's allowed_mime_types to the same image types and PDF:
+-- never SVG or HTML, which a browser runs as a page.
+--
 -- Audit: add your own triggers on these tables if you keep an audit trail;
--- nothing here depends on one. Publishing and rolling back send
--- `pg_notify('genesis_sites', {"site_id", "release_id", "action"})`, for a
--- listener that purges the CDN (or purge from the server that published).
+-- nothing here depends on one. Every change to what a site serves (publish,
+-- rollback, archive, unarchive) sends `pg_notify('genesis_sites',
+-- {"site_id", "release_id", "status", "action"})`, from a trigger on sites,
+-- for a listener that purges the CDN (or purge from the server that made it).
+--
+-- Checks: publish_site checks shape, size, paths and revisions. The
+-- accessibility and content checks run in TypeScript (`prepareRelease`, in
+-- the stores) before it is called, so they are a guard for editors, not a
+-- security boundary: an editor calling the function directly can skip them,
+-- and `brand_hash` is what the caller reports. Access rules can't be skipped.
+-- A hidden section is left out of the release, so it is never public.
 --
 -- Use: `genesis add sites` copies this file into supabase/migrations under a
 -- new timestamped name. Never edit it once applied; change it with a new migration.
@@ -251,6 +263,35 @@ end;
 $$;
 
 create trigger genesis_immutable before update on genesis_sites.site_releases for each row execute function genesis_sites.release_is_immutable();
+
+-- What a site serves changed (publish, rollback, archive, unarchive): tell a listener to purge its cache.
+create or replace function genesis_sites.notify_served_change()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  perform pg_notify('genesis_sites', jsonb_build_object(
+    'site_id', new.id,
+    'release_id', new.live_release_id,
+    'status', new.status,
+    'action', case
+      when new.status = 'archived' then 'archive'
+      when old.status = 'archived' then 'unarchive'
+      when new.live_release_id is distinct from old.live_release_id
+        and (select r.number from genesis_sites.site_releases r where r.id = new.live_release_id)
+          < coalesce((select r.number from genesis_sites.site_releases r where r.id = old.live_release_id), 0)
+        then 'rollback'
+      else 'publish'
+    end
+  )::text);
+  return new;
+end;
+$$;
+
+create trigger genesis_notify_served after update of status, live_release_id on genesis_sites.sites
+  for each row when (old.status is distinct from new.status or old.live_release_id is distinct from new.live_release_id)
+  execute function genesis_sites.notify_served_change();
 
 -- ── Row level security ────────────────────────────────────────────────────────
 
@@ -458,6 +499,8 @@ declare
   page genesis_sites.site_pages;
 begin
   perform genesis_sites.assert_can_edit((select p.site_id from genesis_sites.site_pages p where p.id = page_id));
+  -- The site's row first, then the page's: the order publish_site locks them in, so the two never deadlock.
+  perform 1 from genesis_sites.sites s where s.id = (select p.site_id from genesis_sites.site_pages p where p.id = page_id) for update;
   select * into page from genesis_sites.site_pages p where p.id = page_id and p.deleted_at is null for update;
   if not found then
     raise exception 'genesis_sites: no page %', page_id using errcode = 'P0002';
@@ -506,6 +549,18 @@ begin
   end if;
   update genesis_sites.site_pages p set deleted_at = now() where p.id = page_id;
 end;
+$$;
+
+-- A list of section nodes without the hidden ones: a release never carries a hidden section.
+create or replace function genesis_sites.visible_nodes(nodes jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = ''
+as $$
+  select coalesce(jsonb_agg(n order by i), '[]'::jsonb)
+  from jsonb_array_elements(case when jsonb_typeof(nodes) = 'array' then nodes else '[]'::jsonb end) with ordinality as e(n, i)
+  where coalesce(n ->> 'hidden', 'false') <> 'true'
 $$;
 
 -- Publish: the drafts exactly as the caller checked them (`expected_site_rev`
@@ -563,9 +618,12 @@ begin
     coalesce((select max(r.number) from genesis_sites.site_releases r where r.site_id = publish_site.site_id), 0) + 1,
     jsonb_build_object(
       'schemaVersion', 1,
-      'site', site.draft,
+      'site', site.draft
+        || jsonb_build_object('header', genesis_sites.visible_nodes(site.draft -> 'header'), 'footer', genesis_sites.visible_nodes(site.draft -> 'footer')),
       'pages', coalesce((
-        select jsonb_agg(jsonb_build_object('id', p.id, 'path', p.path, 'kind', p.kind, 'doc', p.draft) order by p.sort, p.path)
+        select jsonb_agg(jsonb_build_object('id', p.id, 'path', p.path, 'kind', p.kind,
+                         'doc', p.draft || jsonb_build_object('content', genesis_sites.visible_nodes(p.draft -> 'content')))
+                         order by p.sort, p.path)
         from genesis_sites.site_pages p where p.site_id = publish_site.site_id and p.deleted_at is null), '[]'::jsonb)
     ),
     nullif(btrim(note), ''),
@@ -575,7 +633,6 @@ begin
   )
   returning * into release;
   update genesis_sites.sites s set live_release_id = release.id, status = 'live' where s.id = publish_site.site_id;
-  perform pg_notify('genesis_sites', jsonb_build_object('site_id', site_id, 'release_id', release.id, 'action', 'publish')::text);
   return genesis_sites.release_json(release, false);
 end;
 $$;
@@ -589,18 +646,22 @@ set search_path = ''
 as $$
 declare
   release genesis_sites.site_releases;
+  current_status text;
 begin
   perform genesis_sites.assert_can_edit(site_id);
-  perform 1 from genesis_sites.sites s where s.id = rollback_site.site_id for update;
+  select s.status into current_status from genesis_sites.sites s where s.id = rollback_site.site_id for update;
   if not found then
     raise exception 'genesis_sites: no site %', site_id using errcode = 'P0002';
+  end if;
+  -- Archiving is a takedown: an editor can't bring the site back by rolling back.
+  if current_status = 'archived' then
+    raise exception 'genesis_sites: an archived site can''t be rolled back' using errcode = '22023';
   end if;
   select * into release from genesis_sites.site_releases r where r.id = release_id and r.site_id = rollback_site.site_id;
   if not found then
     raise exception 'genesis_sites: release % isn''t one of this site''s', release_id using errcode = 'P0002';
   end if;
   update genesis_sites.sites s set live_release_id = release.id, status = 'live' where s.id = rollback_site.site_id;
-  perform pg_notify('genesis_sites', jsonb_build_object('site_id', site_id, 'release_id', release.id, 'action', 'rollback')::text);
   return genesis_sites.release_json(release, false);
 end;
 $$;
@@ -698,3 +759,5 @@ revoke execute on function genesis_sites.drop_redirect_from(uuid, text) from pub
 revoke execute on function genesis_sites.release_json(genesis_sites.site_releases, boolean) from public, anon, authenticated;
 revoke execute on function genesis_sites.touch() from public, anon, authenticated;
 revoke execute on function genesis_sites.release_is_immutable() from public, anon, authenticated;
+revoke execute on function genesis_sites.notify_served_change() from public, anon, authenticated;
+revoke execute on function genesis_sites.visible_nodes(jsonb) from public, anon, authenticated;
