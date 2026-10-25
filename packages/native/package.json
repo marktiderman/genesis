@@ -160,7 +160,19 @@
           "npx expo install expo-notifications, and add \"expo-notifications\" to the plugins in app.config.",
           "Create the block with createPush (@marktiderman/genesis-native/push) and pass it to <GenesisNativeApp blocks>; render NotificationSettings on the /settings/notifications screen (genesis-native README, Push).",
           "A push token needs an EAS project id (eas init)."
-        ]
+        ],
+        "privacy": {
+          "collects": [
+            {
+              "type": "device ID",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            }
+          ]
+        }
       },
       "app-updates": {
         "feature": {
@@ -192,6 +204,76 @@
         "steps": [
           "npx expo install expo-updates expo-application.",
           "Create the block with createUpdates (@marktiderman/genesis-native/updates) and pass it to <GenesisNativeApp updates> (genesis-native README, Updates)."
+        ]
+      },
+      "observability": {
+        "feature": {
+          "name": "Observability",
+          "summary": "Crash reports, breadcrumbs, timings and typed analytics events, scrubbed on the device, through vendor-neutral sinks (Sentry included).",
+          "keywords": [
+            "crash reporting",
+            "sentry",
+            "analytics",
+            "breadcrumbs"
+          ],
+          "audience": [
+            "developer"
+          ]
+        },
+        "platforms": [
+          "native"
+        ],
+        "steps": [
+          "npx expo install @sentry/react-native if you report to Sentry, and set the DSN in your environment (genesis-native README, Observability).",
+          "Create the block with createObservability (@marktiderman/genesis-native/observability) at module scope, pass it to <GenesisNativeApp blocks>, and export observability.wrap(RootLayout)."
+        ],
+        "privacy": {
+          "collects": [
+            {
+              "type": "crash data",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "performance data",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "user id",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            }
+          ]
+        }
+      },
+      "devtools-overlay": {
+        "feature": {
+          "name": "Devtools overlay",
+          "summary": "An on-device overlay for development, preview and internal builds: what the app knows about itself, recent activity, a crash test.",
+          "keywords": [
+            "debug menu",
+            "devtools",
+            "shake to debug"
+          ],
+          "audience": [
+            "developer"
+          ]
+        },
+        "platforms": [
+          "native"
+        ],
+        "steps": [
+          "Create the block with createDevtools (@marktiderman/genesis-native/devtools), enabled only outside production builds, and pass it to <GenesisNativeApp blocks> (genesis-native README)."
         ]
       }
     }
