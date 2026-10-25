@@ -1,0 +1,275 @@
+.changeset/forms-studio-dropoff-path.md
+  s_8252619ce79a86::t_175c78db554cc9 1-5
+.changeset/genesis-sites.md
+  s_8252619ce79a86::t_bb12265d670ee1 1-18
+.changeset/sites-reserved-redirects.md
+  s_8252619ce79a86::t_7bbb78175ca9ed 2,5-6
+AGENTS.md
+  s_8252619ce79a86::t_c843068d4509b9 16
+apps/sample/.react-router/types/+routes.ts
+  s_738228bc0d81b1::t_982e4085e2ec6d 78-80,116,132,202-205,263
+apps/sample/.react-router/types/app/routes/+types/sites.ts
+  s_738228bc0d81b1::t_1da72fa10935cb 1-74
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_72685ce6073f75 10,2697,3609-3618,3735-3741,5934,6632-6738
+apps/sample/app/routes.ts
+  s_8252619ce79a86::t_0a9ecb2bdc46f9 34-35
+apps/sample/app/routes/_layout.tsx
+  s_8252619ce79a86::t_bdb0d2577c2b70 7,22
+apps/sample/app/routes/sites.tsx
+  s_8252619ce79a86::t_a37793bd4ea8cc 1-63
+apps/sample/package.json
+  s_8252619ce79a86::t_9fb164c50b135e 31,33
+apps/sample/sites-demo/site.ts
+  s_8252619ce79a86::t_815870a47b7466 1-168
+apps/sample/sites-demo/vite-plugin.ts
+  s_8252619ce79a86::t_c90bf58b6d5248 1-99
+apps/sample/vite.config.ts
+  s_8252619ce79a86::t_4d341a9de4ae5a 4,15-17
+docs/SITES.md
+  s_8252619ce79a86::t_62e64dfd31b74e 1-385
+docs/component-reference.md
+  s_8252619ce79a86::t_8e76b7803fc2bd 7,240,246-247,255,285,314,383,434
+features.json
+  s_8252619ce79a86::t_6402d888d856b0 1048-1310
+features.ts
+  s_8252619ce79a86::t_b39dbac0b28fb2 466-579
+packages/design-system/CHANGELOG.md
+  s_8252619ce79a86::t_256fbf7124c011 3-16
+packages/design-system/package.json
+  s_8252619ce79a86::t_8b624c98867bf5 3
+packages/forms-builder/CHANGELOG.md
+  s_8252619ce79a86::t_b7da5e4a448398 3-8
+packages/forms-builder/package.json
+  s_8252619ce79a86::t_57db8df8903553 3
+packages/forms-builder/src/OptionListEditor.tsx
+  s_8252619ce79a86::t_b9ed5250a1f14b 81-82,90-93,104-124,172,182,184,209
+packages/forms-builder/src/__tests__/option-lists.test.tsx
+  s_8252619ce79a86::t_8b1b44a2809c7b 244,246-295
+packages/forms-builder/src/__tests__/scale.test.tsx
+  s_8252619ce79a86::t_175259e32fd44f 60-61,77-79
+packages/forms-native/src/__tests__/real-drafts-outbox.test.tsx
+  s_8252619ce79a86::t_1f6266c8e73518 49-50
+packages/forms-studio/README.md
+  s_8252619ce79a86::t_d54ed3f0d1d5f8 67-77
+packages/forms-studio/src/DropOffByQuestion.tsx
+  s_8252619ce79a86::t_bc258a83bda3e6 9-14,18,24-25,31
+packages/forms-studio/src/__tests__/partial.test.tsx
+  s_8252619ce79a86::t_796462ae5303cc 7,117-217,220,222,229-233
+packages/forms-studio/src/dropoff.ts
+  s_8252619ce79a86::t_e823d83553dcd1 3-5,12,20-51,55,57-61,64-72,84,86-87,90-95,97,100-105,119-134
+packages/forms-studio/src/rules.ts
+  s_8252619ce79a86::t_8842f06d300e4c 44
+packages/forms-studio/src/summary.ts
+  s_8252619ce79a86::t_c5537843881034 39-48
+packages/forms-web/CHANGELOG.md
+  s_8252619ce79a86::t_c69ad1bfef9775 3-28
+packages/forms-web/package.json
+  s_8252619ce79a86::t_aa2f28b51701e1 3
+packages/forms-web/src/Form.tsx
+  s_8252619ce79a86::t_3826c1cf995efb 173,190,200,397,408
+packages/forms-web/src/__tests__/description-lines.test.tsx
+  s_8252619ce79a86::t_c096023bfab07f 1-46
+packages/forms-web/src/chrome.tsx
+  s_8252619ce79a86::t_9be268f2ba7ebd 49
+packages/forms/CHANGELOG.md
+  s_8252619ce79a86::t_6839e9345dc850 3-38
+packages/forms/README.md
+  s_8252619ce79a86::t_495f8df819a776 87,813-816,827-914
+packages/forms/package.json
+  s_8252619ce79a86::t_40284095a53c32 3
+packages/forms/src/__tests__/delivery.test.ts
+  s_8252619ce79a86::t_f608c830a0f34f 1-902
+packages/forms/src/destinations.ts
+  s_8252619ce79a86::t_a79465f3abb973 3-8,26-28,76,86-131
+packages/forms/src/destinations/condition.ts
+  s_8252619ce79a86::t_0335d0ea6d9d33 1-76
+packages/forms/src/destinations/google-oauth.ts
+  s_8252619ce79a86::t_f44ea051d4cf82 1-118
+packages/forms/src/destinations/hook-url.ts
+  s_8252619ce79a86::t_1d23600aa51250 1-182
+packages/forms/src/destinations/runner.ts
+  s_8252619ce79a86::t_7a000b6fee8dac 1-343
+packages/forms/src/destinations/secret-box.ts
+  s_8252619ce79a86::t_4615c8f94a5fe3 1-11,13,15-35,37-52,54-59,61-83
+packages/forms/src/destinations/sheets.ts
+  s_8252619ce79a86::t_a595eee48945ea 3-7,43,67-78,191-205,218,223,339-354,356-359,361-384,423-427
+packages/forms/src/destinations/slack.ts
+  s_8252619ce79a86::t_94d44a7ebbf4b9 1-155
+packages/forms/src/destinations/types.ts
+  s_8252619ce79a86::t_9adb8d99f577e4 57-68,76-77,87-92,274-282,292,294,298
+packages/forms/src/destinations/webhook.ts
+  s_8252619ce79a86::t_70a2e854ac4bd1 21,39,58,65,67-79,132-140,309-316,321-322
+packages/genesis-cli/CHANGELOG.md
+  s_8252619ce79a86::t_ac8c5c09505f6a 3-22
+packages/genesis-cli/package.json
+  s_8252619ce79a86::t_9b3c31a1c1d519 3
+packages/genesis/CHANGELOG.md
+  s_8252619ce79a86::t_74567234edc1fb 3-37
+packages/genesis/package.json
+  s_8252619ce79a86::t_1d619516357355 3
+packages/native/CHANGELOG.md
+  s_8252619ce79a86::t_bf0a891528286e 1-33
+packages/native/package.json
+  s_8252619ce79a86::t_20212a8f1d7f06 3
+packages/native/src/__tests__/push/block.test.tsx
+  s_8252619ce79a86::t_65e7524f61157c 150-154
+packages/sites/.gitignore
+  s_8252619ce79a86::t_fdc519541dc583 1
+packages/sites/README.md
+  s_8252619ce79a86::t_8b9ab4be265d56 1-332
+packages/sites/migrations/0001_genesis_sites.sql
+  s_8252619ce79a86::t_0f66eb77850235 1-821
+packages/sites/migrations/tests/0001_genesis_sites.test.sql
+  s_8252619ce79a86::t_86253c11fa68b4 1-349
+packages/sites/package.json
+  s_8252619ce79a86::t_a3f9c0c4593249 1-147
+packages/sites/scripts/build-assets.mjs
+  s_8252619ce79a86::t_3c1285766d386e 1-93
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_8252619ce79a86::t_9e2618e4c7f6a6 1-63
+packages/sites/src/__tests__/core.test.ts
+  s_8252619ce79a86::t_09f9533c038d0a 1-269
+packages/sites/src/__tests__/fixtures.ts
+  s_8252619ce79a86::t_aa8ddcfa159ea9 1-165
+packages/sites/src/__tests__/migration.test.ts
+  s_8252619ce79a86::t_ee38fc84f0c580 1-98
+packages/sites/src/__tests__/sections.test.tsx
+  s_8252619ce79a86::t_b8fd6d843ab0b4 1-187
+packages/sites/src/__tests__/seo-a11y.test.ts
+  s_8252619ce79a86::t_ea78dfd75ed327 1-276
+packages/sites/src/__tests__/web.test.ts
+  s_8252619ce79a86::t_56f5d12c1143b5 1-400
+packages/sites/src/blocks.ts
+  s_8252619ce79a86::t_43bbe4e0da5070 1-31
+packages/sites/src/core/a11y.ts
+  s_8252619ce79a86::t_878fd3aff72f9b 1-215
+packages/sites/src/core/examples.ts
+  s_8252619ce79a86::t_88776964696feb 1-18
+packages/sites/src/core/forms.ts
+  s_8252619ce79a86::t_8c91c6f68dabc7 1-39
+packages/sites/src/core/migrate.ts
+  s_8252619ce79a86::t_54cd31f2ce7784 1-127
+packages/sites/src/core/registry.ts
+  s_8252619ce79a86::t_a98dcc068d8378 1-311
+packages/sites/src/core/schemas.ts
+  s_8252619ce79a86::t_54cf9f0cf2b20e 1-290
+packages/sites/src/core/seo.ts
+  s_8252619ce79a86::t_ea94121bb2d7c5 1-221
+packages/sites/src/core/store.ts
+  s_8252619ce79a86::t_059e2686b2fa7f 1-445
+packages/sites/src/core/templates.ts
+  s_8252619ce79a86::t_bf0931b6ff08bb 1-313
+packages/sites/src/core/theme.ts
+  s_8252619ce79a86::t_f67c087bb3539d 1-327
+packages/sites/src/core/urls.ts
+  s_8252619ce79a86::t_8920100c44e6c3 1-116
+packages/sites/src/index.ts
+  s_8252619ce79a86::t_ef021429ae0c52 1-143
+packages/sites/src/islands/form-island.tsx
+  s_8252619ce79a86::t_2cb6622ecbfd27 1-53
+packages/sites/src/islands/loader.ts
+  s_8252619ce79a86::t_72c56947ca7c9d 1-125
+packages/sites/src/sections/cta.tsx
+  s_8252619ce79a86::t_19ee35c457ea01 1-79
+packages/sites/src/sections/faq.tsx
+  s_8252619ce79a86::t_4a49411918a135 1-87
+packages/sites/src/sections/features.tsx
+  s_8252619ce79a86::t_9e8b092b4f08f5 1-133
+packages/sites/src/sections/footer.tsx
+  s_8252619ce79a86::t_15c402e10d66fe 1-107
+packages/sites/src/sections/form-embed.tsx
+  s_8252619ce79a86::t_0de6791f110bd4 1-150
+packages/sites/src/sections/form-header.tsx
+  s_8252619ce79a86::t_b242ac1a874af5 1-25
+packages/sites/src/sections/gallery.tsx
+  s_8252619ce79a86::t_58b5914dd934b3 1-57
+packages/sites/src/sections/hero.tsx
+  s_8252619ce79a86::t_cd96ca58f2b3d7 1-86
+packages/sites/src/sections/index.ts
+  s_8252619ce79a86::t_bd3c40cf3edea7 1-61
+packages/sites/src/sections/light-form.tsx
+  s_8252619ce79a86::t_b7a99f02c76f77 1-273
+packages/sites/src/sections/logos.tsx
+  s_8252619ce79a86::t_4672e099a809af 1-67
+packages/sites/src/sections/nav.tsx
+  s_8252619ce79a86::t_d50d9d1320b5a9 1-111
+packages/sites/src/sections/pricing.tsx
+  s_8252619ce79a86::t_21c20fe99139b3 1-127
+packages/sites/src/sections/rich-text.tsx
+  s_8252619ce79a86::t_85eb40edbf5ed4 1-57
+packages/sites/src/sections/shared.tsx
+  s_8252619ce79a86::t_09a47435d9c8a0 1-282
+packages/sites/src/sections/stats.tsx
+  s_8252619ce79a86::t_10f87d1cc28efa 1-57
+packages/sites/src/sections/testimonials.tsx
+  s_8252619ce79a86::t_d0d985afd14506 1-84
+packages/sites/src/supabase/index.ts
+  s_8252619ce79a86::t_8963dcfd938321 1-252
+packages/sites/src/web/document.tsx
+  s_8252619ce79a86::t_4428c61c0aefe2 1-206
+packages/sites/src/web/handler.ts
+  s_8252619ce79a86::t_a55f4810cb2dbf 1-324
+packages/sites/src/web/index.ts
+  s_8252619ce79a86::t_feebb206f14793 1-9
+packages/sites/src/web/sites-forms.css
+  s_8252619ce79a86::t_f2b9c4e171ae2d 1-15
+packages/sites/src/web/sites.css
+  s_8252619ce79a86::t_711fcf376f0c52 1-43
+packages/sites/tsconfig.json
+  s_8252619ce79a86::t_73f88a650858e8 1-18
+packages/sites/tsup.config.ts
+  s_8252619ce79a86::t_a1b92c38e84d85 1-19
+packages/sites/vitest.config.ts
+  s_8252619ce79a86::t_cccf6d2074d192 1-8
+packages/supabase/CHANGELOG.md
+  s_8252619ce79a86::t_57e3fc7247e071 3-53
+packages/supabase/package.json
+  s_8252619ce79a86::t_2716ae908be25e 3
+packages/ui-native/CHANGELOG.md
+  s_8252619ce79a86::t_6c038330e562a7 3-38
+packages/ui-native/package.json
+  s_8252619ce79a86::t_87cf4fea9799c8 3
+packages/ui/CHANGELOG.md
+  s_8252619ce79a86::t_94cddae8292c93 3-8
+packages/ui/package.json
+  s_8252619ce79a86::t_8f1bb4e81ea6f1 3,121-124
+packages/ui/scripts/gen-exports.mjs
+  s_8252619ce79a86::t_268a6e3d8d23fe 102-104
+packages/ui/src/components/layout/__tests__/band.test.tsx
+  s_8252619ce79a86::t_18dfcff46cc69d 1-86
+packages/ui/src/components/layout/band.tsx
+  s_8252619ce79a86::t_38da5cb2efc6b3 1-176
+packages/ui/src/components/layout/index.ts
+  s_8252619ce79a86::t_1096f3b1f5d050 76-77
+packages/ui/src/index.ts
+  s_8252619ce79a86::t_a19732ce5719fc 104-115
+packages/ui/tsup.config.ts
+  s_8252619ce79a86::t_face3d8a31ea30 53-55
+pnpm-lock.yaml
+  s_8252619ce79a86::t_25a43d117598aa 282-284,1129-1201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "347ecc8c1bd5f3456792449f2c6586c613b8311c",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
