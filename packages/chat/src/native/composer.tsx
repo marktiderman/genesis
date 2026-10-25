@@ -102,22 +102,26 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, testID =
   };
 
   const openAttach = async () => {
-    setAttachOpen(true);
+    let paste = false;
     try {
-      setCanPaste(Boolean(await modules.clipboard?.hasImageAsync?.()));
+      paste = Boolean(await modules.clipboard?.hasImageAsync?.());
     } catch {
-      setCanPaste(false);
+      paste = false;
     }
+    setCanPaste(paste);
+    // One source: straight to the picker, no sheet in between.
+    if (!paste && !modules.imagePicker?.launchCameraAsync && modules.imagePicker) return pick("library", false);
+    setAttachOpen(true);
   };
 
   const remaining = CHAT_LIMITS.attachmentsPerMessage - state.attachments.length;
   // The picker opens once the sheet has gone: iOS won't present one modal while another is dismissing.
-  const afterSheet = () => new Promise<void>((resolve) => setTimeout(resolve, 450));
-  const pick = async (from: "library" | "camera") => {
+  const afterSheet = () => new Promise<void>((resolve) => setTimeout(resolve, 800));
+  const pick = async (from: "library" | "camera", fromSheet = true) => {
     setAttachOpen(false);
     const picker = modules.imagePicker;
     if (!picker) return;
-    await afterSheet();
+    if (fromSheet) await afterSheet();
     try {
       if (from === "camera") {
         const permission = await picker.requestCameraPermissionsAsync?.();

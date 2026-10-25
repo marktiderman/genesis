@@ -56,7 +56,7 @@ describe("ChatComposer", () => {
     await waitFor(() => expect((screen.getByTestId("cmp-input") as HTMLInputElement).value).toBe("half written"));
   });
 
-  it("attaches photos from the library as thumbnails that can be removed", async () => {
+  it("attaches photos from the library as thumbnails (straight to the picker when it is the only source)", async () => {
     const imagePicker = {
       launchImageLibraryAsync: vi.fn(async () => ({ canceled: false, assets: [{ uri: "file:///a.jpg", fileName: "a.jpg", mimeType: "image/jpeg", width: 10, height: 10 }] })),
     };
@@ -66,8 +66,8 @@ describe("ChatComposer", () => {
         <Harness onSend={onSend} />
       </ChatNativeProvider>,
     );
+    // The library is the only source: the picker opens with no sheet in between.
     fireEvent.click(screen.getByTestId("cmp-attach"));
-    fireEvent.click(await screen.findByTestId("cmp-attach-library"));
     await waitFor(() => expect(screen.getByTestId("cmp-attachments")).toBeTruthy());
     expect(imagePicker.launchImageLibraryAsync).toHaveBeenCalledWith(expect.objectContaining({ mediaTypes: ["images", "videos"], allowsMultipleSelection: true }));
     fireEvent.click(screen.getByTestId("cmp-send"));

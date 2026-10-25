@@ -162,7 +162,11 @@ export function ChatMediaViewer({ image, onClose, testID = "chat-media-viewer" }
           <NativeIcon name="close" size={22} />
         </Pressable>
       </View>
-      {image ? <NativeImage src={image.uri} alt={image.alt} width={width - 32} height={Math.round(height * 0.72)} contentFit="contain" testID={`${testID}-image`} /> : null}
+      {image ? (
+        <View style={{ alignItems: "center" }}>
+          <NativeImage src={image.uri} alt={image.alt} width={width - 32} height={Math.round(height * 0.72)} contentFit="contain" testID={`${testID}-image`} />
+        </View>
+      ) : null}
     </NativeSheet>
   );
 }
