@@ -41,7 +41,7 @@ export {
   type FiltersValue,
 } from "./summary";
 export { headlineNumbers, comparisonFilter, headlineCards, type Headline } from "./headline";
-export { dropOffByQuestion, type QuestionDropOff } from "./dropoff";
+export { dropOffByQuestion, dropOffSummary, type DropOffSummary, type QuestionDropOff } from "./dropoff";
 export { followUpOf, needsFollowUp, type FollowUp } from "./followups";
 export { dayLabel } from "./generic/days";
 export { prefilledUrl, embedSnippet, type PrefillChoice } from "./generic/share";
