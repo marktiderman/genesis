@@ -97,6 +97,32 @@ describe("a failed send", () => {
   });
 });
 
+describe("number keypads", () => {
+  it("have a decimal point unless a whole-number step is set", () => {
+    const def = defineForm({
+      id: "pads",
+      title: "Pads",
+      layout: { mode: "focus" },
+      blocks: [f.number("kg", { label: "Kg", min: 0 }), f.number("reps", { label: "Reps", min: 0, step: 1 })],
+    }).definition;
+    renderForm(def, { autoAdvance: false });
+    expect(byTestId("form-kg").getAttribute("data-keyboard")).toBe("decimal-pad");
+    type("form-kg", "72.5");
+    next();
+    expect(byTestId("form-reps").getAttribute("data-keyboard")).toBe("number-pad");
+  });
+});
+
+describe("testIDs", () => {
+  it("are all prefixed with the form's testID", () => {
+    renderForm(abc, { autoAdvance: false, testID: "weekly" });
+    expect(queryTestId("weekly-next")).not.toBeNull();
+    expect(queryTestId("weekly-progress")).not.toBeNull();
+    expect(queryTestId("weekly-a")).not.toBeNull();
+    expect(queryTestId("form-next")).toBeNull();
+  });
+});
+
 describe("return keys", () => {
   it("say Send on the last question, and a bar above a pad with no return key carries Next", () => {
     const def = defineForm({

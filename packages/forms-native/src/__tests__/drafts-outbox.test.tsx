@@ -137,9 +137,14 @@ describe("the offline outbox", () => {
     answerAll();
     await flush();
     act(() => set({ ...get(), items: get().items.map((i) => ({ ...i, state: "failed" as const, lastError: "The form is closed." })) }));
-    expect(byTestId("form-status").textContent).toContain("The form is closed.");
+    // The respondent reads a plain sentence; the outbox's own reason isn't shown to them.
+    expect(byTestId("form-status").textContent).toContain("We couldn't send your answers.");
+    expect(byTestId("form-status").textContent).not.toContain("The form is closed.");
     press("form-status-retry");
     expect(outbox.retry).toHaveBeenCalledWith("key-0000000000000002");
+    // Discarded while failed: never claimed as sent.
+    act(() => set({ ...get(), items: [] }));
+    expect(byTestId("form-status").textContent).toContain("removed from this device without being sent");
   });
 
   it("keeps the answers and the draft when the device can't store them, and stores the same submission on Try again", async () => {

@@ -26,12 +26,16 @@ export interface BrandSlotProps {
 }
 
 export interface ProgressSlotProps {
+  /** The prefix of this part's testIDs (`<FormFocus testID>`). Default "form". */
+  testID?: string | undefined;
   /** The step's number (from 1) on the respondent's path, and the path's length. */
   step: number;
   total: number;
 }
 
 export interface NavigationSlotProps {
+  /** The prefix of this part's testIDs (`<FormFocus testID>`). Default "form". */
+  testID?: string | undefined;
   canGoBack: boolean;
   isLast: boolean;
   /** True while sending. */
@@ -50,6 +54,8 @@ export interface NavigationSlotProps {
 }
 
 export interface EndingSlotProps {
+  /** The prefix of this part's testIDs (`<FormFocus testID>`). Default "form". */
+  testID?: string | undefined;
   title: string;
   description?: string | undefined;
   /** Buttons under the ending ("Done", "Send another"): pass them through `slotProps.ending`. */
@@ -65,6 +71,8 @@ export interface ErrorSummaryItem {
 }
 
 export interface ErrorSummarySlotProps {
+  /** The prefix of this part's testIDs (`<FormFocus testID>`). Default "form". */
+  testID?: string | undefined;
   count: number;
   errors: ErrorSummaryItem[];
   /** Go back to that question. */
@@ -74,6 +82,8 @@ export interface ErrorSummarySlotProps {
 }
 
 export interface NoticeSlotProps {
+  /** The prefix of this part's testIDs (`<FormFocus testID>`). Default "form". */
+  testID?: string | undefined;
   /**
    * `restored`: a saved draft was put back. `discarded`: one was found but no longer fits the form.
    * `draftError`: the draft couldn't be read. `saving`: answers save as they go.
@@ -83,6 +93,12 @@ export interface NoticeSlotProps {
 }
 
 export interface StatusSlotProps {
+  /** The outbox's own reason for a failure (`lastError`), for a log or a custom slot; the default shows only `message`. */
+  detail?: string | undefined;
+  /** The retry button's word. Default "Try again". */
+  retryLabel?: string | undefined;
+  /** This part's testID. Default "form-status". */
+  testID?: string | undefined;
   status: SubmissionStatus;
   message: string;
   /** Try a failed submission again, when the outbox can. */
@@ -155,7 +171,7 @@ export function DefaultBrand({ name, logo }: BrandSlotProps) {
   );
 }
 
-export function DefaultProgress({ step, total }: ProgressSlotProps) {
+export function DefaultProgress({ step, total, testID = "form" }: ProgressSlotProps) {
   const s = useFormStyles();
   if (!total) return null;
   // Fills with questions answered (empty on the first), like the web's focus layout.
@@ -167,7 +183,7 @@ export function DefaultProgress({ step, total }: ProgressSlotProps) {
       accessibilityRole="progressbar"
       accessibilityLabel="Progress"
       accessibilityValue={{ min: 0, max: total, now: step, text: label }}
-      testID="form-progress"
+      testID={`${testID}-progress`}
     >
       <View style={s.progressTrack}>
         <View style={[s.progressFill, { width: `${percent}%` }]} />
@@ -177,16 +193,16 @@ export function DefaultProgress({ step, total }: ProgressSlotProps) {
   );
 }
 
-export function DefaultNavigation({ canGoBack, isLast, busy, failed, onBack, onNext, nextLabel, submitLabel, retryLabel, backLabel, submitRef }: NavigationSlotProps) {
+export function DefaultNavigation({ canGoBack, isLast, busy, failed, onBack, onNext, nextLabel, submitLabel, retryLabel, backLabel, submitRef, testID = "form" }: NavigationSlotProps) {
   const s = useFormStyles();
   const label = busy ? "Sending…" : failed ? retryLabel : isLast ? submitLabel : nextLabel;
   return (
     <View style={s.nav}>
-      <Button ref={submitRef} testID="form-next" onPress={onNext} busy={busy} accessibilityLabel={label}>
+      <Button ref={submitRef} testID={`${testID}-next`} onPress={onNext} busy={busy} accessibilityLabel={label}>
         {label}
       </Button>
       {canGoBack ? (
-        <Button testID="form-back" variant="secondary" onPress={onBack} disabled={busy}>
+        <Button testID={`${testID}-back`} variant="secondary" onPress={onBack} disabled={busy}>
           {backLabel}
         </Button>
       ) : null}
@@ -194,10 +210,10 @@ export function DefaultNavigation({ canGoBack, isLast, busy, failed, onBack, onN
   );
 }
 
-export function DefaultEnding({ title, description, actions, focusRef }: EndingSlotProps) {
+export function DefaultEnding({ title, description, actions, focusRef, testID = "form" }: EndingSlotProps) {
   const s = useFormStyles();
   return (
-    <View style={s.ending} testID="form-ending">
+    <View style={s.ending} testID={`${testID}-ending`}>
       <View style={s.endingMark} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
         <Text style={s.endingCheck}>✓</Text>
       </View>
@@ -210,17 +226,17 @@ export function DefaultEnding({ title, description, actions, focusRef }: EndingS
   );
 }
 
-export function DefaultErrorSummary({ count, errors, onSelect, focusRef }: ErrorSummarySlotProps) {
+export function DefaultErrorSummary({ count, errors, onSelect, focusRef, testID = "form" }: ErrorSummarySlotProps) {
   const s = useFormStyles();
   return (
-    <View style={[s.banner, s.bannerError, { marginBottom: 20 }]} testID="form-error-summary">
+    <View style={[s.banner, s.bannerError, { marginBottom: 20 }]} testID={`${testID}-error-summary`}>
       <Text ref={focusRef} accessibilityRole="header" style={[s.bannerTitle, s.bannerTitleError]}>
         {count === 1 ? "One answer needs attention." : `${count} answers need attention.`}
       </Text>
       {errors.map((e) => (
         <Pressable
           key={e.id}
-          testID={`form-error-${e.id}`}
+          testID={`${testID}-error-${e.id}`}
           accessibilityRole="link"
           accessibilityHint="Goes back to this question"
           onPress={() => onSelect(e.id)}
@@ -235,23 +251,23 @@ export function DefaultErrorSummary({ count, errors, onSelect, focusRef }: Error
   );
 }
 
-export function DefaultNotice({ message }: NoticeSlotProps) {
+export function DefaultNotice({ message, testID = "form" }: NoticeSlotProps) {
   const s = useFormStyles();
   return (
-    <Text style={[s.hint, { marginTop: 16 }]} testID="form-notice">
+    <Text style={[s.hint, { marginTop: 16 }]} testID={`${testID}-notice`}>
       {message}
     </Text>
   );
 }
 
-export function DefaultStatus({ status, message, onRetry }: StatusSlotProps) {
+export function DefaultStatus({ status, message, onRetry, retryLabel = "Try again", testID = "form-status" }: StatusSlotProps) {
   const s = useFormStyles();
   return (
-    <View style={[s.banner, status === "failed" ? s.bannerError : null, { alignSelf: "stretch" }]} testID="form-status" accessibilityLiveRegion="polite">
+    <View style={[s.banner, status === "failed" ? s.bannerError : null, { alignSelf: "stretch" }]} testID={testID} accessibilityLiveRegion="polite">
       <Text style={[s.bannerText, status === "failed" ? s.bannerTitleError : null]}>{message}</Text>
       {status === "failed" && onRetry ? (
-        <Button variant="secondary" onPress={onRetry} testID="form-status-retry">
-          Try again
+        <Button variant="secondary" onPress={onRetry} testID={`${testID}-retry`}>
+          {retryLabel}
         </Button>
       ) : null}
     </View>

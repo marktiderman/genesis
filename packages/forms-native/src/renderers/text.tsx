@@ -115,7 +115,8 @@ const NUMBER = /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i;
 
 /** The keypad for a number's range: digits only, digits and a decimal point, or a minus sign too. */
 function numberKeyboard(min: number | undefined, step: number | undefined): KeyboardTypeOptions {
-  if (min !== undefined && min >= 0) return step === undefined || Number.isInteger(step) ? "number-pad" : "decimal-pad";
+  // Whole numbers only when the step says so: without a step any value is valid, so a decimal point is needed.
+  if (min !== undefined && min >= 0) return step !== undefined && Number.isInteger(step) ? "number-pad" : "decimal-pad";
   // iOS's number and decimal pads have no minus key.
   return Platform.OS === "ios" ? "numbers-and-punctuation" : "numeric";
 }

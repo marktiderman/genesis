@@ -41,7 +41,7 @@ describe("field kinds", () => {
   it("number keeps what is typed and stores a number once it is one", () => {
     const { engine } = renderForm(one(f.number("weight", { label: "Weight", min: 0, max: 300 })));
     const id = engine.idOf("weight");
-    expect(byTestId("form-weight").getAttribute("data-keyboard")).toBe("number-pad");
+    expect(byTestId("form-weight").getAttribute("data-keyboard")).toBe("decimal-pad");
     screen.getByText("From 0 to 300");
     type("form-weight", "72,5");
     expect(engine.getState().values[id]).toBe(72.5);

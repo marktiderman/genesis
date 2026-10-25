@@ -61,12 +61,22 @@ export type SubmissionStatus =
   /** The server has it (it left the outbox). */
   | "sent"
   /** Refused, or out of tries: it stays on the device until it is retried or discarded. */
-  | "failed";
+  | "failed"
+  /** It left the outbox while it was failed: discarded, not sent. */
+  | "discarded";
 
-/** Where the submission `id` stands in an outbox snapshot. */
-export function submissionStatus(snapshot: OutboxSnapshotLike, id: string): { status: SubmissionStatus; error: string | null } {
+/**
+ * Where the submission `id` stands in an outbox snapshot. An item that left the outbox was
+ * delivered, unless the last status seen (`previous`) was `failed`: a failed submission only
+ * leaves by being discarded (a retry first makes it pending again).
+ */
+export function submissionStatus(
+  snapshot: OutboxSnapshotLike,
+  id: string,
+  previous?: SubmissionStatus | undefined,
+): { status: SubmissionStatus; error: string | null } {
   const item = snapshot.items.find((i) => i.id === id);
-  if (!item) return { status: "sent", error: null };
+  if (!item) return { status: previous === "failed" || previous === "discarded" ? "discarded" : "sent", error: null };
   if (item.state === "failed") return { status: "failed", error: item.lastError ?? null };
   if (!snapshot.online && !item.sending) return { status: "waiting", error: null };
   return { status: "sending", error: null };

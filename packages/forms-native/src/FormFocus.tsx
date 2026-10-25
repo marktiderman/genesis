@@ -85,10 +85,17 @@ export interface FormFocusProps {
    * screen shows.
    */
   draft?: FormDraftLike | undefined;
+  /** Engine options, read when the response starts. Unused with `engine` or `draft`: pass them to `useForm` or `useFormDraft`. */
   options?: CreateFormOptions | undefined;
-  /** Option lists this app supplies, by key, for `optionsFrom: { source: "host", key }` questions. */
+  /**
+   * Option lists this app supplies, by key, for `optionsFrom: { source: "host", key }` questions.
+   * Unused with `engine` or `draft`: pass them to `useForm` or `useFormDraft`.
+   */
   hostOptions?: HostOptions | undefined;
-  /** The parameters of the link the form was opened with: questions with `props.prefill` take them. */
+  /**
+   * The parameters of the link the form was opened with: questions with `props.prefill` take
+   * them. Unused with `engine` or `draft`: pass them to `useForm` or `useFormDraft`.
+   */
   linkParams?: LinkParams | undefined;
   /** Field renderers. Default `defaultRegistry`; `defaultRegistry.extend([...])` adds kinds. */
   registry?: RendererRegistry | undefined;
@@ -147,7 +154,11 @@ export interface FormFocusProps {
   progressNotice?: string | null | undefined;
   slots?: FormSlots | undefined;
   slotProps?: FormSlotProps | undefined;
-  /** The root's testID, and the prefix of every part's: `<testID>-<question key>`. Default "form". */
+  /**
+   * The root's testID, and the prefix of every part's: `<testID>-<question key>` for a field,
+   * `<testID>-next`, `-back`, `-progress`, `-ending`, `-status`, `-notice`, `-error-summary`.
+   * Default "form".
+   */
   testID?: string | undefined;
 }
 
@@ -214,6 +225,7 @@ const STATUS_MESSAGES: Record<SubmissionStatus, string> = {
   sending: "Sending your answers…",
   sent: "Your answers were sent.",
   failed: "We couldn't send your answers. They're kept on this device.",
+  discarded: "Your answers were removed from this device without being sent.",
 };
 
 /**
@@ -395,21 +407,18 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
         const state = engine.getState();
         if (state.current === id || state.history.length === 0) break;
         controller.back();
+        if (engine.getState().current === state.current) break;
       }
       return;
     }
-    // Later on the path: forward, as Next does. It stops (and says why) at a question that
-    // still needs an answer, since the engine never skips one.
+    // Later on the path: forward, through the controller's Next (so it waits for uploads and
+    // slides the right way). It stops, and says why, at a question that still needs an answer:
+    // the engine never skips one. The target is on the path, so this never reaches Send.
     for (let i = 0; i < 1000; i++) {
       const state = engine.getState();
       if (state.current === id) break;
-      const before = state.current;
-      if (!engine.next()) {
-        const message = engine.getState().current ? engine.getState().errors[engine.getState().current!] : undefined;
-        if (message) controller.announce(message);
-        break;
-      }
-      if (engine.getState().current === before) break;
+      controller.advance();
+      if (engine.getState().current === state.current) break;
     }
   };
 
@@ -474,6 +483,7 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
               focusRef: (node: unknown) => {
                 endingRef.current = node;
               },
+              testID,
             },
             slotProps?.ending,
           )}
@@ -483,8 +493,17 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
                 slots?.status,
                 {
                   status: outboxStatus.status,
-                  message: outboxStatus.status === "failed" && outboxStatus.error ? `${STATUS_MESSAGES.failed} ${outboxStatus.error}` : STATUS_MESSAGES[outboxStatus.status],
-                  onRetry: outbox?.retry && queued ? () => void outbox.retry?.(queued) : undefined,
+                  // The outbox's own words are for the app's log or its own slot, not the respondent.
+                  message: STATUS_MESSAGES[outboxStatus.status],
+                  detail: outboxStatus.error ?? undefined,
+                  retryLabel,
+                  onRetry:
+                    outbox?.retry && queued
+                      ? () => {
+                          Promise.resolve(outbox.retry?.(queued)).catch((error) => console.warn("[forms-native] The retry couldn't start.", error));
+                        }
+                      : undefined,
+                  testID: `${testID}-status`,
                 },
                 slotProps?.status,
               )
@@ -510,7 +529,7 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
       {header}
       <Shell testID={testID} keyName={current ?? ""}>
         {brandNode}
-        {path.length > 0 ? renderSlot(DefaultProgress, slots?.progress, { step: controller.step, total: path.length }, slotProps?.progress) : null}
+        {path.length > 0 ? renderSlot(DefaultProgress, slots?.progress, { step: controller.step, total: path.length, testID }, slotProps?.progress) : null}
         <View style={{ height: 20 }} />
         {first
           ? renderSlot(
@@ -536,6 +555,7 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
                 focusRef: (node: unknown) => {
                   summaryRef.current = node;
                 },
+                testID,
               },
               slotProps?.errorSummary,
             )
@@ -543,7 +563,7 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
         <Animated.View style={[s.step, stepStyle]} testID={`${testID}-step`}>
           {step}
         </Animated.View>
-        {notice ? renderSlot(DefaultNotice, slots?.notice, notice, slotProps?.notice) : null}
+        {notice ? renderSlot(DefaultNotice, slots?.notice, { ...notice, testID }, slotProps?.notice) : null}
         {phase === "failed" ? (
           <Text style={s.error} accessibilityRole="alert" testID={`${testID}-failed`}>
             {failedMessage(!!outbox, retryLabel)}
@@ -564,6 +584,7 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
             retryLabel,
             backLabel,
             submitRef,
+            testID,
           },
           slotProps?.navigation,
         )}
@@ -576,8 +597,13 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
 function useOutboxStatus(outbox: OutboxLike | undefined, id: string | null) {
   const subscribe = useCallback((listener: () => void) => (outbox ? outbox.subscribe(listener) : () => {}), [outbox]);
   const snapshot = useSyncExternalStore(subscribe, () => outbox?.getSnapshot() ?? null, () => outbox?.getSnapshot() ?? null);
-  if (!outbox || !id || !snapshot) return null;
-  return submissionStatus(snapshot, id);
+  // The last status seen: a failed submission that leaves the outbox was discarded, not sent.
+  const previous = useRef<SubmissionStatus | undefined>(undefined);
+  const result = outbox && id && snapshot ? submissionStatus(snapshot, id, previous.current) : null;
+  useEffect(() => {
+    previous.current = result?.status;
+  });
+  return result;
 }
 
 /**
