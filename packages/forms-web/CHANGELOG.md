@@ -1,5 +1,11 @@
 # @marktiderman/genesis-forms-web
 
+## 0.6.1
+
+### Patch Changes
+
+- 02b287e: Form, question and ending descriptions keep their line breaks: a single newline breaks the line and a blank line separates paragraphs (`white-space: pre-line`). The text still renders as plain text.
+
 ## 0.6.0
 
 ### Minor Changes

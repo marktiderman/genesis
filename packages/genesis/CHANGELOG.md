@@ -1,5 +1,15 @@
 # @marktiderman/genesis
 
+## 0.9.1
+
+### Patch Changes
+
+- Updated dependencies [02b287e]
+- Updated dependencies [51d6c9d]
+  - @marktiderman/genesis-forms-web@0.6.1
+  - @marktiderman/genesis-forms@0.8.0
+  - @marktiderman/genesis-forms-react@0.2.0
+
 ## 0.9.0
 
 ### Minor Changes
