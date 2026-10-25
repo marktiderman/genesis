@@ -70,9 +70,12 @@ export type ReservedPaths = readonly string[] | ((path: string) => boolean);
 /** Is `path` reserved: equal to a reserved prefix, or under it (`/api`, `/api/x`, not `/apiary`)? */
 export function isReservedPath(path: string, reserved: ReservedPaths = DEFAULT_RESERVED_PATHS): boolean {
   if (typeof reserved === "function") return reserved(path);
+  // Case-insensitive, like the database's check: /AUTH is the app's /auth on a case-insensitive router.
+  const probe = path.toLowerCase();
   return reserved.some((prefix) => {
-    const p = prefix.endsWith("/") && prefix.length > 1 ? prefix.slice(0, -1) : prefix;
-    return path === p || path.startsWith(`${p}/`);
+    const lower = prefix.toLowerCase();
+    const p = lower.endsWith("/") && lower.length > 1 ? lower.slice(0, -1) : lower;
+    return probe === p || probe.startsWith(`${p}/`);
   });
 }
 

@@ -73,6 +73,8 @@ describe("links and paths", () => {
     expect(pagePathProblems("/apiary")).toEqual([]);
     expect(pagePathProblems("/admin", ["/admin"])[0]).toContain("reserved");
     expect(isReservedPath("/x/y", (p) => p.startsWith("/x"))).toBe(true);
+    expect(isReservedPath("/AUTH/callback")).toBe(true);
+    expect(isReservedPath("/Api", ["/API/"])).toBe(true);
   });
 
   it("normalises a request path to the page path it asks for", () => {
