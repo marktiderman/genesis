@@ -10,4 +10,4 @@ Add the visual editor, `@marktiderman/genesis-sites/editor`: `<SiteEditor siteId
 - Autosave by compare-and-swap (`Autosaver`): edits made during a save or a conflict are kept; a conflict offers loading the other version or keeping yours. Undo and redo come from Puck's history.
 - Publish panel: the publish checks (errors block), preview, publish with a note, release history and rollback, and per-page SEO (title, description, share image, noindex).
 - Image picker over the store's `putAsset` (or the host's upload), with alt text required unless the image is decorative.
-- Styled with Genesis UI through Puck's overrides. Puck is a dependency of this package only; apps import everything from `/editor`, and `/web` never loads it.
+- Styled with Genesis UI through Puck's overrides. Puck (`@puckeditor/core` ^0.23) is an optional peer dependency: install it where the editor runs. Apps import everything from `/editor`; the root, `/web` and `/sections` never load it.

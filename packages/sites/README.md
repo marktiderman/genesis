@@ -28,8 +28,9 @@ pnpm add @marktiderman/genesis-sites zod@^4
 
 Peers: `react` and `react-dom` 19, `zod` 4, `@marktiderman/genesis-ui`,
 `@marktiderman/genesis-design-system`, `@marktiderman/genesis-forms` and
-`-forms-web` (the form embed), `lucide-react`, and `@supabase/supabase-js` for
-the Supabase store.
+`-forms-web` (the form embed), `lucide-react`, `@supabase/supabase-js` for
+the Supabase store, and `@puckeditor/core` 0.23 for the editor. The last two
+are optional: install them only if you use the Supabase store or `/editor`.
 
 Then:
 
@@ -312,6 +313,10 @@ published site.
 
 ## The editor
 
+```bash
+pnpm add @puckeditor/core@^0.23   # only where the editor runs
+```
+
 ```tsx
 import { SiteEditor } from "@marktiderman/genesis-sites/editor";
 
@@ -368,8 +373,9 @@ What it does:
   dragging (each Add-picker entry has an Add button), and the panels are
   Genesis UI tabs and dialogs.
 
-Puck is a dependency of this package and stays inside `/editor`: import
-everything from here (it re-exports `usePuck`, `createUsePuck` and the
+Puck is an optional peer dependency (`@puckeditor/core`): an app that only
+serves sites never installs it, and the root, `/web` and `/sections` never
+import it. It stays inside `/editor`: import everything from here (it re-exports `usePuck`, `createUsePuck` and the
 `PuckConfig`, `PuckData` and `PuckOverrides` types for extensions), and
 never from `@puckeditor/core`. `/web` never imports the editor, so published
 pages carry no Puck code. The lower-level pieces are exported too:

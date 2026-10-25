@@ -21,9 +21,10 @@ import { brand, sectionProps } from "./fixtures";
 
 // ── Puck stays in the editor ────────────────────────────────────────────────
 
-describe("the published renderer", () => {
-  it("never reaches Puck or the editor through its imports", () => {
-    const src = join(dirname(fileURLToPath(import.meta.url)), "..");
+describe("the entry points without the editor", () => {
+  const src = join(dirname(fileURLToPath(import.meta.url)), "..");
+  /** Every source file an entry reaches through relative imports, and every package it names. */
+  const graph = (entry: string) => {
     const seen = new Set<string>();
     const bare = new Set<string>();
     const visit = (file: string) => {
@@ -41,10 +42,37 @@ describe("the published renderer", () => {
         if (target && /\.tsx?$/.test(target)) visit(target);
       }
     };
-    visit(join(src, "web/index.ts"));
-    expect(seen.size).toBeGreaterThan(10);
+    visit(join(src, entry));
+    return { seen, bare };
+  };
+
+  // Puck is an optional peer: an app that only serves sites never installs it, so only /editor may import it.
+  it.each([
+    [".", "index.ts"],
+    ["/web", "web/index.ts"],
+    ["/sections", "sections/index.ts"],
+    ["/supabase", "supabase/index.ts"],
+    ["/blocks", "blocks.ts"],
+  ])("%s never reaches Puck or the editor through its imports", (_name, entry) => {
+    const { seen, bare } = graph(entry);
+    expect(seen.size).toBeGreaterThan(0);
     expect([...seen].filter((f) => f.includes(`${join(src, "editor")}`))).toEqual([]);
     expect([...bare].filter((s) => s.startsWith("@puckeditor") || s.startsWith("@measured"))).toEqual([]);
+  });
+
+  it("follows the imports far enough to mean something", () => {
+    expect(graph("web/index.ts").seen.size).toBeGreaterThan(10);
+    expect(graph("index.ts").seen.size).toBeGreaterThan(10);
+    // The check itself finds Puck where it is.
+    expect([...graph("editor/index.ts").bare].some((s) => s.startsWith("@puckeditor"))).toBe(true);
+  });
+
+  it("lists Puck as an optional peer, never a dependency", () => {
+    const pkg = JSON.parse(readFileSync(join(src, "..", "package.json"), "utf8")) as Record<string, Record<string, unknown> | undefined>;
+    expect(pkg.dependencies?.["@puckeditor/core"]).toBeUndefined();
+    expect(pkg.peerDependencies?.["@puckeditor/core"]).toBeDefined();
+    expect(pkg.peerDependenciesMeta?.["@puckeditor/core"]).toEqual({ optional: true });
+    expect(pkg.devDependencies?.["@puckeditor/core"]).toBeDefined();
   });
 });
 
