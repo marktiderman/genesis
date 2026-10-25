@@ -4,6 +4,9 @@
  * Puck data and back, autosave with compare-and-swap conflicts, publish
  * blocked by the checks, and page moves writing redirects.
  */
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { z } from "zod";
@@ -15,6 +18,35 @@ import { sectionFields } from "../editor/fields";
 import { Autosaver, AutosaveBlockedError } from "../editor/autosave";
 import { checkSite, pageTemplates, pathProblems, publishSite, renamePage, slugify } from "../editor/site-actions";
 import { brand, sectionProps } from "./fixtures";
+
+// ── Puck stays in the editor ────────────────────────────────────────────────
+
+describe("the published renderer", () => {
+  it("never reaches Puck or the editor through its imports", () => {
+    const src = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const seen = new Set<string>();
+    const bare = new Set<string>();
+    const visit = (file: string) => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      const text = readFileSync(file, "utf8");
+      for (const m of text.matchAll(/(?:import|export)[^"']*?from\s*["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)|import\s+["']([^"']+)["']/g)) {
+        const spec = (m[1] ?? m[2] ?? m[3])!;
+        if (!spec.startsWith(".")) {
+          bare.add(spec);
+          continue;
+        }
+        const base = resolve(dirname(file), spec);
+        const target = [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts")].find((p) => existsSync(p) && !p.endsWith("/"))!;
+        if (target && /\.tsx?$/.test(target)) visit(target);
+      }
+    };
+    visit(join(src, "web/index.ts"));
+    expect(seen.size).toBeGreaterThan(10);
+    expect([...seen].filter((f) => f.includes(`${join(src, "editor")}`))).toEqual([]);
+    expect([...bare].filter((s) => s.startsWith("@puckeditor") || s.startsWith("@measured"))).toEqual([]);
+  });
+});
 
 // ── Config from the registry ────────────────────────────────────────────────
 

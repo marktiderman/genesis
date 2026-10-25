@@ -9,6 +9,8 @@ import { ArrowLeft } from "lucide-react";
 import { defineForm, f } from "@marktiderman/genesis-forms";
 import { createMemorySiteStore, exampleBrands, landingPage, type FormsResolver, type MemorySiteStore, type SiteBrand } from "@marktiderman/genesis-sites";
 import { SiteEditor, type EditorAssets } from "@marktiderman/genesis-sites/editor";
+// The site stylesheet by URL, so the canvas needs no extra download for it.
+import siteStylesheet from "@marktiderman/genesis-sites/sites.css?url";
 import { Badge } from "@marktiderman/genesis-ui/badge";
 import { Button } from "@marktiderman/genesis-ui/button";
 
@@ -99,7 +101,7 @@ export default function SitesEditorRoute() {
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        {store ? <SiteEditor siteId={SITE_ID} store={store} brand={brand} forms={forms} assets={assets} onPublish={(r) => setPublished(r.number)} /> : null}
+        {store ? <SiteEditor siteId={SITE_ID} store={store} brand={brand} forms={forms} assets={assets} siteStylesheet={siteStylesheet} onPublish={(r) => setPublished(r.number)} /> : null}
       </div>
     </div>
   );

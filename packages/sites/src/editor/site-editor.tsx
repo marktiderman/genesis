@@ -67,6 +67,12 @@ export interface SiteEditorProps {
   autosaveDelay?: number;
   /** The page to open first (default: the home page). */
   initialPageId?: string;
+  /**
+   * The URL of the package's site stylesheet (`@marktiderman/genesis-sites/sites.css`, for example
+   * Vite's `?url` import, or `/_gs/sites.<hash>.css` where `handleSiteRequest` is mounted). Without it
+   * the canvas loads the stylesheet from the renderer's bundled assets, a larger download.
+   */
+  siteStylesheet?: string;
   className?: string;
 }
 
@@ -100,14 +106,20 @@ function worst(...states: (AutosaveState<unknown> | null)[]): AutosaveState<unkn
 }
 
 /** The site's stylesheet and theme in the canvas iframe. */
-function useCanvasFrame(css: string | null, theme: string, dark: boolean, lang: string) {
+function useCanvasFrame(css: string | null, href: string | undefined, theme: string, dark: boolean, lang: string) {
   return React.useCallback(
     ({ children, document }: { children: React.ReactNode; document?: Document }) => {
       // eslint-disable-next-line react-hooks/rules-of-hooks
       React.useEffect(() => {
         if (!document) return;
         const nodes: HTMLElement[] = [];
-        if (css) {
+        if (href) {
+          const link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = href;
+          link.dataset.gsSiteCss = "";
+          nodes.push(link);
+        } else if (css) {
           const site = document.createElement("style");
           site.dataset.gsSiteCss = "";
           site.textContent = styleText(css);
@@ -138,7 +150,7 @@ function useCanvasFrame(css: string | null, theme: string, dark: boolean, lang: 
       }, [document]);
       return <>{children}</>;
     },
-    [css, theme, dark, lang],
+    [css, href, theme, dark, lang],
   );
 }
 
@@ -224,7 +236,7 @@ function PagesTab(props: Omit<React.ComponentProps<typeof PagesPanel>, "onEditFo
  *
  * @stability Beta
  */
-export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, reserved, previewUrl, autosaveDelay, initialPageId, className }: SiteEditorProps) {
+export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, reserved, previewUrl, autosaveDelay, initialPageId, siteStylesheet, className }: SiteEditorProps) {
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [site, setSite] = React.useState<SiteDoc | null>(null);
   const [pages, setPages] = React.useState<PageMeta[]>([]);
@@ -263,7 +275,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       return siteTheme({ name: brandDisplayName(brand), colors: { primary: "#4f46e5" } }, site?.theme ?? {});
     }
   }, [brand, site?.theme]);
-  const iframe = useCanvasFrame(css, themeCss(theme), theme.colorScheme === "dark", site?.lang ?? "en");
+  const iframe = useCanvasFrame(css, siteStylesheet, themeCss(theme), theme.colorScheme === "dark", site?.lang ?? "en");
 
   // ── Loading ───────────────────────────────────────────────────────────────
   const loadPage = React.useCallback(
@@ -314,7 +326,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
         if (!cancelled) setLoadError((err as Error).message);
       }
     })();
-    loadSiteCss().then(setCss, (err: unknown) => console.error("[genesis-sites/editor] the site stylesheet didn't load; the canvas is unstyled.", err));
+    if (!siteStylesheet) loadSiteCss().then(setCss, (err: unknown) => console.error("[genesis-sites/editor] the site stylesheet didn't load; the canvas is unstyled.", err));
     return () => {
       cancelled = true;
       siteSaver.current?.dispose();
