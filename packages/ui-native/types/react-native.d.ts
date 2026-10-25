@@ -45,6 +45,7 @@ declare module "react-native" {
     accessibilityElementsHidden?: boolean;
     accessibilityViewIsModal?: boolean;
     importantForAccessibility?: "auto" | "yes" | "no" | "no-hide-descendants";
+    onAccessibilityEscape?: () => void;
     pointerEvents?: "none" | "auto" | "box-none" | "box-only";
     onLayout?: (e: any) => void;
     collapsable?: boolean;
@@ -161,6 +162,7 @@ declare module "react-native" {
     accessibilityHint?: string;
     accessibilityState?: AccessibilityState;
     accessibilityValue?: AccessibilityValue;
+    importantForAccessibility?: "auto" | "yes" | "no" | "no-hide-descendants";
     accessibilityLiveRegion?: "none" | "polite" | "assertive";
     accessibilityActions?: ReadonlyArray<{ name: string; label?: string }>;
     onAccessibilityAction?: (event: { nativeEvent: { actionName: string } }) => void;
@@ -197,7 +199,18 @@ declare module "react-native" {
     visible?: boolean;
     transparent?: boolean;
     animationType?: "none" | "slide" | "fade";
+    /** iOS. */
+    presentationStyle?: "fullScreen" | "pageSheet" | "formSheet" | "overFullScreen";
+    /** iOS: a swipe down dismisses (then `onRequestClose`); otherwise it only asks. */
+    allowSwipeDismissal?: boolean;
+    /** The container's color when not `transparent`. */
+    backdropColor?: string | OpaqueColorValue;
+    /** Android. */
+    statusBarTranslucent?: boolean;
+    /** Android. */
+    navigationBarTranslucent?: boolean;
     onRequestClose?: () => void;
+    onDismiss?: () => void;
     children?: React.ReactNode;
     testID?: string;
   }

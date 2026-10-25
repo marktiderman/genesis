@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 64
+      "count": 65
     }
   },
   "primitives": [
@@ -1761,6 +1761,59 @@
       ]
     },
     {
+      "slug": "google-sign-in",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/google-sign-in.tsx",
+      "stability": "beta",
+      "summary": "A `SocialAuthProvider` (id `\"google\"`) for `AuthScreen`'s `providers`, or\n`null` when `enabled` is false.",
+      "primaryComponent": "googleProvider",
+      "components": [
+        {
+          "name": "googleProvider",
+          "summary": "A `SocialAuthProvider` (id `\"google\"`) for `AuthScreen`'s `providers`, or\n`null` when `enabled` is false.",
+          "props": [
+            {
+              "name": "onPress",
+              "type": "() => void | Promise<void>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Usually `() => signInWithGoogle(supabase, GoogleOneTapSignIn, { digest })`."
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "enabled",
+              "type": "boolean | null",
+              "required": false,
+              "defaultValue": "true",
+              "description": "`false` (or `null`) gives `null`, so a switched-off provider goes in the list as is. Default true."
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Google's \"G\" mark, as the app draws it."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Continue with Google",
+              "description": "Default \"Continue with Google\", Google's own wording."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "grid",
       "aliases": [],
       "surface": "native",
@@ -2937,6 +2990,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "offlineState",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown while the list has nothing saved and its fetch is paused because\nthe device is offline (`networkMode: \"offlineFirst\"`), instead of an empty\nlist that says there is nothing. Default: a one-line offline message."
             },
             {
               "name": "onCreatePress",
@@ -4651,9 +4711,22 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/sheet.tsx",
       "stability": "beta",
-      "summary": "Sheet / BottomSheet — modal that slides up from the bottom.\n\nUse for non-blocking selections, filters, and short flows that benefit\nfrom preserving screen context. For blocking confirmations, use\n<NativeDialog>. For full-screen flows, use a navigation route.\n\nImplementation prefers @gorhom/bottom-sheet (gesture-driven, snap\npoints, native feel). Consumers must install @gorhom/bottom-sheet,\nreact-native-gesture-handler, and react-native-reanimated as peer\ndeps; wrap the app root in <GestureHandlerRootView> +\n<BottomSheetModalProvider>. If the peer is not installed, this\nprimitive falls back to a simple RN Modal with a slide animation —\nacceptable for samples but not production.",
+      "summary": "Sheet / BottomSheet — modal that slides up from the bottom.\n\nUse for non-blocking selections, filters, and short flows that benefit\nfrom preserving screen context. For blocking confirmations, use\n<NativeDialog>. For full-screen flows, use a navigation route.\n\nBy default this is React Native's own `Modal`, which needs nothing mounted\nabove it: the system page sheet on iOS (swipe down to close) and a bottom\npanel over a scrim on Android (back button or a tap on the scrim closes\nit). Content gets its own safe area (`useSafeAreaInsets` inside the sheet\nis the sheet's), and the bottom inset is padded. Put scrolling content in\n`NativeSheetScrollView`. The sheet doesn't move above the keyboard.\n\n`@gorhom/bottom-sheet` (snap points, drag between heights) is used only\nwhen the app opts in by mounting `<NativeSheetProvider bottomSheet={…}>`\n(or passing `bottomSheet` to `GenesisNativeApp`), never because the\nlibrary happens to be installed: it throws on open unless its\n`BottomSheetModalProvider` is mounted, and it needs gesture-handler's\n`GestureHandlerRootView` at the root and Reanimated set up.\n`snapPoints` and `initialSnapIndex` apply only to that path.\n\nA sheet that is a screen of its own (a link can open it) belongs in the\nrouter instead: an expo-router screen with `presentation: \"formSheet\"` and\n`sheetAllowedDetents` (e.g. `[0.5, 1]`) is the system sheet with detents.",
       "primaryComponent": "NativeSheet",
       "components": [
+        {
+          "name": "NativeSheetProvider",
+          "summary": "Opts every `NativeSheet` below it into `@gorhom/bottom-sheet` and mounts\nthe library's `BottomSheetModalProvider`. A module missing any export the\nsheet needs is reported with `console.error` and ignored, so sheets fall\nback to the native modal instead of crashing on open.",
+          "props": [
+            {
+              "name": "bottomSheet",
+              "type": "NativeSheetLibrary",
+              "required": true,
+              "defaultValue": null,
+              "description": "`@gorhom/bottom-sheet` v5 (`import * as BottomSheet from \"@gorhom/bottom-sheet\"`).\nRead once. The app must also wrap its root in gesture-handler's\n`GestureHandlerRootView` and set Reanimated up, as the library requires.\nSheet content renders in the library's portal, inside this provider:\nmount it below the providers sheets read (data, session, navigation)."
+            }
+          ]
+        },
         {
           "name": "NativeSheet",
           "summary": "",
@@ -4663,7 +4736,7 @@
               "type": "(open: boolean) => void",
               "required": true,
               "defaultValue": null,
-              "description": "Fired when the user dismisses the sheet (backdrop, gesture, swipe)."
+              "description": "Fired when the user dismisses the sheet (backdrop, swipe down, Android back). Set `open` false in it."
             },
             {
               "name": "open",
@@ -4676,22 +4749,22 @@
               "name": "disableBackdropDismiss",
               "type": "boolean",
               "required": false,
-              "defaultValue": "false",
-              "description": "Disable dismissing by tapping the backdrop. Default false."
+              "defaultValue": null,
+              "description": "Keep the sheet open when the user taps the backdrop, swipes it down or presses Android back. Default false."
             },
             {
               "name": "initialSnapIndex",
               "type": "number",
               "required": false,
-              "defaultValue": "0",
-              "description": "Index of initial snap point. Default 0."
+              "defaultValue": null,
+              "description": "Index of initial snap point, with `@gorhom/bottom-sheet` only. Default 0."
             },
             {
               "name": "snapPoints",
               "type": "(string | number)[]",
               "required": false,
-              "defaultValue": "[\"50%\", \"90%\"]",
-              "description": "Snap points (gorhom-style). e.g. [\"25%\", \"50%\", \"90%\"]."
+              "defaultValue": null,
+              "description": "Snap points, with `@gorhom/bottom-sheet` only (see `NativeSheetProvider`). e.g. [\"25%\", \"50%\", \"90%\"]."
             },
             {
               "name": "testID",
@@ -4701,6 +4774,11 @@
               "description": ""
             }
           ]
+        },
+        {
+          "name": "NativeSheetScrollView",
+          "summary": "A `ScrollView` for sheet content: the library's `BottomSheetScrollView`\nunder `NativeSheetProvider` (so scrolling and dragging the sheet don't\nfight), React Native's otherwise. Sized to its content until it reaches\nthe sheet's height.",
+          "props": []
         }
       ]
     },

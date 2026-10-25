@@ -18,35 +18,45 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "source": "./src/index.ts",
+  "react-native": "./src/index.ts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "types": "./dist/index.d.ts",
+      "react-native": "./src/index.ts",
       "import": "./dist/index.js"
     },
     "./persist": {
       "types": "./dist/persist.d.ts",
+      "react-native": "./src/persist.ts",
       "import": "./dist/persist.js"
     },
     "./updates": {
       "types": "./dist/updates.d.ts",
+      "react-native": "./src/updates/index.ts",
       "import": "./dist/updates.js"
     },
     "./push": {
       "types": "./dist/push.d.ts",
+      "react-native": "./src/push/index.ts",
       "import": "./dist/push.js"
     },
     "./observability": {
       "types": "./dist/observability.d.ts",
+      "react-native": "./src/observability/index.ts",
       "import": "./dist/observability.js"
     },
     "./devtools": {
       "types": "./dist/devtools.d.ts",
+      "react-native": "./src/devtools/index.ts",
       "import": "./dist/devtools.js"
     }
   },
   "files": [
     "dist",
+    "src",
+    "!src/**/__tests__",
     "README.md"
   ],
   "scripts": {

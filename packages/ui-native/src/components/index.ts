@@ -26,8 +26,8 @@ export type {
   NativeToastVariant,
 } from "./toast";
 
-export { NativeSheet } from "./sheet";
-export type { NativeSheetProps } from "./sheet";
+export { NativeSheet, NativeSheetProvider, NativeSheetScrollView } from "./sheet";
+export type { NativeSheetLibrary, NativeSheetProps, NativeSheetProviderProps } from "./sheet";
 
 export {
   NativePopover,
