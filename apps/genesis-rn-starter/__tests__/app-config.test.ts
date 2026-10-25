@@ -4,6 +4,7 @@
  * variant installs side by side and registers its own URL scheme, so a link opens the build it
  * names. Resolved through Expo's own `getConfig`, plugins and all.
  */
+import { readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -38,5 +39,13 @@ describe("app.config.ts per APP_VARIANT", () => {
     expect(config.ios?.bundleIdentifier).toBe(bundleId);
     expect(config.android?.package).toBe(bundleId);
     expect(config.name).toBe(name);
+  });
+
+  it("the Maestro flows open links with the development variant's scheme (the build they run on)", () => {
+    const scheme = configFor("development").scheme;
+    const flows = readdirSync(join(root, ".maestro/flows")).map((f) => readFileSync(join(root, ".maestro/flows", f), "utf8"));
+    const links = flows.flatMap((text) => [...text.matchAll(/openLink:\s*"?([a-z][a-z0-9+.-]*):\/\//g)].map((m) => m[1]));
+    expect(links.length).toBeGreaterThan(0);
+    expect(new Set(links)).toEqual(new Set([scheme]));
   });
 });
