@@ -44,6 +44,8 @@ export interface ChatRunnerOptions {
   resolveName?: ((userId: string) => Promise<string | null | undefined> | string | null | undefined) | undefined;
   /** Kinds that are one-to-one (default `["direct"]`): their push title is the sender's name. */
   directKinds?: readonly string[] | undefined;
+  /** Where a tapped notification opens (default `/messages/<conversationId>`). */
+  linkFor?: ((conversationId: string, messageId: string) => string) | undefined;
   /** Safe log lines (effect ids, kinds, short errors). Default: nothing is logged. */
   log?: ((line: string) => void) | undefined;
 }
@@ -150,7 +152,7 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
       collapseKey: `chat:${conversationId}`,
       threadKey: conversationId,
       idempotencyKey: `push:${messageId}`,
-      data: { url: `/messages/${conversationId}`, conversationId, messageId },
+      data: { url: options.linkFor?.(conversationId, messageId) ?? `/messages/${conversationId}`, conversationId, messageId },
     };
     await deliver(notification);
   }
