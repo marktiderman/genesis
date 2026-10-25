@@ -317,6 +317,85 @@ and release notes (`notes`, an array of `{ version, title?, body }`). Copy it in
 - **Read it** with `supabasePolicySource(supabase)` from `@marktiderman/genesis-native/updates`,
   which fails open: no row, a failed read or a malformed value never blocks anyone.
 
+## Push (the push block)
+
+[`migrations/0005_genesis_push.sql`](./migrations/0005_genesis_push.sql) and the
+[`genesis-push-send`](./functions/genesis-push-send) Edge Function are the server half of
+`@marktiderman/genesis-native/push`. Copy the migration into your app's `supabase/migrations/`
+under a new timestamped name, its pgTAP test (`migrations/tests/0005_genesis_push.test.sql`) into
+`supabase/tests/database/`, and the function folder into `supabase/functions/`.
+
+- **Tables**, all with row level security on and owner-only policies:
+  `push_devices` (user, Expo token, platform, app version, last seen; read and deleted by the
+  owner, written only through `genesis_push_register`), `notification_preferences` (category
+  switches, quiet hours with an IANA time zone checked on write, `hide_previews`; the owner reads
+  and writes their own row) and `push_receipts` (category, Expo ticket id, status and an Expo
+  error code, never content; the owner reads, the sender writes; kept 30 days). Deleting a login
+  deletes all three.
+- **Who can call what**, granted and revoked by name: `genesis_push_register` (authenticated, its
+  own token; a token another login held moves, and ten devices per person are kept),
+  `genesis_push_forget(token)` (anon and authenticated: the phone may already be signed out), and
+  for the service role only `genesis_push_status`, `genesis_push_targets`,
+  `genesis_push_tickets_record`, `genesis_push_receipts_claim`, `genesis_push_receipts_settle` and
+  `genesis_push_devices_forget`.
+- **Who to push to:** `genesis_push_targets(user, category, default_on, bypass_quiet_hours, at)`
+  returns the person's devices, or none when they turned the category off or are in quiet hours.
+  Quiet hours are read in their time zone: each night's window runs from the first moment the
+  local clock reads the start to the first moment after it that it reads the end (past midnight
+  when the start is later), so a repeated fall-back hour doesn't restart it and a skipped
+  spring-forward end time ends it at the change. A start equal to the end is no quiet hours, and a
+  zone the server no longer knows never silences anyone.
+  `genesis_push_status` says why and until when (`quiet_until`), so a caller can send later.
+- **An Expo push token is a credential.** Only its owner and the service role can read one. Turn
+  on enhanced push security in your Expo project and give the function `EXPO_ACCESS_TOKEN`, so a
+  leaked token alone can't push to a phone.
+
+### Sending
+
+Deploy `genesis-push-send` with `--no-verify-jwt` (the starter's `config.toml` sets
+`verify_jwt = false`) and set `GENESIS_PUSH_SECRET` (32 characters or more), plus
+`EXPO_ACCESS_TOKEN`, and optionally `PUSH_HIDDEN_TITLE` / `PUSH_HIDDEN_BODY` (what someone who hides
+previews sees; default "New notification"). Call it from your server, a database trigger
+(`pg_net`) or a schedule, never from the app:
+
+```http
+POST /functions/v1/genesis-push-send
+Authorization: Bearer <GENESIS_PUSH_SECRET>
+
+{ "action": "send", "messages": [
+  { "userId": "…", "category": "messages", "title": "Sam", "body": "See you at six",
+    "url": "/messages/42", "badge": 3 } ] }
+```
+
+Up to 100 messages a request, each at most 3500 bytes of title, subtitle, body, url and data
+(UTF-8, so it fits Expo's 4 KB); each may set `subtitle`, `data` (ids, not content), `sound: null`,
+`defaultOn`, `urgent` (through quiet hours), `channelId` and `ttlSeconds`. The answer has one result
+per message (`deliver`, `reason`: `ok`, `category_off`, `quiet_hours`, `no_devices`; `quietUntil`;
+`sent`, `failed`). It sends through Expo in batches of 100, resends a batch Expo refused outright
+one by one (so one bad token can't silence the rest), never resends one that timed out or got a
+429 or 5xx (it may have been delivered), records the receipt rows of each batch as it goes and
+forgets the devices Expo calls `DeviceNotRegistered`. It starts no send after 100 seconds, so a
+large or refused run ends inside the function's wall clock; what it didn't send is answered as
+`unsent` (send those again). For someone who hides previews, the title and body are replaced and
+the subtitle and `data` dropped on the server; the tap still opens `url`, and `category` still
+travels, so keep both opaque (ids, never words or search text).
+
+Schedule `{ "action": "receipts" }` every 15 minutes (pg_cron with pg_net, or any scheduler): it
+claims the tickets that are due (1000 at a time, again while full claims come back, within the
+same time budget), asks Expo for their receipts, records delivered or failed, forgets dead devices
+(not one registered again since the push; the same run marks tickets with no receipt after a day
+`unknown` and deletes receipts older than 30 days, so without the schedule `push_receipts` keeps
+growing), and logs `InvalidCredentials` loudly (your APNs or FCM credentials in EAS are wrong).
+Logs and answers carry counts, statuses and Expo's error codes only: never a token, a title, a
+body or `data`.
+
+### Not covered yet
+
+- **Real delivery.** The SQL is pgTAP-tested and the function unit-tested against a faked Expo;
+  nothing has been delivered through APNs or FCM (that needs an EAS project with push credentials).
+- **Scheduling for later.** A message held by quiet hours is answered with `quietUntil`, not queued:
+  resend it then if it still matters.
+
 ## Tenant features
 
 Per-tenant switches for shipped features: a tenant's admins turn a feature off (or back on) for

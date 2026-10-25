@@ -76,6 +76,12 @@ export interface SettingsPageSection {
   footnote?: string;
   /** Rows in render order. */
   rows: SettingsPageRow[];
+  /**
+   * Content rendered inside the section's group, after the rows: a part that
+   * a pattern built on SettingsPage lets you replace (a block's slot), kept
+   * under the same header, in the same group and above the same footnote.
+   */
+  children?: ReactNode;
 }
 
 /** A destructive-tone action in the footer, e.g. "Sign out". */
@@ -192,6 +198,7 @@ export function SettingsPage({
                 )}
               </Fragment>
             ))}
+            {section.children}
           </View>
           {section.footnote
             ? renderSlot(DefaultFootnote, slots.footnote, { text: section.footnote }, slotProps.footnote)

@@ -897,6 +897,155 @@
       "flags": []
     },
     {
+      "id": "forms-submit",
+      "name": "Form submit contract",
+      "summary": "submitResponse on the server: re-checks a submission (validateSubmission, uploads), snapshots the options picked and stores it once per idempotency key through the app's SubmissionStore, answering one SubmitResult the client outbox reads.",
+      "category": "Forms",
+      "status": "beta",
+      "layer": "service",
+      "keywords": [
+        "submit",
+        "submission",
+        "idempotency",
+        "idempotency key",
+        "duplicate",
+        "submit endpoint",
+        "store response"
+      ],
+      "entry": {
+        "server": "@marktiderman/genesis-forms/server"
+      },
+      "requires": [
+        "forms-engine"
+      ],
+      "owner": "mark",
+      "apps": [
+        "node"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "A retry with the same idempotency key is answered duplicate with the first response's id and stores nothing new; a key reused for other answers is refused.",
+        "A choice outside the server's host options or its filter is refused, and stored answers carry each picked option's label as it was."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/forms/src/submit.ts",
+          "packages/forms/src/submit-protocol.ts"
+        ],
+        "docs": [
+          "packages/forms/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "forms-drafts",
+      "name": "Form drafts",
+      "summary": "Answers saved on the device as the respondent goes (debounced), put back where they left off, and discarded whole when a new version of the form no longer fits them. Memory, localStorage and AsyncStorage or MMKV storage.",
+      "category": "Forms",
+      "status": "beta",
+      "layer": "hook",
+      "keywords": [
+        "draft",
+        "autosave",
+        "resume",
+        "save progress",
+        "restore",
+        "local storage",
+        "asyncstorage",
+        "mmkv"
+      ],
+      "entry": {
+        "web": "@marktiderman/genesis-forms-react",
+        "native": "@marktiderman/genesis-forms-react"
+      },
+      "requires": [
+        "forms-react"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "respondent"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "Answers typed and left are put back on the next visit at the question reached, and a draft whose question was removed in a new version is discarded, not half restored."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/forms/src/drafts.ts",
+          "packages/forms/src/storage.ts",
+          "packages/forms-react/src/drafts.ts"
+        ],
+        "docs": [
+          "packages/forms/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "forms-outbox",
+      "name": "Offline submit outbox",
+      "summary": "Submissions queued on the device with an idempotency key, kept across restarts, sent when online with backoff, and never dropped: refused or exhausted ones stay as failed for retry or discard. Transport-agnostic.",
+      "category": "Forms",
+      "status": "beta",
+      "layer": "hook",
+      "keywords": [
+        "offline",
+        "outbox",
+        "queue",
+        "retry",
+        "backoff",
+        "submit offline",
+        "sync"
+      ],
+      "entry": {
+        "web": "@marktiderman/genesis-forms-react",
+        "native": "@marktiderman/genesis-forms-react"
+      },
+      "requires": [
+        "forms-react",
+        "forms-submit"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "respondent"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "A submission made offline is sent when the device comes online, survives an app restart, and is stored once however often it is retried.",
+        "A submission the server refuses, or that runs out of tries, stays in the outbox as failed until it is retried or discarded."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/forms/src/outbox.ts",
+          "packages/forms-react/src/outbox.ts"
+        ],
+        "docs": [
+          "packages/forms/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "cli-init",
       "name": "genesis init",
       "summary": "Scaffolds a Genesis consumer: a brand package, Tailwind or NativeWind config and token imports.",
@@ -1500,7 +1649,7 @@
     {
       "id": "native-starter",
       "name": "Native starter",
-      "summary": "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh, and the updates block (force upgrade, maintenance, update banner, what's new, the version signature in Settings) on the release-policy migration. EAS Workflows and Maestro smoke flows ship with it. Push, support and onboarding join as their blocks ship.",
+      "summary": "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh, the updates block (force upgrade, maintenance, update banner, what's new, the version signature in Settings) on the release-policy migration, and the push block (building: Settings → Notifications, the soft prompt on the Notifications tab, the sender function) on the push migration. EAS Workflows and Maestro smoke flows ship with it. Support and onboarding join as their blocks ship.",
       "category": "Starters",
       "status": "beta",
       "layer": "tool",
@@ -1541,7 +1690,7 @@
         "Turning a JavaScript-only switch off (updates, queryPersistence, ...) leaves the native fingerprint unchanged: app.config.ts imports only files .fingerprintignore leaves out.",
         "starter.config.ts ships with every feature on, and a config with no way to sign in fails at start-up.",
         "Every user-facing string in the screens comes from the typed copy catalog (src/copy.ts); a test fails on JSX text or a literal label.",
-        "supabase/migrations carries the account-deletion and app-release-policy migrations and their pgTAP tests exactly as @marktiderman/genesis-supabase ships them.",
+        "supabase/migrations carries the account-deletion, app-release-policy, Apple token revocation and push migrations and their pgTAP tests (and supabase/functions the genesis-apple-revoke and genesis-push-send functions) exactly as @marktiderman/genesis-supabase ships them.",
         "genesis doctor --strict passes with the native and supabase packs, and expo export --platform ios bundles one copy of React, React Native and NativeWind's runtime."
       ],
       "reviewedAt": "2026-10-24",
@@ -2047,27 +2196,133 @@
     {
       "id": "push",
       "name": "Push and notification preferences",
-      "summary": "Push registration, badges and tap routing on native; a server sender with tickets and receipts; notification preferences and quiet hours screens.",
+      "summary": "The native push block, a defineBlock block for GenesisNativeApp's blocks (a Settings row for notification settings, a boot step that reads the permission): it registers this device's Expo push token for whoever signs in (once permission is granted) and forgets it on sign-out, account switch and deletion, makes the Android channels (one per category, private on the lock screen), decides what shows while the app is open, routes a tap (the one that launched the app too) through the deep-link normalizer and the held link, and keeps the badge. Permission is asked only through a soft pre-prompt the app offers at a moment of value, never at launch, with a cooldown after Not now. NotificationSettings (on SettingsPage) edits per-category switches, quiet hours with a time zone, and privacy previews; each part is a slot and a hook.",
       "category": "Engagement",
-      "status": "idea",
+      "status": "building",
+      "claimedBy": "mark",
+      "horizon": "now",
       "layer": "block",
       "keywords": [
         "push notifications",
+        "expo-notifications",
+        "push token",
+        "permission prompt",
+        "pre-prompt",
         "quiet hours",
+        "do not disturb",
         "reminders",
         "badge",
-        "notification settings"
+        "notification settings",
+        "notification channels",
+        "lock screen",
+        "previews",
+        "deep link",
+        "tap routing"
+      ],
+      "platforms": {
+        "native": "building"
+      },
+      "entry": {
+        "native": "@marktiderman/genesis-native/push"
+      },
+      "requires": [
+        "native-app-shell",
+        "native-layouts",
+        "slots-contract",
+        "push-sender"
+      ],
+      "slots": [
+        "pushPrompt",
+        "permission",
+        "categories",
+        "quietHours",
+        "privacy"
       ],
       "owner": "mark",
       "apps": [
-        "native",
-        "server"
+        "native"
       ],
       "audience": [
         "developer",
         "end user"
       ],
       "visibility": "internal",
+      "acceptance": [
+        "The block never calls the system permission prompt at launch: only the soft prompt's Turn on (offered by the app after a launch grace, not again within the cooldown after Not now, never after maxDeclines) or a tap in NotificationSettings does.",
+        "A signed-in person with permission granted has this device's token registered once (again when the OS rotates it, and at most hourly otherwise); sign-out, an account switch and deleting the login remove it, and a forget that failed offline is retried when the app next comes to the front, without undoing a later registration.",
+        "On Android every category's channel exists, with private lock-screen visibility, before the permission prompt and the token request.",
+        "A tapped notification's data.url goes through normalizeLink once (an unknown path opens /, another app's URL never opens); signed out, it is held and followed after sign-in.",
+        "NotificationSettings saves a change at once and puts it back, saying so, when the save fails; replacing a part with a slot keeps its section, and null drops it.",
+        "Not yet delivered through Apple's or Google's push services: real delivery needs an EAS project with APNs and FCM credentials."
+      ],
+      "reviewedAt": "2026-10-24",
+      "links": {
+        "code": [
+          "packages/native/src/push",
+          "apps/genesis-rn-starter/src/lib/push.ts"
+        ],
+        "docs": [
+          "packages/native/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "push-sender",
+      "name": "Push sender, devices and preferences",
+      "summary": "Migration 0005 and the genesis-push-send Edge Function: push_devices, notification_preferences and push_receipts under owner-only row level security; genesis_push_targets returns the devices a push may reach now, honouring categories, quiet hours in the person's time zone (past midnight and across daylight saving) and hidden previews; the function sends through Expo in batches of 100, swaps hidden previews for neutral text on the server, records a receipt per ticket with no content, polls the receipts and forgets DeviceNotRegistered devices.",
+      "category": "Engagement",
+      "status": "building",
+      "claimedBy": "mark",
+      "horizon": "now",
+      "layer": "service",
+      "keywords": [
+        "push sender",
+        "expo push api",
+        "tickets",
+        "receipts",
+        "devicenotregistered",
+        "quiet hours",
+        "time zone",
+        "privacy",
+        "edge function",
+        "rls"
+      ],
+      "platforms": {
+        "server": "building"
+      },
+      "entry": {
+        "server": "@marktiderman/genesis-supabase"
+      },
+      "requires": [
+        "supabase-kit"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Only the owner reads their devices, preferences and receipts; devices are written only through genesis_push_register, anyone holding a token can forget it, and only service_role can ask for targets or write receipts, all granted by name.",
+        "genesis_push_targets returns nothing for a category the person turned off or during their quiet hours, read in their time zone with the start inclusive and the end exclusive, and says until when; a start equal to the end, or a zone the server no longer knows, never silences anyone.",
+        "With hide_previews on, what reaches Expo is the neutral title (and body) only, with no subtitle and no data beyond the category and the link.",
+        "The sender never logs or answers with a token, a title, a body or data, never resends a batch that may have been accepted (timeout, 429, 5xx), resends a refused batch one by one, and forgets a device on DeviceNotRegistered from a ticket or a receipt.",
+        "Not yet run against Expo's push service with real tokens."
+      ],
+      "reviewedAt": "2026-10-24",
+      "links": {
+        "code": [
+          "packages/supabase/migrations/0005_genesis_push.sql",
+          "packages/supabase/functions/genesis-push-send"
+        ],
+        "docs": [
+          "packages/supabase/README.md"
+        ]
+      },
       "access": "all",
       "flags": []
     },
