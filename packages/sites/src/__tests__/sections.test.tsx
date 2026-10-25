@@ -156,6 +156,32 @@ describe("section markup rules", () => {
     const html = render(getSection("form-embed")!, "split");
     expect(html).not.toContain("<h1");
     expect(html).toContain('<h3 class="text-lg font-semibold">Free class</h3>');
-    expect(html).toContain('<script type="application/json" data-gs-form-definition="">');
+    const island = render(getSection("form-embed")!, "split", { ...sectionProps["form-embed"], form: "branching" });
+    expect(island).not.toContain("<h1");
+    expect(island).toContain('<script type="application/json" data-gs-form-definition="">');
+  });
+});
+
+describe("the light form", () => {
+  const def = () => getSection("form-embed")!;
+  it("draws every field type it supports as a native, labelled control that passes axe", async () => {
+    const html = render(def(), "card", { ...sectionProps["form-embed"], form: "sign-up" });
+    expect(html).toContain('data-gs-island="light-form"');
+    expect(html).not.toContain("data-gs-form-definition");
+    for (const name of ["name", "about", "email", "phone", "start", "age", "level", "time", "goals", "injury", "terms"]) expect(html, name).toContain(`name="${name}"`);
+    expect(html).toContain('type="email"');
+    expect(html).toContain('type="tel"');
+    expect(html).toContain('type="date"');
+    expect(html).toMatch(/type="number"[^>]*min="16"[^>]*max="99"/);
+    expect(html).toContain("<legend");
+    expect(html).toContain('data-gs-kind="multi" data-gs-required=""');
+    expect(html).toContain("Sign me up");
+    expect(await axeViolations(html, def())).toEqual([]);
+  });
+
+  it("falls back to the engine for a form with logic", () => {
+    const html = render(def(), "card", { ...sectionProps["form-embed"], form: "branching" });
+    expect(html).toContain('data-gs-island="form"');
+    expect(html).not.toContain('data-gs-island="light-form"');
   });
 });

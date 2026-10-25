@@ -37,7 +37,7 @@ describe("serving a page", () => {
     const html = await res.text();
     const scripts = [...html.matchAll(/<script\b[^>]*>/g)].map((m) => m[0]);
     const executable = scripts.filter((s) => !/type="application\/(ld\+json|json)"/.test(s));
-    expect(executable).toEqual([`<script type="module" src="${ASSETS_PREFIX}/${ASSETS.islands.name}"></script>`]);
+    expect(executable).toEqual([`<script type="module" src="${ASSETS_PREFIX}/${ASSETS.islands.name}">`]);
     expect(html).not.toMatch(/\$RC|__reactContainer|hydrateRoot|self\.__next/);
     expect(ASSETS.islands.body.length).toBeLessThan(5 * 1024);
   });
@@ -61,12 +61,31 @@ describe("serving a page", () => {
     expect(csp).toContain("base-uri 'none'");
   });
 
-  it("serves the form as an island the loader picks up, with the form stylesheet", async () => {
+  it("serves a simple form as a plain HTML form the loader sends: no form bundle, no form stylesheet", async () => {
     const html = await (await handleSiteRequest(get("/"), await opts()))!.text();
+    expect(html).toContain('data-gs-island="light-form"');
+    expect(html).toMatch(/<form[^>]*action="\/api\/forms\/free-class"[^>]*method="post"/);
+    expect(html).not.toContain('data-gs-island="form"');
+    expect(html).not.toContain(ASSETS.formsCss.name);
+    expect(html).toContain(`<script type="module" src="${ASSETS_PREFIX}/${ASSETS.islands.name}">`);
+  });
+
+  it("serves a form that needs the engine as an island, with the form stylesheet", async () => {
+    const forms = (slug: string) => formsResolver(slug === "free-class" ? "branching" : slug, { siteId: "landing", pagePath: "/", mode: "live" });
+    const res = (await handleSiteRequest(get("/"), await opts({ forms })))!;
+    const html = await res.text();
     expect(html).toContain('data-gs-island="form"');
-    expect(html).toContain('data-gs-submit="/api/forms/free-class"');
+    expect(html).toContain('data-gs-submit="https://forms.example/submit"');
     expect(html).toContain(`href="${ASSETS_PREFIX}/${ASSETS.formsCss.name}"`);
     expect(ASSETS.islands.body).toContain(ASSETS.formIsland.name);
+    const csp = res.headers.get("content-security-policy")!;
+    expect(csp).toContain("connect-src 'self' https://forms.example");
+    expect(csp).toContain("form-action 'self' https://forms.example");
+  });
+
+  it("keeps the islands loader, light-form sending included, under 5 KB", () => {
+    expect(new TextEncoder().encode(ASSETS.islands.body).length).toBeLessThan(5 * 1024);
+    expect(ASSETS.islands.body).toContain("light-form");
   });
 
   it("logs and renders nothing for a form the resolver doesn't know", async () => {

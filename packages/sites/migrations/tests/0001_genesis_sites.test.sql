@@ -9,7 +9,7 @@
 -- request.jwt.claim.sub on older images), so pg_temp.sign_in sets both.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(65);
+select plan(71);
 
 -- People: e1 edits site A, b2 may view site A, c3 is nobody's.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -153,6 +153,42 @@ select throws_ok(format('select genesis_sites.create_page(%L, %L, %L, %L)', pg_t
 select throws_ok(format('select genesis_sites.create_page(%L, %L, %L, %L)', pg_temp.id('a'), '/About/', 'page', pg_temp.page('X')), '22023', null, 'a path with capitals or a trailing slash is refused');
 select throws_ok(format('select genesis_sites.create_page(%L, %L, %L, %L)', pg_temp.id('a'), '/about', 'page', pg_temp.page('X')), '23505', null, 'two pages can''t share a path');
 select lives_ok(format('select genesis_sites.create_page(%L, %L, %L, %L)', pg_temp.id('a'), '/apiary', 'page', pg_temp.page('Bees')), 'a path that only starts like a reserved one is fine');
+insert into t select 'apiary', id from genesis_sites.site_pages where site_id = pg_temp.id('a') and path = '/apiary';
+reset role;
+
+-- The app reserves a path later: its own reserved_paths(), which the stub step leaves alone.
+create or replace function genesis_sites.reserved_paths() returns text[] language sql stable set search_path = '' as $$
+  select array['/api', '/_server', '/auth', '/_gs', '/apiary']::text[]
+$$;
+select genesis_sites.ensure_hook_stubs();
+select ok(
+  (select prosrc from pg_proc where oid = 'genesis_sites.reserved_paths()'::regprocedure) like '%/apiary%',
+  'running the stub step again leaves the app''s reserved_paths alone'
+);
+select pg_temp.sign_in('e1');
+select throws_ok(
+  format('select genesis_sites.save_page_draft(%L, 1, %L)', pg_temp.id('apiary'), pg_temp.page('Bees')),
+  '22023', null, 'a draft save checks the page''s path against the app''s reserved paths again'
+);
+reset role;
+
+-- A hook the stub step has to create again gets its grants by name, never Postgres's default.
+drop function genesis_sites.reserved_paths();
+select genesis_sites.ensure_hook_stubs();
+select ok(
+  not has_function_privilege('anon', 'genesis_sites.reserved_paths()', 'execute')
+  and has_function_privilege('authenticated', 'genesis_sites.reserved_paths()', 'execute')
+  and not exists (
+    select 1 from pg_proc p, aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+    where p.oid = 'genesis_sites.reserved_paths()'::regprocedure and a.grantee = 0
+  ),
+  'a re-created hook is granted to authenticated by name, not to public or anon'
+);
+select pg_temp.sign_in('e1');
+select lives_ok(
+  format('select genesis_sites.save_page_draft(%L, 1, %L)', pg_temp.id('apiary'), pg_temp.page('Bees')),
+  '... and with the default list back, the page saves again'
+);
 
 -- Moving a page leaves a redirect ------------------------------------------------------
 select lives_ok(format('select genesis_sites.move_page(%L, %L)', pg_temp.id('about'), '/our-story'), 'an editor moves a page');
@@ -210,6 +246,7 @@ select pg_temp.as_anon();
 select is((genesis_sites.live_release(pg_temp.id('a'))) ->> 'number', '1', 'anon reads the live release with no session');
 select is((genesis_sites.live_release(pg_temp.id('a'))) #>> '{snapshot,pages,0,doc,root,props,title}', 'Welcome', '... which is what was published');
 select ok((genesis_sites.live_release(pg_temp.id('a')))::text not like '%Draft only%', '... never the draft saved since');
+select is((genesis_sites.live_release(pg_temp.id('a'))) ->> 'note', null, '... and not the editors'' release note');
 select throws_ok('select * from genesis_sites.site_pages', '42501', null, 'anon can''t read drafts');
 select throws_ok('select * from genesis_sites.site_releases', '42501', null, 'anon can''t list releases');
 select throws_ok(format('select genesis_sites.save_page_draft(%L, 1, %L)', pg_temp.id('home'), pg_temp.page('X')), '42501', null, 'anon can''t save');
@@ -224,6 +261,10 @@ reset role;
 select pg_temp.sign_in('c3');
 select is((select count(*)::int from genesis_sites.sites) + (select count(*)::int from genesis_sites.site_releases), 0, 'an outsider reads no site and no release');
 select throws_ok(format('select genesis_sites.publish_site(%L, 1, %L)', pg_temp.id('a'), '{}'), '42501', null, 'an outsider can''t publish');
+select throws_ok(
+  format('select genesis_sites.save_page_draft(%L, 1, %L)', gen_random_uuid(), pg_temp.page('X')),
+  '42501', null, 'a page that doesn''t exist looks the same as one you can''t edit'
+);
 select throws_ok(
   format('insert into genesis_sites.site_assets (site_id, path, mime) values (%L, %L, %L)', pg_temp.id('a'), 'sites/' || pg_temp.id('a') || '/x.png', 'image/png'),
   '42501', null, 'an outsider can''t record an upload'

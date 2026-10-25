@@ -13,6 +13,7 @@ import type { ReleasePage, ReleaseSnapshot, SectionNode } from "../core/schemas"
 import { breadcrumbJsonLd, organizationJsonLd, pageMeta, safeJsonForHtml, websiteJsonLd } from "../core/seo";
 import { themeCss, type FontInfo, type SiteTheme } from "../core/theme";
 import type { ResolvedForm } from "../core/forms";
+import { formDrawMode } from "../sections/form-embed";
 
 export interface SiteAssets {
   /** The shared stylesheet. */
@@ -113,7 +114,10 @@ export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mod
   const header = chrome ? renderNodes(site.header, base, { given: true }) : [];
   const body = page ? renderNodes(page.doc.content, base, h1) : [];
   const footer = chrome ? renderNodes(site.footer, base, { given: true }) : [];
-  const hasForm = body.some((r) => r.type === "form-embed") && [...forms.values()].some((f) => f?.kind === "definition");
+  // Light forms need only the islands loader; a form that needs the engine also gets the form stylesheet and bundle.
+  const formModes = body.some((r) => r.type === "form-embed") ? [...forms.values()].map(formDrawMode) : [];
+  const hasForm = formModes.includes("light") || formModes.includes("island");
+  const hasFormBundle = formModes.includes("island");
   const hasMenu = header.some((r) => r.type === "nav") && site.nav.length > 0;
 
   const meta = page
@@ -152,7 +156,7 @@ export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mod
           </>
         ) : null}
         <link rel="stylesheet" href={assets.css} />
-        {hasForm ? <link rel="stylesheet" href={assets.formsCss} /> : null}
+        {hasFormBundle ? <link rel="stylesheet" href={assets.formsCss} /> : null}
         {/* The site's theme: CSS variables from the brand, after the shared stylesheet so they win. */}
         <style data-gs-theme="" dangerouslySetInnerHTML={{ __html: themeCss(theme) }} />
         {jsonLd.map((data, i) => (

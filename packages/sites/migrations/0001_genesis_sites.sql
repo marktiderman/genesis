@@ -23,7 +23,13 @@
 -- Replace them in a migration of your own, after this one, with the same
 -- signature. `create or replace` keeps the grants this file gives; keep
 -- `stable`, and use `security definer set search_path = ''` when the hook
--- reads tables with row level security of their own:
+-- reads tables with row level security of their own.
+--
+-- Name the person in the hook (`auth.uid()`); never rely on your tables'
+-- row level security to filter for you. The write functions below are
+-- security definer, so the hook runs as their owner there, where your RLS
+-- doesn't apply: a hook that asks "is any membership row visible?" would
+-- answer yes for everyone. For example:
 --
 --   create or replace function genesis_sites.can_edit(site_id uuid) returns boolean
 --   language sql stable security definer set search_path = '' as $$
@@ -109,6 +115,10 @@ begin
         'create or replace function genesis_sites.%I(site_id uuid) returns %s language sql stable set search_path = '''' as %L',
         stub ->> 'name', stub ->> 'returns', stub ->> 'body'
       );
+      -- By name, each time it writes a stub, so a hook this step had to create again
+      -- never keeps Postgres's default (execute for public).
+      execute format('revoke execute on function genesis_sites.%I(uuid) from public, anon', stub ->> 'name');
+      execute format('grant execute on function genesis_sites.%I(uuid) to authenticated, service_role', stub ->> 'name');
     end if;
     current_body := null;
   end loop;
@@ -118,6 +128,8 @@ begin
   where n.nspname = 'genesis_sites' and p.proname = 'reserved_paths' and pg_get_function_identity_arguments(p.oid) = '';
   if current_body is null or current_body = reserved_body then
     execute format('create or replace function genesis_sites.reserved_paths() returns text[] language sql stable set search_path = '''' as %L', reserved_body);
+    revoke execute on function genesis_sites.reserved_paths() from public, anon;
+    grant execute on function genesis_sites.reserved_paths() to authenticated, service_role;
   end if;
 end;
 $fn$;
@@ -350,11 +362,14 @@ as $$
 declare
   page genesis_sites.site_pages;
 begin
+  -- can_edit first, then the row lock: someone who can't edit learns nothing and locks nothing.
+  perform genesis_sites.assert_can_edit((select p.site_id from genesis_sites.site_pages p where p.id = page_id));
   select * into page from genesis_sites.site_pages p where p.id = page_id and p.deleted_at is null for update;
   if not found then
     raise exception 'genesis_sites: no page %', page_id using errcode = 'P0002';
   end if;
-  perform genesis_sites.assert_can_edit(page.site_id);
+  -- The app may have reserved this page's path since the page was made (genesis_sites.reserved_paths()).
+  perform genesis_sites.assert_page_path(page.path);
   perform genesis_sites.assert_doc(doc, 'page');
   if page.draft_rev is distinct from expected_rev then
     raise exception 'genesis_sites: someone saved this page first' using errcode = 'GS409', detail = page.draft_rev::text;
@@ -442,11 +457,11 @@ as $$
 declare
   page genesis_sites.site_pages;
 begin
+  perform genesis_sites.assert_can_edit((select p.site_id from genesis_sites.site_pages p where p.id = page_id));
   select * into page from genesis_sites.site_pages p where p.id = page_id and p.deleted_at is null for update;
   if not found then
     raise exception 'genesis_sites: no page %', page_id using errcode = 'P0002';
   end if;
-  perform genesis_sites.assert_can_edit(page.site_id);
   perform genesis_sites.assert_page_path(new_path);
   if page.path = '/' then
     raise exception 'genesis_sites: the home page stays at /' using errcode = '22023';
@@ -481,11 +496,11 @@ as $$
 declare
   page genesis_sites.site_pages;
 begin
+  perform genesis_sites.assert_can_edit((select p.site_id from genesis_sites.site_pages p where p.id = page_id));
   select * into page from genesis_sites.site_pages p where p.id = page_id and p.deleted_at is null for update;
   if not found then
     return;
   end if;
-  perform genesis_sites.assert_can_edit(page.site_id);
   if page.path = '/' then
     raise exception 'genesis_sites: the home page can''t be deleted' using errcode = '22023';
   end if;
@@ -620,7 +635,8 @@ $$;
 
 -- ── The public read ───────────────────────────────────────────────────────────
 
--- A live site's live release, for anyone (no session needed). Drafts never.
+-- A live site's live release, for anyone (no session needed). Drafts never,
+-- and not the release note, which is for the site's editors.
 create or replace function genesis_sites.live_release(site_id uuid)
 returns jsonb
 language sql
@@ -628,7 +644,7 @@ stable
 security definer
 set search_path = ''
 as $$
-  select genesis_sites.release_json(r, true)
+  select genesis_sites.release_json(r, true) || jsonb_build_object('note', null)
   from genesis_sites.sites s
   join genesis_sites.site_releases r on r.id = s.live_release_id and r.site_id = s.id
   where s.id = live_release.site_id and s.status = 'live'

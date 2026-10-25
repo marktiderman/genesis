@@ -2,7 +2,7 @@
  * Shared test data: a made-up brand, props that exercise every variant of
  * every built-in section, a forms resolver, and a seeded memory store.
  */
-import { defineForm, f } from "@marktiderman/genesis-forms";
+import { defineForm, f, when } from "@marktiderman/genesis-forms";
 import { createMemorySiteStore, exampleBrands, landingPage, starterSite, type FormsResolver, type RenderContext, type ResolvedForm } from "../index";
 
 export const brand = exampleBrands.riverside;
@@ -84,8 +84,40 @@ export const contactForm = defineForm({
   blocks: [f.shortText("name", { label: "Your name", required: true }), f.email("email", { label: "Email", required: true })],
 });
 
+/** Every field type the light form draws. */
+export const everyLightField = defineForm({
+  id: "sign-up",
+  title: "Sign up",
+  description: "Takes a minute.",
+  layout: { mode: "classic" },
+  blocks: [
+    f.shortText("name", { label: "Your name", required: true, description: "As you'd like us to call you." }),
+    f.longText("about", { label: "About you" }),
+    f.email("email", { label: "Email", required: true }),
+    f.phone("phone", { label: "Phone" }),
+    f.date("start", { label: "Start date", min: "2026-01-01" }),
+    f.number("age", { label: "Age", min: 16, max: 99, step: 1 }),
+    f.singleChoice("level", { label: "Level", required: true, options: [{ value: "new", label: "New" }, { value: "some", label: "Some" }, { value: "lots", label: "Lots" }] }),
+    f.dropdown("time", { label: "Best time", options: [{ value: "morning", label: "Morning" }, { value: "evening", label: "Evening" }] }),
+    f.multiChoice("goals", { label: "Goals", required: true, options: [{ value: "strength", label: "Strength" }, { value: "fitness", label: "Fitness" }] }),
+    f.yesNo("injury", { label: "Any injuries?" }),
+    f.consent("terms", { label: "Terms", text: "I agree to the terms", required: true }),
+  ],
+});
+
+/** A form that needs the engine (a rule), so it gets forms-web's <Form> and the form island. */
+export const branchingForm = defineForm({
+  id: "branching",
+  title: "Tell us more",
+  layout: { mode: "classic" },
+  blocks: [f.yesNo("member", { label: "Already a member?" }), f.shortText("number", { label: "Member number" })],
+  logic: [when("member").is(true).show("number")],
+});
+
 export const formsResolver: FormsResolver = (slug) => {
   if (slug === "free-class") return { kind: "definition", definition: contactForm.definition, submitUrl: "/api/forms/free-class" } satisfies ResolvedForm;
+  if (slug === "sign-up") return { kind: "definition", definition: everyLightField.definition, submitUrl: "/api/forms/sign-up", submitLabel: "Sign me up" };
+  if (slug === "branching") return { kind: "definition", definition: branchingForm.definition, submitUrl: "https://forms.example/submit" };
   if (slug === "hosted") return { kind: "embed", url: "https://forms.example/riverside", title: "Riverside sign-up" };
   return null;
 };
@@ -96,7 +128,7 @@ export function testCtx(overrides: Partial<RenderContext> = {}): RenderContext {
     site: { name: "Riverside Gym", lang: "en", nav: [{ label: "Home", href: "/" }, { label: "Classes", href: "/classes" }, { label: "Contact", href: "/contact" }] },
     pagePath: "/",
     href: (h) => h,
-    forms: new Map([["free-class", formsResolver("free-class", { siteId: "s", pagePath: "/", mode: "live" }) as ResolvedForm]]),
+    forms: new Map(["free-class", "sign-up", "branching"].map((slug) => [slug, formsResolver(slug, { siteId: "s", pagePath: "/", mode: "live" }) as ResolvedForm])),
     mode: "live",
     idPrefix: "gs-test",
     ...overrides,

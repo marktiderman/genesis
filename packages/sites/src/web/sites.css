@@ -17,6 +17,8 @@
 @source "../../../ui/src/components/layout/band.tsx";
 @source "../../../ui/src/components/layout/container.tsx";
 @source "../../../ui/src/components/ui/button.tsx";
+@source "../../../ui/src/components/ui/input.tsx";
+@source "../../../ui/src/components/ui/textarea.tsx";
 @source "../../../ui/src/components/rich-text/rich-text.tsx";
 
 @layer base {

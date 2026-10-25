@@ -90,11 +90,16 @@ function originOf(url: string): string | null {
 
 async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<string, ResolvedForm | null>, fonts: boolean): Promise<string> {
   const connect = new Set(["'self'"]);
+  // A light form posts natively when script is off, so its endpoint is a form target too.
+  const formTargets = new Set(["'self'"]);
   const frames = new Set<string>();
   for (const form of forms.values()) {
     if (form?.kind === "definition") {
       const o = originOf(form.submitUrl);
-      if (o) connect.add(o);
+      if (o) {
+        connect.add(o);
+        formTargets.add(o);
+      }
     } else if (form?.kind === "embed") {
       const o = originOf(form.url);
       if (o) frames.add(o);
@@ -110,7 +115,7 @@ async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<strin
     `font-src 'self'${fonts ? " https://fonts.gstatic.com" : ""}`,
     `connect-src ${[...connect].join(" ")}`,
     `frame-src ${frames.size ? [...frames].join(" ") : "'none'"}`,
-    "form-action 'self'",
+    `form-action ${[...formTargets].join(" ")}`,
     "object-src 'none'",
     "base-uri 'none'",
     "frame-ancestors 'self'",

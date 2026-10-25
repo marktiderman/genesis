@@ -3,11 +3,13 @@ import { BandLead } from "@marktiderman/genesis-ui/band";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { parseForm } from "@marktiderman/genesis-forms";
 import { Form } from "@marktiderman/genesis-forms-web";
+import type { ResolvedForm } from "../core/forms";
 import { defineSection, type RenderContext } from "../core/registry";
 import { Copy, Line, Surface } from "../core/schemas";
 import { safeJsonForHtml } from "../core/seo";
 import { isSafeHref } from "../core/urls";
 import { siteFormSlots } from "./form-header";
+import { LightForm, isLightForm } from "./light-form";
 import { Anchor, SectionBand, SectionTitle, onAccent, titleId } from "./shared";
 
 const schema = z.object({
@@ -18,6 +20,19 @@ const schema = z.object({
   surface: Surface.default("base"),
   anchor: Anchor.default("contact"),
 });
+
+/**
+ * How a resolved form draws: `light` (a plain HTML form the islands loader
+ * sends), `island` (forms-web's `<Form>`, made live by the form bundle),
+ * `embed` (an iframe), or null (it can't be shown).
+ */
+export function formDrawMode(resolved: ResolvedForm | null | undefined): "light" | "island" | "embed" | null {
+  if (!resolved) return null;
+  if (resolved.kind === "embed") return "embed";
+  const parsed = parseForm(resolved.definition);
+  if (!parsed.ok) return null;
+  return isLightForm(parsed.form) ? "light" : "island";
+}
 
 /** The form itself, from the host's resolver: server-rendered with an island, or an iframe. */
 function EmbeddedForm({ slug, heading, ctx }: { slug: string; heading: string; ctx: RenderContext }) {
@@ -56,13 +71,22 @@ function EmbeddedForm({ slug, heading, ctx }: { slug: string; heading: string; c
     console.error(`[genesis-sites] the form "${slug}" has no usable submitUrl (a site path or an https URL).`);
     return null;
   }
+  const submitUrl = resolved.submitUrl.startsWith("/") ? ctx.href(resolved.submitUrl) : resolved.submitUrl;
+  if (isLightForm(parsed.form)) {
+    // The usual case: a plain HTML form the islands loader sends. No React on the page.
+    return (
+      <div className="rounded-xl border border-border bg-background p-4 text-foreground sm:p-6">
+        <LightForm form={parsed.form} slug={slug} submitUrl={submitUrl} idPrefix={ctx.idPrefix} {...(resolved.submitLabel ? { submitLabel: resolved.submitLabel } : {})} />
+      </div>
+    );
+  }
   return (
     // The island: the islands script loads the form bundle only on pages that have one,
     // reads the definition from the JSON beside it and makes the server-rendered form live.
     <div
       data-gs-island="form"
       data-gs-form={slug}
-      data-gs-submit={resolved.submitUrl.startsWith("/") ? ctx.href(resolved.submitUrl) : resolved.submitUrl}
+      data-gs-submit={submitUrl}
       {...(resolved.layout ? { "data-gs-layout": resolved.layout } : {})}
       {...(resolved.submitLabel ? { "data-gs-submit-label": resolved.submitLabel } : {})}
       className="rounded-xl border border-border bg-background p-4 text-foreground sm:p-6"
