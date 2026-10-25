@@ -26,6 +26,10 @@ function toDom<T extends AnyProps>(
     onPress,
     onLongPress,
     onLayout,
+    accessibilityActions,
+    onAccessibilityAction,
+    onPressIn,
+    onPressOut,
     pointerEvents,
     hitSlop,
     collapsable,
@@ -39,6 +43,8 @@ function toDom<T extends AnyProps>(
     onLayout?: (e: unknown) => void;
   };
   void onLayout;
+  void onPressIn;
+  void onPressOut;
   void pointerEvents;
   void hitSlop;
   void collapsable;
@@ -84,6 +90,20 @@ function toDom<T extends AnyProps>(
   if (style !== undefined) out["data-style"] = JSON.stringify(style);
   if (onPress) out["onClick"] = onPress;
   if (onLongPress) out["onContextMenu"] = onLongPress;
+  // Accessibility actions: their names as a data attribute, and a custom
+  // `accessibilityaction` DOM event (detail: the action's name) that runs the handler.
+  const a11yActions = accessibilityActions as { name: string }[] | undefined;
+  if (a11yActions?.length) out["data-a11y-actions"] = a11yActions.map((a) => a.name).join(",");
+  if (onAccessibilityAction) {
+    const handler = onAccessibilityAction as (e: { nativeEvent: { actionName: string } }) => void;
+    out["ref"] = (node: HTMLElement | null) => {
+      if (!node) return;
+      const el = node as HTMLElement & { __a11y?: (e: Event) => void };
+      if (el.__a11y) el.removeEventListener("accessibilityaction", el.__a11y);
+      el.__a11y = (e: Event) => handler({ nativeEvent: { actionName: String((e as CustomEvent).detail) } });
+      el.addEventListener("accessibilityaction", el.__a11y);
+    };
+  }
   return out;
 }
 
@@ -91,7 +111,8 @@ export const View = React.forwardRef<HTMLDivElement, AnyProps>(function View(
   props,
   ref
 ) {
-  return React.createElement("div", { ...toDom(props), ref });
+  const dom = toDom(props);
+  return React.createElement("div", { ...dom, ref: ref ?? (dom.ref as React.Ref<HTMLDivElement> | undefined) });
 });
 View.displayName = "View";
 
@@ -122,7 +143,7 @@ export const Pressable = React.forwardRef<HTMLButtonElement, AnyProps>(
       type: "button",
       disabled: !!disabled,
       ...dom,
-      ref,
+      ref: ref ?? (dom.ref as React.Ref<HTMLButtonElement> | undefined),
     });
   }
 );
@@ -256,27 +277,31 @@ export const FlatList = <T,>(props: {
   data?: T[];
   renderItem?: (info: { item: T; index: number }) => React.ReactNode;
   keyExtractor?: (item: T, index: number) => string;
-  testID?: string;
   ListHeaderComponent?: React.ReactNode | React.ComponentType;
+  ListFooterComponent?: React.ReactNode | React.ComponentType;
   ListEmptyComponent?: React.ReactNode | React.ComponentType;
+  refreshControl?: React.ReactNode;
+  testID?: string;
 }) => {
-  const { data = [], renderItem, keyExtractor, testID, ListHeaderComponent, ListEmptyComponent } = props;
-  // Header and empty slots render like FlatList's: an element as is, a component type as <C />.
+  const { data = [], renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, testID } = props;
+  // Slots render like FlatList's: an element as is, a component type as <C />.
   const slot = (s: React.ReactNode | React.ComponentType | undefined) =>
     typeof s === "function" ? React.createElement(s as React.ComponentType) : (s ?? null);
   return React.createElement(
     "div",
     { "data-testid": testID, role: "list" },
+    refreshControl ?? null,
     slot(ListHeaderComponent),
-    data.length === 0
-      ? slot(ListEmptyComponent)
+    ...(data.length === 0
+      ? [slot(ListEmptyComponent)]
       : data.map((item, index) =>
           React.createElement(
             "div",
             { key: keyExtractor ? keyExtractor(item, index) : String(index) },
             renderItem?.({ item, index })
           )
-        )
+        )),
+    slot(ListFooterComponent)
   );
 };
 

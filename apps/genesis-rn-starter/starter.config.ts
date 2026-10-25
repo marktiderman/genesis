@@ -32,5 +32,6 @@ export default defineStarter({
     observability: true,
     devtools: true,
     checkIn: true,
+    support: true,
   },
 });
