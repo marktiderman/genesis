@@ -1,0 +1,71 @@
+packages/notifications/src/core/validate.ts
+  s_8252619ce79a86::t_5f74d83be9f794 11-21,38
+packages/notifications/migrations/tests/0001_genesis_notifications.test.sql
+  s_8252619ce79a86::t_2414f656de7354 267
+  s_8252619ce79a86::t_bbc171298f549f 66
+  s_8252619ce79a86::t_d5b0bd65cadaf8 10,147-154,262-266,268-302
+  s_8252619ce79a86::t_43bb8cc40fbc3c 303
+packages/notifications/src/server/store.ts
+  s_8252619ce79a86::t_5f74d83be9f794 62-63,101-102,125-126
+apps/genesis-rn-starter/supabase/migrations/20261025000000_genesis_notifications.sql
+  s_8252619ce79a86::t_1613b82fb660cb 52-53,270-271,614,617-618,753-754,782-785,865-868,879-886,966-969,990,1018,1032-1035,1103,1396-1398,1425-1429,1578-1586,1601-1658,1820,1829,1854,1863
+apps/genesis-rn-starter/supabase/tests/database/genesis_notifications.test.sql
+  s_8252619ce79a86::t_1613b82fb660cb 10,66,147-154,262-302
+  s_8252619ce79a86::t_e83444dfd35717 303
+.changeset/genesis-notifications.md
+  s_8252619ce79a86::t_1613b82fb660cb 9
+features.json
+  s_8252619ce79a86::t_c21edb84b47f18 2992
+packages/notifications/README.md
+  s_8252619ce79a86::t_1613b82fb660cb 110-119,126-128,132-138,143-144,174-177,202-204
+  s_8252619ce79a86::t_4af89f40d34741 205
+features.ts
+  s_8252619ce79a86::t_c21edb84b47f18 1308
+packages/notifications/src/core/registry.ts
+  s_8252619ce79a86::t_5f74d83be9f794 337
+packages/notifications/src/server/runner.ts
+  s_8252619ce79a86::t_5f74d83be9f794 122,151,251,272-273
+packages/notifications/src/__tests__/notification-runner.test.ts
+  s_8252619ce79a86::t_cee78f9aedb3c5 45,218-223
+  s_8252619ce79a86::t_a6c3cc242a9ab2 224-225
+docs/NOTIFICATIONS.md
+  s_8252619ce79a86::t_1613b82fb660cb 78,102-105,193-195
+packages/notifications/src/server/notify.ts
+  s_8252619ce79a86::t_5f74d83be9f794 9,28-29,53-80
+  s_8252619ce79a86::t_6ab0ec193d4636 81
+packages/notifications/src/server/handler.ts
+  s_8252619ce79a86::t_5f74d83be9f794 109-110
+packages/notifications/src/supabase/index.ts
+  s_8252619ce79a86::t_5f74d83be9f794 104-126,168-169
+packages/notifications/src/native/index.tsx
+  s_8252619ce79a86::t_5f74d83be9f794 35,219,225-226
+  s_8252619ce79a86::t_23642be59e0b21 87-91
+packages/notifications/src/__tests__/ui.test.tsx
+  s_8252619ce79a86::t_cee78f9aedb3c5 9,90-92
+  s_8252619ce79a86::t_02144491f87840 93-94
+packages/notifications/migrations/0001_genesis_notifications.sql
+  s_8252619ce79a86::t_0a3b0c80c5e3f6 270-271,614,617-618,753-754,782-785,865-868,879-886
+  s_8252619ce79a86::t_8d86db0e7e7bc1 52-53,966-969,990,1018,1032-1035,1103,1396-1398,1425-1429,1578-1586,1601-1658,1820,1829,1854,1863
+packages/notifications/src/__tests__/core.test.ts
+  s_8252619ce79a86::t_cee78f9aedb3c5 68-69
+packages/notifications/src/server/index.ts
+  s_8252619ce79a86::t_5f74d83be9f794 11
+packages/notifications/src/__tests__/handler.test.ts
+  s_8252619ce79a86::t_cee78f9aedb3c5 4,88-91,137-149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f6a1854d99cf2df326756d3f26ceb9782ae27cab",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
