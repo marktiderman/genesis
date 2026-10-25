@@ -1,0 +1,34 @@
+apps/genesis-rn-starter/__tests__/app-config.test.ts
+  s_8252619ce79a86::t_633c6a5c93ddc5 1-42
+packages/genesis-cli/test/expo.test.ts
+  s_8252619ce79a86::t_137a25477f881e 33,85-95,101
+packages/genesis-cli/README.md
+  s_8252619ce79a86::t_3a33a49ad42689 241
+packages/genesis-cli/src/expo.ts
+  s_8252619ce79a86::t_137a25477f881e 7-10,70-71,86,107-108,245-247
+apps/genesis-rn-starter/__tests__/components/links.test.ts
+  s_8252619ce79a86::t_633c6a5c93ddc5 4,11-17
+  s_8252619ce79a86::t_90e2848132cad3 18-19
+.changeset/variant-url-schemes.md
+  s_8252619ce79a86::t_1402bde341a246 1-7
+apps/genesis-rn-starter/src/lib/links.ts
+  s_8252619ce79a86::t_633c6a5c93ddc5 6,11-19,22,26
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_3a33a49ad42689 107-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "67d7dbd2350f4698a21bd686b51bff66061c4f38",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
