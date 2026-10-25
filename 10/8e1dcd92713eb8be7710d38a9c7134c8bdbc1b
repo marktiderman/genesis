@@ -1,0 +1,19 @@
+packages/forms-builder/src/__tests__/scale.test.tsx
+  s_8252619ce79a86::t_b8bd675b3fc5e6 62,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "108e1dcd92713eb8be7710d38a9c7134c8bdbc1b",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
