@@ -1,0 +1,63 @@
+apps/sample/app/routes.ts
+  s_8252619ce79a86::t_e425f56a4cdf42 14-15
+apps/sample/app/app.css
+  s_8252619ce79a86::t_e425f56a4cdf42 11
+packages/sites/src/editor/site-editor.tsx
+  s_8252619ce79a86::t_ec9a7f0570383a 34,122-128,135,421-422,426
+  s_8252619ce79a86::t_0008e8866f694c 199-208,665,788
+  s_8252619ce79a86::t_fc4fc9e5934553 37,748-751
+  s_8252619ce79a86::t_87012aaa3b9fab 616,618
+  s_8252619ce79a86::t_d4040917288862 664
+  s_8252619ce79a86::t_2d94dba2ba0ef6 718
+  s_8252619ce79a86::t_55f97dea10b3c1 118-119
+  s_8252619ce79a86::t_09a6101c95dd53 757
+packages/sites/src/editor/data.ts
+  s_8252619ce79a86::t_0008e8866f694c 71-72
+packages/sites/src/editor/config.tsx
+  s_8252619ce79a86::t_87012aaa3b9fab 33-34,38,110,128
+  s_8252619ce79a86::t_c183d5813e25c8 205,207,209
+apps/sample/app/routes/sites-editor.tsx
+  s_8252619ce79a86::t_724acdce91633f 1-92
+apps/sample/app/routes/sites.tsx
+  s_8252619ce79a86::t_e4194fa9356e65 5,41-53
+packages/sites/src/editor/fields.ts
+  s_8252619ce79a86::t_ceca17b4130243 58,158
+  s_8252619ce79a86::t_0008e8866f694c 108-109,111-112,131,135
+packages/sites/src/editor/canvas-dom.ts
+  s_8252619ce79a86::t_9c7a49d5b2a3f3 1-7
+apps/sample/sites-demo/site.ts
+  s_8252619ce79a86::t_e82c6c46d441d9 12,145-147,163-183
+  s_8252619ce79a86::t_71cfba94cfaa5f 184-185
+apps/sample/.react-router/types/app/routes/+types/sites-editor.ts
+  s_8252619ce79a86::t_eb69f58719e54b 1-71
+packages/sites/src/editor/overrides.tsx
+  s_8252619ce79a86::t_bad6b0cf957396 17,151-152,156-164,168
+  s_8252619ce79a86::t_12184bceca1aef 10,144-150,153,155,173,175-176,179-181,183-187
+  s_8252619ce79a86::t_b7c61572755019 18,154
+  s_8252619ce79a86::t_c7dc776ab9c51d 87
+packages/sites/src/__tests__/editor.test.tsx
+  s_8252619ce79a86::t_58ccccb7fcb782 136,146,154
+  s_8252619ce79a86::t_907b145c073cc9 40
+packages/sites/src/editor/publish-panel.tsx
+  s_8252619ce79a86::t_fc4fc9e5934553 52-53,126,133-135,191
+apps/sample/.react-router/types/+routes.ts
+  s_8252619ce79a86::t_eb69f58719e54b 25-27,119,133-136,252
+packages/sites/src/editor/index.ts
+  s_8252619ce79a86::t_87012aaa3b9fab 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f3ee4ea5be6fe658ad953aefc5ba0f8aa3c29838",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
