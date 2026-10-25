@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": [
     "./dist/sections.js",
+    "./dist/editor.js",
     "*.css"
   ],
   "description": "Sites and landing pages for Genesis apps: a section registry with zod 4 schemas, 13 server-rendered marketing sections on Genesis UI, a per-request renderer with no hydration, SEO (meta, sitemap, robots, JSON-LD, redirects), publish-time accessibility checks, one-click landing pages from a brand, and a Supabase schema with draft, publish and rollback. Part of the Genesis framework.",
@@ -47,6 +48,10 @@
       "types": "./dist/blocks.d.ts",
       "import": "./dist/blocks.js"
     },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "import": "./dist/editor.js"
+    },
     "./sites.css": "./dist/assets/sites.css",
     "./sites-forms.css": "./dist/assets/sites-forms.css"
   },
@@ -63,7 +68,8 @@
     "test": "node scripts/build-assets.mjs --if-missing && vitest run"
   },
   "dependencies": {
-    "@marktiderman/genesis-features": "workspace:^"
+    "@marktiderman/genesis-features": "workspace:^",
+    "@puckeditor/core": "^0.23.0"
   },
   "peerDependencies": {
     "@marktiderman/genesis-design-system": "workspace:^",

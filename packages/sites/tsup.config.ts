@@ -7,6 +7,7 @@ export default defineConfig({
     web: "src/web/index.ts",
     supabase: "src/supabase/index.ts",
     blocks: "src/blocks.ts",
+    editor: "src/editor/index.ts",
   },
   format: ["esm"],
   dts: true,
@@ -15,5 +16,5 @@ export default defineConfig({
   clean: false,
   treeshake: true,
   target: "es2022",
-  external: [/^@marktiderman\//, "react", "react-dom", /^react\//, /^react-dom\//, "zod", "lucide-react", "@supabase/supabase-js"],
+  external: [/^@marktiderman\//, "react", "react-dom", /^react\//, /^react-dom\//, "zod", "lucide-react", "@supabase/supabase-js", /^@puckeditor\//],
 });

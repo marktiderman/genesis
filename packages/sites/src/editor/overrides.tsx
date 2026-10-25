@@ -1,0 +1,184 @@
+/**
+ * Puck's chrome, drawn with Genesis UI: every field type, field labels, and
+ * the Add picker's items (which also enforce each section's limit). So the
+ * editor reads as part of the host app, not as stock Puck, and every
+ * control has a real label.
+ */
+import * as React from "react";
+import { createUsePuck, type Overrides } from "@puckeditor/core";
+import { Badge } from "@marktiderman/genesis-ui/badge";
+import { Input } from "@marktiderman/genesis-ui/input";
+import { Label } from "@marktiderman/genesis-ui/label";
+import { RadioGroup, RadioGroupItem } from "@marktiderman/genesis-ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
+import { Textarea } from "@marktiderman/genesis-ui/textarea";
+import { cn } from "@marktiderman/genesis-ui/utils";
+import { countTypes, sectionTypeOf, type EditorData } from "./data";
+import type { ComponentInfo } from "./config";
+
+const usePuck = createUsePuck();
+
+interface BaseProps {
+  field: { label?: string; placeholder?: string; options?: readonly { label: string; value: unknown }[]; min?: number; max?: number; step?: number };
+  name: string;
+  id?: string;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  readOnly?: boolean;
+}
+
+const fieldId = (p: BaseProps) => p.id ?? `gs-field-${p.name.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
+function FieldShell({ id, label, children }: { id: string; label?: string | undefined; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5 py-1">
+      {label ? <Label htmlFor={id}>{label}</Label> : null}
+      {children}
+    </div>
+  );
+}
+
+function TextInput(p: BaseProps) {
+  const id = fieldId(p);
+  return (
+    <FieldShell id={id} label={p.field.label}>
+      <Input id={id} name={p.name} value={typeof p.value === "string" ? p.value : ""} placeholder={p.field.placeholder} disabled={p.readOnly} onChange={(e) => p.onChange(e.currentTarget.value)} />
+    </FieldShell>
+  );
+}
+
+function TextareaInput(p: BaseProps) {
+  const id = fieldId(p);
+  return (
+    <FieldShell id={id} label={p.field.label}>
+      <Textarea id={id} name={p.name} rows={3} value={typeof p.value === "string" ? p.value : ""} placeholder={p.field.placeholder} disabled={p.readOnly} onChange={(e) => p.onChange(e.currentTarget.value)} />
+    </FieldShell>
+  );
+}
+
+function NumberInput(p: BaseProps) {
+  const id = fieldId(p);
+  return (
+    <FieldShell id={id} label={p.field.label}>
+      <Input
+        id={id}
+        name={p.name}
+        type="number"
+        inputMode="decimal"
+        value={typeof p.value === "number" ? String(p.value) : ""}
+        min={p.field.min}
+        max={p.field.max}
+        step={p.field.step}
+        disabled={p.readOnly}
+        onChange={(e) => {
+          const raw = e.currentTarget.value;
+          p.onChange(raw === "" ? undefined : Number(raw));
+        }}
+      />
+    </FieldShell>
+  );
+}
+
+/** Options carry any value (a number, a boolean); the controls key them by index. */
+const indexOf = (options: readonly { value: unknown }[], value: unknown) => {
+  const i = options.findIndex((o) => o.value === value || (o.value === "" && value === undefined));
+  return i < 0 ? "" : String(i);
+};
+
+function SelectInput(p: BaseProps) {
+  const id = fieldId(p);
+  const options = p.field.options ?? [];
+  return (
+    <FieldShell id={id} label={p.field.label}>
+      <Select value={indexOf(options, p.value)} disabled={p.readOnly} onValueChange={(i) => p.onChange(options[Number(i)]?.value)}>
+        <SelectTrigger id={id} aria-label={p.field.label}>
+          <SelectValue placeholder="Choose…" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o, i) => (
+            <SelectItem key={i} value={String(i)}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FieldShell>
+  );
+}
+
+function RadioInput(p: BaseProps) {
+  const id = fieldId(p);
+  const options = p.field.options ?? [];
+  return (
+    <div className="flex flex-col gap-1.5 py-1" role="group" aria-labelledby={`${id}-label`}>
+      <span id={`${id}-label`} className="text-sm font-medium leading-none">
+        {p.field.label}
+      </span>
+      <RadioGroup value={indexOf(options, p.value)} disabled={p.readOnly} onValueChange={(i) => p.onChange(options[Number(i)]?.value)} className="flex flex-wrap gap-4" aria-labelledby={`${id}-label`}>
+        {options.map((o, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <RadioGroupItem id={`${id}-${i}`} value={String(i)} />
+            <Label htmlFor={`${id}-${i}`} className="font-normal">
+              {o.label}
+            </Label>
+          </div>
+        ))}
+      </RadioGroup>
+    </div>
+  );
+}
+
+/**
+ * The Add picker's item: the preset's name, its section, and its limit. A
+ * section at its limit can't be dragged in; it says why.
+ */
+function ComponentItem({ name, info }: { name: string; info: ReadonlyMap<string, ComponentInfo> }) {
+  const data = usePuck((s) => s.appState.data) as unknown as EditorData;
+  const meta = info.get(name);
+  const type = sectionTypeOf(name);
+  const used = React.useMemo(() => countTypes(data).get(type) ?? 0, [data, type]);
+  const full = meta?.limit !== undefined && used >= meta.limit;
+  // Puck's wrapper is the drag handle; a section at its limit has `insert` off (config.tsx), so it can't be dragged.
+  return (
+    <div
+      className={cn(
+        "flex w-full items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2 text-left text-sm text-foreground",
+        full ? "cursor-not-allowed opacity-60" : "cursor-grab hover:border-primary",
+      )}
+      title={full ? `A page has at most ${meta?.limit} of these` : `Drag onto the page to add: ${meta?.label ?? name}`}
+    >
+      <span className="flex flex-col">
+        <span className="font-medium">{meta?.label ?? name}</span>
+        {meta && meta.label !== meta.sectionLabel ? <span className="text-xs text-muted-foreground">{meta.sectionLabel}</span> : null}
+      </span>
+      {meta?.limit !== undefined ? (
+        <Badge variant={full ? "secondary" : "outline"} className="shrink-0">
+          {full ? "Limit reached" : `${used} of ${meta.limit}`}
+        </Badge>
+      ) : null}
+    </div>
+  );
+}
+
+export function genesisOverrides(info: ReadonlyMap<string, ComponentInfo>, extra: Partial<Overrides> = {}): Partial<Overrides> {
+  return {
+    fieldTypes: {
+      text: TextInput as never,
+      textarea: TextareaInput as never,
+      number: NumberInput as never,
+      select: SelectInput as never,
+      radio: RadioInput as never,
+    },
+    fieldLabel: ({ children, label, el, className }) => {
+      const El = el === "div" ? "div" : "label";
+      return (
+        <El className={cn("flex flex-col gap-1.5 py-1 text-sm font-medium", className)}>
+          <span>{label}</span>
+          {children}
+        </El>
+      );
+    },
+    drawerItem: ({ name }) => <ComponentItem name={name} info={info} />,
+    ...extra,
+  };
+}
