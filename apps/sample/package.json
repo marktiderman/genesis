@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@marktiderman/genesis-chat": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
     "@marktiderman/genesis-features": "workspace:^",
     "@marktiderman/genesis-forms": "workspace:^",

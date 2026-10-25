@@ -35,6 +35,8 @@ export default [
     route("features", "routes/features.tsx"),
     // genesis-sites: two demo sites in frames (sites-demo/ serves them).
     route("sites", "routes/sites.tsx"),
+    // genesis-chat: the panel on the in-memory client.
+    route("chat", "routes/chat.tsx"),
     // Phase G — Genesis Showcase portfolio routes
     route("showcase", "routes/showcase._index.tsx"),
     route("showcase/tokens", "routes/showcase.tokens._index.tsx"),
