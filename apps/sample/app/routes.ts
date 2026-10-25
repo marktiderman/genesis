@@ -31,6 +31,8 @@ export default [
     route("projects/:projectId/:tab?", "routes/projects.$projectId.tsx"),
     route("studio", "routes/studio.tsx"),
     route("features", "routes/features.tsx"),
+    // genesis-sites: two demo sites in frames (sites-demo/ serves them).
+    route("sites", "routes/sites.tsx"),
     // Phase G — Genesis Showcase portfolio routes
     route("showcase", "routes/showcase._index.tsx"),
     route("showcase/tokens", "routes/showcase.tokens._index.tsx"),

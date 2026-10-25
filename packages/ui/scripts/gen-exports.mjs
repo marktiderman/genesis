@@ -99,6 +99,9 @@ const PATTERN_SUBPATH_COMPONENTS = [
  * unpublishes a subpath that no check can see the absence of — see the header.
  */
 const LAYOUT_SUBPATH_COMPONENTS = [
+  // A deliberate new entrypoint: genesis-sites renders marketing bands on the
+  // server and imports this file alone, not the layout barrel (AppShell and its peers).
+  "band",
   "dashboard-page",
   "detail-page",
   "form-page",

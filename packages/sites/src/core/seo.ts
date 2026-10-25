@@ -40,12 +40,18 @@ function imageUrl(image: Image | undefined, origin: string, basePath: string): s
   return image.src.startsWith("/") ? absoluteUrl(origin, basePath, image.src) : image.src;
 }
 
-/** The page's title with the site's template (`%s · Riverside Gym`). The home page uses its own title. */
-export function pageTitle(site: SiteDoc, doc: PageDoc, path: string): string {
-  const own = doc.seo?.title?.trim() || doc.root.props.title;
+/**
+ * The page's title with the site's template (`%s · Riverside Gym`), so every
+ * tab and search result names the site. An SEO title written for the page
+ * (`seo.title`) is used as it is.
+ */
+export function pageTitle(site: SiteDoc, doc: PageDoc, _path: string): string {
+  const own = doc.seo?.title?.trim();
+  if (own) return own;
+  const title = doc.root.props.title;
   const template = site.seo.titleTemplate;
-  if (!template || !template.includes("%s") || path === "/") return own;
-  return template.replace("%s", own);
+  if (!template || !template.includes("%s")) return title;
+  return template.replace("%s", title);
 }
 
 /** Every meta value a page prints in its `<head>`. */

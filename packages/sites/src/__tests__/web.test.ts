@@ -7,7 +7,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ASSETS } from "../web/assets.generated";
 import { ASSETS_PREFIX, handleSiteRequest, type SiteRequestOptions } from "../web/index";
-import { checkHtmlOutline, createMemorySiteStore, isConflict, landingPage, onePageSite, PublishBlockedError, withCacheInvalidation } from "../index";
+import { checkHtmlOutline, createMemorySiteStore, exampleBrands, isConflict, landingPage, onePageSite, PublishBlockedError, withCacheInvalidation } from "../index";
 import { brand, formsResolver, seededStore } from "./fixtures";
 
 const ORIGIN = "https://riverside.example";
@@ -46,7 +46,7 @@ describe("serving a page", () => {
     const store = createMemorySiteStore();
     const t = onePageSite({ name: "Hilltop Fitness", message: { headline: "Fitness on the hill", subhead: "Classes for every level." }, colors: { primary: "#b45309" } });
     await store.createSite({ id: "one", site: t.site, pages: t.pages });
-    await store.publish("one");
+    await store.publish("one", { brand: t.brand });
     const res = (await handleSiteRequest(get("/"), { store, brand: { getBrand: () => t.brand }, siteId: "one" }))!;
     const html = await res.text();
     expect(html).not.toMatch(/<script(?![^>]*application\/ld\+json)/);
@@ -151,7 +151,7 @@ describe("redirects", () => {
     const store = o.store as Awaited<ReturnType<typeof seededStore>>;
     const about = (await store.listPages("starter")).find((p) => p.path === "/about")!;
     await store.movePage(about.id, "/our-story");
-    await store.publish("starter");
+    await store.publish("starter", { brand: exampleBrands.hilltop });
     const res = (await handleSiteRequest(get("/about"), o))!;
     expect(res.status).toBe(301);
     expect(res.headers.get("location")).toBe("/our-story");
@@ -261,6 +261,13 @@ describe("the memory store", () => {
     expect(err).toBeInstanceOf(PublishBlockedError);
     expect((err as PublishBlockedError).issues.some((i) => i.code === "placeholder")).toBe(true);
     expect(await store.getLive("x")).toBeNull();
+  });
+
+  it("refuses a publish without the brand, whose colours it must check", async () => {
+    const store = await seededStore();
+    const err = await store.publish("landing").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PublishBlockedError);
+    expect((err as PublishBlockedError).issues.map((i) => i.code)).toContain("brand-missing");
   });
 
   it("refuses reserved and duplicate paths, and keeps the home page", async () => {

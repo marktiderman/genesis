@@ -1,5 +1,5 @@
 /**
- * @feat:genesis-sites
+ * @feat:genesis-sites @feat:sites-landing
  * SEO outputs (meta, sitemap, robots, JSON-LD, redirects) and the publish
  * checks (accessibility, contrast, content).
  */
@@ -42,9 +42,11 @@ describe("meta tags", () => {
   const snap = snapshotOf(starterSite({ brand, message: { headline: "Train with us", subhead: "Small classes by the river." } }));
   const about = snap.pages.find((p) => p.path === "/about")!;
 
-  it("titles a page with the site's template, and the home page with its own title", () => {
+  it("titles every page with the site's template, unless the page has an SEO title of its own", () => {
     expect(pageMeta({ site: snap.site, page: about, origin: ORIGIN }).title).toBe("About · Riverside Gym");
-    expect(pageMeta({ site: snap.site, page: snap.pages[0]!, origin: ORIGIN }).title).toBe("Home");
+    expect(pageMeta({ site: snap.site, page: snap.pages[0]!, origin: ORIGIN }).title).toBe("Home · Riverside Gym");
+    const own = { ...about, doc: { ...about.doc, seo: { title: "Our story, since 2014" } } };
+    expect(pageMeta({ site: snap.site, page: own, origin: ORIGIN }).title).toBe("Our story, since 2014");
   });
 
   it("gives canonical, robots, Open Graph and Twitter values from the primary origin", () => {

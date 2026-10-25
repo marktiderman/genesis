@@ -47,7 +47,7 @@ export interface Asset {
 
 export interface PublishOptions {
   note?: string;
-  /** The brand to check contrast against (and record the hash of). */
+  /** The brand to check contrast against (and record the hash of). Required: a publish without it is blocked. */
   brand?: BrandInput | null;
   reserved?: ReservedPaths;
 }
@@ -148,6 +148,8 @@ export function prepareRelease(
   const snapshot: ReleaseSnapshot = ReleaseSnapshot.parse({ schemaVersion: 1, site: migratedSite.site, pages: releasePages });
   const theme = options.brand ? siteTheme(options.brand, snapshot.site.theme) : undefined;
   const issues = checkRelease(snapshot, { ...(theme ? { theme } : {}), reserved: options.reserved ?? DEFAULT_RESERVED_PATHS });
+  // The contrast check needs the brand: without it a publish can't show its colours are readable.
+  if (!theme) issues.push({ severity: "error", code: "brand-missing", message: "Publish with the site's brand (`brand`), so its colours can be checked for contrast." });
   if (!isPublishable(issues)) throw new PublishBlockedError(issues);
   return { snapshot, issues, migratedPages, migratedSite: migratedSite.changed ? migratedSite.site : null, brandHash: theme?.brandHash ?? null };
 }

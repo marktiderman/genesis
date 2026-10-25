@@ -276,6 +276,9 @@ importers:
       '@marktiderman/genesis-forms-web':
         specifier: workspace:^
         version: link:../../packages/forms-web
+      '@marktiderman/genesis-sites':
+        specifier: workspace:^
+        version: link:../../packages/sites
       '@marktiderman/genesis-studio':
         specifier: workspace:^
         version: link:../../packages/studio

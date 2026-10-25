@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 143 components · 487 other exports · 361 standalone types across 11 packages and entry points.
+**Totals:** 146 components · 490 other exports · 361 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -237,12 +237,14 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (37)
+### Components (40)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`AccessibleIcon`](../packages/ui/src/components/ui/accessible-icon.tsx) | `AccessibleIconProps` | Beta | AccessibleIcon — gives a decorative icon an accessible name. |
 | [`Badge`](../packages/ui/src/components/ui/badge.tsx) | `BadgeProps` | — | _(no summary)_ |
+| [`Band`](../packages/ui/src/components/layout/band.tsx) | `BandProps` | Beta | Band: a full-bleed, full-width marketing section. The background runs edge to edge; the content sits in a centered column with the page gutter. It is what a landing page is made of: a hero, a features band, a call to action, a footer. |
+| [`BandLead`](../packages/ui/src/components/layout/band.tsx) | `BandLeadProps` | Beta | _(no summary)_ |
 | [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link. |
 | [`ButtonGroup`](../packages/ui/src/components/ui/button-group.tsx) | `ButtonGroupProps` | — | _(no summary)_ |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
@@ -250,6 +252,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`DashboardPage`](../packages/ui/src/components/layout/dashboard-page.tsx) | `DashboardPageProps` | Beta | DashboardPage — a stat row over a flexible region of charts, tables and sections. |
 | [`DatePicker`](../packages/ui/src/components/ui/date-picker.tsx) | `DatePickerProps` | — | _(no summary)_ |
 | [`DetailPage`](../packages/ui/src/components/layout/detail-page.tsx) | `DetailPageProps` | Beta | DetailPage — one record's full view: a title row with actions, a primary content region, and a metadata sidebar that drops below the content on small screens. |
+| [`Display`](../packages/ui/src/components/layout/band.tsx) | `DisplayProps` | Beta | Display: a heading in the marketing type scale (`displayVariants`). |
 | [`EmptyState`](../packages/ui/src/components/patterns/empty-state.tsx) | `EmptyStateProps` | Beta | EmptyState — what to show when a list, page, or panel has no data. |
 | [`FormPage`](../packages/ui/src/components/layout/form-page.tsx) | `FormPageProps` | Beta | FormPage — a titled form: header, validation summary, a body of sections, and a sticky action bar. |
 | [`Grid`](../packages/ui/src/components/layout/grid.tsx) | `GridProps` | Beta | Grid — two-dimensional flow for card and tile collections. |
@@ -279,7 +282,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (242)
+### Other exports (245)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -308,6 +311,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Avatar`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
 | [`AvatarFallback`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
 | [`AvatarImage`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
+| [`bandVariants`](../packages/ui/src/components/layout/band.tsx) | value | — | _(no summary)_ |
 | [`Breadcrumb`](../packages/ui/src/components/ui/breadcrumb.tsx) | value | — | _(no summary)_ |
 | [`BreadcrumbEllipsis`](../packages/ui/src/components/ui/breadcrumb.tsx) | value | — | _(no summary)_ |
 | [`BreadcrumbItem`](../packages/ui/src/components/ui/breadcrumb.tsx) | value | — | _(no summary)_ |
@@ -376,6 +380,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DialogPortal`](../packages/ui/src/components/ui/dialog.tsx) | value | — | _(no summary)_ |
 | [`DialogTitle`](../packages/ui/src/components/ui/dialog.tsx) | value | — | _(no summary)_ |
 | [`DialogTrigger`](../packages/ui/src/components/ui/dialog.tsx) | value | — | _(no summary)_ |
+| [`displayVariants`](../packages/ui/src/components/layout/band.tsx) | value | — | _(no summary)_ |
 | [`Drawer`](../packages/ui/src/components/ui/drawer.tsx) | value | — | _(no summary)_ |
 | [`DrawerClose`](../packages/ui/src/components/ui/drawer.tsx) | value | — | _(no summary)_ |
 | [`DrawerContent`](../packages/ui/src/components/ui/drawer.tsx) | value | — | _(no summary)_ |
@@ -426,6 +431,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Label`](../packages/ui/src/components/ui/label.tsx) | value | — | _(no summary)_ |
 | [`Large`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`Lead`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
+| [`leadVariants`](../packages/ui/src/components/layout/band.tsx) | value | — | _(no summary)_ |
 | [`Menubar`](../packages/ui/src/components/ui/menubar.tsx) | value | — | _(no summary)_ |
 | [`MenubarCheckboxItem`](../packages/ui/src/components/ui/menubar.tsx) | value | — | _(no summary)_ |
 | [`MenubarContent`](../packages/ui/src/components/ui/menubar.tsx) | value | — | _(no summary)_ |
