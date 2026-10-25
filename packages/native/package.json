@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "The native app shell for Genesis Expo apps: one GenesisNativeApp root that runs boot steps behind the splash, catches errors into a fatal screen with retry, persists the query cache, gates on the Supabase session and normalizes deep links. An optional updates block (/updates) adds force upgrade, maintenance, an update banner and what's new; an optional push block (/push) adds push registration, tap routing, the badge and a notification settings screen with quiet hours and private previews. Blocks (defineBlock declarations, through `blocks`) add boot steps, roots, slot fills and Settings rows. Every part is a slot and is also exported on its own. Part of the Genesis framework.",
+  "description": "The native app shell for Genesis Expo apps: one GenesisNativeApp root that runs boot steps behind the splash, catches errors into a fatal screen with retry, persists the query cache, gates on the Supabase session and normalizes deep links. An optional updates block (/updates) adds force upgrade, maintenance, an update banner and what's new; an optional push block (/push) adds push registration, tap routing, the badge and a notification settings screen with quiet hours and private previews; the observability block (/observability) reports errors, breadcrumbs, typed analytics events and timings through vendor-neutral sinks (Sentry, EAS Observe, console) with PII scrubbed on the device; the devtools overlay (/devtools) is a debug sheet for development and preview builds. Blocks (defineBlock declarations, through `blocks`) add boot steps, roots, slot fills and Settings rows. Every part is a slot and is also exported on its own. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -35,6 +35,14 @@
     "./push": {
       "types": "./dist/push.d.ts",
       "import": "./dist/push.js"
+    },
+    "./observability": {
+      "types": "./dist/observability.d.ts",
+      "import": "./dist/observability.js"
+    },
+    "./devtools": {
+      "types": "./dist/devtools.d.ts",
+      "import": "./dist/devtools.js"
     }
   },
   "files": [
@@ -62,6 +70,9 @@
     "react-native-safe-area-context": ">=4.0.0"
   },
   "peerDependenciesMeta": {
+    "@sentry/react-native": {
+      "optional": true
+    },
     "@tanstack/query-async-storage-persister": {
       "optional": true
     },
@@ -69,6 +80,12 @@
       "optional": true
     },
     "expo-application": {
+      "optional": true
+    },
+    "expo-observe": {
+      "optional": true
+    },
+    "expo-sensors": {
       "optional": true
     },
     "expo-updates": {
