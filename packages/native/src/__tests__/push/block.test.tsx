@@ -124,9 +124,19 @@ describe("the push block: registration follows the session", () => {
     const { n, b } = setup();
     await act(settle);
     n.setToken("ExponentPushToken[device-2]");
+    n.setDeviceToken("raw-2");
     act(() => n.emitToken());
     await act(settle);
     expect(b.calls).toEqual(["register ExponentPushToken[device-1] ios 1.2.0", "register ExponentPushToken[device-2] ios 1.2.0", "forget ExponentPushToken[device-1]"]);
+  });
+
+  it("registers once, not in a loop, when fetching the token tells the token listener (as Expo does)", async () => {
+    const n = fakeNotifications({ echoDeviceToken: true });
+    const { b } = setup({ notifications: n.module });
+    await act(settle);
+    await act(settle);
+    expect(b.calls).toEqual(["register ExponentPushToken[device-1] ios 1.2.0"]);
+    expect(n.module.getExpoPushTokenAsync.mock.calls.length).toBeLessThanOrEqual(2);
   });
 
   it("on Android, makes the channels (private on the lock screen) before the permission prompt and the token", async () => {
