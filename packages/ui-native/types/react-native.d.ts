@@ -164,6 +164,10 @@ declare module "react-native" {
     accessibilityState?: AccessibilityState;
     accessibilityValue?: AccessibilityValue;
     accessibilityLiveRegion?: "none" | "polite" | "assertive";
+    accessibilityActions?: ReadonlyArray<{ name: string; label?: string }>;
+    onAccessibilityAction?: (event: { nativeEvent: { actionName: string } }) => void;
+    onPressIn?: () => void;
+    onPressOut?: () => void;
     testID?: string;
     ref?: React.Ref<any>;
     hitSlop?: number | { top?: number; bottom?: number; left?: number; right?: number };
@@ -204,6 +208,7 @@ declare module "react-native" {
     size?: "small" | "large" | number;
     color?: string;
     animating?: boolean;
+    accessibilityLabel?: string;
     testID?: string;
   }
 
@@ -222,6 +227,7 @@ declare module "react-native" {
     bounces?: boolean;
     scrollEnabled?: boolean;
     refreshControl?: React.ReactElement | undefined;
+    onContentSizeChange?: (width: number, height: number) => void;
   }
 
   export interface SectionListProps<
@@ -296,6 +302,8 @@ declare module "react-native" {
     onEndReachedThreshold?: number;
     refreshing?: boolean;
     onRefresh?: () => void;
+    refreshControl?: React.ReactElement | undefined;
+    contentInsetAdjustmentBehavior?: "automatic" | "scrollableAxes" | "never" | "always";
     testID?: string;
   }
 

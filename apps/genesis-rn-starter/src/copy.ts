@@ -39,6 +39,11 @@ const en = {
     title: "Home",
     emptyTitle: "Your app starts here",
     emptyBody: "This is the first tab. Replace this screen with your own.",
+    checkIn: "Try the check-in",
+    checkInFromLink: "Check in at Hilltop Gym",
+  },
+  checkIn: {
+    done: "Done",
   },
   notifications: {
     title: "Notifications",
@@ -85,6 +90,15 @@ const en = {
       denied: "Off in Settings",
       unavailable: "Not available on this device",
     },
+  },
+  // The support block's own strings (genesis-support's catalog); the ones here override its English.
+  // Add any key from `supportCopy` to reword or translate it.
+  support: {
+    settings: { section: "Support", sendFeedback: "Send feedback", help: "Help" },
+    inbox: { title: "Help" },
+    feedback: { title: "Send feedback" },
+    ideas: { title: "Idea board" },
+    shipped: { title: "You asked, we shipped" },
   },
 } as const;
 

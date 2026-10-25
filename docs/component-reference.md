@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 140 components · 480 other exports · 351 standalone types across 11 packages and entry points.
+**Totals:** 142 components · 485 other exports · 359 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -688,7 +688,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (91)
+### Components (93)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -700,6 +700,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`BrandExtensionsProvider`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | `BrandExtensionsProviderProps` | — | _(no summary)_ |
 | [`GenesisModulesProvider`](../packages/ui-native/src/native-modules.tsx) | `GenesisModulesProviderProps` | — | Pass the optional native modules the app has installed. Nested providers merge: an inner one adds to or replaces what an outer one gave. |
 | [`Grid`](../packages/ui-native/src/components/layout/index.ts) | `GridProps` | — | _(no summary)_ |
+| [`InboxPage`](../packages/ui-native/src/layouts/inbox-page.tsx) | `InboxPageProps` | — | _(no summary)_ |
 | [`Inline`](../packages/ui-native/src/components/layout/index.ts) | `InlineProps` | — | _(no summary)_ |
 | [`NativeAccordion`](../packages/ui-native/src/components/accordion.tsx) | `NativeAccordionProps` | — | _(no summary)_ |
 | [`NativeAccordionContent`](../packages/ui-native/src/components/accordion.tsx) | `NativeAccordionContentProps` | — | _(no summary)_ |
@@ -783,8 +784,9 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`SettingsSubPage`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | `SettingsSubPageProps` | — | _(no summary)_ |
 | [`SocialAuthRow`](../packages/ui-native/src/layouts/auth.tsx) | `SocialAuthRowProps` | — | _(no summary)_ |
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
+| [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (36)
+### Other exports (41)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -800,9 +802,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`composeHeaderOptions`](../packages/ui-native/src/layouts/screen-container.tsx) | function | — | Compose a `<Stack.Screen options={...}>` object from Layer-3 named props + a direct `headerOptions` passthrough. Layouts call this and pass the result to `<Stack.Screen>` so the host's expo-router stack renders a platform-native large ti... |
 | [`confirmDiscardChanges`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Default leave-guard helper. Pops a native Alert with Discard / Keep Editing buttons; calls `proceed()` only if the user opts to discard. |
 | [`ForgotPasswordLink`](../packages/ui-native/src/layouts/auth.tsx) | function | — | _(no summary)_ |
+| [`formatInboxTime`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | The default row time: `9:41`, `Yesterday`, `Monday`, then a short date. |
+| [`getInboxPageStackOptions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | `<Stack.Screen options>` for an InboxPage: a large title that collapses on scroll. |
 | [`getNotificationsPageStackOptions`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | Compose `<Stack.Screen options={...}>` for a NotificationsPage. Wires a "Mark all read" action via `headerRight` when `onMarkAllRead` is passed. |
 | [`getSettingsPageStackOptions`](../packages/ui-native/src/layouts/settings-page.tsx) | function | — | Convenience helper for callers that want to wire `<Stack.Screen options={...}>` without re-importing composeHeaderOptions. Defaults `large: true` and `scrollEdgeBehavior: "match"` to match the Apple HIG large-title settings pattern out o... |
 | [`getSettingsSubPageStackOptions`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Compose `<Stack.Screen options={...}>` for a SettingsSubPage. Wires the nav-bar Save button via `headerRight` automatically when `onSave` is passed. |
+| [`getThreadPageStackOptions`](../packages/ui-native/src/layouts/thread-page.tsx) | function | — | `<Stack.Screen options>` for a ThreadPage: a standard (not large) title, like Messages. |
 | [`KEYBOARD_TOOLBAR_HEIGHT`](../packages/ui-native/src/layouts/keyboard.tsx) | const | — | Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input. |
 | [`KeyboardScrollProvider`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | _(no summary)_ |
 | [`NATIVE_ICON_NAMES`](../packages/ui-native/src/icon-names.ts) | const | — | Every semantic icon name. |
@@ -811,7 +816,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NativeCardFooter`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeCardHeader`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeListItemDivider`](../packages/ui-native/src/components/list-item.tsx) | function | — | _(no summary)_ |
+| [`readReceiptFor`](../packages/ui-native/src/layouts/thread-page.tsx) | function | — | The newest of my messages the other side has read, or null. |
 | [`SF_SYMBOLS`](../packages/ui-native/src/icon-names.ts) | const | Beta | The semantic icon names Genesis components ask for, and the SF Symbol each one draws on iOS. Components say "settings" or "bell", never a library's own name; `lucideIcons` (`/icons/lucide`) maps the same names for Android, web and the SF... |
+| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as a menu (long press). |
 | [`spaceScale`](../packages/ui-native/src/components/layout/index.ts) | value | — | _(no summary)_ |
 | [`spacingClass`](../packages/ui-native/src/components/layout/index.ts) | value | — | _(no summary)_ |
 | [`textVariants`](../packages/ui-native/src/components/text.tsx) | value | — | _(no summary)_ |
@@ -827,7 +834,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (49)
+### Types (57)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -853,6 +860,9 @@ export type { GenesisModules };
 export type { GenesisReanimatedModule };
 export type { GenesisSymbolComponent };
 export type { GenesisSymbolProps };
+export type { InboxItem };
+export type { InboxPageSlotMap };
+export type { InboxSwipeAction };
 export type { KeyboardScrollProps };
 export type { KeyboardToolbarProps };
 export type { NativeAccordionType };
@@ -880,6 +890,11 @@ export type { SpacingPrefix };
 export type { TextPreset };
 export type { ThemeMode };
 export type { ThemeRoleColors };
+export type { ThreadAttachment };
+export type { ThreadComposer };
+export type { ThreadLabels };
+export type { ThreadMessage };
+export type { ThreadPageSlotMap };
 export type { UseThemeRolesOptions };
 ```
 

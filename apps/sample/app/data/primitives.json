@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 67
+      "count": 69
     }
   },
   "primitives": [
@@ -2138,6 +2138,264 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "inbox-page",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/inbox-page.tsx",
+      "stability": "beta",
+      "summary": "InboxPage — a list of conversations or tickets: unread state, a time, a\npreview line, swipe actions, pull to refresh, paging and an empty state.\n\nGeneric: the rows are whatever the app has (support reports, direct\nmessages, an idea board). Data and actions come in as props; the layout\ndraws them the platform's way. On iOS it is the Settings app's inset\ngrouped style, like `SettingsPage`: the page is `groupedBackground`, the\nrows one rounded group on `surface` with hairline separators that start at\nthe text. On Android rows are full width.\n\nSwipe actions: each row's `swipeActions` are always reachable without a\ngesture library, as VoiceOver / TalkBack custom actions and on long press\n(a menu). For the swipe itself, fill the `swipeable` slot with your\ngesture-handler wrapper (`ReanimatedSwipeable` from\nreact-native-gesture-handler, an optional peer); it receives the actions\nand the row.\n\nSlots: `row`, `swipeable`, `header` (above the group), `footer` (below it,\nthe paging spinner by default) and `empty`. `slots` swaps a part for your\ncomponent (same props), `slotProps` feeds the default more props, `null`\ndrops it.\n\nHeader: `getInboxPageStackOptions()` for `<Stack.Screen options>`.",
+      "primaryComponent": "InboxPage",
+      "components": [
+        {
+          "name": "getInboxPageStackOptions",
+          "summary": "`<Stack.Screen options>` for an InboxPage: a large title that collapses on scroll.",
+          "props": [
+            {
+              "name": "headerLeft",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the left of the nav bar."
+            },
+            {
+              "name": "headerOptions",
+              "type": "Record<string, unknown>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Direct passthrough merged INTO the resolved options object. Wins over named props."
+            },
+            {
+              "name": "headerRight",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom header title. Falls back to `<Stack.Screen name>` mapping."
+            },
+            {
+              "name": "large",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When true, iOS uses large-title mode + scroll-edge appearance."
+            },
+            {
+              "name": "scrollEdgeBehavior",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            }
+          ]
+        },
+        {
+          "name": "formatInboxTime",
+          "summary": "The default row time: `9:41`, `Yesterday`, `Monday`, then a short date.",
+          "props": []
+        },
+        {
+          "name": "InboxPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "items",
+              "type": "InboxItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Newest first, as they should show. Empty → the empty state."
+            },
+            {
+              "name": "emptyActionLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A button in the empty state (\"Send feedback\")."
+            },
+            {
+              "name": "emptyBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "emptyTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "error",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The read failed: the empty slot shows `errorTitle` / `errorBody` instead (and pull to refresh retries)."
+            },
+            {
+              "name": "errorBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "errorTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "formatTime",
+              "type": "((date: Date, now: Date) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "How a row's time reads. Default: the time today, \"Yesterday\", the weekday this week, else the date."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the group (a filter, a call to action). Prefer `slots.header` for a component."
+            },
+            {
+              "name": "headerLeft",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the left of the nav bar."
+            },
+            {
+              "name": "headerOptions",
+              "type": "Record<string, unknown>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Direct passthrough merged INTO the resolved options object. Wins over named props."
+            },
+            {
+              "name": "headerRight",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom header title. Falls back to `<Stack.Screen name>` mapping."
+            },
+            {
+              "name": "large",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When true, iOS uses large-title mode + scroll-edge appearance."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The first page is loading: a spinner instead of the empty state."
+            },
+            {
+              "name": "loadingMore",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "A next page is loading: the default footer shows a spinner."
+            },
+            {
+              "name": "now",
+              "type": "(() => Date)",
+              "required": false,
+              "defaultValue": "() => new Date()",
+              "description": "The clock, for tests."
+            },
+            {
+              "name": "onEmptyAction",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onEndReached",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called near the end of the list, to load the next page."
+            },
+            {
+              "name": "onRefresh",
+              "type": "(() => void | Promise<void>)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "refreshing",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "scrollEdgeBehavior",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "sectionTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "An optional title over the group, in the Settings header style."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<InboxPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "slots",
+              "type": "Slots<InboxPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "inbox-page",
+              "description": "testID on the root. Default `\"inbox-page\"`."
+            }
+          ]
+        },
+        {
+          "name": "showInboxActions",
+          "summary": "Opens a row's actions as a menu (long press).",
+          "props": []
         }
       ]
     },
@@ -5329,6 +5587,238 @@
               "required": false,
               "defaultValue": "4",
               "description": "How many lines tall the field is, on both platforms (passed as `numberOfLines`). Default 4."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "thread-page",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/thread-page.tsx",
+      "stability": "beta",
+      "summary": "ThreadPage — one conversation: messages oldest first, a composer at the\nbottom that stays above the keyboard, attachments, a read receipt, and\n\"load earlier\" paging.\n\nGeneric: a support ticket with staff replies, a direct message, a comment\nthread. Mine are on the trailing side in the tint, theirs on the leading\nside on `surface`, over the `groupedBackground` page (SettingsPage's iOS\npalette).\n\nKeyboard: with `KeyboardScrollProvider` (the native app shell's\n`keyboardScroll`, react-native-keyboard-controller's\n`KeyboardAwareScrollView`), the messages and the composer scroll together\nand the composer is kept above the keyboard. Without it, a\n`KeyboardAvoidingView` does the same on iOS. Either way the thread stays\nscrolled to the newest message as it grows.\n\nRead-only: pass `composer={null}` (a closed ticket, a viewer) and an\noptional `closedNotice`.\n\nSlots: `message`, `attachment`, `readReceipt`, `composer`,\n`composerAccessory` (beside the input: attach a screenshot), `header`\n(above the messages: what the thread is about), `earlier` and `empty`.",
+      "primaryComponent": "ThreadPage",
+      "components": [
+        {
+          "name": "getThreadPageStackOptions",
+          "summary": "`<Stack.Screen options>` for a ThreadPage: a standard (not large) title, like Messages.",
+          "props": [
+            {
+              "name": "headerLeft",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the left of the nav bar."
+            },
+            {
+              "name": "headerOptions",
+              "type": "Record<string, unknown>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Direct passthrough merged INTO the resolved options object. Wins over named props."
+            },
+            {
+              "name": "headerRight",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom header title. Falls back to `<Stack.Screen name>` mapping."
+            },
+            {
+              "name": "large",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When true, iOS uses large-title mode + scroll-edge appearance."
+            },
+            {
+              "name": "scrollEdgeBehavior",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            }
+          ]
+        },
+        {
+          "name": "readReceiptFor",
+          "summary": "The newest of my messages the other side has read, or null.",
+          "props": []
+        },
+        {
+          "name": "ThreadPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "composer",
+              "type": "ThreadComposer | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "`null`: read-only, no composer."
+            },
+            {
+              "name": "messages",
+              "type": "ThreadMessage[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Oldest first."
+            },
+            {
+              "name": "closedNotice",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown instead of the composer when it is `null` (\"This conversation is closed\")."
+            },
+            {
+              "name": "earlierLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Load earlier messages",
+              "description": ""
+            },
+            {
+              "name": "emptyBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "emptyTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "formatTime",
+              "type": "((date: Date) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "hasEarlier",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "There are older messages: shows a \"load earlier\" button at the top."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the messages (what the thread is about). Prefer `slots.header` for a component."
+            },
+            {
+              "name": "headerLeft",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the left of the nav bar."
+            },
+            {
+              "name": "headerOptions",
+              "type": "Record<string, unknown>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Direct passthrough merged INTO the resolved options object. Wins over named props."
+            },
+            {
+              "name": "headerRight",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom header title. Falls back to `<Stack.Screen name>` mapping."
+            },
+            {
+              "name": "labels",
+              "type": "Partial<ThreadLabels>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The words the defaults say, for translating."
+            },
+            {
+              "name": "large",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When true, iOS uses large-title mode + scroll-edge appearance."
+            },
+            {
+              "name": "loadingEarlier",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
+            },
+            {
+              "name": "onLoadEarlier",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "readAt",
+              "type": "string | Date | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "When the other side last read the thread. My newest message sent before\nit shows the read receipt."
+            },
+            {
+              "name": "readLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Read",
+              "description": ""
+            },
+            {
+              "name": "scrollEdgeBehavior",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<ThreadPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "slots",
+              "type": "Slots<ThreadPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "thread-page",
+              "description": "testID on the root. Default `\"thread-page\"`."
             }
           ]
         }

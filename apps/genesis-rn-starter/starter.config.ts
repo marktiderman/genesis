@@ -29,5 +29,7 @@ export default defineStarter({
     push: true,
     observability: true,
     devtools: true,
+    checkIn: true,
+    support: true,
   },
 });

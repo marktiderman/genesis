@@ -105,4 +105,26 @@ import { AuthScreen, appleProvider } from "@marktiderman/genesis-ui-native/layou
 asks with `Alert.alert` (a destructive button) and then calls `deleteMyAccount(supabase)` from
 `@marktiderman/genesis-supabase`. The example and the SQL it needs are in that package's README.
 
+## Inbox and thread: `InboxPage` and `ThreadPage`
+
+Two generic layouts for conversations (support tickets, direct messages, comment threads), in
+`SettingsPage`'s iOS inset grouped style.
+
+- **`InboxPage`**: rows with an unread dot or count, a short time (`9:41`, `Yesterday`, a
+  weekday, a date), a two-line preview and a status line; pull to refresh, `onEndReached` paging
+  and an empty state with an optional action. Each row's `swipeActions` are always reachable as
+  VoiceOver / TalkBack custom actions and on long press (a menu); for the swipe gesture itself,
+  fill the `swipeable` slot with react-native-gesture-handler's `ReanimatedSwipeable`. Slots:
+  `row`, `swipeable`, `header`, `footer`, `empty`.
+- **`ThreadPage`**: messages oldest first (mine trailing in the tint, theirs leading on
+  `surface`), attachments, a read receipt under my newest message the other side has read
+  (`readAt`), "load earlier", optimistic `sending` and `failed` messages with retry, and a
+  composer. With `KeyboardScrollProvider` (the native shell's `keyboardScroll`) the messages and
+  the composer scroll together above the keyboard; without it a `KeyboardAvoidingView` does.
+  `composer={null}` makes it read-only with a `closedNotice`. Slots: `message`, `attachment`,
+  `readReceipt`, `composer`, `composerAccessory`, `header`, `earlier`, `empty`.
+
+`getInboxPageStackOptions()` and `getThreadPageStackOptions()` compose the header.
+`@marktiderman/genesis-support/native` feeds both for a person's support reports.
+
 Part of the [Genesis framework](https://github.com/marktiderman/genesis).
