@@ -60,6 +60,8 @@ export type MemoryChatClient = ChatClient & {
   activity(conversationId: string, userId: string, activity: ChatActivity["activity"]): void;
   /** The next `count` sends fail as if the connection dropped. */
   failNextSends(count?: number): void;
+  /** The next send waits until the returned function is called (a test watching the sending state). */
+  holdNextSend(): () => void;
   /** Every call made, for tests. */
   calls: { method: string; args: unknown[] }[];
 };
@@ -103,6 +105,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
   const inboxListeners = new Set<(s: ChatSignal) => void>();
   const calls: { method: string; args: unknown[] }[] = [];
   let failing = 0;
+  let held: Promise<void> | null = null;
   const wait = () => new Promise<void>((r) => setTimeout(r, options.latencyMs ?? 0));
 
   const makeMessage = (c: Conv, m: Partial<Omit<ChatMessage, "attachments">> & { attachments?: Partial<ChatAttachment>[] }): ChatMessage => {
@@ -313,6 +316,11 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
     async send(input: SendInput) {
       log("send", input);
       await wait();
+      if (held) {
+        const hold = held;
+        held = null;
+        await hold;
+      }
       if (failing > 0) {
         failing -= 1;
         throw new ChatError("Failed to fetch", undefined, "send_message");
@@ -453,6 +461,11 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
     },
     failNextSends(count = 1) {
       failing = count;
+    },
+    holdNextSend() {
+      let release!: () => void;
+      held = new Promise<void>((r) => (release = r));
+      return () => release();
     },
   };
   return client;
