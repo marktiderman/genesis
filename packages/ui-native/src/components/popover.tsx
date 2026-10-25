@@ -20,6 +20,7 @@ import {
 } from "react";
 import { Modal, Pressable, View } from "react-native";
 import { cn } from "../utils";
+import { NativeGlassSurface } from "./glass-surface";
 
 // React Native's View instance type — uses .measureInWindow().
 type ViewHandle = {
@@ -180,15 +181,15 @@ export function NativePopoverContent({
           }}
         >
           <Pressable onPress={() => {}}>
-            <View
-              testID={testID ?? "native-popover-content"}
-              accessibilityViewIsModal
-              className={cn(
-                "max-w-[280px] rounded-md border border-border bg-popover p-3 shadow-md",
-                className
-              )}
-            >
-              {children}
+            {/* Liquid Glass on iOS 26 with `modules.glass`; the popover surface otherwise. */}
+            <View testID={testID ?? "native-popover-content"} accessibilityViewIsModal className="max-w-[280px]">
+              <NativeGlassSurface
+                radius={14}
+                fallbackClassName="rounded-md border border-border bg-popover shadow-md"
+                className={cn("p-3", className)}
+              >
+                {children}
+              </NativeGlassSurface>
             </View>
           </Pressable>
         </View>

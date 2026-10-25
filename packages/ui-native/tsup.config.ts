@@ -13,6 +13,8 @@ export default defineConfig({
     // Subpath: consumers can `import { cn } from "@marktiderman/genesis-ui-native/utils"`
     // without pulling the entire components barrel.
     utils: "src/utils.ts",
+    // Opt-in: the only file that imports lucide-react-native.
+    "icons/lucide": "src/icons/lucide.ts",
   },
   format: ["esm"],
   dts: true,

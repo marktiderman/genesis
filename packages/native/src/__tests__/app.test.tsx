@@ -5,7 +5,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { genesisBrand } from "@marktiderman/genesis-design-system";
 import { createMockProvider } from "@marktiderman/genesis-core/provider";
-import { useKeyboardScroll } from "@marktiderman/genesis-ui-native/layouts";
+import { useKeyboardScroll, useKeyboardToolbar } from "@marktiderman/genesis-ui-native/layouts";
+import { useGenesisModules } from "@marktiderman/genesis-ui-native/components";
 import { GenesisNativeApp, type GenesisNativeAppProps } from "../app";
 import { useBoot } from "../boot";
 import { useSession } from "../auth";
@@ -315,6 +316,44 @@ describe("GenesisNativeApp", () => {
     setup({ keyboardScroll: Scroll, children: <Probe /> });
     await act(flush);
     expect(screen.getByTestId("probe").textContent).toBe("ready:true");
+  });
+
+  it("provides the keyboard toolbar with the scroll view", async () => {
+    const Scroll = () => null;
+    const Toolbar = () => null;
+    function Probe() {
+      return <span data-testid="probe">{String(useKeyboardToolbar() === Toolbar)}</span>;
+    }
+    setup({ keyboardProvider: ({ children }) => <>{children}</>, keyboardScroll: Scroll, keyboardToolbar: Toolbar, children: <Probe /> });
+    await act(flush);
+    expect(screen.getByTestId("probe").textContent).toBe("true");
+  });
+
+  it("says in development that a keyboard toolbar without a scroll view is ignored", async () => {
+    (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      function Probe() {
+        return <span data-testid="probe">{String(useKeyboardToolbar())}</span>;
+      }
+      setup({ keyboardToolbar: () => null, children: <Probe /> });
+      await act(flush);
+      expect(screen.getByTestId("probe").textContent).toBe("null");
+      expect(error.mock.calls.some(([m]) => String(m).includes("`keyboardToolbar` was given without `keyboardScroll`"))).toBe(true);
+    } finally {
+      error.mockRestore();
+      delete (globalThis as { __DEV__?: boolean }).__DEV__;
+    }
+  });
+
+  it("hands the optional native modules to Genesis components, frozen at first render", async () => {
+    const list = () => null;
+    function Probe() {
+      return <span data-testid="probe">{String(useGenesisModules().list === list)}</span>;
+    }
+    setup({ modules: { list }, children: <Probe /> });
+    await act(flush);
+    expect(screen.getByTestId("probe").textContent).toBe("true");
   });
 
   it("mounts the keyboard provider once, around the screens and the fatal screen", async () => {

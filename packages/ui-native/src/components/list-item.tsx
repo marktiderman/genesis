@@ -11,8 +11,11 @@
  *
  * @stability Beta
  */
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, View } from "react-native";
 import { cn } from "../utils";
+import { useThemeRoles } from "../hooks/use-theme-roles";
+import { useGenesisModules } from "../native-modules";
+import { NativeIcon } from "./icon";
 
 export interface NativeListItemProps {
   title: string;
@@ -58,14 +61,7 @@ export function NativeListItem({
         ) : null}
       </View>
       {trailing ? <View className="ml-3">{trailing}</View> : null}
-      {showChevron ? (
-        <Text
-          accessibilityElementsHidden
-          className="ml-2 text-base text-muted-foreground"
-        >
-          ›
-        </Text>
-      ) : null}
+      {showChevron ? <Chevron /> : null}
     </>
   );
 
@@ -100,6 +96,30 @@ export function NativeListItem({
     >
       {inner}
     </View>
+  );
+}
+
+/**
+ * The drill-in chevron: an SF Symbol on iOS or the app's icon set
+ * (`modules.symbol` / `modules.icons`) when given, else a text "›".
+ */
+function Chevron() {
+  const { symbol, icons } = useGenesisModules();
+  const roles = useThemeRoles();
+  if ((Platform.OS === "ios" && symbol) || icons?.["chevron-right"]) {
+    return (
+      <View className="ml-2">
+        <NativeIcon name="chevron-right" size={14} weight="semibold" color={roles.tertiaryLabel} testID="native-list-item-chevron" />
+      </View>
+    );
+  }
+  return (
+    <Text
+      accessibilityElementsHidden
+      className="ml-2 text-base text-muted-foreground"
+    >
+      ›
+    </Text>
   );
 }
 

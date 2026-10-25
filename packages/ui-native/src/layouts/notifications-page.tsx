@@ -34,6 +34,7 @@ import { NativeSectionListHeader } from "../components/section-list";
 import { NativeListItem } from "../components/list-item";
 import { NativeEmptyState } from "../components/empty-state";
 import { cn } from "../utils";
+import { useGenesisModules } from "../native-modules";
 import {
   composeHeaderOptions,
   type ScreenHeaderProps,
@@ -182,8 +183,21 @@ function groupByDate(items: NotificationItem[], now = new Date()): Section[] {
     }));
 }
 
+type FlatRow = { kind: "header"; title: string } | { kind: "item"; item: NotificationItem; last: boolean };
+
+function flattenSections(sections: Section[]): { rows: FlatRow[]; headerIndices: number[] } {
+  const rows: FlatRow[] = [];
+  const headerIndices: number[] = [];
+  for (const section of sections) {
+    headerIndices.push(rows.length);
+    rows.push({ kind: "header", title: section.title });
+    section.data.forEach((item, i) => rows.push({ kind: "item", item, last: i === section.data.length - 1 }));
+  }
+  return { rows, headerIndices };
+}
+
 // Expose internal helpers for unit tests via a side-channel export.
-export const __test = { bucketFor, groupByDate };
+export const __test = { bucketFor, groupByDate, flattenSections };
 
 export function NotificationsPage({
   items,
@@ -203,6 +217,10 @@ export function NotificationsPage({
   // consumer's <Stack.Screen> level — not by this component.
 
   const sections = useMemo(() => groupByDate(items), [items]);
+  // FlashList v2 (`modules.list`) has no SectionList: the sections become one
+  // flat list whose header rows stick (FlashList's own section-list recipe).
+  const { list: FlashList } = useGenesisModules();
+  const flat = useMemo(() => flattenSections(sections), [sections]);
 
   if (items.length === 0) {
     return (
@@ -222,6 +240,42 @@ export function NotificationsPage({
             },
             slotProps.empty,
           )}
+      </SafeAreaView>
+    );
+  }
+
+  const renderHeader = (title: string) =>
+    renderSlot(DefaultSectionHeader, slots.sectionHeader, { title }, slotProps.sectionHeader);
+  const renderRow = (item: NotificationItem) =>
+    renderSlot(DefaultRow, slots.row, { ...item, testID: item.testID ?? `${testID}-row-${item.id}` }, slotProps.row);
+
+  if (FlashList) {
+    return (
+      <SafeAreaView
+        testID={testID}
+        edges={["left", "right", "bottom"]}
+        className={cn("flex-1 bg-background", className)}
+      >
+        <FlashList
+          testID={`${testID}-list`}
+          data={flat.rows}
+          keyExtractor={(row: FlatRow) => (row.kind === "header" ? `header:${row.title}` : row.item.id)}
+          getItemType={(row: FlatRow) => row.kind}
+          stickyHeaderIndices={flat.headerIndices}
+          renderItem={({ item: row }: { item: FlatRow }) =>
+            row.kind === "header" ? (
+              renderHeader(row.title)
+            ) : (
+              <>
+                {renderRow(row.item)}
+                {row.last ? null : <RowSeparator />}
+              </>
+            )
+          }
+          refreshing={onRefresh ? !!refreshing : undefined}
+          onRefresh={onRefresh ? () => void onRefresh() : undefined}
+          contentContainerStyle={{ paddingBottom: 28 }}
+        />
       </SafeAreaView>
     );
   }

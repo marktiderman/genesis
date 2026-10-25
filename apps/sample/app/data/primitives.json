@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24",
+  "generatedAt": "2026-10-25",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 62
+      "count": 67
     }
   },
   "primitives": [
@@ -558,7 +558,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/auth-screen.tsx",
       "stability": "beta",
-      "summary": "AuthScreen — a whole sign-in screen: branding, social providers, the\nemail form with a \"Forgot password?\" link, and a footer (terms, a\nsign-up link). It assembles the auth primitives (`AuthBranding`,\n`SocialAuthRow`, `AuthForm`, `ForgotPasswordLink`) so an app passes\nprops instead of composing them.\n\nThe form stays above the keyboard on small phones: with the app's\n`KeyboardScrollProvider` (react-native-keyboard-controller), else with\n`KeyboardAvoidingView`. In development, on\niOS, it warns when a third-party provider is offered without Sign in with\nApple (App Store Review Guideline 4.8 rejects that). `appleProvider()`\nadds Apple's own button in one line.\n\nSlots: replace or drop (`null`) `branding`, `social`, `form` or `footer`;\n`slotProps` feeds a default part. Composing the primitives yourself is\nstill the escape hatch.",
+      "summary": "AuthScreen — a whole sign-in screen: branding, social providers, the\nemail form with a \"Forgot password?\" link, and a footer (terms, a\nsign-up link). It assembles the auth primitives (`AuthBranding`,\n`SocialAuthRow`, `AuthForm`, `ForgotPasswordLink`) so an app passes\nprops instead of composing them.\n\nThe form stays above the keyboard on small phones: with the app's\n`KeyboardScrollProvider` (react-native-keyboard-controller), else with\n`KeyboardAvoidingView`. With the provider's `toolbar` (`KeyboardToolbar`),\na previous / next / done bar rides above the keyboard. In development, on\niOS, it warns when a third-party provider is offered without Sign in with\nApple (App Store Review Guideline 4.8 rejects that). `appleProvider()`\nadds Apple's own button in one line.\n\nSlots: replace or drop (`null`) `branding`, `social`, `form` or `footer`;\n`slotProps` feeds a default part. Composing the primitives yourself is\nstill the escape hatch.",
       "primaryComponent": "AuthScreen",
       "components": [
         {
@@ -632,7 +632,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/avatar.tsx",
       "stability": "stable",
-      "summary": "Avatar — user/entity image with fallback initials.",
+      "summary": "Avatar — user/entity image with fallback initials.\n\nDraws with expo-image when the app passes it (`modules.image` on\n`GenesisModulesProvider`): cached in memory and on disk, a cross-fade that\nReduce Motion turns off, an optional blurhash/thumbhash `placeholder`, and\na `recyclingKey` (the image URL by default) so a recycled list row never\nshows the previous person's picture. Without it, React Native's `Image`.\nThe initials show until the picture loads, and again if it fails.",
       "primaryComponent": "NativeAvatar",
       "components": [
         {
@@ -659,6 +659,20 @@
               "required": false,
               "defaultValue": null,
               "description": "Fallback text (typically initials, e.g. \"MT\")"
+            },
+            {
+              "name": "placeholder",
+              "type": "{ blurhash: string; } | { thumbhash: string; }",
+              "required": false,
+              "defaultValue": null,
+              "description": "expo-image only: a blurhash or thumbhash shown while the picture loads,\nas expo-image's `placeholder` takes it (`{ blurhash }`, `{ thumbhash }`)."
+            },
+            {
+              "name": "recyclingKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "expo-image only: resets the view when it changes, for rows a recycling\nlist (FlashList) reuses. Default the image URL."
             },
             {
               "name": "size",
@@ -1309,7 +1323,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/date-time-picker.tsx",
       "stability": "beta",
-      "summary": "DatePicker / TimePicker — wraps @react-native-community/datetimepicker\nwith platform-correct UX (iOS wheel, Android calendar/clock dialog).\n\nNativeDatePicker exposes a date as a Pressable button labeled with the\nformatted value; tapping presents the platform-native picker. Same\npattern for NativeTimePicker.\n\nConsumers must install @react-native-community/datetimepicker (peer\ndep, marked optional). When the dep is missing, the component falls\nback to a read-only Text label so screens still render — useful for\nsample/demo apps without native module setup.",
+      "summary": "DatePicker / TimePicker — wraps @react-native-community/datetimepicker\nwith platform-correct UX (iOS wheel, Android calendar/clock dialog).\n\nNativeDatePicker exposes a date as a Pressable button labeled with the\nformatted value; tapping presents the platform-native picker. Same\npattern for NativeTimePicker.\n\nConsumers must install @react-native-community/datetimepicker (peer\ndep, marked optional). When the dep is missing, the component falls\nback to a read-only Text label so screens still render — useful for\nsample/demo apps without native module setup.\n\nOptional backend: pass `@expo/ui`'s drop-in picker as `modules.datePicker`\n(`import DateTimePicker from \"@expo/ui/community/datetime-picker\"`) on\n`GenesisModulesProvider` to draw SwiftUI / Jetpack Compose pickers instead.\nSame props and behavior; the community picker stays the fallback.",
       "primaryComponent": "NativeDatePicker",
       "components": [
         {
@@ -1521,7 +1535,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/drawer.tsx",
       "stability": "beta",
-      "summary": "Drawer — side-anchored panel that slides in from left or right.\n\nUse for navigation menus, account switchers, and supplementary\ncontrols that should not consume the main canvas. Backdrop dismisses\non tap; on supported platforms a horizontal swipe also dismisses.\n\nFor full-screen modal flows, prefer a navigation route. For a single\naction confirmation, prefer <NativeDialog>.",
+      "summary": "Drawer — side-anchored panel that slides in from left or right.\n\nUse for navigation menus, account switchers, and supplementary\ncontrols that should not consume the main canvas. Backdrop dismisses\non tap; on supported platforms a horizontal swipe also dismisses.\n\nFor full-screen modal flows, prefer a navigation route. For a single\naction confirmation, prefer <NativeDialog>.\n\nSlides with Reanimated 4 when the app passes it (`modules.reanimated` on\n`GenesisModulesProvider`), else with React Native's Animated. Under Reduce\nMotion it appears in place. The swipe uses React Native's PanResponder in\nboth, so it needs no react-native-gesture-handler.",
       "primaryComponent": "NativeDrawer",
       "components": [
         {
@@ -1553,7 +1567,7 @@
               "name": "side",
               "type": "enum",
               "required": false,
-              "defaultValue": "left",
+              "defaultValue": null,
               "description": "Side the drawer slides in from. Default \"left\"."
             },
             {
@@ -1761,6 +1775,83 @@
       ]
     },
     {
+      "slug": "glass-surface",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/glass-surface.tsx",
+      "stability": "beta",
+      "summary": "NativeGlassSurface — a floating surface (toast, banner, floating bar) drawn\nas iOS 26 Liquid Glass when it can be, and as the solid surface it always\nwas otherwise.\n\nGlass needs all of: iOS; expo-glass-effect passed as `modules.glass`;\n`isLiquidGlassAvailable()` (the app was built with the iOS 26 SDK and the\ndevice runs it) and `isGlassEffectAPIAvailable()` (the API exists at run\ntime; some iOS 26 betas lack it) both true; and Reduce Transparency off.\nOtherwise `fallbackClassName` paints the surface.",
+      "primaryComponent": "NativeGlassSurface",
+      "components": [
+        {
+          "name": "useReduceTransparency",
+          "summary": "True while the user has Reduce Transparency on (iOS). Always false elsewhere.",
+          "props": []
+        },
+        {
+          "name": "useLiquidGlass",
+          "summary": "expo-glass-effect's `GlassView` when Liquid Glass can be drawn here, else `null`.",
+          "props": []
+        },
+        {
+          "name": "NativeGlassSurface",
+          "summary": "",
+          "props": [
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Inner layout classes, applied in both looks (padding, gap). Place the surface from its parent."
+            },
+            {
+              "name": "fallbackClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": "rounded-xl border border-border bg-card",
+              "description": "The solid look when glass can't be drawn, radius included. Default `\"rounded-xl border border-border bg-card\"`."
+            },
+            {
+              "name": "glassEffectStyle",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "regular",
+              "description": "Default `\"regular\"`."
+            },
+            {
+              "name": "interactive",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Glass reacts to touch. Default false."
+            },
+            {
+              "name": "radius",
+              "type": "number",
+              "required": false,
+              "defaultValue": "16",
+              "description": "The glass's corner radius in points. Default 16."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "tintColor",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Glass tint (a color string)."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "grid",
       "aliases": [],
       "surface": "native",
@@ -1875,6 +1966,176 @@
               "required": false,
               "defaultValue": null,
               "description": "Override the title text styling."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "icon",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/icon.tsx",
+      "stability": "beta",
+      "summary": "NativeIcon — an icon by what it is for (\"settings\", \"bell\"), not by a\nlibrary's name. On iOS it draws the SF Symbol (expo-symbols' `SymbolView`,\npassed as `modules.symbol`); on Android and web, and as the SF Symbol's\nfallback, it draws the icon set given as `modules.icons` (`lucideIcons`\nfrom `@marktiderman/genesis-ui-native/icons/lucide`). With neither, it\nkeeps the icon's space empty and warns once in development.\n\nDecorative by default (hidden from screen readers). Give `label` when the\nicon carries meaning on its own, such as an icon-only button's content.",
+      "primaryComponent": "NativeIcon",
+      "components": [
+        {
+          "name": "NativeIcon",
+          "summary": "",
+          "props": [
+            {
+              "name": "name",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "color",
+              "type": "____ColorValue_Internal",
+              "required": false,
+              "defaultValue": null,
+              "description": "Default the theme's label color."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Read by screen readers. Without it the icon is decorative and hidden from them."
+            },
+            {
+              "name": "size",
+              "type": "number",
+              "required": false,
+              "defaultValue": "20",
+              "description": "Points. Default 20."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "weight",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "iOS SF Symbol weight."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "icon-names",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/icon-names.ts",
+      "stability": "beta",
+      "summary": "The semantic icon names Genesis components ask for, and the SF Symbol each\none draws on iOS. Components say \"settings\" or \"bell\", never a library's\nown name; `lucideIcons` (`/icons/lucide`) maps the same names for Android,\nweb and the SF Symbol fallback.",
+      "primaryComponent": "SF_SYMBOLS",
+      "components": [
+        {
+          "name": "SF_SYMBOLS",
+          "summary": "The semantic icon names Genesis components ask for, and the SF Symbol each\none draws on iOS. Components say \"settings\" or \"bell\", never a library's\nown name; `lucideIcons` (`/icons/lucide`) maps the same names for Android,\nweb and the SF Symbol fallback.",
+          "props": []
+        },
+        {
+          "name": "NATIVE_ICON_NAMES",
+          "summary": "Every semantic icon name.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "image",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/image.tsx",
+      "stability": "beta",
+      "summary": "NativeImage — a remote picture (thumbnail, cover, photo) with caching.\n\nDraws with expo-image when the app passes it (`modules.image` on\n`GenesisModulesProvider`): cached in memory and on disk, an optional\nblurhash/thumbhash `placeholder`, a cross-fade that Reduce Motion turns\noff, and a `recyclingKey` (the URL by default) so a recycled FlashList row\nnever flashes the previous picture. Without it, React Native's `Image`.\n\nGive it a size (className or `width`/`height`). Decorative unless `alt` is\ngiven.",
+      "primaryComponent": "NativeImage",
+      "components": [
+        {
+          "name": "NativeImage",
+          "summary": "",
+          "props": [
+            {
+              "name": "src",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "alt",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Read by screen readers. Without it the picture is decorative."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "contentFit",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "cover",
+              "description": "Default `\"cover\"`."
+            },
+            {
+              "name": "height",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "placeholder",
+              "type": "{ blurhash: string; } | { thumbhash: string; }",
+              "required": false,
+              "defaultValue": null,
+              "description": "expo-image only: `{ blurhash }` or `{ thumbhash }` shown while loading."
+            },
+            {
+              "name": "priority",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "expo-image only: load order among images."
+            },
+            {
+              "name": "recyclingKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "expo-image only: resets the view when it changes (recycled rows). Default `src`."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "width",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
             }
           ]
         }
@@ -2101,7 +2362,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/keyboard.tsx",
       "stability": "beta",
-      "summary": "Keyboard-aware scrolling for form screens. Expo recommends\nreact-native-keyboard-controller's `KeyboardAwareScrollView` over\n`KeyboardAvoidingView` for real apps; it is an optional peer here, so an app\nthat has it passes it once:\n\n  import { KeyboardAwareScrollView, KeyboardProvider } from \"react-native-keyboard-controller\";\n  <KeyboardProvider>\n    <KeyboardScrollProvider component={KeyboardAwareScrollView}>…</KeyboardScrollProvider>\n  </KeyboardProvider>\n\n`KeyboardAwareScrollView` does nothing without react-native-keyboard-controller's\n`KeyboardProvider` above it, mounted once at the root. (The native app\nshell does both, with `keyboardProvider` and `keyboardScroll`.) Without a\nscroll view here, form screens fall back to `KeyboardAvoidingView`.",
+      "summary": "Keyboard-aware scrolling for form screens. Expo recommends\nreact-native-keyboard-controller's `KeyboardAwareScrollView` over\n`KeyboardAvoidingView` for real apps; it is an optional peer here, so an app\nthat has it passes it once:\n\n  import { KeyboardAwareScrollView, KeyboardProvider, KeyboardToolbar } from \"react-native-keyboard-controller\";\n  <KeyboardProvider>\n    <KeyboardScrollProvider component={KeyboardAwareScrollView} toolbar={KeyboardToolbar}>…</KeyboardScrollProvider>\n  </KeyboardProvider>\n\n`KeyboardAwareScrollView` does nothing without react-native-keyboard-controller's\n`KeyboardProvider` above it, mounted once at the root. (The native app\nshell does both, with `keyboardProvider` and `keyboardScroll`.) Without a\nscroll view here, form screens fall back to `KeyboardAvoidingView`.\n\n`toolbar` (optional, `KeyboardToolbar`) adds the previous / next / done bar\nabove the keyboard on Genesis's multi-field form layouts (`AuthScreen`,\n`SettingsSubPage`). It needs `component` too: the bar sits beside the\nkeyboard-aware scroll view. Without it, nothing changes.",
       "primaryComponent": "KeyboardScrollProvider",
       "components": [
         {
@@ -2114,12 +2375,29 @@
               "required": true,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "toolbar",
+              "type": "ComponentType<object>",
+              "required": false,
+              "defaultValue": null,
+              "description": "`KeyboardToolbar` from react-native-keyboard-controller: previous / next / done above the keyboard."
             }
           ]
         },
         {
           "name": "useKeyboardScroll",
           "summary": "The app's keyboard-aware scroll view, or null when none was provided.",
+          "props": []
+        },
+        {
+          "name": "useKeyboardToolbar",
+          "summary": "The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it).",
+          "props": []
+        },
+        {
+          "name": "KEYBOARD_TOOLBAR_HEIGHT",
+          "summary": "Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input.",
           "props": []
         }
       ]
@@ -2480,6 +2758,36 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "native-modules",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/native-modules.tsx",
+      "stability": "beta",
+      "summary": "Pass the optional native modules the app has installed. Nested providers\nmerge: an inner one adds to or replaces what an outer one gave.",
+      "primaryComponent": "GenesisModulesProvider",
+      "components": [
+        {
+          "name": "GenesisModulesProvider",
+          "summary": "Pass the optional native modules the app has installed. Nested providers\nmerge: an inner one adds to or replaces what an outer one gave.",
+          "props": [
+            {
+              "name": "modules",
+              "type": "GenesisModules",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "useGenesisModules",
+          "summary": "The modules given to the nearest `GenesisModulesProvider`; `{}` without one.",
+          "props": []
         }
       ]
     },
@@ -3099,6 +3407,11 @@
               "description": "testID on the root container. Default `\"notifications-page\"`."
             }
           ]
+        },
+        {
+          "name": "flattenSections",
+          "summary": "",
+          "props": []
         }
       ]
     },
@@ -4453,7 +4766,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/skeleton.tsx",
       "stability": "stable",
-      "summary": "Skeleton — loading placeholder block.",
+      "summary": "Skeleton — loading placeholder block.\n\nPulses with Reanimated 4 when the app passes it (`modules.reanimated` on\n`GenesisModulesProvider`), else with React Native's Animated. While Reduce\nMotion is on it holds still at a legible opacity.",
       "primaryComponent": "NativeSkeleton",
       "components": [
         {
@@ -5028,7 +5341,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/toast.tsx",
       "stability": "beta",
-      "summary": "Toast / Snackbar — transient feedback message that auto-dismisses.\n\nUse for confirmation of completed actions (\"Saved.\", \"Copied to\nclipboard.\"). Don't use for errors that need acknowledgment (use\n<NativeAlert> or <NativeBanner>) or for destructive confirmations\n(use <NativeDialog>).\n\nWrap the app in <NativeToastProvider>. Components anywhere in the tree\ncall `useToast()` and invoke `toast.show({ title, description, variant })`.\nToasts are queued — the next one shows once the current one dismisses\n(or the user dismisses early).",
+      "summary": "Toast / Snackbar — transient feedback message that auto-dismisses.\n\nUse for confirmation of completed actions (\"Saved.\", \"Copied to\nclipboard.\"). Don't use for errors that need acknowledgment (use\n<NativeAlert> or <NativeBanner>) or for destructive confirmations\n(use <NativeDialog>).\n\nWrap the app in <NativeToastProvider>. Components anywhere in the tree\ncall `useToast()` and invoke `toast.show({ title, description, variant })`.\nToasts are queued — the next one shows once the current one dismisses\n(or the user dismisses early).\n\nAnimates with Reanimated 4 when the app passes it (`modules.reanimated`\non `GenesisModulesProvider`), else with React Native's Animated; either\nway it appears without motion while Reduce Motion is on. A default toast\nis Liquid Glass on iOS 26 when `modules.glass` (expo-glass-effect) is\ngiven and the device can draw it.",
       "primaryComponent": "NativeToastProvider",
       "components": [
         {

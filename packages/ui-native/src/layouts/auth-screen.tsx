@@ -7,7 +7,8 @@
  *
  * The form stays above the keyboard on small phones: with the app's
  * `KeyboardScrollProvider` (react-native-keyboard-controller), else with
- * `KeyboardAvoidingView`. In development, on
+ * `KeyboardAvoidingView`. With the provider's `toolbar` (`KeyboardToolbar`),
+ * a previous / next / done bar rides above the keyboard. In development, on
  * iOS, it warns when a third-party provider is offered without Sign in with
  * Apple (App Store Review Guideline 4.8 rejects that). `appleProvider()`
  * adds Apple's own button in one line.
@@ -31,7 +32,7 @@ import {
   type SocialAuthProvider,
 } from "./auth";
 import { ScreenContainer } from "./screen-container";
-import { useKeyboardScroll } from "./keyboard";
+import { KEYBOARD_TOOLBAR_HEIGHT, useKeyboardScroll, useKeyboardToolbar } from "./keyboard";
 
 /** The parts of an {@link AuthScreen} that `slots` and `slotProps` reach. */
 export type AuthScreenSlotMap = {
@@ -80,6 +81,7 @@ export function AuthScreen({
     onForgotPassword && (form.mode ?? "password") === "password" ? <ForgotPasswordLink onPress={onForgotPassword} /> : null;
   const formProps: AuthFormProps = { ...form, belowFields: form.belowFields ?? forgot, testID: form.testID ?? `${testID}-form` };
   const KeyboardScroll = useKeyboardScroll();
+  const KeyboardToolbar = useKeyboardToolbar();
   const content = (
     <>
       {branding ? renderSlot(AuthBranding, slots.branding, { ...branding, testID: branding.testID ?? `${testID}-branding` }, slotProps.branding) : null}
@@ -97,11 +99,12 @@ export function AuthScreen({
           testID={`${testID}-keyboard`}
           keyboardShouldPersistTaps="handled"
           contentInsetAdjustmentBehavior="automatic"
-          bottomOffset={24}
+          bottomOffset={KeyboardToolbar ? 24 + KEYBOARD_TOOLBAR_HEIGHT : 24}
           contentContainerStyle={{ flexGrow: 1, justifyContent: "center", gap: 24, paddingHorizontal: 24, paddingVertical: 32 }}
         >
           {content}
         </KeyboardScroll>
+        {KeyboardToolbar ? <KeyboardToolbar /> : null}
       </ScreenContainer>
     );
   }

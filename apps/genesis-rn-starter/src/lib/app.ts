@@ -9,13 +9,14 @@ import NetInfo from "@react-native-community/netinfo";
 import Constants from "expo-constants";
 import { router, type Href } from "expo-router";
 import { AppState } from "react-native";
-import { KeyboardAwareScrollView, KeyboardProvider } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView, KeyboardProvider, KeyboardToolbar } from "react-native-keyboard-controller";
 import { genesisBrand } from "@marktiderman/genesis-design-system";
 import type { GenesisNativeAppProps } from "@marktiderman/genesis-native";
 import { persistQueries } from "@marktiderman/genesis-native/persist";
 import starter from "../../starter.config";
 import { assertEnv } from "./env";
 import { linkHold } from "./links";
+import { nativeModules } from "./native-modules";
 import { sessionReady, supabase } from "./supabase";
 import { devtools } from "./devtools";
 import { createStarterPush } from "./push";
@@ -39,6 +40,8 @@ export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   lifecycle: features.queryLifecycle ? { appState: AppState, netInfo: NetInfo } : undefined,
   keyboardProvider: features.keyboardScroll ? KeyboardProvider : undefined,
   keyboardScroll: features.keyboardScroll ? KeyboardAwareScrollView : undefined,
+  keyboardToolbar: features.keyboardScroll ? KeyboardToolbar : undefined,
+  modules: nativeModules,
   links: features.deepLinks ? { hold: linkHold, onRelease: (path) => router.replace(path as Href) } : undefined,
   updates: updatesBlock,
   // The first block's root is the outermost: observability sees everything below it.

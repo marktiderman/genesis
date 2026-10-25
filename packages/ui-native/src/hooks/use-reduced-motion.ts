@@ -1,9 +1,11 @@
 /**
  * useReducedMotion — subscribe to the OS reduce-motion preference.
  *
- * Returns `true` when the user has enabled reduce-motion at the OS level.
- * Components that animate (Sheet, Drawer, Toast, etc.) honor this hook by
- * skipping non-essential transitions and snapping into final state.
+ * Returns `true` when the user has enabled reduce-motion at the OS level,
+ * and follows the setting while the app runs (Reanimated's own hook reads it
+ * once at launch). Components that animate (Sheet, Drawer, Toast, Skeleton)
+ * honor it by skipping non-essential transitions and snapping into the
+ * final state.
  *
  * @stability Beta
  */
@@ -15,12 +17,18 @@ export function useReducedMotion(): boolean {
 
   useEffect(() => {
     let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((v) => {
-      if (mounted) setReduced(v);
-    });
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((v) => {
+        if (mounted) setReduced(v);
+      })
+      // Some runtimes (web, older Android) reject when the accessibility
+      // manager isn't wired up: treat that as "no preference".
+      .catch(() => {});
     const sub = AccessibilityInfo.addEventListener(
       "reduceMotionChanged",
-      (v: boolean) => setReduced(v),
+      (v: boolean) => {
+        if (mounted) setReduced(v);
+      },
     );
     return () => {
       mounted = false;

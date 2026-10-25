@@ -11,6 +11,12 @@
  * Toasts are queued — the next one shows once the current one dismisses
  * (or the user dismisses early).
  *
+ * Animates with Reanimated 4 when the app passes it (`modules.reanimated`
+ * on `GenesisModulesProvider`), else with React Native's Animated; either
+ * way it appears without motion while Reduce Motion is on. A default toast
+ * is Liquid Glass on iOS 26 when `modules.glass` (expo-glass-effect) is
+ * given and the device can draw it.
+ *
  * @stability Beta
  */
 import {
@@ -22,14 +28,11 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  AccessibilityInfo,
-  Animated,
-  Pressable,
-  Text,
-  View,
-} from "react-native";
+import { Animated, Pressable, Text } from "react-native";
 import { cn } from "../utils";
+import { useReducedMotion } from "../hooks/use-reduced-motion";
+import { useGenesisModules, type GenesisReanimatedModule } from "../native-modules";
+import { useLiquidGlass } from "./glass-surface";
 
 export type NativeToastVariant = "default" | "success" | "destructive";
 
@@ -73,22 +76,7 @@ export function NativeToastProvider({
   disableAnimation = false,
 }: NativeToastProviderProps) {
   const [queue, setQueue] = useState<ToastInstance[]>([]);
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((v) => {
-      if (mounted) setReducedMotion(v);
-    });
-    const sub = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      (v) => mounted && setReducedMotion(v)
-    );
-    return () => {
-      mounted = false;
-      sub.remove();
-    };
-  }, []);
+  const reducedMotion = useReducedMotion();
 
   const dismiss = useCallback((id?: number) => {
     setQueue((q) => (id == null ? q.slice(1) : q.filter((t) => t.id !== id)));
@@ -127,10 +115,16 @@ interface ToastViewProps {
   onDismiss: () => void;
 }
 
-function ToastView({ toast, position, animate, onDismiss }: ToastViewProps) {
-  const opacity = useRef(new Animated.Value(animate ? 0 : 1)).current;
-  const offset = useRef(new Animated.Value(animate ? 16 : 0)).current;
+const ENTER_MS = 180;
 
+// Reanimated 4 when the app passed it, else React Native's Animated. Two
+// components rather than one with a branch, so each keeps a fixed hook order.
+function ToastView(props: ToastViewProps) {
+  const { reanimated } = useGenesisModules();
+  return reanimated ? <ReanimatedToastView {...props} reanimated={reanimated} /> : <AnimatedToastView {...props} />;
+}
+
+function useAutoDismiss(toast: ToastInstance, onDismiss: () => void) {
   // Hold the latest onDismiss in a ref so the auto-dismiss timer below does
   // not re-arm on every parent render (the inline `() => dismiss(current.id)`
   // gets a fresh identity each render). Keying the timer effect off
@@ -139,81 +133,142 @@ function ToastView({ toast, position, animate, onDismiss }: ToastViewProps) {
   useEffect(() => {
     onDismissRef.current = onDismiss;
   }, [onDismiss]);
-
   useEffect(() => {
-    if (animate) {
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(offset, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-
     const duration = toast.duration ?? 3500;
     if (duration > 0) {
       const t = setTimeout(() => onDismissRef.current(), duration);
       return () => clearTimeout(t);
     }
     return undefined;
-  }, [animate, offset, opacity, toast.duration]);
+  }, [toast.duration]);
+}
 
-  const variantClasses: Record<NativeToastVariant, string> = {
-    default: "bg-foreground",
-    success: "bg-primary",
-    destructive: "bg-destructive",
-  };
-  const textClass: Record<NativeToastVariant, string> = {
-    default: "text-background",
-    success: "text-primary-foreground",
-    destructive: "text-destructive-foreground",
-  };
+/** Slides in from the edge it sits on. */
+function startOffset(position: "top" | "bottom") {
+  return position === "top" ? -16 : 16;
+}
 
-  const variant = toast.variant ?? "default";
-  const positionClass =
-    position === "top" ? "top-12 self-center" : "bottom-10 self-center";
+function ReanimatedToastView({
+  toast,
+  position,
+  animate,
+  onDismiss,
+  reanimated: R,
+}: ToastViewProps & { reanimated: GenesisReanimatedModule }) {
+  const opacity = R.useSharedValue(animate ? 0 : 1);
+  const offset = R.useSharedValue(animate ? startOffset(position) : 0);
+  useAutoDismiss(toast, onDismiss);
+  useEffect(() => {
+    if (!animate) return;
+    const easing = R.Easing.out(R.Easing.cubic);
+    opacity.value = R.withTiming(1, { duration: ENTER_MS, easing });
+    offset.value = R.withTiming(0, { duration: ENTER_MS, easing });
+    // Once per toast: each toast mounts under its own key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const animatedStyle = R.useAnimatedStyle(() => {
+    "worklet";
+    return { opacity: opacity.value, transform: [{ translateY: offset.value }] };
+  });
+  const AnimatedView = R.default.View;
+  return (
+    <AnimatedView {...regionProps(toast)} className={regionClass(position)} style={animatedStyle}>
+      <ToastBody toast={toast} onDismiss={onDismiss} />
+    </AnimatedView>
+  );
+}
+
+function AnimatedToastView({ toast, position, animate, onDismiss }: ToastViewProps) {
+  const opacity = useRef(new Animated.Value(animate ? 0 : 1)).current;
+  const offset = useRef(new Animated.Value(animate ? startOffset(position) : 0)).current;
+  useAutoDismiss(toast, onDismiss);
+
+  useEffect(() => {
+    if (animate) {
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: ENTER_MS,
+          useNativeDriver: true,
+        }),
+        Animated.timing(offset, {
+          toValue: 0,
+          duration: ENTER_MS,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [animate, offset, opacity]);
 
   return (
     <Animated.View
-      accessible
-      accessibilityRole="alert"
-      accessibilityLiveRegion="polite"
-      accessibilityLabel={
-        toast.description ? `${toast.title}. ${toast.description}` : toast.title
-      }
-      className={cn(
-        "absolute left-4 right-4 items-center",
-        positionClass
-      )}
+      {...regionProps(toast)}
+      className={regionClass(position)}
       style={{ opacity, transform: [{ translateY: offset }] }}
     >
-      <Pressable
-        testID={toast.testID ?? "native-toast"}
-        accessibilityRole="button"
-        accessibilityLabel="Dismiss notification"
-        accessibilityHint="Dismisses this toast"
-        onPress={onDismiss}
-        className={cn(
-          "min-h-[44px] min-w-[200px] rounded-lg px-4 py-3 shadow-lg",
-          variantClasses[variant]
-        )}
-      >
-        <Text className={cn("text-base font-semibold", textClass[variant])}>
-          {toast.title}
-        </Text>
-        {toast.description ? (
-          <Text className={cn("mt-0.5 text-sm", textClass[variant], "opacity-90")}>
-            {toast.description}
-          </Text>
-        ) : null}
-      </Pressable>
+      <ToastBody toast={toast} onDismiss={onDismiss} />
     </Animated.View>
+  );
+}
+
+function regionProps(toast: ToastInstance) {
+  return {
+    accessible: true,
+    accessibilityRole: "alert",
+    accessibilityLiveRegion: "polite" as const,
+    accessibilityLabel: toast.description ? `${toast.title}. ${toast.description}` : toast.title,
+  };
+}
+
+function regionClass(position: "top" | "bottom") {
+  return cn("absolute left-4 right-4 items-center", position === "top" ? "top-12 self-center" : "bottom-10 self-center");
+}
+
+const variantClasses: Record<NativeToastVariant, string> = {
+  default: "bg-foreground",
+  success: "bg-primary",
+  destructive: "bg-destructive",
+};
+const textClass: Record<NativeToastVariant, string> = {
+  default: "text-background",
+  success: "text-primary-foreground",
+  destructive: "text-destructive-foreground",
+};
+
+/**
+ * The toast itself. A default toast is Liquid Glass where it can be drawn,
+ * with label-colored text; success and destructive keep their solid color,
+ * which carries their meaning.
+ */
+function ToastBody({ toast, onDismiss }: { toast: ToastInstance; onDismiss: () => void }) {
+  const GlassView = useLiquidGlass();
+  const variant = toast.variant ?? "default";
+  const Glass = variant === "default" ? GlassView : null;
+  const text = Glass ? "text-foreground" : textClass[variant];
+  const testID = toast.testID ?? "native-toast";
+  const pressable = (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel="Dismiss notification"
+      accessibilityHint="Dismisses this toast"
+      onPress={onDismiss}
+      className={cn(
+        "min-h-[44px] min-w-[200px] px-4 py-3",
+        Glass ? undefined : cn("rounded-lg shadow-lg", variantClasses[variant])
+      )}
+    >
+      <Text className={cn("text-base font-semibold", text)}>{toast.title}</Text>
+      {toast.description ? (
+        <Text className={cn("mt-0.5 text-sm", text, "opacity-90")}>{toast.description}</Text>
+      ) : null}
+    </Pressable>
+  );
+  if (!Glass) return pressable;
+  return (
+    <Glass testID={`${testID}-glass`} glassEffectStyle="regular" isInteractive style={{ borderRadius: 16, overflow: "hidden" }}>
+      {pressable}
+    </Glass>
   );
 }
 

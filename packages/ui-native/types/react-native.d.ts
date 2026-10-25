@@ -121,6 +121,8 @@ declare module "react-native" {
 
   export interface AccessibilityInfoModule {
     isReduceMotionEnabled(): Promise<boolean>;
+    /** iOS: the Reduce Transparency setting. */
+    isReduceTransparencyEnabled?(): Promise<boolean>;
     addEventListener(
       eventName: string,
       handler: (...args: any[]) => void
@@ -437,4 +439,23 @@ declare module "lucide-react-native" {
   export const Heart: ComponentType<IconProps>;
   export const Star: ComponentType<IconProps>;
   export const Home: ComponentType<IconProps>;
+  // The icons `src/icons/lucide.ts` maps (lucide-react-native >= 0.475 names).
+  export const ArrowLeft: ComponentType<IconProps>;
+  export const Bell: ComponentType<IconProps>;
+  export const Calendar: ComponentType<IconProps>;
+  export const CircleCheck: ComponentType<IconProps>;
+  export const CircleX: ComponentType<IconProps>;
+  export const Clock: ComponentType<IconProps>;
+  export const Ellipsis: ComponentType<IconProps>;
+  export const ExternalLink: ComponentType<IconProps>;
+  export const Funnel: ComponentType<IconProps>;
+  export const House: ComponentType<IconProps>;
+  export const Lock: ComponentType<IconProps>;
+  export const LogOut: ComponentType<IconProps>;
+  export const Mail: ComponentType<IconProps>;
+  export const Pencil: ComponentType<IconProps>;
+  export const RefreshCw: ComponentType<IconProps>;
+  export const Share: ComponentType<IconProps>;
+  export const Trash2: ComponentType<IconProps>;
+  export const TriangleAlert: ComponentType<IconProps>;
 }

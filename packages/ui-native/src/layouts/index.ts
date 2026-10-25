@@ -64,7 +64,14 @@ export {
 } from "./auth";
 
 export { AuthScreen, type AuthScreenProps, type AuthScreenSlotMap } from "./auth-screen";
-export { KeyboardScrollProvider, useKeyboardScroll, type KeyboardScrollProps } from "./keyboard";
+export {
+  KEYBOARD_TOOLBAR_HEIGHT,
+  KeyboardScrollProvider,
+  useKeyboardScroll,
+  useKeyboardToolbar,
+  type KeyboardScrollProps,
+  type KeyboardToolbarProps,
+} from "./keyboard";
 
 export {
   AppleSignInButton,
