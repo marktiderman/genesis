@@ -384,9 +384,18 @@ export function createPush(options: PushOptions): PushBlock {
       void registration.flush();
       void permission.refresh();
       void registerDeviceCategories();
-      const tokenSubscription = notifications.addPushTokenListener(() => {
+      // Fetching the Expo token fetches the device token, and expo-notifications tells this listener
+      // every time, changed or not: forcing a registration on each one re-registered in a loop. The
+      // same token again is ignored; the first one seen only confirms the registration (which
+      // registers when the token differs from the saved one); a different one is a rotation.
+      let deviceToken: unknown;
+      const tokenSubscription = notifications.addPushTokenListener((token) => {
+        const next = (token as { data?: unknown } | null)?.data;
+        const seen = deviceToken;
+        deviceToken = next;
+        if (!userId || next === seen) return;
         // The OS rotated the device token: fetch the Expo token again and register it.
-        if (userId) void registration.sync(userId, { force: true });
+        void registration.sync(userId, { force: seen !== undefined });
       });
       const appSubscription = options.appState?.addEventListener("change", (state) => {
         if (state !== "active") return;
