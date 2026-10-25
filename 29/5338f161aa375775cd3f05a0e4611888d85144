@@ -1,0 +1,46 @@
+packages/forms/src/destinations/runner.ts
+  s_738228bc0d81b1::t_26fbd8cb0e9f78 17-19,92-93,166-177,195
+packages/forms/src/destinations.ts
+  s_738228bc0d81b1::t_7807df93ef9adc 117
+  s_738228bc0d81b1::t_0bf9f8e4e74b3d 76
+packages/forms/src/destinations/secret-box.ts
+  s_738228bc0d81b1::t_7807df93ef9adc 37-49,52-54,56-60,62,65
+.changeset/forms-trusted-ip-webhook-retries.md
+  s_738228bc0d81b1::t_689086bf0fdd8a 1-38
+packages/forms/README.md
+  s_738228bc0d81b1::t_bcb430a0391b65 479-493,840,864-868,890-894,930-933
+packages/forms/src/__tests__/delivery.test.ts
+  s_738228bc0d81b1::t_c78ce7e66ae81e 620-645,785,788,794,802-803,807-835
+packages/forms/src/__tests__/destinations.test.ts
+  s_738228bc0d81b1::t_229addad25b966 770-774,776-777,807-840,875,877-880,893-900
+packages/forms/src/__tests__/rate-limit.test.ts
+  s_738228bc0d81b1::t_bd7cfcb10d6130 50-51,54-55,59-63,68-84
+packages/forms/src/__tests__/uploads.test.ts
+  s_738228bc0d81b1::t_e0fcd214e673a5 127
+packages/forms/src/destinations/types.ts
+  s_738228bc0d81b1::t_cf8530962f08ba 112-117,156-157,160-165,168-169,239
+packages/forms/src/destinations/webhook.ts
+  s_738228bc0d81b1::t_f303cfb0e6fa0e 9-12,17-20,54-62,64,92-95,115-116,124,134-136,153-166,170-175,202-208,210,221,312,315,346,371-374
+packages/forms/src/rate-limit.ts
+  s_738228bc0d81b1::t_a31d8a6ae19fbd 12-17,19-33,52-56,58-64,69-74,78-81
+packages/forms/src/server.ts
+  s_738228bc0d81b1::t_b30b17907077ce 366
+packages/forms/src/upload-handler.ts
+  s_738228bc0d81b1::t_e609c9aca44670 118-119,252-255
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "295338f161aa375775cd3f05a0e4611888d85144",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
