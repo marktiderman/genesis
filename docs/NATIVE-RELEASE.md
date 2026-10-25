@@ -151,9 +151,12 @@ at; the others don't. Skip it with `maestro test --exclude-tags account .maestro
 
 `templates/eas/` and `templates/maestro/` are the canonical copies. The starter's copies must be
 identical (`__tests__/release.test.ts`), so a change is made in both. An app made from the starter
-owns its copies; refreshing them from a newer Genesis is the job of `genesis upgrade` (the
-`cli-add` feature, not built yet). Until it is, diff them against `templates/` by hand when you
-upgrade. The `genesis-upgrade` workflow ([APP-CI.md](./APP-CI.md)) moves package versions only.
+owns its copies. An app made with `genesis init --template native` records them in
+`genesis.lock.json`, and `genesis upgrade` refreshes them from the installed CLI's templates: a copy
+you haven't changed takes the new version, one you changed is merged three ways or left with the
+new text beside it (`.genesis-next`). An app copied by hand has no lock entries, so diff its copies
+against `templates/` when you upgrade. The `genesis-upgrade` workflow ([APP-CI.md](./APP-CI.md))
+moves package versions only.
 
 ## Validating the workflows
 

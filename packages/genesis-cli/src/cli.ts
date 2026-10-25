@@ -9,6 +9,10 @@
  *   npx @marktiderman/genesis-cli init <consumer-name> [--target <dir>] [--emit-conflicts]
  *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>]
  *   npx @marktiderman/genesis-cli features build|check|find [--registry <file>] [--flags-file <file>]
+ *   npx @marktiderman/genesis-cli init <app> --template native [--bundle-id <id>] [--scheme <s>]
+ *   npx @marktiderman/genesis-cli add <block> [--dry-run] [--yes] [--no-install]
+ *   npx @marktiderman/genesis-cli migrate [--dry-run] [--forward]
+ *   npx @marktiderman/genesis-cli upgrade [--version <v>] [--dry-run] [--pr]
  */
 import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
@@ -34,30 +38,57 @@ program
 
 program
   .command("init")
-  .description("Scaffold a new Genesis consumer (brand package + tailwind + tokens)")
+  .description("Scaffold a new Genesis consumer (brand package + tailwind + tokens), or with --template native a new Expo app from the Genesis RN starter")
   .argument("<consumer>", "Consumer slug (lowercase, e.g., 'acme')")
-  .option("-t, --target <dir>", "Target directory (default: cwd)", process.cwd())
+  .option("-t, --target <dir>", "Target directory (default: cwd; with --template, ./<consumer>)")
   .option(
     "--genesis-version <v>",
     "Pin @marktiderman/genesis-* version (default: 'workspace:^' for monorepo)",
   )
   .option("--native", "An Expo app: add NativeWind's preset and scan genesis-ui-native", false)
+  .option("--template <name>", "Make a whole app from a template: native (the Genesis RN starter)")
+  .option("--display-name <name>", "--template: the app's name on the home screen (default: from the slug)")
+  .option("--bundle-id <id>", "--template: iOS bundle id and Android package (default com.example.<slug>)")
+  .option("--scheme <scheme>", "--template: the URL scheme (default: the slug)")
   .option(
     "--emit-conflicts",
     "Emit `.genesis-next` siblings for files that already exist (so you can diff)",
     false,
   )
   .action(async (consumer: string, opts: {
-    target: string;
+    target?: string;
     genesisVersion?: string;
     emitConflicts?: boolean;
     native?: boolean;
+    template?: string;
+    displayName?: string;
+    bundleId?: string;
+    scheme?: string;
   }) => {
+    if (opts.template !== undefined) {
+      if (opts.template !== "native") throw new Error(`--template must be native, not "${opts.template}".`);
+      const { runInitNative } = await import("./blocks/init-native.js");
+      const result = await runInitNative({
+        name: consumer,
+        target: path.resolve(opts.target ?? consumer),
+        ...(opts.displayName ? { displayName: opts.displayName } : {}),
+        ...(opts.bundleId ? { bundleId: opts.bundleId } : {}),
+        ...(opts.scheme ? { scheme: opts.scheme } : {}),
+      });
+      console.log(`✔ Wrote ${result.files.length} files to ${result.target}`);
+      if (result.blocks.length) console.log(`  blocks: ${result.blocks.join(", ")}`);
+      console.log(`  Genesis packages: ${Object.entries(result.dependencies).map(([n, v]) => `${n}@${v}`).join(", ")}`);
+      console.log("");
+      console.log("Next steps:");
+      [`cd ${path.relative(process.cwd(), result.target) || "."} && pnpm install (or your package manager)`, ...result.steps].forEach((s, i) => console.log(`  ${i + 1}. ${s}`));
+      return;
+    }
+    opts.target ??= process.cwd();
     const fsImpl = createNodeFs();
     const result = await runScaffold(
       {
         consumerName: consumer,
-        targetDir: opts.target,
+        targetDir: opts.target!,
         genesisVersion: opts.genesisVersion,
         emitConflicts: opts.emitConflicts ?? false,
         native: opts.native ?? false,
@@ -322,6 +353,112 @@ studio
     console.log(`✔ The Data Studio is set up for ${{ next: "Next.js", "tanstack-start": "TanStack Start", "supabase-function": "a Supabase Edge Function" }[plan.host]}. To finish:`);
     console.log(`  1. ${pm} ${plan.install.join(" ")}`);
     plan.steps.forEach((step, i) => console.log(`  ${i + 2}. ${step}`));
+  });
+
+async function confirm(question: string): Promise<boolean> {
+  if (!process.stdin.isTTY) return false;
+  const { createInterface } = await import("node:readline/promises");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return /^y(es)?$/i.test((await rl.question(`${question} [y/N] `)).trim());
+  } finally {
+    rl.close();
+  }
+}
+
+const logger = { info: (m: string) => console.log(m), warn: (m: string) => console.warn(`! ${m}`) };
+
+program
+  .command("add")
+  .description("Add a block (a feature an app adds whole) from the Genesis package that declares it: install, migrations, functions, skills, routes, registry entry")
+  .argument("[block]", "The block's id, e.g. tenant-features")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--package <name>", "The package that declares it, when two do")
+  .option("--list", "List the blocks this app can add, and exit", false)
+  .option("--dry-run", "Print the plan; write and install nothing", false)
+  .option("-y, --yes", "Don't ask before writing", false)
+  .option("--no-install", "Don't install packages (print the command instead)")
+  .option("--no-features-build", "Don't run features build after")
+  .action(async (block: string | undefined, opts: { dir: string; package?: string; list: boolean; dryRun: boolean; yes: boolean; install: boolean; featuresBuild: boolean }) => {
+    const root = path.resolve(opts.dir);
+    if (opts.list || !block) {
+      const { allBlocks } = await import("./blocks/discover.js");
+      const { readLock } = await import("./blocks/lock.js");
+      const warnings: string[] = [];
+      const added = readLock(root).blocks;
+      const all = await allBlocks(root, warnings);
+      for (const w of warnings) logger.warn(w);
+      console.log(all.length ? all.map(({ manifest: m, from }) => `${added[m.id] ? "✔" : " "} ${m.id.padEnd(18)} ${m.package}${m.version ? `@${m.version}` : ""}${from === "catalog" ? " (not installed)" : ""}${m.feature ? `: ${m.feature.summary}` : ""}`).join("\n") : "No Genesis package declares a block.");
+      if (!block && !opts.list) process.exitCode = 1;
+      return;
+    }
+    const { runAdd } = await import("./blocks/add.js");
+    const report = await runAdd({ root, block, ...(opts.package ? { package: opts.package } : {}), dryRun: opts.dryRun, yes: opts.yes, install: opts.install, featuresBuild: opts.featuresBuild, log: logger, confirm });
+    for (const w of report.warnings) logger.warn(w);
+    for (const k of report.kept) logger.warn(`${k.path}: ${k.why}`);
+    console.log("");
+    if (opts.dryRun) console.log(`Dry run: nothing written${report.install ? " or installed" : ""}.`);
+    else if (!report.created.length && !report.edited.length) console.log(`✔ ${report.block.id} is already in this app: nothing to copy or change.`);
+    else console.log(`✔ Added ${report.block.id}: ${report.created.length} files created${report.edited.length ? `, ${report.edited.length} edited (${report.edited.join(", ")})` : ""}.`);
+    if (report.steps.length) {
+      console.log("");
+      console.log("To finish:");
+      report.steps.forEach((s, i) => console.log(`  ${i + 1}. ${s}`));
+    }
+  });
+
+program
+  .command("migrate")
+  .description("Copy new package migrations of the app's blocks in as new timestamped files; report edited or changed ones (never rewritten)")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--block <id...>", "Also check these blocks (beyond genesis.lock.json's)")
+  .option("--dry-run", "Report only", false)
+  .option("--forward", "Write a forward migration stub for each edited or changed migration", false)
+  .action(async (opts: { dir: string; block?: string[]; dryRun: boolean; forward: boolean }) => {
+    const { runMigrate } = await import("./blocks/migrate.js");
+    const { formatMigrationRows } = await import("./blocks/migrations.js");
+    const report = await runMigrate({ root: path.resolve(opts.dir), ...(opts.block ? { blocks: opts.block } : {}), dryRun: opts.dryRun, forward: opts.forward });
+    for (const w of report.warnings) logger.warn(w);
+    console.log(formatMigrationRows(report.plan.rows));
+    for (const c of report.plan.creates) if (c.kind !== "migration") console.log(`+ ${c.path} (${c.kind === "test" ? "pgTAP test" : "forward migration: fill it in"})`);
+    console.log("");
+    const count = report.plan.creates.length;
+    console.log(opts.dryRun ? `Dry run: ${count} file${count === 1 ? "" : "s"} would be created.` : `✔ ${report.written.length} file${report.written.length === 1 ? "" : "s"} created. Nothing existing was changed.`);
+    if (report.attention) {
+      console.log(opts.forward ? "Fill in the forward migrations, review them, then apply them." : "Some migrations need you (above): an applied migration is never rewritten. Run genesis migrate --forward to add a forward migration for each.");
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("upgrade")
+  .description("Move every @marktiderman/genesis* dependency to one Genesis release, refresh the files Genesis owns, run codemods and the doctor")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--version <v>", "The @marktiderman/genesis release: an exact version or a dist-tag", "latest")
+  .option("--manifest <file>", "Read the release from this versions.json instead of npm")
+  .option("--dry-run", "Report the bump, and owned files compared with the packages installed now; change nothing", false)
+  .option("--no-install", "Don't reinstall after the bump")
+  .option("--no-doctor", "Don't run genesis doctor after")
+  .option("--keep-mine", "Never merge an owned file you changed; write the new text to .genesis-next", false)
+  .option("--pr", "Commit to a genesis-upgrade/<version> branch, push it and open a pull request", false)
+  .action(async (opts: { dir: string; version: string; manifest?: string; dryRun: boolean; install: boolean; doctor: boolean; keepMine: boolean; pr: boolean }) => {
+    const { runUpgrade } = await import("./upgrade/index.js");
+    const report = await runUpgrade({
+      root: path.resolve(opts.dir),
+      version: opts.version,
+      ...(opts.manifest ? { manifest: opts.manifest } : {}),
+      dryRun: opts.dryRun,
+      install: opts.install,
+      doctor: opts.doctor,
+      keepMine: opts.keepMine,
+      pr: opts.pr,
+      log: (m) => console.log(m),
+    });
+    console.log("");
+    console.log(report.summary);
+    if (opts.dryRun) console.log("\nDry run: nothing written, installed or pushed.");
+    if (report.pr) console.log(`\n✔ ${report.pr}`);
+    if (report.doctor === "failed") process.exitCode = 1;
   });
 
 program.parseAsync(process.argv).catch((err: unknown) => {

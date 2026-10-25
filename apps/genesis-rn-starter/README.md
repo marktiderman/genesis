@@ -19,9 +19,21 @@ Genesis packages ship is on, and each one is turned off in one line of
 
 ## Create an app from it
 
-The starter uses the Genesis packages from this monorepo (`workspace:^`). Most are on npm
-(`@marktiderman/genesis-supabase` from 0.1.1), but `@marktiderman/genesis-native`, the app shell,
-isn't published yet. Until it is, make new apps inside the monorepo:
+```bash
+npx @marktiderman/genesis-cli init my-app --template native --bundle-id com.acme.myapp
+```
+
+makes `./my-app` from this folder, outside the monorepo: the files an app owns (not this
+starter's monorepo-only test), renamed (name, slug, scheme, bundle id), with each `workspace:^`
+set to the published version released with the CLI, the plain Metro config, the pnpm settings
+Metro needs, and the eas, maestro and ci templates. It records its blocks and the files Genesis
+owns in `genesis.lock.json`, so later `genesis add <block>`, `genesis migrate` and `genesis
+upgrade` work in it (see the [CLI's README](../../packages/genesis-cli/README.md#a-new-native-app)).
+Then follow steps 3 to 5 below, and `pnpm install`.
+
+It needs a CLI release that has `--template` and every package the starter uses on npm at the
+versions that CLI was released with; check with `npm view @marktiderman/genesis-native versions`.
+Until then, or to work on Genesis itself, make new apps inside the monorepo:
 
 1. Copy the folder: `cp -R apps/genesis-rn-starter apps/my-app`, and set `"name"` in its
    `package.json`.
