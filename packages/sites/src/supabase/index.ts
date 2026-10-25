@@ -347,8 +347,12 @@ export function createSupabaseSiteStore(client: SupabaseClient, options: Supabas
       return fromPostJson(data as Parameters<typeof fromPostJson>[0]);
     },
     async deletePost(postId) {
+      // The site, read as the editor (RLS), before the row is marked deleted.
+      const { data: row, error: readError } = await db.from("site_posts").select("site_id").eq("id", postId).is("deleted_at", null).maybeSingle();
+      if (readError) fail(readError, "reading the post");
       const { error } = await db.rpc("delete_post", { post_id: postId });
       if (error) fail(error, "deleting the post");
+      return row ? { siteId: (row as { site_id: string }).site_id } : null;
     },
     async importPosts(siteId, list): Promise<ImportPostsResult> {
       if (list.length > MAX_IMPORT_POSTS) throw new SiteStoreError(`Import at most ${MAX_IMPORT_POSTS} posts at a time.`, "22023");

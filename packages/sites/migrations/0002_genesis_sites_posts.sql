@@ -339,7 +339,8 @@ as $$
         'cover', p.published -> 'cover',
         'author', p.published -> 'author',
         'category', p.published -> 'category',
-        'noindex', case when coalesce((p.published #>> '{seo,noindex}')::boolean, false) or p.published #> '{seo,canonical}' is not null then true end,
+        -- A JSON comparison, so a malformed stored value can't fail the whole list.
+        'noindex', case when p.published #> '{seo,noindex}' = 'true'::jsonb or p.published #> '{seo,canonical}' is not null then true end,
         'publishedAt', p.published_at,
         'updatedAt', p.published_updated_at
       )) as item

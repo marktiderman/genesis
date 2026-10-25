@@ -147,7 +147,8 @@ export interface SiteStore {
   publishPost?(postId: string): Promise<PostMeta>;
   /** Take the post down; its draft stays. */
   unpublishPost?(postId: string): Promise<PostMeta>;
-  deletePost?(postId: string): Promise<void>;
+  /** Delete a post (its row stays, marked deleted). Returns its site, for the cache purge; null when there was no such post. */
+  deletePost?(postId: string): Promise<{ siteId: string } | null>;
   /**
    * A one-time import from another site: each post keeps its slug and its
    * date, and is published unless asked otherwise or a check fails (then it
@@ -300,9 +301,10 @@ export function withCacheInvalidation(store: SiteStore, invalidate: (tags: strin
     ...(store.deletePost
       ? {
           async deletePost(postId: string) {
-            const before = await store.getPost?.(postId);
-            await store.deletePost!(postId);
-            if (before) await purge(before.siteId, "post");
+            // The site comes back from the delete itself, so a draft that no longer parses still purges.
+            const deleted = await store.deletePost!(postId);
+            if (deleted) await purge(deleted.siteId, "post");
+            return deleted;
           },
         }
       : {}),
@@ -661,11 +663,12 @@ export function createMemorySiteStore(options: MemoryStoreOptions = {}): MemoryS
     },
     async deletePost(postId) {
       const p = posts.get(postId);
-      if (!p || p.deleted) return;
+      if (!p || p.deleted) return null;
       editable(p.siteId);
       p.deleted = true;
       p.status = "draft";
       p.published = null;
+      return { siteId: p.siteId };
     },
     async importPosts(siteId, list) {
       if (editable(siteId).status === "archived") throw new Error(`No site ${siteId} to import into: it is archived.`);
