@@ -182,6 +182,26 @@ function duplicateOf(ref: unknown, inputHash: string, log: (m: string) => void, 
  * published definition that doesn't parse, or a form with upload fields and no `uploads`.
  * A store that throws (or an upload store) is answered `store_failed` and logged.
  */
+/** An owner no stored upload has: a submission without an attempt can claim no file. */
+const NO_OWNER: UploadOwner = { attemptHash: "" };
+
+/** The options `validateSubmission` takes: everything but submitResponse's own, so a later option passes through. */
+function submissionOptions(options: SubmitResponseOptions): Omit<SubmissionOptions, "complete"> {
+  const {
+    definition: _definition,
+    store: _store,
+    formId: _formId,
+    version: _version,
+    open: _open,
+    rateLimit: _rateLimit,
+    uploads: _uploads,
+    now: _now,
+    log: _log,
+    ...rest
+  } = options;
+  return rest;
+}
+
 export async function submitResponse(input: SubmitRequest, options: SubmitResponseOptions): Promise<SubmitResult> {
   const { definition, store } = options;
   assertPublishable(definition);
@@ -224,15 +244,7 @@ export async function submitResponse(input: SubmitRequest, options: SubmitRespon
   const checked = validateSubmission(
     definition,
     { answers: input.answers, events: input.events, hidden: input.hidden },
-    {
-      context: options.context,
-      validators: options.validators,
-      maxEvents: options.maxEvents,
-      maxValues: options.maxValues,
-      maxReplayWork: options.maxReplayWork,
-      hostOptions: options.hostOptions,
-      complete: true,
-    },
+    { ...submissionOptions(options), complete: true },
   );
   if (!checked.ok) return { ok: false, reason: "invalid", errors: checked.errors };
   const submission = checked.submission;
@@ -245,7 +257,7 @@ export async function submitResponse(input: SubmitRequest, options: SubmitRespon
         (typeof input.attemptId === "string" && input.attemptId !== ""
           ? { attemptHash: await attemptHash(input.attemptId) }
           : // No attempt: no upload can be this visit's, so any file named is refused.
-            { attemptHash: "" });
+            NO_OWNER);
       const files = await checkUploads(definition, answers, { formId, owner, store: options.uploads.store });
       if (!files.ok) return { ok: false, reason: "invalid", errors: files.errors };
       answers = files.answers;

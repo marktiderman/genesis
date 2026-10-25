@@ -58,6 +58,20 @@ export interface StarterFeatures {
    */
   push: boolean;
   /**
+   * The observability block (`createObservability`, `src/lib/observability.ts`): every error the
+   * shell catches, route breadcrumbs and timings, the user's id and typed analytics events, to
+   * Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set (and the console in development), scrubbed of
+   * emails, tokens and query strings on the phone. JavaScript only.
+   */
+  observability: boolean;
+  /**
+   * The devtools overlay (`createDevtools`, `src/lib/devtools.ts`) in development and preview
+   * builds: a three-finger hold, the dev menu or Settings > About open a sheet with the version
+   * signature, channel switch, user id, blocks, flags and recent errors. Left out of production
+   * bundles at build time. JavaScript only.
+   */
+  devtools: boolean;
+  /**
    * The check-in example on Home (`@marktiderman/genesis-forms-native`'s `FormFocus`): a sample
    * form one question at a time, with a draft per user and the offline outbox. A demo: replace
    * the form in `src/forms/check-in.json`, or turn it off. JavaScript only.

@@ -58,8 +58,9 @@ From the outside in:
    while the fatal screen is up goes to React Native's default handler, which
    ends the app so it restarts clean. Unhandled promise rejections never reach
    `ErrorUtils` in React Native, so on Hermes the shell installs its rejection
-   tracker (`rejectionTracker`, `null` turns it off). `onError` gets all of
-   these, for reporting.
+   tracker (`rejectionTracker`, `null` turns it off). Every block's `onError`
+   (the observability block's, which reports to Sentry) and then your
+   `onError` get all of these; a reporter that throws is ignored.
 7. **Session, offline included**: `useSession()` is `loading`, `signedIn` or
    `signedOut`, with `userId` and `offline`. Offline with an expired access
    token, Supabase's `getSession()` can spend about 30 seconds on a refresh
@@ -134,6 +135,7 @@ From the outside in:
 | `maintenance` | `MaintenanceScreen` (with `updates`) | `{ message, retry, retrying }` |
 | `updateBanner` | `UpdateBanner` (with `updates`) | `{ reload, dismiss, canReload, blocked, reloading }` |
 | `whatsNew` | `WhatsNewSheet` (with `updates`) | `{ notes, version, dismiss }` |
+| `devtoolsFeedback` | nothing (in the devtools overlay; the support block fills it) | `{ debugInfo, close }` |
 
 The last four render only when the `updates` prop is given. Ejecting a
 blocking one (`forceUpgrade: null`, `maintenance: null`) shows your screens
@@ -233,6 +235,150 @@ imported: without `updates` there is no banner and no channel switching;
 without `application` nothing is forced and no notes show. The banner uses
 `react-native-safe-area-context`, a peer (genesis-ui-native needs it too).
 
+## Observability: errors, breadcrumbs, events, timings
+
+`@marktiderman/genesis-native/observability` is the observability block. It is vendor-neutral:
+everything goes through sinks, and the Sentry one is an adapter.
+
+```ts
+// lib/observability.ts: imported first by the module that builds GenesisNativeApp's props
+import * as Sentry from "@sentry/react-native";
+import * as Application from "expo-application";
+import * as Updates from "expo-updates";
+import { useSegments } from "expo-router";
+import { Platform } from "react-native";
+import { consoleSink, createObservability, defineEvents, sentrySink } from "@marktiderman/genesis-native/observability";
+import { versionSignature } from "@marktiderman/genesis-native/updates";
+
+export const events = defineEvents({
+  "auth.signed_in": { method: ["email", "apple"] },
+  "checkin.saved": { mood: "number", first: "boolean" },
+});
+
+export const observability = createObservability({
+  events,
+  useSegments,
+  sinks: [
+    __DEV__ && consoleSink(),
+    sentrySink(Sentry, {
+      dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+      signature: versionSignature({ application: Application, updates: Updates, platform: Platform.OS }),
+      applicationId: Application.applicationId,
+    }),
+  ],
+});
+
+// app/_layout.tsx
+function RootLayout() {
+  return <GenesisNativeApp {...shell} blocks={[observability]}>…</GenesisNativeApp>;
+}
+export default observability.wrap(RootLayout); // Sentry.wrap: touch and profiler boundaries
+```
+
+- **One error path.** Every error the shell catches (a render error in either boundary, a global
+  error, a failed boot, an unhandled rejection) goes to the block's `onError` and then to yours.
+  A sink that throws is reported to `onProblem` and never stops the other sinks or the fatal screen.
+  `observability.captureError(error, { source: "sync" })` reports one you caught yourself.
+- **Init order.** `sentrySink` runs `Sentry.init` when it is called, so build the block at module
+  scope, in a module the root layout imports before anything else: errors while the app's modules
+  load are caught too. A second call in the same process (Fast Refresh) reuses the client.
+  Sentry's own global handler stays installed for errors before the shell mounts; once the shell
+  is up, its handler runs first and hands the same `Error` object on, which Sentry's deduplication
+  (`__sentry_captured__`) sends once. A thrown value that isn't an `Error` can be reported twice.
+- **PII is scrubbed on the device, by default.** Emails (percent-encoded too), phone numbers,
+  JWTs (Supabase access tokens and keys), Supabase `sb_secret_` / `sb_publishable_` keys, bearer
+  tokens, tokens in query strings, row values in PostgreSQL errors (`Failing row contains (…)`)
+  and long hex secrets are replaced in every string; values under keys naming a secret or a
+  contact detail (`authorization`, `cookie`, `apikey`, anything with `token`, `secret`, `email` or
+  `phone` in it) are replaced whole; every URL (web, deep link or path) loses its query and
+  fragment (PostgREST filters carry record ids); request bodies, cookies and PostgREST `details`
+  are dropped. Strings are cut at 4 KB first, so a huge log can't stall the JS thread. Sentry's
+  own ids (`event_id`, `trace_id`, `debug_id`, …) and processing metadata are left alone, since
+  its envelope is built from them. Sentry gets the scrubber in `beforeSend`,
+  `beforeSendTransaction`, `beforeSendSpan`, `beforeBreadcrumb`, `beforeSendLog` and
+  `beforeSendMetric` (yours run after, on the scrubbed value), plus `sendDefaultPii: false`, no
+  screenshots, view hierarchy or accessibility labels, and touch breadcrumbs without the touched
+  element's label. The user is an id only. If scrubbing throws, the event is dropped. Other sinks
+  get scrubbed errors, breadcrumbs and tags.
+- **What it can't catch:** a person's name in free text (an error message that says "Jane
+  Doe"), and native crashes, which sentry-cocoa and sentry-android build without these
+  JavaScript hooks. Keep names out of messages; use ids.
+- **Typed analytics.** `observability.track("auth.signed_in", { method: "apple" })` is checked
+  against `defineEvents` at compile time and at run time. A prop is a closed list of strings, a
+  number or a boolean, never free text; an unknown event, prop or value is dropped and reported.
+- **Routes.** With `useSegments` from expo-router, each route change leaves a `navigation`
+  breadcrumb and a `route.time_on_screen` timing for the route left, by route pattern
+  (`/(app)/clients/[id]`), never the values in it. Sentry's `expoRouterIntegration` (on by
+  default in `sentrySink`) records its own navigation spans and time to initial display, so the
+  Sentry sink skips the block's navigation breadcrumbs.
+- **Crashes count.** A fatal error (the fatal screen, a failed boot) is sent as unhandled,
+  so Sentry's release health counts it as a crash; a non-fatal one as handled.
+- **Environments.** `development` in `__DEV__`; otherwise one per kind of build from the channel:
+  `production`, `preview` (`preview` and `pr-<number>`), `development`. Override with `environment`.
+- **Releases.** `sentrySink` sets `release` to `<applicationId>@<version>+<build>` and `dist` to the
+  build (Sentry's own format) from the version signature, and tags every event with
+  `update.id`, `update.channel`, `update.runtime` and `update.launch`, so an over-the-air update is
+  told apart from the binary it runs on. Without an application id or version, it leaves the
+  release to Sentry rather than guess.
+- **Without a DSN** `sentrySink` starts nothing (a warning outside development).
+- `useRecentActivity()` gives the last breadcrumbs and errors, scrubbed (the devtools overlay
+  shows them).
+
+**Source maps (Sentry).** Optional: add the `@sentry/react-native/expo` config plugin with your
+organization and project, put `SENTRY_AUTH_TOKEN` in EAS secrets, use `getSentryExpoConfig` from
+`@sentry/react-native/metro` in `metro.config.js` (Debug IDs), and for `eas update` run
+`npx @sentry/expo-upload-sourcemaps dist` after the update. In this monorepo also set
+`"@sentry/cli": true` under `allowBuilds` in `pnpm-workspace.yaml`, so the upload binary installs.
+
+**EAS Observe.** EAS Observe (`expo-observe`) measures cold and warm launch, bundle load, time to
+first render and EAS Update download time on its own once the root is wrapped
+(`ObserveRoot.wrap`); time to interactive when you call `useObserve().markInteractive()` on your
+entry screens; and, with `Observe.configure({ integrations: { "expo-router": true } })` at module
+scope, per-route render and interactive times. It has no API for a custom timing metric, so
+`observeSink(Observe)` sends `timing` as an event (`timing.<name>` with `duration_ms`, on the
+Events page) and analytics events with `Observe.logEvent`. Its error reporting is in preview; the
+sink leaves errors to Sentry unless `errors: true`.
+
+`@sentry/react-native` and `expo-observe` are optional peers, passed in rather than imported, so an
+app without them never bundles them.
+
+## Devtools overlay
+
+`@marktiderman/genesis-native/devtools` is a debug sheet for development, preview and internal
+builds. It opens with a three-finger hold (every build, no native module), a shake (pass
+`accelerometer: Accelerometer` from expo-sensors), or "Open devtools" in React Native's dev menu
+(`devSettings: DevSettings`), and shows:
+
+- the version signature, the update channel and a channel switch (the updates block's guarded
+  `channels`: off where that block has it off; "Back to the build's channel" always works);
+- the signed-in user's id, the server's base URL, the blocks in effect (`useBlocks`) and your flags;
+- the recent errors and breadcrumbs from the observability block (scrubbed);
+- "Copy debug info" (your `copy`, else the share sheet), "Crash test" (a render error, to check the
+  fatal screen and reporting end to end), "Clear cache" (the query cache, then your `clearCache`)
+  and "Sign out" (your `signOut`);
+- the `devtoolsFeedback` slot, which the support block fills with "Send feedback" (an annotated
+  screenshot); empty by default.
+
+**Keep it out of production.** Import the entry only behind a condition Metro folds at build time.
+Metro inlines `__DEV__`, babel-preset-expo inlines `process.env.EXPO_PUBLIC_*`, and in a
+production bundle the dead branch is dropped before dependencies are collected, so the overlay's
+code isn't in the bundle at all:
+
+```ts
+// lib/devtools.ts: the condition must be written out here (a variable or a helper stops the folding)
+export const devtools =
+  __DEV__ || process.env.EXPO_PUBLIC_APP_VARIANT === "development" || process.env.EXPO_PUBLIC_APP_VARIANT === "preview"
+    ? require("./devtools-overlay").createAppDevtools()
+    : undefined;
+
+// lib/devtools-overlay.ts
+export const createAppDevtools = () =>
+  createDevtools({ enabled: __DEV__ || /\.(dev|preview)$/.test(Application.applicationId ?? ""), updates, observability, … });
+```
+
+Set `EXPO_PUBLIC_APP_VARIANT` wherever `APP_VARIANT` is set (eas.json build profiles and the EAS
+workflow jobs do, in `templates/eas`); unset, the overlay is left out. `enabled` is the second
+lock, a fact of the binary: with it false the block mounts nothing and listens to nothing.
 ## Push: registration, taps, the badge, notification settings
 
 `@marktiderman/genesis-native/push` is the push block, a `defineBlock`
@@ -419,5 +565,7 @@ splash (`expo-splash-screen`), storage (AsyncStorage or MMKV), `ErrorUtils`
 TanStack persister packages, for `/updates` `react-native-safe-area-context`
 (with `expo-updates` and `expo-application` passed in), and for `/push`
 `expo-notifications`, passed in too.
+`/observability` takes `@sentry/react-native` and `expo-observe` passed in;
+`/devtools` takes expo-sensors' `Accelerometer` and React Native's `DevSettings` passed in.
 
 @stability Beta

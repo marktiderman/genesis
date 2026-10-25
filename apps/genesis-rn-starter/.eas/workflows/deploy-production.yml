@@ -41,6 +41,7 @@ jobs:
     environment: production
     env:
       APP_VARIANT: production
+      EXPO_PUBLIC_APP_VARIANT: production
 
   get_ios_build:
     name: Find a production iOS build with this fingerprint
@@ -119,6 +120,7 @@ jobs:
     environment: production
     env:
       APP_VARIANT: production
+      EXPO_PUBLIC_APP_VARIANT: production
     params:
       channel: production
       platform: ios
@@ -132,6 +134,7 @@ jobs:
     environment: production
     env:
       APP_VARIANT: production
+      EXPO_PUBLIC_APP_VARIANT: production
     params:
       channel: production
       platform: android
