@@ -1,0 +1,35 @@
+packages/supabase/functions/genesis-support-intake/contract.ts
+  s_8252619ce79a86::t_1de4640b40d4ea 120-135,137-140,145-150
+packages/supabase/migrations/0006_genesis_support.sql
+  s_8252619ce79a86::t_3c4ee18aefb9fc 43-48,90-135,211,344,422,513,515,518-519,528,542-594,597,600-617,649,660-663,673-674,687,701,704,707-710,721-734,774-775,779-780,814-823,827-828,830
+packages/supabase/migrations/tests/0006_genesis_support.test.sql
+  s_8252619ce79a86::t_a282cb3c276926 12,76,78-83,115-119,214-215,247,249,253,342-377,403-404,411-412,428-434,460,522-525,528
+packages/support/src/client.ts
+  s_8252619ce79a86::t_3d3389ccc1c7bf 125,155,165,255,258,265,315-317,322,339-340
+packages/support/src/contract.ts
+  s_8252619ce79a86::t_c04a3e5dc18cda 120-135,137-140,145-150
+packages/support/src/copy.ts
+  s_8252619ce79a86::t_de77532bc0ec2f 20-21,45,57
+packages/support/src/native/annotator.tsx
+  s_8252619ce79a86::t_a07921d9b1b8ee 48-51,63,103,107,110-111,115,154-158,160
+packages/support/src/native/feedback-form.tsx
+  s_8252619ce79a86::t_cfd113d5e452c8 12,39-40,63,84-89,91,130-138,145-153
+packages/support/src/web/feedback-panel.tsx
+  s_8252619ce79a86::t_d2a9768506468e 68-70,79,103-112,117,122,174,239-258,265,268-273,275-276,286-295,303,309,312-332
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "48861c3d8c175cd622d9f945ef40286a774f9851",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
