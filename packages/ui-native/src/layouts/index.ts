@@ -47,6 +47,8 @@ export {
 export {
   NotificationsPage,
   getNotificationsPageStackOptions,
+  defaultStickyHeaderOffset,
+  iosCompactNavigationBarHeight,
   type NotificationsPageProps,
   type NotificationsPageSlotMap,
   type NotificationItem,

@@ -69,6 +69,9 @@ describe("sign-in screen", () => {
     const app = await renderApp("/sign-in", null);
     await userEvent.setup().press(await screen.findByTestId("sign-in-switch"));
     expect(screen.getByText(t.createSubmit)).toBeOnTheScreen();
+    // The subhead follows the mode: creating an account doesn't say "Sign in".
+    expect(screen.getByText(t.createSubhead)).toBeOnTheScreen();
+    expect(screen.queryByText(t.subhead)).not.toBeOnTheScreen();
     next.confirmEmail = true;
     await fillAndSubmit("new@example.com", "a long password");
     // Back to "Sign in" once the account exists and waits for its confirmation.

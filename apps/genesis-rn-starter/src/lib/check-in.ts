@@ -13,6 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import {
   createDraftStore,
   createSubmitOutbox,
@@ -24,6 +25,7 @@ import {
 } from "@marktiderman/genesis-forms";
 import type { FormHaptics } from "@marktiderman/genesis-forms-native";
 import sample from "../forms/check-in.json";
+import { createCheckInPhotos, stubUpload, type LaunchLibrary } from "./check-in-photos";
 
 // A callout is a content kind this app adds. Register it wherever the form is parsed (here, and
 // on the server that checks submissions), so every side reads the same definition.
@@ -71,6 +73,9 @@ export const checkInOutbox = createSubmitOutbox({
 });
 checkInOutbox.start();
 NetInfo.addEventListener((state) => checkInOutbox.setOnline(state.isConnected !== false && state.isInternetReachable !== false));
+
+/** The photo question's picker (the photo library) and storage (a stub; see `check-in-photos.ts`). */
+export const checkInPhotos = createCheckInPhotos(ImagePicker.launchImageLibraryAsync as LaunchLibrary, stubUpload(Crypto.randomUUID));
 
 /** A pick, a sent check-in and a refused step, felt. */
 export const checkInHaptics: FormHaptics = {

@@ -394,7 +394,7 @@ packages/sites/                  @marktiderman/genesis-sites
   `_hideOn` and `_placeholder` (reserved: a section schema using one throws)
   and maps both ways (`toEditorData`, `fromEditorData`). Stored documents
   never hold a Puck-only key.
-- **Presets** are extra Puck components named `type@n`, mapped back to
+- **Presets** are extra Puck components named `type__n`, mapped back to
   `type` on save. **Limits** use each component's `permissions.insert`, read
   through a getter so it reflects the page's current counts.
 - **Header and footer** are slots on Puck's root (zones `root:header`,

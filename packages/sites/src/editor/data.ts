@@ -9,7 +9,7 @@
  * slots on Puck's root, so the canvas shows and edits the whole page.
  *
  * The editor's Add picker offers each section's presets: a preset after the
- * first is its own Puck component, `type@n`, and turns back into `type` on
+ * first is its own Puck component, `type__n`, and turns back into `type` on
  * save, so stored documents only ever name registered types.
  */
 import { getSection, type AnySectionDefinition } from "../core/registry";
@@ -42,11 +42,11 @@ export interface EditorRootProps {
 /** Keys a section schema may not use: they carry the node's own fields. */
 export const NODE_KEYS = ["_variant", "_hidden", "_hideOn", "_v", "_placeholder"] as const;
 
-/** The Puck component name of a section's preset: `hero` for the first, `hero@1` for the second. */
-export const presetComponentName = (type: string, index: number) => (index === 0 ? type : `${type}@${index}`);
+/** The Puck component name of a section's preset: `hero` for the first, `hero__1` for the second (`_` never appears in a section type, and Puck builds ids from the name, so it must be id-safe). */
+export const presetComponentName = (type: string, index: number) => (index === 0 ? type : `${type}__${index}`);
 
 /** The section type a Puck component name stands for. */
-export const sectionTypeOf = (componentName: string) => componentName.split("@")[0]!;
+export const sectionTypeOf = (componentName: string) => componentName.split("__")[0]!;
 
 type Lookup = (type: string) => AnySectionDefinition | undefined;
 type SlotKeys = (type: string) => readonly string[];
@@ -80,7 +80,8 @@ export function nodeToItem(node: SectionNode, slotKeys: SlotKeys = noSlots): Puc
  * Empty optional values out: `""`, and objects left with nothing in them
  * (an optional button whose fields were cleared). A required field that
  * empties is then reported by the section's schema, never saved as `""`.
- * Strings inside arrays stay (a list of lines keeps its blank line).
+ * Strings inside arrays stay as they are (an empty one is the schema's to
+ * report, not ours to drop).
  */
 export function pruneEmpty(value: unknown): unknown {
   if (typeof value === "string") return value === "" ? undefined : value;
@@ -107,6 +108,21 @@ function stripArrayIds(value: unknown): unknown {
     return out;
   }
   return value;
+}
+
+/**
+ * A section id the schema accepts (1–64 letters, digits, `-`, `_`). Puck makes
+ * ids for dragged-in and duplicated sections from the component name and a
+ * UUID; the same id always maps to the same safe one, so saves stay stable.
+ */
+export function safeSectionId(id: string): string {
+  if (/^[A-Za-z0-9_-]{1,64}$/.test(id)) return id;
+  const cleaned = id.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+/, "");
+  if (cleaned.length <= 64 && cleaned.length > 0) return cleaned;
+  // Too long: keep the start (it names the type) and a hash of the whole, so two long ids don't collide.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 0x01000193) >>> 0;
+  return `${cleaned.slice(0, 55)}-${h.toString(36)}`.slice(0, 64) || `s${h.toString(36)}`;
 }
 
 export interface FromItemOptions {
@@ -139,7 +155,7 @@ export function itemToNode(item: PuckItem, options: FromItemOptions = {}): Secti
   const original = options.placeholders?.get(String(id));
   const placeholder = _placeholder === true && original !== undefined && original === placeholderHash(props);
   return {
-    id: String(id),
+    id: safeSectionId(String(id)),
     type,
     v: typeof _v === "number" ? _v : (def?.version ?? 1),
     ...(typeof _variant === "string" ? { variant: _variant } : def ? { variant: def.defaultVariant } : {}),

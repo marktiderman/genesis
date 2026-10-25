@@ -224,6 +224,9 @@ export function InboxPage({
         data={rows}
         keyExtractor={(row) => row.id}
         contentInsetAdjustmentBehavior="automatic"
+        // The header can hold a text field (the idea board's "Suggest"): its button's first tap
+        // must press it, not only close the keyboard.
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={headerNode}
         ListFooterComponent={renderSlot(DefaultFooter, slots.footer, { loadingMore, testID: `${testID}-footer` }, slotProps.footer)}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}

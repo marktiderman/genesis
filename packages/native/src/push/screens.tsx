@@ -20,10 +20,14 @@ export interface PushPromptProps {
   declineLabel?: string;
 }
 
+// The sheet is iOS's full-height page sheet: grow to fill it and centre the few lines in it, rather
+// than leave them at the top of an empty sheet. On Android the panel sizes to its content.
+const PROMPT_CONTENT = { flexGrow: 1, justifyContent: "center", gap: 16, padding: 24 } as const;
+
 export function PushPromptSheet({ reason, accept, decline, title, body, acceptLabel, declineLabel }: PushPromptProps) {
   return (
     <NativeSheet open onOpenChange={(open) => (open ? undefined : decline())} testID="genesis-push-prompt">
-      <View className="gap-4 p-6">
+      <View style={PROMPT_CONTENT} testID="genesis-push-prompt-content">
         <NativeText preset="h3" accessibilityRole="header">
           {title ?? "Turn on notifications?"}
         </NativeText>

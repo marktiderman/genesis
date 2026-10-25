@@ -19,12 +19,14 @@ import { SUPPORT_QUERY_ROOT, useSupport, type PendingFeedback, type PendingScree
 
 export interface FeedbackFormProps {
   defaultType?: FeedbackType;
-  /** After a report is saved (go back, say thanks). The form has already shown its own confirmation. */
+  /** After a report is saved (go back, say thanks). The form has already shown its own confirmation, unless `sentAlert` is false. */
   onSent?: (delivery: FeedbackDelivery) => void;
+  /** Confirm a sent report with an alert. Default true; false when `onSent` says so itself (a toast). */
+  sentAlert?: boolean;
   testID?: string;
 }
 
-export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-support-feedback" }: FeedbackFormProps) {
+export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, testID = "genesis-support-feedback" }: FeedbackFormProps) {
   const block = useSupport();
   const { copy } = block;
   const colors = useThemeRoles();
@@ -67,7 +69,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-su
       void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "reports"] });
       setMessage("");
       setScreenshot(null);
-      Alert.alert(copy.feedback.sentTitle, delivery.attachmentsDropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody);
+      if (sentAlert) Alert.alert(copy.feedback.sentTitle, delivery.attachmentsDropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody);
       onSent?.(delivery);
     } catch (e) {
       const err = e instanceof SupportError ? e : null;

@@ -225,48 +225,44 @@ function RenameDialog({ page, pages, reserved, onClose, onRename }: { page: Page
   );
 }
 
-const menuProblems = (item: MenuItem): string[] => {
+/** Why a menu item can't be saved (empty when it can). */
+export function menuItemProblems(item: MenuItem): string[] {
   const out: string[] = [];
   if (!item.label.trim()) out.push("Needs a label.");
   else if (item.label.trim().length > 40) out.push("At most 40 characters.");
-  if (!isSafeHref(item.href)) out.push("Use a site path (/about), a #section, or an https, mailto or tel link.");
+  if (!isSafeHref(item.href.trim())) out.push("Use a site path (/about), a #section, or an https, mailto or tel link.");
   return out;
-};
+}
 
-/** The menu editor: labels and links, in order. Saves only a menu that is valid. */
+/**
+ * The menu editor: labels and links, in order. Controlled: the editor keeps
+ * the menu as typed (so a link being fixed survives a tab switch) and saves
+ * it whenever every item is valid.
+ */
 function MenuEditor({ nav, pages, onChange }: { nav: readonly MenuItem[]; pages: readonly PageMeta[]; onChange(nav: MenuItem[]): void }) {
-  const [items, setItems] = React.useState<MenuItem[]>(() => nav.map((n) => ({ ...n })));
-  const sent = React.useRef(JSON.stringify(nav));
-  React.useEffect(() => {
-    const incoming = JSON.stringify(nav);
-    if (incoming !== sent.current) {
-      sent.current = incoming;
-      setItems(nav.map((n) => ({ ...n })));
-    }
-  }, [nav]);
+  const items = nav;
   const id = React.useId();
-  const commit = (next: MenuItem[]) => {
-    setItems(next);
-    if (next.every((i) => menuProblems(i).length === 0)) {
-      const clean = next.map((i) => ({ label: i.label.trim(), href: i.href.trim() }));
-      sent.current = JSON.stringify(clean);
-      onChange(clean);
-    }
-  };
+  const list = React.useRef<HTMLOListElement>(null);
+  const commit = (next: MenuItem[]) => onChange(next);
   const move = (i: number, by: -1 | 1) => {
     const next = [...items];
     const j = i + by;
     if (j < 0 || j >= next.length) return;
     [next[i], next[j]] = [next[j]!, next[i]!];
     commit(next);
+    // Focus follows the item that moved, on the same button, or the other one at an end.
+    requestAnimationFrame(() => {
+      const same = list.current?.querySelector<HTMLButtonElement>(`[data-menu-move="${j}:${by}"]`);
+      (same && !same.disabled ? same : list.current?.querySelector<HTMLButtonElement>(`[data-menu-move="${j}:${-by}"]`))?.focus();
+    });
   };
   const unlinked = pages.filter((p) => !items.some((i) => i.href === p.path));
   return (
     <div className="flex flex-col gap-3">
       {items.length === 0 ? <p className="text-sm text-muted-foreground">The menu is empty.</p> : null}
-      <ol className="flex flex-col gap-3">
+      <ol ref={list} className="flex flex-col gap-3">
         {items.map((item, i) => {
-          const problems = menuProblems(item);
+          const problems = menuItemProblems(item);
           return (
             <li key={i} className="flex flex-col gap-2 rounded-md border border-border p-2">
               <div className="flex flex-col gap-1">
@@ -287,10 +283,10 @@ function MenuEditor({ nav, pages, onChange }: { nav: readonly MenuItem[]; pages:
                 </p>
               ) : null}
               <div className="flex gap-1">
-                <Button type="button" size="icon" variant="ghost" aria-label={`Move ${item.label || "item"} up`} disabled={i === 0} onClick={() => move(i, -1)}>
+                <Button type="button" size="icon" variant="ghost" data-menu-move={`${i}:-1`} aria-label={`Move ${item.label || "item"} up`} disabled={i === 0} onClick={() => move(i, -1)}>
                   <ArrowUp className="h-4 w-4" />
                 </Button>
-                <Button type="button" size="icon" variant="ghost" aria-label={`Move ${item.label || "item"} down`} disabled={i === items.length - 1} onClick={() => move(i, 1)}>
+                <Button type="button" size="icon" variant="ghost" data-menu-move={`${i}:1`} aria-label={`Move ${item.label || "item"} down`} disabled={i === items.length - 1} onClick={() => move(i, 1)}>
                   <ArrowDown className="h-4 w-4" />
                 </Button>
                 <Button type="button" size="icon" variant="ghost" aria-label={`Remove ${item.label || "item"} from the menu`} onClick={() => commit(items.filter((_, k) => k !== i))}>

@@ -4,7 +4,7 @@
  * Puck data and back, autosave with compare-and-swap conflicts, publish
  * blocked by the checks, and page moves writing redirects.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
@@ -13,7 +13,8 @@ import { z } from "zod";
 import "../sections/index";
 import { BUILT_IN_SECTION_TYPES, createMemorySiteStore, migrateNode, defineSection, getSection, landingPage, listSections, registerSection, sectionJsonSchema, toCanonicalBrand, unregisterSection, type PageDoc, type SaveResult, type SiteDoc } from "../index";
 import { createEditorConfig, type CanvasMetadata } from "../editor/config";
-import { countTypes, fromEditorData, h1SectionId, placeholderSnapshot, pruneEmpty, toEditorData } from "../editor/data";
+import { countTypes, fromEditorData, h1SectionId, placeholderSnapshot, pruneEmpty, safeSectionId, toEditorData } from "../editor/data";
+import { SectionNode } from "../core/schemas";
 import { sectionFields } from "../editor/fields";
 import { Autosaver, AutosaveBlockedError } from "../editor/autosave";
 import { checkSite, pageTemplates, pathProblems, publishSite, renamePage, slugify } from "../editor/site-actions";
@@ -38,8 +39,8 @@ describe("the entry points without the editor", () => {
           continue;
         }
         const base = resolve(dirname(file), spec);
-        const target = [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts")].find((p) => existsSync(p) && !p.endsWith("/"))!;
-        if (target && /\.tsx?$/.test(target)) visit(target);
+        const target = [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts"), join(base, "index.tsx")].find((p) => /\.tsx?$/.test(p) && existsSync(p) && statSync(p).isFile());
+        if (target) visit(target);
       }
     };
     visit(join(src, entry));
@@ -96,7 +97,7 @@ describe("createEditorConfig", () => {
   it("offers each preset in the Add picker, grouped by category", () => {
     for (const def of listSections()) {
       def.presets.forEach((preset, i) => {
-        const name = i === 0 ? def.type : `${def.type}@${i}`;
+        const name = i === 0 ? def.type : `${def.type}__${i}`;
         expect(config.components[name]?.defaultProps).toMatchObject({ ...(preset.props as Record<string, unknown>), _variant: preset.variant, _v: def.version });
         expect(components.get(name)).toMatchObject({ type: def.type, label: preset.name, category: def.category });
         expect((config.categories as Record<string, { components: string[] }>)[def.category]?.components).toContain(name);
@@ -149,7 +150,7 @@ describe("createEditorConfig", () => {
     expect(limited.config.components.hero!.permissions?.insert).toBe(true);
     counts = new Map([["hero", 1]]);
     expect(limited.config.components.hero!.permissions?.insert).toBe(false);
-    expect(limited.config.components["hero@1"]!.permissions?.insert).toBe(false);
+    expect(limited.config.components["hero__1"]!.permissions?.insert).toBe(false);
     expect(limited.config.components.features!.permissions?.insert).toBe(true); // no limit
   });
 
@@ -266,9 +267,24 @@ describe("toEditorData / fromEditorData", () => {
   it("stores a preset's component as its section type, with node fields out of props", () => {
     const back = fromEditorData({
       root: { props: { title: "T", header: [], footer: [] } },
-      content: [{ type: "hero@1", props: { id: "x1", heading: "Hi", _v: 1, _variant: "split", _hidden: true, _hideOn: "mobile", secondaryCta: { label: "", href: "" }, _arrayId: "z" } }],
+      content: [{ type: "hero__1", props: { id: "x1", heading: "Hi", _v: 1, _variant: "split", _hidden: true, _hideOn: "mobile", secondaryCta: { label: "", href: "" }, _arrayId: "z" } }],
     });
     expect(back.page.content[0]).toEqual({ id: "x1", type: "hero", v: 1, variant: "split", hidden: true, hideOn: ["mobile"], props: { heading: "Hi" } });
+  });
+
+  it("saves sections Puck added by dragging or duplicating with ids the schema accepts", () => {
+    // Puck names a dragged-in or duplicated item `${componentName}-${uuid}`.
+    for (const name of Object.keys(createEditorConfig().config.components)) {
+      const id = `${name}-123e4567-e89b-12d3-a456-426614174000`;
+      const back = fromEditorData({ root: { props: { title: "T", header: [], footer: [] } }, content: [{ type: name, props: { id, _v: 1 } }] });
+      expect(SectionNode.shape.id.safeParse(back.page.content[0]!.id).success, name).toBe(true);
+      expect(back.page.content[0]!.type, name).toBe(name.split("__")[0]);
+      // Stable: the same Puck id saves as the same id every time.
+      expect(fromEditorData({ content: [{ type: name, props: { id, _v: 1 } }] }).page.content[0]!.id).toBe(back.page.content[0]!.id);
+    }
+    expect(safeSectionId("a".repeat(80))).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
+    expect(safeSectionId("a".repeat(80))).not.toBe(safeSectionId(`${"a".repeat(79)}b`));
+    expect(safeSectionId("@@@")).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
   });
 
   it("drops Puck's array bookkeeping and empty optional values", () => {
@@ -448,6 +464,30 @@ describe("Autosaver", () => {
     await h.tick();
     expect(h.saves).toEqual([{ rev: 1, doc: { n: 5 } }]);
     expect(h.saver.current.status).toBe("saved");
+  });
+
+  it("holds saves while paused and saves them on resume, on the rebased revision", async () => {
+    const h = harness();
+    h.saver.pause();
+    h.saver.update({ n: 4 });
+    await h.tick();
+    expect(h.saves).toEqual([]);
+    expect(h.saver.dirty).toBe(true);
+    // The editor's own operation moved the revision on meanwhile.
+    h.someoneElseSaves(0);
+    h.saver.rebase(h.rev);
+    h.saver.resume();
+    await h.tick();
+    expect(h.saves).toEqual([{ rev: 2, doc: { n: 4 } }]);
+    expect(h.saver.current.status).toBe("saved");
+  });
+
+  it("flush saves what is waiting, so unmounting can save before it lets go", async () => {
+    const h = harness();
+    h.saver.update({ n: 9 });
+    await h.saver.flush();
+    h.saver.dispose();
+    expect(h.saves).toEqual([{ rev: 1, doc: { n: 9 } }]);
   });
 
   it("flush saves at once and resolves when the store has it", async () => {

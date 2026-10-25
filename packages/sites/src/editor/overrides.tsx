@@ -22,7 +22,7 @@ import type { ComponentInfo } from "./config";
 const usePuck = createUsePuck();
 
 interface BaseProps {
-  field: { label?: string; placeholder?: string; options?: readonly { label: string; value: unknown }[]; min?: number; max?: number; step?: number };
+  field: { label?: string; placeholder?: string; options?: readonly { label: string; value: unknown }[]; min?: number; max?: number; step?: number; metadata?: unknown };
   name: string;
   id?: string;
   value: unknown;
@@ -112,12 +112,15 @@ function SelectInput(p: BaseProps) {
 function RadioInput(p: BaseProps) {
   const id = fieldId(p);
   const options = p.field.options ?? [];
+  // An unset yes/no shows its schema default (fields.ts puts it in metadata).
+  const fallback = (p.field.metadata as { default?: unknown } | undefined)?.default;
+  const value = p.value === undefined && fallback !== undefined ? fallback : p.value;
   return (
     <div className="flex flex-col gap-1.5 py-1" role="group" aria-labelledby={`${id}-label`}>
       <span id={`${id}-label`} className="text-sm font-medium leading-none">
         {p.field.label}
       </span>
-      <RadioGroup value={indexOf(options, p.value)} disabled={p.readOnly} onValueChange={(i) => p.onChange(options[Number(i)]?.value)} className="flex flex-wrap gap-4" aria-labelledby={`${id}-label`}>
+      <RadioGroup value={indexOf(options, value)} disabled={p.readOnly} onValueChange={(i) => p.onChange(options[Number(i)]?.value)} className="flex flex-wrap gap-4" aria-labelledby={`${id}-label`}>
         {options.map((o, i) => (
           <div key={i} className="flex items-center gap-2">
             <RadioGroupItem id={`${id}-${i}`} value={String(i)} />
@@ -135,7 +138,7 @@ function RadioInput(p: BaseProps) {
  * The Add picker's item: the preset's name, its section, and its limit. A
  * section at its limit can't be dragged in; it says why.
  */
-function ComponentItem({ name, info }: { name: string; info: ReadonlyMap<string, ComponentInfo> }) {
+function ComponentItem({ name, info, announce }: { name: string; info: ReadonlyMap<string, ComponentInfo>; announce?: ((message: string) => void) | undefined }) {
   const data = usePuck((s) => s.appState.data) as unknown as EditorData;
   const meta = info.get(name);
   const type = sectionTypeOf(name);
@@ -152,6 +155,7 @@ function ComponentItem({ name, info }: { name: string; info: ReadonlyMap<string,
     dispatch({ type: "insert", componentType: name, destinationIndex: index, destinationZone: zone, id });
     dispatch({ type: "setUi", ui: { itemSelector: { index, zone } } });
     scrollCanvasTo(id, ref.current?.ownerDocument);
+    announce?.(`${label} added at the end of the ${zone === "root:header" ? "header" : zone === "root:footer" ? "footer" : "page"}. Its fields are open; Up and Down move it.`);
   };
   // Puck draws each item twice (a static copy under the draggable one): hide the copy from assistive tech.
   const ref = React.useRef<HTMLDivElement>(null);
@@ -189,8 +193,79 @@ function ComponentItem({ name, info }: { name: string; info: ReadonlyMap<string,
   );
 }
 
-export function genesisOverrides(info: ReadonlyMap<string, ComponentInfo>, extra: Partial<Overrides> = {}): Partial<Overrides> {
+/**
+ * Above the selected section's fields: its name and Move up, Move down and
+ * Remove buttons, so a section can be placed and removed with the keyboard
+ * (Puck's canvas and outline move sections only by dragging).
+ */
+function SectionActions({ info, announce }: { info: ReadonlyMap<string, ComponentInfo>; announce?: ((message: string) => void) | undefined }) {
+  const selected = usePuck((s) => s.selectedItem);
+  const getSelectorForId = usePuck((s) => s.getSelectorForId);
+  const getItemBySelector = usePuck((s) => s.getItemBySelector);
+  const dispatch = usePuck((s) => s.dispatch);
+  const upRef = React.useRef<HTMLButtonElement>(null);
+  const downRef = React.useRef<HTMLButtonElement>(null);
+  if (!selected) return null;
+  const id = String(selected.props.id);
+  const selector = getSelectorForId(id);
+  if (!selector) return null;
+  const label = info.get(selected.type)?.sectionLabel ?? selected.type;
+  const { index, zone } = selector;
+  const canUp = index > 0;
+  const canDown = Boolean(getItemBySelector({ index: index + 1, zone }));
+  const move = (by: -1 | 1) => {
+    const to = index + by;
+    dispatch({ type: "reorder", sourceIndex: index, destinationIndex: to, destinationZone: zone });
+    dispatch({ type: "setUi", ui: { itemSelector: { index: to, zone } } });
+    scrollCanvasTo(id);
+    announce?.(`${label} moved ${by < 0 ? "up" : "down"}, to position ${to + 1}.`);
+    // At the top or bottom the pressed button turns off: keep focus on the other one.
+    requestAnimationFrame(() => {
+      const pressed = by < 0 ? upRef.current : downRef.current;
+      if (pressed?.disabled) (by < 0 ? downRef.current : upRef.current)?.focus();
+    });
+  };
+  return (
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-border px-1 pb-2" role="group" aria-label={`${label} section`}>
+      <span className="text-sm font-semibold">{label}</span>
+      <div className="flex gap-1">
+        <Button ref={upRef} type="button" size="sm" variant="outline" disabled={!canUp} onClick={() => move(-1)} aria-label={`Move ${label} up`}>
+          Up
+        </Button>
+        <Button ref={downRef} type="button" size="sm" variant="outline" disabled={!canDown} onClick={() => move(1)} aria-label={`Move ${label} down`}>
+          Down
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          aria-label={`Remove ${label}`}
+          onClick={() => {
+            dispatch({ type: "remove", index, zone });
+            dispatch({ type: "setUi", ui: { itemSelector: null } });
+            announce?.(`${label} removed. Undo brings it back.`);
+          }}
+        >
+          Remove
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export interface GenesisOverrideOptions {
+  /** Say what an action did (a section added, moved or removed), for a live region. */
+  announce?: (message: string) => void;
+}
+
+export function genesisOverrides(info: ReadonlyMap<string, ComponentInfo>, extra: Partial<Overrides> = {}, options: GenesisOverrideOptions = {}): Partial<Overrides> {
   return {
+    fields: ({ children }) => (
+      <>
+        <SectionActions info={info} announce={options.announce} />
+        {children}
+      </>
+    ),
     fieldTypes: {
       text: TextInput as never,
       textarea: TextareaInput as never,
@@ -207,7 +282,7 @@ export function genesisOverrides(info: ReadonlyMap<string, ComponentInfo>, extra
         </El>
       );
     },
-    drawerItem: ({ name }) => <ComponentItem name={name} info={info} />,
+    drawerItem: ({ name }) => <ComponentItem name={name} info={info} announce={options.announce} />,
     ...extra,
   };
 }

@@ -17,6 +17,7 @@ const en = {
   signIn: {
     headline: "Welcome",
     subhead: "Sign in to continue.",
+    createSubhead: "Create an account to get started.",
     submit: "Sign in",
     createSubmit: "Create account",
     switchToCreate: "New here? Create an account",
@@ -90,6 +91,10 @@ const en = {
       denied: "Off in Settings",
       unavailable: "Not available on this device",
     },
+  },
+  toasts: {
+    feedbackSent: "Thanks. Your feedback was sent.",
+    feedbackSentWithoutScreenshot: "The screenshot couldn't be sent with it.",
   },
   // The support block's own strings (genesis-support's catalog); the ones here override its English.
   // Add any key from `supportCopy` to reword or translate it.

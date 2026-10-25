@@ -45,7 +45,10 @@ export function ImageField({ field, id, value, onChange, readOnly }: FieldRender
   const missingAlt = Boolean(image.src) && !image.alt?.trim() && image.decorative !== true;
   const choose = async () => {
     const picked = await services.pickImage(image.src ? { current: image as PickedImage } : {});
-    if (picked) onChange({ ...image, ...picked });
+    if (!picked) return;
+    // The new image replaces every image attribute (alt, decorative, size, focal point); other props stay.
+    const { src: _s, alt: _a, decorative: _d, width: _w, height: _h, focal: _f, ...rest } = image;
+    onChange({ ...rest, ...picked });
   };
   return (
     <div className="flex flex-col gap-2" role="group" aria-labelledby={`${id}-label`}>
@@ -104,7 +107,7 @@ export function ImageSrcField({ field, id, value, onChange, readOnly }: FieldRen
         variant="outline"
         disabled={readOnly}
         onClick={async () => {
-          const picked = await services.pickImage(value ? { current: { src: value, alt: "" } } : {});
+          const picked = await services.pickImage({ altElsewhere: true, ...(value ? { current: { src: value, alt: "" } } : {}) });
           if (picked) onChange(picked.src);
         }}
       >
@@ -129,8 +132,9 @@ export function LinesField({ field, id, value, onChange, readOnly }: FieldRender
   const max = (field.metadata as { maxItems?: number } | undefined)?.maxItems;
   const [text, setText] = React.useState(() => (value ?? []).join("\n"));
   const lastSent = React.useRef(value);
+  // Puck may hand the list back as a copy: compare by content, or a just-typed newline would vanish.
   React.useEffect(() => {
-    if (value !== lastSent.current) setText((value ?? []).join("\n"));
+    if (JSON.stringify(value ?? []) !== JSON.stringify(lastSent.current ?? [])) setText((value ?? []).join("\n"));
   }, [value]);
   return (
     <div className="flex flex-col gap-2">

@@ -30,6 +30,7 @@ import {
 const base = (): ExpoConfig => ({
   name: "Sample",
   slug: "sample",
+  scheme: "sample",
   ios: { bundleIdentifier: "com.example.sample" },
   android: { package: "com.example.sample" },
 });
@@ -81,11 +82,25 @@ describe("app variants", () => {
     ]);
   });
 
+  it("gives each variant its own URL scheme, so a link opens the build it names", () => {
+    expect(run().scheme).toBe("sample");
+    expect(run(base(), { variant: "development" }).scheme).toBe("sample-dev");
+    expect(run(base(), { variant: "preview" }).scheme).toBe("sample-preview");
+    // Every scheme in a list, and a configured suffix.
+    expect(run({ ...base(), scheme: ["sample", "sample-alt"] }, { variant: "preview" }).scheme).toEqual(["sample-preview", "sample-alt-preview"]);
+    expect(run(base(), { variant: "development", variants: { development: { scheme: "-debug" } } }).scheme).toBe("sample-debug");
+    // An empty suffix keeps the base scheme (the old behaviour, for an app that needs it).
+    expect(run(base(), { variant: "preview", variants: { preview: { scheme: "" } } }).scheme).toBe("sample");
+    // No scheme set: none invented.
+    expect(run({ name: "Sample", slug: "sample" }, { variant: "development" }).scheme).toBeUndefined();
+  });
+
   it("does not suffix twice when it runs twice", () => {
     process.env.APP_VARIANT = "development";
     const once = run();
     expect(run(once)).toEqual(once);
     expect(once.ios?.bundleIdentifier).toBe("com.example.sample.dev");
+    expect(once.scheme).toBe("sample-dev");
   });
 
   it("takes configured suffixes and an explicit variant", () => {

@@ -37,11 +37,20 @@ export interface KeyboardScrollProps {
 }
 
 /**
- * The props Genesis passes to a keyboard toolbar: none. `KeyboardToolbar`
- * draws its default previous / next / done buttons; to theme it, pass a
- * wrapper defined at module scope that renders it with your props.
+ * The props Genesis may pass to a keyboard toolbar, all optional and all
+ * `KeyboardToolbar`'s own: a settings form passes none (previous / next /
+ * done), a one-question form (forms-native's `FormFocus`) hides the arrows
+ * and makes Done its Next or Send. To theme it, pass a wrapper defined at
+ * module scope that renders it with your props and forwards these.
  */
-export type KeyboardToolbarProps = object;
+export interface KeyboardToolbarProps {
+  /** Show the previous / next arrows. `KeyboardToolbar`'s default is true. */
+  showArrows?: boolean;
+  /** The done button's label. */
+  doneText?: ReactNode;
+  /** Called when done is pressed. The keyboard closes too, unless the callback calls `event.preventDefault()`. */
+  onDoneCallback?: (event: { preventDefault(): void }) => void;
+}
 
 /**
  * Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear

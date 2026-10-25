@@ -106,7 +106,7 @@ describe("SiteEditor readOnly", () => {
     const el = await mount({ siteId, store, readOnly: true });
 
     expect(el.querySelector('[role="note"]')?.textContent).toMatch(/View only/);
-    expect(el.querySelector('[role="status"]')?.textContent).toBe("View only");
+    expect(el.querySelector('header [role="status"]')?.textContent).toBe("View only");
     expect(tabNames(el)).not.toContain("Add");
     expect(el.querySelector("[data-gs-drawer]")).toBeNull();
     // Puck's fields honour the permissions: the page title can't be typed into.
@@ -178,7 +178,7 @@ describe("SiteEditor publishing", () => {
     await waitFor(() => publish.mock.calls.length > 0, "the publish to start");
 
     // While it runs: the canvas is read-only, undo is off, and the status says so.
-    expect(el.querySelector('[role="status"]')?.textContent).toBe("Publishing…");
+    expect(el.querySelector('header [role="status"]')?.textContent).toBe("Publishing…");
     await openTab(el, "Edit");
     expect(field(el, "Page title").disabled).toBe(true);
     expect((el.querySelector('[aria-label="Undo"]') as HTMLButtonElement).disabled).toBe(true);
@@ -195,7 +195,7 @@ describe("SiteEditor publishing", () => {
 
     // The editor adopted that revision: the next edit saves, with no conflict.
     await type(field(el, "Page title"), "After publishing");
-    await waitFor(() => save.mock.calls.length > 0 && el.querySelector('[role="status"]')?.textContent === "All changes saved", "the save");
+    await waitFor(() => save.mock.calls.length > 0 && el.querySelector('header [role="status"]')?.textContent === "All changes saved", "the save");
     expect(save.mock.calls[0]![1]).toBe(2);
     const saved = (await store.getPageDraft(home))!;
     expect(saved.rev).toBe(3);

@@ -334,10 +334,11 @@ import { SiteEditor } from "@marktiderman/genesis-sites/editor";
 | `forms?` | Your `FormsResolver`, so form embeds draw on the canvas and in preview. |
 | `assets?` | `{ list?, upload?, maxBytes? }`: the image library, and an upload of your own instead of the store's `putAsset`. |
 | `onPublish?` | Called with each new release. |
+| `onDirtyChange?` | Called with whether anything isn't saved yet. Block your app's own navigation while it's true; closing the tab is guarded already. |
+| `siteStylesheet?` | The site stylesheet's URL (`@marktiderman/genesis-sites/sites.css`, say through Vite's `?url`). Without it the canvas loads the renderer's bundled assets, a much larger download. |
 | `reserved?` | Paths pages can't use (default: the store's rule, `DEFAULT_RESERVED_PATHS`). |
 | `previewUrl?` | A link to your own preview route for a page path, shown in the Publish panel. |
 | `readOnly?` | View only: the canvas, fields and SEO can't be changed; there is no Add picker, no page actions, no Publish and no Roll back; no autosaver is made, so nothing is saved. A "View only" note says so. |
-| `onDirtyChange?` | Called with `true` when there are unsaved changes and `false` once everything is saved, so your router can ask before leaving. |
 | `autosaveDelay?`, `initialPageId?`, `className?` | |
 
 What it does:
@@ -376,9 +377,11 @@ What it does:
   description, share image, noindex) is in the same panel.
 - **Images** come from an upload, the library, or a link; every one needs alt
   text unless it is marked decorative. SVG isn't accepted.
-- **Accessible**: every field has a label, adding a section works without
-  dragging (each Add-picker entry has an Add button), and the panels are
-  Genesis UI tabs and dialogs.
+- **Accessible**: every field has a label; nothing needs dragging (each
+  Add-picker entry has an Add button, and the selected section's Up, Down
+  and Remove buttons sit above its fields); actions are announced; and the
+  panels are Genesis UI tabs and dialogs. Puck's canvas and outline still
+  move sections only by dragging.
 
 Puck is an optional peer dependency (`@puckeditor/core`): an app that only
 serves sites never installs it, and the root, `/web` and `/sections` never

@@ -20,7 +20,7 @@ import { NativeIcon } from "../components/icon";
 import { NativeListItem } from "../components/list-item";
 import { NativeDatePicker } from "../components/date-time-picker";
 import { NativeGlassSurface, __resetReduceTransparency } from "../components/glass-surface";
-import { NotificationsPage, __test as notificationsTest } from "../layouts/notifications-page";
+import { NotificationsPage, __test as notificationsTest, defaultStickyHeaderOffset, iosCompactNavigationBarHeight } from "../layouts/notifications-page";
 import { fakeDatePicker, fakeFlashList, fakeGlass, fakeIcon, fakeImage, fakeReanimated, fakeSymbolView } from "./fake-modules";
 
 const originalOS = Platform.OS;
@@ -580,6 +580,49 @@ describe("NotificationsPage with FlashList", () => {
   it("falls back to SectionList", () => {
     render(<NotificationsPage items={items} />);
     expect(screen.getByTestId("notifications-page-list").dataset.flashList).toBeUndefined();
+  });
+
+  it("sticks section headers under the native header on iOS, not under the status bar", () => {
+    const version = Platform.Version;
+    try {
+      Platform.Version = "26.0";
+      const FlashList = fakeFlashList();
+      const { unmount } = withModules({ list: FlashList }, <NotificationsPage items={items} />);
+      // The safe area's top (0 in tests) plus iOS 26's compact navigation bar.
+      expect(screen.getByTestId("notifications-page-list").dataset.stickyOffset).toBe("54");
+      unmount();
+      Platform.Version = "18.4";
+      withModules({ list: fakeFlashList() }, <NotificationsPage items={items} />);
+      expect(screen.getByTestId("notifications-page-list").dataset.stickyOffset).toBe("44");
+    } finally {
+      Platform.Version = version;
+    }
+  });
+
+  it("takes the app's own offset, and sticks at 0 on Android (the header sits above the list)", () => {
+    const { unmount } = withModules({ list: fakeFlashList() }, <NotificationsPage items={items} stickyHeaderOffset={20} />);
+    expect(screen.getByTestId("notifications-page-list").dataset.stickyOffset).toBe("20");
+    unmount();
+    Platform.OS = "android";
+    withModules({ list: fakeFlashList() }, <NotificationsPage items={items} />);
+    expect(screen.getByTestId("notifications-page-list").dataset.stickyOffset).toBe("0");
+  });
+
+  it("on React Native's SectionList, lets headers scroll rather than stick under the header", () => {
+    const { unmount } = render(<NotificationsPage items={items} />);
+    expect(screen.getByTestId("notifications-page-list").dataset.stickySectionHeaders).toBe("false");
+    unmount();
+    render(<NotificationsPage items={items} stickyHeaderOffset={0} />);
+    expect(screen.getByTestId("notifications-page-list").dataset.stickySectionHeaders).toBe("true");
+  });
+
+  it("knows iOS's compact bar height by version", () => {
+    expect(iosCompactNavigationBarHeight("26.1")).toBe(54);
+    expect(iosCompactNavigationBarHeight(27)).toBe(54);
+    expect(iosCompactNavigationBarHeight("18.6")).toBe(44);
+    expect(iosCompactNavigationBarHeight("unknown")).toBe(44);
+    expect(defaultStickyHeaderOffset("ios", "26.0", 62)).toBe(116);
+    expect(defaultStickyHeaderOffset("android", 35, 24)).toBe(0);
   });
 });
 

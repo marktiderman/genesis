@@ -33,11 +33,12 @@ export async function checkSite(store: SiteStore, siteId: string, options: Pick<
   const draft = await store.getDraft(siteId);
   if (!draft) return { publishable: false, issues: [{ severity: "error", code: "no-site", message: `There's no site ${siteId}, or you can't edit it.` }] };
   const metas = await store.listPages(siteId);
+  // In parallel: on a remote store each read is a round trip.
+  const drafts = await Promise.all(metas.map((meta) => store.getPageDraft(meta.id)));
   const pages: { id: string; path: string; kind: PageKind; doc: PageDoc }[] = [];
-  for (const meta of metas) {
-    const p = await store.getPageDraft(meta.id);
-    if (p) pages.push({ id: meta.id, path: p.path, kind: p.kind, doc: p.doc });
-  }
+  drafts.forEach((p, i) => {
+    if (p) pages.push({ id: metas[i]!.id, path: p.path, kind: p.kind, doc: p.doc });
+  });
   let issues: SiteIssue[];
   try {
     issues = prepareRelease(draft.site, pages, { reserved: options.reserved ?? DEFAULT_RESERVED_PATHS, ...(options.brand ? { brand: options.brand } : {}) }).issues;

@@ -320,6 +320,8 @@ describe("the push block: the soft prompt", () => {
     await act(settle);
     expect(results).toEqual([false, true]);
     expect(screen.getByTestId("genesis-push-prompt-body").textContent).toContain("when someone replies");
+    // Centred in the sheet, not stacked at the top of a full-height page sheet.
+    expect(JSON.parse(screen.getByTestId("genesis-push-prompt-content").dataset.style ?? "{}")).toMatchObject({ flexGrow: 1, justifyContent: "center" });
     expect(n.module.requestPermissionsAsync).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId("genesis-push-prompt-accept"));
     await act(settle);
