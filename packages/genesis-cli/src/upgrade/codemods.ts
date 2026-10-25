@@ -43,5 +43,5 @@ export function uncoveredBreaks(changes: readonly BumpChange[], registry: readon
     const [a, b] = bare(v).split(".").map(Number);
     return a === 0 ? `0.${b}` : String(a);
   };
-  return changes.filter((c) => major(c.from) !== major(c.to) && !registry.some((m) => m.package === c.name));
+  return changes.filter((c) => major(c.from) !== major(c.to) && codemodsFor([c], registry).length === 0);
 }

@@ -1,6 +1,7 @@
 export declare const UMBRELLA: "@marktiderman/genesis";
 export declare const GENESIS: RegExp;
 export declare const EXACT: RegExp;
+export declare const PLAIN: RegExp;
 export declare const SECTIONS: readonly string[];
 
 export interface BumpChange {

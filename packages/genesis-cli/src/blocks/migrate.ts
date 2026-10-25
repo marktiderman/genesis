@@ -13,7 +13,8 @@ import * as path from "node:path";
 import { findBlock, packageDir } from "./discover.js";
 import { readPackageFile } from "./files.js";
 import { readLock, writeLock } from "./lock.js";
-import { applyMigrationPlan, planMigrations, readAppMigrations, type MigrationPlan, type SourceMigration } from "./migrations.js";
+import { GENESIS_PACKAGE } from "./manifest.js";
+import { applyMigrationPlan, needsAttention, planMigrations, readAppMigrations, validHeaderFile, type MigrationPlan, type SourceMigration } from "./migrations.js";
 import { recordOwned, sourceMigrations } from "./add.js";
 
 export interface MigrateOptions {
@@ -53,6 +54,10 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   for (const copy of readAppMigrations(root)) {
     const t = copy.tracked;
     if (!t || sources.some((s) => s.package === t.package && s.file === t.file)) continue;
+    if (!GENESIS_PACKAGE.test(t.package) || !validHeaderFile(t.file)) {
+      warnings.push(`${copy.path}: its genesis-migration header names ${t.package} ${t.file}, which isn't a Genesis package's NNNN_name.sql; skipped.`);
+      continue;
+    }
     const dir = packageDir(root, t.package);
     let source: string | null = null;
     try {
@@ -65,7 +70,8 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   if (!ids.length && !sources.length) warnings.push("No blocks in genesis.lock.json and no copied package migrations: nothing to compare. Add a block (genesis add <block>), or pass --block.");
 
   const plan = planMigrations(root, sources, { now: options.now ?? new Date(), ...(options.forward ? { forward: true } : {}) });
-  const attention = plan.rows.some((r) => r.state !== "current" && r.state !== "new");
+  // An edited or changed copy that a forward migration already carries is handled.
+  const attention = plan.rows.some(needsAttention);
   if (options.dryRun) return { plan, written: [], warnings, attention };
   const written = applyMigrationPlan(root, plan);
   for (const c of plan.creates) if (c.kind === "test" && c.source) recordOwned(lock, c.path, `${c.source.package}:${c.source.file}`, c.content, root, c.source.package);

@@ -33,7 +33,7 @@ export function readPackageFile(packageDir: string, rel: string): string | null 
 }
 
 /** The files of a package folder (one level, regular files only), each checked like {@link readPackageFile}. */
-export function readPackageDir(packageDir: string, rel: string): { name: string; content: string }[] | null {
+export function readPackageDir(packageDir: string, rel: string, skipped: string[] = []): { name: string; content: string }[] | null {
   const safe = safeRelative(rel);
   if (!safe) throw new Error(`"${rel}" is not a plain path inside the package`);
   const root = realpathSync(packageDir);
@@ -43,7 +43,10 @@ export function readPackageDir(packageDir: string, rel: string): { name: string;
   if (!inside(root, real) || !statSync(real).isDirectory()) throw new Error(`${rel} in ${packageDir} is not a folder inside the package`);
   const out: { name: string; content: string }[] = [];
   for (const entry of readdirSync(real, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(entry.name)) continue;
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(entry.name) || entry.isDirectory()) {
+      skipped.push(`${safe}/${entry.name}`);
+      continue;
+    }
     const content = readPackageFile(packageDir, `${safe}/${entry.name}`);
     if (content !== null && entry.isFile()) out.push({ name: entry.name, content });
   }
@@ -58,6 +61,8 @@ export function appPath(root: string, rel: string): string {
   const safe = safeRelative(rel.replace(/^\.\//, ""));
   // Leading dots are fine for app paths (.eas, .github), unlike `.` and `..` segments.
   if (!safe) throw new Error(`"${rel}" is not a plain path inside the app`);
+  // Git's own files are never Genesis's to write, whatever a manifest or a lock says.
+  if (safe.split("/").some((s) => s.toLowerCase() === ".git")) throw new Error(`"${rel}" is inside .git; refused`);
   const realRoot = realpathSync(root);
   const target = path.join(realRoot, ...safe.split("/"));
   // The nearest existing ancestor must resolve inside the app.
@@ -87,8 +92,8 @@ export function replaceApp(root: string, rel: string, content: string): void {
   writeFileSync(file, content, "utf8");
 }
 
-/** Every file under an app folder, app-relative, sorted. */
-export function listApp(root: string, rel: string): string[] {
+/** Every file under an app folder, app-relative, sorted; with `symlinks`, symlinks too (reading one then fails loudly). */
+export function listApp(root: string, rel: string, options: { symlinks?: boolean } = {}): string[] {
   const dir = path.join(root, rel);
   if (!existsSync(dir)) return [];
   const out: string[] = [];
@@ -96,7 +101,7 @@ export function listApp(root: string, rel: string): string[] {
     for (const entry of readdirSync(path.join(root, r), { withFileTypes: true })) {
       const child = `${r}/${entry.name}`;
       if (entry.isDirectory()) walk(child);
-      else if (entry.isFile()) out.push(child);
+      else if (entry.isFile() || (options.symlinks && entry.isSymbolicLink())) out.push(child);
     }
   };
   walk(rel);

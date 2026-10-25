@@ -25,8 +25,8 @@ describe("genesis add", () => {
     expect(snapshot(root)).toEqual(before);
     expect(report.migrations.creates.map((c) => c.path)).toEqual([
       "supabase/migrations/20261101120000_fixture_notes.sql",
-      "supabase/migrations/20261101120001_fixture_notes_body.sql",
       "supabase/tests/database/fixture_notes.test.sql",
+      "supabase/migrations/20261101120001_fixture_notes_body.sql",
     ]);
   });
 

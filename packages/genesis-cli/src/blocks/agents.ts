@@ -14,6 +14,7 @@ export function fragmentMarkers(blockId: string): { start: string; end: string }
  */
 export function mergeFragment(agents: string | null, blockId: string, fragment: string, source: string): string {
   const { start, end } = fragmentMarkers(blockId);
+  if (fragment.includes("<!-- genesis-block:")) throw new Error(`${source} contains a genesis-block marker; a fragment can't hold one.`);
   const body = `${start}\n<!-- From ${source}; \`genesis upgrade\` replaces this block. Don't edit it. -->\n${fragment.trim()}\n${end}`;
   const text = agents ?? "# Agent notes\n";
   const s = text.indexOf(start);

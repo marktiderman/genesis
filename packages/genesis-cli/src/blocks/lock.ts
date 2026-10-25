@@ -21,6 +21,12 @@ export interface OwnedFile {
   sha256: string;
   /** The source package's version when written. */
   version?: string;
+  /**
+   * After a refresh the app has to resolve (a conflict, or --keep-mine): the
+   * checksum of the version left in `<file>.genesis-next`. Once that file is
+   * gone and the package still ships that version, it becomes the base.
+   */
+  pending?: string;
 }
 
 export interface GenesisLock {

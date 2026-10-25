@@ -33,7 +33,8 @@ describe("genesis migrate", () => {
     fixturePackage(root); // the package now also ships 0002
     const report = await runMigrate({ root, now: new Date("2026-01-01T00:00:00Z") });
     // "now" is before the copies already there: the new file still sorts after them.
-    expect(report.written).toEqual(["supabase/migrations/20261101120001_fixture_notes_body.sql", "supabase/tests/database/fixture_notes.test.sql"]);
+    // 0001's test isn't copied now: a test only comes with its migration.
+    expect(report.written).toEqual(["supabase/migrations/20261101120001_fixture_notes_body.sql"]);
     expect(migrations(root).at(-1)).toBe("20261101120001_fixture_notes_body.sql");
     expect(read(root, "supabase/migrations/20261101120001_fixture_notes_body.sql").endsWith(SQL_B)).toBe(true);
     // Run again: nothing new.
@@ -52,7 +53,7 @@ describe("genesis migrate", () => {
     const forward = await runMigrate({ root, forward: true, now: NOW });
     expect(read(root, copy)).toBe(edited);
     expect(forward.written).toEqual(["supabase/migrations/20261101120002_fixture_notes_forward.sql"]);
-    expect(read(root, forward.written[0]!)).toMatch(/^-- Forward migration for @marktiderman\/genesis-fixture migrations\/0001_fixture_notes\.sql/);
+    expect(read(root, forward.written[0]!)).toMatch(/^-- genesis-forward: [^\n]+\n-- Forward migration for @marktiderman\/genesis-fixture migrations\/0001_fixture_notes\.sql/);
   });
 
   it("refuses to rewrite a copy whose package migration changed upstream", async () => {

@@ -16,9 +16,9 @@ import * as path from "node:path";
 import { fragmentMarkers, mergeFragment, skillName } from "./agents.js";
 import { allBlocks, findBlock, packageDir, packageVersion, type FoundBlock } from "./discover.js";
 import { createApp, readApp, readPackageDir, readPackageFile, replaceApp, sha256 } from "./files.js";
-import { LOCK_FILE, readLock, writeLock, type GenesisLock } from "./lock.js";
+import { LOCK_FILE, readLock, substitute, writeLock, type GenesisLock } from "./lock.js";
 import type { BlockManifest } from "./manifest.js";
-import { applyMigrationPlan, formatMigrationRows, planMigrations, type MigrationPlan, type SourceMigration } from "./migrations.js";
+import { applyMigrationPlan, formatMigrationRows, needsAttention, planMigrations, type MigrationPlan, type SourceMigration } from "./migrations.js";
 import { copyOwned, type OwnedWrite } from "./owned.js";
 import { addCommand, detectPackageManager, pinnedVersion, run, shellLine } from "./pm.js";
 import { addFeatureEntry, featureSnippet } from "./registry-edit.js";
@@ -112,7 +112,9 @@ export function ownedWrites(root: string, manifest: BlockManifest, warnings: str
   const out: OwnedWrite[] = [];
   for (const fn of manifest.functions) {
     const dir = packageDir(root, fn.package);
-    const files = dir ? readPackageDir(dir, fn.dir) : null;
+    const skipped: string[] = [];
+    const files = dir ? readPackageDir(dir, fn.dir, skipped) : null;
+    if (skipped.length) warnings.push(`${fn.package} ${fn.dir}: only its own files are copied; left out ${skipped.join(", ")}.`);
     const name = fn.dir.split("/").pop()!;
     if (!files) {
       warnings.push(`${fn.package} ${fn.dir}: can't read it (not installed?); the ${name} function wasn't copied.`);
@@ -147,13 +149,21 @@ export function agentsFragment(root: string, manifest: BlockManifest): { text: s
 }
 
 /** Append `[functions.<name>] verify_jwt = false` sections config.toml lacks. */
-function configTomlEdit(root: string, manifest: BlockManifest): { content: string; names: string[] } | null {
+function configTomlEdit(root: string, manifest: BlockManifest, tomlWarnings: string[] = []): { content: string; names: string[] } | null {
   const config = readApp(root, "supabase/config.toml");
   if (config === null) return null;
   const names = manifest.functions
     .filter((f) => f.verifyJwt === false)
     .map((f) => f.dir.split("/").pop()!)
-    .filter((name) => !new RegExp(`^\\[functions\\.${name.replace(/[-_]/g, "\\$&")}\\]`, "m").test(config));
+    // [functions.name] or [functions."name"], indented or not.
+    .filter((name) => !new RegExp(`^\\s*\\[\\s*functions\\.("?)${name.replace(/[-_]/g, "\\$&")}\\1\\s*\\]`, "m").test(config));
+  // A section the app already has keeps its own settings; say so when it may still check JWTs.
+  for (const f of manifest.functions.filter((fn) => fn.verifyJwt === false)) {
+    const name = f.dir.split("/").pop()!;
+    if (!names.includes(name) && !new RegExp(`\\[\\s*functions\\.("?)${name.replace(/[-_]/g, "\\$&")}\\1\\s*\\][^[]*verify_jwt\\s*=\\s*false`).test(config)) {
+      tomlWarnings.push(`supabase/config.toml has [functions.${name}] without verify_jwt = false; ${name} checks its caller itself, so set it (left as it is).`);
+    }
+  }
   if (!names.length) return null;
   const add = names.map((n) => `\n# Added by \`genesis add ${manifest.id}\`: the function checks its caller itself.\n[functions.${n}]\nverify_jwt = false\n`).join("");
   return { content: `${config.replace(/\s*$/, "\n")}${add}`, names };
@@ -192,36 +202,61 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
     warnings.push(blockIds.has(req) ? `${options.block} requires the ${req} block: add it too (genesis add ${req}), unless the app already has it.` : `${options.block} requires the ${req} feature; make sure the app has it.`);
   }
 
-  log.info(`${found.manifest.id}: from ${found.manifest.package}${found.manifest.version ? ` ${found.manifest.version}` : ""} (${found.from === "installed" ? "installed" : "not installed yet"})`);
-  if (command) log.info(`  install: ${shellLine(command)}${install ? "" : " (skipped: --no-install)"}`);
-
-  if (!options.dryRun && !options.yes) {
-    const ok = options.confirm ? await options.confirm(`Add ${found.manifest.id} to ${root}?`) : false;
-    if (!ok) throw new Error("Nothing written. Pass --yes to add without asking, or --dry-run to see the plan.");
-  }
-
-  if (command && install && !options.dryRun) {
-    run(root, command);
-    found = await findBlock(root, options.block, { package: found.manifest.package, warnings });
-  }
-  if (found.from === "catalog") warnings.push(`${found.manifest.package} isn't installed, so its files can't be read yet: migrations, functions and skills are listed, not copied. Install it and run genesis add ${found.manifest.id} again.`);
-  const manifest = found.manifest;
-
-  // 3. The plan.
-  const migrations = planMigrations(root, sourceMigrations(root, manifest), { now });
-  const owned = ownedWrites(root, manifest, warnings);
-  const fragment = agentsFragment(root, manifest);
-  if (manifest.agents && !fragment) warnings.push(`${manifest.agents.package} ${manifest.agents.path}: can't read it; AGENTS.md wasn't changed.`);
-  const { routerRoot, stubs } = planRouteStubs(root, manifest.routes);
-  const toml = configTomlEdit(root, manifest);
-
   const steps: string[] = [];
   const kept: AddReport["kept"] = [];
   const created: string[] = [];
   const edited: string[] = [];
 
+  /** Everything the run will write, from what can be read now; printed before anything happens. */
+  const makePlan = (manifest: BlockManifest, from: FoundBlock["from"]) => {
+    const planWarnings: string[] = [];
+    const migrations = planMigrations(root, sourceMigrations(root, manifest), { now });
+    // Owned files carry the app's renames, the same way upgrade refreshes them.
+    const owned = ownedWrites(root, manifest, planWarnings).map((w) => ({ ...w, content: substitute(w.content, lock.substitutions) }));
+    const fragment = agentsFragment(root, manifest);
+    if (manifest.agents && !fragment) planWarnings.push(`${manifest.agents.package} ${manifest.agents.path}: can't read it; AGENTS.md wasn't changed.`);
+    const { routerRoot, stubs } = planRouteStubs(root, manifest.routes);
+    const toml = configTomlEdit(root, manifest, planWarnings);
+    let snippet: string | undefined;
+    let registryEdit: string | null = null;
+    if (!ids?.has(manifest.id)) {
+      const owner = (JSON.parse(readApp(root, "package.json") ?? "{}") as { name?: string }).name ?? "app";
+      snippet = featureSnippet(manifest, owner);
+      if (registry) registryEdit = addFeatureEntry(readApp(root, registry) ?? "", snippet);
+    }
+    const print = (mark: string, p: string, note = "") => log.info(`  ${mark} ${p}${note ? ` ${note}` : ""}`);
+    log.info(`${manifest.id}: from ${manifest.package}${manifest.version ? ` ${manifest.version}` : ""} (${from === "installed" ? "installed" : "not installed yet: files are read after the install"})`);
+    if (command) log.info(`  install: ${shellLine(command)}${install ? "" : " (skipped: --no-install)"}`);
+    log.info(formatMigrationRows(migrations.rows).replace(/^/gm, "  "));
+    for (const c of migrations.creates) if (c.kind === "test") print("+", c.path, "(pgTAP test)");
+    for (const w of owned) {
+      const existing = readApp(root, w.path);
+      print(existing === null ? "+" : existing === w.content ? "=" : "!", w.path, existing !== null && existing !== w.content ? "exists with other text; left alone" : "");
+    }
+    for (const s of stubs) if (s.file) print(readApp(root, s.file) === null ? "+" : "=", s.file, "(route stub)");
+    if (toml) print("~", "supabase/config.toml", `([functions.${toml.names.join("], [functions.")}] verify_jwt = false)`);
+    if (fragment) print("~", "AGENTS.md", `(${fragmentMarkers(manifest.id).start})`);
+    if (registryEdit && registry) print("~", registry, `(adds ${manifest.id})`);
+    return { manifest, migrations, owned, fragment, routerRoot, stubs, toml, snippet, registryEdit, planWarnings };
+  };
+
+  let plan = makePlan(found.manifest, found.from);
+  if (!options.dryRun && !options.yes) {
+    const ok = options.confirm ? await options.confirm(`Add ${found.manifest.id} to ${root}?`) : false;
+    if (!ok) throw new Error("Nothing written. Pass --yes to add without asking, or --dry-run to see the plan.");
+  }
+  if (command && install && !options.dryRun) {
+    run(root, command);
+    found = await findBlock(root, options.block, { package: found.manifest.package, warnings });
+    log.info("After the install:");
+    plan = makePlan(found.manifest, found.from);
+  }
+  warnings.push(...plan.planWarnings);
+  if (found.from === "catalog") warnings.push(`${found.manifest.package} isn't installed, so its files can't be read yet: migrations, functions and skills are listed, not copied. Install it and run genesis add ${found.manifest.id} again.`);
+  const { manifest, migrations, owned, fragment, routerRoot, stubs, toml, snippet, registryEdit } = plan;
+
   for (const row of migrations.rows) {
-    if (row.state === "edited" || row.state === "changed-upstream" || row.state === "differs") kept.push({ path: row.copy!, why: `${row.state}: ${row.detail}. Run genesis migrate --forward to add a forward migration.` });
+    if (needsAttention(row)) kept.push({ path: row.copy ?? row.file, why: `${row.state}: ${row.detail}. Run genesis migrate --forward to add a forward migration.` });
   }
   for (const stub of stubs) {
     if (stub.existing) continue;
@@ -235,33 +270,8 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   if (migrations.creates.some((c) => c.kind === "migration")) steps.push("Review the new migrations in supabase/migrations, then apply them (supabase db push, or open a pull request).");
   steps.push(...manifest.steps);
   if (manifest.privacy?.collects?.length) steps.push(`Update the App Store privacy label and Play data safety form: ${manifest.id} collects ${manifest.privacy.collects.map((c) => c.type).join(", ")}.`);
-
-  // The registry entry.
-  let snippet: string | undefined;
-  let registryEdit: string | null = null;
-  if (ids?.has(manifest.id)) {
-    // Already listed.
-  } else {
-    const owner = (JSON.parse(readApp(root, "package.json") ?? "{}") as { name?: string }).name ?? "app";
-    snippet = featureSnippet(manifest, owner);
-    if (registry) {
-      registryEdit = addFeatureEntry(readApp(root, registry) ?? "", snippet);
-      if (!registryEdit) steps.push(`Add ${manifest.id} to ${registry} (the edit wasn't safe to make automatically):\n${snippet}`);
-    } else steps.push(`No feature registry (features.ts) here; when you add one, list ${manifest.id}:\n${snippet}`);
-  }
-
-  // 4. Report the plan; with --dry-run, stop here.
-  const print = (mark: string, p: string, note = "") => log.info(`  ${mark} ${p}${note ? ` ${note}` : ""}`);
-  log.info(formatMigrationRows(migrations.rows).replace(/^/gm, "  "));
-  for (const c of migrations.creates) if (c.kind === "test") print("+", c.path, "(pgTAP test)");
-  for (const w of owned) {
-    const existing = readApp(root, w.path);
-    print(existing === null ? "+" : existing === w.content ? "=" : "!", w.path, existing !== null && existing !== w.content ? "exists with other text; left alone" : "");
-  }
-  for (const s of stubs) if (s.file) print(readApp(root, s.file) === null ? "+" : "=", s.file, "(route stub)");
-  if (toml) print("~", "supabase/config.toml", `([functions.${toml.names.join("], [functions.")}] verify_jwt = false)`);
-  if (fragment) print("~", "AGENTS.md", `(${fragmentMarkers(manifest.id).start})`);
-  if (registryEdit && registry) print("~", registry, `(adds ${manifest.id})`);
+  if (snippet && registry && !registryEdit) steps.push(`Add ${manifest.id} to ${registry} (the edit wasn't safe to make automatically):\n${snippet}`);
+  if (snippet && !registry) steps.push(`No feature registry (features.ts) here; when you add one, list ${manifest.id}:\n${snippet}`);
 
   if (options.dryRun) return { block: manifest, install: command, migrations, created, kept, edited, steps, ...(snippet ? { featureSnippet: snippet } : {}), warnings };
 
@@ -300,7 +310,9 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
       steps.push(`Add ${manifest.id} to ${registry} (the automatic edit didn't load, so it was undone):\n${snippet}`);
     } else edited.push(registry);
   }
-  lock.blocks[manifest.id] = { package: manifest.package, ...(manifest.version ? { version: manifest.version } : {}) };
+  // Recorded only once its files could be read: a block added before its package is installed isn't added yet.
+  if (found.from === "installed") lock.blocks[manifest.id] = { package: manifest.package, ...(manifest.version ? { version: manifest.version } : {}) };
+  else steps.unshift(`Install ${manifest.packages.join(" and ")}, then run genesis add ${manifest.id} again to copy its files.`);
   const lockBefore = readApp(root, LOCK_FILE);
   writeLock(root, lock);
   if (readApp(root, LOCK_FILE) !== lockBefore) edited.push(LOCK_FILE);

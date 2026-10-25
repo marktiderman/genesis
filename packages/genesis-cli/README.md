@@ -174,10 +174,14 @@ installed packages with the app's copies, and every copy that carries a header:
 | `differs` | a file with the migration's name, other text and no header | treated as the app's own; never rewritten |
 
 Every file already in `supabase/migrations` counts as applied: none is ever written again, and a
-new file is created only if its name is free (otherwise it fails). `--forward` writes a forward
-migration stub (`<timestamp>_<name>_forward.sql`) for each edited or changed copy, holding the
-package's current text commented out, for you to turn into the change. It exits 1 when something
-needs you.
+new file is created only if its name is free (otherwise it fails). A package migration is copied
+only when nothing in the folder holds it yet, by header, by name or by text, so one a package
+renumbered or moved is never copied twice. Line endings (CRLF or LF) don't count as a change. A
+symlink in the folder stops the command. A pgTAP test is copied only with its migration, so one you
+deleted stays deleted. `--forward` writes one forward migration stub
+(`<timestamp>_<name>_forward.sql`, with a `genesis-forward` header) for each edited or changed
+copy, holding the package's current text commented out, for you to turn into the change; later
+runs count that copy as handled. It exits 1 when something still needs you.
 
 ### genesis upgrade
 
@@ -198,7 +202,17 @@ needs you.
    deleted stays deleted. AGENTS.md fragments are replaced, skills a block gained are copied, and
    new package migrations are listed (run `genesis migrate`).
 4. Runs `genesis doctor` and prints a summary; `--pr` commits to `genesis-upgrade/<version>`,
-   pushes and opens a pull request with `gh`. `--dry-run` changes nothing.
+   pushes and opens a pull request with `gh`. It checks first, before writing anything, that the
+   tree is clean, a branch is checked out and the branch name is free; it commits the lockfile
+   (found up to the repository's root), never `.genesis-next` files. `--dry-run` changes nothing,
+   and shows the refresh against the packages installed now.
+
+`genesis.lock.json` is checked like a manifest, since anyone with commit access can edit it: each
+entry may only write where its kind of source goes (a template to `eas.json`, `.eas/`, `.maestro/`
+or `.github/workflows/`, a function file to `supabase/functions/<name>/`, a pgTAP test to
+`supabase/tests/database/`, a skill to `.claude/skills/`), never a migration and never `.git`;
+substitutions may only replace the starter's own names. A pgTAP test waits while its block has
+new migrations to copy.
 
 ## Expo config plugin
 

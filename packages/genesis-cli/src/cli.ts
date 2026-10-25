@@ -399,7 +399,7 @@ program
     console.log("");
     if (opts.dryRun) console.log(`Dry run: nothing written${report.install ? " or installed" : ""}.`);
     else if (!report.created.length && !report.edited.length) console.log(`✔ ${report.block.id} is already in this app: nothing to copy or change.`);
-    else console.log(`✔ Added ${report.block.id}:${report.created.length} files created${report.edited.length ? `, ${report.edited.length} edited (${report.edited.join(", ")})` : ""}.`);
+    else console.log(`✔ Added ${report.block.id}: ${report.created.length} files created${report.edited.length ? `, ${report.edited.length} edited (${report.edited.join(", ")})` : ""}.`);
     if (report.steps.length) {
       console.log("");
       console.log("To finish:");
@@ -436,7 +436,7 @@ program
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--version <v>", "The @marktiderman/genesis release: an exact version or a dist-tag", "latest")
   .option("--manifest <file>", "Read the release from this versions.json instead of npm")
-  .option("--dry-run", "Report the bump and what would be refreshed; change nothing", false)
+  .option("--dry-run", "Report the bump, and owned files compared with the packages installed now; change nothing", false)
   .option("--no-install", "Don't reinstall after the bump")
   .option("--no-doctor", "Don't run genesis doctor after")
   .option("--keep-mine", "Never merge an owned file you changed; write the new text to .genesis-next", false)

@@ -66,8 +66,10 @@ export function planRouteStubs(root: string, routes: readonly BlockRoute[]): { r
 }
 
 export function routeStub(blockId: string, route: BlockRoute): string {
+  // One comment line: a manifest's description can't end the comment and become code.
+  const description = (route.description ?? "Replace it with the block's screen").replace(/[\r\n\u2028\u2029]+/g, " ");
   return `// A stub for the ${blockId} block's ${route.path} screen, written by \`genesis add ${blockId}\`.
-// ${route.description ?? "Replace it with the block's screen"}. See the block's README for the screen to render here.
+// ${description}. See the block's README for the screen to render here.
 import { ScreenContainer } from "@marktiderman/genesis-ui-native";
 
 export default function Screen() {

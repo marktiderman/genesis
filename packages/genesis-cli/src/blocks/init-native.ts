@@ -17,7 +17,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import { allBlocks, CLI_PACKAGE } from "./discover.js";
+import { catalogBlocks, CLI_PACKAGE } from "./discover.js";
 import { sha256 } from "./files.js";
 import { emptyLock, substitute, writeLock, type GenesisLock } from "./lock.js";
 import type { BlockManifest } from "./manifest.js";
@@ -126,7 +126,8 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   const files = new Map<string, string>();
   for (const rel of walk(source, STARTER_EXCLUDE)) {
     const to = rel.replace(new RegExp(`(^|/)${PACKED_GITIGNORE}$`), "$1.gitignore");
-    files.set(to, substitute(read(rel), substitutions));
+    // Migrations and their tests stay the package's bytes; everything else takes the new names.
+    files.set(to, /^supabase\/(migrations|tests)\//.test(rel) ? read(rel) : substitute(read(rel), substitutions));
   }
 
   // package.json: the name, and published versions for workspace deps.
@@ -213,6 +214,6 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
 
 /** `initNative`, with the blocks it can record read first (from package metadata). */
 export async function runInitNative(options: Omit<InitNativeOptions, "blocks">): Promise<InitNativeResult> {
-  const blocks = (await allBlocks(path.resolve(options.target))).map((b) => b.manifest);
-  return initNative({ ...options, blocks });
+  // The CLI's own catalog: the versions it was released with, not whatever a parent folder has installed.
+  return initNative({ ...options, blocks: catalogBlocks() });
 }

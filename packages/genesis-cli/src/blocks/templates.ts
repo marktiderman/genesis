@@ -36,7 +36,7 @@ export function templatesDir(cliDir = cliPackageDir()): string {
  */
 export function templateTarget(template: string, content: string): string {
   const said = /^#\s*Copy to (\S+?)\.?(?:\s|$)/.exec(content)?.[1];
-  if (said && /^[.A-Za-z0-9][\w./-]*$/.test(said) && !said.split("/").includes("..")) return said;
+  if (said && /^[.A-Za-z0-9][\w./-]*$/.test(said) && !said.split("/").some((s) => s === ".." || s === "." || s.toLowerCase() === ".git")) return said;
   if (template === "eas/eas.json") return "eas.json";
   const [dir, ...rest] = template.split("/");
   const tail = rest.join("/");

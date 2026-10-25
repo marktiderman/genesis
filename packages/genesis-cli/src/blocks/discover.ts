@@ -5,7 +5,7 @@
  * is installed. Nothing is hard-coded per block: a package that declares one
  * is found.
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
@@ -45,11 +45,19 @@ export function readCatalog(): Catalog {
   return catalogCache;
 }
 
-/** Every Genesis package installed for the app (nearest node_modules first), by name. */
+const INSTALL_ROOT_MARKERS = [".git", "pnpm-lock.yaml", "pnpm-workspace.yaml", "bun.lock", "bun.lockb", "yarn.lock", "package-lock.json"];
+
+/**
+ * Every Genesis package installed for the app (nearest node_modules first), by
+ * name: from the app up to its install root (the nearest folder with a lockfile,
+ * a workspace file or .git), never above it, so packages that merely sit in a
+ * parent folder's node_modules are neither read nor run.
+ */
 export function installedGenesis(root: string): Map<string, string> {
   const found = new Map<string, string>();
   let dir = path.resolve(root);
   for (;;) {
+    const atInstallRoot = INSTALL_ROOT_MARKERS.some((m) => existsSync(path.join(dir, m)));
     const scope = path.join(dir, "node_modules", "@marktiderman");
     if (existsSync(scope)) {
       for (const entry of readdirSync(scope)) {
@@ -59,7 +67,7 @@ export function installedGenesis(root: string): Map<string, string> {
       }
     }
     const parent = path.dirname(dir);
-    if (parent === dir) return found;
+    if (atInstallRoot || parent === dir) return found;
     dir = parent;
   }
 }
@@ -76,8 +84,25 @@ export function packageVersion(dir: string): string | undefined {
   return (JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as { version?: string }).version;
 }
 
-/** One package's `./blocks` declarations, when it ships that entry and it loads in Node. */
-async function declarationsOf(dir: string, warnings: string[]): Promise<Record<string, Record<string, unknown>>> {
+const declarationCache = new Map<string, Promise<Record<string, Record<string, unknown>>>>();
+
+/**
+ * One package's `./blocks` declarations, when it ships that entry and it loads
+ * in Node. This runs the package's code (once per package version per run);
+ * package.json manifests are read without running anything.
+ */
+function declarationsOf(dir: string, warnings: string[]): Promise<Record<string, Record<string, unknown>>> {
+  const pkg = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as { name: string; version?: string };
+  const key = `${realpathSync(dir)}@${pkg.version ?? ""}`;
+  let cached = declarationCache.get(key);
+  if (!cached) {
+    cached = loadDeclarations(dir, warnings);
+    declarationCache.set(key, cached);
+  }
+  return cached;
+}
+
+async function loadDeclarations(dir: string, warnings: string[]): Promise<Record<string, Record<string, unknown>>> {
   const pkg = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as { name: string; exports?: Record<string, unknown> };
   const entry = pkg.exports?.["./blocks"];
   const target = typeof entry === "string" ? entry : entry && typeof entry === "object" ? ((entry as Record<string, unknown>)["import"] ?? (entry as Record<string, unknown>)["default"]) : undefined;
@@ -143,6 +168,18 @@ function tryParse(parse: () => BlockManifest, warnings: string[]): BlockManifest
     warnings.push(err.message);
     return null;
   }
+}
+
+/** The blocks in this CLI's catalog only, whatever is installed nearby (for a new app). */
+export function catalogBlocks(warnings: string[] = []): BlockManifest[] {
+  const out: BlockManifest[] = [];
+  for (const [name, entry] of Object.entries(readCatalog().packages)) {
+    for (const [id, raw] of Object.entries(entry.blocks ?? {})) {
+      const manifest = tryParse(() => parseManifest(name, id, raw, entry.version), warnings);
+      if (manifest) out.push(manifest);
+    }
+  }
+  return out;
 }
 
 /** One block by id. Two packages declaring the same id is an error. */
