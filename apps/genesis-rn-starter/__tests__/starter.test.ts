@@ -32,6 +32,13 @@ describe("root layout", () => {
   });
 });
 
+describe("migrations", () => {
+  it("each has its own version, so a new app's database applies every one", () => {
+    const versions = filesUnder("supabase/migrations").map((f) => f.split("/").pop()!.split("_")[0]!);
+    expect(new Set(versions).size).toBe(versions.length);
+  });
+});
+
 describe("starter.config.ts", () => {
   it("refuses a config with no way to sign in", () => {
     const none: StarterConfig = { ...starter, features: { ...starter.features, emailSignIn: false, appleSignIn: false } };
