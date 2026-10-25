@@ -1,0 +1,37 @@
+apps/sample/sites-demo/site.ts
+  s_8252619ce79a86::t_4d0eda455f121e 1-5,11,26,50-53,56,127,131-153,157,159-163,176,181-187,205,208-210,212
+packages/sites/src/sections/pricing.tsx
+  s_8252619ce79a86::t_78bcd58435d578 174
+apps/sample/sites-demo/classes.ts
+  s_8252619ce79a86::t_4d0eda455f121e 1-214
+packages/sites/src/sections/schedule.tsx
+  s_8252619ce79a86::t_78bcd58435d578 304
+  s_8252619ce79a86::t_c2fdaf89b30df7 308
+apps/sample/app/routes/sites.tsx
+  s_8252619ce79a86::t_4d0eda455f121e 28-42
+apps/sample/sites-demo/vite-plugin.ts
+  s_8252619ce79a86::t_4d0eda455f121e 89-92
+docs/SITES.md
+  s_8252619ce79a86::t_c2fdaf89b30df7 4-8,39-41,110,116,121,125,212,214-219,245-254,294-297,317-328,379,381,395-401
+packages/sites/README.md
+  s_8252619ce79a86::t_c2fdaf89b30df7 11,15-17,29,165-211,292-299,302-307,320-389
+  s_8252619ce79a86::t_a9504da6da83cb 390
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_8252619ce79a86::t_75e324ba5dacd9 79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "256484cac8c7f9874bde1263f8e9bbca2673ffc1",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
