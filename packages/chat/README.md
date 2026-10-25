@@ -56,3 +56,84 @@ by clients and never stored.
 A message queues a `push` effect, a voice note or video a `transcribe` effect, a deleted file a
 `storage.remove` effect. `createChatRunner` (from `/server`) claims and settles them; nothing is sent
 from a trigger.
+
+## Server: the runner
+
+`@marktiderman/genesis-chat/server` works the outbox with a service-role client. It runs in Node,
+edge functions and Deno (fetch and Web Crypto only).
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+import { createChatRunner, chatRunnerHandler, createExpoDeliver, deepgramTranscriber, muxVideo } from "@marktiderman/genesis-chat/server";
+
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!, { auth: { persistSession: false } });
+export const video = muxVideo({
+  tokenId: process.env.MUX_TOKEN_ID!, tokenSecret: process.env.MUX_TOKEN_SECRET!, webhookSecret: process.env.MUX_WEBHOOK_SECRET!,
+});
+const runner = createChatRunner({
+  supabase,
+  // Or: (n) => notify({ type: "chat.message", recipients: n.recipients, data: n.data, idempotencyKey: n.idempotencyKey, threadKey: n.threadKey, collapseKey: n.collapseKey })
+  deliver: createExpoDeliver({ tokensFor: myPushTokens, accessToken: process.env.EXPO_ACCESS_TOKEN }),
+  transcriber: deepgramTranscriber({ apiKey: process.env.DEEPGRAM_API_KEY! }),
+  video,
+  resolveName: async (userId) => (await myProfile(userId))?.name,
+});
+export const POST = chatRunnerHandler({ runner, secret: process.env.CHAT_RUNNER_SECRET! });
+```
+
+Each `run()` claims up to 50 due effects (`batch.limit`), works up to 4 of a kind at once
+(`batch.concurrency`), settles each (`complete_effect`; an error backs off 30 s × 2^attempts) and
+answers `{ claimed, done, failed }`. It claims only `push`, `transcribe`, `storage.remove` and
+`video.remove` (or the `kinds` you pass); after the 8th attempt an effect is left alone.
+
+- **push**: one `deliver(notification)` per message, with every recipient and their badge. The
+  title is the conversation's, or the sender's name (`resolveName`) in a direct conversation; in a
+  group the body is `Name: preview`. `idempotencyKey` is `push:<message id>`, so a sender that
+  dedupes never pushes a message twice. Throw from `deliver` to retry. `createExpoDeliver` sends
+  through Expo in requests of 100 (`threadId`, `collapseId`, `badge`, channel `messages`, category
+  `chat-message`) and returns the tickets: forget `deadTokens(tickets)`. It throws only when
+  nothing was sent. Note that `collapseId` replaces a conversation's earlier notification on iOS.
+- **transcribe**: a 10 minute signed URL to the transcriber, then `transcript_status: ready`. With no
+  transcriber the status is `off`; on the last attempt a failure sets `failed`. Hosted videos get
+  their transcript from Mux's captions instead. `openAiTranscriber` (gpt-4o-mini-transcribe, files
+  up to 25 MB) is the other choice.
+- **storage.remove** and **video.remove**: delete the file or the hosted asset; already gone is done.
+
+### Run it every minute (Vercel cron)
+
+`vercel.json`: `{ "crons": [{ "path": "/api/chat-runner", "schedule": "* * * * *" }] }`, and set
+`CHAT_RUNNER_SECRET` to the value of Vercel's `CRON_SECRET` (Vercel sends it as
+`Authorization: Bearer <CRON_SECRET>` on a GET; the handler takes GET and POST). Minute crons need
+a paid Vercel plan; on Hobby, use the webhook below or a Supabase `pg_cron` + `pg_net` call.
+
+### Or on every effect (Supabase database webhook)
+
+Database → Webhooks → new hook on `genesis_chat.effects`, Insert, HTTP POST to your route, header
+`Authorization: Bearer <CHAT_RUNNER_SECRET>`. Pushes are queued 2 seconds ahead (a burst
+collapses) and retries are backed off, so keep a schedule too (every minute or five) to pick
+those up.
+
+### Env
+
+| Variable | For |
+|---|---|
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | the service-role client |
+| `CHAT_RUNNER_SECRET` | the handler's bearer, at least 32 characters |
+| `EXPO_ACCESS_TOKEN` | `createExpoDeliver`, when the Expo project has enhanced push security |
+| `DEEPGRAM_API_KEY` | `deepgramTranscriber` (nova-3, language detected; `Authorization: Token`) |
+| `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET` | `muxVideo` uploads and removal |
+| `MUX_WEBHOOK_SECRET` | the Mux webhook's signing secret |
+| `MUX_SIGNING_KEY_ID`, `MUX_SIGNING_KEY` | only for `playbackPolicy: "signed"` (`signing` option) |
+
+### Mux
+
+The client asks your server for an upload (`video.createUpload({ corsOrigin, passthrough })`), puts
+the file to its `url`, and sends the message with an attachment `{ kind: "video", provider: "mux",
+provider_id: uploadId, status: "pending" }`. Point a Mux webhook (Settings → Webhooks) at a route
+that calls `video.handleWebhook(request, { supabase })`. It checks `mux-signature` (HMAC-SHA256,
+5 minutes' tolerance), and on `video.asset.ready` sets the attachment ready with its asset id,
+playback id and duration; on `video.asset.errored` failed; on the English auto-generated caption
+track's `video.asset.track.ready` it stores the caption text as the transcript. An event for an
+attachment not there yet answers 404, so Mux retries it. Playback is public by default
+(`https://stream.mux.com/<playback id>.m3u8`); with `playbackPolicy: "signed"` and `signing`,
+`video.playbackUrl(id)` (or `muxPlaybackUrl`) returns a URL with an RS256 token.
