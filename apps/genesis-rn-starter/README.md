@@ -104,13 +104,15 @@ and iOS 26 on the device; otherwise the surfaces stay solid.
 `app.config.ts` lists the Genesis config plugin (`withGenesis()`, from `@marktiderman/genesis-cli`).
 `APP_VARIANT` picks the build:
 
-| `APP_VARIANT` | Name | Bundle id / package |
-| --- | --- | --- |
-| `development` | Genesis Starter (Dev) | `com.example.genesisstarter.dev` |
-| `preview` | Genesis Starter (Preview) | `com.example.genesisstarter.preview` |
-| unset or `production` | Genesis Starter | `com.example.genesisstarter` |
+| `APP_VARIANT` | Name | Bundle id / package | URL scheme |
+| --- | --- | --- | --- |
+| `development` | Genesis Starter (Dev) | `com.example.genesisstarter.dev` | `genesis-starter-dev://` |
+| `preview` | Genesis Starter (Preview) | `com.example.genesisstarter.preview` | `genesis-starter-preview://` |
+| unset or `production` | Genesis Starter | `com.example.genesisstarter` | `genesis-starter://` |
 
-All three install side by side. Any other value fails the build. Set it per EAS environment so
+All three install side by side, and each registers its own scheme, so a link opens the build it
+names (`genesis-starter-dev://check-in?gym=hilltop` in a development build). `src/lib/links.ts`
+reads the build's scheme from its config. Any other value fails the build. Set it per EAS environment so
 builds, updates and fingerprints all see it; see the
 [plugin's README](../../packages/genesis-cli/README.md#setting-app_variant). The plugin also adds
 the associated domains and Android app links from `genesis.config.json`'s `links`, the privacy
