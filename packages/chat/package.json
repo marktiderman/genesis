@@ -43,6 +43,12 @@
       "import": "./dist/native.js",
       "default": "./dist/native.js"
     },
+    "./push": {
+      "types": "./dist/push.d.ts",
+      "react-native": "./src/native/push.ts",
+      "import": "./dist/push.js",
+      "default": "./dist/push.js"
+    },
     "./server": {
       "types": "./dist/server.d.ts",
       "import": "./dist/server.js"

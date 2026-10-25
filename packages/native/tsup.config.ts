@@ -6,6 +6,8 @@ export default defineConfig({
     persist: "src/persist.ts",
     updates: "src/updates/index.ts",
     push: "src/push/index.ts",
+    "push-payload": "src/push/payload.ts",
+    "rich-push-plugin": "src/plugin/rich-push.ts",
     observability: "src/observability/index.ts",
     devtools: "src/devtools/index.ts",
     "dev-warnings": "src/dev-warnings.ts",
@@ -24,5 +26,6 @@ export default defineConfig({
     /^@marktiderman\/genesis-/,
     /^@tanstack\//,
     /^@sentry\//,
+    /^@expo\//,
   ],
 });

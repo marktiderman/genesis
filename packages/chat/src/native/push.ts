@@ -13,7 +13,10 @@
  *   useSuppressNotifications(chatThreadMatch(conversationId)); // in the thread screen
  *
  * The sender sets `categoryId: "messages"` (iOS) / the `messages` channel
- * (Android) and `data: { url: "/messages/<id>", conversationId, seq }`.
+ * (Android) and `data: { url: "/messages/<id>", conversationId, seq }`;
+ * `chatPushPayload` builds those and the fields iOS rich push reads (the
+ * sender's name and photo, the group, a photo), and it is server safe: import
+ * it from `@marktiderman/genesis-chat/push`.
  */
 import type { ChatClient } from "../core/client";
 
@@ -190,4 +193,92 @@ export function chatThreadMatch(conversationId: string | null | undefined): ((da
   if (!conversationId) return null;
   const id = conversationId.toLowerCase();
   return (data) => conversationIdFromData(data) === id;
+}
+
+/** What a message's push says about itself, for `chatPushPayload`. */
+export interface ChatPushPayloadInput {
+  conversationId: string;
+  messageId: string;
+  seq?: number | null | undefined;
+  /** Who sent it: an opaque id (never an email or phone), the name to show and an https photo. */
+  sender?: { id: string; name: string; avatarUrl?: string | null | undefined } | null | undefined;
+  /** The conversation's name when it is a group; leave it out for a direct conversation. */
+  groupName?: string | null | undefined;
+  /** An https photo in the message, attached to the notification. */
+  imageUrl?: string | null | undefined;
+  /**
+   * The recipient hides previews: the push carries the link and ids only (no
+   * sender, group or photo) and the service extension doesn't run. Send neutral
+   * title and body text with it.
+   */
+  hidePreview?: boolean | undefined;
+}
+
+/** The `data` of a message's push. Flat strings and numbers, as genesis-notifications' `PushMessage.data` takes. */
+export interface ChatPushData {
+  [key: string]: string | number;
+  url: string;
+  conversationId: string;
+  messageId: string;
+}
+
+/** The fields to spread into an Expo push message (with `to`, `title`, `body`, `badge`, `channelId`). */
+export interface ChatPushPayload {
+  categoryId: typeof CHAT_PUSH_CATEGORY;
+  /** Groups the conversation's notifications, and is the conversation iOS files a Communication Notification under. */
+  threadId: string;
+  /** iOS runs genesis-native's Notification Service Extension only when this is true (`mutable-content: 1`). */
+  mutableContent: boolean;
+  data: ChatPushData;
+}
+
+/** The extension fetches only https URLs (no credentials, at most 2048 characters): genesis-native's `isRichPushUrl`. */
+function httpsUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 2048) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname.length > 0 && !url.username && !url.password ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function shortText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const t = value.trim();
+  return t ? t.slice(0, 200) : null;
+}
+
+/**
+ * The category, thread, `mutableContent` and `data` of a message's push, for
+ * the server that sends it:
+ *
+ *   const message = { to, title, body, badge, channelId: "messages", ...chatPushPayload({ conversationId, messageId, seq, sender, groupName, imageUrl, hidePreview }) };
+ *
+ * On iOS, with the rich push plugin, a push with a sender is a Communication
+ * Notification (the sender's photo; Focus treats it as a message) and `imageUrl`
+ * is attached. Fields that aren't usable (a URL that isn't https, an empty
+ * name) are left out rather than sent.
+ */
+export function chatPushPayload(input: ChatPushPayloadInput): ChatPushPayload {
+  const conversationId = input.conversationId.toLowerCase();
+  if (!UUID.test(conversationId)) throw new Error("chatPushPayload: conversationId must be a uuid");
+  const data: ChatPushData = { url: chatPath(conversationId), conversationId, messageId: input.messageId };
+  if (typeof input.seq === "number" && Number.isFinite(input.seq)) data.seq = input.seq;
+  if (input.hidePreview) {
+    return { categoryId: CHAT_PUSH_CATEGORY, threadId: conversationId, mutableContent: false, data };
+  }
+  const senderName = shortText(input.sender?.name);
+  const senderId = shortText(input.sender?.id);
+  if (senderName && senderId) {
+    data.senderId = senderId;
+    data.senderName = senderName;
+    const avatar = httpsUrl(input.sender?.avatarUrl);
+    if (avatar) data.senderAvatar = avatar;
+  }
+  const groupName = shortText(input.groupName);
+  if (groupName) data.groupName = groupName;
+  const image = httpsUrl(input.imageUrl);
+  if (image) data.image = image;
+  return { categoryId: CHAT_PUSH_CATEGORY, threadId: conversationId, mutableContent: true, data };
 }
