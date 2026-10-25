@@ -1,0 +1,109 @@
+packages/native/src/query.ts
+  s_8252619ce79a86::t_d4353fe6a371c3 20-29,37-38
+templates/eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_9fcb84412f824f 128-131,146-149
+packages/genesis-cli/test/expo.test.ts
+  s_8252619ce79a86::t_32c0322d09d1ef 17-19,183-201,205-291
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_eb6655373a8160 128-131,146-149
+packages/ui-native/README.md
+  s_8252619ce79a86::t_b4a4f63f04d213 41-44
+features.json
+  s_8252619ce79a86::t_564f7c2f8897d6 1864,2054
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_ef5a9a3158147d 49-50,56,70-71,166-168,192-220,228-242
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_ef5a9a3158147d 7,41-59
+templates/eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_9fcb84412f824f 107-110
+packages/supabase/src/__tests__/google-sign-in.test.ts
+  s_8252619ce79a86::t_6f77aa4bce8820 1-93
+packages/ui-native/src/layouts/google-sign-in.tsx
+  s_8252619ce79a86::t_4052b4d72b43d4 1-42
+packages/supabase/src/sign-in.ts
+  s_8252619ce79a86::t_6f77aa4bce8820 2-4,14-15,167-172,258-388,397-398
+packages/supabase/package.json
+  s_8252619ce79a86::t_50983fcbd970ed 7,48-49,56-60
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_ef5a9a3158147d 26,30-36,90-91,93-103,109-113
+templates/eas/eas.json
+  s_8252619ce79a86::t_9fcb84412f824f 17,29
+packages/supabase/README.md
+  s_8252619ce79a86::t_4052b4d72b43d4 28,53-54,81-113
+  s_8252619ce79a86::t_6640f0686b4e5d 114
+apps/genesis-rn-starter/src/lib/google-signin.ts
+  s_8252619ce79a86::t_ef5a9a3158147d 1-23
+packages/ui-native/src/data/__tests__/resource-page-offline.test.tsx
+  s_8252619ce79a86::t_3a539f0d0f1d81 1-40
+apps/genesis-rn-starter/eas.json
+  s_8252619ce79a86::t_eb6655373a8160 17,29
+apps/genesis-rn-starter/src/app/sign-in.tsx
+  s_8252619ce79a86::t_ef5a9a3158147d 6,9,14,40-45,50-53
+packages/supabase/src/native.ts
+  s_8252619ce79a86::t_6f77aa4bce8820 24,27,32-33
+docs/component-reference.md
+  s_8252619ce79a86::t_b4a4f63f04d213 7,783,802,820,833,892
+features.ts
+  s_8252619ce79a86::t_564f7c2f8897d6 914
+  s_8252619ce79a86::t_cc98f483d922fc 830
+scripts/__tests__/rn-starter-template.test.mjs
+  s_8252619ce79a86::t_98e1b4c83e0341 8-12
+.changeset/sdk58-privacy-manifest.md
+  s_8252619ce79a86::t_7565bd107e3585 1-7
+packages/genesis-cli/src/expo.ts
+  s_8252619ce79a86::t_32c0322d09d1ef 12-17,36-45,47-57,85-90,103-107,110-115,117-126,128-133,136-195,258-323,341-348
+.changeset/sdk58-google-sign-in.md
+  s_8252619ce79a86::t_7565bd107e3585 1-8
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_ef5a9a3158147d 5,34-35
+packages/ui-native/src/layouts/index.ts
+  s_8252619ce79a86::t_4052b4d72b43d4 76-77
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_eb6655373a8160 107-110
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_8252619ce79a86::t_4316a30a55cfe9 32,107-110,119-125
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_d27a71ed0f6c7f 34,42
+.changeset/sdk58-query-offline-first.md
+  s_8252619ce79a86::t_7565bd107e3585 1-8
+apps/genesis-rn-starter/src/lib/auth.ts
+  s_8252619ce79a86::t_ef5a9a3158147d 9-10,12,15-19,46-48,68-75,78
+  s_8252619ce79a86::t_dad88e59352b13 76-77,79
+packages/native/README.md
+  s_8252619ce79a86::t_6e48eaa4a10838 70-75
+packages/ui-native/src/data/NativeResourcePage.tsx
+  s_8252619ce79a86::t_3a539f0d0f1d81 63-68,197,276-277,453-460
+  s_8252619ce79a86::t_069f66a3c0a45e 461-464
+apps/genesis-rn-starter/starter.config.ts
+  s_8252619ce79a86::t_ef5a9a3158147d 20-21
+packages/genesis-cli/src/doctor/config.ts
+  s_8252619ce79a86::t_32c0322d09d1ef 33-97,103,183,191-239
+packages/ui-native/src/layouts/__tests__/google-sign-in.test.tsx
+  s_8252619ce79a86::t_e3f2986ae17680 14
+  s_8252619ce79a86::t_287a97d8c433f2 1-13,15-26
+apps/genesis-rn-starter/.env.example
+  s_8252619ce79a86::t_ef5a9a3158147d 8-11
+packages/native/src/__tests__/query.test.ts
+  s_8252619ce79a86::t_d4353fe6a371c3 2-3,9,12-13,17-21,23-30,33-36,38,40-65
+  s_8252619ce79a86::t_ba2603fe9ee0e8 31-32,37,39
+  s_8252619ce79a86::t_0e480458c8bb74 22
+  s_8252619ce79a86::t_fd13bfb9de5173 66-67
+pnpm-lock.yaml
+  s_8252619ce79a86::t_274212a92f7d13 37,61,67,84-85,88,91,94,97,100,103,106,108-109,112,115,118,121,1123-1125,1319,1331,2255-2256,2287-2288,2337-2338,2354-2355,2418-2419,2437-2438,2443,2445,3954-3963,5678-5679,5683,6592-6593,6598-6599,6605-6606,6643-6644,6647-6648,6652-6653,6662-6663,6677-6678,6682,6723-6724,6759-6760,10832,10836,10843,10846,10852,10854,10872-10873,10899,10975,10999,11003,11007,11009,11072,11074,11082,11084,11091,11093,11099,11124,11143,11145,11147,11216,11218,11225,11252,11255-11258,11261-11262,11324,12591,12597,12599,12605,12612-12618,13117,13129,13133-13135,14068,14070,14435,14482,15483,15485,15489,15491,15493,15496-15497,15504,15508,15514,15516,15520,15522,15525,15527,15531,15533,15537,15539,15541,15543,15547,15549,15552,15554-15555,15563,15565,15568,15579,15581,15584,15586,15594,15596,15604,15615,15620-15622,15629,15631-15632,15639-15644,15666,15668,15670,15672,15676,15682,15684,15690,15692,15694,15704,15706,15708,15719,15722-15723,15725,15727-15728,15731,15733-15741,15748-15749,15763,15766-15767,15769,15771-15772,15775,15777-15785,15792-15793
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e930ddacdaaa01343a5a521a8a479a9c0bc5372e",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
