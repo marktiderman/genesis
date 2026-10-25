@@ -617,6 +617,32 @@ describe("sealed secrets", () => {
     expect(Buffer.concat([decipher.update(bytes.subarray(0, bytes.length - 16)), decipher.final()]).toString()).toBe("1//refresh-token");
   });
 
+  it("still opens what was sealed before salts, and opens a salted one only with its salt", async () => {
+    // Sealed without a salt (HKDF with an empty salt), as every key was before the option.
+    const before = "v1.BwcHBwcHBwcHBwcH.qife4__6_LltbkuYk8i7djqeGRM4sBWxFU7FYDLUQMVwJyc";
+    expect(await openSecret(await deriveSecretKey(keyText, "hook-v1"), before, "destination:dest-1")).toBe("sealed before salts");
+    expect(await openSecret(await deriveSecretKey(keyText, "hook-v1", { salt: new Uint8Array(0) }), before, "destination:dest-1")).toBe(
+      "sealed before salts",
+    );
+    await expect(openSecret(await deriveSecretKey(keyText, "hook-v1", { salt: "app-salt" }), before, "destination:dest-1")).rejects.toThrow(
+      DeliveryError,
+    );
+
+    const salt = Uint8Array.from({ length: 32 }, (_, i) => 200 - i);
+    const salted = await sealSecret(await deriveSecretKey(keyText, "hook-v1", { salt }), "salted", "row");
+    expect(await openSecret(await deriveSecretKey(keyText, "hook-v1", { salt }), salted, "row")).toBe("salted");
+    await expect(openSecret(await deriveSecretKey(keyText, "hook-v1"), salted, "row")).rejects.toThrow(DeliveryError);
+    // A text salt is its UTF-8 bytes, and the key is plain HKDF-SHA-256 with it.
+    const sealed = await sealSecret(await deriveSecretKey(raw, "token-v1", { salt: "app-salt" }), "text salt", "grant:g1");
+    const [, iv, body] = sealed.split(".");
+    const bytes = Buffer.from(body!, "base64url");
+    const aes = Buffer.from(hkdfSync("sha256", raw, Buffer.from("app-salt"), "token-v1", 32));
+    const decipher = createDecipheriv("aes-256-gcm", aes, Buffer.from(iv!, "base64url"));
+    decipher.setAAD(Buffer.from("grant:g1"));
+    decipher.setAuthTag(bytes.subarray(bytes.length - 16));
+    expect(Buffer.concat([decipher.update(bytes.subarray(0, bytes.length - 16)), decipher.final()]).toString()).toBe("text salt");
+  });
+
   it("takes a 32-byte key as base64 or base64url, and says what is wrong otherwise", () => {
     expect(secretKeyBytes(keyText)).toEqual(raw);
     expect(secretKeyBytes(Buffer.from(raw).toString("base64url"))).toEqual(raw);
@@ -756,15 +782,16 @@ describe("createDeliveryRunner", () => {
       claimed({ id: "worn", destinationId: "dest-2", deferrals: 3, attempt: 1 }),
       claimed({ id: "done", destinationId: "dest-3", deferrals: 3, attempt: 4 }),
     ]);
-    const report = await createDeliveryRunner({ ...box, now: () => NOW, maxDeferrals: 3, maxAttempts: 4, destinations: { test: busy } }).run();
+    const report = await createDeliveryRunner({ ...box, now: () => NOW, maxDeferrals: 3, maxAttempts: 4, backoff: () => 90, destinations: { test: busy } }).run();
     expect(report).toMatchObject({ deferred: 1, retrying: 1, failed: 1 });
     expect(box.recorded.get("fresh")).toMatchObject({ status: "retry", counted: false, retryAfterSeconds: 60 });
-    expect(box.recorded.get("worn")).toMatchObject({ status: "retry", counted: true, retryAfterSeconds: 60 });
+    expect(box.recorded.get("worn")).toMatchObject({ status: "retry", counted: true, retryAfterSeconds: 90 });
     expect(box.recorded.get("done")).toEqual({ status: "failed", error: "Webhook answered 503 (gave up after 4 attempts)", httpStatus: 503 });
     expect(deliveryOutcome({ ok: false, retryable: true, retryAfterSeconds: 5, error: "x" }, 1, { now: 0, deferrals: 24 })).toMatchObject({ counted: true });
   });
 
   it("backs off a retryable failure by attempt, and gives up after maxAttempts", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5); // No jitter.
     const failing = destination(async () => ({ ok: false, retryable: true, error: "Network error" }));
     const box = outbox([claimed({ id: "early", attempt: 3 }), claimed({ id: "last", destinationId: "dest-2", attempt: 5 })]);
     const report = await createDeliveryRunner({ ...box, now: () => NOW, maxAttempts: 5, destinations: { test: failing } }).run();
@@ -772,12 +799,40 @@ describe("createDeliveryRunner", () => {
     expect(box.recorded.get("early")).toEqual({
       status: "retry",
       error: "Network error",
-      retryAt: new Date(NOW + 240_000),
-      retryAfterSeconds: 240,
+      retryAt: new Date(NOW + 4_800_000),
+      retryAfterSeconds: 4_800,
       counted: true,
     });
     expect(box.recorded.get("last")).toEqual({ status: "failed", error: "Network error (gave up after 5 attempts)" });
-    expect([1, 2, 3, 10, 20].map(defaultBackoff)).toEqual([60, 120, 240, 21_600, 21_600]);
+    vi.restoreAllMocks();
+    const mid = () => 0.5;
+    expect([1, 2, 3, 4, 5, 6, 7, 20].map((n) => defaultBackoff(n, mid))).toEqual([300, 1_200, 4_800, 19_200, 76_800, 86_400, 86_400, 86_400]);
+    // About 3 days across the default 8 attempts (7 waits).
+    const total = [1, 2, 3, 4, 5, 6, 7].reduce((sum, n) => sum + defaultBackoff(n, mid), 0);
+    expect(total / 86_400).toBeCloseTo(3.18, 2);
+    expect(deliveryOutcome({ ok: false, retryable: true, error: "x" }, 1, { now: 0, backoff: () => 5 })).toMatchObject({ retryAt: new Date(5000) });
+  });
+
+  it("jitters the default backoff by up to 20% either way", () => {
+    expect(defaultBackoff(1, () => 0)).toBe(240);
+    expect(defaultBackoff(1, () => 1)).toBe(360);
+    expect(defaultBackoff(7, () => 0)).toBe(69_120);
+    expect(defaultBackoff(7, () => 1)).toBe(103_680);
+    // Math.random by default; an index (as `map` passes) is ignored.
+    const seen = new Set(Array.from({ length: 50 }, () => defaultBackoff(2)));
+    expect(seen.size).toBeGreaterThan(1);
+    for (const s of seen) expect(s >= 960 && s <= 1_440).toBe(true);
+    expect([2].map(defaultBackoff as unknown as (n: number, i: number) => number)[0]).toBeGreaterThanOrEqual(960);
+  });
+
+  it("records a receiver's request to be switched off as a failure that says disable", async () => {
+    const gone = destination(async () => ({ ok: false, retryable: false, status: 410, disable: true, error: "Webhook answered 410" }));
+    const box = outbox([claimed()]);
+    expect(await createDeliveryRunner({ ...box, destinations: { test: gone } }).run()).toMatchObject({ failed: 1 });
+    expect(box.recorded.get("del-1")).toEqual({ status: "failed", error: "Webhook answered 410", httpStatus: 410, disable: true });
+    // Even marked retryable, a disable request is never retried.
+    expect(deliveryOutcome({ ok: false, retryable: true, disable: true, error: "x" }, 1, { now: 0 })).toEqual({ status: "failed", error: "x", disable: true });
+    expect(new DeliveryError("gone", { retryable: true, disable: true }).retryable).toBe(false);
     expect(deliveryOutcome({ ok: false, retryable: true, error: "x" }, 1, { now: 0, backoff: () => 5 })).toMatchObject({ retryAt: new Date(5000) });
   });
 

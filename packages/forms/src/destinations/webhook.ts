@@ -6,14 +6,18 @@
  * Headers: `webhook-id` (the delivery id, stable across retries: receivers
  * dedupe on it), `webhook-timestamp` (Unix seconds) and `webhook-signature`
  * (`v1,<base64 HMAC-SHA256 of "<id>.<timestamp>.<body>">`). Receivers reject
- * a timestamp more than five minutes off, which stops replays.
+ * a timestamp more than five minutes off, which stops replays. Given
+ * several secrets (a rotation), it signs with each, space-separated, so the
+ * receiver can move to the new one without missing a delivery. A 410 Gone
+ * fails with `disable: true`: the receiver asks to be switched off.
  *
  * The URL comes from config, which an admin may type, so by default it must
  * be https, carry no credentials, and not name localhost or a private,
  * loopback or link-local address literally. Redirects are not followed. A
- * hostname that resolves to a private address is not caught here: if
- * untrusted users choose URLs, send from a network that cannot reach
- * internal services.
+ * hostname that resolves to a private address is not caught here, and even
+ * `resolveHost` checks the name before the request, which DNS rebinding can
+ * get around: if untrusted users choose URLs, send through an egress proxy
+ * that refuses internal addresses.
  */
 import { own, withheld } from "../logic";
 import { isSensitive } from "../fields";
@@ -47,15 +51,17 @@ export interface WebhookConfig {
 
 export interface WebhookDestinationOptions extends HttpDeps {
   /**
-   * The signing secret: base64 of at least 16 random bytes, usually with
-   * the `whsec_` prefix Standard Webhooks tools issue (`whsec_` plus base64
-   * of 24 to 64 bytes is what the spec recommends). The prefix is optional;
-   * the rest is always base64-decoded, as every Standard Webhooks library
-   * does, so a receiver verifies with the same string. A secret that is not
-   * base64 fails permanently. Or a function that finds the one for a
-   * destination's config. Never put it in config.
+   * The signing secret: base64 of at least 24 random bytes (the spec
+   * recommends 24 to 64), usually with the `whsec_` prefix Standard Webhooks
+   * tools issue. The prefix is optional; the rest is always base64-decoded,
+   * as every Standard Webhooks library does, so a receiver verifies with the
+   * same string. A secret that is not base64, or is shorter, fails
+   * permanently. Several secrets (new and old, during a rotation) sign with
+   * each, space-separated in `webhook-signature`, so the receiver verifies
+   * with either. Or a function that finds them for a destination's config.
+   * Never put it in config.
    */
-  secret: string | OptionResolver<string>;
+  secret: string | readonly string[] | OptionResolver<string | readonly string[]>;
   /** Allow `http:` URLs. Default false. */
   allowInsecureUrls?: boolean | undefined;
   /** Allow localhost and private, loopback and link-local address literals. Default false. */
@@ -83,7 +89,10 @@ export interface WebhookDestinationOptions extends HttpDeps {
 /** The JSON body a webhook receives. */
 export interface WebhookPayload {
   type: string;
-  /** ISO time the delivery was sent. */
+  /**
+   * ISO time the event happened: the submission's `submittedAt`, or the send
+   * time when it has none. The `webhook-timestamp` header is the send time.
+   */
   timestamp: string;
   data: {
     form: { id: string; title: string };
@@ -103,7 +112,8 @@ export interface WebhookPayload {
   };
 }
 
-const MIN_SECRET_BYTES = 16;
+/** The shortest signing secret, decoded: Standard Webhooks recommends 24 to 64 bytes. */
+export const MIN_WEBHOOK_SECRET_BYTES = 24;
 const STRICT_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 /**
@@ -111,7 +121,7 @@ const STRICT_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]
  * reference libraries do: an optional `whsec_` prefix is dropped and the
  * rest is base64-decoded. Only padded standard base64 is accepted, the form
  * every reference library decodes the same way. Throws a `DeliveryError` for
- * a secret that is not base64 or is shorter than 16 bytes once decoded.
+ * a secret that is not base64 or is shorter than 24 bytes once decoded.
  */
 function secretKey(secret: string): Uint8Array<ArrayBuffer> {
   const encoded = secret.startsWith("whsec_") ? secret.slice(6) : secret;
@@ -121,7 +131,9 @@ function secretKey(secret: string): Uint8Array<ArrayBuffer> {
     );
   }
   const bytes = fromBase64(encoded);
-  if (bytes.length < MIN_SECRET_BYTES) throw new DeliveryError(`The webhook secret is shorter than ${MIN_SECRET_BYTES} bytes`);
+  if (bytes.length < MIN_WEBHOOK_SECRET_BYTES) {
+    throw new DeliveryError(`The webhook secret is shorter than ${MIN_WEBHOOK_SECRET_BYTES} bytes`);
+  }
   return bytes;
 }
 
@@ -138,16 +150,29 @@ export function newWebhookSecret(): string {
   return `whsec_${base64(crypto.getRandomValues(new Uint8Array(32)))}`;
 }
 
-/** The `webhook-signature` value for a message: `v1,<base64>`. */
-export async function signWebhook(secret: string, id: string, timestamp: number, body: string): Promise<string> {
-  const key = await hmacKey(secret, "sign");
-  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${id}.${timestamp}.${body}`));
-  return `v1,${base64(new Uint8Array(mac))}`;
+/**
+ * The `webhook-signature` value for a message: `v1,<base64>`, or one such
+ * signature per secret, space-separated, when given several (a rotation).
+ */
+export async function signWebhook(secret: string | readonly string[], id: string, timestamp: number, body: string): Promise<string> {
+  const secrets = typeof secret === "string" ? [secret] : secret;
+  if (secrets.length === 0) throw new DeliveryError("The webhook secret is not set");
+  const data = new TextEncoder().encode(`${id}.${timestamp}.${body}`);
+  const signatures: string[] = [];
+  for (const one of secrets) {
+    const key = await hmacKey(one, "sign");
+    signatures.push(`v1,${base64(new Uint8Array(await crypto.subtle.sign("HMAC", key, data)))}`);
+  }
+  return signatures.join(" ");
 }
 
 export interface VerifyWebhookInput {
-  /** The same secret the sender signs with (base64, optionally `whsec_`-prefixed). */
-  secret: string;
+  /**
+   * The same secret the sender signs with (base64, optionally
+   * `whsec_`-prefixed), or several (new and old, during a rotation): any one
+   * matching signature passes.
+   */
+  secret: string | readonly string[];
   /** The request's headers: a `Headers` or a plain object. */
   headers: Headers | Record<string, string | string[] | undefined>;
   /** The raw body, exactly as received. */
@@ -174,12 +199,15 @@ export async function verifyWebhook(input: VerifyWebhookInput): Promise<boolean>
   if (!id || !/^\d{1,12}$/.test(timestamp) || !signatures) return false;
   const now = Math.floor((input.now?.() ?? Date.now()) / 1000);
   if (Math.abs(now - Number(timestamp)) > (input.toleranceSeconds ?? 300)) return false;
-  let key: WebCryptoKey;
-  try {
-    key = await hmacKey(input.secret, "verify");
-  } catch {
-    return false;
+  const keys: WebCryptoKey[] = [];
+  for (const secret of typeof input.secret === "string" ? [input.secret] : input.secret) {
+    try {
+      keys.push(await hmacKey(secret, "verify"));
+    } catch {
+      // An unusable secret matches nothing.
+    }
   }
+  if (keys.length === 0) return false;
   const data = new TextEncoder().encode(`${id}.${timestamp}.${input.body}`);
   for (const part of signatures.split(" ")) {
     const [version, value] = part.split(",", 2);
@@ -190,7 +218,7 @@ export async function verifyWebhook(input: VerifyWebhookInput): Promise<boolean>
     } catch {
       continue;
     }
-    if (await crypto.subtle.verify("HMAC", key, mac, data)) return true;
+    for (const key of keys) if (await crypto.subtle.verify("HMAC", key, mac, data)) return true;
   }
   return false;
 }
@@ -281,9 +309,10 @@ export function webhookPayload(
     for (const [name, value] of Object.entries(source ?? {})) if (own(allowed, name) !== undefined) out[name] = value;
     return out;
   };
+  const happened = submission.submittedAt ? Date.parse(submission.submittedAt) : Number.NaN;
   return {
     type: options.type ?? "form.submitted",
-    timestamp: new Date(options.now ?? Date.now()).toISOString(),
+    timestamp: new Date(Number.isNaN(happened) ? (options.now ?? Date.now()) : happened).toISOString(),
     data: {
       form: { id: definition.id, title: definition.title },
       submission: {
@@ -314,7 +343,7 @@ export function webhookDestination(options: WebhookDestinationOptions): Destinat
         // allowPrivateHosts opts out of the address check, the resolved one included.
         if (options.resolveHost && !options.allowPrivateHosts) await checkHookHost(url, options.resolveHost);
         const secret = await resolveOption("The webhook secret", options.secret, config, context);
-        if (!secret) throw new DeliveryError("The webhook secret is not set");
+        if (!secret || secret.length === 0) throw new DeliveryError("The webhook secret is not set");
         const now = options.now?.() ?? Date.now();
         const id = deliveryOptions.deliveryId ?? submission.id;
         const timestamp = Math.floor(now / 1000);
@@ -339,6 +368,10 @@ export function webhookDestination(options: WebhookDestinationOptions): Destinat
         );
         discard(response);
         if (response.status >= 200 && response.status < 300) return { ok: true };
+        // Standard Webhooks: 410 Gone means the receiver wants no more deliveries.
+        if (response.status === 410) {
+          throw new DeliveryError("Webhook answered 410: the endpoint is gone; disable the destination", { status: 410, disable: true });
+        }
         // `redirect: "manual"` gives a 3xx (or, in browsers, an opaque status 0).
         if (response.status === 0 || (response.status >= 300 && response.status < 400)) {
           throw new DeliveryError(`Webhook answered ${response.status || "a redirect"}: redirects are not followed`, {

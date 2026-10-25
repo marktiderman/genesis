@@ -767,8 +767,14 @@ describe("webhookDestination", () => {
     expect(await verifyWebhook({ secret: "whsec_YW5vdGhlci1zZWNyZXQtZW50aXJlbHkh", headers, body: call.body, now })).toBe(false);
     expect(await verifyWebhook({ secret, headers, body: call.body, now: () => now() + 301_000 })).toBe(false);
 
-    const payload = JSON.parse(call.body) as { type: string; data: { submission: { answers: Record<string, unknown> }; row: Record<string, unknown> } };
+    const payload = JSON.parse(call.body) as {
+      type: string;
+      timestamp: string;
+      data: { submission: { answers: Record<string, unknown> }; row: Record<string, unknown> };
+    };
     expect(payload.type).toBe("form.submitted");
+    // When the event happened (the submission), not when it was sent.
+    expect(payload.timestamp).toBe("2026-10-22T00:00:00.000Z");
     expect(payload.data.submission.answers["went_well"]).toEqual(["hosting", "content"]);
     expect(payload.data.row["went_well"]).toBe("Hosting, The content");
   });
@@ -796,6 +802,40 @@ describe("webhookDestination", () => {
       await webhookDestination({ secret: "a raw passphrase!", fetch: mock.fetch }).deliver(submission, def, { url: "https://h.example.com" }),
     ).toMatchObject({ ok: false, retryable: false, error: expect.stringContaining("must be base64") });
     expect(mock.calls).toEqual([]);
+  });
+
+  it("stamps the payload with the send time when the submission has no time", async () => {
+    const mock = mockFetch(() => new Response(null, { status: 204 }));
+    const { submittedAt: _, ...untimed } = submission;
+    await webhookDestination({ secret, fetch: mock.fetch, now }).deliver(untimed, def, { url: "https://hooks.example.com" });
+    expect(JSON.parse(mock.calls[0]!.body).timestamp).toBe(new Date(now()).toISOString());
+  });
+
+  it("signs with every secret during a rotation, so either verifies", async () => {
+    const next = "whsec_YW5vdGhlci1zZWNyZXQtZW50aXJlbHkh";
+    const mock = mockFetch(() => new Response(null, { status: 204 }));
+    await webhookDestination({ secret: async () => [next, secret], fetch: mock.fetch, now }).deliver(
+      submission,
+      def,
+      { url: "https://hooks.example.com" },
+      { deliveryId: "del-1" },
+    );
+    const call = mock.calls[0]!;
+    const headers = headersOf(call);
+    const parts = headers.get("webhook-signature")!.split(" ");
+    expect(parts).toEqual([
+      await signWebhook(next, "del-1", 1_800_000_000, call.body),
+      await signWebhook(secret, "del-1", 1_800_000_000, call.body),
+    ]);
+    // A receiver still on the old secret, one already on the new, and one holding both.
+    expect(await verifyWebhook({ secret, headers, body: call.body, now })).toBe(true);
+    expect(await verifyWebhook({ secret: next, headers, body: call.body, now })).toBe(true);
+    expect(await verifyWebhook({ secret: [next, secret], headers, body: call.body, now })).toBe(true);
+    expect(await verifyWebhook({ secret: [], headers, body: call.body, now })).toBe(false);
+    await expect(signWebhook([], "m", 1, "{}")).rejects.toThrow("The webhook secret is not set");
+    expect(
+      await webhookDestination({ secret: [], fetch: mock.fetch }).deliver(submission, def, { url: "https://hooks.example.com" }),
+    ).toMatchObject({ ok: false, retryable: false, error: "The webhook secret is not set" });
   });
 
   it("accepts any of several signatures (secret rotation)", async () => {
@@ -832,8 +872,12 @@ describe("webhookDestination", () => {
     expect(await webhookDestination({ secret: "whsec_c2hvcnQ=", fetch: mock.fetch }).deliver(submission, def, { url: "https://h.example.com" })).toMatchObject({
       ok: false,
       retryable: false,
-      error: "The webhook secret is shorter than 16 bytes",
+      error: "The webhook secret is shorter than 24 bytes",
     });
+    // 16 bytes was the old floor; Standard Webhooks recommends 24 to 64.
+    const sixteen = `whsec_${Buffer.alloc(16, 1).toString("base64")}`;
+    await expect(signWebhook(sixteen, "m", 1, "{}")).rejects.toThrow("shorter than 24 bytes");
+    await expect(signWebhook(`whsec_${Buffer.alloc(24, 1).toString("base64")}`, "m", 1, "{}")).resolves.toMatch(/^v1,/);
     expect(checkWebhookUrl("http://127.0.0.1:3000/x", { allowInsecureUrls: true, allowPrivateHosts: true }).port).toBe("3000");
     expect(isPrivateHost("hooks.example.com")).toBe(false);
     expect(isPrivateHost("172.32.0.1")).toBe(false);
@@ -846,7 +890,14 @@ describe("webhookDestination", () => {
         url: "https://hooks.example.com",
       });
     expect(await answer(503)).toMatchObject({ ok: false, retryable: true, status: 503 });
-    expect(await answer(410)).toMatchObject({ ok: false, retryable: false, status: 410 });
+    expect(await answer(410)).toEqual({
+      ok: false,
+      retryable: false,
+      status: 410,
+      disable: true,
+      error: "Webhook answered 410: the endpoint is gone; disable the destination",
+    });
+    expect(await answer(404)).not.toHaveProperty("disable");
     expect(await answer(302)).toMatchObject({ ok: false, retryable: false, error: "Webhook answered 302: redirects are not followed" });
   });
 
