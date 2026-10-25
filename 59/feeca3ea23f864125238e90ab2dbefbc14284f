@@ -1,0 +1,40 @@
+apps/genesis-rn-starter/src/app/(app)/(home)/check-in.tsx
+  s_8252619ce79a86::t_61964c2287ddf6 9,31
+apps/genesis-rn-starter/src/lib/check-in.ts
+  s_8252619ce79a86::t_61964c2287ddf6 60-62,68
+packages/forms-native/test-utils/rn-mock.tsx
+  s_8252619ce79a86::t_b286b0c3b2787c 27-30,58,78
+packages/forms-native/src/context.tsx
+  s_8252619ce79a86::t_b286b0c3b2787c 71-74
+packages/forms-native/src/seams.ts
+  s_8252619ce79a86::t_a4ee4f6a5f4371 48
+packages/forms-native/src/index.ts
+  s_8252619ce79a86::t_b286b0c3b2787c 1
+packages/forms-native/src/renderers/photo.tsx
+  s_8252619ce79a86::t_b286b0c3b2787c 47-48
+packages/forms-native/src/styles.ts
+  s_8252619ce79a86::t_b286b0c3b2787c 148
+packages/forms-native/src/renderers/text.tsx
+  s_8252619ce79a86::t_b286b0c3b2787c 7,14-16,56,61-62,64,67,78,86-95
+packages/forms-native/src/FormFocus.tsx
+  s_8252619ce79a86::t_b286b0c3b2787c 11,219-223,225-234,272-273,277,280-292,301-308,348-353,390-402,405-412,426-427,441-450,452,547
+packages/forms-native/src/__tests__/review-fixes.test.tsx
+  s_8252619ce79a86::t_b286b0c3b2787c 1-47,49-53,55-105,107-115
+  s_8252619ce79a86::t_a4ee4f6a5f4371 48,54,106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "59feeca3ea23f864125238e90ab2dbefbc14284f",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
