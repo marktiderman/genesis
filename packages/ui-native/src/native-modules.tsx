@@ -46,6 +46,8 @@ export interface GenesisListProps<T> {
   keyExtractor?: (item: T, index: number) => string;
   getItemType?: (item: T, index: number) => string | number | undefined;
   stickyHeaderIndices?: number[];
+  /** FlashList v2's: `offset` moves sticky headers down from the list's top (under a native header). */
+  stickyHeaderConfig?: { offset?: number };
   ListHeaderComponent?: ReactNode | ComponentType<unknown> | null;
   ListEmptyComponent?: ReactNode | ComponentType<unknown> | null;
   contentContainerStyle?: Record<string, unknown>;

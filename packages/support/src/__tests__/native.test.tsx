@@ -159,6 +159,28 @@ describe("FeedbackForm", () => {
     void fake;
   });
 
+  it("captures the screen only after the devtools sheet has finished closing", async () => {
+    const shot = viewShot();
+    const { block, wrap } = harness(() => ({ data: { id: REPORT }, error: null }), { viewShot: shot });
+    const Fill = block.contributes!.slots!.devtoolsFeedback as unknown as (p: { debugInfo: string; close: () => Promise<void> }) => ReactNode;
+    let finishClosing!: () => void;
+    const close = vi.fn(() => new Promise<void>((resolve) => (finishClosing = resolve)));
+    render(wrap(<Fill debugInfo="version 1.4.0" close={close} />));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-devtools-feedback"));
+      // Longer than the old fixed 400 ms: still no capture while the sheet is on its way down.
+      await new Promise((r) => setTimeout(r, 450));
+    });
+    expect(close).toHaveBeenCalled();
+    expect(shot.captureScreen).not.toHaveBeenCalled();
+    await act(async () => {
+      finishClosing();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(shot.captureScreen).toHaveBeenCalledTimes(1);
+    expect(block.peekPending()?.screenshot?.uri).toBe("data:image/jpeg;base64,aGk=");
+  });
+
   it("sends no screenshot once the person removes it", async () => {
     const { fake, block, wrap } = harness(() => ({ data: { id: REPORT }, error: null }), { viewShot: viewShot() });
     const view = render(wrap(<span />));

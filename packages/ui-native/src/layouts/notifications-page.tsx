@@ -23,6 +23,7 @@
 import { useCallback, useMemo, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import {
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -30,7 +31,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeSectionListHeader } from "../components/section-list";
 import { NativeListItem } from "../components/list-item";
 import { NativeEmptyState } from "../components/empty-state";
@@ -86,6 +87,13 @@ export interface NotificationsPageProps extends ScreenHeaderProps {
   emptyTitle?: string;
   /** Optional override of the empty-state body copy. */
   emptyBody?: string;
+  /**
+   * Where a section header sticks, in points from the top of the list. The list runs under the
+   * native header (iOS insets its rows, and the large title collapses as it scrolls), so a header
+   * stuck at 0 would sit under the status bar. Default on iOS: under the collapsed navigation bar
+   * (`defaultStickyHeaderOffset`); elsewhere 0. Without a header, pass the safe area's top.
+   */
+  stickyHeaderOffset?: number;
   /** Override root container styling. */
   className?: string;
   /** testID on the root container. Default `"notifications-page"`. */
@@ -208,6 +216,24 @@ function flatRowType(row: FlatRow) {
 
 const NO_SLOTS = {};
 
+/**
+ * The height of iOS's compact navigation bar, below the status bar: 44 pt up to iOS 18, 54 pt
+ * from iOS 26 (measured on an iOS 26 simulator, the collapsed large-title bar of a native stack).
+ */
+export function iosCompactNavigationBarHeight(version: number | string): number {
+  const major = typeof version === "number" ? version : parseInt(version, 10);
+  return Number.isFinite(major) && major >= 26 ? 54 : 44;
+}
+
+/**
+ * Where a list's section headers stick by default: on iOS, the bottom of the collapsed
+ * navigation bar (the safe area's top plus the compact bar), since the list runs under the
+ * header; elsewhere 0 (the header sits above the list).
+ */
+export function defaultStickyHeaderOffset(os: string, version: number | string, safeAreaTop: number): number {
+  return os === "ios" ? safeAreaTop + iosCompactNavigationBarHeight(version) : 0;
+}
+
 // Expose internal helpers for unit tests via a side-channel export.
 export const __test = { bucketFor, groupByDate, flattenSections };
 
@@ -222,7 +248,10 @@ export function NotificationsPage({
   testID = "notifications-page",
   slots = NO_SLOTS,
   slotProps = NO_SLOTS,
+  stickyHeaderOffset,
 }: NotificationsPageProps) {
+  const insets = useSafeAreaInsets();
+  const stickAt = stickyHeaderOffset ?? defaultStickyHeaderOffset(Platform.OS, Platform.Version, insets.top);
   // Note: header props (headerTitle, headerLeft, headerRight, large,
   // scrollEdgeBehavior, headerOptions) are accepted on the type for API
   // ergonomics but consumed by getNotificationsPageStackOptions() at the
@@ -295,6 +324,8 @@ export function NotificationsPage({
           keyExtractor={flatRowKey}
           getItemType={flatRowType}
           stickyHeaderIndices={flat.headerIndices}
+          // Under the native header, not under the status bar.
+          stickyHeaderConfig={{ offset: stickAt }}
           renderItem={renderFlatRow}
           refreshing={onRefresh ? !!refreshing : undefined}
           onRefresh={onRefresh ? () => void onRefresh() : undefined}
@@ -321,6 +352,10 @@ export function NotificationsPage({
           renderSlot(DefaultRow, slots.row, { ...item, testID: item.testID ?? `${testID}-row-${item.id}` }, slotProps.row)
         }
         ItemSeparatorComponent={RowSeparator}
+        // React Native's sticky headers pin to the very top of the list, which is under the native
+        // header on iOS, with no offset to move them down: with one, the headers scroll with
+        // their rows instead. (FlashList, `modules.list`, sticks them under the header.)
+        stickySectionHeadersEnabled={stickAt === 0}
         refreshControl={
           onRefresh ? (
             <RefreshControl

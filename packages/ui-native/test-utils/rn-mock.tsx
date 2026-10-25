@@ -254,6 +254,7 @@ export const Modal = ({
   visible,
   children,
   onRequestClose,
+  onDismiss,
   testID,
   presentationStyle,
   transparent,
@@ -264,6 +265,7 @@ export const Modal = ({
 }: AnyProps & {
   visible?: boolean;
   onRequestClose?: () => void;
+  onDismiss?: () => void;
   presentationStyle?: string;
   transparent?: boolean;
   animationType?: string;
@@ -271,6 +273,12 @@ export const Modal = ({
   statusBarTranslucent?: boolean;
   navigationBarTranslucent?: boolean;
 }) => {
+  // iOS calls onDismiss once a shown modal has finished hiding; here, right after it hides.
+  const wasVisible = React.useRef(false);
+  React.useEffect(() => {
+    if (wasVisible.current && !visible) onDismiss?.();
+    wasVisible.current = !!visible;
+  }, [visible]);
   if (!visible) return null;
   return React.createElement(
     "div",
@@ -333,12 +341,17 @@ export const SectionList = <T,>(props: {
   renderItem?: (info: { item: T; index: number; section: { title: string } }) => React.ReactNode;
   renderSectionHeader?: (info: { section: { title: string; data: T[] } }) => React.ReactNode;
   keyExtractor?: (item: T, index: number) => string;
+  stickySectionHeadersEnabled?: boolean;
   testID?: string;
 }) => {
-  const { sections = [], renderItem, renderSectionHeader, keyExtractor, testID } = props;
+  const { sections = [], renderItem, renderSectionHeader, keyExtractor, stickySectionHeadersEnabled, testID } = props;
   return React.createElement(
     "div",
-    { "data-testid": testID, role: "list" },
+    {
+      "data-testid": testID,
+      role: "list",
+      "data-sticky-section-headers": stickySectionHeadersEnabled === undefined ? undefined : String(stickySectionHeadersEnabled),
+    },
     sections.flatMap((section, si) => [
       React.createElement(
         "div",

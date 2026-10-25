@@ -260,6 +260,7 @@ declare module "react-native" {
     ItemSeparatorComponent?: ComponentType;
     refreshing?: boolean;
     onRefresh?: () => void;
+    stickySectionHeadersEnabled?: boolean;
   }
 
   export interface RefreshControlProps {

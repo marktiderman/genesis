@@ -83,7 +83,8 @@ export interface DevtoolsBlock extends NativeBlock<typeof DEVTOOLS_BLOCK_ID> {
   readonly enabled: boolean;
   readonly options: DevtoolsOptions;
   open(): void;
-  close(): void;
+  /** Closes the overlay. Resolves once its sheet has finished sliding away (or at once if it isn't up). */
+  close(): Promise<void>;
   getState(): DevtoolsState;
   subscribe(listener: () => void): () => void;
 }
@@ -104,6 +105,23 @@ export function createDevtools(options: DevtoolsOptions): DevtoolsBlock {
   };
   const getState = () => state;
 
+  // Waiting for the sheet to be gone: its dismissal is animated, and a screenshot taken before it
+  // ends catches the sheet on its way down. Resolved by the modal's `onDismiss`, or after
+  // DISMISS_FALLBACK_MS where a platform doesn't report it.
+  let sheetShown = false;
+  let dismissed: Array<() => void> = [];
+  const settleDismissed = () => {
+    sheetShown = false;
+    const waiting = dismissed;
+    dismissed = [];
+    waiting.forEach((resolve) => resolve());
+  };
+  const close = (): Promise<void> => {
+    set({ open: false });
+    if (!sheetShown) return Promise.resolve();
+    return new Promise<void>((resolve) => dismissed.push(resolve));
+  };
+
   const declaration = defineBlock<typeof DEVTOOLS_BLOCK_ID, ComponentType<never>>({
     id: DEVTOOLS_BLOCK_ID,
     platforms: ["native"],
@@ -122,6 +140,28 @@ export function createDevtools(options: DevtoolsOptions): DevtoolsBlock {
   function DevtoolsRoot({ slots, slotProps, children }: NativeBlockRootProps) {
     const { open } = useSyncExternalStore(subscribe, getState, getState);
     const [crash, setCrash] = useState(false);
+    // The sheet stays mounted after `open` turns false, so the modal animates out and reports
+    // when it's gone (`onDismiss`); then it unmounts.
+    const [mounted, setMounted] = useState(open);
+    const shown = open || mounted;
+    useEffect(() => {
+      if (open) {
+        setMounted(true);
+        sheetShown = true;
+        return;
+      }
+      if (!mounted) return;
+      const fallback = setTimeout(() => {
+        setMounted(false);
+        settleDismissed();
+      }, DISMISS_FALLBACK_MS);
+      return () => clearTimeout(fallback);
+    }, [open, mounted]);
+    const onDismissed = () => {
+      if (getState().open) return;
+      setMounted(false);
+      settleDismissed();
+    };
 
     useEffect(() => {
       // React Native has no way to remove a dev menu item: add it once per process.
@@ -160,8 +200,10 @@ export function createDevtools(options: DevtoolsOptions): DevtoolsBlock {
       <View style={{ flex: 1 }} onTouchStart={onTouches} onTouchMove={onTouches} onTouchEnd={onTouches} onTouchCancel={onTouches}>
         {children}
         {crash ? <CrashTest /> : null}
-        {open ? (
+        {shown ? (
           <DevtoolsSheet
+            visible={open}
+            onDismissed={onDismissed}
             block={block}
             Feedback={slots?.devtoolsFeedback}
             feedbackProps={slotProps?.devtoolsFeedback}
@@ -180,7 +222,7 @@ export function createDevtools(options: DevtoolsOptions): DevtoolsBlock {
     enabled,
     options,
     open: () => enabled && set({ open: true }),
-    close: () => set({ open: false }),
+    close,
     getState,
     subscribe,
     ...(enabled ? { Root: DevtoolsRoot } : {}),
@@ -218,7 +260,12 @@ const RESULT_TEXT: Record<ChannelSwitchResult["kind"], string> = {
   error: "Set, but checking or reloading failed.",
 };
 
+/** Longest wait for the sheet's `onDismiss` before treating it as gone. */
+const DISMISS_FALLBACK_MS = 800;
+
 interface SheetProps {
+  visible: boolean;
+  onDismissed: () => void;
   block: DevtoolsBlock;
   Feedback: ComponentType<DevtoolsFeedbackProps> | null | undefined;
   feedbackProps: Partial<DevtoolsFeedbackProps> | undefined;
@@ -250,7 +297,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function DevtoolsSheet({ block, Feedback, feedbackProps, onCrash }: SheetProps) {
+function DevtoolsSheet({ visible, onDismissed, block, Feedback, feedbackProps, onCrash }: SheetProps) {
   const { options } = block;
   const roles = useThemeRoles();
   const { userId } = useSession();
@@ -262,6 +309,7 @@ function DevtoolsSheet({ block, Feedback, feedbackProps, onCrash }: SheetProps) 
   const [status, setStatus] = useState<string | null>(null);
   const channels = options.updates?.channels;
   const close = () => block.close();
+  const closeForFeedback = () => block.close();
 
   const info = () =>
     buildDebugInfo({ signature, userId, blocks: [...blocks.ids], flags: options.flags, baseUrl: options.baseUrl ?? null, recent });
@@ -305,13 +353,20 @@ function DevtoolsSheet({ block, Feedback, feedbackProps, onCrash }: SheetProps) 
   return (
     // React Native's own modal, as a page sheet on iOS: it needs no provider above it (a bottom-sheet
     // library's modal does), so the overlay opens whatever the app has mounted.
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={close} testID="genesis-devtools">
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={() => void close()}
+      onDismiss={onDismissed}
+      testID="genesis-devtools"
+    >
       <ScrollView style={{ flex: 1, backgroundColor: roles.background }} contentContainerStyle={{ gap: 12, padding: 16, paddingBottom: 48 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <NativeText preset="h3" accessibilityRole="header">
             Devtools
           </NativeText>
-          <NativeButton variant="ghost" size="sm" onPress={close} testID="genesis-devtools-close">
+          <NativeButton variant="ghost" size="sm" onPress={() => void close()} testID="genesis-devtools-close">
             Close
           </NativeButton>
         </View>
@@ -397,7 +452,7 @@ function DevtoolsSheet({ block, Feedback, feedbackProps, onCrash }: SheetProps) 
             <NativeButton size="sm" variant="outline" onPress={copy} testID="genesis-devtools-copy">
               Copy debug info
             </NativeButton>
-            {renderSlot(NoFeedback, Feedback, { debugInfo: info(), close }, feedbackProps)}
+            {renderSlot(NoFeedback, Feedback, { debugInfo: info(), close: closeForFeedback }, feedbackProps)}
             <NativeButton size="sm" variant="outline" onPress={clearCache} testID="genesis-devtools-clear-cache">
               Clear cache
             </NativeButton>
