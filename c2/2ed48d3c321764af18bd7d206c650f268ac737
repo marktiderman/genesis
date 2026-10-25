@@ -1,0 +1,39 @@
+.changeset/ui-native-inbox-fixes.md
+  s_8252619ce79a86::t_f65e46ae1c9199 1-5
+packages/ui-native/src/components/__tests__/refresh-control.test.tsx
+  s_c0870a827920ef::t_2af1b0e31501f4 1-35
+packages/ui-native/src/components/refresh-control.tsx
+  s_8252619ce79a86::t_feef832b9806d0 5-6,11-12,31,33-38
+packages/ui-native/src/layouts/__tests__/inbox-page.test.tsx
+  s_8252619ce79a86::t_15f39aff6abe29 155-189
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_c0870a827920ef::t_c6155b9141e425 19-21,33,40,66,68-72,149-154,201-202,204-206,209-215,243,263,324-326,354,356,359-369,404
+packages/ui-native/test-utils/rn-mock.tsx
+  s_8252619ce79a86::t_799ddb3ff7a5f0 120-124,437-446
+packages/ui-native/types/react-native.d.ts
+  s_c0870a827920ef::t_3957e64efa9804 270-272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c22ed48d3c321764af18bd7d206c650f268ac737",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
