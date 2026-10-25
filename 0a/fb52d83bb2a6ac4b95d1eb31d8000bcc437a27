@@ -1,0 +1,62 @@
+packages/chat/src/__tests__/web.test.tsx
+  s_c0870a827920ef::t_76e52ddd4a5d4a 1-248
+  s_c0870a827920ef::t_ccfd86e41b1250 249-314
+packages/chat/src/web/voice-note.tsx
+  s_c0870a827920ef::t_421d43038aa2f7 1-197
+packages/chat/src/web/panel.tsx
+  s_c0870a827920ef::t_3a1123a3f55d93 1-89
+  s_c0870a827920ef::t_102991e5962023 90
+packages/chat/src/web/markdown.tsx
+  s_c0870a827920ef::t_a471c8279d8cdc 1-245
+packages/chat/src/web/thread.tsx
+  s_c0870a827920ef::t_6e45f4c92e8b63 61,64,66-67
+  s_c0870a827920ef::t_e758f9cb6e95ad 1-60,62-63,65,68-222,225,228-273,275-279,281-289,291-471,473-647
+  s_c0870a827920ef::t_20d11f5d0dc99d 223-224,226-227,274,280,290,472,648
+packages/chat/src/web/memory-client.ts
+  s_c0870a827920ef::t_2d257233f4c43f 1-459
+packages/chat/src/web/format.ts
+  s_c0870a827920ef::t_7b734be2165a74 1-55
+packages/chat/src/web/inbox.tsx
+  s_c0870a827920ef::t_1da32f70935e5d 1-194
+  s_c0870a827920ef::t_a6bfc7a21ecacb 195
+packages/chat/src/web/attachments.tsx
+  s_c0870a827920ef::t_99164c122330e9 1-331
+packages/chat/src/web/use-voice-recorder.ts
+  s_c0870a827920ef::t_2e0cab7231db20 1-252
+  s_c0870a827920ef::t_a953eeba1ebea9 253-264
+packages/chat/src/web/composer.tsx
+  s_c0870a827920ef::t_aa1d2895e86874 1-405
+packages/chat/src/__tests__/web-markdown.test.tsx
+  s_c0870a827920ef::t_4a2027300e2157 1-88
+packages/chat/src/web/thread-context.ts
+  s_c0870a827920ef::t_ebb6bbf17523d4 1-53
+packages/chat/src/web/bubble.tsx
+  s_c0870a827920ef::t_07d91b36f7b136 1-487
+  s_c0870a827920ef::t_4ee0bce895457e 488-502
+.changeset/genesis-chat.md
+  s_c0870a827920ef::t_8660e691266976 6-7
+packages/chat/README.md
+  s_c0870a827920ef::t_b2c05bfb10bf95 16-40
+packages/chat/package.json
+  s_c0870a827920ef::t_ebb8e1fbf47f88 59-60,63-65,68-73,77-79,82-84,88-89,97
+packages/chat/src/web/index.ts
+  s_c0870a827920ef::t_abcbb18b2bc27e 1-50
+pnpm-lock.yaml
+  s_c0870a827920ef::t_4576a7d8450b39 258-260,524-529,551-553
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0afb52d83bb2a6ac4b95d1eb31d8000bcc437a27",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
