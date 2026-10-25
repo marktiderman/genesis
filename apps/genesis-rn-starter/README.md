@@ -281,8 +281,10 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
   (what the person sends: their request and text, an optional screenshot, the account id and device
   facts); all
   linked to the person, none for tracking, and `NSPrivacyTracking` false. The check-in example sends
-  nothing yet (its `send` is a stub); once it posts answers to your server, add them (`other user
-  content`, or the types your questions ask for) to `privacy.collects`. Turn `observability` off
+  nothing yet (its `send` and its photo `upload`, `src/lib/check-in-photos.ts`, are stubs; the
+  photo question picks from the library through expo-image-picker, a native module, so adding or
+  removing it changes the fingerprint); once it posts answers to your server, add them (`other user
+  content`, `photos or videos`, or the types your questions ask for) to `privacy.collects`. Turn `observability` off
   if you never set a DSN. If the app collects anything else, list everything it collects in
   `genesis.config.json` `privacy.collects` (it replaces the blocks' list). Check the result with
   `npx expo config --type introspect`. The App Store privacy label in App Store Connect is still
