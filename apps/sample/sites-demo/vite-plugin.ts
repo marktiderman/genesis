@@ -86,6 +86,10 @@ export function sitesDemo(): Plugin {
         const res = await handleDemoRequest(new Request(`${origin}${root}${path}`), base);
         if (!res || res.status !== 200) throw new Error(`[sites-demo] ${path} answered ${res?.status ?? "nothing"} while prerendering.`);
         const html = await res.text();
+        if (path.endsWith(".pdf")) {
+          write(`${root}${path}`, html);
+          continue;
+        }
         write(`${root}${path.replace(/\/$/, "")}/index.html`, html);
         for (const m of html.matchAll(/(?:href|src)="([^"]*\/_gs\/[^"]+)"/g)) assets.add(m[1]!);
       }

@@ -13,6 +13,7 @@
 @import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
 
 @source "../sections";
+@source "../islands/loader.ts";
 @source "./document.tsx";
 @source "../../../ui/src/components/layout/band.tsx";
 @source "../../../ui/src/components/layout/container.tsx";
@@ -39,5 +40,21 @@
   img {
     max-width: 100%;
     height: auto;
+  }
+}
+
+/*
+ * The timetable's day picker on a phone: the checked day's classes, no
+ * script. Where :has() isn't supported every day shows, which still reads.
+ */
+@layer components {
+  [data-gs-schedule]:has(input[data-day="0"]:checked) [data-panel]:not([data-panel="0"]),
+  [data-gs-schedule]:has(input[data-day="1"]:checked) [data-panel]:not([data-panel="1"]),
+  [data-gs-schedule]:has(input[data-day="2"]:checked) [data-panel]:not([data-panel="2"]),
+  [data-gs-schedule]:has(input[data-day="3"]:checked) [data-panel]:not([data-panel="3"]),
+  [data-gs-schedule]:has(input[data-day="4"]:checked) [data-panel]:not([data-panel="4"]),
+  [data-gs-schedule]:has(input[data-day="5"]:checked) [data-panel]:not([data-panel="5"]),
+  [data-gs-schedule]:has(input[data-day="6"]:checked) [data-panel]:not([data-panel="6"]) {
+    display: none;
   }
 }

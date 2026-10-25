@@ -10,8 +10,9 @@
  * - an enum, or a union of constants → a select;
  * - a boolean → a yes/no radio; a number → a number input;
  * - a string → text, or a textarea when it may run past 160 characters;
- * - an object → its fields; an array of objects → a list of them; an array
- *   of strings → one per line.
+ * - an object → its fields (a record keyed by an enum, such as
+ *   `z.partialRecord(Day, …)`, gets one optional field per key); an array of
+ *   objects → a list of them; an array of strings → one per line.
  *
  * Anything else gets a field that says it can't be edited here, and a
  * warning in the console, so a gap is visible rather than silent.
@@ -26,6 +27,8 @@ type JsonSchema = Record<string, unknown> & {
   type?: string | string[];
   title?: string;
   properties?: Record<string, JsonSchema>;
+  propertyNames?: JsonSchema;
+  additionalProperties?: JsonSchema | boolean;
   required?: string[];
   items?: JsonSchema;
   enum?: unknown[];
@@ -162,6 +165,8 @@ export function fieldFor(key: string, schema: JsonSchema, required: boolean, ctx
         ...(schema.format === "uri-reference" ? { placeholder: "/about, #section or https://…" } : {}),
       };
     case "object": {
+      const keyed = enumKeyedProperties(schema);
+      if (keyed) return { type: "object", label, objectFields: objectFields({ ...schema, properties: keyed, required: [] }, { ...ctx, path }) };
       if (!schema.properties) break;
       return { type: "object", label, objectFields: objectFields(schema, { ...ctx, path }) };
     }
@@ -185,6 +190,14 @@ export function fieldFor(key: string, schema: JsonSchema, required: boolean, ctx
   }
   ctx.unsupported.push(path);
   return { type: "custom", label, render: UnsupportedField };
+}
+
+/** A record keyed by an enum (`z.partialRecord(Day, Line(20))`): one optional property per key, or null when it isn't one. */
+function enumKeyedProperties(schema: JsonSchema): Record<string, JsonSchema> | null {
+  const keys = schema.propertyNames?.enum;
+  const value = schema.additionalProperties;
+  if (schema.properties || !keys?.length || !keys.every((k) => typeof k === "string") || !value || typeof value !== "object") return null;
+  return Object.fromEntries((keys as string[]).map((k) => [k, value]));
 }
 
 function objectFields(schema: JsonSchema, ctx: FieldContext): Record<string, Field> {

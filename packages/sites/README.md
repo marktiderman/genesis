@@ -8,10 +8,13 @@ hydration, and published as immutable releases you can roll back.
   menus, redirects) in Puck's `{ root, content }` shape, the section registry
   (`defineSection`), props migrations, SEO, the publish checks, the theme from
   your brand, templates and the `SiteStore` contract.
-- **Sections** (`/sections`): 13 server-rendered sections on Genesis UI.
+- **Sections** (`/sections`): 20 server-rendered sections on Genesis UI.
 - **Web** (`/web`): `handleSiteRequest`, the renderer and request handler.
 - **Supabase** (`/supabase`): `createSupabaseSiteStore`, over the
   `genesis_sites` schema in `migrations/`.
+- **Import** (`/import`, Node): `importAssets`, which re-hosts an old site's
+  images and PDFs behind a guard against server-side request forgery, and
+  `rewriteUrls`.
 - **Editor** (`/editor`): `<SiteEditor>`, the visual editor (on Puck).
 - **Block** (`/blocks`): `sitesBlock`, so `genesis add sites` installs the
   migration.
@@ -22,7 +25,7 @@ Status: beta. The design and its reasoning are in
 ## Install
 
 ```bash
-genesis add sites        # copies the migration and its pgTAP test into supabase/
+genesis add sites        # copies the migrations (0001, 0002) and their pgTAP tests into supabase/
 pnpm add @marktiderman/genesis-sites zod@^4
 ```
 
@@ -140,7 +143,11 @@ never public. A stored page that no longer parses is left out of the site
 
 **Preview.** `mode: "preview"` renders the drafts, with `noindex` and
 `Cache-Control: private, no-store`, through a store signed in as the viewer,
-so the database's `can_view` decides who sees them.
+so the database's `can_view` decides who sees them. Pass the signed-in
+viewer's user id as `viewer`: without one, preview answers null before it
+reads a draft (anon has no grant on them), and the host shows its sign-in
+page or a 404. A failed read of the published posts on the live site logs and
+renders an empty list (or, for one post, not found) instead of failing the page.
 
 ## Sections
 
@@ -159,6 +166,53 @@ so the database's `can_view` decides who sees them.
 | `rich-text` | narrow, wide | Text |
 | `form-embed` | card, split | Contact form; Form card |
 | `footer` | simple, columns, minimal | Footer; Footer with columns |
+| `schedule` | grid, agenda | Weekly timetable; Day by day |
+| `team` | cards, list | Team cards; Team list |
+| `blog-list` | grid, list | Blog index; Latest three |
+| `post-body` | article, cover | Article; Title over the cover |
+| `map` | split, stacked | Find us; Map and address |
+| `timeline` | vertical, cards | Week by week; Steps as cards |
+| `file` | list, cards | Downloads; File cards |
+
+And inside the MVP sections: `features` has a `steps` variant (numbered,
+a button and a note per step) and `numbered`; `pricing` takes plan `groups`
+(each with its heading, anchor and up to 12 plans) beside or instead of
+`tiers`; `logos` has a `trust-bar` variant (a short claim and badges), and an
+item without an image is a text badge.
+
+- **`schedule`**: the week's classes by time and day, with coach, place,
+  a note and a booking link per class, and chips per class type in the
+  brand's colours (`types`, with a legend). On wider screens it is a table
+  (a caption, a header cell per day and per time, an empty slot said as "No
+  classes"); on a phone a day picker: radio buttons and the stylesheet's
+  `:has()` show one day's classes, with no script (every day shows where
+  `:has()` isn't supported).
+- **`team`**: photo, role, credentials, a long bio, a quote, a button and a
+  link to the person's page (`profile`). The cards open each bio in place
+  (`<details>`); the list shows it all. Each person can have an `anchor`.
+- **`map`**: the address as text, a picture (`image`) and a link to the
+  provider. No map frame is in the HTML: the islands loader shows a "Show
+  the map" button, and only a click puts the OpenStreetMap or Google Maps
+  frame on the page, so nothing loads from the provider before the visitor
+  asks. The frame's URL is built from the address or the coordinates, never
+  typed, and the page's Content-Security-Policy frames only that provider
+  (`frameOrigins` on the definition).
+- **`timeline`**: an ordered list of steps, each with a label (a date,
+  "Week 1"), a title, copy, a picture and a button.
+- **`file`**: downloads that say their type and size before anyone clicks
+  ("PDF, 1.2 MB"). Upload a PDF with `putAsset`: it is stored under
+  `sites/<site_id>/files/`.
+
+### Links
+
+Every button and link prop is a `Link`: `{ label, href, target?, external?,
+event? }`. `external: true` marks an outbound link (a booking or
+membership system): it must be an http(s) URL (checked when parsed, and
+inert when rendered if a document skipped the check), and it renders with
+`rel="noopener noreferrer"` and `data-gs-outbound`. `target: "_blank"` opens
+an http(s) link in a new tab (never a site path), with a visually hidden
+"(opens in a new tab)". `event` names the click for your analytics
+(`data-gs-event`, `cta` by default on buttons).
 
 Every section is server-safe React on Genesis UI (`Band`, `Display`,
 `BandLead`, `Button`), sits on a surface (`base`, `muted`, `accent`,
@@ -239,13 +293,22 @@ the slug is:
 ```ts
 forms: (slug) =>
   slug === "free-class"
-    ? { kind: "definition", definition: freeClass.definition, submitUrl: "/api/forms/free-class" }
-    : slug === "waitlist"
-      ? { kind: "embed", url: "https://forms.example/waitlist", title: "Join the waitlist" }
-      : null,
+    ? { kind: "definition", definition: freeClass.definition, submitUrl: "/api/forms/free-class" } // your endpoint
+    : slug === "crm"
+      ? { kind: "definition", definition: enquiry.definition, submitUrl: "https://crm.example/hooks/riverside" } // another service's
+      : slug === "write-to-us"
+        ? { kind: "mailto", email: "hello@riverside.example", subject: "A question" } // no endpoint yet
+        : slug === "waitlist"
+          ? { kind: "embed", url: "https://forms.example/waitlist", title: "Join the waitlist" }
+          : null,
 ```
 
-- `submitUrl` is a site path or an https URL.
+- `submitUrl` is a site path or an https URL. An https endpoint's origin is
+  added to the page's `connect-src` and `form-action`.
+- `mailto` is the fallback for a site with no endpoint: a button that opens
+  the visitor's email, with the subject you give (line breaks removed). No
+  form is drawn, nothing is posted or stored, and a page never posts a form
+  to `mailto:`.
 - A genesis-forms definition with no logic, pages, recall or hidden inputs
   (most contact and sign-up forms) renders as a plain HTML form. The islands
   loader sends `{ form, answers }` as JSON, with answers keyed by field id as
@@ -257,6 +320,77 @@ forms: (slug) =>
 
 Either way, your endpoint checks the answers again (`validateSubmission` from
 genesis-forms). An unknown slug renders nothing and logs.
+
+## The blog
+
+A site's posts live beside its pages, each with a draft and a published
+copy (`site_posts`, migration `0002_genesis_sites_posts.sql`). A post goes
+live on its own: `publishPost` checks the draft (`checkPost`: alt text on
+its images, no `h1` and no skipped heading level in its text) and makes it
+the published copy, without a new release of the site. `unpublishPost`
+takes it down; `deletePost` removes it. A site's rollback doesn't touch its
+posts.
+
+```ts
+const { id, rev } = await store.savePost(siteId, { slug: "first-class-tips", doc: { schemaVersion: 1, title: "Five tips for your first class", excerpt: "…", body } });
+await store.savePost(siteId, { id, rev, slug: "first-class-tips", doc: edited }); // compare-and-swap: { conflict, rev } if someone saved first
+await store.publishPost(id); // PublishBlockedError with `issues` when a check fails
+```
+
+The site's post page is a page of kind `post` (at most one, never `/`): the
+template every post renders in. At its own path (`/blog`) it is the blog's
+index; at `/blog/<slug>` it shows that post in its `post-body` section,
+with the post's title as the page's `h1`, `og:type` article, `Article`
+JSON-LD and a breadcrumb through the blog. A `blog-list` section lists the
+published posts, newest first, in pages (`?page=2`, plain links), anywhere
+on the site; on a post it leaves that post out. The sitemap lists every
+published post, `/rss.xml` is the feed, and every page links to it.
+
+Moving a blog in: `importPosts(siteId, posts)` takes up to 500 posts once,
+each with its slug and its old `publishedAt`. A slug the site already has is
+skipped, and a post that fails a check comes in as a draft with its
+`issues`, so nothing goes live unchecked. Re-host its pictures first (see
+Importing a site) and run `rewriteUrls` over each document.
+
+Anon reads posts only through `genesis_sites.live_posts(site_id)` (the
+published posts of a live site, without bodies) and `live_post(site_id,
+slug)`; drafts are never public. `withCacheInvalidation` purges
+`site:<id>` after a post goes up, comes down, is deleted or imported, and
+the database sends a `genesis_sites` notification with `action: "post"`.
+
+## Importing a site
+
+```ts
+import { importAssets, rewriteUrls } from "@marktiderman/genesis-sites/import";
+
+const { map, assets, failed } = await importAssets(editorStore, siteId, oldImageAndPdfUrls, { alt: (url) => oldAlt[url] });
+const page = rewriteUrls(importedPage, map); // image sources and file links now point at the copies
+```
+
+Each URL is fetched on your server, checked, and stored through the
+store's `putAsset` (which records it in `site_assets`, with the image's
+width and height) under `sites/<site_id>/` (a PDF under `files/`). An image
+with no alt text yet is `needsAlt`; the publish check asks for it before
+the page goes live. The fetch is guarded against server-side request
+forgery:
+
+- http and https only, ports 80 and 443, no user name or password in the URL;
+- only public addresses: loopback, private, link-local (cloud metadata),
+  carrier-grade NAT, documentation, benchmark, multicast and reserved
+  ranges are refused, and so are their IPv6 forms (IPv4-mapped, NAT64,
+  6to4, unique local, site-local);
+- the address is checked on every address a name resolves to, when the
+  socket connects (the request's own DNS lookup), so DNS rebinding can't
+  slip past it, and the request uses a fresh agent, never a pooled socket
+  or a proxy from the environment;
+- every redirect is checked the same way, and at most three are followed;
+- a size cap (15 MiB by default, by `Content-Length` and while reading)
+  and a time limit (20 s);
+- the type comes from the bytes: PNG, JPEG, GIF, WebP, AVIF or PDF. SVG,
+  HTML and anything else are refused, whatever the name or `Content-Type`
+  says; an image over 20000 pixels a side is refused too.
+
+A URL that fails is listed in `failed` with the reason, and the rest go on.
 
 ## Who may edit
 

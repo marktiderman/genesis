@@ -173,8 +173,14 @@ export interface ThemePair {
   mode: "light" | "dark";
   foreground: string;
   background: string;
-  /** The ratio it must reach: 4.5 for text, 3 for the focus ring. */
+  /** The ratio it must reach: 4.5 for text, 3 for the focus ring and other non-text marks. */
   minimum: number;
+  /**
+   * `error` (default) blocks the publish; `warning` is shown but doesn't. A
+   * mark that never carries meaning alone (each one also has text or a shape)
+   * warns, so a light brand colour can still publish.
+   */
+  severity?: "error" | "warning";
 }
 
 export interface SiteTheme {
@@ -250,6 +256,9 @@ function pairsFor(c: ModeColours, mode: "light" | "dark"): ThemePair[] {
     { name: "button and accent-band text on the primary colour", mode, foreground: c.primaryForeground, background: c.primary, minimum: 4.5 },
     { name: "text on an inverse band", mode, foreground: c.background, background: c.foreground, minimum: 4.5 },
     { name: "the focus ring on the page", mode, foreground: c.ring, background: c.background, minimum: 3 },
+    // Non-text (1.4.11): the primary colour as a border or marker (a timetable chip, the picked day, a timeline's step).
+    // Every such mark also has text or a shape (a chip names its type, a marker shows a dot), so it warns.
+    { name: "the primary colour as a border or marker on the page", mode, foreground: c.primary, background: c.background, minimum: 3, severity: "warning" },
   ];
 }
 

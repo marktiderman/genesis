@@ -34,16 +34,35 @@ export function secretKeyBytes(key: string | Uint8Array): Uint8Array<ArrayBuffer
   return bytes;
 }
 
+/** Options for `deriveSecretKey`. */
+export interface DeriveSecretKeyOptions {
+  /**
+   * The HKDF salt: bytes, or text taken as its UTF-8 bytes. Default empty,
+   * which is what every key derived before this option existed used, so
+   * leave it out to open those. For new keys a fixed, app-wide random value
+   * (say 32 bytes from `openssl rand -base64 32`, kept as config) is
+   * recommended (RFC 5869). It need not be secret, but must never change
+   * once anything is sealed with it.
+   */
+  salt?: string | Uint8Array | undefined;
+}
+
 /**
  * An AES-GCM key for one purpose, derived from the app secret with HKDF-SHA-256
- * (empty salt, `info` naming the purpose). Use a different `info` for each
- * kind of secret; keep it fixed once anything is sealed with it.
+ * (`info` naming the purpose; the salt empty unless `options.salt` is given).
+ * Use a different `info` for each kind of secret; keep it, and the salt,
+ * fixed once anything is sealed with them.
  */
-export async function deriveSecretKey(key: string | Uint8Array, info: string): Promise<WebCryptoKey> {
+export async function deriveSecretKey(
+  key: string | Uint8Array,
+  info: string,
+  options: DeriveSecretKeyOptions = {},
+): Promise<WebCryptoKey> {
   if (!info) throw new DeliveryError("A sealing key needs its purpose (info)");
+  const salt = typeof options.salt === "string" ? enc.encode(options.salt) : new Uint8Array(options.salt ?? new Uint8Array(0));
   const base = await crypto.subtle.importKey("raw", secretKeyBytes(key), "HKDF", false, ["deriveKey"]);
   return crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info: enc.encode(info) },
+    { name: "HKDF", hash: "SHA-256", salt, info: enc.encode(info) },
     base,
     { name: "AES-GCM", length: 256 },
     false,

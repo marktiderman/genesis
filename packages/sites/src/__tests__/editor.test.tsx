@@ -54,6 +54,7 @@ describe("the entry points without the editor", () => {
     ["/sections", "sections/index.ts"],
     ["/supabase", "supabase/index.ts"],
     ["/blocks", "blocks.ts"],
+    ["/import", "import/index.ts"],
   ])("%s never reaches Puck or the editor through its imports", (_name, entry) => {
     const { seen, bare } = graph(entry);
     expect(seen.size).toBeGreaterThan(0);
@@ -92,6 +93,13 @@ describe("createEditorConfig", () => {
       // No built-in prop falls back to "can't be edited here".
       expect(sectionFields(getSection(type)!).unsupported, type).toEqual([]);
     }
+  });
+
+  it("gives a record keyed by an enum one optional text field per key", () => {
+    const fields = config.components.schedule!.fields?.dayNames as { type: string; objectFields: Record<string, { type: string }> };
+    expect(fields.type).toBe("object");
+    expect(Object.keys(fields.objectFields)).toEqual(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
+    expect(fields.objectFields.mon!.type).toBe("text");
   });
 
   it("offers each preset in the Add picker, grouped by category", () => {

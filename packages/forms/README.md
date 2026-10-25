@@ -476,9 +476,21 @@ stored response's answers onto a newer version of the form by field key, for the
 
 ### Rate limits
 
-The submit endpoint's limit, without the counter: `clientIp(headers, trusted?)` reads the first
-trusted proxy header (`DEFAULT_TRUSTED_IP_HEADERS`: `x-vercel-forwarded-for`, `x-forwarded-for`,
-`x-real-ip`; trust only headers your proxy overwrites), `addressPrefix` keeps an IPv4 address whole
+The submit endpoint's limit, without the counter: `clientIp(headers, options?)` reads the first
+trusted platform header (`DEFAULT_TRUSTED_IP_HEADERS`: `x-vercel-forwarded-for` and
+`cf-connecting-ip`, which Vercel and Cloudflare set themselves). `x-forwarded-for` is not read by
+default: its leftmost entries are whatever the client sent, so only the entry your own proxy
+appended can be trusted. Behind your own proxies, opt in with `forwardedForHops`, the number of
+proxies that each append an address, and `clientIp` takes the entry that many places from the
+right (1: the rightmost); pass `headers: []` as well, since off Vercel or Cloudflare a client can
+send those headers itself. A list of header names on its own also works as the second argument.
+
+```ts
+clientIp(request.headers); // on Vercel or behind Cloudflare
+clientIp(request.headers, { headers: [], forwardedForHops: 1 }); // behind one load balancer you run
+```
+
+`addressPrefix` keeps an IPv4 address whole
 and an IPv6 one by its /64, and `rateLimitKey({ kind, scope, ip, secret })` is
 `<kind>:<scope>:<hex HMAC-SHA256 of the prefix>`, so the address is never stored. The app's
 `RateLimitStore.hit(key, limit, windowSeconds)` counts (shared by every instance); `allow` fails
@@ -825,7 +837,7 @@ submission. On an anonymous form identifying fields get no column. `sensitive` f
 | --- | --- | --- |
 | `emailDestination({ provider, from, replyTo?, render?, sensitive? })` | `{ to: string \| string[], subject? }` | HTML and plain text from the definition (`renderEmail`), every value HTML-escaped. Subject, From, To and Reply-To are stripped of line breaks or refused, so no answer can add a header. At most 50 recipients. Sensitive fields masked by default. The idempotency key is the delivery id plus a hash of the recipients. `resendProvider({ apiKey })` is built in; any `EmailProvider` works. `render` and `emailBody(lines)` let an app write its own content and keep the escaping. |
 | `sheetsDestination({ account \| accessToken, escapeFormulas?, sensitive? })` | `{ spreadsheetId, sheetName? }` | Signs in with a service account (`account`) or with an access token the app supplies (`accessToken(config, { destinationId })`, for a sheet a person connected with Google sign-in: see `googleOAuthAccessToken`). Service-account JWT signed with WebCrypto (RS256), token cached per process. Creates the tab, writes and freezes the header, adds a column for a new key without moving others, appends with `valueInputOption=RAW`, so Sheets stores text exactly as typed and never runs it as a formula (`@team thanks` stays `@team thanks`). No `'` is added by default, since RAW would store it literally; `escapeFormulas: true` adds one (headers included) for a sheet that is exported and opened elsewhere. `escapeFormula(cell)` is the same opt-in guard for CSV you write yourself: text starting with `=`, `@`, tab or CR, or with `+`/`-` followed by anything but number punctuation, gets a leading `'`. Keeps the tab, header and last row in `state`, so a normal delivery is one request. On `redelivery`, skips ids already in the last 500 rows. On `update` (an edit), reads the id column and overwrites the response's row where it is, appending only when the row is gone. A 403/404 says to share the sheet with the service account (or, with `accessToken`, that it is no longer connected). |
-| `webhookDestination({ secret, url?, resolveHost?, allowInsecureUrls?, allowPrivateHosts?, sensitive? })` | `{ url }` | [Standard Webhooks](https://www.standardwebhooks.com): `webhook-id`, `webhook-timestamp`, `webhook-signature: v1,<HMAC-SHA256>`. The secret is base64 (at least 16 bytes decoded), usually `whsec_`-prefixed; as in every Standard Webhooks library the prefix is optional and the rest is always base64-decoded, so receivers verify with the same string. A secret that is not padded standard base64 (a raw passphrase, say) fails permanently rather than signing deliveries no receiver could verify. Generate one with `newWebhookSecret()`. Body `{ type: "form.submitted", timestamp, data: { form, submission, row } }` (`form.updated` on `update`). `url(config, { destinationId })` looks the address up when it is kept out of config. https only, no URL credentials, no localhost or private, loopback or link-local address literals, redirects not followed. Pass `resolveHost` to also refuse a hostname that resolves to a non-public address (checked before every request; see below). Without it, such a hostname is not caught; either way, if untrusted users pick URLs, send from a network that cannot reach internal services. Receivers check with `verifyWebhook({ secret, headers, body })` (constant-time, five-minute tolerance). |
+| `webhookDestination({ secret, url?, resolveHost?, allowInsecureUrls?, allowPrivateHosts?, sensitive? })` | `{ url }` | [Standard Webhooks](https://www.standardwebhooks.com): `webhook-id`, `webhook-timestamp`, `webhook-signature: v1,<HMAC-SHA256>`. The secret is base64 (at least 24 bytes decoded, `MIN_WEBHOOK_SECRET_BYTES`, as the spec recommends), usually `whsec_`-prefixed; as in every Standard Webhooks library the prefix is optional and the rest is always base64-decoded, so receivers verify with the same string. A secret that is not padded standard base64 (a raw passphrase, say) fails permanently rather than signing deliveries no receiver could verify. Generate one with `newWebhookSecret()` (32 bytes). To rotate without downtime, pass `secret` as an array (new and old, or a resolver returning one): every delivery is signed with each, space-separated in `webhook-signature`, so the receiver verifies with either until it drops the old one. Body `{ type: "form.submitted", timestamp, data: { form, submission, row } }` (`form.updated` on `update`); `timestamp` is when the event happened (the submission's `submittedAt`, else the send time), while the `webhook-timestamp` header is the send time. A 410 Gone fails permanently with `disable: true`, the receiver asking to be switched off; the runner passes it on as `disable: true` on the `failed` outcome, so the app can disable the destination. `url(config, { destinationId })` looks the address up when it is kept out of config. https only, no URL credentials, no localhost or private, loopback or link-local address literals, redirects not followed. Pass `resolveHost` to also refuse a hostname that resolves to a non-public address (checked before every request; see below). Without it, such a hostname is not caught; either way, if untrusted users pick URLs, send through an egress proxy that refuses internal addresses (see below). Receivers check with `verifyWebhook({ secret, headers, body })` (constant-time, five-minute tolerance; `secret` may be an array during a rotation). |
 | `slackDestination({ url?, resolveHost?, message? })` | `{ url }` | One message per submission to a Slack incoming webhook (`https://hooks.slack.com/services/…` only; anything else fails permanently). The heading (`New response: <title>`, `Updated response` on `update`), each answer as `label: value` in form order, then a link back or the response id. Every value is escaped (`escapeSlack`), so typed text can't mention `@channel` or make a link; answers over 1,500 characters are cut. Sensitive fields masked by default. `message(input)` sets the heading, extra lines, a link and fields to `omit` per delivery; `slackMessage(submission, definition, options)` builds the same text on its own. The URL is the credential, so `url(config, { destinationId })` can look it up. |
 
 ### Sending by answer
@@ -849,8 +861,11 @@ destinations) resolves the name and refuses it unless every address is public by
 benchmarking, multicast, IPv4-mapped, NAT64, 6to4 and Teredo ranges. A lookup that fails is
 retryable; a private address is not. In Node, `resolveHost` can be
 `(host) => dns.promises.lookup(host, { all: true }).then((a) => a.map((x) => x.address))`. The
-name is checked and then fetched, so a name re-pointed in between (DNS rebinding) is not caught:
-where untrusted people choose URLs, also send from a network that cannot reach internal services.
+name is checked and then fetched, so a name re-pointed in between (DNS rebinding) is not caught,
+and no check made before `fetch` can close that gap. Where untrusted people choose URLs, send
+through an egress proxy that resolves the name itself and refuses internal addresses at connect
+time (Smokescreen, say, or a host's own outbound proxy), passing a `fetch` that goes through it,
+or from a network that cannot reach internal services at all.
 
 ### Google sign-in for sheets
 
@@ -872,7 +887,11 @@ sheetsDestination({
 Webhook and Slack URLs, signing secrets and refresh tokens should not sit in config. The helpers
 seal them for whatever store the app uses: `deriveSecretKey(appKey, purpose)` derives an AES-256-GCM
 key from a 32-byte app secret (base64 or base64url, as `openssl rand -base64 32` prints) with
-HKDF-SHA-256, one key per purpose; `sealSecret(key, plaintext, aad)` gives `v1.<iv>.<ciphertext>`
+HKDF-SHA-256, one key per purpose. `deriveSecretKey(appKey, purpose, { salt })` takes an HKDF salt
+(bytes, or text as UTF-8); it defaults to empty, which every key derived before the option used,
+so leave it out to keep opening what is already sealed. For a new app, a fixed app-wide random salt
+(32 random bytes kept as config) is recommended; it need not be secret but must never change once
+anything is sealed with it. `sealSecret(key, plaintext, aad)` gives `v1.<iv>.<ciphertext>`
 (base64url), bound to `aad` (the row it belongs to), and `openSecret(key, sealed, aad)` opens it,
 failing permanently for another row, another purpose or a rotated key.
 
@@ -908,8 +927,10 @@ match `config.when`), `skipped` (the destination returned `notSent`, a deliberat
 cap; never retried), `retry` with `retryAt`, and `failed`. A retryable failure with the service's
 Retry-After is deferred without counting an attempt (`counted: false`), up to `maxDeferrals`
 (default 24, counted by the store in `ClaimedDelivery.deferrals`); any other retryable
-failure backs off by attempt (`defaultBackoff`: 1 minute doubling to 6 hours) until `maxAttempts`
-(default 8), then fails. Permanent failures and unknown kinds fail at once. A destination that
+failure backs off by attempt (`defaultBackoff`: 5 minutes, quadrupling, at most 24 hours, each
+wait jittered by ±20%; about 3 days across the default attempts, as Standard Webhooks suggests)
+until `maxAttempts` (default 8), then fails. A `failed` outcome with `disable: true` is a receiver
+asking to be switched off (a webhook's 410). Permanent failures and unknown kinds fail at once. A destination that
 throws is reduced to a safe message. `run` returns a `DeliveryReport` of counts, including `stale`
 (record resolved false) and `unrecorded` (record threw; the lease runs out and the row comes back).
 

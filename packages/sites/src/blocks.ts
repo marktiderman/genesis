@@ -9,7 +9,7 @@ const PACKAGE = "@marktiderman/genesis-sites";
 
 /**
  * Sites and landing pages: the `genesis_sites` schema (sites, pages,
- * releases, assets), drafts, publish and rollback. The pages are served by
+ * releases, assets, blog posts), drafts, publish and rollback. The pages are served by
  * `handleSiteRequest` from `@marktiderman/genesis-sites/web`, mounted by the
  * app on its own server.
  *
@@ -19,11 +19,15 @@ export const sitesBlock = defineBlock({
   id: "sites",
   platforms: ["web", "server"],
   contributes: {
-    migrations: [{ package: PACKAGE, file: "migrations/0001_genesis_sites.sql", test: "migrations/tests/0001_genesis_sites.test.sql" }],
+    migrations: [
+      { package: PACKAGE, file: "migrations/0001_genesis_sites.sql", test: "migrations/tests/0001_genesis_sites.test.sql" },
+      { package: PACKAGE, file: "migrations/0002_genesis_sites_posts.sql", test: "migrations/tests/0002_genesis_sites_posts.test.sql" },
+    ],
     privacy: {
       notes: [
         "Sites hold what their editors write and publish; a published site is public.",
         "Each release records who published it; a deleted person's releases stay, without the person.",
+        "Blog posts record who wrote them; a published post is public until it is taken down or deleted.",
         "Visitors' form answers go to the app's own forms endpoint, not to the site tables.",
       ],
     },

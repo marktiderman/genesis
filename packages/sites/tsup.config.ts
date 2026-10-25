@@ -8,6 +8,7 @@ export default defineConfig({
     supabase: "src/supabase/index.ts",
     blocks: "src/blocks.ts",
     editor: "src/editor/index.ts",
+    import: "src/import/index.ts",
   },
   format: ["esm"],
   dts: true,

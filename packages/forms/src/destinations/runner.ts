@@ -14,7 +14,9 @@
  * - `retry`: a retryable failure. With the service's own Retry-After it is
  *   deferred without counting an attempt (`counted: false`); otherwise it backs
  *   off by attempt (`counted: true`), until `maxAttempts`.
- * - `failed`: permanent, an unknown kind, or out of attempts.
+ * - `failed`: permanent, an unknown kind, or out of attempts. With `disable:
+ *   true` the receiver asked to be switched off (a webhook's 410 Gone): the
+ *   app should disable the destination rather than keep sending to it.
  *
  * It never throws for a delivery's failure, and never logs answers, contact
  * details or secrets: only ids, kinds and the destinations' safe messages.
@@ -87,6 +89,8 @@ export type DeliveryOutcome =
       status: "failed";
       error: string;
       httpStatus?: number;
+      /** The receiver asked to be switched off (a webhook's 410 Gone): disable the destination. */
+      disable?: true;
     };
 
 export interface ClaimRequest<Filter> {
@@ -159,9 +163,18 @@ export const DEFAULT_MAX_ATTEMPTS = 8;
 export const DEFAULT_MAX_DEFERRALS = 24;
 export const DEFAULT_BATCH_SIZE = 25;
 
-/** 1 minute, doubling each attempt, at most 6 hours: 1m, 2m, 4m … 6h. */
-export function defaultBackoff(attempt: number): number {
-  return Math.min(6 * 3600, 60 * 2 ** Math.max(0, attempt - 1));
+/**
+ * 5 minutes, quadrupling each attempt, at most 24 hours: 5m, 20m, 80m, 5h20m,
+ * 21h20m, then 24h. Across the default 8 attempts that is about 3 days, as
+ * Standard Webhooks suggests. Each wait is jittered by up to ±20%, so
+ * deliveries that failed together (a receiver's outage) don't all come back
+ * at once. `random` (default `Math.random`) is for tests.
+ */
+export function defaultBackoff(attempt: number, random?: () => number): number {
+  const nominal = Math.min(24 * 3600, 300 * 4 ** Math.max(0, attempt - 1));
+  // A function only: `[1, 2].map(defaultBackoff)` passes an index here.
+  const r = typeof random === "function" ? random() : Math.random();
+  return Math.round(nominal * (0.8 + 0.4 * Math.min(1, Math.max(0, r))));
 }
 
 /** Turns a destination's result into an outcome for a delivery on its `attempt`. */
@@ -179,6 +192,7 @@ export function deliveryOutcome(
 ): DeliveryOutcome {
   if (result.ok) return result.notSent ? { status: "skipped", reason: result.notSent.slice(0, 500) } : { status: "sent" };
   const http = result.status !== undefined ? { httpStatus: result.status } : {};
+  if (result.disable) return { status: "failed", error: result.error, ...http, disable: true };
   if (!result.retryable) return { status: "failed", error: result.error, ...http };
   const now = options.now ?? Date.now();
   // Deferred without counting an attempt, until maxDeferrals: after that a

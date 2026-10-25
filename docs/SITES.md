@@ -1,8 +1,11 @@
 # Genesis Sites: design
 
 Status: the landing-page and multi-page MVP is built in `packages/sites`
-(`@marktiderman/genesis-sites`, October 2026), and so is the editor
-(`/editor`, on Puck 0.23).
+(`@marktiderman/genesis-sites`, October 2026), and so is the first part of
+V1: the sections a real multi-page gym site needs (timetable, team, blog,
+map, timeline, downloads, grouped pricing, numbered steps, a trust bar,
+outbound booking links), the blog, a guarded import of an old site's
+files, and the editor (`/editor`, on Puck 0.23).
 This document records the design and why it was chosen. The package's
 [README](../packages/sites/README.md) is the reference for using it.
 
@@ -34,7 +37,8 @@ a brand.
 4. **One package**, `@marktiderman/genesis-sites`, with subpaths `.` (schemas,
    registry, migrations, SEO, a11y, theme, templates, the store contract),
    `/sections`, `/web` (renderer and request handler), `/supabase` (the store),
-   `/blocks` and `/editor` (the Puck adapter). Its migrations live
+   `/import` (re-hosting an old site's files, Node only), `/blocks` and
+   `/editor` (the Puck adapter). Its migrations live
    in the package's `migrations/`, and `sitesBlock` (from `defineBlock`, also
    declared under `genesis.blocks` in its package.json) names them, so
    `genesis add sites` installs them.
@@ -103,22 +107,22 @@ Sources: [Puck docs](https://puckeditor.com/docs) (Context7 `/websites/puckedito
 
 | Area | MVP | V1 | Later |
 |---|---|---|---|
-| Sections | nav, hero, features, CTA, testimonials, FAQ, pricing, logos, stats, gallery, rich text, form embed, footer (13) | team, schedule, blog list, video, map, contact details | custom code (admin only), synced "global sections" |
+| Sections | nav, hero, features, CTA, testimonials, FAQ, pricing, logos, stats, gallery, rich text, form embed, footer (13) | **Built:** schedule, team, blog list, post, map, timeline, file (downloads); grouped pricing, numbered steps, trust bar, outbound links. Still to do: video, contact details | custom code (admin only), synced "global sections" |
 | Theme | Tokens from the brand (colour, fonts, radius); light, dark or both; site overrides limited to token choices | Several palettes per site | Motion presets |
 | Variants | 2–4 named layouts per section (`centered`, `split`, `image-left`); presets for the Add picker (Shopify `presets`); a surface per section (`base/muted/accent/inverse`) | — | — |
 | Responsive | Mobile-first token CSS; per-section `hideOn`; image focal point | Mobile order of columns | No per-breakpoint free layout |
 | Templates | **One-click landing page**: brand plus a message produce nav, hero, features, testimonials, CTA, form and footer. A 3-page starter site. A one-page site seeded from a name, logo, message and brand colours and fonts | Template gallery | — |
 | Pages/nav | Pages with clean slugs; nav and footer menus; a 404 page | Nested menus | — |
-| SEO | Title, description, OG/Twitter image, canonical, `noindex`; sitemap.xml; robots.txt; JSON-LD `Organization`/`WebSite`/`BreadcrumbList`; automatic redirect on slug change | Redirect manager; `LocalBusiness`, `Event`, `Article` | — |
+| SEO | Title, description, OG/Twitter image, canonical, `noindex`; sitemap.xml; robots.txt; JSON-LD `Organization`/`WebSite`/`BreadcrumbList`; automatic redirect on slug change | **Built:** `Article` and `og:type` article on posts, posts in the sitemap, rss.xml. Still to do: redirect manager; `LocalBusiness`, `Event` | — |
 | Performance | Server-rendered HTML; no hydration; one loader script under 5 KB for the phone menu and plain forms; width/height on images; fonts preconnected | Image CDN transforms (`srcset`, AVIF/WebP); LCP image priority | — |
 | A11y (WCAG 2.2 AA) | Renderer assigns heading levels (one `h1`, from the hero); contrast of brand pairs at 4.5:1 (1.4.3) blocks publish; alt text required; focus visible; 24px targets (2.5.8) | Lint panel in the editor | — |
 | Publishing | Draft, private preview, publish, release history, rollback | Scheduled publish; single-page publish | Approval workflow |
 | Domains | Host app (see §5) | — | — |
-| Forms | genesis-forms embed; submissions through the host's endpoint | Lead inbox | — |
+| Forms | genesis-forms embed; submissions through the host's endpoint | **Built:** a mailto fallback (a button, nothing posted). Still to do: lead inbox | — |
 | Analytics | `data-gs-event` on CTAs; host analytics adapter | Conversion goals | — |
 | A/B | — | Page variants with an even split and a cookieless bucket (Framer model) | Automatic routing (Smart Traffic) |
 | i18n | — | Locales as `pages.locale`, `hreflang` | Translation workflow |
-| CMS | — | `posts` collection, list and detail templates | Custom collections |
+| CMS | — | **Built:** posts (draft and published copy each, published on their own), the post page kind (index and post), pages of posts, a one-time `importPosts`, and `importAssets` to re-host an old site's files | Custom collections |
 | AI | — | Prompt plus brand produce a sitemap, then sections and copy (Relume flow), as JSON validated against section schemas | Image generation; rewrite a section |
 | Collab | Site roles from host RLS; compare-and-swap saves | Autosave and undo/redo (Puck history); presence; comments | Branching |
 | Schema | Versioned section props plus migrations | `genesis sites migrate` backfill | — |
@@ -205,9 +209,14 @@ site_pages(id uuid pk, site_id uuid fk, path text, kind text /*page|landing*/,
 site_releases(id uuid pk, site_id uuid fk, number int, snapshot jsonb /*SiteDoc + every PageDoc, migrated*/,
       note text, brand_hash text, created_by uuid, created_at, published_at timestamptz null,
       unique(site_id, number))           -- immutable: an update raises
-site_assets(id uuid pk, site_id uuid fk, path text /*sites/<site_id>/...*/, mime text /*no SVG*/,
+site_assets(id uuid pk, site_id uuid fk, path text /*sites/<site_id>/... (a PDF under files/)*/, mime text /*no SVG*/,
       width int, height int, alt text, blurhash text)
--- V1: site_posts(site_id, slug, data jsonb, status, published_at); site_experiments(page_id, variants jsonb, split int[], status)
+-- 0002: the post page kind (at most one per site, never /) and
+site_posts(id uuid pk, site_id uuid fk, slug text, draft jsonb /*PostDoc*/, draft_rev int,
+      published jsonb null /*what visitors read*/, status text /*draft|published*/,
+      published_at timestamptz /*first publish, kept*/, published_updated_at timestamptz,
+      deleted_at timestamptz, unique(site_id, slug) where deleted_at is null)
+-- Later: site_experiments(page_id, variants jsonb, split int[], status)
 ```
 
 **The RLS seam.** Genesis owns the tables, and the host owns the meaning of
@@ -233,8 +242,17 @@ host's own RLS doesn't filter inside them.
   `using (genesis_sites.can_view(site_id))`; recording and removing an upload
   use `can_edit`. There are no other table write grants.
 - **Public reads.** Anon reads only `genesis_sites.live_release(site_id)`: the
-  live release of a live site, without its editors' note. Drafts are never
-  readable by anon.
+  live release of a live site, without its editors' note, and the published
+  posts of a live site (`live_posts`, without bodies, and `live_post`).
+  Drafts are never readable by anon.
+- **Posts** are written through `save_post` (compare-and-swap, a slug kept
+  once published), `publish_post(post_id, expected_rev)` (the revision the
+  client checked becomes the published copy), `unpublish_post`,
+  `delete_post` and `import_posts` (up to 500, each keeping its slug and
+  date, never later than now; a post is published only when it asks for
+  `published`, and is a draft otherwise). A post isn't part of a release: it goes live
+  on its own, and a rollback doesn't touch it. An archived site can't
+  publish posts and serves none.
 - **Writes go through functions.** `save_page_draft(page_id, expected_rev, doc)`
   compares and swaps the revision (raising `GS409` on a conflict) and rechecks
   the page's path against `reserved_paths()`. `publish_site(site_id,
@@ -274,6 +292,10 @@ interface SiteStore {
   rollback(siteId: string, releaseId: string): Promise<Release>;
   listReleases(siteId: string): Promise<ReleaseMeta[]>;
   putAsset?(siteId: string, file: Blob, meta?: AssetMeta): Promise<Asset>;
+  // Posts (optional: a store without them serves a site with no blog)
+  listLivePosts?, getLivePost?,                       // public, like getLive
+  listPosts?, getPost?, savePost?, publishPost?, unpublishPost?, deletePost?,
+  importPosts?(siteId: string, posts: ImportPost[]): Promise<ImportPostsResult>;
 }
 interface BrandSource { getBrand(siteId: string): Promise<BrandInput | null> } // host-implemented
 ```
@@ -293,8 +315,18 @@ demos and previews with the same rules.
   first, renders with `renderToReadableStream`, and does not hydrate. Mounting
   it beside the host's TanStack Start or React Router app, as a plain route or
   a Vercel function, avoids depending on any framework's partial hydration.
-- **Islands.** One loader script (2.3 KB) loads only on a page with a phone
-  menu or a form: it closes the `<details>` menu on Escape, a link or an
+- **Posts.** The site's post page (kind `post`) answers its own path as the
+  blog's index and `<path>/<slug>` with that post: the page's sections, with
+  the post's title, SEO, `Article` JSON-LD and breadcrumb. A page with a
+  post list reads the published posts once per render (`listLivePosts`,
+  newest first, at most 500); `?page=` picks the list's page. `/rss.xml`
+  is the feed and the sitemap lists every post.
+- **Frames.** A section that frames something (the map) says which origins
+  in `frameOrigins`, built from its props and never typed by an editor; the
+  page's `frame-src` allows exactly those. The map's frame isn't in the
+  HTML: the loader adds it when the visitor clicks.
+- **Islands.** One loader script (2.9 KB) loads only on a page with a phone
+  menu, a form or a map: it closes the `<details>` menu on Escape, a link or an
   outside click, and sends a plain HTML form (the usual contact or sign-up
   form) as JSON to the host's endpoint. A form that needs the genesis-forms
   engine (logic, pages, recall, hidden inputs) renders with forms-web's
@@ -330,6 +362,8 @@ demos and previews with the same rules.
   primary hostname for canonical URLs. The package keeps no hostname table.
 - **Preview.** `mode: "preview"` renders the drafts with `noindex` and
   `no-store`, through a store signed in as the viewer, so `can_view` decides.
+  It also takes the signed-in `viewer`; without one it is null before any
+  draft is read.
   The editor's iframe uses the same renderer.
 - **Native.** The renderer is web-only. The native app previews sites in a
   WebView.
@@ -345,8 +379,9 @@ packages/sites/                  @marktiderman/genesis-sites
   src/web/       SiteRenderer, handleSiteRequest, the generated assets
   src/islands/   the loader (menu, light forms) and the form island
   src/supabase/  createSupabaseSiteStore
+  src/import/    importAssets (the SSRF guard, type by bytes), rewriteUrls; Node only
   src/blocks.ts  sitesBlock = defineBlock({ id: "sites", platforms: ["web", "server"], contributes: { migrations, privacy } })
-  migrations/    0001_genesis_sites.sql (+ tests/0001_genesis_sites.test.sql)
+  migrations/    0001_genesis_sites.sql, 0002_genesis_sites_posts.sql (+ their pgTAP tests in tests/)
   src/editor/    SiteEditor: the Puck config from the registry, Genesis-styled overrides, the canvas,
                  autosave (Autosaver), the Pages and Publish panels, the image picker
 ```
@@ -361,9 +396,13 @@ packages/sites/                  @marktiderman/genesis-sites
    store, draft/preview/publish/rollback, cache tags, a11y and SEO basics.
 3. **Multi-page** (built, without the release history UI). Pages, nav and
    footer, sitemap and robots, redirects on slug change, starter sites.
-4. **Editor and growth V1.** The Puck editor, scheduled publish, A/B variants
-   with conversion events, posts collection, locales, AI generation (sitemap →
-   sections → copy, validated against section JSON Schemas), presets gallery.
+4. **Editor and growth V1.** Built so far: the V1 sections (timetable, team,
+   blog list and post, map, timeline, downloads), grouped pricing, numbered
+   steps, the trust bar, outbound links, the posts collection, and the
+   import of an old site's files and posts, and the Puck editor. Next:
+   scheduled publish, A/B variants with conversion events, locales, AI generation
+   (sitemap → sections → copy, validated against section JSON Schemas),
+   presets gallery.
 5. **Later.** Global sections, comments and presence, automatic traffic
    routing, image generation, custom code.
 

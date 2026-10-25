@@ -8,7 +8,7 @@
     "./dist/editor.js",
     "*.css"
   ],
-  "description": "Sites and landing pages for Genesis apps: a section registry with zod 4 schemas, 13 server-rendered marketing sections on Genesis UI, a per-request renderer with no hydration, SEO (meta, sitemap, robots, JSON-LD, redirects), publish-time accessibility checks, one-click landing pages from a brand, a Supabase schema with draft, publish and rollback, and a visual editor on Puck (/editor) that published pages never load. Part of the Genesis framework.",
+  "description": "Sites and landing pages for Genesis apps: a section registry with zod 4 schemas, 20 server-rendered sections on Genesis UI (timetable, team, blog, map, timeline and downloads among them), a blog with drafts, published posts, RSS and Article JSON-LD, a guarded asset import (/import), a per-request renderer with no hydration, SEO (meta, sitemap, robots, JSON-LD, redirects), publish-time accessibility checks, one-click landing pages from a brand, a Supabase schema with draft, publish and rollback, and a visual editor on Puck (/editor) that published pages never load. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -51,6 +51,10 @@
     "./editor": {
       "types": "./dist/editor.d.ts",
       "import": "./dist/editor.js"
+    },
+    "./import": {
+      "types": "./dist/import.d.ts",
+      "import": "./dist/import.js"
     },
     "./sites.css": "./dist/assets/sites.css",
     "./sites-forms.css": "./dist/assets/sites-forms.css"
@@ -141,6 +145,10 @@
           {
             "file": "migrations/0001_genesis_sites.sql",
             "test": "migrations/tests/0001_genesis_sites.test.sql"
+          },
+          {
+            "file": "migrations/0002_genesis_sites_posts.sql",
+            "test": "migrations/tests/0002_genesis_sites_posts.test.sql"
           }
         ],
         "install": [

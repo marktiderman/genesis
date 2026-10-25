@@ -115,6 +115,8 @@ export interface UploadHandlerOptions<P = void> {
         windowSeconds?: number | undefined;
         /** Default `DEFAULT_TRUSTED_IP_HEADERS`. */
         trustedIpHeaders?: readonly string[] | undefined;
+        /** Read `x-forwarded-for` at this many proxies from the right (`ClientIpOptions.forwardedForHops`). Default unset: never read. */
+        forwardedForHops?: number | undefined;
       }
     | undefined;
   /** The stored hash of an attempt id. Default `attemptHash` (hex SHA-256). */
@@ -247,7 +249,10 @@ export function createUploadHandler<P = void>(
       const key = await rateLimitKey({
         kind: "upload",
         scope: form.scope,
-        ip: clientIp(request.headers, limit.trustedIpHeaders ?? DEFAULT_TRUSTED_IP_HEADERS),
+        ip: clientIp(request.headers, {
+          headers: limit.trustedIpHeaders ?? DEFAULT_TRUSTED_IP_HEADERS,
+          forwardedForHops: limit.forwardedForHops,
+        }),
         secret: limit.secret,
       });
       const allowed = await allow(

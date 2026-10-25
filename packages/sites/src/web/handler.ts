@@ -18,9 +18,11 @@
 import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import type { FormsResolver, ResolvedForm } from "../core/forms";
-import { migratePage, migrateSite } from "../core/migrate";
+import { migrateNode, migratePage, migrateSite } from "../core/migrate";
+import { PostSlug, postSummary, type LivePost, type PostSummary } from "../core/posts";
+import { getSection, type PostsContext } from "../core/registry";
 import { ReleaseSnapshot, parseSnapshot, type Release, type ReleasePage } from "../core/schemas";
-import { matchRedirect, robotsTxt, sitemapXml } from "../core/seo";
+import { matchRedirect, postDescription, robotsTxt, rssXml, sitemapXml } from "../core/seo";
 import { formCacheTag, siteCacheTag, type SiteStore } from "../core/store";
 import { brandDisplayName, siteTheme, themeCss, type BrandSource, type FontInfo, type SiteTheme } from "../core/theme";
 import { DEFAULT_RESERVED_PATHS, isReservedPath, normalizeRequestPath, type ReservedPaths } from "../core/urls";
@@ -31,8 +33,12 @@ import { SiteRenderer, collectFormSlugs, googleFontHref } from "./document";
 export const ASSETS_PREFIX = "/_gs";
 
 export interface SiteRequestOptions {
-  /** The live path needs only `getLive`; preview needs the draft reads too. */
-  store: Pick<SiteStore, "getLive"> & Partial<Pick<SiteStore, "getDraft" | "listPages" | "getPageDraft">>;
+  /**
+   * The live path needs only `getLive` (and, for a blog, `listLivePosts` and
+   * `getLivePost`); preview needs the draft reads too (`listPosts` and
+   * `getPost` for posts).
+   */
+  store: Pick<SiteStore, "getLive"> & Partial<Pick<SiteStore, "getDraft" | "listPages" | "getPageDraft" | "listLivePosts" | "getLivePost" | "listPosts" | "getPost">>;
   brand: BrandSource;
   /** The site this request is for, resolved by the host from the Host header (or a path). */
   siteId: string;
@@ -40,8 +46,16 @@ export interface SiteRequestOptions {
    * `live` (default) serves the published release, cached at the CDN.
    * `preview` serves the drafts, `noindex` and `no-store`; the store must be
    * one signed in as the viewer, so the database's `can_view` decides who sees them.
+   * Preview also needs `viewer`: without one it answers null before reading a draft.
    */
   mode?: "live" | "preview";
+  /**
+   * Preview only: the signed-in viewer's user id, as the host's session
+   * resolved it. Drafts are never read for an anonymous request (anon has no
+   * grant on them), so a preview without a viewer is null: the host decides
+   * what to show (its sign-in page, say). Live ignores it.
+   */
+  viewer?: string | null;
   /**
    * The site's primary origin (`https://riverside.example`) for canonical,
    * Open Graph and sitemap URLs. Default: the request URL's origin. Pass it
@@ -88,11 +102,16 @@ function originOf(url: string): string | null {
   }
 }
 
-async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<string, ResolvedForm | null>, fonts: boolean): Promise<string> {
+async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<string, ResolvedForm | null>, fonts: boolean, sectionFrames: readonly string[] = []): Promise<string> {
   const connect = new Set(["'self'"]);
   // A light form posts natively when script is off, so its endpoint is a form target too.
   const formTargets = new Set(["'self'"]);
   const frames = new Set<string>();
+  // Origins a section frames (a map), as the section builds them: https origins only.
+  for (const f of sectionFrames) {
+    const o = originOf(f);
+    if (o && o === f) frames.add(o);
+  }
   for (const form of forms.values()) {
     if (form?.kind === "definition") {
       const o = originOf(form.submitUrl);
@@ -147,6 +166,74 @@ async function draftSnapshot(store: SiteRequestOptions["store"], siteId: string)
   return parsed.data;
 }
 
+/** The `?page=` of a post list: a whole number from 1 (1 when absent or nonsense). */
+function listPage(url: URL): number {
+  const n = Number(url.searchParams.get("page") ?? "1");
+  return Number.isInteger(n) && n >= 1 && n <= 10000 ? n : 1;
+}
+
+const PREVIEW_POSTS = 60;
+
+/** Published posts (live), or every post's draft (preview, newest first, at most 60). */
+async function blogPosts(store: SiteRequestOptions["store"], siteId: string, preview: boolean): Promise<PostSummary[] | null> {
+  if (!preview) {
+    if (!store.listLivePosts) {
+      console.error(`[genesis-sites] site ${siteId} has a post page, but the store can't list posts (listLivePosts); the blog shows none.`);
+      return null;
+    }
+    try {
+      return await store.listLivePosts(siteId);
+    } catch (err) {
+      // One failed read leaves the list empty; the page around it still serves.
+      console.error(`[genesis-sites] reading the published posts of site ${siteId} failed; the blog shows none.`, err);
+      return null;
+    }
+  }
+  if (!store.listPosts || !store.getPost) {
+    console.error(`[genesis-sites] site ${siteId} has a post page, but the store can't read post drafts (listPosts, getPost) for the preview.`);
+    return null;
+  }
+  const out: PostSummary[] = [];
+  for (const meta of (await store.listPosts(siteId)).slice(0, PREVIEW_POSTS)) {
+    const draft = await store.getPost(meta.id);
+    if (draft) out.push(postSummary({ slug: draft.slug, publishedAt: draft.publishedAt ?? draft.updatedAt, updatedAt: draft.updatedAt, doc: draft.doc }));
+  }
+  return out;
+}
+
+/** One post: its published copy (live) or its draft (preview). */
+async function blogPost(store: SiteRequestOptions["store"], siteId: string, slug: string, preview: boolean): Promise<LivePost | null> {
+  if (!preview) {
+    if (!store.getLivePost) return null;
+    try {
+      return await store.getLivePost(siteId, slug);
+    } catch (err) {
+      // A failed read is the post not found (the site's 404), not a broken page.
+      console.error(`[genesis-sites] reading the published post ${JSON.stringify(slug)} of site ${siteId} failed; answering not found.`, err);
+      return null;
+    }
+  }
+  if (!store.listPosts || !store.getPost) return null;
+  const meta = (await store.listPosts(siteId)).find((p) => p.slug === slug);
+  const draft = meta ? await store.getPost(meta.id) : null;
+  return draft ? { slug: draft.slug, publishedAt: draft.publishedAt ?? draft.updatedAt, updatedAt: draft.updatedAt, doc: draft.doc } : null;
+}
+
+/** The post page, standing in for one post: the post's title and SEO on the template's sections. */
+function postAsPage(template: ReleasePage, post: LivePost, path: string): ReleasePage {
+  const d = post.doc;
+  const description = (d.seo?.description ?? postDescription(d))?.slice(0, 200);
+  const ogImage = d.seo?.ogImage ?? d.cover;
+  const seo = {
+    ...(d.seo?.title ? { title: d.seo.title } : {}),
+    ...(description ? { description } : {}),
+    ...(ogImage ? { ogImage } : {}),
+    ...(d.seo?.canonical ? { canonical: d.seo.canonical } : {}),
+    ...(d.seo?.noindex || template.doc.seo?.noindex ? { noindex: true } : {}),
+  };
+  return { ...template, path, doc: { ...template.doc, root: { props: { ...template.doc.root.props, title: d.title.slice(0, 120) } }, seo } };
+}
+
 /** Percent-encode what a header can't carry (anything outside printable ASCII), leaving existing escapes alone. */
 const headerSafe = (value: string) => value.replace(/[^\x21-\x7e]/gu, (c) => encodeURIComponent(c));
 
@@ -191,6 +278,9 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   if (path === null) return null;
   if (isReservedPath(path, reserved)) return null;
 
+  // Preview reads drafts, which only a signed-in viewer may: anonymous, the host answers.
+  if (preview && !options.viewer) return null;
+
   // The release (live) or the drafts (preview).
   let snapshot: ReleaseSnapshot | null;
   let release: Release | null = null;
@@ -220,9 +310,24 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     const disallowAll = preview || snapshot.site.seo.noindex === true;
     return textResponse(robotsTxt({ origin, basePath, disallowAll }), 200, "text/plain; charset=utf-8", cacheHeaders(200), head);
   }
+  // The blog: the site's post page, at whose path the index lives and under which each post does.
+  const postTemplate = snapshot.pages.find((p) => p.kind === "post") ?? null;
   if (path === "/sitemap.xml") {
     if (preview) return textResponse("Not found\n", 404, "text/plain; charset=utf-8", cacheHeaders(404), head);
-    return textResponse(sitemapXml({ site: snapshot.site, pages: snapshot.pages, origin, basePath, lastModified: release?.publishedAt ?? null }), 200, "application/xml; charset=utf-8", cacheHeaders(200), head);
+    const items = postTemplate ? ((await blogPosts(options.store, options.siteId, false)) ?? []) : [];
+    return textResponse(
+      sitemapXml({ site: snapshot.site, pages: snapshot.pages, origin, basePath, lastModified: release?.publishedAt ?? null, ...(postTemplate ? { posts: { path: postTemplate.path, items } } : {}) }),
+      200,
+      "application/xml; charset=utf-8",
+      cacheHeaders(200),
+      head,
+    );
+  }
+  if (path === "/rss.xml") {
+    if (!postTemplate) return null;
+    if (preview) return textResponse("Not found\n", 404, "text/plain; charset=utf-8", cacheHeaders(404), head);
+    const items = snapshot.site.seo.noindex || postTemplate.doc.seo?.noindex ? [] : ((await blogPosts(options.store, options.siteId, false)) ?? []);
+    return textResponse(rssXml({ site: snapshot.site, posts: items, postsPath: postTemplate.path, title: postTemplate.doc.root.props.title === snapshot.site.name ? undefined : `${postTemplate.doc.root.props.title} · ${snapshot.site.name}`, origin, basePath }), 200, "application/rss+xml; charset=utf-8", cacheHeaders(200), head);
   }
 
   // Redirects first: a moved page's old path.
@@ -232,7 +337,16 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     const location = redirectLocation(redirect.to, basePath) + (redirect.to.startsWith("/") ? url.search : "");
     return new Response(null, { status: redirect.status, headers: { location, ...cacheHeaders(redirect.status) } });
   }
-  const page = snapshot.pages.find((p) => p.path === path) ?? null;
+  let page = snapshot.pages.find((p) => p.path === path) ?? null;
+  // A post: `<post page>/<slug>`, where no page is.
+  let currentPost: LivePost | null = null;
+  if (!page && postTemplate && path.startsWith(`${postTemplate.path === "/" ? "" : postTemplate.path}/`)) {
+    const slug = path.slice(postTemplate.path.length + 1);
+    if (PostSlug.safeParse(slug).success) {
+      currentPost = await blogPost(options.store, options.siteId, slug, preview);
+      if (currentPost) page = postAsPage(postTemplate, currentPost, path);
+    }
+  }
   // One address per page: lowercase, no trailing slash, and the home page under a base path
   // ends in one (`/base/`, as its canonical URL does). Only for the site's own pages, so the
   // host's paths (with their own casing or slashes) fall through untouched.
@@ -275,6 +389,29 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
       forms.set(slug, null);
     }
   }
+  // The posts a page lists, read once: for a post list on it, or the post page itself.
+  let posts: PostsContext | undefined;
+  if (postTemplate && page) {
+    const lists = page.doc.content.some((n) => !n.hidden && n.type === "blog-list");
+    const list = lists ? await blogPosts(options.store, options.siteId, preview) : [];
+    // The list and the post are separate: a store that can't list still shows a post it can read.
+    posts = { path: postTemplate.path, list: list ?? [], current: currentPost, page: listPage(url) };
+  }
+  // Origins the page's sections frame (a map), for the Content-Security-Policy.
+  const sectionFrames: string[] = [];
+  for (const node of page?.doc.content ?? []) {
+    if (node.hidden) continue;
+    const def = getSection(node.type);
+    if (!def?.frameOrigins) continue;
+    const migrated = migrateNode(node).node;
+    if (migrated) {
+      try {
+        sectionFrames.push(...def.frameOrigins(migrated.props));
+      } catch (err) {
+        console.error(`[genesis-sites] section ${node.id} (${node.type}) couldn't say what it frames.`, err);
+      }
+    }
+  }
   const logo = brand && "logo" in brand && brand.logo ? { src: brand.logo.src, alt: brand.logo.alt?.trim() || brandDisplayName(brand) } : undefined;
   const assetUrl = (name: string) => `${basePath}${ASSETS_PREFIX}/${name}`;
   const fontHref = options.fonts === false ? false : (options.fonts ?? googleFontHref);
@@ -290,6 +427,7 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     forms,
     assets: { css: assetUrl(ASSETS.css.name), formsCss: assetUrl(ASSETS.formsCss.name), islands: assetUrl(ASSETS.islands.name) },
     fontHref,
+    ...(posts ? { posts } : {}),
   });
   let failed: unknown = null;
   const stream = await renderToReadableStream(element, {
@@ -308,7 +446,7 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     "referrer-policy": "strict-origin-when-cross-origin",
     ...cacheHeaders(status, page && !brandChanged ? LIVE_CACHE : MISS_CACHE),
   };
-  if (options.csp !== false) headers["content-security-policy"] = await contentSecurityPolicy(themeCss(theme), forms, fontHref !== false && theme.fonts.some((f) => f.google));
+  if (options.csp !== false) headers["content-security-policy"] = await contentSecurityPolicy(themeCss(theme), forms, fontHref !== false && theme.fonts.some((f) => f.google), sectionFrames);
   return new Response(head ? null : stream, { status, headers });
 }
 

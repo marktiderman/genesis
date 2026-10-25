@@ -47,20 +47,41 @@ describe("rateLimitKey", () => {
 });
 
 describe("clientIp", () => {
-  it("takes the first trusted header that is set, its first entry, trimmed", () => {
-    expect(clientIp(new Headers({ "x-vercel-forwarded-for": " 203.0.113.7 , 10.0.0.1", "x-forwarded-for": "198.51.100.1" }))).toBe(
+  it("takes the first trusted platform header that is set, its first entry, trimmed", () => {
+    expect(clientIp(new Headers({ "x-vercel-forwarded-for": " 203.0.113.7 , 10.0.0.1", "cf-connecting-ip": "198.51.100.1" }))).toBe(
       "203.0.113.7",
     );
-    expect(clientIp(new Headers({ "x-forwarded-for": "198.51.100.1, 10.0.0.1" }))).toBe("198.51.100.1");
-    expect(clientIp(new Headers({ "x-real-ip": " 192.0.2.5 " }))).toBe("192.0.2.5");
-    expect(clientIp(new Headers({ "x-vercel-forwarded-for": " ", "x-real-ip": "192.0.2.5" }))).toBe("192.0.2.5");
+    expect(clientIp(new Headers({ "cf-connecting-ip": " 192.0.2.5 " }))).toBe("192.0.2.5");
+    expect(clientIp(new Headers({ "x-vercel-forwarded-for": " ", "cf-connecting-ip": "192.0.2.5" }))).toBe("192.0.2.5");
     expect(clientIp(new Headers())).toBe("unknown");
+  });
+
+  it("never reads x-forwarded-for or x-real-ip by default, since a client can send them", () => {
+    expect(clientIp(new Headers({ "x-forwarded-for": "198.51.100.1, 10.0.0.1" }))).toBe("unknown");
+    expect(clientIp(new Headers({ "x-real-ip": "192.0.2.5" }))).toBe("unknown");
   });
 
   it("trusts only the headers it is given", () => {
     const headers = new Headers({ "x-forwarded-for": "198.51.100.1", "cf-connecting-ip": "192.0.2.9" });
     expect(clientIp(headers, ["cf-connecting-ip"])).toBe("192.0.2.9");
     expect(clientIp(headers, ["fly-client-ip"])).toBe("unknown");
+    expect(clientIp(headers, { headers: ["fly-client-ip"] })).toBe("unknown");
+  });
+
+  it("reads x-forwarded-for from the right, at the hop the host's own proxies appended, when asked", () => {
+    // The client forged the two leftmost entries; one proxy appended 203.0.113.7, a second 10.0.0.2.
+    const headers = new Headers({ "x-forwarded-for": "1.1.1.1, 2.2.2.2 , 203.0.113.7, 10.0.0.2" });
+    expect(clientIp(headers, { headers: [], forwardedForHops: 1 })).toBe("10.0.0.2");
+    expect(clientIp(headers, { headers: [], forwardedForHops: 2 })).toBe("203.0.113.7");
+    // Fewer entries than hops: nothing trustworthy.
+    expect(clientIp(headers, { headers: [], forwardedForHops: 5 })).toBe("unknown");
+    expect(clientIp(new Headers(), { headers: [], forwardedForHops: 1 })).toBe("unknown");
+    // A platform header still comes first.
+    expect(clientIp(new Headers({ "x-forwarded-for": "1.1.1.1", "x-vercel-forwarded-for": "192.0.2.1" }), { forwardedForHops: 1 })).toBe(
+      "192.0.2.1",
+    );
+    expect(() => clientIp(headers, { forwardedForHops: 0 })).toThrow(RangeError);
+    expect(() => clientIp(headers, { forwardedForHops: 1.5 })).toThrow(RangeError);
   });
 });
 
