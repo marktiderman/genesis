@@ -37,6 +37,16 @@ export interface NotificationLike {
 export interface NotificationResponseLike {
   notification: NotificationLike;
   actionIdentifier: string;
+  /** What the person typed, for an action with a text input (Reply). */
+  userText?: string;
+}
+
+/** `NotificationAction` (expo-notifications 58): one button of a notification category. */
+export interface NotificationActionLike {
+  identifier: string;
+  buttonTitle: string;
+  textInput?: { placeholder: string; submitButtonTitle: string };
+  options?: { isAuthenticationRequired?: boolean; isDestructive?: boolean; opensAppToForeground?: boolean };
 }
 
 /** `NotificationBehavior` without the deprecated `shouldShowAlert`. */
@@ -73,6 +83,8 @@ export interface NotificationsModuleLike {
   getLastNotificationResponse(): NotificationResponseLike | null;
   clearLastNotificationResponse(): void;
   setBadgeCountAsync(count: number): Promise<boolean>;
+  /** Registers a notification category (its action buttons). Optional: older fakes leave it out. */
+  setNotificationCategoryAsync?(identifier: string, actions: NotificationActionLike[], options?: { previewPlaceholder?: string }): Promise<unknown>;
   getBadgeCountAsync(): Promise<number>;
   /** `"expo.modules.notifications.actions.DEFAULT"`: the person tapped the notification itself. */
   DEFAULT_ACTION_IDENTIFIER: string;
@@ -91,7 +103,7 @@ export interface PushAppStateLike {
 }
 
 /** Where a reported error came from. */
-export type PushErrorSource = "permission" | "register" | "forget" | "preferences" | "badge" | "channels" | "routing" | "storage" | "setup";
+export type PushErrorSource = "permission" | "register" | "forget" | "preferences" | "badge" | "channels" | "categories" | "routing" | "storage" | "setup";
 
 export type PushOnError = (error: Error, source: PushErrorSource) => void;
 

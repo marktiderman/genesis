@@ -41,6 +41,24 @@ interface Saved {
   at: number;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A random v4 UUID from the given maker or WebCrypto; undefined when neither is there (no id is sent). */
+function makeUUID(maker?: () => string): string | undefined {
+  try {
+    const made = maker?.() ?? (globalThis as { crypto?: { randomUUID?: () => string } }).crypto?.randomUUID?.();
+    if (typeof made === "string" && UUID.test(made)) return made.toLowerCase();
+    const bytes = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto?.getRandomValues?.(new Uint8Array(16));
+    if (!bytes) return undefined;
+    bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+    bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+    const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Registered again at most this often while nothing changed (last seen, and a token another login took comes back). */
 const REFRESH_MS = 60 * 60_000;
 
@@ -57,11 +75,15 @@ export function createRegistration(options: {
   /** Is this user still the one signed in? A sync for someone who has signed out is dropped. */
   isCurrent: (userId: string) => boolean;
   now: () => number;
+  /** Makes this install's id (once; it is kept). Default `crypto.randomUUID`. */
+  randomUUID?: () => string;
   onError?: PushOnError;
 }): Registration {
   const { notifications, backend, storage, storageKeyPrefix, onError, now } = options;
   const savedKey = `${storageKeyPrefix}:device`;
   const pendingKey = `${storageKeyPrefix}:forget`;
+  const installationKey = `${storageKeyPrefix}:installation`;
+  let installation: string | null = null;
   const store = createStore<RegistrationState>({ status: "idle", problem: null });
   let current: string | null = null;
   let queue: Promise<unknown> = Promise.resolve();
@@ -90,6 +112,18 @@ export function createRegistration(options: {
     } catch (error) {
       report(onError, error, "storage");
     }
+  };
+
+  /** This install's id: made once, kept across sign-ins (not cleared on sign-out). */
+  const installationId = async (): Promise<string | undefined> => {
+    if (installation) return installation;
+    const saved = await read<string | null>(installationKey, null);
+    if (typeof saved === "string" && UUID.test(saved)) return (installation = saved);
+    const made = makeUUID(options.randomUUID);
+    if (!made) return undefined;
+    installation = made;
+    await write(installationKey, made);
+    return made;
   };
 
   const forgetToken = async (token: string): Promise<boolean> => {
@@ -146,7 +180,9 @@ export function createRegistration(options: {
         }
         if (!options.isCurrent(userId)) return;
         try {
-          await backend.register(token, options.platform === "ios" ? "ios" : "android", options.appVersion ?? null);
+          const platform = options.platform === "ios" ? "ios" : "android";
+          if (backend.usesInstallationId) await backend.register(token, platform, options.appVersion ?? null, await installationId());
+          else await backend.register(token, platform, options.appVersion ?? null);
         } catch (error) {
           report(onError, error, "register");
           store.setState({ status: "error", problem: "backend" });

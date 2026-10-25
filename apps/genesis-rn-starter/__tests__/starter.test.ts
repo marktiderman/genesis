@@ -12,6 +12,7 @@ const root = join(__dirname, "..");
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 // Wherever the package manager put it (hoisted to the workspace root here).
 const supabasePackage = dirname(createRequire(join(root, "package.json")).resolve("@marktiderman/genesis-supabase/package.json"));
+const notificationsPackage = dirname(createRequire(join(root, "package.json")).resolve("@marktiderman/genesis-notifications/package.json"));
 const shippedSql = (path: string) => readFileSync(join(supabasePackage, "migrations", path), "utf8");
 
 function filesUnder(dir: string): string[] {
@@ -233,13 +234,24 @@ describe("supabase/migrations", () => {
     expect(read("supabase/tests/database/genesis_apple_token_revocation.test.sql")).toBe(shippedSql("tests/0003_genesis_apple_token_revocation.test.sql"));
   });
 
-  it("carries the push migration and its pgTAP test unchanged (the push block reads it), after the Apple one", () => {
+  it("carries the push migration unchanged, after the Apple one, without its pgTAP test (superseded by the notifications migration)", () => {
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_push.sql"));
     expect(copies).toHaveLength(1);
     expect(read(copies[0]!)).toBe(shippedSql("0005_genesis_push.sql"));
-    expect(read("supabase/tests/database/genesis_push.test.sql")).toBe(shippedSql("tests/0005_genesis_push.test.sql"));
+    // Two of its assertions describe the token move and forget answer the notifications migration replaces.
+    expect(filesUnder("supabase/tests/database").some((f) => f.endsWith("genesis_push.test.sql"))).toBe(false);
     const order = filesUnder("supabase/migrations").sort();
     expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_apple_token_revocation.sql")));
+  });
+
+  it("carries @marktiderman/genesis-notifications' migration and its pgTAP test unchanged, last (it adopts the push tables)", () => {
+    const shipped = (rel: string) => readFileSync(join(notificationsPackage, "migrations", rel), "utf8");
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_notifications.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(shipped("0001_genesis_notifications.sql"));
+    expect(read("supabase/tests/database/genesis_notifications.test.sql")).toBe(shipped("tests/0001_genesis_notifications.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.at(-1)).toBe(copies[0]);
   });
 
   it("carries the support migration and its pgTAP test unchanged (the support block reads it), after the push one", () => {
