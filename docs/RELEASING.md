@@ -54,7 +54,25 @@ the CLI, studio and supabase, release on their own and aren't listed), and the p
 warns (`version-skew`) for every other installed Genesis package on a different version. Raise it to
 an error with `"rules": { "version-skew": "error" }`. Bump every Genesis package in an app together:
 the reusable `genesis-upgrade` workflow does it weekly from that manifest and opens one pull request
-(see [App CI](./APP-CI.md), which also says which Genesis commit an app's CI should call).
+(see [App CI](./APP-CI.md), which also says which Genesis commit an app's CI should call), and
+`genesis upgrade` does the same bump locally (one shared piece of code), then refreshes the files
+Genesis owns in the app.
+
+What a release carries for `genesis add`, `migrate` and `upgrade`:
+
+- **The CLI is the version of the templates and the starter.** Its build copies `templates/` and
+  the app-owned files of `apps/genesis-rn-starter` into `dist/`, and a catalog of every package's
+  version and `genesis.blocks` manifests. A change to a template or the starter reaches apps
+  through a CLI release, so give it a changeset on `@marktiderman/genesis-cli`.
+- **A shipped migration never changes.** Apps copy package migrations and checksum them; `genesis
+  migrate` refuses to rewrite a copy and reports a package whose text changed as
+  `changed-upstream`. A change to a released migration is a new numbered migration.
+- **A breaking change brings its codemod.** Add an entry to
+  `packages/genesis-cli/src/upgrade/codemods.ts` naming the package and the first version that
+  breaks; `genesis upgrade` runs it only for apps that move across that version.
+- **The workflow's bump is generated.** `.github/workflows/genesis-upgrade.yml` embeds
+  `packages/genesis-cli/src/upgrade/bump-core.mjs`; after editing it, run
+  `node scripts/sync-genesis-bump.mjs` (a test fails until you do).
 
 ## A brand-new package
 

@@ -13,7 +13,7 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 71 features (16 idea, 4 planned, 11 building, 13 beta, 27 live).
+Every feature is in `features.ts`: 74 features (15 idea, 4 planned, 15 building, 13 beta, 27 live).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.
