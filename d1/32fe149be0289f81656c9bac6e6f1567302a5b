@@ -1,0 +1,47 @@
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_fc261393675cfe 28
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_6788005e3ff0c3 15,237,241-242,247-254
+  s_8252619ce79a86::t_54e8f6beda1dfc 255-256
+apps/genesis-rn-starter/src/app/(app)/_layout.tsx
+  s_8252619ce79a86::t_fc261393675cfe 4,7-8,10-14,16,18,34-38
+  s_8252619ce79a86::t_dbdcceaa5fec56 39
+packages/notifications/src/react/index.tsx
+  s_8252619ce79a86::t_e30de48818a523 59-66
+packages/genesis-cli/test/init-native.test.ts
+  s_8252619ce79a86::t_cc9b9abe7ed4d7 53,56-58
+.changeset/starter-notifications.md
+  s_8252619ce79a86::t_4d65da0450a7ea 1-7
+apps/genesis-rn-starter/src/app/(app)/notifications/index.tsx
+  s_8252619ce79a86::t_fc261393675cfe 2,4,8,10,22-24
+apps/genesis-rn-starter/src/app/(app)/settings/notifications.tsx
+  s_8252619ce79a86::t_fc261393675cfe 2,7-10,16
+apps/genesis-rn-starter/src/lib/push.ts
+  s_8252619ce79a86::t_fc261393675cfe 17,21-22,26,29-30,38-41
+apps/genesis-rn-starter/supabase/migrations/20261025000000_genesis_notifications.sql
+  s_8252619ce79a86::t_cf747c5d57c220 1-1768
+apps/genesis-rn-starter/supabase/tests/database/genesis_notifications.test.sql
+  s_8252619ce79a86::t_cf747c5d57c220 1-266
+apps/genesis-rn-starter/src/lib/notifications.ts
+  s_8252619ce79a86::t_fc261393675cfe 2-9,11-12,14-33
+packages/notifications/src/supabase/index.ts
+  s_8252619ce79a86::t_e30de48818a523 154-158
+pnpm-lock.yaml
+  s_8252619ce79a86::t_8a2ee883227682 65-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d132fe149be0289f81656c9bac6e6f1567302a5b",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
