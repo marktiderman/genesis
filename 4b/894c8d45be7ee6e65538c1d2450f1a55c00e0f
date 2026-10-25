@@ -1,0 +1,51 @@
+packages/ui-native/src/data/__tests__/resource-page-offline.test.tsx
+  s_8252619ce79a86::t_f31728d0c977bf 28-34
+packages/native/src/observability/block.tsx
+  s_8252619ce79a86::t_464716a044a0df 214-215,218-220
+.changeset/sdk58-query-offline-first.md
+  s_8252619ce79a86::t_ece5ece936e8f2 6
+packages/ui-native/src/data/NativeResourcePage.tsx
+  s_8252619ce79a86::t_f31728d0c977bf 422-432,442,484-486
+packages/native/src/query.ts
+  s_8252619ce79a86::t_6bef1c6516f37f 93-98
+packages/native/package.json
+  s_8252619ce79a86::t_6a82d248b16260 249-253
+  s_8252619ce79a86::t_ffc1b49f2043f5 246-248
+apps/genesis-rn-starter/src/lib/check-in.ts
+  s_8252619ce79a86::t_6bef1c6516f37f 8-10
+packages/genesis-cli/src/doctor/config.ts
+  s_8252619ce79a86::t_1a5bf24e9d4eb8 34-37,45-49,52,57,60-61,66,71-74
+packages/supabase/src/sign-in.ts
+  s_8252619ce79a86::t_6bef1c6516f37f 302-306,310-314
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_b44eb532410b16 248
+packages/native/src/__tests__/observability/privacy.test.ts
+  s_8252619ce79a86::t_464716a044a0df 1-22
+packages/ui-native/test-utils/rn-mock.tsx
+  s_8252619ce79a86::t_f31728d0c977bf 260-261,263-266,270-279
+packages/genesis-cli/test/expo.test.ts
+  s_8252619ce79a86::t_1a5bf24e9d4eb8 12,225,241,279-298
+  s_8252619ce79a86::t_9a95478ec739ec 299
+.changeset/sdk58-privacy-manifest.md
+  s_8252619ce79a86::t_ece5ece936e8f2 3,6,8-10
+packages/native/src/__tests__/query.test.ts
+  s_8252619ce79a86::t_8100d32326508d 166-174
+packages/genesis-cli/src/expo.ts
+  s_8252619ce79a86::t_1a5bf24e9d4eb8 87-91,131-134,138,147,176-183,197,312-314,360-366
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4b894c8d45be7ee6e65538c1d2450f1a55c00e0f",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
