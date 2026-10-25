@@ -1,0 +1,33 @@
+.changeset/forms-delivery-runner.md
+  s_738228bc0d81b1::t_065ba0dcbbfe6f 7
+packages/forms/README.md
+  s_738228bc0d81b1::t_595b6c1f1ffb14 633-635,641-642
+packages/forms/src/__tests__/delivery.test.ts
+  s_738228bc0d81b1::t_c80caacae4779e 416-423,461-475,554-572,752-766,835-851
+packages/forms/src/destinations.ts
+  s_738228bc0d81b1::t_1d735a100509d6 121
+packages/forms/src/destinations/google-oauth.ts
+  s_738228bc0d81b1::t_1369ecbfd125ff 59-60,72,79,90-94
+packages/forms/src/destinations/runner.ts
+  s_738228bc0d81b1::t_3350e48d4ddd19 49-54,120-124,159,171-178,184-186,197-204,306-312
+packages/forms/src/destinations/sheets.ts
+  s_738228bc0d81b1::t_110bac0974eb43 341-350
+packages/forms/src/destinations/webhook.ts
+  s_738228bc0d81b1::t_f79dace490b0b8 314-315
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2c7d46dbae4f4bc578f9a540275d0e1ece8790f0",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
