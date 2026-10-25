@@ -38,7 +38,7 @@ export interface ChatComposerHandle {
 
 export interface ChatComposerProps {
   /** From `useConversation`: how to send, and whether you may. */
-  conversation: Pick<ConversationState, "send" | "signalTyping" | "signalRecording" | "role" | "canPost" | "conversation">;
+  conversation: Pick<ConversationState, "send" | "signalTyping" | "signalRecording" | "role" | "canPost" | "accessLoading" | "conversation">;
   /** The message being replied to; a banner shows above the box. */
   replyTo?: ChatMessage | null;
   onCancelReply?: () => void;
@@ -222,7 +222,7 @@ export function ChatComposer({
   };
 
   // Loading who you are in this conversation.
-  if (state.role === null && !state.canPost) {
+  if (state.accessLoading) {
     return (
       <div className={cn("border-t p-3", className)} aria-busy>
         <Skeleton className="h-10 w-full rounded-2xl" />

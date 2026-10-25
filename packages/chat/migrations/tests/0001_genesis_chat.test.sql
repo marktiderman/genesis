@@ -7,7 +7,7 @@
 -- test's "ticket" kind (an observer who may post); e5 leaves a group.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(74);
+select plan(79);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c0' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -227,6 +227,28 @@ select ok(exists (select 1 from genesis_chat.effects where kind = 'storage.remov
           and payload ->> 'path' = pg_temp.v('dm') || '/' || pg_temp.person('a1') || '/voice-1.m4a'), 'a deleted file is queued for removal');
 select pg_temp.sign_in('a1');
 select throws_ok($$ select * from genesis_chat.claim_effects() $$, '42501', null, 'only the server works the outbox');
+
+-- Hosted video and the badge ------------------------------------------------------------------
+
+select pg_temp.sign_in('a1');
+insert into t select 'vid', (genesis_chat.send_message(pg_temp.v('dm'), gen_random_uuid(), '',
+  jsonb_build_array(jsonb_build_object('kind', 'video', 'provider', 'mux', 'provider_id', 'upload-abc', 'status', 'ready')))).id;
+select is((select status from genesis_chat.attachments where message_id = pg_temp.v('vid')), 'pending',
+          'a hosted video starts pending whatever the sender says; only its webhook makes it ready');
+select pg_temp.sign_in('b2');
+select throws_ok($$ select genesis_chat.send_message(pg_temp.v('dm'), gen_random_uuid(), '',
+                     jsonb_build_array(jsonb_build_object('kind', 'video', 'provider', 'mux', 'provider_id', 'upload-abc'))) $$,
+                 '23505', null, 'nobody can attach someone else''s hosted video by copying its id');
+select genesis_chat.mark_read(pg_temp.v('dm'));
+select pg_temp.sign_in('a1');
+select genesis_chat.send_message(pg_temp.v('dm'), gen_random_uuid(), 'In a thread', p_thread_root_id => pg_temp.v('vid'));
+select pg_temp.sign_in('b2');
+select is(genesis_chat.unread_total(), (select sum(unread)::integer from genesis_chat.inbox()),
+          'the badge counts exactly what the inbox does (a thread reply counts on its thread, not here)');
+select is((select unread from genesis_chat.inbox() where conversation_id = pg_temp.v('tkt')), 1,
+          'a member''s count has the staff reply, never the internal note');
+select is(genesis_chat.unread_total() - (select coalesce(sum(unread), 0)::integer from genesis_chat.inbox()), 0,
+          'nor in their badge');
 
 select * from finish();
 rollback;

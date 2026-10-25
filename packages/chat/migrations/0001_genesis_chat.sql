@@ -269,6 +269,10 @@ create index attachments_message_idx on genesis_chat.attachments (message_id, po
 create index attachments_conversation_idx on genesis_chat.attachments (conversation_id, kind);
 create index attachments_path_idx on genesis_chat.attachments (path) where path is not null;
 create index attachments_poster_idx on genesis_chat.attachments (poster_path) where poster_path is not null;
+-- A hosted video belongs to one attachment, so nobody can attach (and later delete, or
+-- receive the webhook for) someone else's upload by copying its id.
+create unique index attachments_provider_unique on genesis_chat.attachments (provider, provider_id)
+  where provider_id is not null and provider in ('mux', 'cloudflare');
 
 comment on table genesis_chat.attachments is 'What a message carries: a file in the genesis-chat bucket, a hosted video, a link or an app reference (ref). Genesis Chat.';
 
@@ -1257,7 +1261,9 @@ begin
                                           poster_path, thumbhash, transcript_status)
     values (msg.id, p_conversation_id, i, a ->> 'kind', coalesce(a -> 'ref', '{}'),
             coalesce(a ->> 'provider', 'storage'), file_path, a ->> 'provider_id', a ->> 'url',
-            case when a ->> 'status' = 'pending' then 'pending' else 'ready' end,
+            -- A hosted video is ready only when its provider's webhook says so.
+            case when a ->> 'status' = 'pending' or coalesce(a ->> 'provider', 'storage') in ('mux', 'cloudflare')
+                 then 'pending' else 'ready' end,
             a ->> 'name', a ->> 'mime', (a ->> 'bytes')::bigint, (a ->> 'width')::integer, (a ->> 'height')::integer,
             (a ->> 'duration_ms')::integer,
             case when jsonb_typeof(a -> 'waveform') = 'array'
@@ -1533,6 +1539,26 @@ $$;
 
 -- ── The inbox ─────────────────────────────────────────────────────────────────
 
+-- What a member hasn't read in one conversation, counted to 99: messages after their place,
+-- from someone else, readable by them (not an internal note), not deleted, on the main
+-- timeline (a thread's replies are counted on the thread). The inbox, the badge and push
+-- all count this way.
+create or replace function genesis_chat.unread_count(p_conversation_id uuid, p_user_id uuid, p_after bigint)
+returns integer
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select count(*)::integer from (
+    select 1 from genesis_chat.messages m
+     where m.conversation_id = p_conversation_id and m.seq > p_after and m.deleted_at is null
+       and m.sender_id is distinct from p_user_id and m.visibility = 'everyone' and m.thread_root_id is null
+     limit 99) u
+$$;
+revoke execute on function genesis_chat.unread_count(uuid, uuid, bigint) from public, anon, authenticated;
+grant execute on function genesis_chat.unread_count(uuid, uuid, bigint) to service_role;
+
 -- Your conversations, pinned first then newest activity, with the latest message you
 -- can read and how many you haven't (counted to 99). `p_kind` narrows it to one kind;
 -- `p_archived` shows the archived ones instead.
@@ -1574,11 +1600,7 @@ as $$
          (select count(*)::integer from genesis_chat.members o
            where o.conversation_id = c.id and o.left_at is null and o.role <> 'observer'),
          c.last_seq, me.last_read_seq,
-         (select count(*)::integer from (
-            select 1 from genesis_chat.messages m
-             where m.conversation_id = c.id and m.seq > me.last_read_seq and m.deleted_at is null
-               and m.sender_id is distinct from me.user_id and m.visibility = 'everyone'
-             limit 99) u),
+         genesis_chat.unread_count(c.id, me.user_id, me.last_read_seq),
          exists (select 1 from genesis_chat.messages m
                   where m.conversation_id = c.id and m.seq > me.last_read_seq and me.user_id = any (m.mentions)),
          coalesce(me.muted_until > now(), false), me.pinned, me.archived, c.last_message_at,
@@ -1641,7 +1663,7 @@ stable
 security definer
 set search_path = ''
 as $$
-  select coalesce(sum(least(c.last_seq - me.last_read_seq, 99)), 0)::integer
+  select coalesce(sum(genesis_chat.unread_count(c.id, me.user_id, me.last_read_seq)), 0)::integer
     from genesis_chat.members me join genesis_chat.conversations c on c.id = me.conversation_id
    where me.user_id = case when auth.role() = 'service_role' then coalesce(p_user_id, auth.uid()) else auth.uid() end
      and me.left_at is null and me.role <> 'observer' and me.archived = false
@@ -1714,7 +1736,7 @@ as $$
                                        when 'file' then 'File' else 'Attachment' end
                       from genesis_chat.attachments a where a.message_id = msg.id order by a.position limit 1) end,
          r.user_id = any (msg.mentions),
-         (select coalesce(sum(least(c2.last_seq - m2.last_read_seq, 99)), 0)::integer
+         (select coalesce(sum(genesis_chat.unread_count(c2.id, m2.user_id, m2.last_read_seq)), 0)::integer
             from genesis_chat.members m2 join genesis_chat.conversations c2 on c2.id = m2.conversation_id
            where m2.user_id = r.user_id and m2.left_at is null and m2.role <> 'observer' and not m2.archived
              and coalesce(m2.muted_until <= now(), true) and c2.last_seq > m2.last_read_seq)
