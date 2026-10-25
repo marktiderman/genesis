@@ -410,6 +410,30 @@ describe("Autosaver", () => {
     expect(h.saver.current.status).toBe("saved");
   });
 
+  it("holds saves while paused and saves them on resume, on the rebased revision", async () => {
+    const h = harness();
+    h.saver.pause();
+    h.saver.update({ n: 4 });
+    await h.tick();
+    expect(h.saves).toEqual([]);
+    expect(h.saver.dirty).toBe(true);
+    // The editor's own operation moved the revision on meanwhile.
+    h.someoneElseSaves(0);
+    h.saver.rebase(h.rev);
+    h.saver.resume();
+    await h.tick();
+    expect(h.saves).toEqual([{ rev: 2, doc: { n: 4 } }]);
+    expect(h.saver.current.status).toBe("saved");
+  });
+
+  it("flush saves what is waiting, so unmounting can save before it lets go", async () => {
+    const h = harness();
+    h.saver.update({ n: 9 });
+    await h.saver.flush();
+    h.saver.dispose();
+    expect(h.saves).toEqual([{ rev: 1, doc: { n: 9 } }]);
+  });
+
   it("flush saves at once and resolves when the store has it", async () => {
     const h = harness();
     h.saver.update({ n: 7 });

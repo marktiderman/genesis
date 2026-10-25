@@ -139,6 +139,8 @@ export function fieldFor(key: string, schema: JsonSchema, required: boolean, ctx
       return {
         type: "radio",
         label,
+        // Shown when the prop is unset, so the radio says what the section does.
+        metadata: { default: schema.default === true },
         options: [
           { label: "Yes", value: true },
           { label: "No", value: false },

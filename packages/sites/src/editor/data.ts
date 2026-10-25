@@ -79,7 +79,8 @@ export function nodeToItem(node: SectionNode, slotKeys: SlotKeys = noSlots): Puc
  * Empty optional values out: `""`, and objects left with nothing in them
  * (an optional button whose fields were cleared). A required field that
  * empties is then reported by the section's schema, never saved as `""`.
- * Strings inside arrays stay (a list of lines keeps its blank line).
+ * Strings inside arrays stay as they are (an empty one is the schema's to
+ * report, not ours to drop).
  */
 export function pruneEmpty(value: unknown): unknown {
   if (typeof value === "string") return value === "" ? undefined : value;

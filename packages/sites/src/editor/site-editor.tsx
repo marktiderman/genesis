@@ -114,7 +114,11 @@ function worst(...states: (AutosaveState<unknown> | null)[]): AutosaveState<unkn
   return "saved";
 }
 
-/** The site's stylesheet and theme in the canvas iframe. */
+/**
+ * The site's stylesheet and theme in the canvas iframe. The returned override changes identity
+ * when the stylesheet, theme, scheme or language does, and Puck then remounts the frame's root,
+ * which is when the effect below runs again (so it depends on `document` only).
+ */
 function useCanvasFrame(css: string | null, href: string | undefined, theme: string, dark: boolean, lang: string) {
   return React.useCallback(
     ({ children, document }: { children: React.ReactNode; document?: Document }) => {
@@ -269,7 +273,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
   const [leftTab, setLeftTab] = React.useState("add");
   const [rightTab, setRightTab] = React.useState("edit");
   const [viewport, setViewport] = React.useState<Viewport>("desktop");
-  const [picker, setPicker] = React.useState<{ current?: PickedImage; resolve(v: PickedImage | null): void } | null>(null);
+  const [picker, setPicker] = React.useState<{ current?: PickedImage; altElsewhere?: boolean; resolve(v: PickedImage | null): void } | null>(null);
   const [preview, setPreview] = React.useState<{ mode: "preview" | "live"; path: string; html: string | null; note?: string } | null>(null);
 
   const siteSaver = React.useRef<Autosaver<SiteDoc> | null>(null);
@@ -285,6 +289,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
 
   const kind = open?.kind ?? "page";
   const editor = React.useMemo(() => createEditorConfig({ kind, counts: () => counts.current }), [kind]);
+  // Slot props of every registered section, whatever the page kind, for reading and writing documents.
+  const slotKeys = React.useMemo(() => createEditorConfig().slotKeys, []);
   const theme = React.useMemo(() => {
     try {
       return siteTheme(brand, site?.theme ?? {});
@@ -317,14 +323,14 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
       const placeholders = placeholderSnapshot(draft.doc.content);
       placeholderSnapshot(siteDoc.header, placeholders);
       placeholderSnapshot(siteDoc.footer, placeholders);
-      const data = toEditorData(draft.doc, siteDoc, editor.slotKeys);
+      const data = toEditorData(draft.doc, siteDoc, slotKeys);
       counts.current = countTypes(data);
       setH1Id(h1SectionId(data.content));
       setInvalid(null);
       setOpen({ id: pageId, path: draft.path, kind: draft.kind, data, placeholders });
       setEditorKey((k) => k + 1);
     },
-    [store, autosaveDelay, editor.slotKeys],
+    [store, autosaveDelay, slotKeys],
   );
 
   const refreshPublishing = React.useCallback(async () => {
@@ -408,7 +414,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
       const editorData = data as unknown as EditorData;
       counts.current = countTypes(editorData);
       setH1Id(h1SectionId(editorData.content ?? []));
-      const result = fromEditorData(data as never, { slotKeys: editor.slotKeys, placeholders: open.placeholders });
+      const result = fromEditorData(data as never, { slotKeys: slotKeys, placeholders: open.placeholders });
       const page = PageDoc.safeParse(result.page);
       const current = siteSaver.current?.latest ?? site;
       const nextSite = SiteDoc.safeParse({ ...current, header: result.header, footer: result.footer });
@@ -428,7 +434,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
         setSite(nextSite.data);
       }
     },
-    [open, site, editor.slotKeys],
+    [open, site, slotKeys],
   );
 
   const onNavChange = React.useCallback(
@@ -479,11 +485,13 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
    * everything first; a document that still has unsaved changes keeps its old revision, so its
    * next save meets a conflict instead of overwriting what the store has.
    */
-  const resync = React.useCallback(async () => {
+  const resync = React.useCallback(async (options: { ownChange?: boolean } = {}) => {
     const [draft, list] = await Promise.all([store.getDraft(siteId), store.listPages(siteId)]);
     setPages(list);
     let redraw = false;
     let siteDoc = siteSaver.current?.latest ?? site;
+    // Our own publish moved the revisions on with the content we saved: edits made meanwhile save on top.
+    if (options.ownChange && draft && siteSaver.current?.dirty) siteSaver.current.rebase(draft.rev);
     if (draft && siteSaver.current && !siteSaver.current.dirty) {
       const ours = siteSaver.current.latest;
       // Key order differs once the store has parsed a document: compare by content.
@@ -496,7 +504,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
     let pageDoc = pageSaver.current?.latest ?? null;
     if (open && pageSaver.current && pageSaverFor.current === open.id) {
       const p = await store.getPageDraft(open.id);
-      if (p && !pageSaver.current.dirty) {
+      if (p && options.ownChange && pageSaver.current.dirty) pageSaver.current.rebase(p.rev);
+      else if (p && !pageSaver.current.dirty) {
         if (stableHash(p.doc) !== stableHash(pageSaver.current.latest)) redraw = true;
         pageSaver.current.rebase(p.rev, p.doc);
         pageDoc = p.doc;
@@ -504,13 +513,13 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
       if (p && p.path !== open.path) setOpen((o) => (o ? { ...o, path: p.path } : o));
     }
     if (redraw && open && pageDoc && siteDoc) {
-      const data = toEditorData(pageDoc, siteDoc, editor.slotKeys);
+      const data = toEditorData(pageDoc, siteDoc, slotKeys);
       const placeholders = placeholderSnapshot([...pageDoc.content, ...siteDoc.header, ...siteDoc.footer]);
       setOpen((o) => (o ? { ...o, data, placeholders } : o));
       setEditorKey((k) => k + 1);
     }
     return { draft, list };
-  }, [store, siteId, open, site, editor.slotKeys]);
+  }, [store, siteId, open, site, slotKeys]);
 
   const runCheck = React.useCallback(async () => {
     if (!(await flushAll())) return;
@@ -549,7 +558,21 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
     }
   };
 
-  const createPage = async (request: NewPageRequest) => {
+  /**
+   * A store operation that moves a revision on (add, move or delete a page): the panels and
+   * canvas are inert meanwhile, so no edit lands on the revision being replaced.
+   */
+  const holding = async <T,>(fn: () => Promise<T>): Promise<T> => {
+    setBusy(true);
+    try {
+      return await fn();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createPage = (request: NewPageRequest) => holding(() => createPageNow(request));
+  const createPageNow = async (request: NewPageRequest) => {
     if (!(await flushAll())) throw new Error("Save your changes first.");
     const doc = request.template.doc({ title: request.title, brand });
     const meta = await store.createPage(siteId, { path: request.path, kind: request.template.kind, doc });
@@ -567,7 +590,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
     setNotice({ tone: "info", text: `Added ${request.title} at ${request.path}.${menuNote}` });
   };
 
-  const rename = async (pageId: string, path: string) => {
+  const rename = (pageId: string, path: string) => holding(() => renameNow(pageId, path));
+  const renameNow = async (pageId: string, path: string) => {
     if (!(await flushAll())) throw new Error("Save your changes first.");
     const before = pages.find((p) => p.id === pageId)?.path;
     const moved = await renamePage(store, pageId, path, reserved ? { reserved } : {});
@@ -610,6 +634,9 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
   const publish = async (note: string): Promise<boolean> => {
     if (!(await flushAll())) return false;
     setPublishing(true);
+    // Edits while publishing wait (the release is of what was saved), then save on the new revisions.
+    pageSaver.current?.pause();
+    siteSaver.current?.pause();
     try {
       const result = await publishSite(store, siteId, { brand, note, ...(reserved ? { reserved } : {}) });
       if ("blocked" in result) {
@@ -617,7 +644,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
         setNotice({ tone: "error", text: "Not published: fix the problems the checks list." });
         return false;
       }
-      await resync();
+      // A publish only migrates props in place, so edits made meanwhile are saved over it.
+      await resync({ ownChange: true });
       await refreshPublishing();
       setNotice({ tone: "info", text: `Published release ${result.release.number}.` });
       onPublish?.(result.release);
@@ -626,6 +654,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
       setNotice({ tone: "error", text: `Publishing failed: ${(err as Error).message}` });
       return false;
     } finally {
+      pageSaver.current?.resume();
+      siteSaver.current?.resume();
       setPublishing(false);
     }
   };
@@ -671,7 +701,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
       if (theirs) {
         setSite(theirs);
         const page = pageSaver.current?.latest;
-        if (page) setOpen({ ...open, data: toEditorData(page, theirs, editor.slotKeys) });
+        if (page) setOpen({ ...open, data: toEditorData(page, theirs, slotKeys) });
         setEditorKey((k) => k + 1);
       }
     } else {
@@ -679,7 +709,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
       if (theirs) {
         const siteDoc = siteSaver.current?.latest ?? site;
         setPages((list) => list.map((p) => (p.id === open.id ? { ...p, title: theirs.root.props.title } : p)));
-        setOpen({ ...open, data: toEditorData(theirs, siteDoc, editor.slotKeys), placeholders: placeholderSnapshot([...theirs.content, ...siteDoc.header, ...siteDoc.footer]) });
+        setOpen({ ...open, data: toEditorData(theirs, siteDoc, slotKeys), placeholders: placeholderSnapshot([...theirs.content, ...siteDoc.header, ...siteDoc.footer]) });
         setEditorKey((k) => k + 1);
       }
     }
@@ -690,6 +720,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
   function focusPageTitle() {
     requestAnimationFrame(() => document.getElementById(titleId)?.focus());
   }
+  // A remounted canvas starts at Puck's default width, so the viewport buttons do too.
+  React.useEffect(() => setViewport("desktop"), [editorKey]);
   React.useEffect(() => {
     if (!focusTitle.current) return;
     focusTitle.current = false;
@@ -726,7 +758,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
       siteId,
       store,
       ...(assets ? { assets } : {}),
-      pickImage: (opts) => new Promise((resolve) => setPicker({ ...(opts?.current ? { current: opts.current } : {}), resolve })),
+      pickImage: (opts) => new Promise((resolve) => setPicker({ ...(opts?.current ? { current: opts.current } : {}), ...(opts?.altElsewhere ? { altElsewhere: true } : {}), resolve })),
     }),
     [siteId, store, assets],
   );
@@ -806,7 +838,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
               ) : null}
             </div>
           ) : null}
-          <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[17rem_minmax(0,1fr)_20rem]">
+          <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[17rem_minmax(0,1fr)_20rem]" inert={busy || undefined} aria-busy={busy || undefined}>
             <aside className="flex min-h-0 flex-col border-b border-border lg:border-b-0 lg:border-r" aria-label="Sections and pages" onKeyDown={keepDeleteInPanel}>
               <Tabs defaultValue="add" value={leftTab} onValueChange={setLeftTab} className="flex min-h-0 flex-1 flex-col">
                 <TabsList className="m-2 grid grid-cols-3">
@@ -889,6 +921,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onD
           store={store}
           assets={assets}
           current={picker?.current}
+          altElsewhere={picker?.altElsewhere}
           onDone={(image) => {
             picker?.resolve(image);
             setPicker(null);

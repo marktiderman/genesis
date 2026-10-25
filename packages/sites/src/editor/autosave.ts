@@ -69,6 +69,7 @@ export class Autosaver<T> {
   private retries = 0;
   private waiters: { resolve: () => void; reject: (e: Error) => void }[] = [];
   private disposed = false;
+  private paused = false;
   private readonly opts: Required<Pick<AutosaverOptions<T>, "delay" | "retryDelay" | "equals" | "setTimer" | "clearTimer" | "now">> & AutosaverOptions<T>;
 
   constructor(options: AutosaverOptions<T>, initial?: T) {
@@ -124,6 +125,7 @@ export class Autosaver<T> {
 
   private async run(): Promise<void> {
     if (this.inFlight) return this.inFlight; // The in-flight save picks the pending document up when it lands.
+    if (this.paused) return; // Kept; `resume` saves it.
     if (this.pending === null || this.state.status === "conflict" || this.disposed) {
       this.settle();
       return;
@@ -211,6 +213,18 @@ export class Autosaver<T> {
   rebase(rev: number, doc?: T): void {
     if (doc !== undefined) this.saved = doc;
     this.set({ rev });
+  }
+
+  /** Hold saves (while the editor's own store operation moves the revision on); changes keep collecting. */
+  pause(): void {
+    this.paused = true;
+  }
+
+  /** Save what collected while paused, on the revision `rebase` set. */
+  resume(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    if (this.pending !== null && this.state.status !== "conflict") this.schedule(this.opts.delay);
   }
 
   dispose(): void {

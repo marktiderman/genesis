@@ -26,6 +26,8 @@ export interface AssetPickerProps {
   store: Pick<SiteStore, "putAsset">;
   assets?: EditorAssets | undefined;
   current?: PickedImage | undefined;
+  /** The field takes only the address; its alt text is a field of its own (a gallery photo). */
+  altElsewhere?: boolean | undefined;
   onDone: (image: PickedImage | null) => void;
 }
 
@@ -48,7 +50,7 @@ export function uploadProblem(file: { type: string; size: number } | null, maxBy
   return null;
 }
 
-export function AssetPicker({ open, siteId, store, assets, current, onDone }: AssetPickerProps) {
+export function AssetPicker({ open, siteId, store, assets, current, altElsewhere = false, onDone }: AssetPickerProps) {
   const canUpload = Boolean(assets?.upload || store.putAsset);
   const [tab, setTab] = React.useState(canUpload ? "upload" : "link");
   const [file, setFile] = React.useState<File | null>(null);
@@ -78,7 +80,7 @@ export function AssetPicker({ open, siteId, store, assets, current, onDone }: As
     }
   }, [open, siteId, assets, current]);
 
-  const altOk = decorative || alt.trim().length > 0;
+  const altOk = altElsewhere || decorative || alt.trim().length > 0;
   // Marked invalid once there is an image to describe, not before.
   const altInvalid = !altOk && (Boolean(file) || Boolean(chosen) || (tab === "link" && url.trim().length > 0));
   const all = [...uploaded, ...(library ?? []).filter((a) => !uploaded.some((u) => u.id === a.id))].filter((a) => a.mime.startsWith("image/") && a.mime !== "image/svg+xml");
@@ -162,6 +164,9 @@ export function AssetPicker({ open, siteId, store, assets, current, onDone }: As
             <Input id={`${id}-url`} value={url} placeholder="https://… or /images/photo.jpg" onChange={(e) => setUrl(e.currentTarget.value)} />
           </TabsContent>
         </Tabs>
+        {altElsewhere ? (
+          <p className="text-sm text-muted-foreground">Describe the image in the item's Alt text field, after you choose it.</p>
+        ) : (
         <div className="flex flex-col gap-2">
           <Label htmlFor={`${id}-alt`}>Alt text</Label>
           <Textarea id={`${id}-alt`} rows={2} maxLength={300} value={alt} disabled={decorative} aria-invalid={altInvalid || undefined} aria-describedby={`${id}-alt-hint`} onChange={(e) => setAlt(e.currentTarget.value)} placeholder="Two people stretching on mats by a window" />
@@ -173,6 +178,7 @@ export function AssetPicker({ open, siteId, store, assets, current, onDone }: As
             <Label htmlFor={`${id}-decorative`}>Decorative (adds nothing a reader needs)</Label>
           </div>
         </div>
+        )}
         {error ? (
           <p role="alert" className="text-sm text-destructive">
             {error}

@@ -22,7 +22,7 @@ import type { ComponentInfo } from "./config";
 const usePuck = createUsePuck();
 
 interface BaseProps {
-  field: { label?: string; placeholder?: string; options?: readonly { label: string; value: unknown }[]; min?: number; max?: number; step?: number };
+  field: { label?: string; placeholder?: string; options?: readonly { label: string; value: unknown }[]; min?: number; max?: number; step?: number; metadata?: unknown };
   name: string;
   id?: string;
   value: unknown;
@@ -112,12 +112,15 @@ function SelectInput(p: BaseProps) {
 function RadioInput(p: BaseProps) {
   const id = fieldId(p);
   const options = p.field.options ?? [];
+  // An unset yes/no shows its schema default (fields.ts puts it in metadata).
+  const fallback = (p.field.metadata as { default?: unknown } | undefined)?.default;
+  const value = p.value === undefined && fallback !== undefined ? fallback : p.value;
   return (
     <div className="flex flex-col gap-1.5 py-1" role="group" aria-labelledby={`${id}-label`}>
       <span id={`${id}-label`} className="text-sm font-medium leading-none">
         {p.field.label}
       </span>
-      <RadioGroup value={indexOf(options, p.value)} disabled={p.readOnly} onValueChange={(i) => p.onChange(options[Number(i)]?.value)} className="flex flex-wrap gap-4" aria-labelledby={`${id}-label`}>
+      <RadioGroup value={indexOf(options, value)} disabled={p.readOnly} onValueChange={(i) => p.onChange(options[Number(i)]?.value)} className="flex flex-wrap gap-4" aria-labelledby={`${id}-label`}>
         {options.map((o, i) => (
           <div key={i} className="flex items-center gap-2">
             <RadioGroupItem id={`${id}-${i}`} value={String(i)} />

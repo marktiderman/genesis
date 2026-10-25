@@ -28,8 +28,12 @@ export interface EditorServices {
   siteId: string;
   store: Pick<SiteStore, "putAsset">;
   assets?: EditorAssets;
-  /** Open the image picker; resolves with the choice, or null when cancelled. */
-  pickImage(options?: { current?: PickedImage }): Promise<PickedImage | null>;
+  /**
+   * Open the image picker; resolves with the choice, or null when cancelled. `altElsewhere`: the
+   * field only takes the address and its alt text is a field of its own (a gallery photo), so the
+   * picker doesn't ask for it.
+   */
+  pickImage(options?: { current?: PickedImage; altElsewhere?: boolean }): Promise<PickedImage | null>;
 }
 
 export const EditorServicesContext = createContext<EditorServices | null>(null);
