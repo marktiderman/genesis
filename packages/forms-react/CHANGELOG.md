@@ -1,5 +1,11 @@
 # @marktiderman/genesis-forms-react
 
+## 0.3.1
+
+### Patch Changes
+
+- 98aaa90: `useFormDraft`: autosave now starts listening before the form is painted. An answer given between the form appearing and a passive effect running was not saved until the next change (seen with async storage, as on React Native).
+
 ## 0.3.0
 
 ### Minor Changes
