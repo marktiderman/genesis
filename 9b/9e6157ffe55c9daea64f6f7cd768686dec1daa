@@ -1,0 +1,54 @@
+packages/chat/src/__tests__/server-safety.test.ts
+  s_c0870a827920ef::t_9c8baf20820d2c 1-208
+packages/chat/src/server/upload.ts
+  s_c0870a827920ef::t_d73256aa6506aa 1-70
+packages/chat/src/__tests__/server-integrations.test.ts
+  s_c0870a827920ef::t_35eee5da6e8f82 1-194
+packages/chat/src/server/assistant.ts
+  s_c0870a827920ef::t_b907c1fc391b06 1-218
+packages/chat/src/server/unfurl.ts
+  s_c0870a827920ef::t_27acc3e9c9a9a5 1-336
+packages/chat/src/__tests__/server-effects.test.ts
+  s_c0870a827920ef::t_445c8a70b2dac1 1-136
+packages/chat/src/server/moderation.ts
+  s_c0870a827920ef::t_d3b74c4bc9da91 1-155
+packages/chat/src/server/notifications.ts
+  s_c0870a827920ef::t_efc91f64503814 1-105
+  s_c0870a827920ef::t_147076da3ed741 106
+.changeset/chat-phases-server.md
+  s_c0870a827920ef::t_df3600ef231876 1-5
+packages/chat/README.md
+  s_c0870a827920ef::t_aa587e8efad1d9 100,111-117,122-125,160-161,175-265
+packages/chat/package.json
+  s_c0870a827920ef::t_ccdcb04913b75a 130
+packages/chat/src/__tests__/server-fakes.ts
+  s_c0870a827920ef::t_e44f5df27743e5 33-35
+packages/chat/src/__tests__/server-runner.test.ts
+  s_c0870a827920ef::t_d2e7a9a1a4e3bd 38,70-87,101,115
+packages/chat/src/server/expo.ts
+  s_c0870a827920ef::t_be6bec34b3dbad 68
+packages/chat/src/server/index.ts
+  s_c0870a827920ef::t_899810fadc7f6c 4-6,24-51
+packages/chat/src/server/runner.ts
+  s_c0870a827920ef::t_6566ff0248f98a 11-17,24-34,38,40-43,56-66,78-83,107-112,145-151,204,269-358,369-372,381-383,409-414
+packages/chat/src/server/types.ts
+  s_c0870a827920ef::t_31bec2f2bdff1f 33-39,88-125,127,144-149
+pnpm-lock.yaml
+  s_c0870a827920ef::t_31185668fd3020 551-553
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9b9e6157ffe55c9daea64f6f7cd768686dec1daa",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
