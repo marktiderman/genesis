@@ -36,7 +36,7 @@ export interface ChatNotification {
   threadKey: string;
   /** `push:<message id>`: the same message is never pushed twice by a sender that dedupes. */
   idempotencyKey: string;
-  data: { url: string; conversationId: string; messageId: string };
+  data: { url: string; conversationId: string; messageId: string; seq: number | null };
 }
 
 /**
