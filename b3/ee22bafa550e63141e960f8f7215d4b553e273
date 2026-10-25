@@ -1,0 +1,47 @@
+packages/ui-native/src/layouts/notifications-page.tsx
+  s_8252619ce79a86::t_588ca6546255a7 26,34,90-96,219-236,251,253-254,327-328,355-358
+packages/ui-native/test-utils/rn-mock.tsx
+  s_8252619ce79a86::t_3a02be3681f303 257,268,276-281
+  s_8252619ce79a86::t_588ca6546255a7 344,347,350-354
+packages/ui-native/src/__tests__/fake-modules.tsx
+  s_8252619ce79a86::t_588ca6546255a7 84-89
+packages/ui-native/src/layouts/index.ts
+  s_8252619ce79a86::t_c85c4e2f971aaa 50-51
+packages/support/src/native/support.tsx
+  s_8252619ce79a86::t_f18ac9e6928cc9 165-167,172-176
+  s_8252619ce79a86::t_3a02be3681f303 92-94
+.changeset/feedback-after-sheet-closes.md
+  s_8252619ce79a86::t_dd6449cf171641 1-8
+packages/ui-native/src/native-modules.tsx
+  s_8252619ce79a86::t_588ca6546255a7 49-50
+packages/ui-native/types/react-native.d.ts
+  s_8252619ce79a86::t_588ca6546255a7 263
+packages/native/src/__tests__/devtools/devtools.test.tsx
+  s_8252619ce79a86::t_a2a07f442e4f14 163-194
+packages/native/src/devtools/block.tsx
+  s_8252619ce79a86::t_f18ac9e6928cc9 86-87,108-124,143-164,203,205-206,225,263-265,267-268,300,312,356-363,369,455
+packages/native/src/devtools/slots.ts
+  s_8252619ce79a86::t_f18ac9e6928cc9 10-14
+.changeset/sticky-headers-under-nav-bar.md
+  s_8252619ce79a86::t_dd6449cf171641 1-7
+packages/support/src/__tests__/native.test.tsx
+  s_8252619ce79a86::t_a2a07f442e4f14 162-183
+packages/ui-native/src/__tests__/native-modules.test.tsx
+  s_8252619ce79a86::t_588ca6546255a7 23,584-626
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b3ee22bafa550e63141e960f8f7215d4b553e273",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
