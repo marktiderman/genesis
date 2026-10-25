@@ -1,0 +1,48 @@
+packages/sites/src/__tests__/migration.test.ts
+  s_8252619ce79a86::t_36a8f1cd40672b 1-95
+  s_8252619ce79a86::t_f31a161f9db3c5 96-98
+packages/sites/migrations/0001_genesis_sites.sql
+  s_8252619ce79a86::t_f5aecbaf33a1a8 26-32,118-121,131-132,365-366,371-372,460,499,638-639,647
+packages/sites/migrations/tests/0001_genesis_sites.test.sql
+  s_8252619ce79a86::t_a98348cff1f522 12,156-191,249,264-267
+packages/sites/package.json
+  s_8252619ce79a86::t_299f8bb0b6a9ca 104
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_8252619ce79a86::t_f9b46edbd34b52 25,27
+packages/sites/src/__tests__/fixtures.ts
+  s_8252619ce79a86::t_6bf3eff77fee25 5,87-116,119-120,131
+packages/sites/src/__tests__/sections.test.tsx
+  s_8252619ce79a86::t_becd39bec14d4f 159-185
+packages/sites/src/__tests__/web.test.ts
+  s_8252619ce79a86::t_1e50f52ea5b042 40,64,66-76,78,81-88
+packages/sites/src/islands/loader.ts
+  s_8252619ce79a86::t_7b5722d27e3e96 8-12,36-111
+packages/sites/src/sections/form-embed.tsx
+  s_8252619ce79a86::t_0f429583714ee9 6,12,24-36,74-82,89
+packages/sites/src/sections/light-form.tsx
+  s_8252619ce79a86::t_993ef7800afb6b 1-272
+packages/sites/src/web/document.tsx
+  s_8252619ce79a86::t_bea6ced44892e2 16,117-120,159
+packages/sites/src/web/handler.ts
+  s_8252619ce79a86::t_ee1d074e4c780b 93-94,99-102,118
+packages/sites/src/web/sites.css
+  s_8252619ce79a86::t_ae4dccc4ed021e 20-21
+pnpm-lock.yaml
+  s_8252619ce79a86::t_3cdc0785d79ae5 1185,1187-1188,1191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dc9ba2c64236ef119c990b5e581b93080e37696d",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
