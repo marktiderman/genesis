@@ -464,6 +464,7 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
         {header}
         <Shell testID={testID} keyName="ending">
           {brandNode}
+          <View style={s.endingColumn}>
           {renderSlot(
             DefaultEnding,
             slots?.ending,
@@ -488,6 +489,7 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
                 slotProps?.status,
               )
             : null}
+          </View>
         </Shell>
       </FormNativeContext.Provider>
     );

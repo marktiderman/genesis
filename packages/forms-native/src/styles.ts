@@ -127,7 +127,9 @@ export function formStyles(t: FormTheme) {
     bannerText: tx({ fontSize: 15, lineHeight: 20, color: t.label }),
     link: v({ minHeight: MIN_TARGET, justifyContent: "center" }),
     linkText: tx({ fontSize: 15, lineHeight: 20, color: t.tint, textDecorationLine: "underline" }),
-    ending: v({ flexGrow: 1, alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 12 }),
+    // The ending and its status, centred together, so the status never sits under a tab bar.
+    endingColumn: v({ flexGrow: 1, justifyContent: "center", gap: 24, paddingVertical: 40 }),
+    ending: v({ alignItems: "center", justifyContent: "center", gap: 12 }),
     endingMark: v({ width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", backgroundColor: t.fill }),
     endingCheck: tx({ fontSize: 30, fontWeight: "800", color: t.tint }),
     endingTitle: tx({ fontSize: 28, lineHeight: 34, fontWeight: "700", color: t.label, textAlign: "center" }),
