@@ -40,7 +40,12 @@
 --   revoke execute on function private.genesis_support_staff(uuid) from public, anon, authenticated;
 --
 -- Limits (each raises SQLSTATE GS429): 20 reports and 60 replies per person per hour,
--- 10 ideas per person per day, 5 screenshots per report. Text and jsonb are capped by checks.
+-- 10 ideas per person per day, 5 screenshots per report. They count what was sent, in a log
+-- deleting doesn't touch, under a per-person lock, so deleting and sending again doesn't reset
+-- them. Text and jsonb are capped by checks.
+--
+-- The bucket stays private whatever other storage policies the app has: restrictive policies
+-- hold every role but the service role to this file's rules inside `genesis-support`.
 --
 -- Account deletion (0001): every row here goes with the login (reports, the replies on
 -- them, screenshots and votes cascade; ideas and replies on other people's reports keep
@@ -81,6 +86,52 @@ $$;
 
 comment on function public.support_is_staff() is
   'True when the signed-in person is support staff (private.genesis_support_staff). Genesis support.';
+
+-- Is the signed-in person a Supabase anonymous sign-in? Read from auth.users, not from the
+-- JWT, so a custom access-token hook that drops the claim can't hide it. Answers only about the caller.
+create or replace function public.support_is_anonymous()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((select u.is_anonymous from auth.users u where u.id = auth.uid()), true)
+$$;
+
+comment on function public.support_is_anonymous() is
+  'True when the signed-in person is a Supabase anonymous sign-in (or nobody). Genesis support.';
+
+-- What each person sent, for the limits: kept when the report is deleted, gone with the login.
+create table private.support_rate_events (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  kind text not null,
+  at timestamptz not null default clock_timestamp()
+);
+
+create index support_rate_events_lookup on private.support_rate_events (user_id, kind, at desc);
+
+-- Counts the person's sends of `kind` within `window_size`, refuses past `max_count`, then
+-- records this one. A per-person lock makes parallel sends wait their turn.
+create or replace function private.genesis_support_rate_limit(person uuid, kind text, max_count integer, window_size interval)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if person is null then
+    return;
+  end if;
+  perform pg_advisory_xact_lock(hashtextextended('genesis_support:' || person::text, 0));
+  delete from private.support_rate_events e where e.user_id = person and e.at < clock_timestamp() - interval '2 days';
+  if (select count(*) from private.support_rate_events e
+      where e.user_id = person and e.kind = genesis_support_rate_limit.kind and e.at > clock_timestamp() - window_size) >= max_count then
+    raise exception 'support: too many % sent; try again later', kind using errcode = 'GS429';
+  end if;
+  insert into private.support_rate_events (user_id, kind) values (person, kind);
+end;
+$$;
 
 create or replace function private.genesis_support_touch()
 returns trigger
@@ -157,10 +208,7 @@ begin
   new.staff_read_at := null;
   new.created_at := now();
   new.updated_at := now();
-  if (select count(*) from public.support_reports r
-      where r.user_id = new.user_id and r.created_at > now() - interval '1 hour') >= 20 then
-    raise exception 'support: too many reports; try again later' using errcode = 'GS429';
-  end if;
+  perform private.genesis_support_rate_limit(new.user_id, 'report', 20, interval '1 hour');
   return new;
 end;
 $$;
@@ -293,10 +341,7 @@ begin
   -- On their own report a staff member writes as the person.
   new.from_staff := staff and owner <> me;
   new.created_at := clock_timestamp();
-  if (select count(*) from public.support_replies x
-      where x.author_id = me and x.created_at > now() - interval '1 hour') >= 60 then
-    raise exception 'support: too many replies; try again later' using errcode = 'GS429';
-  end if;
+  perform private.genesis_support_rate_limit(me, 'reply', 60, interval '1 hour');
   return new;
 end;
 $$;
@@ -374,10 +419,7 @@ begin
   new.vote_count := 0;
   new.created_at := now();
   new.updated_at := now();
-  if (select count(*) from public.support_ideas i
-      where i.author_id = new.author_id and i.created_at > now() - interval '1 day') >= 10 then
-    raise exception 'support: too many ideas today; try again tomorrow' using errcode = 'GS429';
-  end if;
+  perform private.genesis_support_rate_limit(new.author_id, 'idea', 10, interval '1 day');
   return new;
 end;
 $$;
@@ -468,12 +510,13 @@ create policy support_ideas_suggest on public.support_ideas
   for insert to authenticated
   with check (
     author_id = (select auth.uid())
-    and not coalesce(((select auth.jwt()) ->> 'is_anonymous')::boolean, false)
+    and not (select public.support_is_anonymous())
   );
+-- Only until the first vote: nobody's vote moves to an idea they didn't vote for.
 create policy support_ideas_edit on public.support_ideas
   for update to authenticated
-  using (author_id = (select auth.uid()) and status = 'open')
-  with check (author_id = (select auth.uid()) and status = 'open');
+  using (author_id = (select auth.uid()) and status = 'open' and vote_count = 0)
+  with check (author_id = (select auth.uid()) and status = 'open' and vote_count = 0);
 
 create policy support_idea_votes_read on public.support_idea_votes
   for select to authenticated
@@ -482,7 +525,7 @@ create policy support_idea_votes_cast on public.support_idea_votes
   for insert to authenticated
   with check (
     user_id = (select auth.uid())
-    and not coalesce(((select auth.jwt()) ->> 'is_anonymous')::boolean, false)
+    and not (select public.support_is_anonymous())
     and exists (select 1 from public.support_ideas i where i.id = idea_id and i.status in ('open', 'planned', 'in_progress'))
   );
 create policy support_idea_votes_withdraw on public.support_idea_votes
@@ -496,25 +539,82 @@ values ('genesis-support', 'genesis-support', false, 5242880, array['image/png',
 on conflict (id) do update
   set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
--- Upload only into <your id>/<your open report>/; read your own, or any as staff. No
--- update policy (nothing is overwritten) and no delete policy (removal is the cleanup
--- function's, through the Storage API).
+-- May the signed-in person upload `object_name`? Only `<own id>/<own open report>/<name>.<image>`,
+-- and at most 5 objects in that report's folder. A function, so the policy can count the folder.
+create or replace function public.support_can_upload(object_name text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  folder text;
+begin
+  if me is null or object_name is null
+     or object_name !~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[A-Za-z0-9_-]{1,80}\.(png|jpg|jpeg|webp)$'
+     or split_part(object_name, '/', 1) <> me::text then
+    return false;
+  end if;
+  if not exists (select 1 from public.support_reports r
+                 where r.id::text = split_part(object_name, '/', 2) and r.user_id = me and r.status = 'open') then
+    return false;
+  end if;
+  folder := split_part(object_name, '/', 1) || '/' || split_part(object_name, '/', 2) || '/';
+  return (select count(*) from storage.objects o where o.bucket_id = 'genesis-support' and left(o.name, length(folder)) = folder) < 5;
+end;
+$$;
+
+comment on function public.support_can_upload(text) is
+  'Whether the signed-in person may upload this support screenshot path. Genesis support.';
+
+-- May the signed-in person read `object_name`? Their own while it is attached (or within an
+-- hour of uploading it, before the attachment row lands); staff, only while it is attached.
+-- A deleted report's screenshots can't be opened again, before the cleanup removes them.
+create or replace function public.support_can_read(object_name text, uploaded_at timestamptz)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select auth.uid() is not null and (
+    exists (select 1 from public.support_attachments a where a.path = object_name)
+      and (split_part(object_name, '/', 1) = auth.uid()::text or public.support_is_staff())
+    or (split_part(object_name, '/', 1) = auth.uid()::text and uploaded_at > now() - interval '1 hour')
+  )
+$$;
+
+comment on function public.support_can_read(text, timestamptz) is
+  'Whether the signed-in person may read this support screenshot. Genesis support.';
+
+-- Upload only into <your id>/<your open report>/; read your own, or any attached one as staff.
+-- No update policy (nothing is overwritten or moved) and no delete policy (removal is the
+-- cleanup function's, through the Storage API).
 create policy genesis_support_upload on storage.objects
   for insert to authenticated
-  with check (
-    bucket_id = 'genesis-support'
-    and (storage.foldername(name))[1] = (select auth.uid())::text
-    and exists (
-      select 1 from public.support_reports r
-      where r.id::text = (storage.foldername(name))[2] and r.user_id = (select auth.uid()) and r.status = 'open'
-    )
-  );
+  with check (bucket_id = 'genesis-support' and (select public.support_can_upload(name)));
 create policy genesis_support_read on storage.objects
   for select to authenticated
-  using (
-    bucket_id = 'genesis-support'
-    and ((storage.foldername(name))[1] = (select auth.uid())::text or (select public.support_is_staff()))
-  );
+  using (bucket_id = 'genesis-support' and public.support_can_read(name, created_at));
+
+-- Restrictive: whatever permissive storage policies the app already has (a "read everything",
+-- an "owners may update"), inside this bucket only the rules above hold, for every role but
+-- the service role (which bypasses row level security).
+create policy genesis_support_only_read on storage.objects
+  as restrictive for select to public
+  using (bucket_id <> 'genesis-support' or public.support_can_read(name, created_at));
+create policy genesis_support_only_upload on storage.objects
+  as restrictive for insert to public
+  with check (bucket_id <> 'genesis-support' or (select public.support_can_upload(name)));
+create policy genesis_support_no_update on storage.objects
+  as restrictive for update to public
+  using (bucket_id <> 'genesis-support')
+  with check (bucket_id <> 'genesis-support');
+create policy genesis_support_no_delete on storage.objects
+  as restrictive for delete to public
+  using (bucket_id <> 'genesis-support');
 
 -- Functions ---------------------------------------------------------------------------
 
@@ -546,7 +646,7 @@ $$;
 comment on function public.support_mark_read(uuid) is
   'Marks a report''s thread read for its person, or for staff. Genesis support.';
 
--- Staff: a report's status, and the FeatureId it is about (null for none).
+-- Staff: a report's status, and the FeatureId it is about (null keeps it, '' clears it).
 create or replace function public.support_set_report_status(report uuid, status text, feature text default null)
 returns void
 language plpgsql
@@ -557,7 +657,10 @@ begin
   if not public.support_is_staff() then
     raise exception 'support_set_report_status: only staff' using errcode = '42501';
   end if;
-  update public.support_reports r set status = support_set_report_status.status, feature_id = feature where r.id = report;
+  update public.support_reports r
+    set status = support_set_report_status.status,
+        feature_id = case when feature = '' then null else coalesce(feature, r.feature_id) end
+    where r.id = report;
   if not found then
     raise exception 'support_set_report_status: no such report' using errcode = 'P0002';
   end if;
@@ -567,7 +670,8 @@ $$;
 comment on function public.support_set_report_status(uuid, text, text) is
   'Staff set a report''s status and the FeatureId it is about. Genesis support.';
 
--- Staff: an idea's status (shipped stamps shipped_at), and the FeatureId that delivers it.
+-- Staff: an idea's status (shipped stamps shipped_at), and the FeatureId that delivers it
+-- (null keeps it, '' clears it).
 create or replace function public.support_set_idea_status(idea uuid, status text, feature text default null)
 returns void
 language plpgsql
@@ -580,7 +684,7 @@ begin
   end if;
   update public.support_ideas i
     set status = support_set_idea_status.status,
-        feature_id = feature,
+        feature_id = case when feature = '' then null else coalesce(feature, i.feature_id) end,
         shipped_at = case when support_set_idea_status.status = 'shipped' then coalesce(i.shipped_at, now()) end
     where i.id = idea;
   if not found then
@@ -594,13 +698,16 @@ comment on function public.support_set_idea_status(uuid, text, text) is
 
 -- "You asked, we shipped": shipped ideas the caller suggested or voted for, newest first.
 create or replace function public.support_shipped_for_me(max_rows integer default 50)
-returns setof public.support_ideas
+returns table (id uuid, title text, body text, status text, feature_id text, shipped_at timestamptz, vote_count integer, created_at timestamptz, mine boolean, voted boolean)
 language sql
 stable
-security invoker
+security definer
 set search_path = ''
 as $$
-  select i.* from public.support_ideas i
+  select i.id, i.title, i.body, i.status, i.feature_id, i.shipped_at, i.vote_count, i.created_at,
+         i.author_id = (select auth.uid()),
+         exists (select 1 from public.support_idea_votes v where v.idea_id = i.id and v.user_id = (select auth.uid()))
+  from public.support_ideas i
   where i.status = 'shipped'
     and (i.author_id = (select auth.uid())
          or exists (select 1 from public.support_idea_votes v where v.idea_id = i.id and v.user_id = (select auth.uid())))
@@ -610,6 +717,20 @@ $$;
 
 comment on function public.support_shipped_for_me(integer) is
   'Shipped ideas the caller suggested or voted for, with their FeatureIds. Genesis support.';
+
+-- The ideas the caller suggested (who suggested an idea isn't readable by others).
+create or replace function public.support_my_idea_ids()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select i.id from public.support_ideas i where i.author_id = (select auth.uid())
+$$;
+
+comment on function public.support_my_idea_ids() is
+  'The ids of the ideas the caller suggested. Genesis support.';
 
 -- For the cleanup function: objects in the bucket no attachment names, older than
 -- `older_than` (an upload whose attachment row never landed). Service role only.
@@ -650,11 +771,13 @@ revoke all on table public.support_attachment_purges from public, anon, authenti
 revoke all on sequence public.support_attachment_purges_id_seq from public, anon, authenticated;
 
 revoke all on table public.support_replies from public, anon, authenticated;
-grant select on table public.support_replies to authenticated;
+-- Not author_id: a person never learns staff members' ids (from_staff says who wrote it).
+grant select (id, report_id, from_staff, body, created_at) on table public.support_replies to authenticated;
 grant insert (report_id, body) on table public.support_replies to authenticated;
 
 revoke all on table public.support_ideas from public, anon, authenticated;
-grant select on table public.support_ideas to authenticated;
+-- Not author_id: ideas aren't linked to who suggested them (support_my_idea_ids answers "mine").
+grant select (id, title, body, status, feature_id, shipped_at, vote_count, created_at, updated_at) on table public.support_ideas to authenticated;
 grant insert (title, body) on table public.support_ideas to authenticated;
 grant update (title, body) on table public.support_ideas to authenticated;
 
@@ -688,10 +811,23 @@ revoke execute on function public.support_set_idea_status(uuid, text, text) from
 grant execute on function public.support_set_idea_status(uuid, text, text) to authenticated;
 revoke execute on function public.support_shipped_for_me(integer) from public, anon;
 grant execute on function public.support_shipped_for_me(integer) to authenticated;
+revoke execute on function public.support_my_idea_ids() from public, anon;
+grant execute on function public.support_my_idea_ids() to authenticated;
+revoke execute on function public.support_is_anonymous() from public, anon;
+grant execute on function public.support_is_anonymous() to authenticated;
+-- The storage policies call these for every role they hold, anon included; each answers
+-- false without a session.
+revoke execute on function public.support_can_upload(text) from public;
+grant execute on function public.support_can_upload(text) to anon, authenticated;
+revoke execute on function public.support_can_read(text, timestamptz) from public;
+grant execute on function public.support_can_read(text, timestamptz) to anon, authenticated;
 revoke execute on function public.support_orphan_objects(interval, integer) from public, anon, authenticated;
 grant execute on function public.support_orphan_objects(interval, integer) to service_role;
 
+revoke all on table private.support_rate_events from public, anon, authenticated;
+
 -- Only the triggers above call these.
+revoke execute on function private.genesis_support_rate_limit(uuid, text, integer, interval) from public, anon, authenticated;
 revoke execute on function private.genesis_support_touch() from public, anon, authenticated;
 revoke execute on function private.genesis_support_new_report() from public, anon, authenticated;
 revoke execute on function private.genesis_support_new_attachment() from public, anon, authenticated;

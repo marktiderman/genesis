@@ -9,7 +9,7 @@
 -- request.jwt.claim.sub on older images), so pg_temp.sign_in sets both.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(102);
+select plan(118);
 
 -- People: a1 reports, b2 is someone else, c3 is staff (once the hook exists),
 -- d4 is a Supabase anonymous sign-in, e5 never votes.
@@ -73,9 +73,14 @@ select ok(
   'the genesis-support bucket is private, images only, 5 MB each'
 );
 select is(
-  (select count(*)::int from pg_policy where polrelid = 'storage.objects'::regclass and polname like 'genesis_support_%' and polcmd in ('w', 'd', '*')),
+  (select count(*)::int from pg_policy where polrelid = 'storage.objects'::regclass and polname like 'genesis_support_%' and polcmd in ('w', 'd', '*') and polpermissive),
   0,
-  'no update or delete policy on the bucket: nothing is overwritten or removed by a person'
+  'no permissive update or delete policy on the bucket: nothing is overwritten or removed by a person'
+);
+select is(
+  (select count(*)::int from pg_policy where polrelid = 'storage.objects'::regclass and polname like 'genesis_support_%' and not polpermissive),
+  4,
+  'restrictive policies hold the bucket to these rules whatever else the app allows'
 );
 
 -- Privileges ------------------------------------------------------------------------
@@ -106,6 +111,11 @@ select ok(
   and not has_column_privilege('authenticated', 'public.support_idea_votes', 'user_id', 'insert')
   and not has_table_privilege('authenticated', 'public.support_idea_votes', 'update'),
   'nobody signed in sets an idea''s status or count, or votes as someone else'
+);
+select ok(
+  not has_column_privilege('authenticated', 'public.support_ideas', 'author_id', 'select')
+  and not has_column_privilege('authenticated', 'public.support_replies', 'author_id', 'select'),
+  'nobody reads who suggested an idea or which staff member replied'
 );
 select ok(
   not has_column_privilege('authenticated', 'public.support_replies', 'from_staff', 'insert')
@@ -201,6 +211,8 @@ select lives_ok(
   $$ select public.support_set_report_status(pg_temp.id('r1'), 'in_progress', 'support-feedback') $$,
   'staff set a report''s status and feature'
 );
+select lives_ok($$ select public.support_set_report_status(pg_temp.id('r1'), 'in_progress') $$, 'a status change without a feature');
+select is((select feature_id from public.support_reports where id = pg_temp.id('r1')), 'support-feedback', '... keeps the feature');
 select throws_ok(
   $$ select public.support_set_report_status(pg_temp.id('r1'), 'done') $$,
   '23514', null, 'an unknown status is refused'
@@ -232,11 +244,13 @@ select throws_ok(
 
 -- Replies and read receipts -------------------------------------------------------------
 insert into public.support_replies (report_id, body) values (pg_temp.id('r1'), 'It happens every time.');
+reset role;
 select is(
-  (select from_staff::text || ':' || (author_id = pg_temp.person('a1'))::text from public.support_replies),
+  (select r.from_staff::text || ':' || (author_id = pg_temp.person('a1'))::text from public.support_replies r),
   'false:true',
   'the person''s reply is theirs and not staff''s'
 );
+set local role authenticated;
 select ok(
   (select user_read_at is not null and last_user_reply_at is not null from public.support_reports where id = pg_temp.id('r1')),
   'replying marks the thread read for the person'
@@ -325,6 +339,42 @@ select throws_ok(
   '23514', null, 'only png, jpeg and webp'
 );
 select is((select count(*)::int from storage.objects where bucket_id = 'genesis-support'), 1, 'the person sees their screenshot');
+select throws_ok(
+  format($$ insert into storage.objects (bucket_id, name) values ('genesis-support', '%s/%s/../../x.png') $$, pg_temp.person('a1'), pg_temp.id('r2')),
+  '42501', null, 'not under a name that isn''t a plain image name'
+);
+select throws_ok(
+  format($$ insert into storage.objects (bucket_id, name) values ('genesis-support', '%s/%s/run.exe') $$, pg_temp.person('a1'), pg_temp.id('r2')),
+  '42501', null, 'not a file that isn''t an image'
+);
+select lives_ok(
+  format($$ insert into storage.objects (bucket_id, name) select 'genesis-support', '%s/%s/more-' || g || '.png' from generate_series(1, 4) g $$, pg_temp.person('a1'), pg_temp.id('r2')),
+  'up to five objects in a report''s folder'
+);
+select throws_ok(
+  format($$ insert into storage.objects (bucket_id, name) values ('genesis-support', '%s/%s/sixth.png') $$, pg_temp.person('a1'), pg_temp.id('r2')),
+  '42501', null, '... and no sixth'
+);
+reset role;
+-- An app that already lets everyone read, and owners update, their storage objects.
+create policy genesis_test_read_everything on storage.objects for select to authenticated using (true);
+create policy genesis_test_owners_update on storage.objects for update to authenticated using (true) with check (true);
+select pg_temp.sign_in('b2');
+set local role authenticated;
+select is((select count(*)::int from storage.objects where bucket_id = 'genesis-support'), 0, 'a broad app read policy still shows nobody else''s screenshot');
+reset role;
+select pg_temp.sign_in('a1');
+set local role authenticated;
+select is(
+  pg_temp.affected($q$ update storage.objects set name = name || '-moved.png' where bucket_id = 'genesis-support' $q$),
+  0,
+  'a broad app update policy still moves no screenshot'
+);
+reset role;
+drop policy genesis_test_read_everything on storage.objects;
+drop policy genesis_test_owners_update on storage.objects;
+select pg_temp.sign_in('a1');
+set local role authenticated;
 reset role;
 
 select pg_temp.sign_in('b2');
@@ -350,12 +400,16 @@ select pg_temp.sign_in('e5');
 set local role authenticated;
 insert into public.support_reports (message) select 'report ' || g from generate_series(1, 20) g;
 select throws_ok($$ insert into public.support_reports (message) values ('one more') $$, 'GS429', null, 'the 21st report in an hour is refused');
+select is(pg_temp.affected($q$ delete from public.support_reports $q$), 20, 'deleting them all');
+select throws_ok($$ insert into public.support_reports (message) values ('and again') $$, 'GS429', null, '... doesn''t reset the limit');
 reset role;
 
 -- Ideas and votes ---------------------------------------------------------------------
 select pg_temp.sign_in('a1');
 set local role authenticated;
 select pg_temp.remember('i1', $$ insert into public.support_ideas (title, body) values ('Dark mode for charts', 'Please') returning id $$);
+select is(pg_temp.affected($q$ update public.support_ideas set title = 'Dark mode for every chart' $q$), 1, 'the author edits their open idea before anyone votes');
+select is((select count(*)::int from public.support_my_idea_ids()), 1, 'support_my_idea_ids answers which ideas are mine');
 select is((select status || ':' || vote_count from public.support_ideas), 'open:0', 'a new idea is open with no votes');
 select throws_ok($$ insert into public.support_ideas (title, status) values ('Ship it now', 'shipped') $$, '42501', null, 'a person cannot set an idea''s status');
 select throws_ok($$ insert into public.support_ideas (title, vote_count) values ('Lots of votes', 999) $$, '42501', null, '... or its votes');
@@ -370,6 +424,13 @@ select throws_ok(
   '42501', null, '... or vote'
 );
 select is((select count(*)::int from public.support_ideas), 1, '... but reads the board');
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub', pg_temp.person('d4'), 'role', 'authenticated')::text, true);
+set local role authenticated;
+select throws_ok(
+  $$ insert into public.support_idea_votes (idea_id) values (pg_temp.id('i1')) $$,
+  '42501', null, 'still refused when a token hook drops the is_anonymous claim (auth.users decides)'
+);
 reset role;
 
 set local request.jwt.claims = '{"role": "anon"}';
@@ -396,7 +457,7 @@ reset role;
 select pg_temp.sign_in('a1');
 set local role authenticated;
 select is((select count(*)::int from public.support_idea_votes), 0, 'votes are private: the author doesn''t see who voted');
-select is(pg_temp.affected($q$ update public.support_ideas set title = 'Dark mode for every chart' $q$), 1, 'the author edits their open idea');
+select is(pg_temp.affected($q$ update public.support_ideas set title = 'Something else' $q$), 0, 'once someone has voted, the idea can''t be retitled');
 reset role;
 
 select pg_temp.sign_in('c3');
@@ -458,9 +519,13 @@ select is(
   1,
   'its screenshot is queued for removal from storage'
 );
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select is((select count(*)::int from storage.objects where bucket_id = 'genesis-support'), 0, 'staff can no longer open a deleted report''s screenshots');
+reset role;
 select is(
   (select count(*)::int from public.support_orphan_objects(interval '0 seconds') where path like pg_temp.person('a1')::text || '/%'),
-  1,
+  5,
   'and an object no attachment names is listed as orphaned'
 );
 

@@ -65,6 +65,9 @@ export function FeedbackPanel({ client, collector, copy: overrides, screenshots,
   const [type, setType] = useState<FeedbackType>(defaultType);
   const [message, setMessage] = useState("");
   const [shot, setShot] = useState<WebCapture | null>(null);
+  // Marks stay a list until Send, then are drawn onto the image once: a quick second mark can't
+  // drop the first, and nothing is sent half-marked.
+  const [marks, setMarks] = useState<Marks>({ strokes: [], redactions: [] });
   const [pin, setPin] = useState<FeedbackPin | null>(null);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const canShoot = screenshots ?? canCaptureScreenshot();
@@ -73,6 +76,7 @@ export function FeedbackPanel({ client, collector, copy: overrides, screenshots,
     onHide?.(true);
     try {
       setShot(await captureScreenshot());
+      setMarks({ strokes: [], redactions: [] });
     } finally {
       onHide?.(false);
     }
@@ -96,15 +100,26 @@ export function FeedbackPanel({ client, collector, copy: overrides, screenshots,
     try {
       const context = await collect.collect();
       if (pin) context.extra = { ...context.extra, pin };
+      let image = shot;
+      if (shot && (marks.strokes.length || marks.redactions.length)) {
+        try {
+          image = await annotateScreenshot(shot, marks);
+        } catch {
+          // Never send the screenshot without the parts the person hid.
+          setStatus({ kind: "error", message: copy.annotate.failed });
+          return;
+        }
+      }
       const delivery = await client.submit({
         type,
         message: message.trim(),
         context,
-        attachments: shot ? [{ kind: "screenshot", contentType: shot.contentType, base64: shot.dataUrl, width: shot.width, height: shot.height }] : [],
+        attachments: image ? [{ kind: "screenshot", contentType: image.contentType, base64: image.dataUrl, width: image.width, height: image.height }] : [],
       });
       setStatus({ kind: "sent", dropped: delivery.attachmentsDropped });
       setMessage("");
       setShot(null);
+      setMarks({ strokes: [], redactions: [] });
       setPin(null);
       onSent?.(delivery);
     } catch (error) {
@@ -156,7 +171,7 @@ export function FeedbackPanel({ client, collector, copy: overrides, screenshots,
             ) : null}
           </div>
         ) : null}
-        {shot ? <ScreenshotEditor shot={shot} onChange={setShot} onRemove={() => setShot(null)} copy={copy} /> : null}
+        {shot ? <ScreenshotEditor shot={shot} marks={marks} onMarks={setMarks} onRemove={() => setShot(null)} copy={copy} /> : null}
         {status.kind === "error" ? (
           <Alert variant="destructive" data-testid="genesis-support-error">
             <AlertDescription>{status.message}</AlertDescription>
@@ -221,24 +236,44 @@ function MyReports({ load, copy, refreshKey }: { load: NonNullable<SupportClient
   );
 }
 
-/** The captured tab, with pen strokes and hidden (solid) areas drawn on it. */
-function ScreenshotEditor({ shot, onChange, onRemove, copy }: { shot: WebCapture; onChange: (s: WebCapture) => void; onRemove: () => void; copy: ReturnType<typeof resolveSupportCopy> }) {
+/** Pen strokes and hidden areas, in fractions of the image. */
+export interface Marks {
+  strokes: Stroke[];
+  redactions: Redaction[];
+}
+
+/** The captured tab, with pen strokes and hidden (solid) areas shown over it; drawn into the image at Send. */
+function ScreenshotEditor({
+  shot,
+  marks,
+  onMarks,
+  onRemove,
+  copy,
+}: {
+  shot: WebCapture;
+  marks: Marks;
+  onMarks: (next: Marks) => void;
+  onRemove: () => void;
+  copy: ReturnType<typeof resolveSupportCopy>;
+}) {
   const [tool, setTool] = useState<"pen" | "hide">("pen");
   const [drag, setDrag] = useState<{ start: { x: number; y: number }; points: Stroke } | null>(null);
   const point = (e: PointerEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
   };
-  const finish = async (end: { x: number; y: number }) => {
+  const finish = (end: { x: number; y: number }) => {
     if (!drag) return;
-    const strokes: Stroke[] = tool === "pen" ? [[...drag.points, end]] : [];
-    const redactions: Redaction[] =
-      tool === "hide"
-        ? [{ x: Math.min(drag.start.x, end.x), y: Math.min(drag.start.y, end.y), width: Math.abs(end.x - drag.start.x), height: Math.abs(end.y - drag.start.y) }]
-        : [];
     setDrag(null);
-    onChange(await annotateScreenshot(shot, { strokes, redactions }));
+    if (tool === "pen") onMarks({ ...marks, strokes: [...marks.strokes, [...drag.points, end]] });
+    else
+      onMarks({
+        ...marks,
+        redactions: [...marks.redactions, { x: Math.min(drag.start.x, end.x), y: Math.min(drag.start.y, end.y), width: Math.abs(end.x - drag.start.x), height: Math.abs(end.y - drag.start.y) }],
+      });
   };
+  const pct = (n: number) => `${n * 100}%`;
+  const strokes = drag && tool === "pen" ? [...marks.strokes, drag.points] : marks.strokes;
   return (
     <div className="flex flex-col gap-2" data-testid="genesis-support-screenshot">
       <div className="flex items-center justify-between gap-2">
@@ -248,6 +283,16 @@ function ScreenshotEditor({ shot, onChange, onRemove, copy }: { shot: WebCapture
             <ToggleGroupItem value="pen">{copy.annotate.pen}</ToggleGroupItem>
             <ToggleGroupItem value="hide">{copy.annotate.hide}</ToggleGroupItem>
           </ToggleGroup>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={!marks.strokes.length && !marks.redactions.length}
+            onClick={() => onMarks(marks.redactions.length ? { ...marks, redactions: marks.redactions.slice(0, -1) } : { ...marks, strokes: marks.strokes.slice(0, -1) })}
+            data-testid="genesis-support-undo"
+          >
+            {copy.annotate.undo}
+          </Button>
           <Button type="button" variant="ghost" size="sm" onClick={onRemove} data-testid="genesis-support-remove-screenshot">
             {copy.feedback.removeScreenshot}
           </Button>
@@ -255,14 +300,36 @@ function ScreenshotEditor({ shot, onChange, onRemove, copy }: { shot: WebCapture
       </div>
       <div
         className="relative cursor-crosshair touch-none overflow-hidden rounded-md border"
+        data-testid="genesis-support-screenshot-surface"
         onPointerDown={(e) => {
           const p = point(e);
           setDrag({ start: p, points: [p] });
         }}
         onPointerMove={(e) => drag && tool === "pen" && setDrag({ ...drag, points: [...drag.points, point(e)] })}
-        onPointerUp={(e) => void finish(point(e))}
+        onPointerUp={(e) => finish(point(e))}
       >
         <img src={shot.dataUrl} alt={copy.feedback.screenshotLabel} className="block w-full select-none" draggable={false} />
+        <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden>
+          {strokes.map((stroke, i) => (
+            <polyline
+              key={i}
+              points={stroke.map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="none"
+              stroke="hsl(var(--destructive))"
+              strokeWidth={0.006}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+        </svg>
+        {marks.redactions.map((r, i) => (
+          <div
+            key={i}
+            data-testid={`genesis-support-redaction-${i}`}
+            className="pointer-events-none absolute bg-foreground"
+            style={{ left: pct(r.x), top: pct(r.y), width: pct(r.width), height: pct(r.height) }}
+          />
+        ))}
       </div>
       <p className="text-xs text-muted-foreground">{copy.feedback.screenshotHint}</p>
     </div>

@@ -122,7 +122,7 @@ export interface SupportClientOptions {
 
 const REPORT_COLUMNS =
   "id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at";
-const IDEA_COLUMNS = "id, title, body, status, feature_id, shipped_at, vote_count, author_id, created_at";
+const IDEA_COLUMNS = "id, title, body, status, feature_id, shipped_at, vote_count, created_at";
 
 type Row = Record<string, unknown>;
 
@@ -152,7 +152,7 @@ function toReport(r: Row): SupportReport {
   return { ...report, unread: isUnread(report) };
 }
 
-function toIdea(r: Row, me: string | null, voted: ReadonlySet<string>): SupportIdea {
+function toIdea(r: Row, mine: ReadonlySet<string>, voted: ReadonlySet<string>): SupportIdea {
   return {
     id: String(r.id),
     title: String(r.title ?? ""),
@@ -162,7 +162,7 @@ function toIdea(r: Row, me: string | null, voted: ReadonlySet<string>): SupportI
     shippedAt: (r.shipped_at as string | null) ?? null,
     voteCount: Number(r.vote_count ?? 0),
     voted: voted.has(String(r.id)),
-    mine: me !== null && r.author_id === me,
+    mine: mine.has(String(r.id)),
     createdAt: String(r.created_at),
   };
 }
@@ -252,17 +252,17 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     },
 
     async replies(reportId) {
-      const userId = await me();
+      // Who wrote a reply isn't readable (staff stay anonymous): on the person's own report, theirs are the non-staff ones.
       const rows = must<Row[]>(
         "replies",
-        await supabase.from("support_replies").select("id, report_id, body, from_staff, author_id, created_at").eq("report_id", reportId).order("created_at", { ascending: true }),
+        await supabase.from("support_replies").select("id, report_id, body, from_staff, created_at").eq("report_id", reportId).order("created_at", { ascending: true }),
       );
       return rows.map((r) => ({
         id: String(r.id),
         reportId: String(r.report_id),
         body: String(r.body ?? ""),
         fromStaff: r.from_staff === true,
-        mine: userId !== null && r.author_id === userId,
+        mine: r.from_staff !== true,
         createdAt: String(r.created_at),
       }));
     },
@@ -312,13 +312,14 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       const rows = must<Row[]>("ideas", await query.order("vote_count", { ascending: false }).order("created_at", { ascending: false }).limit(limit));
       const votes = userId ? must<Row[]>("ideas", await supabase.from("support_idea_votes").select("idea_id").eq("user_id", userId)) : [];
       const voted = new Set(votes.map((v) => String(v.idea_id)));
-      return rows.map((r) => toIdea(r, userId, voted));
+      const mineIds = userId ? must<unknown[]>("ideas", await supabase.rpc("support_my_idea_ids")) : [];
+      const mine = new Set((mineIds ?? []).map((v) => String(typeof v === "object" && v !== null ? Object.values(v)[0] : v)));
+      return rows.map((r) => toIdea(r, mine, voted));
     },
 
     async suggestIdea({ title, body }) {
-      const userId = await me();
       const row = must<Row>("suggestIdea", await supabase.from("support_ideas").insert({ title: title.trim(), body: body?.trim() || null }).select(IDEA_COLUMNS).single());
-      return toIdea(row, userId, new Set());
+      return toIdea(row, new Set([String(row.id)]), new Set());
     },
 
     async vote(ideaId) {
@@ -334,13 +335,9 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     },
 
     async shippedForMe() {
-      const userId = await me();
       const rows = must<Row[]>("shippedForMe", await supabase.rpc("support_shipped_for_me", { max_rows: 50 }));
-      const votes = userId && rows.length
-        ? must<Row[]>("shippedForMe", await supabase.from("support_idea_votes").select("idea_id").eq("user_id", userId).in("idea_id", rows.map((r) => String(r.id))))
-        : [];
-      const voted = new Set(votes.map((v) => String(v.idea_id)));
-      return rows.map((r) => toIdea(r, userId, voted));
+      const ids = (pick: string) => new Set(rows.filter((r) => r[pick] === true).map((r) => String(r.id)));
+      return rows.map((r) => toIdea(r, ids("mine"), ids("voted")));
     },
   };
   return client;

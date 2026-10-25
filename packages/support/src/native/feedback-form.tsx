@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Image, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { NativeButton, NativeLabel, NativeSegmentedControl, NativeText, NativeTextarea } from "@marktiderman/genesis-ui-native/components";
+import { NativeButton, NativeLabel, NativeSegmentedControl, NativeSwitch, NativeText, NativeTextarea } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { SupportError } from "../client";
 import { FEEDBACK_TYPES, type FeedbackDelivery, type FeedbackType } from "../record";
@@ -36,6 +36,8 @@ export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-su
   const [type, setType] = useState<FeedbackType>(defaultType);
   const [message, setMessage] = useState("");
   const [screenshot, setScreenshot] = useState<PendingScreenshot | null>(origin?.screenshot ?? null);
+  // Off until the person says so: a captured screen is never sent by default.
+  const [include, setInclude] = useState(false);
   const [annotating, setAnnotating] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-su
         type,
         message: message.trim(),
         context,
-        attachments: screenshot ? [{ kind: "screenshot", contentType: screenshot.contentType, base64: screenshot.uri, width: screenshot.width, height: screenshot.height }] : [],
+        attachments: screenshot && include ? [{ kind: "screenshot", contentType: screenshot.contentType, base64: screenshot.uri, width: screenshot.width, height: screenshot.height }] : [],
       });
       void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "reports"] });
       setMessage("");
@@ -79,9 +81,14 @@ export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-su
         screenshot={screenshot}
         viewShot={block.options.viewShot}
         copy={copy.annotate}
-        onCancel={() => setAnnotating(false)}
-        onDone={(next) => {
+        onCancel={(hadMarks) => {
+          // Marks left unsaved: the screenshot would go without the parts the person meant to hide.
+          if (hadMarks) setInclude(false);
+          setAnnotating(false);
+        }}
+        onDone={(next, marked) => {
           setScreenshot(next);
+          if (marked) setInclude(true);
           setAnnotating(false);
         }}
         testID={`${testID}-annotator`}
@@ -120,13 +127,30 @@ export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-su
               style={{ width: 96, height: Math.round((96 * screenshot.height) / Math.max(1, screenshot.width)), borderRadius: 8, backgroundColor: colors.fill }}
             />
             <View style={{ flex: 1, gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <NativeText style={{ flex: 1, color: colors.label, fontSize: 15, lineHeight: 20 }}>{copy.feedback.includeScreenshot}</NativeText>
+                <NativeSwitch
+                  testID={`${testID}-include-screenshot`}
+                  accessibilityLabel={copy.feedback.includeScreenshot}
+                  checked={include}
+                  onCheckedChange={setInclude}
+                />
+              </View>
               <NativeText style={{ color: colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>{copy.feedback.screenshotHint}</NativeText>
               {block.options.viewShot ? (
                 <NativeButton variant="outline" size="sm" onPress={() => setAnnotating(true)} testID={`${testID}-annotate`}>
                   {copy.feedback.annotate}
                 </NativeButton>
               ) : null}
-              <NativeButton variant="ghost" size="sm" onPress={() => setScreenshot(null)} testID={`${testID}-remove-screenshot`}>
+              <NativeButton
+                variant="ghost"
+                size="sm"
+                onPress={() => {
+                  setScreenshot(null);
+                  setInclude(false);
+                }}
+                testID={`${testID}-remove-screenshot`}
+              >
                 {copy.feedback.removeScreenshot}
               </NativeButton>
             </View>

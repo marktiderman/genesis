@@ -45,8 +45,10 @@ export interface ScreenshotAnnotatorProps {
   screenshot: PendingScreenshot;
   viewShot: ViewShotLike;
   copy: SupportCopy["annotate"];
-  onDone: (screenshot: PendingScreenshot) => void;
-  onCancel: () => void;
+  /** `marked`: the image now carries marks (pen or hidden parts). */
+  onDone: (screenshot: PendingScreenshot, marked: boolean) => void;
+  /** `hadMarks`: the person drew something and left without saving it. */
+  onCancel: (hadMarks: boolean) => void;
   testID?: string;
 }
 
@@ -58,6 +60,7 @@ export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCanc
   const [draft, setDraft] = useState<Mark | null>(null);
   const [width, setWidth] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
   const toolRef = useRef(tool);
   toolRef.current = tool;
   const draftRef = useRef<Mark | null>(null);
@@ -97,19 +100,20 @@ export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCanc
 
   const done = async () => {
     if (!marks.length) {
-      onDone(screenshot);
+      onDone(screenshot, false);
       return;
     }
     setSaving(true);
+    setFailed(false);
     try {
       const uri = await viewShot.captureRef(surface, { format: "jpg", quality: 0.85, result: "data-uri" });
-      onDone({ ...screenshot, uri, contentType: "image/jpeg" });
+      setSaving(false);
+      onDone({ ...screenshot, uri, contentType: "image/jpeg" }, true);
     } catch {
       // Flattening failed: never send the unmarked image in its place (hidden parts would show).
       setSaving(false);
-      return;
+      setFailed(true);
     }
-    setSaving(false);
   };
 
   let dots = 0;
@@ -147,8 +151,13 @@ export function ScreenshotAnnotator({ screenshot, viewShot, copy, onDone, onCanc
           })}
         </View>
       </View>
+      {failed ? (
+        <NativeText testID={`${testID}-failed`} accessibilityLiveRegion="polite" style={{ color: colors.destructive, fontSize: 13, lineHeight: 18 }}>
+          {copy.failed}
+        </NativeText>
+      ) : null}
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <NativeButton variant="ghost" onPress={onCancel} testID={`${testID}-cancel`}>
+        <NativeButton variant="ghost" onPress={() => onCancel(marks.length > 0 || draft !== null)} testID={`${testID}-cancel`}>
           {copy.cancel}
         </NativeButton>
         <NativeButton variant="outline" onPress={() => setMarks((m) => m.slice(0, -1))} disabled={!marks.length} testID={`${testID}-undo`}>

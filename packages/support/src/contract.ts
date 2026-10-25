@@ -117,14 +117,37 @@ export const WIDGET_HEADERS = {
 /** Text limits, the same as the database's checks. */
 export const LIMITS = { title: 300, body: 20000, route: 2000, appVersion: 200, tag: 60, tags: 50, contextBytes: 16384 } as const;
 
+/** A path segment that names someone or something private: an email, a UUID, a number, a long token. */
+function privateSegment(segment: string): string | null {
+  let s = segment;
+  try {
+    s = decodeURIComponent(segment);
+  } catch {
+    // a malformed escape: judge it as written
+  }
+  if (s.includes("@")) return ":email";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return ":id";
+  if (/^\d+$/.test(s)) return ":id";
+  // A long run of letters and digits with a digit in it reads as a token or a code, not a word.
+  if (s.length >= 16 && /\d/.test(s) && /^[A-Za-z0-9_.~-]+$/.test(s)) return ":token";
+  return null;
+}
+
 /**
- * A route as a path only: the query string and fragment (tokens, codes, emails)
- * are dropped before anything is stored or sent.
+ * A route as a path only, safe to store and send: the query string and
+ * fragment (tokens, codes, emails) are dropped, and path segments that look
+ * private (an email, an id, a long token) become `:email`, `:id` or `:token`
+ * (`/users/jane@x.test/reset/abc123…` → `/users/:email/reset/:token`).
  */
 export function cleanRoute(route: string | null | undefined): string | undefined {
   if (typeof route !== "string") return undefined;
   const path = route.replace(/[?#].*$/, "").trim();
-  return path ? path.slice(0, LIMITS.route) : undefined;
+  if (!path) return undefined;
+  const safe = path
+    .split("/")
+    .map((segment) => (segment ? (privateSegment(segment) ?? segment) : segment))
+    .join("/");
+  return safe.slice(0, LIMITS.route);
 }
 
 export type SubmitValidation =
