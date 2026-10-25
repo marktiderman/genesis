@@ -101,6 +101,18 @@ export {
   spaceScale,
   type SpaceToken,
 } from "./components/layout/spacing";
+// Marketing bands: a full-bleed section and the display type scale (genesis-sites).
+export {
+  Band,
+  BandLead,
+  Display,
+  bandVariants,
+  displayVariants,
+  leadVariants,
+  type BandProps,
+  type BandLeadProps,
+  type DisplayProps,
+} from "./components/layout/band";
 
 // Page templates — still the layout tier: each takes its content as
 // props/children and needs no resource contract. The record-bound

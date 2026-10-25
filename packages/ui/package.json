@@ -118,6 +118,10 @@
       "types": "./dist/components/ui/badge.d.ts",
       "import": "./dist/components/ui/badge.js"
     },
+    "./band": {
+      "types": "./dist/components/layout/band.d.ts",
+      "import": "./dist/components/layout/band.js"
+    },
     "./breadcrumb": {
       "types": "./dist/components/ui/breadcrumb.d.ts",
       "import": "./dist/components/ui/breadcrumb.js"

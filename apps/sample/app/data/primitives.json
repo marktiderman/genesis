@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 110
+      "count": 111
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -6610,6 +6610,113 @@
             {
               "name": "variant",
               "type": "\"default\" | \"secondary\" | \"destructive\" | \"outline\" | \"success\" | \"warning\" | \"info\" | \"muted\" | null",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "band",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/band.tsx",
+      "stability": "beta",
+      "summary": "Band: a full-bleed, full-width marketing section. The background runs\nedge to edge; the content sits in a centered column with the page gutter.\nIt is what a landing page is made of: a hero, a features band, a call to\naction, a footer.\n\n```tsx\n<Band surface=\"accent\" spacing=\"lg\" aria-labelledby=\"cta-title\">\n  <Display as=\"h2\" id=\"cta-title\" size=\"lg\">Start today</Display>\n</Band>\n```\n\nUnlike `Section` (a titled region inside an app page), a band carries no\nheading of its own: a marketing page decides its heading levels per page\n(one `h1`, then `h2`s), so the caller places a `Display` and names the\nregion with `aria-labelledby`. Server-safe: no state, no effects.",
+      "primaryComponent": "Band",
+      "components": [
+        {
+          "name": "Band",
+          "summary": "Band: a full-bleed, full-width marketing section. The background runs\nedge to edge; the content sits in a centered column with the page gutter.\nIt is what a landing page is made of: a hero, a features band, a call to\naction, a footer.\n\n```tsx\n<Band surface=\"accent\" spacing=\"lg\" aria-labelledby=\"cta-title\">\n  <Display as=\"h2\" id=\"cta-title\" size=\"lg\">Start today</Display>\n</Band>\n```\n\nUnlike `Section` (a titled region inside an app page), a band carries no\nheading of its own: a marketing page decides its heading levels per page\n(one `h1`, then `h2`s), so the caller places a `Display` and names the\nregion with `aria-labelledby`. Server-safe: no state, no effects.",
+          "props": [
+            {
+              "name": "as",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "h2",
+              "description": "The element to render. `section` (default) for a region of the page,\n`header` / `footer` for the site's banner and footer, `div` for a band\nthat is not a region of its own."
+            },
+            {
+              "name": "innerClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the inner column, after the width and gutter."
+            },
+            {
+              "name": "spacing",
+              "type": "\"none\" | \"sm\" | \"md\" | \"lg\" | null",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "surface",
+              "type": "\"base\" | \"muted\" | \"accent\" | \"inverse\" | null",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Stable test/automation selector (emitted as `data-testid`)."
+            },
+            {
+              "name": "width",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "lg",
+              "description": "The inner column's width (Container's named widths). Default `lg`."
+            }
+          ]
+        },
+        {
+          "name": "Display",
+          "summary": "Display: a heading in the marketing type scale (`displayVariants`).\n\n```tsx\n<Display as=\"h1\" size=\"xl\">Train with people who know your name</Display>\n```",
+          "props": [
+            {
+              "name": "as",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "h2",
+              "description": "The heading level: document structure, not a size. Default `h2`."
+            },
+            {
+              "name": "size",
+              "type": "\"sm\" | \"md\" | \"lg\" | \"xl\" | null",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Stable test/automation selector (emitted as `data-testid`)."
+            }
+          ]
+        },
+        {
+          "name": "BandLead",
+          "summary": "",
+          "props": [
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "tone",
+              "type": "\"muted\" | \"inherit\" | null",
               "required": false,
               "defaultValue": null,
               "description": ""
