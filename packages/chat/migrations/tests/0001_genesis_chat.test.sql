@@ -7,7 +7,7 @@
 -- test's "ticket" kind (an observer who may post); e5 leaves a group.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(68);
+select plan(74);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c0' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -116,6 +116,20 @@ select ok(genesis_chat.can_join_topic('genesis-chat:conv:' || pg_temp.v('dm'), t
 
 select pg_temp.as_anon();
 select throws_ok($$ select count(*) from genesis_chat.messages $$, '42501', null, 'anon reaches nothing');
+select lives_ok($$ select count(*) from storage.objects where bucket_id <> 'genesis-chat' $$, 'anon still reads other buckets: chat''s storage policies don''t apply to it');
+
+-- Someone outside never passes a role check (my_role is null for them).
+reset role;
+insert into t select 'm2', id from genesis_chat.messages where conversation_id = pg_temp.v('dm') and seq = 2;
+select pg_temp.sign_in('c3');
+select throws_ok($$ select genesis_chat.update_conversation(pg_temp.v('dm'), 'Mine now') $$, '42501', null, 'someone outside can''t rename a conversation');
+select throws_ok($$ select genesis_chat.set_status(pg_temp.v('dm'), 'solved') $$, '42501', null, 'or set its status');
+select throws_ok($$ select genesis_chat.delete_message(pg_temp.v('m2')) $$,
+  '42501', null, 'or delete its messages');
+select throws_ok($$ select genesis_chat.pin_message(pg_temp.v('m2')) $$,
+  '42501', null, 'or pin them');
+reset role;
+select is((select title from genesis_chat.conversations where id = pg_temp.v('dm')), null, 'and nothing changed');
 
 -- Edits, reactions, deletes -----------------------------------------------------------------
 
