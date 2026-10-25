@@ -1,0 +1,127 @@
+.changeset/chat-native-review-fixes.md
+  s_8252619ce79a86::t_e1681afa6484a3 1-5
+.changeset/chat-phases-server.md
+  s_8252619ce79a86::t_cd9d35561480c8 1-5
+.changeset/chat-server-review-fixes.md
+  s_8252619ce79a86::t_c030716638d0ff 1-5
+.changeset/push-token-listener-loop.md
+  s_8252619ce79a86::t_ad0b3f47b00ec7 1-5
+apps/genesis-rn-starter/__tests__/components/settings.test.tsx
+  s_8252619ce79a86::t_c394aae2ca8d8a 4-5,60-82
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_0579bd3b0573fd 362-365
+apps/genesis-rn-starter/src/app/(app)/_layout.tsx
+  s_8252619ce79a86::t_7fc08f07efaa9b 7,18
+apps/genesis-rn-starter/src/app/(app)/messages/[id].tsx
+  s_8252619ce79a86::t_c81382556dbc9d 26-28
+apps/genesis-rn-starter/src/lib/chat.tsx
+  s_8252619ce79a86::t_b5c1ce36256e82 17,21,23-24,27,72-84,119,130,138-185,188-199
+packages/chat/README.md
+  s_8252619ce79a86::t_70c341776c4f7c 100,111-119,124-127,162-163,167-174,180-293
+packages/chat/migrations/0002_genesis_chat_coaching.sql
+  s_8252619ce79a86::t_bb7bef01775b04 12-13,19-20,25-30,175-177,267-269,292-300,467,469,473-514,533-538,540-542,551,553,556-563,567-583,587-602,615,618-623,625,638-771,824-826,836-838,847-849,858-860
+packages/chat/migrations/tests/0002_genesis_chat_coaching.test.sql
+  s_8252619ce79a86::t_a7bd4ea3a30e1f 9,97-118,169-218
+packages/chat/package.json
+  s_8252619ce79a86::t_6eb422269d0304 136
+packages/chat/src/__tests__/server-effects.test.ts
+  s_8252619ce79a86::t_9ed8ce39d1fd9e 1-147
+packages/chat/src/__tests__/server-fakes.ts
+  s_8252619ce79a86::t_3545e3a03d48e8 33-35
+packages/chat/src/__tests__/server-integrations.test.ts
+  s_8252619ce79a86::t_08fcc6dd71d923 1-246
+packages/chat/src/__tests__/server-providers.test.ts
+  s_8252619ce79a86::t_ddf2dd5ab7944e 8,46-58,95,108,110-112,116-140
+packages/chat/src/__tests__/server-runner.test.ts
+  s_8252619ce79a86::t_f87723ec2a3428 38,70-87,101,115
+packages/chat/src/__tests__/server-safety.test.ts
+  s_8252619ce79a86::t_d6645c1b25809c 1-270
+packages/chat/src/native/__tests__/composer-state.test.ts
+  s_8252619ce79a86::t_c379204bb36570 11,124-161
+packages/chat/src/native/__tests__/composer.test.tsx
+  s_8252619ce79a86::t_361b91d42f9a7d 3-4,15,51,102-133
+packages/chat/src/native/__tests__/message-bubble.test.tsx
+  s_8252619ce79a86::t_a36bd0bedf0ebe 5-6,8-9,61-127
+packages/chat/src/native/__tests__/push.test.ts
+  s_8252619ce79a86::t_e496e9e69a06d5 13,16-17,61,66,104-180
+packages/chat/src/native/__tests__/thread-screen.test.tsx
+  s_8252619ce79a86::t_ff3c51600824d5 1-116
+packages/chat/src/native/__tests__/tus.test.ts
+  s_8252619ce79a86::t_3fa87cb5748f38 10,20,23-24,73-74,78-90,108-138
+packages/chat/src/native/__tests__/use-voice-recorder.test.tsx
+  s_8252619ce79a86::t_d8b5509be3407c 7-22,181-316
+packages/chat/src/native/composer-state.ts
+  s_8252619ce79a86::t_f1708d10d9f109 46-47,72,209-247,256
+packages/chat/src/native/composer.tsx
+  s_8252619ce79a86::t_4e4e428eba7d96 94
+packages/chat/src/native/copy.ts
+  s_8252619ce79a86::t_07cf4752e589c5 47-50,52-57,131-132,134-137
+packages/chat/src/native/index.ts
+  s_8252619ce79a86::t_202994ef4cd4b1 11,24,30,45,65,82-84,93
+packages/chat/src/native/message-bubble.tsx
+  s_8252619ce79a86::t_4214e24e8151a9 8-11,22,64,84-88,147-151,159-166
+packages/chat/src/native/modules.ts
+  s_8252619ce79a86::t_9a57c68b0ff2c2 122-124
+packages/chat/src/native/push.ts
+  s_8252619ce79a86::t_fdaac4c09f8048 16,20-25,28,146-156,165-197,211-213,226-227,229,243-281
+packages/chat/src/native/recorder-machine.ts
+  s_8252619ce79a86::t_f1aa3c26d96167 13-14,26-31,53-56,149-153,166
+packages/chat/src/native/rows.ts
+  s_8252619ce79a86::t_54a36239c5f845 6-8,73-78
+packages/chat/src/native/stack-options.ts
+  s_8252619ce79a86::t_0f865c7c011ce9 5-8
+packages/chat/src/native/thread-screen.tsx
+  s_8252619ce79a86::t_6c1b318571cbe6 3-7,12-18,21,37,54,59-61,68-71,75-99,111-130,150,267-269,292,298-299,301,305-320,325,336-338
+packages/chat/src/native/tus.ts
+  s_8252619ce79a86::t_d45761eaa58219 9-12,35-40,51-71,115-162,185,196-205,220-222,232,234-236,242,246-251,256,258,263,274,279-281
+packages/chat/src/native/use-composer.ts
+  s_8252619ce79a86::t_c90573dbb86a8c 3-5,14-15,18,22-29,35-37
+packages/chat/src/native/use-voice-recorder.ts
+  s_8252619ce79a86::t_3b3c6061ef66d7 7-12,15,31-35,54-55,100-106,109-113,115-116,118,120,122-129,132,135,137-144,147-148,150,152-155,157,159-160,162,169,202,210,213-217,224-232
+packages/chat/src/native/voice-player.tsx
+  s_8252619ce79a86::t_347a50306c5a8b 5-7,9,21-22,34,39-82,180-193,253
+packages/chat/src/server/assistant.ts
+  s_8252619ce79a86::t_3edf47be497eca 1-235
+packages/chat/src/server/expo.ts
+  s_8252619ce79a86::t_8925de41674a03 68
+packages/chat/src/server/index.ts
+  s_8252619ce79a86::t_1d75a4e7e0128f 4-6,24-57
+packages/chat/src/server/moderation.ts
+  s_8252619ce79a86::t_b6d9bf776603de 1-155
+packages/chat/src/server/mux.ts
+  s_8252619ce79a86::t_d8b0a71a0e73d5 6-7,18-23,28,147-157,159-166,168,173-183,250,252-253,272
+packages/chat/src/server/notifications.ts
+  s_8252619ce79a86::t_282f4324ef6d17 1-106
+packages/chat/src/server/runner.ts
+  s_8252619ce79a86::t_089858c392bb0d 11-20,27-37,41,43-46,59-69,81-86,110-115,148-154,207,272-377,388-391,400-402,428-433
+packages/chat/src/server/types.ts
+  s_8252619ce79a86::t_e61ecc43ea5120 33-39,88-125,127,144-153
+packages/chat/src/server/unfurl.ts
+  s_8252619ce79a86::t_595d42f1060100 1-437
+packages/chat/src/server/upload.ts
+  s_8252619ce79a86::t_7f14a6448ea637 1-158
+packages/native/src/__tests__/push/block.test.tsx
+  s_8252619ce79a86::t_9cb169593116c2 127,133-141
+packages/native/src/__tests__/push/fakes.ts
+  s_8252619ce79a86::t_0bce6d8c7f0292 19,27,38-40,70,72
+packages/native/src/push/block.tsx
+  s_8252619ce79a86::t_aabbf097437c69 387-396,398
+pnpm-lock.yaml
+  s_8252619ce79a86::t_a48ce3ce08dbb4 783-785
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fa01aa4ea3ca79661644a02a84bde32f0c9a99dd",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
