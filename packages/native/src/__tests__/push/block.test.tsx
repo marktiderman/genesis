@@ -147,8 +147,11 @@ describe("the push block: taps", () => {
     const n = fakeNotifications({ last: tap("/messages/42") });
     const onOpen = vi.fn();
     setup({ notifications: n.module, onOpen, links: { map: { "/messages/:id": "/messages/:id" } } });
-    await act(settle);
-    expect(onOpen).toHaveBeenCalledWith("/messages/42");
+    // Boot, the session read and the launch-tap lookup take more than one settle on a slow runner.
+    await vi.waitFor(async () => {
+      await act(settle);
+      expect(onOpen).toHaveBeenCalledWith("/messages/42");
+    });
     expect(n.module.clearLastNotificationResponse).toHaveBeenCalled();
     act(() => n.emitResponse(tap("/messages/42")));
     await act(settle);

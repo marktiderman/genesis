@@ -9,7 +9,7 @@
 -- request.jwt.claim.sub on older images), so pg_temp.sign_in sets both.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(74);
+select plan(79);
 
 -- People: e1 edits site A, b2 may view site A, c3 is nobody's.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -315,6 +315,35 @@ select throws_ok(
   '22023', null, 'an editor can''t bring an archived site back by rolling back'
 );
 reset role;
+
+reset role;
+select pg_temp.sign_in('e1');
+-- A redirect can't start on one of the app's paths: it would take over the app's own route.
+create function pg_temp.site_with_redirect(from_path text) returns jsonb language sql immutable as $$
+  select jsonb_build_object('schemaVersion', 1, 'name', 'Riverside Gym', 'redirects', jsonb_build_array(jsonb_build_object('from', from_path, 'to', '/', 'status', 301)))
+$$;
+grant execute on function pg_temp.site_with_redirect(text) to authenticated;
+select throws_like(
+  format('select genesis_sites.save_site_draft(%L, (select draft_rev from genesis_sites.sites where id = %L), %L)', pg_temp.id('a'), pg_temp.id('a'), pg_temp.site_with_redirect('/auth/sign-in')),
+  '%reserved for the app%', 'a redirect from a reserved path is refused'
+);
+select throws_like(
+  format('select genesis_sites.save_site_draft(%L, (select draft_rev from genesis_sites.sites where id = %L), %L)', pg_temp.id('a'), pg_temp.id('a'), pg_temp.site_with_redirect('/API?x=1')),
+  '%reserved for the app%', '... in any case, and with a query string'
+);
+select lives_ok(
+  format('select genesis_sites.save_site_draft(%L, (select draft_rev from genesis_sites.sites where id = %L), %L)', pg_temp.id('a'), pg_temp.id('a'), pg_temp.site_with_redirect('/Old_Page.html')),
+  'a redirect from an old address that isn''t reserved is fine'
+);
+reset role;
+
+-- A host that reserves "/" itself reserves the root only (as isReservedPath does), not every path.
+reset role;
+create or replace function genesis_sites.reserved_paths() returns text[] language sql stable set search_path = '' as $$
+  select array['/']::text[]
+$$;
+select throws_like('select genesis_sites.assert_not_reserved(''/?x=1'')', '%reserved for the app%', 'a reserved root refuses the root, with a query string too');
+select lives_ok('select genesis_sites.assert_not_reserved(''/about'')', '... and leaves other paths alone');
 
 select * from finish();
 rollback;
