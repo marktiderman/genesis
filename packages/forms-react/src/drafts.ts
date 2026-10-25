@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+
+// Autosave must listen before anyone can answer: a passive effect runs after paint, and an answer
+// given in between was never saved. A layout effect runs before the form can be touched; on a
+// server (no window) a passive one avoids the warning, and there is no one to answer anyway.
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 import {
   createDraftAutosave,
   createForm,
@@ -145,7 +150,7 @@ export function useFormDraft(form: FormLike, options: UseFormDraftOptions): Form
   const [autosave, setAutosave] = useState<DraftAutosave | null>(null);
   const engine = current.engine;
   const restored = current.draft === "restored";
-  useEffect(() => {
+  useBeforePaint(() => {
     if (!engine) return;
     const saver = createDraftAutosave(engine, options.store, key, {
       delayMs: options.delayMs,
