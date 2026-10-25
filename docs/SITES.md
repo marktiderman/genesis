@@ -1,7 +1,8 @@
 # Genesis Sites: design
 
 Status: the landing-page and multi-page MVP is built in `packages/sites`
-(`@marktiderman/genesis-sites`, October 2026). The editor is the next step.
+(`@marktiderman/genesis-sites`, October 2026), and so is the editor
+(`/editor`, on Puck 0.23).
 This document records the design and why it was chosen. The package's
 [README](../packages/sites/README.md) is the reference for using it.
 
@@ -32,8 +33,8 @@ a brand.
    migrations are pure functions registered with the section.
 4. **One package**, `@marktiderman/genesis-sites`, with subpaths `.` (schemas,
    registry, migrations, SEO, a11y, theme, templates, the store contract),
-   `/sections`, `/web` (renderer and request handler), `/supabase` (the store)
-   and `/blocks`; `/editor` (the Puck adapter) comes next. Its migrations live
+   `/sections`, `/web` (renderer and request handler), `/supabase` (the store),
+   `/blocks` and `/editor` (the Puck adapter). Its migrations live
    in the package's `migrations/`, and `sitesBlock` (from `defineBlock`, also
    declared under `genesis.blocks` in its package.json) names them, so
    `genesis add sites` installs them.
@@ -346,7 +347,8 @@ packages/sites/                  @marktiderman/genesis-sites
   src/supabase/  createSupabaseSiteStore
   src/blocks.ts  sitesBlock = defineBlock({ id: "sites", platforms: ["web", "server"], contributes: { migrations, privacy } })
   migrations/    0001_genesis_sites.sql (+ tests/0001_genesis_sites.test.sql)
-  (next) src/editor/  Puck config from the registry, Genesis-styled overrides, autosave, publish panel
+  src/editor/    SiteEditor: the Puck config from the registry, Genesis-styled overrides, the canvas,
+                 autosave (Autosaver), the Pages and Publish panels, the image picker
 ```
 
 ## Phased build plan
@@ -383,3 +385,27 @@ packages/sites/                  @marktiderman/genesis-sites
   peer. `z.toJSONSchema` needs zod 4, so `genesis-sites` requires zod 4 and
   says so at import.
 - **`@measured/puck` is deprecated** in favour of `@puckeditor/core`.
+
+## Notes from building the editor (Puck 0.23)
+
+- **Data mapping.** A `SectionNode` keeps `id`, `v`, `variant`, `hidden`,
+  `hideOn` and `placeholder` beside `props`; Puck keeps everything in
+  `props`. The editor carries the node fields as `_variant`, `_v`, `_hidden`,
+  `_hideOn` and `_placeholder` (reserved: a section schema using one throws)
+  and maps both ways (`toEditorData`, `fromEditorData`). Stored documents
+  never hold a Puck-only key.
+- **Presets** are extra Puck components named `type@n`, mapped back to
+  `type` on save. **Limits** use each component's `permissions.insert`, read
+  through a getter so it reflects the page's current counts.
+- **Header and footer** are slots on Puck's root (zones `root:header`,
+  `root:footer`), so the canvas edits the whole page; they save to the site
+  draft and the rest to the page draft, each with its own autosave.
+- **Puck copies `metadata`**, so it carries plain objects, not Maps.
+- **Root slots fill the frame** (Puck's drop zone is `height: 100%`); the
+  editor passes `height: auto`.
+- **Host styles.** Puck copies the host app's stylesheets into the iframe
+  (its own canvas styles are among them) and copies them again when they
+  change; the editor keeps the site stylesheet and theme last, with the theme
+  on `html:root`, so the canvas draws what publishes.
+- **Dragging isn't enough** (WCAG 2.5.7): each Add-picker entry has an Add
+  button that inserts at the end of the right zone.

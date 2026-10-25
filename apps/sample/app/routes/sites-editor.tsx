@@ -64,6 +64,14 @@ const assets: EditorAssets = {
   },
 };
 
+/** What a colleague in another tab would do: save the home page's draft, moving its revision on. */
+async function otherEditorSaves(store: MemorySiteStore) {
+  const home = (await store.listPages(SITE_ID)).find((p) => p.path === "/");
+  const draft = home && (await store.getPageDraft(home.id));
+  if (!home || !draft) return;
+  await store.savePageDraft(home.id, draft.rev, { ...draft.doc, root: { props: { ...draft.doc.root.props, title: `${draft.doc.root.props.title} (their edit)`.slice(0, 120) } } });
+}
+
 export default function SitesEditorRoute() {
   const [store, setStore] = useState<MemorySiteStore | null>(null);
   const [published, setPublished] = useState<number | null>(null);
@@ -82,7 +90,13 @@ export default function SitesEditorRoute() {
           <span className="text-sm font-semibold">Site editor demo</span>
           <Badge variant="muted">Memory store: a reload starts again</Badge>
         </div>
-        {published ? <Badge variant="success">Published release {published}</Badge> : null}
+        <div className="flex items-center gap-2">
+          {published ? <Badge variant="success">Last published: release {published}</Badge> : null}
+          {/* A second editor saving the home page first: your next autosave meets a conflict. */}
+          <Button size="sm" variant="outline" disabled={!store} onClick={() => store && void otherEditorSaves(store)}>
+            Simulate another editor
+          </Button>
+        </div>
       </div>
       <div className="min-h-0 flex-1">
         {store ? <SiteEditor siteId={SITE_ID} store={store} brand={brand} forms={forms} assets={assets} onPublish={(r) => setPublished(r.number)} /> : null}

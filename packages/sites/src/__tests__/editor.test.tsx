@@ -1,5 +1,5 @@
 /**
- * @feat:genesis-sites
+ * @feat:sites-editor
  * The editor: the Puck config generated from the registry, documents to
  * Puck data and back, autosave with compare-and-swap conflicts, publish
  * blocked by the checks, and page moves writing redirects.

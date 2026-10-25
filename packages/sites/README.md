@@ -12,12 +12,11 @@ hydration, and published as immutable releases you can roll back.
 - **Web** (`/web`): `handleSiteRequest`, the renderer and request handler.
 - **Supabase** (`/supabase`): `createSupabaseSiteStore`, over the
   `genesis_sites` schema in `migrations/`.
+- **Editor** (`/editor`): `<SiteEditor>`, the visual editor (on Puck).
 - **Block** (`/blocks`): `sitesBlock`, so `genesis add sites` installs the
   migration.
 
-Status: beta. The visual editor (Puck) is next; the editor-facing APIs
-(`sectionManifests`, `sectionJsonSchema`, labels, categories, variants and
-presets) are in place for it. The design and its reasoning are in
+Status: beta. The design and its reasoning are in
 [docs/SITES.md](../../docs/SITES.md).
 
 ## Install
@@ -300,6 +299,75 @@ Store uploads under `sites/<site_id>/...` so your storage policies can scope
 by site with `can_edit`; the migration's header has an example policy. Limit
 the bucket's `allowed_mime_types` to images and PDF: never SVG or HTML, which
 a browser runs as a page. `putAsset` refuses other types before it uploads.
+
+## The editor
+
+```tsx
+import { SiteEditor } from "@marktiderman/genesis-sites/editor";
+
+<div style={{ height: "100dvh" }}>
+  <SiteEditor siteId={siteId} store={store} brand={brand} forms={forms} onPublish={(release) => purge(release)} />
+</div>;
+```
+
+`SiteEditor` fills its parent, so give the parent a height. Props:
+
+| Prop | |
+|---|---|
+| `siteId`, `store` | Any `SiteStore`: the Supabase store signed in as the editor, or the memory store. |
+| `brand` | The site's brand: the canvas theme, and what publishing checks contrast against. |
+| `forms?` | Your `FormsResolver`, so form embeds draw on the canvas and in preview. |
+| `assets?` | `{ list?, upload?, maxBytes? }`: the image library, and an upload of your own instead of the store's `putAsset`. |
+| `onPublish?` | Called with each new release. |
+| `reserved?` | Paths pages can't use (default: the store's rule, `DEFAULT_RESERVED_PATHS`). |
+| `previewUrl?` | A link to your own preview route for a page path, shown in the Publish panel. |
+| `autosaveDelay?`, `initialPageId?`, `className?` | |
+
+What it does:
+
+- **Generated from the registry.** Each section becomes one Add-picker entry
+  per preset, grouped by category, with fields made from its JSON Schema:
+  text and textareas, a select for its layout (variants) and for enums, the
+  image picker for images, the Genesis rich text editor, objects (links),
+  lists, one-per-line string lists, and Puck slots for props marked
+  `x-genesis-kind: "slot"`. A section at its `limit` can't be added again. A
+  prop the editor can't map shows as "can't be edited here" and warns in the
+  console; it is kept as it is. Register a section and it appears; nothing in
+  the editor changes.
+- **The canvas** is an iframe drawn by each section's own renderer, with the
+  site stylesheet and your brand's theme, and the site's header and footer
+  as editable slots above and below the page. **Preview** runs the real
+  `/web` handler on the drafts (and **View it live** on the live release)
+  in a sandboxed frame with no scripts.
+- **Autosave** saves a moment after each change by compare-and-swap. If
+  someone else saved first, it stops, keeps your edits, and asks: load their
+  version, or keep yours. Leaving with unsaved changes asks first. Undo and
+  redo are Puck's history (the toolbar, or Ctrl+Z and Ctrl+Shift+Z).
+- **Pages**: open, add (blank, the landing page from your brand, or a starter
+  site page), change an address (the old one redirects with a 301; reserved
+  paths are refused), delete, and edit the header menu. Reordering pages
+  needs a store with `reorderPages(siteId, pageIds)`; without it the list is
+  in the store's order.
+- **Publish**: the publish checks run on the saved drafts and errors block
+  the button; "Show" selects the section a check is about. Publish with a
+  note, see the release history, and roll back. Per-page SEO (search title,
+  description, share image, noindex) is in the same panel.
+- **Images** come from an upload, the library, or a link; every one needs alt
+  text unless it is marked decorative. SVG isn't accepted.
+- **Accessible**: every field has a label, adding a section works without
+  dragging (each Add-picker entry has an Add button), and the panels are
+  Genesis UI tabs and dialogs.
+
+Puck is a dependency of this package and stays inside `/editor`: import
+everything from here (it re-exports `usePuck`, `createUsePuck` and the
+`PuckConfig`, `PuckData` and `PuckOverrides` types for extensions), and
+never from `@puckeditor/core`. `/web` never imports the editor, so published
+pages carry no Puck code. The lower-level pieces are exported too:
+`createEditorConfig`, `sectionFields`, `toEditorData` and `fromEditorData`,
+`Autosaver`, and `checkSite`, `publishSite`, `renamePage` and
+`pageTemplates`.
+
+The sample app's `/sites-editor` route is a working demo on the memory store.
 
 ## Stores
 

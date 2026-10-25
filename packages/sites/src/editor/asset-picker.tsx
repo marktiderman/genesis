@@ -79,6 +79,8 @@ export function AssetPicker({ open, siteId, store, assets, current, onDone }: As
   }, [open, siteId, assets, current]);
 
   const altOk = decorative || alt.trim().length > 0;
+  // Marked invalid once there is an image to describe, not before.
+  const altInvalid = !altOk && (Boolean(file) || Boolean(chosen) || (tab === "link" && url.trim().length > 0));
   const all = [...uploaded, ...(library ?? []).filter((a) => !uploaded.some((u) => u.id === a.id))].filter((a) => a.mime.startsWith("image/") && a.mime !== "image/svg+xml");
 
   async function use() {
@@ -162,7 +164,10 @@ export function AssetPicker({ open, siteId, store, assets, current, onDone }: As
         </Tabs>
         <div className="flex flex-col gap-2">
           <Label htmlFor={`${id}-alt`}>Alt text</Label>
-          <Textarea id={`${id}-alt`} rows={2} maxLength={300} value={alt} disabled={decorative} aria-invalid={!altOk || undefined} onChange={(e) => setAlt(e.currentTarget.value)} placeholder="Two coaches spotting a member on the bench press" />
+          <Textarea id={`${id}-alt`} rows={2} maxLength={300} value={alt} disabled={decorative} aria-invalid={altInvalid || undefined} aria-describedby={`${id}-alt-hint`} onChange={(e) => setAlt(e.currentTarget.value)} placeholder="Two people stretching on mats by a window" />
+          <p id={`${id}-alt-hint`} className={altInvalid ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
+            {altInvalid ? "Describe the image, or mark it decorative." : "What someone who can't see the image needs to know."}
+          </p>
           <div className="flex items-center gap-2">
             <Switch id={`${id}-decorative`} checked={decorative} onCheckedChange={setDecorative} />
             <Label htmlFor={`${id}-decorative`}>Decorative (adds nothing a reader needs)</Label>

@@ -369,7 +369,11 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
         ...(nextSite.success ? [] : nextSite.error.issues.map((i) => `Site ${i.path.join(".")}: ${i.message}`)),
       ];
       setInvalid(problems.length ? problems.join(" ") : null);
-      if (page.success) pageSaver.current?.update(result.page);
+      if (page.success) {
+        pageSaver.current?.update(result.page);
+        const title = result.page.root.props.title;
+        setPages((list) => (list.some((p) => p.id === open.id && p.title !== title) ? list.map((p) => (p.id === open.id ? { ...p, title } : p)) : list));
+      }
       if (nextSite.success && (JSON.stringify(current.header) !== JSON.stringify(result.header) || JSON.stringify(current.footer) !== JSON.stringify(result.footer))) {
         siteSaver.current?.update(nextSite.data);
         setSite(nextSite.data);
@@ -592,6 +596,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     } else {
       const theirs = pageSaver.current?.reload();
       if (theirs) {
+        setPages((list) => list.map((p) => (p.id === open.id ? { ...p, title: theirs.root.props.title } : p)));
         setOpen({ ...open, data: toEditorData(theirs, siteSaver.current?.latest ?? site, editor.slotKeys), placeholders: placeholderSnapshot(theirs.content) });
         setEditorKey((k) => k + 1);
       }
