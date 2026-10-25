@@ -71,13 +71,17 @@ const { withNativeWind } = require("nativewind/metro");
 module.exports = withNativeWind(getDefaultConfig(__dirname), { input: "./global.css" });
 `;
 
-/** A pnpm-workspace.yaml's settings without its `packages:` list (top-level block). */
+/**
+ * A pnpm-workspace.yaml's settings without the monorepo's own top-level blocks: the `packages:`
+ * list, and `patchedDependencies:` (its patch files stay in the monorepo, and pnpm fails an
+ * install that names a patch it can't find).
+ */
 export function appPnpmSettings(text: string): string {
   const lines = text.split("\n");
   const out: string[] = [];
   let skipping = false;
   for (const line of lines) {
-    if (/^packages:/.test(line)) {
+    if (/^(packages|patchedDependencies):/.test(line)) {
       skipping = true;
       continue;
     }

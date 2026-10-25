@@ -11,7 +11,8 @@
     "doctor": "genesis doctor",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "test": "vitest run",
+    "test": "vitest run && jest",
+    "test:components": "jest",
     "e2e": "maestro test .maestro/flows"
   },
   "dependencies": {
