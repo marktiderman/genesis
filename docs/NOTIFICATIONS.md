@@ -75,6 +75,7 @@ runner (every minute: POST …/run)
 
 receipts (every 15 minutes: POST …/receipts)   Expo receipts → delivered | failed, dead devices forgotten
 webhooks (POST …/webhooks/resend)              delivered; bounced (hard: suppress); complained (suppress)
+cancel (genesis_notifications_cancel)          pending jobs for a key → cancelled, never claimed; sent ones untouched
 unsubscribe (GET page, POST action)            the person's email off for the category, or a suppression
 prune (daily)                                  delivery log after 30 days, rendered bodies after a day
 ```
@@ -98,7 +99,10 @@ webhooks, email) run on the same runner with their own claim.
    one use `render`.
 5. **For a link that is a credential**, store a reference in `data`, mark the type
    `secretLink: true`, and give the runner a `secretLinks[type]` builder.
-6. **Erase with the domain's person**: call `genesis_notifications_erase(user, email, ref)` from
+6. **Take back what hasn't gone out** with `cancelNotification({ idempotencyKey, recipients?,
+   archive? })` when the event is undone (a release rolled back): pending jobs are cancelled,
+   sent ones are left as they are.
+7. **Erase with the domain's person**: call `genesis_notifications_erase(user, email, ref)` from
    the domain's own erasure, with the `ref` it passed for recipients with no login.
 
 ### Worked example: a new message
@@ -186,8 +190,9 @@ secretLinks: {
 ```
 
 If the token exists only hashed in the domain's tables (an invite), the domain passes the
-plaintext as `notify({ secret })`, and the builder gets it as `ref.secret`; it is encrypted on the
-email's job and cleared once the email settles.
+plaintext as `notify({ secret })`, to exactly one recipient, and the builder gets it as
+`ref.secret`; it is encrypted on the email's job and cleared once the email settles. Because the
+type is transactional, an unsubscribe from the category never stops it.
 
 ## Security
 

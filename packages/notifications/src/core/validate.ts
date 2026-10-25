@@ -8,8 +8,17 @@ import type { Recipient } from "./types";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL = /^[^\s@<>,;:"()[\]\\]+@[^\s@<>,;:"()[\]\\]+\.[^\s@<>,;:"()[\]\\]+$/;
 
-/** Keys that hold a secret by their name. The database refuses the same list. */
-export const SECRET_KEY = /(^|_|-|\.)(token|secret|password|passcode|otp|api_?key|signature|sig|magic_?link|invite_?link|reset_?link|access_?key)($|_|-|\.)/i;
+/**
+ * Keys that hold a secret by their name, matched on the key split into words
+ * (`inviteToken` is `invite_token`), at its end. The database refuses the
+ * same list.
+ */
+export const SECRET_KEY = /(^|[._-])(token|secret|password|passcode|otp|api_?key|signature|sig|magic_?link|invite_?link|reset_?link|access_?key|client_?secret|auth_?token|access_?token|refresh_?token)$/;
+
+/** A key as words, lower case: `inviteToken` → `invite_token`. */
+export function keyWords(key: string): string {
+  return key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+}
 /** A link that carries a credential in its query (`?token=`, `&sig=`, `code=`). */
 export const SECRET_URL = /^[a-z][a-z0-9+.-]*:\/\/[^\s]*[?&#](token|access_token|signature|sig|code|key|secret|otp)=/i;
 
@@ -26,7 +35,7 @@ export function assertNoSecrets(data: NotificationData | undefined, path = ""): 
   if (!data || typeof data !== "object") return;
   for (const [key, value] of Object.entries(data)) {
     const here = path ? `${path}.${key}` : key;
-    if (SECRET_KEY.test(key)) throw new SecretInDataError(here);
+    if (SECRET_KEY.test(keyWords(key))) throw new SecretInDataError(here);
     if (typeof value === "string" && SECRET_URL.test(value)) throw new SecretInDataError(here);
     if (value && typeof value === "object") assertNoSecrets(value as NotificationData, here);
   }

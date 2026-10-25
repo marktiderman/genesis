@@ -59,6 +59,8 @@ export interface ClaimedJob {
   badge: number | null;
   brand: Record<string, unknown> | null;
   transactional: boolean;
+  /** Preferences can't turn it off, so its email has no unsubscribe link. */
+  critical: boolean;
   push_privacy: "default" | "generic";
   ios_category: string | null;
   hide_previews: boolean;
@@ -96,7 +98,8 @@ export interface PushTicketRow {
 }
 
 export interface NotificationStore {
-  claim(channel: "push" | "email", limit: number, leaseSeconds: number): Promise<ClaimedJob[]>;
+  /** `maxAttempts`: a job whose lease ran out that many times fails (`lease_expired`) instead of coming back. */
+  claim(channel: "push" | "email", limit: number, leaseSeconds: number, maxAttempts?: number): Promise<ClaimedJob[]>;
   storeRendered(id: string, claimId: string, rendered: RenderedEmail, hash: string): Promise<{ rendered: RenderedEmail; hash: string } | null>;
   settle(id: string, claimId: string, outcome: SettleOutcome): Promise<boolean>;
   pushTickets(deliveryId: string, tickets: PushTicketRow[]): Promise<void>;
@@ -119,7 +122,8 @@ export function supabaseNotificationStore(client: RpcClient): NotificationStore 
     return data as T;
   };
   return {
-    claim: (channel, limit, leaseSeconds) => call<ClaimedJob[]>("genesis_notifications_claim", { p_channel: channel, p_limit: limit, p_lease_seconds: leaseSeconds }).then((rows) => rows ?? []),
+    claim: (channel, limit, leaseSeconds, maxAttempts = 8) =>
+      call<ClaimedJob[]>("genesis_notifications_claim", { p_channel: channel, p_limit: limit, p_lease_seconds: leaseSeconds, p_max_attempts: maxAttempts }).then((rows) => rows ?? []),
     async storeRendered(id, claimId, rendered, hash) {
       const rows = await call<{ rendered: RenderedEmail | null; rendered_hash: string | null }[]>("genesis_notifications_store_rendered", { p_id: id, p_claim: claimId, p_rendered: rendered, p_hash: hash });
       const row = rows?.[0];

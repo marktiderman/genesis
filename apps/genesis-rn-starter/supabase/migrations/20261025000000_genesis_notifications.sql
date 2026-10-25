@@ -49,8 +49,8 @@
 --                  archived); genesis_notifications_set_preference; and, gated by
 --                  private.genesis_notifications_admin, the admin functions (tenant defaults,
 --                  sender identity, send a test to yourself, lift a suppression).
---   service_role   genesis_notify, the runner's claim/settle functions, receipts, webhooks,
---                  unsubscribe, erase, prune and the type mirror.
+--   service_role   genesis_notify, genesis_notifications_cancel, the runner's claim/settle
+--                  functions, receipts, webhooks, unsubscribe, erase, prune and the type mirror.
 --
 -- Admins: private.genesis_notifications_admin(user uuid, tenant uuid) says who may see a
 -- tenant's delivery log (tenant null: the whole app, and the suppression list). It answers
@@ -267,8 +267,8 @@ grant select on table public.notification_types to authenticated;
 grant select, insert, update, delete on table public.notification_types to service_role;
 
 -- The admin's own test notification (Admin -> Send a test).
-insert into public.notification_types (key, category, channels, transactional)
-values ('genesis.test', 'genesis', '{"in_app": true, "push": true, "email": true}', true);
+insert into public.notification_types (key, category, channels, critical, transactional)
+values ('genesis.test', 'genesis', '{"in_app": true, "push": true, "email": true}', true, true);
 
 -- Devices: a token moves between logins only from its own device ------------
 
@@ -611,9 +611,11 @@ begin
       select null, a.value from pg_catalog.jsonb_array_elements(case when jsonb_typeof(w.value) = 'array' then w.value else '[]'::jsonb end) a
     ) e
   )
+  -- Each key as words (inviteToken -> invite_token), so camelCase is caught as well as snake_case.
   select substr(w.path, 2) into bad
   from walk w
-  where w.path ~* '(^|[._-])(token|secret|password|passcode|otp|api_?key|signature|sig|magic_?link|invite_?link|reset_?link|access_?key)$'
+  where lower(regexp_replace(w.path, '([a-z0-9])([A-Z])', '\1_\2', 'g'))
+          ~ '(^|[._-])(token|secret|password|passcode|otp|api_?key|signature|sig|magic_?link|invite_?link|reset_?link|access_?key|client_?secret|auth_?token|access_?token|refresh_?token)$'
      or (jsonb_typeof(w.value) = 'string' and (w.value #>> '{}') ~* '^[a-z][a-z0-9+.-]*://\S*[?&#](token|access_token|signature|sig|code|key|secret|otp)=')
   limit 1;
   if bad is not null then
@@ -748,7 +750,8 @@ end;
 $$;
 
 -- Is `p_channel` on for this type, person and tenant? A channel the type
--- doesn't offer: no. A critical type: as the type defaults it. Otherwise the
+-- doesn't offer: no. A critical type, or the email of a transactional one: as
+-- the type defaults it. Otherwise the
 -- person's choice for the category and channel, then (for push and email) a
 -- category the person turned off entirely (0005's `categories`), then the
 -- tenant's default, then the type's.
@@ -774,6 +777,10 @@ begin
     return false;
   end if;
   if t.critical then
+    return base;
+  end if;
+  -- Transactional mail skips unsubscribe: no choice or default turns its email off.
+  if t.transactional and p_channel = 'email' then
     return base;
   end if;
   if p_user is not null then
@@ -855,6 +862,10 @@ begin
   if p_secret is not null and (t.channels ->> 'email') is null then
     raise exception 'genesis_notify: a secret travels only by email' using errcode = '22023';
   end if;
+  if p_secret is not null and jsonb_array_length(coalesce(p_recipients, '[]'::jsonb)) <> 1 then
+    -- A one-time secret is one person's: never copied onto anyone else's email.
+    raise exception 'genesis_notify: a secret goes to exactly one recipient' using errcode = '22023';
+  end if;
   if jsonb_typeof(p_recipients) is distinct from 'array' or jsonb_array_length(p_recipients) not between 1 and 1000 then
     raise exception 'genesis_notify: recipients is an array of 1 to 1000' using errcode = '22023';
   end if;
@@ -865,10 +876,14 @@ begin
   for r in select value from jsonb_array_elements(p_recipients) loop
     uid := null;
     addr := null;
-    if jsonb_typeof(r) = 'string' then
-      uid := (r #>> '{}')::uuid;
-    elsif r ? 'user_id' then
-      uid := (r ->> 'user_id')::uuid;
+    if jsonb_typeof(r) = 'string' or r ? 'user_id' then
+      begin
+        uid := (case when jsonb_typeof(r) = 'string' then r #>> '{}' else r ->> 'user_id' end)::uuid;
+      exception
+        when invalid_text_representation then
+          -- Raised afresh so the error never echoes the input.
+          raise exception 'genesis_notify: a recipient is not a user id' using errcode = '22023';
+      end;
     elsif r ? 'email' then
       addr := btrim(r ->> 'email');
       if addr !~ '^[^\s@<>,;:"()\[\]\\]+@[^\s@<>,;:"()\[\]\\]+\.[^\s@<>,;:"()\[\]\\]+$' or char_length(addr) > 254 then
@@ -948,8 +963,10 @@ $$;
 --   - email to a suppressed address: skipped (suppressed);
 --   - push in quiet hours (not transactional): back to pending until they end, no attempt used;
 --   - push with no devices: skipped (no_devices).
--- The secret, when there is one, is decrypted for the runner here and nowhere else.
-create function public.genesis_notifications_claim(p_channel text, p_limit integer default 25, p_lease_seconds integer default 300)
+-- A job whose lease ran out p_max_attempts times (the runner died with it each
+-- time) fails as lease_expired instead of coming back for ever. The secret,
+-- when there is one, is decrypted for the runner here and nowhere else.
+create function public.genesis_notifications_claim(p_channel text, p_limit integer default 25, p_lease_seconds integer default 300, p_max_attempts integer default 8)
 returns table (
   id uuid,
   claim_id uuid,
@@ -970,6 +987,7 @@ returns table (
   badge integer,
   brand jsonb,
   transactional boolean,
+  critical boolean,
   push_privacy text,
   ios_category text,
   hide_previews boolean,
@@ -997,7 +1015,7 @@ begin
   for d in
     select q.*, n.user_id as n_user, n.email as n_email, n.recipient_name as n_name, n.data as n_data, n.thread_key as n_thread,
            n.collapse_key as n_collapse, n.badge as n_badge, n.brand as n_brand, n.read_at as n_read, n.category as n_category,
-           n.in_feed as n_feed, t.transactional as t_transactional, t.push_privacy as t_privacy, t.ios_category as t_ios,
+           n.in_feed as n_feed, t.transactional as t_transactional, t.critical as t_critical, t.push_privacy as t_privacy, t.ios_category as t_ios,
            t.email_delay_seconds as t_delay
     from public.notification_deliveries q
     join public.notifications n on n.id = q.notification_id
@@ -1011,6 +1029,10 @@ begin
       for update skip locked
     )
   loop
+    if d.status = 'sending' and d.attempts >= greatest(1, coalesce(p_max_attempts, 8)) then
+      update public.notification_deliveries x set status = 'failed', error = 'lease_expired', secret_ciphertext = null, lease_until = null, claim_id = null, updated_at = now() where x.id = d.id;
+      continue;
+    end if;
     -- The person may have changed their mind since it was queued.
     if not private.genesis_notifications_channel_on(d.n_user, d.tenant_id, d.type, p_channel) then
       update public.notification_deliveries x set status = 'skipped', skip_reason = 'preference', secret_ciphertext = null, lease_until = null, updated_at = now() where x.id = d.id;
@@ -1078,6 +1100,7 @@ begin
     collapse_key := d.n_collapse;
     badge := d.n_badge;
     transactional := d.t_transactional;
+    critical := d.t_critical;
     push_privacy := d.t_privacy;
     ios_category := d.t_ios;
     hide_previews := coalesce((select p.hide_previews from public.notification_preferences p where p.user_id = d.n_user), false);
@@ -1370,8 +1393,9 @@ $$;
 
 -- Keeps the delivery log short: send jobs settled more than p_keep ago are
 -- deleted (default 30 days), the rendered email of a settled job after
--- p_keep_rendered (default a day), receipts and device moves after p_keep,
--- and, when p_keep_feed is given, feed rows older than that. Schedule it daily.
+-- p_keep_rendered (default a day), receipts, device moves and notifications
+-- that were never in a feed (email-only recipients) after p_keep, and, when
+-- p_keep_feed is given, feed rows older than that. Schedule it daily.
 create function public.genesis_notifications_prune(
   p_keep interval default interval '30 days',
   p_keep_rendered interval default interval '1 day',
@@ -1398,6 +1422,11 @@ begin
   get diagnostics jobs = row_count;
   delete from public.push_receipts r where r.created_at < now() - p_keep;
   delete from public.push_device_moves m where m.moved_at < now() - p_keep;
+  -- Rows that were never in a feed (email-only recipients, or the in-app channel off) are only
+  -- the send log's: they go with it, address and all.
+  delete from public.notifications n
+  where not n.in_feed and n.created_at < now() - p_keep
+    and not exists (select 1 from public.notification_deliveries d where d.notification_id = n.id);
   if p_keep_feed is not null then
     delete from public.notifications n
     where n.created_at < now() - p_keep_feed
@@ -1546,6 +1575,15 @@ begin
   ) then
     raise exception 'genesis_notifications_set_preference: that category can''t be turned off' using errcode = '22023';
   end if;
+  -- 0005's switch for the whole category (push and email), if the person had one, becomes
+  -- explicit channel choices first, so this change doesn't bring back what they turned off.
+  update public.notification_preferences p
+  set channels = jsonb_set(
+        p.channels, array[p_category],
+        jsonb_strip_nulls(jsonb_build_object('push', (p.categories ->> p_category)::boolean, 'email', (p.categories ->> p_category)::boolean))
+          || coalesce(p.channels -> p_category, '{}'::jsonb)),
+      categories = p.categories - p_category
+  where p.user_id = me and p.categories ? p_category;
   insert into public.notification_preferences as p (user_id, channels)
   values (me, case when p_on is null then '{}'::jsonb else jsonb_build_object(p_category, jsonb_build_object(p_channel, p_on)) end)
   on conflict (user_id) do update
@@ -1557,6 +1595,64 @@ begin
     end
   returning p.channels into result;
   return result;
+end;
+$$;
+
+-- Cancels what hasn't gone out for an idempotency key (a release rolled
+-- back, an event undone): every pending send job of the notifications made
+-- with it, for all recipients or only those in p_recipients (the same shape
+-- as genesis_notify's). A job already sent, or being sent right now, is left
+-- alone. With p_archive, the feed rows are archived too. The runner never
+-- claims a cancelled job. Returns how many jobs and feed rows changed.
+create function public.genesis_notifications_cancel(p_idempotency_key text, p_recipients jsonb default null, p_archive boolean default false)
+returns table (cancelled integer, archived integer)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  keys text[];
+begin
+  if p_idempotency_key is null or char_length(p_idempotency_key) not between 1 and 200 then
+    raise exception 'genesis_notifications_cancel: an idempotency key (1 to 200 characters) is required' using errcode = '22023';
+  end if;
+  if p_recipients is not null then
+    if jsonb_typeof(p_recipients) <> 'array' or jsonb_array_length(p_recipients) > 1000 then
+      raise exception 'genesis_notifications_cancel: recipients is an array of at most 1000' using errcode = '22023';
+    end if;
+    begin
+      select array_agg(case
+               when jsonb_typeof(r) = 'string' then ((r #>> '{}')::uuid)::text
+               when r ? 'user_id' then ((r ->> 'user_id')::uuid)::text
+               when r ? 'email' then 'email:' || lower(btrim(r ->> 'email'))
+             end)
+      into keys
+      from jsonb_array_elements(p_recipients) r;
+    exception
+      when invalid_text_representation then
+        raise exception 'genesis_notifications_cancel: a recipient is not a user id' using errcode = '22023';
+    end;
+  end if;
+
+  update public.notification_deliveries d
+  set status = 'cancelled', skip_reason = 'cancelled', secret_ciphertext = null, lease_until = null, updated_at = now()
+  from public.notifications n
+  where d.notification_id = n.id
+    and n.idempotency_key = p_idempotency_key
+    and (keys is null or n.recipient_key = any (keys))
+    and d.status = 'pending';
+  get diagnostics cancelled = row_count;
+
+  archived := 0;
+  if coalesce(p_archive, false) then
+    update public.notifications n
+    set archived_at = now()
+    where n.idempotency_key = p_idempotency_key
+      and (keys is null or n.recipient_key = any (keys))
+      and n.archived_at is null;
+    get diagnostics archived = row_count;
+  end if;
+  return next;
 end;
 $$;
 
@@ -1721,7 +1817,7 @@ revoke execute on function public.genesis_push_register(text, text, text, uuid) 
 revoke execute on function public.genesis_push_register(text, text, text) from public, anon, authenticated;
 revoke execute on function public.genesis_push_forget(text) from public, anon, authenticated;
 revoke execute on function public.genesis_notify(text, jsonb, jsonb, text, text, text, integer, uuid, jsonb, text) from public, anon, authenticated;
-revoke execute on function public.genesis_notifications_claim(text, integer, integer) from public, anon, authenticated;
+revoke execute on function public.genesis_notifications_claim(text, integer, integer, integer) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_store_rendered(uuid, uuid, jsonb, text) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_settle(uuid, uuid, jsonb) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_push_tickets(uuid, jsonb) from public, anon, authenticated;
@@ -1730,6 +1826,7 @@ revoke execute on function public.genesis_notifications_receipts_settle(jsonb) f
 revoke execute on function public.genesis_notifications_email_event(text, text, boolean) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_unsubscribe(uuid, text, text) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_erase(uuid, text, text) from public, anon, authenticated;
+revoke execute on function public.genesis_notifications_cancel(text, jsonb, boolean) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_prune(interval, interval, interval) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_sync_types(jsonb) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_set_sender_dns(uuid, text, jsonb) from public, anon, authenticated;
@@ -1754,7 +1851,7 @@ grant execute on function public.genesis_notifications_send_test(uuid) to authen
 grant execute on function public.genesis_notifications_remove_suppression(text, text) to authenticated;
 
 grant execute on function public.genesis_notify(text, jsonb, jsonb, text, text, text, integer, uuid, jsonb, text) to service_role;
-grant execute on function public.genesis_notifications_claim(text, integer, integer) to service_role;
+grant execute on function public.genesis_notifications_claim(text, integer, integer, integer) to service_role;
 grant execute on function public.genesis_notifications_store_rendered(uuid, uuid, jsonb, text) to service_role;
 grant execute on function public.genesis_notifications_settle(uuid, uuid, jsonb) to service_role;
 grant execute on function public.genesis_notifications_push_tickets(uuid, jsonb) to service_role;
@@ -1763,6 +1860,7 @@ grant execute on function public.genesis_notifications_receipts_settle(jsonb) to
 grant execute on function public.genesis_notifications_email_event(text, text, boolean) to service_role;
 grant execute on function public.genesis_notifications_unsubscribe(uuid, text, text) to service_role;
 grant execute on function public.genesis_notifications_erase(uuid, text, text) to service_role;
+grant execute on function public.genesis_notifications_cancel(text, jsonb, boolean) to service_role;
 grant execute on function public.genesis_notifications_prune(interval, interval, interval) to service_role;
 grant execute on function public.genesis_notifications_sync_types(jsonb) to service_role;
 grant execute on function public.genesis_notifications_set_sender_dns(uuid, text, jsonb) to service_role;

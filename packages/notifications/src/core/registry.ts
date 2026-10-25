@@ -334,6 +334,7 @@ export const GENESIS_TEST_TYPE = {
   "genesis.test": {
     category: "genesis",
     channels: { in_app: true, push: true, email: true },
+    critical: true,
     transactional: true,
     render: () => ({ title: "Test notification", body: "If you can read this, this channel works." }),
   },

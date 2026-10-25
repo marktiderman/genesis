@@ -42,6 +42,7 @@ function job(overrides: Partial<ClaimedJob> = {}): ClaimedJob {
     badge: 3,
     brand: null,
     transactional: false,
+    critical: false,
     push_privacy: "default",
     ios_category: "message",
     hide_previews: false,
@@ -212,6 +213,14 @@ describe("email", () => {
     const token = new URL(header.slice(1, -1)).searchParams.get("t")!;
     expect(await verifyUnsubscribeToken(UNSUB.secret, token)).toEqual({ userId: USER, category: "messages" });
     expect(mail.sent[0]!.html).toContain("Unsubscribe");
+  });
+
+  it("puts no unsubscribe on a critical type's email (preferences can't turn it off)", async () => {
+    const { store } = fakeStore({ email: [emailJob({ type: "security.new_sign_in", category: "security", critical: true })] });
+    const mail = fakeEmail();
+    await createNotificationRunner({ store, registry, email: emailOptions(mail.provider) }).runEmail();
+    expect(mail.sent[0]!.headers).toBeUndefined();
+    expect(mail.sent[0]!.html).not.toContain("Unsubscribe");
   });
 
   it("sends a tenant's verified domain as the from address", async () => {

@@ -2989,6 +2989,7 @@
         "A secret never appears in notifications.data or a push: genesis_notify refuses secret-looking keys and links, and a one-time token travels encrypted on the email job and is cleared once it settles.",
         "Erasing a person (by login, address or the domain's ref) deletes their notifications, send jobs, devices, receipts and preferences.",
         "A push token moves to another login only when registered with the same install id, and every move is recorded; forget works signed out and reveals nothing.",
+        "cancelNotification cancels the pending jobs of an idempotency key (for some recipients, archiving the feed rows if asked); a cancelled job is never claimed and a sent one is left alone.",
         "Not yet run against Expo or Resend with real credentials."
       ],
       "reviewedAt": "2026-10-25",

@@ -107,25 +107,41 @@ await notify(admin, {
 `genesis_notify` (the SQL function under it, service role only) can be called with the same
 arguments from a domain's own SQL.
 
+To take back what hasn't gone out (a release rolled back, an event undone):
+
+```ts
+await cancelNotification(admin, { idempotencyKey: `release:${releaseId}`, archive: true });
+```
+
+Every pending send job made with that key (for everyone, or only `recipients`) becomes
+`cancelled` and is never claimed; a job already sent, or being sent at that moment, is left
+alone; `archive: true` archives the feed rows too (`genesis_notifications_cancel` in SQL).
+
 ### Rules the notifier keeps
 
 - **Secrets never go in `data`, or in a push.** `genesis_notify` refuses keys like `token`,
   `password`, `invite_link` and links carrying `?token=`/`sig=`/`code=`. Store a reference
   (`{ response_id }`) and mark the type `secretLink: true`; the runner calls your
   `secretLinks[type]` at send time (`resolveSecretLink`). A token that exists only hashed in your
-  tables is passed as `notify({ secret })`: encrypted onto the email's send job with the Vault
-  key, decrypted only when the runner claims it, cleared once the job settles.
+  tables is passed as `notify({ secret })`, to exactly one recipient: encrypted onto the email's
+  send job with the Vault key, decrypted only when the runner claims it, cleared once the job
+  settles. Keys are matched as words, so `inviteToken` is refused as well as `invite_token`.
 - **Retries are byte-identical.** An email is rendered once, at its first claim, and stored with
   its hash; every retry sends the stored copy with the same idempotency key. Resend's 409
   `invalid_idempotent_request` counts as sent; `concurrent_idempotent_requests` retries in 5 s.
-- **Transactional types** (`transactional: true`) have no unsubscribe link, are never held by
-  quiet hours or the email delay, and still reach someone who complained (not someone who hard
-  bounced). Rate caps stay in the domain.
+- **Transactional types** (`transactional: true`) have no unsubscribe link, and their email is
+  sent whatever the person chose for the category (an unsubscribe never stops a receipt or a
+  reset); they are never held by quiet hours or the email delay, and still reach someone who
+  complained (not someone who hard bounced). Rate caps stay in the domain. A critical type's
+  email has no unsubscribe link either (preferences can't turn it off).
+- **A job is never stuck.** One whose lease ran out `maxAttempts` times (the runner died with it
+  each time) fails as `lease_expired`.
 - **Erasure.** `genesis_notifications_erase(user, email, ref)` deletes a person's
   notifications (with every send job), devices, receipts, preferences and device moves, logins
   or not. The suppression list keeps only a hash, so a bounced address stays suppressed.
   `genesis_notifications_prune(keep, keep_rendered, keep_feed)` keeps the delivery log short
-  (30 days, rendered bodies a day, by default).
+  (30 days, rendered bodies a day, by default); notifications that were never in a feed
+  (email-only recipients) go with their send jobs.
 
 ## Email
 
@@ -155,6 +171,10 @@ else the notification id, so a resend after a timeout replaces rather than repea
 person who hides previews, or a type with `pushPrivacy: "generic"`, gets neutral text. Receipts
 are checked about every 15 minutes; `DeviceNotRegistered` forgets the device.
 
+Android shows a push only on a channel the app made: the runner sends the category id as
+`channelId`, so build the push block with `pushOptionsFrom(registry)` (one channel per
+category, `genesis` included when you spread `GENESIS_TEST_CATEGORY`).
+
 `notificationAction(response)` reads an action button: its id, the typed text, and the
 notification id, which an app uses as the reply's client id so a retried reply stays one reply.
 
@@ -178,6 +198,10 @@ and only adds to them (`notification_preferences.channels`, `push_receipts.deliv
   (0005's test asserts the old move), and `genesis_push_forget` answers the same whether or not
   there was a token (0005's test asserts `false` for an unknown one);
 - switch the push block to `notificationsPushBackend(supabase)`, so it registers with the install id.
+
+A category someone switched off under 0005 (`categories`) still turns its push and email off,
+and every screen here shows it so; the first time they change one of its channels, the old
+switch becomes explicit channel choices (`genesis_notifications_set_preference`).
 
 ## Not in v1
 

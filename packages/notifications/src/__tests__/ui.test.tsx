@@ -6,7 +6,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 afterEach(cleanup);
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NotificationsProvider, preferenceRows, useNotifications, useUnreadCount } from "../react/index";
-import type { NotificationsClient } from "../supabase/index";
+import { choicesOf, type NotificationsClient } from "../supabase/index";
 import { notificationsPushBackend, pushOptionsFrom } from "../native/index";
 import { USER, registry } from "./fixtures";
 
@@ -85,6 +85,11 @@ describe("react hooks", () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(client.feed).not.toHaveBeenCalled();
     expect(client.subscribe).not.toHaveBeenCalled();
+  });
+
+  it("read 0005's category switch as push and email off, where no channel was chosen", () => {
+    expect(choicesOf({ channels: { messages: { push: true } }, categories: { messages: false, forms: true } })).toEqual({ messages: { push: true, email: false } });
+    expect(choicesOf(null)).toEqual({});
   });
 
   it("apply choices over defaults; a critical row stays as defaulted", () => {

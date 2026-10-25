@@ -119,7 +119,7 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
   const lease = options.leaseSeconds ?? 300;
   const email = options.email;
   if (email) {
-    const needsUnsubscribe = Object.entries(registry.types).some(([, t]) => t.channels.email !== undefined && !t.transactional);
+    const needsUnsubscribe = Object.keys(registry.types).some((key) => registry.type(key).channels.email !== undefined && !registry.type(key).transactional && !registry.isCritical(key));
     if (needsUnsubscribe && !email.unsubscribe) {
       throw new Error("createNotificationRunner: a type sends email that isn't transactional, so email.unsubscribe ({ url, secret }) is required");
     }
@@ -148,7 +148,7 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
     ? createRunner<Job>({
         ...common,
         label: (job) => `Push ${job.id}`,
-        claim: ({ limit }) => store.claim("push", limit, lease) as Promise<Job[]>,
+        claim: ({ limit }) => store.claim("push", limit, lease, options.maxAttempts ?? 8) as Promise<Job[]>,
         group: () => "push",
         send: (jobs, { signal }) => sendPush(jobs, options.push!.provider, signal),
         batchSize: batch,
@@ -248,7 +248,7 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
     ? createRunner<Job>({
         ...common,
         label: (job) => `Email ${job.id}`,
-        claim: ({ limit }) => store.claim("email", limit, lease) as Promise<Job[]>,
+        claim: ({ limit }) => store.claim("email", limit, lease, options.maxAttempts ?? 8) as Promise<Job[]>,
         send: async ([job], { signal }) => [await sendEmail(job!, email, signal)],
         batchSize: batch,
       })
@@ -269,7 +269,8 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
     const t = registry.type(job.type);
     let unsubscribeUrl: string | null = null;
     let headers: Record<string, string> | undefined;
-    if (!job.transactional && e.unsubscribe) {
+    // Transactional mail has no unsubscribe, and nor does a critical type's (preferences can't turn it off).
+    if (!job.transactional && !job.critical && e.unsubscribe) {
       const token = await createUnsubscribeToken(e.unsubscribe.secret, {
         ...(job.user_id ? { userId: job.user_id } : { email: to }),
         category: job.category,

@@ -8,7 +8,7 @@
  *
  * @packageDocumentation
  */
-export { notify, syncNotificationTypes, type NotifyOptions } from "./notify";
+export { notify, cancelNotification, syncNotificationTypes, type CancelInput, type NotifyOptions } from "./notify";
 export {
   supabaseNotificationStore,
   NotificationStoreError,

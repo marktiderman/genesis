@@ -65,6 +65,8 @@ describe("assertNoSecrets", () => {
     expect(() => assertNoSecrets({ a: { password: "x" } })).toThrow(/data\.a\.password/);
     expect(() => assertNoSecrets({ resetLink: "x" })).toThrow();
     expect(() => assertNoSecrets({ reset_link: "x" })).toThrow();
+    for (const key of ["inviteToken", "accessToken", "authToken", "clientSecret", "resetPassword"]) expect(() => assertNoSecrets({ [key]: "x" }), key).toThrow(SecretInDataError);
+    expect(() => assertNoSecrets({ token_count: 3, tokenCount: 3 })).not.toThrow();
   });
   it("refuses links that carry a credential", () => {
     expect(() => assertNoSecrets({ link: "https://app.example/accept?token=abc" })).toThrow(SecretInDataError);

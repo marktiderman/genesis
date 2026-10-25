@@ -32,6 +32,7 @@ import {
 } from "@marktiderman/genesis-native/push";
 import type { Channel, NotificationRegistry } from "../core/index";
 import { useNotifications, usePreferences, type FeedItem } from "../react/index";
+import { choicesOf } from "../supabase/index";
 
 export { notificationAction, type NotificationAction };
 
@@ -83,7 +84,11 @@ export function NotificationsFeed({ onOpen, limit = 100, ...page }: Notification
 export function useNotificationsFeedHeader(options: { headerTitle?: string } = {}): Record<string, unknown> {
   const { items, markAllRead } = useNotifications();
   const unread = items.some((i) => i.unread);
-  return getNotificationsPageStackOptions({ headerTitle: options.headerTitle, onMarkAllRead: unread ? () => void markAllRead() : undefined });
+  // With nothing unread the header gets an explicit empty right side: leaving it out would keep the old button.
+  return getNotificationsPageStackOptions({
+    headerTitle: options.headerTitle,
+    ...(unread ? { onMarkAllRead: () => void markAllRead() } : { headerRight: () => null }),
+  });
 }
 
 /**
@@ -211,14 +216,14 @@ export function notificationsPushBackend(client: PushBackendClientLike): PushBac
       const data = must(
         "notification_preferences",
         await (client.from("notification_preferences") as PreferencesQuery)
-          .select("channels, quiet_hours_enabled, quiet_hours_start, quiet_hours_end, time_zone, hide_previews")
+          .select("channels, categories, quiet_hours_enabled, quiet_hours_start, quiet_hours_end, time_zone, hide_previews")
           .eq("user_id", userId)
           .maybeSingle(),
       ) as Record<string, unknown> | null;
       known = {};
       if (!data) return null;
-      const channels = (data.channels ?? {}) as Record<string, Record<string, unknown>>;
-      for (const [category, row] of Object.entries(channels)) if (typeof row?.push === "boolean") known[category] = row.push;
+      // As the server reads it: the push channel chosen, or 0005's switch for the whole category.
+      for (const [category, row] of Object.entries(choicesOf(data))) if (typeof row.push === "boolean") known[category] = row.push;
       return {
         categories: { ...known },
         quietHours: {

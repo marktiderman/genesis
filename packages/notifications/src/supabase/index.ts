@@ -101,6 +101,29 @@ export interface NotificationsClient {
   sendTest(tenantId?: string | null): Promise<string | null>;
 }
 
+/**
+ * A preferences row as category → channel → on: `channels`, with the push
+ * and email of a category switched off as a whole (migration 0005's
+ * `categories`) filled in where no channel was chosen, as the server reads it.
+ */
+export function choicesOf(row: { channels?: unknown; categories?: unknown } | null): ChannelChoices {
+  const object = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+  const out: ChannelChoices = {};
+  for (const [category, chosen] of Object.entries(object(row?.channels))) {
+    const cell: Partial<Record<Channel, boolean>> = {};
+    for (const [ch, on] of Object.entries(object(chosen))) if (typeof on === "boolean" && (ch === "in_app" || ch === "push" || ch === "email")) cell[ch] = on;
+    out[category] = cell;
+  }
+  for (const [category, on] of Object.entries(object(row?.categories))) {
+    if (on !== false) continue;
+    const cell = { ...out[category] };
+    cell.push ??= false;
+    cell.email ??= false;
+    out[category] = cell;
+  }
+  return out;
+}
+
 export const FEED_COLUMNS = "id, type, category, tenant_id, data, thread_key, created_at, seen_at, read_at, archived_at";
 const LOG_COLUMNS = "id, notification_id, tenant_id, type, channel, status, attempts, error, skip_reason, recipient_masked, created_at, sent_at";
 
@@ -142,9 +165,8 @@ export function notificationsClient(client: NotificationsSupabaseLike): Notifica
       return Number(data ?? 0);
     },
     async choices(userId) {
-      const { data } = must("notification_preferences", await table("notification_preferences").select("channels").eq("user_id", userId).maybeSingle());
-      const channels = (data as { channels?: unknown } | null)?.channels;
-      return channels && typeof channels === "object" && !Array.isArray(channels) ? (channels as ChannelChoices) : {};
+      const { data } = must("notification_preferences", await table("notification_preferences").select("channels, categories").eq("user_id", userId).maybeSingle());
+      return choicesOf(data as { channels?: unknown; categories?: unknown } | null);
     },
     async setChoice(category, channel, on) {
       const { data } = must("genesis_notifications_set_preference", await client.rpc("genesis_notifications_set_preference", { p_category: category, p_channel: channel, p_on: on }));

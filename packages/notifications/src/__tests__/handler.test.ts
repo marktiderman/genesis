@@ -1,6 +1,7 @@
 // @feat:notifications
 import { describe, expect, it, vi } from "vitest";
 import {
+  cancelNotification,
   checkSenderDomain,
   createNotificationsHandler,
   createUnsubscribeToken,
@@ -84,7 +85,10 @@ describe("createNotificationsHandler", () => {
     const token = await createUnsubscribeToken(SECRET, { email: "out@example.test", category: "forms" });
     const get = await handle(new Request(`https://x.test/fn/unsubscribe?t=${token}`));
     expect(get.status).toBe(200);
-    expect(await get.text()).toContain('method="post"');
+    const html = await get.text();
+    expect(html).toContain('method="post"');
+    // Relative, so it posts back to wherever the gateway mounted the function.
+    expect(html).toContain('action="?t=');
     expect(store.unsubscribe).not.toHaveBeenCalled();
     const post = await handle(new Request(`https://x.test/fn/unsubscribe?t=${token}`, { method: "POST", body: "List-Unsubscribe=One-Click", headers: { "content-type": "application/x-www-form-urlencoded" } }));
     expect(post.status).toBe(200);
@@ -129,6 +133,19 @@ describe("notify", () => {
     await expect(notify({ rpc }, { type: "chat.message", recipients: [USER], idempotencyKey: "k", secret: "x" }, { registry })).rejects.toThrow(/no secret link/);
     await expect(notify({ rpc }, { type: "nope", recipients: [USER], idempotencyKey: "k" }, { registry })).rejects.toThrow(/unknown/);
     expect(rpc).not.toHaveBeenCalled();
+  });
+  it("sends a one-time secret to exactly one recipient", async () => {
+    const rpc = vi.fn();
+    await expect(notify({ rpc }, { type: "forms.receipt", recipients: [{ email: "a@example.test" }, { email: "b@example.test" }], idempotencyKey: "k", secret: "x" }, { registry })).rejects.toThrow(/exactly one/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("cancels by idempotency key, for some recipients, archiving if asked", async () => {
+    const rpc = vi.fn(async () => ({ data: [{ cancelled: 2, archived: 1 }], error: null }));
+    expect(await cancelNotification({ rpc }, { idempotencyKey: "release:42", recipients: [USER], archive: true })).toEqual({ cancelled: 2, archived: 1 });
+    expect(rpc).toHaveBeenCalledWith("genesis_notifications_cancel", { p_idempotency_key: "release:42", p_recipients: [{ user_id: USER }], p_archive: true });
+    await cancelNotification({ rpc }, { idempotencyKey: "release:43" });
+    expect(rpc).toHaveBeenLastCalledWith("genesis_notifications_cancel", { p_idempotency_key: "release:43", p_recipients: null, p_archive: false });
+    await expect(cancelNotification({ rpc }, { idempotencyKey: "" })).rejects.toThrow(/idempotency key/);
   });
   it("mirrors the registry", async () => {
     const rpc = vi.fn(async () => ({ data: 4, error: null }));

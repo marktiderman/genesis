@@ -106,7 +106,8 @@ export function createNotificationsHandler(options: NotificationsHandlerOptions)
         const claims = await verifyUnsubscribeToken(options.unsubscribeSecret, token);
         if (!claims) return page(copy.title, `<p>${escapeHtml(copy.invalid)}</p>`, 400);
         if (request.method === "GET") {
-          const action = `${url.pathname}?t=${encodeURIComponent(token)}`;
+          // Relative: behind a gateway (Supabase's /functions/v1) the function doesn't see its public path.
+          const action = `?t=${encodeURIComponent(token)}`;
           return page(
             copy.title,
             `<h1 style="font-size:1.25rem">${escapeHtml(copy.confirm)}</h1><form method="post" action="${escapeHtml(action)}"><input type="hidden" name="List-Unsubscribe" value="One-Click"><button type="submit" style="font-size:1rem;padding:.5rem 1rem">${escapeHtml(copy.button)}</button></form>`,
