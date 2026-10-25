@@ -267,6 +267,9 @@ declare module "react-native" {
     refreshing: boolean;
     onRefresh?: () => void;
     tintColor?: string;
+    title?: string;
+    titleColor?: string;
+    colors?: string[];
     progressBackgroundColor?: string;
     testID?: string;
   }
