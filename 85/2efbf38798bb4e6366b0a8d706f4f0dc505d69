@@ -1,0 +1,61 @@
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_204414cfdd8296 1,16-17,322-355
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_94323542d52597 35-37
+apps/genesis-rn-starter/genesis.config.json
+  s_8252619ce79a86::t_8a17a6f5609e29 5,10
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_9280e54aa2a70a 22
+apps/genesis-rn-starter/src/app/(app)/_layout.tsx
+  s_8252619ce79a86::t_2bd9f9be06addd 21-24
+apps/genesis-rn-starter/src/app/(app)/messages/[id].tsx
+  s_8252619ce79a86::t_fecf0d7eee0a4d 1-29
+apps/genesis-rn-starter/src/app/(app)/messages/_layout.tsx
+  s_8252619ce79a86::t_4357e92519eeae 1-13
+apps/genesis-rn-starter/src/app/(app)/messages/index.tsx
+  s_8252619ce79a86::t_9139e798910f0a 1-16
+apps/genesis-rn-starter/src/copy.ts
+  s_8252619ce79a86::t_a5828be4a1deb1 15,109-115
+apps/genesis-rn-starter/src/lib/chat.tsx
+  s_8252619ce79a86::t_ba39f191902c6a 1-107
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_1a0fae99ac8faf 95-103
+apps/genesis-rn-starter/src/lib/links.ts
+  s_8252619ce79a86::t_a82e0694e68d03 34-35
+apps/genesis-rn-starter/src/lib/push.ts
+  s_8252619ce79a86::t_adbccb59961d0f 22,24,29-33,43
+apps/genesis-rn-starter/starter.config.ts
+  s_8252619ce79a86::t_8f9137484aa308 36
+apps/genesis-rn-starter/supabase/config.toml
+  s_8252619ce79a86::t_7bbe00727d5e9d 5-9
+apps/genesis-rn-starter/supabase/migrations/20261025000000_genesis_chat.sql
+  s_8252619ce79a86::t_bc130ac9462a38 1-1806
+apps/genesis-rn-starter/supabase/tests/database/genesis_chat.test.sql
+  s_8252619ce79a86::t_1a733d01479913 1-218
+pnpm-lock.yaml
+  s_c0870a827920ef::t_c9501d2ead4df0 47-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "852efbf38798bb4e6366b0a8d706f4f0dc505d69",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
