@@ -1,0 +1,23 @@
+.changeset/submit-followups.md
+  s_8252619ce79a86::t_59d74f35c7eca8 1-5
+packages/forms/README.md
+  s_8252619ce79a86::t_7fa6595cb59e16 556,575-576
+packages/forms/src/submit.ts
+  s_8252619ce79a86::t_2e761059ecf54d 185-204,247,260
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cfc46b4c637d035adf3fa2707e9cb1f456e31c7c",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
