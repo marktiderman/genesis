@@ -241,9 +241,58 @@ describe("<OptionListEditor>", () => {
     fireEvent.click(screen.getByRole("button", { name: "Move Hilltop Fitness up" }));
     expect(last.options.map((o) => o.value)).toEqual(["cs", "riverside"]);
     fireEvent.click(screen.getByTestId("option-list-add"));
-    expect(last.options[2]).toEqual({ value: "new-option", label: "New option" });
+    expect(last.options[2]).toEqual({ value: "option", label: "" });
     fireEvent.click(screen.getByTestId("option-list-remove-0"));
-    expect(last.options.map((o) => o.value)).toEqual(["riverside", "new-option"]);
+    expect(last.options.map((o) => o.value)).toEqual(["riverside", "option"]);
+  });
+
+  it("starts a new option blank with a unique value that follows its label", () => {
+    let last: OptionList = start;
+    render(<Host initial={start} spy={(l) => (last = l)} />);
+    fireEvent.click(screen.getByTestId("option-list-add"));
+    fireEvent.click(screen.getByTestId("option-list-add"));
+    expect(last.options.slice(2)).toEqual([
+      { value: "option", label: "" },
+      { value: "option-2", label: "" },
+    ]);
+    expect((screen.getByTestId("option-list-label-2") as HTMLInputElement).placeholder).toBe("New option");
+
+    const label = screen.getByTestId("option-list-label-2");
+    label.focus();
+    fireEvent.change(label, { target: { value: "North Hall" } });
+    expect(last.options[2]).toEqual({ value: "north-hall", label: "North Hall" });
+    // The row is not remounted as its value changes, so typing keeps going.
+    expect(document.activeElement).toBe(label);
+    expect(screen.getByTestId("option-list-label-2")).toBe(label);
+
+    // Taking a value already in the list gets a suffix, never a duplicate.
+    fireEvent.change(screen.getByTestId("option-list-label-3"), { target: { value: "Riverside" } });
+    expect(last.options[3]).toEqual({ value: "riverside-2", label: "Riverside" });
+    fireEvent.change(screen.getByTestId("option-list-label-2"), { target: { value: "Riverside" } });
+    expect(last.options[2]).toEqual({ value: "riverside-3", label: "Riverside" });
+    const values = last.options.map((o) => o.value);
+    expect(new Set(values).size).toBe(values.length);
+
+    // A cleared label falls back to a unique placeholder value.
+    fireEvent.change(screen.getByTestId("option-list-label-3"), { target: { value: "" } });
+    expect(last.options[3]).toEqual({ value: "option", label: "" });
+  });
+
+  it("keeps an existing option's value when its label changes", () => {
+    let last: OptionList = start;
+    render(<Host initial={start} spy={(l) => (last = l)} />);
+    fireEvent.change(screen.getByTestId("option-list-label-0"), { target: { value: "Lakeside" } });
+    expect(last.options[0]).toEqual({ value: "riverside", label: "Lakeside" });
+  });
+
+  it("stops a removed new option's value from following another row", () => {
+    let last: OptionList = start;
+    render(<Host initial={start} spy={(l) => (last = l)} />);
+    fireEvent.click(screen.getByTestId("option-list-add"));
+    fireEvent.click(screen.getByTestId("option-list-remove-2"));
+    fireEvent.click(screen.getByTestId("option-list-add"));
+    fireEvent.change(screen.getByTestId("option-list-label-2"), { target: { value: "East" } });
+    expect(last.options.map((o) => o.value)).toEqual(["riverside", "cs", "east"]);
   });
 
   it("adds an attribute column and sets list values with |", () => {
