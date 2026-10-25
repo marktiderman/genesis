@@ -1,0 +1,14 @@
+---
+"@marktiderman/genesis-notifications": patch
+---
+
+`@marktiderman/genesis-notifications`, v1: one notifier for every domain. A domain says who and what; the notifier decides how and when.
+
+- **`/core`**: `defineNotifications` registers the types (category, channels and their defaults, `critical`, `transactional`, an email delay, a device action category, `secretLink`, a `render`), the device categories (`MESSAGE_ACTIONS`: Reply with a text field, Mark as read) and the Android channels; `toTypeRows()` is mirrored into `notification_types`.
+- **`/runner`**: `createRunner`, the one outbox runner (claim, grouped sends, settle, `maxDeferrals`, jittered backoff, `disable` on 410). No dependencies.
+- **`/server`**: `notify()` over the security-definer `genesis_notify` (unique per recipient and idempotency key, thread and collapse keys, a caller's badge, a tenant, email-only recipients); `createNotificationRunner` sending Expo push (batches of 100, `threadId`, `categoryId`, `badge`, `collapseId`, private previews, receipts, dead tokens pruned) and Resend email (rendered once at first claim for byte-identical retries; 409 `invalid_idempotent_request` counts as sent; tenant sender identities on a shared or verified domain; transactional and other mail from separate domains; RFC 8058 one-click unsubscribe); `createNotificationsHandler` (cron, Resend webhooks feeding a suppression list, the unsubscribe page); `resolveSecretLink`; `checkSenderDomain` (SPF, DKIM, DMARC).
+- **`/email`**: React Email `BrandLayout`, `reactEmailTemplate`.
+- **`/supabase`**: migration `0001_genesis_notifications.sql` with a pgTAP test (100 assertions), and `notificationsClient`. Preferences by category and channel with tenant defaults, quiet hours across daylight saving, delay-then-skip-if-read, erasure of people with or without a login, a short delivery log. It adopts genesis-supabase's 0005 tables in place, and registers tokens so that one moves to another login only from the same phone (audited), with a forget that reveals nothing.
+- **`/react`**, **`/web`**, **`/native`**, **`/blocks`**: `useNotifications`, `useUnreadCount`, `usePreferences`; a bell, a feed, a preferences matrix and admin views (delivery log, suppression list, send a test) on genesis-ui; a feed on genesis-ui-native's `NotificationsPage`, channel switches for `NotificationSettings`, and `notificationsPushBackend` for the push block; `notificationsBlock`.
+
+Features: notifications, notifications-email
