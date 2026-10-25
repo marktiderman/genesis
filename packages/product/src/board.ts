@@ -83,7 +83,7 @@ const cell = (text: string) => text.replace(/\|/g, "\\|").replace(/\s+/g, " ").t
  * Text people wrote (an issue title) as an inline code span, so the board
  * can't be made to @mention anyone, link anywhere or show an image.
  */
-const quoted = (text: string) => `\`${cell(text).replace(/`/g, "'") || " "}\``;
+const quoted = (text: string) => `\`${text.replace(/\s+/g, " ").trim().replace(/`/g, "'") || " "}\``;
 const ref = (s: Signal) => (s.url ? `[${s.id.replace(/^github/, "")}](${s.url})` : s.id);
 
 function table(items: readonly BoardItem[]): string {

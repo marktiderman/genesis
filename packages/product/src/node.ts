@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { SIGNAL_KINDS, type CatalogFeature, type Importance, type Signal, type SignalKind, type SignalSource } from "./model";
+import { isAbsolute, relative } from "node:path";
+import { type CatalogFeature, type Importance, type Signal, type SignalKind, type SignalSource } from "./model";
 
 export * from "./index";
 
@@ -26,8 +27,9 @@ const git = (args: string[], cwd: string) => execFileSync("git", args, { cwd, en
 
 /**
  * The catalog at a git ref (a tag, a branch or a commit). `[]` only when the
- * ref exists and the file didn't exist at it yet; a ref that doesn't exist
- * throws, so a typo never reads as "everything is new".
+ * ref exists and the file didn't exist at it yet; a ref that doesn't exist, or
+ * a file that can't be read at it, throws, so a typo never reads as
+ * "everything is new". `file` is a path relative to the repo root.
  *
  * @stability Experimental
  */
@@ -37,13 +39,16 @@ export function catalogAt(ref: string, file = "features.json", cwd = process.cwd
   } catch {
     throw new Error(`"${ref}" is not a commit, tag or branch here.`);
   }
-  let text: string;
+  // git reads paths from the repo root: an absolute path is made relative to it.
+  const path = isAbsolute(file) ? relative(git(["rev-parse", "--show-toplevel"], cwd).trim(), file) : file;
+  if (path.startsWith("..")) throw new Error(`${file} is outside the repo.`);
   try {
-    text = git(["show", `${ref}:${file}`], cwd);
+    git(["cat-file", "-e", `${ref}:${path}`], cwd);
   } catch {
+    // The ref exists and has no such file: a release from before the registry.
     return [];
   }
-  return parseCatalog(text);
+  return parseCatalog(git(["show", `${ref}:${path}`], cwd));
 }
 
 /** `owner/repo` from the `origin` remote, or `undefined`. @stability Experimental */
@@ -90,7 +95,10 @@ const FEATURE_ID = /^[a-z][a-z0-9]*(?:[-_.][a-z0-9]+)*$/;
 export function issueToSignal(issue: GitHubIssue): Signal | null {
   if (issue.pull_request) return null;
   const labels = issue.labels.map((l) => (typeof l === "string" ? l : (l.name ?? ""))).map((l) => l.toLowerCase());
-  const kind = (SIGNAL_KINDS.find((k) => labels.includes(k)) ?? TITLE_KIND.exec(issue.title)?.[1]?.toLowerCase()) as SignalKind | undefined;
+  // A problem report wins over an idea, so an issue labelled both is never closed as shipped.
+  const kind = ((["bug", "feedback", "idea"] as const).find((k) => labels.includes(k)) ?? TITLE_KIND.exec(issue.title)?.[1]?.toLowerCase()) as
+    | SignalKind
+    | undefined;
   if (!kind) return null;
   const fromLabel = labels.find((l) => l.startsWith("feature:"))?.slice("feature:".length).trim();
   const fromBody = /^###\s*Feature\s*\n+\s*`?([a-z][a-z0-9]*(?:[-_.][a-z0-9]+)*)`?\s*$/im.exec(issue.body ?? "")?.[1];
@@ -220,12 +228,24 @@ export async function publishBoardIssue(options: PublishBoardOptions, body: stri
   // Leave the issue alone when only the "Generated <date>" line would change.
   const withoutDate = (text: string) => text.replace(/^Generated \S+ /m, "Generated ");
   if (existing && withoutDate(existing.body ?? "") === withoutDate(body)) return existing.html_url;
-  const issue = (
-    existing
-      ? await github(options, `/issues/${existing.number}`, { method: "PATCH", body: { body } })
-      : await github(options, `/issues`, { method: "POST", body: { title: "Product board", body, labels: [BOARD_LABEL] } })
-  ) as GitHubIssue;
+  if (existing) return ((await github(options, `/issues/${existing.number}`, { method: "PATCH", body: { body } })) as GitHubIssue).html_url;
+  await ensureLabel(options, BOARD_LABEL);
+  const issue = (await github(options, `/issues`, { method: "POST", body: { title: "Product board", body, labels: [BOARD_LABEL] } })) as GitHubIssue;
+  // Without the label the next run couldn't find it and would open another.
+  if (!labelNames(issue).includes(BOARD_LABEL)) throw new Error(`Opened ${issue.html_url}, but GitHub didn't apply the ${BOARD_LABEL} label.`);
   return issue.html_url;
+}
+
+const labelNames = (issue: GitHubIssue) => (issue.labels ?? []).map((l) => (typeof l === "string" ? l : (l.name ?? "")));
+
+/** Creates the label when the repo doesn't have it yet. */
+async function ensureLabel(options: GitHubOptions, name: string): Promise<void> {
+  try {
+    await request(options, `/labels/${encodeURIComponent(name)}`);
+  } catch (error) {
+    if (!/: 404 /.test(error instanceof Error ? error.message : "")) throw error;
+    await github(options, `/labels`, { method: "POST", body: { name, color: "5319e7", description: "The product board, written by genesis-product" } });
+  }
 }
 
 /**
@@ -246,8 +266,13 @@ export async function closeAnswered(
     const number = Number(/^github#(\d+)$/.exec(s.id)?.[1]);
     if (!number) continue;
     await github(options, `/issues/${number}`, { method: "PATCH", body: { state: "closed", state_reason: "completed" } });
-    await github(options, `/issues/${number}/comments`, { method: "POST", body: { body: message(s) } });
     closed.push(number);
+    try {
+      await github(options, `/issues/${number}/comments`, { method: "POST", body: { body: message(s) } });
+    } catch (error) {
+      // Closed but not told: a rerun skips closed issues, so say which one needs the comment by hand.
+      console.error(`Closed #${number}, but couldn't comment on it (${error instanceof Error ? error.message.split("\n", 1)[0] : error}). Post the shipped note by hand.`);
+    }
   }
   return closed;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { answeredBy, buildBoard, demand, diffRelease, renderBoard, renderRelease, type CatalogFeature, type Signal } from "../index";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { catalogAt, closeAnswered, githubSignals, issueToSignal, parseCatalog, publishBoardIssue, type GitHubIssue } from "../node";
@@ -168,6 +168,14 @@ describe("review fixes on #249 (@feat:product-releases)", () => {
     run("add", ".");
     run("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "second");
     expect(catalogAt("HEAD", "features.json", repo).map((x) => x.id)).toEqual(["a"]);
+    expect(catalogAt("HEAD", join(realpathSync(repo), "features.json"), repo).map((x) => x.id)).toEqual(["a"]);
+    expect(() => catalogAt("HEAD", "../elsewhere.json", repo)).toThrow(/outside the repo/);
+  });
+
+  it("treats an issue labelled both bug and idea as a bug, so a release never closes it", () => {
+    const signal = issueToSignal({ number: 6, title: "x", html_url: "u", state: "open", created_at: "", labels: ["idea", "bug", "feature:export"] });
+    expect(signal?.kind).toBe("bug");
+    expect(answeredBy(diffRelease([], live), [signal!])).toEqual([]);
   });
 
   it("closes only ideas: feedback and bugs on a shipped feature stay open (H2)", () => {
@@ -185,6 +193,7 @@ describe("review fixes on #249 (@feat:product-releases)", () => {
   it("renders titles as code, so a title can't @mention, link or embed (M4)", () => {
     const md = renderBoard(buildBoard([], [s(1, { title: "@team see ![x](https://e/x.png) `y`" })]), { date: "d" });
     expect(md).toContain("idea: `@team see ![x](https://e/x.png) 'y'`");
+    expect(renderBoard(buildBoard([], [s(2, { title: "a | b" })]), { date: "d" })).toContain("`a | b`");
   });
 });
 
@@ -240,12 +249,29 @@ describe("GitHub source and writes (@feat:product-insights)", () => {
   it("writes only the board issue it owns: the product-board label and its own author (M1)", async () => {
     const calls: Call[] = [];
     await publishBoardIssue(
-      { repo: "o/r", token: "t", fetch: fakeFetch({ "per_page=100": { body: [gh(9, { title: "Product board", user: { login: "stranger" } })] }, "/issues": { body: { html_url: "u" } } }, calls) },
+      { repo: "o/r", token: "t", fetch: fakeFetch({ "per_page=100": { body: [gh(9, { title: "Product board", user: { login: "stranger" } })] }, "/issues": { body: { html_url: "u", labels: [{ name: "product-board" }] } } }, calls) },
       "board",
     );
     expect(calls[0]!.url).toContain("labels=product-board&creator=github-actions%5Bbot%5D");
     expect(calls.at(-1)).toMatchObject({ method: "POST", body: { title: "Product board", labels: ["product-board"] } });
     expect(calls.some((c) => c.url.endsWith("/issues/9"))).toBe(false);
+  });
+
+  it("creates the board label first when the repo has none, and refuses an issue without it (L4)", async () => {
+    const calls: Call[] = [];
+    const fetchStub = (async (url: string, init: { method: string; body?: string }) => {
+      calls.push({ url, method: init.method, body: init.body ? JSON.parse(init.body) : undefined });
+      if (url.endsWith("/labels/product-board")) return new Response("{}", { status: 404 });
+      if (init.method === "POST" && url.endsWith("/issues")) return new Response(JSON.stringify({ html_url: "u", labels: [{ name: "product-board" }] }), { status: 201 });
+      return new Response(JSON.stringify([]), { status: 200 });
+    }) as unknown as typeof fetch;
+    expect(await publishBoardIssue({ repo: "o/r", token: "t", fetch: fetchStub }, "b")).toBe("u");
+    expect(calls.map((c) => `${c.method} ${c.url.replace(/^.*\/repos\/o\/r/, "").split("?")[0]}`)).toEqual([
+      "GET /issues",
+      "GET /labels/product-board",
+      "POST /labels",
+      "POST /issues",
+    ]);
   });
 
   it("closes before it comments, so a rerun never comments twice (L1)", async () => {
