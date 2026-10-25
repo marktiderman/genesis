@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-native",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -51,6 +51,11 @@
       "types": "./dist/devtools.d.ts",
       "react-native": "./src/devtools/index.ts",
       "import": "./dist/devtools.js"
+    },
+    "./dev-warnings": {
+      "types": "./dist/dev-warnings.d.ts",
+      "react-native": "./src/dev-warnings.ts",
+      "import": "./dist/dev-warnings.js"
     }
   },
   "files": [

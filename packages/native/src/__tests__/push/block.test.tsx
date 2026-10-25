@@ -147,8 +147,11 @@ describe("the push block: taps", () => {
     const n = fakeNotifications({ last: tap("/messages/42") });
     const onOpen = vi.fn();
     setup({ notifications: n.module, onOpen, links: { map: { "/messages/:id": "/messages/:id" } } });
-    await act(settle);
-    expect(onOpen).toHaveBeenCalledWith("/messages/42");
+    // Boot, the session read and the launch-tap lookup take more than one settle on a slow runner.
+    await vi.waitFor(async () => {
+      await act(settle);
+      expect(onOpen).toHaveBeenCalledWith("/messages/42");
+    });
     expect(n.module.clearLastNotificationResponse).toHaveBeenCalled();
     act(() => n.emitResponse(tap("/messages/42")));
     await act(settle);
@@ -317,6 +320,8 @@ describe("the push block: the soft prompt", () => {
     await act(settle);
     expect(results).toEqual([false, true]);
     expect(screen.getByTestId("genesis-push-prompt-body").textContent).toContain("when someone replies");
+    // Centred in the sheet, not stacked at the top of a full-height page sheet.
+    expect(JSON.parse(screen.getByTestId("genesis-push-prompt-content").dataset.style ?? "{}")).toMatchObject({ flexGrow: 1, justifyContent: "center" });
     expect(n.module.requestPermissionsAsync).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId("genesis-push-prompt-accept"));
     await act(settle);

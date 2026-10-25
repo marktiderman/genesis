@@ -31,6 +31,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-secure-store",
     "expo-updates",
     "expo-notifications",
+    // The check-in's photo question picks from the library only: no camera, so no camera or microphone prompt.
+    ["expo-image-picker", { photosPermission: "Choose a photo to add to your check-in.", cameraPermission: false, microphonePermission: false }],
     // The privacy manifest declares the data of the blocks that are on (account, observability, push).
     ["@marktiderman/genesis-cli", { privacy: { blocks: privacyBlocks(starter.features) } }],
     // Optional: upload source maps to Sentry from EAS builds (the observability block). Set your

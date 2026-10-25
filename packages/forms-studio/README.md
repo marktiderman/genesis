@@ -64,9 +64,17 @@ useAppShellSubNav(
   default (summaries count both; the Responses card says how many are partial);
   `<ResponsesFilters statuses>` adds the status menu (Sent and partial, Sent, Partial, In
   progress).
-- `DropOffByQuestion` from `dropOffByQuestion(items, definitions)`: for each question, how many
-  people reached it, how many stopped there, and the drop-off share. A sent response reached
-  every question; a partial one, every question up to its furthest; in-progress ones are left out.
+- `<DropOffByQuestion {...dropOffSummary(items, definitions)} />`: how many people started
+  (distinct responses of any status), then for each question how many people reached it, how
+  many stopped there, and the drop-off share. Pass every response under your filters except
+  status. Each response is followed on its own path (genesis-forms `computePath`): a sent one
+  reached the questions on it; a partial one, those before its furthest, then its furthest,
+  where it stopped; in-progress ones count only as started. Give each item its `hidden` inputs
+  and, by field key, any `extraAnswers` you keep apart (contact details), so logic reading them
+  is followed. Two things a stored response can't tell count as on the path: a question a
+  prefilled link answered and hid (`hideWhenPrefilled`), and a rule comparing a host-list pick
+  to its value when you store the pick as its label. `dropOffByQuestion` alone gives the
+  questions.
 - `PhotoAnswer` (`{ photos, resolveUrl }`): a response's photos as thumbnails, each opening full
   size in a new tab. The host resolves each reference to an address it may show (a short-lived
   signed link, say) or null; a photo most browsers can't draw (HEIC) is a tile with its name and an

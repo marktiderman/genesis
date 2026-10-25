@@ -4,16 +4,13 @@
  * except in long text, where it starts a new line.
  */
 import { useCallback, useEffect, useState, type ComponentRef } from "react";
-import { InputAccessoryView, Platform, Text, TextInput, View, type KeyboardTypeOptions, type TextInputProps } from "react-native";
+import { Platform, Text, TextInput, View, type KeyboardTypeOptions, type TextInputProps } from "react-native";
 import { dateLimits, getFieldType, isIsoDate, numberLimits } from "@marktiderman/genesis-forms";
 import type { FieldRendererProps } from "@marktiderman/genesis-forms-react";
 import { accessibilityHint, FieldChrome, questionLabel } from "../chrome";
-import { useFormNative } from "../context";
+import { keyboardLacksReturnKey, useFormNative } from "../context";
 import { useFormStyles } from "../styles";
 import { useFormTheme } from "../theme";
-import { Button } from "../parts";
-
-const NO_RETURN_KEY = new Set(["number-pad", "decimal-pad", "phone-pad", "numeric"]);
 
 /** The placeholder a focus-layout answer line shows. */
 export const ANSWER_PLACEHOLDER = "Type your answer here…";
@@ -53,18 +50,18 @@ export function AnswerInput({
 }) {
   const s = useFormStyles();
   const theme = useFormTheme();
-  const { focus, submit, locked, isLast, submitLabel } = useFormNative();
+  const { focus, submit, locked, isLast, setNeedsKeysBar } = useFormNative();
   const [focused, setFocused] = useState(false);
   const { field, error } = props.binding;
   const id = field.id;
   const ref = useCallback((node: ComponentRef<typeof TextInput> | null) => focus.setControl(id, locked ? null : node), [focus, id, locked]);
-  // iOS's number and phone pads have no return key: a bar above them carries Next (or Send).
-  const accessoryID = Platform.OS === "ios" && !multiline && NO_RETURN_KEY.has(String(hints?.keyboardType)) ? `${props.inputId}-keys` : undefined;
+  // A number or phone pad before iOS 26 has no return key: the app's keyboard toolbar (FormFocus
+  // draws it with Next or Send) carries the step on, and the form's own Next button stays in view.
+  const lacksReturn = !multiline && keyboardLacksReturnKey(hints?.keyboardType);
+  useEffect(() => (lacksReturn ? () => setNeedsKeysBar(false) : undefined), [lacksReturn, setNeedsKeysBar]);
   return (
-    <>
     <TextInput
       ref={ref}
-      inputAccessoryViewID={accessoryID}
       testID={props.inputId}
       value={value}
       onChangeText={onChangeText}
@@ -78,21 +75,17 @@ export function AnswerInput({
       returnKeyType={multiline ? "default" : isLast ? "send" : "next"}
       submitBehavior={multiline ? "newline" : "submit"}
       onSubmitEditing={multiline ? undefined : () => submit()}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={() => {
+        setFocused(true);
+        if (lacksReturn) setNeedsKeysBar(true);
+      }}
+      onBlur={() => {
+        setFocused(false);
+        if (lacksReturn) setNeedsKeysBar(false);
+      }}
       style={[s.input, multiline ? s.multiline : null, focused ? s.inputFocused : null, error ? s.inputInvalid : null]}
       {...hints}
     />
-    {accessoryID ? (
-      <InputAccessoryView nativeID={accessoryID}>
-        <View style={s.accessory}>
-          <Button variant="plain" onPress={() => submit()} testID={`${props.inputId}-keys-next`}>
-            {submitLabel}
-          </Button>
-        </View>
-      </InputAccessoryView>
-    ) : null}
-    </>
   );
 }
 

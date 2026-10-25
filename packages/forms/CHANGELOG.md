@@ -1,5 +1,41 @@
 # @marktiderman/genesis-forms
 
+## 0.8.0
+
+### Minor Changes
+
+- 51d6c9d: Delivery, phase 3: everything an app needs to send form responses to destinations from its own outbox, in `@marktiderman/genesis-forms/destinations`.
+
+  - `createDeliveryRunner({ claim, record, saveState?, destinations, now?, log?, batchSize?, maxAttempts?, backoff? })` claims a batch of due deliveries, applies each destination's `config.when`, batches deliveries to one destination, keeps its state, and records an outcome per delivery: `sent`, `filtered`, `skipped`, `retry` (deferred by Retry-After without counting an attempt, or backed off by attempt) or `failed`. The store interface is generic, so an app maps it to its own SQL. Also `deliveryOutcome`, `defaultBackoff`, `DEFAULT_MAX_ATTEMPTS`, `DEFAULT_MAX_DEFERRALS` (deferrals cap at `maxDeferrals`, then count as attempts), `DEFAULT_BATCH_SIZE` and the `ClaimedDelivery`, `DeliveryOutcome`, `DeliveryReport`, `DeliveryRunner` types.
+  - `slackDestination({ url?, resolveHost?, message? })` and `slackMessage`, `escapeSlack`: one escaped message per submission to a Slack incoming webhook.
+  - Sending by answer: `passesCondition(submission, definition, config)`, `conditionOf`, `isCondition`.
+  - SSRF checks for hook URLs: `parseHookUrl`, `checkHookHost(url, resolveHost)`, `isPublicAddress`, `HookUrlError`. `webhookDestination` takes `resolveHost` to refuse a hostname that resolves to a non-public address, and `url(config, { destinationId })` to look the address up outside config; `newWebhookSecret()` issues a Standard Webhooks `whsec_` secret.
+  - Google sign-in for sheets: `googleOAuthAccessToken`, `refreshGoogleAccessToken`, `DRIVE_FILE_SCOPE`; `sheetsDestination` takes `accessToken(config, { destinationId })` in place of `account`.
+  - Secrets at rest: `deriveSecretKey`, `sealSecret`, `openSecret`, `secretKeyBytes` (AES-256-GCM under an HKDF-SHA-256 key, bound to associated data).
+  - Edits: `DeliveryOptions.update` (and `DeliveryItem.update`) make the sheet overwrite the response's row and the webhook send `form.updated`. `DeliveryOptions.destinationId` is passed to option functions as `{ destinationId }`. A destination can resolve `{ ok: true, notSent }` for a deliberate no-send.
+
+  Existing behaviour is unchanged when the new options are not used.
+
+## 0.7.0
+
+### Minor Changes
+
+- 6d5686a: Upload handshake for `photo` fields, moved up from the host app's feedback photo uploads.
+
+  - `genesis-forms/server`: `createUploadHandler({ resolveForm, store, edit?, rateLimit?, ... })`, the
+    endpoint that signs one upload per file after checking the form, the field, the file's type and
+    size, the attempt id or edit link and the rate limit; the same JSON and status codes the host app
+    answered with. `checkUploads(definition, answers, { formId, owner, store })` checks on submit that
+    every file the answers name was uploaded by this attempt or for this edit, to that field, stored,
+    of an allowed type and size, and no more than the field takes; stored metadata replaces what the
+    browser sent. Also `UploadStore`, `StoredUpload`, `UploadOwner`, `uploadFields`, `uploadRules`,
+    `attemptHash`, `NOT_UPLOADED_MESSAGE` and `UPLOAD_MESSAGES`.
+  - `genesis-forms`: the handshake's JSON types `UploadRequest`, `UploadGrant`, `SignedUpload`,
+    `UploadRefusal` and `MAX_UPLOAD_REQUEST_BYTES`.
+  - `genesis-forms-web`: `signedUploadHost({ endpoint, claim, send?, readUrl?, fetch? })`, the browser
+    half, an `UploadHost` for `<Form onUpload>`; `UploadHost` takes an optional `url(ref)` for reading
+    a stored file. It now needs genesis-forms `>=0.7.0`.
+
 ## 0.6.0
 
 ### Minor Changes

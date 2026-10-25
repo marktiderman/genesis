@@ -8,6 +8,7 @@ Smoke flows for the starter, run against the development variant on a simulator 
 | `flows/launch.yaml` | smoke | A fresh install runs every boot step and leaves the splash, with no fatal screen. |
 | `flows/sign-in-screen.yaml` | smoke | It lands on the sign-in screen: the email form and the sign-in / create-account switch. |
 | `flows/settings-version.yaml` | smoke, account | Signs in with email, opens the Settings tab, and finds the About row (`settings-row-version`) showing a version signature (`1.0.0 (1) · …`), and sign-out. `e2e.yml` leaves it out until its secrets exist. |
+| `flows/deep-link.yaml` | smoke, account | Signs in, opens `genesis-starter-dev://settings` and lands on Settings: the development variant answers to its own scheme (each variant registers its own). |
 
 `subflows/sign-in.yaml` is the sign-in steps `settings-version.yaml` runs; it isn't a flow of its
 own, so it lives outside `flows/`.

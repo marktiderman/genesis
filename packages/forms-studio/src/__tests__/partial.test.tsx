@@ -4,7 +4,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { FormDefinition } from "@marktiderman/genesis-forms";
 import { DropOffByQuestion } from "../DropOffByQuestion";
 import { ResponsesFilters } from "../ResponsesFilters";
-import { dropOffByQuestion } from "../dropoff";
+import { dropOffByQuestion, dropOffSummary } from "../dropoff";
 import { comparisonFilter, headlineCards, headlineNumbers } from "../headline";
 import {
   filterResponses,
@@ -114,15 +114,121 @@ describe("dropOffByQuestion", () => {
   });
 });
 
+// "Why not?" shows only to someone who isn't a member; a member jumps from "overall" past
+// "trial" to "name". "Anything else?" shows to someone who gave their name, which the host
+// keeps apart from the answers, and "Visit?" only to people a link marks as visitors.
+const branching: FormDefinition = {
+  schemaVersion: 1,
+  id: "after-class",
+  title: "After class",
+  settings: { saveProgress: true },
+  hidden: [{ name: "source", type: "string", source: "url" }],
+  blocks: [
+    { kind: "field", id: "member", key: "member", type: "yes-no", label: "Are you a member?" },
+    { kind: "field", id: "why_not", key: "why_not", type: "short-text", label: "Why not?" },
+    { kind: "field", id: "overall", key: "overall", type: "rating", label: "How was class?" },
+    { kind: "field", id: "trial", key: "trial", type: "short-text", label: "How is your trial?" },
+    { kind: "field", id: "name", key: "name", type: "short-text", label: "Your name" },
+    { kind: "field", id: "more", key: "more", type: "long-text", label: "Anything else?" },
+    { kind: "field", id: "visit", key: "visit", type: "short-text", label: "Visit?" },
+  ],
+  logic: [
+    {
+      id: "only-guests",
+      when: { op: "eq", left: { field: "member" }, right: { value: false } },
+      effect: "show",
+      target: "why_not",
+    },
+    {
+      id: "members-skip-trial",
+      when: { op: "eq", left: { field: "member" }, right: { value: true } },
+      effect: "jump",
+      from: "overall",
+      to: "name",
+    },
+    { id: "named", when: { op: "answered", left: { field: "name" } }, effect: "show", target: "more" },
+    {
+      id: "visitors",
+      when: { op: "eq", left: { hidden: "source" }, right: { value: "visitor" } },
+      effect: "show",
+      target: "visit",
+    },
+  ],
+};
+
+describe("dropOffByQuestion on each respondent's path", () => {
+  const b = (id: string, over: Partial<SummaryItem>): SummaryItem => ({
+    id,
+    date: "2026-10-20",
+    definition: branching,
+    answers: {},
+    ...over,
+  });
+  const rows = dropOffByQuestion(
+    [
+      // A member, name kept apart: never sees "Why not?" or "trial", does see "more".
+      b("member", { answers: { member: true, overall: 5, more: "Thanks" }, extraAnswers: { name: "Sam" } }),
+      // A guest from a visitor link, no name: every question but "more".
+      b("guest", {
+        answers: { member: false, why_not: "Visiting", overall: 4, trial: "Good", visit: "Yes" },
+        hidden: { source: "visitor" },
+      }),
+      // A member who stopped on "overall".
+      b("stopped", { status: "partial", furthest: "overall", answers: { member: true, overall: 2 } }),
+      // The same response twice counts once.
+      b("stopped", { status: "partial", furthest: "overall", answers: { member: true, overall: 2 } }),
+    ],
+    [branching],
+  );
+  const by = Object.fromEntries(rows.map((r) => [r.key, r]));
+
+  it("counts a question logic hid or jumped over as neither viewed nor left", () => {
+    expect(by["member"]).toMatchObject({ views: 3, stopped: 0 });
+    expect(by["why_not"]).toMatchObject({ views: 1, stopped: 0 });
+    expect(by["overall"]).toMatchObject({ views: 3, stopped: 1, dropOff: 33 });
+    expect(by["trial"]).toMatchObject({ views: 1, stopped: 0 });
+    expect(by["name"]).toMatchObject({ views: 2, stopped: 0 });
+  });
+
+  it("fills a null placeholder in answers from extraAnswers", () => {
+    const [kept, placeholder] = (
+      [
+        { answers: { member: true, overall: 5, more: "Thanks" }, extraAnswers: { name: "Sam" } },
+        { answers: { member: true, overall: 5, more: "Thanks", name: null }, extraAnswers: { name: "Sam" } },
+      ] as Partial<SummaryItem>[]
+    ).map((over) => dropOffByQuestion([b("one", over)], [branching]).find((r) => r.key === "more"));
+    expect(placeholder).toEqual(kept);
+  });
+
+  it("follows logic reading answers kept apart and hidden inputs", () => {
+    expect(by["more"]).toMatchObject({ views: 1 });
+    expect(by["visit"]).toMatchObject({ views: 1 });
+  });
+});
+
+describe("dropOffSummary", () => {
+  it("counts everyone who started: sent, partial and in progress, each once", () => {
+    // Seven responses: two sent, four partial (one without a furthest question), one in progress.
+    expect(dropOffSummary(items, [v2, v1]).started).toBe(7);
+    expect(dropOffSummary([...items, items[0]!], [v2, v1]).started).toBe(7);
+    expect(dropOffSummary(items, [v2, v1]).dropOffs).toEqual(dropOffByQuestion(items, [v2, v1]));
+  });
+});
+
 describe("<DropOffByQuestion>", () => {
   it("lists each question with its views, stops and drop-off", () => {
-    render(<DropOffByQuestion dropOffs={dropOffByQuestion(items, [v2, v1])} />);
+    render(<DropOffByQuestion {...dropOffSummary(items, [v2, v1])} />);
     const card = screen.getByTestId("drop-off");
-    expect(within(card).getByText("5 people started")).toBeTruthy();
+    expect(within(card).getByText("7 people started")).toBeTruthy();
     const wentWell = screen.getByTestId("drop-off-went_well");
     expect(wentWell.textContent).toContain("What went well?");
     expect(wentWell.textContent).toContain("25% drop-off");
     expect(wentWell.textContent).toContain("4 views · 1 stopped here");
+  });
+
+  it("falls back to the first question's views without started", () => {
+    render(<DropOffByQuestion dropOffs={dropOffByQuestion(items, [v2, v1])} />);
+    expect(screen.getByText("5 people started")).toBeTruthy();
   });
 
   it("says when nobody has started", () => {

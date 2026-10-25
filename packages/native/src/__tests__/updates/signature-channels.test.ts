@@ -33,6 +33,18 @@ describe("versionSignature", () => {
     expect(emergency.short).toContain("emergency launch");
     expect(emergency.text).toContain("Emergency launch: the update crashed");
   });
+
+  it("never prints an empty value: a development build's empty runtime version reads none, an empty id unknown", () => {
+    // expo-updates in a development build: updates off, runtime version "".
+    const dev = versionSignature({ application, updates: { ...fakeUpdates({ isEnabled: false }), runtimeVersion: "" }, platform: "ios" });
+    expect(dev.text).toContain("Runtime none");
+    expect(dev.runtimeVersion).toBeNull();
+    const on = versionSignature({ application: { nativeApplicationVersion: "", nativeBuildVersion: "37" }, updates: { ...fakeUpdates({ channel: "" }), runtimeVersion: "" }, platform: "ios" });
+    expect(on.text).toContain("Runtime unknown");
+    expect(on.text).toContain("Channel unknown");
+    expect(on.short.startsWith("unknown (37)")).toBe(true);
+    expect(on.text.split("\n").every((line) => !/ $/.test(line))).toBe(true);
+  });
 });
 
 describe("channel switching", () => {
