@@ -1,0 +1,73 @@
+.changeset/chat-native-review-fixes.md
+  s_8252619ce79a86::t_c82712554b28aa 1-5
+apps/genesis-rn-starter/__tests__/components/settings.test.tsx
+  s_8252619ce79a86::t_2e3027ee3765a4 4-5,60-71
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_bf76286a8d9811 362-365
+apps/genesis-rn-starter/src/app/(app)/_layout.tsx
+  s_8252619ce79a86::t_66662227cc810d 7,18
+apps/genesis-rn-starter/src/app/(app)/messages/[id].tsx
+  s_8252619ce79a86::t_bb8ef4384fca9a 26-28
+apps/genesis-rn-starter/src/lib/chat.tsx
+  s_8252619ce79a86::t_4d03dc8b2fb9ff 17,21,23-24,27,72-84,119,130,138-181,184-195
+packages/chat/src/native/__tests__/composer-state.test.ts
+  s_8252619ce79a86::t_9fe83f8c123d1f 11,124-147
+packages/chat/src/native/__tests__/composer.test.tsx
+  s_8252619ce79a86::t_9b5cdb8a90cbe0 3-4,15,51,102-133
+packages/chat/src/native/__tests__/message-bubble.test.tsx
+  s_8252619ce79a86::t_2881c4dff70e27 5-6,8-9,61-127
+packages/chat/src/native/__tests__/push.test.ts
+  s_8252619ce79a86::t_e093c37d7eb878 13,16-17,61,66,104-153
+packages/chat/src/native/__tests__/thread-screen.test.tsx
+  s_8252619ce79a86::t_766a065b236f7d 1-116
+packages/chat/src/native/__tests__/tus.test.ts
+  s_8252619ce79a86::t_38b9daf9774e38 10,20,23-24,73-74,78-90,108-138
+packages/chat/src/native/__tests__/use-voice-recorder.test.tsx
+  s_8252619ce79a86::t_97986e7391ab9f 7-22,181-288
+packages/chat/src/native/composer-state.ts
+  s_8252619ce79a86::t_b914abd672ede6 46-47,72,209-239,248
+packages/chat/src/native/composer.tsx
+  s_8252619ce79a86::t_0442c29298bc2d 94
+packages/chat/src/native/copy.ts
+  s_8252619ce79a86::t_300debb86d20d0 47-50,52-57,131-132,134-137
+packages/chat/src/native/index.ts
+  s_8252619ce79a86::t_6a26c17a9f6532 11,24,30,45,65,82-83,88
+packages/chat/src/native/message-bubble.tsx
+  s_8252619ce79a86::t_9746d7dbaeeae0 8-11,22,64,84-88,147-151,159-166
+packages/chat/src/native/modules.ts
+  s_8252619ce79a86::t_fda6e14274ca3a 122-124
+packages/chat/src/native/push.ts
+  s_8252619ce79a86::t_f65b93cbcc5d31 16-22,25,143-153,162-189,203,216-217,219,233-254
+packages/chat/src/native/recorder-machine.ts
+  s_8252619ce79a86::t_002f3a7c518f5d 13-14,26-31,53-56,149-153,166
+packages/chat/src/native/rows.ts
+  s_8252619ce79a86::t_af911185626a87 6-8,73-78
+packages/chat/src/native/stack-options.ts
+  s_8252619ce79a86::t_fe26aae42c758c 5-8
+packages/chat/src/native/thread-screen.tsx
+  s_8252619ce79a86::t_2f4c0c4b530490 3-7,12-18,21,37,54,59-61,68-71,75-99,111-121,141,280,286,289,293-308,313,324-326
+packages/chat/src/native/tus.ts
+  s_8252619ce79a86::t_71a2bb6d9f9bf3 9-12,35-40,51-71,115-141,164,175-184,199-201,211,213-215,221,225-230,235,237,242,253,258-260
+packages/chat/src/native/use-composer.ts
+  s_8252619ce79a86::t_e9dc4cd3b5c9fc 3-5,14-15,18,22-29,35-37
+packages/chat/src/native/use-voice-recorder.ts
+  s_8252619ce79a86::t_01093486d4e5c1 7-12,15,31-33,52-53,98-104,107-110,112,114,116,118-123,126,129,131,137-140,142,144-145,147,154,187,195,198-202,209-216
+packages/chat/src/native/voice-player.tsx
+  s_8252619ce79a86::t_c2024544fb290d 5-7,9,21-22,34,39-80,178-189,249
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8e039cd312c8bdeb89c991d5a643adeccb9c57e8",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
