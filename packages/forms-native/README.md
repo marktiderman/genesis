@@ -59,7 +59,7 @@ function CheckIn() {
   again).
 - When the app goes to the background the draft is saved at once (and `onProgress`, if any, runs).
 - Send queues the event log and the hidden inputs under one idempotency key per response
-  (`createKey`, else `crypto.randomUUID`, else the outbox's). The ending shows once the submission
+  (`createKey`, else `crypto.randomUUID`, else a random v4-shaped id). The ending shows once the submission
   is stored, and only then is the draft cleared. If storing fails, the answers and the draft stay,
   with "Try again", which queues the same submission.
 - On the ending, the `status` slot follows the queued submission: waiting for a connection,

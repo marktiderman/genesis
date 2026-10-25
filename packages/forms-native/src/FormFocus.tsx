@@ -120,7 +120,7 @@ export interface FormFocusProps {
   formId?: string | undefined;
   /** The app's details kept beside a queued submission (never sent), such as the form's title. */
   submissionMeta?: Record<string, Json> | undefined;
-  /** Makes the submission's idempotency key (expo-crypto's `randomUUID`). Default `crypto.randomUUID`, else the outbox's. */
+  /** Makes the submission's idempotency key (expo-crypto's `randomUUID`). Default `crypto.randomUUID`, else a random v4-shaped id (`randomKey`). */
   createKey?: (() => string) | undefined;
   /** Called once a submission is queued. */
   onQueued?: ((item: OutboxItemLike, engine: FormEngine) => void) | undefined;
