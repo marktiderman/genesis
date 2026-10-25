@@ -80,16 +80,17 @@ describe("ChatThread", () => {
   });
 
   it("sends on Enter, shows it as sending, then as sent", async () => {
-    const client = createMemoryChatClient({ me: ME, conversations: [group()], latencyMs: 150 });
+    // Slow enough that the sending state is still on screen when it's checked, even on a busy CI runner.
+    const client = createMemoryChatClient({ me: ME, conversations: [group()], latencyMs: 1000 });
     mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
     const input = await screen.findByTestId("genesis-chat-input");
     fireEvent.change(input, { target: { value: "On my way" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(await screen.findByTestId("genesis-chat-pending-sending")).toBeTruthy();
-    expect(screen.getByText("Sending…")).toBeTruthy();
+    expect(await screen.findByText("Sending…")).toBeTruthy();
     expect((input as HTMLTextAreaElement).value).toBe("");
-    await waitFor(() => expect(screen.queryByTestId("genesis-chat-pending-sending")).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId("genesis-chat-pending-sending")).toBeNull(), { timeout: 3000 });
     const sends = client.calls.filter((c) => c.method === "send");
     expect(sends).toHaveLength(1);
     expect(sends[0]!.args[0]).toMatchObject({ conversationId: "c1", body: "On my way", visibility: "everyone" });
