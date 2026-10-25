@@ -257,18 +257,26 @@ export const FlatList = <T,>(props: {
   renderItem?: (info: { item: T; index: number }) => React.ReactNode;
   keyExtractor?: (item: T, index: number) => string;
   testID?: string;
+  ListHeaderComponent?: React.ReactNode | React.ComponentType;
+  ListEmptyComponent?: React.ReactNode | React.ComponentType;
 }) => {
-  const { data = [], renderItem, keyExtractor, testID } = props;
+  const { data = [], renderItem, keyExtractor, testID, ListHeaderComponent, ListEmptyComponent } = props;
+  // Header and empty slots render like FlatList's: an element as is, a component type as <C />.
+  const slot = (s: React.ReactNode | React.ComponentType | undefined) =>
+    typeof s === "function" ? React.createElement(s as React.ComponentType) : (s ?? null);
   return React.createElement(
     "div",
     { "data-testid": testID, role: "list" },
-    data.map((item, index) =>
-      React.createElement(
-        "div",
-        { key: keyExtractor ? keyExtractor(item, index) : String(index) },
-        renderItem?.({ item, index })
-      )
-    )
+    slot(ListHeaderComponent),
+    data.length === 0
+      ? slot(ListEmptyComponent)
+      : data.map((item, index) =>
+          React.createElement(
+            "div",
+            { key: keyExtractor ? keyExtractor(item, index) : String(index) },
+            renderItem?.({ item, index })
+          )
+        )
   );
 };
 

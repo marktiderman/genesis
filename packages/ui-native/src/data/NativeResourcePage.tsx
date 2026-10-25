@@ -419,7 +419,17 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
 
   const ListEmptyComponent = useMemo(
     () =>
-      isLoading ? null : (
+      isLoading ? null : isOfflineEmpty ? (
+        // In the list, under its header, so search and filters stay usable offline: clearing a
+        // search brings back the saved rows.
+        <View testID="native-resource-offline" className="flex-1 items-center justify-center px-4 py-12 gap-4">
+          {offlineState ?? (
+            <NativeText preset="body" className="text-muted-foreground text-center">
+              You're offline. This list loads when you're back online.
+            </NativeText>
+          )}
+        </View>
+      ) : (
         <>
           {emptyState ?? (
             <NativeEmptyState
@@ -429,7 +439,7 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
           )}
         </>
       ),
-    [isLoading, emptyState, hasActiveFilters, handleClearFilters]
+    [isLoading, isOfflineEmpty, offlineState, emptyState, hasActiveFilters, handleClearFilters]
   );
 
   // -------------------------------------------------------------------------
@@ -446,18 +456,6 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
           <NativeSkeleton className="w-full h-20 rounded-lg" />
           <NativeSkeleton className="w-full h-20 rounded-lg" />
           <NativeSkeleton className="w-full h-20 rounded-lg" />
-        </View>
-      );
-    }
-
-    if (isOfflineEmpty) {
-      return (
-        <View testID="native-resource-offline" className="flex-1 items-center justify-center px-4 py-12 gap-4">
-          {offlineState ?? (
-            <NativeText preset="body" className="text-muted-foreground text-center">
-              You're offline. This list loads when you're back online.
-            </NativeText>
-          )}
         </View>
       );
     }
@@ -483,7 +481,9 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={ListEmptyComponent}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
-        refreshing={refreshing}
+        // offlineFirst: a refetch offline pauses (its promise waits for the network), so the
+        // spinner follows the fetch, not the promise; it comes back if the fetch resumes.
+        refreshing={refreshing && !list.isPaused}
         onRefresh={handleRefresh}
       />
     );

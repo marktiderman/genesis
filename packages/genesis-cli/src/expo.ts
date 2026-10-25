@@ -84,8 +84,11 @@ export interface WithGenesisOptions {
   projectRoot?: string;
   /**
    * The manifest's collected data types, overriding genesis.config.json
-   * `privacy` key by key. An app passes `blocks` from its own feature
-   * switches, so a block turned off declares nothing.
+   * `privacy` key by key (`blocks` here replaces the file's `blocks`; a
+   * `collects` list, from either place, replaces every block's list). An app
+   * passes `blocks` from its own feature switches, so a block turned off
+   * declares nothing. Without `privacy` in either place, the blocks are found
+   * from package.json and a warning says the app's own data isn't in the list.
    */
   privacy?: GenesisPrivacy;
   /** Turn single steps off. Every step is on by default. */
@@ -125,12 +128,14 @@ const api = (category: string, ...reasons: string[]): PrivacyApi => ({
  * - expo-notifications: UserDefaults CA92.1.
  * - async-storage 2.2.0: FileTimestamp C617.1.
  *
+ * - @sentry/react-native: UserDefaults CA92.1, SystemBootTime 35F9.1,
+ *   FileTimestamp C617.1, as Sentry's "Apple Privacy Manifest" guide for
+ *   React Native lists (sentry-cocoa ships in a pod, not in node_modules).
+ *
  * Not listed, because their packages ship no required-reason API: expo-secure-store
  * (the Keychain is not one), expo-crypto, expo-haptics, expo-linking,
  * expo-apple-authentication, expo-router, netinfo, reanimated and the other
- * starter dependencies with no PrivacyInfo.xcprivacy. @sentry/react-native's
- * native SDK (sentry-cocoa) ships its own manifest in its pod, which the
- * aggregation merges; it is not repeated here.
+ * starter dependencies with no PrivacyInfo.xcprivacy.
  */
 export const PRIVACY_APIS: Record<string, PrivacyApi[]> = {
   "react-native": [api("FileTimestamp", "C617.1"), api("UserDefaults", "CA92.1"), api("SystemBootTime", "35F9.1")],
@@ -139,6 +144,7 @@ export const PRIVACY_APIS: Record<string, PrivacyApi[]> = {
   "expo-application": [api("FileTimestamp", "C617.1")],
   "expo-notifications": [api("UserDefaults", "CA92.1")],
   "@react-native-async-storage/async-storage": [api("FileTimestamp", "C617.1")],
+  "@sentry/react-native": [api("UserDefaults", "CA92.1"), api("SystemBootTime", "35F9.1"), api("FileTimestamp", "C617.1")],
 };
 
 /** A Genesis block's collected data, and the packages that mean the app uses it. */
@@ -167,11 +173,14 @@ const appFunctionality = (type: string, ...more: string[]): GenesisDataUse => ({
  * - `account` (`@marktiderman/genesis-supabase` `accountBlock`): the
  *   sign-in email, the account id, and the name (Sign in with Apple's, or
  *   one typed in).
- * - `observability` (`@marktiderman/genesis-native` `createObservability`,
- *   reporting through Sentry): crash and performance data with the user id,
- *   and the typed analytics events (product interaction), also with the
- *   user id. Found by `@sentry/react-native`; an app that never sets a
- *   DSN sends nothing and should turn this block off.
+ * - `observability` (`@marktiderman/genesis-native` `createObservability`
+ *   with `events`, reporting through Sentry): crash and performance data,
+ *   and the other diagnostic data Sentry sends with them (device and OS
+ *   details, breadcrumbs, sessions), the three Sentry's own privacy-manifest
+ *   guide lists; the user id; and the typed analytics events (product
+ *   interaction), all linked because the sink sets the user id. Found by
+ *   `@sentry/react-native`; an app that never sets a DSN sends nothing and
+ *   should leave this block out.
  * - `push` (`@marktiderman/genesis-native` `createPush`): the device's push
  *   token against the person (a device-level id).
  */
@@ -185,6 +194,7 @@ export const PRIVACY_BLOCKS: Record<string, PrivacyBlock> = {
     collects: [
       appFunctionality("crash data"),
       appFunctionality("performance data"),
+      appFunctionality("other diagnostic data"),
       appFunctionality("user id", "analytics"),
       { type: "product interaction", purposes: ["analytics"], linked: true, tracking: false },
     ],
@@ -299,6 +309,9 @@ function mergeDataUses(uses: readonly GenesisDataUse[]): GenesisDataUse[] {
  */
 export function applyPrivacyData(config: ExpoConfig, uses: GenesisDataUse[], tracking?: boolean): ExpoConfig {
   const manifests = config.ios?.privacyManifests ?? {};
+  if (tracking !== undefined && manifests.NSPrivacyTracking !== undefined && tracking !== manifests.NSPrivacyTracking) {
+    throw new GenesisConfigError(`privacy.tracking is ${tracking} but app.config sets ios.privacyManifests.NSPrivacyTracking to ${manifests.NSPrivacyTracking}; set it in one place`);
+  }
   const tracks = uses.some((u) => u.tracking);
   const NSPrivacyTracking = manifests.NSPrivacyTracking ?? tracking ?? tracks;
   if (tracks && NSPrivacyTracking === false) {
@@ -344,6 +357,13 @@ export const withGenesis: ConfigPlugin<WithGenesisOptions | void> = (config, pro
     const dependencies = readDependencies(root);
     const privacy = { ...file?.privacy, ...(options.privacy ? validatePrivacy(options.privacy, "withGenesis({ privacy })") : {}) };
     next = applyPrivacyApis(next, privacyApisFor(dependencies));
+    if (!privacy.blocks && !privacy.collects && !config.ios?.privacyManifests?.NSPrivacyCollectedDataTypes) {
+      // Not a throw: the default is right for an app that is only Genesis blocks. Loud, because
+      // anything else the app sends is missing from it.
+      console.warn(
+        `[genesis] privacy manifest: collected data types are only those of the Genesis blocks found in package.json (${privacyBlocksFor(dependencies).join(", ") || "none"}). If the app sends anything else, list everything it collects in genesis.config.json privacy.collects; to keep this list, set privacy.blocks.`,
+      );
+    }
     next = applyPrivacyData(next, collectedDataFor(privacy, dependencies), privacy.tracking);
   }
   if (options.exportCompliance !== false) next = applyExportCompliance(next);

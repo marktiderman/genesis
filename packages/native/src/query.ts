@@ -90,6 +90,11 @@ export function connectQueryLifecycle({ appState, netInfo }: QueryLifecycleOptio
   return () => {
     // Replacing the listener runs the cleanup of the one set above.
     if (appState) focusManager.setEventListener(() => () => {});
-    if (netInfo) onlineManager.setEventListener(() => () => {});
+    if (netInfo) {
+      onlineManager.setEventListener(() => () => {});
+      // Nothing reports the network any more: don't leave paused queries waiting on the last
+      // "offline" NetInfo said (offlineFirst pauses retries while offline).
+      onlineManager.setOnline(true);
+    }
   };
 }

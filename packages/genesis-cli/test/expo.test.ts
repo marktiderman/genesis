@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExpoConfig } from "@expo/config-types";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../src/doctor/config";
 import {
   applyPrivacyApis,
@@ -222,6 +222,7 @@ describe("privacy manifest", () => {
         Name: fn,
         CrashData: fn,
         PerformanceData: fn,
+        OtherDiagnosticData: fn,
         ProductInteraction: { linked: true, tracking: false, purposes: ["Analytics"] },
         DeviceID: fn,
       });
@@ -237,7 +238,7 @@ describe("privacy manifest", () => {
       write("package.json", { dependencies: { "@marktiderman/genesis-supabase": "*", "@marktiderman/genesis-native": "*", "@sentry/react-native": "*", "expo-notifications": "*" } });
       write("genesis.config.json", { privacy: { blocks: ["account", "push"] } });
       expect(Object.keys(types(run()))).toEqual(["EmailAddress", "UserID", "Name", "DeviceID"]);
-      expect(Object.keys(types(run(base(), { privacy: { blocks: ["observability"] } })))).toEqual(["CrashData", "PerformanceData", "UserID", "ProductInteraction"]);
+      expect(Object.keys(types(run(base(), { privacy: { blocks: ["observability"] } })))).toEqual(["CrashData", "PerformanceData", "OtherDiagnosticData", "UserID", "ProductInteraction"]);
     });
 
     it("an app's own collects list replaces the blocks'", () => {
@@ -273,6 +274,27 @@ describe("privacy manifest", () => {
       write("genesis.config.json", { privacy: { tracking: false, collects: [{ type: "device ID", purposes: ["third-party advertising"], linked: true, tracking: true }] } });
       expect(() => run()).toThrow(/used for tracking but NSPrivacyTracking is false/);
       expect(() => run(base(), { privacy: { blocks: "account" } as never })).toThrow(/withGenesis\(\{ privacy \}\): privacy.blocks/);
+    });
+
+    it("refuses a tracking setting that contradicts the app's own NSPrivacyTracking", () => {
+      const config = base();
+      config.ios!.privacyManifests = { NSPrivacyTracking: false };
+      expect(() => run(config, { privacy: { blocks: [], tracking: true } })).toThrow(/set it in one place/);
+    });
+
+    it("warns that only Genesis blocks are declared when the app says nothing, and not when it does", () => {
+      write("package.json", { dependencies: { "@marktiderman/genesis-supabase": "*" } });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      run();
+      expect(warn.mock.calls.flat().join(" ")).toMatch(/only those of the Genesis blocks found in package.json \(account\)/);
+      warn.mockClear();
+      run(base(), { privacy: { blocks: ["account"] } });
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("knows all 35 of Apple's collected data types", () => {
+      expect(new Set(Object.values(PRIVACY_DATA_TYPES)).size).toBe(35);
     });
 
     it("every block entry uses Apple's vocabulary", () => {

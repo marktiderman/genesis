@@ -299,14 +299,19 @@ export type SignInWithGoogleResult =
  * Native Google sign-in straight into a Supabase session, as Supabase's
  * Google guide describes: a fresh random nonce, its SHA-256 (hex) to Google,
  * which puts it in the ID token, and the raw nonce to `signInWithIdToken`,
- * which checks the two match, so a token taken from another sign-in can't be
- * replayed. Before Supabase sees the token it is checked here too: a token
- * whose `nonce` claim isn't this sign-in's hash (a module that ignored the
- * nonce) is `google_nonce_missing`, never sent. Closing Google's sheet is
+ * which checks the two match, so a token minted for another sign-in, which
+ * carries that sign-in's nonce, can't be replayed through this app. Before
+ * Supabase sees the token it is checked here too: a token whose `nonce` claim
+ * isn't this sign-in's hash (a module that ignored the nonce) is
+ * `google_nonce_missing`, never sent. Closing Google's sheet is
  * `{ canceled: true }`. Nothing is thrown; every failure is `{ error }`.
  *
  * Keep the Supabase Google provider's "Skip nonce check" off: this helper
- * needs no exception, and turning it on lets a stolen ID token sign in.
+ * needs no exception, and turning it on lets a stolen nonce-bearing ID token
+ * sign in. What a nonce can't stop: Supabase still accepts an ID token with
+ * no nonce claim when the caller sends none, so a stolen nonce-less token for
+ * one of your client ids signs in through a direct API call whatever the app
+ * does. Keep the "Authorized Client IDs" list to your own apps.
  *
  * @stability Beta
  */

@@ -245,7 +245,7 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
   `.eas/workflows/pr-preview.yml` and `deploy-production.yml`, so a failed upload fails the job.
 - **Privacy manifest.** The Genesis plugin declares, in the iOS privacy manifest, what the blocks
   that are on send off the phone (`privacyBlocks` in `src/lib/define-starter.ts`): `account` (email
-  address, user id, name), `observability` (crash and performance data, user id, and the typed
+  address, user id, name), `observability` (crash, performance and other diagnostic data, user id, and the typed
   events as product interaction for analytics) and `push` (the push token as a device id); all
   linked to the person, none for tracking, and `NSPrivacyTracking` false. The check-in example sends
   nothing yet (its `send` is a stub); once it posts answers to your server, add them (`other user

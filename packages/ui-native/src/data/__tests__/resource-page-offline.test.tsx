@@ -25,6 +25,13 @@ describe("NativeResourcePage offline", () => {
     expect(screen.queryByText("No clients yet")).toBeNull();
   });
 
+  it("keeps the search above the offline message, so clearing a search offline is still possible", () => {
+    list.current = { ...base, isPaused: true };
+    render(<NativeResourcePage resource="clients" title="Clients" searchFields={["name"]} searchPlaceholder="Search clients" />);
+    expect(screen.getByTestId("native-resource-offline")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Search clients")).toBeTruthy();
+  });
+
   it("keeps showing saved rows while paused", () => {
     list.current = { ...base, isPaused: true, data: { data: [{ id: "1", name: "Ada" }], total: 1 } };
     render(<NativeResourcePage resource="clients" title="Clients" cardFields={["name"]} />);

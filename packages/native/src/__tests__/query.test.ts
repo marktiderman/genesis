@@ -163,4 +163,13 @@ describe("connectQueryLifecycle", () => {
     expect(removeApp).toHaveBeenCalled();
     expect(removeNet).toHaveBeenCalled();
   });
+
+  it("leaves the app online when it stops following NetInfo, so paused queries don't wait forever", () => {
+    let netListener: ((state: { isConnected: boolean | null }) => void) | undefined;
+    const cleanup = connectQueryLifecycle({ netInfo: { addEventListener: (l) => ((netListener = l), () => {}) } });
+    netListener?.({ isConnected: false });
+    expect(onlineManager.isOnline()).toBe(false);
+    cleanup();
+    expect(onlineManager.isOnline()).toBe(true);
+  });
 });

@@ -31,10 +31,10 @@ export interface GenesisLinks {
 }
 
 /**
- * Apple's collected data types (`NSPrivacyCollectedDataType`), by the
- * stores' own words, as Genesis blocks name them in `privacy.collects`.
- * Only types a Genesis block or app is likely to declare; see Apple's
- * "NSPrivacyCollectedDataType" reference for the rest.
+ * Apple's collected data types (`NSPrivacyCollectedDataType`), every one in
+ * Apple's reference, keyed by the stores' own words as Genesis blocks name
+ * them in `privacy.collects` (`"device ID"` keeps the case the push block
+ * uses). The values are Apple's exact strings, `PhotosorVideos` included.
  */
 export const PRIVACY_DATA_TYPES: Readonly<Record<string, string>> = {
   name: "NSPrivacyCollectedDataTypeName",
@@ -42,22 +42,36 @@ export const PRIVACY_DATA_TYPES: Readonly<Record<string, string>> = {
   "phone number": "NSPrivacyCollectedDataTypePhoneNumber",
   "physical address": "NSPrivacyCollectedDataTypePhysicalAddress",
   "other user contact info": "NSPrivacyCollectedDataTypeOtherUserContactInfo",
+  health: "NSPrivacyCollectedDataTypeHealth",
+  fitness: "NSPrivacyCollectedDataTypeFitness",
+  "payment info": "NSPrivacyCollectedDataTypePaymentInfo",
+  "credit info": "NSPrivacyCollectedDataTypeCreditInfo",
+  "other financial info": "NSPrivacyCollectedDataTypeOtherFinancialInfo",
   "precise location": "NSPrivacyCollectedDataTypePreciseLocation",
   "coarse location": "NSPrivacyCollectedDataTypeCoarseLocation",
+  "sensitive info": "NSPrivacyCollectedDataTypeSensitiveInfo",
   contacts: "NSPrivacyCollectedDataTypeContacts",
   "emails or text messages": "NSPrivacyCollectedDataTypeEmailsOrTextMessages",
   "photos or videos": "NSPrivacyCollectedDataTypePhotosorVideos",
   "audio data": "NSPrivacyCollectedDataTypeAudioData",
+  "gameplay content": "NSPrivacyCollectedDataTypeGameplayContent",
   "customer support": "NSPrivacyCollectedDataTypeCustomerSupport",
   "other user content": "NSPrivacyCollectedDataTypeOtherUserContent",
+  "browsing history": "NSPrivacyCollectedDataTypeBrowsingHistory",
+  "search history": "NSPrivacyCollectedDataTypeSearchHistory",
   "user id": "NSPrivacyCollectedDataTypeUserID",
   "device ID": "NSPrivacyCollectedDataTypeDeviceID",
   "purchase history": "NSPrivacyCollectedDataTypePurchaseHistory",
   "product interaction": "NSPrivacyCollectedDataTypeProductInteraction",
+  "advertising data": "NSPrivacyCollectedDataTypeAdvertisingData",
   "other usage data": "NSPrivacyCollectedDataTypeOtherUsageData",
   "crash data": "NSPrivacyCollectedDataTypeCrashData",
   "performance data": "NSPrivacyCollectedDataTypePerformanceData",
   "other diagnostic data": "NSPrivacyCollectedDataTypeOtherDiagnosticData",
+  "environment scanning": "NSPrivacyCollectedDataTypeEnvironmentScanning",
+  hands: "NSPrivacyCollectedDataTypeHands",
+  head: "NSPrivacyCollectedDataTypeHead",
+  "other data types": "NSPrivacyCollectedDataTypeOtherDataTypes",
 };
 
 /** Apple's collection purposes (`NSPrivacyCollectedDataTypePurposes`), by the stores' words. */
