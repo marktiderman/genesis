@@ -26,6 +26,7 @@ export {
   placeholderSnapshot,
   presetComponentName,
   pruneEmpty,
+  safeSectionId,
   sectionTypeOf,
   toEditorData,
   type EditorData,

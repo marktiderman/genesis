@@ -39,7 +39,7 @@ import { Autosaver, type AutosaveState } from "./autosave";
 import { createEditorConfig, type CanvasMetadata } from "./config";
 import { countTypes, fromEditorData, h1SectionId, placeholderSnapshot, toEditorData, type EditorData } from "./data";
 import { genesisOverrides } from "./overrides";
-import { PagesPanel, type NewPageRequest } from "./pages-panel";
+import { PagesPanel, menuItemProblems, type NewPageRequest } from "./pages-panel";
 import { loadSiteCss, renderPreview, styleText } from "./preview";
 import { PublishPanel } from "./publish-panel";
 import { EditorServicesContext, type EditorAssets, type EditorServices, type PickedImage } from "./services";
@@ -59,6 +59,12 @@ export interface SiteEditorProps {
   assets?: EditorAssets;
   /** After each publish. */
   onPublish?: (release: Release) => void;
+  /**
+   * Whether anything isn't saved yet (waiting, saving, a conflict, a failed save, or a change that
+   * can't be saved until it's fixed). Block your app's own navigation while it's true: closing the
+   * tab is already guarded, and unmounting the editor saves what it can but can't ask.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
   /** Paths the site can't use (default: the store's own rule). */
   reserved?: ReservedPaths;
   /** A link to the host's preview route for a page path (opens in a new tab). */
@@ -91,12 +97,15 @@ const VIEWPORTS: Record<Viewport, { width: number | "100%"; label: string }> = {
   phone: { width: 390, label: "Phone" },
 };
 
-const SAVE_LABEL: Record<AutosaveState<unknown>["status"], string> = {
+type SaveStatus = AutosaveState<unknown>["status"] | "invalid";
+
+const SAVE_LABEL: Record<SaveStatus, string> = {
   saved: "All changes saved",
   pending: "Unsaved changes",
   saving: "Saving…",
   conflict: "Someone else saved: choose a version",
   error: "Couldn't save; retrying",
+  invalid: "Not saved: fix the problem shown",
 };
 
 function worst(...states: (AutosaveState<unknown> | null)[]): AutosaveState<unknown>["status"] {
@@ -154,7 +163,7 @@ function useCanvasFrame(css: string | null, href: string | undefined, theme: str
   );
 }
 
-function Toolbar({ siteName, pageTitle, saveStatus, viewport, onViewport, onPreview }: { siteName: string; pageTitle: string; saveStatus: AutosaveState<unknown>["status"]; viewport: Viewport; onViewport(v: Viewport): void; onPreview(): void }) {
+function Toolbar({ siteName, pageTitle, titleId, saveStatus, viewport, onViewport, onPreview }: { siteName: string; pageTitle: string; titleId: string; saveStatus: SaveStatus; viewport: Viewport; onViewport(v: Viewport): void; onPreview(): void }) {
   const history = usePuck((s) => s.history);
   const dispatch = usePuck((s) => s.dispatch);
   const choose = (v: Viewport) => {
@@ -165,7 +174,9 @@ function Toolbar({ siteName, pageTitle, saveStatus, viewport, onViewport, onPrev
     <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-3 py-2">
       <div className="flex min-w-0 flex-col">
         <span className="truncate text-xs text-muted-foreground">{siteName}</span>
-        <span className="truncate text-sm font-semibold">{pageTitle}</span>
+        <span id={titleId} tabIndex={-1} className="truncate text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {pageTitle}
+        </span>
       </div>
       <div className="flex items-center gap-1" role="toolbar" aria-label="Editor">
         <Button type="button" size="icon" variant="ghost" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!history.hasPast} onClick={() => history.back()}>
@@ -185,7 +196,7 @@ function Toolbar({ siteName, pageTitle, saveStatus, viewport, onViewport, onPrev
         })}
       </div>
       <div className="flex items-center gap-2">
-        <span role="status" aria-live="polite" className={cn("text-xs", saveStatus === "conflict" || saveStatus === "error" ? "text-destructive" : "text-muted-foreground")}>
+        <span role="status" className={cn("text-xs", saveStatus === "conflict" || saveStatus === "error" || saveStatus === "invalid" ? "text-destructive" : "text-muted-foreground")}>
           {SAVE_LABEL[saveStatus]}
         </span>
         <Button type="button" size="sm" variant="outline" onClick={onPreview}>
@@ -236,7 +247,7 @@ function PagesTab(props: Omit<React.ComponentProps<typeof PagesPanel>, "onEditFo
  *
  * @stability Beta
  */
-export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, reserved, previewUrl, autosaveDelay, initialPageId, siteStylesheet, className }: SiteEditorProps) {
+export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, onDirtyChange, reserved, previewUrl, autosaveDelay, initialPageId, siteStylesheet, className }: SiteEditorProps) {
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [site, setSite] = React.useState<SiteDoc | null>(null);
   const [pages, setPages] = React.useState<PageMeta[]>([]);
@@ -263,7 +274,14 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
 
   const siteSaver = React.useRef<Autosaver<SiteDoc> | null>(null);
   const pageSaver = React.useRef<Autosaver<PageDoc> | null>(null);
+  /** The page `pageSaver` saves: a change from an editor still showing another page is never fed to it. */
+  const pageSaverFor = React.useRef<string | null>(null);
   const counts = React.useRef<ReadonlyMap<string, number>>(new Map());
+  const focusTitle = React.useRef(false);
+  const titleId = React.useId();
+  const [announcement, setAnnouncement] = React.useState("");
+  /** The menu as typed, while it has a link that can't be saved yet (null: the saved menu). */
+  const [menuDraft, setMenuDraft] = React.useState<MenuItem[] | null>(null);
 
   const kind = open?.kind ?? "page";
   const editor = React.useMemo(() => createEditorConfig({ kind, counts: () => counts.current }), [kind]);
@@ -282,9 +300,19 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     async (pageId: string, siteDoc: SiteDoc) => {
       const draft = await store.getPageDraft(pageId);
       if (!draft) throw new Error("That page no longer exists, or you can't edit it.");
-      pageSaver.current?.dispose();
+      // Edits made to the page being left while this one loaded: save them before letting go of its saver.
+      const previous = pageSaver.current;
+      if (previous) {
+        try {
+          await previous.flush();
+        } catch (err) {
+          throw new Error(`The page you're leaving has a change that isn't saved: ${(err as Error).message}`);
+        }
+        previous.dispose();
+      }
       const saver = new Autosaver<PageDoc>({ rev: draft.rev, save: (rev, doc) => store.savePageDraft(pageId, rev, doc), delay: autosaveDelay ?? 800, onState: setPageState }, draft.doc);
       pageSaver.current = saver;
+      pageSaverFor.current = pageId;
       setPageState(saver.current);
       const placeholders = placeholderSnapshot(draft.doc.content);
       placeholderSnapshot(siteDoc.header, placeholders);
@@ -329,24 +357,31 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     if (!siteStylesheet) loadSiteCss().then(setCss, (err: unknown) => console.error("[genesis-sites/editor] the site stylesheet didn't load; the canvas is unstyled.", err));
     return () => {
       cancelled = true;
-      siteSaver.current?.dispose();
-      pageSaver.current?.dispose();
+      // Leaving the editor (another route in the app): save what's waiting, then stop.
+      const s = siteSaver.current;
+      const p = pageSaver.current;
+      void Promise.allSettled([s?.flush(), p?.flush()]).then((results) => {
+        for (const r of results) if (r.status === "rejected") console.error("[genesis-sites/editor] the editor closed with a change it couldn't save.", r.reason);
+        s?.dispose();
+        p?.dispose();
+      });
     };
     // Reload only for another site or store.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId, store]);
 
   // Nothing unsaved is lost by closing the tab without being asked.
+  const menuInvalid = menuDraft !== null && !menuDraft.every((i) => menuItemProblems(i).length === 0);
   React.useEffect(() => {
     const guard = (e: BeforeUnloadEvent) => {
-      if (siteSaver.current?.dirty || pageSaver.current?.dirty || invalid) {
+      if (siteSaver.current?.dirty || pageSaver.current?.dirty || invalid || menuInvalid) {
         e.preventDefault();
         e.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", guard);
     return () => window.removeEventListener("beforeunload", guard);
-  }, [invalid]);
+  }, [invalid, menuInvalid]);
 
   // Forms on the page, for the canvas.
   const formSlugs = React.useMemo(() => {
@@ -368,7 +403,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
   // ── Changes ───────────────────────────────────────────────────────────────
   const onChange = React.useCallback(
     (data: Data) => {
-      if (!open || !site) return;
+      // An editor still showing the page being left (between a page switch and the remount) saves nothing.
+      if (!open || !site || pageSaverFor.current !== open.id) return;
       const editorData = data as unknown as EditorData;
       counts.current = countTypes(editorData);
       setH1Id(h1SectionId(editorData.content ?? []));
@@ -382,7 +418,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       ];
       setInvalid(problems.length ? problems.join(" ") : null);
       if (page.success) {
-        pageSaver.current?.update(result.page);
+        // The parsed document (trimmed, defaults applied) is what the store would keep.
+        pageSaver.current?.update(page.data);
         const title = result.page.root.props.title;
         setPages((list) => (list.some((p) => p.id === open.id && p.title !== title) ? list.map((p) => (p.id === open.id ? { ...p, title } : p)) : list));
       }
@@ -406,10 +443,25 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     [site],
   );
 
+  /** The menu editor's every edit: kept as typed, and saved whenever every link is valid. */
+  const onMenuEdit = React.useCallback(
+    (items: MenuItem[]) => {
+      if (items.every((i) => menuItemProblems(i).length === 0)) {
+        setMenuDraft(null);
+        onNavChange(items.map((i) => ({ label: i.label.trim(), href: i.href.trim() })));
+      } else setMenuDraft(items);
+    },
+    [onNavChange],
+  );
+
   /** Save everything now; false (with a notice) when something can't be. */
   const flushAll = React.useCallback(async (): Promise<boolean> => {
     if (invalid) {
       setNotice({ tone: "error", text: `Fix this first: ${invalid}` });
+      return false;
+    }
+    if (menuInvalid) {
+      setNotice({ tone: "error", text: "Fix the menu first: a link there can't be saved yet." });
       return false;
     }
     try {
@@ -419,35 +471,46 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       setNotice({ tone: "error", text: (err as Error).message });
       return false;
     }
-  }, [invalid]);
+  }, [invalid, menuInvalid]);
 
-  /** The store moved a document on (a move, a create, a publish): adopt its revisions, keep unsaved edits. */
+  /**
+   * The store moved documents on (a move, a create, a publish, someone else's save): take its
+   * documents and revisions, and redraw the canvas when what it shows changed. Callers save
+   * everything first; a document that still has unsaved changes keeps its old revision, so its
+   * next save meets a conflict instead of overwriting what the store has.
+   */
   const resync = React.useCallback(async () => {
     const [draft, list] = await Promise.all([store.getDraft(siteId), store.listPages(siteId)]);
     setPages(list);
-    if (draft && siteSaver.current) {
-      const unsaved = siteSaver.current.dirty;
-      siteSaver.current.rebase(draft.rev, unsaved ? undefined : draft.site);
-      if (!unsaved) setSite(draft.site);
+    let redraw = false;
+    let siteDoc = siteSaver.current?.latest ?? site;
+    if (draft && siteSaver.current && !siteSaver.current.dirty) {
+      const ours = siteSaver.current.latest;
+      // Key order differs once the store has parsed a document: compare by content.
+      redraw = stableHash([ours?.header, ours?.footer]) !== stableHash([draft.site.header, draft.site.footer]);
+      siteSaver.current.rebase(draft.rev, draft.site);
+      setSite(draft.site);
+      setMenuDraft(null);
+      siteDoc = draft.site;
     }
-    if (open && pageSaver.current) {
+    let pageDoc = pageSaver.current?.latest ?? null;
+    if (open && pageSaver.current && pageSaverFor.current === open.id) {
       const p = await store.getPageDraft(open.id);
-      if (p) {
-        const unsaved = pageSaver.current.dirty;
-        // Key order differs once the store has parsed a document: compare by content.
-        const before = stableHash(pageSaver.current.latest);
-        pageSaver.current.rebase(p.rev, unsaved ? undefined : p.doc);
-        if (p.path !== open.path) setOpen((o) => (o ? { ...o, path: p.path } : o));
-        // A publish that migrated the page's props: show what the store has now.
-        if (!unsaved && stableHash(p.doc) !== before && draft) {
-          const data = toEditorData(p.doc, draft.site, editor.slotKeys);
-          setOpen((o) => (o ? { ...o, data } : o));
-          setEditorKey((k) => k + 1);
-        }
+      if (p && !pageSaver.current.dirty) {
+        if (stableHash(p.doc) !== stableHash(pageSaver.current.latest)) redraw = true;
+        pageSaver.current.rebase(p.rev, p.doc);
+        pageDoc = p.doc;
       }
+      if (p && p.path !== open.path) setOpen((o) => (o ? { ...o, path: p.path } : o));
+    }
+    if (redraw && open && pageDoc && siteDoc) {
+      const data = toEditorData(pageDoc, siteDoc, editor.slotKeys);
+      const placeholders = placeholderSnapshot([...pageDoc.content, ...siteDoc.header, ...siteDoc.footer]);
+      setOpen((o) => (o ? { ...o, data, placeholders } : o));
+      setEditorKey((k) => k + 1);
     }
     return { draft, list };
-  }, [store, siteId, open, editor.slotKeys]);
+  }, [store, siteId, open, site, editor.slotKeys]);
 
   const runCheck = React.useCallback(async () => {
     if (!(await flushAll())) return;
@@ -477,6 +540,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     if (!(await flushAll())) return;
     setBusy(true);
     try {
+      focusTitle.current = true;
       await loadPage(pageId, siteSaver.current?.latest ?? site!);
     } catch (err) {
       setNotice({ tone: "error", text: (err as Error).message });
@@ -490,13 +554,17 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     const doc = request.template.doc({ title: request.title, brand });
     const meta = await store.createPage(siteId, { path: request.path, kind: request.template.kind, doc });
     const { draft } = await resync();
+    let menuNote = "";
     if (request.addToMenu && draft) {
       const nav = [...draft.site.nav, { label: request.title.slice(0, 40), href: request.path }];
-      if (nav.length <= 12) onNavChange(nav);
-      await siteSaver.current?.flush().catch(() => undefined);
+      if (nav.length <= 12) {
+        onNavChange(nav);
+        await siteSaver.current?.flush().catch(() => undefined);
+      } else menuNote = " The menu is full (12 links), so it isn't in the menu.";
     }
+    focusTitle.current = true;
     await loadPage(meta.id, siteSaver.current?.latest ?? draft?.site ?? site!);
-    setNotice({ tone: "info", text: `Added ${request.title} at ${request.path}.` });
+    setNotice({ tone: "info", text: `Added ${request.title} at ${request.path}.${menuNote}` });
   };
 
   const rename = async (pageId: string, path: string) => {
@@ -517,10 +585,11 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       await store.deletePage(pageId);
       const { draft, list } = await resync();
       if (draft && gone && draft.site.nav.some((n) => n.href === gone.path)) onNavChange(draft.site.nav.filter((n) => n.href !== gone.path));
+      focusTitle.current = true;
       if (pageId === open?.id) {
         const home = list.find((p) => p.path === "/") ?? list[0];
         if (home && draft) await loadPage(home.id, siteSaver.current?.latest ?? draft.site);
-      }
+      } else focusPageTitle();
       setNotice({ tone: "info", text: `Deleted ${gone?.title ?? "the page"}.` });
     } catch (err) {
       setNotice({ tone: "error", text: (err as Error).message });
@@ -608,12 +677,48 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     } else {
       const theirs = pageSaver.current?.reload();
       if (theirs) {
+        const siteDoc = siteSaver.current?.latest ?? site;
         setPages((list) => list.map((p) => (p.id === open.id ? { ...p, title: theirs.root.props.title } : p)));
-        setOpen({ ...open, data: toEditorData(theirs, siteSaver.current?.latest ?? site, editor.slotKeys), placeholders: placeholderSnapshot(theirs.content) });
+        setOpen({ ...open, data: toEditorData(theirs, siteDoc, editor.slotKeys), placeholders: placeholderSnapshot([...theirs.content, ...siteDoc.header, ...siteDoc.footer]) });
         setEditorKey((k) => k + 1);
       }
     }
   };
+
+  // ── Focus and announcements ───────────────────────────────────────────────
+  /** After a page opens or goes, focus lands on the page's name in the toolbar, not on nothing. */
+  function focusPageTitle() {
+    requestAnimationFrame(() => document.getElementById(titleId)?.focus());
+  }
+  React.useEffect(() => {
+    if (!focusTitle.current) return;
+    focusTitle.current = false;
+    focusPageTitle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorKey]);
+  const announce = React.useCallback((message: string) => {
+    // Cleared first so the same message twice is announced twice.
+    setAnnouncement("");
+    requestAnimationFrame(() => setAnnouncement(message));
+  }, []);
+
+  /**
+   * Puck deletes the selected section on Delete or Backspace unless focus is in a text field. In the
+   * side panels focus is often on a button, radio or switch: those keys must not remove a section there.
+   */
+  const keepDeleteInPanel = (e: React.KeyboardEvent) => {
+    if (e.key !== "Delete" && e.key !== "Backspace") return;
+    const target = e.target as HTMLElement;
+    const textEntry = target.closest("textarea, [contenteditable=''], [contenteditable='true']") || (target instanceof HTMLInputElement && !["button", "checkbox", "radio", "submit", "reset", "file", "range", "color"].includes(target.type));
+    // Puck skips its delete when the event is already handled (defaultPrevented); on a button or radio these keys do nothing else.
+    if (!textEntry) e.preventDefault();
+  };
+
+  // Hosts can block their own navigation while something isn't saved.
+  const dirty = worst(siteState, pageState) !== "saved" || Boolean(invalid) || menuInvalid;
+  React.useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
 
   // ── Services for fields ───────────────────────────────────────────────────
   const services = React.useMemo<EditorServices>(
@@ -637,7 +742,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     [site?.name, site?.lang, site?.nav, brand, open?.path, open?.placeholders, formMap, h1Id],
   );
 
-  const overrides = React.useMemo(() => genesisOverrides(editor.components, { iframe: iframe as never }), [editor.components, iframe]);
+  const overrides = React.useMemo(() => genesisOverrides(editor.components, { iframe: iframe as never }, { announce }), [editor.components, iframe, announce]);
 
   if (loadError) {
     return (
@@ -655,7 +760,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     );
   }
 
-  const saveStatus = worst(siteState, pageState);
+  const saveStatus: SaveStatus = invalid || menuInvalid ? "invalid" : worst(siteState, pageState);
   const pageMeta = pages.find((p) => p.id === open.id);
   const pageTitle = pageMeta?.title ?? open.data.root.props.title;
   const blockedReason = invalid ? `Fix this first: ${invalid}` : conflict ? "Choose a version in the conflict first." : null;
@@ -680,7 +785,10 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
         >
           <div className="flex h-full min-h-0 flex-col">
           <SelectionWatcher onSelect={() => setRightTab("edit")} />
-          <Toolbar siteName={site.name} pageTitle={`${pageTitle} (${open.path})`} saveStatus={saveStatus} viewport={viewport} onViewport={setViewport} onPreview={() => void showPreview("preview")} />
+          <p role="status" className="sr-only">
+            {announcement}
+          </p>
+          <Toolbar siteName={site.name} pageTitle={`${pageTitle} (${open.path})`} titleId={titleId} saveStatus={saveStatus} viewport={viewport} onViewport={setViewport} onPreview={() => void showPreview("preview")} />
           {notice || invalid ? (
             <div className="flex flex-col gap-2 border-b border-border px-3 py-2">
               {invalid ? (
@@ -699,7 +807,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
             </div>
           ) : null}
           <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[17rem_minmax(0,1fr)_20rem]">
-            <aside className="flex min-h-0 flex-col border-b border-border lg:border-b-0 lg:border-r" aria-label="Sections and pages">
+            <aside className="flex min-h-0 flex-col border-b border-border lg:border-b-0 lg:border-r" aria-label="Sections and pages" onKeyDown={keepDeleteInPanel}>
               <Tabs defaultValue="add" value={leftTab} onValueChange={setLeftTab} className="flex min-h-0 flex-1 flex-col">
                 <TabsList className="m-2 grid grid-cols-3">
                   <TabsTrigger value="add">Add</TabsTrigger>
@@ -707,7 +815,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
                   <TabsTrigger value="pages">Pages</TabsTrigger>
                 </TabsList>
                 <TabsContent value="add" className="mt-0 min-h-0 flex-1 overflow-y-auto px-2 pb-4" data-gs-drawer="">
-                  <p className="px-1 pb-2 text-xs text-muted-foreground">Drag a section onto the page.</p>
+                  <p className="px-1 pb-2 text-xs text-muted-foreground">Drag a section onto the page, or press Add to put it at the end.</p>
                   <Puck.Components />
                 </TabsContent>
                 <TabsContent value="outline" className="mt-0 min-h-0 flex-1 overflow-y-auto px-2 pb-4">
@@ -717,7 +825,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
                   <PagesTab
                     pages={pages}
                     currentId={open.id}
-                    nav={site.nav}
+                    nav={menuDraft ?? site.nav}
                     reserved={reserved}
                     canReorder={Boolean(store.reorderPages)}
                     busy={busy}
@@ -726,16 +834,17 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
                     onRename={rename}
                     onDelete={remove}
                     onReorder={reorder}
-                    onNavChange={onNavChange}
+                    onNavChange={onMenuEdit}
                     onFooter={() => setRightTab("edit")}
                   />
                 </TabsContent>
               </Tabs>
             </aside>
-            <main className="relative min-h-[28rem] min-w-0 bg-muted" aria-label="Page canvas" data-gs-canvas="">
+            {/* A region, not <main>: the editor sits inside the host app's own main landmark. */}
+            <section className="relative min-h-[28rem] min-w-0 bg-muted" aria-label="Page canvas" data-gs-canvas="">
               <Puck.Preview />
-            </main>
-            <aside className="flex min-h-0 flex-col border-t border-border lg:border-l lg:border-t-0" aria-label="Section settings and publishing">
+            </section>
+            <aside className="flex min-h-0 flex-col border-t border-border lg:border-l lg:border-t-0" aria-label="Section settings and publishing" onKeyDown={keepDeleteInPanel}>
               <Tabs defaultValue="edit" value={rightTab} onValueChange={setRightTab} className="flex min-h-0 flex-1 flex-col">
                 <TabsList className="m-2 grid grid-cols-2">
                   <TabsTrigger value="edit">Edit</TabsTrigger>

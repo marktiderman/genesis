@@ -141,7 +141,7 @@ function IssueList({ issues, currentPageId, onOpenPage, onShown }: { issues: Sit
           {issue.severity === "error" ? <AlertCircle aria-label="Blocks publishing" className="mt-0.5 h-4 w-4 shrink-0 text-destructive" /> : <AlertTriangle aria-label="Warning" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
           <span className="flex-1">{issue.message}</span>
           {issue.sectionId || (issue.pageId && issue.pageId !== currentPageId) ? (
-            <Button type="button" size="sm" variant="ghost" onClick={() => show(issue)}>
+            <Button type="button" size="sm" variant="ghost" onClick={() => show(issue)} aria-label={`Show: ${issue.message.length > 80 ? `${issue.message.slice(0, 80)}…` : issue.message}`}>
               Show
             </Button>
           ) : null}

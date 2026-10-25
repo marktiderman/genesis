@@ -45,7 +45,10 @@ export function ImageField({ field, id, value, onChange, readOnly }: FieldRender
   const missingAlt = Boolean(image.src) && !image.alt?.trim() && image.decorative !== true;
   const choose = async () => {
     const picked = await services.pickImage(image.src ? { current: image as PickedImage } : {});
-    if (picked) onChange({ ...image, ...picked });
+    if (!picked) return;
+    // The new image replaces every image attribute (alt, decorative, size, focal point); other props stay.
+    const { src: _s, alt: _a, decorative: _d, width: _w, height: _h, focal: _f, ...rest } = image;
+    onChange({ ...rest, ...picked });
   };
   return (
     <div className="flex flex-col gap-2" role="group" aria-labelledby={`${id}-label`}>

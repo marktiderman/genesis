@@ -138,13 +138,13 @@ export function AssetPicker({ open, siteId, store, assets, current, onDone }: As
             {all.length === 0 ? (
               <p className="text-sm text-muted-foreground">{library === null && assets?.list ? "Loading…" : "No images yet. Upload one first."}</p>
             ) : (
-              <div role="listbox" aria-label="Site images" className="grid max-h-64 grid-cols-3 gap-2 overflow-y-auto">
+              <div role="group" aria-label="Site images" className="grid max-h-64 grid-cols-3 gap-2 overflow-y-auto">
                 {all.map((a) => (
                   <button
                     key={a.id}
                     type="button"
-                    role="option"
-                    aria-selected={chosen?.id === a.id}
+                    aria-pressed={chosen?.id === a.id}
+                    aria-label={a.alt?.trim() || a.path.split("/").pop() || "Image"}
                     onClick={() => {
                       setChosen(a);
                       if (a.alt && !alt) setAlt(a.alt);

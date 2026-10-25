@@ -168,6 +168,7 @@ async function handleUpload(request: Request, rest: string, root: string): Promi
   if (request.method === "POST" && rest === "/uploads") {
     const type = (request.headers.get("content-type") ?? "").split(";")[0]!.trim();
     if (!UPLOAD_TYPES.has(type)) return new Response("Only PNG, JPEG, WebP, AVIF or GIF images.\n", { status: 415 });
+    if (Number(request.headers.get("content-length") ?? 0) > 5 * 1024 * 1024) return new Response("At most 5 MB.\n", { status: 413 });
     const body = await request.arrayBuffer();
     if (body.byteLength > 5 * 1024 * 1024) return new Response("At most 5 MB.\n", { status: 413 });
     const name = (new URL(request.url).searchParams.get("name") ?? "image").toLowerCase().replace(/[^a-z0-9.]+/g, "-").slice(0, 60);
