@@ -27,6 +27,10 @@
     "./native": {
       "types": "./dist/native.d.ts",
       "import": "./dist/native.js"
+    },
+    "./blocks": {
+      "types": "./dist/blocks.d.ts",
+      "import": "./dist/blocks.js"
     }
   },
   "files": [
@@ -52,5 +56,78 @@
     "tsup": "^8.3.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "blocks": {
+      "account": {
+        "feature": {
+          "name": "Account",
+          "summary": "Sign-in, profile and in-app account deletion, with Sign in with Apple token revocation.",
+          "keywords": [
+            "sign in",
+            "account deletion",
+            "apple"
+          ],
+          "audience": [
+            "person"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0001_genesis_account_deletion.sql",
+            "test": "migrations/tests/0001_genesis_account_deletion.test.sql"
+          },
+          {
+            "file": "migrations/0003_genesis_apple_token_revocation.sql",
+            "test": "migrations/tests/0003_genesis_apple_token_revocation.test.sql"
+          }
+        ],
+        "functions": [
+          {
+            "dir": "functions/genesis-apple-revoke",
+            "verifyJwt": false,
+            "secrets": [
+              "APPLE_TEAM_ID",
+              "APPLE_KEY_ID",
+              "APPLE_PRIVATE_KEY",
+              "APPLE_CLIENT_IDS"
+            ]
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Enable the sign-in providers you use in Supabase Auth (email, Apple), and deploy genesis-apple-revoke if you offer Sign in with Apple."
+        ]
+      },
+      "tenant-features": {
+        "feature": {
+          "name": "Tenant feature switches",
+          "summary": "A tenant's admins turn a shipped feature off or back on for their tenant with a reason; members hide what is off.",
+          "keywords": [
+            "feature toggle",
+            "per tenant",
+            "organization settings"
+          ],
+          "audience": [
+            "admin"
+          ]
+        },
+        "migrations": [
+          {
+            "file": "migrations/0004_genesis_tenant_features.sql",
+            "test": "migrations/tests/0004_genesis_tenant_features.test.sql"
+          }
+        ],
+        "steps": [
+          "Give tenant_features your membership rule in a migration of your own: create private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean, and revoke execute on it from public, anon, authenticated (genesis-supabase README, Tenant feature switches). Without it nobody can change a switch."
+        ]
+      }
+    }
   }
 }

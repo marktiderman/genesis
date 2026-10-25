@@ -7,6 +7,22 @@ npx @marktiderman/genesis-cli init <consumer>
 Scaffolds a Genesis consumer: a brand package, Tailwind and tokens.
 
 ```bash
+npx @marktiderman/genesis-cli init <app> --template native [--bundle-id com.acme.app] [--scheme acme] [--display-name "Acme"]
+```
+
+Makes a new Expo app from the Genesis RN starter, in `./<app>` (or `--target`), which must be new
+or empty. See [A new native app](#a-new-native-app).
+
+```bash
+npx @marktiderman/genesis-cli add <block> [--dry-run] [--yes] [--no-install]
+npx @marktiderman/genesis-cli migrate [--dry-run] [--forward]
+npx @marktiderman/genesis-cli upgrade [--version <v>] [--dry-run] [--keep-mine] [--pr]
+```
+
+Add a block to an app, copy new package migrations in, and move every Genesis package to one
+release. See [Blocks: add, migrate, upgrade](#blocks-add-migrate-upgrade).
+
+```bash
 npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>] [--dir <dir>]
 ```
 
@@ -58,6 +74,145 @@ npx @marktiderman/genesis-cli features build   # or: features check (for CI)
 Writes the marked feature block in `AGENTS.md` (and a JSON copy with `--json <file>`) from the
 repo's `src/features.ts`; `check` exits 1 when that output is stale or a feature's `links.code`
 path doesn't exist. See [genesis-features](../features/README.md) for the registry and the options.
+
+## A new native app
+
+`genesis init <app> --template native` copies the starter (`apps/genesis-rn-starter`) that ships
+inside the CLI, at the version the CLI was released with:
+
+- only the files an app owns: no `node_modules`, build output, or the starter's monorepo-only test
+  (`__tests__/release.test.ts`, which reads the monorepo's `templates/`);
+- renamed: package name, display name, slug, URL scheme and bundle id, everywhere the starter's
+  values appear (Apple client ids in `supabase/config.toml`, the Maestro flows' `appId`);
+- every `workspace:` dependency set to `^<version>` from the same release (the installed
+  umbrella's `versions.json` when there is one), the plain Metro config, and a
+  `pnpm-workspace.yaml` with the pnpm settings Metro and pnpm 11 need (hoisted layout, allowed
+  build scripts, one React);
+- the templates: `templates/eas` to `eas.json` and `.eas/`, `templates/maestro` to `.maestro/`,
+  `templates/ci` to `.github/workflows/` (replace `GENESIS_SHA` in them);
+- `genesis.lock.json`, recording the blocks the starter carries (`account`, `app-updates`,
+  `push`), every file Genesis owns in the app with its checksum, and the renames, so `upgrade`
+  can refresh them and `migrate` knows the blocks.
+
+The starter's migrations are copied byte for byte (its own tests check that); `migrate` knows them
+by name and text. `init --native` (the brand-package scaffold for an Expo app) is unchanged.
+
+## Blocks: add, migrate, upgrade
+
+A block is a feature an app adds whole (see `defineBlock` in `@marktiderman/genesis-features`).
+The commands read blocks from the Genesis packages, never from a list in the CLI, so a package
+that declares a block is found:
+
+- `package.json` → `"genesis": { "blocks": { "<id>": { … } } }`, plain JSON the CLI reads without
+  running package code. The CLI carries a catalog of every Genesis package's manifests, so a block
+  is found before its package is installed.
+- A `./blocks` export of `defineBlock` declarations that loads in Node (no React Native), such as
+  `@marktiderman/genesis-supabase/blocks`. What a declaration says (requires, platforms,
+  migrations, routes, skills, privacy) wins over package.json; package.json adds what a
+  declaration can't.
+
+A manifest entry:
+
+```json
+{
+  "feature": { "name": "Push", "summary": "…", "keywords": ["notifications"], "audience": ["person"] },
+  "platforms": ["native"],
+  "requires": ["account"],
+  "packages": ["@marktiderman/genesis-native", "@marktiderman/genesis-supabase"],
+  "install": ["@supabase/supabase-js@^2.118.0"],
+  "migrations": [{ "package": "@marktiderman/genesis-supabase", "file": "migrations/0005_genesis_push.sql", "test": "migrations/tests/0005_genesis_push.test.sql" }],
+  "functions": [{ "package": "@marktiderman/genesis-supabase", "dir": "functions/genesis-push-send", "verifyJwt": false, "secrets": ["GENESIS_PUSH_SECRET"] }],
+  "routes": [{ "path": "/settings/notifications", "signedIn": true }],
+  "skills": ["skills/push/SKILL.md"],
+  "agents": "agents/push.md",
+  "steps": ["npx expo install expo-notifications, and add it to the plugins in app.config."]
+}
+```
+
+Every path is package-relative and checked before anything reads it: no absolute paths, no `..`,
+no backslashes, and a file that resolves (through a symlink) outside its package is refused.
+`package` must be a Genesis package. Migrations are named `NNNN_name.sql`. A package whose
+runtime block is made by a function (`createPush`) keeps a test that its manifest says what the
+block declares.
+
+### genesis add
+
+`genesis add <block>` plans, prints the plan, asks (or `--yes`), then:
+
+1. installs the block's `packages` (at the installed umbrella's pinned version, else this CLI's
+   release) and `install` entries the app doesn't have, with the app's package manager
+   (`--no-install` prints the command instead);
+2. copies each migration into `supabase/migrations/` as a **new** file,
+   `<timestamp>_<name>.sql`, timestamped after every migration already there, with a header naming
+   the package, the file and the checksum of the package's text; and its pgTAP test into
+   `supabase/tests/database/`;
+3. copies its Edge Functions into `supabase/functions/<name>/` (and adds `verify_jwt = false` to
+   `supabase/config.toml` when the manifest says so), its skills into `.claude/skills/<name>/`,
+   and its AGENTS.md fragment between `<!-- genesis-block:<id>:start/end -->` markers;
+4. writes a stub screen for each route an Expo Router app doesn't have yet (inside the app's one
+   group for a signed-in route); other routers get a step;
+5. adds the block's entry to the feature registry (`features.ts`) when the edit is unambiguous and
+   still loads, or prints the snippet; then runs `features build`;
+6. records the block and the files it owns in `genesis.lock.json`, and prints what is left by hand
+   (secrets, plugin config, the privacy label).
+
+It never overwrites a file the app has: one with other text is reported and left alone. A second
+run creates and changes nothing. `--dry-run` prints the plan and writes nothing. `genesis add
+--list` lists the blocks the app can add. `genesis studio init` is unchanged.
+
+### genesis migrate
+
+Compares the migrations of the app's blocks (`genesis.lock.json`, plus `--block <id>`) in the
+installed packages with the app's copies, and every copy that carries a header:
+
+| State | Meaning | What happens |
+| --- | --- | --- |
+| `current` | the copy matches its package text | nothing |
+| `new` | the package ships a migration the app hasn't copied | copied as a new file, after every existing one |
+| `edited` | the copy no longer matches the text it was copied with | reported; never rewritten |
+| `changed-upstream` | the package now ships different text than the copy was made from | reported; never rewritten |
+| `differs` | a file with the migration's name, other text and no header | treated as the app's own; never rewritten |
+
+Every file already in `supabase/migrations` counts as applied: none is ever written again, and a
+new file is created only if its name is free (otherwise it fails). A package migration is copied
+only when nothing in the folder holds it yet, by header, by name or by text, so one a package
+renumbered or moved is never copied twice. Line endings (CRLF or LF) don't count as a change. A
+symlink in the folder stops the command. A pgTAP test is copied only with its migration, so one you
+deleted stays deleted. `--forward` writes one forward migration stub
+(`<timestamp>_<name>_forward.sql`, with a `genesis-forward` header) for each edited or changed
+copy, holding the package's current text commented out, for you to turn into the change; later
+runs count that copy as handled. It exits 1 when something still needs you.
+
+### genesis upgrade
+
+1. Reads the release: `@marktiderman/genesis@<version>` (default `latest`) and its
+   `versions.json`, as the [genesis-upgrade workflow](../../docs/APP-CI.md#genesis-upgrade) does,
+   or `--manifest <file>`. The bump is the workflow's own code (`src/upgrade/bump-core.mjs`, which
+   the workflow embeds): every Genesis dependency in every tracked package.json moves together,
+   keeping its range prefix; `workspace:`, `file:` and other ranges are left alone, nothing is
+   downgraded.
+2. Runs a codemod only when a release declares a breaking change it fixes: the registry in
+   `src/upgrade/codemods.ts` (empty today) names the package and the first version that breaks, and
+   a codemod runs when a package moves across it. A major move (or a 0.x minor) without one is
+   listed so you read its changelog.
+3. Reinstalls, then refreshes every file in `genesis.lock.json` from the newly installed package:
+   unchanged in the app, it takes the new version; changed by both, it is merged with `git
+   merge-file` against the old version (the base); a conflict goes to `<file>.genesis-next` and
+   your file is kept. `--keep-mine` never merges: the new text goes to `.genesis-next`. A file you
+   deleted stays deleted. AGENTS.md fragments are replaced, skills a block gained are copied, and
+   new package migrations are listed (run `genesis migrate`).
+4. Runs `genesis doctor` and prints a summary; `--pr` commits to `genesis-upgrade/<version>`,
+   pushes and opens a pull request with `gh`. It checks first, before writing anything, that the
+   tree is clean, a branch is checked out and the branch name is free; it commits the lockfile
+   (found up to the repository's root), never `.genesis-next` files. `--dry-run` changes nothing,
+   and shows the refresh against the packages installed now.
+
+`genesis.lock.json` is checked like a manifest, since anyone with commit access can edit it: each
+entry may only write where its kind of source goes (a template to `eas.json`, `.eas/`, `.maestro/`
+or `.github/workflows/`, a function file to `supabase/functions/<name>/`, a pgTAP test to
+`supabase/tests/database/`, a skill to `.claude/skills/`), never a migration and never `.git`;
+substitutions may only replace the starter's own names. A pgTAP test waits while its block has
+new migrations to copy.
 
 ## Expo config plugin
 
