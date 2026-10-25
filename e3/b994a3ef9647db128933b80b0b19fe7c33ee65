@@ -1,0 +1,36 @@
+packages/native/tsup.config.ts
+  s_8252619ce79a86::t_0d559a6d7d95e9 11
+apps/genesis-rn-starter/index.ts
+  s_8252619ce79a86::t_0d559a6d7d95e9 1-14
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_0d559a6d7d95e9 5
+packages/native/src/dev-warnings.ts
+  s_8252619ce79a86::t_0d559a6d7d95e9 16-24
+  s_8252619ce79a86::t_fe340caba39b06 1-15,25-43
+apps/genesis-rn-starter/__tests__/entry.test.ts
+  s_8252619ce79a86::t_8ed7a006d23994 1-28
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_dc7dbe4d836c24 102-114
+packages/native/src/__tests__/dev-warnings.test.ts
+  s_8252619ce79a86::t_9b48b2ec2f1d1e 1-35
+packages/native/package.json
+  s_8252619ce79a86::t_0d559a6d7d95e9 54-58
+.changeset/dev-warnings-tab-tap.md
+  s_8252619ce79a86::t_8ed7a006d23994 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e3b994a3ef9647db128933b80b0b19fe7c33ee65",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
