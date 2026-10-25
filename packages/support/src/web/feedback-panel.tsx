@@ -253,6 +253,18 @@ function DraftBox({ drag }: { drag: { start: { x: number; y: number }; points: S
 export interface Marks {
   strokes: Stroke[];
   redactions: Redaction[];
+  /** The kinds in the order they were drawn, for Undo. */
+  order?: Array<"stroke" | "redaction">;
+}
+
+/** Marks without the newest one (by `order`; without it, the last redaction, then the last stroke). */
+export function undoMark(marks: Marks): Marks {
+  const order = marks.order ?? [];
+  const last = order[order.length - 1] ?? (marks.redactions.length ? "redaction" : "stroke");
+  const rest = order.slice(0, -1);
+  return last === "redaction"
+    ? { ...marks, redactions: marks.redactions.slice(0, -1), order: rest }
+    : { ...marks, strokes: marks.strokes.slice(0, -1), order: rest };
 }
 
 /** The captured tab, with pen strokes and hidden (solid) areas shown over it; drawn into the image at Send. */
@@ -278,10 +290,12 @@ function ScreenshotEditor({
   const finish = (end: { x: number; y: number }) => {
     if (!drag) return;
     setDrag(null);
-    if (tool === "pen") onMarks({ ...marks, strokes: [...marks.strokes, [...drag.points, end]] });
+    const order = marks.order ?? [];
+    if (tool === "pen") onMarks({ ...marks, strokes: [...marks.strokes, [...drag.points, end]], order: [...order, "stroke"] });
     else
       onMarks({
         ...marks,
+        order: [...order, "redaction"],
         redactions: [...marks.redactions, { x: Math.min(drag.start.x, end.x), y: Math.min(drag.start.y, end.y), width: Math.abs(end.x - drag.start.x), height: Math.abs(end.y - drag.start.y) }],
       });
   };
@@ -301,7 +315,7 @@ function ScreenshotEditor({
             variant="ghost"
             size="sm"
             disabled={!marks.strokes.length && !marks.redactions.length}
-            onClick={() => onMarks(marks.redactions.length ? { ...marks, redactions: marks.redactions.slice(0, -1) } : { ...marks, strokes: marks.strokes.slice(0, -1) })}
+            onClick={() => onMarks(undoMark(marks))}
             data-testid="genesis-support-undo"
           >
             {copy.annotate.undo}

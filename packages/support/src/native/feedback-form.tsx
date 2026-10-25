@@ -140,7 +140,11 @@ export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-su
       ) : null}
       {/* Full screen, outside the page's scroll view: on iOS a scroll view takes a drag before the drawing can. */}
       {annotating && screenshot && block.options.viewShot ? (
-        <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setAnnotating(false)}>
+        <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={() => {
+            // Android back: like Cancel, never leave a screenshot included without the person's marks.
+            setInclude(false);
+            setAnnotating(false);
+          }}>
           <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={{ flex: 1, padding: 16, justifyContent: "center" }}>
               <ScreenshotAnnotator

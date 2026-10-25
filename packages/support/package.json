@@ -244,8 +244,9 @@
             }
           ],
           "notes": [
-            "Feedback is sent only when the person taps Send, and a screenshot only when they include it.",
-            "Reports, screenshots and replies are visible to the person and the app's support staff only."
+            "Feedback is sent only when the person taps Send, and a screenshot only when they include it, after they can hide parts of it.",
+            "Reports, screenshots and replies are visible to the person and the app's support staff only, and go when the person deletes them or their account.",
+            "Feedback includes the app version, the screen's path (never its query string; private-looking segments are replaced), the platform and basic device facts."
           ]
         }
       }

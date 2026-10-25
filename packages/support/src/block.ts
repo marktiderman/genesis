@@ -77,16 +77,16 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
     migrations: [{ package: PACKAGE, file: "migrations/0006_genesis_support.sql", test: "migrations/tests/0006_genesis_support.test.sql" }],
     privacy: {
       collects: [
-        { type: "user id", purposes: ["app functionality"], linked: true, tracking: false },
+        { type: "user ID", purposes: ["app functionality"], linked: true, tracking: false },
         { type: "customer support", purposes: ["app functionality"], linked: true, tracking: false },
-        { type: "other user content", purposes: ["app functionality", "product personalization"], linked: true, tracking: false },
+        { type: "other user content", purposes: ["app functionality"], linked: true, tracking: false },
         { type: "photos or videos", purposes: ["app functionality"], linked: true, tracking: false },
         { type: "other diagnostic data", purposes: ["app functionality"], linked: true, tracking: false },
       ],
       notes: [
-        "Feedback is sent only when the person taps Send; a screenshot only when they keep it, after they can hide parts of it.",
+        "Feedback is sent only when the person taps Send, and a screenshot only when they include it, after they can hide parts of it.",
         "Reports, screenshots and replies are visible to the person and the app's support staff only, and go when the person deletes them or their account.",
-        "Feedback includes the app version, the screen's path (never its query string), the platform and basic device facts.",
+        "Feedback includes the app version, the screen's path (never its query string; private-looking segments are replaced), the platform and basic device facts.",
       ],
     },
   };

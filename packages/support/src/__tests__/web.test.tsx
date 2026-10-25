@@ -1,7 +1,7 @@
 // @feat:support-feedback
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FeedbackPanel, createPinOverlay, resolvePin, stableLocator, webContextCollector, canCaptureScreenshot } from "../web";
+import { FeedbackPanel, createPinOverlay, resolvePin, stableLocator, undoMark, webContextCollector, canCaptureScreenshot } from "../web";
 import type { FeedbackRecord } from "../record";
 
 afterEach(() => {
@@ -97,5 +97,15 @@ describe("My reports", () => {
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Your reports" }));
     fireEvent.click(screen.getByRole("tab", { name: "Your reports" }));
     await waitFor(() => expect(screen.getByTestId("genesis-support-mine-error")).toBeTruthy());
+  });
+});
+
+describe("undoMark", () => {
+  it("removes the newest mark, whichever kind it was", () => {
+    const stroke = [{ x: 0, y: 0 }];
+    const box = { x: 0, y: 0, width: 0.1, height: 0.1 };
+    const marks = { strokes: [stroke], redactions: [box], order: ["redaction", "stroke"] as Array<"stroke" | "redaction"> };
+    expect(undoMark(marks)).toMatchObject({ strokes: [], redactions: [box], order: ["redaction"] });
+    expect(undoMark(undoMark(marks))).toMatchObject({ strokes: [], redactions: [], order: [] });
   });
 });

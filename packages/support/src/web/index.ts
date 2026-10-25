@@ -5,7 +5,7 @@
  *
  * @stability Beta
  */
-export { FeedbackPanel, webContextCollector, type FeedbackPanelProps } from "./feedback-panel";
+export { FeedbackPanel, undoMark, webContextCollector, type FeedbackPanelProps, type Marks } from "./feedback-panel";
 export { FeedbackLauncher, mountSupportWidget, type FeedbackLauncherProps, type LauncherPosition } from "./launcher";
 export { annotateScreenshot, canCaptureScreenshot, captureScreenshot, type Redaction, type Stroke, type WebCapture } from "./capture";
 export { createPinOverlay, pickPin, resolvePin, stableLocator, type FeedbackPin, type PinOverlay, type PinnedReport } from "./pin";

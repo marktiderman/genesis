@@ -224,6 +224,15 @@ describe("the block", () => {
     expect(resolved.privacy[0]!.collects?.every((c) => c.tracking === false)).toBe(true);
   });
 
+  it("says the same about privacy, migrations and routes as its package.json manifest (genesis add reads that)", () => {
+    const pkg = JSON.parse(readFileSync(join(__dirname, "../../package.json"), "utf8"));
+    const manifest = pkg.genesis.blocks[SUPPORT_BLOCK_ID];
+    const c = defineSupportBlock({ basePath: "/settings/support" }).contributes!;
+    expect(manifest.privacy).toEqual(c.privacy);
+    expect(manifest.migrations.map((m: { file: string }) => m.file)).toEqual(c.migrations!.map((m) => m.file));
+    expect(manifest.routes.map((r: { path: string }) => r.path)).toEqual(c.routes!.map((r) => r.path));
+  });
+
   it("names a migration and a test that the supabase package ships", () => {
     const root = join(__dirname, "../../../supabase");
     for (const m of defineSupportBlock().contributes!.migrations!) {
