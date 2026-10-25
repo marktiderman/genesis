@@ -26,5 +26,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: { package: starter.app.bundleId },
   experiments: { typedRoutes: true, reactCompiler: true },
-  plugins: ["expo-router", "expo-secure-store", "expo-updates", "@marktiderman/genesis-cli"],
+  plugins: [
+    "expo-router",
+    "expo-secure-store",
+    "expo-updates",
+    "@marktiderman/genesis-cli",
+    // Optional: upload source maps to Sentry from EAS builds (the observability block). Set your
+    // organization and project slugs, add SENTRY_AUTH_TOKEN as an EAS secret, set "@sentry/cli" to
+    // true under allowBuilds in pnpm-workspace.yaml, and switch metro.config.js to
+    // getSentryExpoConfig. See the README's Observability section.
+    // ["@sentry/react-native/expo", { organization: "your-org", project: "your-project", url: "https://sentry.io/" }],
+  ],
 });

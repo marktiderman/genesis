@@ -1,4 +1,4 @@
-// @feat:native-starter @feat:app-updates
+// @feat:native-starter @feat:app-updates @feat:observability @feat:devtools-overlay
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -82,7 +82,32 @@ describe("fingerprint", () => {
   });
 
   it("app.config.ts reads no JavaScript-only switch", () => {
-    expect(read("app.config.ts")).not.toMatch(/features\.(updates|queryPersistence|queryLifecycle|keyboardScroll|deepLinks|notifications|accountDeletion|wipeSessionOnReinstall|refreshWhileActive)/);
+    expect(read("app.config.ts")).not.toMatch(/features\.(updates|queryPersistence|queryLifecycle|keyboardScroll|deepLinks|notifications|accountDeletion|wipeSessionOnReinstall|refreshWhileActive|observability|devtools)/);
+  });
+});
+
+describe("devtools overlay", () => {
+  // Metro folds `__DEV__` and `process.env.EXPO_PUBLIC_*` at build time and drops the dead branch
+  // before it collects dependencies, so the overlay is in a bundle only behind this condition.
+  it("is imported only from devtools-overlay.ts, which only devtools.ts requires, behind the build-time condition", () => {
+    const importers = filesUnder("src").filter((f) => /\.tsx?$/.test(f) && /from "@marktiderman\/genesis-native\/devtools"/.test(read(f)));
+    // devtools.ts imports a type only, which the compiler erases.
+    expect(importers.sort()).toEqual([join("src", "lib", "devtools-overlay.ts"), join("src", "lib", "devtools.ts")]);
+    expect(read("src/lib/devtools.ts")).toMatch(/^import type \{ DevtoolsBlock \} from "@marktiderman\/genesis-native\/devtools";$/m);
+    const requirers = filesUnder("src").filter((f) => /devtools-overlay/.test(read(f)) && !f.endsWith("devtools-overlay.ts"));
+    expect(requirers).toEqual([join("src", "lib", "devtools.ts")]);
+    const gate = read("src/lib/devtools.ts");
+    expect(gate).toContain(
+      '__DEV__ || process.env.EXPO_PUBLIC_APP_VARIANT === "development" || process.env.EXPO_PUBLIC_APP_VARIANT === "preview"\n    ? starter.features.devtools',
+    );
+    expect(gate).not.toMatch(/^import .*devtools-overlay/m);
+  });
+
+  it("every EAS build profile sets EXPO_PUBLIC_APP_VARIANT to its APP_VARIANT", () => {
+    const eas = JSON.parse(read("eas.json")) as { build: Record<string, { env?: Record<string, string> }> };
+    for (const [name, profile] of Object.entries(eas.build)) {
+      if (profile.env?.APP_VARIANT) expect(profile.env.EXPO_PUBLIC_APP_VARIANT, name).toBe(profile.env.APP_VARIANT);
+    }
   });
 });
 

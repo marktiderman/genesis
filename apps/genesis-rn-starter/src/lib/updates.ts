@@ -17,6 +17,7 @@ import * as Updates from "expo-updates";
 import { AppState, Linking, Platform } from "react-native";
 import { createUpdates, supabasePolicySource, useVersionSignature, versionSignature } from "@marktiderman/genesis-native/updates";
 import starter from "../../starter.config";
+import { observability } from "./observability";
 import { supabase } from "./supabase";
 
 /** The variants (withGenesis bundle id suffixes) that may switch to another channel's updates. */
@@ -32,9 +33,15 @@ export function createStarterUpdates() {
     appState: AppState,
     openURL: Linking.openURL,
     channels: { enabled: __DEV__ || TEST_BUILD.test(Application.applicationId ?? "") },
-    onError: (error, source) => console.warn(`[updates] ${source}: ${error.message}`),
+    onError: (error, source) => {
+      console.warn(`[updates] ${source}: ${error.message}`);
+      observability?.captureError(error, { source: `updates:${source}` });
+    },
   });
 }
+
+/** The app's one updates block (`features.updates`), shared by the shell and the devtools overlay. */
+export const updatesBlock = starter.features.updates ? createStarterUpdates() : undefined;
 
 function useBlockSignature(): string {
   return useVersionSignature().short;

@@ -2,6 +2,8 @@
  * Everything `<GenesisNativeApp>` is given, built from `starter.config.ts`,
  * so the root layout stays a few lines. A feature that is off is left out.
  */
+// First: Sentry starts here, before the rest of the app loads.
+import { observability } from "./observability";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import Constants from "expo-constants";
@@ -15,7 +17,8 @@ import starter from "../../starter.config";
 import { assertEnv } from "./env";
 import { linkHold } from "./links";
 import { sessionReady, supabase } from "./supabase";
-import { createStarterUpdates } from "./updates";
+import { devtools } from "./devtools";
+import { updatesBlock } from "./updates";
 
 const { features } = starter;
 
@@ -36,5 +39,7 @@ export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   keyboardProvider: features.keyboardScroll ? KeyboardProvider : undefined,
   keyboardScroll: features.keyboardScroll ? KeyboardAwareScrollView : undefined,
   links: features.deepLinks ? { hold: linkHold, onRelease: (path) => router.replace(path as Href) } : undefined,
-  updates: features.updates ? createStarterUpdates() : undefined,
+  updates: updatesBlock,
+  // The first block's root is the outermost: observability sees everything below it.
+  blocks: [observability, devtools].filter((block) => block !== undefined),
 };

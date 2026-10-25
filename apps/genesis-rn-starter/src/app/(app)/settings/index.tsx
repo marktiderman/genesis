@@ -8,6 +8,8 @@ import { SettingsPage, getSettingsPageStackOptions, type SettingsPageDangerousAc
 import starter from "../../../../starter.config";
 import { copy } from "@/copy";
 import { deleteAccount } from "@/lib/account";
+import { devtools } from "@/lib/devtools";
+import { observability } from "@/lib/observability";
 import { supabase } from "@/lib/supabase";
 import { useAppVersion } from "@/lib/updates";
 
@@ -27,6 +29,7 @@ export default function SettingsScreen() {
     try {
       const result = await deleteAccount();
       if (result.ok) {
+        observability?.track("account.deleted");
         // Signed out: the tabs' layout is already on its way to sign-in.
         Alert.alert(t.deletedTitle, t.deletedBody);
         return;
@@ -48,7 +51,14 @@ export default function SettingsScreen() {
     ]);
 
   const dangerousActions: SettingsPageDangerousAction[] = [
-    { label: t.signOut, testID: "sign-out", onPress: () => void supabase.auth.signOut() },
+    {
+      label: t.signOut,
+      testID: "sign-out",
+      onPress: () => {
+        observability?.track("auth.signed_out");
+        void supabase.auth.signOut();
+      },
+    },
   ];
   if (starter.features.accountDeletion) {
     dangerousActions.push({ label: t.deleteAccount, testID: "delete-account", emphasized: true, onPress: busy ? () => {} : confirmDelete });
@@ -60,7 +70,15 @@ export default function SettingsScreen() {
         testID="settings"
         sections={[
           { id: "account", title: t.accountSection, rows: [{ id: "email", title: t.signedInAs, subtitle: session?.user.email ?? "" }] },
-          { id: "about", title: t.aboutSection, rows: [{ id: "version", title: t.version, subtitle: version }] },
+          {
+            id: "about",
+            title: t.aboutSection,
+            rows: [
+              { id: "version", title: t.version, subtitle: version },
+              // Development and preview builds only (`features.devtools`).
+              ...(devtools?.enabled ? [{ id: "devtools", title: t.devtools, showChevron: true, onPress: devtools.open, testID: "open-devtools" }] : []),
+            ],
+          },
         ]}
         dangerousActions={dangerousActions}
       />

@@ -1,7 +1,13 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { index: "src/index.ts", persist: "src/persist.ts", updates: "src/updates/index.ts" },
+  entry: {
+    index: "src/index.ts",
+    persist: "src/persist.ts",
+    updates: "src/updates/index.ts",
+    observability: "src/observability/index.ts",
+    devtools: "src/devtools/index.ts",
+  },
   format: ["esm"],
   dts: true,
   sourcemap: true,
@@ -15,5 +21,6 @@ export default defineConfig({
     /^expo-/,
     /^@marktiderman\/genesis-/,
     /^@tanstack\//,
+    /^@sentry\//,
   ],
 });
