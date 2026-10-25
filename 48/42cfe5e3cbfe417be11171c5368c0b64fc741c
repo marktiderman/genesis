@@ -1,0 +1,26 @@
+packages/native/vitest.config.ts
+  s_8252619ce79a86::t_37de529529b17b 28
+packages/native/src/observability/sink.ts
+  s_8252619ce79a86::t_38d6454ffed5e7 81,91-96
+apps/genesis-rn-starter/tailwind.config.mjs
+  s_8252619ce79a86::t_2b90b917b878ab 1-3,10
+packages/native/src/devtools/block.tsx
+  s_8252619ce79a86::t_a5af90033f9216 27,228-229,232,234,242,244,255,309-310,396
+  s_8252619ce79a86::t_38d6454ffed5e7 23,26,306-308,425
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4842cfe5e3cbfe417be11171c5368c0b64fc741c",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
