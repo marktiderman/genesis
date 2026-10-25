@@ -1,0 +1,27 @@
+packages/chat/src/__tests__/realtime.test.ts
+  s_c0870a827920ef::t_61cd32da0cb844 1-53
+packages/chat/src/__tests__/server-runner.test.ts
+  s_c0870a827920ef::t_58306a3c277818 71-80
+packages/chat/src/core/client.ts
+  s_c0870a827920ef::t_8ce39398ce76bf 199-217,432-433,459-464,469
+packages/chat/src/server/runner.ts
+  s_c0870a827920ef::t_75db5965348e94 47-48,155
+.changeset/chat-realtime-auth.md
+  s_c0870a827920ef::t_184f5a25ec1d63 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4535cee43819d4790943985493a21d0e232c857d",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
