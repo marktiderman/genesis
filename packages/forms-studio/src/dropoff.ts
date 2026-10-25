@@ -2,7 +2,12 @@
 // answers as they go: for each question, how many people reached it and how many stopped
 // there without sending. Worked out on each respondent's own path, rebuilt with genesis-forms
 // `computePath` from what a response keeps, and its furthest question. Pure.
-import { computePath, type FieldBlock, type FormDefinition, type Json } from "@marktiderman/genesis-forms";
+import {
+  computePath,
+  type FieldBlock,
+  type FormDefinition,
+  type Json,
+} from "@marktiderman/genesis-forms";
 import { answerColumns } from "./answers";
 import type { SummaryItem } from "./summary";
 
@@ -34,17 +39,26 @@ export interface DropOffSummary {
 function pathFields(item: SummaryItem): string[] {
   const { definition } = item;
   const fields = new Map<string, FieldBlock>();
-  for (const block of definition.blocks) if (block.kind === "field") fields.set(block.id, block);
+  for (const block of definition.blocks)
+    if (block.kind === "field") fields.set(block.id, block);
   const values: Record<string, Json | undefined> = { ...item.answers };
   if (item.extraAnswers) {
     for (const field of fields.values()) {
-      const kept = Object.prototype.hasOwnProperty.call(item.extraAnswers, field.key)
+      const kept = Object.prototype.hasOwnProperty.call(
+        item.extraAnswers,
+        field.key,
+      )
         ? item.extraAnswers[field.key]
         : undefined;
-      if (kept != null && values[field.id] === undefined) values[field.id] = kept;
+      // A null in `answers` is a placeholder for a value kept apart: the extra one fills it.
+      if (kept != null && values[field.id] == null) values[field.id] = kept;
     }
   }
-  const { path } = computePath(definition, { values, hidden: item.hidden ?? {}, fields });
+  const { path } = computePath(definition, {
+    values,
+    hidden: item.hidden ?? {},
+    fields,
+  });
   return path.filter((id) => fields.has(id));
 }
 
@@ -79,7 +93,8 @@ export function dropOffByQuestion(
 ): QuestionDropOff[] {
   const views = new Map<string, number>();
   const stopped = new Map<string, number>();
-  const add = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1);
+  const add = (map: Map<string, number>, key: string) =>
+    map.set(key, (map.get(key) ?? 0) + 1);
   const seen = new Set<string>();
   for (const item of items) {
     if (seen.has(item.id)) continue;
@@ -99,7 +114,8 @@ export function dropOffByQuestion(
     const furthest = item.furthest ?? null;
     if (furthest === null || !keyOf.has(furthest)) continue;
     const at = order.get(furthest)!;
-    for (const id of pathFields(item)) if (id !== furthest && order.get(id)! < at) add(views, keyOf.get(id)!);
+    for (const id of pathFields(item))
+      if (id !== furthest && order.get(id)! < at) add(views, keyOf.get(id)!);
     add(views, keyOf.get(furthest)!);
     add(stopped, keyOf.get(furthest)!);
   }
