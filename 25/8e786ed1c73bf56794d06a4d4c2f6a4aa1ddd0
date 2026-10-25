@@ -1,0 +1,45 @@
+.changeset/chat-native-review-fixes.md
+  s_8252619ce79a86::t_6721043606e066 5
+apps/genesis-rn-starter/__tests__/components/settings.test.tsx
+  s_8252619ce79a86::t_365c6b2b2add44 60,62-63,72-82
+apps/genesis-rn-starter/src/lib/chat.tsx
+  s_8252619ce79a86::t_d0b9b0fde7c919 156-159,165,167,174
+packages/chat/src/native/__tests__/composer-state.test.ts
+  s_8252619ce79a86::t_abf904a160b3e7 125-126,136-139,146-156
+packages/chat/src/native/__tests__/push.test.ts
+  s_8252619ce79a86::t_6dbebc4d8c3a65 122-125,131-156
+packages/chat/src/native/__tests__/use-voice-recorder.test.tsx
+  s_8252619ce79a86::t_5f885517e491d1 7,264-291
+packages/chat/src/native/composer-state.ts
+  s_8252619ce79a86::t_c5f82f57934ffe 209-211,223-228,230,236-243
+packages/chat/src/native/index.ts
+  s_8252619ce79a86::t_9844f69151e0c2 30,84
+packages/chat/src/native/message-bubble.tsx
+  s_8252619ce79a86::t_94af58dd3e9366 22,87,147-148
+packages/chat/src/native/push.ts
+  s_8252619ce79a86::t_a0a665d7010338 144-145,150-151,165-169,172-173,208-209,242,244-246,251-253,262-278
+packages/chat/src/native/thread-screen.tsx
+  s_8252619ce79a86::t_96d0ee89a91eca 115-117,120-126,296
+packages/chat/src/native/tus.ts
+  s_8252619ce79a86::t_6e7b677ac01059 120-127,130-137,151-155,160-162
+packages/chat/src/native/use-voice-recorder.ts
+  s_8252619ce79a86::t_03e3de3355e07f 33-34,113,115,127-128,138-144,147-148,150,224-225,228
+packages/chat/src/native/voice-player.tsx
+  s_8252619ce79a86::t_14113bbc39cae9 50-51,55-56,67-69,73,80,187,189-191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "258e786ed1c73bf56794d06a4d4c2f6a4aa1ddd0",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
