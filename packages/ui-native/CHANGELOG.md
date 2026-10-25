@@ -1,5 +1,109 @@
 # @marktiderman/genesis-ui-native
 
+## 2.3.0
+
+### Minor Changes
+
+- 03e1fa0: `InboxPage` and `ThreadPage`, two generic conversation layouts in `SettingsPage`'s iOS inset grouped style.
+
+  `InboxPage`: unread dot or count, a short time, a preview and a status line, pull to refresh, paging and an empty state with an action. Swipe actions are always reachable as accessibility actions and on long press; the `swipeable` slot takes a gesture-handler wrapper for the swipe itself.
+
+  `ThreadPage`: messages with attachments, a read receipt, "load earlier", optimistic sending and retry, and a composer kept above the keyboard through `KeyboardScrollProvider` (or a `KeyboardAvoidingView` without it); `composer={null}` is read-only.
+
+  The React Native type stubs gain the props these use (`accessibilityActions`, `onAccessibilityAction`, `onPressIn` / `onPressOut`, `onContentSizeChange`, FlatList's `refreshControl` and `contentInsetAdjustmentBehavior`), and the test shim renders FlatList headers and footers and accessibility actions.
+
+  `NativeSegmentedControl` shows the selected segment's lift as a style instead of toggling a `shadow-sm` class, which crashed in development when the selection changed (NativeWind's upgrade warning).
+
+- a7db4d0: **`NativeSheet` no longer crashes on open when `@gorhom/bottom-sheet` is installed somewhere in the workspace.** It used the library whenever `require("@gorhom/bottom-sheet")` resolved, but the library throws on open without its `BottomSheetModalProvider` (and needs gesture-handler's `GestureHandlerRootView` and Reanimated), which nothing mounted.
+
+  - By default the sheet is now React Native's own `Modal`, which needs no provider.
+    - iOS: the system page sheet (`presentationStyle="pageSheet"`), which follows the finger when swiped down (`allowSwipeDismissal`).
+    - Android: a bottom panel over a scrim, drawn under the system bars. A tap on the scrim or back closes it.
+    - Content gets the sheet's own safe area, and the bottom inset is padded.
+    - `disableBackdropDismiss` keeps it up against every way of dismissing it.
+    - A sheet mounted open waits for the Reduce Motion setting before presenting.
+  - The library is used only when the app opts in, in either of two ways:
+    - `GenesisNativeApp`'s new `bottomSheet` prop (`import * as BottomSheet from "@gorhom/bottom-sheet"`, then `bottomSheet={BottomSheet}`). It mounts the provider inside the data, session and blocks providers, since sheet content renders in the library's portal.
+    - The new `NativeSheetProvider`.
+    - A module missing an export is reported with `console.error`, and sheets fall back to the modal.
+  - On that path:
+    - `enableDynamicSizing` is off, so `snapPoints` and `initialSnapIndex` mean what they say.
+    - A dismiss that finishes after the app reopened the sheet isn't reported as the user closing it.
+  - New `NativeSheetScrollView`: the library's `BottomSheetScrollView` under the provider, React Native's `ScrollView` otherwise. The what's-new notes scroll in it.
+  - What may change for existing sheets:
+    - The modal adds no padding of its own. The old fallback padded its content with `p-4`.
+    - On iPhone the page sheet is nearly full height.
+    - Sheets don't move above the keyboard.
+
+  **Classes inside `@marktiderman/genesis-native` now style its screens.** Its exports only pointed at `dist/`, whose JSX tsup compiles to `react/jsx-runtime` calls, which NativeWind's JSX transform never sees, so the update screens' (force upgrade, maintenance, banner, what's new) and the push prompt's `className`s did nothing. Like ui-native, it now ships `src` and has `react-native` export conditions pointing at it, so Metro compiles it with the app's NativeWind transform.
+
+  **`genesisNativewindContent()`** in `presets/nativewind` gives Tailwind the `src` and `dist` globs of every Genesis React Native package the app uses, found the way Node finds them (the app's node_modules, a hoisted workspace root or a workspace link), following their dependencies. `packages` adds starting points (your own wrapper package), and a listed package that isn't installed is warned about. `genesis init --native` and the starter use it in place of hand-written `node_modules` globs, which find nothing when a package is hoisted above the app.
+
+- 46f8fcb: Optional native modules, passed in rather than required: `GenesisModulesProvider` (and
+  `GenesisNativeApp`'s `modules`) hands components FlashList v2 (`NativeResourcePage`,
+  `NotificationsPage`), expo-image (`NativeAvatar`, new `NativeImage`), Reanimated 4 (toast, drawer,
+  skeleton; Reduce Motion respected), expo-glass-effect (new `NativeGlassSurface`: default toasts,
+  the update banner, popovers and menus as iOS 26 Liquid Glass when both availability checks pass
+  and Reduce Transparency is off), expo-symbols and a lucide icon set (new `NativeIcon` with
+  semantic names, `lucideIcons` from `/icons/lucide`), and @expo/ui's drop-in date picker.
+  `KeyboardScrollProvider` takes a `toolbar` (`KeyboardToolbar`), shown on `AuthScreen` and
+  `SettingsSubPage`; `GenesisNativeApp` takes it as `keyboardToolbar`. Every module left out falls
+  back to what the component drew before. `lucide-react-native` is now an optional peer, only the
+  `/icons/lucide` subpath imports it, and its range is `>=0.475.0` (the names that subpath uses): an
+  app on 0.400-0.474 that never imports it sees a peer warning on upgrade and nothing else.
+- 99af0cd: The push block, `@marktiderman/genesis-native/push`: `createPush({ notifications, platform, projectId, backend: supabasePushBackend(supabase), categories, storage, appState, openSettings, links, hold, onOpen })`, a `defineBlock` block (`id: "push"`) for `<GenesisNativeApp blocks={[push]}>`. It contributes a Settings row (`useBlockSettings`, the permission as its subtitle), a bounded boot step that reads the permission, its route and its migration. `NativeAppSlots` gains `pushPrompt`.
+
+  - **Permission**: never asked at launch. `usePushPrompt().offer(reason)` shows a soft pre-prompt (the `pushPrompt` slot, default `PushPromptSheet`) only after a launch grace, while signed in and while the system can still ask, with a cooldown after "Not now" and a cap on how often; its "Turn on" brings up the system prompt.
+  - **Registration**: once permission is granted, the signed-in person's Expo push token is registered (`getExpoPushTokenAsync({ projectId })`), again when the OS rotates it, and forgotten on sign-out, account switch and deletion, even after the session has ended; a forget that fails offline is retried at the next start. No `projectId` is reported once, loudly.
+  - **Android channels**: `default` plus one per category, private on the lock screen, made before the permission prompt and the token.
+  - **Foreground and taps**: a foreground handler (`useSuppressNotifications` hides a screen's own kind), tap routing through `normalizeLink` and GenesisNativeApp's held link (the launching tap too, once), and the badge (`useBadge`).
+  - **NotificationSettings**: a `SettingsPage` with `permission`, `categories`, `quietHours` and `privacy` parts, each a slot and a hook (`usePushPermission`, `useNotificationCategories`, `useQuietHours`, `usePrivacyPreviews`); saved at once, put back when a save fails.
+
+  `@marktiderman/genesis-supabase` ships `migrations/0005_genesis_push.sql` (`push_devices`, `notification_preferences`, `push_receipts`, owner-only row level security, functions granted by name, `genesis_push_targets` honouring categories, time-zone-aware quiet hours and hidden previews) with a pgTAP test, and the `genesis-push-send` Edge Function template: Expo sends in batches of 100, neutral text for hidden previews, a receipt per ticket, a receipts poll, `DeviceNotRegistered` devices forgotten, and no token or content in its logs or answers.
+
+  `@marktiderman/genesis-ui-native`: `SettingsPageSection` takes `children`, rendered inside the section's group after its rows, so a pattern built on `SettingsPage` can put a replaced part in the same section. On iOS, `NativeTimePicker` and `NativeDatePicker` render the compact picker alone (it is its own button); the extra button beside it showed the value twice.
+
+  Features: push, push-sender
+
+- e930dda: Native Google sign-in. `@marktiderman/genesis-supabase/native` adds `signInWithGoogle(client, GoogleOneTapSignIn, { digest, randomNonce? })`: a fresh 32-byte nonce, its SHA-256 to Google through the Universal sign-in module's `authenticate({ nonce })`, a check that the ID token carries that hash (`google_nonce_missing` otherwise, before anything reaches Supabase), then `signInWithIdToken({ provider: "google", token, nonce })` with the raw nonce, as Supabase's Google guide describes. `@react-native-google-signin/google-signin` is an optional peer and is passed in, never imported. `@marktiderman/genesis-ui-native` adds `googleProvider({ onPress, label?, icon?, enabled? })` for `AuthScreen`'s `providers`. The Apple nonce docs no longer suggest `randomUUID`: the default is 32 random bytes.
+
+  Features: account
+
+- e930dda: `createNativeQueryClient` defaults queries and mutations to `networkMode: "offlineFirst"` instead of `"always"`. A request still runs once whatever the network says; its retries now pause while NetInfo (through `connectQueryLifecycle`) reports offline and continue when the network is back, and stale queries refetch on reconnect (`"always"` turned `refetchOnReconnect` off, so the NetInfo wiring did nothing). Offline, a query with saved data keeps showing it; one with nothing saved stays `pending` with `isPaused` instead of failing after its retries; a mutation, with no retries by default, still fails at once. Pass `networkMode: "always"` in `defaultOptions` to keep the old behaviour. `NativeResourcePage` shows an offline message (`offlineState` to replace it) in place of the empty state while its list is paused with nothing saved (search and filters stay above it), and its pull-to-refresh spinner stops while a refetch is paused offline. `connectQueryLifecycle`'s cleanup sets the app back online, so no query stays paused on a stale "offline".
+
+  Features: native-app-shell
+
+- b3ee22b: `NotificationsPage`'s section headers stick under the native header instead of under the status bar. Under a large-title header the list runs beneath the header (iOS insets its rows), and FlashList pinned the current header at the list's top, y = 0. It now passes FlashList `stickyHeaderConfig.offset`: by default on iOS the safe area's top plus the compact navigation bar (44 pt, 54 pt from iOS 26; `defaultStickyHeaderOffset`, `iosCompactNavigationBarHeight`), 0 elsewhere; `stickyHeaderOffset` sets it (the safe area's top without a header). React Native's `SectionList` fallback has no offset, so there the headers scroll with their rows when the offset isn't 0. `GenesisListProps` gains `stickyHeaderConfig`.
+
+  Features: native-layouts
+
+### Patch Changes
+
+- 1718648: `FormFocus` no longer uses `InputAccessoryView`, which React Native 0.88 deprecates (Metro warned on every form with a number or phone question). While a keyboard with no return key is up (iOS's number and phone pads before iOS 26), the app's keyboard toolbar (`keyboardToolbar` on `GenesisNativeApp`, react-native-keyboard-controller's `KeyboardToolbar`) shows with its arrows hidden and a done button that says Next (or Send) and moves the step on; iOS 26 shows the pad's return key itself, so the bar stays away there and on every keyboard that has one. Without a toolbar, the form's own Next button stays in view. Next keeps the keyboard up (it calls `preventDefault()` on the done event); Send closes it. `KeyboardToolbarProps` in genesis-ui-native now lists the optional `showArrows`, `doneText` and `onDoneCallback` Genesis may pass (all `KeyboardToolbar`'s own). `FormNativeContextValue` gains `needsKeysBar` and `setNeedsKeysBar`: a hand-built value (a test's mock) needs them.
+
+  `InboxPage` lets a tap in its header land while the keyboard is up (`keyboardShouldPersistTaps="handled"`): the idea board's first tap on "Suggest" pressed nothing and only closed the keyboard.
+
+  Features: forms-native, inbox-thread
+
+- 3e596b9: `SettingsPage` looks like the system Settings app on iOS (inset grouped). Section headers were a full-width gray band with a rule under it. Now a header is an uppercase footnote caption in `secondaryLabel` on the grouped background, inset so it lines up with the cell text. VoiceOver reads the title as written, and the header scales with the footnote Dynamic Type style. Cells sit in groups on `secondarySystemGroupedBackground` with a 16pt margin and UIKit's corner radius (10pt, or 26pt from iOS 26). Hairline `separator` lines run between cells only. They start at the cell text, past any leading icon, and follow right-to-left layouts. The footnote under a group is `secondaryLabel`. On Android a header is a Material subheader in the theme's primary color, with no band. Colors come from `useThemeRoles` and the theme, so they follow dark mode. The slots API is unchanged.
+- 0b8987b: Fixes from an end-to-end run of the native starter on an iOS 26 simulator.
+
+  - `NotificationsPage`: the empty state sat under the large-title header, behind the Dynamic Island. It is now in a scroll view with `contentInsetAdjustmentBehavior="automatic"`, as the list is, so iOS insets it below the header and above the tab bar; pull to refresh works on it too.
+  - `SettingsSubPage`: with `KeyboardToolbar`, the toolbar floated about a tab bar's height above the keyboard, and with the keyboard closed it showed above the tab bar. The keyboard-scroll layout no longer pads its bottom edge (the toolbar sticks to the keyboard from that edge); the scroll view's automatic inset keeps the last field clear instead.
+  - Starter: `genesis-starter://check-in?gym=hilltop`, the link the check-in screen documents, opened Home. The link map now has `/check-in` (with `features.checkIn` on).
+
+- 0fd477c: Fixes from running the native starter on an iOS simulator.
+
+  **PKCE uses S256 on React Native.** Hermes has no `crypto.subtle`, so supabase-js sent the PKCE challenge as `plain` (the verifier itself), and with no `crypto` at all made the verifier with `Math.random`. `createGenesisSupabase` takes `crypto` (`import * as ExpoCrypto from "expo-crypto"`), which installs `crypto.getRandomValues` and a SHA-256-only `crypto.subtle.digest` on `globalThis` from it, never replacing real WebCrypto. A PKCE client made with neither, on any platform, throws in development and logs an error in a release build. With the polyfill in place, `auth.getClaims()` always has the server check the token (`getUser`), because the polyfill can hash but can't verify a signature; supabase-js would otherwise try to verify asymmetric tokens locally and throw. `installWebCrypto`, `hasPkceCrypto`, `assertPkceCrypto` and `isDigestOnlyPolyfill` are on `/native`.
+
+  **The keyboard moves the form.** `GenesisNativeApp` takes `keyboardProvider` (react-native-keyboard-controller's `KeyboardProvider`) and mounts it once around the app. `keyboardScroll`'s `KeyboardAwareScrollView` did nothing without it. It is read once, so an inline wrapper can't remount the app. In development, `keyboardScroll` without `keyboardProvider` logs an error. The ui-native `KeyboardScrollProvider` docs say it needs `KeyboardProvider` above it.
+
+  **Genesis components are styled under NativeWind v4.** New `presets/nativewind` (`genesisNativewindPreset`): the Tailwind v3 preset plus the theme's role colors (`bg-primary`, `border-input`, `text-foreground`, `text-destructive`…, as `hsl(var(--…))`) and their variables, light on `:root` and dark under `prefers-color-scheme: dark`, with the same values as `themes/genesis.css`. With `presets/tailwind` alone, none of those classes were generated and `--radius` was never declared, so inputs had black square borders and primary buttons had no fill. The CLI's scaffolder writes the new preset into an Expo app's Tailwind config.
+
+- 697c18c: `GenesisNativeApp` mounts `NativeToastProvider` around the screens, so `useToast()` from genesis-ui-native works on every screen without the app mounting one (it threw before). Toasts sit at the top by default, where a tab bar can't cover them; `toast={{ position, disableAnimation }}` places them and `toast={null}` leaves the provider to the app. A top toast now sits below the safe area's top (the status bar and the Dynamic Island) when a `SafeAreaProvider` is above it. `FeedbackForm` takes `sentAlert={false}` to leave the confirmation to `onSent`; the starter shows a toast after a sent report.
+
+  Features: native-app-shell, native-components, support-feedback
+
 ## 2.2.0
 
 ### Minor Changes
