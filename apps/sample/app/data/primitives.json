@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 110
+      "count": 111
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -602,14 +602,14 @@
             },
             {
               "name": "slotProps",
-              "type": "any",
+              "type": "SlotPropsFor<AuthScreenSlotMap>",
               "required": false,
               "defaultValue": "{}",
               "description": "More props for a default part, merged over what the screen passes."
             },
             {
               "name": "slots",
-              "type": "any",
+              "type": "Slots<AuthScreenSlotMap>",
               "required": false,
               "defaultValue": "{}",
               "description": "Replace (a component) or drop (`null`) one part."
@@ -2429,14 +2429,14 @@
             },
             {
               "name": "slotProps",
-              "type": "any",
+              "type": "SlotPropsFor<InboxPageSlotMap>",
               "required": false,
               "defaultValue": "{}",
               "description": ""
             },
             {
               "name": "slots",
-              "type": "any",
+              "type": "Slots<InboxPageSlotMap>",
               "required": false,
               "defaultValue": "{}",
               "description": ""
@@ -3334,7 +3334,7 @@
             },
             {
               "name": "resourceOptions",
-              "type": "any",
+              "type": "UseResourceOptions<T>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -3720,14 +3720,14 @@
             },
             {
               "name": "slotProps",
-              "type": "any",
+              "type": "SlotPropsFor<NotificationsPageSlotMap>",
               "required": false,
               "defaultValue": "{}",
               "description": "More props for a default part, merged over what the layout passes."
             },
             {
               "name": "slots",
-              "type": "any",
+              "type": "Slots<NotificationsPageSlotMap>",
               "required": false,
               "defaultValue": "{}",
               "description": "Replace (a component) or drop (`null`) one part."
@@ -4819,14 +4819,14 @@
             },
             {
               "name": "slotProps",
-              "type": "any",
+              "type": "SlotPropsFor<SettingsPageSlotMap>",
               "required": false,
               "defaultValue": "{}",
               "description": "More props for a default part, merged over what the layout passes."
             },
             {
               "name": "slots",
-              "type": "any",
+              "type": "Slots<SettingsPageSlotMap>",
               "required": false,
               "defaultValue": "{}",
               "description": "Replace (a component) or drop (`null`) one part."
@@ -5901,14 +5901,14 @@
             },
             {
               "name": "slotProps",
-              "type": "any",
+              "type": "SlotPropsFor<ThreadPageSlotMap>",
               "required": false,
               "defaultValue": "{}",
               "description": ""
             },
             {
               "name": "slots",
-              "type": "any",
+              "type": "Slots<ThreadPageSlotMap>",
               "required": false,
               "defaultValue": "{}",
               "description": ""
@@ -6422,7 +6422,7 @@
               "name": "isActive",
               "type": "((to: string, activePath?: string) => boolean)",
               "required": false,
-              "defaultValue": "",
+              "defaultValue": null,
               "description": "Optional custom active-state matcher. Defaults to a prefix match (with `/`\ntreated as exact), mirroring React Router `NavLink`."
             },
             {
@@ -6448,7 +6448,7 @@
             },
             {
               "name": "navigation",
-              "type": "any",
+              "type": "NavigationNode<NavItem>",
               "required": false,
               "defaultValue": null,
               "description": "The app's logical navigation hierarchy. AppShell resolves it against\n`activePath` (see `resolveNavigation`) and derives:\n- the sidebar's global items from the root's `items` (unless `navItems`),\n- a contextual section from the current node's `items`, labelled with\n  the node's `label` (`$param` segments in `to` filled from the URL),\n- the mobile tab bar: the contextual items when there are any, else the\n  global top-level items (unless `mobileNavItems`),\n- a back link to the current node's logical parent (unless\n  `parentNavigation`).\n@stability Beta"
@@ -12302,6 +12302,31 @@
           "props": []
         },
         {
+          "name": "isPathActive",
+          "summary": "Default active-path matcher, mirroring React Router's `NavLink` (prefix\nmatch, with `/` treated as exact). Consumers can override via an `isActive`\nprop where components accept one.\n\n`activePath` may carry a query and hash (`pathname + search + hash`). An\nitem whose `to` has neither compares against the path part only, exactly as\nbefore. An item that opts in by putting a query or hash in its `to`\n(`/admin?tab=users`, `/settings#profile`) is active only when the path\nmatches exactly AND every query param it names has the same value in\n`activePath` (extra params such as `&page=2` are ignored) AND, if it names a\nhash, the hash is equal.",
+          "props": []
+        },
+        {
+          "name": "resolveNavigation",
+          "summary": "Resolve where `pathname` sits in a logical navigation tree. Pure: it never\nreads browser history or `window`.\n\nA node matches when its pattern matches a leading run of WHOLE path\nsegments (`/my` matches `/my/tasks`, never `/my-other`). Among matches the\nwinner is decided by positional specificity: at the first position where\none pattern is static and the other a `$param`, the static one wins (so\n`/clients/new` beats `/clients/$clientId` whatever the sibling order, and\n`/my` beats `/$space/tasks` for `/my/tasks`). Otherwise the pattern matching\nmore segments wins, then the deeper tree node.\nNon-matching nodes are still searched, so a match keeps its logical\nancestors even when their URLs differ.",
+          "props": []
+        },
+        {
+          "name": "IsPathActiveOptions",
+          "summary": "Options for {@link isPathActive}.",
+          "props": []
+        },
+        {
+          "name": "NavigationNode",
+          "summary": "One node of a logical navigation hierarchy. `path` is a route pattern whose\nsegments are either static (`clients`) or named params (`$clientId`). A\nnode's place in the tree is its LOGICAL parent, which need not share its URL\nprefix — `/clients/$clientId` can sit under `/dashboard`.",
+          "props": []
+        },
+        {
+          "name": "ResolvedNavigation",
+          "summary": "Result of {@link resolveNavigation}. `current`, `parent` and every `trail`\nentry are shallow copies of their tree nodes with `path` interpolated from\n`params` (a param the URL did not supply stays as `$name`).",
+          "props": []
+        },
+        {
           "name": "defaultNavigate",
           "summary": "Default navigate — a full-page navigation. No router required.",
           "props": []
@@ -13323,7 +13348,7 @@
             },
             {
               "name": "id",
-              "type": "any",
+              "type": "Identifier | null | undefined",
               "required": true,
               "defaultValue": null,
               "description": "Record id. Nullish means \"not resolved yet\" — no request goes out and the\npage shows its loading state, which is what a route param that hasn't\narrived should look like. It is deliberately NOT the not-found state:\nnothing has been asked, so nothing is missing."
@@ -13488,7 +13513,7 @@
             },
             {
               "name": "mutationMode",
-              "type": "any",
+              "type": "enum",
               "required": false,
               "defaultValue": null,
               "description": "When a save reaches the list. Default `\"pessimistic\"`: the form waits\nfor the provider. `\"optimistic\"` closes at once and updates the cached\nlist, putting it back (and toasting the error) if the save fails.\n`\"undoable\"` does the same and shows an Undo toast; the save is sent\nafter `undoDelayMs` unless undone (or at once, undone by the provider,\nwhen it serves `undo`). Needs a mounted `<Toaster />`."
@@ -13930,7 +13955,7 @@
             },
             {
               "name": "live",
-              "type": "any",
+              "type": "boolean | LiveOptions",
               "required": false,
               "defaultValue": null,
               "description": "`resource` mode: refetch the list (and the open record) when the\nprovider reports a change, e.g. Supabase Realtime. Shorthand for\n`resourceOptions.live`, which wins. See core's `UseResourceOptions.live`."
@@ -13944,7 +13969,7 @@
             },
             {
               "name": "mutationMode",
-              "type": "any",
+              "type": "enum",
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
@@ -14042,7 +14067,7 @@
             },
             {
               "name": "onSortChange",
-              "type": "((sort: any) => void)",
+              "type": "((sort: SortParam | null) => void)",
               "required": false,
               "defaultValue": null,
               "description": "Called when the user changes the sort, with `null` when the sort is cleared."
@@ -14133,7 +14158,7 @@
             },
             {
               "name": "resourceOptions",
-              "type": "any",
+              "type": "UseResourceOptions<T>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14168,7 +14193,7 @@
             },
             {
               "name": "slotProps",
-              "type": "any",
+              "type": "SlotPropsFor<ResourcePageSlotMap<T>>",
               "required": false,
               "defaultValue": null,
               "description": "Extra props merged into a part you are KEEPING. Wins over ours."
@@ -15384,6 +15409,38 @@
       ]
     },
     {
+      "slug": "slots",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/slots.tsx",
+      "stability": "stable",
+      "summary": "`{ [part]: Component | null }` — see {@link renderSlot}.",
+      "primaryComponent": "Slots",
+      "components": [
+        {
+          "name": "SlotOverride",
+          "summary": "Replace a part (`ComponentType`), or eject it (`null`).",
+          "props": []
+        },
+        {
+          "name": "SlotPropsFor",
+          "summary": "`{ [part]: extraProps }` — merged over what genesis passes.",
+          "props": []
+        },
+        {
+          "name": "Slots",
+          "summary": "`{ [part]: Component | null }` — see {@link renderSlot}.",
+          "props": []
+        },
+        {
+          "name": "renderSlot",
+          "summary": "Renders one slot: the override if given, the default otherwise, nothing if\nejected with `null`.\n\n`extra` merges LAST, so `slotProps` wins over genesis's own value. That is\ndeliberate: a consumer reaching for `slotProps` is overriding on purpose,\nand a hatch that silently loses to the default is not a hatch. `className`\nis the one prop a caller should merge with `cn()` instead of replacing.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "sonner",
       "aliases": [
         "toast"
@@ -15846,7 +15903,7 @@
               "name": "isActive",
               "type": "((to: string, activePath?: string) => boolean)",
               "required": false,
-              "defaultValue": "",
+              "defaultValue": null,
               "description": ""
             },
             {
@@ -16552,7 +16609,57 @@
         {
           "name": "showUndoToast",
           "summary": "The undo toast for an `undoable` write (core's `onUndoable`): a sonner\ntoast with an Undo button, shown for as long as the undo is offered.\nNeeds a mounted `<Toaster />`.",
-          "props": []
+          "props": [
+            {
+              "name": "commit",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Send a `delay` write now."
+            },
+            {
+              "name": "delayMs",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": "How long the undo is offered, in ms (the toast's duration)."
+            },
+            {
+              "name": "kind",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "resource",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "strategy",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": "- `delay`: the write has not been sent. `undo()` discards it; `commit()`\n  sends it now instead of waiting.\n- `provider`: the write was sent at once, because the provider serves\n  `undo`. `undo()` asks the provider to reverse it; `commit()` does\n  nothing."
+            },
+            {
+              "name": "undo",
+              "type": "() => Promise<boolean>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Take the write back. Resolves true when it was undone (or will never be\nsent), false when it could not be: already sent under `delay` (the\nwindow closed, it was committed, a later write on the same record sent\nit first, or the page unloaded), already undone, or the provider's undo\nfailed (reported through `onError`). Works after the hook that made the\nwrite has unmounted. Safe to call more than once."
+            },
+            {
+              "name": "id",
+              "type": "Identifier",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record's id; absent for a create (it has none until it is sent)."
+            }
+          ]
         },
         {
           "name": "showWriteErrorToast",
@@ -16893,7 +17000,7 @@
             },
             {
               "name": "live",
-              "type": "any",
+              "type": "boolean | LiveOptions",
               "required": false,
               "defaultValue": null,
               "description": "`resource` mode: refetch the list (and the open record) when the\nprovider reports a change, e.g. Supabase Realtime. Shorthand for\n`resourceOptions.live`, which wins. See core's `UseResourceOptions.live`."
@@ -16907,7 +17014,7 @@
             },
             {
               "name": "mutationMode",
-              "type": "any",
+              "type": "enum",
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
@@ -17005,7 +17112,7 @@
             },
             {
               "name": "onSortChange",
-              "type": "((sort: any) => void)",
+              "type": "((sort: SortParam | null) => void)",
               "required": false,
               "defaultValue": null,
               "description": "Called when the user changes the sort, with `null` when the sort is cleared."
@@ -17096,7 +17203,7 @@
             },
             {
               "name": "resourceOptions",
-              "type": "any",
+              "type": "UseResourceOptions<T>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -17131,7 +17238,7 @@
             },
             {
               "name": "slotProps",
-              "type": "any",
+              "type": "SlotPropsFor<ResourcePageSlotMap<T>>",
               "required": false,
               "defaultValue": null,
               "description": "Extra props merged into a part you are KEEPING. Wins over ours."
@@ -17515,7 +17622,7 @@
             },
             {
               "name": "live",
-              "type": "any",
+              "type": "boolean | LiveOptions",
               "required": false,
               "defaultValue": null,
               "description": "`resource` mode: refetch the list (and the open record) when the\nprovider reports a change, e.g. Supabase Realtime. Shorthand for\n`resourceOptions.live`, which wins. See core's `UseResourceOptions.live`."
@@ -17529,7 +17636,7 @@
             },
             {
               "name": "mutationMode",
-              "type": "any",
+              "type": "enum",
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
@@ -17627,7 +17734,7 @@
             },
             {
               "name": "onSortChange",
-              "type": "((sort: any) => void)",
+              "type": "((sort: SortParam | null) => void)",
               "required": false,
               "defaultValue": null,
               "description": "Called when the user changes the sort, with `null` when the sort is cleared."
@@ -17718,7 +17825,7 @@
             },
             {
               "name": "resourceOptions",
-              "type": "any",
+              "type": "UseResourceOptions<T>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -17753,7 +17860,7 @@
             },
             {
               "name": "slotProps",
-              "type": "any",
+              "type": "SlotPropsFor<ResourcePageSlotMap<T>>",
               "required": false,
               "defaultValue": null,
               "description": "Extra props merged into a part you are KEEPING. Wins over ours."
@@ -18067,7 +18174,7 @@
             },
             {
               "name": "renderField",
-              "type": "((field: ResourceFormFieldDef, control: Control<Record<string, unknown>, any, Record<string, unknown>>, action: \"create\" | \"edit\", watchedValues: Record<string, unknown>) => ReactNode)",
+              "type": "((field: ResourceFormFieldDef, control: Control<Record<string, unknown>, any, Record<string, unknown>>, action: \"create\" | \"edit\", watchedValues: Record<...>) => ReactNode)",
               "required": false,
               "defaultValue": null,
               "description": ""
