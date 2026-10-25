@@ -1,7 +1,10 @@
 /**
  * The Google Sheets destination: appends one row per submission to a sheet
- * shared with a Google service account. Config: `{ spreadsheetId,
- * sheetName? }` (`spreadsheet_id` and `sheet_name` are accepted too).
+ * shared with a Google service account, or reached with an access token the
+ * app supplies (a sheet a person connected with Google sign-in). Config:
+ * `{ spreadsheetId, sheetName? }` (`spreadsheet_id` and `sheet_name` are
+ * accepted too). An update (the delivery of an edit) overwrites the
+ * response's row where it is, and is appended only when that row is gone.
  *
  * The tab is created when missing, the header row is written from the row's
  * column keys and gains a column for any new key without moving the others,
@@ -37,6 +40,7 @@ import {
   type Destination,
   type DestinationConfig,
   type HttpDeps,
+  type OptionResolver,
 } from "./types";
 
 export const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
@@ -60,8 +64,18 @@ export interface SheetConfig {
 }
 
 export interface SheetsDestinationOptions extends HttpDeps {
-  /** The service account, or a function that finds the one for a destination's config. */
-  account: GoogleServiceAccount | ((config: DestinationConfig) => GoogleServiceAccount | Promise<GoogleServiceAccount>);
+  /**
+   * The service account the sheet is shared with, or a function that finds
+   * the one for a destination's config. Give this or `accessToken`.
+   */
+  account?: GoogleServiceAccount | OptionResolver<GoogleServiceAccount> | undefined;
+  /**
+   * An access token for the sheet instead of a service account: a sheet a
+   * person connected with Google sign-in, say (see `googleOAuthAccessToken`).
+   * Gets the config and `{ destinationId }`; called once per delivery or
+   * batch, so cache inside it.
+   */
+  accessToken?: OptionResolver<string> | undefined;
   /**
    * Prefix text a spreadsheet could run as a formula with `'` (see
    * `escapeFormula`), headers included. Default false: writes are RAW, so
@@ -173,9 +187,22 @@ export function sheetsDestination(options: SheetsDestinationOptions): Destinatio
   ): Promise<DeliveryResult> {
     if (!items.length) return { ok: true };
     const { spreadsheetId, sheetName } = configOf(config);
-    const account = await resolveOption("The sheet destination's account", options.account, config);
     const signal = deliveryOptions.signal;
-    const token = await googleAccessToken(account, { ...options, signal });
+    const context = { destinationId: deliveryOptions.destinationId };
+    let account: GoogleServiceAccount | null = null;
+    let token: string;
+    if (options.accessToken) {
+      token = await resolveOption("The sheet destination's access token", options.accessToken, config, context);
+      if (typeof token !== "string" || !token) throw new DeliveryError("The sheet destination has no access token");
+    } else if (options.account) {
+      account = await resolveOption("The sheet destination's account", options.account, config, context);
+      token = await googleAccessToken(account, { ...options, signal });
+    } else {
+      throw new DeliveryError("The sheet destination has neither an account nor an access token");
+    }
+    const sharedWith = account
+      ? `is the sheet shared with ${account.clientEmail}?`
+      : "is the sheet still connected to its Google account?";
     const base = `${SHEETS_API}/${encodeURIComponent(spreadsheetId)}`;
     const escape = options.escapeFormulas === true;
 
@@ -188,12 +215,12 @@ export function sheetsDestination(options: SheetsDestinationOptions): Destinatio
       );
       if (!response.ok) {
         discard(response);
-        if (what === "append" && (response.status === 400 || response.status === 404)) {
+        if ((what === "append" || what === "update rows") && (response.status === 400 || response.status === 404)) {
           throw new StaleSheetError(`Google Sheets append answered ${response.status}`, { status: response.status });
         }
         if (response.status === 403 || response.status === 404) {
           throw new DeliveryError(
-            `Google Sheets ${what} answered ${response.status}: is the sheet shared with ${account.clientEmail}?`,
+            `Google Sheets ${what} answered ${response.status}: ${sharedWith}`,
             { status: response.status },
           );
         }
@@ -309,14 +336,47 @@ export function sheetsDestination(options: SheetsDestinationOptions): Destinatio
     async function append(state: SheetState): Promise<SheetState> {
       // A redelivery may find its row already there: an earlier append went
       // through even though Google answered 5xx or the request timed out.
-      let pending = items.map((item, i) => ({ id: item.submission.id, row: rows[i]!.row }));
-      if (deliveryOptions.redelivery) {
+      // An update overwrites its response's row where it is, and is appended
+      // only when that row is gone (deleted by hand, say).
+      let pending = items.map((item, i) => ({
+        id: item.submission.id,
+        row: rows[i]!.row,
+        update: (item.update ?? deliveryOptions.update) === true,
+      }));
+      const updating = pending.some((p) => p.update);
+      const overwrite: { at: number; row: Record<string, Cell> }[] = [];
+      skipped = [];
+      if (deliveryOptions.redelivery || updating) {
         const column = columnLetter(state.header.indexOf("id"));
-        const from = state.last_row > 0 ? Math.max(2, state.last_row - DEDUPE_WINDOW) : 2;
+        // An update may be for a response from long ago, so it reads the whole
+        // id column (one column, one request); a redelivery only the rows it
+        // can have written.
+        const from = !updating && state.last_row > 0 ? Math.max(2, state.last_row - DEDUPE_WINDOW) : 2;
         const ids = await call<{ values?: unknown[][] }>("read ids", range(`${column}${from}:${column}`));
-        const present = new Set((ids.values ?? []).map((r) => String(r?.[0] ?? "")));
-        skipped = pending.filter((p) => present.has(p.id)).map((p) => p.id);
-        pending = pending.filter((p) => !present.has(p.id));
+        const rowOf = new Map<string, number>();
+        (ids.values ?? []).forEach((r, i) => {
+          const id = String(r?.[0] ?? "");
+          if (id && !rowOf.has(id)) rowOf.set(id, from + i);
+        });
+        pending = pending.filter((p) => {
+          const at = rowOf.get(p.id);
+          if (at === undefined) return true;
+          if (p.update) overwrite.push({ at, row: p.row });
+          else skipped.push(p.id);
+          return false;
+        });
+      }
+      if (overwrite.length) {
+        await call("update rows", `${base}/values:batchUpdate`, {
+          method: "POST",
+          body: JSON.stringify({
+            valueInputOption: "RAW",
+            data: overwrite.map((o) => ({
+              range: `${quoteSheet(sheetName)}!A${o.at}`,
+              values: [rowFor(state.header, o.row, escape)],
+            })),
+          }),
+        });
       }
       if (!pending.length) return state;
       const result = await call<{ updates?: { updatedRange?: string } }>(
@@ -355,7 +415,11 @@ export function sheetsDestination(options: SheetsDestinationOptions): Destinatio
   return {
     kind: "sheet",
     deliver: (submission, definition, config, deliveryOptions = {}) =>
-      guarded([{ submission, definition, deliveryId: deliveryOptions.deliveryId }], config, deliveryOptions),
+      guarded(
+        [{ submission, definition, deliveryId: deliveryOptions.deliveryId, update: deliveryOptions.update }],
+        config,
+        deliveryOptions,
+      ),
     deliverBatch: (items, config, deliveryOptions = {}) => guarded(items, config, deliveryOptions),
   };
 }

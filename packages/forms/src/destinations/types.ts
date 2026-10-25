@@ -54,6 +54,18 @@ export interface DeliveryOptions {
   redelivery?: boolean | undefined;
   /** Aborts the delivery. Each request also has its own timeout. */
   signal?: AbortSignal | undefined;
+  /**
+   * The submission was delivered before and this is its update (an edit).
+   * The sheet overwrites the response's row where it is (appending only when
+   * it is gone), and the webhook's event type becomes `form.updated`.
+   */
+  update?: boolean | undefined;
+  /**
+   * The app's id for the destination. Passed on to option functions (a
+   * secret, an account, an access token, a URL), so they can look up what
+   * is stored for it.
+   */
+  destinationId?: string | undefined;
 }
 
 /** One submission in a batch: each carries its own definition and delivery id. */
@@ -61,6 +73,8 @@ export interface DeliveryItem {
   submission: DeliverySubmission;
   definition: FormDefinition;
   deliveryId?: string | undefined;
+  /** This item is an update of a submission delivered before (see `DeliveryOptions.update`). */
+  update?: boolean | undefined;
 }
 
 export type DeliveryResult =
@@ -70,6 +84,12 @@ export type DeliveryResult =
       state?: Record<string, Json>;
       /** Submission ids already there (a redelivery), so nothing was sent for them. */
       skipped?: string[];
+      /**
+       * Set when the destination deliberately sent nothing (no address to
+       * send to, a daily cap reached): the reason, safe to store. Not a
+       * failure and never retried; `createDeliveryRunner` records it as skipped.
+       */
+      notSent?: string;
     }
   | DeliveryFailure;
 
@@ -251,6 +271,15 @@ export async function timedFetch(
   }
 }
 
+/** What an option function is told besides the config. */
+export interface ResolveContext {
+  /** `DeliveryOptions.destinationId`, when the app gave one. */
+  destinationId?: string | undefined;
+}
+
+/** A factory option worked out per delivery from the destination's config. */
+export type OptionResolver<T> = (config: DestinationConfig, context: ResolveContext) => T | Promise<T>;
+
 /**
  * A factory option that may be a value or a function of the config (an
  * account, a secret). A function that throws fails the delivery
@@ -260,12 +289,13 @@ export async function timedFetch(
  */
 export async function resolveOption<T>(
   what: string,
-  option: T | ((config: DestinationConfig) => T | Promise<T>),
+  option: T | OptionResolver<T>,
   config: DestinationConfig,
+  context: ResolveContext = {},
 ): Promise<T> {
   if (typeof option !== "function") return option;
   try {
-    return await (option as (config: DestinationConfig) => T | Promise<T>)(config);
+    return await (option as OptionResolver<T>)(config, context);
   } catch (error) {
     if (error instanceof DeliveryError) throw error;
     throw new DeliveryError(`${what} could not be resolved`);

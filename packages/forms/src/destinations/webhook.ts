@@ -18,6 +18,7 @@
 import { own, withheld } from "../logic";
 import { isSensitive } from "../fields";
 import type { FieldBlock, FormDefinition, Json } from "../types";
+import { checkHookHost, type ResolveHost } from "./hook-url";
 import { responseRow, visibleInputs, type RowOptions } from "./row";
 import {
   base64,
@@ -35,6 +36,7 @@ import {
   type Destination,
   type DestinationConfig,
   type HttpDeps,
+  type OptionResolver,
   type WebCryptoKey,
 } from "./types";
 
@@ -53,15 +55,28 @@ export interface WebhookDestinationOptions extends HttpDeps {
    * base64 fails permanently. Or a function that finds the one for a
    * destination's config. Never put it in config.
    */
-  secret: string | ((config: DestinationConfig) => string | Promise<string>);
+  secret: string | OptionResolver<string>;
   /** Allow `http:` URLs. Default false. */
   allowInsecureUrls?: boolean | undefined;
   /** Allow localhost and private, loopback and link-local address literals. Default false. */
   allowPrivateHosts?: boolean | undefined;
   /** Sensitive fields: `"include"` (default), `"mask"` or `"omit"`. */
   sensitive?: RowOptions["sensitive"];
-  /** The event type in the payload. Default `"form.submitted"`. */
+  /** The event type in the payload. Default `"form.submitted"`, or `"form.updated"` for an update. */
   type?: string | undefined;
+  /**
+   * Where to post, when it is not `config.url`: the address kept apart from
+   * config (encrypted, say, since a webhook URL can carry a token). Gets the
+   * config and `{ destinationId }`. It passes the same checks.
+   */
+  url?: OptionResolver<string> | undefined;
+  /**
+   * Resolves the URL's host before every request, and the delivery is refused
+   * unless every address is public (see `checkHookHost`). This catches a
+   * hostname that points at a private address, which the URL checks alone
+   * cannot. Recommended wherever untrusted people choose URLs.
+   */
+  resolveHost?: ResolveHost | undefined;
   now?: (() => number) | undefined;
 }
 
@@ -112,6 +127,15 @@ function secretKey(secret: string): Uint8Array<ArrayBuffer> {
 
 async function hmacKey(secret: string, usage: "sign" | "verify"): Promise<WebCryptoKey> {
   return crypto.subtle.importKey("raw", secretKey(secret), { name: "HMAC", hash: "SHA-256" }, false, [usage]);
+}
+
+/**
+ * A new signing secret: `whsec_` and standard base64 of 32 random bytes, the
+ * form Standard Webhooks libraries read. Show it to the receiver once; keep it
+ * out of config.
+ */
+export function newWebhookSecret(): string {
+  return `whsec_${base64(crypto.getRandomValues(new Uint8Array(32)))}`;
 }
 
 /** The `webhook-signature` value for a message: `v1,<base64>`. */
@@ -282,15 +306,19 @@ export function webhookDestination(options: WebhookDestinationOptions): Destinat
     kind: "webhook",
     async deliver(submission, definition, config, deliveryOptions: DeliveryOptions = {}): Promise<DeliveryResult> {
       try {
-        const url = checkWebhookUrl(configString(config, "url"), options);
-        const secret = await resolveOption("The webhook secret", options.secret, config);
+        const context = { destinationId: deliveryOptions.destinationId };
+        const raw = options.url
+          ? await resolveOption("The webhook url", options.url, config, context)
+          : configString(config, "url");
+        const url = checkWebhookUrl(typeof raw === "string" ? raw.trim() : "", options);
+        if (options.resolveHost) await checkHookHost(url, options.resolveHost);
+        const secret = await resolveOption("The webhook secret", options.secret, config, context);
         if (!secret) throw new DeliveryError("The webhook secret is not set");
         const now = options.now?.() ?? Date.now();
         const id = deliveryOptions.deliveryId ?? submission.id;
         const timestamp = Math.floor(now / 1000);
-        const body = JSON.stringify(
-          webhookPayload(submission, definition, { sensitive: options.sensitive, type: options.type, now }),
-        );
+        const type = options.type ?? (deliveryOptions.update ? "form.updated" : undefined);
+        const body = JSON.stringify(webhookPayload(submission, definition, { sensitive: options.sensitive, type, now }));
         const response = await timedFetch(
           options,
           url.toString(),
