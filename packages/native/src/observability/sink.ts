@@ -78,7 +78,7 @@ export interface ConsoleSinkOptions {
 }
 
 /**
- * Logs what would be sent, for development: errors with `console.error`,
+ * Logs what would be sent, for development: fatal errors with `console.error`, others with `console.warn`,
  * events and timings with `console.log`. Already scrubbed, so what you read
  * is what a vendor sink would get.
  *
@@ -88,7 +88,12 @@ export function consoleSink(options: ConsoleSinkOptions = {}): ObservabilitySink
   const out = options.console ?? console;
   return {
     name: "console",
-    captureError: (error, context) => out.error(`[observability] ${context.fatal ? "fatal " : ""}${context.source}: ${error.message}`),
+    // `warn` for what the app survives: `console.error` would raise a LogBox error for every one in development.
+    captureError: (error, context) => {
+      const line = `[observability] ${context.fatal ? "fatal " : ""}${context.source}: ${error.message}`;
+      if (context.fatal) out.error(line);
+      else out.warn(line);
+    },
     breadcrumb: options.breadcrumbs ? (crumb) => out.log(`[observability] · ${crumb.category} ${crumb.message ?? ""}`) : undefined,
     setUser: (id) => out.log(`[observability] user ${id ?? "(signed out)"}`),
     event: (name, props) => out.log(`[observability] event ${name}`, props),

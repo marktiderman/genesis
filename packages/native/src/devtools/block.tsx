@@ -20,10 +20,11 @@
  * false the block mounts nothing and listens to nothing.
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
-import { Alert, Dimensions, ScrollView, Share, View, type GestureResponderEvent } from "react-native";
+import { Alert, Modal, ScrollView, Share, View, type GestureResponderEvent } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { renderSlot } from "@marktiderman/genesis-core/slots";
-import { NativeButton, NativeInput, NativeSheet, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { NativeButton, NativeInput, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { defineBlock } from "@marktiderman/genesis-features/blocks";
 import { useSession } from "../auth";
 import { useBlocks, type NativeBlock, type NativeBlockRootProps } from "../blocks";
@@ -224,11 +225,13 @@ interface SheetProps {
   onCrash: () => void;
 }
 
+// Layout by `style`, not `className`: this package is compiled before the app's NativeWind
+// transform runs, so a class on React Native's own View would do nothing.
 function Row({ label, value, testID }: { label: string; value: string; testID?: string }) {
   return (
-    <View className="flex-row justify-between gap-3 py-1" testID={testID}>
+    <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 4 }} testID={testID}>
       <NativeText preset="label">{label}</NativeText>
-      <NativeText preset="body-sm" className="flex-1 text-right text-muted-foreground" selectable>
+      <NativeText preset="body-sm" className="text-right text-muted-foreground" style={{ flex: 1 }} selectable>
         {value}
       </NativeText>
     </View>
@@ -236,8 +239,9 @@ function Row({ label, value, testID }: { label: string; value: string; testID?: 
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
+  const roles = useThemeRoles();
   return (
-    <View className="gap-1 border-t border-border pt-3">
+    <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: roles.separator, paddingTop: 12 }}>
       <NativeText preset="label" accessibilityRole="header">
         {title}
       </NativeText>
@@ -248,6 +252,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function DevtoolsSheet({ block, Feedback, feedbackProps, onCrash }: SheetProps) {
   const { options } = block;
+  const roles = useThemeRoles();
   const { userId } = useSession();
   const blocks = useBlocks();
   const recent = useRecentActivity(options.observability ?? null);
@@ -298,9 +303,11 @@ function DevtoolsSheet({ block, Feedback, feedbackProps, onCrash }: SheetProps) 
 
   const flags = Object.entries(options.flags ?? {});
   return (
-    <NativeSheet open onOpenChange={(open) => (open ? undefined : close())} snapPoints={["90%"]} testID="genesis-devtools">
-      <ScrollView style={{ maxHeight: Dimensions.get("window").height * 0.8 }} contentContainerStyle={{ gap: 12, paddingBottom: 32 }}>
-        <View className="flex-row items-center justify-between">
+    // React Native's own modal, as a page sheet on iOS: it needs no provider above it (a bottom-sheet
+    // library's modal does), so the overlay opens whatever the app has mounted.
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={close} testID="genesis-devtools">
+      <ScrollView style={{ flex: 1, backgroundColor: roles.background }} contentContainerStyle={{ gap: 12, padding: 16, paddingBottom: 48 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <NativeText preset="h3" accessibilityRole="header">
             Devtools
           </NativeText>
@@ -386,7 +393,7 @@ function DevtoolsSheet({ block, Feedback, feedbackProps, onCrash }: SheetProps) 
         </Section>
 
         <Section title="Actions">
-          <View className="gap-2">
+          <View style={{ gap: 8 }}>
             <NativeButton size="sm" variant="outline" onPress={copy} testID="genesis-devtools-copy">
               Copy debug info
             </NativeButton>
@@ -415,6 +422,6 @@ function DevtoolsSheet({ block, Feedback, feedbackProps, onCrash }: SheetProps) 
           </View>
         </Section>
       </ScrollView>
-    </NativeSheet>
+    </Modal>
   );
 }
