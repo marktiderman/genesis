@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 138 components · 478 other exports · 344 standalone types across 11 packages and entry points.
+**Totals:** 138 components · 479 other exports · 345 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -782,7 +782,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (34)
+### Other exports (35)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -804,6 +804,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`getSettingsPageStackOptions`](../packages/ui-native/src/layouts/settings-page.tsx) | function | — | Convenience helper for callers that want to wire `<Stack.Screen options={...}>` without re-importing composeHeaderOptions. Defaults `large: true` and `scrollEdgeBehavior: "match"` to match the Apple HIG large-title settings pattern out o... |
 | [`getSettingsSubPageStackOptions`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Compose `<Stack.Screen options={...}>` for a SettingsSubPage. Wires the nav-bar Save button via `headerRight` automatically when `onSave` is passed. |
 | [`getThreadPageStackOptions`](../packages/ui-native/src/layouts/thread-page.tsx) | function | — | `<Stack.Screen options>` for a ThreadPage: a standard (not large) title, like Messages. |
+| [`googleProvider`](../packages/ui-native/src/layouts/google-sign-in.tsx) | function | Beta | A `SocialAuthProvider` (id `"google"`) for `AuthScreen`'s `providers`, or `null` when `enabled` is false. |
 | [`KeyboardScrollProvider`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | _(no summary)_ |
 | [`NativeCardContent`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeCardDescription`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
@@ -823,7 +824,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (42)
+### Types (43)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -836,6 +837,7 @@ export type { BoxBackground };
 export type { BrandExtensionsValue };
 export type { FlexAlign };
 export type { FlexJustify };
+export type { GoogleProviderOptions };
 export type { InboxItem };
 export type { InboxPageSlotMap };
 export type { InboxSwipeAction };
@@ -902,7 +904,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createBoot`](../packages/native/src/boot.tsx) | function | — | The boot controller: runs `steps` once each, in order, with a timeout per step. |
 | [`createHydrationGate`](../packages/native/src/hydration-gate.ts) | function | — | A gate that holds writes until a persisted store has hydrated. |
 | [`createLinkHold`](../packages/native/src/held-link.ts) | function | — | A place to hold one deep link until sign-in completes; lives outside React. |
-| [`createNativeQueryClient`](../packages/native/src/query.ts) | function | — | A QueryClient for a phone. `networkMode: "always"` runs a query or mutation even when the device reports offline, so it fails (and shows its error or cached data) instead of waiting forever for a network that may never come back. `gcTime... |
+| [`createNativeQueryClient`](../packages/native/src/query.ts) | function | — | A QueryClient for a phone. `networkMode: "offlineFirst"` runs a query or mutation once whatever the network says, then pauses its retries while the device is offline (`onlineManager`, which `connectQueryLifecycle` feeds from NetInfo), co... |
 | [`createSessionStore`](../packages/native/src/auth.tsx) | function | — | The Supabase session as a store: `load` reads it once, `start` follows auth events. |
 | [`DAY_MS`](../packages/native/src/query.ts) | const | — | One day in milliseconds: the default max age of the saved query cache. |
 | [`defaultErrorUtils`](../packages/native/src/errors.tsx) | function | — | `globalThis.ErrorUtils` in a React Native runtime, undefined elsewhere. |

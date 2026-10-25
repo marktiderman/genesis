@@ -29,7 +29,7 @@ const workflow = (file: string) => parse(read(`.eas/workflows/${file}`)) as Work
 const workflowFiles = readdirSync(join(root, ".eas/workflows")).filter((f) => f.endsWith(".yml"));
 const easJson = JSON.parse(read("eas.json")) as {
   cli: { appVersionSource: string };
-  build: Record<string, { extends?: string; environment?: string; channel?: string; env?: { APP_VARIANT?: string }; distribution?: string; ios?: { simulator?: boolean } }>;
+  build: Record<string, { extends?: string; environment?: string; channel?: string; env?: { APP_VARIANT?: string }; distribution?: string; uploadSourceMaps?: boolean; ios?: { simulator?: boolean } }>;
   submit: { production: { ios: Record<string, string>; android: Record<string, string> } };
 };
 
@@ -104,6 +104,10 @@ describe("eas.json", () => {
     expect(profile("e2e").ios?.simulator).toBe(true);
   });
 
+  it("uploads each preview and production build's source map to EAS (EAS Observe symbolication)", () => {
+    for (const name of ["preview", "production"]) expect(profile(name).uploadSourceMaps, name).toBe(true);
+  });
+
   it("ships placeholders, never real store ids", () => {
     const values = [...Object.values(easJson.submit.production.ios), easJson.submit.production.android.serviceAccountKeyPath];
     for (const value of values) expect(value).toMatch(/^REPLACE_WITH_/);
@@ -112,6 +116,13 @@ describe("eas.json", () => {
 });
 
 describe("EAS workflows", () => {
+  it.each(workflowFiles)("%s: every update job says whether it uploads Sentry source maps (off until Sentry is on)", (file) => {
+    // Unset, EAS tries an upload whenever @sentry/react-native is installed and hides a failure.
+    for (const [id, job] of Object.entries(workflow(file).jobs)) {
+      if (job.type === "update") expect(job.params?.upload_sentry_sourcemaps, `${file} ${id}`).toBe(false);
+    }
+  });
+
   it.each(workflowFiles)("%s: every needs and after names a job", (file) => {
     const { jobs } = workflow(file);
     for (const job of Object.values(jobs)) {

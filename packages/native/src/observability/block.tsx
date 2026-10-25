@@ -211,9 +211,13 @@ export function createObservability<const E extends EventSchema = EventSchema>(o
     contributes: {
       privacy: {
         collects: [
+          // genesis-cli's PRIVACY_BLOCKS.observability mirrors this (with events) for the iOS
+          // privacy manifest; observability/block.test.tsx keeps the two the same.
           { type: "crash data", purposes: ["app functionality"], linked: true, tracking: false },
           { type: "performance data", purposes: ["app functionality"], linked: true, tracking: false },
-          { type: "user id", purposes: ["app functionality"], linked: true, tracking: false },
+          // Sentry's device and OS details, breadcrumbs and sessions.
+          { type: "other diagnostic data", purposes: ["app functionality"], linked: true, tracking: false },
+          { type: "user id", purposes: options.events ? ["app functionality", "analytics"] : ["app functionality"], linked: true, tracking: false },
           ...(options.events ? [{ type: "product interaction", purposes: ["analytics"], linked: true, tracking: false }] : []),
         ],
         notes: [

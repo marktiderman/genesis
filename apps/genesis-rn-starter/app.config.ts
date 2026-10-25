@@ -2,7 +2,7 @@
 import "tsx/cjs";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 import starter from "./starter.config";
-import { easConfig, nativePlatforms } from "./src/lib/define-starter";
+import { easConfig, nativePlatforms, privacyBlocks } from "./src/lib/define-starter";
 
 // Name, ids and plugins only. The Genesis plugin (`@marktiderman/genesis-cli`) adds the rest:
 // APP_VARIANT variants (development / preview / production), associated domains and app links from
@@ -31,7 +31,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-secure-store",
     "expo-updates",
     "expo-notifications",
-    "@marktiderman/genesis-cli",
+    // The privacy manifest declares the data of the blocks that are on (account, observability, push).
+    ["@marktiderman/genesis-cli", { privacy: { blocks: privacyBlocks(starter.features) } }],
     // Optional: upload source maps to Sentry from EAS builds (the observability block). Set your
     // organization and project slugs, add SENTRY_AUTH_TOKEN as an EAS secret, set "@sentry/cli" to
     // true under allowBuilds in pnpm-workspace.yaml, and switch metro.config.js to

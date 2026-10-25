@@ -58,12 +58,14 @@ In this monorepo the root `pnpm-workspace.yaml` pins `react`, `react-dom`, `@typ
 
 ## Turning features off
 
-Each line of `features` in `starter.config.ts` is one feature, `true` by default:
+Each line of `features` in `starter.config.ts` is one feature, `true` by default except
+`googleSignIn`:
 
 | Line | What it is | Off means |
 | --- | --- | --- |
 | `emailSignIn` | Email and password sign-in and sign-up on `AuthScreen`. | No form; Apple only, so the app builds for iOS only (`platforms`). |
 | `appleSignIn` | Sign in with Apple (`signInWithApple`, `appleProvider`), iOS only. | No Apple button; `ios.usesAppleSignIn` off. |
+| `googleSignIn` | Native Google sign-in (`signInWithGoogle`, `googleProvider`). **Off by default**: it needs client ids and setup, see [Google sign-in](#google-sign-in). Needs `appleSignIn` on. | No Google button. |
 | `accountDeletion` | "Delete account" in Settings (`deleteMyAccount`). | No delete row. App Review requires it for apps with accounts. |
 | `notifications` | The Notifications tab (`NotificationsPage`). | The tab is hidden, its route redirects home and links to it open `/`. Drop `/notifications` from `links.paths` in `genesis.config.json` too. |
 | `queryPersistence` | The `persistedQueryKeys` queries (`src/lib/app.ts`) saved to the phone for 24 hours, per user. | Cache in memory only. |
@@ -78,8 +80,8 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `observability` | The observability block (`src/lib/observability.ts`): every error the shell catches, route breadcrumbs and timings, the user's id and the typed events in `events`, to Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set and to the console in development, scrubbed of emails, tokens and query strings on the phone. | Errors only reach `console` (LogBox in development). |
 | `devtools` | The devtools overlay (`src/lib/devtools.ts`) in development and preview builds: a three-finger hold, "Open devtools" in the dev menu or Settings > About > Developer tools open a sheet with the version signature, channel switch, user id, blocks, flags and recent errors. Never in a production bundle. | No overlay and no Settings row. |
 
-A config with both sign-in methods off fails at start-up. Apple's button only shows on iOS, so
-with `emailSignIn` off `app.config.ts` builds for iOS only.
+A config with every sign-in method off, or Google without Apple, fails at start-up. Apple's button
+only shows on iOS, so with `emailSignIn` and `googleSignIn` off `app.config.ts` builds for iOS only.
 
 Switches that only change JavaScript (`updates`, `push`, `observability`, `devtools` and `support` included) don't change the build's fingerprint (`.fingerprintignore`
 leaves `starter.config.ts` out; what it means for the native build is in the evaluated config), so
@@ -190,6 +192,9 @@ fails if they drift.
 
 ## Not covered yet
 
+- **Google sign-in hasn't signed anyone in yet.** `signInWithGoogle` is unit-tested against a
+  stand-in for the Universal sign-in module; it hasn't run against the paid module and real Google
+  client ids.
 - **Apple token revocation needs your Apple key before the App Store.** The code is in place (see
   Supabase above), but nothing is revoked until the `genesis-apple-revoke` function is deployed
   with your Sign in with Apple key, and it hasn't been tried against Apple with a real key yet.
@@ -213,6 +218,35 @@ fails if they drift.
   few labels inside the Genesis layouts ("Email", "Password", "or", the boot and fatal screens)
   have no override yet; that is the `i18n` feature in the repo's `features.ts`.
 
+## Google sign-in
+
+`googleSignIn` is off because it can't work until you set it up. It signs in with Google's native
+sheet and hands the ID token to Supabase (`signInWithGoogle`), with a nonce Supabase checks, so a
+token taken from another sign-in can't be replayed.
+
+1. **Google Cloud.** In one project, create OAuth client ids: a **Web** one (Supabase verifies
+   tokens against it), an **iOS** one for each bundle id (`com.example.genesisstarter`, `.dev`,
+   `.preview`), and an **Android** one for each package with your signing certificate's SHA-1
+   (`eas credentials` prints it).
+2. **Supabase.** Authentication > Providers > Google: enable it, enter the Web client id and
+   secret, and add the iOS and Android client ids under "Authorized Client IDs". Leave "Skip nonce
+   check" off.
+3. **The module.** `signInWithGoogle` needs the Universal sign-in module (`GoogleOneTapSignIn`) of
+   `@react-native-google-signin/google-signin`, which is in the library's paid build: the free npm
+   build can't put a nonce in the token, and its sign-ins fail with `google_nonce_missing`. Install
+   it as its docs say, add its config plugin to `plugins` in `app.config.ts` with your iOS URL
+   scheme (`["@react-native-google-signin/google-signin", { iosUrlScheme: "com.googleusercontent.apps.…" }]`),
+   and replace the `null` in `src/lib/google-signin.ts` with the module (the file shows how).
+4. **Client ids.** Set `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` in
+   `.env` and in each EAS environment. They are public.
+5. **Turn it on.** `googleSignIn: true` in `starter.config.ts`, then rebuild (`npx expo prebuild`
+   or an EAS build): the module is native code. With the switch on and no module in
+   `src/lib/google-signin.ts`, the sign-in screen fails to load, naming the file.
+
+The button is `googleProvider` from genesis-ui-native, drawn as an outline button; pass Google's
+"G" mark as its `icon`, as Google's branding guidelines ask. Sign in with Apple must stay on beside
+it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Apple.
+
 ## Observability and devtools
 
 - **Sentry.** Set `EXPO_PUBLIC_SENTRY_DSN` in `.env` (and in each EAS environment). Without it,
@@ -220,6 +254,25 @@ fails if they drift.
   imports it first, and the root layout is exported wrapped (`wrapRoot`). Release and dist come
   from the version signature, with the update id and channel as tags. Source map upload is
   optional: the commented plugin line in `app.config.ts` says what to turn on.
+- **Source maps.** Builds upload theirs to EAS for EAS Observe (`uploadSourceMaps: true` in the
+  preview and production profiles of `eas.json`), so its stack traces are symbolicated. The
+  workflows' update jobs set `upload_sentry_sourcemaps: false`: left unset, EAS tries a Sentry
+  upload whenever `@sentry/react-native` is installed and only prints the error when it fails. When
+  you turn the Sentry plugin on (`app.config.ts`) and add `SENTRY_AUTH_TOKEN`, set it to `true` in
+  `.eas/workflows/pr-preview.yml` and `deploy-production.yml`, so a failed upload fails the job.
+- **Privacy manifest.** The Genesis plugin declares, in the iOS privacy manifest, what the blocks
+  that are on send off the phone (`privacyBlocks` in `src/lib/define-starter.ts`): `account` (email
+  address, user id, name), `observability` (crash, performance and other diagnostic data, user id, and the typed
+  events as product interaction for analytics), `push` (the push token as a device id) and `support`
+  (what the person sends: their request and text, an optional screenshot, the account id and device
+  facts); all
+  linked to the person, none for tracking, and `NSPrivacyTracking` false. The check-in example sends
+  nothing yet (its `send` is a stub); once it posts answers to your server, add them (`other user
+  content`, or the types your questions ask for) to `privacy.collects`. Turn `observability` off
+  if you never set a DSN. If the app collects anything else, list everything it collects in
+  `genesis.config.json` `privacy.collects` (it replaces the blocks' list). Check the result with
+  `npx expo config --type introspect`. The App Store privacy label in App Store Connect is still
+  yours to fill in; the manifest doesn't fill it.
 - **Events.** Add an event to `events` in `src/lib/observability.ts` before calling
   `observability?.track(…)`; props are closed lists, numbers or booleans, so no free text can be
   sent.

@@ -23,10 +23,17 @@ export interface StarterApp {
 
 /** Every universal feature the Genesis packages ship. `true` is on; set one to `false` to turn it off. */
 export interface StarterFeatures {
-  /** Email and password sign-in and sign-up on `AuthScreen` (Supabase Auth). The only sign-in on Android: off, the app builds for iOS only. */
+  /** Email and password sign-in and sign-up on `AuthScreen` (Supabase Auth). With Google off, the only sign-in on Android: off, the app builds for iOS only. */
   emailSignIn: boolean;
   /** Sign in with Apple on iOS (`signInWithApple` + `appleProvider`). Needs the Apple provider in Supabase Auth. */
   appleSignIn: boolean;
+  /**
+   * Native Google sign-in (`signInWithGoogle` + `googleProvider`), off by default: it needs Google
+   * client ids, the Google provider in Supabase Auth and the Universal sign-in module of
+   * `@react-native-google-signin/google-signin` in `src/lib/google-signin.ts` (README, "Google
+   * sign-in"). On iOS it needs `appleSignIn` too (App Store Review Guideline 4.8).
+   */
+  googleSignIn: boolean;
   /** "Delete account" in Settings (`deleteMyAccount` + the `delete_my_account` migration). */
   accountDeletion: boolean;
   /** The Notifications tab (`NotificationsPage`). */
@@ -94,18 +101,30 @@ export interface StarterConfig {
 
 /**
  * The platforms the app builds for. Sign in with Apple only shows on iOS, so
- * with email sign-in off an Android build would have no way to sign in: the
- * app is iOS only then (`platforms` in app.config.ts).
+ * with email and Google sign-in off an Android build would have no way to
+ * sign in: the app is iOS only then (`platforms` in app.config.ts).
  */
-export function nativePlatforms(features: Pick<StarterFeatures, "emailSignIn">): ("ios" | "android")[] {
-  return features.emailSignIn ? ["ios", "android"] : ["ios"];
+export function nativePlatforms(features: Pick<StarterFeatures, "emailSignIn"> & Partial<Pick<StarterFeatures, "googleSignIn">>): ("ios" | "android")[] {
+  return features.emailSignIn || features.googleSignIn ? ["ios", "android"] : ["ios"];
+}
+
+/**
+ * The Genesis blocks that send data off the phone, for the privacy manifest
+ * (`withGenesis({ privacy: { blocks } })` in app.config.ts): a switch turned
+ * off declares nothing. Sign-in is always on, so `account` always is.
+ */
+export function privacyBlocks(features: Pick<StarterFeatures, "observability" | "push" | "support">): string[] {
+  return ["account", ...(features.observability ? ["observability"] : []), ...(features.push ? ["push"] : []), ...(features.support ? ["support"] : [])];
 }
 
 /** Checks the config once, where it is written, so a combination that can't work fails at start-up. */
 export function defineStarter<const C extends StarterConfig>(config: C): C {
   const { features } = config;
-  if (!features.emailSignIn && !features.appleSignIn) {
-    throw new Error("[starter] emailSignIn and appleSignIn are both off in starter.config.ts, so nobody can sign in. Turn one on.");
+  if (!features.emailSignIn && !features.appleSignIn && !features.googleSignIn) {
+    throw new Error("[starter] emailSignIn, appleSignIn and googleSignIn are all off in starter.config.ts, so nobody can sign in. Turn one on.");
+  }
+  if (features.googleSignIn && !features.appleSignIn) {
+    throw new Error("[starter] googleSignIn is on without appleSignIn. App Store Review Guideline 4.8 wants Sign in with Apple beside Google on iOS: turn appleSignIn on.");
   }
   if (!/^[a-z][a-z0-9+.-]*$/.test(config.app.scheme)) {
     throw new Error(`[starter] app.scheme "${config.app.scheme}" in starter.config.ts must be lower case letters, digits, "+", "." or "-", without "://".`);

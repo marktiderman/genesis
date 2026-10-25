@@ -246,6 +246,14 @@
               "tracking": false
             },
             {
+              "type": "other diagnostic data",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
               "type": "user id",
               "purposes": [
                 "app functionality"
