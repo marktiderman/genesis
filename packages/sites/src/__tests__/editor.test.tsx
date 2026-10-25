@@ -37,7 +37,7 @@ describe("createEditorConfig", () => {
     for (const def of listSections()) {
       def.presets.forEach((preset, i) => {
         const name = i === 0 ? def.type : `${def.type}@${i}`;
-        expect(config.components[name]?.defaultProps).toMatchObject({ ...preset.props, _variant: preset.variant, _v: def.version });
+        expect(config.components[name]?.defaultProps).toMatchObject({ ...(preset.props as Record<string, unknown>), _variant: preset.variant, _v: def.version });
         expect(components.get(name)).toMatchObject({ type: def.type, label: preset.name, category: def.category });
         expect((config.categories as Record<string, { components: string[] }>)[def.category]?.components).toContain(name);
       });
@@ -133,7 +133,7 @@ describe("createEditorConfig", () => {
   });
 
   it("draws a section on the canvas with its own renderer, h1 where the page puts it", () => {
-    const meta: CanvasMetadata = { site: { name: "Riverside Gym", lang: "en", nav: [] }, pagePath: "/", forms: new Map(), h1Id: "h1", placeholders: new Map() };
+    const meta: CanvasMetadata = { site: { name: "Riverside Gym", lang: "en", nav: [] }, pagePath: "/", forms: {}, h1Id: "h1", placeholders: {} };
     const render = config.components.hero!.render as (p: Record<string, unknown>) => React.ReactElement;
     const html = renderToStaticMarkup(render({ ...sectionProps.hero, id: "h1", _variant: "centered", _v: 1, puck: { metadata: meta, isEditing: true } }));
     expect(html).toContain("<h1");
@@ -143,7 +143,7 @@ describe("createEditorConfig", () => {
   });
 
   it("shows what to fix instead of a section whose props don't parse", () => {
-    const meta: CanvasMetadata = { site: { name: "x", lang: "en", nav: [] }, pagePath: "/", forms: new Map(), h1Id: null, placeholders: new Map() };
+    const meta: CanvasMetadata = { site: { name: "x", lang: "en", nav: [] }, pagePath: "/", forms: {}, h1Id: null, placeholders: {} };
     const render = config.components.hero!.render as (p: Record<string, unknown>) => React.ReactElement;
     const html = renderToStaticMarkup(render({ id: "bad", heading: "", _v: 1, puck: { metadata: meta } }));
     expect(html).toContain('role="alert"');
@@ -151,7 +151,7 @@ describe("createEditorConfig", () => {
   });
 
   it("never renders an unsafe link an editor typed", () => {
-    const meta: CanvasMetadata = { site: { name: "x", lang: "en", nav: [] }, pagePath: "/", forms: new Map(), h1Id: null, placeholders: new Map() };
+    const meta: CanvasMetadata = { site: { name: "x", lang: "en", nav: [] }, pagePath: "/", forms: {}, h1Id: null, placeholders: {} };
     const render = config.components.cta!.render as (p: Record<string, unknown>) => React.ReactElement;
     const html = renderToStaticMarkup(render({ id: "c", heading: "Go", primaryCta: { label: "Click", href: "javascript:alert(1)" }, _v: 1, puck: { metadata: meta } }));
     expect(html).not.toContain("javascript:");

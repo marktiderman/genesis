@@ -7,11 +7,10 @@
  * dependency: an app imports everything from here, never from
  * `@puckeditor/core`. Published pages (`/web`) never load this module.
  *
- * Importing it registers the built-in sections and loads Puck's stylesheet.
+ * Importing it registers the built-in sections. Puck injects its own styles.
  *
  * @packageDocumentation
  */
-import "@puckeditor/core/puck.css";
 import "../sections/index";
 
 export { SiteEditor, type SiteEditorProps } from "./site-editor";

@@ -68,8 +68,8 @@ export function nodeToItem(node: SectionNode, slotKeys: SlotKeys = noSlots): Puc
       id: node.id,
       _v: node.v,
       ...(node.variant ? { _variant: node.variant } : {}),
-      ...(node.hidden ? { _hidden: true } : {}),
-      ...(node.hideOn?.length ? { _hideOn: hideOnValue(node.hideOn) } : {}),
+      _hidden: node.hidden === true,
+      _hideOn: node.hideOn?.length ? hideOnValue(node.hideOn) : "none",
       ...(node.placeholder ? { _placeholder: true } : {}),
     },
   };

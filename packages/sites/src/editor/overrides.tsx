@@ -7,12 +7,15 @@
 import * as React from "react";
 import { createUsePuck, type Overrides } from "@puckeditor/core";
 import { Badge } from "@marktiderman/genesis-ui/badge";
+import { Button } from "@marktiderman/genesis-ui/button";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { RadioGroup, RadioGroupItem } from "@marktiderman/genesis-ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui/select";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { cn } from "@marktiderman/genesis-ui/utils";
+import { newSectionId } from "../core/registry";
+import { scrollCanvasTo } from "./canvas-dom";
 import { countTypes, sectionTypeOf, type EditorData } from "./data";
 import type { ComponentInfo } from "./config";
 
@@ -81,7 +84,7 @@ function NumberInput(p: BaseProps) {
 
 /** Options carry any value (a number, a boolean); the controls key them by index. */
 const indexOf = (options: readonly { value: unknown }[], value: unknown) => {
-  const i = options.findIndex((o) => o.value === value || (o.value === "" && value === undefined));
+  const i = options.findIndex((o) => o.value === value || (value === undefined && (o.value === "" || o.value === false)));
   return i < 0 ? "" : String(i);
 };
 
@@ -138,24 +141,50 @@ function ComponentItem({ name, info }: { name: string; info: ReadonlyMap<string,
   const type = sectionTypeOf(name);
   const used = React.useMemo(() => countTypes(data).get(type) ?? 0, [data, type]);
   const full = meta?.limit !== undefined && used >= meta.limit;
+  const dispatch = usePuck((s) => s.dispatch);
+  const label = meta?.label ?? name;
+  /** Dragging isn't the only way in (WCAG 2.5.7): the button adds the section at the end of its zone and selects it. */
+  const add = () => {
+    const zone = meta?.placement === "header" ? "root:header" : meta?.placement === "footer" ? "root:footer" : "root:default-zone";
+    const list = zone === "root:header" ? data.root.props.header : zone === "root:footer" ? data.root.props.footer : data.content;
+    const index = list?.length ?? 0;
+    const id = newSectionId(type.replace(/-/g, "").slice(0, 6));
+    dispatch({ type: "insert", componentType: name, destinationIndex: index, destinationZone: zone, id });
+    dispatch({ type: "setUi", ui: { itemSelector: { index, zone } } });
+    scrollCanvasTo(id, ref.current?.ownerDocument);
+  };
+  // Puck draws each item twice (a static copy under the draggable one): hide the copy from assistive tech.
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const copy = ref.current?.closest<HTMLElement>('[class*="draggableBg"]');
+    if (copy) {
+      copy.setAttribute("aria-hidden", "true");
+      copy.inert = true;
+    }
+  }, []);
   // Puck's wrapper is the drag handle; a section at its limit has `insert` off (config.tsx), so it can't be dragged.
   return (
     <div
+      ref={ref}
       className={cn(
         "flex w-full items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2 text-left text-sm text-foreground",
         full ? "cursor-not-allowed opacity-60" : "cursor-grab hover:border-primary",
       )}
-      title={full ? `A page has at most ${meta?.limit} of these` : `Drag onto the page to add: ${meta?.label ?? name}`}
+      title={full ? `A page has at most ${meta?.limit} of these` : `Drag onto the page, or press Add: ${label}`}
     >
-      <span className="flex flex-col">
-        <span className="font-medium">{meta?.label ?? name}</span>
+      <span className="flex min-w-0 flex-col">
+        <span className="font-medium">{label}</span>
         {meta && meta.label !== meta.sectionLabel ? <span className="text-xs text-muted-foreground">{meta.sectionLabel}</span> : null}
       </span>
-      {meta?.limit !== undefined ? (
-        <Badge variant={full ? "secondary" : "outline"} className="shrink-0">
-          {full ? "Limit reached" : `${used} of ${meta.limit}`}
+      {full ? (
+        <Badge variant="secondary" className="shrink-0">
+          Limit reached
         </Badge>
-      ) : null}
+      ) : (
+        <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 px-2" aria-label={`Add ${label}`} onPointerDown={(e) => e.stopPropagation()} onClick={add}>
+          Add
+        </Button>
+      )}
     </div>
   );
 }

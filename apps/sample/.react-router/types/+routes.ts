@@ -22,6 +22,9 @@ type Pages = {
       "scenario": string;
     };
   };
+  "/sites-editor": {
+    params: {};
+  };
   "/dashboard": {
     params: {};
   };
@@ -113,7 +116,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/forms-frame" | "/preview/:scenario" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects" | "/projects/:projectId/:tab?" | "/studio" | "/features" | "/sites" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/" | "/forms-frame" | "/preview/:scenario" | "/sites-editor" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects" | "/projects/:projectId/:tab?" | "/studio" | "/features" | "/sites" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/_index.tsx": {
     id: "routes/_index";
@@ -126,6 +129,10 @@ type RouteFiles = {
   "routes/preview.$scenario.tsx": {
     id: "routes/preview.$scenario";
     page: "/preview/:scenario";
+  };
+  "routes/sites-editor.tsx": {
+    id: "routes/sites-editor";
+    page: "/sites-editor";
   };
   "routes/_layout.tsx": {
     id: "routes/_layout";
@@ -242,6 +249,7 @@ type RouteModules = {
   "routes/_index": typeof import("./app/routes/_index.tsx");
   "routes/forms-frame": typeof import("./app/routes/forms-frame.tsx");
   "routes/preview.$scenario": typeof import("./app/routes/preview.$scenario.tsx");
+  "routes/sites-editor": typeof import("./app/routes/sites-editor.tsx");
   "routes/_layout": typeof import("./app/routes/_layout.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/items": typeof import("./app/routes/items.tsx");

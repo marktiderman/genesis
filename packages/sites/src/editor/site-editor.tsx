@@ -31,9 +31,10 @@ import { cn } from "@marktiderman/genesis-ui/utils";
 import type { FormsResolver, ResolvedForm } from "../core/forms";
 import { PageDoc, SiteDoc, type MenuItem, type PageKind, type PageMeta, type Release, type ReleaseMeta } from "../core/schemas";
 import type { SiteIssue } from "../core/a11y";
-import { siteTheme, themeCss, brandDisplayName, type BrandInput } from "../core/theme";
+import { brandDisplayName, siteTheme, stableHash, themeCss, type BrandInput } from "../core/theme";
 import type { ReservedPaths } from "../core/urls";
 import { AssetPicker } from "./asset-picker";
+import { scrollCanvasTo } from "./canvas-dom";
 import { Autosaver, type AutosaveState } from "./autosave";
 import { createEditorConfig, type CanvasMetadata } from "./config";
 import { countTypes, fromEditorData, h1SectionId, placeholderSnapshot, toEditorData, type EditorData } from "./data";
@@ -114,15 +115,24 @@ function useCanvasFrame(css: string | null, theme: string, dark: boolean, lang: 
         }
         const vars = document.createElement("style");
         vars.dataset.gsTheme = "";
-        vars.textContent = styleText(theme);
+        // Raised above the host app's own :root variables, which Puck copies into the frame (and may copy again later).
+        vars.textContent = styleText(theme.replace(/:root/g, "html:root"));
         nodes.push(vars);
         for (const n of nodes) document.head.appendChild(n);
+        // Puck copies the host app's stylesheets into the frame (its own canvas styles are among them) and copies
+        // them again as they change; the site's styles stay last, so the canvas draws what publishes.
+        const keepLast = new MutationObserver(() => {
+          const last = document.head.lastElementChild;
+          if (last && !nodes.includes(last as HTMLElement)) for (const n of nodes) document.head.appendChild(n);
+        });
+        keepLast.observe(document.head, { childList: true });
         const html = document.documentElement;
         html.lang = lang;
         html.dataset.gsSite = "";
         html.classList.toggle("dark", dark);
         document.body.classList.add("bg-background", "font-sans", "text-foreground", "antialiased");
         return () => {
+          keepLast.disconnect();
           for (const n of nodes) n.remove();
         };
       }, [document]);
@@ -184,6 +194,16 @@ function useSelectFooter() {
     const selector = first ? getSelectorForId(first.props.id) : undefined;
     if (selector) dispatch({ type: "setUi", ui: { itemSelector: selector, rightSideBarVisible: true } });
   };
+}
+
+/** Selecting a section on the canvas opens its fields. */
+function SelectionWatcher({ onSelect }: { onSelect(): void }) {
+  const selected = usePuck((s) => s.selectedItem?.props.id as string | undefined);
+  React.useEffect(() => {
+    if (selected) onSelect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+  return null;
 }
 
 function PagesTab(props: Omit<React.ComponentProps<typeof PagesPanel>, "onEditFooter"> & { onFooter(): void }) {
@@ -398,11 +418,12 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       const p = await store.getPageDraft(open.id);
       if (p) {
         const unsaved = pageSaver.current.dirty;
-        const before = JSON.stringify(pageSaver.current.latest);
+        // Key order differs once the store has parsed a document: compare by content.
+        const before = stableHash(pageSaver.current.latest);
         pageSaver.current.rebase(p.rev, unsaved ? undefined : p.doc);
         if (p.path !== open.path) setOpen((o) => (o ? { ...o, path: p.path } : o));
         // A publish that migrated the page's props: show what the store has now.
-        if (!unsaved && JSON.stringify(p.doc) !== before && draft) {
+        if (!unsaved && stableHash(p.doc) !== before && draft) {
           const data = toEditorData(p.doc, draft.site, editor.slotKeys);
           setOpen((o) => (o ? { ...o, data } : o));
           setEditorKey((k) => k + 1);
@@ -592,9 +613,9 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     () => ({
       site: { name: site?.name ?? "", lang: site?.lang ?? "en", nav: site?.nav ?? [], ...(brand && "logo" in brand && brand.logo ? { logo: { src: brand.logo.src, alt: brand.logo.alt?.trim() || brandDisplayName(brand) } } : {}) },
       pagePath: open?.path ?? "/",
-      forms: formMap,
+      forms: Object.fromEntries(formMap),
       h1Id,
-      placeholders: open?.placeholders ?? new Map(),
+      placeholders: Object.fromEntries(open?.placeholders ?? []),
     }),
     [site?.name, site?.lang, site?.nav, brand, open?.path, open?.placeholders, formMap, h1Id],
   );
@@ -640,6 +661,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
           ]}
           headerTitle={site.name}
         >
+          <div className="flex h-full min-h-0 flex-col">
+          <SelectionWatcher onSelect={() => setRightTab("edit")} />
           <Toolbar siteName={site.name} pageTitle={`${pageTitle} (${open.path})`} saveStatus={saveStatus} viewport={viewport} onViewport={setViewport} onPreview={() => void showPreview("preview")} />
           {notice || invalid ? (
             <div className="flex flex-col gap-2 border-b border-border px-3 py-2">
@@ -692,7 +715,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
                 </TabsContent>
               </Tabs>
             </aside>
-            <main className="relative min-h-[28rem] min-w-0 bg-muted" aria-label="Page canvas">
+            <main className="relative min-h-[28rem] min-w-0 bg-muted" aria-label="Page canvas" data-gs-canvas="">
               <Puck.Preview />
             </main>
             <aside className="flex min-h-0 flex-col border-t border-border lg:border-l lg:border-t-0" aria-label="Section settings and publishing">
@@ -722,10 +745,15 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
                     onRollback={rollback}
                     onPreview={(mode) => void showPreview(mode)}
                     onOpenPage={(id) => void openPage(id)}
+                    onShowSection={(id) => {
+                      setRightTab("edit");
+                      scrollCanvasTo(id);
+                    }}
                   />
                 </TabsContent>
               </Tabs>
             </aside>
+          </div>
           </div>
         </Puck>
 
@@ -757,7 +785,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
         </AlertDialog>
 
         <Dialog open={preview !== null} onOpenChange={(o) => (o ? null : setPreview(null))}>
-          <DialogContent className="flex h-[90vh] max-w-6xl flex-col">
+          <DialogContent className="flex h-[90vh] w-[95vw] max-w-6xl flex-col sm:max-w-6xl">
             <DialogHeader>
               <DialogTitle>{preview?.mode === "live" ? `Live: ${preview.path}` : `Preview: ${preview?.path}`}</DialogTitle>
               <DialogDescription>{preview?.mode === "live" ? "What visitors get now, from the published release." : "Your drafts, drawn by the same renderer the live site uses."}</DialogDescription>

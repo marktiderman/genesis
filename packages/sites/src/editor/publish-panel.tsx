@@ -49,6 +49,8 @@ export interface PublishPanelProps {
   onRollback(releaseId: string): Promise<void>;
   onPreview(mode: "preview" | "live"): void;
   onOpenPage(pageId: string): void;
+  /** A check's "Show" selected this section: open its fields and scroll to it. */
+  onShowSection(sectionId: string): void;
   currentPageId: string | null;
 }
 
@@ -121,14 +123,16 @@ function SeoFields({ siteName, pagePath, pageTitle }: { siteName: string; pagePa
   );
 }
 
-function IssueList({ issues, currentPageId, onOpenPage }: { issues: SiteIssue[]; currentPageId: string | null; onOpenPage(id: string): void }) {
+function IssueList({ issues, currentPageId, onOpenPage, onShown }: { issues: SiteIssue[]; currentPageId: string | null; onOpenPage(id: string): void; onShown(sectionId: string): void }) {
   const getSelectorForId = usePuck((s) => s.getSelectorForId);
   const dispatch = usePuck((s) => s.dispatch);
   const show = (issue: SiteIssue) => {
     if (issue.pageId && issue.pageId !== currentPageId) return onOpenPage(issue.pageId);
     if (!issue.sectionId) return;
     const selector = getSelectorForId(issue.sectionId);
-    if (selector) dispatch({ type: "setUi", ui: { itemSelector: selector, rightSideBarVisible: true } });
+    if (!selector) return;
+    dispatch({ type: "setUi", ui: { itemSelector: selector, rightSideBarVisible: true } });
+    onShown(issue.sectionId);
   };
   return (
     <ul className="flex flex-col gap-2">
@@ -184,7 +188,7 @@ export function PublishPanel(props: PublishPanelProps) {
             </span>
           )}
         </div>
-        {props.issues?.length ? <IssueList issues={[...errors, ...warnings]} currentPageId={props.currentPageId} onOpenPage={props.onOpenPage} /> : null}
+        {props.issues?.length ? <IssueList issues={[...errors, ...warnings]} currentPageId={props.currentPageId} onOpenPage={props.onOpenPage} onShown={props.onShowSection} /> : null}
       </section>
 
       <Separator />

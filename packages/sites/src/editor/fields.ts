@@ -55,7 +55,7 @@ export function humanize(key: string): string {
     .trim()
     .toLowerCase()
     .split(/\s+/)
-    .map((w) => (w === "cta" || w === "seo" || w === "faq" || w === "url" ? w.toUpperCase() : w));
+    .map((w) => (w === "href" ? "link" : w === "cta" || w === "seo" || w === "faq" || w === "url" ? w.toUpperCase() : w));
   const text = words.join(" ");
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
@@ -105,9 +105,11 @@ export interface FieldContext {
   slotAllow?: string[];
 }
 
-function options(values: readonly unknown[], required: boolean) {
+/** Select options; an optional value gets an empty choice, named after the schema's default when it has one. */
+function options(values: readonly unknown[], required: boolean, fallback?: unknown) {
   const opts = values.map((v) => ({ label: typeof v === "string" ? humanize(v) : String(v), value: v as string | number | boolean }));
-  return required ? opts : [{ label: "None", value: "" }, ...opts];
+  const empty = fallback === undefined ? "None" : `Default (${typeof fallback === "string" ? humanize(fallback).toLowerCase() : String(fallback)})`;
+  return required ? opts : [{ label: empty, value: "" }, ...opts];
 }
 
 /** One field for one property, or a field that says it can't be edited. */
@@ -126,11 +128,11 @@ export function fieldFor(key: string, schema: JsonSchema, required: boolean, ctx
   const union = schema.anyOf ?? schema.oneOf;
   if (union) {
     const consts = union.filter((s) => "const" in s).map((s) => s.const);
-    if (consts.length === union.length && consts.length > 0) return { type: "select", label, options: options(consts, required) };
+    if (consts.length === union.length && consts.length > 0) return { type: "select", label, options: options(consts, required, schema.default) };
     const branch = union.find((s) => typeOf(s) !== "null");
     if (branch) return fieldFor(key, { ...branch, title: schema.title ?? branch.title }, required, ctx);
   }
-  if (schema.enum) return { type: "select", label, options: options(schema.enum, required) };
+  if (schema.enum) return { type: "select", label, options: options(schema.enum, required, schema.default) };
 
   switch (typeOf(schema)) {
     case "boolean":
@@ -153,7 +155,7 @@ export function fieldFor(key: string, schema: JsonSchema, required: boolean, ctx
       };
     case "string":
       return {
-        type: (schema.maxLength ?? 0) > 160 ? "textarea" : "text",
+        type: schema.format !== "uri-reference" && (schema.maxLength ?? 0) > 160 ? "textarea" : "text",
         label,
         ...(schema.format === "uri-reference" ? { placeholder: "/about, #section or https://…" } : {}),
       };

@@ -30,11 +30,12 @@ export interface ComponentInfo {
 export interface CanvasMetadata {
   site: RenderContext["site"];
   pagePath: string;
-  forms: ReadonlyMap<string, ResolvedForm | null>;
+  /** Plain objects, not Maps: Puck copies its metadata. */
+  forms: Readonly<Record<string, ResolvedForm | null>>;
   /** The section that gets the page's h1. */
   h1Id: string | null;
   /** Template placeholders' original props, by section id. */
-  placeholders: ReadonlyMap<string, string>;
+  placeholders: Readonly<Record<string, string>>;
 }
 
 export interface EditorConfigOptions {
@@ -106,7 +107,7 @@ function CanvasSection({ def, componentName, input, slotKeys }: { def: AnySectio
   const id = String(input.id);
   const props: Record<string, unknown> & { id: string } = { id };
   for (const [k, v] of Object.entries(input)) if (!META.has(k) && !slotKeys.includes(k)) props[k] = v;
-  const node = itemToNode({ type: componentName, props } as PuckItem, { ...(meta.placeholders ? { placeholders: meta.placeholders } : {}) });
+  const node = itemToNode({ type: componentName, props } as PuckItem, { ...(meta.placeholders ? { placeholders: new Map(Object.entries(meta.placeholders)) } : {}) });
   const migrated = migrateNode(node);
   const slots = slotKeys.map((key) => {
     const Slot = input[key] as React.ComponentType<{ minEmptyHeight?: number }> | undefined;
@@ -124,7 +125,7 @@ function CanvasSection({ def, componentName, input, slotKeys }: { def: AnySectio
     site: meta.site ?? { name: "", lang: "en", nav: [] as MenuItem[] },
     pagePath: meta.pagePath ?? "/",
     href: (href) => href,
-    forms: meta.forms ?? new Map(),
+    forms: new Map(Object.entries(meta.forms ?? {})),
     mode: "preview",
     idPrefix: `gs-${id}`,
   };
@@ -201,11 +202,11 @@ export function createEditorConfig(options: EditorConfigOptions = {}): EditorCon
         header: { type: "slot", label: "Site header", allow: names("header") },
         footer: { type: "slot", label: "Site footer", allow: names("footer") },
       } as Fields,
-      render: ({ children, header: Header, footer: Footer, hideSiteChrome }: { children: React.ReactNode; header?: React.ComponentType<{ minEmptyHeight?: number }>; footer?: React.ComponentType<{ minEmptyHeight?: number }>; hideSiteChrome?: boolean }) => (
+      render: ({ children, header: Header, footer: Footer, hideSiteChrome }: { children: React.ReactNode; header?: React.ComponentType<{ minEmptyHeight?: number; style?: React.CSSProperties }>; footer?: React.ComponentType<{ minEmptyHeight?: number; style?: React.CSSProperties }>; hideSiteChrome?: boolean }) => (
         <>
-          {!hideSiteChrome && Header ? <Header minEmptyHeight={48} /> : null}
+          {!hideSiteChrome && Header ? <Header minEmptyHeight={48} style={{ height: "auto" }} /> : null}
           <main id="main">{children}</main>
-          {!hideSiteChrome && Footer ? <Footer minEmptyHeight={48} /> : null}
+          {!hideSiteChrome && Footer ? <Footer minEmptyHeight={48} style={{ height: "auto" }} /> : null}
         </>
       ),
     },
