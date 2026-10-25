@@ -1,8 +1,10 @@
 // @feat:forms-native
 // Regressions for the adversarial review's findings.
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
-import { defineForm, f } from "@marktiderman/genesis-forms";
+import { createForm, defineForm, f } from "@marktiderman/genesis-forms";
+import { KeyboardScrollProvider, type KeyboardToolbarProps } from "@marktiderman/genesis-ui-native/layouts";
 import { announcements } from "../../test-utils/rn-mock";
 import { FormFocus, randomKey, type OutboxEnqueueLike, type OutboxLike } from "../index";
 import { act, byTestId, flush, next, press, queryTestId, renderForm, screen, type } from "./helpers";
@@ -124,18 +126,49 @@ describe("testIDs", () => {
 });
 
 describe("return keys", () => {
-  it("say Send on the last question, and a bar above a pad with no return key carries Next", () => {
-    const def = defineForm({
-      id: "keys",
-      title: "Keys",
-      layout: { mode: "focus" },
-      blocks: [f.number("n", { label: "N", min: 0 }), f.shortText("last", { label: "Last" })],
-    }).definition;
-    const { engine } = renderForm(def, { autoAdvance: false });
-    expect(byTestId("form-n").getAttribute("data-accessory-id")).toBe("form-n-keys");
+  const def = defineForm({
+    id: "keys",
+    title: "Keys",
+    layout: { mode: "focus" },
+    blocks: [f.number("n", { label: "N", min: 0 }), f.shortText("last", { label: "Last" })],
+  }).definition;
+
+  // The app's KeyboardToolbar (react-native-keyboard-controller), as GenesisNativeApp provides it.
+  const toolbarProps: KeyboardToolbarProps[] = [];
+  function FakeToolbar(props: KeyboardToolbarProps) {
+    toolbarProps.push(props);
+    return (
+      <button data-testid="keyboard-toolbar-done" onClick={() => props.onDoneCallback?.()}>
+        {props.doneText}
+      </button>
+    );
+  }
+  function FakeScroll({ children }: { children?: ReactNode }) {
+    return <div>{children}</div>;
+  }
+
+  it("say Send on the last question, and the keyboard toolbar above a pad with no return key carries Next", () => {
+    const engine = createForm(def);
+    render(
+      <KeyboardScrollProvider component={FakeScroll} toolbar={FakeToolbar}>
+        <FormFocus engine={engine} autoAdvance={false} />
+      </KeyboardScrollProvider>,
+    );
+    // No InputAccessoryView (deprecated in React Native 0.88): the app's toolbar instead.
+    expect(byTestId("form-n").getAttribute("data-accessory-id")).toBeNull();
+    expect(toolbarProps.at(-1)).toMatchObject({ showArrows: false, doneText: "Next" });
     type("form-n", "3");
-    press("form-n-keys-next");
+    press("keyboard-toolbar-done");
     expect(engine.getState().current).toBe(engine.idOf("last"));
     expect(byTestId("form-last").getAttribute("data-return-key")).toBe("send");
+    expect(byTestId("keyboard-toolbar-done").textContent).toBe("Send");
+  });
+
+  it("without the app's toolbar, a pad still moves on with the form's own Next", () => {
+    const { engine } = renderForm(def, { autoAdvance: false });
+    expect(queryTestId("keyboard-toolbar-done")).toBeNull();
+    type("form-n", "3");
+    next();
+    expect(engine.getState().current).toBe(engine.idOf("last"));
   });
 });

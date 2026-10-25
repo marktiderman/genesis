@@ -317,6 +317,7 @@ declare module "react-native" {
     onRefresh?: () => void;
     refreshControl?: React.ReactElement | undefined;
     contentInsetAdjustmentBehavior?: "automatic" | "scrollableAxes" | "never" | "always";
+    keyboardShouldPersistTaps?: "always" | "never" | "handled";
     testID?: string;
   }
 

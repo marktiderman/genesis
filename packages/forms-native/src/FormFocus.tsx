@@ -37,13 +37,14 @@ import {
   type RendererRegistry,
 } from "@marktiderman/genesis-forms-react";
 import { useReducedMotion } from "@marktiderman/genesis-ui-native/hooks";
-import { composeHeaderOptions, useKeyboardScroll } from "@marktiderman/genesis-ui-native/layouts";
+import { KEYBOARD_TOOLBAR_HEIGHT, composeHeaderOptions, useKeyboardScroll, useKeyboardToolbar } from "@marktiderman/genesis-ui-native/layouts";
 import { ContentStep, defaultContentRegistry, type ContentRendererRegistry } from "./content";
 import {
   accessibilityFocus,
   createPendingUploads,
   FormNativeContext,
   useFocusTargets,
+  useFormNative,
   type FormHaptics,
   type FormNativeContextValue,
   type PhotoHost,
@@ -609,11 +610,15 @@ function useOutboxStatus(outbox: OutboxLike | undefined, id: string | null) {
 /**
  * The scrolling screen: the app's keyboard-aware scroll view (`KeyboardScrollProvider`, as the
  * native app shell sets up) so the focused answer and the button under it stay above the
- * keyboard, else a ScrollView in a KeyboardAvoidingView. A new step starts at the top.
+ * keyboard, else a ScrollView in a KeyboardAvoidingView. A new step starts at the top. With the
+ * app's keyboard toolbar (react-native-keyboard-controller's `KeyboardToolbar`), the bar above
+ * the keyboard says Next (or Send) and moves the step on: a number or phone pad has no return key.
  */
 function Shell({ children, testID, keyName }: { children: ReactNode; testID: string; keyName: string }) {
   const s = useFormStyles();
   const KeyboardScroll = useKeyboardScroll();
+  const KeyboardToolbar = useKeyboardToolbar();
+  const { submit, submitLabel, locked } = useFormNative();
   const common = {
     testID: `${testID}-scroll`,
     keyboardShouldPersistTaps: "handled" as const,
@@ -623,7 +628,10 @@ function Shell({ children, testID, keyName }: { children: ReactNode; testID: str
   return (
     <View style={s.screen} testID={testID}>
       {KeyboardScroll ? (
-        createElement(KeyboardScroll, { key: keyName, ...common, bottomOffset: 96 }, children)
+        <>
+          {createElement(KeyboardScroll, { key: keyName, ...common, bottomOffset: KeyboardToolbar ? 96 + KEYBOARD_TOOLBAR_HEIGHT : 96 }, children)}
+          {KeyboardToolbar && !locked ? <KeyboardToolbar showArrows={false} doneText={submitLabel} onDoneCallback={() => submit()} /> : null}
+        </>
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView key={keyName} {...common}>
