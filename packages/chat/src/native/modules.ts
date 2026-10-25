@@ -119,6 +119,9 @@ export interface DraftStorageLike {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
   removeItem(key: string): Promise<void>;
+  /** For `clearDrafts` on sign-out. */
+  getAllKeys?(): Promise<readonly string[]>;
+  multiRemove?(keys: readonly string[]): Promise<void>;
 }
 
 /** Each optional: without one its feature is hidden (no mic without audio, no attach without a picker). */

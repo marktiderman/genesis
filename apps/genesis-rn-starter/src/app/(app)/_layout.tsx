@@ -4,6 +4,7 @@ import { useSession } from "@marktiderman/genesis-native";
 import { NotificationsProvider } from "@marktiderman/genesis-notifications/react";
 import starter from "../../../starter.config";
 import { copy } from "@/copy";
+import { useClearChatOnSignOut } from "@/lib/chat";
 import { notifications } from "@/lib/notifications";
 import { supabase } from "@/lib/supabase";
 
@@ -14,6 +15,7 @@ import { supabase } from "@/lib/supabase";
  */
 export default function AppLayout() {
   const { status, userId } = useSession();
+  useClearChatOnSignOut();
   if (status === "signedOut") return <Redirect href="/sign-in" />;
   const tabs = (
     <NativeTabs>
