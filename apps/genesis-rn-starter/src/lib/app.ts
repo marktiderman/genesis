@@ -18,6 +18,7 @@ import { assertEnv } from "./env";
 import { linkHold } from "./links";
 import { sessionReady, supabase } from "./supabase";
 import { devtools } from "./devtools";
+import { createStarterPush } from "./push";
 import { updatesBlock } from "./updates";
 
 const { features } = starter;
@@ -41,5 +42,5 @@ export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   links: features.deepLinks ? { hold: linkHold, onRelease: (path) => router.replace(path as Href) } : undefined,
   updates: updatesBlock,
   // The first block's root is the outermost: observability sees everything below it.
-  blocks: [observability, devtools].filter((block) => block !== undefined),
+  blocks: [observability, features.push ? createStarterPush() : undefined, devtools].filter((block) => block !== undefined),
 };

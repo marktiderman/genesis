@@ -30,6 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-router",
     "expo-secure-store",
     "expo-updates",
+    "expo-notifications",
     "@marktiderman/genesis-cli",
     // Optional: upload source maps to Sentry from EAS builds (the observability block). Set your
     // organization and project slugs, add SENTRY_AUTH_TOKEN as an EAS secret, set "@sentry/cli" to

@@ -50,6 +50,14 @@ export interface StarterFeatures {
    */
   updates: boolean;
   /**
+   * The push block (`createPush`): this device's push token on sign-in and off on sign-out, taps
+   * routed through the deep-link map, the badge, the soft prompt (offered on the Notifications tab,
+   * never at launch) and Settings → Notifications (categories, quiet hours, previews), on the
+   * `push_devices` and `notification_preferences` migration. JavaScript only: expo-notifications
+   * stays in the build either way. Needs an EAS project id for a push token.
+   */
+  push: boolean;
+  /**
    * The observability block (`createObservability`, `src/lib/observability.ts`): every error the
    * shell catches, route breadcrumbs and timings, the user's id and typed analytics events, to
    * Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set (and the console in development), scrubbed of

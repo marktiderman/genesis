@@ -1,4 +1,4 @@
-// @feat:native-starter @feat:app-updates @feat:observability @feat:devtools-overlay
+// @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -213,6 +213,15 @@ describe("supabase/migrations", () => {
     expect(read(copies[0]!)).toBe(shippedSql("0003_genesis_apple_token_revocation.sql"));
     expect(read("supabase/tests/database/genesis_apple_token_revocation.test.sql")).toBe(shippedSql("tests/0003_genesis_apple_token_revocation.test.sql"));
   });
+
+  it("carries the push migration and its pgTAP test unchanged (the push block reads it), after the Apple one", () => {
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_push.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(shippedSql("0005_genesis_push.sql"));
+    expect(read("supabase/tests/database/genesis_push.test.sql")).toBe(shippedSql("tests/0005_genesis_push.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_apple_token_revocation.sql")));
+  });
 });
 
 describe("supabase/functions", () => {
@@ -228,5 +237,34 @@ describe("supabase/functions", () => {
 
   it("deploys it without the gateway's JWT check (the function checks the caller itself)", () => {
     expect(read("supabase/config.toml")).toMatch(/\[functions\.genesis-apple-revoke\]\s*\nverify_jwt = false/);
+  });
+
+  it("carries the genesis-push-send function unchanged, deployed without the gateway's JWT check (it checks GENESIS_PUSH_SECRET)", () => {
+    const shipped = join(supabasePackage, "functions", "genesis-push-send");
+    const names = readdirSync(shipped).sort();
+    expect(names).toEqual(["expo.ts", "handler.ts", "index.ts"]);
+    expect(readdirSync(join(root, "supabase/functions/genesis-push-send")).sort()).toEqual(names);
+    for (const name of names) {
+      expect(read(`supabase/functions/genesis-push-send/${name}`), name).toBe(readFileSync(join(shipped, name), "utf8"));
+    }
+    expect(read("supabase/config.toml")).toMatch(/\[functions\.genesis-push-send\]\s*\nverify_jwt = false/);
+  });
+});
+
+describe("push", () => {
+  it("ships with the push block on, behind the one `push` switch", () => {
+    expect(starter.features.push).toBe(true);
+    expect(read("src/lib/app.ts")).toContain("features.push ? createStarterPush() : undefined");
+  });
+
+  it("keeps expo-notifications in the build whichever way the switch is, so turning push off is JavaScript only", () => {
+    expect(read("app.config.ts")).toMatch(/plugins: \[[^\]]*"expo-notifications"/);
+    expect(read("app.config.ts")).not.toContain("features.push");
+  });
+
+  it("asks for permission only through the soft prompt, never from the root layout", () => {
+    expect(read("src/app/_layout.tsx")).not.toMatch(/requestPermissions|offer\(/);
+    const asking = filesUnder("src").filter((f) => /requestPermissionsAsync/.test(read(f)));
+    expect(asking).toEqual([]);
   });
 });

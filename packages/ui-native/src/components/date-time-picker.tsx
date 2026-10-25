@@ -22,6 +22,8 @@ function resolveDateTimePicker(): React.ComponentType<{
   mode: "date" | "time";
   display?: string;
   onChange: (e: unknown, d?: Date) => void;
+  disabled?: boolean;
+  style?: object;
   testID?: string;
 }> | null {
   try {
@@ -79,9 +81,26 @@ function PickerButton({
     );
   }
 
-  // iOS: render the inline picker directly when consumer wants it that
-  // way; default exposes a button that toggles a sheet-like dialog. For
-  // simplicity in this primitive we render the button + the picker inline.
+  // iOS: the compact picker is itself the button (it shows the value and
+  // opens the wheel), so it renders alone; a button beside it showed the
+  // value twice.
+  if (isIOS) {
+    return (
+      <Picker
+        testID={testID ?? `native-${mode}-picker`}
+        value={value}
+        mode={mode}
+        display="compact"
+        disabled={disabled}
+        style={disabled ? { opacity: 0.5 } : undefined}
+        onChange={(_e, d) => {
+          if (d && !disabled) onChange(d);
+        }}
+      />
+    );
+  }
+
+  // Android: a button that opens the platform dialog.
   return (
     <>
       <Pressable
@@ -91,9 +110,7 @@ function PickerButton({
         accessibilityValue={{ text: label }}
         accessibilityState={{ disabled }}
         disabled={disabled}
-        onPress={() => {
-          if (!isIOS) setShowAndroid(true);
-        }}
+        onPress={() => setShowAndroid(true)}
         className={cn(
           "min-h-[44px] flex-row items-center rounded-md border border-input bg-background px-3",
           disabled && "opacity-50",
@@ -102,14 +119,14 @@ function PickerButton({
       >
         <Text className="flex-1 text-base text-foreground">{label}</Text>
       </Pressable>
-      {(isIOS || showAndroid) ? (
+      {showAndroid ? (
         <Picker
           testID={testID ? `${testID}-picker` : undefined}
           value={value}
           mode={mode}
-          display={isIOS ? "compact" : "default"}
+          display="default"
           onChange={(_e, d) => {
-            if (!isIOS) setShowAndroid(false);
+            setShowAndroid(false);
             if (d) onChange(d);
           }}
         />

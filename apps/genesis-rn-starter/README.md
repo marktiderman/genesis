@@ -60,6 +60,7 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `deepLinks` | `scheme://` and universal links open their screen, after sign-in if needed (`normalizeLink`). | Every link opens `/`. Universal links still open the app until you also delete the `links` block in `genesis.config.json`. |
 | `wipeSessionOnReinstall` | A reinstalled iOS app starts signed out (the Keychain outlives an uninstall). | The last session comes back after a reinstall. |
 | `refreshWhileActive` | The session refreshes only while the app is in front. | supabase-js's own timer runs in the background too. |
+| `push` | The push block (`createPush`, `src/lib/push.ts`): this phone's push token on sign-in once permission is granted, off on sign-out; Settings > Notifications (`NotificationSettings`: categories, quiet hours, previews); the soft prompt, offered when the Notifications tab opens, never at launch; taps open their screen through the link map. Needs an EAS project id for a token. | No token, no prompt, no Notifications row in Settings; expo-notifications stays in the build. |
 | `updates` | The updates block (`createUpdates`, `src/lib/updates.ts`): force upgrade and maintenance from the `app_release_policy` row, the update banner (never reloads mid sign-in or mid deletion: `useBlockReload`), what's new, and the version signature in Settings > About. | No blocking screens, banner or notes; About shows the version and build from `expo-application`. |
 | `observability` | The observability block (`src/lib/observability.ts`): every error the shell catches, route breadcrumbs and timings, the user's id and the typed events in `events`, to Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set and to the console in development, scrubbed of emails, tokens and query strings on the phone. | Errors only reach `console` (LogBox in development). |
 | `devtools` | The devtools overlay (`src/lib/devtools.ts`) in development and preview builds: a three-finger hold, "Open devtools" in the dev menu or Settings > About > Developer tools open a sheet with the version signature, channel switch, user id, blocks, flags and recent errors. Never in a production bundle. | No overlay and no Settings row. |
@@ -67,7 +68,7 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 A config with both sign-in methods off fails at start-up. Apple's button only shows on iOS, so
 with `emailSignIn` off `app.config.ts` builds for iOS only.
 
-Switches that only change JavaScript (`updates`, `observability` and `devtools` included) don't change the build's fingerprint (`.fingerprintignore`
+Switches that only change JavaScript (`updates`, `push`, `observability` and `devtools` included) don't change the build's fingerprint (`.fingerprintignore`
 leaves `starter.config.ts` out; what it means for the native build is in the evaluated config), so
 `eas update` still reaches installed builds after you turn one off. `appleSignIn` and
 `emailSignIn` change the native build and its runtime version.
@@ -119,6 +120,13 @@ manifest for the packages installed, export compliance and the fingerprint runti
   warning, `unknown_client`). Before a release, set the function's
   secrets, deploy it and schedule its retries: see "Revoking Apple's tokens" in
   [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#revoking-apples-tokens).
+- **Push:** `supabase/migrations/20261024000400_genesis_push.sql` and
+  `supabase/functions/genesis-push-send/` are the package's migration 0005 and its sender, copied and
+  drift-tested the same way. The app only registers its token and edits preferences; your server
+  (or a trigger) calls the function with `GENESIS_PUSH_SECRET`, and a schedule polls the receipts
+  (which also keeps `push_receipts` to 30 days). Turn on enhanced push security in the Expo project
+  and give the function `EXPO_ACCESS_TOKEN`, so a leaked token alone can't push to a phone:
+  see "Push" in [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#push-the-push-block).
 - **Auth providers:** email works with Supabase's defaults (confirmation on: sign-up asks the
   person to confirm, then sign in; the confirmation link opens `site_url`, not the app). For Apple, enable the Apple provider with the bundle ids of all
   three variants as client ids; `supabase/config.toml` does this for a local stack.
@@ -159,7 +167,11 @@ fails if they drift.
 - **`links.hosts` is `example.com`.** Replace it (step 3 above) before a release build, or the
   build ships associated domains that never verify.
 - **Notifications have no source.** `src/lib/notifications.ts` returns an empty list; point its
-  `queryFn` at yours. Push isn't part of the starter until the push block ships.
+  `queryFn` at yours.
+- **Push hasn't reached a real phone.** With no EAS project there is no push token (Settings says
+  so). After `eas init`, upload APNs and FCM credentials (`eas credentials`), deploy
+  `genesis-push-send` with its secrets and schedule its receipts poll; delivery through Apple and
+  Google hasn't been tried yet. Tap routing can be tried on a simulator with `xcrun simctl push`.
 - **No EAS project.** `app.easProjectId` is empty, so builds ship with `updates.enabled: false` and
   no workflow can run until `eas init` (step 4 above). None of the workflows has been run against a
   real EAS account yet.

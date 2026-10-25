@@ -33,6 +33,8 @@ export function createStarterUpdates() {
     appState: AppState,
     openURL: Linking.openURL,
     channels: { enabled: __DEV__ || TEST_BUILD.test(Application.applicationId ?? "") },
+    // Settings > About shows the version itself (`useAppVersion`), with the block on or off.
+    versionRow: false,
     onError: (error, source) => {
       console.warn(`[updates] ${source}: ${error.message}`);
       observability?.captureError(error, { source: `updates:${source}` });

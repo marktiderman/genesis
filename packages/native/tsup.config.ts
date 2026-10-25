@@ -5,6 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     persist: "src/persist.ts",
     updates: "src/updates/index.ts",
+    push: "src/push/index.ts",
     observability: "src/observability/index.ts",
     devtools: "src/devtools/index.ts",
   },

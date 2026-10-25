@@ -26,6 +26,7 @@ export default defineStarter({
     wipeSessionOnReinstall: true,
     refreshWhileActive: true,
     updates: true,
+    push: true,
     observability: true,
     devtools: true,
   },

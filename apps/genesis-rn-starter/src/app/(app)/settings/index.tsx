@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Stack } from "expo-router";
+import { Stack, router, type Href } from "expo-router";
 import { Alert } from "react-native";
 import type { Session } from "@supabase/supabase-js";
-import { useSession } from "@marktiderman/genesis-native";
+import { useBlockSettings, useSession } from "@marktiderman/genesis-native";
 import { useBlockReload } from "@marktiderman/genesis-native/updates";
 import { SettingsPage, getSettingsPageStackOptions, type SettingsPageDangerousAction } from "@marktiderman/genesis-ui-native";
 import starter from "../../../../starter.config";
@@ -23,6 +23,22 @@ export default function SettingsScreen() {
   // An update never reloads the app while the deletion request runs.
   useBlockReload(busy);
   const version = useAppVersion();
+  const blockSettings = useBlockSettings(
+    [
+      { id: "account", title: t.accountSection, rows: [{ id: "email", title: t.signedInAs, subtitle: session?.user.email ?? "" }] },
+      { id: "general", rows: [] },
+      {
+        id: "about",
+        title: t.aboutSection,
+        rows: [
+          { id: "version", title: t.version, subtitle: version },
+          // Development and preview builds only (`features.devtools`).
+          ...(devtools?.enabled ? [{ id: "devtools", title: t.devtools, showChevron: true, onPress: devtools.open, testID: "open-devtools" }] : []),
+        ],
+      },
+    ],
+    { navigate: (href) => router.push(href as Href) },
+  );
 
   const runDelete = async () => {
     setBusy(true);
@@ -63,23 +79,14 @@ export default function SettingsScreen() {
   if (starter.features.accountDeletion) {
     dangerousActions.push({ label: t.deleteAccount, testID: "delete-account", emphasized: true, onPress: busy ? () => {} : confirmDelete });
   }
+  // Blocks add their rows (the push block's Notifications row, in `general`); a section left empty is dropped.
+  const sections = blockSettings.filter((section) => section.rows.length > 0);
   return (
     <>
       <Stack.Screen options={getSettingsPageStackOptions({ headerTitle: t.title })} />
       <SettingsPage
         testID="settings"
-        sections={[
-          { id: "account", title: t.accountSection, rows: [{ id: "email", title: t.signedInAs, subtitle: session?.user.email ?? "" }] },
-          {
-            id: "about",
-            title: t.aboutSection,
-            rows: [
-              { id: "version", title: t.version, subtitle: version },
-              // Development and preview builds only (`features.devtools`).
-              ...(devtools?.enabled ? [{ id: "devtools", title: t.devtools, showChevron: true, onPress: devtools.open, testID: "open-devtools" }] : []),
-            ],
-          },
-        ]}
+        sections={sections}
         dangerousActions={dangerousActions}
       />
     </>
