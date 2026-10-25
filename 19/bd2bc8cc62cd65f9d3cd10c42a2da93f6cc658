@@ -1,0 +1,127 @@
+packages/native/src/devtools/info.ts
+  s_8252619ce79a86::t_418224c63949e5 1-45
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_418224c63949e5 28
+apps/genesis-rn-starter/.env.example
+  s_8252619ce79a86::t_418224c63949e5 5-7
+apps/genesis-rn-starter/src/lib/app.ts
+  s_8252619ce79a86::t_418224c63949e5 5-6,20,22,43-45
+packages/native/src/__tests__/observability/events.test.ts
+  s_8252619ce79a86::t_418224c63949e5 1-40
+packages/native/src/observability/block.tsx
+  s_8252619ce79a86::t_418224c63949e5 1-296
+apps/genesis-rn-starter/.eas/workflows/rollout.yml
+  s_8252619ce79a86::t_418224c63949e5 62,112
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_418224c63949e5 29-40
+packages/native/src/observability/scrub.ts
+  s_8252619ce79a86::t_418224c63949e5 1-166
+packages/native/src/devtools/index.ts
+  s_8252619ce79a86::t_418224c63949e5 1-22
+templates/eas/eas.json
+  s_8252619ce79a86::t_418224c63949e5 11,17,29
+apps/genesis-rn-starter/.eas/workflows/e2e.yml
+  s_8252619ce79a86::t_418224c63949e5 31,52
+packages/native/src/observability/sink.ts
+  s_8252619ce79a86::t_418224c63949e5 1-147
+packages/native/src/__tests__/devtools/devtools.test.tsx
+  s_8252619ce79a86::t_418224c63949e5 1-170
+packages/native/src/observability/events.ts
+  s_8252619ce79a86::t_418224c63949e5 1-89
+templates/eas/workflows/e2e.yml
+  s_8252619ce79a86::t_418224c63949e5 31,52
+packages/native/src/observability/sentry.ts
+  s_8252619ce79a86::t_418224c63949e5 1-222
+packages/native/tsup.config.ts
+  s_8252619ce79a86::t_418224c63949e5 4-11,25
+apps/genesis-rn-starter/src/lib/devtools.ts
+  s_8252619ce79a86::t_418224c63949e5 1-23
+packages/native/src/devtools/slots.ts
+  s_8252619ce79a86::t_418224c63949e5 1-18
+packages/native/src/devtools/block.tsx
+  s_8252619ce79a86::t_418224c63949e5 1-427
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_8252619ce79a86::t_418224c63949e5 11-12,30-38,48,70-77
+packages/native/src/app.tsx
+  s_8252619ce79a86::t_418224c63949e5 13-15,51-52,76-78,135-139,197-198,206-211,253-261,267,413,424-427
+  s_8252619ce79a86::t_276fda1cacda84 428-429
+apps/genesis-rn-starter/src/lib/updates.ts
+  s_8252619ce79a86::t_418224c63949e5 20,38-41,45-46
+  s_8252619ce79a86::t_ee2e3272156a57 47
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_418224c63949e5 60-73
+packages/native/src/devtools/gestures.ts
+  s_8252619ce79a86::t_418224c63949e5 1-107
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_418224c63949e5 77-78,83,198-213
+apps/genesis-rn-starter/tailwind.config.mjs
+  s_8252619ce79a86::t_418224c63949e5 1-3,10
+features.json
+  s_8252619ce79a86::t_418224c63949e5 1621-1622,1653,2398,2400-2401,2410-2424,2436-2451,2458,2460-2461,2467-2484,2495-2510
+apps/genesis-rn-starter/src/app/_layout.tsx
+  s_8252619ce79a86::t_418224c63949e5 6,11,18-20
+apps/genesis-rn-starter/src/lib/observability.ts
+  s_8252619ce79a86::t_418224c63949e5 1-45
+packages/native/src/__tests__/observability/sentry.test.ts
+  s_8252619ce79a86::t_418224c63949e5 1-162
+packages/native/src/blocks.tsx
+  s_8252619ce79a86::t_418224c63949e5 13,34-51
+templates/eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_418224c63949e5 44,123,137
+templates/eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_418224c63949e5 29,59,72,104
+apps/genesis-rn-starter/starter.config.ts
+  s_8252619ce79a86::t_418224c63949e5 30-31
+packages/native/src/observability/index.ts
+  s_8252619ce79a86::t_418224c63949e5 1-44
+pnpm-workspace.yaml
+  s_8252619ce79a86::t_418224c63949e5 25-29
+features.ts
+  s_8252619ce79a86::t_418224c63949e5 717,733,1065,1067-1069,1071-1074,1079-1086,1090,1092-1094,1096-1100,1105-1112
+packages/native/README.md
+  s_8252619ce79a86::t_418224c63949e5 61-63,138,238-381,568-569
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_418224c63949e5 1,85-110,257
+apps/genesis-rn-starter/src/copy.ts
+  s_8252619ce79a86::t_418224c63949e5 54
+packages/native/src/__tests__/observability/scrub.test.ts
+  s_8252619ce79a86::t_418224c63949e5 1-186
+packages/native/package.json
+  s_8252619ce79a86::t_418224c63949e5 7,38-45,73-75,85-90
+.changeset/observability-devtools.md
+  s_8252619ce79a86::t_418224c63949e5 1-20
+apps/genesis-rn-starter/src/lib/devtools-overlay.ts
+  s_8252619ce79a86::t_418224c63949e5 1-34
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_8252619ce79a86::t_418224c63949e5 29,59,72,104
+packages/native/src/__tests__/observability/block.test.tsx
+  s_8252619ce79a86::t_418224c63949e5 1-202
+packages/native/vitest.config.ts
+  s_8252619ce79a86::t_418224c63949e5 28
+AGENTS.md
+  s_8252619ce79a86::t_520341d9b22eb0 16
+templates/eas/workflows/rollout.yml
+  s_8252619ce79a86::t_418224c63949e5 62,112
+apps/genesis-rn-starter/eas.json
+  s_8252619ce79a86::t_418224c63949e5 11,17,29
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_8252619ce79a86::t_418224c63949e5 44,123,137
+pnpm-lock.yaml
+  s_8252619ce79a86::t_c12bf93f471cbb 65-67,4345-4557,5476-5479,6255-6258,7090-7093,8456-8458,9466-9469,12972-13148,14191-14196,15017-15018,16170-16176,17623-17624,18766,18893-18894,19243
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "19bd2bc8cc62cd65f9d3cd10c42a2da93f6cc658",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
