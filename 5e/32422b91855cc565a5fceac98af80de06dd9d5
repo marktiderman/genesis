@@ -1,0 +1,160 @@
+packages/sites/src/__tests__/editor.test.tsx
+  s_c0870a827920ef::t_f116fbcf560ad1 98-104
+  s_c0870a827920ef::t_6f7dad3bf0d857 57
+.changeset/forms-trusted-ip-webhook-retries.md
+  s_c0870a827920ef::t_e0b5d192ebfda7 1-38
+.changeset/sites-sections-review-fixes.md
+  s_c0870a827920ef::t_dfeaf77f9efd87 1-13
+.changeset/sites-sections-v1.md
+  s_c0870a827920ef::t_c4d8d9726b4e2a 1-13
+AGENTS.md
+  s_c0870a827920ef::t_51a13362bc64af 16
+apps/sample/app/routes/sites.tsx
+  s_c0870a827920ef::t_c31c2ed853a26b 29-43
+apps/sample/sites-demo/classes.ts
+  s_c0870a827920ef::t_3565bd2c2b6c02 1-214
+apps/sample/sites-demo/site.ts
+  s_c0870a827920ef::t_ca5e3af37fbefc 1-5,11,27,51-54,57,128,132-154,158,160-164,177,185-191,233,236-238,240
+apps/sample/sites-demo/vite-plugin.ts
+  s_c0870a827920ef::t_186145fa93778a 89-92
+docs/SITES.md
+  s_c0870a827920ef::t_22abdbd9f8526f 4-8,40-41,110,116,121,125,212,214-219,245-255,295-298,318-329,365-366,382,384,399-405
+features.json
+  s_c0870a827920ef::t_3a9e65a91d1f65 1113,1128-1137,1159-1162,1177,1226,1274-1387
+features.ts
+  s_c0870a827920ef::t_5c20c27dece9b0 495,500,511-513,520,542,563-608
+packages/forms/README.md
+  s_c0870a827920ef::t_24337c9d075479 479-493,840,864-868,890-894,930-933
+packages/forms/src/__tests__/delivery.test.ts
+  s_c0870a827920ef::t_a72cdaad49d217 620-645,785,788,794,802-803,807-835
+packages/forms/src/__tests__/destinations.test.ts
+  s_c0870a827920ef::t_e90deb6353f7dc 770-774,776-777,807-840,875,877-880,893-900
+packages/forms/src/__tests__/rate-limit.test.ts
+  s_c0870a827920ef::t_93e53e8cde6f96 50-51,54-55,59-63,68-84
+packages/forms/src/__tests__/uploads.test.ts
+  s_c0870a827920ef::t_2a04e2b6179214 127
+packages/forms/src/destinations.ts
+  s_c0870a827920ef::t_695e4724415e43 76,117
+packages/forms/src/destinations/runner.ts
+  s_c0870a827920ef::t_08fd303adf73de 17-19,92-93,166-177,195
+packages/forms/src/destinations/secret-box.ts
+  s_c0870a827920ef::t_2d3990aaed3d36 37-49,52-54,56-60,62,65
+packages/forms/src/destinations/types.ts
+  s_c0870a827920ef::t_ee3e87caec289d 112-117,156-157,160-165,168-169,239
+packages/forms/src/destinations/webhook.ts
+  s_c0870a827920ef::t_476308eb3e5df8 9-12,17-20,54-62,64,92-95,115-116,124,134-136,153-166,170-175,202-208,210,221,312,315,346,371-374
+packages/forms/src/rate-limit.ts
+  s_c0870a827920ef::t_9d9992565b6ec6 12-17,19-33,52-56,58-64,69-74,78-81
+packages/forms/src/server.ts
+  s_c0870a827920ef::t_467d43be6ac676 366
+packages/forms/src/upload-handler.ts
+  s_c0870a827920ef::t_8b16d7103ef73b 118-119,252-255
+packages/sites/README.md
+  s_c0870a827920ef::t_f1101380348e5a 11,15-17,28,146-150,169-215,296-303,306-311,324-394
+packages/sites/migrations/0002_genesis_sites_posts.sql
+  s_c0870a827920ef::t_7c1e0745282abf 1-404
+packages/sites/migrations/tests/0002_genesis_sites_posts.test.sql
+  s_c0870a827920ef::t_d38744cff4f818 1-242
+packages/sites/package.json
+  s_c0870a827920ef::t_bef967a9f5d93e 11,55-58,148-151
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_c0870a827920ef::t_36c4f17fc1473d 3-6,23-27,29,31-33,49-55,57,65,67-71,77-80,85-88,92-95
+packages/sites/src/__tests__/blog.test.ts
+  s_c0870a827920ef::t_f20674afa557c3 1-340
+packages/sites/src/__tests__/fixtures.ts
+  s_c0870a827920ef::t_63a82c0cebd954 6-18,84-152,206-235,245
+packages/sites/src/__tests__/import.test.ts
+  s_c0870a827920ef::t_c0cbfe4fff8ee7 1-258
+packages/sites/src/__tests__/migration.test.ts
+  s_c0870a827920ef::t_e00a554f8362cc 67-68
+packages/sites/src/__tests__/sections-v1.test.tsx
+  s_c0870a827920ef::t_6342153aee9243 1-298
+packages/sites/src/__tests__/sections.test.tsx
+  s_c0870a827920ef::t_ff8789902ed928 54
+packages/sites/src/__tests__/seo-a11y.test.ts
+  s_c0870a827920ef::t_6b077641e99eb1 155,159-168
+packages/sites/src/__tests__/web.test.ts
+  s_c0870a827920ef::t_0025880a463c90 193,210-224
+packages/sites/src/blocks.ts
+  s_c0870a827920ef::t_c8db0c60475a4c 12,22-25,30
+packages/sites/src/core/a11y.ts
+  s_c0870a827920ef::t_faba64f40e3bde 13-14,25,48-49,149,155,184,200-258
+packages/sites/src/core/forms.ts
+  s_c0870a827920ef::t_86449a41338d30 6-14,27-37,56-67
+packages/sites/src/core/posts.ts
+  s_c0870a827920ef::t_8836491883b990 1-167
+packages/sites/src/core/registry.ts
+  s_c0870a827920ef::t_33b6affff63ab5 19,62-76,113-121,158,222-228
+packages/sites/src/core/schemas.ts
+  s_c0870a827920ef::t_4bc3eccab0b126 28-44,49,51-55,57,61-83,177-183
+packages/sites/src/core/seo.ts
+  s_c0870a827920ef::t_90cfef2988a1ef 9-10,23-24,62,78-84,154-249,277-278,282,293-300
+packages/sites/src/core/store.ts
+  s_c0870a827920ef::t_096ff1af6f1641 6-22,43-58,132,134-157,233-234,278-319,333-356,379-390,425,439-454,591-592,594-695
+packages/sites/src/core/theme.ts
+  s_c0870a827920ef::t_1cc83c7e8086ec 176,178-183,259-261
+packages/sites/src/editor/fields.ts
+  s_c0870a827920ef::t_218feb55d60964 13-15,30-31,168-169,195-202
+packages/sites/src/import/guard.ts
+  s_c0870a827920ef::t_8dfa7f754bd4f3 1-151
+packages/sites/src/import/index.ts
+  s_c0870a827920ef::t_a4743784e850ed 1-258
+packages/sites/src/import/sniff.ts
+  s_c0870a827920ef::t_1e2094aeeb2e5c 1-78
+packages/sites/src/index.ts
+  s_c0870a827920ef::t_cd254f137f1531 11,17-18,71,85,92-93,96,103,106-127,149,151-153
+packages/sites/src/islands/loader.ts
+  s_c0870a827920ef::t_f1978651f4de82 3,13-14,123-143
+packages/sites/src/sections/blog-list.tsx
+  s_c0870a827920ef::t_72f264265f9551 1-163
+packages/sites/src/sections/features.tsx
+  s_c0870a827920ef::t_76345ad43e0100 5,13-16,25-28,46,67-78,83-100,111-135,140,144,149,158-159,167,170,174,178-179,186,189-190,193,195,198-199
+packages/sites/src/sections/file.tsx
+  s_c0870a827920ef::t_f237a47c405194 1-99
+packages/sites/src/sections/form-embed.tsx
+  s_c0870a827920ef::t_322232bb6e83a1 6,13,29,32,49-62
+packages/sites/src/sections/index.ts
+  s_c0870a827920ef::t_88229d63331d55 4,25-31,48-54,73-79,81-84
+packages/sites/src/sections/logos.tsx
+  s_c0870a827920ef::t_6707e76e465272 4-5,13,15-16,22-23,38,47-51,54-89,94-98
+packages/sites/src/sections/map.tsx
+  s_c0870a827920ef::t_60f38227db74d2 1-193
+packages/sites/src/sections/post-body.tsx
+  s_c0870a827920ef::t_68eab534b626b1 1-114
+packages/sites/src/sections/pricing.tsx
+  s_c0870a827920ef::t_67d7631f1c07b5 6,18-19,21,23-25,28,32-47,50-67,82-92,108-110,112-114,117,130-134,144-145,167-192
+packages/sites/src/sections/schedule.tsx
+  s_c0870a827920ef::t_0aab65a989a9cf 1-344
+packages/sites/src/sections/shared.tsx
+  s_c0870a827920ef::t_77608f089edab9 37,89-105,108-110,114-124,139,141,154,169-196
+packages/sites/src/sections/team.tsx
+  s_c0870a827920ef::t_2b8769e5831fb3 1-182
+packages/sites/src/sections/timeline.tsx
+  s_c0870a827920ef::t_54c45de878d4a9 1-122
+packages/sites/src/supabase/index.ts
+  s_c0870a827920ef::t_0121c9da58b3ae 14-15,17,22,99-123,258-259,277-379
+packages/sites/src/web/document.tsx
+  s_c0870a827920ef::t_620afbbd12b36e 9,13,44-49,92-98,122,132,144-146,149-156,161-163,199-200
+packages/sites/src/web/handler.ts
+  s_c0870a827920ef::t_b4f3bce19dfd28 21-23,25,36-41,49,52-58,105,110-114,169-236,281-283,313-314,317-330,340-349,392-414,430,449
+packages/sites/src/web/sites.css
+  s_c0870a827920ef::t_873bd27d286e50 16,45-60
+packages/sites/tsup.config.ts
+  s_c0870a827920ef::t_92eee1208db3fb 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5e32422b91855cc565a5fceac98af80de06dd9d5",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
