@@ -169,7 +169,7 @@ describe("createExpoDeliver", () => {
     collapseKey: "chat:c1",
     threadKey: "c1",
     idempotencyKey: "push:m1",
-    data: { url: "/messages/c1", conversationId: "c1", messageId: "m1" },
+    data: { url: "/messages/c1", conversationId: "c1", messageId: "m1", seq: 7 },
   };
 
   it("sends in chunks of 100 with badges, thread and collapse ids, and returns the tickets", async () => {
@@ -192,7 +192,7 @@ describe("createExpoDeliver", () => {
       threadId: "c1",
       collapseId: "chat:c1",
       channelId: "messages",
-      categoryId: "chat-message",
+      categoryId: "messages",
     });
     expect((f.calls[0]!.init!.headers as Record<string, string>).authorization).toBe("Bearer expo");
     expect(tickets).toHaveLength(250);

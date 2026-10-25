@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@marktiderman/genesis-
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { genesisBrand } from "@marktiderman/genesis-design-system";
 import type { FormsResolver, ResolvedForm } from "../core/forms";
+import { migratePage, migrateSite } from "../core/migrate";
 import { PageDoc, SiteDoc, type MenuItem, type PageKind, type PageMeta, type Release, type ReleaseMeta } from "../core/schemas";
 import type { SiteIssue } from "../core/a11y";
 import { brandDisplayName, siteTheme, stableHash, themeCss, type BrandInput } from "../core/theme";
@@ -40,7 +41,7 @@ import { scrollCanvasTo } from "./canvas-dom";
 import { Autosaver, type AutosaveState } from "./autosave";
 import { createEditorConfig, type CanvasMetadata } from "./config";
 import { countTypes, fromEditorData, h1SectionId, placeholderSnapshot, toEditorData, type EditorData } from "./data";
-import { genesisOverrides } from "./overrides";
+import { EditorLockContext, genesisOverrides } from "./overrides";
 import { PagesPanel, menuItemProblems, type NewPageRequest } from "./pages-panel";
 import { loadSiteCss, renderPreview, styleText } from "./preview";
 import { PublishPanel } from "./publish-panel";
@@ -48,6 +49,12 @@ import { EditorServicesContext, type EditorAssets, type EditorServices, type Pic
 import { checkSite, movePageInList, publishSite, renamePage, type EditorSiteStore } from "./site-actions";
 
 const usePuck = createUsePuck();
+
+/** Hashes of what each draft may hold once only our own publish has touched it (`resync`). */
+interface PublishedDrafts {
+  site: string[];
+  page: string[];
+}
 
 export interface SiteEditorProps {
   siteId: string;
@@ -518,14 +525,19 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
    * documents and revisions, and redraw the canvas when what it shows changed. Callers save
    * everything first; a document that still has unsaved changes keeps its old revision, so its
    * next save meets a conflict instead of overwriting what the store has.
+   *
+   * `published`: after our own publish, the hashes of what each draft may hold if only the publish
+   * touched it (the draft as it was, or migrated). A document with unsaved changes then saves them on
+   * the new revision only when the store's draft is one of those; anything else is someone else's
+   * save, so it keeps its old revision and its next save meets the conflict.
    */
-  const resync = React.useCallback(async (options: { ownChange?: boolean } = {}) => {
+  const resync = React.useCallback(async (options: { published?: PublishedDrafts } = {}) => {
     const [draft, list] = await Promise.all([store.getDraft(siteId), store.listPages(siteId)]);
     setPages(list);
     let redraw = false;
     let siteDoc = siteSaver.current?.latest ?? site;
     // Our own publish moved the revisions on with the content we saved: edits made meanwhile save on top.
-    if (options.ownChange && draft && siteSaver.current?.dirty) siteSaver.current.rebase(draft.rev);
+    if (draft && siteSaver.current?.dirty && options.published?.site.includes(stableHash(draft.site))) siteSaver.current.rebase(draft.rev);
     if (draft && siteSaver.current && !siteSaver.current.dirty) {
       const ours = siteSaver.current.latest;
       // Key order differs once the store has parsed a document: compare by content.
@@ -538,8 +550,9 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     let pageDoc = pageSaver.current?.latest ?? null;
     if (open && pageSaver.current && pageSaverFor.current === open.id) {
       const p = await store.getPageDraft(open.id);
-      if (p && options.ownChange && pageSaver.current.dirty) pageSaver.current.rebase(p.rev);
-      else if (p && !pageSaver.current.dirty) {
+      if (p && pageSaver.current.dirty) {
+        if (options.published?.page.includes(stableHash(p.doc))) pageSaver.current.rebase(p.rev);
+      } else if (p && !pageSaver.current.dirty) {
         if (stableHash(p.doc) !== stableHash(pageSaver.current.latest)) redraw = true;
         pageSaver.current.rebase(p.rev, p.doc);
         pageDoc = p.doc;
@@ -665,6 +678,23 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
   };
 
   // ── Publishing ────────────────────────────────────────────────────────────
+  /**
+   * What the drafts may hold after our publish, if nobody else saves meanwhile: each draft as the
+   * store has it now, or migrated (a publish re-saves migrated drafts). Read only while the store
+   * still has what this editor last saved (the same revision), so another editor's save is never
+   * taken for ours.
+   */
+  const publishedDrafts = async (): Promise<PublishedDrafts> => {
+    const pageId = open && pageSaverFor.current === open.id ? open.id : null;
+    const [draft, page] = await Promise.all([store.getDraft(siteId), pageId ? store.getPageDraft(pageId) : null]);
+    const siteRev = siteSaver.current?.current.rev;
+    const pageRev = pageSaver.current?.current.rev;
+    return {
+      site: draft && draft.rev === siteRev ? [stableHash(draft.site), stableHash(migrateSite(draft.site).site)] : [],
+      page: page && page.rev === pageRev ? [stableHash(page.doc), stableHash(migratePage(page.doc).doc)] : [],
+    };
+  };
+
   const publish = async (note: string): Promise<boolean> => {
     if (readOnly) return false;
     // The canvas locks first, so nothing typed now misses the flush or lands mid-publish.
@@ -672,11 +702,13 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     setPublishing(true);
     const savers = [siteSaver.current, pageSaver.current] as (Autosaver<unknown> | null)[];
     let held = false;
+    let published: PublishedDrafts = { site: [], page: [] };
     try {
       if (!(await flushAll())) return false;
       // A store's publish re-saves migrated drafts on their revisions: no autosave may race it.
       for (const s of savers) s?.pause();
       held = true;
+      published = await publishedDrafts();
       const result = await publishSite(store, siteId, { brand, note, ...(reserved ? { reserved } : {}) });
       if ("blocked" in result) {
         setIssues(result.blocked);
@@ -693,7 +725,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     } finally {
       // Adopt the revisions the publish left (it may have re-saved drafts, even if it then failed), then save
       // anything that collected meanwhile on them.
-      if (held) await resync({ ownChange: true }).catch((err: unknown) => console.error("[genesis-sites/editor] couldn't reload the drafts after publishing.", err));
+      if (held) await resync({ published }).catch((err: unknown) => console.error("[genesis-sites/editor] couldn't reload the drafts after publishing.", err));
       for (const s of savers) s?.resume();
       setPublishing(false);
     }
@@ -841,6 +873,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
 
   return (
     <EditorServicesContext.Provider value={services}>
+      <EditorLockContext.Provider value={locked}>
       <div className={cn("flex h-full min-h-0 flex-col bg-background text-foreground", className)} data-gs-editor="">
         <Puck
           key={editorKey}
@@ -1013,6 +1046,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
           </DialogContent>
         </Dialog>
       </div>
+      </EditorLockContext.Provider>
     </EditorServicesContext.Provider>
   );
 }

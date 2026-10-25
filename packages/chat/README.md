@@ -9,7 +9,7 @@ replies, threads, reactions, read state, live updates and push.
 | `@marktiderman/genesis-chat` | The headless core: types, `createChatClient`, the send outbox, thread logic, media rules. No React. |
 | `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useSend`, `useMessageActions`. |
 | `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice), media. |
-| `/native` | Renderers on genesis-ui-native: `InboxPage` and `ThreadPage` wired to chat, voice recording with expo-audio. |
+| `/native` | Coming in the next release: renderers on genesis-ui-native (`InboxPage` and `ThreadPage` wired to chat, voice notes with expo-audio). Empty in this version. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
 | `migrations/0001_genesis_chat.sql` | The schema, copied into your app by `genesis add chat`, with its pgTAP test. |
 

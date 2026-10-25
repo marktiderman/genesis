@@ -95,6 +95,18 @@ export interface ChatMember {
   joinedAt: string;
 }
 
+/** A kind's rules, as genesis_chat.kinds holds them. */
+export interface ChatKindRules {
+  kind: string;
+  label: string;
+  /** 2 for a direct conversation. */
+  maxMembers: number | null;
+  whoPosts: "members" | "admins";
+  membership: "app" | "admins";
+  threads: boolean;
+  observersPost: boolean;
+}
+
 /** The latest message, as the inbox previews it. */
 export interface ChatPreview {
   id: string;
@@ -174,6 +186,17 @@ export interface PendingMessage {
   error?: string;
   /** Local previews for files still uploading (object URLs or file URIs). */
   previews?: Record<number, string>;
+  /** What each file is, in order, so a pending bubble can draw it (a voice note's duration and waveform, a file's name). */
+  files?: PendingFile[];
+}
+
+export interface PendingFile {
+  name: string;
+  contentType: string;
+  kind: AttachmentKind;
+  meta?: Partial<AttachmentInput>;
+  /** Not kept between launches (bytes with nowhere to save them): attach it again. */
+  lost?: boolean;
 }
 
 /** A live hint from Realtime: something changed; fetch to see what. */

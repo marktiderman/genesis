@@ -256,6 +256,10 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       await wait();
       return convs.has(id) ? { ...get(id).conversation } : null;
     },
+    async kind(kind: string) {
+      return { kind, label: kind, maxMembers: kind === "direct" ? 2 : null, whoPosts: "members" as const, membership: "admins" as const, threads: true, observersPost: false };
+    },
+
     async myRole(id: string) {
       return convs.get(id)?.myRole ?? null;
     },

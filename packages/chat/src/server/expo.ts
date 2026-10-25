@@ -40,7 +40,7 @@ export interface ExpoDeliverOptions {
   accessToken?: string | undefined;
   /** Default `default`; null for silent. */
   sound?: "default" | null | undefined;
-  /** Android channel (default `messages`) and notification category (default `chat-message`). */
+  /** Android channel (default `messages`) and notification category (default `messages`, the category genesis-native's push block registers for chat). */
   channelId?: string | undefined;
   categoryId?: string | undefined;
   /**
@@ -67,7 +67,7 @@ export function createExpoDeliver(options: ExpoDeliverOptions): (n: ChatNotifica
         threadId: notification.threadKey,
         ...(options.collapse ? { collapseId: notification.collapseKey } : {}),
         channelId: options.channelId ?? "messages",
-        categoryId: options.categoryId ?? "chat-message",
+        categoryId: options.categoryId ?? "messages",
       }),
     );
     const tickets: ExpoDeliveryTicket[] = [];

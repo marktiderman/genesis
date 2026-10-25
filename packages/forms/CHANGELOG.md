@@ -1,5 +1,106 @@
 # @marktiderman/genesis-forms
 
+## 0.9.0
+
+### Minor Changes
+
+- e7b724c: A content-type registry, merging partial responses, and a shared form controller.
+
+  - `genesis-forms`: every field and content kind is one registered definition that the engine,
+    `parseForm`, validation, the server and snapshots read, instead of switches on type names. A
+    field kind's manifest gains `checkProps` (its props schema), `choice: { multiple }` (its answer
+    shape: a host's choice kind gets `optionsFrom`, filters, `prefill`, `other` and snapshots),
+    `literal`, and `snapshot`/`fromSnapshot` for other kinds. `registerContentType`,
+    `getContentType`, `listContentTypes` and `contentText` add content kinds; `ContentBlock` takes
+    `props` and any registered `type`. Also `choiceKind`, `isChoiceField`, `isBuiltInFieldType`,
+    `VALIDATOR_FAILED_MESSAGE` and the `PropsCheck` types. `registerFieldType` now refuses a
+    built-in kind's name unless `{ replace: true }`, refuses a manifest without `value` or
+    `operators`, and stores a frozen copy (`operators` reads as a fresh list); a choice kind
+    without its own `validate` gets the built-in check for its shape. A validator that throws
+    refuses the answer; a props check that throws is one `parseForm` issue; a throwing `literal`,
+    `snapshot` or `fromSnapshot` is skipped. The registry's global key names its format
+    (`field-types@2`), so an older copy of the package in the same process keeps its own registry.
+    `choiceOptions`, `withHostOptions`, `answerSnapshots`, `answersFromSnapshots` and
+    `validateSubmission` return exactly what they did (golden tests pin them). Two message
+    changes: once a host registers a content kind, an unknown kind's issue lists it ("Must be
+    heading, text or callout."); and a field whose type is an `Object.prototype` name
+    (`toString`) no longer gets nonsense literal warnings.
+  - `genesis-forms`: `mergeResponses(definition, base, patch, { hidden?, hostOptions?, offPath? })`
+    lays a patch over a saved draft for resuming and partial saves. Answers on a path no longer
+    taken are dropped, unless `offPath: "keep"` (the default keeps them only with
+    `settings.clearHiddenValues: false`). Also exported from `/server`.
+  - `genesis-forms-react`: `useFormController(engine, options)`, the headless controller for any
+    renderer (step and path, errors, Next and Back, sending with retry, auto-advance, saving
+    progress, announcements and focus targets), plus `formEngineOptions` and the
+    `ADVANCE_DELAY_MS`, `PROGRESS_DELAY_MS` and `CLASSIC_PROGRESS_DELAY_MS` timings.
+  - `genesis-forms-web`: `<Form>` renders `useFormController`; its behaviour is unchanged. A content
+    kind it has no drawing for shows its display text. It now needs genesis-forms-react `>=0.3.0`.
+
+- e73f96f: The submit contract, drafts and the offline outbox.
+
+  - `genesis-forms/server`: `submitResponse(input, { definition, store, hostOptions?, context?, formId?, version?, open?, rateLimit?, uploads?, ... })`
+    checks a submission again (`validateSubmission`, then `checkUploads`), snapshots the options
+    picked (`answerSnapshots`) and stores it once per idempotency key through the app's
+    `SubmissionStore` (`find`, then `save`). It answers a `SubmitResult`: `ok` with the id and
+    `receivedAt`, or `invalid`, `duplicate`, `conflict` (a key reused for other answers; the record
+    keeps an `inputHash`), `closed`, `rate_limited` (with an optional `retryAfterSeconds`) or
+    `store_failed`. The record lists the checked `uploadIds`. Also `SubmissionRecord`,
+    `StoredSubmissionRef`, `SubmitResponseOptions` and `RateLimitAnswer`.
+  - `genesis-forms` (and `/server`): the wire types `SubmitRequest` (a `SubmissionInput` plus
+    `idempotencyKey`, `clientSubmittedAt` and `attemptId`), `SubmitResult`, `SubmitFailureReason`, and
+    `isIdempotencyKey`, `isSubmitResult` and `submitOutcome` (delivered, retry or rejected).
+  - `genesis-forms`: drafts, with `DraftStore`, `createDraftStore(storage)`, `draftOf`,
+    `restoreDraft` (refuses the whole draft when a new version no longer fits it, or it is older than
+    30 days) and `createDraftAutosave` (debounced, in order, never throws; sensitive answers left out
+    by default).
+  - `genesis-forms`: `createSubmitOutbox({ storage, send, ... })`, which queues submissions with an
+    idempotency key, keeps them across restarts, sends them when online with backoff and a timeout,
+    and keeps refused ones as `failed` until `retry` or `discard` (ones that ran out of tries start
+    again when the outbox starts and when the device comes back online).
+  - `genesis-forms`: `KeyValueStorage` (the shape of `localStorage` and AsyncStorage),
+    `memoryStorage()` and `webStorage()`.
+
+  Features: forms-submit, forms-drafts, forms-outbox
+
+- bd7ab1c: Trusted client IP headers, Standard Webhooks retries and secret rotation.
+
+  - **Behaviour change: `clientIp` no longer reads `x-forwarded-for` or `x-real-ip` by default.**
+    `DEFAULT_TRUSTED_IP_HEADERS` is now `x-vercel-forwarded-for` and `cf-connecting-ip`, headers the
+    platform sets itself; the leftmost `x-forwarded-for` entries are whatever the client sent, so a
+    client could pick its own rate-limit key. New `ClientIpOptions.forwardedForHops` reads
+    `x-forwarded-for` from the right, at the hop your own proxies appended (1: the rightmost).
+    **Migration:** a host that relied on `x-forwarded-for` (behind its own load balancer, not Vercel
+    or Cloudflare) passes `clientIp(request.headers, { headers: [], forwardedForHops: 1 })`, with the
+    number of its proxies that append an address, or `forwardedForHops` (and `trustedIpHeaders: []`)
+    in `createUploadHandler`'s `rateLimit`. Without it, every request there counts as `"unknown"`, one
+    shared bucket. A host that relied on `x-real-ip` passes `["x-real-ip"]` if its proxy overwrites it.
+  - Webhooks, per the Standard Webhooks spec:
+    - `defaultBackoff` is 5 minutes, quadrupling, at most 24 hours, jittered by ±20%: about 3 days
+      across the default 8 attempts (was 1 minute doubling to 6 hours). It applies to every
+      destination the runner sends to.
+    - A 410 Gone from a webhook fails with `disable: true` on the `DeliveryResult`, and the runner's
+      `failed` outcome carries `disable: true`, so the app can switch the destination off.
+      `DeliveryError` takes `disable` too.
+    - `secret` may be several secrets (`string[]`, or a resolver returning one): each signs, and the
+      signatures are space-separated, so a rotation needs no downtime. `signWebhook` and
+      `verifyWebhook` take an array as well.
+    - The minimum secret is 24 bytes decoded (was 16), `MIN_WEBHOOK_SECRET_BYTES`;
+      `newWebhookSecret()` still issues 32. A shorter secret fails permanently, and `verifyWebhook`
+      refuses it, so replace any 16 to 23 byte secret before upgrading.
+    - The payload's `timestamp` is when the event happened (`submission.submittedAt`), falling back
+      to the send time; the `webhook-timestamp` header stays the send time.
+    - The README says to send through an egress proxy that refuses internal addresses where untrusted
+      users choose webhook URLs, since a DNS check before `fetch` can be rebound.
+  - `deriveSecretKey(key, info, { salt })` takes an optional HKDF salt (bytes, or text as UTF-8). The
+    default stays empty, so everything sealed before opens unchanged; a fixed app-wide random salt is
+    recommended for new keys.
+
+  Features: forms-destinations, forms-submit
+
+### Patch Changes
+
+- cfc46b4: `submitResponse` passes every `validateSubmission` option through, so options added later reach it too; the README says edits and progress saves are out of scope and that an endpoint answers `duplicate` as success.
+
 ## 0.8.0
 
 ### Minor Changes
