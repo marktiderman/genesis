@@ -1,0 +1,47 @@
+.changeset/genesis-chat.md
+  s_c0870a827920ef::t_f94c61ccf1c94f 8-9
+packages/chat/README.md
+  s_c0870a827920ef::t_d6991aaf01bf8d 84-164
+packages/chat/migrations/0001_genesis_chat.sql
+  s_c0870a827920ef::t_ee37541f7541b5 846-847,849,851-853,855,857-859,1037,1079-1080,1117,1139,1323-1324,1464
+packages/chat/migrations/tests/0001_genesis_chat.test.sql
+  s_c0870a827920ef::t_5f46b911753bb0 10,119-132
+packages/chat/src/__tests__/server-fakes.ts
+  s_c0870a827920ef::t_d4977d05d7a113 1-84
+packages/chat/src/__tests__/server-providers.test.ts
+  s_c0870a827920ef::t_bd4d7ffc841d62 1-206
+packages/chat/src/__tests__/server-runner.test.ts
+  s_c0870a827920ef::t_50b460b9738368 1-217
+packages/chat/src/server/crypto.ts
+  s_c0870a827920ef::t_c95f28a6560593 1-86
+packages/chat/src/server/expo.ts
+  s_c0870a827920ef::t_c26cb8babdc372 1-117
+packages/chat/src/server/handler.ts
+  s_c0870a827920ef::t_1a73f8b071ad83 1-32
+packages/chat/src/server/index.ts
+  s_c0870a827920ef::t_a94546cf749f99 2-21
+packages/chat/src/server/mux.ts
+  s_c0870a827920ef::t_f7ca1c4ce3670a 1-264
+packages/chat/src/server/runner.ts
+  s_c0870a827920ef::t_701671125c44cd 1-262
+packages/chat/src/server/transcribers.ts
+  s_c0870a827920ef::t_10bff748dd40d4 1-111
+packages/chat/src/server/types.ts
+  s_c0870a827920ef::t_9356fb38c8612d 1-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f9437a30fa852fb84a42f01d5078bbbdc068f6c3",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
