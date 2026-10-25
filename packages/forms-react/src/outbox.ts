@@ -73,9 +73,12 @@ export interface OutboxSubmitOptions {
  */
 export function outboxSubmit(outbox: SubmitOutbox, options: OutboxSubmitOptions): (engine: FormEngine) => Promise<void> {
   return async (engine) => {
+    const state = engine.getState();
+    const hidden = state.hidden as Record<string, Json>;
     const item = await outbox.enqueue({
       formId: options.formId,
-      submission: { events: engine.getState().events },
+      // Hidden inputs (link prefill, host values) go too: the server re-validates them.
+      submission: { events: state.events, ...(Object.keys(hidden).length ? { hidden } : {}) },
       attemptId: options.attemptId,
       meta: options.meta,
     });

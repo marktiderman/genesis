@@ -21,7 +21,7 @@ import {
   type FormDraftState,
   type SubmitOutboxState,
 } from "../index";
-import type { FormEngine, SubmitOutbox } from "@marktiderman/genesis-forms";
+import type { FormEngine, OutboxItem, SubmitOutbox } from "@marktiderman/genesis-forms";
 
 afterEach(() => {
   cleanup();
@@ -222,5 +222,20 @@ describe("outboxSubmit with useFormController", () => {
     await waitFor(() => expect(controller.phase).toBe("failed"));
     expect(controller.showEnding).toBe(false);
     expect(draftStorage.keys()).toHaveLength(1);
+  });
+});
+
+describe("outboxSubmit", () => {
+  it("queues hidden inputs with the event log, and leaves them out when there are none", async () => {
+    const enqueue = vi.fn(async (_input: unknown) => ({ id: "q" }) as unknown as OutboxItem);
+    const outbox = { enqueue } as unknown as SubmitOutbox;
+    const engineWith = (hidden: Record<string, string>) =>
+      ({ getState: () => ({ events: [], hidden }) }) as unknown as FormEngine;
+
+    await outboxSubmit(outbox, { formId: "f" })(engineWith({ gym: "hilltop" }));
+    expect(enqueue.mock.calls[0]![0]).toMatchObject({ submission: { events: [], hidden: { gym: "hilltop" } } });
+
+    await outboxSubmit(outbox, { formId: "f" })(engineWith({}));
+    expect(enqueue.mock.calls[1]![0]).toEqual(expect.objectContaining({ submission: { events: [] } }));
   });
 });
