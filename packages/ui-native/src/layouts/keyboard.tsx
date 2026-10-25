@@ -43,7 +43,11 @@ export interface KeyboardScrollProps {
  */
 export type KeyboardToolbarProps = object;
 
-/** Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input. */
+/**
+ * Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear
+ * above the focused input. Mirrors `KEYBOARD_TOOLBAR_HEIGHT` in the library's
+ * `src/components/KeyboardToolbar/constants.ts` (1.22): move them together.
+ */
 export const KEYBOARD_TOOLBAR_HEIGHT = 42;
 
 interface KeyboardScrollValue {

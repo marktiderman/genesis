@@ -7,7 +7,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import { AccessibilityInfo, Platform } from "react-native";
+import { AccessibilityInfo, PanResponder, Platform } from "react-native";
 import { GenesisModulesProvider, useGenesisModules, type GenesisModules } from "../native-modules";
 import { NATIVE_ICON_NAMES, SF_SYMBOLS } from "../icon-names";
 import { __resetReducedMotion, useReducedMotion } from "../hooks/use-reduced-motion";
@@ -19,7 +19,7 @@ import { NativeImage } from "../components/image";
 import { NativeIcon } from "../components/icon";
 import { NativeListItem } from "../components/list-item";
 import { NativeDatePicker } from "../components/date-time-picker";
-import { NativeGlassSurface } from "../components/glass-surface";
+import { NativeGlassSurface, __resetReduceTransparency } from "../components/glass-surface";
 import { NotificationsPage, __test as notificationsTest } from "../layouts/notifications-page";
 import { fakeDatePicker, fakeFlashList, fakeGlass, fakeIcon, fakeImage, fakeReanimated, fakeSymbolView } from "./fake-modules";
 
@@ -28,6 +28,7 @@ afterEach(() => {
   Platform.OS = originalOS;
   vi.restoreAllMocks();
   __resetReducedMotion();
+  __resetReduceTransparency();
 });
 
 function withModules(modules: GenesisModules, ui: ReactNode) {
@@ -255,6 +256,23 @@ describe("useReducedMotion", () => {
   });
 });
 
+describe("Reduce Transparency, before it is known", () => {
+  it("keeps surfaces solid until the setting answers off, then draws glass", async () => {
+    Platform.OS = "ios";
+    let answer: (v: boolean) => void = () => {};
+    const info = AccessibilityInfo as unknown as { isReduceTransparencyEnabled?: () => Promise<boolean> };
+    info.isReduceTransparencyEnabled = () => new Promise((resolve) => (answer = resolve));
+    try {
+      withModules({ glass: fakeGlass() }, <NativeGlassSurface testID="surface" fallbackClassName="bg-secondary" />);
+      expect(screen.getByTestId("surface").dataset.glass).toBeUndefined();
+      await act(async () => answer(false));
+      expect(screen.getByTestId("surface").dataset.glass).toBe("true");
+    } finally {
+      delete info.isReduceTransparencyEnabled;
+    }
+  });
+});
+
 describe("NativeGlassSurface", () => {
   it("draws the fallback classes without expo-glass-effect", () => {
     render(<NativeGlassSurface testID="surface" fallbackClassName="bg-secondary" className="p-2" />);
@@ -319,6 +337,26 @@ describe("NativeDrawer", () => {
     expect(R.withTiming).toHaveBeenCalledWith(0, { duration: 220 });
   });
 
+  it("settles back open when another responder takes the swipe", () => {
+    const configs: Array<{ onPanResponderTerminate?: () => void }> = [];
+    vi.spyOn(PanResponder, "create").mockImplementation((cfg) => {
+      configs.push(cfg as never);
+      return { panHandlers: {} } as never;
+    });
+    const R = fakeReanimated();
+    const onOpenChange = vi.fn();
+    withModules(
+      { reanimated: R },
+      <NativeDrawer open onOpenChange={onOpenChange}>
+        <span>menu</span>
+      </NativeDrawer>,
+    );
+    R.withTiming.mockClear();
+    configs[configs.length - 1]!.onPanResponderTerminate!();
+    expect(R.withTiming).toHaveBeenCalledWith(0, { duration: 180 });
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
   it("closes on a backdrop tap, not on a panel tap", () => {
     const onOpenChange = vi.fn();
     render(
@@ -372,6 +410,24 @@ describe("NativeAvatar and NativeImage", () => {
   it("fall back to React Native's Image", () => {
     render(<NativeAvatar testID="av" src="https://example.com/a.png" fallback="AB" />);
     expect(screen.getByTestId("av-image").dataset.expoImage).toBeUndefined();
+  });
+
+  it("hide the initials once the picture loads, show them again if it fails or the URL changes", () => {
+    const Image = fakeImage();
+    const ui = (src: string) => (
+      <GenesisModulesProvider modules={{ image: Image }}>
+        <NativeAvatar testID="av" src={src} fallback="AB" />
+      </GenesisModulesProvider>
+    );
+    const { rerender } = render(ui("https://example.com/a.png"));
+    expect(screen.getByText("AB")).toBeTruthy();
+    fireEvent.load(screen.getByTestId("av-image"));
+    expect(screen.queryByText("AB")).toBeNull();
+    rerender(ui("https://example.com/b.png"));
+    expect(screen.getByText("AB")).toBeTruthy(); // b.png hasn't loaded yet
+    fireEvent.error(screen.getByTestId("av-image"));
+    expect(screen.getByText("AB")).toBeTruthy();
+    expect(screen.queryByTestId("av-image")).toBeNull();
   });
 
   it("give a recycled row the new person's state on its first frame", () => {

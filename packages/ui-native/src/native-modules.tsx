@@ -12,10 +12,10 @@
  *   import DateTimePicker from "@expo/ui/community/datetime-picker";
  *   import { lucideIcons } from "@marktiderman/genesis-ui-native/icons/lucide";
  *
- *   <GenesisModulesProvider
- *     modules={{ list: FlashList, image: Image, reanimated: Reanimated, glass: GlassEffect,
- *                symbol: SymbolView, icons: lucideIcons, datePicker: DateTimePicker }}
- *   >…</GenesisModulesProvider>
+ *   // At module scope, not inline:
+ *   const modules = { list: FlashList, image: Image, reanimated: Reanimated, glass: GlassEffect,
+ *                     symbol: SymbolView, icons: lucideIcons, datePicker: DateTimePicker };
+ *   <GenesisModulesProvider modules={modules}>…</GenesisModulesProvider>
  *
  * (`GenesisNativeApp` from `@marktiderman/genesis-native` takes the same
  * object as its `modules` prop and mounts this for you.)
@@ -167,7 +167,10 @@ export interface GenesisModulesProviderProps {
 
 /**
  * Pass the optional native modules the app has installed. Nested providers
- * merge: an inner one adds to or replaces what an outer one gave.
+ * merge: an inner one adds to or replaces what an outer one gave. Define the
+ * `modules` object once at module scope (as the starter's
+ * `src/lib/native-modules.ts` does): a new inline object on every render
+ * re-renders every component that reads it.
  */
 export function GenesisModulesProvider({ modules, children }: GenesisModulesProviderProps) {
   const outer = useContext(GenesisModulesContext);

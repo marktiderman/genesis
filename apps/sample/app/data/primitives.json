@@ -1785,8 +1785,13 @@
       "primaryComponent": "NativeGlassSurface",
       "components": [
         {
+          "name": "__resetReduceTransparency",
+          "summary": "Tests only: forget the last answer. Not exported from the package.",
+          "props": []
+        },
+        {
           "name": "useReduceTransparency",
-          "summary": "True while the user has Reduce Transparency on (iOS). Always false elsewhere.",
+          "summary": "True while the user has Reduce Transparency on (iOS), `null` until the\nfirst answer. Always false elsewhere, and on a runtime that can't say.",
           "props": []
         },
         {
@@ -1803,7 +1808,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "Inner layout classes, applied in both looks (padding, gap). Place the surface from its parent."
+              "description": "Layout classes (padding, gap, width). Without glass they merge with\n`fallbackClassName` on one view, so they can override it (`rounded-*`,\n`bg-*`). On glass they go on the view inside the glass: the glass's shape\ncomes from `radius` alone, and a `bg-*` here paints over the glass."
             },
             {
               "name": "fallbackClassName",
@@ -2708,7 +2713,7 @@
         },
         {
           "name": "KEYBOARD_TOOLBAR_HEIGHT",
-          "summary": "Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input.",
+          "summary": "Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear\nabove the focused input. Mirrors `KEYBOARD_TOOLBAR_HEIGHT` in the library's\n`src/components/KeyboardToolbar/constants.ts` (1.22): move them together.",
           "props": []
         }
       ]
@@ -3079,12 +3084,12 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/native-modules.tsx",
       "stability": "beta",
-      "summary": "Pass the optional native modules the app has installed. Nested providers\nmerge: an inner one adds to or replaces what an outer one gave.",
+      "summary": "Pass the optional native modules the app has installed. Nested providers\nmerge: an inner one adds to or replaces what an outer one gave. Define the\n`modules` object once at module scope (as the starter's\n`src/lib/native-modules.ts` does): a new inline object on every render\nre-renders every component that reads it.",
       "primaryComponent": "GenesisModulesProvider",
       "components": [
         {
           "name": "GenesisModulesProvider",
-          "summary": "Pass the optional native modules the app has installed. Nested providers\nmerge: an inner one adds to or replaces what an outer one gave.",
+          "summary": "Pass the optional native modules the app has installed. Nested providers\nmerge: an inner one adds to or replaces what an outer one gave. Define the\n`modules` object once at module scope (as the starter's\n`src/lib/native-modules.ts` does): a new inline object on every render\nre-renders every component that reads it.",
           "props": [
             {
               "name": "modules",

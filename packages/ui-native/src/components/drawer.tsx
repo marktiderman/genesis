@@ -15,7 +15,7 @@
  *
  * @stability Beta
  */
-import { useContext, useEffect, useMemo, useRef } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import {
   Animated,
   Dimensions,
@@ -75,6 +75,9 @@ function useSwipe(
           if (dismiss) onOpenChange(false);
           else settle();
         },
+        // Another responder (a horizontal scroll inside, a system gesture)
+        // took the drag: put the panel back rather than leave it half open.
+        onPanResponderTerminate: () => settle(),
       }),
     [drawerWidth, follow, onOpenChange, settle, side]
   );
@@ -92,11 +95,12 @@ function ReanimatedDrawer({ reanimated: R, ...props }: NativeDrawerProps & { rea
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawerWidth, open, reducedMotion, side]);
 
-  const follow = useMemo(() => (dx: number) => {
+  // `translate` and `R` are stable for the component's life.
+  const follow = useCallback((dx: number) => {
     translate.value = dx;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const settle = useMemo(() => () => {
+  const settle = useCallback(() => {
     translate.value = reducedMotion ? 0 : R.withTiming(0, { duration: SETTLE_MS });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reducedMotion]);
@@ -123,9 +127,9 @@ function AnimatedDrawer(props: NativeDrawerProps) {
     }).start();
   }, [drawerWidth, open, reducedMotion, side, translate]);
 
-  const follow = useMemo(() => (dx: number) => translate.setValue(dx), [translate]);
-  const settle = useMemo(
-    () => () =>
+  const follow = useCallback((dx: number) => translate.setValue(dx), [translate]);
+  const settle = useCallback(
+    () =>
       Animated.timing(translate, {
         toValue: 0,
         duration: reducedMotion ? 0 : SETTLE_MS,

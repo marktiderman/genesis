@@ -3,8 +3,8 @@
  * FlashList v2 for long lists, expo-image for avatars and pictures,
  * Reanimated 4 for toasts, drawers and skeletons, Liquid Glass for floating
  * surfaces on iOS 26, SF Symbols on iOS with lucide everywhere else, and the
- * @expo/ui (SwiftUI / Jetpack Compose) date picker. Remove a line (and its
- * package) to fall back to plain React Native for that one.
+ * @expo/ui (SwiftUI / Jetpack Compose) date picker. To fall back to plain
+ * React Native for one, delete its line, its import below and its package.
  */
 import DateTimePicker from "@expo/ui/community/datetime-picker";
 import { FlashList } from "@shopify/flash-list";

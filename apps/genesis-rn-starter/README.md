@@ -94,8 +94,8 @@ leaves `starter.config.ts` out; what it means for the native build is in the eva
 (`GenesisNativeApp`'s `modules`): FlashList v2 for long lists, expo-image for avatars and pictures,
 Reanimated 4 for toasts, drawers and skeletons, Liquid Glass (expo-glass-effect) for toasts,
 the update banner, popovers and menus on iOS 26, SF Symbols (expo-symbols) for `NativeIcon` on
-iOS with lucide on Android, and the @expo/ui SwiftUI / Jetpack Compose date picker. Delete a line,
-and its package from `package.json`, to fall back to plain React Native for that one. FlashList v2
+iOS with lucide on Android, and the @expo/ui SwiftUI / Jetpack Compose date picker. To fall back to plain React Native for one, delete its line, its
+import at the top of that file, and its package from `package.json`. FlashList v2
 needs the New Architecture (the starter's default). Liquid Glass needs a build made with Xcode 26
 and iOS 26 on the device; otherwise the surfaces stay solid.
 

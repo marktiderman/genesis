@@ -69,6 +69,8 @@ export function fakeImage() {
       data-cache-policy={props.cachePolicy}
       data-transition={String(props.transition)}
       src={typeof props.source === "object" && props.source ? props.source.uri : undefined}
+      onLoad={() => props.onLoad?.({})}
+      onError={() => props.onError?.({})}
       alt=""
     />
   ));

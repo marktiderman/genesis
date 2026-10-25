@@ -80,4 +80,9 @@ export const lucideIcons: Record<NativeIconName, GenesisIconComponent> = {
   trash: Trash2,
   user: User,
   warning: TriangleAlert,
+  // The cast widens lucide's declared `color: string` to `ColorValue`. On iOS
+  // NativeIcon passes theme roles as `PlatformColor` objects; lucide hands
+  // `color` to react-native-svg's stroke, whose extractBrush resolves
+  // PlatformColor and DynamicColorIOS objects (react-native-svg 15,
+  // src/lib/extract/extractBrush.ts).
 } as Record<NativeIconName, GenesisIconComponent>;

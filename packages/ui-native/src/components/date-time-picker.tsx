@@ -185,6 +185,8 @@ function ExpoUiPickerButton({
 }) {
   const [showAndroid, setShowAndroid] = useState(false);
   if (Platform.OS === "ios") {
+    // As with the community picker: the native compact picker draws and
+    // announces its own value, so `className` and the button label don't apply.
     return (
       <Picker
         testID={testID ?? `native-${mode}-picker`}

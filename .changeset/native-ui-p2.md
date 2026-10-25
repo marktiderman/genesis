@@ -13,4 +13,5 @@ semantic names, `lucideIcons` from `/icons/lucide`), and @expo/ui's drop-in date
 `KeyboardScrollProvider` takes a `toolbar` (`KeyboardToolbar`), shown on `AuthScreen` and
 `SettingsSubPage`; `GenesisNativeApp` takes it as `keyboardToolbar`. Every module left out falls
 back to what the component drew before. `lucide-react-native` is now an optional peer, only the
-`/icons/lucide` subpath imports it.
+`/icons/lucide` subpath imports it, and its range is `>=0.475.0` (the names that subpath uses): an
+app on 0.400-0.474 that never imports it sees a peer warning on upgrade and nothing else.
