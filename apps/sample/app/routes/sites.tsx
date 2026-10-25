@@ -2,6 +2,7 @@
 // handleSiteRequest from sites-demo/ (a Vite middleware in dev and preview,
 // static files in the Pages build). The frames show the real pages: server
 // HTML, no hydration, one small script for the menu and the form.
+import { Link } from "react-router";
 import { Globe } from "lucide-react";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@marktiderman/genesis-ui";
 import { PageHeader } from "@marktiderman/genesis-ui/data";
@@ -52,6 +53,19 @@ export default function Sites() {
         subtitle="@marktiderman/genesis-sites: pages from a brand, rendered on the server with no hydration."
         icon={Globe}
       />
+      <Card>
+        <CardHeader>
+          <CardTitle>The site editor</CardTitle>
+          <CardDescription>
+            @marktiderman/genesis-sites/editor on a made-up studio's landing page: add sections, edit them on the page, publish (the checks run first), then view the live page or roll back.
+          </CardDescription>
+          <div className="pt-2">
+            <Button asChild size="sm">
+              <Link to="/sites-editor">Open the editor</Link>
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
       {SITES.map((site) => (
         <Card key={site.id}>
           <CardHeader>

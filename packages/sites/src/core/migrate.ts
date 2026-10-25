@@ -8,6 +8,7 @@
  */
 import type { PageDoc, SectionNode, SiteDoc } from "./schemas";
 import { getSection, type AnySectionDefinition } from "./registry";
+import { stableHash } from "./theme";
 
 export interface MigrationIssue {
   severity: "error" | "warning";
@@ -20,7 +21,11 @@ export interface MigrationIssue {
 export interface MigratedNode {
   /** The node at the current version with parsed props, or null when it can't be rendered. */
   node: (SectionNode & { variant: string }) | null;
-  /** Whether anything changed (the version, the props or the variant). */
+  /**
+   * Whether the stored node needs re-saving: its version or variant moved, or a
+   * migration step changed its props. Parsing alone is no change: zod's key
+   * order, its defaults and the keys it strips make the same section.
+   */
   changed: boolean;
   issues: MigrationIssue[];
 }
@@ -85,12 +90,16 @@ export function migrateNode(node: SectionNode, lookup: (type: string) => AnySect
     variant = def.defaultVariant;
   }
   const next = { ...node, v: def.version, variant, props: parsed.data as Record<string, unknown> };
-  const changed = node.v !== def.version || variant !== node.variant || JSON.stringify(parsed.data) !== JSON.stringify(node.props);
+  // By content, never by key order: jsonb and zod both reorder keys, and a publish must not re-save (and bump
+  // the revision of) every draft whose props only came back in another order or without their defaults.
+  const changed = node.v !== def.version || variant !== node.variant || stableHash(props) !== stableHash(node.props);
   return { node: next, changed, issues };
 }
 
 export interface MigratedPage {
+  /** The page with every node that can be shown parsed (what a release holds). */
   doc: PageDoc;
+  /** Whether the draft needs re-saving (see `MigratedNode.changed`). */
   changed: boolean;
   issues: MigrationIssue[];
 }
@@ -108,7 +117,7 @@ export function migratePage(doc: PageDoc, lookup?: (type: string) => AnySectionD
     if (m.node && m.changed) changed = true;
     return m.node ?? node;
   });
-  return { doc: changed ? { ...doc, content } : doc, changed, issues };
+  return { doc: { ...doc, content }, changed, issues };
 }
 
 export function migrateSite(site: SiteDoc, lookup?: (type: string) => AnySectionDefinition | undefined): { site: SiteDoc; changed: boolean; issues: MigrationIssue[] } {
@@ -123,5 +132,5 @@ export function migrateSite(site: SiteDoc, lookup?: (type: string) => AnySection
     });
   const header = run(site.header);
   const footer = run(site.footer);
-  return { site: changed ? { ...site, header, footer } : site, changed, issues };
+  return { site: { ...site, header, footer }, changed, issues };
 }

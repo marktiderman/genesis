@@ -9,6 +9,7 @@
 @source "../../../packages/forms-builder/src";
 @source "../../../packages/forms-studio/src";
 @source "../../../packages/chat/src/web";
+@source "../../../packages/sites/src/editor";
 
 @theme inline {
   --animate-fade-in: fade-in 0.2s ease-out;
