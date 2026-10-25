@@ -2,8 +2,10 @@
  * @feat:chat
  * `<Stack.Screen options>` for a screen that renders `ChatThreadScreen`.
  *
- * The thread is an inverted list (`transform: scaleY(-1)` on the scroll view).
- * On iOS 26 and later the navigation bar is see-through and draws a scroll
+ * The bar is opaque. It was made so while the thread was an inverted list
+ * (`transform: scaleY(-1)` on the scroll view), which it no longer is; it
+ * stays opaque until a see-through bar is checked over the upright list. On
+ * iOS 26 and later the navigation bar is see-through and draws a scroll
  * edge effect over the content scroll view under it; UIKit lays that effect
  * out in the flipped scroll view's own coordinates, so once the thread is
  * long enough to reach the bar the whole list renders blurred. An opaque bar

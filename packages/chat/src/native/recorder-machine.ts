@@ -10,6 +10,8 @@ import type { HapticEvent } from "./modules";
 
 export type RecorderPhase = "idle" | "starting" | "recording" | "finishing";
 
+export type RecorderNotice = "denied" | "too-short" | "error" | "interrupted";
+
 export interface RecorderState {
   phase: RecorderPhase;
   /** Hands-free: released without stopping. */
@@ -21,8 +23,12 @@ export interface RecorderState {
   durationMs: number;
   /** Level readings (dB) since the start, for the live waveform and the sent one. */
   levels: number[];
-  /** Why the last attempt ended without a voice note ("denied", "too-short", "error"). */
-  notice: "denied" | "too-short" | "error" | null;
+  /**
+   * Why the last attempt ended without a voice note: "denied" (no microphone), "too-short",
+   * "error" (the recording couldn't be saved), "interrupted" (a call, Siri, another app or the
+   * app going to the background took the microphone; what was recorded is thrown away).
+   */
+  notice: RecorderNotice | null;
 }
 
 export const idleRecorder: RecorderState = {
@@ -44,7 +50,10 @@ export type RecorderEvent =
   | { type: "send" }
   | { type: "cancel" }
   | { type: "tick"; durationMs: number; meteringDb?: number }
-  | { type: "finished" };
+  /** Something else took the microphone (a call, Siri, the app went to the background). */
+  | { type: "interrupted" }
+  /** The stop is done: `ok` false when no voice note came of it (the stop threw, no file). */
+  | { type: "finished"; ok?: boolean };
 
 export type RecorderEffect =
   | { type: "prepare" }
@@ -137,6 +146,11 @@ export function recorderStep(state: RecorderState, event: RecorderEvent, config:
       if (state.phase === "idle" || state.phase === "finishing") return stay(state);
       return { state: idleRecorder, effects: [{ type: "discard" }, { type: "haptic", event: "record-cancel" }] };
 
+    case "interrupted":
+      // Never sent on its own: the person didn't say send. A stop already under way finishes.
+      if (state.phase === "idle" || state.phase === "finishing") return stay(state);
+      return { state: { ...idleRecorder, notice: "interrupted" }, effects: [{ type: "discard" }, { type: "haptic", event: "error" }] };
+
     case "tick": {
       if (state.phase !== "recording") return stay(state);
       const levels =
@@ -149,6 +163,7 @@ export function recorderStep(state: RecorderState, event: RecorderEvent, config:
     }
 
     case "finished":
+      if (event.ok === false) return { state: { ...idleRecorder, notice: "error" }, effects: [{ type: "haptic", event: "error" }] };
       return stay(idleRecorder);
   }
 }

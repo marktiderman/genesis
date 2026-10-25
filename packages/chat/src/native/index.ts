@@ -8,7 +8,7 @@
  * copy and people).
  * Rung 2: the parts (`ChatComposer`, `MessageBubble`, `MessageActionsSheet`,
  * `VoiceNotePlayer`, `ChatMediaViewer`, `ChatStartSheet`) in your own screen.
- * Rung 3: the logic (`composerReducer`, `recorderStep`, `invertedRows`,
+ * Rung 3: the logic (`composerReducer`, `recorderStep`, `buildThreadRows`,
  * `messageActionsFor`, `useVoiceRecorder`, `useChatComposer`).
  * Glue: `createTusUpload` (resumable uploads for `ChatProvider upload`) and
  * the push block's `messages` category, actions and reply handler.
@@ -21,13 +21,13 @@
  * @stability Beta
  */
 export { ChatInboxScreen, inboxRow, type ChatInboxScreenProps } from "./inbox-screen";
-export { ChatThreadScreen, type ChatThreadScreenProps } from "./thread-screen";
+export { ChatThreadScreen, threadListMode, nearBottom, AT_BOTTOM_POINTS, type ChatThreadScreenProps } from "./thread-screen";
 export { chatThreadStackOptions, useChatThreadStackOptions, type ChatThreadStackOptionsProps } from "./stack-options";
 export { ChatStartSheet, ChatStartButton, type ChatStartPerson, type ChatStartSheetProps } from "./start-sheet";
 export { ChatComposer, type ChatComposerProps } from "./composer";
 export { MessageBubble, displayBody, formatClock, type MessageBubbleProps } from "./message-bubble";
 export { MessageActionsSheet, type MessageActionsSheetProps } from "./message-actions-sheet";
-export { VoiceNotePlayer, claimPlayback, releasePlayback, activePlaybackId, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
+export { VoiceNotePlayer, claimPlayback, releasePlayback, activePlaybackId, toggleVoiceNote, cycleVoiceNoteRate, usePlayingVoiceNote, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
 export { ChatMediaViewer, MessageAttachments, attachmentPaths, type BubbleAttachment, type ChatMediaViewerProps } from "./media";
 export { ChatNativeProvider, useChatNative, initials, type ChatNativeProviderProps, type ChatNativeContextValue, type ChatPerson } from "./context";
 export { chatNativeCopy, resolveChatCopy, fill, type ChatNativeCopy, type ChatNativeCopyOverrides } from "./copy";
@@ -42,6 +42,7 @@ export {
   fileFromDataUri,
   base64ToBytes,
   draftKey,
+  clearDrafts,
   loadDraft,
   createDraftSaver,
   memoryDraftStorage,
@@ -61,6 +62,7 @@ export {
   type RecorderEvent,
   type RecorderPhase,
   type RecorderState,
+  type RecorderNotice,
 } from "./recorder-machine";
 export { useVoiceRecorder, voiceNoteFile, type UseVoiceRecorderOptions } from "./use-voice-recorder";
 export { invertedRows, buildThreadRows, rowKey, type ThreadRow, type BuildRowsOptions } from "./rows";
@@ -77,6 +79,9 @@ export {
   registerChatNotificationActions,
   conversationIdFromData,
   replyClientId,
+  replyClientIdFor,
+  failedReply,
+  PUSH_REPLY_WAIT_MS,
   handleChatPushResponse,
   chatThreadMatch,
   chatPushPayload,
@@ -85,6 +90,7 @@ export {
   type ChatPushPayload,
   type ChatPushPayloadInput,
   type ChatPushOutcome,
+  type ChatPushOutboxDeps,
   type ChatPushResponseLike,
   type NotificationCategoriesLike,
 } from "./push";

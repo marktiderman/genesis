@@ -7,7 +7,7 @@ const URL_ = "http://127.0.0.1:54321";
 const CONV = "c0000000-0000-4000-8000-000000000001";
 const USER = "u0000000-0000-4000-8000-000000000002";
 
-function server(opts: { failPatchOnce?: boolean; createStatus?: number } = {}) {
+function server(opts: { failPatchOnce?: boolean; createStatus?: number | (() => number); objectThere?: boolean } = {}) {
   let received = 0;
   let failed = false;
   const calls: { method: string; url: string; headers: Record<string, string>; size?: number }[] = [];
@@ -17,9 +17,11 @@ function server(opts: { failPatchOnce?: boolean; createStatus?: number } = {}) {
     const size = init.body instanceof ArrayBuffer ? init.body.byteLength : undefined;
     calls.push({ method, url, headers, size });
     if (method === "POST") {
-      const status = opts.createStatus ?? 201;
+      const status = (typeof opts.createStatus === "function" ? opts.createStatus() : opts.createStatus) ?? 201;
       return new Response(null, { status, headers: status === 201 ? { location: `${URL_}/storage/v1/upload/resumable/abc` } : {} });
     }
+    // Storage answers a missing object with 400 (its body says 404).
+    if (method === "HEAD" && url.includes("/storage/v1/object/authenticated/")) return new Response(null, { status: opts.objectThere ? 200 : 400 });
     if (method === "HEAD") return new Response(null, { status: 200, headers: { "upload-offset": String(received) } });
     if (method === "PATCH") {
       if (opts.failPatchOnce && !failed && received > 0) {
@@ -68,11 +70,24 @@ describe("createTusUpload", () => {
     expect(s.calls.length).toBe(before);
   });
 
-  it("an upload the server already has (409) counts as done", async () => {
-    const s = server({ createStatus: 409 });
+  it("an upload the server already has (409) counts as done once the object is checked to be there", async () => {
+    const s = server({ createStatus: 409, objectThere: true });
     const upload = createTusUpload({ supabaseUrl: URL_, userId: USER, getAccessToken: async () => "jwt", fetch: s.fetch, newId: () => "id3" });
     expect(await upload(CONV, file(3))).toBe(`${CONV}/${USER}/id3.jpg`);
     expect(s.calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
+    expect(s.calls.find((c) => c.method === "HEAD")).toMatchObject({ url: `${URL_}/storage/v1/object/authenticated/genesis-chat/${CONV}/${USER}/id3.jpg`, headers: { authorization: "Bearer jwt" } });
+  });
+
+  it("a 409 whose object isn't there is never taken as done: the file goes up whole at a new path", async () => {
+    let creates = 0;
+    const s = server({ createStatus: () => (++creates === 1 ? 409 : 201), objectThere: false });
+    const ids = ["old", "new"];
+    const upload = createTusUpload({ supabaseUrl: URL_, userId: USER, getAccessToken: async () => "jwt", fetch: s.fetch, newId: () => ids.shift()!, chunkBytes: 4 });
+    expect(await upload(CONV, file(10))).toBe(`${CONV}/${USER}/new.jpg`);
+    expect(s.received()).toBe(10);
+    const creates2 = s.calls.filter((c) => c.method === "POST");
+    expect(creates2).toHaveLength(2);
+    expect(creates2[1]!.headers["upload-metadata"]).toContain(`objectName ${base64Utf8(`${CONV}/${USER}/new.jpg`)}`);
   });
 
   it("a refusal is a ChatError that isn't retried; signed out or a bad type never reaches the server", async () => {
@@ -88,6 +103,37 @@ describe("createTusUpload", () => {
     await expect(signedOut(CONV, file(3))).rejects.toMatchObject({ code: "42501" });
     await expect(signedOut(CONV, { ...file(3), name: "x.svg", contentType: "image/svg+xml" })).rejects.toMatchObject({ code: "22023" });
     expect(s2.calls.filter((c) => c.method !== "GET")).toHaveLength(0);
+  });
+
+  it("reads a file URI one chunk at a time through openFile, never whole, and closes it", async () => {
+    const s = server();
+    const reads: [number, number][] = [];
+    const close = vi.fn();
+    const openFile = vi.fn(async () => ({
+      size: 10,
+      read: async (offset: number, length: number) => {
+        reads.push([offset, length]);
+        return new Uint8Array(Math.min(length, 10 - offset));
+      },
+      close,
+    }));
+    const readFile = vi.fn(async () => new Uint8Array(10).buffer);
+    const upload = createTusUpload({ supabaseUrl: URL_, userId: USER, getAccessToken: async () => "jwt", fetch: s.fetch, openFile, readFile, chunkBytes: 4, newId: () => "id5" });
+    await upload(CONV, { data: "file:///video.mp4", name: "video.mp4", contentType: "video/mp4" });
+    expect(openFile).toHaveBeenCalledWith("file:///video.mp4");
+    expect(readFile).not.toHaveBeenCalled();
+    expect(reads).toEqual([[0, 4], [4, 4], [8, 2]]);
+    expect(s.calls.find((c) => c.method === "POST")!.headers["upload-length"]).toBe("10");
+    expect(s.calls.filter((c) => c.method === "PATCH").map((c) => c.size)).toEqual([4, 4, 2]);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the file when the upload fails", async () => {
+    const s = server({ createStatus: 403 });
+    const close = vi.fn();
+    const upload = createTusUpload({ supabaseUrl: URL_, userId: USER, getAccessToken: async () => "jwt", fetch: s.fetch, openFile: () => ({ size: 3, read: async () => new Uint8Array(3), close }) });
+    await expect(upload(CONV, { data: "file:///a.jpg", name: "a.jpg", contentType: "image/jpeg" })).rejects.toBeInstanceOf(ChatError);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it("reads a file URI through readFile", async () => {

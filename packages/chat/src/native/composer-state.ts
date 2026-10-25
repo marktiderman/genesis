@@ -43,6 +43,8 @@ export type ComposerAction =
   | { type: "remove"; key: string }
   | { type: "reply"; to: ReplyTarget | null }
   | { type: "restore"; draft: ComposerDraft }
+  /** Another conversation (or thread) opened in the same composer: start empty. */
+  | { type: "reset" }
   | { type: "sent" };
 
 export function composerReducer(state: ComposerState, action: ComposerAction): ComposerState {
@@ -67,6 +69,7 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
       // A draft never replaces what was typed meanwhile.
       if (state.text || state.attachments.length) return state;
       return { ...state, text: action.draft.text, replyTo: action.draft.replyTo ?? null };
+    case "reset":
     case "sent":
       return emptyComposer;
   }
@@ -203,9 +206,45 @@ export interface ComposerDraft {
   replyTo?: ReplyTarget | null;
 }
 
-/** One draft per conversation, and per thread within it. */
-export function draftKey(conversationId: string, threadRootId?: string | null): string {
-  return `genesis-chat:draft:${conversationId}${threadRootId ? `:${threadRootId}` : ""}`;
+const DRAFT_PREFIX = "genesis-chat:drafts:";
+/** Drafts saved before they were kept per person: no one's, so any sign-out clears them. */
+const LEGACY_DRAFT_PREFIX = "genesis-chat:draft:";
+
+/**
+ * One draft per signed-in person, per conversation, and per thread within it.
+ * The person comes first, so `clearDrafts` can find all of theirs on sign-out,
+ * and a second login on the phone never sees the first one's drafts.
+ */
+export function draftKey(userId: string, conversationId: string, threadRootId?: string | null): string {
+  return `${DRAFT_PREFIX}${userId}:${conversationId}${threadRootId ? `:${threadRootId}` : ""}`;
+}
+
+/**
+ * Removes drafts from the phone: one person's (`clearDrafts(storage, userId)`,
+ * on sign-out), or everyone's but one (`{ except: userId }`, on sign-in, which
+ * also covers a session that ended while the app was closed). Drafts saved
+ * before drafts were kept per person go either way. Needs the storage's
+ * `getAllKeys` (AsyncStorage has it); without it, it reports that through
+ * `onError` and removes nothing. Never throws. Returns how many it removed.
+ */
+export async function clearDrafts(storage: DraftStorageLike, who: string | { except: string }, onError?: (error: unknown) => void): Promise<number> {
+  try {
+    if (typeof storage.getAllKeys !== "function") {
+      onError?.(new Error("chat drafts: the draft storage has no getAllKeys, so drafts weren't cleared"));
+      return 0;
+    }
+    const goes = (k: string) =>
+      k.startsWith(LEGACY_DRAFT_PREFIX) ||
+      (k.startsWith(DRAFT_PREFIX) && (typeof who === "string" ? k.startsWith(`${DRAFT_PREFIX}${who}:`) : !k.startsWith(`${DRAFT_PREFIX}${who.except}:`)));
+    const keys = (await storage.getAllKeys()).filter(goes);
+    if (keys.length === 0) return 0;
+    if (typeof storage.multiRemove === "function") await storage.multiRemove(keys);
+    else await Promise.all(keys.map((k) => storage.removeItem(k)));
+    return keys.length;
+  } catch (error) {
+    onError?.(error);
+    return 0;
+  }
 }
 
 export function memoryDraftStorage(): DraftStorageLike {
@@ -214,6 +253,7 @@ export function memoryDraftStorage(): DraftStorageLike {
     getItem: async (k) => map.get(k) ?? null,
     setItem: async (k, v) => void map.set(k, v),
     removeItem: async (k) => void map.delete(k),
+    getAllKeys: async () => [...map.keys()],
   };
 }
 

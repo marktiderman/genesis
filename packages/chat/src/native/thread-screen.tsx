@@ -1,17 +1,24 @@
 /**
  * @feat:chat
- * One conversation: an inverted list (FlashList when the app gave it, else
- * FlatList) that opens at the newest message and keeps its place while
- * earlier ones load at the top, day separators, the "New messages" line,
+ * One conversation: a list oldest first, top to bottom, the order it reads in
+ * with VoiceOver (FlashList's bottom-anchored chat mode when the app gave it,
+ * else FlatList), that opens at the newest message, follows new ones while
+ * you are at the bottom, goes to the bottom when you send, and keeps its
+ * place while earlier ones load at the top; day separators, the "New messages" line,
  * grouped bubbles with names and avatars in groups, who is typing or
  * recording, retry and delete on a send that failed, the long-press sheet and
  * swipe to reply, pictures in a full-screen viewer, and the composer above
  * the keyboard. Render it as the screen's only content, under the
- * navigator's header with `useChatThreadStackOptions` (an opaque bar: on
- * iOS 26 and later a see-through bar blurs the whole inverted list).
+ * navigator's header with `useChatThreadStackOptions` (an opaque bar).
+ *
+ * Not inverted: FlashList 2 keeps the first visible row in place when rows
+ * change and only follows new rows at the bottom (`autoscrollToBottomThreshold`;
+ * it declares `autoscrollToTopThreshold` but never reads it), so in an inverted list a new message
+ * at index 0 was pushed under the composer. Inverted, VoiceOver also read
+ * each day's heading after its messages.
  */
 import { useCallback, useMemo, useRef, useState, type ComponentType } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeEmptyState, NativeSkeleton, NativeText, useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -27,7 +34,7 @@ import { attachmentPaths, ChatMediaViewer } from "./media";
 import { MessageActionsSheet } from "./message-actions-sheet";
 import { displayBody, MessageBubble } from "./message-bubble";
 import { haptic } from "./modules";
-import { invertedRows, type ThreadRow } from "./rows";
+import { buildThreadRows, type ThreadRow } from "./rows";
 
 export interface ChatThreadScreenProps {
   conversationId: string;
@@ -44,20 +51,50 @@ export interface ChatThreadScreenProps {
 
 /** The list props chat passes; FlashList v2 and FlatList both take them. */
 interface ChatListProps {
+  ref?: unknown;
   data: readonly ThreadRow[];
   renderItem: (info: { item: ThreadRow; index: number }) => React.ReactElement | null;
   keyExtractor: (row: ThreadRow) => string;
   getItemType?: (row: ThreadRow) => string;
-  inverted: boolean;
-  onEndReached?: () => void;
-  onEndReachedThreshold?: number;
+  inverted?: boolean;
+  onStartReached?: () => void;
+  onStartReachedThreshold?: number;
   ListHeaderComponent?: React.ReactElement | null;
   ListFooterComponent?: React.ReactElement | null;
   keyboardShouldPersistTaps?: "handled";
   keyboardDismissMode?: "interactive" | "on-drag";
   contentContainerStyle?: Record<string, unknown>;
   maintainVisibleContentPosition?: Record<string, unknown>;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  scrollEventThrottle?: number;
+  onContentSizeChange?: (width: number, height: number) => void;
+  onLayout?: (e: LayoutChangeEvent) => void;
   testID?: string;
+}
+
+/** Points from the bottom that still count as "at the bottom" (FlatList, which follows by hand). */
+export const AT_BOTTOM_POINTS = 120;
+
+/**
+ * How the thread's list is set up, oldest first and not inverted. FlashList:
+ * its chat mode (opens at the bottom, follows new rows while within a fifth of
+ * a screen of it, keeps the first visible row in place when earlier ones load
+ * at the top). FlatList: keeps its place when earlier rows load at the top;
+ * the screen follows new rows itself (`followsByHand`).
+ */
+export function threadListMode(flash: boolean, reducedMotion: boolean): { followsByHand: boolean; maintainVisibleContentPosition: Record<string, unknown> } {
+  if (flash) {
+    return {
+      followsByHand: false,
+      maintainVisibleContentPosition: { startRenderingFromBottom: true, autoscrollToBottomThreshold: 0.2, animateAutoScrollToBottom: !reducedMotion },
+    };
+  }
+  return { followsByHand: true, maintainVisibleContentPosition: { minIndexForVisible: 0 } };
+}
+
+/** Whether a scroll position is at (or near) the bottom of its content. */
+export function nearBottom(m: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } }, slack = AT_BOTTOM_POINTS): boolean {
+  return m.contentOffset.y + m.layoutMeasurement.height >= m.contentSize.height - slack;
 }
 
 export function ChatThreadScreen({ conversationId, threadRootId = null, keyboardVerticalOffset, testID = "chat-thread" }: ChatThreadScreenProps) {
@@ -71,7 +108,26 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const reducedMotion = useReducedMotion();
   const genesis = useGenesisModules();
   const List = (genesis.list ?? FlatList) as unknown as ComponentType<ChatListProps>;
-  const composer = useChatComposer(conversationId, threadRootId);
+  const mode = threadListMode(Boolean(genesis.list), reducedMotion);
+  const listRef = useRef<{ scrollToEnd?: (o?: { animated?: boolean }) => void } | null>(null);
+  // FlatList follows by hand: at the bottom (or not yet scrolled), new rows and a shorter list keep it there.
+  const atBottom = useRef(true);
+  // FlatList opens at the top and is moved to the bottom a frame later: until it has been, the top
+  // isn't "reached" (it would load an earlier page on every open).
+  const placed = useRef(!mode.followsByHand);
+  const toBottom = useCallback(
+    (animated: boolean) => {
+      const go = (a: boolean) => listRef.current?.scrollToEnd?.({ animated: a && !reducedMotion });
+      requestAnimationFrame(() => {
+        go(animated);
+        placed.current = true;
+      });
+      // Once more after the new row has its size (FlashList measures it after the first pass).
+      if (animated) setTimeout(() => go(true), 180);
+    },
+    [reducedMotion],
+  );
+  const composer = useChatComposer(conversationId, threadRootId, userId);
   const { setReply } = composer;
   const [actionsFor, setActionsFor] = useState<ChatMessage | null>(null);
   const [viewer, setViewer] = useState<{ uri: string; alt: string } | null>(null);
@@ -91,7 +147,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
     [conv.members, conv.messages],
   );
 
-  const rows = useMemo(() => invertedRows(conv.items, { me: userId, firstUnreadId: conv.firstUnreadId, group }), [conv.items, userId, conv.firstUnreadId, group]);
+  const rows = useMemo(() => buildThreadRows(conv.items, { me: userId, firstUnreadId: conv.firstUnreadId, group }), [conv.items, userId, conv.firstUnreadId, group]);
   const paths = useMemo(() => conv.items.flatMap((i) => (i.type === "message" ? attachmentPaths(i.message.attachments) : [])), [conv.items]);
   const urls = useFileUrls(paths);
   const byId = useMemo(() => new Map(conv.messages.map((m) => [m.id, m])), [conv.messages]);
@@ -208,6 +264,9 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
   // Unknown while access loads: the composer waits quietly instead of saying you can't post.
+  // TODO(chat accessError): when useConversation exposes `accessError` and `refetchAccess` (the chat
+  // owner's PR), show the error here with a Retry that calls `refetchAccess`, instead of waiting
+  // quietly forever on an access read that failed.
   const canPost = conv.accessLoading ? null : conv.canPost;
   const disabledReason = composerDisabledReason(canPost, conv.conversation, conv.role, copy);
   const KeyboardAvoiding = (modules.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
@@ -230,28 +289,40 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
               </View>
             ) : (
               <List
+                ref={listRef}
                 testID={`${testID}-list`}
                 data={rows}
-                inverted
                 renderItem={renderItem}
                 keyExtractor={(row) => row.key}
                 getItemType={(row) => (row.type === "message" ? (row.mine ? "mine" : "theirs") : row.type)}
-                onEndReached={() => {
-                  if (conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
+                onStartReached={() => {
+                  if (placed.current && conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
                 }}
-                onEndReachedThreshold={0.5}
+                onStartReachedThreshold={0.5}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="interactive"
                 contentContainerStyle={{ paddingVertical: 8 }}
-                // Earlier messages join at the far end of an inverted list, so what is on screen stays put;
-                // new ones join at the near end and the list follows them while you are at the bottom.
-                maintainVisibleContentPosition={{ autoscrollToTopThreshold: 120, minIndexForVisible: 0 }}
-                ListHeaderComponent={activity ? <ActivityLine text={activity} testID={`${testID}-activity`} /> : null}
-                ListFooterComponent={
+                maintainVisibleContentPosition={mode.maintainVisibleContentPosition}
+                {...(mode.followsByHand
+                  ? {
+                      scrollEventThrottle: 32,
+                      onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+                        atBottom.current = nearBottom(e.nativeEvent);
+                      },
+                      onContentSizeChange: () => {
+                        if (atBottom.current) toBottom(false);
+                      },
+                      onLayout: () => {
+                        if (atBottom.current) toBottom(false);
+                      },
+                    }
+                  : {})}
+                ListHeaderComponent={
                   conv.hasEarlier ? (
                     <EarlierAnchor loading={conv.loadingEarlier} label={copy.loadEarlier} onPress={() => void conv.loadEarlier()} testID={`${testID}-earlier`} />
                   ) : null
                 }
+                ListFooterComponent={activity ? <ActivityLine text={activity} testID={`${testID}-activity`} /> : null}
               />
             )}
           </View>
@@ -262,6 +333,9 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
             role={conv.role}
             onSend={({ input, files }) => {
               void conv.send(input, files).catch(fail);
+              // What you send is what you look at next, wherever the list was.
+              atBottom.current = true;
+              toBottom(true);
             }}
             signalTyping={conv.signalTyping}
             signalRecording={conv.signalRecording}

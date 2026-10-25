@@ -91,7 +91,7 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, testID =
   const voiceNotice = voice?.state.phase === "idle" ? voice.state.notice : null;
   const notice =
     state.notice ??
-    (voiceNotice === "denied" ? copy.micDenied : voiceNotice === "too-short" ? copy.tooShort : voiceNotice === "error" ? copy.actionFailed : null);
+    (voiceNotice === "denied" ? copy.micDenied : voiceNotice === "too-short" ? copy.tooShort : voiceNotice === "error" ? copy.recordingFailed : voiceNotice === "interrupted" ? copy.recordingInterrupted : null);
 
   const send = () => {
     if (!sendable) return;
