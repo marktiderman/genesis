@@ -11,6 +11,8 @@ export default [
   route("forms-frame", "routes/forms-frame.tsx"),
   // What a respondent sees: the form full screen, no app nav.
   route("preview/:scenario", "routes/preview.$scenario.tsx"),
+  // The genesis-sites editor: full screen, outside the app shell.
+  route("sites-editor", "routes/sites-editor.tsx"),
   layout("routes/_layout.tsx", [
     route("dashboard", "routes/dashboard.tsx"),
     route("items", "routes/items.tsx"),
@@ -33,6 +35,8 @@ export default [
     route("features", "routes/features.tsx"),
     // genesis-sites: two demo sites in frames (sites-demo/ serves them).
     route("sites", "routes/sites.tsx"),
+    // genesis-chat: the panel on the in-memory client.
+    route("chat", "routes/chat.tsx"),
     // Phase G — Genesis Showcase portfolio routes
     route("showcase", "routes/showcase._index.tsx"),
     route("showcase/tokens", "routes/showcase.tokens._index.tsx"),

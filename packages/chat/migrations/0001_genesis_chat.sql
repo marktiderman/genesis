@@ -843,12 +843,20 @@ create policy genesis_chat_read on storage.objects
 
 -- Restrictive: inside this bucket only the rules above hold, whatever the app's other
 -- storage policies, for every role but the service role.
+-- Scoped by role: a policy that applies to a role needs that role to be able to run its
+-- functions, and anon can't run these, so anon gets its own policies without them.
 create policy genesis_chat_only_read on storage.objects
-  as restrictive for select to public
+  as restrictive for select to authenticated
   using (bucket_id <> 'genesis-chat' or genesis_chat.can_read_object(name, owner_id, created_at));
+create policy genesis_chat_anon_read on storage.objects
+  as restrictive for select to anon
+  using (bucket_id <> 'genesis-chat');
 create policy genesis_chat_only_upload on storage.objects
-  as restrictive for insert to public
+  as restrictive for insert to authenticated
   with check (bucket_id <> 'genesis-chat' or (select genesis_chat.can_upload(name)));
+create policy genesis_chat_anon_upload on storage.objects
+  as restrictive for insert to anon
+  with check (bucket_id <> 'genesis-chat');
 create policy genesis_chat_no_update on storage.objects
   as restrictive for update to public
   using (bucket_id <> 'genesis-chat')
@@ -1026,7 +1034,7 @@ declare
 begin
   select * into c from genesis_chat.conversations where id = p_conversation_id;
   select * into k from genesis_chat.kinds where kind = c.kind;
-  if c.id is null or genesis_chat.my_role(c.id) not in ('owner', 'admin') or k.membership <> 'admins' then
+  if c.id is null or coalesce(genesis_chat.my_role(c.id), '') not in ('owner', 'admin') or k.membership <> 'admins' then
     raise exception 'You can''t add people to this conversation' using errcode = '42501';
   end if;
   select coalesce(array_agg(distinct x), '{}') into adding from unnest(coalesce(p_user_ids, '{}')) x where x is not null;
@@ -1068,8 +1076,8 @@ begin
   select role into target_role from genesis_chat.members
    where conversation_id = p_conversation_id and user_id = target and left_at is null and role <> 'observer';
   if k.kind is null or target_role is null or k.membership <> 'admins' or k.max_members = 2
-     or (target <> me and (genesis_chat.my_role(p_conversation_id) not in ('owner', 'admin')
-                           or (target_role = 'owner' and genesis_chat.my_role(p_conversation_id) <> 'owner'))) then
+     or (target <> me and (coalesce(genesis_chat.my_role(p_conversation_id), '') not in ('owner', 'admin')
+                           or (target_role = 'owner' and coalesce(genesis_chat.my_role(p_conversation_id), '') <> 'owner'))) then
     raise exception 'You can''t remove this person' using errcode = '42501';
   end if;
   update genesis_chat.members set left_at = now() where conversation_id = p_conversation_id and user_id = target;
@@ -1106,7 +1114,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if genesis_chat.my_role(p_conversation_id) not in ('owner', 'admin') then
+  if coalesce(genesis_chat.my_role(p_conversation_id), '') not in ('owner', 'admin') then
     raise exception 'Only an owner or admin changes this conversation' using errcode = '42501';
   end if;
   if p_settings is not null and p_settings ? 'who_posts' and p_settings ->> 'who_posts' not in ('members', 'admins') then
@@ -1128,7 +1136,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  role_ text := genesis_chat.my_role(p_conversation_id);
+  role_ text := coalesce(genesis_chat.my_role(p_conversation_id), '');
 begin
   if not (role_ in ('owner', 'admin') or (role_ = 'observer' and genesis_chat.can_post(p_conversation_id))) then
     raise exception 'You can''t change this conversation''s status' using errcode = '42501';
@@ -1312,8 +1320,8 @@ begin
   if msg.id is null then
     raise exception 'No such message' using errcode = '42501';
   end if;
-  role_ := genesis_chat.my_role(msg.conversation_id);
-  if not (msg.sender_id = auth.uid() and role_ is not null
+  role_ := coalesce(genesis_chat.my_role(msg.conversation_id), '');
+  if not (msg.sender_id = auth.uid() and role_ <> ''
           or role_ in ('owner', 'admin')
           or (role_ = 'observer' and genesis_chat.can_post(msg.conversation_id))) then
     raise exception 'You can''t delete this message' using errcode = '42501';
@@ -1453,7 +1461,7 @@ declare
   direct boolean;
 begin
   select * into msg from genesis_chat.messages where id = p_message_id and deleted_at is null and visibility = 'everyone';
-  role_ := genesis_chat.my_role(msg.conversation_id);
+  role_ := coalesce(genesis_chat.my_role(msg.conversation_id), '');
   select k.max_members = 2 into direct from genesis_chat.conversations c join genesis_chat.kinds k on k.kind = c.kind
    where c.id = msg.conversation_id;
   if msg.id is null or not (role_ in ('owner', 'admin') or (coalesce(direct, false) and role_ = 'member')) then
