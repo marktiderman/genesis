@@ -4,11 +4,11 @@
  *
  *   last-resort boundary (React Native primitives only)
  *   └ theme (GenesisThemeProvider, owning the platform color scheme)
- *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens; `bottomSheet` opts sheets into @gorhom/bottom-sheet)
+ *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens)
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
  *         └ session + boot (splash held until both are known)
  *           └ blocks' roots (with `blocks`, e.g. updates: force upgrade, maintenance, banner, what's new)
- *             └ errorBoundary → your screens (or `signedOut`)
+ *             └ errorBoundary → `bottomSheet`'s provider, if given → your screens (or `signedOut`)
  *
  * Every error the shell catches goes to each block's `onError` (the
  * observability block reports it) and then to the app's own `onError`.
@@ -240,13 +240,11 @@ function ThemedShell(props: GenesisNativeAppProps) {
   const { brand, keyboardScroll } = props;
   // Frozen: a new component type here (an inline wrapper) would remount the shell and reset the app.
   const [Keyboard] = useState(() => props.keyboardProvider);
-  const [bottomSheet] = useState(() => props.bottomSheet);
   const missingProvider = Boolean(keyboardScroll) && !Keyboard;
   useEffect(() => {
     if (missingProvider && typeof __DEV__ !== "undefined" && __DEV__) console.error(MISSING_KEYBOARD_PROVIDER);
   }, [missingProvider]);
   let body = <Shell {...props} />;
-  if (bottomSheet) body = <NativeSheetProvider bottomSheet={bottomSheet}>{body}</NativeSheetProvider>;
   if (keyboardScroll) body = <KeyboardScrollProvider component={keyboardScroll}>{body}</KeyboardScrollProvider>;
   if (Keyboard) body = <Keyboard>{body}</Keyboard>;
   return (
@@ -264,6 +262,8 @@ function Shell(props: GenesisNativeAppProps) {
   const latest = useRef(props);
   latest.current = props;
   const [blockList] = useState(() => givenBlocks(props));
+  // Read once, like the keyboard provider: a different module later would remount the screens.
+  const [bottomSheet] = useState(() => props.bottomSheet);
   const onError: OnError = (error, report) => {
     reportToBlocks(blockList, error, report);
     try {
@@ -404,7 +404,8 @@ function Shell(props: GenesisNativeAppProps) {
         <BootProvider boot={boot}>
           <BlocksProvider value={parts.blocks}>
             <GenesisErrorBoundary key={resetKey} fallback={FatalFallback} onError={onError} onRetry={retry}>
-              {content}
+              {/* Sheet content renders in the library's portal, here: below data, session, boot and blocks. */}
+              {bottomSheet ? <NativeSheetProvider bottomSheet={bottomSheet}>{content}</NativeSheetProvider> : content}
             </GenesisErrorBoundary>
           </BlocksProvider>
         </BootProvider>

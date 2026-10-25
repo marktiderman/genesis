@@ -72,6 +72,12 @@ export const genesisNativewindPreset = {
 export interface GenesisNativewindContentOptions {
   /** The app's folder (where its package.json is). Default `process.cwd()`, where Tailwind runs. */
   root?: string;
+  /**
+   * Packages to start from besides the app's own `@marktiderman/genesis-*`
+   * dependencies, such as your own wrapper around ui-native. Their Genesis
+   * dependencies are followed too.
+   */
+  packages?: readonly string[];
 }
 
 const GENESIS_SCOPE = "@marktiderman/genesis-";
@@ -94,21 +100,27 @@ const GENESIS_SCOPE = "@marktiderman/genesis-";
 export function genesisNativewindContent(options: GenesisNativewindContentOptions = {}): string[] {
   const root = path.resolve(options.root ?? process.cwd());
   const globs: string[] = [];
-  const seen = new Set<string>();
-  const queue: { name: string; from: string }[] = genesisDependencies(readJson(path.join(root, "package.json")), true).map((name) => ({ name, from: root }));
+  const visited = new Set<string>();
+  const direct = [...genesisDependencies(readJson(path.join(root, "package.json")), true), ...(options.packages ?? [])];
+  const queue: { name: string; from: string; direct: boolean }[] = direct.map((name) => ({ name, from: root, direct: true }));
   while (queue.length > 0) {
-    const { name, from } = queue.shift()!;
-    if (seen.has(name)) continue;
-    seen.add(name);
+    const { name, from, direct: isDirect } = queue.shift()!;
     const dir = packageDir(name, from);
-    if (!dir) continue;
+    if (!dir) {
+      // A package the app lists but that isn't installed: its components would render unstyled.
+      if (isDirect) console.warn(`genesisNativewindContent: ${name} is in the app's package.json but isn't installed; run the install.`);
+      continue;
+    }
+    // By folder: two copies of a package are both scanned.
+    if (visited.has(dir)) continue;
+    visited.add(dir);
     const manifest = readJson(path.join(dir, "package.json"));
     const peers = (manifest.peerDependencies ?? {}) as Record<string, string>;
     if ("react-native" in peers || "nativewind" in peers) {
       const posix = dir.split(path.sep).join("/");
       globs.push(`${posix}/src/**/*.{ts,tsx}`, `${posix}/dist/**/*.js`);
     }
-    for (const next of genesisDependencies(manifest)) queue.push({ name: next, from: dir });
+    for (const next of genesisDependencies(manifest)) queue.push({ name: next, from: dir, direct: false });
   }
   return globs;
 }

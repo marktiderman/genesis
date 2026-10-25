@@ -335,7 +335,9 @@ describe("GenesisNativeApp", () => {
   it("mounts the bottom-sheet provider only when the app passes the library in", async () => {
     const mounted = vi.fn();
     const bottomSheet = {
+      // The real one hosts the portal sheets render into: what it can read, sheet content can.
       BottomSheetModalProvider: ({ children }: { children: ReactNode }) => {
+        useQueryClient();
         mounted();
         return <div data-testid="sheet-provider">{children}</div>;
       },

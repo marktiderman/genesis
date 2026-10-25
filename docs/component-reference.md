@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 137 components · 473 other exports · 337 standalone types across 11 packages and entry points.
+**Totals:** 137 components · 474 other exports · 337 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -781,7 +781,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`SocialAuthRow`](../packages/ui-native/src/layouts/auth.tsx) | `SocialAuthRowProps` | — | _(no summary)_ |
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 
-### Other exports (29)
+### Other exports (30)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -806,6 +806,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NativeCardFooter`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeCardHeader`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeListItemDivider`](../packages/ui-native/src/components/list-item.tsx) | function | — | _(no summary)_ |
+| [`NativeSheetScrollView`](../packages/ui-native/src/components/sheet.tsx) | function | Beta | A `ScrollView` for sheet content: the library's `BottomSheetScrollView` under `NativeSheetProvider` (so scrolling and dragging the sheet don't fight), React Native's otherwise. Sized to its content until it reaches the sheet's height. |
 | [`spaceScale`](../packages/ui-native/src/components/layout/index.ts) | value | — | _(no summary)_ |
 | [`spacingClass`](../packages/ui-native/src/components/layout/index.ts) | value | — | _(no summary)_ |
 | [`textVariants`](../packages/ui-native/src/components/text.tsx) | value | — | _(no summary)_ |

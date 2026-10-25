@@ -6,7 +6,7 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { genesisNativewindContent } from "../nativewind";
 
 let dirs: string[] = [];
@@ -46,6 +46,19 @@ describe("genesisNativewindContent", () => {
       `${linked}/src/**/*.{ts,tsx}`,
       `${linked}/dist/**/*.js`,
     ]);
+  });
+
+  it("starts from extra packages too, and warns about a listed package that isn't installed", () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "nw-content-")));
+    dirs.push(root);
+    pkg(root, { dependencies: { "@marktiderman/genesis-missing": "1", "my-ui": "1" } });
+    pkg(join(root, "node_modules", "my-ui"), { dependencies: { "@marktiderman/genesis-ui-native": "1" } });
+    const ui = join(root, "node_modules", "@marktiderman", "genesis-ui-native");
+    pkg(ui, { peerDependencies: { nativewind: "*" } });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(genesisNativewindContent({ root, packages: ["my-ui"] })).toEqual([`${ui}/src/**/*.{ts,tsx}`, `${ui}/dist/**/*.js`]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("@marktiderman/genesis-missing"));
+    warn.mockRestore();
   });
 
   it("is empty for an app without Genesis packages", () => {

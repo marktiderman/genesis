@@ -120,6 +120,15 @@ From the outside in:
     A path the map doesn't know, or one with a `.` or `..` segment, goes to
     `"/"` and `onUnknown`; `ignore` patterns return `null` so the router
     leaves them alone (an auth callback).
+11. **Sheets**: `NativeSheet` (what's new, the push prompt) is React Native's
+    own `Modal` and needs nothing above it: the system page sheet on iOS, a
+    bottom panel on Android. To use `@gorhom/bottom-sheet` instead (snap
+    points), pass it: `import * as BottomSheet from "@gorhom/bottom-sheet"`,
+    then `bottomSheet={BottomSheet}`. The shell mounts its
+    `BottomSheetModalProvider` inside the data, session and blocks providers,
+    so sheet content can read them. The library also needs gesture-handler's
+    `GestureHandlerRootView` around the app and Reanimated set up; without
+    them it throws when a sheet opens.
 
 ## Slots
 
