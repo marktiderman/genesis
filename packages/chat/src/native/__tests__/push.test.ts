@@ -77,7 +77,7 @@ describe("handleChatPushResponse", () => {
     const client = fakeClient();
     expect(await handleChatPushResponse(response("expo.modules.notifications.actions.DEFAULT"), { client })).toBe("ignored");
     expect(await handleChatPushResponse(response("reply", { userText: "   " }), { client })).toBe("ignored");
-    expect(await handleChatPushResponse(response("reply", { userText: "hi" }, {}, { url: "/settings" }), { client })).toBe("ignored");
+    expect(await handleChatPushResponse(response("reply", { userText: "hi" }, { url: "/settings" }), { client })).toBe("ignored");
     expect(client.send).not.toHaveBeenCalled();
   });
 
