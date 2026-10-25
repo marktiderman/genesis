@@ -1,0 +1,58 @@
+packages/ui-native/src/layouts/notifications-page.tsx
+  s_8252619ce79a86::t_2d4d9d8140a009 199-209
+  s_8252619ce79a86::t_5138419e1f70fe 281-282,284
+  s_8252619ce79a86::t_08336dee4939cb 235-247
+  s_8252619ce79a86::t_0c9f490a54bf78 23,222-223
+packages/ui-native/src/hooks/use-reduced-motion.ts
+  s_8252619ce79a86::t_47186fb20f243e 15-18,25,29-32,34,38
+  s_8252619ce79a86::t_3e1a2e9a0e1607 19-23
+packages/ui-native/src/components/popover.tsx
+  s_8252619ce79a86::t_04dcacb1e4f2c1 185-187,191
+packages/ui-native/src/data/NativeResourcePage.tsx
+  s_8252619ce79a86::t_5fe118e2682f2e 492-493
+packages/ui-native/src/components/glass-surface.tsx
+  s_8252619ce79a86::t_8e580300046c3f 18
+  s_8252619ce79a86::t_f0327bfcc8d144 103-104,107-114
+  s_8252619ce79a86::t_396ed5a1ed2229 26-37,43-46
+  s_8252619ce79a86::t_f77965bd23d8e8 47-48
+packages/ui-native/src/components/avatar.tsx
+  s_8252619ce79a86::t_89144442e641c7 56-61,64-65
+  s_8252619ce79a86::t_9c96fc6e506643 13
+packages/native/src/updates/screens.tsx
+  s_8252619ce79a86::t_84e8669901f53b 15
+  s_8252619ce79a86::t_c2a522048c456e 99-100,104,109
+packages/ui-native/src/components/toast.tsx
+  s_8252619ce79a86::t_d93f7a57c8a2a6 268-269
+  s_8252619ce79a86::t_7c7abab5ac2cd6 34
+  s_8252619ce79a86::t_7b53dea33ee749 119-125,132-146
+  s_8252619ce79a86::t_61d66796771fc4 178,180-182,188
+  s_8252619ce79a86::t_d0f3210b6e908c 234
+  s_8252619ce79a86::t_1d3cd199cccc10 293-299
+  s_8252619ce79a86::t_8e1e756b6d344c 200,205-207,212-226
+packages/ui-native/src/__tests__/native-modules.test.tsx
+  s_8252619ce79a86::t_2245eec1c55cc0 13
+  s_8252619ce79a86::t_7753a12e1d5b26 30
+  s_8252619ce79a86::t_eb2fe44fb57905 377-393
+  s_8252619ce79a86::t_565ea1711f68db 203-257
+  s_8252619ce79a86::t_0ed3c354cba7f9 516
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_9c67d7c92fb2ee 57
+pnpm-lock.yaml
+  s_8252619ce79a86::t_19430e7cf613c8 153
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "58c12cc35311fa1a7709374dc71a4b9cca43f792",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
