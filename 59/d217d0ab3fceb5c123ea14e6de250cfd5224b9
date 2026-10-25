@@ -1,0 +1,27 @@
+packages/native/src/updates/signature.ts
+  s_8252619ce79a86::t_3a8b2c1b616229 9-12,46-48,50-51,53-55,75
+packages/native/src/__tests__/push/block.test.tsx
+  s_8252619ce79a86::t_e27fb19ddab54b 320-321
+packages/native/src/__tests__/updates/signature-channels.test.ts
+  s_8252619ce79a86::t_3a8b2c1b616229 36-47
+packages/native/src/push/screens.tsx
+  s_8252619ce79a86::t_e27fb19ddab54b 23-26,30
+.changeset/push-prompt-runtime-row.md
+  s_8252619ce79a86::t_46d33ef2c735fe 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "59d217d0ab3fceb5c123ea14e6de250cfd5224b9",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
