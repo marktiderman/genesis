@@ -110,4 +110,6 @@ export function onChatPushResponse(response: Parameters<typeof handleChatPushRes
 }
 
 // The Reply and Mark read buttons on a message's notification, registered once at start.
-if (starter.features.chat && starter.features.push) void registerChatNotificationActions(Notifications);
+if (starter.features.chat && starter.features.push) {
+  void registerChatNotificationActions(Notifications, undefined, (error) => console.warn("[chat] notification actions:", error));
+}

@@ -107,6 +107,14 @@ export const fakeSupabase = {
   rpc: jest.fn((fn: string, _args?: object) => (fn === "delete_my_account" ? deleteMyAccount() : query({ data: null, error: null, count: 0 }))),
   // Edge Functions (genesis-apple-revoke): every call succeeds.
   functions: { invoke: jest.fn(async (_name: string, _options?: object) => ({ data: { ok: true }, error: null })) },
+  // genesis-chat's tables and functions (the Messages tab): an empty inbox.
+  schema: jest.fn((_schema: string) => ({ from: fakeSupabase.from, rpc: fakeSupabase.rpc })),
+  // Realtime (chat's live hints): channels that join and never hear anything.
+  channel: jest.fn((_topic: string, _options?: object) => {
+    const channel = { on: () => channel, subscribe: () => channel, send: async () => "ok" };
+    return channel;
+  }),
+  removeChannel: jest.fn(async (_channel: unknown) => "ok"),
 };
 
 /** `sessionReady` from `src/lib/supabase.ts`, the boot step that wipes a session left by an earlier install. */

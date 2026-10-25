@@ -80,8 +80,24 @@ export function chatNotificationActions(copy: Partial<ChatPushCopy> = {}) {
 }
 
 /** Registers the actions with the OS (once, at start; it is idempotent). */
-export function registerChatNotificationActions(notifications: NotificationCategoriesLike, copy?: Partial<ChatPushCopy>): Promise<unknown> {
-  return notifications.setNotificationCategoryAsync(CHAT_PUSH_CATEGORY, chatNotificationActions(copy)).catch(() => undefined);
+export function registerChatNotificationActions(
+  notifications: NotificationCategoriesLike,
+  copy?: Partial<ChatPushCopy>,
+  onError?: (error: unknown) => void,
+): Promise<unknown> {
+  // Never throws, at module load least of all: a module without categories (web, a test's mock) is reported.
+  try {
+    if (typeof notifications?.setNotificationCategoryAsync !== "function") {
+      onError?.(new Error("chat push: setNotificationCategoryAsync is missing, so Reply and Mark read aren't on message notifications"));
+      return Promise.resolve(undefined);
+    }
+    return Promise.resolve(notifications.setNotificationCategoryAsync(CHAT_PUSH_CATEGORY, chatNotificationActions(copy))).catch((error: unknown) => {
+      onError?.(error);
+    });
+  } catch (error) {
+    onError?.(error);
+    return Promise.resolve(undefined);
+  }
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

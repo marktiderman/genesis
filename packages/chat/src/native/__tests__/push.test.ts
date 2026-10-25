@@ -36,6 +36,14 @@ describe("the messages category", () => {
     expect(setNotificationCategoryAsync).toHaveBeenCalledWith(CHAT_PUSH_CATEGORY, actions);
   });
 
+  it("registering never throws: a module without categories is reported, not fatal", async () => {
+    const onError = vi.fn();
+    await expect(registerChatNotificationActions({} as never, undefined, onError)).resolves.toBeUndefined();
+    expect(onError).toHaveBeenCalled();
+    const failing = { setNotificationCategoryAsync: () => Promise.reject(new Error("no")) };
+    await expect(registerChatNotificationActions(failing, undefined, onError)).resolves.toBeUndefined();
+  });
+
   it("finds the conversation in data.conversationId or data.url, nowhere else", () => {
     expect(conversationIdFromData({ url: `/messages/${CONV}` })).toBe(CONV);
     expect(conversationIdFromData({ url: `/messages/${CONV}?x=1` })).toBe(CONV);
