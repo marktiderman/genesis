@@ -127,6 +127,7 @@
   },
   "devDependencies": {
     "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-notifications": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
