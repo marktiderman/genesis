@@ -62,6 +62,7 @@ import { Button } from "@marktiderman/genesis-ui";
 - **Form renderer** — Beautiful, accessible forms, one question at a time or all at once.
 - **Form builder** — Build forms visually, with logic, and see problems as you go.
 - **Form destinations** — Send every response to email, Google Sheets or your own webhook.
+- **Forms on native** (beta) — The same forms, one question at a time, native on iOS and Android.
 
 ### Tooling
 

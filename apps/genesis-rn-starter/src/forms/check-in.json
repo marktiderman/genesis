@@ -1,0 +1,121 @@
+{
+  "definition": {
+    "schemaVersion": 1,
+    "id": "weekly-check-in",
+    "title": "Weekly check-in",
+    "description": "About two minutes. Your coach reads every answer.",
+    "layout": { "mode": "focus" },
+    "settings": { "saveProgress": true },
+    "blocks": [
+      { "kind": "content", "id": "welcome", "type": "heading", "text": "How was your week?" },
+      { "kind": "content", "id": "intro", "type": "text", "text": "One question at a time. You can go back, and your answers are kept on this phone until you send them." },
+      {
+        "kind": "field",
+        "id": "gym",
+        "key": "gym",
+        "type": "single-choice",
+        "label": "Which gym do you train at?",
+        "required": true,
+        "props": {
+          "options": [
+            { "value": "riverside", "label": "Riverside Gym", "description": "12 Mill Lane" },
+            { "value": "hilltop", "label": "Hilltop Gym", "description": "3 Summit Road" },
+            { "value": "harbour", "label": "Harbour Gym", "description": "Pier 4" }
+          ],
+          "prefill": { "param": "gym", "hideWhenPrefilled": true }
+        }
+      },
+      {
+        "kind": "field",
+        "id": "coach",
+        "key": "coach",
+        "type": "single-choice",
+        "label": "Who coached you this week?",
+        "description": "Only the coaches at your gym are listed.",
+        "required": true,
+        "props": { "optionsFrom": { "source": "host", "key": "coaches", "filter": { "attribute": "gym", "field": "gym" } } }
+      },
+      { "kind": "field", "id": "name", "key": "name", "type": "short-text", "label": "What should we call you?", "required": true },
+      {
+        "kind": "field",
+        "id": "sessions",
+        "key": "sessions",
+        "type": "number",
+        "label": "How many sessions did you train, {{field:name}}?",
+        "required": true,
+        "props": { "min": 0, "max": 21, "step": 1 }
+      },
+      { "kind": "field", "id": "started", "key": "started", "type": "date", "label": "When did your current programme start?" },
+      {
+        "kind": "field",
+        "id": "energy",
+        "key": "energy",
+        "type": "rating",
+        "label": "How was your energy?",
+        "required": true,
+        "props": { "max": 5, "display": "stars", "lowLabel": "Drained", "highLabel": "Buzzing" }
+      },
+      { "kind": "field", "id": "slept", "key": "slept", "type": "yes-no", "label": "Did you sleep seven hours most nights?" },
+      {
+        "kind": "field",
+        "id": "focus",
+        "key": "focus",
+        "type": "multi-choice",
+        "label": "What did you work on?",
+        "props": {
+          "options": [
+            { "value": "strength", "label": "Strength" },
+            { "value": "mobility", "label": "Mobility" },
+            { "value": "endurance", "label": "Endurance" },
+            { "value": "skills", "label": "Skills" }
+          ],
+          "other": { "label": "Something else" }
+        }
+      },
+      {
+        "kind": "field",
+        "id": "class",
+        "key": "class",
+        "type": "single-choice",
+        "label": "Which class did you enjoy most?",
+        "props": {
+          "options": [
+            { "value": "c01", "label": "Barbell basics" },
+            { "value": "c02", "label": "Kettlebell flow" },
+            { "value": "c03", "label": "Rowing intervals" },
+            { "value": "c04", "label": "Open gym" },
+            { "value": "c05", "label": "Olympic lifting" },
+            { "value": "c06", "label": "Gymnastics skills" },
+            { "value": "c07", "label": "Yoga for athletes" },
+            { "value": "c08", "label": "Sprint club" },
+            { "value": "c09", "label": "Strongman Saturday" },
+            { "value": "c10", "label": "Core and conditioning" },
+            { "value": "c11", "label": "Masters class" },
+            { "value": "c12", "label": "Mobility lab" }
+          ],
+          "other": true
+        }
+      },
+      {
+        "kind": "content",
+        "id": "tip",
+        "type": "callout",
+        "text": "Nearly done. The next questions help your coach plan next week.",
+        "props": { "title": "Almost there", "tone": "success" }
+      },
+      { "kind": "field", "id": "recommend", "key": "recommend", "type": "nps", "label": "How likely are you to recommend us to a friend?" },
+      { "kind": "field", "id": "email", "key": "email", "type": "email", "label": "Email for your weekly summary" },
+      { "kind": "field", "id": "phone", "key": "phone", "type": "phone", "label": "A phone number your coach can text" },
+      { "kind": "field", "id": "photo", "key": "photo", "type": "photo", "label": "A progress photo, if you like" },
+      { "kind": "field", "id": "notes", "key": "notes", "type": "long-text", "label": "Anything else your coach should know?" }
+    ],
+    "endings": [{ "id": "done", "title": "Thanks, {{field:name}}", "description": "Your coach will reply before your next session." }]
+  },
+  "contentTypes": [{ "type": "callout", "label": "Callout" }],
+  "coaches": [
+    { "value": "ada", "label": "Ada Park", "description": "Strength", "attributes": { "gym": "riverside" } },
+    { "value": "grace", "label": "Grace Okafor", "description": "Mobility", "attributes": { "gym": ["riverside", "hilltop"] } },
+    { "value": "alan", "label": "Alan Reyes", "description": "Endurance", "attributes": { "gym": "hilltop" } },
+    { "value": "mina", "label": "Mina Sato", "description": "Olympic lifting", "attributes": { "gym": "harbour" } }
+  ]
+}

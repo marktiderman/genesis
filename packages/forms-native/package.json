@@ -1,0 +1,69 @@
+{
+  "name": "@marktiderman/genesis-forms-native",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "The React Native renderer for Genesis Forms: <FormFocus>, one question or content step per screen, with keyboard-aware scrolling, accessibility focus and announcements, Dynamic Type, reduced motion, a theme seam for system or Genesis colors, and seams for drafts, an offline outbox and photo uploads. The same definitions run on web, native and the server. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/forms-native"
+  },
+  "license": "MIT",
+  "keywords": [
+    "react-native",
+    "expo",
+    "forms",
+    "survey",
+    "check-in",
+    "onboarding",
+    "genesis"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-forms": "workspace:>=0.7.0 <1.0.0",
+    "@marktiderman/genesis-forms-react": "workspace:>=0.3.0 <1.0.0",
+    "@marktiderman/genesis-ui-native": "workspace:^",
+    "react": "^19.0.0",
+    "react-native": ">=0.76.0"
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-forms": "workspace:^",
+    "@marktiderman/genesis-forms-react": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "happy-dom": "^20.9.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-native": "0.88.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
+  }
+}
