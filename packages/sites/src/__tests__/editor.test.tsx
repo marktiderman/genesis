@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { z } from "zod";
 import "../sections/index";
-import { BUILT_IN_SECTION_TYPES, createMemorySiteStore, defineSection, getSection, landingPage, listSections, registerSection, sectionJsonSchema, toCanonicalBrand, unregisterSection, type PageDoc, type SaveResult, type SiteDoc } from "../index";
+import { BUILT_IN_SECTION_TYPES, createMemorySiteStore, migrateNode, defineSection, getSection, landingPage, listSections, registerSection, sectionJsonSchema, toCanonicalBrand, unregisterSection, type PageDoc, type SaveResult, type SiteDoc } from "../index";
 import { createEditorConfig, type CanvasMetadata } from "../editor/config";
 import { countTypes, fromEditorData, h1SectionId, placeholderSnapshot, pruneEmpty, toEditorData } from "../editor/data";
 import { sectionFields } from "../editor/fields";
@@ -244,6 +244,16 @@ describe("toEditorData / fromEditorData", () => {
     expect(fromEditorData(data as never, { placeholders }).page.content.find((n) => n.type === "testimonials")!.placeholder).toBeUndefined();
   });
 
+  it("keeps a placeholder whose props only come back in another key order, or with empty values", () => {
+    const sample = page.content.find((n) => n.placeholder)!;
+    // As jsonb returns it: keys in another order.
+    const reordered = { ...sample, props: Object.fromEntries(Object.entries(sample.props).reverse()) };
+    const placeholders = placeholderSnapshot([reordered]);
+    const data = toEditorData({ ...page, content: [sample] }, { header: [], footer: [] });
+    Object.assign(data.content[0]!.props, { someOptionalText: "" });
+    expect(fromEditorData(data as never, { placeholders }).page.content[0]!.placeholder).toBe(true);
+  });
+
   it("stores a preset's component as its section type, with node fields out of props", () => {
     const back = fromEditorData({
       root: { props: { title: "T", header: [], footer: [] } },
@@ -357,6 +367,15 @@ describe("Autosaver", () => {
     h.saver.update({ n: 0 });
     expect(h.timers).toHaveLength(0);
     expect(h.saver.current.status).toBe("saved");
+  });
+
+  it("treats the same document in another key order as no change", () => {
+    const saver = new Autosaver<Record<string, unknown>>({ rev: 1, save: async () => ({ rev: 2 }), setTimer: () => 1, clearTimer: () => undefined }, { a: 1, b: { c: 2, d: 3 } });
+    saver.update({ b: { d: 3, c: 2 }, a: 1 });
+    expect(saver.current.status).toBe("saved");
+    expect(saver.dirty).toBe(false);
+    saver.update({ b: { d: 4, c: 2 }, a: 1 });
+    expect(saver.current.status).toBe("pending");
   });
 
   it("saves a change made during a save right after it, on the new revision", async () => {
@@ -483,6 +502,38 @@ describe("publishing", () => {
     const codes = check.issues.map((i) => i.code);
     expect(codes).toContain("image-alt");
     expect(codes).toContain("contrast");
+  });
+
+  it("compares migrated props by content, not key order", () => {
+    const node = { id: "h", type: "hero", v: getSection("hero")!.version, variant: "centered", props: { body: "Small classes.", heading: "Hello" } };
+    const m = migrateNode(node);
+    expect(JSON.stringify(m.node!.props)).not.toBe(JSON.stringify(node.props)); // zod returns the schema's order
+    expect(m.changed).toBe(false);
+    // Defaults zod fills in are no change either; the parsed node still carries them.
+    const footer = migrateNode({ id: "f", type: "footer", v: getSection("footer")!.version, variant: "minimal", props: { copyright: "© Example" } });
+    expect(footer.changed).toBe(false);
+    expect(Object.keys(footer.node!.props).length).toBeGreaterThan(1);
+    // A version or variant to write back is.
+    expect(migrateNode({ ...node, v: 0 }).changed).toBe(true);
+    expect(migrateNode({ ...node, variant: undefined }).changed).toBe(true);
+  });
+
+  it("re-saves no draft on a publish that changes nothing, whatever order the store keeps keys in", async () => {
+    const { store, siteId, home, about } = await landingStore();
+    // Keys in reverse order everywhere, as jsonb (sorted by length) or another client might store them.
+    const reverse = (v: unknown): unknown =>
+      Array.isArray(v) ? v.map(reverse) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).reverse().map(([k, x]) => [k, reverse(x)])) : v;
+    const draft = (await store.getPageDraft(home))!;
+    await store.savePageDraft(home, draft.rev, reverse({ ...draft.doc, content: draft.doc.content.map((n) => (n.placeholder ? { ...n, hidden: true } : n)) }) as PageDoc);
+    const site = (await store.getDraft(siteId))!;
+    await store.saveSiteDraft(siteId, site.rev, reverse({ ...site.site, footer: site.site.footer.map((n) => ({ ...n, placeholder: false })) }) as SiteDoc);
+    const revs = async () => ({ site: (await store.getDraft(siteId))!.rev, home: (await store.getPageDraft(home))!.rev, about: (await store.getPageDraft(about))!.rev, pages: (await store.listPages(siteId)).map((p) => p.rev) });
+    const before = await revs();
+    const first = await publishSite(store, siteId, { brand });
+    expect("release" in first).toBe(true);
+    expect(await revs()).toEqual(before);
+    await publishSite(store, siteId, { brand });
+    expect(await revs()).toEqual(before);
   });
 
   it("publishes once the problems are fixed, with the note, and rolls back", async () => {

@@ -382,11 +382,12 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       ];
       setInvalid(problems.length ? problems.join(" ") : null);
       if (page.success) {
-        pageSaver.current?.update(result.page);
-        const title = result.page.root.props.title;
+        // The parsed document, so what is stored has the schema's key order and an unchanged page compares equal.
+        pageSaver.current?.update(page.data);
+        const title = page.data.root.props.title;
         setPages((list) => (list.some((p) => p.id === open.id && p.title !== title) ? list.map((p) => (p.id === open.id ? { ...p, title } : p)) : list));
       }
-      if (nextSite.success && (JSON.stringify(current.header) !== JSON.stringify(result.header) || JSON.stringify(current.footer) !== JSON.stringify(result.footer))) {
+      if (nextSite.success && (stableHash(current.header) !== stableHash(nextSite.data.header) || stableHash(current.footer) !== stableHash(nextSite.data.footer))) {
         siteSaver.current?.update(nextSite.data);
         setSite(nextSite.data);
       }
@@ -602,14 +603,24 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       if (theirs) {
         setSite(theirs);
         const page = pageSaver.current?.latest;
-        if (page) setOpen({ ...open, data: toEditorData(page, theirs, editor.slotKeys) });
+        if (page) {
+          const placeholders = placeholderSnapshot(page.content);
+          placeholderSnapshot(theirs.header, placeholders);
+          placeholderSnapshot(theirs.footer, placeholders);
+          setOpen({ ...open, data: toEditorData(page, theirs, editor.slotKeys), placeholders });
+        }
         setEditorKey((k) => k + 1);
       }
     } else {
       const theirs = pageSaver.current?.reload();
       if (theirs) {
         setPages((list) => list.map((p) => (p.id === open.id ? { ...p, title: theirs.root.props.title } : p)));
-        setOpen({ ...open, data: toEditorData(theirs, siteSaver.current?.latest ?? site, editor.slotKeys), placeholders: placeholderSnapshot(theirs.content) });
+        const siteDoc = siteSaver.current?.latest ?? site;
+        // Their placeholders, and the header's and footer's, so a sample section stays one until it is edited.
+        const placeholders = placeholderSnapshot(theirs.content);
+        placeholderSnapshot(siteDoc.header, placeholders);
+        placeholderSnapshot(siteDoc.footer, placeholders);
+        setOpen({ ...open, data: toEditorData(theirs, siteDoc, editor.slotKeys), placeholders });
         setEditorKey((k) => k + 1);
       }
     }

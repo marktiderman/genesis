@@ -14,6 +14,7 @@
  */
 import { getSection, type AnySectionDefinition } from "../core/registry";
 import type { PageDoc, SectionNode, Seo, SiteDoc } from "../core/schemas";
+import { stableHash } from "../core/theme";
 
 /** Puck's item shape, as far as the editor needs it. */
 export interface PuckItem {
@@ -112,8 +113,8 @@ export interface FromItemOptions {
   lookup?: Lookup;
   slotKeys?: SlotKeys;
   /**
-   * The props each template placeholder had when the editor opened it, by
-   * section id. A placeholder stays one only while its props are unchanged:
+   * A hash of the props each template placeholder had when the editor
+   * opened it (`placeholderSnapshot`), by section id. A placeholder stays one only while its props are unchanged:
    * editing it clears the flag.
    */
   placeholders?: ReadonlyMap<string, string>;
@@ -136,7 +137,7 @@ export function itemToNode(item: PuckItem, options: FromItemOptions = {}): Secti
   const hideOn: ("mobile" | "desktop")[] | undefined =
     _hideOn === "both" ? ["mobile", "desktop"] : _hideOn === "mobile" || _hideOn === "desktop" ? [_hideOn] : undefined;
   const original = options.placeholders?.get(String(id));
-  const placeholder = _placeholder === true && original !== undefined && original === JSON.stringify(props);
+  const placeholder = _placeholder === true && original !== undefined && original === placeholderHash(props);
   return {
     id: String(id),
     type,
@@ -149,9 +150,12 @@ export function itemToNode(item: PuckItem, options: FromItemOptions = {}): Secti
   };
 }
 
-/** The props of every placeholder node, to tell later whether it was edited. */
+/** A placeholder's props as `itemToNode` sees them (empty values out), in any key order. */
+const placeholderHash = (props: Record<string, unknown>) => stableHash(stripArrayIds(pruneEmpty(props)) ?? {});
+
+/** A hash of every placeholder node's props, to tell later whether it was edited. */
 export function placeholderSnapshot(nodes: readonly SectionNode[], into = new Map<string, string>()): Map<string, string> {
-  for (const n of nodes) if (n.placeholder) into.set(n.id, JSON.stringify(n.props));
+  for (const n of nodes) if (n.placeholder) into.set(n.id, placeholderHash(n.props));
   return into;
 }
 

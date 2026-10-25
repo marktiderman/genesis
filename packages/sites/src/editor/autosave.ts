@@ -16,6 +16,7 @@
  * Pure TypeScript with injectable timers, so it is tested without a DOM.
  */
 import { isConflict, type SaveResult } from "../core/store";
+import { stableHash } from "../core/theme";
 
 export type AutosaveStatus = "saved" | "pending" | "saving" | "conflict" | "error";
 
@@ -38,7 +39,7 @@ export interface AutosaverOptions<T> {
   /** Retry a failed save after this long, doubling up to a minute (default 2 s). */
   retryDelay?: number;
   onState?: (state: AutosaveState<T>) => void;
-  /** Two documents are the same save (default: equal JSON). */
+  /** Two documents are the same save (default: the same content, in any key order). */
   equals?: (a: T, b: T) => boolean;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
@@ -75,7 +76,7 @@ export class Autosaver<T> {
     this.opts = {
       delay: 800,
       retryDelay: 2000,
-      equals: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+      equals: (a, b) => stableHash(a) === stableHash(b),
       setTimer: (fn, ms) => setTimeout(fn, ms),
       clearTimer: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
       now: () => new Date(),
