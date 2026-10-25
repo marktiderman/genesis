@@ -1,0 +1,112 @@
+packages/supabase/migrations/0006_genesis_support.sql
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-699
+packages/support/src/__tests__/fake-supabase.ts
+  s_8252619ce79a86::t_c30185a3e2ba69 1-67
+packages/supabase/functions/genesis-support-notify/index.ts
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-15
+packages/support/src/block.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-102
+packages/supabase/functions/genesis-support-intake/index.ts
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-47
+packages/support/src/index.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-17
+packages/support/src/native/modules.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-67
+packages/support/src/web/index.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-11
+packages/supabase/functions/genesis-support-notify/handler.ts
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-167
+packages/ui-native/src/layouts/index.ts
+  s_8252619ce79a86::t_7fb3ee25a1050a 6-7,55-75
+  s_8252619ce79a86::t_741ac0712ff461 76
+packages/support/src/native/feedback-form.tsx
+  s_8252619ce79a86::t_b4ec71e677f31a 1-141
+packages/support/src/native/index.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-26
+packages/support/LICENSE
+  s_8252619ce79a86::t_b4ec71e677f31a 1-21
+packages/support/src/native/screens.tsx
+  s_8252619ce79a86::t_b4ec71e677f31a 1-342
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-381
+packages/support/src/__tests__/core.test.ts
+  s_8252619ce79a86::t_c30185a3e2ba69 1-202,204-242
+  s_8252619ce79a86::t_f184d8c35a257d 203
+packages/ui-native/src/layouts/__tests__/thread-page.test.tsx
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-128
+packages/supabase/functions/genesis-support-cleanup/index.ts
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-39
+packages/support/package.json
+  s_8252619ce79a86::t_b4ec71e677f31a 1-104
+packages/support/src/client.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-353
+packages/support/src/contract.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-170
+packages/support/src/web/feedback-panel.tsx
+  s_8252619ce79a86::t_b4ec71e677f31a 1-270
+packages/support/src/record.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-187
+packages/support/vitest.config.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-31
+packages/support/src/web/capture.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-108
+packages/support/src/__tests__/native.test.tsx
+  s_8252619ce79a86::t_470a80b2ead814 1-118,120,122-134,136,138-157,159,161-236
+  s_8252619ce79a86::t_a85042505cc3c4 119,121,135,137,158,160
+packages/support/src/copy.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-128
+packages/ui-native/src/layouts/thread-page.tsx
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-424
+packages/support/src/web/pin.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-170
+packages/support/src/__tests__/web.test.tsx
+  s_8252619ce79a86::t_ddde3a3e43bfdc 1-101
+packages/support/src/intake.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-111
+packages/support/src/native/support.tsx
+  s_8252619ce79a86::t_b4ec71e677f31a 1-232
+packages/support/tsconfig.json
+  s_8252619ce79a86::t_b4ec71e677f31a 1-18
+packages/supabase/functions/genesis-support-intake/contract.ts
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-170
+packages/ui-native/src/layouts/__tests__/inbox-page.test.tsx
+  s_8252619ce79a86::t_1a5da17fb3b48d 109
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-108,110-138
+packages/supabase/migrations/tests/0006_genesis_support.test.sql
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-477
+packages/support/tsup.config.ts
+  s_8252619ce79a86::t_b4ec71e677f31a 1-22
+packages/support/src/native/annotator.tsx
+  s_8252619ce79a86::t_a58716717e007f 10,55
+  s_8252619ce79a86::t_b4ec71e677f31a 1-9,11-54,56-164
+packages/supabase/functions/genesis-support-cleanup/handler.ts
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-80
+packages/support/src/web/launcher.tsx
+  s_8252619ce79a86::t_b4ec71e677f31a 1-62
+packages/ui-native/test-utils/rn-mock.tsx
+  s_8252619ce79a86::t_7fb3ee25a1050a 29-32,46-47,93-106,114-115,146,280-282,285,289-291,297-298
+packages/supabase/functions/genesis-support-intake/handler.ts
+  s_8252619ce79a86::t_7fb3ee25a1050a 1-170
+packages/ui-native/types/react-native.d.ts
+  s_8252619ce79a86::t_7fee0ce0727840 165-168,209,228,303-304
+packages/supabase/src/__tests__/support-functions.test.ts
+  s_8252619ce79a86::t_e8db9df3ea8f7f 1-167
+pnpm-lock.yaml
+  s_8252619ce79a86::t_95e64256e68c8a 1128-1179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b6798cb7b639331fd9a86169074dbba9c11ebe18",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
