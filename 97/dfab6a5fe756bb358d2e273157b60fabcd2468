@@ -1,0 +1,31 @@
+apps/sample/app/routes/chat.tsx
+  s_c0870a827920ef::t_d86504a2d96c6c 1-92
+apps/sample/.react-router/types/+routes.ts
+  s_c0870a827920ef::t_45aa1e3309136a 81-83,119,135,209-212,271
+apps/sample/.react-router/types/app/routes/+types/chat.ts
+  s_c0870a827920ef::t_143ea3f8c062e1 1-74
+apps/sample/app/app.css
+  s_c0870a827920ef::t_306ee6f3c75523 11
+apps/sample/app/routes.ts
+  s_c0870a827920ef::t_90edbaed2434a1 36-37
+apps/sample/app/routes/_layout.tsx
+  s_c0870a827920ef::t_3d01b1d6b8a5c4 7,23
+apps/sample/package.json
+  s_c0870a827920ef::t_836a23500acdf8 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "97dfab6a5fe756bb358d2e273157b60fabcd2468",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
