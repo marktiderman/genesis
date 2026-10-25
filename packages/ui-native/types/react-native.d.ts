@@ -267,6 +267,9 @@ declare module "react-native" {
     refreshing: boolean;
     onRefresh?: () => void;
     tintColor?: string;
+    title?: string;
+    titleColor?: string;
+    colors?: string[];
     progressBackgroundColor?: string;
     testID?: string;
   }
@@ -481,4 +484,18 @@ declare module "lucide-react-native" {
   export const Share: ComponentType<IconProps>;
   export const Trash2: ComponentType<IconProps>;
   export const TriangleAlert: ComponentType<IconProps>;
+  // Chat's (genesis-chat/native).
+  export const ArrowUp: ComponentType<IconProps>;
+  export const Camera: ComponentType<IconProps>;
+  export const Copy: ComponentType<IconProps>;
+  export const File: ComponentType<IconProps>;
+  export const Image: ComponentType<IconProps>;
+  export const MessageCircle: ComponentType<IconProps>;
+  export const Mic: ComponentType<IconProps>;
+  export const Paperclip: ComponentType<IconProps>;
+  export const Pause: ComponentType<IconProps>;
+  export const Pin: ComponentType<IconProps>;
+  export const Play: ComponentType<IconProps>;
+  export const Reply: ComponentType<IconProps>;
+  export const SquarePen: ComponentType<IconProps>;
 }
