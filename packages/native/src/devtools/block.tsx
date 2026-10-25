@@ -28,6 +28,7 @@ import { defineBlock } from "@marktiderman/genesis-features/blocks";
 import { useSession } from "../auth";
 import { useBlocks, type NativeBlock, type NativeBlockRootProps } from "../blocks";
 import { useRecentActivity, type ObservabilityBlock } from "../observability/block";
+import { scrubString, scrubUrl } from "../observability/scrub";
 import type { UpdatesBlock } from "../updates/block";
 import type { ChannelSwitchResult } from "../updates/channels";
 import { versionSignature, type VersionSignature } from "../updates/signature";
@@ -350,13 +351,13 @@ function DevtoolsSheet({ block, Feedback, feedbackProps, onCrash }: SheetProps) 
 
         <Section title="Session">
           <Row label="User id" value={userId ?? "signed out"} testID="genesis-devtools-user" />
-          <Row label="Server" value={options.baseUrl ? options.baseUrl.replace(/[?#].*$/, "") : "unknown"} testID="genesis-devtools-server" />
+          <Row label="Server" value={options.baseUrl ? scrubUrl(options.baseUrl) : "unknown"} testID="genesis-devtools-server" />
         </Section>
 
         <Section title="Blocks and flags">
           <Row label="Blocks" value={blocks.ids.size > 0 ? [...blocks.ids].join(", ") : "none"} testID="genesis-devtools-blocks" />
           {flags.map(([name, value]) => (
-            <Row key={name} label={name} value={String(value)} testID={`genesis-devtools-flag-${name}`} />
+            <Row key={name} label={name} value={typeof value === "string" ? scrubString(value) : String(value)} testID={`genesis-devtools-flag-${name}`} />
           ))}
         </Section>
 

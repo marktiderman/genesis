@@ -285,15 +285,24 @@ export default observability.wrap(RootLayout); // Sentry.wrap: touch and profile
   Sentry's own global handler stays installed for errors before the shell mounts; once the shell
   is up, its handler runs first and hands the same `Error` object on, which Sentry's deduplication
   (`__sentry_captured__`) sends once. A thrown value that isn't an `Error` can be reported twice.
-- **PII is scrubbed on the device, by default.** Emails, JWTs (Supabase access tokens and keys),
-  Supabase `sb_secret_` / `sb_publishable_` keys, bearer tokens, tokens in query strings and long
-  hex secrets are replaced in every string; values under keys such as `authorization`, `cookie`,
-  `apikey`, `password`, `token`, `email` or `session` are replaced whole; URLs lose their query and
-  fragment (PostgREST filters carry record ids); request bodies and cookies are dropped. Sentry
-  gets it in `beforeSend`, `beforeSendTransaction`, `beforeSendSpan`, `beforeBreadcrumb` and
-  `beforeSendLog` (yours run after, on the scrubbed value), plus `sendDefaultPii: false` and no
-  screenshots, view hierarchy or accessibility labels. The user is an id only. If scrubbing throws,
-  the event is dropped. Other sinks get scrubbed errors, breadcrumbs and tags.
+- **PII is scrubbed on the device, by default.** Emails (percent-encoded too), phone numbers,
+  JWTs (Supabase access tokens and keys), Supabase `sb_secret_` / `sb_publishable_` keys, bearer
+  tokens, tokens in query strings, row values in PostgreSQL errors (`Failing row contains (…)`)
+  and long hex secrets are replaced in every string; values under keys naming a secret or a
+  contact detail (`authorization`, `cookie`, `apikey`, anything with `token`, `secret`, `email` or
+  `phone` in it) are replaced whole; every URL (web, deep link or path) loses its query and
+  fragment (PostgREST filters carry record ids); request bodies, cookies and PostgREST `details`
+  are dropped. Strings are cut at 4 KB first, so a huge log can't stall the JS thread. Sentry's
+  own ids (`event_id`, `trace_id`, `debug_id`, …) and processing metadata are left alone, since
+  its envelope is built from them. Sentry gets the scrubber in `beforeSend`,
+  `beforeSendTransaction`, `beforeSendSpan`, `beforeBreadcrumb`, `beforeSendLog` and
+  `beforeSendMetric` (yours run after, on the scrubbed value), plus `sendDefaultPii: false`, no
+  screenshots, view hierarchy or accessibility labels, and touch breadcrumbs without the touched
+  element's label. The user is an id only. If scrubbing throws, the event is dropped. Other sinks
+  get scrubbed errors, breadcrumbs and tags.
+- **What it can't catch:** a person's name in free text (an error message that says "Jane
+  Doe"), and native crashes, which sentry-cocoa and sentry-android build without these
+  JavaScript hooks. Keep names out of messages; use ids.
 - **Typed analytics.** `observability.track("auth.signed_in", { method: "apple" })` is checked
   against `defineEvents` at compile time and at run time. A prop is a closed list of strings, a
   number or a boolean, never free text; an unknown event, prop or value is dropped and reported.
@@ -302,6 +311,10 @@ export default observability.wrap(RootLayout); // Sentry.wrap: touch and profile
   (`/(app)/clients/[id]`), never the values in it. Sentry's `expoRouterIntegration` (on by
   default in `sentrySink`) records its own navigation spans and time to initial display, so the
   Sentry sink skips the block's navigation breadcrumbs.
+- **Crashes count.** A fatal error (the fatal screen, a failed boot) is sent as unhandled,
+  so Sentry's release health counts it as a crash; a non-fatal one as handled.
+- **Environments.** `development` in `__DEV__`; otherwise one per kind of build from the channel:
+  `production`, `preview` (`preview` and `pr-<number>`), `development`. Override with `environment`.
 - **Releases.** `sentrySink` sets `release` to `<applicationId>@<version>+<build>` and `dist` to the
   build (Sentry's own format) from the version signature, and tags every event with
   `update.id`, `update.channel`, `update.runtime` and `update.launch`, so an over-the-air update is

@@ -17,7 +17,12 @@
  * - the PII scrubber on every event, transaction, span, breadcrumb and log
  *   (`beforeSend`, `beforeSendTransaction`, `beforeSendSpan`,
  *   `beforeBreadcrumb`, `beforeSendLog`), and the user as an id only;
- * - no default PII, screenshots, view hierarchy or accessibility labels.
+ * - no default PII, screenshots, view hierarchy or accessibility labels, and
+ *   touch breadcrumbs without the touched element's label (labels hold names);
+ * - fatal errors marked unhandled, so release health counts them as crashes.
+ *
+ * Native crashes (sentry-cocoa, sentry-android) are built on the device's
+ * native side and don't pass through these JavaScript hooks.
  *
  * Errors: the shell (`GenesisNativeApp`) reports every error it catches
  * through `captureError`. Sentry's own global handler stays on for errors
@@ -54,7 +59,7 @@ export interface SentryLike {
 export interface SentrySinkOptions {
   /** `process.env.EXPO_PUBLIC_SENTRY_DSN`. Empty or missing: Sentry is not started and the sink does nothing. */
   dsn: string | undefined | null;
-  /** `development`, `preview`, `production`… Default the signature's channel, else `development` in `__DEV__`, else `production`. */
+  /** Default `development` in `__DEV__`, else from the signature's channel: `production`, `preview` (`preview` and `pr-*`), `development`, else `production`. */
   environment?: string;
   /** The version signature (`versionSignature(…)` from `/updates`, or the updates block's `signature`): release, dist and update tags. */
   signature?: VersionSignature;
@@ -101,6 +106,23 @@ export function signatureTags(signature: VersionSignature | undefined): Record<s
   };
 }
 
+/** One Sentry environment per kind of build, not one per channel (`pr-42` is `preview`). */
+export function sentryEnvironment(channel: string | null | undefined): string {
+  if (!channel || channel === "production") return "production";
+  if (channel === "development") return "development";
+  if (channel === "preview" || /^pr-\d+$/.test(channel)) return "preview";
+  return "production";
+}
+
+/** A touch breadcrumb with the touched elements' names only: their labels (accessibility labels, test ids) can hold names. */
+export function withoutTouchLabels<T extends { category?: unknown; message?: unknown; data?: unknown }>(crumb: T): T {
+  if (crumb.category !== "touch" || !crumb.data || typeof crumb.data !== "object") return crumb;
+  const data = crumb.data as { path?: unknown };
+  const path = Array.isArray(data.path) ? data.path.map((p) => (p && typeof p === "object" ? { name: (p as { name?: unknown }).name } : p)) : undefined;
+  const first = path?.[0] as { name?: unknown } | undefined;
+  return { ...crumb, message: `Touch event within element: ${typeof first?.name === "string" ? first.name : "unknown"}`, data: { ...data, ...(path ? { path } : {}) } };
+}
+
 function chain<T>(ours: (value: T) => T | null, theirs: unknown): Hook<T> {
   return (value, hint) => {
     const scrubbed = ours(value);
@@ -121,7 +143,7 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Obse
     if (!isDev()) (options.onMissingDsn ?? (() => console.warn("[observability] EXPO_PUBLIC_SENTRY_DSN is not set: errors are not reported to Sentry.")))();
     return { name: "sentry (no DSN)" };
   }
-  const environment = options.environment ?? (isDev() ? "development" : (signature?.channel ?? "production"));
+  const environment = options.environment ?? (isDev() ? "development" : sentryEnvironment(signature?.requestedChannel ?? signature?.channel));
   // Fast Refresh runs this module again: a second init would stack integrations on the live client.
   if (!sentry.getClient()) {
     const extra = options.init ?? {};
@@ -131,6 +153,7 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Obse
         ? [sentry.expoRouterIntegration({ enableTimeToInitialDisplay: typeof router === "object" ? router.enableTimeToInitialDisplay : true })]
         : []),
       ...(options.integrations ?? []),
+      ...(Array.isArray(extra.integrations) ? extra.integrations : []),
     ];
     const keep = <T>(value: T) => value;
     const span = (value: Options): Options => {
@@ -151,8 +174,9 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Obse
       integrations,
       beforeSend: chain(scrub ? scrubEvent : keep, extra.beforeSend),
       beforeSendTransaction: chain(scrub ? scrubEvent : keep, extra.beforeSendTransaction),
-      beforeBreadcrumb: chain(scrub ? scrubRecord : keep, extra.beforeBreadcrumb),
+      beforeBreadcrumb: chain<Options>((crumb) => (scrub ? scrubRecord(withoutTouchLabels(crumb)) : crumb), extra.beforeBreadcrumb),
       beforeSendLog: chain(scrub ? scrubRecord : keep, extra.beforeSendLog),
+      beforeSendMetric: chain(scrub ? scrubRecord : keep, extra.beforeSendMetric),
       beforeSendSpan: (value: Options) => {
         const scrubbed = scrub ? span(value) : value;
         return typeof extra.beforeSendSpan === "function" ? (extra.beforeSendSpan as (s: Options) => Options)(scrubbed) : scrubbed;
@@ -163,12 +187,17 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Obse
 
   return {
     name: "sentry",
-    scrubsErrors: scrub,
+    // Sentry deduplicates by error object, and `beforeSend` scrubs: it always gets the original.
+    scrubsErrors: true,
     captureError(error, context) {
       sentry.captureException(error, {
-        level: context.fatal ? "fatal" : "error",
-        tags: { "genesis.source": context.source, ...(context.route ? { route: context.route } : {}) },
-        ...(context.componentStack ? { contexts: { react: { componentStack: scrub ? scrubString(context.componentStack) : context.componentStack } } } : {}),
+        // Unhandled when the app could not go on, so release health counts it as a crash.
+        mechanism: { handled: !context.fatal, type: `genesis.${context.source}` },
+        captureContext: {
+          level: context.fatal ? "fatal" : "error",
+          tags: { "genesis.source": context.source, ...(context.route ? { route: context.route } : {}) },
+          ...(context.componentStack ? { contexts: { react: { componentStack: scrub ? scrubString(context.componentStack) : context.componentStack } } } : {}),
+        },
       });
     },
     breadcrumb(crumb) {

@@ -24,10 +24,10 @@ describe("scrubString", () => {
   });
 
   it("replaces tokens in query strings and fragments", () => {
-    expect(scrubString("myapp://auth#access_token=abc.def&refresh_token=xyz&type=recovery")).toBe(
-      "myapp://auth#access_token=[Filtered]&refresh_token=[Filtered]&type=recovery",
-    );
-    expect(scrubString("/callback?code=4b7f2&state=ok")).toBe("/callback?code=[Filtered]&state=ok");
+    expect(scrubString("myapp://auth#access_token=abc.def&refresh_token=xyz&type=recovery")).toBe("myapp://auth");
+    expect(scrubString("opened myapp://reset?token_hash=abcdef123&type=signup")).toBe("opened myapp://reset");
+    expect(scrubString("POST /rest/v1/rpc/find?email=eq.j%40x.com failed")).toBe("POST /rest/v1/rpc/find failed");
+    expect(scrubString("next=?code=4b7f2&state=ok")).toBe("next=?code=[Filtered]&state=ok");
   });
 
   it("cuts the query string of a web URL inside text", () => {
@@ -36,6 +36,28 @@ describe("scrubString", () => {
 
   it("replaces long hex runs (keys, DSN secrets)", () => {
     expect(scrubString("dsn https://b5d376e70433e6cfa4a3538d0b3f2b26@o1.ingest.sentry.io/2")).not.toContain("b5d376e70433e6cfa4a3538d0b3f2b26");
+  });
+
+  it("replaces phone numbers and percent-encoded emails", () => {
+    expect(scrubString("sms to +1 555 555 0101 failed")).toBe("sms to [phone] failed");
+    expect(scrubString("call 555-555-0102")).toBe("call [phone]");
+    expect(scrubString("email=a%40b.com")).toBe("email=[email]");
+  });
+
+  it("hides row values in PostgreSQL errors", () => {
+    expect(scrubString('new row violates check constraint "x". Failing row contains (7, Jane, Doe, jane@x.co).')).toBe(
+      'new row violates check constraint "x". Failing row contains (…).',
+    );
+    expect(scrubString("Key (full_name)=(Jane Doe) already exists.")).toBe("Key (full_name)=(…) already exists.");
+  });
+
+  it("stays fast on huge strings (cut at 4 KB, no backtracking blow-up)", () => {
+    for (const filler of ["a", "f", "a@"]) {
+      const started = performance.now();
+      const out = scrubString(filler.repeat(100_000));
+      expect(performance.now() - started).toBeLessThan(200);
+      expect(out.endsWith("…[truncated]")).toBe(true);
+    }
   });
 
   it("leaves ordinary text, ids and versions alone", () => {
@@ -52,7 +74,7 @@ describe("scrubUrl", () => {
 
 describe("isSecretKey", () => {
   it("matches header and field names whatever their case or separators", () => {
-    for (const key of ["Authorization", "authorization", "apikey", "x-api-key", "Cookie", "set-cookie", "access_token", "refreshToken", "password", "email", "service_role_key"]) {
+    for (const key of ["Authorization", "authorization", "apikey", "x-api-key", "X-Supabase-Api-Key", "Cookie", "set-cookie", "access_token", "refreshToken", "token_hash", "jwt", "auth-token", "refresh", "password", "email", "user.email", "phone_number", "service_role_key"]) {
       expect(isSecretKey(key)).toBe(true);
     }
     for (const key of ["status_code", "method", "url", "route", "userId", "category"]) expect(isSecretKey(key)).toBe(false);
@@ -78,12 +100,16 @@ describe("scrubValue", () => {
   it("cuts absolute URLs under url-like keys at the query string", () => {
     expect(scrubValue({ url: "https://x.supabase.co/rest/v1/notes?person_id=eq.9", to: "/settings?tab=a" })).toEqual({
       url: "https://x.supabase.co/rest/v1/notes",
-      to: "/settings?tab=a",
+      to: "/settings",
     });
   });
 
   it("drops query-string, body and cookie fields Sentry carries on their own", () => {
-    expect(scrubValue({ "http.query": "id=eq.1", request_body: "{\"email\":\"x\"}", body: "x", method: "GET" })).toEqual({ method: "GET" });
+    expect(scrubValue({ "http.query": "id=eq.1", "url.query": "a=b", request_body: "{\"email\":\"x\"}", body: "x", details: "Failing row…", method: "GET" })).toEqual({ method: "GET" });
+  });
+
+  it("filters header lists by the header's name", () => {
+    expect(scrubValue([["x-refresh-token", "v1.Mabc"], ["accept", "json"]])).toEqual([["x-refresh-token", FILTERED], ["accept", "json"]]);
   });
 
   it("survives cycles and deep nesting", () => {
@@ -129,6 +155,21 @@ describe("scrubEvent", () => {
       tags: { route: "/(app)/settings" },
     });
     expect(JSON.stringify(out)).not.toMatch(/jane|hunter2|eyJ/);
+  });
+
+  it("keeps Sentry's ids and processing metadata intact (the envelope is built from them)", () => {
+    const hex = "0123456789abcdef0123456789abcdef";
+    const metadata = { dynamicSamplingContext: { trace_id: hex, public_key: hex } };
+    const out = scrubEvent({
+      event_id: hex,
+      contexts: { trace: { trace_id: hex, span_id: "0123456789abcdef" } },
+      debug_meta: { images: [{ debug_id: hex }] },
+      sdkProcessingMetadata: metadata,
+      extra: { secret_hex: `key ${hex}` },
+    });
+    expect(out).toMatchObject({ event_id: hex, contexts: { trace: { trace_id: hex } }, debug_meta: { images: [{ debug_id: hex }] }, extra: { secret_hex: FILTERED } });
+    expect(out?.sdkProcessingMetadata).toBe(metadata);
+    expect(scrubValue({ note: `key ${hex}` })).toEqual({ note: "key [hex]" });
   });
 
   it("removes a user with no id", () => {

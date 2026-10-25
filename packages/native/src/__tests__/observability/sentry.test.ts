@@ -1,6 +1,6 @@
 // @feat:observability
 import { describe, expect, it, vi } from "vitest";
-import { sentryRelease, sentrySink, signatureTags, type SentryLike } from "../../observability/sentry";
+import { sentryEnvironment, sentryRelease, sentrySink, signatureTags, withoutTouchLabels, type SentryLike } from "../../observability/sentry";
 import { versionSignature } from "../../updates/signature";
 
 function fakeSentry(client: unknown = undefined) {
@@ -95,10 +95,15 @@ describe("sentrySink", () => {
     const error = new Error("boom");
     sink.captureError?.(error, { fatal: true, source: "boundary", componentStack: "in Screen (a@b.co)", route: "/(app)" });
     expect(sentry.captureException).toHaveBeenCalledWith(error, {
-      level: "fatal",
-      tags: { "genesis.source": "boundary", route: "/(app)" },
-      contexts: { react: { componentStack: "in Screen ([email])" } },
+      mechanism: { handled: false, type: "genesis.boundary" },
+      captureContext: {
+        level: "fatal",
+        tags: { "genesis.source": "boundary", route: "/(app)" },
+        contexts: { react: { componentStack: "in Screen ([email])" } },
+      },
     });
+    sink.captureError?.(error, { fatal: false, source: "rejection" });
+    expect(sentry.captureException.mock.calls[1]).toEqual([error, { mechanism: { handled: true, type: "genesis.rejection" }, captureContext: { level: "error", tags: { "genesis.source": "rejection" } } }]);
     expect(sink.scrubsErrors).toBe(true);
   });
 
@@ -113,6 +118,34 @@ describe("sentrySink", () => {
     expect(sentry.addBreadcrumb).toHaveBeenCalledTimes(1);
     sink.timing?.("route.time_on_screen", 1200, { route: "/" });
     expect(sentry.metrics.distribution).toHaveBeenCalledWith("route.time_on_screen", 1200, { unit: "millisecond", attributes: { route: "/" } });
+  });
+});
+
+describe("touch breadcrumbs and environments", () => {
+  it("drop the touched element's label (it can hold a name) and keep its component name", () => {
+    const crumb = withoutTouchLabels({
+      category: "touch",
+      message: "Touch event within element: Open Jane Doe",
+      data: { path: [{ name: "Pressable", label: "Open Jane Doe" }, { name: "View" }] },
+    });
+    expect(crumb).toEqual({ category: "touch", message: "Touch event within element: Pressable", data: { path: [{ name: "Pressable" }, { name: "View" }] } });
+    const { sentry, options } = fakeSentry();
+    sentrySink(sentry, { dsn: "https://k@o1.ingest.sentry.io/2" });
+    expect(JSON.stringify(options().beforeBreadcrumb!({ category: "touch", message: "Touch event within element: Jane", data: { path: [{ name: "Text", label: "Jane" }] } }))).not.toContain("Jane");
+  });
+
+  it("map channels to one environment per kind of build", () => {
+    expect(sentryEnvironment("pr-42")).toBe("preview");
+    expect(sentryEnvironment("preview")).toBe("preview");
+    expect(sentryEnvironment("development")).toBe("development");
+    expect(sentryEnvironment(null)).toBe("production");
+    expect(sentryEnvironment("production")).toBe("production");
+  });
+
+  it("merge the app's own integrations", () => {
+    const { sentry, options } = fakeSentry();
+    sentrySink(sentry, { dsn: "https://k@o1.ingest.sentry.io/2", integrations: ["a"], init: { integrations: ["b"] } });
+    expect(options().integrations).toEqual([{ name: "ExpoRouter", options: { enableTimeToInitialDisplay: true } }, "a", "b"]);
   });
 });
 

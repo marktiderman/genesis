@@ -46,6 +46,21 @@ describe("createObservability", () => {
     expect(sink.timing).toHaveBeenCalledWith("sync", 12, { who: "[email]" });
   });
 
+  it("drops what it can't scrub and timings named with values, without throwing", () => {
+    const onProblem = vi.fn();
+    const sink = spySink();
+    const obs = createObservability({ sinks: [sink], onProblem });
+    const hostile = { get boom(): string {
+      throw new Error("no");
+    } };
+    expect(() => obs.breadcrumb({ category: "x", data: hostile })).not.toThrow();
+    obs.timing("load a@b.co", 5);
+    obs.timing("sync.done", 5);
+    expect(sink.breadcrumb).not.toHaveBeenCalled();
+    expect(sink.timing.mock.calls).toEqual([["sync.done", 5, undefined]]);
+    expect(onProblem).toHaveBeenCalledTimes(2);
+  });
+
   it("gives a sink that scrubs itself the original error object", () => {
     const sink = spySink({ scrubsErrors: true });
     const obs = createObservability({ sinks: [sink] });

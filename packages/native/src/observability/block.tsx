@@ -85,6 +85,8 @@ export interface ObservabilityBlock<E extends EventSchema = EventSchema> extends
 
 declare const __DEV__: boolean | undefined;
 
+const TIMING_NAME = /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$/;
+
 function createRecentStore(maxCrumbs: number, maxErrors: number): RecentStore & { addCrumb(c: Breadcrumb): void; addError(e: RecentError): void } {
   let state: RecentActivity = { breadcrumbs: [], errors: [] };
   const listeners = new Set<() => void>();
@@ -143,8 +145,15 @@ export function createObservability<const E extends EventSchema = EventSchema>(o
     }
   };
 
+  // Never throws into the caller (an effect, a handler): a record that can't be scrubbed is dropped.
   const breadcrumb = (input: Breadcrumb) => {
-    const crumb = scrubBreadcrumb({ ...input, timestamp: input.timestamp ?? now() });
+    let crumb: Breadcrumb;
+    try {
+      crumb = scrubBreadcrumb({ ...input, timestamp: input.timestamp ?? now() });
+    } catch (error) {
+      problem("breadcrumb dropped: it could not be scrubbed", error);
+      return;
+    }
     recent.addCrumb(crumb);
     each("breadcrumb", (s) => s.breadcrumb?.(crumb));
   };
@@ -181,7 +190,18 @@ export function createObservability<const E extends EventSchema = EventSchema>(o
 
   const timing = (name: string, ms: number, tags?: TimingTags) => {
     if (!Number.isFinite(ms) || ms < 0) return;
-    const safeTags = tags ? (scrubValue(tags) as TimingTags) : undefined;
+    // A name like an event's (`route.time_on_screen`), never text with values in it.
+    if (!TIMING_NAME.test(name)) {
+      problem(`timing dropped: "${scrubString(name)}" is not lower-case words joined by "."`);
+      return;
+    }
+    let safeTags: TimingTags | undefined;
+    try {
+      safeTags = tags ? (scrubValue(tags) as TimingTags) : undefined;
+    } catch (error) {
+      problem("timing dropped: its tags could not be scrubbed", error);
+      return;
+    }
     each("timing", (s) => s.timing?.(name, ms, safeTags));
   };
 
