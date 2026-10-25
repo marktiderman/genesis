@@ -1,0 +1,25 @@
+packages/chat/src/react/index.tsx
+  s_c0870a827920ef::t_c800233b3828a3 1-374
+packages/chat/package.json
+  s_c0870a827920ef::t_7bf6a418a8369f 59-69,73-74,76-80,91-104,106-110,117-119
+packages/chat/tsup.config.ts
+  s_c0870a827920ef::t_5a5ca2bbf70920 6
+pnpm-lock.yaml
+  s_c0870a827920ef::t_c699e99ab12671 524-529,533-547
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f0ebac3099a5b0895c05ea5018de42b81b081bd1",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
