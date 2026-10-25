@@ -56,19 +56,37 @@
     "@marktiderman/genesis-features": "workspace:^"
   },
   "peerDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-query": "^5.0.0",
-    "react": "^19.0.0"
+    "lucide-react": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@marktiderman/genesis-core": {
+      "optional": true
+    },
+    "@marktiderman/genesis-ui": {
+      "optional": true
+    },
     "@tanstack/react-query": {
+      "optional": true
+    },
+    "lucide-react": {
       "optional": true
     },
     "react": {
       "optional": true
+    },
+    "react-dom": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-query": "^5.75.0",
     "@testing-library/react": "^16.3.2",
@@ -76,6 +94,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "happy-dom": "^20.9.0",
+    "lucide-react": "^1.28.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
