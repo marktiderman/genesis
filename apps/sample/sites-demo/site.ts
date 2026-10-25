@@ -162,7 +162,7 @@ export async function demoPaths(): Promise<string[]> {
   const out: string[] = [];
   for (const site of ["landing", "starter"] as const) {
     const live = await store.getLive(site);
-    for (const page of live?.snapshot.pages ?? []) out.push(`${DEMO_PREFIX}/${site}${page.path === "/" ? "" : page.path}`);
+    for (const page of live?.snapshot.pages ?? []) out.push(`${DEMO_PREFIX}/${site}${page.path}`); // the home page is /sites-demo/<site>/, its one address
   }
   return out;
 }

@@ -11,7 +11,7 @@
  * @packageDocumentation
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PageDoc, ReleaseSnapshot, SiteDoc, type PageKind, type PageMeta, type Release, type ReleaseMeta } from "../core/schemas";
+import { PageDoc, ReleaseSnapshot, SiteDoc, parseSnapshot, type PageKind, type PageMeta, type Release, type ReleaseMeta } from "../core/schemas";
 import { prepareRelease, type Asset, type AssetMeta, type PublishOptions, type SaveResult, type SiteStore } from "../core/store";
 
 export const SITES_SCHEMA = "genesis_sites";
@@ -123,12 +123,10 @@ export function createSupabaseSiteStore(client: SupabaseClient, options: Supabas
       if (error) fail(error, "reading the live site");
       if (!data) return null;
       const r = data as ReleaseJson;
-      const snapshot = ReleaseSnapshot.safeParse(r.snapshot);
-      if (!snapshot.success) {
-        console.error(`[genesis-sites] the live release of site ${siteId} isn't a valid snapshot: ${snapshot.error.message}`);
-        return null;
-      }
-      return { ...metaOf(r), snapshot: snapshot.data };
+      // Page by page: a stored page that no longer parses is left out (and logged), not the whole site.
+      const snapshot = parseSnapshot(r.snapshot, (m) => console.error(`[genesis-sites] the live release of site ${siteId}: ${m}`));
+      if (!snapshot) return null;
+      return { ...metaOf(r), snapshot };
     },
     async getDraft(siteId) {
       const { data, error } = await db.from("sites").select("draft, draft_rev").eq("id", siteId).maybeSingle();
