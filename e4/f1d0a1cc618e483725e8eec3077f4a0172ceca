@@ -1,0 +1,38 @@
+packages/sites/src/__tests__/editor-mount.test.tsx
+  s_c0870a827920ef::t_460d6238e7e537 1-199
+  s_c0870a827920ef::t_aa0aa6202e9ae7 200-205
+.changeset/sites-editor-review.md
+  s_c0870a827920ef::t_a4dc3e3273d14f 1-13
+packages/sites/README.md
+  s_c0870a827920ef::t_4d716080db8312 339-340,361-365,372-374
+packages/sites/src/__tests__/editor.test.tsx
+  s_c0870a827920ef::t_2e5e76c7f4e879 137-145,461-502
+packages/sites/src/editor/asset-picker.tsx
+  s_c0870a827920ef::t_318053b7efe786 110-111
+packages/sites/src/editor/autosave.ts
+  s_c0870a827920ef::t_d325a1b5ad24a0 14-16,75,118,132,222-246
+packages/sites/src/editor/config.tsx
+  s_c0870a827920ef::t_d3b01828f14da1 48-53,180
+packages/sites/src/editor/pages-panel.tsx
+  s_c0870a827920ef::t_a74e0d36e8cb9d 43-44,326-330,347,370,380-397,399-400,411-412
+packages/sites/src/editor/publish-panel.tsx
+  s_c0870a827920ef::t_bf15968241c51a 55-56,59,86,93,101,120,123,217,236,239,262
+packages/sites/src/editor/site-editor.tsx
+  s_c0870a827920ef::t_d8d1af417ee6ff 10-11,14,32,78-89,108-121,185,199,202,217,267,286,295-298,301,307,318,320,331,349,351,364-368,370,372,386-396,417,441,447,453,589-591,593-594,596-599,614-617,623,710-711,742,755-760,781-782,786-791,802-803,822,840
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4f1d0a1cc618e483725e8eec3077f4a0172ceca",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
