@@ -52,6 +52,7 @@ describe("check-in photos", () => {
 
   it("is wired into the check-in screen, with a photo-library sentence and no camera permission", () => {
     expect(read("src/app/(app)/(home)/check-in.tsx")).toMatch(/photos=\{checkInPhotos\}/);
-    expect(read("app.config.ts")).toMatch(/\["expo-image-picker", \{ photosPermission: "[^"]{20,}", cameraPermission: false, microphonePermission: false \}\]/);
+    // No camera. The microphone is chat's voice messages (the same sentence as expo-audio's, or the picker would delete it).
+    expect(read("app.config.ts")).toMatch(/\["expo-image-picker", \{ photosPermission: "[^"]{20,}", cameraPermission: false, microphonePermission: MICROPHONE \}\]/);
   });
 });

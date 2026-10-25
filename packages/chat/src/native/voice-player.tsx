@@ -162,10 +162,10 @@ function AudioVoiceNote({ id, uri, durationMs, waveform, mine, testID, audio }: 
         accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
         onAccessibilityAction={(e) => seek(status.currentTime + (e.nativeEvent.actionName === "increment" ? 5 : -5))}
         onLayout={(e: LayoutChangeEvent) => (width.current = e.nativeEvent.layout.width)}
-        style={{ flex: 1, height: 44, justifyContent: "center" }}
+        style={{ flex: 1, minWidth: 0, height: 44, justifyContent: "center", overflow: "hidden" }}
         {...responder.panHandlers}
       >
-        <Bars bars={waveformBars(waveform)} progress={progress} mine={mine} colors={colors} />
+        <Bars bars={waveformBars(waveform, 28)} progress={progress} mine={mine} colors={colors} />
       </View>
       <NativeText className={fg} style={{ fontSize: 13, minWidth: 36, fontVariant: ["tabular-nums"] }}>
         {shown}
@@ -189,7 +189,8 @@ function Bars({ bars, progress, mine, colors }: { bars: number[]; progress: numb
   const played = mine ? colors.surface : colors.tint;
   const rest = mine ? colors.surface : colors.tertiaryLabel;
   return (
-    <View pointerEvents="none" style={{ flexDirection: "row", alignItems: "center", gap: 2, height: 28 }}>
+    // Spread across the width it is given (never past it, so the time and speed stay clear).
+    <View pointerEvents="none" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 28, overflow: "hidden" }}>
       {bars.map((h, i) => (
         <View
           key={i}

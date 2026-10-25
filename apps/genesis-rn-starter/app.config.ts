@@ -2,6 +2,8 @@
 import "tsx/cjs";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 import starter from "./starter.config";
+
+const MICROPHONE = "Record voice messages to send in a conversation.";
 import { easConfig, nativePlatforms, privacyBlocks } from "./src/lib/define-starter";
 
 // Name, ids and plugins only. The Genesis plugin (`@marktiderman/genesis-cli`) adds the rest:
@@ -32,9 +34,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-updates",
     "expo-notifications",
     // The check-in's photo question picks from the library only: no camera, so no camera or microphone prompt.
-    ["expo-image-picker", { photosPermission: "Choose photos to add to a check-in or a message.", cameraPermission: false, microphonePermission: false }],
+    // The microphone sentence is set on both: plugins' mods run in reverse order, so the picker's
+    // `microphonePermission: false` would delete the one expo-audio adds (seen in a simulator build).
+    ["expo-image-picker", { photosPermission: "Choose photos to add to a check-in or a message.", cameraPermission: false, microphonePermission: MICROPHONE }],
     // Voice messages in chat. Kept whichever way the chat switch is, so it stays JavaScript only.
-    ["expo-audio", { microphonePermission: "Record voice messages to send in a conversation." }],
+    ["expo-audio", { microphonePermission: MICROPHONE }],
     // The privacy manifest declares the data of the blocks that are on (account, observability, push).
     ["@marktiderman/genesis-cli", { privacy: { blocks: privacyBlocks(starter.features) } }],
     // Optional: upload source maps to Sentry from EAS builds (the observability block). Set your
