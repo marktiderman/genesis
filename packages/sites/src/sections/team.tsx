@@ -157,9 +157,12 @@ export const teamSection = defineSection({
               {m.bio || m.quote ? (
                 // The full bio, in place: a disclosure that needs no script.
                 <details className="group">
-                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-sm font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-                    <span>More about {m.name}</span>
-                    <ChevronDown aria-hidden="true" className="size-5 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                  {/* The layout is on the span: a flex <summary> loses its expanded state in some screen readers. */}
+                  <summary className="cursor-pointer list-none rounded-sm font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                    <span className="flex min-h-11 items-center justify-between gap-2">
+                      <span>More about {m.name}</span>
+                      <ChevronDown aria-hidden="true" className="size-5 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                    </span>
                   </summary>
                   <div className="flex flex-col gap-4 pt-3">
                     {m.bio ? <Paragraphs text={m.bio} /> : null}

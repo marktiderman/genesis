@@ -81,6 +81,7 @@ describe("the address guard", () => {
     "ff02::1",
     "2001:db8::1",
     "2001::1",
+    "3fff:123::1",
     "not-an-ip",
   ])("refuses %s", (ip) => {
     expect(isPublicAddress(ip)).toBe(false);
@@ -102,12 +103,15 @@ describe("the address guard", () => {
     expect(urlProblems(new URL("http://[::ffff:127.0.0.1]/"), ports)).not.toEqual([]);
     expect(urlProblems(new URL("http://localhost/"), ports)).not.toEqual([]);
     expect(urlProblems(new URL("http://metadata.google.internal/"), ports)).not.toEqual([]);
+    expect(urlProblems(new URL("http://metadata.google.internal./"), ports)).not.toEqual([]);
+    expect(urlProblems(new URL("http://localhost./"), ports)).not.toEqual([]);
     expect(urlProblems(new URL("https://files.example/a.png"), ports)).toEqual([]);
   });
 
-  it("checks the address a name resolves to when the socket connects", async () => {
+  it("checks the address a name resolves to when the socket connects, and doesn't tell the editor what it was", async () => {
     const error = await new Promise<Error | null>((resolve) => guardedLookup("localhost", {}, (err) => resolve(err)));
-    expect(error?.message).toMatch(/isn't a public address/);
+    expect(error?.message).toBe("localhost isn't a public address.");
+    expect((error as Error & { address?: string }).address).toMatch(/^(127\.0\.0\.1|::1)$/);
   });
 
   describe("against a real server on this machine", () => {
@@ -171,8 +175,8 @@ describe("importAssets", () => {
   it("checks every redirect: a hop to a private address, a non-http scheme, or past the limit is refused", async () => {
     const store = await site();
     const transport = fakeTransport({
-      "https://old.example/meta.png": { status: 302, location: "http://169.254.169.254/latest/meta-data/" },
-      "https://old.example/mapped.png": { status: 301, location: "http://[::ffff:7f00:1]/x.png" },
+      "https://old.example/meta.png": { status: 302, location: "https://169.254.169.254/latest/meta-data/" },
+      "https://old.example/mapped.png": { status: 301, location: "https://[::ffff:7f00:1]/x.png" },
       "https://old.example/scheme.png": { status: 307, location: "file:///etc/passwd" },
       "https://old.example/loop.png": { status: 302, location: "/loop.png?again" },
       "https://old.example/loop.png?again": { status: 302, location: "/loop.png" },
@@ -187,7 +191,9 @@ describe("importAssets", () => {
     expect(reasons["https://old.example/scheme.png"]).toMatch(/Only http and https/);
     expect(reasons["https://old.example/loop.png"]).toMatch(/more than 3 redirects/);
     expect(r.map["https://old.example/moved.png"]).toBeDefined();
-    expect(transport.seen).not.toContain("http://169.254.169.254/latest/meta-data/");
+    const down = await importAssets(store, "s1", ["https://old.example/down.png"], { transport: fakeTransport({ "https://old.example/down.png": { status: 302, location: "http://cdn.example/down.png" }, "http://cdn.example/down.png": { body: png() } }) });
+    expect(down.failed[0]?.reason).toMatch(/https to http/);
+    expect(transport.seen).not.toContain("https://169.254.169.254/latest/meta-data/");
   });
 
   it("caps the size: by Content-Length before reading, and while reading when there is none", async () => {
@@ -203,10 +209,17 @@ describe("importAssets", () => {
     expect(r.failed.map((f) => f.reason)).toEqual([expect.stringMatching(/the limit is 1024/), expect.stringMatching(/over the 1024-byte limit/), expect.stringMatching(/answered 404/)]);
   });
 
+  it("takes at most 500 URLs a call", async () => {
+    const store = await site();
+    await expect(importAssets(store, "s1", Array.from({ length: 501 }, (_, i) => `https://old.example/${i}.png`), { transport: fakeTransport({}) })).rejects.toThrow(/at most 500/);
+  });
+
   it("refuses an image too large to be one (a decompression bomb's header)", async () => {
     const store = await site();
-    const r = await importAssets(store, "s1", ["https://old.example/bomb.png"], { transport: fakeTransport({ "https://old.example/bomb.png": { body: png(65535, 65535) } }) });
-    expect(r.failed[0]?.reason).toMatch(/20000 a side/);
+    const r = await importAssets(store, "s1", ["https://old.example/bomb.png", "https://old.example/wide.png"], {
+      transport: fakeTransport({ "https://old.example/bomb.png": { body: png(65535, 65535) }, "https://old.example/wide.png": { body: png(19000, 19000) } }),
+    });
+    expect(r.failed.map((f) => f.reason)).toEqual([expect.stringMatching(/20000 a side/), expect.stringMatching(/50 million in all/)]);
   });
 });
 

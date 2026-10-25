@@ -368,7 +368,8 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   if (postTemplate && page) {
     const lists = page.doc.content.some((n) => !n.hidden && n.type === "blog-list");
     const list = lists ? await blogPosts(options.store, options.siteId, preview) : [];
-    if (list) posts = { path: postTemplate.path, list, current: currentPost, page: listPage(url) };
+    // The list and the post are separate: a store that can't list still shows a post it can read.
+    posts = { path: postTemplate.path, list: list ?? [], current: currentPost, page: listPage(url) };
   }
   // Origins the page's sections frame (a map), for the Content-Security-Policy.
   const sectionFrames: string[] = [];

@@ -342,8 +342,11 @@ export function prepareImportPost(item: ImportPost): { doc: PostDoc; status: Pos
   }
   const parsed = PostDoc.safeParse(item.doc);
   if (!parsed.success) return { slug, reason: `The post doesn't parse: ${parsed.error.issues.map((i) => `${i.path.join(".") || "post"} ${i.message}`).join("; ")}` };
-  const date = item.publishedAt ? new Date(item.publishedAt) : new Date();
-  if (Number.isNaN(date.getTime())) return { slug, reason: `"${item.publishedAt}" isn't a date.` };
+  const now = Date.now();
+  const given = item.publishedAt ? new Date(item.publishedAt) : new Date(now);
+  // The same rule as the database: a real date from 1970 on, and never later than now.
+  if (Number.isNaN(given.getTime()) || given.getTime() < 0) return { slug, reason: `"${item.publishedAt}" isn't a usable publish date.` };
+  const date = new Date(Math.min(given.getTime(), now));
   const errors = checkPost(slug, parsed.data).filter((i) => i.severity === "error").map((i) => i.message);
   const status: PostStatus = item.status === "draft" || errors.length ? "draft" : "published";
   return { doc: parsed.data, status, publishedAt: date.toISOString(), issues: errors };
@@ -638,6 +641,8 @@ export function createMemorySiteStore(options: MemoryStoreOptions = {}): MemoryS
     },
     async publishPost(postId) {
       const p = editablePost(postId);
+      // Archiving is a takedown: no post goes back up (as publish_post refuses).
+      if (sites.get(p.siteId)?.status === "archived") throw new Error("An archived site can't publish posts.");
       const issues = checkPost(p.slug, p.doc);
       if (!isPublishable(issues)) throw new PublishBlockedError(issues);
       const at = now().toISOString();
@@ -663,7 +668,7 @@ export function createMemorySiteStore(options: MemoryStoreOptions = {}): MemoryS
       p.published = null;
     },
     async importPosts(siteId, list) {
-      editable(siteId);
+      if (editable(siteId).status === "archived") throw new Error(`No site ${siteId} to import into: it is archived.`);
       if (list.length > MAX_IMPORT_POSTS) throw new Error(`Import at most ${MAX_IMPORT_POSTS} posts at a time.`);
       const result: ImportPostsResult = { imported: [], skipped: [] };
       const seen = new Set(sitePosts(siteId).map((p) => p.slug));

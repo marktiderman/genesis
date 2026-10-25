@@ -21,6 +21,7 @@ import {
   type SectionNode,
 } from "../index";
 import { postDoc } from "./fixtures";
+import { PostSummarySchema, rssXml, sitemapXml, type PostSummary } from "../index";
 
 const ORIGIN = "https://hilltop.example";
 const brand = exampleBrands.hilltop;
@@ -121,6 +122,24 @@ describe("posts in the store", () => {
     expect(result.skipped.map((s) => s.slug).sort()).toEqual(["Bad Slug", "bad-date", "scaling"]);
     const old = (await store.listLivePosts!("hilltop")).find((p) => p.slug === "old-news");
     expect(old?.publishedAt).toBe("2023-03-14T09:00:00.000Z");
+  });
+
+  it("dates an import no later than now, as the database does, and refuses one before 1970", async () => {
+    const { store } = await withPosts();
+    const r = await store.importPosts!("hilltop", [
+      { slug: "from-the-future", doc: postDoc("Future"), publishedAt: "2999-01-01T00:00:00Z" },
+      { slug: "too-old", doc: postDoc("Old"), publishedAt: "1969-12-31T00:00:00Z" },
+    ]);
+    expect(r.skipped.map((s) => s.slug)).toEqual(["too-old"]);
+    const future = (await store.listLivePosts!("hilltop")).find((p) => p.slug === "from-the-future")!;
+    expect(Date.parse(future.publishedAt)).toBeLessThanOrEqual(Date.now());
+  });
+
+  it("publishes and imports nothing on an archived site", async () => {
+    const { store, ids } = await withPosts();
+    await store.setStatus("hilltop", "archived");
+    await expect(store.publishPost!(ids.secret!)).rejects.toThrow(/archived/);
+    await expect(store.importPosts!("hilltop", [{ slug: "x", doc: postDoc("X") }])).rejects.toThrow(/archived/);
   });
 
   it("purges the site's cache when a post goes up, comes down, is deleted or imported", async () => {
@@ -233,6 +252,28 @@ describe("the post page", () => {
     await store.createSite({ id: "plain", site: { schemaVersion: 1, name: "Plain" }, pages: [{ path: "/", doc: page("Home", [node("hero", "hero", { heading: "Hi" })]) }] });
     await store.publish("plain", { brand });
     expect(await handleSiteRequest(get("/rss.xml"), { store, brand: { getBrand: () => brand }, siteId: "plain" })).toBeNull();
+  });
+});
+
+describe("a stored post that skipped the checks", () => {
+  const good: PostSummary = { slug: "good", title: "Good", publishedAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-02T00:00:00Z" };
+  const bad = [
+    { ...good, slug: "never", publishedAt: "-infinity", updatedAt: "-infinity" },
+    { ...good, slug: "object-excerpt", excerpt: { html: "<b>x</b>" } },
+  ] as unknown as PostSummary[];
+  const siteDoc = { schemaVersion: 1 as const, name: "Hilltop Fitness", lang: "en", theme: { colorScheme: "light" as const }, header: [], nav: [], footer: [], seo: {}, redirects: [] };
+  const blogPage = { id: "b", path: "/blog", kind: "post" as const, doc: page("Blog", []) };
+
+  it("is left out of the list, the feed and the sitemap instead of breaking them", () => {
+    expect(PostSummarySchema.safeParse(bad[0]).success).toBe(false);
+    expect(PostSummarySchema.safeParse(bad[1]).success).toBe(false);
+    expect(PostSummarySchema.safeParse(good).success).toBe(true);
+    const rss = rssXml({ site: siteDoc, posts: [...bad, good], postsPath: "/blog", origin: ORIGIN });
+    expect(rss).toContain("/blog/good");
+    expect(rss).not.toContain("/blog/never");
+    expect(rss).not.toContain("[object Object]");
+    const sitemap = sitemapXml({ site: siteDoc, pages: [blogPage], origin: ORIGIN, posts: { path: "/blog", items: [...bad, good] } });
+    expect(sitemap).toContain("<loc>https://hilltop.example/blog/never</loc></url>"); // no lastmod, still a page
   });
 });
 

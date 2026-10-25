@@ -12,7 +12,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { checkPost, isPublishable } from "../core/a11y";
-import { MAX_IMPORT_POSTS, PostDoc, validatePostSlug, type ImportPostsResult, type LivePost, type PostMeta, type PostStatus, type PostSummary } from "../core/posts";
+import { MAX_IMPORT_POSTS, PostDoc, PostSummarySchema, validatePostSlug, type ImportPostsResult, type LivePost, type PostMeta, type PostStatus, type PostSummary } from "../core/posts";
 import { PageDoc, ReleaseSnapshot, SiteDoc, parseSnapshot, type PageKind, type PageMeta, type Release, type ReleaseMeta } from "../core/schemas";
 import { ASSET_TYPES, PublishBlockedError, assetPath, prepareImportPost, prepareRelease, type Asset, type AssetMeta, type PublishOptions, type SaveResult, type SiteStore } from "../core/store";
 
@@ -279,7 +279,14 @@ export function createSupabaseSiteStore(client: SupabaseClient, options: Supabas
     async listLivePosts(siteId): Promise<PostSummary[]> {
       const { data, error } = await db.rpc("live_posts", { site_id: siteId });
       if (error) fail(error, "reading the posts");
-      return Array.isArray(data) ? (data as PostSummary[]) : [];
+      // Item by item, as a page is: a stored post that no longer parses is left out and logged.
+      const out: PostSummary[] = [];
+      for (const item of Array.isArray(data) ? data : []) {
+        const parsed = PostSummarySchema.safeParse(item);
+        if (parsed.success) out.push(parsed.data as PostSummary);
+        else console.error(`[genesis-sites] a post of site ${siteId} doesn't parse and is left out of the list: ${parsed.error.message}`);
+      }
+      return out;
     },
     async getLivePost(siteId, slug): Promise<LivePost | null> {
       const { data, error } = await db.rpc("live_post", { site_id: siteId, slug });
@@ -304,7 +311,12 @@ export function createSupabaseSiteStore(client: SupabaseClient, options: Supabas
       if (error) fail(error, "reading the post");
       if (!data) return null;
       const row = data as unknown as PostRow;
-      return { ...postMeta(row), doc: PostDoc.parse(row.draft) };
+      const doc = PostDoc.safeParse(row.draft);
+      if (!doc.success) {
+        console.error(`[genesis-sites] the draft of post ${postId} doesn't parse: ${doc.error.message}`);
+        return null;
+      }
+      return { ...postMeta(row), doc: doc.data };
     },
     async savePost(siteId, input) {
       validatePostSlug(input.slug);

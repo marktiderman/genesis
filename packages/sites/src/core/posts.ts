@@ -82,6 +82,19 @@ export interface PostSummary {
   updatedAt: string;
 }
 
+/** A list item as a store returns it, checked: a stored row that skipped the checks is left out. */
+export const PostSummarySchema = z.object({
+  slug: PostSlug,
+  title: Line(160),
+  excerpt: Copy(400).optional(),
+  cover: Image.optional(),
+  author: PostAuthor.optional(),
+  category: Line(60).optional(),
+  noindex: z.boolean().optional(),
+  publishedAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), "a date"),
+  updatedAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), "a date"),
+});
+
 /** The most posts a list reads (the newest first). */
 export const MAX_LIVE_POSTS = 500;
 

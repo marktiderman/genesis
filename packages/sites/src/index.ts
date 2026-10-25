@@ -110,6 +110,7 @@ export {
   PostAuthor,
   PostDoc,
   PostSlug,
+  PostSummarySchema,
   postSummary,
   richTextPlain,
   validatePostSlug,

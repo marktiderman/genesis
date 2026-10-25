@@ -151,6 +151,16 @@ export function breadcrumbJsonLd(pages: readonly ReleasePage[], page: ReleasePag
   };
 }
 
+/** An ISO date, or null when the value isn't a date (a stored row that skipped the checks). */
+function isoDate(value: unknown): string | null {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Text for a feed, or undefined when the value isn't text. */
+const textOf = (value: unknown): string | undefined => (typeof value === "string" && value ? value : undefined);
+
 /** The URL of a post: `<post page path>/<slug>`. */
 export function postPath(postsPath: string, slug: string): string {
   return `${postsPath === "/" ? "" : postsPath}/${slug}`;
@@ -201,24 +211,26 @@ export interface RssInput {
 export function rssXml({ site, posts, postsPath, title, origin, basePath = "", limit = 20 }: RssInput): string {
   const link = absoluteUrl(origin, basePath, postsPath);
   const self = absoluteUrl(origin, basePath, "/rss.xml");
-  const items = posts
-    .filter((p) => !p.noindex)
-    .slice(0, limit)
-    .map((p) => {
-      const url = absoluteUrl(origin, basePath, postPath(postsPath, p.slug));
-      return [
-        "<item>",
-        `<title>${escapeXml(p.title)}</title>`,
-        `<link>${escapeXml(url)}</link>`,
-        `<guid isPermaLink="true">${escapeXml(url)}</guid>`,
-        `<pubDate>${new Date(p.publishedAt).toUTCString()}</pubDate>`,
-        p.excerpt ? `<description>${escapeXml(p.excerpt)}</description>` : "",
-        p.category ? `<category>${escapeXml(p.category)}</category>` : "",
-        p.author ? `<dc:creator>${escapeXml(p.author.name)}</dc:creator>` : "",
-        "</item>",
-      ].join("");
-    });
-  const newest = posts.find((p) => !p.noindex);
+  // A post whose stored fields aren't what they should be is left out, not the whole feed.
+  const usable = posts.filter((p) => !p.noindex && textOf(p.title) && textOf(p.slug) && isoDate(p.publishedAt));
+  const items = usable.slice(0, limit).map((p) => {
+    const url = absoluteUrl(origin, basePath, postPath(postsPath, p.slug));
+    const excerpt = textOf(p.excerpt);
+    const category = textOf(p.category);
+    const author = textOf(p.author?.name);
+    return [
+      "<item>",
+      `<title>${escapeXml(p.title)}</title>`,
+      `<link>${escapeXml(url)}</link>`,
+      `<guid isPermaLink="true">${escapeXml(url)}</guid>`,
+      `<pubDate>${new Date(isoDate(p.publishedAt)!).toUTCString()}</pubDate>`,
+      excerpt ? `<description>${escapeXml(excerpt)}</description>` : "",
+      category ? `<category>${escapeXml(category)}</category>` : "",
+      author ? `<dc:creator>${escapeXml(author)}</dc:creator>` : "",
+      "</item>",
+    ].join("");
+  });
+  const newest = usable[0];
   return (
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel>` +
@@ -227,7 +239,7 @@ export function rssXml({ site, posts, postsPath, title, origin, basePath = "", l
     `<description>${escapeXml(site.seo.description ?? `Posts from ${site.name}`)}</description>` +
     `<language>${escapeXml(site.lang)}</language>` +
     `<atom:link href="${escapeXml(self)}" rel="self" type="application/rss+xml"/>` +
-    (newest ? `<lastBuildDate>${new Date(newest.updatedAt).toUTCString()}</lastBuildDate>` : "") +
+    (newest ? `<lastBuildDate>${new Date(isoDate(newest.updatedAt) ?? isoDate(newest.publishedAt)!).toUTCString()}</lastBuildDate>` : "") +
     `${items.join("")}</channel></rss>\n`
   );
 }
@@ -282,7 +294,8 @@ export function sitemapXml({ site, pages, origin, basePath = "", lastModified, p
   if (posts && !site.seo.noindex && blogPage && !blogPage.doc.seo?.noindex) {
     for (const p of posts.items) {
       if (p.noindex) continue;
-      urls.push(`<url><loc>${escapeXml(absoluteUrl(origin, basePath, postPath(posts.path, p.slug)))}</loc><lastmod>${escapeXml(new Date(p.updatedAt).toISOString())}</lastmod></url>`);
+      const mod = isoDate(p.updatedAt) ?? isoDate(p.publishedAt);
+      urls.push(`<url><loc>${escapeXml(absoluteUrl(origin, basePath, postPath(posts.path, p.slug)))}</loc>${mod ? `<lastmod>${escapeXml(mod)}</lastmod>` : ""}</url>`);
     }
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>\n`;

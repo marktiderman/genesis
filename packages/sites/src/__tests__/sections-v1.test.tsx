@@ -9,7 +9,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import "../sections/index";
-import { getSection, Link, type AnySectionDefinition, type SectionNode } from "../index";
+import { getSection, isPlainEmail, Link, type AnySectionDefinition, type SectionNode } from "../index";
 import { createMemorySiteStore, exampleBrands, type FormsResolver, type PageDoc } from "../index";
 import { handleSiteRequest } from "../web/index";
 import { mapEmbedUrl, formatTime } from "../sections/index";
@@ -49,6 +49,8 @@ describe("the timetable", () => {
     expect(radios).toHaveLength(6);
     expect(new Set(radios.map((r) => r.name)).size).toBe(1);
     expect(radios[0]!.defaultChecked).toBe(true);
+    // Each radio names the panel it shows.
+    for (const r of radios) expect(body.querySelector(`#${r.getAttribute("aria-controls")}`)?.hasAttribute("data-panel")).toBe(true);
     expect(body.querySelectorAll("[data-gs-schedule] [data-panel]")).toHaveLength(6);
     expect(body.querySelector('[data-panel="2"]')?.textContent).toContain("No classes");
     expect(html).not.toContain("<script");
@@ -222,5 +224,11 @@ describe("the forms resolver's three kinds", () => {
     expect(html).toContain('href="mailto:hello@riverside.example?subject=Free%20class%20Bcc%3A%20x%40evil.example"');
     expect(html).toContain("Email the front desk");
     expect(html).not.toMatch(/<script(?![^>]*application\/ld\+json)/);
+  });
+
+  it("writes only to a plain address: no display name, no % escapes", () => {
+    expect(isPlainEmail("hello@riverside.example")).toBe(true);
+    expect(isPlainEmail("a%0d%0abcc%3dx@riverside.example")).toBe(false);
+    expect(isPlainEmail("Front desk <hello@riverside.example>")).toBe(false);
   });
 });

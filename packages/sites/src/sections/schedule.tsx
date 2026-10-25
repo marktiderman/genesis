@@ -306,7 +306,7 @@ export const scheduleSection = defineSection({
             <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-2">
               {days.map((day, i) => (
                 <label key={day} className="relative shrink-0">
-                  <input type="radio" name={`${ctx.idPrefix}-day`} value={day} data-day={i} defaultChecked={i === 0} className="peer sr-only" />
+                  <input type="radio" name={`${ctx.idPrefix}-day`} value={day} data-day={i} defaultChecked={i === 0} aria-controls={`${ctx.idPrefix}-panel-${day}`} className="peer sr-only" />
                   <span className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-md border border-border px-3 text-sm font-semibold peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
                     <DayLabel day={day} props={props} />
                   </span>
@@ -316,7 +316,7 @@ export const scheduleSection = defineSection({
           </fieldset>
           <div className="mt-4 flex flex-col gap-8">
             {days.map((day, i) => (
-              <div key={day} data-panel={i}>
+              <div key={day} id={`${ctx.idPrefix}-panel-${day}`} data-panel={i}>
                 <DayList day={day} props={props} types={types} ctx={ctx} id={`${ctx.idPrefix}-${day}`} />
               </div>
             ))}

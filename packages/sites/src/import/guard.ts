@@ -82,6 +82,7 @@ function v6IsPublic(b: number[]): boolean {
   if (b[0] === 0x01 && b[1] === 0x00 && zeros(2, 8)) return false; // discard-only
   if (b[0] === 0x20 && b[1] === 0x01 && b[2]! < 0x02) return false; // IETF special (Teredo and others)
   if (b[0] === 0x20 && b[1] === 0x01 && b[2] === 0x0d && b[3] === 0xb8) return false; // documentation
+  if (b[0] === 0x3f && (b[1]! & 0xf0) === 0xf0) return false; // documentation (3fff::/20, RFC 9637)
   if (b[0] === 0x20 && b[1] === 0x02) return embedded(2); // 6to4
   if ((b[0]! & 0xfe) === 0xfc) return false; // unique local
   if (b[0] === 0xfe && (b[1]! & 0xc0) === 0x80) return false; // link-local
@@ -104,8 +105,12 @@ export function isPublicAddress(ip: string): boolean {
 
 export class BlockedAddressError extends Error {
   readonly code = "EGSBLOCKED";
+  /** What the name resolved to, for the server's log; never shown to an editor. */
+  readonly address: string;
   constructor(host: string, address: string) {
-    super(`${host} resolves to ${address}, which isn't a public address.`);
+    // The address stays out of the message: an editor shouldn't learn what an internal name resolves to.
+    super(`${host} isn't a public address.`);
+    this.address = address;
     this.name = "BlockedAddressError";
   }
 }
@@ -137,7 +142,7 @@ export function urlProblems(url: URL, allowedPorts: readonly number[]): string[]
   if (url.username || url.password) problems.push("A URL with a user name or password isn't fetched.");
   const port = url.port ? Number(url.port) : url.protocol === "https:" ? 443 : 80;
   if (!allowedPorts.includes(port)) problems.push(`Port ${port} isn't fetched (only ${allowedPorts.join(", ")}).`);
-  const host = url.hostname.replace(/^\[|\]$/g, "");
+  const host = url.hostname.replace(/^\[|\]$/g, "").replace(/\.+$/, "");
   if (!host) problems.push("The URL has no host.");
   // An address written as the host never goes through DNS, so it is checked here.
   if (isIP(host) && !isPublicAddress(host)) problems.push(`${host} isn't a public address.`);

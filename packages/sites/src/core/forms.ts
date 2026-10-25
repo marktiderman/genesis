@@ -54,9 +54,9 @@ export interface FormsResolverContext {
 /** slug → the form to show, or null when the host has no such form (the section then renders nothing and logs). */
 export type FormsResolver = (slug: string, ctx: FormsResolverContext) => ResolvedForm | null | Promise<ResolvedForm | null>;
 
-/** A plain email address (no display name, no header injection): what a `mailto` form may write to. */
+/** A plain email address (no display name, no `%` escapes, no header injection): what a `mailto` form may write to. */
 export function isPlainEmail(value: unknown): value is string {
-  return typeof value === "string" && value.length <= 254 && /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(value);
+  return typeof value === "string" && value.length <= 254 && /^[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(value);
 }
 
 /** The `mailto:` link for a mailto form, or null when its address isn't a plain one. */

@@ -296,6 +296,10 @@ begin
       end if;
       item_status := case when item ->> 'status' = 'draft' then 'draft' else 'published' end;
       item_at := least(coalesce((item ->> 'publishedAt')::timestamptz, now()), now());
+      -- A real date: not infinity, not before 1970 (the feeds and the sitemap print it).
+      if not isfinite(item_at) or item_at < '1970-01-01T00:00:00Z'::timestamptz then
+        raise exception 'genesis_sites: "%" isn''t a usable publish date', item ->> 'publishedAt' using errcode = '22008';
+      end if;
       insert into genesis_sites.site_posts (site_id, slug, draft, published, status, published_at, published_updated_at)
       values (
         site_id, item_slug, item -> 'doc',

@@ -134,7 +134,9 @@ document.querySelectorAll<HTMLElement>('[data-gs-island="map"]').forEach((box) =
     frame.loading = "lazy";
     frame.referrerPolicy = "strict-origin-when-cross-origin";
     frame.className = "absolute inset-0 h-full w-full border-0";
-    box.replaceChildren(frame);
+    // The picture and the consent go; the link to the provider's own map stays.
+    box.querySelectorAll("[data-gs-map-drop]").forEach((el) => el.remove());
+    box.prepend(frame);
     frame.focus();
   });
 });

@@ -106,7 +106,11 @@ export interface ImportAssetsResult {
 }
 
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
+/** The most URLs one `importAssets` call fetches (one at a time, each with its own time limit). */
+export const MAX_IMPORT_URLS = 500;
 const MAX_DIMENSION = 20000;
+/** And at most this many pixels in all: a bigger header is a decompression bomb waiting for a resizer. */
+const MAX_PIXELS = 50_000_000;
 
 class ImportRefused extends Error {}
 
@@ -154,7 +158,10 @@ async function fetchGuarded(start: string, o: Required<Pick<ImportAssetsOptions,
       const location = res.headers.location;
       if (!location) throw new ImportRefused(`a ${res.status} with no Location.`);
       if (hop >= o.maxRedirects) throw new ImportRefused(`more than ${o.maxRedirects} redirects.`);
-      url = new URL(location, url);
+      const next = new URL(location, url);
+      // Never from https down to http: the copy would come over a connection anyone on the path can change.
+      if (url.protocol === "https:" && next.protocol === "http:") throw new ImportRefused(`it redirects from https to http (${next.host}).`);
+      url = next;
       continue;
     }
     if (res.status !== 200) {
@@ -182,6 +189,7 @@ function fileName(url: URL, ext: string): string {
  */
 export async function importAssets(store: Pick<SiteStore, "putAsset">, siteId: string, urls: readonly string[], options: ImportAssetsOptions = {}): Promise<ImportAssetsResult> {
   if (!store.putAsset) throw new Error("importAssets: the store can't store files (no putAsset).");
+  if (urls.length > MAX_IMPORT_URLS) throw new Error(`importAssets: at most ${MAX_IMPORT_URLS} URLs a call (got ${urls.length}).`);
   const o = {
     maxBytes: options.maxBytes ?? 15 * 1024 * 1024,
     timeoutMs: options.timeoutMs ?? 20_000,
@@ -195,7 +203,9 @@ export async function importAssets(store: Pick<SiteStore, "putAsset">, siteId: s
       const { bytes, finalUrl } = await fetchGuarded(url, o);
       const kind = sniff(bytes);
       if (!kind) throw new ImportRefused("it isn't a PNG, JPEG, GIF, WebP, AVIF or PDF (by its bytes).");
+      // AVIF (and an odd JPEG or WebP) gives no size here; the byte cap still bounds it.
       if ((kind.width ?? 0) > MAX_DIMENSION || (kind.height ?? 0) > MAX_DIMENSION) throw new ImportRefused(`it is ${kind.width}×${kind.height} pixels; the limit is ${MAX_DIMENSION} a side.`);
+      if ((kind.width ?? 0) * (kind.height ?? 0) > MAX_PIXELS) throw new ImportRefused(`it is ${kind.width}×${kind.height} pixels; the limit is ${MAX_PIXELS / 1_000_000} million in all.`);
       const alt = kind.mime === "application/pdf" ? undefined : options.alt?.(url)?.trim().slice(0, 300) || undefined;
       const blob = new Blob([bytes as BlobPart], { type: kind.mime });
       const asset = await store.putAsset(siteId, blob, {
@@ -217,6 +227,7 @@ export async function importAssets(store: Pick<SiteStore, "putAsset">, siteId: s
       };
     } catch (err) {
       const reason = err instanceof ImportRefused ? err.message : `${(err as Error)?.message ?? String(err)}`;
+      if (err && typeof err === "object" && "address" in err) console.warn(`[genesis-sites] import refused ${url}: it resolves to ${(err as { address: string }).address}.`);
       result.failed.push({ url, reason });
     }
   }

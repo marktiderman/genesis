@@ -6,7 +6,7 @@
 -- can_view), they are replaced again inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(49);
+select plan(50);
 
 -- People: e1 edits site A, b2 may view it, c3 is nobody's.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -208,6 +208,14 @@ select is(
 );
 select is((select status from genesis_sites.site_posts where site_id = pg_temp.id('a') and slug = 'later'), 'draft', '... a draft when asked');
 select is((select count(*)::int from genesis_sites.site_posts where site_id = pg_temp.id('a') and slug in ('bad-date', 'Bad Slug')), 0, '... and skips the ones that don''t');
+select is(
+  (genesis_sites.import_posts(pg_temp.id('a'), jsonb_build_array(
+    jsonb_build_object('slug', 'never', 'doc', pg_temp.post('Never'), 'publishedAt', '-infinity'),
+    jsonb_build_object('slug', 'ancient', 'doc', pg_temp.post('Ancient'), 'publishedAt', '0044-03-15T00:00:00Z BC')
+  ))) -> 'skipped' @> '[{"slug": "never"}, {"slug": "ancient"}]'::jsonb,
+  true,
+  'an import refuses infinity and dates before 1970'
+);
 select is(
   (genesis_sites.import_posts(pg_temp.id('a'), jsonb_build_array(jsonb_build_object('slug', 'future', 'doc', pg_temp.post('Future'), 'publishedAt', '2999-01-01T00:00:00Z'))) #>> '{imported,0,status}'),
   'published',

@@ -125,15 +125,19 @@ export const mapSection = defineSection({
         className="relative isolate flex aspect-[4/3] w-full flex-col justify-end overflow-hidden rounded-xl border border-border bg-muted text-foreground"
       >
         {props.image ? (
-          <SiteImage image={props.image} ctx={ctx} sizes="(min-width: 768px) 50vw, 100vw" className="absolute inset-0 -z-10 h-full w-full object-cover" />
+          <span data-gs-map-drop="" className="absolute inset-0 -z-10">
+            <SiteImage image={props.image} ctx={ctx} sizes="(min-width: 768px) 50vw, 100vw" className="h-full w-full object-cover" />
+          </span>
         ) : (
-          <MapPin aria-hidden="true" className="absolute left-1/2 top-1/3 -z-10 size-12 -translate-x-1/2 text-muted-foreground" />
+          <MapPin data-gs-map-drop="" aria-hidden="true" className="absolute left-1/2 top-1/3 -z-10 size-12 -translate-x-1/2 text-muted-foreground" />
         )}
-        <div className="flex flex-col items-start gap-3 bg-background p-4 text-foreground">
-          <p className="text-sm">{note}</p>
+        <div className="relative flex flex-col items-start gap-3 bg-background p-4 text-foreground">
+          <p data-gs-map-drop="" className="text-sm">
+            {note}
+          </p>
           <div className="flex flex-wrap items-center gap-4">
             {/* Shown by the islands loader; without script the link below opens the map. */}
-            <button type="button" data-gs-map-load="" hidden className={cn(buttonVariants({ variant: "default", size: "lg" }), "min-h-11")}>
+            <button type="button" data-gs-map-load="" data-gs-map-drop="" hidden className={cn(buttonVariants({ variant: "default", size: "lg" }), "min-h-11")}>
               {props.loadLabel}
             </button>
             <TextLink link={{ label: `Open in ${provider.name}`, href: mapPageUrl(props), external: true, target: "_blank" }} ctx={ctx} className="text-sm font-medium underline" />
