@@ -30,14 +30,15 @@ export function diffRelease(before: readonly CatalogFeature[], after: readonly C
 }
 
 /**
- * The open signals a release answers: the people to tell, and the asks to
- * close. This is how the loop closes.
+ * The open ideas a release answers: the people to tell, and the asks to close.
+ * This is how the loop closes. Feedback and bugs are left alone: a feature
+ * going live doesn't mean a reported problem with it is fixed.
  *
  * @stability Experimental
  */
 export function answeredBy(changes: readonly ReleaseChange[], signals: readonly Signal[]): Signal[] {
   const shipped = new Set(changes.flatMap((c) => [c.feature.id, ...(c.feature.aliases ?? [])]));
-  return signals.filter((s) => s.state === "open" && s.featureId !== undefined && shipped.has(s.featureId));
+  return signals.filter((s) => s.kind === "idea" && s.state === "open" && s.featureId !== undefined && shipped.has(s.featureId));
 }
 
 /** Options for {@link renderRelease}. @stability Experimental */

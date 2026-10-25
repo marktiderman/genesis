@@ -22,19 +22,34 @@ export function readCatalog(file = "features.json"): CatalogFeature[] {
   return parseCatalog(readFileSync(file, "utf8"));
 }
 
-/** The catalog at a git ref (a tag, a branch or a commit), or `[]` where the file didn't exist yet. @stability Experimental */
+const git = (args: string[], cwd: string) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+
+/**
+ * The catalog at a git ref (a tag, a branch or a commit). `[]` only when the
+ * ref exists and the file didn't exist at it yet; a ref that doesn't exist
+ * throws, so a typo never reads as "everything is new".
+ *
+ * @stability Experimental
+ */
 export function catalogAt(ref: string, file = "features.json", cwd = process.cwd()): CatalogFeature[] {
   try {
-    return parseCatalog(execFileSync("git", ["show", `${ref}:${file}`], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
+    git(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], cwd);
+  } catch {
+    throw new Error(`"${ref}" is not a commit, tag or branch here.`);
+  }
+  let text: string;
+  try {
+    text = git(["show", `${ref}:${file}`], cwd);
   } catch {
     return [];
   }
+  return parseCatalog(text);
 }
 
 /** `owner/repo` from the `origin` remote, or `undefined`. @stability Experimental */
 export function repoFromGit(cwd = process.cwd()): string | undefined {
   try {
-    const url = execFileSync("git", ["remote", "get-url", "origin"], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const url = git(["remote", "get-url", "origin"], cwd).trim();
     return /github\.com[:/]([^/]+\/[^/.]+?)(?:\.git)?$/i.exec(url)?.[1];
   } catch {
     return undefined;
@@ -49,7 +64,7 @@ export interface GitHubIssue {
   html_url: string;
   state: "open" | "closed";
   created_at: string;
-  user?: { login: string } | null;
+  user?: { login: string; type?: string } | null;
   labels: ReadonlyArray<string | { name?: string }>;
   reactions?: { "+1"?: number };
   pull_request?: unknown;
@@ -57,13 +72,18 @@ export interface GitHubIssue {
 
 const IMPORTANCE: Record<string, Importance> = { low: 1, medium: 2, high: 3, "nice-to-have": 1, important: 2, critical: 3 };
 const TITLE_KIND = /^\s*\[(idea|feedback|bug)\]/i;
+const FEATURE_ID = /^[a-z][a-z0-9]*(?:[-_.][a-z0-9]+)*$/;
 
 /**
  * One issue as a signal, or `null` when it isn't intake. An issue is intake when
  * it carries an `idea`, `feedback` or `bug` label, or its title starts with
- * `[Idea]`, `[Feedback]` or `[Bug]` (the issue forms set both). Its feature is a
- * `feature:<id>` label or the id under a `### Feature` heading (the form's
- * field); `importance:high|medium|low` sets its weight; 👍 reactions are votes.
+ * `[Idea]`, `[Feedback]` or `[Bug]` (the issue forms set both).
+ *
+ * Only a `feature:<id>` label links it to a feature, because only triagers can
+ * add labels. The id under the form's `### Feature` heading is the sender's own
+ * and stays a suggestion. `importance:high|medium|low` sets its weight. `votes`
+ * here is GitHub's raw 👍 count; {@link githubSignals} replaces it with the
+ * people who voted, not counting the author or bots, for linked open issues.
  *
  * @stability Experimental
  */
@@ -80,7 +100,8 @@ export function issueToSignal(issue: GitHubIssue): Signal | null {
     kind,
     title: issue.title.replace(TITLE_KIND, "").trim(),
     url: issue.html_url,
-    featureId: fromLabel || fromBody || undefined,
+    featureId: fromLabel && FEATURE_ID.test(fromLabel) ? fromLabel : undefined,
+    suggestedFeatureId: fromBody,
     author: issue.user?.login,
     votes: issue.reactions?.["+1"] ?? 0,
     importance: level ? IMPORTANCE[level] : undefined,
@@ -95,15 +116,16 @@ export interface GitHubOptions {
   repo: string;
   /** A token: optional for reading a public repo, required for writing. */
   token?: string;
-  /** Pages of 100 issues to read at most. Default 10. */
+  /** Pages of 100 to read at most before giving up loudly. Default 50. */
   maxPages?: number;
   fetch?: typeof fetch;
 }
 
-async function github(options: GitHubOptions, path: string, init?: { method: string; body: unknown }): Promise<unknown> {
+async function request(options: GitHubOptions, path: string, init?: { method: string; body: unknown }): Promise<Response> {
   const doFetch = options.fetch ?? fetch;
+  const url = path.startsWith("https://") ? path : `https://api.github.com/repos/${options.repo}${path}`;
   const send = (token: string | undefined) =>
-    doFetch(`https://api.github.com/repos/${options.repo}${path}`, {
+    doFetch(url, {
       method: init?.method ?? "GET",
       headers: {
         accept: "application/vnd.github+json",
@@ -120,54 +142,89 @@ async function github(options: GitHubOptions, path: string, init?: { method: str
     res = await send(undefined);
   }
   if (!res.ok) throw new Error(`GitHub ${init?.method ?? "GET"} ${path}: ${res.status} ${await res.text()}`);
-  return res.json();
+  return res;
+}
+
+async function github(options: GitHubOptions, path: string, init?: { method: string; body: unknown }): Promise<unknown> {
+  return (await request(options, path, init)).json();
+}
+
+/** Every page of a list, following `Link: rel="next"`; throws when it reaches `maxPages`. */
+async function all<T>(options: GitHubOptions, path: string): Promise<T[]> {
+  const items: T[] = [];
+  let next: string | undefined = path;
+  for (let page = 0; next; page++) {
+    if (page >= (options.maxPages ?? 50)) throw new Error(`GitHub ${path}: stopped after ${page} pages; raise maxPages.`);
+    const res = await request(options, next);
+    items.push(...((await res.json()) as T[]));
+    next = /<([^>]+)>;\s*rel="next"/.exec(res.headers.get("link") ?? "")?.[1];
+  }
+  return items;
 }
 
 /**
- * Signals from a repo's issues, open and closed.
+ * Signals from a repo's open issues. For each linked one, votes are the
+ * distinct people who gave it a 👍, not counting its author or bots.
  *
  * @stability Experimental
  */
 export function githubSignals(options: GitHubOptions): SignalSource {
   return {
     async list() {
+      const issues = await all<GitHubIssue>(options, `/issues?state=open&per_page=100`);
       const signals: Signal[] = [];
-      for (let page = 1; page <= (options.maxPages ?? 10); page++) {
-        const issues = (await github(options, `/issues?state=all&per_page=100&page=${page}`)) as GitHubIssue[];
-        for (const issue of issues) {
-          const signal = issueToSignal(issue);
-          if (signal) signals.push(signal);
+      for (const issue of issues) {
+        const signal = issueToSignal(issue);
+        if (!signal) continue;
+        if (signal.featureId && signal.votes > 0) {
+          const reactions = await all<{ user?: { login: string; type?: string } | null }>(
+            options,
+            `/issues/${issue.number}/reactions?content=%2B1&per_page=100`,
+          );
+          const voters = new Set(reactions.filter((r) => r.user && r.user.type !== "Bot" && r.user.login !== signal.author).map((r) => r.user!.login));
+          signal.votes = voters.size;
         }
-        if (issues.length < 100) break;
+        signals.push(signal);
       }
       return signals;
     },
   };
 }
 
-const BOARD_TITLE = "Product board";
+/** The label that marks the board issue. No issue form applies it. @stability Experimental */
+export const BOARD_LABEL = "product-board";
+
+/** Options for {@link publishBoardIssue}. @stability Experimental */
+export interface PublishBoardOptions extends GitHubOptions {
+  token: string;
+  /** Who writes the board: only their issue with the board label is updated. Default `github-actions[bot]`. */
+  author?: string;
+}
 
 /**
- * Writes the board into the repo's open issue titled "Product board", opening
- * one if there is none, so the board is one link away on any device. Returns
- * its URL.
+ * Writes the board into the open issue labelled `product-board` that `author`
+ * opened, opening one if there is none, so the board is one link away on any
+ * device. Nobody else's issue is ever written. Returns its URL.
  *
  * @stability Experimental
  */
-export async function publishBoardIssue(options: GitHubOptions & { token: string }, body: string): Promise<string> {
-  const open = (await github(options, `/issues?state=open&per_page=100`)) as GitHubIssue[];
-  const existing = open.find((i) => !i.pull_request && i.title === BOARD_TITLE);
+export async function publishBoardIssue(options: PublishBoardOptions, body: string): Promise<string> {
+  const author = options.author ?? "github-actions[bot]";
+  const open = await all<GitHubIssue>(options, `/issues?state=open&labels=${BOARD_LABEL}&creator=${encodeURIComponent(author)}&per_page=100`);
+  const existing = open.find((i) => !i.pull_request && i.user?.login === author);
   const issue = (
     existing
       ? await github(options, `/issues/${existing.number}`, { method: "PATCH", body: { body } })
-      : await github(options, `/issues`, { method: "POST", body: { title: BOARD_TITLE, body } })
+      : await github(options, `/issues`, { method: "POST", body: { title: "Product board", body, labels: [BOARD_LABEL] } })
   ) as GitHubIssue;
   return issue.html_url;
 }
 
 /**
- * Closes the loop on GitHub: a comment on each answered issue saying what
- * shipped, then closes it as completed. Only for signals from GitHub.
+ * Closes the loop on GitHub: closes each answered issue as completed, then
+ * comments on it saying what shipped. Closing first means a rerun after a
+ * failure never comments twice (the issue is no longer open). Only for
+ * signals from GitHub.
  *
  * @stability Experimental
  */
@@ -180,8 +237,8 @@ export async function closeAnswered(
   for (const s of answered) {
     const number = Number(/^github#(\d+)$/.exec(s.id)?.[1]);
     if (!number) continue;
-    await github(options, `/issues/${number}/comments`, { method: "POST", body: { body: message(s) } });
     await github(options, `/issues/${number}`, { method: "PATCH", body: { state: "closed", state_reason: "completed" } });
+    await github(options, `/issues/${number}/comments`, { method: "POST", body: { body: message(s) } });
     closed.push(number);
   }
   return closed;

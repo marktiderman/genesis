@@ -1,6 +1,7 @@
-# Product board: rewrites the "Product board" issue from features.json and the idea and
-# feedback issues (genesis-product board --issue), once a day and on demand, so the board is one
-# link away on any device. Reads features.json as committed; nothing is pushed.
+# Product board: rewrites the board issue (labelled product-board, opened by this workflow) from
+# features.json and the open idea and feedback issues (genesis-product board --issue), once a day
+# and on demand, so the board is one link away on any device. Reads features.json as committed;
+# nothing is pushed. Scheduled and manual runs use the default branch, so it starts once on main.
 
 name: Product board
 
@@ -11,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: product-board
@@ -19,16 +19,23 @@ concurrency:
 
 jobs:
   board:
+    # Forks that turn on Actions don't open boards of their own.
+    if: github.repository == 'marktiderman/genesis'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
+      # The token isn't left in .git/config while dependencies' install scripts run.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          version: 11.26.0
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      # The pnpm version comes from package.json's packageManager field.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: pnpm

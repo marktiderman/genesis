@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { answeredBy, buildBoard, demand, diffRelease, renderBoard, renderRelease, type CatalogFeature, type Signal } from "../index";
-import { issueToSignal, parseCatalog, type GitHubIssue } from "../node";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { catalogAt, closeAnswered, githubSignals, issueToSignal, parseCatalog, publishBoardIssue, type GitHubIssue } from "../node";
 
 const f = (id: string, status: CatalogFeature["status"], extra: Partial<CatalogFeature> = {}): CatalogFeature => ({
   id,
@@ -85,13 +89,14 @@ describe("GitHub issues as signals (@feat:product-insights)", () => {
     ...extra,
   });
 
-  it("reads the kind from the title, the feature from the form's field, and 👍 as votes", () => {
+  it("reads the kind from the title and 👍 as votes, and keeps the form's feature as a suggestion, not a link", () => {
     expect(issueToSignal(issue({}))).toEqual({
       id: "github#7",
       kind: "idea",
       title: "Export to CSV",
       url: "https://github.com/o/r/issues/7",
-      featureId: "export",
+      featureId: undefined,
+      suggestedFeatureId: "export",
       author: "pat",
       votes: 3,
       importance: undefined,
@@ -108,7 +113,7 @@ describe("GitHub issues as signals (@feat:product-insights)", () => {
   it("skips pull requests and issues that aren't intake, and leaves _No response_ untriaged", () => {
     expect(issueToSignal(issue({ pull_request: {} }))).toBeNull();
     expect(issueToSignal(issue({ title: "Refactor the CLI" }))).toBeNull();
-    expect(issueToSignal(issue({ body: "### Feature\n\n_No response_\n" }))?.featureId).toBeUndefined();
+    expect(issueToSignal(issue({ body: "### Feature\n\n_No response_\n" }))?.suggestedFeatureId).toBeUndefined();
   });
 });
 
@@ -146,5 +151,109 @@ describe("release notes (@feat:product-releases)", () => {
   it("reads features.json keyed by id, or as an array", () => {
     expect(parseCatalog(JSON.stringify({ features: { a: { name: "A", status: "live" } } }))[0]).toMatchObject({ id: "a", name: "A" });
     expect(parseCatalog(JSON.stringify({ features: [{ id: "b" }] }))[0]).toMatchObject({ id: "b" });
+  });
+});
+
+describe("review fixes on #249 (@feat:product-releases)", () => {
+  const live = [f("export", "live"), f("search", "live")];
+
+  it("throws on a --from ref that doesn't exist instead of reading an empty catalog (H1)", () => {
+    const repo = mkdtempSync(join(tmpdir(), "product-"));
+    const run = (...args: string[]) => execFileSync("git", args, { cwd: repo, stdio: "ignore" });
+    run("init", "-q");
+    run("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "first");
+    expect(catalogAt("HEAD", "features.json", repo)).toEqual([]);
+    expect(() => catalogAt("v-typo-does-not-exist", "features.json", repo)).toThrow(/is not a commit/);
+    writeFileSync(join(repo, "features.json"), JSON.stringify({ features: { a: { name: "A", status: "live" } } }));
+    run("add", ".");
+    run("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "second");
+    expect(catalogAt("HEAD", "features.json", repo).map((x) => x.id)).toEqual(["a"]);
+  });
+
+  it("closes only ideas: feedback and bugs on a shipped feature stay open (H2)", () => {
+    const signals = [s(1, { featureId: "export" }), s(2, { featureId: "export", kind: "feedback" }), s(3, { featureId: "export", kind: "bug" })];
+    expect(answeredBy(diffRelease([], live), signals).map((x) => x.id)).toEqual(["github#1"]);
+  });
+
+  it("counts a signal toward demand only once a triager links it; a suggestion waits in triage (H3)", () => {
+    const board = buildBoard([f("export", "idea")], [s(1, { suggestedFeatureId: "export", votes: 5 })]);
+    expect(board.ideas[0]!.demand).toBe(0);
+    expect(board.untriaged.map((x) => x.id)).toEqual(["github#1"]);
+    expect(renderBoard(board, { date: "d" })).toContain("(suggests `export`)");
+  });
+
+  it("renders titles as code, so a title can't @mention, link or embed (M4)", () => {
+    const md = renderBoard(buildBoard([], [s(1, { title: "@team see ![x](https://e/x.png) `y`" })]), { date: "d" });
+    expect(md).toContain("idea: `@team see ![x](https://e/x.png) 'y'`");
+  });
+});
+
+describe("GitHub source and writes (@feat:product-insights)", () => {
+  type Call = { url: string; method: string; body?: unknown };
+  const fakeFetch = (routes: Record<string, { body: unknown; link?: string }>, calls: Call[]) =>
+    (async (url: string, init: { method: string; body?: string }) => {
+      calls.push({ url, method: init.method, body: init.body ? JSON.parse(init.body) : undefined });
+      const key = Object.keys(routes).find((k) => url.endsWith(k));
+      const route = key ? routes[key]! : { body: {} };
+      return new Response(JSON.stringify(route.body), { status: 200, headers: route.link ? { link: route.link } : {} });
+    }) as unknown as typeof fetch;
+  const gh = (n: number, extra: Partial<GitHubIssue> = {}): GitHubIssue => ({
+    number: n,
+    title: `[Idea] ask ${n}`,
+    html_url: `https://github.com/o/r/issues/${n}`,
+    state: "open",
+    created_at: "2026-10-20T00:00:00Z",
+    user: { login: "pat" },
+    labels: [],
+    ...extra,
+  });
+
+  it("reads open issues across every page, and counts votes once per person, without the author or bots (M2, M3)", async () => {
+    const calls: Call[] = [];
+    const source = githubSignals({
+      repo: "o/r",
+      fetch: fakeFetch(
+        {
+          "/issues?state=open&per_page=100": { body: [gh(1, { labels: ["feature:export"], reactions: { "+1": 4 } })], link: '<https://api.github.com/repos/o/r/issues?page=2>; rel="next"' },
+          "/issues?page=2": { body: [gh(2)] },
+          "/issues/1/reactions?content=%2B1&per_page=100": {
+            body: [{ user: { login: "pat" } }, { user: { login: "ana" } }, { user: { login: "bot", type: "Bot" } }, { user: { login: "lee" } }],
+          },
+        },
+        calls,
+      ),
+    });
+    const signals = await source.list();
+    expect(signals.map((x) => [x.id, x.featureId, x.votes])).toEqual([
+      ["github#1", "export", 2],
+      ["github#2", undefined, 0],
+    ]);
+    expect(calls.every((c) => !c.url.includes("state=all"))).toBe(true);
+  });
+
+  it("throws rather than stopping silently at the page cap (M3)", async () => {
+    const loop = { body: [], link: '<https://api.github.com/repos/o/r/issues?page=2>; rel="next"' };
+    const source = githubSignals({ repo: "o/r", maxPages: 2, fetch: fakeFetch({ "per_page=100": loop, "page=2": loop }, []) });
+    await expect(source.list()).rejects.toThrow(/stopped after 2 pages/);
+  });
+
+  it("writes only the board issue it owns: the product-board label and its own author (M1)", async () => {
+    const calls: Call[] = [];
+    await publishBoardIssue(
+      { repo: "o/r", token: "t", fetch: fakeFetch({ "per_page=100": { body: [gh(9, { title: "Product board", user: { login: "stranger" } })] }, "/issues": { body: { html_url: "u" } } }, calls) },
+      "board",
+    );
+    expect(calls[0]!.url).toContain("labels=product-board&creator=github-actions%5Bbot%5D");
+    expect(calls.at(-1)).toMatchObject({ method: "POST", body: { title: "Product board", labels: ["product-board"] } });
+    expect(calls.some((c) => c.url.endsWith("/issues/9"))).toBe(false);
+  });
+
+  it("closes before it comments, so a rerun never comments twice (L1)", async () => {
+    const calls: Call[] = [];
+    await closeAnswered({ repo: "o/r", token: "t", fetch: fakeFetch({}, calls) }, [s(5, { featureId: "export" })], () => "shipped");
+    expect(calls.map((c) => [c.method, c.url.replace("https://api.github.com/repos/o/r", "")])).toEqual([
+      ["PATCH", "/issues/5"],
+      ["POST", "/issues/5/comments"],
+    ]);
   });
 });

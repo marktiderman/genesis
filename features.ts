@@ -743,7 +743,7 @@ export const features = defineFeatures({
     audience: ["developer"],
     visibility: "internal",
     acceptance: [
-      "An issue made from the idea or feedback form becomes a signal linked to the feature named in its Feature field or feature:<id> label, with its 👍 as votes.",
+      "An issue made from the idea or feedback form becomes a signal; only a triager's feature:<id> label links it to a feature (the form's Feature field is a suggestion), and its votes are the people who gave it a 👍, not counting its author or bots.",
       "Demand is each open signal's importance (1 when unset) plus its votes; closed signals don't count.",
     ],
     reviewedAt: "2026-10-25",
@@ -751,7 +751,7 @@ export const features = defineFeatures({
   },
   "product-releases": {
     name: "Release notes that close the loop",
-    summary: "Drafts release notes from the features that reached beta or live between two refs of features.json, thanks the asks they answer, and with --notify comments on and closes those issues.",
+    summary: "Drafts release notes from the features that reached beta or live between two refs of features.json, thanks the idea issues they answer, and with --notify --yes closes those issues with a comment.",
     category: "Product",
     status: "building",
     horizon: "now",

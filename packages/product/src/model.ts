@@ -46,10 +46,16 @@ export interface Signal {
   kind: SignalKind;
   title: string;
   url?: string;
-  /** The FeatureId it is evidence for. Unset means not triaged yet. */
+  /**
+   * The FeatureId it is evidence for, set by whoever triages it (on GitHub, a
+   * `feature:<id>` label, which only triagers can add). Unset means not triaged
+   * yet. Only a linked signal counts toward demand or is closed by a release.
+   */
   featureId?: string;
+  /** The FeatureId the sender named themselves: untrusted, shown in triage only. */
+  suggestedFeatureId?: string;
   author?: string;
-  /** People who added their support (a 👍 on GitHub), beyond the author. */
+  /** People who added their support (a 👍 on GitHub), not counting the author or bots. */
   votes: number;
   importance?: Importance;
   state: "open" | "closed";
@@ -66,4 +72,9 @@ export interface Signal {
  */
 export interface SignalSource {
   list(): Promise<Signal[]>;
+}
+
+/** Signals held in memory, for tests and demos. @stability Experimental */
+export function memorySignals(signals: readonly Signal[]): SignalSource {
+  return { list: async () => [...signals] };
 }

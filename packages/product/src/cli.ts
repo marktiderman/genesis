@@ -10,12 +10,15 @@ const USAGE = `genesis-product <command> [options]
 
   board     The Now / Next / Later board, top ideas by demand, and the triage inbox.
               --out <file>   write it to a file instead of printing it
-              --issue        write it to the repo's "Product board" issue (needs GITHUB_TOKEN)
+              --issue        write it to the repo's board issue (needs GITHUB_TOKEN; meant for the workflow)
+              --board-author whose board issue to write (default github-actions[bot])
   release   Draft release notes for the features that reached beta or live.
               --from <ref>   the last release (a tag or commit); required
               --to <ref>     default: the working tree's features.json
               --name <name>  default: today's date
-              --notify       comment on and close the issues it answers (needs GITHUB_TOKEN)
+              --notify       list the idea issues it answers; with --yes, close each and comment
+                             on it (needs GITHUB_TOKEN). Refuses more than 10 changed features
+                             without --force, in case --from is wrong.
 
   Both: --repo <owner/repo> (default: the origin remote), --catalog <file> (default: features.json),
         --offline (no GitHub: the catalog only)`;
@@ -31,6 +34,9 @@ async function main(argv: string[]): Promise<number> {
       to: { type: "string" },
       name: { type: "string" },
       notify: { type: "boolean" },
+      yes: { type: "boolean" },
+      force: { type: "boolean" },
+      "board-author": { type: "string" },
       repo: { type: "string" },
       catalog: { type: "string", default: "features.json" },
       offline: { type: "boolean" },
@@ -50,7 +56,7 @@ async function main(argv: string[]): Promise<number> {
     if (!token || !repo) throw new Error(`${flag} needs GITHUB_TOKEN and a repo (--repo owner/repo).`);
     return { repo, token };
   };
-  const writes = Boolean(values.issue || values.notify);
+  const writes = Boolean(values.issue || (values.notify && values.yes));
   let signals: Awaited<ReturnType<ReturnType<typeof githubSignals>["list"]>> = [];
   if (!values.offline && repo) {
     try {
@@ -64,7 +70,7 @@ async function main(argv: string[]): Promise<number> {
 
   if (command === "board") {
     const markdown = renderBoard(buildBoard(readCatalog(values.catalog), signals), { date: today });
-    if (values.issue) console.log(await publishBoardIssue(needsToken("--issue"), markdown));
+    if (values.issue) console.log(await publishBoardIssue({ ...needsToken("--issue"), author: values["board-author"] }, markdown));
     else if (values.out) writeFileSync(values.out, markdown);
     else console.log(markdown);
     return 0;
@@ -77,11 +83,19 @@ async function main(argv: string[]): Promise<number> {
   console.log(renderRelease(changes, signals, { name }));
   if (values.notify) {
     const answered = answeredBy(changes, signals);
+    console.error(`Answers ${answered.length} open idea issue${answered.length === 1 ? "" : "s"}${answered.length ? `: ${answered.map((s) => s.id.replace(/^github/, "")).join(", ")}` : ""}.`);
+    if (changes.length > 10 && !values.force) {
+      throw new Error(`${changes.length} features changed since ${values.from}: is --from the last release? Pass --force if it is.`);
+    }
+    if (!values.yes) {
+      console.error("Dry run: nothing was closed. Pass --yes to close these issues and comment on them.");
+      return 0;
+    }
     const closed = await closeAnswered(needsToken("--notify"), answered, (s) => {
       const change = changes.find((c) => c.feature.id === s.featureId || c.feature.aliases?.includes(s.featureId!));
       return `Shipped in release ${name}${change ? `: **${change.feature.name}**${change.change === "beta" ? " (in beta)" : ""}` : ""}. Thank you for asking.`;
     });
-    console.error(`Closed ${closed.length} answered issue${closed.length === 1 ? "" : "s"}${closed.length ? `: #${closed.join(", #")}` : ""}.`);
+    console.error(`Closed ${closed.length} issue${closed.length === 1 ? "" : "s"}${closed.length ? `: #${closed.join(", #")}` : ""}.`);
   }
   return 0;
 }

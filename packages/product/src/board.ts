@@ -79,6 +79,11 @@ export function buildBoard(features: readonly CatalogFeature[], signals: readonl
 }
 
 const cell = (text: string) => text.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+/**
+ * Text people wrote (an issue title) as an inline code span, so the board
+ * can't be made to @mention anyone, link anywhere or show an image.
+ */
+const quoted = (text: string) => `\`${cell(text).replace(/`/g, "'") || " "}\``;
 const ref = (s: Signal) => (s.url ? `[${s.id.replace(/^github/, "")}](${s.url})` : s.id);
 
 function table(items: readonly BoardItem[]): string {
@@ -92,7 +97,14 @@ function table(items: readonly BoardItem[]): string {
 
 function list(signals: readonly Signal[]): string {
   if (!signals.length) return "_Nothing to triage._\n";
-  return signals.map((s) => `- ${ref(s)} ${s.kind}: ${cell(s.title)}${s.featureId ? ` (names \`${s.featureId}\`)` : ""}`).join("\n") + "\n";
+  return (
+    signals
+      .map((s) => {
+        const named = s.featureId ?? s.suggestedFeatureId;
+        return `- ${ref(s)} ${s.kind}: ${quoted(s.title)}${named ? ` (${s.featureId ? "linked to" : "suggests"} \`${named}\`)` : ""}`;
+      })
+      .join("\n") + "\n"
+  );
 }
 
 /** Options for {@link renderBoard}. @stability Experimental */
@@ -132,7 +144,7 @@ export function renderBoard(board: Board, options: RenderBoardOptions): string {
     table(ideas),
     `## To triage (${board.untriaged.length})`,
     "",
-    "Link each to a feature: add `feature:<id>` as a label, or put the id under **Feature** in the issue.",
+    "Link each to a feature by adding the `feature:<id>` label. The id a sender suggests counts only once a triager adds the label.",
     "",
     list(board.untriaged),
     ...(board.unknown.length ? [`## Unknown feature ids (${board.unknown.length})`, "", list(board.unknown)] : []),
