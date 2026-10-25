@@ -1,0 +1,28 @@
+packages/chat/migrations/tests/0002_genesis_chat_coaching.test.sql
+  s_c0870a827920ef::t_e459cdf23231a5 1-156
+packages/chat/migrations/0002_genesis_chat_coaching.sql
+  s_c0870a827920ef::t_76fa2918bf579f 1-614
+  s_c0870a827920ef::t_e714d6f7f86854 615
+.changeset/chat-coaching.md
+  s_c0870a827920ef::t_0e66ce0abfc58f 1-5
+features.ts
+  s_c0870a827920ef::t_5056d6c249b1ee 1207
+packages/chat/package.json
+  s_c0870a827920ef::t_bf4dfc7da30480 176-179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "035ec247f1ad7df62bce258b9564cbdd1e5577e5",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
