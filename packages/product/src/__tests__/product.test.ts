@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { answeredBy, buildBoard, demand, diffRelease, renderBoard, renderRelease, type CatalogFeature, type Signal } from "../index";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { catalogAt, closeAnswered, githubSignals, issueToSignal, parseCatalog, publishBoardIssue, type GitHubIssue } from "../node";
@@ -255,5 +255,36 @@ describe("GitHub source and writes (@feat:product-insights)", () => {
       ["PATCH", "/issues/5"],
       ["POST", "/issues/5/comments"],
     ]);
+  });
+});
+
+describe("the core stays usable from React Native (@feat:product-roadmap)", () => {
+  it("imports nothing from node: and never pulls in ./node, through every module index reaches", () => {
+    const seen = new Set<string>();
+    const walk = (file: string) => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      const text = readFileSync(join(__dirname, "..", `${file}.ts`), "utf8");
+      for (const [, spec] of text.matchAll(/from\s+"([^"]+)"/g)) {
+        expect(spec!.startsWith("node:"), `${file} imports ${spec}`).toBe(false);
+        expect(spec, `${file} imports ./node`).not.toBe("./node");
+        if (spec!.startsWith("./")) walk(spec!.slice(2));
+      }
+    };
+    walk("index");
+    expect([...seen].sort()).toEqual(["board", "index", "model", "release"]);
+  });
+});
+
+describe("board issue writes (@feat:product-roadmap)", () => {
+  it("leaves the issue alone when only the date changed", async () => {
+    const calls: string[] = [];
+    const fetchStub = (async (url: string, init: { method: string }) => {
+      calls.push(`${init.method} ${url}`);
+      const body = [{ number: 3, title: "Product board", body: "Generated 2026-10-24 by x\nsame", html_url: "u3", state: "open", created_at: "", user: { login: "github-actions[bot]" }, labels: [] }];
+      return new Response(JSON.stringify(body), { status: 200 });
+    }) as unknown as typeof fetch;
+    expect(await publishBoardIssue({ repo: "o/r", token: "t", fetch: fetchStub }, "Generated 2026-10-25 by x\nsame")).toBe("u3");
+    expect(calls.every((c) => c.startsWith("GET"))).toBe(true);
   });
 });

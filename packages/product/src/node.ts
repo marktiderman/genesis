@@ -121,6 +121,9 @@ export interface GitHubOptions {
   fetch?: typeof fetch;
 }
 
+/** Tokens GitHub refused this run, so the warning prints once. */
+const refused = new Set<string>();
+
 async function request(options: GitHubOptions, path: string, init?: { method: string; body: unknown }): Promise<Response> {
   const doFetch = options.fetch ?? fetch;
   const url = path.startsWith("https://") ? path : `https://api.github.com/repos/${options.repo}${path}`;
@@ -135,9 +138,10 @@ async function request(options: GitHubOptions, path: string, init?: { method: st
       },
       body: init ? JSON.stringify(init.body) : undefined,
     });
-  let res = await send(options.token);
-  // A rejected token shouldn't stop a read of a public repo: say so and read without it.
-  if (res.status === 401 && options.token && !init) {
+  let res = await send(refused.has(options.token ?? "") ? undefined : options.token);
+  // A rejected token shouldn't stop a read of a public repo: say so once and read without it.
+  if (res.status === 401 && options.token && !init && !refused.has(options.token)) {
+    refused.add(options.token);
     console.error("GitHub refused the token (401); reading without it.");
     res = await send(undefined);
   }
@@ -204,7 +208,8 @@ export interface PublishBoardOptions extends GitHubOptions {
 /**
  * Writes the board into the open issue labelled `product-board` that `author`
  * opened, opening one if there is none, so the board is one link away on any
- * device. Nobody else's issue is ever written. Returns its URL.
+ * device. Nobody else's issue is ever written, and the issue is left alone
+ * when only the date would change. Returns its URL.
  *
  * @stability Experimental
  */
@@ -212,6 +217,9 @@ export async function publishBoardIssue(options: PublishBoardOptions, body: stri
   const author = options.author ?? "github-actions[bot]";
   const open = await all<GitHubIssue>(options, `/issues?state=open&labels=${BOARD_LABEL}&creator=${encodeURIComponent(author)}&per_page=100`);
   const existing = open.find((i) => !i.pull_request && i.user?.login === author);
+  // Leave the issue alone when only the "Generated <date>" line would change.
+  const withoutDate = (text: string) => text.replace(/^Generated \S+ /m, "Generated ");
+  if (existing && withoutDate(existing.body ?? "") === withoutDate(body)) return existing.html_url;
   const issue = (
     existing
       ? await github(options, `/issues/${existing.number}`, { method: "PATCH", body: { body } })

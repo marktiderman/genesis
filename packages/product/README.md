@@ -60,6 +60,13 @@ GitHub issues to signals, and writes the board issue and the "shipped" comments.
 
 ## Not yet
 
+- Releases aren't wired into this repo's release flow yet. The plan, from the review: release.yml
+  pushes a `release/<date>` tag after a successful publish; the notes diff from the latest
+  `release/*` tag, go in a sticky comment on the Version Packages pull request (changesets
+  rewrites its body), and become the GitHub release's body; `--notify --yes` runs after the
+  publish, never before. A CI run of `release` needs `fetch-depth: 0` for the tags.
+- Not on npm: an app installs it once the owner publishes it (see Status above).
+
 - No database source, no insights captured from support reports, and no screens: the board is
   markdown.
 - No notifications beyond GitHub's own: `--notify` comments on the issue, which tells its

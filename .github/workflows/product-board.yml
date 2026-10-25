@@ -15,7 +15,8 @@ permissions:
 
 concurrency:
   group: product-board
-  cancel-in-progress: true
+  # A second run waits rather than cutting a write in half.
+  cancel-in-progress: false
 
 jobs:
   board:
