@@ -65,11 +65,25 @@ export function appPath(root: string, rel: string): string {
   if (safe.split("/").some((s) => s.toLowerCase() === ".git")) throw new Error(`"${rel}" is inside .git; refused`);
   const realRoot = realpathSync(root);
   const target = path.join(realRoot, ...safe.split("/"));
-  // The nearest existing ancestor must resolve inside the app.
+  // The nearest ancestor that is there at all (a dangling symlink counts) must resolve inside the app.
+  const there = (p: string) => {
+    try {
+      lstatSync(p);
+      return true;
+    } catch {
+      return false;
+    }
+  };
   let probe = path.dirname(target);
-  while (!existsSync(probe)) probe = path.dirname(probe);
-  if (!inside(realRoot, realpathSync(probe))) throw new Error(`${rel} is outside the app (a symlinked folder?)`);
-  if (existsSync(target) && lstatSync(target).isSymbolicLink()) throw new Error(`${rel} is a symlink; left alone`);
+  while (!there(probe)) probe = path.dirname(probe);
+  let real: string;
+  try {
+    real = realpathSync(probe);
+  } catch {
+    throw new Error(`${rel} goes through a broken symlink (${path.relative(realRoot, probe)}); refused`);
+  }
+  if (!inside(realRoot, real)) throw new Error(`${rel} is outside the app (a symlinked folder?)`);
+  if (there(target) && lstatSync(target).isSymbolicLink()) throw new Error(`${rel} is a symlink; left alone`);
   return target;
 }
 

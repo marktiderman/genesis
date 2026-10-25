@@ -54,6 +54,9 @@ describe("block manifests", () => {
     symlinkSync(elsewhere, path.join(root, "supabase"), "dir");
     expect(() => appPath(root, "supabase/migrations/x.sql")).toThrow(/outside the app/);
     expect(() => appPath(root, "../x")).toThrow(/plain path/);
+    symlinkSync(path.join(elsewhere, "gone"), path.join(root, "dangling"), "dir");
+    expect(() => appPath(root, "dangling/migrations/x.sql")).toThrow(/broken symlink/);
+    expect(() => appPath(root, ".git/config")).toThrow(/inside \.git/);
     expect(appPath(root, ".eas/workflows/e2e.yml")).toContain(".eas");
   });
 
