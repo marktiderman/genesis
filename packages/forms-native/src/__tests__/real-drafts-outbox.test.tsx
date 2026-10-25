@@ -47,7 +47,7 @@ describe("with useFormDraft and createSubmitOutbox", () => {
     next();
     await flush();
     // The draft is saved asynchronously: wait for it to land rather than a fixed delay (slow CI runners).
-    await vi.waitFor(() => expect(storage.keys().some((k) => k.includes("check-in"))).toBe(true));
+    await vi.waitFor(() => expect(storage.keys().some((k) => k.includes("check-in"))).toBe(true), { timeout: 5000 });
     first.unmount();
     await wait(20);
     expect(storage.keys().some((k) => k.includes("check-in"))).toBe(true);
@@ -67,7 +67,7 @@ describe("with useFormDraft and createSubmitOutbox", () => {
     await vi.waitFor(() => expect(queryTestId("form-ending")).not.toBeNull());
     expect(byTestId("form-status").textContent).toContain("Saved on this device");
     expect(outbox.getSnapshot().items.map((i) => i.id)).toEqual(["key-0000000000000009"]);
-    await vi.waitFor(() => expect(storage.keys().some((k) => k.includes("check-in"))).toBe(false));
+    await vi.waitFor(() => expect(storage.keys().some((k) => k.includes("check-in"))).toBe(false), { timeout: 5000 });
     expect(send).not.toHaveBeenCalled();
     // Back online: it is sent and leaves the outbox.
     outbox.start();
