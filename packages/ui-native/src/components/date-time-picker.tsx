@@ -110,9 +110,7 @@ function PickerButton({
         accessibilityValue={{ text: label }}
         accessibilityState={{ disabled }}
         disabled={disabled}
-        onPress={() => {
-          if (!isIOS) setShowAndroid(true);
-        }}
+        onPress={() => setShowAndroid(true)}
         className={cn(
           "min-h-[44px] flex-row items-center rounded-md border border-input bg-background px-3",
           disabled && "opacity-50",
@@ -121,14 +119,14 @@ function PickerButton({
       >
         <Text className="flex-1 text-base text-foreground">{label}</Text>
       </Pressable>
-      {(isIOS || showAndroid) ? (
+      {showAndroid ? (
         <Picker
           testID={testID ? `${testID}-picker` : undefined}
           value={value}
           mode={mode}
-          display={isIOS ? "compact" : "default"}
+          display="default"
           onChange={(_e, d) => {
-            if (!isIOS) setShowAndroid(false);
+            setShowAndroid(false);
             if (d) onChange(d);
           }}
         />
