@@ -8,7 +8,7 @@
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
  *         └ session + boot (splash held until both are known)
  *           └ blocks' roots (with `blocks`, e.g. updates: force upgrade, maintenance, banner, what's new)
- *             └ errorBoundary → your screens (or `signedOut`)
+ *             └ errorBoundary → `bottomSheet`'s provider, if given → your screens (or `signedOut`)
  *
  * Every error the shell catches goes to each block's `onError` (the
  * observability block reports it) and then to the app's own `onError`.
@@ -29,7 +29,7 @@ import type { CanonicalBrand } from "@marktiderman/genesis-design-system";
 import { GenesisProvider, createSupabaseProvider, type DataProvider, type SupabaseClientInput } from "@marktiderman/genesis-core/provider";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { KeyboardScrollProvider, type KeyboardScrollProps, type KeyboardToolbarProps } from "@marktiderman/genesis-ui-native/layouts";
-import { GenesisModulesProvider, type GenesisModules } from "@marktiderman/genesis-ui-native/components";
+import { GenesisModulesProvider, NativeSheetProvider, type GenesisModules, type NativeSheetLibrary } from "@marktiderman/genesis-ui-native/components";
 import { BootProvider, createBoot, type BootOptions, type BootStatus, type BootStep } from "./boot";
 import {
   FatalScreen,
@@ -134,6 +134,16 @@ export interface GenesisNativeAppProps {
    * to plain React Native. Read once.
    */
   modules?: GenesisModules;
+  /**
+   * `@gorhom/bottom-sheet` v5, to opt every `NativeSheet` into it (snap
+   * points, drag between heights): `import * as BottomSheet from "@gorhom/bottom-sheet"`,
+   * then `bottomSheet={BottomSheet}`. The app mounts `NativeSheetProvider`
+   * (and so the library's `BottomSheetModalProvider`) for you; the app's root
+   * must still be inside gesture-handler's `GestureHandlerRootView`, with
+   * Reanimated set up. Leave it out and sheets are React Native's own modal
+   * (an iOS page sheet), which needs neither. Read once.
+   */
+  bottomSheet?: NativeSheetLibrary;
   /** Follow a link held while signed out, once the user signs in. */
   links?: { hold: LinkHold; onRelease: (path: string) => void };
   /** Run before first render, in order (wipe-on-reinstall, hydrate stores, fonts). Read once. */
@@ -276,6 +286,8 @@ function Shell(props: GenesisNativeAppProps) {
   const latest = useRef(props);
   latest.current = props;
   const [blockList] = useState(() => givenBlocks(props));
+  // Read once, like the keyboard provider: a different module later would remount the screens.
+  const [bottomSheet] = useState(() => props.bottomSheet);
   const onError: OnError = (error, report) => {
     reportToBlocks(blockList, error, report);
     try {
@@ -416,7 +428,8 @@ function Shell(props: GenesisNativeAppProps) {
         <BootProvider boot={boot}>
           <BlocksProvider value={parts.blocks}>
             <GenesisErrorBoundary key={resetKey} fallback={FatalFallback} onError={onError} onRetry={retry}>
-              {content}
+              {/* Sheet content renders in the library's portal, here: below data, session, boot and blocks. */}
+              {bottomSheet ? <NativeSheetProvider bottomSheet={bottomSheet}>{content}</NativeSheetProvider> : content}
             </GenesisErrorBoundary>
           </BlocksProvider>
         </BootProvider>

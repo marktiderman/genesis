@@ -41,6 +41,7 @@ describe("genesis init --template native", () => {
     expect(files["metro.config.js"]).not.toContain("monorepoRoot");
     expect(files["pnpm-workspace.yaml"]).toContain("nodeLinker: hoisted");
     expect(files["pnpm-workspace.yaml"]).not.toMatch(/^packages:/m);
+    expect(files["pnpm-workspace.yaml"]).not.toMatch(/patchedDependencies|patches\//);
   });
 
   it("adds the templates and records owned files, blocks and renames in genesis.lock.json", async () => {
@@ -70,5 +71,10 @@ describe("genesis init --template native", () => {
 
   it("keeps pnpm settings and drops the workspace list", () => {
     expect(appPnpmSettings('packages:\n  - "apps/*"\n\n# why\nnodeLinker: hoisted\n')).toBe("# pnpm settings for this app, from the Genesis monorepo it was made from.\n# why\nnodeLinker: hoisted\n");
+  });
+
+  it("drops the monorepo's patched dependencies, whose patch files an app doesn't have", () => {
+    const text = "nodeLinker: hoisted\n\npatchedDependencies:\n  # why\n  tsup@8.5.1: patches/tsup@8.5.1.patch\nautoInstallPeers: true\n";
+    expect(appPnpmSettings(text)).toBe("# pnpm settings for this app, from the Genesis monorepo it was made from.\nnodeLinker: hoisted\n\nautoInstallPeers: true\n");
   });
 });

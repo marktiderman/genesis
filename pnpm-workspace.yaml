@@ -62,3 +62,12 @@ overrides:
   react-dom: 19.3.0
   "@types/react": 19.3.0
   react-native: 0.88.0
+
+patchedDependencies:
+  # tsup 8.5.1's declaration build forces `baseUrl: "."` into the compiler options, and TypeScript 6
+  # fails on `baseUrl` (TS5101, deprecated). The patch deletes that one line, as tsup 9.0.0 does
+  # upstream; no package sets `paths`, and the emitted .d.ts files are byte-identical with and
+  # without it (measured on every package's dist). Drop the patch when the packages move to tsup 9.
+  # It names 8.5.1 exactly: if the lockfile moves tsup to another 8.x, re-create it for that version.
+  # `genesis init` leaves this block out of an app's pnpm settings (an app has no patches/ folder).
+  tsup@8.5.1: patches/tsup@8.5.1.patch

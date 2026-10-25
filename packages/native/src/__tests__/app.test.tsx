@@ -371,6 +371,29 @@ describe("GenesisNativeApp", () => {
     expect(mounts).toHaveBeenCalledOnce();
   });
 
+  it("mounts the bottom-sheet provider only when the app passes the library in", async () => {
+    const mounted = vi.fn();
+    const bottomSheet = {
+      // The real one hosts the portal sheets render into: what it can read, sheet content can.
+      BottomSheetModalProvider: ({ children }: { children: ReactNode }) => {
+        useQueryClient();
+        mounted();
+        return <div data-testid="sheet-provider">{children}</div>;
+      },
+      BottomSheetModal: () => null,
+      BottomSheetView: () => null,
+      BottomSheetBackdrop: () => null,
+    };
+    const first = setup({});
+    await act(flush);
+    expect(screen.queryByTestId("sheet-provider")).toBeNull();
+    first.unmount();
+    setup({ bottomSheet });
+    await act(flush);
+    expect(screen.getByTestId("sheet-provider").contains(screen.getByTestId("screens"))).toBe(true);
+    expect(mounted).toHaveBeenCalled();
+  });
+
   it("keeps the first keyboard provider, so an inline one can't remount the app", async () => {
     const shellMounts = vi.fn();
     function Probe() {

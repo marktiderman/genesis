@@ -63,7 +63,7 @@
     "react-dom": "^19.2.5",
     "react-native": "0.88.0",
     "tsup": "^8.3.0",
-    "typescript": "^5.9.3",
+    "typescript": "~6.0.3",
     "vitest": "^4.1.12"
   }
 }

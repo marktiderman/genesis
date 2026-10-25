@@ -11,7 +11,8 @@
     "doctor": "genesis doctor",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "test": "vitest run",
+    "test": "vitest run && jest",
+    "test:components": "jest",
     "e2e": "maestro test .maestro/flows"
   },
   "dependencies": {
@@ -73,13 +74,18 @@
   },
   "devDependencies": {
     "@marktiderman/genesis-cli": "workspace:^",
+    "@react-native/jest-preset": "0.88.0",
+    "@testing-library/react-native": "^14.1.0",
+    "@types/node": "^22.20.1",
     "@types/react": "~19.3.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
+    "jest": "~30.5.2",
+    "jest-expo": "~58.0.12",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.21.0",
-    "typescript": "~5.9.3",
+    "typescript": "~6.0.3",
     "vitest": "^4.1.12",
     "yaml": "^2.6.0"
   }

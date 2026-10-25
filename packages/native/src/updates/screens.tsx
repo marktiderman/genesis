@@ -11,6 +11,7 @@ import {
   NativeEmptyState,
   NativeGlassSurface,
   NativeSheet,
+  NativeSheetScrollView,
   NativeText,
   useLiquidGlass,
 } from "@marktiderman/genesis-ui-native/components";
@@ -136,7 +137,8 @@ export interface WhatsNewProps {
 export function WhatsNewSheet({ notes, dismiss }: WhatsNewProps) {
   return (
     <NativeSheet open onOpenChange={(open) => (open ? undefined : dismiss())} testID="genesis-whats-new">
-      <View className="gap-4 p-6">
+      {/* The notes scroll once they pass the sheet's height. */}
+      <NativeSheetScrollView contentContainerClassName="gap-4 p-6">
         <NativeText preset="h3" accessibilityRole="header">
           What's new
         </NativeText>
@@ -151,7 +153,7 @@ export function WhatsNewSheet({ notes, dismiss }: WhatsNewProps) {
         <NativeButton onPress={dismiss} testID="genesis-whats-new-done">
           Got it
         </NativeButton>
-      </View>
+      </NativeSheetScrollView>
     </NativeSheet>
   );
 }
