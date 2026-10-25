@@ -548,6 +548,9 @@ importers:
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../core
+      '@marktiderman/genesis-notifications':
+        specifier: workspace:^
+        version: link:../notifications
       '@marktiderman/genesis-ui':
         specifier: workspace:^
         version: link:../ui

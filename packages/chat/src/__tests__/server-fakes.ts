@@ -30,6 +30,9 @@ export function fakeSupabase(opts: {
       eq: (k: string, v: unknown) => (filters.push([k, v]), b),
       limit: () => b,
       maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
+      // Awaiting the builder itself lists every matching row.
+      then: (resolve: (v: { data: Row[]; error: null }) => unknown, reject?: (e: unknown) => unknown) =>
+        Promise.resolve({ data: rows(), error: null }).then(resolve, reject),
     };
     return b;
   };

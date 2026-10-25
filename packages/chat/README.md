@@ -97,7 +97,7 @@ export const video = muxVideo({
 });
 const runner = createChatRunner({
   supabase,
-  // Or: (n) => notify({ type: "chat.message", recipients: n.recipients, data: n.data, idempotencyKey: n.idempotencyKey, threadKey: n.threadKey, collapseKey: n.collapseKey })
+  // Or through genesis-notifications: notificationsDeliver({ notify, client: supabase, registry: notifications })
   deliver: createExpoDeliver({ tokensFor: myPushTokens, accessToken: process.env.EXPO_ACCESS_TOKEN }),
   transcriber: deepgramTranscriber({ apiKey: process.env.DEEPGRAM_API_KEY! }),
   video,
@@ -108,13 +108,21 @@ export const POST = chatRunnerHandler({ runner, secret: process.env.CHAT_RUNNER_
 
 Each `run()` claims up to 50 due effects (`batch.limit`), works up to 4 of a kind at once
 (`batch.concurrency`), settles each (`complete_effect`; an error backs off 30 s × 2^attempts) and
-answers `{ claimed, done, failed }`. It claims only `push`, `transcribe`, `storage.remove` and
-`video.remove` (or the `kinds` you pass); after the 8th attempt an effect is left alone.
+answers `{ claimed, done, failed, scheduled }` (plus `purged` and `errors` when there are any). It
+claims `push`, `transcribe`, `storage.remove` and `video.remove`, plus `moderate` with a `moderator`
+and `unfurl` with an `unfurler` (or the `kinds` you pass); after the 8th attempt an effect is left
+alone. Each run also posts due scheduled messages (`due_scheduled`, then `post_scheduled` each, as
+their sender, with every check `send_message` makes; `scheduled: false` turns it off) and, with
+`retention: true`, removes messages past their kind's retention (`purge_expired`, up to 10 000 a run,
+never in a conversation on legal hold). A failure there is reported in `errors`, never thrown.
 
 - **push**: one `deliver(notification)` per message, with every recipient and their badge. The
   title is the conversation's, or the sender's name (`resolveName`) in a direct conversation; in a
   group the body is `Name: preview`. `idempotencyKey` is `push:<message id>`, so a sender that
-  dedupes never pushes a message twice. Throw from `deliver` to retry. `createExpoDeliver` sends
+  dedupes never pushes a message twice; `data` always carries `messageId` and `seq` (native derives
+  a reply's client id from them). There is no `collapseKey` unless you pass `collapse: true`: on iOS
+  the collapse id becomes the notification's identifier, so replies from two notifications of one
+  conversation would collide. Throw from `deliver` to retry. `createExpoDeliver` sends
   through Expo in requests of 100 (`threadId`, `collapseId`, `badge`, channel `messages`, category
   `chat-message`) and returns the tickets: forget `deadTokens(tickets)`. It throws only when
   nothing was sent. Note that `collapseId` replaces a conversation's earlier notification on iOS.
@@ -149,6 +157,8 @@ those up.
 | `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET` | `muxVideo` uploads and removal |
 | `MUX_WEBHOOK_SECRET` | the Mux webhook's signing secret |
 | `MUX_SIGNING_KEY_ID`, `MUX_SIGNING_KEY` | only for `playbackPolicy: "signed"` (`signing` option) |
+| `OPENAI_API_KEY` | `openAiModerator` (omni-moderation-latest) |
+| `ANTHROPIC_API_KEY` | `createChatAssistant` on the fetch path (or pass an `@anthropic-ai/sdk` client) |
 
 ### Mux
 
@@ -162,3 +172,94 @@ track's `video.asset.track.ready` it stores the caption text as the transcript. 
 attachment not there yet answers 404, so Mux retries it. Playback is public by default
 (`https://stream.mux.com/<playback id>.m3u8`); with `playbackPolicy: "signed"` and `signing`,
 `video.playbackUrl(id)` (or `muxPlaybackUrl`) returns a URL with an RS256 token.
+
+### Push through genesis-notifications
+
+```ts
+import { defineNotifications, MESSAGE_ACTIONS } from "@marktiderman/genesis-notifications";
+import { notify } from "@marktiderman/genesis-notifications/server";
+import { CHAT_NOTIFICATION_CATEGORIES, CHAT_NOTIFICATION_TYPES, notificationsDeliver } from "@marktiderman/genesis-chat/server";
+
+export const notifications = defineNotifications({
+  categories: { ...CHAT_NOTIFICATION_CATEGORIES },
+  actions: { message: MESSAGE_ACTIONS },
+  types: { "chat.message": { ...CHAT_NOTIFICATION_TYPES["chat.message"], actions: "message" } },
+});
+const deliver = notificationsDeliver({ notify, client: supabase, registry: notifications });
+```
+
+One `notify()` per message: type `chat.message` (category `messages`, in the feed and pushed),
+every recipient with their own badge, `idempotencyKey: push:<message id>`, `threadKey` the
+conversation, `data` `{ url, conversationId, messageId, seq, title, body, senderId }`, and
+`collapseKey` only when the runner's `collapse` is on. Preferences, quiet hours and devices are
+genesis-notifications'.
+
+### Moderation
+
+`set_kind_options('cohort', p_moderate => true)` (a migration of yours) queues a `moderate` effect
+for each new text message in that kind. Give the runner
+`moderator: openAiModerator({ apiKey: process.env.OPENAI_API_KEY! })`: it sends the text and up to
+four photos (signed 10 minute URLs; the text with the first, the others one request each) to
+`omni-moderation-latest`. A category score at or over `hide` (default 0.9) hides the message from
+members and files a report for observers; at or over `flag` (default 0.5), or flagged by OpenAI,
+files the report only. `sexual/minors` hides at 0.5; `self-harm/intent` and
+`self-harm/instructions` flag at 0.3 so a coach sees them. Change them with `thresholds` and
+`categories`. The report names the categories and scores, never the text.
+
+### Link previews
+
+`unfurler: createLinkUnfurler()` works `unfurl` effects (a message's first three https links) and
+stores `ok`, `failed` or `blocked` with `save_link_preview`; clients read `genesis_chat.link_previews`.
+It fetches https on port 443 only, follows at most 3 redirects and checks each one, refuses private,
+loopback, link-local, carrier-grade NAT and cloud metadata addresses (and `localhost`, `*.local`,
+`*.internal`, single-label names), reads HTML only, up to 512 KiB, in 5 seconds, and runs nothing.
+It resolves the host first through `node:dns` or `Deno.resolveDns`; where neither exists (some edge
+runtimes) it can only refuse IP literals and local names, so pass `resolve` there or run the
+runner in Node. fetch resolves the name again, so DNS rebinding is not caught: firewall private
+ranges from the runner if that matters to you.
+
+### Video uploads
+
+```ts
+import { createVideoUploadHandler } from "@marktiderman/genesis-chat/server";
+export const POST = createVideoUploadHandler({
+  video, // muxVideo(...) from above
+  // Confirm the session's user may post there: e.g. a select on genesis_chat.members as that user.
+  authorize: async (request, { conversationId }) => mayPost(await userFrom(request), conversationId),
+  corsOrigin: ["https://app.example.com"],
+});
+```
+
+The composer POSTs `{ conversationId, attachmentId? }` and gets `{ url, providerId, provider: "mux" }`;
+it PUTs the file to `url` and sends the attachment with `provider_id: providerId`. A refusal answers 403.
+
+### AI recaps and reply drafts
+
+```ts
+import { createChatAssistant } from "@marktiderman/genesis-chat/server";
+const assistant = createChatAssistant({ apiKey: process.env.ANTHROPIC_API_KEY! }); // or { anthropic: new Anthropic() }
+const { text, model, labelled } = await assistant.recap({ messages, since: lastReadAt, me: userId, resolveName });
+const draft = await assistant.draftReply({ messages, me: coachId, voice: "warm, brief, first names", resolveName });
+```
+
+Default model `claude-sonnet-5-5`, low effort, with `fallbacks: "default"` (a declined request is
+re-run on Anthropic's recommended model; `fallbacks: false` turns it off). Nothing is sent: show the
+text as written by AI (`labelled: true`) and let the person edit and send it. Internal notes are
+left out unless you pass `observer: true` for a staff reader. The transcript goes in as data, and
+the prompt tells the model to ignore instructions inside it. Call it from your server only, for a
+user you have checked may read the conversation.
+
+### Retention once a day
+
+Run a second runner daily with retention on (and scheduled posting off, since the minute runner
+does it). `vercel.json`: `{ "crons": [{ "path": "/api/chat-runner", "schedule": "* * * * *" },
+{ "path": "/api/chat-retention", "schedule": "30 3 * * *" }] }`, and:
+
+```ts
+// app/api/chat-retention/route.ts
+const retention = createChatRunner({ supabase, deliver, kinds: [], scheduled: false, retention: true });
+export const GET = chatRunnerHandler({ runner: retention, secret: process.env.CHAT_RUNNER_SECRET! });
+```
+
+Set a kind's retention with `set_kind_options('support', p_retention => interval '365 days')`, and
+hold a conversation with `set_legal_hold(id, true)` (service role).
