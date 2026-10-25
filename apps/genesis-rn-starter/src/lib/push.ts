@@ -21,13 +21,23 @@ import { AppState, Linking, Platform } from "react-native";
 import { createPush } from "@marktiderman/genesis-native/push";
 import { notificationsPushBackend, pushOptionsFrom } from "@marktiderman/genesis-notifications/native";
 import starter from "../../starter.config";
+import { chatPushCategory } from "@marktiderman/genesis-chat/native";
 import { copy } from "@/copy";
+import { onChatPushResponse } from "./chat";
 import { linkHold, links } from "./links";
 import { notifications } from "./notifications";
 import { supabase } from "./supabase";
 
-/** The kinds of notification the app sends (an Android channel each) and the action buttons, from the registry. */
-export const pushOptions = pushOptionsFrom(notifications);
+/**
+ * The kinds of notification the app sends (an Android channel each) and the action buttons, from
+ * the registry, plus chat's when it's on: its notifications carry Reply and Mark read (`chat.tsx`
+ * registers them).
+ */
+const fromRegistry = pushOptionsFrom(notifications);
+export const pushOptions = {
+  ...fromRegistry,
+  categories: [...(fromRegistry.categories ?? []), ...(starter.features.chat ? [chatPushCategory()] : [])],
+};
 
 export function createStarterPush() {
   return createPush({
@@ -37,6 +47,7 @@ export function createStarterPush() {
     appVersion: Application.nativeApplicationVersion,
     backend: notificationsPushBackend(supabase),
     ...pushOptions,
+    onResponse: onChatPushResponse,
     // This install's id: a token moves to another login only from this phone. Hermes has no crypto.randomUUID.
     randomUUID: Crypto.randomUUID,
     storage: AsyncStorage,

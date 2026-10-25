@@ -12,6 +12,7 @@ const en = {
   tabs: {
     home: "Home",
     notifications: "Notifications",
+    messages: "Messages",
     settings: "Settings",
   },
   signIn: {
@@ -104,6 +105,13 @@ const en = {
     feedback: { title: "Send feedback" },
     ideas: { title: "Idea board" },
     shipped: { title: "You asked, we shipped" },
+  },
+  // Chat's own strings (genesis-chat's `chatNativeCopy`); the ones here override its English.
+  chat: {
+    inboxTitle: "Messages",
+  },
+  messages: {
+    threadTitle: "Conversation",
   },
 } as const;
 

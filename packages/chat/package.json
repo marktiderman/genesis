@@ -66,11 +66,14 @@
   "peerDependencies": {
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-query": "^5.0.0",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-native": ">=0.76.0",
+    "react-native-safe-area-context": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "@marktiderman/genesis-core": {
@@ -79,7 +82,28 @@
     "@marktiderman/genesis-ui": {
       "optional": true
     },
+    "@marktiderman/genesis-ui-native": {
+      "optional": true
+    },
+    "@shopify/flash-list": {
+      "optional": true
+    },
     "@tanstack/react-query": {
+      "optional": true
+    },
+    "expo-audio": {
+      "optional": true
+    },
+    "expo-clipboard": {
+      "optional": true
+    },
+    "expo-haptics": {
+      "optional": true
+    },
+    "expo-image": {
+      "optional": true
+    },
+    "expo-image-picker": {
       "optional": true
     },
     "lucide-react": {
@@ -90,11 +114,21 @@
     },
     "react-dom": {
       "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-keyboard-controller": {
+      "optional": true
+    },
+    "react-native-safe-area-context": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-query": "^5.75.0",
     "@testing-library/react": "^16.3.2",

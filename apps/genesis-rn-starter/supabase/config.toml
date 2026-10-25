@@ -2,6 +2,11 @@
 # CLI's defaults. See https://supabase.com/docs/guides/local-development/cli/config
 project_id = "genesis-rn-starter"
 
+# The API serves `genesis_chat` too (features.chat): its tables under row level security and its
+# functions, which are the chat client's only writes.
+[api]
+schemas = ["public", "graphql_public", "genesis_chat"]
+
 # Sign-up asks the person to confirm their email. The link confirms it on Supabase's side and
 # then opens `site_url`, not the app; the app's copy says to come back and sign in. (Opening the
 # app from the link needs `emailRedirectTo`, a redirect URL here and a screen that exchanges the

@@ -92,6 +92,15 @@ export interface StarterFeatures {
    * the form in `src/forms/check-in.json`, or turn it off. JavaScript only.
    */
   checkIn: boolean;
+  /**
+   * Chat (`@marktiderman/genesis-chat`): the Messages tab with your conversations and a thread
+   * screen (photos, voice notes, reactions, replies), on the `genesis_chat` migration, and the
+   * `messages` push category with Reply and Mark read when `push` is on. Conversations are started
+   * by your server (`genesis_chat.ensure_conversation`) until you register a start check for a
+   * kind (the genesis-chat README, Kinds and rules). JavaScript only: expo-audio, expo-image-picker
+   * and expo-clipboard stay in the build either way.
+   */
+  chat: boolean;
 }
 
 export interface StarterConfig {

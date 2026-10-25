@@ -7,11 +7,11 @@ import { expectPathname, renderApp } from "./render-app";
 import { tabTitles } from "./tabs";
 
 describe("tabs", () => {
-  it("opens a signed-in person on Home, with Home, Notifications and Settings in the tab bar", async () => {
+  it("opens a signed-in person on Home, with Home, Notifications, Messages and Settings in the tab bar", async () => {
     const app = await renderApp("/", "person@example.com");
     expect(await screen.findByTestId("home")).toBeOnTheScreen();
     expect(app.getPathname()).toBe("/");
-    expect(tabTitles()).toEqual([copy.tabs.home, copy.tabs.notifications, copy.tabs.settings]);
+    expect(tabTitles()).toEqual([copy.tabs.home, copy.tabs.notifications, copy.tabs.messages, copy.tabs.settings]);
   });
 
   it("routes each tab to its screen", async () => {
