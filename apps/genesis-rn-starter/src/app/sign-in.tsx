@@ -46,7 +46,7 @@ export default function SignInScreen() {
 
   return (
     <AuthScreen
-      branding={{ headline: t.headline, subhead: t.subhead }}
+      branding={{ headline: t.headline, subhead: create ? t.createSubhead : t.subhead }}
       providers={[
         features.appleSignIn && appleProvider({ apple: AppleAuthentication, onPress: onApple }),
         googleProvider({ enabled: features.googleSignIn, onPress: onGoogle, disabled: busy }),

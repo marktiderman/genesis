@@ -160,6 +160,38 @@ describe("the devtools overlay", () => {
     expect(devtools.getState().open).toBe(true);
   });
 
+  it("close resolves only once the sheet has finished hiding (its onDismiss), so a screenshot after it shows the app", async () => {
+    const devtools = createDevtools({ enabled: true });
+    let closing: Promise<void> | undefined;
+    let sheetUpWhenResolved: boolean | undefined;
+    setup({
+      blocks: [devtools],
+      slots: {
+        devtoolsFeedback: ({ close }) => (
+          <button
+            data-testid="feedback"
+            onClick={() => {
+              closing = Promise.resolve(close()).then(() => {
+                sheetUpWhenResolved = screen.queryByTestId("genesis-devtools") !== null;
+              });
+            }}
+          />
+        ),
+      },
+    });
+    await act(settle);
+    act(() => devtools.open());
+    expect(screen.getByTestId("genesis-devtools")).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("feedback"));
+      await closing;
+    });
+    expect(devtools.getState().open).toBe(false);
+    expect(sheetUpWhenResolved).toBe(false);
+    // Closed already: nothing to wait for.
+    await expect(devtools.close()).resolves.toBeUndefined();
+  });
+
   it("renders the devtoolsFeedback slot with the debug info", async () => {
     const devtools = createDevtools({ enabled: true });
     setup({ blocks: [devtools], slots: { devtoolsFeedback: ({ debugInfo }) => <span data-testid="feedback">{debugInfo.split("\n")[0]}</span> } });

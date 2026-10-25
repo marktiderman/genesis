@@ -4,8 +4,10 @@
  * Keeps an app's `app.config.ts` to a name, ids and plugins. It sets:
  *
  * 1. App variants: `APP_VARIANT` (`development` | `preview` | `production`,
- *    default `production`) suffixes the bundle id, Android package and name,
- *    so the three builds install side by side.
+ *    default `production`) suffixes the bundle id, Android package, name and
+ *    URL scheme, so the three builds install side by side and a
+ *    `scheme://` link opens the build it names, not whichever one iOS or
+ *    Android picks among apps that registered the same scheme.
  * 2. Universal / app links from genesis.config.json `links`:
  *    `ios.associatedDomains` (`applinks:` and `webcredentials:`) and one
  *    Android `intentFilters` entry with `autoVerify`.
@@ -65,6 +67,8 @@ export interface VariantSuffix {
   id: string;
   /** Appended to `name`, e.g. ` (Dev)`. */
   name: string;
+  /** Appended to each `scheme`, e.g. `-dev` (`myapp-dev://`). */
+  scheme: string;
 }
 
 /** A required-reason API category and the reasons for it, as in PrivacyInfo.xcprivacy. */
@@ -79,7 +83,7 @@ export interface WithGenesisOptions {
    * leaves it out and sets `APP_VARIANT` per build profile in eas.json.
    */
   variant?: AppVariant;
-  /** Suffixes per non-production variant. Default `.dev` / ` (Dev)` and `.preview` / ` (Preview)`. */
+  /** Suffixes per non-production variant. Default `.dev` / ` (Dev)` / `-dev` and `.preview` / ` (Preview)` / `-preview`. */
   variants?: Partial<Record<Exclude<AppVariant, "production">, Partial<VariantSuffix>>>;
   /** Where genesis.config.json and package.json live. Default: the Expo project root. */
   projectRoot?: string;
@@ -100,8 +104,8 @@ export interface WithGenesisOptions {
 }
 
 export const DEFAULT_VARIANT_SUFFIXES: Record<Exclude<AppVariant, "production">, VariantSuffix> = {
-  development: { id: ".dev", name: " (Dev)" },
-  preview: { id: ".preview", name: " (Preview)" },
+  development: { id: ".dev", name: " (Dev)", scheme: "-dev" },
+  preview: { id: ".preview", name: " (Preview)", scheme: "-preview" },
 };
 
 const api = (category: string, ...reasons: string[]): PrivacyApi => ({
@@ -238,6 +242,9 @@ export function applyVariant(config: ExpoConfig, variant: AppVariant, options: W
   const next: ExpoConfig = { ...config, name: add(config.name, suffix.name) };
   if (config.ios?.bundleIdentifier) next.ios = { ...config.ios, bundleIdentifier: add(config.ios.bundleIdentifier, suffix.id) };
   if (config.android?.package) next.android = { ...config.android, package: add(config.android.package, suffix.id) };
+  // Every build registering the same scheme would let a link open the wrong one. Production keeps the base.
+  if (typeof config.scheme === "string") next.scheme = add(config.scheme, suffix.scheme);
+  else if (Array.isArray(config.scheme)) next.scheme = config.scheme.map((scheme) => add(scheme, suffix.scheme));
   return next;
 }
 

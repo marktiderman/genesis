@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 146 components · 490 other exports · 361 standalone types across 11 packages and entry points.
+**Totals:** 146 components · 492 other exports · 361 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -793,7 +793,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (43)
+### Other exports (45)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -808,6 +808,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`cn`](../packages/ui-native/src/utils.ts) | function | — | _(no summary)_ |
 | [`composeHeaderOptions`](../packages/ui-native/src/layouts/screen-container.tsx) | function | — | Compose a `<Stack.Screen options={...}>` object from Layer-3 named props + a direct `headerOptions` passthrough. Layouts call this and pass the result to `<Stack.Screen>` so the host's expo-router stack renders a platform-native large ti... |
 | [`confirmDiscardChanges`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Default leave-guard helper. Pops a native Alert with Discard / Keep Editing buttons; calls `proceed()` only if the user opts to discard. |
+| [`defaultStickyHeaderOffset`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | Where a list's section headers stick by default: on iOS, the bottom of the collapsed navigation bar (the safe area's top plus the compact bar), since the list runs under the header; elsewhere 0 (the header sits above the list). |
 | [`ForgotPasswordLink`](../packages/ui-native/src/layouts/auth.tsx) | function | — | _(no summary)_ |
 | [`formatInboxTime`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | The default row time: `9:41`, `Yesterday`, `Monday`, then a short date. |
 | [`getInboxPageStackOptions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | `<Stack.Screen options>` for an InboxPage: a large title that collapses on scroll. |
@@ -816,6 +817,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`getSettingsSubPageStackOptions`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Compose `<Stack.Screen options={...}>` for a SettingsSubPage. Wires the nav-bar Save button via `headerRight` automatically when `onSave` is passed. |
 | [`getThreadPageStackOptions`](../packages/ui-native/src/layouts/thread-page.tsx) | function | — | `<Stack.Screen options>` for a ThreadPage: a standard (not large) title, like Messages. |
 | [`googleProvider`](../packages/ui-native/src/layouts/google-sign-in.tsx) | function | Beta | A `SocialAuthProvider` (id `"google"`) for `AuthScreen`'s `providers`, or `null` when `enabled` is false. |
+| [`iosCompactNavigationBarHeight`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | The height of iOS's compact navigation bar, below the status bar: 44 pt up to iOS 18, 54 pt from iOS 26 (measured on an iOS 26 simulator, the collapsed large-title bar of a native stack). |
 | [`KEYBOARD_TOOLBAR_HEIGHT`](../packages/ui-native/src/layouts/keyboard.tsx) | const | — | Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input. Mirrors `KEYBOARD_TOOLBAR_HEIGHT` in the library's `src/components/KeyboardToolbar/constants.ts` (1.22): move them together. |
 | [`KeyboardScrollProvider`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | _(no summary)_ |
 | [`NATIVE_ICON_NAMES`](../packages/ui-native/src/icon-names.ts) | const | — | Every semantic icon name. |

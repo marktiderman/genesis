@@ -251,8 +251,8 @@ describe("Maestro flows", () => {
   const flows = readdirSync(join(root, ".maestro/flows"));
   const appId = parse(read(".maestro/config.yaml")).appId as string;
 
-  it("cover launch, the sign-in screen, and Settings' version row", () => {
-    expect(flows.sort()).toEqual(["launch.yaml", "settings-version.yaml", "sign-in-screen.yaml"]);
+  it("cover launch, the sign-in screen, Settings' version row and a deep link", () => {
+    expect(flows.sort()).toEqual(["deep-link.yaml", "launch.yaml", "settings-version.yaml", "sign-in-screen.yaml"]);
     expect(read(".maestro/flows/settings-version.yaml")).toContain('id: "settings-row-version"');
   });
 
