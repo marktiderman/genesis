@@ -8,7 +8,7 @@ import { Platform, Text, TextInput, View, type KeyboardTypeOptions, type TextInp
 import { dateLimits, getFieldType, isIsoDate, numberLimits } from "@marktiderman/genesis-forms";
 import type { FieldRendererProps } from "@marktiderman/genesis-forms-react";
 import { accessibilityHint, FieldChrome, questionLabel } from "../chrome";
-import { useFormNative } from "../context";
+import { keyboardLacksReturnKey, useFormNative } from "../context";
 import { useFormStyles } from "../styles";
 import { useFormTheme } from "../theme";
 
@@ -50,13 +50,15 @@ export function AnswerInput({
 }) {
   const s = useFormStyles();
   const theme = useFormTheme();
-  const { focus, submit, locked, isLast } = useFormNative();
+  const { focus, submit, locked, isLast, setNeedsKeysBar } = useFormNative();
   const [focused, setFocused] = useState(false);
   const { field, error } = props.binding;
   const id = field.id;
   const ref = useCallback((node: ComponentRef<typeof TextInput> | null) => focus.setControl(id, locked ? null : node), [focus, id, locked]);
-  // iOS's number and phone pads have no return key: the app's keyboard toolbar (FormFocus draws
-  // it with Next or Send) carries the step on, and the form's own Next button stays in view.
+  // A number or phone pad before iOS 26 has no return key: the app's keyboard toolbar (FormFocus
+  // draws it with Next or Send) carries the step on, and the form's own Next button stays in view.
+  const lacksReturn = !multiline && keyboardLacksReturnKey(hints?.keyboardType);
+  useEffect(() => (lacksReturn ? () => setNeedsKeysBar(false) : undefined), [lacksReturn, setNeedsKeysBar]);
   return (
     <TextInput
       ref={ref}
@@ -73,8 +75,14 @@ export function AnswerInput({
       returnKeyType={multiline ? "default" : isLast ? "send" : "next"}
       submitBehavior={multiline ? "newline" : "submit"}
       onSubmitEditing={multiline ? undefined : () => submit()}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={() => {
+        setFocused(true);
+        if (lacksReturn) setNeedsKeysBar(true);
+      }}
+      onBlur={() => {
+        setFocused(false);
+        if (lacksReturn) setNeedsKeysBar(false);
+      }}
       style={[s.input, multiline ? s.multiline : null, focused ? s.inputFocused : null, error ? s.inputInvalid : null]}
       {...hints}
     />

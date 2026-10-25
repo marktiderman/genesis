@@ -7,7 +7,8 @@ import { createForm, defineForm, f } from "@marktiderman/genesis-forms";
 import { KeyboardScrollProvider, type KeyboardToolbarProps } from "@marktiderman/genesis-ui-native/layouts";
 import { announcements } from "../../test-utils/rn-mock";
 import { FormFocus, randomKey, type OutboxEnqueueLike, type OutboxLike } from "../index";
-import { act, byTestId, flush, next, press, queryTestId, renderForm, screen, type } from "./helpers";
+import { act, byTestId, fireEvent, flush, next, press, queryTestId, renderForm, screen, type } from "./helpers";
+import { keyboardLacksReturnKey } from "../context";
 
 beforeEach(() => {
   announcements.length = 0;
@@ -154,14 +155,28 @@ describe("return keys", () => {
         <FormFocus engine={engine} autoAdvance={false} />
       </KeyboardScrollProvider>,
     );
-    // No InputAccessoryView (deprecated in React Native 0.88): the app's toolbar instead.
+    // No InputAccessoryView (deprecated in React Native 0.88): the app's toolbar instead, while the pad is up.
     expect(byTestId("form-n").getAttribute("data-accessory-id")).toBeNull();
+    expect(queryTestId("keyboard-toolbar-done")).toBeNull();
+    act(() => {
+      fireEvent.focus(byTestId("form-n"));
+    });
     expect(toolbarProps.at(-1)).toMatchObject({ showArrows: false, doneText: "Next" });
     type("form-n", "3");
     press("keyboard-toolbar-done");
     expect(engine.getState().current).toBe(engine.idOf("last"));
+    // A text keyboard has its own return key (Send here): no bar repeating it.
     expect(byTestId("form-last").getAttribute("data-return-key")).toBe("send");
-    expect(byTestId("keyboard-toolbar-done").textContent).toBe("Send");
+    expect(queryTestId("keyboard-toolbar-done")).toBeNull();
+  });
+
+  it("know which keyboards lack a return key: iOS's pads before iOS 26 only", () => {
+    expect(keyboardLacksReturnKey("number-pad", "ios", "18.6")).toBe(true);
+    expect(keyboardLacksReturnKey("phone-pad", "ios", "17.0")).toBe(true);
+    expect(keyboardLacksReturnKey("number-pad", "ios", "26.0")).toBe(false);
+    expect(keyboardLacksReturnKey("default", "ios", "18.6")).toBe(false);
+    expect(keyboardLacksReturnKey("number-pad", "android", 35)).toBe(false);
+    expect(keyboardLacksReturnKey(undefined, "ios", "18.6")).toBe(false);
   });
 
   it("without the app's toolbar, a pad still moves on with the form's own Next", () => {

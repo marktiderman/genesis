@@ -72,6 +72,21 @@ export interface FormNativeContextValue {
   isLast: boolean;
   /** What the main button says now (Next, or Send on the last step). */
   submitLabel: string;
+  /** A keyboard with no return key (a number or phone pad before iOS 26) is up: the keyboard toolbar carries Next. */
+  needsKeysBar: boolean;
+  /** An answer input says its keyboard has no return key (on focus) or has gone (on blur). */
+  setNeedsKeysBar(needed: boolean): void;
+}
+
+/**
+ * Whether a keyboard leaves the respondent no key to move on with. iOS's number, decimal and
+ * phone pads have no return key before iOS 26; from iOS 26 they show the return key above the
+ * pad. Android's always have one.
+ */
+export function keyboardLacksReturnKey(keyboardType: string | undefined, os: string = Platform.OS, version: number | string = Platform.Version): boolean {
+  if (os !== "ios" || !keyboardType || !["number-pad", "decimal-pad", "phone-pad", "numeric"].includes(keyboardType)) return false;
+  const major = typeof version === "number" ? version : parseInt(version, 10);
+  return !(Number.isFinite(major) && major >= 26);
 }
 
 export const FormNativeContext = createContext<FormNativeContextValue | null>(null);
