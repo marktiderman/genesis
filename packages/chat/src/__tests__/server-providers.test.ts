@@ -178,7 +178,7 @@ describe("createExpoDeliver", () => {
       const batch = JSON.parse(String(init!.body)) as { to: string }[];
       return jsonResponse({ data: batch.map((m) => (m.to === "ExponentPushToken[7]" ? { status: "error", details: { error: "DeviceNotRegistered" } } : { status: "ok", id: `t-${m.to}` })) });
     });
-    const deliver = createExpoDeliver({ tokensFor: async () => devices, fetch: f.fetch, accessToken: "expo" });
+    const deliver = createExpoDeliver({ tokensFor: async () => devices, fetch: f.fetch, accessToken: "expo", collapse: true });
     const tickets = await deliver(notification);
     expect(f.calls.map((c) => (JSON.parse(String(c.init!.body)) as unknown[]).length)).toEqual([100, 100, 50]);
     const first = (JSON.parse(String(f.calls[0]!.init!.body)) as Record<string, unknown>[])[1];

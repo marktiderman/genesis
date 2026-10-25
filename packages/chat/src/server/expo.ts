@@ -19,7 +19,7 @@ export interface ExpoPushMessage {
   sound: "default" | null;
   badge: number;
   threadId: string;
-  collapseId: string;
+  collapseId?: string;
   channelId: string;
   categoryId: string;
 }
@@ -43,6 +43,11 @@ export interface ExpoDeliverOptions {
   /** Android channel (default `messages`) and notification category (default `chat-message`). */
   channelId?: string | undefined;
   categoryId?: string | undefined;
+  /**
+   * Replace a conversation's earlier notification with the newest (one per conversation).
+   * Off by default: like iMessage and WhatsApp, each message shows, grouped by thread.
+   */
+  collapse?: boolean | undefined;
 }
 
 export function createExpoDeliver(options: ExpoDeliverOptions): (n: ChatNotification) => Promise<ExpoDeliveryTicket[]> {
@@ -60,7 +65,7 @@ export function createExpoDeliver(options: ExpoDeliverOptions): (n: ChatNotifica
         sound: options.sound === undefined ? "default" : options.sound,
         badge: badges.get(d.userId) ?? 0,
         threadId: notification.threadKey,
-        collapseId: notification.collapseKey,
+        ...(options.collapse ? { collapseId: notification.collapseKey } : {}),
         channelId: options.channelId ?? "messages",
         categoryId: options.categoryId ?? "chat-message",
       }),
