@@ -226,6 +226,8 @@ describe("FeedbackForm", () => {
     view.rerender(wrap(<FeedbackForm />));
     fireEvent.click(screen.getByTestId("genesis-support-feedback-annotate"));
     expect(screen.getByTestId("genesis-support-feedback-annotator")).toBeTruthy();
+    // Drawn in a full-screen modal, outside the page's scroll view: a drag draws, it never scrolls the page.
+    expect(screen.getByTestId("genesis-support-feedback-annotator").closest('[role="dialog"]')?.getAttribute("data-presentation-style")).toBe("fullScreen");
     // No marks: Done keeps the image as it was, without a capture.
     await act(async () => {
       fireEvent.click(screen.getByTestId("genesis-support-feedback-annotator-done"));
