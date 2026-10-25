@@ -1,0 +1,63 @@
+.changeset/sites-sections-review-fixes.md
+  s_c0870a827920ef::t_10292a54ab1df8 1-13
+docs/SITES.md
+  s_c0870a827920ef::t_1377f6ffeaada5 252-253,365-366
+packages/sites/README.md
+  s_c0870a827920ef::t_e5a02f100a9fe7 146-150
+packages/sites/migrations/0002_genesis_sites_posts.sql
+  s_c0870a827920ef::t_8aa48d9c2f5b5a 264-266,298-299
+packages/sites/migrations/tests/0002_genesis_sites_posts.test.sql
+  s_c0870a827920ef::t_6498ec32ca1b5c 9,195,210-214,225
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_c0870a827920ef::t_0602b90e606a8e 49,51,53,77,79,95
+packages/sites/src/__tests__/blog.test.ts
+  s_c0870a827920ef::t_094fc42b2c0441 226,232-269
+packages/sites/src/__tests__/import.test.ts
+  s_c0870a827920ef::t_492abd2b6b4c82 164-172
+packages/sites/src/__tests__/sections-v1.test.tsx
+  s_c0870a827920ef::t_133725f9632a6c 140-198,215-219
+packages/sites/src/__tests__/seo-a11y.test.ts
+  s_c0870a827920ef::t_9297e4c1491497 155,159-168
+packages/sites/src/__tests__/web.test.ts
+  s_c0870a827920ef::t_00162c93a55a5b 193,210-224
+packages/sites/src/core/a11y.ts
+  s_c0870a827920ef::t_8b4faaff27281b 13-14,149,155
+packages/sites/src/core/theme.ts
+  s_c0870a827920ef::t_b96c1857fdfdb3 176,178-183,259-261
+packages/sites/src/import/index.ts
+  s_c0870a827920ef::t_bd57e12ae267fc 177-185
+packages/sites/src/sections/logos.tsx
+  s_c0870a827920ef::t_0f60d62577c1ea 4,61-66,70
+packages/sites/src/sections/pricing.tsx
+  s_738228bc0d81b1::t_03fd23e68b99af 54,65
+packages/sites/src/sections/schedule.tsx
+  s_c0870a827920ef::t_e4b64d7963711a 73-77,82-83,109,111-119,181-185,187-193,195,241
+packages/sites/src/sections/timeline.tsx
+  s_c0870a827920ef::t_c2451a7e3bbc8e 100-101,104,107
+packages/sites/src/web/handler.ts
+  s_c0870a827920ef::t_25e266565c970d 49,52-58,184-190,206-215,281-283
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dc237f019350be68bb3a2f63ff237829dd359f0e",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
