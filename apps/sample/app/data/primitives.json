@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 69
+      "count": 70
     }
   },
   "primitives": [
@@ -1852,6 +1852,59 @@
       ]
     },
     {
+      "slug": "google-sign-in",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/google-sign-in.tsx",
+      "stability": "beta",
+      "summary": "A `SocialAuthProvider` (id `\"google\"`) for `AuthScreen`'s `providers`, or\n`null` when `enabled` is false.",
+      "primaryComponent": "googleProvider",
+      "components": [
+        {
+          "name": "googleProvider",
+          "summary": "A `SocialAuthProvider` (id `\"google\"`) for `AuthScreen`'s `providers`, or\n`null` when `enabled` is false.",
+          "props": [
+            {
+              "name": "onPress",
+              "type": "() => void | Promise<void>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Usually `() => signInWithGoogle(supabase, GoogleOneTapSignIn, { digest })`."
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "enabled",
+              "type": "boolean | null",
+              "required": false,
+              "defaultValue": "true",
+              "description": "`false` (or `null`) gives `null`, so a switched-off provider goes in the list as is. Default true."
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Google's \"G\" mark, as the app draws it."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Continue with Google",
+              "description": "Default \"Continue with Google\", Google's own wording."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "grid",
       "aliases": [],
       "surface": "native",
@@ -3245,6 +3298,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "offlineState",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown while the list has nothing saved and its fetch is paused because\nthe device is offline (`networkMode: \"offlineFirst\"`), instead of an empty\nlist that says there is nothing. Default: a one-line offline message."
             },
             {
               "name": "onCreatePress",

@@ -849,6 +849,7 @@ export const features = defineFeatures({
         "packages/supabase/src/index.ts",
         "packages/supabase/migrations",
         "packages/ui-native/src/layouts/apple-sign-in.tsx",
+        "packages/ui-native/src/layouts/google-sign-in.tsx",
         "packages/ui-native/src/layouts/auth-screen.tsx",
       ],
       docs: ["packages/supabase/README.md", "packages/ui-native/README.md"],
@@ -943,7 +944,7 @@ export const features = defineFeatures({
   },
   "expo-config-plugin": {
     name: "Expo config plugin",
-    summary: "withGenesis() keeps app.config.ts to a name, ids and plugins: app variants from APP_VARIANT, associated domains and verified app links from genesis.config.json's links, the privacy manifest for the packages installed, export compliance and the fingerprint runtime. It reads only committed files and APP_VARIANT, so EAS fingerprints stay stable.",
+    summary: "withGenesis() keeps app.config.ts to a name, ids and plugins: app variants from APP_VARIANT, associated domains and verified app links from genesis.config.json's links, the privacy manifest (required-reason APIs for React Native, Expo and the packages installed; NSPrivacyTracking false; collected data types from the Genesis blocks in use, or genesis.config.json privacy), export compliance and the fingerprint runtime. It reads only committed files and APP_VARIANT, so EAS fingerprints stay stable.",
     category: "Tooling",
     status: "beta",
     layer: "tool",

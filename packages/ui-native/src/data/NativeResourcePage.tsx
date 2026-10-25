@@ -61,6 +61,12 @@ export interface NativeResourcePageProps<T extends BaseRecord = BaseRecord> {
   // Slots
   headerRight?: ReactNode;
   emptyState?: ReactNode;
+  /**
+   * Shown while the list has nothing saved and its fetch is paused because
+   * the device is offline (`networkMode: "offlineFirst"`), instead of an empty
+   * list that says there is nothing. Default: a one-line offline message.
+   */
+  offlineState?: ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -189,6 +195,7 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
   createLabel = "New",
   headerRight,
   emptyState,
+  offlineState,
 }: NativeResourcePageProps<T>) {
   // -------------------------------------------------------------------------
   // State
@@ -268,6 +275,8 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
   const items: T[] = list.data?.data ?? [];
   const isLoading = list.isLoading;
   const hasError = list.isError;
+  // Paused offline with nothing saved: not loading (no request in flight), not empty either.
+  const isOfflineEmpty = list.isPaused && list.data === undefined;
 
   // -------------------------------------------------------------------------
   // Resolve card fields
@@ -412,7 +421,17 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
 
   const ListEmptyComponent = useMemo(
     () =>
-      isLoading ? null : (
+      isLoading ? null : isOfflineEmpty ? (
+        // In the list, under its header, so search and filters stay usable offline: clearing a
+        // search brings back the saved rows.
+        <View testID="native-resource-offline" className="flex-1 items-center justify-center px-4 py-12 gap-4">
+          {offlineState ?? (
+            <NativeText preset="body" className="text-muted-foreground text-center">
+              You're offline. This list loads when you're back online.
+            </NativeText>
+          )}
+        </View>
+      ) : (
         <>
           {emptyState ?? (
             <NativeEmptyState
@@ -422,7 +441,7 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
           )}
         </>
       ),
-    [isLoading, emptyState, hasActiveFilters, handleClearFilters]
+    [isLoading, isOfflineEmpty, offlineState, emptyState, hasActiveFilters, handleClearFilters]
   );
 
   // -------------------------------------------------------------------------
@@ -485,7 +504,9 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={ListEmptyComponent}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
-        refreshing={refreshing}
+        // offlineFirst: a refetch offline pauses (its promise waits for the network), so the
+        // spinner follows the fetch, not the promise; it comes back if the fetch resumes.
+        refreshing={refreshing && !list.isPaused}
         onRefresh={handleRefresh}
       />
     );

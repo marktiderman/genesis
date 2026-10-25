@@ -5,7 +5,9 @@
  * keep their data in AsyncStorage, so a check-in survives the app closing and waits offline.
  *
  * Submissions go to a stub `send` that answers like `submitResponse` would. Point it at your own
- * endpoint (a Supabase Edge Function that runs `submitResponse`) to store them for real.
+ * endpoint (a Supabase Edge Function that runs `submitResponse`) to store them for real, and
+ * declare the answers in the iOS privacy manifest then: genesis.config.json `privacy.collects`
+ * ("other user content" for the free text, "phone number" for the phone field, and so on).
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
