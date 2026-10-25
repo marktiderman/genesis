@@ -311,7 +311,8 @@ export function webhookDestination(options: WebhookDestinationOptions): Destinat
           ? await resolveOption("The webhook url", options.url, config, context)
           : configString(config, "url");
         const url = checkWebhookUrl(typeof raw === "string" ? raw.trim() : "", options);
-        if (options.resolveHost) await checkHookHost(url, options.resolveHost);
+        // allowPrivateHosts opts out of the address check, the resolved one included.
+        if (options.resolveHost && !options.allowPrivateHosts) await checkHookHost(url, options.resolveHost);
         const secret = await resolveOption("The webhook secret", options.secret, config, context);
         if (!secret) throw new DeliveryError("The webhook secret is not set");
         const now = options.now?.() ?? Date.now();

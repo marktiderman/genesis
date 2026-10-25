@@ -47,6 +47,12 @@ export interface ClaimedDelivery {
   /** This delivery's attempt number, from 1 for its first. */
   attempt: number;
   /**
+   * How many times it was deferred so far (outcomes with `counted: false`).
+   * Keep and pass it back, so `maxDeferrals` can stop a service that answers
+   * "try later" forever. Default 0.
+   */
+  deferrals?: number | undefined;
+  /**
    * An earlier attempt may have gone through (it was claimed before and timed
    * out, or its lease ran out), so destinations that can look first do.
    */
@@ -111,6 +117,11 @@ export interface DeliveryRunnerOptions<Filter = undefined> {
   batchSize?: number | undefined;
   /** Counted attempts before a retryable failure is given up. Default `DEFAULT_MAX_ATTEMPTS` (8). */
   maxAttempts?: number | undefined;
+  /**
+   * Deferrals (Retry-After, no attempt counted) allowed before a further one
+   * counts as an attempt and backs off. Default `DEFAULT_MAX_DEFERRALS` (24).
+   */
+  maxDeferrals?: number | undefined;
   /** Seconds to wait after a counted failed attempt. Default `defaultBackoff`. */
   backoff?: ((attempt: number) => number) | undefined;
 }
@@ -145,6 +156,7 @@ export interface DeliveryRunner<Filter = undefined> {
 }
 
 export const DEFAULT_MAX_ATTEMPTS = 8;
+export const DEFAULT_MAX_DEFERRALS = 24;
 export const DEFAULT_BATCH_SIZE = 25;
 
 /** 1 minute, doubling each attempt, at most 6 hours: 1m, 2m, 4m … 6h. */
@@ -156,13 +168,22 @@ export function defaultBackoff(attempt: number): number {
 export function deliveryOutcome(
   result: DeliveryResult,
   attempt: number,
-  options: { now?: number | undefined; maxAttempts?: number | undefined; backoff?: ((attempt: number) => number) | undefined } = {},
+  options: {
+    now?: number | undefined;
+    maxAttempts?: number | undefined;
+    backoff?: ((attempt: number) => number) | undefined;
+    /** Deferrals so far (`ClaimedDelivery.deferrals`). */
+    deferrals?: number | undefined;
+    maxDeferrals?: number | undefined;
+  } = {},
 ): DeliveryOutcome {
   if (result.ok) return result.notSent ? { status: "skipped", reason: result.notSent.slice(0, 500) } : { status: "sent" };
   const http = result.status !== undefined ? { httpStatus: result.status } : {};
   if (!result.retryable) return { status: "failed", error: result.error, ...http };
   const now = options.now ?? Date.now();
-  if (result.retryAfterSeconds !== undefined) {
+  // Deferred without counting an attempt, until maxDeferrals: after that a
+  // service that keeps saying "later" is backed off and given up like any other.
+  if (result.retryAfterSeconds !== undefined && (options.deferrals ?? 0) < (options.maxDeferrals ?? DEFAULT_MAX_DEFERRALS)) {
     const seconds = Math.max(1, Math.ceil(result.retryAfterSeconds));
     return { status: "retry", error: result.error, retryAt: new Date(now + seconds * 1000), retryAfterSeconds: seconds, counted: false, ...http };
   }
@@ -173,7 +194,14 @@ export function deliveryOutcome(
 }
 
 export function createDeliveryRunner<Filter = undefined>(options: DeliveryRunnerOptions<Filter>): DeliveryRunner<Filter> {
-  const log = options.log ?? (() => {});
+  // App code: a logger that throws must never stop an outcome being recorded.
+  const log = (message: string): void => {
+    try {
+      options.log?.(message);
+    } catch {
+      // Ignored.
+    }
+  };
   const now = () => options.now?.() ?? Date.now();
 
   /** Sends one destination's deliveries; resolves one result per delivery, in order. */
@@ -275,7 +303,13 @@ export function createDeliveryRunner<Filter = undefined>(options: DeliveryRunner
               const outcome: DeliveryOutcome =
                 result === "filtered"
                   ? { status: "filtered" }
-                  : deliveryOutcome(result, delivery.attempt, { now: at, maxAttempts: options.maxAttempts, backoff: options.backoff });
+                  : deliveryOutcome(result, delivery.attempt, {
+                      now: at,
+                      maxAttempts: options.maxAttempts,
+                      backoff: options.backoff,
+                      deferrals: delivery.deferrals,
+                      maxDeferrals: options.maxDeferrals,
+                    });
               if (outcome.status === "sent" && result !== "filtered" && result.ok && result.skipped?.includes(delivery.submission.id)) {
                 outcome.alreadyThere = true;
               }

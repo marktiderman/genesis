@@ -338,11 +338,16 @@ export function sheetsDestination(options: SheetsDestinationOptions): Destinatio
       // through even though Google answered 5xx or the request timed out.
       // An update overwrites its response's row where it is, and is appended
       // only when that row is gone (deleted by hand, say).
-      let pending = items.map((item, i) => ({
-        id: item.submission.id,
-        row: rows[i]!.row,
-        update: (item.update ?? deliveryOptions.update) === true,
-      }));
+      // One row per response: a batch holding a response twice (sent, then
+      // edited) writes its latest version once, as an update if either was.
+      const byId = new Map<string, { id: string; row: Record<string, Cell>; update: boolean }>();
+      items.forEach((item, i) => {
+        const id = item.submission.id;
+        const update = (item.update ?? deliveryOptions.update) === true || byId.get(id)?.update === true;
+        byId.delete(id);
+        byId.set(id, { id, row: rows[i]!.row, update });
+      });
+      let pending = [...byId.values()];
       const updating = pending.some((p) => p.update);
       const overwrite: { at: number; row: Record<string, Cell> }[] = [];
       skipped = [];

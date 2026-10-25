@@ -56,6 +56,8 @@ export async function refreshGoogleAccessToken(
     GOOGLE_TOKEN_URL,
     {
       method: "POST",
+      // The body holds the refresh token and client secret: never follow a redirect with it.
+      redirect: "error",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         grant_type: "refresh_token",
@@ -67,14 +69,14 @@ export async function refreshGoogleAccessToken(
     options.signal,
   );
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: unknown };
+    const body = jsonObject(await response.json().catch(() => null)) as { error?: unknown };
     if (response.status === 400 && body.error === "invalid_grant") {
       throw new DeliveryError("Google access to this sheet was removed. Connect the sheet again.", { status: 400 });
     }
     discard(response);
     throw httpError("Google token endpoint", response);
   }
-  const body = (await response.json().catch(() => ({}))) as { access_token?: unknown; expires_in?: unknown; scope?: unknown };
+  const body = jsonObject(await response.json().catch(() => null)) as { access_token?: unknown; expires_in?: unknown; scope?: unknown };
   if (typeof body.access_token !== "string" || !body.access_token) {
     throw new DeliveryError("Google token endpoint returned no access token", { retryable: true });
   }
@@ -83,6 +85,11 @@ export async function refreshGoogleAccessToken(
     expiresIn: typeof body.expires_in === "number" && body.expires_in > 0 ? body.expires_in : 3600,
     scope: typeof body.scope === "string" ? body.scope : DRIVE_FILE_SCOPE,
   };
+}
+
+/** A parsed JSON body as an object: `null`, a list or a scalar become `{}`. */
+function jsonObject(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 // One per process. Keyed by a digest of the client and the refresh token, so

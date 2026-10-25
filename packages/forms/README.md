@@ -630,13 +630,16 @@ await runner.run({ filter: { responseId } }); // right after a save, or from a j
 ```
 
 Each `ClaimedDelivery` carries its `id` (stable across retries), `destinationId`, `kind`, `config`,
-`state`, `submission`, `definition`, its `attempt` (from 1), and `redelivery` and `update` flags.
+`state`, `submission`, `definition`, its `attempt` (from 1), how many times it was `deferrals`
+(deferred), and `redelivery` and `update` flags. A response sent and edited in one sheet batch is
+written once, as its latest version.
 Deliveries to one destination go in one `deliverBatch` call where the destination has one (a sheet
 appends them in one request), else one by one with the state passed along; new state is saved
 once. Outcomes: `sent` (`alreadyThere` on a redelivery that found its row), `filtered` (didn't
 match `config.when`), `skipped` (the destination returned `notSent`, a deliberate no-send such as a
 cap; never retried), `retry` with `retryAt`, and `failed`. A retryable failure with the service's
-Retry-After is deferred without counting an attempt (`counted: false`); any other retryable
+Retry-After is deferred without counting an attempt (`counted: false`), up to `maxDeferrals`
+(default 24, counted by the store in `ClaimedDelivery.deferrals`); any other retryable
 failure backs off by attempt (`defaultBackoff`: 1 minute doubling to 6 hours) until `maxAttempts`
 (default 8), then fails. Permanent failures and unknown kinds fail at once. A destination that
 throws is reduced to a safe message. `run` returns a `DeliveryReport` of counts, including `stale`

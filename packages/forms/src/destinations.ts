@@ -118,6 +118,7 @@ export {
   createDeliveryRunner,
   DEFAULT_BATCH_SIZE,
   DEFAULT_MAX_ATTEMPTS,
+  DEFAULT_MAX_DEFERRALS,
   defaultBackoff,
   deliveryOutcome,
   type ClaimedDelivery,

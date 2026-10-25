@@ -413,6 +413,14 @@ describe("webhookDestination lookups and checks", () => {
     expect(mock.calls).toEqual([]);
   });
 
+  it("skips the resolved-address check when private hosts are allowed", async () => {
+    const mock = mockFetch(() => new Response(null, { status: 204 }));
+    const resolveHost = vi.fn(async () => ["10.0.0.5"]);
+    const hook = webhookDestination({ secret, fetch: mock.fetch, resolveHost, allowPrivateHosts: true, allowInsecureUrls: true });
+    expect(await hook.deliver(submission, def, { url: "http://hooks.internal/in" })).toEqual({ ok: true });
+    expect(resolveHost).not.toHaveBeenCalled();
+  });
+
   it("keeps config.url and form.submitted when no lookup or update is given", async () => {
     const mock = mockFetch(() => new Response(null, { status: 200 }));
     await webhookDestination({ secret, fetch: mock.fetch }).deliver(submission, def, { url: "https://hooks.example.com/a" });
@@ -448,6 +456,21 @@ describe("Google OAuth access tokens", () => {
     t += 3_541_000;
     await googleOAuthAccessToken(client, "1//refresh", options);
     expect(mock.calls).toHaveLength(3);
+  });
+
+  it("never follows a redirect with the credentials, and reads a JSON null body as empty", async () => {
+    const mock = mockFetch(() => json(null, 503, { "retry-after": "12" }));
+    await expect(refreshGoogleAccessToken(client, "1//refresh", { fetch: mock.fetch })).rejects.toMatchObject({
+      retryable: true,
+      status: 503,
+      retryAfterSeconds: 12,
+    });
+    expect(mock.calls[0]!.init.redirect).toBe("error");
+    const nullOk = mockFetch(() => json(null));
+    await expect(refreshGoogleAccessToken(client, "1//refresh", { fetch: nullOk.fetch })).rejects.toMatchObject({
+      retryable: true,
+      message: "Google token endpoint returned no access token",
+    });
   });
 
   it("says to reconnect when access was removed, and retries when Google is down", async () => {
@@ -526,6 +549,25 @@ describe("sheetsDestination with an access token", () => {
       ["r7", "", "back"],
       ["r8", "new", ""],
     ]);
+  });
+
+  it("writes a response sent and edited in one batch once, as its latest version", async () => {
+    const sheet = fakeSheet(["r1"]);
+    const destination = sheetsDestination({ accessToken: () => "ya29.T", fetch: sheet.fetch });
+    const result = await destination.deliverBatch!(
+      [
+        { submission: { id: "r5", answers: { a: "first" } }, definition: small },
+        { submission: { id: "r5", answers: { a: "edited" } }, definition: small, update: true },
+        { submission: { id: "r1", answers: { a: "edited" } }, definition: small, update: true },
+        { submission: { id: "r1", answers: { a: "older" } }, definition: small },
+      ],
+      config,
+      { state },
+    );
+    expect(result.ok).toBe(true);
+    expect(sheet.appended).toEqual([["r5", "edited", ""]]);
+    // r1 is there: its later copy still counts as an update of that row.
+    expect(sheet.updated).toEqual([{ range: "'Responses'!A2", values: [["r1", "older", ""]] }]);
   });
 
   it("reports a refused sheet as no longer connected, and needs an account or a token", async () => {
@@ -707,6 +749,21 @@ describe("createDeliveryRunner", () => {
     });
   });
 
+  it("stops deferring after maxDeferrals, then backs off and gives up like any retry", async () => {
+    const busy = destination(async () => ({ ok: false, retryable: true, retryAfterSeconds: 60, status: 503, error: "Webhook answered 503" }));
+    const box = outbox([
+      claimed({ id: "fresh", deferrals: 2 }),
+      claimed({ id: "worn", destinationId: "dest-2", deferrals: 3, attempt: 1 }),
+      claimed({ id: "done", destinationId: "dest-3", deferrals: 3, attempt: 4 }),
+    ]);
+    const report = await createDeliveryRunner({ ...box, now: () => NOW, maxDeferrals: 3, maxAttempts: 4, destinations: { test: busy } }).run();
+    expect(report).toMatchObject({ deferred: 1, retrying: 1, failed: 1 });
+    expect(box.recorded.get("fresh")).toMatchObject({ status: "retry", counted: false, retryAfterSeconds: 60 });
+    expect(box.recorded.get("worn")).toMatchObject({ status: "retry", counted: true, retryAfterSeconds: 60 });
+    expect(box.recorded.get("done")).toEqual({ status: "failed", error: "Webhook answered 503 (gave up after 4 attempts)", httpStatus: 503 });
+    expect(deliveryOutcome({ ok: false, retryable: true, retryAfterSeconds: 5, error: "x" }, 1, { now: 0, deferrals: 24 })).toMatchObject({ counted: true });
+  });
+
   it("backs off a retryable failure by attempt, and gives up after maxAttempts", async () => {
     const failing = destination(async () => ({ ok: false, retryable: true, error: "Network error" }));
     const box = outbox([claimed({ id: "early", attempt: 3 }), claimed({ id: "last", destinationId: "dest-2", attempt: 5 })]);
@@ -773,6 +830,23 @@ describe("createDeliveryRunner", () => {
     const outcome = box.recorded.get("del-1")!;
     expect(outcome).toMatchObject({ status: "retry", error: "Unexpected error" });
     expect(JSON.stringify(outcome)).not.toContain("token");
+  });
+
+  it("still records every outcome when the logger throws", async () => {
+    const box = outbox([claimed({ id: "a" }), claimed({ id: "b", destinationId: "dest-2" })]);
+    const failing = destination(async () => ({ ok: false, retryable: false, error: "Webhook answered 404" }));
+    const report = await createDeliveryRunner({
+      ...box,
+      log: () => {
+        throw new Error("log sink down");
+      },
+      saveState: async () => {
+        throw new Error("nope");
+      },
+      destinations: { test: failing },
+    }).run();
+    expect(report).toMatchObject({ failed: 2, unrecorded: 0 });
+    expect([...box.recorded.keys()].sort()).toEqual(["a", "b"]);
   });
 
   it("counts a lost claim as stale and a failed record as unrecorded, recording the rest", async () => {
