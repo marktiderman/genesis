@@ -247,7 +247,9 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
   that are on send off the phone (`privacyBlocks` in `src/lib/define-starter.ts`): `account` (email
   address, user id, name), `observability` (crash and performance data, user id, and the typed
   events as product interaction for analytics) and `push` (the push token as a device id); all
-  linked to the person, none for tracking, and `NSPrivacyTracking` false. Turn `observability` off
+  linked to the person, none for tracking, and `NSPrivacyTracking` false. The check-in example sends
+  nothing yet (its `send` is a stub); once it posts answers to your server, add them (`other user
+  content`, or the types your questions ask for) to `privacy.collects`. Turn `observability` off
   if you never set a DSN. If the app collects anything else, list everything it collects in
   `genesis.config.json` `privacy.collects` (it replaces the blocks' list). Check the result with
   `npx expo config --type introspect`. The App Store privacy label in App Store Connect is still
