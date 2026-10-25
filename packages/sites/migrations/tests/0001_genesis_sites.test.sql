@@ -9,7 +9,7 @@
 -- request.jwt.claim.sub on older images), so pg_temp.sign_in sets both.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(77);
+select plan(79);
 
 -- People: e1 edits site A, b2 may view site A, c3 is nobody's.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -336,6 +336,14 @@ select lives_ok(
   'a redirect from an old address that isn''t reserved is fine'
 );
 reset role;
+
+-- A host that reserves "/" itself reserves the root only (as isReservedPath does), not every path.
+reset role;
+create or replace function genesis_sites.reserved_paths() returns text[] language sql stable set search_path = '' as $$
+  select array['/']::text[]
+$$;
+select throws_like('select genesis_sites.assert_not_reserved(''/?x=1'')', '%reserved for the app%', 'a reserved root refuses the root, with a query string too');
+select lives_ok('select genesis_sites.assert_not_reserved(''/about'')', '... and leaves other paths alone');
 
 select * from finish();
 rollback;

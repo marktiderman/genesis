@@ -343,14 +343,22 @@ set search_path = ''
 as $$
 declare
   prefix text;
-  probe text := lower(rtrim(split_part(split_part(path, '?', 1), '#', 1), '/'));
+  -- Like isReservedPath: lower case, no query or fragment, no trailing slash except on the root itself.
+  probe text := lower(split_part(split_part(coalesce(path, ''), '?', 1), '#', 1));
 begin
-  if probe = '' then
-    return;
+  if char_length(probe) > 1 then
+    probe := rtrim(probe, '/');
   end if;
   foreach prefix in array coalesce(genesis_sites.reserved_paths(), '{}'::text[]) loop
-    prefix := lower(rtrim(prefix, '/'));
-    if prefix <> '' and (probe = prefix or starts_with(probe, prefix || '/')) then
+    prefix := lower(prefix);
+    if char_length(prefix) > 1 then
+      prefix := rtrim(prefix, '/');
+    end if;
+    if prefix = '' then
+      continue;
+    end if;
+    -- A reserved "/" reserves the root only, as in isReservedPath.
+    if probe = prefix or (prefix <> '/' and starts_with(probe, prefix || '/')) then
       raise exception 'genesis_sites: "%" is reserved for the app', path using errcode = '22023';
     end if;
   end loop;
