@@ -1,0 +1,23 @@
+apps/genesis-rn-starter/jest.config.js
+  s_8252619ce79a86::t_c228ba1416482d 35-36
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_7002ae0b83c79d 10,605,612,2432,2439,3337,3723,3730,4822,4829,5904,5911,6425,6451,12304-12328,13351,13516,13958,13972,14070,14161,14196,15411-15442,15906,16612-16662,17003,17017,17115,17206,17241,17625,17639,17737,17828,17863,18177
+packages/forms-native/src/__tests__/real-drafts-outbox.test.tsx
+  s_8252619ce79a86::t_6653e1f51be483 50,70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d363b6b973bbc9d67e94dbd024eff65db687961f",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
