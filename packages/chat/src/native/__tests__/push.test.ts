@@ -10,8 +10,11 @@ import {
   handleChatPushResponse,
   registerChatNotificationActions,
   replyClientId,
+  replyClientIdFor,
   type ChatPushResponseLike,
 } from "../push";
+import { createOutbox, memoryOutboxStore } from "../../core/outbox";
+import type { ChatClient } from "../../core/client";
 
 const CONV = "6f1d2c3b-4a59-4e8f-9a7b-1c2d3e4f5a6b";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -55,12 +58,12 @@ describe("the messages category", () => {
 });
 
 describe("handleChatPushResponse", () => {
-  it("Reply sends the typed text with the notification's id as the client id, and marks read", async () => {
+  it("Reply sends the typed text with a client id from the notification, and marks read", async () => {
     const client = fakeClient();
     const dismissNotificationAsync = vi.fn(async () => undefined);
     const outcome = await handleChatPushResponse(response("reply", { userText: "  on my way " }), { client, notifications: { dismissNotificationAsync } });
     expect(outcome).toBe("replied");
-    expect(client.send).toHaveBeenCalledWith({ conversationId: CONV, clientId: replyClientId("push-123"), body: "on my way" });
+    expect(client.send).toHaveBeenCalledWith({ conversationId: CONV, clientId: replyClientIdFor("push-123", { url: chatPath(CONV), seq: 7 }, "on my way"), body: "on my way" });
     expect(client.markRead).toHaveBeenCalledWith(CONV);
     expect(dismissNotificationAsync).toHaveBeenCalledWith("push-123");
   });
@@ -96,6 +99,56 @@ describe("handleChatPushResponse", () => {
     expect(await handleChatPushResponse(response("reply", { userText: "   " }), { client })).toBe("ignored");
     expect(await handleChatPushResponse(response("reply", { userText: "hi" }, { url: "/settings" }), { client })).toBe("ignored");
     expect(client.send).not.toHaveBeenCalled();
+  });
+
+  it("two replies under one notification id (iOS collapses pushes) get two client ids", async () => {
+    const client = fakeClient();
+    await handleChatPushResponse(response("reply", { userText: "yes" }, { conversationId: CONV, messageId: "m1" }), { client });
+    await handleChatPushResponse(response("reply", { userText: "yes" }, { conversationId: CONV, messageId: "m2" }), { client });
+    // No messageId: the text tells them apart.
+    await handleChatPushResponse(response("reply", { userText: "one" }, { conversationId: CONV }), { client });
+    await handleChatPushResponse(response("reply", { userText: "two" }, { conversationId: CONV }), { client });
+    const ids = client.send.mock.calls.map((c) => (c as unknown as [{ clientId: string }])[0].clientId);
+    expect(new Set(ids).size).toBe(4);
+    for (const id of ids) expect(id).toMatch(UUID);
+  });
+
+  it("with the live outbox, the reply is queued there, once, and an offline one waits failed instead of being lost", async () => {
+    const client = fakeClient();
+    client.send.mockRejectedValue(new Error("Network request failed"));
+    const store = memoryOutboxStore();
+    const outbox = createOutbox({ client: client as unknown as ChatClient, userId: "u1", store });
+    const r = response("reply", { userText: "on my way" }, { conversationId: CONV, messageId: "m1" });
+    expect(await handleChatPushResponse(r, { client, outbox })).toBe("replied");
+    expect(await handleChatPushResponse(r, { client, outbox: () => outbox })).toBe("replied");
+    await vi.waitFor(() => expect(outbox.pending(CONV)[0]?.status).toBe("failed"));
+    expect(outbox.pending(CONV)).toHaveLength(1);
+    expect(outbox.pending(CONV)[0]).toMatchObject({ input: { body: "on my way", clientId: replyClientIdFor("push-123", r.notification.request.content.data, "on my way") } });
+    expect(await store.load()).toHaveLength(1);
+  });
+
+  it("without the live outbox, a reply that can't be sent is added to the saved outbox, once, for Retry", async () => {
+    const client = fakeClient();
+    client.send.mockRejectedValue(new Error("Network request failed"));
+    const store = memoryOutboxStore();
+    await store.save([]);
+    const r = response("reply", { userText: "on my way" }, { conversationId: CONV, messageId: "m1" });
+    const onError = vi.fn();
+    expect(await handleChatPushResponse(r, { client, store, userId: "u1", onError })).toBe("queued");
+    expect(await handleChatPushResponse(r, { client, store, userId: "u1" })).toBe("queued");
+    const saved = await store.load();
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ status: "failed", senderId: "u1", input: { conversationId: CONV, body: "on my way" } });
+    expect(client.markRead).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalled();
+    // The outbox the chat screens open later shows it, and Retry sends it with the same client id.
+    client.send.mockResolvedValue({} as never);
+    const outbox = createOutbox({ client: client as unknown as ChatClient, userId: "u1", store });
+    await outbox.load();
+    expect(outbox.pending(CONV)).toHaveLength(1);
+    await outbox.retry(saved[0]!.clientId);
+    await vi.waitFor(() => expect(outbox.pending(CONV)).toHaveLength(0));
+    expect(client.send).toHaveBeenLastCalledWith(expect.objectContaining({ clientId: saved[0]!.clientId, body: "on my way" }));
   });
 
   it("never throws: a failed send is the outcome, reported", async () => {

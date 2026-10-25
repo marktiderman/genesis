@@ -13,9 +13,16 @@
  *   useSuppressNotifications(chatThreadMatch(conversationId)); // in the thread screen
  *
  * The sender sets `categoryId: "messages"` (iOS) / the `messages` channel
- * (Android) and `data: { url: "/messages/<id>", conversationId, seq }`.
+ * (Android) and `data: { url: "/messages/<id>", conversationId, seq, messageId }`.
+ *
+ * A reply goes through the outbox, so a phone that is offline keeps it: pass
+ * the live one (`useChat().outbox`) when the chat screens are mounted, and the
+ * persisted store and user id (`ChatProvider outboxStore`) for when they
+ * aren't. A reply that can't be sent then waits there, failed, with Retry in
+ * its thread.
  */
 import type { ChatClient } from "../core/client";
+import type { Outbox, OutboxStore, QueuedMessage } from "../core/outbox";
 
 export const CHAT_PUSH_CATEGORY = "messages";
 export const CHAT_REPLY_ACTION = "reply";
@@ -133,6 +140,17 @@ export function replyClientId(notificationId: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-${((parseInt(hex[16]!, 16) & 0x3) | 0x8).toString(16)}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
+/**
+ * The client id for one reply: from the notification's id and the message it
+ * is about (`data.messageId`), else the reply's text. The same reply delivered
+ * twice posts once; two replies to one conversation never share an id, even
+ * when iOS reuses the notification's id for a collapsed push.
+ */
+export function replyClientIdFor(notificationId: string, data: Record<string, unknown> | null | undefined, body: string): string {
+  const messageId = typeof data?.messageId === "string" ? data.messageId : typeof data?.message_id === "string" ? data.message_id : null;
+  return replyClientId(`${notificationId}|${messageId ? `m:${messageId.toLowerCase()}` : `t:${body}`}`);
+}
+
 /** The part of a notification response this reads (expo-notifications' `NotificationResponse`). */
 export interface ChatPushResponseLike {
   actionIdentifier: string;
@@ -141,7 +159,34 @@ export interface ChatPushResponseLike {
   notification: { request: { identifier: string; content: { data?: Record<string, unknown> | null } } };
 }
 
-export type ChatPushOutcome = "replied" | "marked-read" | "ignored" | "failed";
+/** "queued": the reply couldn't go now and waits in the outbox, failed, for Retry. */
+export type ChatPushOutcome = "replied" | "queued" | "marked-read" | "ignored" | "failed";
+
+/** Where a reply waits when it can't go now. */
+export interface ChatPushOutboxDeps {
+  /** The live outbox (`useChat().outbox`), or a getter for it: the reply is queued there and sent in order. */
+  outbox?: Pick<Outbox, "send" | "pending"> | null | (() => Pick<Outbox, "send" | "pending"> | null | undefined);
+  /** Without a live outbox: the persisted store (`ChatProvider outboxStore`) a reply that failed is added to. */
+  store?: OutboxStore | null;
+  /** Whose store it is (the signed-in user's id). */
+  userId?: string | null;
+}
+
+/** A reply that couldn't be sent, as the outbox keeps it: shown failed in its thread, with Retry. */
+export function failedReply(input: { conversationId: string; clientId: string; body: string }, userId: string, error = "Not sent. Check your connection."): QueuedMessage {
+  return {
+    clientId: input.clientId,
+    input: { conversationId: input.conversationId, clientId: input.clientId, body: input.body },
+    senderId: userId,
+    createdAt: new Date().toISOString(),
+    status: "failed",
+    error,
+    previews: {},
+    files: [],
+    pendingFiles: [],
+    attempts: 1,
+  };
+}
 
 /**
  * Handles Reply and Mark read from a message's notification (pass it as the
@@ -155,7 +200,7 @@ export async function handleChatPushResponse(
     client: Pick<ChatClient, "send" | "markRead">;
     notifications?: Pick<NotificationCategoriesLike, "dismissNotificationAsync">;
     onError?: (error: unknown) => void;
-  },
+  } & ChatPushOutboxDeps,
 ): Promise<ChatPushOutcome> {
   const action = response.actionIdentifier;
   if (action !== CHAT_REPLY_ACTION && action !== CHAT_MARK_READ_ACTION) return "ignored";
@@ -168,10 +213,10 @@ export async function handleChatPushResponse(
     if (action === CHAT_REPLY_ACTION) {
       const body = (response.userText ?? "").trim();
       if (!body) return "ignored";
-      await deps.client.send({ conversationId, clientId: replyClientId(notificationId), body });
+      const input = { conversationId, clientId: replyClientIdFor(notificationId, data, body), body };
+      outcome = await sendReply(input, deps);
       // A reply reads the conversation too, as answering in the app would.
-      await deps.client.markRead(conversationId).catch(() => undefined);
-      outcome = "replied";
+      if (outcome === "replied") await deps.client.markRead(conversationId).catch(() => undefined);
     } else {
       const seq = typeof data.seq === "number" ? data.seq : typeof data.seq === "string" ? Number(data.seq) : undefined;
       await deps.client.markRead(conversationId, Number.isFinite(seq) ? seq : undefined);
@@ -182,6 +227,28 @@ export async function handleChatPushResponse(
   } catch (error) {
     deps.onError?.(error);
     return "failed";
+  }
+}
+
+async function sendReply(
+  input: { conversationId: string; clientId: string; body: string },
+  deps: { client: Pick<ChatClient, "send">; onError?: (error: unknown) => void } & ChatPushOutboxDeps,
+): Promise<ChatPushOutcome> {
+  const live = typeof deps.outbox === "function" ? deps.outbox() : deps.outbox;
+  if (live) {
+    // The same reply delivered twice is queued once.
+    if (!live.pending(input.conversationId).some((p) => p.clientId === input.clientId)) await live.send(input);
+    return "replied";
+  }
+  try {
+    await deps.client.send(input);
+    return "replied";
+  } catch (error) {
+    if (!deps.store || !deps.userId) throw error;
+    deps.onError?.(error);
+    const queue = await deps.store.load();
+    if (!queue.some((q) => q.clientId === input.clientId)) await deps.store.save([...queue, failedReply(input, deps.userId)]);
+    return "queued";
   }
 }
 

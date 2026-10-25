@@ -23,7 +23,9 @@ function Thread({ id }: { id: string }) {
   return (
     <>
       <Stack.Screen options={options} />
-      <ChatThreadScreen conversationId={id} />
+      {/* Keyed by the conversation: a push or link that opens another one in this screen starts it fresh
+          (its list position, sheets, viewer and composer), instead of carrying the last one's over. */}
+      <ChatThreadScreen key={id} conversationId={id} />
     </>
   );
 }

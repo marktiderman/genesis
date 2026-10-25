@@ -6,6 +6,10 @@
  * plain upload. A dropped connection resumes from the last chunk the server
  * has (HEAD for the offset), within the session; a retry of the same file
  * reuses its path, so the message's attachment never points at a second copy.
+ * A file on the phone is read one chunk at a time when the app gives
+ * `openFile` (a 100 MB video never sits whole in memory); without it, it is
+ * read whole. A create the server refuses as already there (409) counts as
+ * done only when the object is really there.
  *
  *   <ChatProvider upload={createTusUpload({ supabaseUrl, userId, getAccessToken })} …>
  *
@@ -28,7 +32,12 @@ export interface TusUploadOptions {
   getAccessToken: () => Promise<string | null | undefined>;
   /** The publishable key, sent as `apikey` (the API gateway asks for it on hosted projects). */
   apikey?: string;
-  /** Reads a file URI into bytes. Default `fetch(uri).arrayBuffer()`. */
+  /**
+   * Opens a file URI for reading one chunk at a time (expo-file-system's `new File(uri).open()`),
+   * so a big video is never read whole into memory. Without it, `readFile` reads the whole file.
+   */
+  openFile?: (uri: string) => Promise<TusFileHandle> | TusFileHandle;
+  /** Reads a file URI into bytes, whole: used without `openFile`. Default `fetch(uri).arrayBuffer()`. */
   readFile?: (uri: string) => Promise<ArrayBuffer>;
   fetch?: typeof fetch;
   chunkBytes?: number;
@@ -38,6 +47,27 @@ export interface TusUploadOptions {
   newId?: () => string;
   bucket?: string;
 }
+
+/** An open file, read a chunk at a time. */
+export interface TusFileHandle {
+  /** Bytes in the file. */
+  size: number;
+  /** Up to `length` bytes from `offset`. */
+  read(offset: number, length: number): Promise<ArrayBuffer | Uint8Array>;
+  close?(): void;
+}
+
+/** What upload reads its bytes from: the file in chunks, or bytes already in memory. */
+interface Source {
+  size: number;
+  read(from: number, to: number): Promise<ArrayBuffer>;
+  close(): void;
+}
+
+const exact = (bytes: ArrayBuffer | Uint8Array): ArrayBuffer =>
+  bytes instanceof ArrayBuffer ? bytes : (bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+
+const inMemory = (buffer: ArrayBuffer): Source => ({ size: buffer.byteLength, read: async (from, to) => buffer.slice(from, to), close: () => undefined });
 
 interface UploadRecord {
   path: string;
@@ -82,10 +112,33 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
     };
   }
 
-  async function bytesOf(file: LocalFile): Promise<ArrayBuffer> {
-    if (typeof file.data === "string") return readFile(file.data);
-    if (file.data instanceof ArrayBuffer) return file.data;
-    return file.data.arrayBuffer();
+  async function sourceOf(file: LocalFile): Promise<Source> {
+    const data = file.data;
+    if (typeof data === "string") {
+      if (!options.openFile) return inMemory(await readFile(data));
+      const handle = await options.openFile(data);
+      return {
+        size: handle.size,
+        read: async (from, to) => exact(await handle.read(from, to - from)),
+        close: () => {
+          try {
+            handle.close?.();
+          } catch {
+            // Already closed.
+          }
+        },
+      };
+    }
+    if (data instanceof ArrayBuffer) return inMemory(data);
+    return { size: data.size, read: (from, to) => data.slice(from, to).arrayBuffer(), close: () => undefined };
+  }
+
+  /** Whether the object is really in the bucket (a 409 on create says so, and may be wrong). */
+  async function objectExists(path: string): Promise<boolean> {
+    const base = options.supabaseUrl.replace(/\/+$/, "");
+    const encoded = path.split("/").map(encodeURIComponent).join("/");
+    const res = await doFetch(`${base}/storage/v1/object/authenticated/${bucket}/${encoded}`, { method: "HEAD", headers: await headers() });
+    return res.ok;
   }
 
   async function withRetry<T>(op: string, run: () => Promise<T>): Promise<T> {
@@ -108,7 +161,7 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
     throw new ChatError(text || `Upload failed (${res.status})`, transientStatus(res.status) ? undefined : res.status === 403 || res.status === 401 ? "42501" : "22023", op);
   };
 
-  return async function upload(conversationId: string, file: LocalFile): Promise<string> {
+  async function upload(conversationId: string, file: LocalFile): Promise<string> {
     const ext = fileExtension(file.name, file.contentType);
     if (!isAllowedExtension(ext)) throw new ChatError(`Files of type .${ext} can't be sent`, "22023", "upload");
     let record = byFile.get(file);
@@ -119,8 +172,16 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
     byFile.set(file, record);
     if (record.done) return record.path;
 
-    const bytes = new Uint8Array(await bytesOf(file));
-    const rec = record;
+    const source = await sourceOf(file);
+    try {
+      return await send(file, record, source);
+    } finally {
+      source.close();
+    }
+  };
+
+  async function send(file: LocalFile, rec: UploadRecord, source: Source): Promise<string> {
+    const length = source.size;
 
     // Create the upload (once), or find how far an earlier attempt got.
     let offset = 0;
@@ -135,7 +196,9 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
         return Number(res.headers.get("upload-offset") ?? 0);
       });
     }
-    if (!rec.location) {
+    // A 409 at a path whose object isn't there (another upload of it never finished): one new path.
+    let fresh = false;
+    while (!rec.location) {
       const metadata = [
         `bucketName ${base64Utf8(bucket)}`,
         `objectName ${base64Utf8(rec.path)}`,
@@ -145,30 +208,38 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
       const created = await withRetry("upload", async () => {
         const res = await doFetch(endpoint, {
           method: "POST",
-          headers: await headers({ "upload-length": String(bytes.byteLength), "upload-metadata": metadata, "x-upsert": "false" }),
+          headers: await headers({ "upload-length": String(length), "upload-metadata": metadata, "x-upsert": "false" }),
         });
-        // Already there: an earlier attempt finished but its answer was lost.
-        if (res.status === 409) return null;
+        // Already there, says the server: an earlier attempt finished but its answer was lost, or
+        // another upload of this path is under way. Only the object itself settles which.
+        if (res.status === 409) return (await objectExists(rec.path)) ? "done" : "conflict";
         if (res.status !== 201) return refuse(res, "upload");
         const location = res.headers.get("location");
         if (!location) throw new ChatError("The upload server gave no location", "22023", "upload");
         return new URL(location, endpoint).toString();
       });
-      if (created === null) {
+      if (created === "done") {
         rec.done = true;
         return rec.path;
+      }
+      if (created === "conflict") {
+        if (fresh) throw new ChatError("The upload is out of step", undefined, "upload");
+        fresh = true;
+        rec.path = `${rec.path.slice(0, rec.path.lastIndexOf("/") + 1)}${newId()}.${rec.path.slice(rec.path.lastIndexOf(".") + 1)}`;
+        continue;
       }
       rec.location = created;
       offset = 0;
     }
 
-    while (offset < bytes.byteLength) {
+    while (offset < length) {
       const from = offset;
+      const body = await source.read(from, Math.min(length, from + chunk));
       offset = await withRetry("upload", async () => {
         const res = await doFetch(rec.location!, {
           method: "PATCH",
           headers: await headers({ "upload-offset": String(from), "content-type": "application/offset+octet-stream" }),
-          body: bytes.slice(from, Math.min(bytes.byteLength, from + chunk)).buffer as ArrayBuffer,
+          body,
         });
         if (res.status === 409) {
           // Out of step (an earlier chunk did land): ask where the server is.
@@ -179,10 +250,12 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
           return at;
         }
         if (res.status !== 204 && !res.ok) return refuse(res, "upload");
-        return Number(res.headers.get("upload-offset") ?? from + chunk);
+        return Number(res.headers.get("upload-offset") ?? from + body.byteLength);
       });
     }
     rec.done = true;
     return rec.path;
-  };
+  }
+
+  return upload;
 }

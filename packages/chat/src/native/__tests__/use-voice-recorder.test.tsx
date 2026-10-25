@@ -4,7 +4,22 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LocalFile } from "../../core/outbox";
 import type { ExpoAudioLike, RecorderStateLike } from "../modules";
-import { useVoiceRecorder } from "../use-voice-recorder";
+import { RECORDER_STALL_READS, useVoiceRecorder } from "../use-voice-recorder";
+
+// AppState, which the shared React Native shim leaves out: the test moves the app to the background.
+const appState = vi.hoisted(() => {
+  const listeners = new Set<(s: string) => void>();
+  return { listeners, emit: (s: string) => listeners.forEach((l) => l(s)) };
+});
+vi.mock("react-native", async (original) => ({
+  ...(await original<object>()),
+  AppState: {
+    addEventListener: (_: string, l: (s: string) => void) => {
+      appState.listeners.add(l);
+      return { remove: () => appState.listeners.delete(l) };
+    },
+  },
+}));
 
 /** expo-audio, mocked: a recorder whose status the test moves forward. */
 function fakeAudio(opts: { granted?: boolean } = {}) {
@@ -161,5 +176,113 @@ describe("useVoiceRecorder (expo-audio mocked)", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(recorder.record).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useVoiceRecorder when something goes wrong", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  async function recordFor(audio: ExpoAudioLike, status: RecorderStateLike, onRecorded: (f: LocalFile) => void, ms = 1500) {
+    const hook = renderHook(() => useVoiceRecorder(audio, { limitMs: 60_000, onRecorded }));
+    await act(async () => {
+      hook.result.current.dispatch({ type: "press" });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    status.durationMillis = ms;
+    await act(async () => void (await vi.advanceTimersByTimeAsync(100)));
+    return hook;
+  }
+
+  it("a stop that throws sends nothing and says the voice message wasn't saved", async () => {
+    const { audio, recorder, status } = fakeAudio();
+    recorder.stop.mockImplementationOnce(async () => {
+      throw new Error("stop failed");
+    });
+    const onRecorded = vi.fn();
+    const hook = await recordFor(audio, status, onRecorded);
+    await act(async () => {
+      hook.result.current.dispatch({ type: "release" });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(onRecorded).not.toHaveBeenCalled();
+    expect(hook.result.current.state).toMatchObject({ phase: "idle", notice: "error" });
+  });
+
+  it("a stop that leaves no file says so too", async () => {
+    const { audio, recorder, status } = fakeAudio();
+    recorder.stop.mockImplementationOnce(async () => {
+      status.isRecording = false;
+    });
+    const onRecorded = vi.fn();
+    const hook = await recordFor(audio, status, onRecorded);
+    await act(async () => {
+      hook.result.current.dispatch({ type: "release" });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(onRecorded).not.toHaveBeenCalled();
+    expect(hook.result.current.state.notice).toBe("error");
+  });
+
+  it("the recorder stopping by itself (a phone call) ends the attempt with a notice instead of freezing the timer", async () => {
+    const { audio, recorder, status } = fakeAudio();
+    const onRecorded = vi.fn();
+    const hook = await recordFor(audio, status, onRecorded);
+    status.isRecording = false;
+    await act(async () => void (await vi.advanceTimersByTimeAsync(100 * RECORDER_STALL_READS)));
+    expect(hook.result.current.state).toMatchObject({ phase: "idle", notice: "interrupted" });
+    expect(onRecorded).not.toHaveBeenCalled();
+    expect(recorder.stop).toHaveBeenCalled();
+    const reads = recorder.getStatus.mock.calls.length;
+    await act(async () => void (await vi.advanceTimersByTimeAsync(500)));
+    expect(recorder.getStatus.mock.calls.length).toBe(reads);
+  });
+
+  it("a status that stops reading ends the attempt too", async () => {
+    const { audio, recorder, status } = fakeAudio();
+    const hook = await recordFor(audio, status, vi.fn());
+    recorder.getStatus.mockImplementation(() => {
+      throw new Error("gone");
+    });
+    await act(async () => void (await vi.advanceTimersByTimeAsync(100 * RECORDER_STALL_READS)));
+    expect(hook.result.current.state).toMatchObject({ phase: "idle", notice: "interrupted" });
+  });
+
+  it("the app going to the background ends the recording and lets the microphone go", async () => {
+    const { audio, recorder, status } = fakeAudio();
+    const hook = await recordFor(audio, status, vi.fn());
+    act(() => appState.emit("background"));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(0)));
+    expect(hook.result.current.state).toMatchObject({ phase: "idle", notice: "interrupted" });
+    expect(recorder.stop).toHaveBeenCalled();
+    expect(audio.setAudioModeAsync).toHaveBeenLastCalledWith({ allowsRecording: false });
+    const before = appState.listeners.size;
+    hook.unmount();
+    expect(appState.listeners.size).toBe(before - 1);
+  });
+
+  it("leaving the screen while the stop is under way lets it finish, stops once, and still sends the note", async () => {
+    const { audio, recorder, status } = fakeAudio();
+    let finishStop!: () => void;
+    recorder.stop.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishStop = () => {
+            recorder.uri = "file:///rec/voice.m4a";
+            resolve();
+          };
+        }),
+    );
+    const onRecorded = vi.fn();
+    const hook = await recordFor(audio, status, onRecorded);
+    act(() => hook.result.current.dispatch({ type: "release" }));
+    hook.unmount();
+    await act(async () => {
+      finishStop();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(recorder.stop).toHaveBeenCalledTimes(1);
+    expect(onRecorded).toHaveBeenCalledTimes(1);
+    expect(audio.setAudioModeAsync).toHaveBeenLastCalledWith({ allowsRecording: false });
   });
 });

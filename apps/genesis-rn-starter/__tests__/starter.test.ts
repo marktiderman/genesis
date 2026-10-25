@@ -359,6 +359,10 @@ describe("chat", () => {
     }
   });
 
+  it("starts each conversation's thread fresh: the screen is keyed by the conversation id", () => {
+    expect(read("src/app/(app)/messages/[id].tsx")).toMatch(/<ChatThreadScreen key=\{id\} conversationId=\{id\}/);
+  });
+
   it("opens a message's push in its thread, and adds the messages category with Reply and Mark read when push is on", () => {
     expect(read("src/lib/links.ts")).toContain('"/messages/:id": "/messages/:id"');
     expect(read("src/lib/push.ts")).toContain("starter.features.chat ? [chatPushCategory()] : []");

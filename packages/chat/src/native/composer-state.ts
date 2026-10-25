@@ -43,6 +43,8 @@ export type ComposerAction =
   | { type: "remove"; key: string }
   | { type: "reply"; to: ReplyTarget | null }
   | { type: "restore"; draft: ComposerDraft }
+  /** Another conversation (or thread) opened in the same composer: start empty. */
+  | { type: "reset" }
   | { type: "sent" };
 
 export function composerReducer(state: ComposerState, action: ComposerAction): ComposerState {
@@ -67,6 +69,7 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
       // A draft never replaces what was typed meanwhile.
       if (state.text || state.attachments.length) return state;
       return { ...state, text: action.draft.text, replyTo: action.draft.replyTo ?? null };
+    case "reset":
     case "sent":
       return emptyComposer;
   }
@@ -203,9 +206,37 @@ export interface ComposerDraft {
   replyTo?: ReplyTarget | null;
 }
 
-/** One draft per conversation, and per thread within it. */
-export function draftKey(conversationId: string, threadRootId?: string | null): string {
-  return `genesis-chat:draft:${conversationId}${threadRootId ? `:${threadRootId}` : ""}`;
+const DRAFT_PREFIX = "genesis-chat:draft:";
+
+/**
+ * One draft per signed-in person, per conversation, and per thread within it.
+ * The person comes first, so `clearDrafts` can find all of theirs on sign-out,
+ * and a second login on the phone never sees the first one's drafts.
+ */
+export function draftKey(userId: string, conversationId: string, threadRootId?: string | null): string {
+  return `${DRAFT_PREFIX}${userId}:${conversationId}${threadRootId ? `:${threadRootId}` : ""}`;
+}
+
+/**
+ * Removes every draft this person left on the phone (call it on sign-out).
+ * Needs the storage's `getAllKeys` (AsyncStorage has it); without it, it
+ * reports that through `onError` and removes nothing. Never throws.
+ */
+export async function clearDrafts(storage: DraftStorageLike, userId: string, onError?: (error: unknown) => void): Promise<number> {
+  try {
+    if (typeof storage.getAllKeys !== "function") {
+      onError?.(new Error("chat drafts: the draft storage has no getAllKeys, so drafts weren't cleared"));
+      return 0;
+    }
+    const mine = (await storage.getAllKeys()).filter((k) => k.startsWith(`${DRAFT_PREFIX}${userId}:`));
+    if (mine.length === 0) return 0;
+    if (typeof storage.multiRemove === "function") await storage.multiRemove(mine);
+    else await Promise.all(mine.map((k) => storage.removeItem(k)));
+    return mine.length;
+  } catch (error) {
+    onError?.(error);
+    return 0;
+  }
 }
 
 export function memoryDraftStorage(): DraftStorageLike {
@@ -214,6 +245,7 @@ export function memoryDraftStorage(): DraftStorageLike {
     getItem: async (k) => map.get(k) ?? null,
     setItem: async (k, v) => void map.set(k, v),
     removeItem: async (k) => void map.delete(k),
+    getAllKeys: async () => [...map.keys()],
   };
 }
 

@@ -2,9 +2,11 @@
  * @feat:chat
  * A voice note in a bubble: play and pause, its waveform (drawn before the
  * audio loads), drag across it to scrub, 1x / 1.5x / 2x, and the time. One
- * voice note plays at a time: starting one pauses the one playing.
+ * voice note plays at a time: starting one pauses the one playing. Each one
+ * also answers `toggleVoiceNote` / `cycleVoiceNoteRate` by its id, which the
+ * bubble's VoiceOver actions call (an accessible bubble hides its children).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { PanResponder, Pressable, View, type LayoutChangeEvent } from "react-native";
 import { NativeIcon, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -16,6 +18,8 @@ import type { ExpoAudioLike } from "./modules";
 // ---- One at a time --------------------------------------------------------
 
 let active: { id: string; pause: () => void } | null = null;
+const playbackListeners = new Set<() => void>();
+const notifyPlayback = () => playbackListeners.forEach((l) => l());
 
 /** Called when a voice note starts: pauses whichever other one was playing. */
 export function claimPlayback(id: string, pause: () => void): void {
@@ -27,11 +31,53 @@ export function claimPlayback(id: string, pause: () => void): void {
     }
   }
   active = { id, pause };
+  notifyPlayback();
 }
 
 /** Called when a voice note stops or unmounts. */
 export function releasePlayback(id: string): void {
-  if (active?.id === id) active = null;
+  if (active?.id === id) {
+    active = null;
+    notifyPlayback();
+  }
+}
+
+const subscribePlayback = (l: () => void) => {
+  playbackListeners.add(l);
+  return () => void playbackListeners.delete(l);
+};
+
+/** Whether one of these voice notes is the one playing (re-renders only when that answer changes). */
+export function useVoiceNotePlaying(ids: readonly string[]): boolean {
+  const key = ids.join("|");
+  return useSyncExternalStore(
+    subscribePlayback,
+    () => (active ? key.split("|").includes(active.id) : false),
+    () => false,
+  );
+}
+
+// ---- Controls by id, for the bubble's accessibility actions -----------------
+
+interface VoiceNoteControls {
+  toggle: () => void;
+  cycleRate: () => void;
+}
+
+const controls = new Map<string, VoiceNoteControls>();
+
+/** Plays or pauses the voice note with this id; false when none with it is on screen with playback. */
+export function toggleVoiceNote(id: string): boolean {
+  const c = controls.get(id);
+  c?.toggle();
+  return Boolean(c);
+}
+
+/** Moves the voice note with this id to its next speed; false when none is on screen with playback. */
+export function cycleVoiceNoteRate(id: string): boolean {
+  const c = controls.get(id);
+  c?.cycleRate();
+  return Boolean(c);
 }
 
 /** The playing voice note's id, for tests. */
@@ -129,6 +175,18 @@ function AudioVoiceNote({ id, uri, durationMs, waveform, mine, testID, audio }: 
     player.play();
   };
   const seek = (seconds: number) => void player.seekTo(Math.max(0, Math.min(durationSec, seconds)));
+  const cycleRate = () => player.setPlaybackRate(nextPlaybackRate(rate));
+
+  // The bubble's VoiceOver actions reach this player by its id.
+  const handles = useRef({ toggle, cycleRate });
+  handles.current = { toggle, cycleRate };
+  useEffect(() => {
+    const entry: VoiceNoteControls = { toggle: () => handles.current.toggle(), cycleRate: () => handles.current.cycleRate() };
+    controls.set(id, entry);
+    return () => {
+      if (controls.get(id) === entry) controls.delete(id);
+    };
+  }, [id]);
 
   const latest = useRef({ durationSec, seek });
   latest.current = { durationSec, seek };
@@ -188,7 +246,7 @@ function AudioVoiceNote({ id, uri, durationMs, waveform, mine, testID, audio }: 
         testID={testID ? `${testID}-rate` : undefined}
         accessibilityRole="button"
         accessibilityLabel={fill(copy.speed, { rate: `${rate}x` })}
-        onPress={() => player.setPlaybackRate(nextPlaybackRate(rate))}
+        onPress={cycleRate}
         hitSlop={8}
         style={{ minWidth: 44, height: 44, alignItems: "center", justifyContent: "center" }}
       >

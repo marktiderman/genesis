@@ -3,7 +3,9 @@
  * The thread as rows for the list: day separators, the "New messages" line,
  * and each message with where its group of one sender starts and ends (the
  * name goes over the first, the avatar beside the last, in a group
- * conversation). Built oldest first, then reversed for the inverted list.
+ * conversation). Oldest first, top to bottom: the order the thread's list
+ * shows and VoiceOver reads (a day's heading and the "New messages" line
+ * before the messages they head).
  * A row is keyed by the message's client id, so a message that lands keeps
  * its row.
  */
@@ -68,7 +70,12 @@ export function buildThreadRows(items: ThreadItem[], options: BuildRowsOptions):
   return rows;
 }
 
-/** Newest first, for an inverted list (its first row sits at the bottom). */
+/**
+ * Newest first, for an inverted list (its first row sits at the bottom). The
+ * thread screen no longer uses it: VoiceOver reads an inverted list's rows
+ * newest first, each day's heading after its messages.
+ * @deprecated Use `buildThreadRows` in a list that isn't inverted.
+ */
 export function invertedRows(items: ThreadItem[], options: BuildRowsOptions): ThreadRow[] {
   return buildThreadRows(items, options).reverse();
 }

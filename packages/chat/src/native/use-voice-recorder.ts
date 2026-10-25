@@ -4,8 +4,15 @@
  * metering on, reads the level every 100 ms for the live waveform (and to tell
  * the others you are recording), and hands back a voice note as a LocalFile
  * whose meta carries its duration and waveform, ready for `send`.
+ *
+ * Interruptions end the attempt cleanly, with a notice: the app going to the
+ * background, or the recorder stopping on its own (a phone call, Siri, another
+ * app taking the microphone) or its status no longer reading. A stop that fails
+ * or leaves no file says so. Leaving the screen while a stop is under way lets
+ * that stop finish and send what was recorded.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AppState } from "react-native";
 import { waveformFromMetering } from "../core/media";
 import type { LocalFile } from "../core/outbox";
 import { haptic, type ExpoAudioLike, type HapticsLike } from "./modules";
@@ -20,6 +27,9 @@ export interface UseVoiceRecorderOptions extends Omit<RecorderConfig, "limitMs">
   /** How often the level is read. Default 100 ms. */
   intervalMs?: number;
 }
+
+/** Reads in a row that show the recorder stopped (or can't be read) before it counts as interrupted. */
+export const RECORDER_STALL_READS = 3;
 
 /** The voice note a finished recording becomes. */
 export function voiceNoteFile(uri: string, durationMs: number, levelsDb: readonly number[]): LocalFile {
@@ -39,6 +49,8 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
   latest.current = options;
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const recording = useRef(false);
+  // A stop (finish) under way: unmounting leaves it to finish rather than stopping twice.
+  const stopping = useRef(false);
   // Each press is an attempt; an async step that finishes after its attempt ended is dropped.
   const attempt = useRef(0);
   const mounted = useRef(true);
@@ -83,41 +95,63 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
           })();
           return;
         }
-        case "record":
-          recorder.record();
+        case "record": {
+          try {
+            recorder.record();
+          } catch {
+            dispatch({ type: "failed", reason: "error" });
+            return;
+          }
           recording.current = true;
           stopTimer();
+          // Reads in a row where the recorder had stopped by itself or couldn't be read: a few
+          // mean something else has the microphone, and the attempt ends instead of freezing.
+          let stalled = 0;
+          let sawRecording = false;
           timer.current = setInterval(() => {
+            let s: ReturnType<typeof recorder.getStatus> | null = null;
             try {
-              const s = recorder.getStatus();
-              dispatch({ type: "tick", durationMs: s.durationMillis, meteringDb: s.metering });
+              s = recorder.getStatus();
             } catch {
-              // A status read that fails is skipped; the next one counts.
+              s = null;
             }
+            if (s && s.isRecording) sawRecording = true;
+            // Before the first read that says recording, a stopped recorder is still starting.
+            const bad = !s || (sawRecording && !s.isRecording);
+            stalled = bad ? stalled + 1 : 0;
+            if (stalled >= RECORDER_STALL_READS) return dispatch({ type: "interrupted" });
+            if (s && !bad) dispatch({ type: "tick", durationMs: s.durationMillis, meteringDb: s.metering });
           }, latest.current.intervalMs ?? 100);
           return;
+        }
         case "finish":
           stopTimer();
+          stopping.current = true;
           void (async () => {
+            let ok = false;
             try {
               const status = recorder.getStatus();
               await recorder.stop();
-              recording.current = false;
               const uri = recorder.uri ?? status.url;
               const durationMs = Math.max(after.durationMs, status.durationMillis || 0);
-              if (uri) latest.current.onRecorded(voiceNoteFile(uri, durationMs, after.levels));
+              if (uri) {
+                latest.current.onRecorded(voiceNoteFile(uri, durationMs, after.levels));
+                ok = true;
+              }
             } catch {
-              // Nothing usable was recorded.
+              // Nothing usable was recorded: the notice says so.
             } finally {
+              recording.current = false;
+              stopping.current = false;
               releaseAudio();
-              dispatch({ type: "finished" });
+              dispatch({ type: "finished", ok });
             }
           })();
           return;
         case "discard":
           attempt.current++;
           stopTimer();
-          if (recording.current) {
+          if (recording.current && !stopping.current) {
             recording.current = false;
             void recorder.stop().catch(() => undefined);
           }
@@ -150,7 +184,7 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
   );
   dispatchRef.current = dispatch;
 
-  // Leaving the screen mid-recording throws the recording away.
+  // Leaving the screen mid-recording throws the recording away; a stop under way finishes and sends.
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -158,14 +192,27 @@ export function useVoiceRecorder(audio: ExpoAudioLike, options: UseVoiceRecorder
       attempt.current++;
       stateRef.current = idleRecorder;
       stopTimer();
+      if (stopping.current) return;
       if (recording.current) {
         recording.current = false;
-        void recorder.stop().catch(() => undefined);
+        try {
+          void recorder.stop().catch(() => undefined);
+        } catch {
+          // The recorder is already gone.
+        }
       }
       releaseAudio();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recorder]);
+
+  // The app going to the background ends a recording (iOS takes the microphone from a backgrounded app).
+  useEffect(() => {
+    const sub = AppState?.addEventListener?.("change", (next) => {
+      if (next === "background") dispatchRef.current({ type: "interrupted" });
+    });
+    return () => sub?.remove?.();
+  }, []);
 
   return { state, dispatch };
 }

@@ -5,7 +5,10 @@
  * beside the last. A reply shows what it answers; reactions sit under the
  * bubble; a message still sending is faded, and one that failed says so with
  * Retry and Delete. Long press opens the actions; swipe right to reply. Both
- * are also VoiceOver / TalkBack actions, so nothing needs a gesture.
+ * are also VoiceOver / TalkBack actions, so nothing needs a gesture. The
+ * bubble is one accessible element (its parts would otherwise be read one by
+ * one), which hides the controls inside it, so it carries theirs as actions
+ * too: play or pause a voice note and change its speed, open each photo.
  */
 import { memo, useMemo, useRef } from "react";
 import { Animated, PanResponder, Pressable, View } from "react-native";
@@ -16,6 +19,7 @@ import type { ChatMessage, PendingFile } from "../core/types";
 import { fill } from "./copy";
 import { initials, useChatNative } from "./context";
 import { fromPending, fromServer, MessageAttachments, type BubbleAttachment } from "./media";
+import { cycleVoiceNoteRate, toggleVoiceNote, useVoiceNotePlaying } from "./voice-player";
 import type { ThreadRow } from "./rows";
 
 type MessageRow = Extract<ThreadRow, { type: "message" }>;
@@ -57,7 +61,7 @@ export function displayBody(body: string): string {
 
 function MessageBubbleImpl(props: MessageBubbleProps) {
   const { row, me, urls, repliedTo, group, reducedMotion, testID } = props;
-  const { copy, person } = useChatNative();
+  const { copy, person, modules } = useChatNative();
   const colors = useThemeRoles();
   const { item, mine } = row;
   const message = item.type === "message" ? item.message : null;
@@ -76,6 +80,11 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     if (message) return message.deletedAt ? [] : message.attachments.map((a) => fromServer(a, urls));
     return (pending?.files ?? []).map((f, i) => fromPending(pending!.clientId, i, f, pending!.previews?.[i]));
   }, [message, pending, urls]);
+
+  // The controls the accessible bubble hides, as its own actions.
+  const voices = attachments.filter((a) => a.kind === "voice" && a.uri && modules.audio);
+  const photos = attachments.filter((a) => a.kind === "image" && a.uri && props.onOpenImage);
+  const voicePlaying = useVoiceNotePlaying(voices.map((a) => a.key));
 
   // ---- Swipe to reply ----
   const x = useRef(new Animated.Value(0)).current;
@@ -135,6 +144,11 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     .join(", ");
 
   const actions = [
+    ...voices.flatMap((_, i) => [
+      { name: `voice-${i}`, label: voicePlaying ? copy.pauseVoice : copy.playVoice },
+      { name: `voice-rate-${i}`, label: copy.changeSpeed },
+    ]),
+    ...photos.map((_, i) => ({ name: `photo-${i}`, label: photos.length > 1 ? fill(copy.openPhotoN, { n: i + 1 }) : copy.openImage })),
     ...(message && props.onReply && !message.deletedAt ? [{ name: "reply", label: copy.reply }] : []),
     ...(message && props.onLongPress && !message.deletedAt ? [{ name: "actions", label: copy.messageActions }] : []),
     ...(failed && !lost && props.onRetry ? [{ name: "retry", label: copy.retry }] : []),
@@ -142,6 +156,14 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     ...(failed && props.onDiscard ? [{ name: "discard", label: copy.discard }] : []),
   ];
   const onAction = (name: string) => {
+    const media = /^(voice-rate|voice|photo)-(\d+)$/.exec(name);
+    if (media) {
+      const i = Number(media[2]);
+      if (media[1] === "voice" && voices[i]) toggleVoiceNote(voices[i].key);
+      else if (media[1] === "voice-rate" && voices[i]) cycleVoiceNoteRate(voices[i].key);
+      else if (media[1] === "photo" && photos[i]?.uri) props.onOpenImage?.(photos[i].uri, photos[i].name ? `${copy.photo}, ${photos[i].name}` : copy.photo);
+      return;
+    }
     if (name === "reply" && message) props.onReply?.(message);
     else if (name === "actions" && message) props.onLongPress?.(message);
     else if (name === "retry" && pending) props.onRetry?.(pending.clientId);
