@@ -264,6 +264,9 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
   // Unknown while access loads: the composer waits quietly instead of saying you can't post.
+  // TODO(chat accessError): when useConversation exposes `accessError` and `refetchAccess` (the chat
+  // owner's PR), show the error here with a Retry that calls `refetchAccess`, instead of waiting
+  // quietly forever on an access read that failed.
   const canPost = conv.accessLoading ? null : conv.canPost;
   const disabledReason = composerDisabledReason(canPost, conv.conversation, conv.role, copy);
   const KeyboardAvoiding = (modules.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
