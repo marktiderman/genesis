@@ -1,0 +1,133 @@
+import { z } from "zod";
+import { cn } from "@marktiderman/genesis-ui/utils";
+import { defineSection } from "../core/registry";
+import { Copy, Image, Line, Link, Surface } from "../core/schemas";
+import { Anchor, ICONS, IconName, ItemTitle, SectionBand, SectionIntro, SiteImage, TextLink, onAccent } from "./shared";
+
+const Item = z.object({
+  title: Line(60),
+  body: Copy(320),
+  icon: IconName.optional(),
+  image: Image.optional(),
+  link: Link.optional(),
+});
+
+const schema = z.object({
+  eyebrow: Line(60).optional(),
+  heading: Line(90),
+  body: Copy(320).optional(),
+  items: z.array(Item).min(1).max(12),
+  columns: z.union([z.literal(2), z.literal(3), z.literal(4)]).default(3),
+  surface: Surface.default("base"),
+  anchor: Anchor,
+});
+
+const COLUMNS = { 2: "sm:grid-cols-2", 3: "sm:grid-cols-2 lg:grid-cols-3", 4: "sm:grid-cols-2 lg:grid-cols-4" } as const;
+
+export const featuresSection = defineSection({
+  type: "features",
+  version: 1,
+  label: "Features",
+  description: "What you offer: a few items, each with a title, a line of copy and an icon or image.",
+  category: "content",
+  schema,
+  variants: [
+    { id: "grid", label: "Cards in a grid" },
+    { id: "list", label: "Icon list" },
+    { id: "alternating", label: "Image and text, alternating" },
+  ],
+  defaultVariant: "grid",
+  presets: [
+    {
+      name: "Three features",
+      variant: "grid",
+      props: {
+        heading: "What you get",
+        items: [
+          { title: "First thing", body: "Why it matters.", icon: "check" },
+          { title: "Second thing", body: "Why it matters.", icon: "star" },
+          { title: "Third thing", body: "Why it matters.", icon: "heart" },
+        ],
+      },
+    },
+    {
+      name: "Feature list",
+      variant: "list",
+      props: { heading: "Why people choose us", columns: 2, items: [{ title: "A reason", body: "In a sentence.", icon: "check" }, { title: "Another reason", body: "In a sentence.", icon: "check" }] },
+    },
+  ],
+  render: ({ props, variant, node, ctx }) => {
+    const inverted = onAccent(props.surface);
+    const intro = <SectionIntro ctx={ctx} eyebrow={props.eyebrow} heading={props.heading} body={props.body} tone={inverted ? "inherit" : "muted"} />;
+    const Icon = (name?: keyof typeof ICONS) => {
+      if (!name) return null;
+      const Glyph = ICONS[name];
+      return (
+        <span aria-hidden="true" className={cn("inline-flex size-11 shrink-0 items-center justify-center rounded-lg", inverted ? "bg-background text-foreground" : "bg-primary text-primary-foreground")}>
+          <Glyph className="size-5" />
+        </span>
+      );
+    };
+
+    if (variant === "alternating") {
+      return (
+        <SectionBand node={node} ctx={ctx} anchor={props.anchor} surface={props.surface}>
+          {intro}
+          <ul className="mt-12 flex flex-col gap-12 md:gap-16">
+            {props.items.map((item, i) => (
+              <li key={i} className="grid items-center gap-8 md:grid-cols-2 md:gap-12">
+                <div className={cn("flex flex-col gap-3", i % 2 === 1 && "md:order-2")}>
+                  {Icon(item.icon)}
+                  <ItemTitle ctx={ctx} className="text-2xl">
+                    {item.title}
+                  </ItemTitle>
+                  <p className={inverted ? undefined : "text-muted-foreground"}>{item.body}</p>
+                  {item.link ? <TextLink link={item.link} ctx={ctx} className="font-medium underline" /> : null}
+                </div>
+                {item.image ? (
+                  <SiteImage image={item.image} ctx={ctx} sizes="(min-width: 768px) 50vw, 100vw" className="aspect-[4/3] w-full rounded-xl object-cover" />
+                ) : (
+                  <div aria-hidden="true" className="hidden aspect-[4/3] w-full rounded-xl bg-muted md:block" />
+                )}
+              </li>
+            ))}
+          </ul>
+        </SectionBand>
+      );
+    }
+    if (variant === "list") {
+      return (
+        <SectionBand node={node} ctx={ctx} anchor={props.anchor} surface={props.surface}>
+          {intro}
+          <ul className={cn("mt-12 grid gap-x-10 gap-y-8", props.columns >= 2 && "sm:grid-cols-2", props.columns >= 3 && "lg:grid-cols-3")}>
+            {props.items.map((item, i) => (
+              <li key={i} className="flex gap-4">
+                {Icon(item.icon ?? "check")}
+                <div className="flex flex-col gap-1">
+                  <ItemTitle ctx={ctx}>{item.title}</ItemTitle>
+                  <p className={inverted ? undefined : "text-muted-foreground"}>{item.body}</p>
+                  {item.link ? <TextLink link={item.link} ctx={ctx} className="font-medium underline" /> : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </SectionBand>
+      );
+    }
+    return (
+      <SectionBand node={node} ctx={ctx} anchor={props.anchor} surface={props.surface}>
+        {intro}
+        <ul className={cn("mt-12 grid gap-6", COLUMNS[props.columns])}>
+          {props.items.map((item, i) => (
+            <li key={i} className="flex flex-col gap-3 rounded-xl border border-border bg-background p-6 text-foreground">
+              {item.image ? <SiteImage image={item.image} ctx={ctx} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="aspect-video w-full rounded-lg object-cover" /> : Icon(item.icon)}
+              <ItemTitle ctx={ctx}>{item.title}</ItemTitle>
+              <p className="text-muted-foreground">{item.body}</p>
+              {item.link ? <TextLink link={item.link} ctx={ctx} className="mt-auto font-medium underline" /> : null}
+            </li>
+          ))}
+        </ul>
+      </SectionBand>
+    );
+  },
+});

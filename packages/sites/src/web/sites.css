@@ -1,0 +1,41 @@
+/*
+ * The sites stylesheet: one file for every site and brand, compiled at build
+ * time from the sections and the genesis-ui pieces they use. A site's brand
+ * arrives as CSS variables in its own <style>, after this file, so the
+ * variables below are only defaults.
+ */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "@marktiderman/genesis-design-system/themes/genesis.css";
+@import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
+
+@source "../sections";
+@source "./document.tsx";
+@source "../../../ui/src/components/layout/band.tsx";
+@source "../../../ui/src/components/layout/container.tsx";
+@source "../../../ui/src/components/ui/button.tsx";
+@source "../../../ui/src/components/rich-text/rich-text.tsx";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+  /* A visible focus indicator on everything focusable (WCAG 2.4.7), in the ring colour the theme picked for contrast. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+}

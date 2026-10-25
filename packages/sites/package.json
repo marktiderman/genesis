@@ -1,0 +1,147 @@
+{
+  "name": "@marktiderman/genesis-sites",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": [
+    "./dist/sections.js",
+    "*.css"
+  ],
+  "description": "Sites and landing pages for Genesis apps: a section registry with zod 4 schemas, 13 server-rendered marketing sections on Genesis UI, a per-request renderer with no hydration, SEO (meta, sitemap, robots, JSON-LD, redirects), publish-time accessibility checks, one-click landing pages from a brand, and a Supabase schema with draft, publish and rollback. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/sites"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./sections": {
+      "types": "./dist/sections.d.ts",
+      "import": "./dist/sections.js"
+    },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "import": "./dist/web.js"
+    },
+    "./supabase": {
+      "types": "./dist/supabase.d.ts",
+      "import": "./dist/supabase.js"
+    },
+    "./blocks": {
+      "types": "./dist/blocks.d.ts",
+      "import": "./dist/blocks.js"
+    },
+    "./sites.css": "./dist/assets/sites.css",
+    "./sites-forms.css": "./dist/assets/sites-forms.css"
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "README.md"
+  ],
+  "scripts": {
+    "assets": "node scripts/build-assets.mjs",
+    "build": "node scripts/build-assets.mjs && tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist src/web/assets.generated.ts",
+    "typecheck": "node scripts/build-assets.mjs --if-missing && tsc --noEmit",
+    "test": "node scripts/build-assets.mjs --if-missing && vitest run"
+  },
+  "dependencies": {
+    "@marktiderman/genesis-features": "workspace:^"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-forms": "workspace:>=0.6.0 <1.0.0",
+    "@marktiderman/genesis-forms-web": "workspace:>=0.5.0 <1.0.0",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@supabase/supabase-js": "^2.118.0",
+    "lucide-react": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@supabase/supabase-js": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-forms": "workspace:^",
+    "@marktiderman/genesis-forms-react": "workspace:^",
+    "@marktiderman/genesis-forms-web": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@supabase/supabase-js": "^2.118.0",
+    "@tailwindcss/cli": "4.3.3",
+    "@types/node": "^22",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "axe-core": "^4.14.0",
+    "esbuild": "^0.28.1",
+    "happy-dom": "^20.9.0",
+    "lucide-react": "^1.0.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "4.3.3",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12",
+    "zod": "^4.4.3"
+  },
+  "genesis": {
+    "blocks": {
+      "sites": {
+        "feature": {
+          "name": "Sites and landing pages",
+          "summary": "Multi-page sites and one-click landing pages from the brand: drafts, preview, publish and rollback, served as cached HTML with no hydration.",
+          "keywords": [
+            "site builder",
+            "landing page",
+            "website",
+            "seo",
+            "sitemap"
+          ],
+          "audience": [
+            "admin",
+            "person"
+          ]
+        },
+        "platforms": [
+          "web",
+          "server"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0001_genesis_sites.sql",
+            "test": "migrations/tests/0001_genesis_sites.test.sql"
+          }
+        ],
+        "install": [
+          "zod@^4.0.0"
+        ],
+        "steps": [
+          "Expose the genesis_sites schema to the API: add it to `schemas` under [api] in supabase/config.toml, and to Exposed schemas in the dashboard.",
+          "Decide who edits a site: replace genesis_sites.can_edit(uuid) (and, if previews should reach more people, genesis_sites.can_view(uuid)) in a migration of your own, after this one (genesis-sites README, Who may edit).",
+          "Mount handleSiteRequest from @marktiderman/genesis-sites/web on your server, before your app's routes: it answers the site's paths and returns null for everything else."
+        ]
+      }
+    }
+  }
+}
