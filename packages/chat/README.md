@@ -13,6 +13,31 @@ replies, threads, reactions, read state, live updates and push.
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
 | `migrations/0001_genesis_chat.sql` | The schema, copied into your app by `genesis add chat`, with its pgTAP test. |
 
+## On the web
+
+```tsx
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createChatClient } from "@marktiderman/genesis-chat";
+import { ChatProvider } from "@marktiderman/genesis-chat/react";
+import { ChatPanel } from "@marktiderman/genesis-chat/web";
+
+const chat = createChatClient(supabase);
+
+<QueryClientProvider client={queryClient}>
+  <ChatProvider client={chat} userId={user.id}>
+    <ChatPanel resolveUser={(id) => ({ name: people[id]?.name ?? "Someone", avatarUrl: people[id]?.avatar })} />
+  </ChatProvider>
+</QueryClientProvider>
+```
+
+`resolveUser` is required: the package knows no people tables, so the app names everyone. Use
+`ChatInbox` and `ChatThread` on their own for your own layout, and `ChatComposer` with
+`useConversation` for your own thread. Swap parts with `slots` (`header`, `empty`, `attachment`
+for your own attachment kinds, `composerAccessory`). Mount a Genesis `<Toaster />` for refusals
+(a file too big, a send not allowed). Tailwind must scan the package
+(`@source "../node_modules/@marktiderman/genesis-chat/dist"`). `createMemoryChatClient` runs it
+all with no backend, for demos, stories and tests.
+
 ## Kinds and rules
 
 A kind of conversation carries its rules (`genesis_chat.register_kind`): how many members, who
