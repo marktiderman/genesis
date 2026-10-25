@@ -18,6 +18,10 @@ export default function AppLayout() {
         <NativeTabs.Trigger.Label>{copy.tabs.notifications}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: "bell", selected: "bell.fill" }} md="notifications" />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="messages" hidden={!starter.features.chat}>
+        <NativeTabs.Trigger.Label>{copy.tabs.messages}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "bubble.left.and.bubble.right", selected: "bubble.left.and.bubble.right.fill" }} md="chat" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label>{copy.tabs.settings}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} md="settings" />

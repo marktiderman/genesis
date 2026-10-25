@@ -1,4 +1,4 @@
-// @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay @feat:support-feedback
+// @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay @feat:support-feedback @feat:chat
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -13,6 +13,8 @@ const read = (path: string) => readFileSync(join(root, path), "utf8");
 // Wherever the package manager put it (hoisted to the workspace root here).
 const supabasePackage = dirname(createRequire(join(root, "package.json")).resolve("@marktiderman/genesis-supabase/package.json"));
 const shippedSql = (path: string) => readFileSync(join(supabasePackage, "migrations", path), "utf8");
+const chatPackage = dirname(createRequire(join(root, "package.json")).resolve("@marktiderman/genesis-chat/package.json"));
+const chatSql = (path: string) => readFileSync(join(chatPackage, "migrations", path), "utf8");
 
 function filesUnder(dir: string): string[] {
   return readdirSync(join(root, dir)).flatMap((name) => {
@@ -315,5 +317,39 @@ describe("support", () => {
     expect(read("app.config.ts")).not.toContain("features.support");
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
     expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["react-native-view-shot", "expo-sensors", "@marktiderman/genesis-support"]));
+  });
+});
+
+describe("chat", () => {
+  it("ships with chat on, its migration and pgTAP test copied unchanged after the support one, and genesis_chat served by the API", () => {
+    expect(starter.features.chat).toBe(true);
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_chat.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(chatSql("0001_genesis_chat.sql"));
+    expect(read("supabase/tests/database/genesis_chat.test.sql")).toBe(chatSql("tests/0001_genesis_chat.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_support.sql")));
+    expect(read("supabase/config.toml")).toMatch(/schemas = \[[^\]]*"genesis_chat"/);
+    expect(JSON.parse(read("genesis.config.json")).doctor.supabase.exposedSchemas).toContain("genesis_chat");
+  });
+
+  it("has the Messages tab and its routes, each sending you home when chat is off", () => {
+    expect(read("src/app/(app)/_layout.tsx")).toContain('name="messages" hidden={!starter.features.chat}');
+    for (const route of ["_layout", "index", "[id]"]) {
+      expect(read(join("src/app/(app)/messages", `${route}.tsx`)), route).toContain("if (!starter.features.chat) return <Redirect");
+    }
+  });
+
+  it("opens a message's push in its thread, and adds the messages category with Reply and Mark read when push is on", () => {
+    expect(read("src/lib/links.ts")).toContain('"/messages/:id": "/messages/:id"');
+    expect(read("src/lib/push.ts")).toContain("starter.features.chat ? [chatPushCategory()] : []");
+    expect(read("src/lib/push.ts")).toContain("onResponse: onChatPushResponse");
+    expect(read("src/lib/chat.tsx")).toContain("starter.features.chat && starter.features.push");
+  });
+
+  it("keeps expo-audio, expo-image-picker and expo-clipboard in the build whichever way the switch is", () => {
+    expect(read("app.config.ts")).not.toContain("features.chat");
+    const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+    expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["expo-audio", "expo-image-picker", "expo-clipboard", "@marktiderman/genesis-chat"]));
   });
 });

@@ -19,12 +19,18 @@ import { router, type Href } from "expo-router";
 import { AppState, Linking, Platform } from "react-native";
 import { createPush, supabasePushBackend } from "@marktiderman/genesis-native/push";
 import starter from "../../starter.config";
+import { chatPushCategory } from "@marktiderman/genesis-chat/native";
 import { copy } from "@/copy";
+import { onChatPushResponse } from "./chat";
 import { linkHold, links } from "./links";
 import { supabase } from "./supabase";
 
 /** The kinds of notification the app sends: a switch each in Settings, an Android channel each. Add yours. */
-export const pushCategories = [{ id: "activity", title: copy.push.activityTitle, description: copy.push.activityDescription }];
+export const pushCategories = [
+  { id: "activity", title: copy.push.activityTitle, description: copy.push.activityDescription },
+  // Chat's: its notifications carry Reply and Mark read (`chat.tsx` registers them).
+  ...(starter.features.chat ? [chatPushCategory()] : []),
+];
 
 export function createStarterPush() {
   return createPush({
@@ -34,6 +40,7 @@ export function createStarterPush() {
     appVersion: Application.nativeApplicationVersion,
     backend: supabasePushBackend(supabase),
     categories: pushCategories,
+    onResponse: onChatPushResponse,
     storage: AsyncStorage,
     appState: AppState,
     openSettings: Linking.openSettings,

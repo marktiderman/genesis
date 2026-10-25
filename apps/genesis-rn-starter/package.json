@@ -19,6 +19,7 @@
     "@expo/metro-runtime": "~58.0.15",
     "@expo/ui": "~58.0.23",
     "@hookform/resolvers": "^5.0.1",
+    "@marktiderman/genesis-chat": "workspace:^",
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
     "@marktiderman/genesis-forms": "workspace:^",

@@ -32,7 +32,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-updates",
     "expo-notifications",
     // The check-in's photo question picks from the library only: no camera, so no camera or microphone prompt.
-    ["expo-image-picker", { photosPermission: "Choose a photo to add to your check-in.", cameraPermission: false, microphonePermission: false }],
+    ["expo-image-picker", { photosPermission: "Choose photos to add to a check-in or a message.", cameraPermission: false, microphonePermission: false }],
+    // Voice messages in chat. Kept whichever way the chat switch is, so it stays JavaScript only.
+    ["expo-audio", { microphonePermission: "Record voice messages to send in a conversation." }],
     // The privacy manifest declares the data of the blocks that are on (account, observability, push).
     ["@marktiderman/genesis-cli", { privacy: { blocks: privacyBlocks(starter.features) } }],
     // Optional: upload source maps to Sentry from EAS builds (the observability block). Set your
