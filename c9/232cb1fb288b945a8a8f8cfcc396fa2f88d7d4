@@ -1,0 +1,29 @@
+.changeset/sites-editor.md
+  s_c0870a827920ef::t_e6db27c8457834 13
+apps/sample/package.json
+  s_c0870a827920ef::t_c91a2b5ef5fdf4 37
+packages/sites/README.md
+  s_c0870a827920ef::t_284e9570f81927 31-33,316-319,376-378
+packages/sites/package.json
+  s_c0870a827920ef::t_718b5e039e532b 71,78,86-88,99
+packages/sites/src/__tests__/editor.test.tsx
+  s_c0870a827920ef::t_fe2f70c8f8e3f5 24-27,45-58,62-76
+pnpm-lock.yaml
+  s_c0870a827920ef::t_e70fe71eac1c31 291-293,1150-1152,13612
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c9232cb1fb288b945a8a8f8cfcc396fa2f88d7d4",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
