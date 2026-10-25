@@ -56,9 +56,14 @@ export function NotificationsProvider({ client, registry, userId, realtime = tru
   const queryClient = useQueryClient();
   useEffect(() => {
     if (!realtime || !userId) return;
-    return resolved.subscribe(userId, () => {
-      void queryClient.invalidateQueries({ queryKey: notificationKeys.all(userId) });
-    });
+    try {
+      return resolved.subscribe(userId, () => {
+        void queryClient.invalidateQueries({ queryKey: notificationKeys.all(userId) });
+      });
+    } catch (error) {
+      console.warn(`[genesis-notifications] couldn't listen for feed changes: ${error instanceof Error ? error.message : "unknown error"}`);
+      return undefined;
+    }
   }, [resolved, userId, realtime, queryClient]);
   const value = useMemo(() => ({ client: resolved, registry, userId }), [resolved, registry, userId]);
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

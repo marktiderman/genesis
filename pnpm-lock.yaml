@@ -62,6 +62,9 @@ importers:
       '@marktiderman/genesis-native':
         specifier: workspace:^
         version: link:../../packages/native
+      '@marktiderman/genesis-notifications':
+        specifier: workspace:^
+        version: link:../../packages/notifications
       '@marktiderman/genesis-supabase':
         specifier: workspace:^
         version: link:../../packages/supabase

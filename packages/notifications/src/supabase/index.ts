@@ -151,6 +151,11 @@ export function notificationsClient(client: NotificationsSupabaseLike): Notifica
       return (data as ChannelChoices | null) ?? {};
     },
     subscribe(userId, onChange) {
+      if (typeof client.channel !== "function") {
+        // Loud, not fatal: without realtime the feed still refetches on focus and pull to refresh.
+        console.warn("[genesis-notifications] this Supabase client has no realtime (client.channel); the feed won't update live.");
+        return () => {};
+      }
       const channel = client.channel(`user:${userId}`, { config: { private: true } }) as Channel_;
       channel.on("broadcast", { event: "notification" }, () => onChange()).subscribe();
       return () => {

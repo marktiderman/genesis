@@ -14,17 +14,20 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Application from "expo-application";
 import Constants from "expo-constants";
+import * as Crypto from "expo-crypto";
 import * as Notifications from "expo-notifications";
 import { router, type Href } from "expo-router";
 import { AppState, Linking, Platform } from "react-native";
-import { createPush, supabasePushBackend } from "@marktiderman/genesis-native/push";
+import { createPush } from "@marktiderman/genesis-native/push";
+import { notificationsPushBackend, pushOptionsFrom } from "@marktiderman/genesis-notifications/native";
 import starter from "../../starter.config";
 import { copy } from "@/copy";
 import { linkHold, links } from "./links";
+import { notifications } from "./notifications";
 import { supabase } from "./supabase";
 
-/** The kinds of notification the app sends: a switch each in Settings, an Android channel each. Add yours. */
-export const pushCategories = [{ id: "activity", title: copy.push.activityTitle, description: copy.push.activityDescription }];
+/** The kinds of notification the app sends (an Android channel each) and the action buttons, from the registry. */
+export const pushOptions = pushOptionsFrom(notifications);
 
 export function createStarterPush() {
   return createPush({
@@ -32,8 +35,10 @@ export function createStarterPush() {
     platform: Platform.OS,
     projectId: (Constants.expoConfig?.extra?.eas?.projectId as string | undefined) ?? Constants.easConfig?.projectId ?? null,
     appVersion: Application.nativeApplicationVersion,
-    backend: supabasePushBackend(supabase),
-    categories: pushCategories,
+    backend: notificationsPushBackend(supabase),
+    ...pushOptions,
+    // This install's id: a token moves to another login only from this phone. Hermes has no crypto.randomUUID.
+    randomUUID: Crypto.randomUUID,
     storage: AsyncStorage,
     appState: AppState,
     openSettings: Linking.openSettings,
