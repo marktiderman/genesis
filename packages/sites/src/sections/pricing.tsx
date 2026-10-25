@@ -171,7 +171,7 @@ export const pricingSection = defineSection({
       const id = `${ctx.idPrefix}-group-${gi}`;
       return (
         <section key={gi} aria-labelledby={id} {...(group.anchor ? { id: group.anchor } : {})} className={cn("flex flex-col gap-3", group.anchor && "scroll-mt-20")}>
-          <div className="flex max-w-3xl flex-col gap-2">
+          <div className="mx-auto flex max-w-3xl flex-col items-center gap-2 text-center">
             {group.eyebrow ? <p className="text-sm font-semibold uppercase tracking-wider">{group.eyebrow}</p> : null}
             <GroupTitle ctx={ctx} id={id}>
               {group.heading}

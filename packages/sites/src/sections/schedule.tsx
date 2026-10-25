@@ -301,11 +301,11 @@ export const scheduleSection = defineSection({
         </div>
         {/* A phone: pick a day. Radios and the stylesheet's :has() rules, no script. */}
         <div data-gs-schedule="" className={cn("mt-8 md:hidden", card)}>
-          <fieldset>
+          <fieldset className="min-w-0">
             <legend className="sr-only">Show the classes on</legend>
             <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-2">
               {days.map((day, i) => (
-                <label key={day} className="shrink-0">
+                <label key={day} className="relative shrink-0">
                   <input type="radio" name={`${ctx.idPrefix}-day`} value={day} data-day={i} defaultChecked={i === 0} className="peer sr-only" />
                   <span className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-md border border-border px-3 text-sm font-semibold peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
                     <DayLabel day={day} props={props} />
