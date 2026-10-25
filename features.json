@@ -1609,6 +1609,129 @@
       "flags": []
     },
     {
+      "id": "product-roadmap",
+      "name": "Product board",
+      "summary": "A Now / Next / Later board from features.ts (horizon and claimedBy), the top ideas ranked by demand, and the triage inbox, as markdown or the repo's \"Product board\" issue.",
+      "category": "Product",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "compass",
+      "layer": "tool",
+      "keywords": [
+        "roadmap",
+        "now next later",
+        "product board",
+        "prioritise",
+        "backlog",
+        "productboard"
+      ],
+      "requires": [
+        "feature-registry"
+      ],
+      "owner": "compass",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A planned or building feature appears under its horizon, a building one with no horizon under now, and ideas are ranked by demand.",
+        "An open idea or feedback issue with no feature id appears in the triage inbox."
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/product/src/board.ts",
+          "packages/product/src/cli.ts"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "product-insights",
+      "name": "Ideas and feedback as evidence",
+      "summary": "Ideas, feedback and bugs as signals linked to a FeatureId, with an importance from 1 to 3 and votes, behind a SignalSource contract; GitHub issues (issue forms, feature:<id> labels, 👍 as votes) are the first source.",
+      "category": "Product",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "compass",
+      "layer": "service",
+      "keywords": [
+        "insights",
+        "feedback",
+        "ideas",
+        "votes",
+        "demand",
+        "triage",
+        "issue forms"
+      ],
+      "owner": "compass",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "An issue made from the idea or feedback form becomes a signal linked to the feature named in its Feature field or feature:<id> label, with its 👍 as votes.",
+        "Demand is each open signal's importance (1 when unset) plus its votes; closed signals don't count."
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/product/src/index.ts",
+          "packages/product/src/model.ts",
+          "packages/product/src/node.ts",
+          ".github/ISSUE_TEMPLATE"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "product-releases",
+      "name": "Release notes that close the loop",
+      "summary": "Drafts release notes from the features that reached beta or live between two refs of features.json, thanks the asks they answer, and with --notify comments on and closes those issues.",
+      "category": "Product",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "compass",
+      "layer": "tool",
+      "keywords": [
+        "release notes",
+        "changelog",
+        "what's new",
+        "close the loop",
+        "shipped"
+      ],
+      "requires": [
+        "product-insights"
+      ],
+      "owner": "compass",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Features that reached live or beta since the given ref are listed with their tagline, internal ones left out, each with the open asks it answers."
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/product/src/release.ts"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "cli-introspect",
       "name": "genesis introspect",
       "summary": "Writes a checked-in contract of every table from the Postgres catalog or a PostgREST OpenAPI document; --check catches drift in CI.",

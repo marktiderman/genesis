@@ -1,0 +1,45 @@
+# Product board: rewrites the "Product board" issue from features.json and the idea and
+# feedback issues (genesis-product board --issue), once a day and on demand, so the board is one
+# link away on any device. Reads features.json as committed; nothing is pushed.
+
+name: Product board
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: product-board
+  cancel-in-progress: true
+
+jobs:
+  board:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.26.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the product package
+        run: pnpm --filter "@marktiderman/genesis-product..." build
+
+      - name: Write the board issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm product board --issue --repo "$GITHUB_REPOSITORY"
