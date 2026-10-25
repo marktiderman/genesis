@@ -36,7 +36,7 @@ describe("tabs", () => {
   it("leaves the tabs for sign-in when the session ends elsewhere", async () => {
     const app = await renderApp("/notifications", "person@example.com");
     await screen.findByText(copy.notifications.emptyTitle);
-    emit("SIGNED_OUT", null);
+    await act(async () => emit("SIGNED_OUT", null));
     expect(await screen.findByText(copy.signIn.headline)).toBeOnTheScreen();
     await expectPathname(app, "/sign-in");
   });

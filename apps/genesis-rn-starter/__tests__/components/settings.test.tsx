@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { Alert, type AlertButton } from "react-native";
 import { act, screen, userEvent, within } from "@testing-library/react-native";
 import { copy } from "@/copy";
-import { fakeSupabase, next } from "./fake-supabase";
+import { fakeSupabase, next, releaseDelete } from "./fake-supabase";
 import { expectPathname, renderApp } from "./render-app";
 
 const t = copy.settings;
@@ -49,6 +49,8 @@ describe("settings screen", () => {
     const app = await renderApp("/settings", "person@example.com");
     await userEvent.setup().press(await screen.findByTestId("sign-out"));
     expect(fakeSupabase.auth.signOut).toHaveBeenCalledTimes(1);
+    // A full sign-out (the server revokes the refresh token), not just this device's copy.
+    expect(fakeSupabase.auth.signOut).toHaveBeenCalledWith();
     expect(await screen.findByText(copy.signIn.headline)).toBeOnTheScreen();
     await expectPathname(app, "/sign-in");
   });
@@ -65,28 +67,66 @@ describe("settings screen", () => {
     expect(fakeSupabase.auth.signOut).not.toHaveBeenCalled();
   });
 
-  it("deletes the account once confirmed, signs this device out and says so", async () => {
+  it("deletes the account once confirmed, revokes the Apple tokens, signs this device out and says so", async () => {
     const alerts = captureAlerts();
     const app = await renderApp("/settings", "person@example.com");
     await userEvent.setup().press(await screen.findByTestId("delete-account"));
     await alerts.press(t.deleteConfirm);
     expect(deleteCalls()).toHaveLength(1);
+    // App Review requires Sign in with Apple tokens to be revoked when the account goes.
+    expect(fakeSupabase.functions.invoke).toHaveBeenCalledWith("genesis-apple-revoke", expect.objectContaining({ body: { action: "revoke" } }));
     expect(fakeSupabase.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(alerts.last().title).toBe(t.deletedTitle);
     await expectPathname(app, "/sign-in");
   });
 
-  it("reports a refusal as a refusal, keeps the session and offers a fresh sign-in", async () => {
+  it("ignores Delete account while a deletion is running", async () => {
     const alerts = captureAlerts();
-    const app = await renderApp("/settings", "person@example.com");
-    next.deleteError = "GA002"; // the app requires a recent sign-in
+    await renderApp("/settings", "person@example.com", () => {
+      next.holdDelete = true;
+    });
+    const user = userEvent.setup();
+    await user.press(await screen.findByTestId("delete-account"));
+    await alerts.press(t.deleteConfirm);
+    expect(deleteCalls()).toHaveLength(1);
+    const shown = alerts.alert.mock.calls.length;
+    await user.press(screen.getByTestId("delete-account"));
+    expect(alerts.alert.mock.calls.length).toBe(shown); // no second confirmation
+    await act(async () => releaseDelete());
+    expect(deleteCalls()).toHaveLength(1);
+    expect(alerts.last().title).toBe(t.deletedTitle);
+  });
+
+  // delete_my_account's error codes (src/lib/account.ts) → the copy, and whether to offer a fresh sign-in.
+  it.each([
+    ["GA002", t.deleteErrors.recentSignIn, true],
+    ["42501", t.deleteErrors.notAllowed, true],
+    ["GA001", t.deleteErrors.refused, false],
+    ["GA999", t.deleteErrors.refused, false],
+    ["23503", t.deleteErrors.inUse, false],
+    ["XX000", t.deleteErrors.unknown, false],
+  ])("reports refusal %s as a refusal with its own message, and keeps the session", async (code, message, signInAgain) => {
+    const alerts = captureAlerts();
+    const app = await renderApp("/settings", "person@example.com", () => {
+      next.deleteError = code;
+    });
     await userEvent.setup().press(await screen.findByTestId("delete-account"));
     await alerts.press(t.deleteConfirm);
     expect(deleteCalls()).toHaveLength(1);
     expect(alerts.last().title).toBe(t.deleteFailedTitle);
-    expect(alerts.last().message).toBe(t.deleteErrors.recentSignIn);
+    expect(alerts.last().message).toBe(message);
+    expect(alerts.last().buttons.map((b) => b.text)).toEqual(signInAgain ? [t.cancel, t.signInAgain] : [t.ok]);
     expect(fakeSupabase.auth.signOut).not.toHaveBeenCalled();
     expect(app.getPathname()).toBe("/settings");
+  });
+
+  it("offers a fresh sign-in after a refusal that needs one, and it signs out", async () => {
+    const alerts = captureAlerts();
+    const app = await renderApp("/settings", "person@example.com", () => {
+      next.deleteError = "GA002";
+    });
+    await userEvent.setup().press(await screen.findByTestId("delete-account"));
+    await alerts.press(t.deleteConfirm);
     await alerts.press(t.signInAgain);
     expect(fakeSupabase.auth.signOut).toHaveBeenCalledTimes(1);
     await expectPathname(app, "/sign-in");

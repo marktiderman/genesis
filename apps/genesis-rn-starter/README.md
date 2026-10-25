@@ -169,8 +169,9 @@ The component tests (`__tests__/components`, `jest.config.js`) render the real `
 with expo-router's `renderRouter`: the root layout and its boot through `GenesisNativeApp`,
 sign-in, the tabs, Settings and account deletion. Supabase is the fake in
 `__tests__/components/fake-supabase.ts` (`setup.ts` swaps it in for `src/lib/supabase.ts`), and
-native modules use jest-expo's mocks or their library's own. Add a screen's test there; tests
-that only read files stay in vitest (`*.test.ts`).
+native modules use jest-expo's mocks or their library's own. A test fails when the app reports an
+error (`[push]`, `[updates]`, `[observability]`) or React warns about act(); see `reports.ts`.
+Add a screen's test there; tests that only read files stay in vitest, outside that folder.
 
 ## Releasing
 

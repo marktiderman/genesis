@@ -16,7 +16,8 @@ if (extended === modulesPattern) throw new Error("jest.config.js: jest-expo's tr
 
 module.exports = {
   preset: "jest-expo",
-  testMatch: ["<rootDir>/__tests__/components/**/*.test.tsx"],
+  // Every test file here is jest's, `.ts` or `.tsx`; vitest.config.mts leaves this folder out.
+  testMatch: ["<rootDir>/__tests__/components/**/*.test.{ts,tsx}"],
   setupFilesAfterEnv: ["<rootDir>/__tests__/components/setup.ts"],
   resolver: "<rootDir>/__tests__/components/resolver.js",
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/src/$1", "\\.css$": "<rootDir>/__tests__/components/css-stub.js" },

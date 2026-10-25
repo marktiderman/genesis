@@ -32,6 +32,8 @@ describe("sign-in screen", () => {
     expect(screen.getByTestId("auth-screen-form-password")).toBeOnTheScreen();
     expect(screen.getByText(t.submit)).toBeOnTheScreen();
     expect(screen.getByTestId("auth-screen-social-apple")).toBeOnTheScreen();
+    // `features.googleSignIn` is off in starter.config.ts.
+    expect(screen.queryByTestId("auth-screen-social-google")).not.toBeOnTheScreen();
   });
 
   it("signs in with the typed email and password, then goes home", async () => {

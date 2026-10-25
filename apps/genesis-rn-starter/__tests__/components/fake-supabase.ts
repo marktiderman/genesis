@@ -1,7 +1,8 @@
 /**
  * The Supabase client the component tests give the app in place of `src/lib/supabase.ts`
- * (see `setup.ts`). It keeps one session and plays auth events the way supabase-js does: a
- * sign-in emits `SIGNED_IN`, a sign-out `SIGNED_OUT`. `fake.next` scripts the next answers.
+ * (see `setup.ts`). It keeps one session and plays the auth events supabase-js plays:
+ * `INITIAL_SESSION` to each new listener, `SIGNED_IN` after a sign-in, `SIGNED_OUT` after a
+ * sign-out. `next` scripts the next answers.
  */
 import { jest } from "@jest/globals";
 
@@ -32,7 +33,15 @@ export const next: {
   confirmEmail: boolean;
   /** `delete_my_account` fails with this Postgres or app error code. */
   deleteError: string | null;
-} = { authError: null, confirmEmail: false, deleteError: null };
+  /** `delete_my_account` doesn't answer until `releaseDelete()`. */
+  holdDelete: boolean;
+} = { authError: null, confirmEmail: false, deleteError: null, holdDelete: false };
+
+let releaseHeld: () => void = () => {};
+/** Lets a `delete_my_account` held by `next.holdDelete` answer. */
+export function releaseDelete(): void {
+  releaseHeld();
+}
 
 export function sessionFor(email: string): FakeSession {
   return { access_token: "test-token", user: { id: `user-${email}`, email } };
@@ -45,12 +54,12 @@ export function emit(event: string, session: FakeSession | null): void {
 }
 
 /** A PostgREST query on an empty table: every filter chains, and awaiting it gives no rows. */
-function query(result: QueryResult): Query {
+function query(result: QueryResult | Promise<QueryResult>): Query {
   const settle = Promise.resolve(result);
   const q: Query = { then: (onFulfilled, onRejected) => settle.then(onFulfilled, onRejected) };
   for (const method of QUERY_METHODS) q[method] = () => q;
-  q.single = () => query({ ...result, data: null });
-  q.maybeSingle = () => query({ ...result, data: null });
+  q.single = () => query(settle.then((r) => ({ ...r, data: null })));
+  q.maybeSingle = () => query(settle.then((r) => ({ ...r, data: null })));
   return q;
 }
 
@@ -64,6 +73,15 @@ async function signIn(email: string, confirm: boolean): Promise<AuthResult> {
   return { data: { session, user: session.user }, error: null };
 }
 
+function deleteMyAccount(): Query {
+  const answer = (): QueryResult =>
+    next.deleteError
+      ? { data: null, error: { code: next.deleteError, message: `refused: ${next.deleteError}` }, count: 0 }
+      : { data: null, error: null, count: 0 };
+  if (!next.holdDelete) return query(answer());
+  return query(new Promise<QueryResult>((resolve) => (releaseHeld = () => resolve(answer()))));
+}
+
 export const fakeSupabase = {
   auth: {
     storageKey: "genesis-rn-starter-auth-token",
@@ -71,6 +89,10 @@ export const fakeSupabase = {
     getSession: jest.fn(async () => ({ data: { session: current }, error: null })),
     onAuthStateChange: jest.fn((callback: Listener) => {
       listeners.add(callback);
+      // supabase-js tells each new listener the session it has, a tick after it subscribes.
+      queueMicrotask(() => {
+        if (listeners.has(callback)) callback("INITIAL_SESSION", current);
+      });
       return { data: { subscription: { unsubscribe: () => listeners.delete(callback) } } };
     }),
     signInWithPassword: jest.fn(({ email }: { email: string; password: string }) => signIn(email, false)),
@@ -82,12 +104,9 @@ export const fakeSupabase = {
     updateUser: jest.fn(async () => ({ data: { user: current?.user ?? null }, error: null })),
   },
   from: jest.fn((_table: string) => query({ data: [], error: null, count: 0 })),
-  rpc: jest.fn((fn: string, _args?: object) => {
-    if (fn === "delete_my_account" && next.deleteError) {
-      return query({ data: null, error: { code: next.deleteError, message: `refused: ${next.deleteError}` }, count: 0 });
-    }
-    return query({ data: null, error: null, count: 0 });
-  }),
+  rpc: jest.fn((fn: string, _args?: object) => (fn === "delete_my_account" ? deleteMyAccount() : query({ data: null, error: null, count: 0 }))),
+  // Edge Functions (genesis-apple-revoke): every call succeeds.
+  functions: { invoke: jest.fn(async (_name: string, _options?: object) => ({ data: { ok: true }, error: null })) },
 };
 
 /** `sessionReady` from `src/lib/supabase.ts`, the boot step that wipes a session left by an earlier install. */
@@ -97,7 +116,8 @@ export const sessionReady = jest.fn(async (): Promise<unknown> => false);
 export function resetSupabase(email: string | null): void {
   listeners.clear();
   current = email ? sessionFor(email) : null;
-  Object.assign(next, { authError: null, confirmEmail: false, deleteError: null });
+  Object.assign(next, { authError: null, confirmEmail: false, deleteError: null, holdDelete: false });
+  releaseHeld = () => {};
   sessionReady.mockReset();
   sessionReady.mockImplementation(async () => false);
   for (const fn of [
@@ -109,6 +129,7 @@ export function resetSupabase(email: string | null): void {
     fakeSupabase.auth.updateUser,
     fakeSupabase.from,
     fakeSupabase.rpc,
+    fakeSupabase.functions.invoke,
   ]) {
     fn.mockClear();
   }

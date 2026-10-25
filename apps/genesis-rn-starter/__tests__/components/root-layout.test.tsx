@@ -3,6 +3,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { act, screen, userEvent } from "@testing-library/react-native";
 import { fakeSupabase, sessionReady } from "./fake-supabase";
 import { renderApp } from "./render-app";
+import { expectReport } from "./reports";
 
 jest.mock("expo-splash-screen", () => ({ preventAutoHideAsync: jest.fn(async () => true), hideAsync: jest.fn(async () => true) }));
 
@@ -38,7 +39,8 @@ describe("root layout", () => {
     expect(splash.hideAsync).toHaveBeenCalled();
   });
 
-  it("shows the fatal screen when a boot step fails, and Try again runs it again", async () => {
+  it("shows the fatal screen when a boot step fails, reports it, and Try again runs it again", async () => {
+    expectReport(/^\[observability\] fatal boot: keychain unavailable$/);
     await renderApp("/", "person@example.com", () => {
       sessionReady.mockRejectedValueOnce(new Error("keychain unavailable"));
     });
