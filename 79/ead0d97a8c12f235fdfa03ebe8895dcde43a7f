@@ -1,0 +1,139 @@
+packages/notifications/src/server/handler.ts
+  s_8252619ce79a86::t_d3d77c3f23aedc 1-126
+packages/notifications/src/core/types.ts
+  s_8252619ce79a86::t_3e5aeee540075d 1-88
+packages/notifications/src/server/errors.ts
+  s_8252619ce79a86::t_7d7abe0981e585 1-61
+packages/notifications/src/server/notify.ts
+  s_8252619ce79a86::t_e1eb508844274d 1-61
+packages/notifications/src/email/index.tsx
+  s_8252619ce79a86::t_985dd8365ff913 1-142
+packages/notifications/src/__tests__/runner.test.ts
+  s_8252619ce79a86::t_ec8950f24cc924 30
+  s_8252619ce79a86::t_f5f61a1707cab3 1-29,31-83
+features.json
+  s_8252619ce79a86::t_a81c9618e02f48 2875,2877,2892,2928-3070
+packages/notifications/src/core/validate.ts
+  s_8252619ce79a86::t_3e5aeee540075d 1-55
+.changeset/genesis-notifications.md
+  s_8252619ce79a86::t_5b04768d97cc85 1-14
+packages/notifications/src/core/index.ts
+  s_8252619ce79a86::t_bd8adf2ee8b4ba 13-15
+  s_8252619ce79a86::t_3e5aeee540075d 1-12,16-43
+AGENTS.md
+  s_8252619ce79a86::t_a81c9618e02f48 16
+packages/notifications/src/server/runner.ts
+  s_8252619ce79a86::t_c325a1bd6fd5bd 1-406
+packages/notifications/src/react/index.tsx
+  s_8252619ce79a86::t_0929d344193406 1-220
+packages/notifications/vitest.config.ts
+  s_8252619ce79a86::t_87a99bfa3e6022 1-29
+packages/notifications/src/server/store.ts
+  s_8252619ce79a86::t_e1eb508844274d 1-140
+packages/notifications/migrations/0001_genesis_notifications.sql
+  s_8252619ce79a86::t_1535d5d1250b28 606-612
+  s_8252619ce79a86::t_0fe9d5b82c1114 1-20,33-243,245-257
+  s_8252619ce79a86::t_bf917d697e01ce 801-1743,1745-1768
+  s_8252619ce79a86::t_44890b6548e84d 258-555,559-605,613-800
+  s_8252619ce79a86::t_789aed00a62b80 21-32,556-558,1744
+  s_8252619ce79a86::t_d58848788b9489 244
+packages/notifications/src/server/index.ts
+  s_8252619ce79a86::t_d3d77c3f23aedc 1-56
+packages/notifications/src/server/expo.ts
+  s_8252619ce79a86::t_7d7abe0981e585 1-131
+packages/notifications/src/blocks.ts
+  s_8252619ce79a86::t_bec3de6d823c4f 1-42
+packages/notifications/src/server/crypto.ts
+  s_8252619ce79a86::t_65a1b06fd4bd7c 1-44
+packages/notifications/.gitignore
+  s_8252619ce79a86::t_87a99bfa3e6022 1
+packages/notifications/functions/genesis-notifications/index.ts
+  s_8252619ce79a86::t_5a03aaf4e78898 1-60
+packages/notifications/src/__tests__/web.test.tsx
+  s_8252619ce79a86::t_d9cea21bee3f34 3-6
+  s_8252619ce79a86::t_b2c2ffb1de4ad1 1-2,7-71
+packages/notifications/tsconfig.json
+  s_8252619ce79a86::t_87a99bfa3e6022 1-18
+packages/notifications/src/__tests__/core.test.ts
+  s_8252619ce79a86::t_23f62fab54484b 1-65,67-89
+  s_8252619ce79a86::t_f5f61a1707cab3 66
+packages/notifications/README.md
+  s_8252619ce79a86::t_ee597e6edf6551 43-47
+  s_8252619ce79a86::t_76ad86a6f65f25 1-42,48-196
+packages/notifications/src/server/webhook.ts
+  s_8252619ce79a86::t_65a1b06fd4bd7c 1-55
+packages/notifications/tsup.config.ts
+  s_8252619ce79a86::t_87a99bfa3e6022 1-22
+features.ts
+  s_8252619ce79a86::t_1c8a1ab8b901c1 1255,1257,1280-1324,1326-1341
+  s_8252619ce79a86::t_a81c9618e02f48 1260,1325
+packages/notifications/src/runner/index.ts
+  s_8252619ce79a86::t_dc7d0f1d8e5271 1-299
+packages/notifications/src/supabase/index.ts
+  s_8252619ce79a86::t_4143a938bab24c 1-183
+packages/notifications/migrations/tests/0001_genesis_notifications.test.sql
+  s_8252619ce79a86::t_349575ceefd81c 131,207-210
+  s_8252619ce79a86::t_91c00d322e91bd 1-130,132-186,188-206,211-233,236-266
+  s_8252619ce79a86::t_50ea82c2582c3d 187,234-235
+packages/notifications/src/web/index.tsx
+  s_8252619ce79a86::t_9df98f872d7128 64-65,68,77
+  s_8252619ce79a86::t_f47acb063e5825 1-63,66-67,69-76,78-428
+docs/NOTIFICATIONS.md
+  s_8252619ce79a86::t_4e813c28716075 1-205
+packages/notifications/src/native/index.tsx
+  s_8252619ce79a86::t_bec3de6d823c4f 1-251
+packages/notifications/src/core/registry.ts
+  s_8252619ce79a86::t_77c8682706a870 1-149,151-255,257-314
+  s_8252619ce79a86::t_bd8adf2ee8b4ba 315-340
+  s_8252619ce79a86::t_8886b05b789d0a 150,256
+packages/notifications/src/__tests__/handler.test.ts
+  s_8252619ce79a86::t_2cd3ea7a70c8ca 1-156
+packages/notifications/src/index.ts
+  s_8252619ce79a86::t_3e5aeee540075d 1,3-5
+  s_8252619ce79a86::t_a34e439f76bb22 2,6
+packages/notifications/src/server/email-render.ts
+  s_8252619ce79a86::t_43b298d466c642 58,60
+  s_8252619ce79a86::t_c325a1bd6fd5bd 1-47,49-57,59,61-90
+  s_8252619ce79a86::t_bdbcdbd030ae18 48
+packages/notifications/functions/genesis-notifications/notifications.ts
+  s_8252619ce79a86::t_5a03aaf4e78898 1-21
+packages/notifications/src/__tests__/ui.test.tsx
+  s_8252619ce79a86::t_2cd3ea7a70c8ca 1-2,7-125
+  s_8252619ce79a86::t_d9cea21bee3f34 3-6
+packages/notifications/src/server/resend.ts
+  s_8252619ce79a86::t_65a1b06fd4bd7c 1-112
+packages/notifications/src/server/secret-links.ts
+  s_8252619ce79a86::t_65a1b06fd4bd7c 1-53
+packages/notifications/src/server/unsubscribe.ts
+  s_8252619ce79a86::t_65a1b06fd4bd7c 1-67
+packages/notifications/package.json
+  s_8252619ce79a86::t_87a99bfa3e6022 1-89,91-194
+  s_8252619ce79a86::t_061ce1da91e4c5 90
+packages/notifications/src/__tests__/fixtures.ts
+  s_8252619ce79a86::t_23f62fab54484b 1-35
+packages/notifications/src/__tests__/notification-runner.test.ts
+  s_8252619ce79a86::t_43b298d466c642 290
+  s_8252619ce79a86::t_b75a3eccc459ac 1-289,291-307
+packages/notifications/src/__tests__/providers.test.ts
+  s_8252619ce79a86::t_b75a3eccc459ac 1-80
+packages/notifications/src/server/dns.ts
+  s_8252619ce79a86::t_65a1b06fd4bd7c 1-59
+pnpm-lock.yaml
+  s_8252619ce79a86::t_67b20b72d2b3e5 687-689,1135-1189,4586-4764,5212-5214,8203-8209,8842-8844,9159-9163,9597-9599,9655-9657,9794-9797,10400-10402,14689-14812,15226-15230,18702-18716,19605-19606,19835-19836,20439-20443,20498-20499,20623-20624,21447-21450
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "79ead0d97a8c12f235fdfa03ebe8895dcde43a7f",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
