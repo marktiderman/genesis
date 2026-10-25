@@ -170,7 +170,7 @@ function DefaultHeader({ title, description, image, requiredNote, className }: H
       <header className={cn("space-y-1", className)}>
         {image ? <HeaderImage image={image} className="mb-4 rounded-lg" /> : null}
         <h1 className="text-sm font-medium text-muted-foreground">{title}</h1>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        {description ? <p className="text-sm text-muted-foreground whitespace-pre-line">{description}</p> : null}
         {requiredNote ? <RequiredNote text={requiredNote} /> : null}
       </header>
     );
@@ -187,7 +187,7 @@ function DefaultHeader({ title, description, image, requiredNote, className }: H
         {image ? <HeaderImage image={image} /> : null}
         <div className={cn("px-5 py-6 sm:px-8 sm:py-8", image && "border-t-8 border-t-primary")}>
           <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{title}</h1>
-          {description ? <p className="mt-3 text-base text-muted-foreground text-pretty">{description}</p> : null}
+          {description ? <p className="mt-3 text-base text-muted-foreground text-pretty whitespace-pre-line">{description}</p> : null}
           {requiredNote ? <RequiredNote text={requiredNote} className="mt-4" /> : null}
         </div>
       </header>
@@ -197,7 +197,7 @@ function DefaultHeader({ title, description, image, requiredNote, className }: H
     <header className={cn("space-y-1", className)}>
       {image ? <HeaderImage image={image} className="mb-4 rounded-lg" /> : null}
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      {description ? <p className="text-muted-foreground">{description}</p> : null}
+      {description ? <p className="text-muted-foreground whitespace-pre-line">{description}</p> : null}
       {requiredNote ? <RequiredNote text={requiredNote} className="pt-1" /> : null}
     </header>
   );
@@ -394,7 +394,7 @@ export function DefaultEnding({ title, description, actions, className }: Ending
         >
           {title}
         </h2>
-        {description ? <p className="max-w-md text-lg text-muted-foreground text-pretty">{description}</p> : null}
+        {description ? <p className="max-w-md text-lg text-muted-foreground text-pretty whitespace-pre-line">{description}</p> : null}
         {actionRow}
       </div>
     );
@@ -405,7 +405,7 @@ export function DefaultEnding({ title, description, actions, className }: Ending
       <h2 tabIndex={-1} data-gf-focus="" className={cn("rounded-sm text-2xl font-semibold", focusRing)}>
         {title}
       </h2>
-      {description ? <p className="text-muted-foreground">{description}</p> : null}
+      {description ? <p className="text-muted-foreground whitespace-pre-line">{description}</p> : null}
       {actionRow}
     </div>
   );

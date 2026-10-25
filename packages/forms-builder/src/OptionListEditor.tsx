@@ -78,7 +78,8 @@ function download(name: string, text: string) {
  * remove and reorder options; edit each one's label, description, picture and attributes; import
  * from pasted CSV or a file with a preview of what will change (`parseOptionListCsv`, then
  * `mergeOptions`); and export it as CSV. An option's value is what answers store, so it is made
- * once from its label and then only shown.
+ * from its label and then only shown: an option added here starts blank with a unique value, and
+ * its value follows its label (kept unique) while this editor stays open.
  */
 export function OptionListEditor({ list, onChange, readOnly, className, testID }: OptionListEditorProps) {
   const id = useId();
@@ -86,6 +87,10 @@ export function OptionListEditor({ list, onChange, readOnly, className, testID }
   const [newAttribute, setNewAttribute] = useState("");
   const [pasted, setPasted] = useState("");
   const [preview, setPreview] = useState<OptionListImport | null>(null);
+  // Options added in this editor, by current value: their value still follows the label. Each keeps
+  // a row key of its own so the row (and the focused input) survives its value changing.
+  const [drafts, setDrafts] = useState<ReadonlyMap<string, string>>(new Map());
+  const [draftCount, setDraftCount] = useState(0);
   const options = list.options;
   const names = [...attributeNames(options), ...extraAttributes.filter((n) => !attributeNames(options).includes(n))];
   const setOptions = (next: ChoiceOption[]) => onChange({ ...list, options: next });
@@ -96,7 +101,27 @@ export function OptionListEditor({ list, onChange, readOnly, className, testID }
     next.splice(i + by, 0, o!);
     setOptions(next);
   };
-  const add = () => setOptions([...options, { value: freshValue("New option", options), label: "New option" }]);
+  const add = () => {
+    const value = freshValue("", options);
+    setDrafts(new Map(drafts).set(value, `${id}-draft-${draftCount}`));
+    setDraftCount(draftCount + 1);
+    setOptions([...options, { value, label: "" }]);
+  };
+  const setLabel = (i: number, o: ChoiceOption, label: string) => {
+    const rowKey = drafts.get(o.value);
+    if (rowKey === undefined) return update(i, withDetail(o, "label", label));
+    const value = freshValue(label, options.filter((_, j) => j !== i));
+    const next = new Map(drafts);
+    next.delete(o.value);
+    setDrafts(next.set(value, rowKey));
+    update(i, { ...withDetail(o, "label", label), value });
+  };
+  const remove = (i: number) => {
+    const next = new Map(drafts);
+    next.delete(options[i]!.value);
+    setDrafts(next);
+    setOptions(options.filter((_, j) => j !== i));
+  };
   const addAttribute = () => {
     const name = newAttribute.trim();
     if (!name || names.includes(name) || name in Object.prototype) return;
@@ -144,7 +169,7 @@ export function OptionListEditor({ list, onChange, readOnly, className, testID }
             const row = `${id}-${i}`;
             const name = o.label || o.value;
             return (
-              <li key={o.value} className="space-y-2 rounded-md border p-3" data-testid={`option-list-row-${i}`}>
+              <li key={drafts.get(o.value) ?? o.value} className="space-y-2 rounded-md border p-3" data-testid={`option-list-row-${i}`}>
                 <div className="flex flex-wrap items-end gap-2">
                   <div className="min-w-40 flex-1 space-y-1">
                     <Label htmlFor={`${row}-label`} className="text-xs">
@@ -154,8 +179,9 @@ export function OptionListEditor({ list, onChange, readOnly, className, testID }
                       id={`${row}-label`}
                       value={o.label ?? ""}
                       disabled={readOnly}
+                      placeholder="New option"
                       data-testid={`option-list-label-${i}`}
-                      onChange={(e) => update(i, withDetail(o, "label", e.target.value))}
+                      onChange={(e) => setLabel(i, o, e.target.value)}
                     />
                   </div>
                   <code className="pb-2 text-xs text-muted-foreground" title="Answers store this value">
@@ -180,7 +206,7 @@ export function OptionListEditor({ list, onChange, readOnly, className, testID }
                         size="icon"
                         aria-label={`Remove ${name}`}
                         data-testid={`option-list-remove-${i}`}
-                        onClick={() => setOptions(options.filter((_, j) => j !== i))}
+                        onClick={() => remove(i)}
                       >
                         <Trash2 aria-hidden="true" />
                       </Button>
