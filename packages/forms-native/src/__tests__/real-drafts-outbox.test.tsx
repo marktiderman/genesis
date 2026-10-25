@@ -46,7 +46,8 @@ describe("with useFormDraft and createSubmitOutbox", () => {
     type("form-name", "Ada");
     next();
     await flush();
-    await wait(20);
+    // The draft is saved asynchronously: wait for it to land rather than a fixed delay (slow CI runners).
+    await vi.waitFor(() => expect(storage.keys().some((k) => k.includes("check-in"))).toBe(true));
     first.unmount();
     await wait(20);
     expect(storage.keys().some((k) => k.includes("check-in"))).toBe(true);

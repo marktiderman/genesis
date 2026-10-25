@@ -285,6 +285,13 @@ stub, so neither `genesis migrate` nor a later genesis-sites migration ever
 overwrites your version. `genesis_sites.reserved_paths()` works the same way
 for the page paths your app keeps.
 
+`reserved_paths()` covers redirects too: `save_site_draft` and `publish_site`
+refuse a redirect whose `from` is a reserved path (any case, with or without a
+query string), so a site can't take over `/auth` or your app's other routes.
+`handleSiteRequest` checks `reserved` before redirects and returns `null` for
+a reserved path. Anon can't execute `reserved_paths()`, so the renderer never
+reads it: pass the same list to `handleSiteRequest({ reserved })` yourself.
+
 The accessibility and content checks run in the stores (`prepareRelease`)
 before `publish_site`; the database checks shape, paths and revisions. So the
 checks guide editors but are not a security boundary: an editor calling the
@@ -299,6 +306,9 @@ Store uploads under `sites/<site_id>/...` so your storage policies can scope
 by site with `can_edit`; the migration's header has an example policy. Limit
 the bucket's `allowed_mime_types` to images and PDF: never SVG or HTML, which
 a browser runs as a page. `putAsset` refuses other types before it uploads.
+A public bucket serves any file to whoever has its URL, so give uploads random
+names (`putAsset` does) and never put anything there that isn't meant for the
+published site.
 
 ## The editor
 

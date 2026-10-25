@@ -36,6 +36,16 @@ export interface SummaryItem {
    * response: genesis-forms `formProgress`'s `fieldId`. Drop-off by question reads it.
    */
   furthest?: string | null | undefined;
+  /**
+   * Its hidden inputs, as stored. Drop-off by question rebuilds the respondent's path
+   * from them and `answers`, so logic that reads a hidden input is followed.
+   */
+  hidden?: Record<string, Json> | undefined;
+  /**
+   * Answers the host keeps apart from `answers` (contact details on their own row, say),
+   * by field key. Only the path reads them: summaries and filters don't.
+   */
+  extraAnswers?: Record<string, Json | null | undefined> | undefined;
 }
 
 /**

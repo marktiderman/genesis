@@ -333,8 +333,8 @@ begin
 end;
 $$;
 
--- A page path's shape, and not one of the app's reserved paths.
-create or replace function genesis_sites.assert_page_path(path text)
+-- Not one of the app's reserved paths (the path itself or anything under it).
+create or replace function genesis_sites.assert_not_reserved(path text)
 returns void
 language plpgsql
 stable
@@ -343,15 +343,69 @@ set search_path = ''
 as $$
 declare
   prefix text;
+  -- Like isReservedPath: lower case, no query or fragment, no trailing slash except on the root itself.
+  probe text := lower(split_part(split_part(coalesce(path, ''), '?', 1), '#', 1));
+begin
+  if char_length(probe) > 1 then
+    probe := rtrim(probe, '/');
+  end if;
+  foreach prefix in array coalesce(genesis_sites.reserved_paths(), '{}'::text[]) loop
+    prefix := lower(prefix);
+    if char_length(prefix) > 1 then
+      prefix := rtrim(prefix, '/');
+    end if;
+    if prefix = '' then
+      continue;
+    end if;
+    -- A reserved "/" reserves the root only, as in isReservedPath.
+    if probe = prefix or (prefix <> '/' and starts_with(probe, prefix || '/')) then
+      raise exception 'genesis_sites: "%" is reserved for the app', path using errcode = '22023';
+    end if;
+  end loop;
+end;
+$$;
+
+-- A page path's shape, and not one of the app's reserved paths.
+create or replace function genesis_sites.assert_page_path(path text)
+returns void
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
 begin
   if path is null or char_length(path) > 200 or path !~ '^/([a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*){0,7})?$' then
     raise exception 'genesis_sites: "%" isn''t a page path (lowercase segments, like /about)', path using errcode = '22023';
   end if;
-  foreach prefix in array coalesce(genesis_sites.reserved_paths(), '{}'::text[]) loop
-    prefix := rtrim(prefix, '/');
-    if prefix <> '' and (path = prefix or starts_with(path, prefix || '/')) then
-      raise exception 'genesis_sites: "%" is reserved for the app', path using errcode = '22023';
+  perform genesis_sites.assert_not_reserved(path);
+end;
+$$;
+
+-- Every redirect's `from` is a site path (an old address, any case) that isn't one of the app's
+-- reserved paths: a redirect from /auth or a reserved prefix would take over the app's own route.
+create or replace function genesis_sites.assert_redirects(doc jsonb)
+returns void
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  r jsonb;
+  from_path text;
+begin
+  if doc -> 'redirects' is null or jsonb_typeof(doc -> 'redirects') = 'null' then
+    return;
+  end if;
+  if jsonb_typeof(doc -> 'redirects') <> 'array' then
+    raise exception 'genesis_sites: redirects must be a list' using errcode = '22023';
+  end if;
+  for r in select value from jsonb_array_elements(doc -> 'redirects') loop
+    from_path := r ->> 'from';
+    if from_path is null or char_length(from_path) > 500 or left(from_path, 1) <> '/' or left(from_path, 2) = '//' or from_path ~ '[[:space:][:cntrl:]\\]' then
+      raise exception 'genesis_sites: "%" isn''t a redirect source (a site path starting with /)', from_path using errcode = '22023';
     end if;
+    perform genesis_sites.assert_not_reserved(from_path);
   end loop;
 end;
 $$;
@@ -435,6 +489,7 @@ begin
     raise exception 'genesis_sites: no site %', site_id using errcode = 'P0002';
   end if;
   perform genesis_sites.assert_doc(doc, 'site');
+  perform genesis_sites.assert_redirects(doc);
   if site.draft_rev is distinct from expected_rev then
     raise exception 'genesis_sites: someone saved this site first' using errcode = 'GS409', detail = site.draft_rev::text;
   end if;
@@ -588,6 +643,7 @@ begin
     raise exception 'genesis_sites: an archived site can''t be published' using errcode = '22023';
   end if;
   perform genesis_sites.assert_doc(site.draft, 'site');
+  perform genesis_sites.assert_redirects(site.draft);
   if site.draft_rev is distinct from expected_site_rev then
     raise exception 'genesis_sites: the site changed since it was checked' using errcode = 'GS409', detail = site.draft_rev::text;
   end if;
@@ -754,6 +810,8 @@ grant execute on function genesis_sites.live_release(uuid) to anon, authenticate
 -- Internal: only the functions above call these.
 revoke execute on function genesis_sites.assert_can_edit(uuid) from public, anon, authenticated;
 revoke execute on function genesis_sites.assert_page_path(text) from public, anon, authenticated;
+revoke execute on function genesis_sites.assert_not_reserved(text) from public, anon, authenticated;
+revoke execute on function genesis_sites.assert_redirects(jsonb) from public, anon, authenticated;
 revoke execute on function genesis_sites.assert_doc(jsonb, text) from public, anon, authenticated;
 revoke execute on function genesis_sites.drop_redirect_from(uuid, text) from public, anon, authenticated;
 revoke execute on function genesis_sites.release_json(genesis_sites.site_releases, boolean) from public, anon, authenticated;
