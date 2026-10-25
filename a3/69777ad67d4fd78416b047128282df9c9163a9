@@ -1,0 +1,21 @@
+packages/chat/migrations/0001_genesis_chat.sql
+  s_c0870a827920ef::t_4731d933cdd398 846-847,849,851-853,855,857-859,1037,1079-1080,1117,1139,1323-1324,1464
+packages/chat/migrations/tests/0001_genesis_chat.test.sql
+  s_c0870a827920ef::t_9ab2724be54e7d 10,119-132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a369777ad67d4fd78416b047128282df9c9163a9",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
