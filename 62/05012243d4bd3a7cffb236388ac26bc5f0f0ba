@@ -1,0 +1,19 @@
+packages/forms-native/src/__tests__/real-drafts-outbox.test.tsx
+  s_8252619ce79a86::t_2c786fbe4a8717 48-49,67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6205012243d4bd3a7cffb236388ac26bc5f0f0ba",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
