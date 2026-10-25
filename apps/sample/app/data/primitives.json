@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24",
+  "generatedAt": "2026-10-25",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 62
+      "count": 65
     }
   },
   "primitives": [
@@ -1761,6 +1761,59 @@
       ]
     },
     {
+      "slug": "google-sign-in",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/google-sign-in.tsx",
+      "stability": "beta",
+      "summary": "A `SocialAuthProvider` (id `\"google\"`) for `AuthScreen`'s `providers`, or\n`null` when `enabled` is false.",
+      "primaryComponent": "googleProvider",
+      "components": [
+        {
+          "name": "googleProvider",
+          "summary": "A `SocialAuthProvider` (id `\"google\"`) for `AuthScreen`'s `providers`, or\n`null` when `enabled` is false.",
+          "props": [
+            {
+              "name": "onPress",
+              "type": "() => void | Promise<void>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Usually `() => signInWithGoogle(supabase, GoogleOneTapSignIn, { digest })`."
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "enabled",
+              "type": "boolean | null",
+              "required": false,
+              "defaultValue": "true",
+              "description": "`false` (or `null`) gives `null`, so a switched-off provider goes in the list as is. Default true."
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Google's \"G\" mark, as the app draws it."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Continue with Google",
+              "description": "Default \"Continue with Google\", Google's own wording."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "grid",
       "aliases": [],
       "surface": "native",
@@ -1877,6 +1930,264 @@
               "description": "Override the title text styling."
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "inbox-page",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/inbox-page.tsx",
+      "stability": "beta",
+      "summary": "InboxPage — a list of conversations or tickets: unread state, a time, a\npreview line, swipe actions, pull to refresh, paging and an empty state.\n\nGeneric: the rows are whatever the app has (support reports, direct\nmessages, an idea board). Data and actions come in as props; the layout\ndraws them the platform's way. On iOS it is the Settings app's inset\ngrouped style, like `SettingsPage`: the page is `groupedBackground`, the\nrows one rounded group on `surface` with hairline separators that start at\nthe text. On Android rows are full width.\n\nSwipe actions: each row's `swipeActions` are always reachable without a\ngesture library, as VoiceOver / TalkBack custom actions and on long press\n(a menu). For the swipe itself, fill the `swipeable` slot with your\ngesture-handler wrapper (`ReanimatedSwipeable` from\nreact-native-gesture-handler, an optional peer); it receives the actions\nand the row.\n\nSlots: `row`, `swipeable`, `header` (above the group), `footer` (below it,\nthe paging spinner by default) and `empty`. `slots` swaps a part for your\ncomponent (same props), `slotProps` feeds the default more props, `null`\ndrops it.\n\nHeader: `getInboxPageStackOptions()` for `<Stack.Screen options>`.",
+      "primaryComponent": "InboxPage",
+      "components": [
+        {
+          "name": "getInboxPageStackOptions",
+          "summary": "`<Stack.Screen options>` for an InboxPage: a large title that collapses on scroll.",
+          "props": [
+            {
+              "name": "headerLeft",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the left of the nav bar."
+            },
+            {
+              "name": "headerOptions",
+              "type": "Record<string, unknown>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Direct passthrough merged INTO the resolved options object. Wins over named props."
+            },
+            {
+              "name": "headerRight",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom header title. Falls back to `<Stack.Screen name>` mapping."
+            },
+            {
+              "name": "large",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When true, iOS uses large-title mode + scroll-edge appearance."
+            },
+            {
+              "name": "scrollEdgeBehavior",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            }
+          ]
+        },
+        {
+          "name": "formatInboxTime",
+          "summary": "The default row time: `9:41`, `Yesterday`, `Monday`, then a short date.",
+          "props": []
+        },
+        {
+          "name": "InboxPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "items",
+              "type": "InboxItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Newest first, as they should show. Empty → the empty state."
+            },
+            {
+              "name": "emptyActionLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A button in the empty state (\"Send feedback\")."
+            },
+            {
+              "name": "emptyBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "emptyTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "error",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The read failed: the empty slot shows `errorTitle` / `errorBody` instead (and pull to refresh retries)."
+            },
+            {
+              "name": "errorBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "errorTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "formatTime",
+              "type": "((date: Date, now: Date) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "How a row's time reads. Default: the time today, \"Yesterday\", the weekday this week, else the date."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the group (a filter, a call to action). Prefer `slots.header` for a component."
+            },
+            {
+              "name": "headerLeft",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the left of the nav bar."
+            },
+            {
+              "name": "headerOptions",
+              "type": "Record<string, unknown>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Direct passthrough merged INTO the resolved options object. Wins over named props."
+            },
+            {
+              "name": "headerRight",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom header title. Falls back to `<Stack.Screen name>` mapping."
+            },
+            {
+              "name": "large",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When true, iOS uses large-title mode + scroll-edge appearance."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The first page is loading: a spinner instead of the empty state."
+            },
+            {
+              "name": "loadingMore",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "A next page is loading: the default footer shows a spinner."
+            },
+            {
+              "name": "now",
+              "type": "(() => Date)",
+              "required": false,
+              "defaultValue": "() => new Date()",
+              "description": "The clock, for tests."
+            },
+            {
+              "name": "onEmptyAction",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onEndReached",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called near the end of the list, to load the next page."
+            },
+            {
+              "name": "onRefresh",
+              "type": "(() => void | Promise<void>)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "refreshing",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "scrollEdgeBehavior",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "sectionTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "An optional title over the group, in the Settings header style."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<InboxPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "slots",
+              "type": "Slots<InboxPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "inbox-page",
+              "description": "testID on the root. Default `\"inbox-page\"`."
+            }
+          ]
+        },
+        {
+          "name": "showInboxActions",
+          "summary": "Opens a row's actions as a menu (long press).",
+          "props": []
         }
       ]
     },
@@ -2679,6 +2990,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "offlineState",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown while the list has nothing saved and its fetch is paused because\nthe device is offline (`networkMode: \"offlineFirst\"`), instead of an empty\nlist that says there is nothing. Default: a one-line offline message."
             },
             {
               "name": "onCreatePress",
@@ -4393,9 +4711,22 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/sheet.tsx",
       "stability": "beta",
-      "summary": "Sheet / BottomSheet — modal that slides up from the bottom.\n\nUse for non-blocking selections, filters, and short flows that benefit\nfrom preserving screen context. For blocking confirmations, use\n<NativeDialog>. For full-screen flows, use a navigation route.\n\nImplementation prefers @gorhom/bottom-sheet (gesture-driven, snap\npoints, native feel). Consumers must install @gorhom/bottom-sheet,\nreact-native-gesture-handler, and react-native-reanimated as peer\ndeps; wrap the app root in <GestureHandlerRootView> +\n<BottomSheetModalProvider>. If the peer is not installed, this\nprimitive falls back to a simple RN Modal with a slide animation —\nacceptable for samples but not production.",
+      "summary": "Sheet / BottomSheet — modal that slides up from the bottom.\n\nUse for non-blocking selections, filters, and short flows that benefit\nfrom preserving screen context. For blocking confirmations, use\n<NativeDialog>. For full-screen flows, use a navigation route.\n\nBy default this is React Native's own `Modal`, which needs nothing mounted\nabove it: the system page sheet on iOS (swipe down to close) and a bottom\npanel over a scrim on Android (back button or a tap on the scrim closes\nit). Content gets its own safe area (`useSafeAreaInsets` inside the sheet\nis the sheet's), and the bottom inset is padded. Put scrolling content in\n`NativeSheetScrollView`. The sheet doesn't move above the keyboard.\n\n`@gorhom/bottom-sheet` (snap points, drag between heights) is used only\nwhen the app opts in by mounting `<NativeSheetProvider bottomSheet={…}>`\n(or passing `bottomSheet` to `GenesisNativeApp`), never because the\nlibrary happens to be installed: it throws on open unless its\n`BottomSheetModalProvider` is mounted, and it needs gesture-handler's\n`GestureHandlerRootView` at the root and Reanimated set up.\n`snapPoints` and `initialSnapIndex` apply only to that path.\n\nA sheet that is a screen of its own (a link can open it) belongs in the\nrouter instead: an expo-router screen with `presentation: \"formSheet\"` and\n`sheetAllowedDetents` (e.g. `[0.5, 1]`) is the system sheet with detents.",
       "primaryComponent": "NativeSheet",
       "components": [
+        {
+          "name": "NativeSheetProvider",
+          "summary": "Opts every `NativeSheet` below it into `@gorhom/bottom-sheet` and mounts\nthe library's `BottomSheetModalProvider`. A module missing any export the\nsheet needs is reported with `console.error` and ignored, so sheets fall\nback to the native modal instead of crashing on open.",
+          "props": [
+            {
+              "name": "bottomSheet",
+              "type": "NativeSheetLibrary",
+              "required": true,
+              "defaultValue": null,
+              "description": "`@gorhom/bottom-sheet` v5 (`import * as BottomSheet from \"@gorhom/bottom-sheet\"`).\nRead once. The app must also wrap its root in gesture-handler's\n`GestureHandlerRootView` and set Reanimated up, as the library requires.\nSheet content renders in the library's portal, inside this provider:\nmount it below the providers sheets read (data, session, navigation)."
+            }
+          ]
+        },
         {
           "name": "NativeSheet",
           "summary": "",
@@ -4405,7 +4736,7 @@
               "type": "(open: boolean) => void",
               "required": true,
               "defaultValue": null,
-              "description": "Fired when the user dismisses the sheet (backdrop, gesture, swipe)."
+              "description": "Fired when the user dismisses the sheet (backdrop, swipe down, Android back). Set `open` false in it."
             },
             {
               "name": "open",
@@ -4418,22 +4749,22 @@
               "name": "disableBackdropDismiss",
               "type": "boolean",
               "required": false,
-              "defaultValue": "false",
-              "description": "Disable dismissing by tapping the backdrop. Default false."
+              "defaultValue": null,
+              "description": "Keep the sheet open when the user taps the backdrop, swipes it down or presses Android back. Default false."
             },
             {
               "name": "initialSnapIndex",
               "type": "number",
               "required": false,
-              "defaultValue": "0",
-              "description": "Index of initial snap point. Default 0."
+              "defaultValue": null,
+              "description": "Index of initial snap point, with `@gorhom/bottom-sheet` only. Default 0."
             },
             {
               "name": "snapPoints",
               "type": "(string | number)[]",
               "required": false,
-              "defaultValue": "[\"50%\", \"90%\"]",
-              "description": "Snap points (gorhom-style). e.g. [\"25%\", \"50%\", \"90%\"]."
+              "defaultValue": null,
+              "description": "Snap points, with `@gorhom/bottom-sheet` only (see `NativeSheetProvider`). e.g. [\"25%\", \"50%\", \"90%\"]."
             },
             {
               "name": "testID",
@@ -4443,6 +4774,11 @@
               "description": ""
             }
           ]
+        },
+        {
+          "name": "NativeSheetScrollView",
+          "summary": "A `ScrollView` for sheet content: the library's `BottomSheetScrollView`\nunder `NativeSheetProvider` (so scrolling and dragging the sheet don't\nfight), React Native's otherwise. Sized to its content until it reaches\nthe sheet's height.",
+          "props": []
         }
       ]
     },
@@ -5016,6 +5352,238 @@
               "required": false,
               "defaultValue": "4",
               "description": "How many lines tall the field is, on both platforms (passed as `numberOfLines`). Default 4."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "thread-page",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/thread-page.tsx",
+      "stability": "beta",
+      "summary": "ThreadPage — one conversation: messages oldest first, a composer at the\nbottom that stays above the keyboard, attachments, a read receipt, and\n\"load earlier\" paging.\n\nGeneric: a support ticket with staff replies, a direct message, a comment\nthread. Mine are on the trailing side in the tint, theirs on the leading\nside on `surface`, over the `groupedBackground` page (SettingsPage's iOS\npalette).\n\nKeyboard: with `KeyboardScrollProvider` (the native app shell's\n`keyboardScroll`, react-native-keyboard-controller's\n`KeyboardAwareScrollView`), the messages and the composer scroll together\nand the composer is kept above the keyboard. Without it, a\n`KeyboardAvoidingView` does the same on iOS. Either way the thread stays\nscrolled to the newest message as it grows.\n\nRead-only: pass `composer={null}` (a closed ticket, a viewer) and an\noptional `closedNotice`.\n\nSlots: `message`, `attachment`, `readReceipt`, `composer`,\n`composerAccessory` (beside the input: attach a screenshot), `header`\n(above the messages: what the thread is about), `earlier` and `empty`.",
+      "primaryComponent": "ThreadPage",
+      "components": [
+        {
+          "name": "getThreadPageStackOptions",
+          "summary": "`<Stack.Screen options>` for a ThreadPage: a standard (not large) title, like Messages.",
+          "props": [
+            {
+              "name": "headerLeft",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the left of the nav bar."
+            },
+            {
+              "name": "headerOptions",
+              "type": "Record<string, unknown>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Direct passthrough merged INTO the resolved options object. Wins over named props."
+            },
+            {
+              "name": "headerRight",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom header title. Falls back to `<Stack.Screen name>` mapping."
+            },
+            {
+              "name": "large",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When true, iOS uses large-title mode + scroll-edge appearance."
+            },
+            {
+              "name": "scrollEdgeBehavior",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            }
+          ]
+        },
+        {
+          "name": "readReceiptFor",
+          "summary": "The newest of my messages the other side has read, or null.",
+          "props": []
+        },
+        {
+          "name": "ThreadPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "composer",
+              "type": "ThreadComposer | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "`null`: read-only, no composer."
+            },
+            {
+              "name": "messages",
+              "type": "ThreadMessage[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Oldest first."
+            },
+            {
+              "name": "closedNotice",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown instead of the composer when it is `null` (\"This conversation is closed\")."
+            },
+            {
+              "name": "earlierLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Load earlier messages",
+              "description": ""
+            },
+            {
+              "name": "emptyBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "emptyTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "formatTime",
+              "type": "((date: Date) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "hasEarlier",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "There are older messages: shows a \"load earlier\" button at the top."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the messages (what the thread is about). Prefer `slots.header` for a component."
+            },
+            {
+              "name": "headerLeft",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the left of the nav bar."
+            },
+            {
+              "name": "headerOptions",
+              "type": "Record<string, unknown>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Direct passthrough merged INTO the resolved options object. Wins over named props."
+            },
+            {
+              "name": "headerRight",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "headerTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom header title. Falls back to `<Stack.Screen name>` mapping."
+            },
+            {
+              "name": "labels",
+              "type": "Partial<ThreadLabels>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The words the defaults say, for translating."
+            },
+            {
+              "name": "large",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When true, iOS uses large-title mode + scroll-edge appearance."
+            },
+            {
+              "name": "loadingEarlier",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
+            },
+            {
+              "name": "onLoadEarlier",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "readAt",
+              "type": "string | Date | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "When the other side last read the thread. My newest message sent before\nit shows the read receipt."
+            },
+            {
+              "name": "readLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Read",
+              "description": ""
+            },
+            {
+              "name": "scrollEdgeBehavior",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<ThreadPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "slots",
+              "type": "Slots<ThreadPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "thread-page",
+              "description": "testID on the root. Default `\"thread-page\"`."
             }
           ]
         }

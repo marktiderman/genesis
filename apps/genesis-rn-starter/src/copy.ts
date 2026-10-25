@@ -91,6 +91,15 @@ const en = {
       unavailable: "Not available on this device",
     },
   },
+  // The support block's own strings (genesis-support's catalog); the ones here override its English.
+  // Add any key from `supportCopy` to reword or translate it.
+  support: {
+    settings: { section: "Support", sendFeedback: "Send feedback", help: "Help" },
+    inbox: { title: "Help" },
+    feedback: { title: "Send feedback" },
+    ideas: { title: "Idea board" },
+    shipped: { title: "You asked, we shipped" },
+  },
 } as const;
 
 /** The shape every translation fills: the English catalog's keys, with any string as the value. */

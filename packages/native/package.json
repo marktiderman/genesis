@@ -116,7 +116,7 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
-    "typescript": "^5.9.3",
+    "typescript": "~6.0.3",
     "vitest": "^4.1.12"
   },
   "genesis": {
@@ -249,6 +249,14 @@
             },
             {
               "type": "performance data",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "other diagnostic data",
               "purposes": [
                 "app functionality"
               ],

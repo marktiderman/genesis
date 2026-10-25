@@ -25,7 +25,7 @@ const rows = must(await supabase.from("tasks").select("*"));
 - **`refreshWhileActive(client, AppState)`**: refreshes the session only while the app is in front.
 - **`wipeSessionOnReinstall`**: the iOS Keychain outlives an uninstall; this removes a leftover session (and its PKCE verifier) on the first launch after an install.
 - **`must(result)`**: the data, or a thrown `SupabaseQueryError` carrying the database's `code`, `details` and `hint`.
-- **`signInWithApple`, `completeOAuthRedirect`, `deleteMyAccount`, `storeAppleToken`**: see [Account](#account-sign-in-and-deletion) below.
+- **`signInWithApple`, `signInWithGoogle`, `completeOAuthRedirect`, `deleteMyAccount`, `storeAppleToken`**: see [Account](#account-sign-in-and-deletion) below.
 - **`app_release_policy`**: the table the native updates block reads; see [Release policy](#release-policy-the-updates-block).
 
 Nothing here imports React Native or Expo: you pass those modules in.
@@ -50,7 +50,8 @@ import { signInWithApple } from "@marktiderman/genesis-supabase/native";
 const digest = (s: string) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, s);
 
 async function onApple() {
-  const result = await signInWithApple(supabase, AppleAuthentication, { digest, randomNonce: Crypto.randomUUID });
+  // The nonce is 32 random bytes from crypto.getRandomValues (createGenesisSupabase installs it on native).
+  const result = await signInWithApple(supabase, AppleAuthentication, { digest });
   if (result.canceled) return; // they closed Apple's sheet: not an error
   if (result.error) return showError(result.error.message); // result.error.code says why
   // Apple shares the name on the first sign-in only, so save it now.
@@ -76,6 +77,40 @@ async function onApple() {
 - Setup is yours: enable the Apple provider in Supabase Auth with your bundle id as a client id,
   turn on the Sign in with Apple capability (`ios.usesAppleSignIn: true` in `app.json`), and add
   `expo-apple-authentication` and `expo-crypto`.
+
+### Google, natively
+
+```ts
+import { GoogleOneTapSignIn } from "@react-native-google-signin/google-signin";
+import { signInWithGoogle } from "@marktiderman/genesis-supabase/native";
+
+GoogleOneTapSignIn.configure({ webClientId: WEB_CLIENT_ID, iosClientId: IOS_CLIENT_ID }); // once, at start-up
+
+async function onGoogle() {
+  const result = await signInWithGoogle(supabase, GoogleOneTapSignIn, { digest });
+  if (result.canceled) return;
+  if (result.error) return showError(result.error.message);
+}
+```
+
+- **`signInWithGoogle(client, GoogleOneTapSignIn, { digest, randomNonce? })`**: makes a fresh
+  nonce (32 random bytes), gives Google its SHA-256 (hex) through
+  `authenticate({ nonce })`, checks the returned ID token's `nonce` claim is that hash
+  (`google_nonce_missing` otherwise, and nothing is sent), then signs in with
+  `signInWithIdToken({ provider: "google", token, nonce })` with the raw nonce, which Supabase checks
+  against the token: the flow in Supabase's Google guide. Returns `{ session, user, fullName, email }`,
+  `{ canceled: true }` or `{ error }`; it never throws.
+- **It needs the Universal sign-in module** (`GoogleOneTapSignIn`, with `authenticate`) of
+  `@react-native-google-signin/google-signin`, which is in the library's paid build. The free npm
+  build only has the original `GoogleSignin`, which can't pass a nonce on Android or iOS, so its
+  tokens fail the nonce check. Genesis doesn't offer a way around that: Supabase's "Skip nonce
+  check" would let a stolen ID token sign in, so keep it off. Without the paid build, use the
+  redirect below.
+- Draw it with `googleProvider({ onPress: onGoogle })` from `@marktiderman/genesis-ui-native`. On
+  iOS, Guideline 4.8 wants Sign in with Apple beside it.
+- Setup is yours: a Web client id (Supabase's Google provider takes it, plus the iOS and Android
+  client ids under "Authorized Client IDs"), an iOS client id, an Android client id with your
+  signing certificate's SHA-1, and the module's config plugin with the iOS URL scheme.
 
 ### Other OAuth providers (Google…): the redirect
 
@@ -395,6 +430,56 @@ body or `data`.
   nothing has been delivered through APNs or FCM (that needs an EAS project with push credentials).
 - **Scheduling for later.** A message held by quiet hours is answered with `quietUntil`, not queued:
   resend it then if it still matters.
+
+## Support (the support block)
+
+`migrations/0006_genesis_support.sql` is the database half of `@marktiderman/genesis-support`:
+reports (`support_reports`), their screenshots (`support_attachments`, in the private
+`genesis-support` bucket under `<user id>/<report id>/`), the conversation on each
+(`support_replies`), the idea board (`support_ideas`) and one vote per person and idea
+(`support_idea_votes`). Copy it and its test (`migrations/tests/0006_genesis_support.test.sql`)
+into your app under a new timestamp; it stands alone.
+
+- **Who sees what.** A person sees, edits while open and deletes their own reports, replies on
+  them and sees their own screenshots. Every signed-in person reads the idea board; a person sees
+  only their own votes, and the count is kept on the idea by a trigger. anon reaches nothing.
+- **Staff** are whoever `private.genesis_support_staff(person uuid) returns boolean` says, a hook
+  you add (like the tenant-admin hook of 0004). Without it nobody is staff. Staff read every report
+  and screenshot, reply, and set statuses through `support_set_report_status` and
+  `support_set_idea_status` (shipped stamps `shipped_at` and takes the FeatureId it shipped as).
+- **The server's columns.** Status, owner, feature id, read receipts and vote counts can't be
+  written by a person (column privileges); a reply's author and staff flag come from the session.
+- **Vote stuffing.** One vote per person and idea (the primary key); a Supabase anonymous sign-in
+  (`is_anonymous`) can report but never vote or suggest; votes only on open, planned and in
+  progress ideas; at most 10 ideas per person a day.
+- **Screenshots.** Uploads only into the person's own open report's folder, no overwrite and no
+  delete by anyone but the service role; images only, 5 MB each, at most 5 per report. Deleting a
+  report or an account queues its objects in `support_attachment_purges` (Supabase refuses direct
+  deletes from `storage.objects`); the cleanup function removes them.
+- **Limits** raise SQLSTATE `GS429`: 20 reports and 60 replies per person an hour, counted in a
+  log that deleting doesn't touch, under a per-person lock.
+- **Whatever else the app allows on storage**, restrictive policies hold the bucket to these rules
+  for every role but the service role. A deleted report's screenshots can't be opened again, by
+  staff or the person, before the cleanup removes them.
+- **The notify sinks keep copies.** An issue or webhook made for a report isn't withdrawn when the
+  report or the account is deleted: point the GitHub sink at a private repository and delete issues
+  yourself when someone asks to be forgotten.
+
+Functions (templates; copy the folder into `supabase/functions/`):
+
+| Function | What it does | Secrets |
+|---|---|---|
+| `genesis-support-intake` | The wire contract over HTTP (boot, submit, list) for clients without supabase-js; acts as the caller, never the service role | `GENESIS_SUPPORT_ORIGINS` (web origins) |
+| `genesis-support-notify` | A Database Webhook on new reports: a GitHub issue per report and/or a signed webhook, with a summary only (no person, device, context or screenshot) | `GENESIS_SUPPORT_WEBHOOK_SECRET`, `GITHUB_TOKEN` + `GITHUB_REPO`, `SUPPORT_WEBHOOK_URL` (+ `SUPPORT_WEBHOOK_SIGNING_SECRET`) |
+| `genesis-support-cleanup` | On a schedule: removes queued and orphaned screenshots through the Storage API | `GENESIS_SUPPORT_CLEANUP_SECRET` |
+
+All three deploy with `verify_jwt = false` (each checks its caller or secret itself).
+
+### Not covered yet
+
+- Not applied to a hosted project yet: the SQL is pgTAP-tested on a local database and the
+  functions unit-tested with fakes.
+- Staff screens, Realtime, and an email when staff reply.
 
 ## Tenant features
 

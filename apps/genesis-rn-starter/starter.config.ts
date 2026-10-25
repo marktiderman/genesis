@@ -17,6 +17,8 @@ export default defineStarter({
   features: {
     emailSignIn: true,
     appleSignIn: true,
+    // Off: it needs Google client ids and the Universal sign-in module. README, "Google sign-in".
+    googleSignIn: false,
     accountDeletion: true,
     notifications: true,
     queryPersistence: true,
@@ -30,5 +32,6 @@ export default defineStarter({
     observability: true,
     devtools: true,
     checkIn: true,
+    support: true,
   },
 });

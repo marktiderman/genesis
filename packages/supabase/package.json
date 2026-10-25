@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and OAuth redirects, in-app account deletion, per-tenant feature switches (tenant_features), and a result helper. Part of the Genesis framework.",
+  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and Google, OAuth redirects, in-app account deletion, per-tenant feature switches (tenant_features), and a result helper. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -49,12 +49,13 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@supabase/supabase-js": "^2.118.0"
+    "@supabase/supabase-js": "^2.118.0",
+    "@react-native-google-signin/google-signin": "*"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.118.0",
     "tsup": "^8.3.0",
-    "typescript": "^5.9.3",
+    "typescript": "~6.0.3",
     "vitest": "^4.1.12"
   },
   "genesis": {
@@ -128,6 +129,11 @@
           "Give tenant_features your membership rule in a migration of your own: create private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean, and revoke execute on it from public, anon, authenticated (genesis-supabase README, Tenant feature switches). Without it nobody can change a switch."
         ]
       }
+    }
+  },
+  "peerDependenciesMeta": {
+    "@react-native-google-signin/google-signin": {
+      "optional": true
     }
   }
 }

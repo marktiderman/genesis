@@ -3,15 +3,15 @@ import { Alert } from "react-native";
 import { Redirect } from "expo-router";
 import { useSession } from "@marktiderman/genesis-native";
 import { useBlockReload } from "@marktiderman/genesis-native/updates";
-import { AuthScreen, NativeButton, appleProvider } from "@marktiderman/genesis-ui-native";
+import { AuthScreen, NativeButton, appleProvider, googleProvider } from "@marktiderman/genesis-ui-native";
 import starter from "../../starter.config";
 import { copy, format } from "@/copy";
-import { AppleAuthentication, appleSignIn, emailSignIn } from "@/lib/auth";
+import { AppleAuthentication, appleSignIn, emailSignIn, googleSignIn } from "@/lib/auth";
 
 const t = copy.signIn;
 const { features } = starter;
 
-/** Sign in (or create an account) with email and, on iOS, Apple. A signed-in person goes home. */
+/** Sign in (or create an account) with email, Google when it is on and, on iOS, Apple. A signed-in person goes home. */
 export default function SignInScreen() {
   const { status } = useSession();
   const [create, setCreate] = useState(false);
@@ -37,11 +37,20 @@ export default function SignInScreen() {
     const message = await appleSignIn().finally(() => setBusy(false));
     if (message) setError(message);
   };
+  const onGoogle = async () => {
+    setError(undefined);
+    setBusy(true);
+    const message = await googleSignIn().finally(() => setBusy(false));
+    if (message) setError(message);
+  };
 
   return (
     <AuthScreen
       branding={{ headline: t.headline, subhead: t.subhead }}
-      providers={[features.appleSignIn && appleProvider({ apple: AppleAuthentication, onPress: onApple })]}
+      providers={[
+        features.appleSignIn && appleProvider({ apple: AppleAuthentication, onPress: onApple }),
+        googleProvider({ enabled: features.googleSignIn, onPress: onGoogle, disabled: busy }),
+      ]}
       form={{
         onSubmit: onEmail,
         submitLabel: create ? t.createSubmit : t.submit,

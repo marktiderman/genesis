@@ -1,10 +1,10 @@
-// @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay
+// @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay @feat:support-feedback
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import starter from "../starter.config";
-import { defineStarter, easConfig, nativePlatforms, type StarterConfig } from "../src/lib/define-starter";
+import { defineStarter, easConfig, nativePlatforms, privacyBlocks, type StarterConfig } from "../src/lib/define-starter";
 import { copy, format } from "../src/copy";
 import { findInlineCopy } from "./inline-copy";
 
@@ -38,6 +38,25 @@ describe("starter.config.ts", () => {
   it("builds for iOS only when email sign-in is off (Apple's button shows only on iOS)", () => {
     expect(nativePlatforms({ emailSignIn: true })).toEqual(["ios", "android"]);
     expect(nativePlatforms({ emailSignIn: false })).toEqual(["ios"]);
+    expect(nativePlatforms({ emailSignIn: false, googleSignIn: true })).toEqual(["ios", "android"]);
+  });
+
+  it("ships Google sign-in off, and refuses it without Apple (Guideline 4.8)", () => {
+    expect(starter.features.googleSignIn).toBe(false);
+    const googleOnly: StarterConfig = { ...starter, features: { ...starter.features, appleSignIn: false, googleSignIn: true } };
+    expect(() => defineStarter(googleOnly)).toThrow(/Guideline 4.8/);
+    expect(() => defineStarter({ ...starter, features: { ...starter.features, googleSignIn: true } })).not.toThrow();
+  });
+
+  it("declares in the privacy manifest only the blocks that are on", () => {
+    expect(privacyBlocks(starter.features)).toEqual(["account", "observability", "push", "support"]);
+    expect(privacyBlocks({ observability: false, push: false, support: false })).toEqual(["account"]);
+  });
+
+  it("leaves the Apple nonce to the package default (32 random bytes), not a UUID", () => {
+    const auth = read("src/lib/auth.ts");
+    expect(auth).not.toMatch(/randomUUID/);
+    expect(auth).not.toMatch(/randomNonce/);
   });
 
   it("refuses a scheme written as a URL", () => {
@@ -222,6 +241,15 @@ describe("supabase/migrations", () => {
     const order = filesUnder("supabase/migrations").sort();
     expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_apple_token_revocation.sql")));
   });
+
+  it("carries the support migration and its pgTAP test unchanged (the support block reads it), after the push one", () => {
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_support.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(shippedSql("0006_genesis_support.sql"));
+    expect(read("supabase/tests/database/genesis_support.test.sql")).toBe(shippedSql("tests/0006_genesis_support.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_push.sql")));
+  });
 });
 
 describe("supabase/functions", () => {
@@ -266,5 +294,26 @@ describe("push", () => {
     expect(read("src/app/_layout.tsx")).not.toMatch(/requestPermissions|offer\(/);
     const asking = filesUnder("src").filter((f) => /requestPermissionsAsync/.test(read(f)));
     expect(asking).toEqual([]);
+  });
+});
+
+describe("support", () => {
+  it("ships with the support block on, behind the one `support` switch, needing a signed-in person", () => {
+    expect(starter.features.support).toBe(true);
+    expect(read("src/lib/app.ts")).toMatch(/blocks: \[[^\]]*\bsupport\b/);
+    expect(read("src/lib/support.ts")).toContain("starter.features.support ? createStarterSupport() : undefined");
+    expect(read("src/lib/app.ts")).toContain('appFeatures: ["account"]');
+  });
+
+  it("has a route file for every route the block declares, each sending you back to Settings when support is off", () => {
+    const routes = ["index", "new", "[id]", "ideas", "shipped"].map((name) => join("src/app/(app)/settings/support", `${name}.tsx`));
+    for (const route of routes) expect(read(route), route).toContain("if (!starter.features.support");
+    expect(read("src/lib/support.ts")).toContain('supportBasePath = "/settings/support"');
+  });
+
+  it("keeps view-shot and expo-sensors in the build whichever way the switch is, so turning support off is JavaScript only", () => {
+    expect(read("app.config.ts")).not.toContain("features.support");
+    const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+    expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["react-native-view-shot", "expo-sensors", "@marktiderman/genesis-support"]));
   });
 });

@@ -58,12 +58,14 @@ In this monorepo the root `pnpm-workspace.yaml` pins `react`, `react-dom`, `@typ
 
 ## Turning features off
 
-Each line of `features` in `starter.config.ts` is one feature, `true` by default:
+Each line of `features` in `starter.config.ts` is one feature, `true` by default except
+`googleSignIn`:
 
 | Line | What it is | Off means |
 | --- | --- | --- |
 | `emailSignIn` | Email and password sign-in and sign-up on `AuthScreen`. | No form; Apple only, so the app builds for iOS only (`platforms`). |
 | `appleSignIn` | Sign in with Apple (`signInWithApple`, `appleProvider`), iOS only. | No Apple button; `ios.usesAppleSignIn` off. |
+| `googleSignIn` | Native Google sign-in (`signInWithGoogle`, `googleProvider`). **Off by default**: it needs client ids and setup, see [Google sign-in](#google-sign-in). Needs `appleSignIn` on. | No Google button. |
 | `accountDeletion` | "Delete account" in Settings (`deleteMyAccount`). | No delete row. App Review requires it for apps with accounts. |
 | `notifications` | The Notifications tab (`NotificationsPage`). | The tab is hidden, its route redirects home and links to it open `/`. Drop `/notifications` from `links.paths` in `genesis.config.json` too. |
 | `queryPersistence` | The `persistedQueryKeys` queries (`src/lib/app.ts`) saved to the phone for 24 hours, per user. | Cache in memory only. |
@@ -73,14 +75,15 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `wipeSessionOnReinstall` | A reinstalled iOS app starts signed out (the Keychain outlives an uninstall). | The last session comes back after a reinstall. |
 | `refreshWhileActive` | The session refreshes only while the app is in front. | supabase-js's own timer runs in the background too. |
 | `push` | The push block (`createPush`, `src/lib/push.ts`): this phone's push token on sign-in once permission is granted, off on sign-out; Settings > Notifications (`NotificationSettings`: categories, quiet hours, previews); the soft prompt, offered when the Notifications tab opens, never at launch; taps open their screen through the link map. Needs an EAS project id for a token. | No token, no prompt, no Notifications row in Settings; expo-notifications stays in the build. |
+| `support` | The support block (`createSupport`, `src/lib/support.ts`): Settings > Support > Send feedback and Help; shake the phone to capture the screen you're on and open the feedback screen with it (mark it up, hide private parts, or drop it); Help lists your reports with staff replies; the idea board with one vote each and "you asked, we shipped". Screens: `src/app/(app)/settings/support/`. | No Support rows, no shake; react-native-view-shot and expo-sensors stay in the build. |
 | `updates` | The updates block (`createUpdates`, `src/lib/updates.ts`): force upgrade and maintenance from the `app_release_policy` row, the update banner (never reloads mid sign-in or mid deletion: `useBlockReload`), what's new, and the version signature in Settings > About. | No blocking screens, banner or notes; About shows the version and build from `expo-application`. |
 | `observability` | The observability block (`src/lib/observability.ts`): every error the shell catches, route breadcrumbs and timings, the user's id and the typed events in `events`, to Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set and to the console in development, scrubbed of emails, tokens and query strings on the phone. | Errors only reach `console` (LogBox in development). |
 | `devtools` | The devtools overlay (`src/lib/devtools.ts`) in development and preview builds: a three-finger hold, "Open devtools" in the dev menu or Settings > About > Developer tools open a sheet with the version signature, channel switch, user id, blocks, flags and recent errors. Never in a production bundle. | No overlay and no Settings row. |
 
-A config with both sign-in methods off fails at start-up. Apple's button only shows on iOS, so
-with `emailSignIn` off `app.config.ts` builds for iOS only.
+A config with every sign-in method off, or Google without Apple, fails at start-up. Apple's button
+only shows on iOS, so with `emailSignIn` and `googleSignIn` off `app.config.ts` builds for iOS only.
 
-Switches that only change JavaScript (`updates`, `push`, `observability` and `devtools` included) don't change the build's fingerprint (`.fingerprintignore`
+Switches that only change JavaScript (`updates`, `push`, `observability`, `devtools` and `support` included) don't change the build's fingerprint (`.fingerprintignore`
 leaves `starter.config.ts` out; what it means for the native build is in the evaluated config), so
 `eas update` still reaches installed builds after you turn one off. `appleSignIn` and
 `emailSignIn` change the native build and its runtime version.
@@ -139,6 +142,13 @@ manifest for the packages installed, export compliance and the fingerprint runti
   (which also keeps `push_receipts` to 30 days). Turn on enhanced push security in the Expo project
   and give the function `EXPO_ACCESS_TOKEN`, so a leaked token alone can't push to a phone:
   see "Push" in [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#push-the-push-block).
+- **Support:** `supabase/migrations/20261024000600_genesis_support.sql` is the package's migration
+  0006 (reports, screenshots in the private `genesis-support` bucket, replies, ideas and votes),
+  copied and drift-tested the same way. Nobody is staff until you add
+  `private.genesis_support_staff(person uuid)` in a migration of your own (the migration's header
+  has an example). To get an issue or a webhook per report, or to remove deleted screenshots from
+  storage, copy the `genesis-support-notify` and `genesis-support-cleanup` templates: see "Support"
+  in [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#support-the-support-block).
 - **Auth providers:** email works with Supabase's defaults (confirmation on: sign-up asks the
   person to confirm, then sign in; the confirmation link opens `site_url`, not the app). For Apple, enable the Apple provider with the bundle ids of all
   three variants as client ids; `supabase/config.toml` does this for a local stack.
@@ -146,12 +156,22 @@ manifest for the packages installed, export compliance and the fingerprint runti
 ## Checks
 
 ```bash
-pnpm --filter genesis-rn-starter test        # layout length, toggles, copy catalog, migration copies, EAS and Maestro files
+pnpm --filter genesis-rn-starter test        # both suites below
+pnpm --filter genesis-rn-starter exec vitest run   # files: layout length, toggles, copy catalog, migration copies, EAS and Maestro files
+pnpm --filter genesis-rn-starter test:components   # screens: jest-expo + React Native Testing Library
 pnpm --filter genesis-rn-starter typecheck
 pnpm --filter genesis-rn-starter lint
 pnpm --filter genesis-rn-starter doctor      # genesis doctor: native and supabase packs
 pnpm --filter genesis-rn-starter export:ios  # bundles the app, no device needed
 ```
+
+The component tests (`__tests__/components`, `jest.config.js`) render the real `src/app` tree
+with expo-router's `renderRouter`: the root layout and its boot through `GenesisNativeApp`,
+sign-in, the tabs, Settings and account deletion. Supabase is the fake in
+`__tests__/components/fake-supabase.ts` (`setup.ts` swaps it in for `src/lib/supabase.ts`), and
+native modules use jest-expo's mocks or their library's own. A test fails when the app reports an
+error (`[push]`, `[updates]`, `[observability]`) or React warns about act(); see `reports.ts`.
+Add a screen's test there; tests that only read files stay in vitest, outside that folder.
 
 ## Releasing
 
@@ -173,6 +193,9 @@ fails if they drift.
 
 ## Not covered yet
 
+- **Google sign-in hasn't signed anyone in yet.** `signInWithGoogle` is unit-tested against a
+  stand-in for the Universal sign-in module; it hasn't run against the paid module and real Google
+  client ids.
 - **Apple token revocation needs your Apple key before the App Store.** The code is in place (see
   Supabase above), but nothing is revoked until the `genesis-apple-revoke` function is deployed
   with your Sign in with Apple key, and it hasn't been tried against Apple with a real key yet.
@@ -196,6 +219,35 @@ fails if they drift.
   few labels inside the Genesis layouts ("Email", "Password", "or", the boot and fatal screens)
   have no override yet; that is the `i18n` feature in the repo's `features.ts`.
 
+## Google sign-in
+
+`googleSignIn` is off because it can't work until you set it up. It signs in with Google's native
+sheet and hands the ID token to Supabase (`signInWithGoogle`), with a nonce Supabase checks, so a
+token taken from another sign-in can't be replayed.
+
+1. **Google Cloud.** In one project, create OAuth client ids: a **Web** one (Supabase verifies
+   tokens against it), an **iOS** one for each bundle id (`com.example.genesisstarter`, `.dev`,
+   `.preview`), and an **Android** one for each package with your signing certificate's SHA-1
+   (`eas credentials` prints it).
+2. **Supabase.** Authentication > Providers > Google: enable it, enter the Web client id and
+   secret, and add the iOS and Android client ids under "Authorized Client IDs". Leave "Skip nonce
+   check" off.
+3. **The module.** `signInWithGoogle` needs the Universal sign-in module (`GoogleOneTapSignIn`) of
+   `@react-native-google-signin/google-signin`, which is in the library's paid build: the free npm
+   build can't put a nonce in the token, and its sign-ins fail with `google_nonce_missing`. Install
+   it as its docs say, add its config plugin to `plugins` in `app.config.ts` with your iOS URL
+   scheme (`["@react-native-google-signin/google-signin", { iosUrlScheme: "com.googleusercontent.apps.…" }]`),
+   and replace the `null` in `src/lib/google-signin.ts` with the module (the file shows how).
+4. **Client ids.** Set `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` in
+   `.env` and in each EAS environment. They are public.
+5. **Turn it on.** `googleSignIn: true` in `starter.config.ts`, then rebuild (`npx expo prebuild`
+   or an EAS build): the module is native code. With the switch on and no module in
+   `src/lib/google-signin.ts`, the sign-in screen fails to load, naming the file.
+
+The button is `googleProvider` from genesis-ui-native, drawn as an outline button; pass Google's
+"G" mark as its `icon`, as Google's branding guidelines ask. Sign in with Apple must stay on beside
+it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Apple.
+
 ## Observability and devtools
 
 - **Sentry.** Set `EXPO_PUBLIC_SENTRY_DSN` in `.env` (and in each EAS environment). Without it,
@@ -203,6 +255,25 @@ fails if they drift.
   imports it first, and the root layout is exported wrapped (`wrapRoot`). Release and dist come
   from the version signature, with the update id and channel as tags. Source map upload is
   optional: the commented plugin line in `app.config.ts` says what to turn on.
+- **Source maps.** Builds upload theirs to EAS for EAS Observe (`uploadSourceMaps: true` in the
+  preview and production profiles of `eas.json`), so its stack traces are symbolicated. The
+  workflows' update jobs set `upload_sentry_sourcemaps: false`: left unset, EAS tries a Sentry
+  upload whenever `@sentry/react-native` is installed and only prints the error when it fails. When
+  you turn the Sentry plugin on (`app.config.ts`) and add `SENTRY_AUTH_TOKEN`, set it to `true` in
+  `.eas/workflows/pr-preview.yml` and `deploy-production.yml`, so a failed upload fails the job.
+- **Privacy manifest.** The Genesis plugin declares, in the iOS privacy manifest, what the blocks
+  that are on send off the phone (`privacyBlocks` in `src/lib/define-starter.ts`): `account` (email
+  address, user id, name), `observability` (crash, performance and other diagnostic data, user id, and the typed
+  events as product interaction for analytics), `push` (the push token as a device id) and `support`
+  (what the person sends: their request and text, an optional screenshot, the account id and device
+  facts); all
+  linked to the person, none for tracking, and `NSPrivacyTracking` false. The check-in example sends
+  nothing yet (its `send` is a stub); once it posts answers to your server, add them (`other user
+  content`, or the types your questions ask for) to `privacy.collects`. Turn `observability` off
+  if you never set a DSN. If the app collects anything else, list everything it collects in
+  `genesis.config.json` `privacy.collects` (it replaces the blocks' list). Check the result with
+  `npx expo config --type introspect`. The App Store privacy label in App Store Connect is still
+  yours to fill in; the manifest doesn't fill it.
 - **Events.** Add an event to `events` in `src/lib/observability.ts` before calling
   `observability?.track(…)`; props are closed lists, numbers or booleans, so no free text can be
   sent.

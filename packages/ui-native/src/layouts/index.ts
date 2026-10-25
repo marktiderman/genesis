@@ -3,7 +3,8 @@
  *
  * Layer-2 primitive: ScreenContainer (composable chrome).
  * Layer-3/4 layouts: SettingsPage, SettingsSubPage, NotificationsPage,
- * AuthScreen (assembled from AuthForm + SocialAuthRow + AuthBranding).
+ * InboxPage, ThreadPage, AuthScreen (assembled from AuthForm +
+ * SocialAuthRow + AuthBranding).
  *
  * See standards/usage-doctrine.md for the Layer 1-4 progression.
  */
@@ -52,6 +53,29 @@ export {
 } from "./notifications-page";
 
 export {
+  InboxPage,
+  formatInboxTime,
+  getInboxPageStackOptions,
+  showInboxActions,
+  type InboxItem,
+  type InboxPageProps,
+  type InboxPageSlotMap,
+  type InboxSwipeAction,
+} from "./inbox-page";
+
+export {
+  ThreadPage,
+  getThreadPageStackOptions,
+  readReceiptFor,
+  type ThreadAttachment,
+  type ThreadComposer,
+  type ThreadLabels,
+  type ThreadMessage,
+  type ThreadPageProps,
+  type ThreadPageSlotMap,
+} from "./thread-page";
+
+export {
   AuthForm,
   SocialAuthRow,
   AuthBranding,
@@ -73,3 +97,5 @@ export {
   type AppleProviderOptions,
   type AppleSignInButtonProps,
 } from "./apple-sign-in";
+
+export { googleProvider, type GoogleProviderOptions } from "./google-sign-in";

@@ -86,7 +86,7 @@ describe("installWebCrypto", () => {
     const target: { crypto?: Crypto } = {};
     installWebCrypto(fakeExpoCrypto().expo, target);
     await expect(target.crypto!.subtle.digest("SHA-1", new Uint8Array(1))).rejects.toThrow(/only SHA-256/);
-    expect(() => target.crypto!.getRandomValues(new Float32Array(4) as unknown as Uint8Array)).toThrow(TypeError);
+    expect(() => target.crypto!.getRandomValues(new Float32Array(4) as unknown as Uint8Array<ArrayBuffer>)).toThrow(TypeError);
     expect(() => target.crypto!.getRandomValues(new Uint8Array(65537))).toThrow(RangeError);
   });
 

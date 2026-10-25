@@ -41,6 +41,7 @@ describe("genesis init --template native", () => {
     expect(files["metro.config.js"]).not.toContain("monorepoRoot");
     expect(files["pnpm-workspace.yaml"]).toContain("nodeLinker: hoisted");
     expect(files["pnpm-workspace.yaml"]).not.toMatch(/^packages:/m);
+    expect(files["pnpm-workspace.yaml"]).not.toMatch(/patchedDependencies|patches\//);
   });
 
   it("adds the templates and records owned files, blocks and renames in genesis.lock.json", async () => {
@@ -49,7 +50,7 @@ describe("genesis init --template native", () => {
     expect(files[".github/workflows/database.yml"]).toContain("supabase-ci.yml@GENESIS_SHA");
     expect(files[".github/workflows/genesis-upgrade.yml"]).toBeDefined();
     const lock = readLock(target);
-    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "push"]);
+    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "push", "support-feedback"]);
     expect(lock.files[".eas/workflows/e2e.yml"]?.source).toBe("@marktiderman/genesis-cli:templates/eas/workflows/e2e.yml");
     expect(lock.files["supabase/functions/genesis-push-send/index.ts"]?.source).toBe("@marktiderman/genesis-supabase:functions/genesis-push-send/index.ts");
     expect(lock.files["supabase/tests/database/genesis_push.test.sql"]?.source).toBe("@marktiderman/genesis-supabase:migrations/tests/0005_genesis_push.test.sql");
@@ -70,5 +71,10 @@ describe("genesis init --template native", () => {
 
   it("keeps pnpm settings and drops the workspace list", () => {
     expect(appPnpmSettings('packages:\n  - "apps/*"\n\n# why\nnodeLinker: hoisted\n')).toBe("# pnpm settings for this app, from the Genesis monorepo it was made from.\n# why\nnodeLinker: hoisted\n");
+  });
+
+  it("drops the monorepo's patched dependencies, whose patch files an app doesn't have", () => {
+    const text = "nodeLinker: hoisted\n\npatchedDependencies:\n  # why\n  tsup@8.5.1: patches/tsup@8.5.1.patch\nautoInstallPeers: true\n";
+    expect(appPnpmSettings(text)).toBe("# pnpm settings for this app, from the Genesis monorepo it was made from.\nnodeLinker: hoisted\n\nautoInstallPeers: true\n");
   });
 });
