@@ -26,5 +26,7 @@ export default defineConfig({
     /^@tanstack\//,
     /^@supabase\//,
     "lucide-react",
+    "frimousse",
+    "hls.js",
   ],
 });
