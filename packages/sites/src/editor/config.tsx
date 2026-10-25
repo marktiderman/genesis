@@ -45,6 +45,12 @@ export interface EditorConfigOptions {
   sections?: readonly AnySectionDefinition[];
   /** How many of each type the page holds now; read when Puck asks whether one more may be added. */
   counts?: () => ReadonlyMap<string, number>;
+  /**
+   * Whether the page can't be changed now (a view-only editor, or a publish
+   * running). Read with `counts`: a component's own `insert` overrides the
+   * global permissions Puck is given, so it has to say no itself.
+   */
+  readOnly?: () => boolean;
 }
 
 export interface EditorConfig {
@@ -171,6 +177,7 @@ export function createEditorConfig(options: EditorConfigOptions = {}): EditorCon
         // Read each time Puck asks (the Add picker), so a section at its limit can't be dragged in.
         permissions: {
           get insert() {
+            if (options.readOnly?.()) return false;
             return limit === undefined || (options.counts?.().get(def.type) ?? 0) < limit;
           },
         },

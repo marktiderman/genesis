@@ -11,7 +11,9 @@
  * - a failed save (offline, a server error) keeps the change and retries
  *   with backoff, and on the next change;
  * - `flush()` saves now and resolves once nothing is waiting (page switch,
- *   publish), or rejects when it can't.
+ *   publish), or rejects when it can't;
+ * - `pause()` holds every save (while a publish runs) and `resume()` saves
+ *   what collected meanwhile, after `rebase` has adopted the new revision.
  *
  * Pure TypeScript with injectable timers, so it is tested without a DOM.
  */
@@ -70,6 +72,7 @@ export class Autosaver<T> {
   private retries = 0;
   private waiters: { resolve: () => void; reject: (e: Error) => void }[] = [];
   private disposed = false;
+  private paused = false;
   private readonly opts: Required<Pick<AutosaverOptions<T>, "delay" | "retryDelay" | "equals" | "setTimer" | "clearTimer" | "now">> & AutosaverOptions<T>;
 
   constructor(options: AutosaverOptions<T>, initial?: T) {
@@ -112,6 +115,7 @@ export class Autosaver<T> {
     this.pending = doc;
     if (this.state.status === "conflict") return; // Kept for `overwrite`; nothing is saved until the person decides.
     if (this.state.status !== "saving") this.set({ status: "pending" });
+    if (this.paused) return; // Saved on `resume`.
     this.schedule(this.opts.delay);
   }
 
@@ -125,6 +129,7 @@ export class Autosaver<T> {
 
   private async run(): Promise<void> {
     if (this.inFlight) return this.inFlight; // The in-flight save picks the pending document up when it lands.
+    if (this.paused) return; // `resume` runs it, and `flush`'s waiters wait for that.
     if (this.pending === null || this.state.status === "conflict" || this.disposed) {
       this.settle();
       return;
@@ -212,6 +217,31 @@ export class Autosaver<T> {
   rebase(rev: number, doc?: T): void {
     if (doc !== undefined) this.saved = doc;
     this.set({ rev });
+  }
+
+  /** Is saving held (`pause`)? */
+  get isPaused(): boolean {
+    return this.paused;
+  }
+
+  /**
+   * Hold every save, for as long as the store must not change under the
+   * caller (a publish). A save already in flight lands; changes keep
+   * collecting and are saved on `resume`.
+   */
+  pause(): void {
+    this.paused = true;
+    if (this.timer !== null) this.opts.clearTimer(this.timer);
+    this.timer = null;
+  }
+
+  /** Save again: what collected while paused is saved now, on the current revision. */
+  resume(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    if (this.disposed) return;
+    if (this.pending !== null && this.state.status !== "conflict") this.schedule(0);
+    else this.settle();
   }
 
   dispose(): void {

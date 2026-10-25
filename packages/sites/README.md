@@ -336,6 +336,8 @@ import { SiteEditor } from "@marktiderman/genesis-sites/editor";
 | `onPublish?` | Called with each new release. |
 | `reserved?` | Paths pages can't use (default: the store's rule, `DEFAULT_RESERVED_PATHS`). |
 | `previewUrl?` | A link to your own preview route for a page path, shown in the Publish panel. |
+| `readOnly?` | View only: the canvas, fields and SEO can't be changed; there is no Add picker, no page actions, no Publish and no Roll back; no autosaver is made, so nothing is saved. A "View only" note says so. |
+| `onDirtyChange?` | Called with `true` when there are unsaved changes and `false` once everything is saved, so your router can ask before leaving. |
 | `autosaveDelay?`, `initialPageId?`, `className?` | |
 
 What it does:
@@ -356,15 +358,20 @@ What it does:
   in a sandboxed frame with no scripts.
 - **Autosave** saves a moment after each change by compare-and-swap. If
   someone else saved first, it stops, keeps your edits, and asks: load their
-  version, or keep yours. Leaving with unsaved changes asks first. Undo and
-  redo are Puck's history (the toolbar, or Ctrl+Z and Ctrl+Shift+Z).
+  version, or keep yours. Closing the tab with unsaved changes asks first;
+  for a route change in your app, use `onDirtyChange` to ask. When the editor
+  unmounts with changes still waiting it saves them on the way out, but it
+  can't wait for that save, so a host that must not lose them asks first.
+  Undo and redo are Puck's history (the toolbar, or Ctrl+Z and Ctrl+Shift+Z).
 - **Pages**: open, add (blank, the landing page from your brand, or a starter
   site page), change an address (the old one redirects with a 301; reserved
   paths are refused), delete, and edit the header menu. Reordering pages
   needs a store with `reorderPages(siteId, pageIds)`; without it the list is
   in the store's order.
 - **Publish**: the publish checks run on the saved drafts and errors block
-  the button; "Show" selects the section a check is about. Publish with a
+  the button. While a publish runs the canvas is read-only and autosave
+  waits, so no edit races the store's own re-saves; afterwards the editor
+  takes the new revisions and saves anything that waited; "Show" selects the section a check is about. Publish with a
   note, see the release history, and roll back. Per-page SEO (search title,
   description, share image, noindex) is in the same panel.
 - **Images** come from an upload, the library, or a link; every one needs alt

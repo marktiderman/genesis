@@ -52,9 +52,11 @@ export interface PublishPanelProps {
   /** A check's "Show" selected this section: open its fields and scroll to it. */
   onShowSection(sectionId: string): void;
   currentPageId: string | null;
+  /** View only: the checks, previews and history, with no Publish, Roll back or SEO editing. */
+  readOnly?: boolean | undefined;
 }
 
-function SeoFields({ siteName, pagePath, pageTitle }: { siteName: string; pagePath: string; pageTitle: string }) {
+function SeoFields({ siteName, pagePath, pageTitle, readOnly }: { siteName: string; pagePath: string; pageTitle: string; readOnly: boolean }) {
   const seo = usePuck((s) => (s.appState.data.root.props as EditorRootProps | undefined)?.seo) as Seo | undefined;
   const root = usePuck((s) => s.appState.data.root);
   const dispatch = usePuck((s) => s.dispatch);
@@ -81,14 +83,14 @@ function SeoFields({ siteName, pagePath, pageTitle }: { siteName: string; pagePa
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${id}-title`}>Search title</Label>
-        <Input id={`${id}-title`} value={title} maxLength={70} placeholder={pageTitle} aria-describedby={`${id}-title-n`} onChange={(e) => set({ title: e.currentTarget.value })} />
+        <Input id={`${id}-title`} value={title} maxLength={70} placeholder={pageTitle} aria-describedby={`${id}-title-n`} disabled={readOnly} onChange={(e) => set({ title: e.currentTarget.value })} />
         <p id={`${id}-title-n`} className="text-xs text-muted-foreground">
           {title.length}/70. Empty uses the page title.
         </p>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${id}-desc`}>Description</Label>
-        <Textarea id={`${id}-desc`} rows={3} value={description} maxLength={200} aria-describedby={`${id}-desc-n`} onChange={(e) => set({ description: e.currentTarget.value })} />
+        <Textarea id={`${id}-desc`} rows={3} value={description} maxLength={200} aria-describedby={`${id}-desc-n`} disabled={readOnly} onChange={(e) => set({ description: e.currentTarget.value })} />
         <p id={`${id}-desc-n`} className="text-xs text-muted-foreground">
           {description.length}/200
         </p>
@@ -96,6 +98,7 @@ function SeoFields({ siteName, pagePath, pageTitle }: { siteName: string; pagePa
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">Share image</span>
         {seo?.ogImage?.src && isSafeImageSrc(seo.ogImage.src) ? <img src={seo.ogImage.src} alt={seo.ogImage.alt ?? ""} className="h-20 w-full rounded-md border border-border object-cover" /> : null}
+        {readOnly ? (seo?.ogImage ? null : <p className="text-sm text-muted-foreground">None.</p>) : (
         <div className="flex gap-2">
           <Button
             type="button"
@@ -114,9 +117,10 @@ function SeoFields({ siteName, pagePath, pageTitle }: { siteName: string; pagePa
             </Button>
           ) : null}
         </div>
+        )}
       </div>
       <div className="flex items-center gap-2">
-        <Switch id={`${id}-noindex`} checked={seo?.noindex === true} onCheckedChange={(on) => set({ noindex: on || undefined })} />
+        <Switch id={`${id}-noindex`} checked={seo?.noindex === true} disabled={readOnly} onCheckedChange={(on) => set({ noindex: on || undefined })} />
         <Label htmlFor={`${id}-noindex`}>Hide this page from search engines</Label>
       </div>
     </section>
@@ -210,6 +214,7 @@ export function PublishPanel(props: PublishPanelProps) {
         ) : null}
       </div>
 
+      {props.readOnly ? null : (
       <form
         className="flex flex-col gap-2"
         onSubmit={async (e) => {
@@ -228,9 +233,10 @@ export function PublishPanel(props: PublishPanelProps) {
           </p>
         ) : null}
       </form>
+      )}
 
       <Separator />
-      <SeoFields siteName={props.siteName} pagePath={props.pagePath} pageTitle={props.pageTitle} />
+      <SeoFields siteName={props.siteName} pagePath={props.pagePath} pageTitle={props.pageTitle} readOnly={props.readOnly === true || props.publishing} />
 
       <Separator />
       <section aria-labelledby={`${id}-history`} className="flex flex-col gap-2">
@@ -253,7 +259,7 @@ export function PublishPanel(props: PublishPanelProps) {
                 <span className="text-xs text-muted-foreground">{new Date(r.publishedAt ?? r.createdAt).toLocaleString()}</span>
                 {r.note ? <span className="text-xs">{r.note}</span> : null}
               </span>
-              {r.id !== props.liveReleaseId ? (
+              {r.id !== props.liveReleaseId && !props.readOnly ? (
                 <Button type="button" size="sm" variant="ghost" onClick={() => setRollingBack(r)} aria-label={`Roll back to release ${r.number}`}>
                   <RotateCcw aria-hidden className="mr-1 h-4 w-4" /> Roll back
                 </Button>

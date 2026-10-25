@@ -134,6 +134,15 @@ describe("createEditorConfig", () => {
     expect(root.footer!.allow).toEqual(expect.arrayContaining(["footer"]));
   });
 
+  it("turns insert off everywhere while the page is read-only", () => {
+    let locked = true;
+    const config = createEditorConfig({ readOnly: () => locked }).config;
+    expect(config.components.hero!.permissions?.insert).toBe(false);
+    expect(config.components.features!.permissions?.insert).toBe(false);
+    locked = false;
+    expect(config.components.features!.permissions?.insert).toBe(true);
+  });
+
   it("turns insert off for a section at its limit", () => {
     let counts = new Map<string, number>();
     const limited = createEditorConfig({ counts: () => counts });
@@ -447,6 +456,48 @@ describe("Autosaver", () => {
     await h.saver.flush();
     expect(h.saves).toEqual([{ rev: 1, doc: { n: 7 } }]);
     expect(h.timers).toHaveLength(0);
+  });
+
+  it("holds saves while paused, and saves what collected on resume, on the rebased revision", async () => {
+    const h = harness();
+    h.saver.pause();
+    h.saver.update({ n: 1 });
+    expect(h.saver.current.status).toBe("pending");
+    expect(h.timers).toHaveLength(0);
+    let flushed = false;
+    const flushing = h.saver.flush().then(() => (flushed = true));
+    await h.tick();
+    expect(h.saves).toEqual([]);
+    expect(flushed).toBe(false); // A flush waits for the resume.
+    // A publish moved the store on meanwhile.
+    h.someoneElseSaves(0);
+    h.saver.rebase(h.rev);
+    h.saver.resume();
+    await h.tick();
+    await flushing;
+    expect(h.saves).toEqual([{ rev: 2, doc: { n: 1 } }]);
+    expect(h.saver.current).toMatchObject({ status: "saved", rev: 3 });
+    expect(h.saver.isPaused).toBe(false);
+  });
+
+  it("lets a save already in flight land when paused, and holds the change after it", async () => {
+    const h = harness();
+    h.saver.update({ n: 1 });
+    const open = h.hold();
+    const first = h.tick();
+    h.saver.pause();
+    h.saver.update({ n: 2 });
+    open();
+    await first;
+    await h.tick();
+    expect(h.saves).toEqual([{ rev: 1, doc: { n: 1 } }]);
+    expect(h.saver.current.status).toBe("pending");
+    h.saver.resume();
+    await h.tick();
+    expect(h.saves).toEqual([
+      { rev: 1, doc: { n: 1 } },
+      { rev: 2, doc: { n: 2 } },
+    ]);
   });
 
   it("works against the memory store's compare-and-swap", async () => {

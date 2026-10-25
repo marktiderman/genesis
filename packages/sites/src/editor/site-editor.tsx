@@ -7,10 +7,11 @@
  * panel around it is Genesis UI. The canvas is an iframe drawn by each
  * section's own renderer with the site's stylesheet and the brand's theme;
  * "Preview" runs the real `/web` request handler. Drafts autosave by
- * compare-and-swap; publishing runs the checks first.
+ * compare-and-swap; publishing runs the checks first, and holds the canvas
+ * and the autosaves while it runs. `readOnly` opens a site to look at only.
  */
 import * as React from "react";
-import { Puck, createUsePuck, type Data } from "@puckeditor/core";
+import { Puck, createUsePuck, type Data, type Permissions } from "@puckeditor/core";
 import { Monitor, Redo2, Smartphone, Tablet, Undo2 } from "lucide-react";
 import {
   AlertDialog,
@@ -28,6 +29,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Spinner } from "@marktiderman/genesis-ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@marktiderman/genesis-ui/tabs";
 import { cn } from "@marktiderman/genesis-ui/utils";
+import { genesisBrand } from "@marktiderman/genesis-design-system";
 import type { FormsResolver, ResolvedForm } from "../core/forms";
 import { PageDoc, SiteDoc, type MenuItem, type PageKind, type PageMeta, type Release, type ReleaseMeta } from "../core/schemas";
 import type { SiteIssue } from "../core/a11y";
@@ -73,6 +75,18 @@ export interface SiteEditorProps {
    * the canvas loads the stylesheet from the renderer's bundled assets, a larger download.
    */
   siteStylesheet?: string;
+  /**
+   * View only: the canvas, fields and SEO can't be changed, there is no Add, no
+   * page actions, no Publish and no Roll back, and nothing is ever saved. For
+   * someone who may see the drafts but not edit them.
+   */
+  readOnly?: boolean;
+  /**
+   * Called when unsaved changes appear (true) and when everything is saved
+   * again (false), so the host can ask before a route change. Leaving the
+   * editor saves what it can on the way out, but can't wait for it.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
   className?: string;
 }
 
@@ -90,6 +104,20 @@ const VIEWPORTS: Record<Viewport, { width: number | "100%"; label: string }> = {
   tablet: { width: 768, label: "Tablet" },
   phone: { width: 390, label: "Phone" },
 };
+
+const LOCKED: Permissions = { drag: false, duplicate: false, delete: false, edit: false, insert: false };
+const UNLOCKED: Permissions = { drag: true, duplicate: true, delete: true, edit: true, insert: true };
+
+/** Save what is waiting, then stop: unmounting can't wait, so this is best effort. */
+function saveAndDispose(saver: Autosaver<unknown> | null) {
+  if (!saver) return;
+  if (!saver.dirty) return saver.dispose();
+  saver.resume();
+  saver
+    .flush()
+    .catch((err: unknown) => console.warn("[genesis-sites/editor] closed with changes that couldn't be saved.", err))
+    .finally(() => saver.dispose());
+}
 
 const SAVE_LABEL: Record<AutosaveState<unknown>["status"], string> = {
   saved: "All changes saved",
@@ -154,7 +182,7 @@ function useCanvasFrame(css: string | null, href: string | undefined, theme: str
   );
 }
 
-function Toolbar({ siteName, pageTitle, saveStatus, viewport, onViewport, onPreview }: { siteName: string; pageTitle: string; saveStatus: AutosaveState<unknown>["status"]; viewport: Viewport; onViewport(v: Viewport): void; onPreview(): void }) {
+function Toolbar({ siteName, pageTitle, saveStatus, mode, viewport, onViewport, onPreview }: { siteName: string; pageTitle: string; saveStatus: AutosaveState<unknown>["status"]; mode: "edit" | "publishing" | "view"; viewport: Viewport; onViewport(v: Viewport): void; onPreview(): void }) {
   const history = usePuck((s) => s.history);
   const dispatch = usePuck((s) => s.dispatch);
   const choose = (v: Viewport) => {
@@ -168,10 +196,10 @@ function Toolbar({ siteName, pageTitle, saveStatus, viewport, onViewport, onPrev
         <span className="truncate text-sm font-semibold">{pageTitle}</span>
       </div>
       <div className="flex items-center gap-1" role="toolbar" aria-label="Editor">
-        <Button type="button" size="icon" variant="ghost" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!history.hasPast} onClick={() => history.back()}>
+        <Button type="button" size="icon" variant="ghost" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={mode !== "edit" || !history.hasPast} onClick={() => history.back()}>
           <Undo2 className="h-4 w-4" />
         </Button>
-        <Button type="button" size="icon" variant="ghost" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={!history.hasFuture} onClick={() => history.forward()}>
+        <Button type="button" size="icon" variant="ghost" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={mode !== "edit" || !history.hasFuture} onClick={() => history.forward()}>
           <Redo2 className="h-4 w-4" />
         </Button>
         <span className="mx-1 h-6 w-px bg-border" aria-hidden />
@@ -186,7 +214,7 @@ function Toolbar({ siteName, pageTitle, saveStatus, viewport, onViewport, onPrev
       </div>
       <div className="flex items-center gap-2">
         <span role="status" aria-live="polite" className={cn("text-xs", saveStatus === "conflict" || saveStatus === "error" ? "text-destructive" : "text-muted-foreground")}>
-          {SAVE_LABEL[saveStatus]}
+          {mode === "view" ? "View only" : mode === "publishing" ? "Publishing…" : SAVE_LABEL[saveStatus]}
         </span>
         <Button type="button" size="sm" variant="outline" onClick={onPreview}>
           Preview
@@ -236,7 +264,7 @@ function PagesTab(props: Omit<React.ComponentProps<typeof PagesPanel>, "onEditFo
  *
  * @stability Beta
  */
-export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, reserved, previewUrl, autosaveDelay, initialPageId, siteStylesheet, className }: SiteEditorProps) {
+export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, reserved, previewUrl, autosaveDelay, initialPageId, siteStylesheet, readOnly = false, onDirtyChange, className }: SiteEditorProps) {
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [site, setSite] = React.useState<SiteDoc | null>(null);
   const [pages, setPages] = React.useState<PageMeta[]>([]);
@@ -255,7 +283,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
   const [publishing, setPublishing] = React.useState(false);
   const [releases, setReleases] = React.useState<ReleaseMeta[]>([]);
   const [liveId, setLiveId] = React.useState<string | null>(null);
-  const [leftTab, setLeftTab] = React.useState("add");
+  const [leftTab, setLeftTab] = React.useState(readOnly ? "outline" : "add");
   const [rightTab, setRightTab] = React.useState("edit");
   const [viewport, setViewport] = React.useState<Viewport>("desktop");
   const [picker, setPicker] = React.useState<{ current?: PickedImage; resolve(v: PickedImage | null): void } | null>(null);
@@ -264,15 +292,19 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
   const siteSaver = React.useRef<Autosaver<SiteDoc> | null>(null);
   const pageSaver = React.useRef<Autosaver<PageDoc> | null>(null);
   const counts = React.useRef<ReadonlyMap<string, number>>(new Map());
+  // Nothing changes on the canvas while a publish runs, or ever in view-only mode.
+  const locked = readOnly || publishing;
+  const lockedRef = React.useRef(locked);
+  lockedRef.current = locked;
 
   const kind = open?.kind ?? "page";
-  const editor = React.useMemo(() => createEditorConfig({ kind, counts: () => counts.current }), [kind]);
+  const editor = React.useMemo(() => createEditorConfig({ kind, counts: () => counts.current, readOnly: () => lockedRef.current }), [kind]);
   const theme = React.useMemo(() => {
     try {
       return siteTheme(brand, site?.theme ?? {});
     } catch (err) {
       console.error("[genesis-sites/editor] the brand can't make a theme; the canvas uses Genesis's default.", err);
-      return siteTheme({ name: brandDisplayName(brand), colors: { primary: "#4f46e5" } }, site?.theme ?? {});
+      return siteTheme({ ...genesisBrand, name: brandDisplayName(brand) }, site?.theme ?? {});
     }
   }, [brand, site?.theme]);
   const iframe = useCanvasFrame(css, siteStylesheet, themeCss(theme), theme.colorScheme === "dark", site?.lang ?? "en");
@@ -283,9 +315,9 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       const draft = await store.getPageDraft(pageId);
       if (!draft) throw new Error("That page no longer exists, or you can't edit it.");
       pageSaver.current?.dispose();
-      const saver = new Autosaver<PageDoc>({ rev: draft.rev, save: (rev, doc) => store.savePageDraft(pageId, rev, doc), delay: autosaveDelay ?? 800, onState: setPageState }, draft.doc);
+      const saver = readOnly ? null : new Autosaver<PageDoc>({ rev: draft.rev, save: (rev, doc) => store.savePageDraft(pageId, rev, doc), delay: autosaveDelay ?? 800, onState: setPageState }, draft.doc);
       pageSaver.current = saver;
-      setPageState(saver.current);
+      setPageState(saver?.current ?? null);
       const placeholders = placeholderSnapshot(draft.doc.content);
       placeholderSnapshot(siteDoc.header, placeholders);
       placeholderSnapshot(siteDoc.footer, placeholders);
@@ -296,7 +328,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       setOpen({ id: pageId, path: draft.path, kind: draft.kind, data, placeholders });
       setEditorKey((k) => k + 1);
     },
-    [store, autosaveDelay, editor.slotKeys],
+    [store, autosaveDelay, editor.slotKeys, readOnly],
   );
 
   const refreshPublishing = React.useCallback(async () => {
@@ -314,9 +346,9 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
         const list = await store.listPages(siteId);
         if (cancelled) return;
         siteSaver.current?.dispose();
-        const saver = new Autosaver<SiteDoc>({ rev: draft.rev, save: (rev, doc) => store.saveSiteDraft(siteId, rev, doc), delay: autosaveDelay ?? 800, onState: setSiteState }, draft.site);
+        const saver = readOnly ? null : new Autosaver<SiteDoc>({ rev: draft.rev, save: (rev, doc) => store.saveSiteDraft(siteId, rev, doc), delay: autosaveDelay ?? 800, onState: setSiteState }, draft.site);
         siteSaver.current = saver;
-        setSiteState(saver.current);
+        setSiteState(saver?.current ?? null);
         setSite(draft.site);
         setPages(list);
         const first = list.find((p) => p.id === initialPageId) ?? list.find((p) => p.path === "/") ?? list[0];
@@ -329,12 +361,15 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     if (!siteStylesheet) loadSiteCss().then(setCss, (err: unknown) => console.error("[genesis-sites/editor] the site stylesheet didn't load; the canvas is unstyled.", err));
     return () => {
       cancelled = true;
-      siteSaver.current?.dispose();
-      pageSaver.current?.dispose();
+      // Leaving (or switching site) mid-edit: what is waiting still goes to the store.
+      saveAndDispose(siteSaver.current as Autosaver<unknown> | null);
+      saveAndDispose(pageSaver.current as Autosaver<unknown> | null);
+      siteSaver.current = null;
+      pageSaver.current = null;
     };
-    // Reload only for another site or store.
+    // Reload only for another site, store or mode.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteId, store]);
+  }, [siteId, store, readOnly]);
 
   // Nothing unsaved is lost by closing the tab without being asked.
   React.useEffect(() => {
@@ -347,6 +382,17 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     window.addEventListener("beforeunload", guard);
     return () => window.removeEventListener("beforeunload", guard);
   }, [invalid]);
+
+  // Tell the host when there are unsaved changes, so it can ask before a route change.
+  const dirty = !readOnly && (worst(siteState, pageState) !== "saved" || invalid !== null);
+  const dirtyReported = React.useRef(false);
+  const onDirtyChangeRef = React.useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
+  React.useEffect(() => {
+    if (dirty === dirtyReported.current) return;
+    dirtyReported.current = dirty;
+    onDirtyChangeRef.current?.(dirty);
+  }, [dirty]);
 
   // Forms on the page, for the canvas.
   const formSlugs = React.useMemo(() => {
@@ -368,7 +414,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
   // ── Changes ───────────────────────────────────────────────────────────────
   const onChange = React.useCallback(
     (data: Data) => {
-      if (!open || !site) return;
+      if (!open || !site || readOnly) return;
       const editorData = data as unknown as EditorData;
       counts.current = countTypes(editorData);
       setH1Id(h1SectionId(editorData.content ?? []));
@@ -392,19 +438,19 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
         setSite(nextSite.data);
       }
     },
-    [open, site, editor.slotKeys],
+    [open, site, editor.slotKeys, readOnly],
   );
 
   const onNavChange = React.useCallback(
     (nav: MenuItem[]) => {
       const current = siteSaver.current?.latest ?? site;
-      if (!current) return;
+      if (!current || readOnly) return;
       const next = SiteDoc.safeParse({ ...current, nav });
       if (!next.success) return setNotice({ tone: "error", text: `The menu can't be saved: ${next.error.issues[0]?.message ?? "invalid"}` });
       siteSaver.current?.update(next.data);
       setSite(next.data);
     },
-    [site],
+    [site, readOnly],
   );
 
   /** Save everything now; false (with a notice) when something can't be. */
@@ -540,16 +586,23 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
 
   // ── Publishing ────────────────────────────────────────────────────────────
   const publish = async (note: string): Promise<boolean> => {
-    if (!(await flushAll())) return false;
+    if (readOnly) return false;
+    // The canvas locks first, so nothing typed now misses the flush or lands mid-publish.
+    lockedRef.current = true;
     setPublishing(true);
+    const savers = [siteSaver.current, pageSaver.current] as (Autosaver<unknown> | null)[];
+    let held = false;
     try {
+      if (!(await flushAll())) return false;
+      // A store's publish re-saves migrated drafts on their revisions: no autosave may race it.
+      for (const s of savers) s?.pause();
+      held = true;
       const result = await publishSite(store, siteId, { brand, note, ...(reserved ? { reserved } : {}) });
       if ("blocked" in result) {
         setIssues(result.blocked);
         setNotice({ tone: "error", text: "Not published: fix the problems the checks list." });
         return false;
       }
-      await resync();
       await refreshPublishing();
       setNotice({ tone: "info", text: `Published release ${result.release.number}.` });
       onPublish?.(result.release);
@@ -558,11 +611,16 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       setNotice({ tone: "error", text: `Publishing failed: ${(err as Error).message}` });
       return false;
     } finally {
+      // Adopt the revisions the publish left (it may have re-saved drafts, even if it then failed), then save
+      // anything that collected meanwhile on them.
+      if (held) await resync().catch((err: unknown) => console.error("[genesis-sites/editor] couldn't reload the drafts after publishing.", err));
+      for (const s of savers) s?.resume();
       setPublishing(false);
     }
   };
 
   const rollback = async (releaseId: string) => {
+    if (readOnly) return;
     try {
       const release = await store.rollback(siteId, releaseId);
       await refreshPublishing();
@@ -649,6 +707,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
   );
 
   const overrides = React.useMemo(() => genesisOverrides(editor.components, { iframe: iframe as never }), [editor.components, iframe]);
+  // Puck merges these into what it has, so both states are passed in full.
+  const permissions = locked ? LOCKED : UNLOCKED;
 
   if (loadError) {
     return (
@@ -679,6 +739,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
           config={editor.config}
           data={open.data as unknown as Data}
           onChange={onChange}
+          permissions={permissions}
           overrides={overrides}
           metadata={metadata as unknown as Record<string, unknown>}
           iframe={{ enabled: true, waitForStyles: true }}
@@ -691,7 +752,12 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
         >
           <div className="flex h-full min-h-0 flex-col">
           <SelectionWatcher onSelect={() => setRightTab("edit")} />
-          <Toolbar siteName={site.name} pageTitle={`${pageTitle} (${open.path})`} saveStatus={saveStatus} viewport={viewport} onViewport={setViewport} onPreview={() => void showPreview("preview")} />
+          <Toolbar siteName={site.name} pageTitle={`${pageTitle} (${open.path})`} saveStatus={saveStatus} mode={readOnly ? "view" : publishing ? "publishing" : "edit"} viewport={viewport} onViewport={setViewport} onPreview={() => void showPreview("preview")} />
+          {readOnly ? (
+            <p role="note" className="border-b border-border bg-muted px-3 py-2 text-sm" data-gs-view-only="">
+              View only: you can look through this site's pages, but not change or publish them.
+            </p>
+          ) : null}
           {notice || invalid ? (
             <div className="flex flex-col gap-2 border-b border-border px-3 py-2">
               {invalid ? (
@@ -712,15 +778,17 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
           <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[17rem_minmax(0,1fr)_20rem]">
             <aside className="flex min-h-0 flex-col border-b border-border lg:border-b-0 lg:border-r" aria-label="Sections and pages">
               <Tabs defaultValue="add" value={leftTab} onValueChange={setLeftTab} className="flex min-h-0 flex-1 flex-col">
-                <TabsList className="m-2 grid grid-cols-3">
-                  <TabsTrigger value="add">Add</TabsTrigger>
+                <TabsList className={cn("m-2 grid", readOnly ? "grid-cols-2" : "grid-cols-3")}>
+                  {readOnly ? null : <TabsTrigger value="add">Add</TabsTrigger>}
                   <TabsTrigger value="outline">Outline</TabsTrigger>
                   <TabsTrigger value="pages">Pages</TabsTrigger>
                 </TabsList>
-                <TabsContent value="add" className="mt-0 min-h-0 flex-1 overflow-y-auto px-2 pb-4" data-gs-drawer="">
-                  <p className="px-1 pb-2 text-xs text-muted-foreground">Drag a section onto the page.</p>
-                  <Puck.Components />
-                </TabsContent>
+                {readOnly ? null : (
+                  <TabsContent value="add" className="mt-0 min-h-0 flex-1 overflow-y-auto px-2 pb-4" data-gs-drawer="">
+                    <p className="px-1 pb-2 text-xs text-muted-foreground">{publishing ? "Publishing: sections can be added again in a moment." : "Drag a section onto the page."}</p>
+                    <Puck.Components />
+                  </TabsContent>
+                )}
                 <TabsContent value="outline" className="mt-0 min-h-0 flex-1 overflow-y-auto px-2 pb-4">
                   <Puck.Outline />
                 </TabsContent>
@@ -731,7 +799,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
                     nav={site.nav}
                     reserved={reserved}
                     canReorder={Boolean(store.reorderPages)}
-                    busy={busy}
+                    busy={busy || publishing}
+                    readOnly={readOnly}
                     onOpen={(id) => void openPage(id)}
                     onCreate={createPage}
                     onRename={rename}
@@ -750,7 +819,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
               <Tabs defaultValue="edit" value={rightTab} onValueChange={setRightTab} className="flex min-h-0 flex-1 flex-col">
                 <TabsList className="m-2 grid grid-cols-2">
                   <TabsTrigger value="edit">Edit</TabsTrigger>
-                  <TabsTrigger value="publish">Publish</TabsTrigger>
+                  <TabsTrigger value="publish">{readOnly ? "Releases" : "Publish"}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="edit" className="mt-0 min-h-0 flex-1 overflow-y-auto px-2 pb-4" data-gs-fields="">
                   <Puck.Fields />
@@ -768,6 +837,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
                     liveReleaseId={liveId}
                     previewUrl={previewUrl}
                     currentPageId={open.id}
+                    readOnly={readOnly}
                     onCheck={() => void runCheck()}
                     onPublish={publish}
                     onRollback={rollback}

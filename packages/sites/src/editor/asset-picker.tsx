@@ -107,6 +107,8 @@ export function AssetPicker({ open, siteId, store, assets, current, onDone }: As
     }
     if (tab === "library") {
       if (!chosen) return setError("Choose an image.");
+      // A library is the host's: its addresses get the same check as a link.
+      if (!isSafeImageSrc(chosen.url)) return setError(`That image's address (${chosen.url}) isn't a site path or https URL.`);
       return onDone({ src: chosen.url, ...base, ...(chosen.width ? { width: chosen.width } : {}), ...(chosen.height ? { height: chosen.height } : {}) });
     }
     const src = url.trim();

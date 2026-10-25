@@ -40,6 +40,8 @@ export interface PagesPanelProps {
   reserved?: ReservedPaths | undefined;
   canReorder: boolean;
   busy: boolean;
+  /** View only: pages open, nothing is added, moved, deleted or renamed, and the menu is a list. */
+  readOnly?: boolean | undefined;
   onOpen(pageId: string): void;
   onCreate(request: NewPageRequest): Promise<void>;
   onRename(pageId: string, path: string): Promise<void>;
@@ -321,9 +323,11 @@ export function PagesPanel(props: PagesPanelProps) {
     <div className="flex flex-col gap-4 p-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">Pages</h2>
-        <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={props.busy}>
-          <Plus className="mr-1 h-4 w-4" /> Add page
-        </Button>
+        {props.readOnly ? null : (
+          <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={props.busy}>
+            <Plus className="mr-1 h-4 w-4" /> Add page
+          </Button>
+        )}
       </div>
       <ul className="flex flex-col gap-1" aria-label="Pages">
         {props.pages.map((p, i) => {
@@ -340,6 +344,7 @@ export function PagesPanel(props: PagesPanelProps) {
                   </span>
                 </span>
               </button>
+              {props.readOnly ? null : (
               <div className="flex flex-wrap gap-1">
                 {p.path !== "/" ? (
                   <Button type="button" size="sm" variant="ghost" disabled={props.busy} onClick={() => setRenaming(p)} aria-label={`Change the address of ${p.title}`}>
@@ -362,6 +367,7 @@ export function PagesPanel(props: PagesPanelProps) {
                   </Button>
                 ) : null}
               </div>
+              )}
             </li>
           );
         })}
@@ -371,9 +377,27 @@ export function PagesPanel(props: PagesPanelProps) {
         <h2 id="gs-menu-heading" className="text-sm font-semibold">
           Menu
         </h2>
-        <p className="text-sm text-muted-foreground">The links in the site's header. Use the arrows to reorder them.</p>
-        <MenuEditor nav={props.nav} pages={props.pages} onChange={props.onNavChange} />
+        {props.readOnly ? (
+          props.nav.length ? (
+            <ol className="flex flex-col gap-1 text-sm">
+              {props.nav.map((n, i) => (
+                <li key={i}>
+                  {n.label} <span className="text-xs text-muted-foreground">{n.href}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-sm text-muted-foreground">The menu is empty.</p>
+          )
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">The links in the site's header. Use the arrows to reorder them.</p>
+            <MenuEditor nav={props.nav} pages={props.pages} onChange={props.onNavChange} />
+          </>
+        )}
       </section>
+      {props.readOnly ? null : (
+        <>
       <Separator />
       <section aria-labelledby="gs-footer-heading" className="flex flex-col gap-2">
         <h2 id="gs-footer-heading" className="text-sm font-semibold">
@@ -384,6 +408,8 @@ export function PagesPanel(props: PagesPanelProps) {
           Edit the footer
         </Button>
       </section>
+        </>
+      )}
 
       <AddPageDialog open={adding} onOpenChange={setAdding} pages={props.pages} reserved={props.reserved} onCreate={props.onCreate} />
       <RenameDialog page={renaming} pages={props.pages} reserved={props.reserved} onClose={() => setRenaming(null)} onRename={props.onRename} />
