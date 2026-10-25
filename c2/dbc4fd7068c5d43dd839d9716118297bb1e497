@@ -1,0 +1,42 @@
+packages/native/src/__tests__/push/notifier.test.ts
+  s_8252619ce79a86::t_4d89e21a7437c4 1-81
+packages/native/src/push/index.ts
+  s_8252619ce79a86::t_99633badb93127 31,88,94
+packages/native/src/push/modules.ts
+  s_8252619ce79a86::t_854bac2a32cad2 40-49,86-87,106
+.changeset/push-0005-superseded.md
+  s_8252619ce79a86::t_5b04768d97cc85 1-7
+packages/native/src/push/backend.ts
+  s_8252619ce79a86::t_854bac2a32cad2 34-41
+  s_8252619ce79a86::t_e932bf7bccb9dd 42-43
+packages/native/README.md
+  s_8252619ce79a86::t_5b04768d97cc85 433-455
+packages/native/src/push/routing.ts
+  s_8252619ce79a86::t_854bac2a32cad2 28-57
+packages/native/src/push/registration.ts
+  s_8252619ce79a86::t_854bac2a32cad2 44-61,78-79,85-86,117-126
+  s_8252619ce79a86::t_e932bf7bccb9dd 183-185
+  s_8252619ce79a86::t_76700d327ad659 127-128
+packages/native/src/push/block.tsx
+  s_8252619ce79a86::t_99633badb93127 68-81,103-111,221-245,258,386
+packages/supabase/README.md
+  s_8252619ce79a86::t_f8a8a57127a151 357-366
+.changeset/push-notifier-seam.md
+  s_8252619ce79a86::t_5b04768d97cc85 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c2dbc4fd7068c5d43dd839d9716118297bb1e497",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
