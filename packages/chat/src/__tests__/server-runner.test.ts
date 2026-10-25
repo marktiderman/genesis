@@ -51,7 +51,7 @@ describe("createChatRunner: push", () => {
       collapseKey: "chat:c1",
       threadKey: "c1",
       idempotencyKey: "push:m1",
-      data: { url: "/messages/c1", conversationId: "c1", messageId: "m1" },
+      data: { url: "/messages/c1", conversationId: "c1", messageId: "m1", seq: null },
     });
     // Only the kinds it handles are claimed; the effect is settled as done.
     expect(sb.rpcCalls[0]).toEqual({ fn: "claim_effects", args: { p_kinds: ["push", "transcribe", "storage.remove", "video.remove"], p_limit: 50 } });

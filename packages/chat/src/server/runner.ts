@@ -136,6 +136,9 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
       .maybeSingle()) as Result<{ kind: string }>;
     if (error) throw errorText("conversations", error);
     const direct = conversation ? directKinds.has(conversation.kind) : false;
+    // The message's number, so a tapped notification can open the thread at it.
+    const { data: numbered } = (await db().from("messages").select("seq").eq("id", messageId).maybeSingle()) as Result<{ seq: number }>;
+    const seq = numbered?.seq ?? null;
     const senderName = await nameOf(first.sender_id);
     const preview = first.preview ?? "New message";
     // The conversation's title; a direct conversation (or an untitled group) shows who wrote.
@@ -152,7 +155,7 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
       collapseKey: `chat:${conversationId}`,
       threadKey: conversationId,
       idempotencyKey: `push:${messageId}`,
-      data: { url: options.linkFor?.(conversationId, messageId) ?? `/messages/${conversationId}`, conversationId, messageId },
+      data: { url: options.linkFor?.(conversationId, messageId) ?? `/messages/${conversationId}`, conversationId, messageId, seq },
     };
     await deliver(notification);
   }

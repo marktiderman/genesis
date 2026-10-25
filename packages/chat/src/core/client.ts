@@ -12,13 +12,14 @@ import type {
   ChatAttachment,
   ChatConversation,
   ChatInboxItem,
+  ChatKindRules,
   ChatMember,
   ChatMessage,
   ChatRole,
   ChatSignal,
   SendInput,
 } from "./types";
-import { fileExtension, isAllowedExtension } from "./media";
+import { fileExtension, isAllowedExtension, randomId } from "./media";
 
 /** Any supabase-js client; the app's generated Database types don't need to list genesis_chat. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -245,6 +246,22 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
       return row ? toConversation(row as Row) : null;
     },
 
+    /** A kind's rules (how many members, who posts, threads), for what the UI offers. */
+    async kind(kind: string): Promise<ChatKindRules | null> {
+      const row = must("kind", await db().from("kinds").select("kind, label, max_members, who_posts, membership, threads, observers_post").eq("kind", kind).maybeSingle()) as Row | null;
+      return row
+        ? {
+            kind: String(row.kind),
+            label: String(row.label),
+            maxMembers: row.max_members == null ? null : Number(row.max_members),
+            whoPosts: row.who_posts as ChatKindRules["whoPosts"],
+            membership: row.membership as ChatKindRules["membership"],
+            threads: Boolean(row.threads),
+            observersPost: Boolean(row.observers_post),
+          }
+        : null;
+    },
+
     async myRole(id: string): Promise<ChatRole | null> {
       return rpc<ChatRole | null>("my_role", { p_conversation_id: id });
     },
@@ -394,7 +411,7 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
     async upload(conversationId: string, userId: string, file: Blob | ArrayBuffer, opts: { name: string; contentType: string; id?: string }) {
       const ext = fileExtension(opts.name, opts.contentType);
       if (!isAllowedExtension(ext)) throw new ChatError(`Files of type .${ext} can't be sent`, "22023", "upload");
-      const id = opts.id ?? crypto.randomUUID();
+      const id = opts.id ?? randomId();
       const path = `${conversationId}/${userId}/${id}.${ext}`;
       must("upload", await supabase.storage.from(CHAT_BUCKET).upload(path, file, { contentType: opts.contentType, upsert: false }));
       return path;
