@@ -1,0 +1,47 @@
+packages/sites/src/editor/overrides.tsx
+  s_8252619ce79a86::t_08bb5842020e63 203-204,219-223,229,232
+  s_8252619ce79a86::t_7755e65cfa06e5 138,155,193-202,205-218,224-228,230-231,233-258,260-265,282
+packages/sites/src/editor/asset-picker.tsx
+  s_8252619ce79a86::t_165795d9bbb9b2 141,146-147
+packages/sites/src/editor/field-components.tsx
+  s_8252619ce79a86::t_165795d9bbb9b2 48-51
+packages/sites/src/editor/site-editor.tsx
+  s_8252619ce79a86::t_030d78fa1a50d0 713-714
+  s_8252619ce79a86::t_165795d9bbb9b2 42,62-67,100-102,108,166,177-179,199,250,277-278,280-284,303-312,315,360-367,374,377,384,406-407,421-422,446-456,463-466,474,476-481,485-494,496-497,499-502,504-510,513,543,557,560-563,565,567,588,592,680,682,688-712,716-722,745,763,788-791,810,818,828,837,843-844,846-847
+  s_8252619ce79a86::t_bf14370470bf5a 715
+packages/sites/src/editor/index.ts
+  s_8252619ce79a86::t_3e2df4b3c25dd9 29
+packages/sites/src/editor/pages-panel.tsx
+  s_8252619ce79a86::t_165795d9bbb9b2 226-227,231,233,235-239,241,243-244,251-255,261,263,284,287
+packages/sites/src/__tests__/editor.test.tsx
+  s_8252619ce79a86::t_09593174780404 72,116,223
+  s_8252619ce79a86::t_3e2df4b3c25dd9 16-17,228-240
+  s_8252619ce79a86::t_c8bbc2f748159a 241-242
+packages/sites/README.md
+  s_8252619ce79a86::t_ec0b9b958e3f6d 332-333,369-373
+packages/sites/src/editor/data.ts
+  s_8252619ce79a86::t_09593174780404 12,44-45,48
+  s_8252619ce79a86::t_c3ffea77a661fd 111-125,156
+packages/sites/src/editor/publish-panel.tsx
+  s_8252619ce79a86::t_165795d9bbb9b2 144
+apps/sample/sites-demo/site.ts
+  s_8252619ce79a86::t_165795d9bbb9b2 171
+docs/SITES.md
+  s_8252619ce79a86::t_3e2df4b3c25dd9 397
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3500ae076f82e0c17c72311ac69d6ef1e78efe12",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
