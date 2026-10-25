@@ -1,0 +1,21 @@
+.changeset/genesis-chat.md
+  s_8252619ce79a86::t_f520697412f46a 2
+packages/chat/package.json
+  s_8252619ce79a86::t_f63e2031695d2d 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fdb71404aea8bb52ad6d65d517385d20c35700d7",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
