@@ -50,7 +50,7 @@ describe("genesis init --template native", () => {
     expect(files[".github/workflows/database.yml"]).toContain("supabase-ci.yml@GENESIS_SHA");
     expect(files[".github/workflows/genesis-upgrade.yml"]).toBeDefined();
     const lock = readLock(target);
-    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "notifications", "push", "support-feedback"]);
+    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "chat", "notifications", "push", "support-feedback"]);
     expect(lock.files[".eas/workflows/e2e.yml"]?.source).toBe("@marktiderman/genesis-cli:templates/eas/workflows/e2e.yml");
     expect(lock.files["supabase/functions/genesis-push-send/index.ts"]?.source).toBe("@marktiderman/genesis-supabase:functions/genesis-push-send/index.ts");
     // 0005's test went with the notifications migration, which supersedes it.
