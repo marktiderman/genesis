@@ -14,6 +14,7 @@
       "environment": "preview",
       "channel": "preview",
       "distribution": "internal",
+      "uploadSourceMaps": true,
       "env": { "APP_VARIANT": "preview", "EXPO_PUBLIC_APP_VARIANT": "preview" },
       "android": { "buildType": "apk" }
     },
@@ -25,6 +26,7 @@
       "environment": "production",
       "channel": "production",
       "distribution": "store",
+      "uploadSourceMaps": true,
       "autoIncrement": true,
       "env": { "APP_VARIANT": "production", "EXPO_PUBLIC_APP_VARIANT": "production" }
     }

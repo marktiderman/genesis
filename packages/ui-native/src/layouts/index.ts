@@ -97,3 +97,5 @@ export {
   type AppleProviderOptions,
   type AppleSignInButtonProps,
 } from "./apple-sign-in";
+
+export { googleProvider, type GoogleProviderOptions } from "./google-sign-in";
