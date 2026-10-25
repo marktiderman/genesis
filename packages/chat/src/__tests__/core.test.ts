@@ -61,3 +61,16 @@ describe("thread", () => {
     expect(activityLine(act, (u) => u.toUpperCase())).toBe("C is recording a voice message…");
   });
 });
+
+import { belongsTo } from "../react";
+describe("a sent message lands in the lists it belongs to", () => {
+  const m = msg(3, { conversationId: "c1", threadRootId: null, topic: "lesson-1" });
+  it("matches the main timeline and its topic, not another thread or conversation", () => {
+    expect(belongsTo(["genesis-chat", "conversation", "c1", "messages", null, null], m)).toBe(true);
+    expect(belongsTo(["genesis-chat", "conversation", "c1", "messages", null, "lesson-1"], m)).toBe(true);
+    expect(belongsTo(["genesis-chat", "conversation", "c1", "messages", null, "lesson-2"], m)).toBe(false);
+    expect(belongsTo(["genesis-chat", "conversation", "c1", "messages", "root-1", null], m)).toBe(false);
+    expect(belongsTo(["genesis-chat", "conversation", "c2", "messages", null, null], m)).toBe(false);
+    expect(belongsTo(["genesis-chat", "conversation", "c1"], m)).toBe(false);
+  });
+});

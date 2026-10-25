@@ -122,7 +122,13 @@ export function fieldFor(key: string, schema: JsonSchema, required: boolean, ctx
   const kind = schema["x-genesis-kind"];
 
   if (kind === "slot") {
-    if (!ctx.path.includes(".")) ctx.slots.push(key);
+    // Only a section's own props become slots (data.ts reads and writes them at the top level); a slot inside an
+    // object or a list item has no path there yet, so it is reported, not edited.
+    if (ctx.path !== "") {
+      ctx.unsupported.push(path);
+      return { type: "custom", label, render: UnsupportedField };
+    }
+    ctx.slots.push(key);
     return { type: "slot", label, ...((schema["x-genesis-allow"] ?? ctx.slotAllow) ? { allow: schema["x-genesis-allow"] ?? ctx.slotAllow } : {}) };
   }
   if (kind === "rich-text") return { type: "custom", label, render: RichTextField };

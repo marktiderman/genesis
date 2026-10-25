@@ -183,6 +183,12 @@ describe("ChatThread", () => {
     expect(screen.queryByTestId("genesis-chat-input")).toBeNull();
   });
 
+  it("tells someone with no role here they can't post, instead of loading forever", async () => {
+    const client = createMemoryChatClient({ me: ME, conversations: [group({ canPost: false, myRole: null })] });
+    mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
+    expect((await screen.findByTestId("genesis-chat-cannot-post")).textContent).toContain("can't post");
+  });
+
   it("announces an incoming message and shows who is typing", async () => {
     const client = createMemoryChatClient({ me: ME, conversations: [group()] });
     mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);

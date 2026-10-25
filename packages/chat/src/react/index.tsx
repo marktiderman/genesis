@@ -23,6 +23,18 @@ export const chatKeys = {
   files: (paths: string[]) => ["genesis-chat", "files", [...paths].sort()] as const,
 };
 
+/** Does a messages list (`[genesis-chat, conversation, id, messages, threadRootId, topic]`) hold this message? */
+export function belongsTo(key: readonly unknown[], m: ChatMessage): boolean {
+  return (
+    key[0] === "genesis-chat" &&
+    key[1] === "conversation" &&
+    key[2] === m.conversationId &&
+    key[3] === "messages" &&
+    (key[4] ?? null) === (m.threadRootId ?? null) &&
+    (key[5] == null || key[5] === m.topic)
+  );
+}
+
 interface ChatContextValue {
   client: ChatClient;
   userId: string;
@@ -78,8 +90,11 @@ export function ChatProvider({ client, userId, outboxStore, readFile, upload, ne
         persistFile,
         onChange: setQueue,
         onSent: (message) => {
-          queryClient.setQueryData<ChatMessage[]>([...chatKeys.conversation(message.conversationId), "messages"], (prev) =>
-            prev ? upsertMessages(prev, [message]) : prev,
+          // Into every loaded list it belongs to (the main timeline, its thread, its topic), so
+          // the bubble never disappears between the send landing and the live hint.
+          queryClient.setQueriesData<ChatMessage[]>(
+            { predicate: (q) => belongsTo(q.queryKey, message) },
+            (prev) => (Array.isArray(prev) ? upsertMessages(prev, [message]) : prev),
           );
           void queryClient.invalidateQueries({ queryKey: ["genesis-chat", "inbox"] });
         },
