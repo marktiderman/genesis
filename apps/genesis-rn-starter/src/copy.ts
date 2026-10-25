@@ -39,6 +39,11 @@ const en = {
     title: "Home",
     emptyTitle: "Your app starts here",
     emptyBody: "This is the first tab. Replace this screen with your own.",
+    checkIn: "Try the check-in",
+    checkInFromLink: "Check in at Hilltop Gym",
+  },
+  checkIn: {
+    done: "Done",
   },
   notifications: {
     title: "Notifications",
