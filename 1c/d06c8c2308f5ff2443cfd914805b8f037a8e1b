@@ -1,0 +1,31 @@
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_da61e7f58ca858 116-117
+packages/genesis-cli/src/doctor/config.ts
+  s_8252619ce79a86::t_da61e7f58ca858 35-39,65,79-83,248
+packages/genesis-cli/src/expo.ts
+  s_8252619ce79a86::t_da61e7f58ca858 39,51,187-191,212-221,308-310,312,343
+packages/genesis-cli/test/expo.test.ts
+  s_8252619ce79a86::t_da61e7f58ca858 21,26,305,311-324,327-332
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_da61e7f58ca858 52-53
+.changeset/sdk58-privacy-manifest.md
+  s_8252619ce79a86::t_a6467e73eb98d2 6
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_a6467e73eb98d2 257-259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1cd06c8c2308f5ff2443cfd914805b8f037a8e1b",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
