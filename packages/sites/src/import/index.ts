@@ -174,7 +174,15 @@ async function fetchGuarded(start: string, o: Required<Pick<ImportAssetsOptions,
 
 /** A storage-friendly name from the URL's last segment, with the extension of what the bytes are. */
 function fileName(url: URL, ext: string): string {
-  const last = decodeURIComponent(url.pathname.split("/").pop() ?? "").replace(/\.[a-z0-9]{1,5}$/i, "");
+  const segment = url.pathname.split("/").pop() ?? "";
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(segment);
+  } catch {
+    // A malformed escape (`%zz`, a lone `%`): the name falls back to "file", the import goes on.
+    decoded = "";
+  }
+  const last = decoded.replace(/\.[a-z0-9]{1,5}$/i, "");
   const base = last.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "file";
   return `${base}.${ext}`;
 }

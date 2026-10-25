@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { defineSection } from "../core/registry";
+import { isExternalHref } from "../core/urls";
 import { Copy, Href, Image, Line, Surface } from "../core/schemas";
 import { Anchor, HiddenTitle, SectionBand, SectionIntro, SiteImage, onAccent, resolveHref } from "./shared";
 
@@ -57,14 +58,16 @@ export const logosSection = defineSection({
       ) : (
         <span className={cn("text-center font-semibold uppercase tracking-wider", compact ? "text-xs sm:text-sm" : "text-sm")}>{item.name}</span>
       );
-    const linked = (item: (typeof props.items)[number], content: React.ReactNode) =>
-      item.href ? (
-        <a href={resolveHref(item.href, ctx)} className="inline-flex min-h-11 items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+    const linked = (item: (typeof props.items)[number], content: React.ReactNode) => {
+      if (!item.href) return content;
+      const href = resolveHref(item.href, ctx);
+      // A partner's own site: it gets no handle on this page, and no referrer.
+      return (
+        <a href={href} {...(isExternalHref(href) ? { rel: "noopener noreferrer" } : {})} className="inline-flex min-h-11 items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
           {content}
         </a>
-      ) : (
-        content
       );
+    };
 
     if (variant === "trust-bar") {
       return (

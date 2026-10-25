@@ -190,7 +190,7 @@ describe("robots.txt, sitemap.xml and assets", () => {
 
 describe("preview", () => {
   it("renders the drafts, noindex and never cached", async () => {
-    const o = await opts({ mode: "preview" });
+    const o = await opts({ mode: "preview", viewer: "user-1" });
     const store = o.store as Awaited<ReturnType<typeof seededStore>>;
     const home = (await store.listPages("landing"))[0]!;
     const draft = (await store.getPageDraft(home.id))!;
@@ -206,6 +206,21 @@ describe("preview", () => {
     // The live site still serves the release.
     expect(await (await handleSiteRequest(get("/"), { ...o, mode: "live" }))!.text()).not.toContain("A draft headline");
     expect(await (await handleSiteRequest(get("/robots.txt"), o))!.text()).toContain("Disallow: /");
+  });
+
+  it("is null for an anonymous viewer, before reading any draft", async () => {
+    const o = await opts({ mode: "preview" });
+    const store = o.store as Awaited<ReturnType<typeof seededStore>>;
+    const getDraft = vi.spyOn(store, "getDraft");
+    const listPages = vi.spyOn(store, "listPages");
+    for (const path of ["/", "/robots.txt", "/sitemap.xml", "/nope"]) {
+      expect(await handleSiteRequest(get(path), o)).toBeNull();
+      expect(await handleSiteRequest(get(path), { ...o, viewer: null, unknownPath: "not-found" })).toBeNull();
+    }
+    expect(getDraft).not.toHaveBeenCalled();
+    expect(listPages).not.toHaveBeenCalled();
+    // The live site doesn't need a viewer.
+    expect((await handleSiteRequest(get("/"), { ...o, mode: "live" }))!.status).toBe(200);
   });
 });
 

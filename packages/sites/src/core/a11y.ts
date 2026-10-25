@@ -10,7 +10,8 @@
  * - heading order inside rich text (no skipped levels);
  * - every image has alt text or is marked decorative (1.1.1);
  * - every colour pair the sections draw reaches 4.5:1 for text and 3:1 for
- *   the focus ring (1.4.3, 1.4.11).
+ *   the focus ring and the primary colour as a border or marker (1.4.3,
+ *   1.4.11).
  *
  * The rest is the renderer's job and is pinned by its tests: visible focus,
  * 24px targets (2.5.8), landmarks, a skip link, link text.
@@ -145,13 +146,13 @@ export function checkSiteDoc(site: SiteDoc, lookup: Lookup = getSection): SiteIs
   return issues;
 }
 
-/** Colour pairs below their minimum (1.4.3 text, 1.4.11 focus ring). */
+/** Colour pairs below their minimum (1.4.3 text, 1.4.11 focus ring and primary borders and markers). */
 export function checkContrast(theme: SiteTheme): SiteIssue[] {
   return theme.pairs
     .map((pair) => ({ pair, ratio: contrastRatio(pair.foreground, pair.background) }))
     .filter(({ pair, ratio }) => ratio < pair.minimum)
     .map(({ pair, ratio }) => ({
-      severity: "error" as const,
+      severity: pair.severity ?? "error",
       code: "contrast",
       message: `In ${pair.mode} mode, ${pair.name} is ${ratio.toFixed(2)}:1 (${pair.foreground} on ${pair.background}); it needs ${pair.minimum}:1. Adjust the brand colours.`,
     }));

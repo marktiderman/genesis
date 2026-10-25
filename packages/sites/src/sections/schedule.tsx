@@ -70,12 +70,17 @@ const schema = z.object({
 });
 type Props = z.infer<typeof schema>;
 
+/**
+ * Colour tells the types apart at a glance, never alone: every chip names its
+ * type in text, and the two bordered tones differ in pattern (dashed and
+ * solid), not only in the border's colour.
+ */
 const TONE: Record<(typeof CHIP_TONES)[number], string> = {
   primary: "bg-primary text-primary-foreground",
   inverse: "bg-foreground text-background",
   soft: "bg-muted text-foreground",
-  outline: "border border-primary text-foreground",
-  plain: "border border-border text-foreground",
+  outline: "border-2 border-dashed border-primary text-foreground",
+  plain: "border border-solid border-border text-foreground",
 };
 
 /** `06:15` as the page says it: `6:15 am` or `06:15`. */
@@ -101,9 +106,17 @@ function TimeText({ start, end, clock }: { start: string; end?: string | undefin
   );
 }
 
+/** A class, in its type's chip: the title, and the type's name as text (unless the title already is it). */
 function Chip({ session, types }: { session: ScheduleSession; types: Map<string, Props["types"][number]> }) {
-  const tone = (session.type && types.get(session.type)?.tone) || "soft";
-  return <span className={cn("inline-flex rounded-md px-2 py-1 text-sm font-semibold leading-tight", TONE[tone])}>{session.title}</span>;
+  const type = session.type ? types.get(session.type) : undefined;
+  const tone = type?.tone ?? "soft";
+  const named = type && type.name.trim().toLowerCase() !== session.title.trim().toLowerCase();
+  return (
+    <span data-type={type?.id} className={cn("inline-flex flex-col rounded-md px-2 py-1 text-sm font-semibold leading-tight", TONE[tone])}>
+      {session.title}
+      {named ? <span className="text-xs font-medium">{type.name}</span> : null}
+    </span>
+  );
 }
 
 /** Coach, place and note, as one quiet line. */
@@ -165,20 +178,21 @@ function DayLabel({ day, props }: { day: Weekday; props: Props }) {
   );
 }
 
-function Legend({ props }: { props: Props }) {
-  const described = props.types.filter((t) => t.description);
-  if (!described.length) return null;
+/** Every class type the shown days use, described or not, in the order the types are listed. */
+function Legend({ props, days }: { props: Props; days: readonly Weekday[] }) {
+  const used = new Set(props.sessions.filter((s) => s.type && days.includes(s.day)).map((s) => s.type));
+  const shown = props.types.filter((t) => used.has(t.id));
+  if (!shown.length) return null;
   return (
-    <dl className="mt-8 grid gap-4 sm:grid-cols-2">
-      {described.map((t) => (
-        <div key={t.id} className="flex flex-col gap-1">
-          <dt>
-            <span className={cn("inline-flex rounded-md px-2 py-1 text-sm font-semibold", TONE[t.tone])}>{t.name}</span>
-          </dt>
-          <dd className="text-sm">{t.description}</dd>
-        </div>
+    // A list, not a <dl>: a type with no description has nothing to pair with.
+    <ul aria-label="Class types" className="mt-8 grid gap-4 sm:grid-cols-2">
+      {shown.map((t) => (
+        <li key={t.id} className="flex flex-col items-start gap-1">
+          <span className={cn("inline-flex rounded-md px-2 py-1 text-sm font-semibold", TONE[t.tone])}>{t.name}</span>
+          {t.description ? <span className="text-sm">{t.description}</span> : null}
+        </li>
       ))}
-    </dl>
+    </ul>
   );
 }
 
@@ -224,7 +238,7 @@ export const scheduleSection = defineSection({
     const intro = <SectionIntro ctx={ctx} eyebrow={props.eyebrow} heading={props.heading} body={props.body} tone={inverted ? "inherit" : "muted"} />;
     const footer = (
       <>
-        <Legend props={props} />
+        <Legend props={props} days={days} />
         {props.footnote ? <p className="mt-6 text-sm">{props.footnote}</p> : null}
       </>
     );

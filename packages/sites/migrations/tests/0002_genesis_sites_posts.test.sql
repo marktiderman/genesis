@@ -6,7 +6,7 @@
 -- can_view), they are replaced again inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(50);
+select plan(51);
 
 -- People: e1 edits site A, b2 may view it, c3 is nobody's.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -192,7 +192,7 @@ reset role;
 select pg_temp.sign_in('e1');
 select is(
   jsonb_array_length((genesis_sites.import_posts(pg_temp.id('a'), jsonb_build_array(
-    jsonb_build_object('slug', 'old-news', 'doc', pg_temp.post('Old news'), 'publishedAt', '2023-03-14T09:00:00Z'),
+    jsonb_build_object('slug', 'old-news', 'doc', pg_temp.post('Old news'), 'status', 'published', 'publishedAt', '2023-03-14T09:00:00Z'),
     jsonb_build_object('slug', 'later', 'doc', pg_temp.post('Later'), 'status', 'draft'),
     jsonb_build_object('slug', 'secret-draft', 'doc', pg_temp.post('Clash')),
     jsonb_build_object('slug', 'Bad Slug', 'doc', pg_temp.post('Bad')),
@@ -207,6 +207,11 @@ select is(
   '... keeping the old site''s date'
 );
 select is((select status from genesis_sites.site_posts where site_id = pg_temp.id('a') and slug = 'later'), 'draft', '... a draft when asked');
+select is(
+  (genesis_sites.import_posts(pg_temp.id('a'), jsonb_build_array(jsonb_build_object('slug', 'no-status', 'doc', pg_temp.post('No status')))) #>> '{imported,0,status}'),
+  'draft',
+  '... and a draft when it doesn''t say: an import publishes only when asked'
+);
 select is((select count(*)::int from genesis_sites.site_posts where site_id = pg_temp.id('a') and slug in ('bad-date', 'Bad Slug')), 0, '... and skips the ones that don''t');
 select is(
   (genesis_sites.import_posts(pg_temp.id('a'), jsonb_build_array(
@@ -217,7 +222,7 @@ select is(
   'an import refuses infinity and dates before 1970'
 );
 select is(
-  (genesis_sites.import_posts(pg_temp.id('a'), jsonb_build_array(jsonb_build_object('slug', 'future', 'doc', pg_temp.post('Future'), 'publishedAt', '2999-01-01T00:00:00Z'))) #>> '{imported,0,status}'),
+  (genesis_sites.import_posts(pg_temp.id('a'), jsonb_build_array(jsonb_build_object('slug', 'future', 'doc', pg_temp.post('Future'), 'status', 'published', 'publishedAt', '2999-01-01T00:00:00Z'))) #>> '{imported,0,status}'),
   'published',
   'a post dated in the future is imported'
 );

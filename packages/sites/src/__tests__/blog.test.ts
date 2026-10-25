@@ -223,10 +223,48 @@ describe("the post page", () => {
 
   it("previews drafts to a viewer, never cached", async () => {
     const { store } = await withPosts();
-    const res = (await handleSiteRequest(get("/blog/secret"), opts(store, { mode: "preview" })))!;
+    const res = (await handleSiteRequest(get("/blog/secret"), opts(store, { mode: "preview", viewer: "user-1" })))!;
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("private, no-store");
     expect(await res.text()).toContain("Secret plans");
+  });
+
+  it("reads no draft for an anonymous preview: the host answers, on a page, the post page and a post", async () => {
+    const { store } = await withPosts();
+    // As the Supabase store does for anon: no grant on the draft tables (42501).
+    const denied = () => Promise.reject(Object.assign(new Error("permission denied for table site_posts"), { code: "42501" }));
+    const drafts = { getDraft: vi.fn(denied), listPages: vi.fn(denied), getPageDraft: vi.fn(denied), listPosts: vi.fn(denied), getPost: vi.fn(denied) };
+    const anon = { ...store, ...drafts } as unknown as SiteRequestOptions["store"];
+    for (const path of ["/", "/blog", "/blog/secret", "/blog/warm-up"]) {
+      expect(await handleSiteRequest(get(path), opts(anon, { mode: "preview" }))).toBeNull();
+      expect(await handleSiteRequest(get(path), opts(anon, { mode: "preview", viewer: null, unknownPath: "not-found" }))).toBeNull();
+    }
+    for (const read of Object.values(drafts)) expect(read).not.toHaveBeenCalled();
+  });
+
+  it("serves the page with an empty list when the published posts can't be read", async () => {
+    const { store } = await withPosts();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const broken = { ...store, listLivePosts: () => Promise.reject(new Error("connection reset")) } as unknown as SiteRequestOptions["store"];
+    const home = (await handleSiteRequest(get("/"), opts(broken)))!;
+    expect(home.status).toBe(200);
+    const html = await home.text();
+    expect(html).toContain("Fitness on the hill");
+    expect(html).not.toContain('href="/blog/open-day"');
+    expect((await handleSiteRequest(get("/sitemap.xml"), opts(broken)))!.status).toBe(200);
+    expect((await handleSiteRequest(get("/rss.xml"), opts(broken)))!.status).toBe(200);
+    expect(error.mock.calls.some((c) => String(c[0]).includes("reading the published posts of site hilltop failed"))).toBe(true);
+    error.mockRestore();
+  });
+
+  it("answers not found when a published post can't be read", async () => {
+    const { store } = await withPosts();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const broken = { ...store, getLivePost: () => Promise.reject(new Error("connection reset")) } as unknown as SiteRequestOptions["store"];
+    expect(await handleSiteRequest(get("/blog/warm-up"), opts(broken))).toBeNull();
+    expect((await handleSiteRequest(get("/blog/warm-up"), opts(broken, { unknownPath: "not-found" })))!.status).toBe(404);
+    expect(error.mock.calls.some((c) => String(c[0]).includes('reading the published post "warm-up" of site hilltop failed'))).toBe(true);
+    error.mockRestore();
   });
 
   it("puts every published post in the sitemap and the RSS feed, escaped", async () => {

@@ -51,7 +51,7 @@ const cols = (n: number) => (n <= 4 ? COLS[Math.max(1, n) as 1 | 2 | 3 | 4] : "m
 
 /** A group's heading: one level below the section's title. */
 function GroupTitle({ ctx, id, children }: { ctx: RenderContext; id: string; children: React.ReactNode }) {
-  const Tag = ctx.headingLevel === 1 ? "h2" : "h3";
+  const Tag = `h${ctx.headingLevel + 1}` as "h2" | "h3";
   return (
     <Tag id={id} className="font-display text-2xl font-semibold tracking-tight">
       {children}
@@ -62,7 +62,7 @@ function GroupTitle({ ctx, id, children }: { ctx: RenderContext; id: string; chi
 /** A plan's name inside a group: two levels below the section's title. */
 function PlanTitle({ ctx, grouped, children }: { ctx: RenderContext; grouped: boolean; children: React.ReactNode }) {
   if (!grouped) return <ItemTitle ctx={ctx}>{children}</ItemTitle>;
-  const Tag = ctx.headingLevel === 1 ? "h3" : "h4";
+  const Tag = `h${ctx.headingLevel + 2}` as "h3" | "h4";
   return <Tag className="font-display text-lg font-semibold leading-snug">{children}</Tag>;
 }
 

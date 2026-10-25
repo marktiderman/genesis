@@ -97,11 +97,14 @@ export const timelineSection = defineSection({
             <li key={i} className="relative grid grid-cols-[2.75rem_1fr] gap-x-4 pb-10 last:pb-0">
               {/* The line between markers: drawn, not read. */}
               {i < props.steps.length - 1 ? <span aria-hidden="true" className="absolute left-[1.375rem] top-11 bottom-0 w-px -translate-x-1/2 bg-border" /> : null}
+              {/* The marker is drawn, not read: the ordered list says which step this is. Unnumbered, it
+                  still shows a dot in the marker's text colour, so it never rests on the fill colour alone. */}
               <span
                 aria-hidden="true"
+                data-marker=""
                 className={cn("z-10 inline-flex size-11 items-center justify-center rounded-full text-sm font-bold", inverted ? "bg-background text-foreground" : "bg-primary text-primary-foreground")}
               >
-                {props.numbered ? number(i) : ""}
+                {props.numbered ? number(i) : <span className="size-3 rounded-full bg-current" />}
               </span>
               <div className="flex flex-col gap-2 pt-2">
                 {step.label ? <p className={cn("text-sm font-semibold uppercase tracking-wide", muted && "text-muted-foreground")}>{step.label}</p> : null}

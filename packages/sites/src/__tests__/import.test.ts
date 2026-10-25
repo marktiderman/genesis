@@ -161,6 +161,15 @@ describe("importAssets", () => {
     expect(r.map["https://old.example/anim.gif"]).toBe(r.assets["https://old.example/anim.gif"]!.url);
   });
 
+  it("names a file \"file\" when its URL has a malformed escape, and still imports it", async () => {
+    const store = await site();
+    const transport = fakeTransport({ "https://old.example/img/50%zz.png": { body: png() }, "https://old.example/img/100%": { body: png() } });
+    const r = await importAssets(store, "s1", ["https://old.example/img/50%zz.png", "https://old.example/img/100%"], { transport });
+    expect(r.failed).toEqual([]);
+    expect(r.assets["https://old.example/img/50%zz.png"]!.path).toMatch(/^sites\/s1\/asset_\w+-file\.png$/);
+    expect(r.assets["https://old.example/img/100%"]!.path).toMatch(/^sites\/s1\/asset_\w+-file\.png$/);
+  });
+
   it("refuses SVG, HTML and anything else by its bytes, whatever the name or Content-Type says", async () => {
     const store = await site();
     const transport = fakeTransport({

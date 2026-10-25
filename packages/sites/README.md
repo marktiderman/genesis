@@ -143,7 +143,11 @@ never public. A stored page that no longer parses is left out of the site
 
 **Preview.** `mode: "preview"` renders the drafts, with `noindex` and
 `Cache-Control: private, no-store`, through a store signed in as the viewer,
-so the database's `can_view` decides who sees them.
+so the database's `can_view` decides who sees them. Pass the signed-in
+viewer's user id as `viewer`: without one, preview answers null before it
+reads a draft (anon has no grant on them), and the host shows its sign-in
+page or a 404. A failed read of the published posts on the live site logs and
+renders an empty list (or, for one post, not found) instead of failing the page.
 
 ## Sections
 

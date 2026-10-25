@@ -46,8 +46,16 @@ export interface SiteRequestOptions {
    * `live` (default) serves the published release, cached at the CDN.
    * `preview` serves the drafts, `noindex` and `no-store`; the store must be
    * one signed in as the viewer, so the database's `can_view` decides who sees them.
+   * Preview also needs `viewer`: without one it answers null before reading a draft.
    */
   mode?: "live" | "preview";
+  /**
+   * Preview only: the signed-in viewer's user id, as the host's session
+   * resolved it. Drafts are never read for an anonymous request (anon has no
+   * grant on them), so a preview without a viewer is null: the host decides
+   * what to show (its sign-in page, say). Live ignores it.
+   */
+  viewer?: string | null;
   /**
    * The site's primary origin (`https://riverside.example`) for canonical,
    * Open Graph and sitemap URLs. Default: the request URL's origin. Pass it
@@ -173,7 +181,13 @@ async function blogPosts(store: SiteRequestOptions["store"], siteId: string, pre
       console.error(`[genesis-sites] site ${siteId} has a post page, but the store can't list posts (listLivePosts); the blog shows none.`);
       return null;
     }
-    return store.listLivePosts(siteId);
+    try {
+      return await store.listLivePosts(siteId);
+    } catch (err) {
+      // One failed read leaves the list empty; the page around it still serves.
+      console.error(`[genesis-sites] reading the published posts of site ${siteId} failed; the blog shows none.`, err);
+      return null;
+    }
   }
   if (!store.listPosts || !store.getPost) {
     console.error(`[genesis-sites] site ${siteId} has a post page, but the store can't read post drafts (listPosts, getPost) for the preview.`);
@@ -189,7 +203,16 @@ async function blogPosts(store: SiteRequestOptions["store"], siteId: string, pre
 
 /** One post: its published copy (live) or its draft (preview). */
 async function blogPost(store: SiteRequestOptions["store"], siteId: string, slug: string, preview: boolean): Promise<LivePost | null> {
-  if (!preview) return store.getLivePost ? store.getLivePost(siteId, slug) : null;
+  if (!preview) {
+    if (!store.getLivePost) return null;
+    try {
+      return await store.getLivePost(siteId, slug);
+    } catch (err) {
+      // A failed read is the post not found (the site's 404), not a broken page.
+      console.error(`[genesis-sites] reading the published post ${JSON.stringify(slug)} of site ${siteId} failed; answering not found.`, err);
+      return null;
+    }
+  }
   if (!store.listPosts || !store.getPost) return null;
   const meta = (await store.listPosts(siteId)).find((p) => p.slug === slug);
   const draft = meta ? await store.getPost(meta.id) : null;
@@ -254,6 +277,9 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   const path = normalizeRequestPath(rawPath);
   if (path === null) return null;
   if (isReservedPath(path, reserved)) return null;
+
+  // Preview reads drafts, which only a signed-in viewer may: anonymous, the host answers.
+  if (preview && !options.viewer) return null;
 
   // The release (live) or the drafts (preview).
   let snapshot: ReleaseSnapshot | null;

@@ -261,8 +261,9 @@ $$;
 -- [{ slug, doc, status, publishedAt }], at most 500. Each keeps its slug and
 -- its date (never later than now); a slug the site already has, or a post
 -- that isn't one, is skipped and reported. Returns { imported: [{ slug, id,
--- status }], skipped: [{ slug, reason }] }. The client runs the checks first
--- and asks for `draft` on a post that fails them.
+-- status }], skipped: [{ slug, reason }] }. A post is published only when it
+-- asks for `published`; with no status it is a draft. The client runs the
+-- checks first and asks for `draft` on a post that fails them.
 create or replace function genesis_sites.import_posts(site_id uuid, posts jsonb)
 returns jsonb
 language plpgsql
@@ -294,7 +295,8 @@ begin
         skipped := skipped || jsonb_build_array(jsonb_build_object('slug', item_slug, 'reason', 'The site already has a post at this slug.'));
         continue;
       end if;
-      item_status := case when item ->> 'status' = 'draft' then 'draft' else 'published' end;
+      -- Published only when asked: a post with no status (or any other) comes in as a draft.
+      item_status := case when item ->> 'status' = 'published' then 'published' else 'draft' end;
       item_at := least(coalesce((item ->> 'publishedAt')::timestamptz, now()), now());
       -- A real date: not infinity, not before 1970 (the feeds and the sitemap print it).
       if not isfinite(item_at) or item_at < '1970-01-01T00:00:00Z'::timestamptz then

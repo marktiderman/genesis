@@ -137,6 +137,65 @@ describe("links", () => {
   });
 });
 
+describe("the timetable's class types, never by colour alone", () => {
+  it("names the type in each chip as text, unless the title already is it", () => {
+    const props = { ...sectionProps.schedule, sessions: [...(sectionProps.schedule!.sessions as unknown[]), { day: "fri", start: "07:00", title: "Lunch hour", type: "conditioning" }] };
+    const body = dom(render("schedule", "grid", props));
+    const chip = body.querySelector('table [data-type="conditioning"]')!;
+    expect([...body.querySelectorAll('table [data-type="conditioning"]')].map((c) => c.textContent)).toContain("Lunch hourConditioning");
+    // "Strength" in the strength chip says its type already: no repeat.
+    expect(body.querySelector('table [data-type="strength"]')?.textContent).toBe("Strength");
+    expect(chip).toBeTruthy();
+  });
+
+  it("lists every type the shown days use in the legend, described or not, and only those", () => {
+    const props = { ...sectionProps.schedule, types: [...(sectionProps.schedule!.types as unknown[]), { id: "kids", name: "Kids", tone: "outline" }] };
+    const body = dom(render("schedule", "agenda", props));
+    const legend = body.querySelector('[aria-label="Class types"]')!;
+    expect([...legend.querySelectorAll("li > span:first-child")].map((s) => s.textContent)).toEqual(["Strength", "Conditioning", "Open gym"]);
+    // Open gym has no description and is still listed; Kids is used by no class and isn't.
+    expect(legend.textContent).not.toContain("Kids");
+    // A day that isn't shown doesn't bring its type in.
+    const noSat = dom(render("schedule", "agenda", { ...props, days: ["mon", "tue", "wed", "thu", "fri"] }));
+    expect(noSat.querySelector('[aria-label="Class types"]')?.textContent).not.toContain("Open gym");
+  });
+
+  it("tells outline from plain by pattern, not only by the border's colour", () => {
+    const props = {
+      ...sectionProps.schedule,
+      types: [{ id: "a", name: "Alpha", tone: "outline" }, { id: "b", name: "Beta", tone: "plain" }],
+      sessions: [{ day: "mon", start: "06:00", title: "Alpha", type: "a" }, { day: "mon", start: "07:00", title: "Beta", type: "b" }],
+    };
+    const body = dom(render("schedule", "grid", props));
+    const outline = body.querySelector('table [data-type="a"]')!.className;
+    const plain = body.querySelector('table [data-type="b"]')!.className;
+    expect(outline).toContain("border-dashed");
+    expect(plain).toContain("border-solid");
+  });
+});
+
+describe("the timeline's markers", () => {
+  it("shows a dot in an unnumbered marker, so it doesn't rest on the fill colour alone", () => {
+    const body = dom(render("timeline", "vertical", { heading: "Steps", numbered: false, steps: [{ title: "One" }, { title: "Two" }] }));
+    const markers = [...body.querySelectorAll("[data-marker]")];
+    expect(markers).toHaveLength(2);
+    for (const m of markers) {
+      expect(m.getAttribute("aria-hidden")).toBe("true");
+      expect(m.querySelector(".bg-current")).not.toBeNull();
+    }
+    expect(body.querySelector("ol")).not.toBeNull();
+  });
+});
+
+describe("logo links", () => {
+  it("give an outside site no handle on the page and no referrer", () => {
+    const body = dom(render("logos", "row", { heading: "Partners", items: [{ name: "Outside", href: "https://partner.example/" }, { name: "Inside", href: "/partners" }] }));
+    const [outside, inside] = [...body.querySelectorAll("a")];
+    expect(outside!.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(inside!.hasAttribute("rel")).toBe(false);
+  });
+});
+
 describe("pricing groups", () => {
   it("puts plans under group headings, one level below the section's, with anchors", () => {
     const html = render("pricing", "cards", getSection("pricing")!.presets.find((p) => p.name === "Plan groups")!.props as Record<string, unknown>);
@@ -151,6 +210,11 @@ describe("pricing groups", () => {
     ]);
     expect(body.querySelector("#weekly")?.getAttribute("aria-labelledby")).toMatch(/group-1$/);
     expect(() => getSection("pricing")!.schema.parse({ heading: "Nothing" })).toThrow(/Add a plan/);
+  });
+
+  it("keeps the levels one apart when the section holds the page's h1", () => {
+    const html = render("pricing", "cards", getSection("pricing")!.presets.find((p) => p.name === "Plan groups")!.props as Record<string, unknown>, { headingLevel: 1 });
+    expect([...dom(html).querySelectorAll("h1, h2, h3, h4")].map((h) => h.tagName)).toEqual(["H1", "H2", "H3", "H2", "H3", "H3"]);
   });
 
   it("takes up to twelve plans in a group", () => {

@@ -249,7 +249,8 @@ host's own RLS doesn't filter inside them.
   once published), `publish_post(post_id, expected_rev)` (the revision the
   client checked becomes the published copy), `unpublish_post`,
   `delete_post` and `import_posts` (up to 500, each keeping its slug and
-  date, never later than now). A post isn't part of a release: it goes live
+  date, never later than now; a post is published only when it asks for
+  `published`, and is a draft otherwise). A post isn't part of a release: it goes live
   on its own, and a rollback doesn't touch it. An archived site can't
   publish posts and serves none.
 - **Writes go through functions.** `save_page_draft(page_id, expected_rev, doc)`
@@ -361,6 +362,8 @@ demos and previews with the same rules.
   primary hostname for canonical URLs. The package keeps no hostname table.
 - **Preview.** `mode: "preview"` renders the drafts with `noindex` and
   `no-store`, through a store signed in as the viewer, so `can_view` decides.
+  It also takes the signed-in `viewer`; without one it is null before any
+  draft is read.
   The editor's iframe uses the same renderer.
 - **Native.** The renderer is web-only. The native app previews sites in a
   WebView.
