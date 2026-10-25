@@ -1,0 +1,122 @@
+docs/component-reference.md
+  s_8252619ce79a86::t_4a5c463cd78250 7,826,869
+docs/APP-CI.md
+  s_8252619ce79a86::t_0e7981c3b3fcbf 116-121
+packages/native/package.json
+  s_8252619ce79a86::t_0e7981c3b3fcbf 111-279
+packages/genesis-cli/src/upgrade/bump-core.mjs
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-66
+.changeset/inbox-thread-layouts.md
+  s_8252619ce79a86::t_c20465fc9edbe8 12-13
+packages/genesis-cli/src/blocks/walk.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-40
+.changeset/cli-add-migrate-upgrade.md
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-14
+packages/genesis-cli/test/blocks-manifest.test.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-111
+packages/supabase/package.json
+  s_8252619ce79a86::t_0e7981c3b3fcbf 30-33,59-131
+packages/genesis-cli/src/blocks/manifest.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-284
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_4a5c463cd78250 1978-1998,2048-2054,5440-5446
+packages/genesis-cli/src/blocks/migrate.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-80
+packages/genesis-cli/src/blocks/migrations.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-286
+packages/supabase/tsup.config.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 4
+.changeset/support-block.md
+  s_8252619ce79a86::t_c20465fc9edbe8 15-16
+packages/genesis-cli/src/blocks/owned.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-183
+packages/genesis-cli/test/blocks-migrate.test.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-93
+packages/native/src/__tests__/block-manifests.test.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-37
+packages/genesis-cli/test/init-native.test.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-51,53-74
+  s_8252619ce79a86::t_070f7c4b261108 52
+packages/genesis-cli/test/blocks-add.test.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-129
+packages/genesis-cli/src/upgrade/index.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-359
+packages/genesis-cli/src/blocks/lock.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-73
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_0e7981c3b3fcbf 22-36
+packages/genesis-cli/src/upgrade/bump-core.d.mts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-26
+.github/workflows/genesis-upgrade.yml
+  s_8252619ce79a86::t_0e7981c3b3fcbf 106-176,215-219,225
+packages/genesis-cli/src/blocks/add.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-338
+packages/genesis-cli/test/blocks-helpers.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-138
+packages/genesis-cli/test/upgrade.test.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-123
+docs/NATIVE-RELEASE.md
+  s_8252619ce79a86::t_0e7981c3b3fcbf 154-159
+packages/genesis-cli/package.json
+  s_8252619ce79a86::t_0e7981c3b3fcbf 6
+packages/genesis-cli/tsup.config.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 2-29,67
+AGENTS.md
+  s_8252619ce79a86::t_193501bcfa1fa9 16
+scripts/sync-genesis-bump.mjs
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-43
+features.json
+  s_8252619ce79a86::t_0e7981c3b3fcbf 2946-2947,2949-2950,2954-3043,3045-3053,3064-3126
+features.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1294-1295,1297-1298,1300-1301,1306-1373
+packages/genesis-cli/src/blocks/catalog.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-26
+packages/genesis-cli/README.md
+  s_8252619ce79a86::t_0e7981c3b3fcbf 9-24,78-215
+  s_8252619ce79a86::t_30de4a12eec370 216
+packages/genesis-cli/src/blocks/agents.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-35
+docs/RELEASING.md
+  s_8252619ce79a86::t_0e7981c3b3fcbf 57-75
+packages/genesis-cli/src/blocks/files.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-123
+packages/genesis-cli/src/blocks/init-native.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-219
+packages/genesis-cli/src/blocks/routes.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-79
+packages/genesis-cli/src/blocks/templates.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-47
+packages/genesis-cli/src/cli.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 12-15,41,43,49-52,59,63-66,68-86,91,358-462
+  s_8252619ce79a86::t_f5169dbad4554b 463
+packages/genesis-cli/src/upgrade/codemods.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-47
+packages/genesis-cli/test/blocks-review.test.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-126
+scripts/__tests__/genesis-bump-sync.test.mjs
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-30
+packages/genesis-cli/src/blocks/registry-edit.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-100
+packages/genesis-cli/src/blocks/pm.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-54
+packages/genesis-cli/src/blocks/discover.ts
+  s_8252619ce79a86::t_0e7981c3b3fcbf 1-194
+packages/support/package.json
+  s_8252619ce79a86::t_7d41b42212633d 107-252
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aa4b0d61c8ffdd683369fff5bda6e776079615ca",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
