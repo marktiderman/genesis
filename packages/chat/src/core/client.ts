@@ -196,6 +196,25 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
   const signedUrlSeconds = options.signedUrlSeconds ?? 3600;
   const signedCache = new Map<string, { url: string; until: number }>();
 
+  /**
+   * Private Realtime channels authorise with the signed-in user's token; set it before
+   * joining (supabase-js doesn't for a channel joined before the session loads), or the
+   * join is refused and no hint ever arrives. A refusal to set it still joins and retries.
+   */
+  const unsubscribed = new WeakSet<RealtimeChannel>();
+  function join(channel: RealtimeChannel, onStatus?: (status: string) => void) {
+    const realtime = (supabase as unknown as { realtime?: { setAuth?: (token?: string | null) => Promise<void> | void } }).realtime;
+    void Promise.resolve(realtime?.setAuth?.())
+      .catch(() => undefined)
+      .then(() => {
+        if (!unsubscribed.has(channel)) channel.subscribe(onStatus);
+      });
+    return () => {
+      unsubscribed.add(channel);
+      void supabase.removeChannel(channel);
+    };
+  }
+
   async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
     return must<T>(fn, await db().rpc(fn, args));
   }
@@ -410,9 +429,8 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
         .channel(userTopic(userId), { config: { private: true } })
         .on("broadcast", { event: "inbox" }, ({ payload }) =>
           onSignal({ type: "inbox", conversationId: String(payload?.conversation_id), seq: payload?.seq }),
-        )
-        .subscribe();
-      return { unsubscribe: () => void supabase.removeChannel(channel) };
+        );
+      return { unsubscribe: join(channel) };
     },
 
     /**
@@ -437,18 +455,18 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
         .on("broadcast", { event: "conversation" }, () => handlers.onSignal({ type: "conversation", conversationId }))
         .on("broadcast", { event: "activity" }, ({ payload }) => {
           if (payload?.userId && payload.userId !== me) handlers.onActivity?.({ userId: payload.userId, activity: payload.activity, at: Date.now() });
-        })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            if (joinedOnce) handlers.onReconnect?.();
-            joinedOnce = true;
-          }
         });
+      const leave = join(channel, (status) => {
+        if (status === "SUBSCRIBED") {
+          if (joinedOnce) handlers.onReconnect?.();
+          joinedOnce = true;
+        }
+      });
       return {
         signal(activity) {
           void channel.send({ type: "broadcast", event: "activity", payload: { userId: me, activity } });
         },
-        unsubscribe: () => void supabase.removeChannel(channel),
+        unsubscribe: leave,
       };
     },
   };

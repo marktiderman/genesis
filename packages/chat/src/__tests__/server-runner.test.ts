@@ -68,6 +68,16 @@ describe("createChatRunner: push", () => {
     expect(deliver.mock.calls[0]![0]).toMatchObject({ title: "Cohort 4", body: "Ana: see you at 6" });
   });
 
+  it("opens the app's own route when a notification is tapped", async () => {
+    const sb = fakeSupabase({
+      rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [target("bo", { title: "Cohort 4" })] },
+      tables: { conversations: [{ id: "c1", kind: "group" }] },
+    });
+    const deliver = vi.fn(async (_n: ChatNotification) => {});
+    await createChatRunner({ supabase: sb.client, deliver, linkFor: (c, m) => `/inbox?c=${c}&m=${m}` }).run();
+    expect(deliver.mock.calls[0]![0].data.url).toBe("/inbox?c=c1&m=m1");
+  });
+
   it("settles a message with no targets as done without delivering", async () => {
     const sb = fakeSupabase({ rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [] } });
     const deliver = vi.fn(async () => {});
