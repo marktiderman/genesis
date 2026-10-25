@@ -383,7 +383,9 @@ travels, so keep both opaque (ids, never words or search text).
 Schedule `{ "action": "receipts" }` every 15 minutes (pg_cron with pg_net, or any scheduler): it
 claims the tickets that are due (1000 at a time, again while full claims come back, within the
 same time budget), asks Expo for their receipts, records delivered or failed, forgets dead devices
-(not one registered again since the push), and logs `InvalidCredentials` loudly (your APNs or FCM credentials in EAS are wrong).
+(not one registered again since the push; the same run marks tickets with no receipt after a day
+`unknown` and deletes receipts older than 30 days, so without the schedule `push_receipts` keeps
+growing), and logs `InvalidCredentials` loudly (your APNs or FCM credentials in EAS are wrong).
 Logs and answers carry counts, statuses and Expo's error codes only: never a token, a title, a
 body or `data`.
 

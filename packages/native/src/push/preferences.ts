@@ -77,7 +77,7 @@ export function createPreferencesStore(options: {
       pending = 0;
       store.setState({ status: "loading", saving: false, error: null });
       try {
-        const loaded = (await backend.loadPreferences()) ?? DEFAULT_PREFERENCES;
+        const loaded = (await backend.loadPreferences(id)) ?? DEFAULT_PREFERENCES;
         if (mine !== generation) return;
         confirmed = loaded;
         store.setState({ status: "ready", preferences: loaded });

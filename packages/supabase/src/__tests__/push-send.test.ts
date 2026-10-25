@@ -238,6 +238,27 @@ describe("genesis-push-send: limits", () => {
   });
 });
 
+describe("genesis-push-send: slow lookups", () => {
+  it("counts the target lookups against the time budget, and settles receipts failures without a 500", async () => {
+    const { store } = fakeStore({ [USER]: [target(1)] });
+    let clock = 0;
+    (store.targets as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      clock += 120_000;
+      return [target(1)];
+    });
+    const e = expo();
+    const d = { ...deps(store, e.fetch), now: () => clock };
+    const body = await (await handle(request({ action: "send", messages: Array.from({ length: 11 }, () => message()) }), d)).json();
+    expect(body.results[10]).toMatchObject({ reason: "not_sent", sent: 0 });
+
+    const r = fakeStore();
+    r.store.claimable = [{ id: 1, ticket_id: "a" }];
+    (r.store.settleReceipts as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("db down"));
+    const res = await handle(request({ action: "receipts" }), deps(r.store, expo(jsonResponse(200, { data: { a: { status: "ok" } } })).fetch));
+    expect(res.status).toBe(200);
+  });
+});
+
 describe("genesis-push-send: receipts", () => {
   it("settles delivered and failed receipts, leaves the ones Expo doesn't have yet, and logs only codes", async () => {
     const { store, settled } = fakeStore();

@@ -112,6 +112,8 @@ export interface HandlerDeps {
 export const SEND_BUDGET_MS = 100_000;
 /** How many single sends run at once when a refused batch is resent one by one. */
 const SINGLE_CONCURRENCY = 10;
+/** How many people's targets are looked up at once. */
+const LOOKUP_CONCURRENCY = 10;
 
 export interface MessageResult {
   deliver: boolean;
@@ -123,7 +125,8 @@ export interface MessageResult {
 }
 
 export const MAX_MESSAGES = 100;
-const MAX_BODY_BYTES = 256 * 1024;
+/** The request body, in characters. */
+const MAX_BODY_CHARS = 256 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const DEFAULT_HIDDEN_TITLE = "New notification";
@@ -141,9 +144,9 @@ function json(status: number, body: Record<string, unknown>): Response {
 const describe = (error: unknown) => (error instanceof Error ? error.name : "unknown error");
 
 async function readBody(req: Request): Promise<Record<string, unknown> | null> {
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return null;
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_CHARS) return null;
   const text = await req.text().catch(() => null);
-  if (text === null || text.length > MAX_BODY_BYTES) return null;
+  if (text === null || text.length > MAX_BODY_CHARS) return null;
   try {
     const body: unknown = JSON.parse(text);
     return body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
@@ -269,15 +272,23 @@ interface Outgoing {
 
 /** Sends the requests; returns the totals and one result per request. */
 export async function send(requests: PushRequest[], deps: HandlerDeps) {
+  // The budget counts from the start: the lookups below take time too.
+  const now = deps.now ?? Date.now;
+  const started = now();
+  const overBudget = () => now() - started > SEND_BUDGET_MS;
   const hidden = { title: deps.env("PUSH_HIDDEN_TITLE") || DEFAULT_HIDDEN_TITLE, body: deps.env("PUSH_HIDDEN_BODY") || undefined };
   const accessToken = deps.env("EXPO_ACCESS_TOKEN") || undefined;
   const results: MessageResult[] = requests.map(() => ({ deliver: false, reason: "ok", quietUntil: null, devices: 0, sent: 0, failed: 0 }));
   const outgoing: Outgoing[] = [];
 
-  for (const [index, request] of requests.entries()) {
+  const lookup = async (request: PushRequest, index: number): Promise<Outgoing[]> => {
     const defaultOn = request.defaultOn ?? true;
     const urgent = request.urgent ?? false;
     const result = results[index]!;
+    if (overBudget()) {
+      result.reason = "not_sent";
+      return [];
+    }
     try {
       const targets = await deps.store.targets(request.userId, request.category, defaultOn, urgent);
       result.devices = targets.length;
@@ -285,21 +296,22 @@ export async function send(requests: PushRequest[], deps: HandlerDeps) {
         const status = await deps.store.status(request.userId, request.category, defaultOn, urgent);
         result.reason = status.deliver ? "no_devices" : status.reason;
         result.quietUntil = status.quiet_until;
-        continue;
+        return [];
       }
       result.deliver = true;
-      for (const target of targets) {
-        outgoing.push({ message: toExpoMessage(request, target, hidden), index, userId: request.userId, deviceId: target.device_id, category: request.category });
-      }
+      return targets.map((target) => ({ message: toExpoMessage(request, target, hidden), index, userId: request.userId, deviceId: target.device_id, category: request.category }));
     } catch (error) {
       deps.log(`genesis-push-send: couldn't read targets: ${describe(error)}`);
       result.reason = "error";
+      return [];
     }
+  };
+  // A few lookups at a time, kept in request order.
+  for (let i = 0; i < requests.length; i += LOOKUP_CONCURRENCY) {
+    const found = await Promise.all(requests.slice(i, i + LOOKUP_CONCURRENCY).map((request, j) => lookup(request, i + j)));
+    for (const items of found) outgoing.push(...items);
   }
 
-  const now = deps.now ?? Date.now;
-  const started = now();
-  const overBudget = () => now() - started > SEND_BUDGET_MS;
   let tickets: TicketRow[] = [];
   let dead: string[] = [];
   let forgotten = 0;
@@ -437,6 +449,14 @@ async function pollReceiptsOnce(deps: HandlerDeps, counts: ReceiptCounts): Promi
       results.push({ id: row.id, status: "failed", error: code });
     }
   }
-  if (results.length) await deps.store.settleReceipts(results);
+  if (results.length) {
+    try {
+      await deps.store.settleReceipts(results);
+    } catch (error) {
+      // Their leases run out and they come round again.
+      deps.log(`genesis-push-send: couldn't record receipts: ${describe(error)}`);
+      return 0;
+    }
+  }
   return due.length;
 }

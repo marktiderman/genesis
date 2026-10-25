@@ -121,7 +121,9 @@ manifest for the packages installed, export compliance and the fingerprint runti
 - **Push:** `supabase/migrations/20261024000400_genesis_push.sql` and
   `supabase/functions/genesis-push-send/` are the package's migration 0005 and its sender, copied and
   drift-tested the same way. The app only registers its token and edits preferences; your server
-  (or a trigger) calls the function with `GENESIS_PUSH_SECRET`, and a schedule polls the receipts:
+  (or a trigger) calls the function with `GENESIS_PUSH_SECRET`, and a schedule polls the receipts
+  (which also keeps `push_receipts` to 30 days). Turn on enhanced push security in the Expo project
+  and give the function `EXPO_ACCESS_TOKEN`, so a leaked token alone can't push to a phone:
   see "Push" in [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#push-the-push-block).
 - **Auth providers:** email works with Supabase's defaults (confirmation on: sign-up asks the
   person to confirm, then sign in; the confirmation link opens `site_url`, not the app). For Apple, enable the Apple provider with the bundle ids of all

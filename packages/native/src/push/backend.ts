@@ -36,7 +36,7 @@ export interface PushBackend {
   /** Forget this device's token; works signed out (holding the token is the proof). */
   forget(token: string): Promise<void>;
   /** The signed-in person's preferences, or `null` before they have saved any. */
-  loadPreferences(): Promise<NotificationPreferences | null>;
+  loadPreferences(userId: string): Promise<NotificationPreferences | null>;
   savePreferences(userId: string, preferences: NotificationPreferences): Promise<void>;
 }
 
@@ -52,7 +52,7 @@ export interface PushSupabaseLike {
 }
 
 interface PreferencesQuery {
-  select(columns: string): { maybeSingle(): PromiseLike<Result> };
+  select(columns: string): { eq(column: string, value: string): { maybeSingle(): PromiseLike<Result> } };
   upsert(row: Record<string, unknown>, options: { onConflict: string }): { select(columns: string): PromiseLike<Result> };
 }
 
@@ -106,8 +106,9 @@ export function supabasePushBackend(client: PushSupabaseLike): PushBackend {
     async forget(token) {
       must("genesis_push_forget", await client.rpc("genesis_push_forget", { p_token: token }));
     },
-    async loadPreferences() {
-      const data = must("notification_preferences", await (client.from("notification_preferences") as PreferencesQuery).select(COLUMNS).maybeSingle());
+    async loadPreferences(userId) {
+      // Row level security already limits it to the caller; the filter says so twice.
+      const data = must("notification_preferences", await (client.from("notification_preferences") as PreferencesQuery).select(COLUMNS).eq("user_id", userId).maybeSingle());
       return data && typeof data === "object" ? fromRow(data as Record<string, unknown>) : null;
     },
     async savePreferences(userId, p) {

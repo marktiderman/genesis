@@ -76,7 +76,7 @@ export function fakeBackend(saved: NotificationPreferences | null = null) {
   const backend = {
     register: vi.fn(async (token: string, platform: string, version: string | null) => void calls.push(`register ${token} ${platform} ${version}`)),
     forget: vi.fn(async (token: string) => void calls.push(`forget ${token}`)),
-    loadPreferences: vi.fn(async () => stored),
+    loadPreferences: vi.fn(async (_userId: string) => stored),
     savePreferences: vi.fn(async (_userId: string, p: NotificationPreferences) => {
       stored = p;
     }),

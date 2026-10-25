@@ -151,17 +151,19 @@ describe("push helpers", () => {
     const row = { categories: { messages: false, bad: "x" }, quiet_hours_enabled: true, quiet_hours_start: "21:30:00", quiet_hours_end: "06:00:00", time_zone: "Europe/London", hide_previews: true };
     const upsertSelect = vi.fn(async () => ({ data: [], error: null }));
     const upsert = vi.fn(() => ({ select: upsertSelect }));
-    const client = { rpc, from: vi.fn(() => ({ select: () => ({ maybeSingle: async () => ({ data: row, error: null }) }), upsert })) };
+    const eq = vi.fn(() => ({ maybeSingle: async () => ({ data: row, error: null }) }));
+    const client = { rpc, from: vi.fn(() => ({ select: () => ({ eq }), upsert })) };
     const backend = supabasePushBackend(client);
     await backend.register("ExponentPushToken[a]", "ios", "1.0");
     expect(rpc).toHaveBeenCalledWith("genesis_push_register", { p_token: "ExponentPushToken[a]", p_platform: "ios", p_app_version: "1.0" });
     await backend.forget("ExponentPushToken[a]");
     expect(rpc).toHaveBeenLastCalledWith("genesis_push_forget", { p_token: "ExponentPushToken[a]" });
-    expect(await backend.loadPreferences()).toEqual({
+    expect(await backend.loadPreferences("u1")).toEqual({
       categories: { messages: false },
       quietHours: { enabled: true, start: "21:30", end: "06:00", timeZone: "Europe/London" },
       hidePreviews: true,
     });
+    expect(eq).toHaveBeenCalledWith("user_id", "u1");
     await expect(backend.savePreferences("u1", prefs())).rejects.toThrow(/no_rows/);
     expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ user_id: "u1", quiet_hours_start: "22:00" }), { onConflict: "user_id" });
     rpc.mockResolvedValueOnce({ data: null, error: { code: "42501", message: "nope" } as never });
