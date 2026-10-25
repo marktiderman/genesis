@@ -3,14 +3,14 @@ import { BandLead } from "@marktiderman/genesis-ui/band";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { parseForm } from "@marktiderman/genesis-forms";
 import { Form } from "@marktiderman/genesis-forms-web";
-import type { ResolvedForm } from "../core/forms";
+import { mailtoHref, type ResolvedForm } from "../core/forms";
 import { defineSection, type RenderContext } from "../core/registry";
 import { Copy, Line, Surface } from "../core/schemas";
 import { safeJsonForHtml } from "../core/seo";
 import { isSafeHref } from "../core/urls";
 import { siteFormSlots } from "./form-header";
 import { LightForm, isLightForm } from "./light-form";
-import { Anchor, SectionBand, SectionTitle, onAccent, titleId } from "./shared";
+import { Anchor, ButtonLink, SectionBand, SectionTitle, onAccent, titleId } from "./shared";
 
 const schema = z.object({
   heading: Line(90),
@@ -26,9 +26,10 @@ const schema = z.object({
  * sends), `island` (forms-web's `<Form>`, made live by the form bundle),
  * `embed` (an iframe), or null (it can't be shown).
  */
-export function formDrawMode(resolved: ResolvedForm | null | undefined): "light" | "island" | "embed" | null {
+export function formDrawMode(resolved: ResolvedForm | null | undefined): "light" | "island" | "embed" | "mailto" | null {
   if (!resolved) return null;
   if (resolved.kind === "embed") return "embed";
+  if (resolved.kind === "mailto") return mailtoHref(resolved) ? "mailto" : null;
   const parsed = parseForm(resolved.definition);
   if (!parsed.ok) return null;
   return isLightForm(parsed.form) ? "light" : "island";
@@ -44,6 +45,20 @@ function EmbeddedForm({ slug, heading, ctx }: { slug: string; heading: string; c
         The form “{slug}” isn't available. Check its slug, or that the app passes a forms resolver.
       </p>
     ) : null;
+  }
+  if (resolved.kind === "mailto") {
+    // No form: a button that opens the visitor's email. Nothing is posted or stored.
+    const href = mailtoHref(resolved);
+    if (!href) {
+      console.error(`[genesis-sites] the mailto form "${slug}" has no plain email address; it renders nothing.`);
+      return null;
+    }
+    return (
+      <div className="flex flex-col items-start gap-4 rounded-xl border border-border bg-background p-6 text-foreground">
+        <p>{resolved.note ?? "Write to us and we'll reply by email."}</p>
+        <ButtonLink link={{ label: resolved.label ?? "Email us", href, event: "form-mailto" }} ctx={ctx} />
+      </div>
+    );
   }
   if (resolved.kind === "embed") {
     if (!isSafeHref(resolved.url) || !resolved.url.startsWith("https://")) {

@@ -1,6 +1,6 @@
 /**
  * The islands loader: the only script a site page loads, and only on a page
- * with a phone menu or a form. Built to a few hundred bytes (budget: 5 KB).
+ * with a phone menu, a form or a map. Built to a few KB (budget: 5 KB).
  *
  * - The phone menu is a `<details>` disclosure that works without script;
  *   this closes it on Escape (focus back on its button), on a link, and on a
@@ -10,6 +10,8 @@
  *   the shape genesis-forms' `answers()` gives. No React is loaded.
  * - A form that needs the genesis-forms engine loads the form bundle (React
  *   and forms-web) on demand, so pages without one never download it.
+ * - A map shows its "Show the map" button, and only a click puts the
+ *   provider's frame on the page (nothing loads from the provider before).
  */
 declare const __FORM_ISLAND__: string;
 
@@ -115,6 +117,27 @@ document.querySelectorAll<HTMLFormElement>('form[data-gs-island="light-form"]').
         button.focus();
       }
     }
+  });
+});
+
+// Maps: the frame's URL is one the server built for a known provider; anything else stays a link.
+const MAP_ORIGINS = ["https://www.openstreetmap.org/", "https://www.google.com/maps"];
+document.querySelectorAll<HTMLElement>('[data-gs-island="map"]').forEach((box) => {
+  const src = box.dataset.gsMapSrc ?? "";
+  const button = box.querySelector<HTMLButtonElement>("[data-gs-map-load]");
+  if (!button || !MAP_ORIGINS.some((o) => src.startsWith(o))) return;
+  button.hidden = false;
+  button.addEventListener("click", () => {
+    const frame = document.createElement("iframe");
+    frame.src = src;
+    frame.title = box.dataset.gsMapTitle || "Map";
+    frame.loading = "lazy";
+    frame.referrerPolicy = "strict-origin-when-cross-origin";
+    frame.className = "absolute inset-0 h-full w-full border-0";
+    // The picture and the consent go; the link to the provider's own map stays.
+    box.querySelectorAll("[data-gs-map-drop]").forEach((el) => el.remove());
+    box.prepend(frame);
+    frame.focus();
   });
 });
 

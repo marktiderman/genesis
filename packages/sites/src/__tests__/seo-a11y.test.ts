@@ -152,8 +152,18 @@ describe("the theme", () => {
 
   it("picks the text on the primary for contrast, whatever the primary", () => {
     for (const primary of ["#ffeb3b", "#0f766e", "#3b82f6", "#777777", "#ff5500", "#000000"]) {
-      expect(checkContrast(siteTheme({ name: "x", colors: { primary } })), primary).toEqual([]);
+      expect(checkContrast(siteTheme({ name: "x", colors: { primary } })).filter((i) => i.severity === "error"), primary).toEqual([]);
     }
+  });
+
+  it("warns, without blocking, when the primary is under 3:1 on the page as a border or marker", () => {
+    const light = checkContrast(siteTheme({ name: "x", colors: { primary: "#ffeb3b" } }));
+    expect(light).toHaveLength(1);
+    expect(light[0]).toMatchObject({ severity: "warning", code: "contrast" });
+    expect(light[0]!.message).toContain("the primary colour as a border or marker on the page");
+    expect(light[0]!.message).toContain("needs 3:1");
+    expect(isPublishable(light)).toBe(true);
+    expect(checkContrast(siteTheme({ name: "x", colors: { primary: "#0f766e" } }))).toEqual([]);
   });
 
   it("prints only variables, with nothing that could close the style element", () => {

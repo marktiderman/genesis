@@ -34,7 +34,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { RenderContext } from "../core/registry";
-import type { Image, Link, SectionNode, Surface } from "../core/schemas";
+import { opensInNewTab, type FileRef, type Image, type Link, type SectionNode, type Surface } from "../core/schemas";
 import { isExternalHref, isSafeHref, isSafeImageSrc } from "../core/urls";
 
 // ── Props shared by section schemas ─────────────────────────────────────────
@@ -86,13 +86,40 @@ export function resolveHref(href: string, ctx: RenderContext): string {
   return ctx.href(href);
 }
 
-function linkAttrs(link: Link, ctx: RenderContext) {
-  const href = resolveHref(link.href, ctx);
-  const external = isExternalHref(href);
+/**
+ * A link's attributes: its checked href, and for an http(s) link, `rel` and
+ * `target`. An outbound link (`external`), or one that opens a new tab,
+ * gets `rel="noopener noreferrer"` and `data-gs-outbound` (for analytics);
+ * any other absolute link `rel="noopener"`. An outbound link whose href
+ * isn't http(s) (a document that skipped the schema) renders inert.
+ */
+export function linkAttrs(link: Link, ctx: RenderContext, defaultEvent?: string): Record<string, string> {
+  let href = resolveHref(link.href, ctx);
+  const absolute = isExternalHref(href);
+  if (link.external && !absolute) {
+    console.error(`[genesis-sites] refused an outbound link that isn't http(s) on ${ctx.pagePath}.`);
+    href = "#";
+  }
+  const newTab = absolute && opensInNewTab(link);
+  const outbound = absolute && (link.external === true || newTab);
+  const event = link.event ?? defaultEvent;
   return {
     href,
-    ...(external && link.newTab ? { target: "_blank", rel: "noopener noreferrer" } : external ? { rel: "noopener" } : {}),
+    ...(newTab ? { target: "_blank" } : {}),
+    ...(outbound ? { rel: "noopener noreferrer", "data-gs-outbound": "" } : absolute ? { rel: "noopener" } : {}),
+    ...(event ? { "data-gs-event": event } : {}),
   };
+}
+
+/** The attributes with the class before the analytics event, the order the markup has always had. */
+function withEventLast(attrs: Record<string, string>, className: string): Record<string, string> {
+  const { "data-gs-event": event, ...rest } = attrs;
+  return { ...rest, className, ...(event ? { "data-gs-event": event } : {}) };
+}
+
+/** The visually hidden hint after a link that opens a new tab. */
+function NewTabHint({ link }: { link: Link }) {
+  return opensInNewTab(link) ? <span className="sr-only"> (opens in a new tab)</span> : null;
 }
 
 export type ButtonTone = "primary" | "secondary" | "outline" | "inverse" | "ghost";
@@ -109,9 +136,9 @@ const TONE: Record<ButtonTone, string> = {
 /** A link drawn as a button: at least 44px tall, with the focus ring. */
 export function ButtonLink({ link, ctx, tone = "primary", className }: { link: Link; ctx: RenderContext; tone?: ButtonTone; className?: string }) {
   return (
-    <a {...linkAttrs(link, ctx)} className={cn(TONE[tone], "min-h-11", className)} data-gs-event="cta">
+    <a {...withEventLast(linkAttrs(link, ctx, "cta"), cn(TONE[tone], "min-h-11", className))}>
       {link.label}
-      {link.newTab && isExternalHref(link.href) ? <span className="sr-only"> (opens in a new tab)</span> : null}
+      <NewTabHint link={link} />
     </a>
   );
 }
@@ -124,7 +151,7 @@ export function TextLink({ link, ctx, className }: { link: Link; ctx: RenderCont
       className={cn("inline-flex min-h-6 items-center rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", className)}
     >
       {link.label}
-      {link.newTab && isExternalHref(link.href) ? <span className="sr-only"> (opens in a new tab)</span> : null}
+      <NewTabHint link={link} />
     </a>
   );
 }
@@ -137,6 +164,34 @@ export function Actions({ primary, secondary, ctx, onAccent, className }: { prim
       {secondary ? <ButtonLink link={secondary} ctx={ctx} tone={onAccent ? "ghost" : "outline"} className={onAccent ? "border border-current hover:bg-transparent hover:underline" : undefined} /> : null}
     </div>
   );
+}
+
+// ── Files ───────────────────────────────────────────────────────────────────
+
+const FILE_KIND: Record<string, string> = {
+  "application/pdf": "PDF",
+  "image/png": "PNG image",
+  "image/jpeg": "JPEG image",
+  "image/webp": "WebP image",
+  "image/avif": "AVIF image",
+  "image/gif": "GIF image",
+};
+
+/** "PDF, 1.2 MB": what a download is, said beside its link. */
+export function fileDescription(file: FileRef): string {
+  const kind = FILE_KIND[file.mime] ?? "File";
+  if (!file.bytes) return kind;
+  const size = file.bytes >= 1024 * 1024 ? `${(file.bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(file.bytes / 1024))} KB`;
+  return `${kind}, ${size}`;
+}
+
+/** A file's href: checked again, under the base path when it is a site path. Null when it isn't safe. */
+export function fileHref(file: FileRef, ctx: RenderContext): string | null {
+  if (!isSafeImageSrc(file.src)) {
+    console.error(`[genesis-sites] refused an unsafe file link on ${ctx.pagePath}.`);
+    return null;
+  }
+  return file.src.startsWith("/") ? ctx.href(file.src) : file.src;
 }
 
 // ── Images ──────────────────────────────────────────────────────────────────

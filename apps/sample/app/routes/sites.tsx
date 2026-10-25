@@ -25,6 +25,21 @@ const SITES = [
       { label: "Contact", path: "/contact" },
     ],
   },
+  {
+    id: "classes",
+    title: "Riverside Gym: a full multi-page site",
+    description: "The V1 sections: a timetable (a day picker on a phone), coaches with bios that open in place, plans in groups with a download, a six-week course, a map that loads only when asked, and a blog with posts, RSS and Article JSON-LD.",
+    pages: [
+      { label: "Home", path: "/" },
+      { label: "Timetable", path: "/timetable" },
+      { label: "Coaches", path: "/coaches" },
+      { label: "Plans", path: "/plans" },
+      { label: "Course", path: "/course" },
+      { label: "Visit", path: "/visit" },
+      { label: "Blog", path: "/blog" },
+      { label: "A post", path: "/blog/first-class-tips" },
+    ],
+  },
 ];
 
 const href = (site: string, path: string) => `${BASE}/sites-demo/${site}${path === "/" ? "/" : path}`;

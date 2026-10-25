@@ -3,7 +3,19 @@
  * every built-in section, a forms resolver, and a seeded memory store.
  */
 import { defineForm, f, when } from "@marktiderman/genesis-forms";
-import { createMemorySiteStore, exampleBrands, landingPage, starterSite, type FormsResolver, type RenderContext, type ResolvedForm } from "../index";
+import {
+  createMemorySiteStore,
+  exampleBrands,
+  landingPage,
+  postSummary,
+  starterSite,
+  type FormsResolver,
+  type LivePost,
+  type PostDocInput,
+  type PostsContext,
+  type RenderContext,
+  type ResolvedForm,
+} from "../index";
 
 export const brand = exampleBrands.riverside;
 
@@ -69,6 +81,75 @@ export const sectionProps: Record<string, Record<string, unknown>> = {
     },
   },
   "form-embed": { heading: "Book a free class", body: "We'll reply within a day.", form: "free-class" },
+  schedule: {
+    eyebrow: "Every week",
+    heading: "Class times",
+    body: "Coached classes six days a week.",
+    types: [
+      { id: "strength", name: "Strength", description: "Barbell work in a coached group.", tone: "primary" },
+      { id: "conditioning", name: "Conditioning", description: "Intervals for every level.", tone: "soft" },
+      { id: "open", name: "Open gym", tone: "plain" },
+    ],
+    sessions: [
+      { day: "mon", start: "06:00", end: "07:00", title: "Strength", type: "strength", coach: "Sam Lee", location: "Main floor" },
+      { day: "mon", start: "18:00", title: "Conditioning", type: "conditioning", coach: "Jane Doe" },
+      { day: "tue", start: "06:00", title: "Conditioning", type: "conditioning", coach: "Jane Doe", location: "Studio" },
+      { day: "thu", start: "18:00", title: "Strength", type: "strength", coach: "Sam Lee", link: { label: "Book Thursday strength", href: "https://booking.example/riverside/thu", external: true, target: "_blank" } },
+      { day: "sat", start: "09:00", title: "Open gym", type: "open", note: "Members only" },
+    ],
+    days: ["mon", "tue", "wed", "thu", "fri", "sat"],
+    footnote: "Check the noticeboard for term dates.",
+  },
+  team: {
+    eyebrow: "The coaches",
+    heading: "Our coaches",
+    members: [
+      {
+        name: "Sam Lee",
+        role: "Head coach",
+        credentials: "Level 2 coach, weightlifting coach",
+        photo: img("sam", "Sam Lee coaching a lift"),
+        summary: "Loves teaching the barbell lifts.",
+        bio: "Sam started coaching in 2015.\n\nToday Sam runs the strength programme and the Saturday class.",
+        quote: { text: "Strong is a skill.", cite: "Sam Lee" },
+        profile: "/coaches/sam-lee",
+        cta: { label: "Train with Sam", href: "#contact" },
+        anchor: "sam-lee",
+      },
+      { name: "Jane Doe", role: "Coach", photo: img("jane", "Jane Doe"), summary: "Runs the morning conditioning classes." },
+    ],
+  },
+  "blog-list": { eyebrow: "Notes", heading: "From the blog", perPage: 2, cta: { label: "All posts", href: "/blog" } },
+  "post-body": {},
+  map: {
+    eyebrow: "Visit",
+    heading: "Find us by the river",
+    body: "Parking at the back.",
+    address: ["1 River Road", "Riverside, RV1 2AB"],
+    provider: "openstreetmap",
+    lat: 51.5007,
+    lng: -0.1246,
+    image: img("map", "A map of the streets around the gym"),
+    contact: [{ label: "+1 555 0100", href: "tel:+15550100" }, { label: "hello@riverside.example", href: "mailto:hello@riverside.example" }],
+    primaryCta: { label: "Book a class", href: "https://booking.example/riverside", external: true, target: "_blank" },
+  },
+  timeline: {
+    eyebrow: "Six weeks",
+    heading: "The course, week by week",
+    steps: [
+      { label: "Week 1", title: "Basics", body: "Learn the warm-up and the first lifts." },
+      { label: "Week 3", title: "Skills", body: "Put the lifts together.", image: img("skills", "Members practising kettlebell swings") },
+      { label: "Week 6", title: "Showcase", body: "Show friends what you learned.", cta: { label: "Sign up", href: "https://booking.example/riverside/course", external: true } },
+    ],
+  },
+  file: {
+    heading: "Downloads",
+    body: "Print these before your first class.",
+    files: [
+      { label: "Timetable", description: "This term's classes.", file: { src: "/sites/s1/files/a1-timetable.pdf", mime: "application/pdf", bytes: 245760 } },
+      { label: "Price list", file: { src: "https://files.example/prices.pdf", mime: "application/pdf", bytes: 2097152 } },
+    ],
+  },
   footer: {
     tagline: "Strength and conditioning by the river.",
     columns: [{ heading: "Visit", links: [{ label: "Timetable", href: "/timetable" }, { label: "Contact", href: "/contact" }] }],
@@ -122,6 +203,36 @@ export const formsResolver: FormsResolver = (slug) => {
   return null;
 };
 
+/** A post's document, made up. */
+export const postDoc = (title: string, extra: Partial<PostDocInput> = {}): PostDocInput => ({
+  schemaVersion: 1,
+  title,
+  excerpt: `${title}: what it is about, in a sentence.`,
+  body: {
+    type: "doc",
+    content: [
+      { type: "paragraph", content: [{ type: "text", text: "The first paragraph of the post." }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "A section" }] },
+      { type: "paragraph", content: [{ type: "text", text: "More of the post, with " }, { type: "text", text: "a link", marks: [{ type: "link", attrs: { href: "/schedule" } }] }] },
+    ],
+  },
+  ...extra,
+});
+
+export const livePosts: LivePost[] = [
+  { slug: "first-class-tips", publishedAt: "2026-09-02T09:00:00Z", updatedAt: "2026-09-02T09:00:00Z", doc: { ...(postDoc("Five tips for your first class") as LivePost["doc"]), cover: { src: "/images/kettlebells.jpg", alt: "Kettlebells in a row", width: 1600, height: 1000 }, category: "Training", author: { name: "Sam Lee" } } },
+  { slug: "why-we-warm-up", publishedAt: "2026-06-17T09:00:00Z", updatedAt: "2026-06-18T09:00:00Z", doc: postDoc("Why we warm up") as LivePost["doc"] },
+  { slug: "morning-crew", publishedAt: "2026-05-01T09:00:00Z", updatedAt: "2026-05-01T09:00:00Z", doc: { ...(postDoc("Meet the morning crew") as LivePost["doc"]), category: "News" } },
+];
+
+export const testPosts = (overrides: Partial<PostsContext> = {}): PostsContext => ({
+  path: "/blog",
+  list: livePosts.map(postSummary),
+  current: { slug: "first-post", publishedAt: "2026-10-01T09:00:00Z", updatedAt: "2026-10-02T09:00:00Z", doc: { ...(postDoc("Our first post") as LivePost["doc"]), cover: { src: "/images/first.jpg", alt: "The gym at sunrise" }, author: { name: "Jane Doe" }, category: "News" } },
+  page: 1,
+  ...overrides,
+});
+
 export function testCtx(overrides: Partial<RenderContext> = {}): RenderContext {
   return {
     headingLevel: 2,
@@ -131,6 +242,7 @@ export function testCtx(overrides: Partial<RenderContext> = {}): RenderContext {
     forms: new Map(["free-class", "sign-up", "branching"].map((slug) => [slug, formsResolver(slug, { siteId: "s", pagePath: "/", mode: "live" }) as ResolvedForm])),
     mode: "live",
     idPrefix: "gs-test",
+    posts: testPosts(),
     ...overrides,
   };
 }

@@ -10,7 +10,8 @@
  * - heading order inside rich text (no skipped levels);
  * - every image has alt text or is marked decorative (1.1.1);
  * - every colour pair the sections draw reaches 4.5:1 for text and 3:1 for
- *   the focus ring (1.4.3, 1.4.11).
+ *   the focus ring and the primary colour as a border or marker (1.4.3,
+ *   1.4.11).
  *
  * The rest is the renderer's job and is pinned by its tests: visible focus,
  * 24px targets (2.5.8), landmarks, a skip link, link text.
@@ -21,6 +22,7 @@
  */
 import { migrateNode } from "./migrate";
 import { getSection, type AnySectionDefinition } from "./registry";
+import { PostDoc, PostSlug } from "./posts";
 import type { PageKind, ReleasePage, ReleaseSnapshot, SectionNode, SiteDoc } from "./schemas";
 import { contrastRatio, type SiteTheme } from "./theme";
 import { isReservedPath, pagePathProblems, type ReservedPaths } from "./urls";
@@ -43,7 +45,8 @@ function images(value: unknown, path: string[] = []): { path: string; image: { s
   if (!value || typeof value !== "object") return [];
   if (Array.isArray(value)) return value.flatMap((v, i) => images(v, [...path, String(i)]));
   const record = value as Record<string, unknown>;
-  const found = typeof record.src === "string" && ("alt" in record || "decorative" in record || /\.(png|jpe?g|webp|avif|gif|svg)(\?|$)/i.test(record.src))
+  // A file to download (`FileRef`, which carries its `mime`) is a link, not an image on the page.
+  const found = typeof record.src === "string" && !("mime" in record) && ("alt" in record || "decorative" in record || /\.(png|jpe?g|webp|avif|gif|svg)(\?|$)/i.test(record.src))
     ? [{ path: path.join("."), image: record as { src: unknown; alt?: unknown; decorative?: unknown } }]
     : [];
   return [...found, ...Object.entries(record).flatMap(([k, v]) => (k === "src" ? [] : images(v, [...path, k])))];
@@ -143,13 +146,13 @@ export function checkSiteDoc(site: SiteDoc, lookup: Lookup = getSection): SiteIs
   return issues;
 }
 
-/** Colour pairs below their minimum (1.4.3 text, 1.4.11 focus ring). */
+/** Colour pairs below their minimum (1.4.3 text, 1.4.11 focus ring and primary borders and markers). */
 export function checkContrast(theme: SiteTheme): SiteIssue[] {
   return theme.pairs
     .map((pair) => ({ pair, ratio: contrastRatio(pair.foreground, pair.background) }))
     .filter(({ pair, ratio }) => ratio < pair.minimum)
     .map(({ pair, ratio }) => ({
-      severity: "error" as const,
+      severity: pair.severity ?? "error",
       code: "contrast",
       message: `In ${pair.mode} mode, ${pair.name} is ${ratio.toFixed(2)}:1 (${pair.foreground} on ${pair.background}); it needs ${pair.minimum}:1. Adjust the brand colours.`,
     }));
@@ -178,6 +181,7 @@ export function checkRelease(snapshot: ReleaseSnapshot, options: CheckReleaseOpt
     issues.push(...checkPage(page, lookup, options.reserved));
   }
   if (!paths.has("/")) issues.push({ severity: "error", code: "no-home", message: "The site has no home page (a page at /)." });
+  issues.push(...checkBlog(snapshot, lookup));
   for (const r of snapshot.site.redirects) {
     // Redirects answer before pages, so the page there could never be reached.
     if (paths.has(r.from)) issues.push({ severity: "error", code: "redirect-shadows-page", path: r.from, message: `The redirect from ${r.from} hides the page there; remove the redirect.` });
@@ -190,6 +194,65 @@ export function checkRelease(snapshot: ReleaseSnapshot, options: CheckReleaseOpt
     }
   }
   if (options.theme) issues.push(...checkContrast(options.theme));
+  return issues;
+}
+
+/** The blog's rules: one post page, not the home page, with a post-body section; a post list needs a post page. */
+export function checkBlog(snapshot: ReleaseSnapshot, lookup: Lookup = getSection): SiteIssue[] {
+  const issues: SiteIssue[] = [];
+  const postPages = snapshot.pages.filter((p) => p.kind === "post");
+  if (postPages.length > 1) {
+    issues.push({ severity: "error", code: "post-page-count", message: `The site has ${postPages.length} post pages (${postPages.map((p) => p.path).join(", ")}); posts render in one.` });
+  }
+  for (const page of postPages) {
+    const base = { pageId: page.id, path: page.path };
+    if (page.path === "/") issues.push({ ...base, severity: "error", code: "post-page-home", message: "The home page can't be the post page: posts would take over the site's paths. Put it at /blog." });
+    if (page.path.split("/").filter(Boolean).length >= 8) issues.push({ ...base, severity: "error", code: "post-page-depth", message: `${page.path}: the post page is too deep for posts to go below it.` });
+    if (!page.doc.content.some((n) => !n.hidden && n.type === "post-body")) {
+      issues.push({ ...base, severity: "error", code: "post-page-body", message: `${page.path}: the post page needs a Post section, where each post's title and text go.` });
+    }
+  }
+  if (!postPages.length) {
+    for (const page of snapshot.pages) {
+      for (const node of page.doc.content) {
+        if (!node.hidden && node.type === "blog-list" && lookup(node.type)) {
+          issues.push({ pageId: page.id, path: page.path, sectionId: node.id, severity: "error", code: "blog-list-no-post-page", message: `${page.path}: a post list needs the site's post page (a page of kind "post", such as /blog) for its links to open.` });
+        }
+      }
+    }
+  }
+  return issues;
+}
+
+/**
+ * The checks a post passes before it is published: a slug, a title, alt
+ * text on its images, and a heading outline under the post's own title
+ * (the page's h1): no level 1 heading, none skipped, starting at 2.
+ *
+ * @stability Beta
+ */
+export function checkPost(slug: string, doc: unknown): SiteIssue[] {
+  const issues: SiteIssue[] = [];
+  const at = `The post ${JSON.stringify(slug)}`;
+  if (!PostSlug.safeParse(slug).success) issues.push({ severity: "error", code: "post-slug", message: `${at}: a slug is lowercase letters, digits and single hyphens.` });
+  const parsed = PostDoc.safeParse(doc);
+  if (!parsed.success) {
+    issues.push({ severity: "error", code: "post-invalid", message: `${at}: ${parsed.error.issues.map((i) => `${i.path.join(".") || "post"} ${i.message}`).join("; ")}` });
+    return issues;
+  }
+  for (const { path, image } of images(parsed.data)) {
+    if (path.startsWith("seo")) continue;
+    const alt = typeof image.alt === "string" ? image.alt.trim() : "";
+    if (!alt && image.decorative !== true) issues.push({ severity: "error", code: "image-alt", message: `${at}: an image (${path || "image"}) needs alt text, or to be marked decorative.` });
+  }
+  const levels = richTextHeadings(parsed.data.body);
+  for (let i = 0; i < levels.length; i++) {
+    const level = levels[i]!;
+    const previous = i === 0 ? 1 : levels[i - 1]!;
+    if (level === 1) issues.push({ severity: "error", code: "heading-h1", message: `${at}: the text can't hold a level 1 heading; the post's title is the page's.` });
+    else if (level > previous + 1) issues.push({ severity: "error", code: "heading-order", message: `${at}: a level ${level} heading follows a level ${previous}; don't skip a level.` });
+  }
+  if (!parsed.data.excerpt && !parsed.data.seo?.description) issues.push({ severity: "warning", code: "seo-description", message: `${at}: no excerpt for the list, search results and the feed.` });
   return issues;
 }
 
