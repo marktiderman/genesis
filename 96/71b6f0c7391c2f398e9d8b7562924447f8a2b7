@@ -1,0 +1,56 @@
+apps/genesis-rn-starter/__tests__/components/fake-supabase.ts
+  s_8252619ce79a86::t_67794f2cc961fc 3-5,36-44,57,61-62,76-84,92-95,107-109,119-120,132
+apps/genesis-rn-starter/vitest.config.mts
+  s_8252619ce79a86::t_b8b11e88021f6b 6
+apps/genesis-rn-starter/jest.config.js
+  s_8252619ce79a86::t_27709218583f34 19-20
+apps/genesis-rn-starter/__tests__/components/settings.test.tsx
+  s_8252619ce79a86::t_ddb705f88a5c55 70,76-77,83,85-112,117-118,121-129
+  s_8252619ce79a86::t_b0e5d502e04ab7 52-53
+  s_8252619ce79a86::t_2955d66ebf2022 5
+pnpm-workspace.yaml
+  s_8252619ce79a86::t_a5d0a849356283 71
+apps/genesis-rn-starter/__tests__/components/session-storage.test.tsx
+  s_8252619ce79a86::t_b37b73118217af 12-17,19,22,28,33,43-47,50-52,56,63,72,74-76,79
+  s_8252619ce79a86::t_e545daae92f94e 1-11,20-21,23,25-27,29-32,34-42,48-49,53-55,57-58,60-62,64-66,68-71,73,77-78,80-81
+  s_8252619ce79a86::t_dc97a24859faf2 18
+  s_8252619ce79a86::t_9ef7033e3916fc 24
+  s_8252619ce79a86::t_179a00996e00b4 59
+  s_8252619ce79a86::t_9e6ca122f10d80 67
+apps/genesis-rn-starter/__tests__/components/setup.ts
+  s_8252619ce79a86::t_d586d1497ac4d1 44-47,50,65,67-69
+  s_8252619ce79a86::t_77be960d307e96 5-6
+  s_8252619ce79a86::t_4ab59da4bc13b2 48-49,51-64,66
+  s_8252619ce79a86::t_f03c52fcc1966d 29-30
+apps/genesis-rn-starter/__tests__/components/sign-in.test.tsx
+  s_8252619ce79a86::t_351d4673bcf5e5 35-36
+apps/genesis-rn-starter/__tests__/components/root-layout.test.tsx
+  s_8252619ce79a86::t_1e508ff6ce602b 6
+  s_8252619ce79a86::t_d272337ff1e1ea 42-43
+apps/genesis-rn-starter/__tests__/components/reports.ts
+  s_8252619ce79a86::t_e7d70ec0d12fd5 1-10
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_f115941605027c 172-174
+apps/genesis-rn-starter/__tests__/components/tabs.test.tsx
+  s_8252619ce79a86::t_2d29454307550a 39
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_189930465e4a5b 74
+pnpm-lock.yaml
+  s_8252619ce79a86::t_a0456b4d86e49d 31,198-200,492,544,571,604,656,674,729,784,826,859,905,953,1048,1106,1166,1194,1216,1271,1431,1522,15510,15562,15582,15584,21575-21605
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9671b6f0c7391c2f398e9d8b7562924447f8a2b7",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
