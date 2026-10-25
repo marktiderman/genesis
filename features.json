@@ -1650,7 +1650,7 @@
     {
       "id": "native-starter",
       "name": "Native starter",
-      "summary": "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh, the updates block (force upgrade, maintenance, update banner, what's new, the version signature in Settings) on the release-policy migration, and the push block (building: Settings → Notifications, the soft prompt on the Notifications tab, the sender function) on the push migration, a check-in example on genesis-forms-native (FormFocus with a draft per user and the offline outbox, behind features.checkIn), observability (Sentry when EXPO_PUBLIC_SENTRY_DSN is set) and the devtools overlay in development and preview builds. EAS Workflows and Maestro smoke flows ship with it. Support and onboarding join as their blocks ship.",
+      "summary": "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh, the updates block (force upgrade, maintenance, update banner, what's new, the version signature in Settings) on the release-policy migration, and the push block (building: Settings → Notifications, the soft prompt on the Notifications tab, the sender function) on the push migration, a check-in example on genesis-forms-native (FormFocus with a draft per user and the offline outbox, behind features.checkIn), observability (Sentry when EXPO_PUBLIC_SENTRY_DSN is set), the devtools overlay in development and preview builds, and the support block (building: Send feedback and Help in Settings, shake to report with a marked-up screenshot, your reports with staff replies, the idea board) on the support migration. EAS Workflows and Maestro smoke flows ship with it. Onboarding joins as its block ships.",
       "category": "Starters",
       "status": "beta",
       "layer": "tool",
@@ -2166,19 +2166,37 @@
     {
       "id": "support-feedback",
       "name": "Support and feedback",
-      "summary": "An in-app support widget for web and native: chat with the team, feedback and bug reports with an annotated screenshot and context, ratings, and an operator inbox that can open an issue.",
+      "summary": "@marktiderman/genesis-support, in the app's own Supabase (migration 0006): a feedback record (bug, idea, question or praise, with the version signature, route, device and screenshots) behind collector and sink seams with a Supabase sink; a web feedback panel and launcher with tab screenshots, mark-up and pins; a native feedback screen with screenshot capture, mark-up that can hide private parts, and shake to report; the person's reports as an inbox with staff replies and read receipts. Staff are whoever the app's hook says. Server templates: an intake function for the wire contract, a GitHub-issue and webhook notifier, and a storage cleanup.",
       "category": "Support",
-      "status": "idea",
+      "status": "building",
+      "claimedBy": "mark",
       "layer": "block",
       "keywords": [
         "intercom",
         "help",
-        "chat",
         "bug report",
         "feedback widget",
         "screenshot",
         "shake to report",
-        "nps"
+        "annotate",
+        "redact",
+        "github issue",
+        "support inbox"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building",
+        "server": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-support/web",
+        "native": "@marktiderman/genesis-support/native"
+      },
+      "requires": [
+        "account",
+        "supabase-kit",
+        "native-layouts",
+        "inbox-thread"
       ],
       "owner": "mark",
       "apps": [
@@ -2191,23 +2209,82 @@
         "end user"
       ],
       "visibility": "internal",
+      "acceptance": [
+        "A person sees, edits while open and deletes only their own reports, replies and screenshots; staff (private.genesis_support_staff) read all and set statuses; anon reaches nothing.",
+        "Screenshots live in the private genesis-support bucket under <user id>/<report id>/, uploaded only into the person's own open report, never overwritten, and removed through the Storage API when the report or account goes.",
+        "A report's status, owner, feature id and read receipts are the server's: column privileges refuse them from a person, and a route never keeps its query string.",
+        "Shaking the phone captures the screen and opens the feedback screen with it; the screenshot is sent only if the person keeps it, after they can hide parts of it.",
+        "20 reports and 60 replies per person per hour; a failed screenshot upload keeps the report and says so."
+      ],
+      "reviewedAt": "2026-10-24",
+      "links": {
+        "code": [
+          "packages/support",
+          "packages/supabase/migrations/0006_genesis_support.sql",
+          "packages/supabase/functions/genesis-support-intake",
+          "apps/genesis-rn-starter/src/lib/support.ts"
+        ],
+        "docs": [
+          "packages/support/README.md"
+        ]
+      },
       "access": "all",
       "flags": []
     },
     {
       "id": "inbox-thread",
       "name": "Inbox and thread",
-      "summary": "Conversations between people: an inbox with unread counts and a live thread with paging, optimistic send and read state, on web and native.",
+      "summary": "Conversations between people: an inbox with unread counts and a live thread with paging, optimistic send and read state, on web and native. Native layouts InboxPage (unread dot or count, time, preview, swipe actions also reachable as accessibility actions and on long press, pull to refresh, paging, empty state) and ThreadPage (messages, attachments, a read receipt, a composer kept above the keyboard through KeyboardScrollProvider) are in genesis-ui-native, in SettingsPage's iOS inset style. Web layouts and live (realtime) updates are not built.",
       "category": "Social",
-      "status": "idea",
+      "status": "building",
+      "claimedBy": "mark",
       "layer": "pattern",
       "keywords": [
         "messages",
         "chat",
         "dm",
         "conversation",
-        "realtime"
+        "realtime",
+        "InboxPage",
+        "ThreadPage",
+        "tickets",
+        "swipe actions",
+        "read receipts",
+        "composer"
       ],
+      "platforms": {
+        "native": "building",
+        "web": "idea"
+      },
+      "entry": {
+        "native": "@marktiderman/genesis-ui-native"
+      },
+      "requires": [
+        "native-layouts"
+      ],
+      "slots": [
+        "row",
+        "swipeable",
+        "header",
+        "footer",
+        "empty",
+        "message",
+        "attachment",
+        "readReceipt",
+        "composer",
+        "composerAccessory",
+        "earlier"
+      ],
+      "reviewedAt": "2026-10-24",
+      "links": {
+        "code": [
+          "packages/ui-native/src/layouts/inbox-page.tsx",
+          "packages/ui-native/src/layouts/thread-page.tsx"
+        ],
+        "docs": [
+          "packages/ui-native/README.md"
+        ]
+      },
       "owner": "mark",
       "apps": [
         "web",
@@ -2567,17 +2644,39 @@
     {
       "id": "feature-voting",
       "name": "Feature voting",
-      "summary": "Users suggest and vote on ideas, see the roadmap, and are told when what they asked for ships.",
+      "summary": "Users suggest and vote on ideas, see the roadmap, and are told when what they asked for ships. Built into the support block: an idea board every signed-in person reads, one vote per person (Supabase anonymous sign-ins can't vote or suggest), staff statuses with the FeatureId an idea shipped as, and a list of what each person asked for that shipped. No push or email when an idea ships yet, and no web board.",
       "category": "Support",
-      "status": "idea",
+      "status": "building",
+      "claimedBy": "mark",
       "layer": "block",
       "keywords": [
         "roadmap voting",
         "ideas board",
+        "idea board",
+        "votes",
         "you asked we shipped",
         "changelog",
         "feature requests"
       ],
+      "platforms": {
+        "native": "building",
+        "web": "idea"
+      },
+      "entry": {
+        "native": "@marktiderman/genesis-support/native"
+      },
+      "extends": "support-feedback",
+      "reviewedAt": "2026-10-24",
+      "links": {
+        "code": [
+          "packages/support/src/client.ts",
+          "packages/support/src/native/screens.tsx",
+          "packages/supabase/migrations/0006_genesis_support.sql"
+        ],
+        "docs": [
+          "packages/support/README.md"
+        ]
+      },
       "owner": "mark",
       "apps": [
         "web",

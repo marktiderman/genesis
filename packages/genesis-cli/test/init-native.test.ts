@@ -50,7 +50,7 @@ describe("genesis init --template native", () => {
     expect(files[".github/workflows/database.yml"]).toContain("supabase-ci.yml@GENESIS_SHA");
     expect(files[".github/workflows/genesis-upgrade.yml"]).toBeDefined();
     const lock = readLock(target);
-    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "push"]);
+    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "push", "support-feedback"]);
     expect(lock.files[".eas/workflows/e2e.yml"]?.source).toBe("@marktiderman/genesis-cli:templates/eas/workflows/e2e.yml");
     expect(lock.files["supabase/functions/genesis-push-send/index.ts"]?.source).toBe("@marktiderman/genesis-supabase:functions/genesis-push-send/index.ts");
     expect(lock.files["supabase/tests/database/genesis_push.test.sql"]?.source).toBe("@marktiderman/genesis-supabase:migrations/tests/0005_genesis_push.test.sql");
