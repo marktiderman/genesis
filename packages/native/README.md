@@ -41,6 +41,16 @@ From the outside in:
    `keyboardScroll`, so Genesis form screens scroll the focused field into
    view. The scroll view does nothing without the provider: give both. In
    development, `keyboardScroll` without `keyboardProvider` logs an error.
+   `keyboardToolbar` (`KeyboardToolbar`) adds the previous / next / done bar
+   above the keyboard on Genesis's form layouts (`AuthScreen`,
+   `SettingsSubPage`); it needs `keyboardScroll`, and logs an error in
+   development without it.
+   Then `modules`, the optional native modules your app installed
+   (`GenesisModulesProvider` from `@marktiderman/genesis-ui-native`: FlashList,
+   expo-image, Reanimated, expo-glass-effect, expo-symbols, a lucide icon
+   set, the @expo/ui date picker). Each one you leave out falls back to plain
+   React Native. Read once. The update banner is Liquid Glass on iOS 26 when
+   `modules.glass` is given. See that package's README.
 4. **Data**: `GenesisProvider` over `createSupabaseProvider(supabase)` (or
    your `provider`) and the shell's QueryClient.
 5. **Boot**: your `steps` (wipe a session left by a reinstall, hydrate stores,
@@ -124,6 +134,15 @@ From the outside in:
     A path the map doesn't know, or one with a `.` or `..` segment, goes to
     `"/"` and `onUnknown`; `ignore` patterns return `null` so the router
     leaves them alone (an auth callback).
+11. **Sheets**: `NativeSheet` (what's new, the push prompt) is React Native's
+    own `Modal` and needs nothing above it: the system page sheet on iOS, a
+    bottom panel on Android. To use `@gorhom/bottom-sheet` instead (snap
+    points), pass it: `import * as BottomSheet from "@gorhom/bottom-sheet"`,
+    then `bottomSheet={BottomSheet}`. The shell mounts its
+    `BottomSheetModalProvider` inside the data, session and blocks providers,
+    so sheet content can read them. The library also needs gesture-handler's
+    `GestureHandlerRootView` around the app and Reanimated set up; without
+    them it throws when a sheet opens.
 
 ## Slots
 

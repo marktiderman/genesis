@@ -20,7 +20,7 @@
  *
  * @stability Beta
  */
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import {
   Pressable,
@@ -34,6 +34,7 @@ import { NativeSectionListHeader } from "../components/section-list";
 import { NativeListItem } from "../components/list-item";
 import { NativeEmptyState } from "../components/empty-state";
 import { cn } from "../utils";
+import { useGenesisModules } from "../native-modules";
 import {
   composeHeaderOptions,
   type ScreenHeaderProps,
@@ -182,8 +183,32 @@ function groupByDate(items: NotificationItem[], now = new Date()): Section[] {
     }));
 }
 
+type FlatRow = { kind: "header"; title: string } | { kind: "item"; item: NotificationItem; last: boolean };
+
+function flattenSections(sections: Section[]): { rows: FlatRow[]; headerIndices: number[] } {
+  const rows: FlatRow[] = [];
+  const headerIndices: number[] = [];
+  for (const section of sections) {
+    headerIndices.push(rows.length);
+    rows.push({ kind: "header", title: section.title });
+    section.data.forEach((item, i) => rows.push({ kind: "item", item, last: i === section.data.length - 1 }));
+  }
+  return { rows, headerIndices };
+}
+
+function flatRowKey(row: FlatRow) {
+  return row.kind === "header" ? `header:${row.title}` : row.item.id;
+}
+
+/** A row with its separator and the section's last row differ in height: separate recycling pools. */
+function flatRowType(row: FlatRow) {
+  return row.kind === "header" ? "header" : row.last ? "item-last" : "item";
+}
+
+const NO_SLOTS = {};
+
 // Expose internal helpers for unit tests via a side-channel export.
-export const __test = { bucketFor, groupByDate };
+export const __test = { bucketFor, groupByDate, flattenSections };
 
 export function NotificationsPage({
   items,
@@ -194,8 +219,8 @@ export function NotificationsPage({
   emptyBody,
   className,
   testID = "notifications-page",
-  slots = {},
-  slotProps = {},
+  slots = NO_SLOTS,
+  slotProps = NO_SLOTS,
 }: NotificationsPageProps) {
   // Note: header props (headerTitle, headerLeft, headerRight, large,
   // scrollEdgeBehavior, headerOptions) are accepted on the type for API
@@ -203,6 +228,23 @@ export function NotificationsPage({
   // consumer's <Stack.Screen> level — not by this component.
 
   const sections = useMemo(() => groupByDate(items), [items]);
+  // FlashList v2 (`modules.list`) has no SectionList: the sections become one
+  // flat list whose header rows stick (FlashList's own section-list recipe).
+  const { list: FlashList } = useGenesisModules();
+  const flat = useMemo(() => flattenSections(sections), [sections]);
+  // Stable, so a parent re-render doesn't re-render every visible cell.
+  const renderFlatRow = useCallback(
+    ({ item: row }: { item: FlatRow }) =>
+      row.kind === "header" ? (
+        renderSlot(DefaultSectionHeader, slots.sectionHeader, { title: row.title }, slotProps.sectionHeader)
+      ) : (
+        <>
+          {renderSlot(DefaultRow, slots.row, { ...row.item, testID: row.item.testID ?? `${testID}-row-${row.item.id}` }, slotProps.row)}
+          {row.last ? null : <RowSeparator />}
+        </>
+      ),
+    [slots, slotProps, testID],
+  );
 
   if (items.length === 0) {
     return (
@@ -222,6 +264,28 @@ export function NotificationsPage({
             },
             slotProps.empty,
           )}
+      </SafeAreaView>
+    );
+  }
+
+  if (FlashList) {
+    return (
+      <SafeAreaView
+        testID={testID}
+        edges={["left", "right", "bottom"]}
+        className={cn("flex-1 bg-background", className)}
+      >
+        <FlashList
+          testID={`${testID}-list`}
+          data={flat.rows}
+          keyExtractor={flatRowKey}
+          getItemType={flatRowType}
+          stickyHeaderIndices={flat.headerIndices}
+          renderItem={renderFlatRow}
+          refreshing={onRefresh ? !!refreshing : undefined}
+          onRefresh={onRefresh ? () => void onRefresh() : undefined}
+          contentContainerStyle={{ paddingBottom: 28 }}
+        />
       </SafeAreaView>
     );
   }

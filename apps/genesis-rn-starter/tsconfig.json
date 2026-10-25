@@ -1,6 +1,7 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    "types": ["node", "expo/types"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,

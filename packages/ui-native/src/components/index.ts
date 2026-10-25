@@ -26,8 +26,8 @@ export type {
   NativeToastVariant,
 } from "./toast";
 
-export { NativeSheet } from "./sheet";
-export type { NativeSheetProps } from "./sheet";
+export { NativeSheet, NativeSheetProvider, NativeSheetScrollView } from "./sheet";
+export type { NativeSheetLibrary, NativeSheetProps, NativeSheetProviderProps } from "./sheet";
 
 export {
   NativePopover,
@@ -257,3 +257,34 @@ export type {
   FlexAlign,
   FlexJustify,
 } from "./layout";
+
+// --- Optional native modules (FlashList, expo-image, Reanimated, Liquid Glass, SF Symbols, @expo/ui) ---
+
+export { GenesisModulesProvider, useGenesisModules } from "../native-modules";
+export type {
+  GenesisModules,
+  GenesisModulesProviderProps,
+  GenesisListComponent,
+  GenesisListProps,
+  GenesisImageComponent,
+  GenesisImageProps,
+  GenesisReanimatedModule,
+  GenesisGlassModule,
+  GenesisSymbolComponent,
+  GenesisSymbolProps,
+  GenesisIconComponent,
+  GenesisIconSet,
+  GenesisDatePickerComponent,
+  GenesisDatePickerProps,
+} from "../native-modules";
+
+export { NativeIcon } from "./icon";
+export type { NativeIconProps } from "./icon";
+export { NATIVE_ICON_NAMES, SF_SYMBOLS } from "../icon-names";
+export type { NativeIconName } from "../icon-names";
+
+export { NativeImage } from "./image";
+export type { NativeImageProps } from "./image";
+
+export { NativeGlassSurface, useLiquidGlass, useReduceTransparency } from "./glass-surface";
+export type { NativeGlassSurfaceProps } from "./glass-surface";

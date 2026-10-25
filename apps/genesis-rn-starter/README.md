@@ -70,7 +70,7 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `notifications` | The Notifications tab (`NotificationsPage`). | The tab is hidden, its route redirects home and links to it open `/`. Drop `/notifications` from `links.paths` in `genesis.config.json` too. |
 | `queryPersistence` | The `persistedQueryKeys` queries (`src/lib/app.ts`) saved to the phone for 24 hours, per user. | Cache in memory only. |
 | `queryLifecycle` | Refetch when the app comes to the front; follow the network (AppState + NetInfo). | Queries refetch only on mount. |
-| `keyboardScroll` | The focused field stays above the keyboard on form screens. | `KeyboardAvoidingView` fallback. |
+| `keyboardScroll` | The focused field stays above the keyboard on form screens, with the previous / next / done bar (`KeyboardToolbar`) above it. | `KeyboardAvoidingView` fallback, no bar. |
 | `deepLinks` | `scheme://` and universal links open their screen, after sign-in if needed (`normalizeLink`). | Every link opens `/`. Universal links still open the app until you also delete the `links` block in `genesis.config.json`. |
 | `wipeSessionOnReinstall` | A reinstalled iOS app starts signed out (the Keychain outlives an uninstall). | The last session comes back after a reinstall. |
 | `refreshWhileActive` | The session refreshes only while the app is in front. | supabase-js's own timer runs in the background too. |
@@ -87,6 +87,17 @@ Switches that only change JavaScript (`updates`, `push`, `observability`, `devto
 leaves `starter.config.ts` out; what it means for the native build is in the evaluated config), so
 `eas update` still reaches installed builds after you turn one off. `appleSignIn` and
 `emailSignIn` change the native build and its runtime version.
+
+## Native modules
+
+`src/lib/native-modules.ts` hands Genesis components the native modules the starter installs
+(`GenesisNativeApp`'s `modules`): FlashList v2 for long lists, expo-image for avatars and pictures,
+Reanimated 4 for toasts, drawers and skeletons, Liquid Glass (expo-glass-effect) for toasts,
+the update banner, popovers and menus on iOS 26, SF Symbols (expo-symbols) for `NativeIcon` on
+iOS with lucide on Android, and the @expo/ui SwiftUI / Jetpack Compose date picker. To fall back to plain React Native for one, delete its line, its
+import at the top of that file, and its package from `package.json`. FlashList v2
+needs the New Architecture (the starter's default). Liquid Glass needs a build made with Xcode 26
+and iOS 26 on the device; otherwise the surfaces stay solid.
 
 ## App variants
 
@@ -156,12 +167,22 @@ manifest for the packages installed, export compliance and the fingerprint runti
 ## Checks
 
 ```bash
-pnpm --filter genesis-rn-starter test        # layout length, toggles, copy catalog, migration copies, EAS and Maestro files
+pnpm --filter genesis-rn-starter test        # both suites below
+pnpm --filter genesis-rn-starter exec vitest run   # files: layout length, toggles, copy catalog, migration copies, EAS and Maestro files
+pnpm --filter genesis-rn-starter test:components   # screens: jest-expo + React Native Testing Library
 pnpm --filter genesis-rn-starter typecheck
 pnpm --filter genesis-rn-starter lint
 pnpm --filter genesis-rn-starter doctor      # genesis doctor: native and supabase packs
 pnpm --filter genesis-rn-starter export:ios  # bundles the app, no device needed
 ```
+
+The component tests (`__tests__/components`, `jest.config.js`) render the real `src/app` tree
+with expo-router's `renderRouter`: the root layout and its boot through `GenesisNativeApp`,
+sign-in, the tabs, Settings and account deletion. Supabase is the fake in
+`__tests__/components/fake-supabase.ts` (`setup.ts` swaps it in for `src/lib/supabase.ts`), and
+native modules use jest-expo's mocks or their library's own. A test fails when the app reports an
+error (`[push]`, `[updates]`, `[observability]`) or React warns about act(); see `reports.ts`.
+Add a screen's test there; tests that only read files stay in vitest, outside that folder.
 
 ## Releasing
 

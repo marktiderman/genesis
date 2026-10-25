@@ -8,7 +8,7 @@
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
  *         └ session + boot (splash held until both are known)
  *           └ blocks' roots (with `blocks`, e.g. updates: force upgrade, maintenance, banner, what's new)
- *             └ errorBoundary → your screens (or `signedOut`)
+ *             └ errorBoundary → `bottomSheet`'s provider, if given → your screens (or `signedOut`)
  *
  * Every error the shell catches goes to each block's `onError` (the
  * observability block reports it) and then to the app's own `onError`.
@@ -28,7 +28,8 @@ import { GenesisThemeProvider } from "@marktiderman/genesis-design-system/theme"
 import type { CanonicalBrand } from "@marktiderman/genesis-design-system";
 import { GenesisProvider, createSupabaseProvider, type DataProvider, type SupabaseClientInput } from "@marktiderman/genesis-core/provider";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { KeyboardScrollProvider, type KeyboardScrollProps } from "@marktiderman/genesis-ui-native/layouts";
+import { KeyboardScrollProvider, type KeyboardScrollProps, type KeyboardToolbarProps } from "@marktiderman/genesis-ui-native/layouts";
+import { GenesisModulesProvider, NativeSheetProvider, type GenesisModules, type NativeSheetLibrary } from "@marktiderman/genesis-ui-native/components";
 import { BootProvider, createBoot, type BootOptions, type BootStatus, type BootStep } from "./boot";
 import {
   FatalScreen,
@@ -119,6 +120,30 @@ export interface GenesisNativeAppProps {
   keyboardProvider?: ComponentType<{ children: ReactNode }>;
   /** `KeyboardAwareScrollView` from react-native-keyboard-controller, for form screens. Needs `keyboardProvider`. */
   keyboardScroll?: ComponentType<KeyboardScrollProps>;
+  /**
+   * `KeyboardToolbar` from react-native-keyboard-controller: previous / next /
+   * done above the keyboard on Genesis's form layouts. Needs `keyboardScroll`
+   * (and so `keyboardProvider`); without them it is ignored.
+   */
+  keyboardToolbar?: ComponentType<KeyboardToolbarProps>;
+  /**
+   * The optional native modules the app installed, for Genesis components to
+   * use (`GenesisModulesProvider` from `@marktiderman/genesis-ui-native`):
+   * FlashList, expo-image, Reanimated, expo-glass-effect, expo-symbols, a
+   * lucide icon set, the @expo/ui date picker. Each one left out falls back
+   * to plain React Native. Read once.
+   */
+  modules?: GenesisModules;
+  /**
+   * `@gorhom/bottom-sheet` v5, to opt every `NativeSheet` into it (snap
+   * points, drag between heights): `import * as BottomSheet from "@gorhom/bottom-sheet"`,
+   * then `bottomSheet={BottomSheet}`. The app mounts `NativeSheetProvider`
+   * (and so the library's `BottomSheetModalProvider`) for you; the app's root
+   * must still be inside gesture-handler's `GestureHandlerRootView`, with
+   * Reanimated set up. Leave it out and sheets are React Native's own modal
+   * (an iOS page sheet), which needs neither. Read once.
+   */
+  bottomSheet?: NativeSheetLibrary;
   /** Follow a link held while signed out, once the user signs in. */
   links?: { hold: LinkHold; onRelease: (path: string) => void };
   /** Run before first render, in order (wipe-on-reinstall, hydrate stores, fonts). Read once. */
@@ -225,16 +250,26 @@ const MISSING_KEYBOARD_PROVIDER =
   "GenesisNativeApp: `keyboardScroll` was given without `keyboardProvider`, so form screens won't move above the keyboard. " +
   'Pass `keyboardProvider={KeyboardProvider}` from "react-native-keyboard-controller" too.';
 
+const TOOLBAR_WITHOUT_SCROLL =
+  "GenesisNativeApp: `keyboardToolbar` was given without `keyboardScroll`, so it is ignored. " +
+  'Pass `keyboardScroll={KeyboardAwareScrollView}` and `keyboardProvider={KeyboardProvider}` from "react-native-keyboard-controller" too.';
+
 function ThemedShell(props: GenesisNativeAppProps) {
-  const { brand, keyboardScroll } = props;
+  const { brand, keyboardScroll, keyboardToolbar } = props;
   // Frozen: a new component type here (an inline wrapper) would remount the shell and reset the app.
   const [Keyboard] = useState(() => props.keyboardProvider);
+  // Frozen too: an inline object would hand every component a new module set each render.
+  const [modules] = useState(() => props.modules);
   const missingProvider = Boolean(keyboardScroll) && !Keyboard;
+  const toolbarWithoutScroll = Boolean(keyboardToolbar) && !keyboardScroll;
   useEffect(() => {
-    if (missingProvider && typeof __DEV__ !== "undefined" && __DEV__) console.error(MISSING_KEYBOARD_PROVIDER);
-  }, [missingProvider]);
+    if (typeof __DEV__ === "undefined" || !__DEV__) return;
+    if (missingProvider) console.error(MISSING_KEYBOARD_PROVIDER);
+    if (toolbarWithoutScroll) console.error(TOOLBAR_WITHOUT_SCROLL);
+  }, [missingProvider, toolbarWithoutScroll]);
   let body = <Shell {...props} />;
-  if (keyboardScroll) body = <KeyboardScrollProvider component={keyboardScroll}>{body}</KeyboardScrollProvider>;
+  if (modules) body = <GenesisModulesProvider modules={modules}>{body}</GenesisModulesProvider>;
+  if (keyboardScroll) body = <KeyboardScrollProvider component={keyboardScroll} toolbar={keyboardToolbar}>{body}</KeyboardScrollProvider>;
   if (Keyboard) body = <Keyboard>{body}</Keyboard>;
   return (
     <ThemeProvider brand={brand} syncNativeAppearance>
@@ -251,6 +286,8 @@ function Shell(props: GenesisNativeAppProps) {
   const latest = useRef(props);
   latest.current = props;
   const [blockList] = useState(() => givenBlocks(props));
+  // Read once, like the keyboard provider: a different module later would remount the screens.
+  const [bottomSheet] = useState(() => props.bottomSheet);
   const onError: OnError = (error, report) => {
     reportToBlocks(blockList, error, report);
     try {
@@ -391,7 +428,8 @@ function Shell(props: GenesisNativeAppProps) {
         <BootProvider boot={boot}>
           <BlocksProvider value={parts.blocks}>
             <GenesisErrorBoundary key={resetKey} fallback={FatalFallback} onError={onError} onRetry={retry}>
-              {content}
+              {/* Sheet content renders in the library's portal, here: below data, session, boot and blocks. */}
+              {bottomSheet ? <NativeSheetProvider bottomSheet={bottomSheet}>{content}</NativeSheetProvider> : content}
             </GenesisErrorBoundary>
           </BlocksProvider>
         </BootProvider>

@@ -28,6 +28,8 @@ export const SafeAreaProvider = ({ children }: { children?: React.ReactNode }) =
 // downstream useEffect/useMemo dep that includes insets fire on every render.
 const ZERO_INSETS = { top: 0, bottom: 0, left: 0, right: 0 } as const;
 
+export const SafeAreaInsetsContext = React.createContext<typeof ZERO_INSETS | null>(null);
+
 export function useSafeAreaInsets() {
   return ZERO_INSETS;
 }

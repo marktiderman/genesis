@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 138 components · 479 other exports · 345 standalone types across 11 packages and entry points.
+**Totals:** 143 components · 487 other exports · 361 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -688,7 +688,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (89)
+### Components (94)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -698,6 +698,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`AuthScreen`](../packages/ui-native/src/layouts/auth-screen.tsx) | `AuthScreenProps` | — | _(no summary)_ |
 | [`Box`](../packages/ui-native/src/components/layout/index.ts) | `BoxProps` | — | _(no summary)_ |
 | [`BrandExtensionsProvider`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | `BrandExtensionsProviderProps` | — | _(no summary)_ |
+| [`GenesisModulesProvider`](../packages/ui-native/src/native-modules.tsx) | `GenesisModulesProviderProps` | — | Pass the optional native modules the app has installed. Nested providers merge: an inner one adds to or replaces what an outer one gave. Define the `modules` object once at module scope (as the starter's `src/lib/native-modules.ts` does)... |
 | [`Grid`](../packages/ui-native/src/components/layout/index.ts) | `GridProps` | — | _(no summary)_ |
 | [`InboxPage`](../packages/ui-native/src/layouts/inbox-page.tsx) | `InboxPageProps` | — | _(no summary)_ |
 | [`Inline`](../packages/ui-native/src/components/layout/index.ts) | `InlineProps` | — | _(no summary)_ |
@@ -731,7 +732,10 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeDropdownMenuItem`](../packages/ui-native/src/components/dropdown-menu.tsx) | `NativeDropdownMenuItemProps` | — | _(no summary)_ |
 | [`NativeDropdownMenuTrigger`](../packages/ui-native/src/components/dropdown-menu.tsx) | `NativeDropdownMenuTriggerProps` | — | _(no summary)_ |
 | [`NativeEmptyState`](../packages/ui-native/src/components/empty-state.tsx) | `NativeEmptyStateProps` | — | _(no summary)_ |
+| [`NativeGlassSurface`](../packages/ui-native/src/components/glass-surface.tsx) | `NativeGlassSurfaceProps` | — | _(no summary)_ |
 | [`NativeHeaderCard`](../packages/ui-native/src/components/header-card.tsx) | `NativeHeaderCardProps` | — | _(no summary)_ |
+| [`NativeIcon`](../packages/ui-native/src/components/icon.tsx) | `NativeIconProps` | — | _(no summary)_ |
+| [`NativeImage`](../packages/ui-native/src/components/image.tsx) | `NativeImageProps` | — | _(no summary)_ |
 | [`NativeInlineAlert`](../packages/ui-native/src/components/inline-alert.tsx) | `NativeInlineAlertProps` | — | _(no summary)_ |
 | [`NativeInput`](../packages/ui-native/src/components/input.tsx) | `NativeInputProps` | — | _(no summary)_ |
 | [`NativeLabel`](../packages/ui-native/src/components/label.tsx) | `NativeLabelProps` | — | _(no summary)_ |
@@ -754,7 +758,8 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeSelectItem`](../packages/ui-native/src/components/select.tsx) | `NativeSelectItemProps` | — | _(no summary)_ |
 | [`NativeSelectTrigger`](../packages/ui-native/src/components/select.tsx) | `NativeSelectTriggerProps` | — | _(no summary)_ |
 | [`NativeSeparator`](../packages/ui-native/src/components/separator.tsx) | `NativeSeparatorProps` | — | _(no summary)_ |
-| [`NativeSheet`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProps` | — | _(no summary)_ |
+| [`NativeSheet`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProps` | Beta | _(no summary)_ |
+| [`NativeSheetProvider`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProviderProps` | Beta | Opts every `NativeSheet` below it into `@gorhom/bottom-sheet` and mounts the library's `BottomSheetModalProvider`. A module missing any export the sheet needs is reported with `console.error` and ignored, so sheets fall back to the nativ... |
 | [`NativeSkeleton`](../packages/ui-native/src/components/skeleton.tsx) | `NativeSkeletonProps` | — | _(no summary)_ |
 | [`NativeSlider`](../packages/ui-native/src/components/slider.tsx) | `NativeSliderProps` | — | _(no summary)_ |
 | [`NativeStepper`](../packages/ui-native/src/components/stepper.tsx) | `NativeStepperProps` | — | _(no summary)_ |
@@ -782,7 +787,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (35)
+### Other exports (43)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -805,26 +810,34 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`getSettingsSubPageStackOptions`](../packages/ui-native/src/layouts/settings-sub-page.tsx) | function | — | Compose `<Stack.Screen options={...}>` for a SettingsSubPage. Wires the nav-bar Save button via `headerRight` automatically when `onSave` is passed. |
 | [`getThreadPageStackOptions`](../packages/ui-native/src/layouts/thread-page.tsx) | function | — | `<Stack.Screen options>` for a ThreadPage: a standard (not large) title, like Messages. |
 | [`googleProvider`](../packages/ui-native/src/layouts/google-sign-in.tsx) | function | Beta | A `SocialAuthProvider` (id `"google"`) for `AuthScreen`'s `providers`, or `null` when `enabled` is false. |
+| [`KEYBOARD_TOOLBAR_HEIGHT`](../packages/ui-native/src/layouts/keyboard.tsx) | const | — | Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input. Mirrors `KEYBOARD_TOOLBAR_HEIGHT` in the library's `src/components/KeyboardToolbar/constants.ts` (1.22): move them together. |
 | [`KeyboardScrollProvider`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | _(no summary)_ |
+| [`NATIVE_ICON_NAMES`](../packages/ui-native/src/icon-names.ts) | const | — | Every semantic icon name. |
 | [`NativeCardContent`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeCardDescription`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeCardFooter`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeCardHeader`](../packages/ui-native/src/components/card.tsx) | value | — | _(no summary)_ |
 | [`NativeListItemDivider`](../packages/ui-native/src/components/list-item.tsx) | function | — | _(no summary)_ |
+| [`NativeSheetScrollView`](../packages/ui-native/src/components/sheet.tsx) | function | Beta | A `ScrollView` for sheet content: the library's `BottomSheetScrollView` under `NativeSheetProvider` (so scrolling and dragging the sheet don't fight), React Native's otherwise. Sized to its content until it reaches the sheet's height. |
 | [`readReceiptFor`](../packages/ui-native/src/layouts/thread-page.tsx) | function | — | The newest of my messages the other side has read, or null. |
+| [`SF_SYMBOLS`](../packages/ui-native/src/icon-names.ts) | const | Beta | The semantic icon names Genesis components ask for, and the SF Symbol each one draws on iOS. Components say "settings" or "bell", never a library's own name; `lucideIcons` (`/icons/lucide`) maps the same names for Android, web and the SF... |
 | [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as a menu (long press). |
 | [`spaceScale`](../packages/ui-native/src/components/layout/index.ts) | value | — | _(no summary)_ |
 | [`spacingClass`](../packages/ui-native/src/components/layout/index.ts) | value | — | _(no summary)_ |
 | [`textVariants`](../packages/ui-native/src/components/text.tsx) | value | — | _(no summary)_ |
 | [`toggleVariants`](../packages/ui-native/src/components/toggle.tsx) | value | — | _(no summary)_ |
 | [`useGenesisExtension`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | function | — | Read an extension scale by key. Returns `undefined` when the provider isn't mounted OR when the key isn't declared on the brand. The return type follows the consumer's augmented `BrandExtensions[K]`. |
+| [`useGenesisModules`](../packages/ui-native/src/native-modules.tsx) | function | — | The modules given to the nearest `GenesisModulesProvider`; `{}` without one. |
 | [`useKeyboardScroll`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-aware scroll view, or null when none was provided. |
+| [`useKeyboardToolbar`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it). |
+| [`useLiquidGlass`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | expo-glass-effect's `GlassView` when Liquid Glass can be drawn here, else `null`. |
 | [`useReducedMotion`](../packages/ui-native/src/hooks/use-reduced-motion.ts) | function | — | _(no summary)_ |
+| [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
 | [`useThemeMode`](../packages/ui-native/src/hooks/use-theme-mode.ts) | function | — | _(no summary)_ |
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (43)
+### Types (59)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -837,17 +850,33 @@ export type { BoxBackground };
 export type { BrandExtensionsValue };
 export type { FlexAlign };
 export type { FlexJustify };
+export type { GenesisDatePickerComponent };
+export type { GenesisDatePickerProps };
+export type { GenesisGlassModule };
+export type { GenesisIconComponent };
+export type { GenesisIconSet };
+export type { GenesisImageComponent };
+export type { GenesisImageProps };
+export type { GenesisListComponent };
+export type { GenesisListProps };
+export type { GenesisModules };
+export type { GenesisReanimatedModule };
+export type { GenesisSymbolComponent };
+export type { GenesisSymbolProps };
 export type { GoogleProviderOptions };
 export type { InboxItem };
 export type { InboxPageSlotMap };
 export type { InboxSwipeAction };
 export type { KeyboardScrollProps };
+export type { KeyboardToolbarProps };
 export type { NativeAccordionType };
 export type { NativeChipGroupMode };
 export type { NativeComboboxOption };
 export type { NativeEmptyStateVariant };
+export type { NativeIconName };
 export type { NativeInlineAlertVariant };
 export type { NativeSegmentedControlOption };
+export type { NativeSheetLibrary };
 export type { NativeStepperStep };
 export type { NativeToastOptions };
 export type { NativeToastVariant };
