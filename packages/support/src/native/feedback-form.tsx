@@ -1,0 +1,175 @@
+/**
+ * FeedbackForm: the feedback screen's content, for inside `SettingsSubPage`
+ * (which keeps it above the keyboard). Type, message, and the screenshot the
+ * shake (or `openFeedback`) captured: kept only if the person keeps it, after
+ * they can mark it up and hide parts of it.
+ *
+ *   <SettingsSubPage testID="support-feedback"><FeedbackForm onSent={() => router.back()} /></SettingsSubPage>
+ */
+import { useEffect, useState } from "react";
+import { Alert, Image, Modal, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
+import { NativeButton, NativeLabel, NativeSegmentedControl, NativeSwitch, NativeText, NativeTextarea } from "@marktiderman/genesis-ui-native/components";
+import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { SupportError } from "../client";
+import { FEEDBACK_TYPES, type FeedbackDelivery, type FeedbackType } from "../record";
+import { ScreenshotAnnotator } from "./annotator";
+import { SUPPORT_QUERY_ROOT, useSupport, type PendingFeedback, type PendingScreenshot } from "./support";
+
+export interface FeedbackFormProps {
+  defaultType?: FeedbackType;
+  /** After a report is saved (go back, say thanks). The form has already shown its own confirmation. */
+  onSent?: (delivery: FeedbackDelivery) => void;
+  testID?: string;
+}
+
+export function FeedbackForm({ defaultType = "bug", onSent, testID = "genesis-support-feedback" }: FeedbackFormProps) {
+  const block = useSupport();
+  const { copy } = block;
+  const colors = useThemeRoles();
+  const queryClient = useQueryClient();
+  // What the shake (or openFeedback) left: taken once, so a second visit starts clean.
+  const [origin] = useState<PendingFeedback | null>(() => block.peekPending());
+  useEffect(() => {
+    block.takePending();
+  }, [block]);
+  const [type, setType] = useState<FeedbackType>(defaultType);
+  const [message, setMessage] = useState("");
+  const [screenshot, setScreenshot] = useState<PendingScreenshot | null>(origin?.screenshot ?? null);
+  // Off until the person says so: a captured screen is never sent by default.
+  const [include, setInclude] = useState(false);
+  const [annotating, setAnnotating] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setError(null), [message]);
+
+  const send = async () => {
+    if (!message.trim()) {
+      setError(copy.feedback.messageRequired);
+      return;
+    }
+    setSending(true);
+    try {
+      const context = await block.collector.collect();
+      // Where the person was when they asked for the form, never the form itself.
+      const route = origin?.route && !origin.route.startsWith(block.paths.inbox) ? origin.route : undefined;
+      if (route) context.route = route;
+      else delete context.route;
+      if (origin?.extra) context.extra = { ...context.extra, ...origin.extra };
+      const delivery = await block.client.submit({
+        type,
+        message: message.trim(),
+        context,
+        attachments: screenshot && include ? [{ kind: "screenshot", contentType: screenshot.contentType, base64: screenshot.uri, width: screenshot.width, height: screenshot.height }] : [],
+      });
+      void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "reports"] });
+      setMessage("");
+      setScreenshot(null);
+      Alert.alert(copy.feedback.sentTitle, delivery.attachmentsDropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody);
+      onSent?.(delivery);
+    } catch (e) {
+      const err = e instanceof SupportError ? e : null;
+      setError(err?.rateLimited ? copy.feedback.rateLimited : err?.code === "42501" ? copy.feedback.signInFirst : copy.feedback.failedBody);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <View testID={testID} style={{ gap: 16 }}>
+      <View style={{ gap: 8 }}>
+        <NativeLabel>{copy.feedback.typeLabel}</NativeLabel>
+        <NativeSegmentedControl
+          testID={`${testID}-type`}
+          options={FEEDBACK_TYPES.map((t) => ({ value: t, label: copy.feedback.types[t] }))}
+          value={type}
+          onChange={(v) => setType(v as FeedbackType)}
+        />
+      </View>
+      <NativeTextarea
+        testID={`${testID}-message`}
+        label={copy.feedback.messageLabel}
+        placeholder={copy.feedback.messagePlaceholder}
+        value={message}
+        onChangeText={setMessage}
+        maxLength={20000}
+        rows={6}
+        error={error ?? undefined}
+      />
+      {screenshot ? (
+        <View testID={`${testID}-screenshot`} style={{ gap: 8 }}>
+          <NativeLabel>{copy.feedback.screenshotLabel}</NativeLabel>
+          <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+            <Image
+              source={{ uri: screenshot.uri }}
+              accessibilityLabel={copy.feedback.screenshotLabel}
+              style={{ width: 96, height: Math.round((96 * screenshot.height) / Math.max(1, screenshot.width)), borderRadius: 8, backgroundColor: colors.fill }}
+            />
+            <View style={{ flex: 1, gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <NativeText style={{ flex: 1, color: colors.label, fontSize: 15, lineHeight: 20 }}>{copy.feedback.includeScreenshot}</NativeText>
+                <NativeSwitch
+                  testID={`${testID}-include-screenshot`}
+                  accessibilityLabel={copy.feedback.includeScreenshot}
+                  checked={include}
+                  onCheckedChange={setInclude}
+                />
+              </View>
+              <NativeText style={{ color: colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>{copy.feedback.screenshotHint}</NativeText>
+              {block.options.viewShot ? (
+                <NativeButton variant="outline" size="sm" onPress={() => setAnnotating(true)} testID={`${testID}-annotate`}>
+                  {copy.feedback.annotate}
+                </NativeButton>
+              ) : null}
+              <NativeButton
+                variant="ghost"
+                size="sm"
+                onPress={() => {
+                  setScreenshot(null);
+                  setInclude(false);
+                }}
+                testID={`${testID}-remove-screenshot`}
+              >
+                {copy.feedback.removeScreenshot}
+              </NativeButton>
+            </View>
+          </View>
+        </View>
+      ) : null}
+      {/* Full screen, outside the page's scroll view: on iOS a scroll view takes a drag before the drawing can. */}
+      {annotating && screenshot && block.options.viewShot ? (
+        <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={() => {
+            // Android back: like Cancel, never leave a screenshot included without the person's marks.
+            setInclude(false);
+            setAnnotating(false);
+          }}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <View style={{ flex: 1, padding: 16, justifyContent: "center" }}>
+              <ScreenshotAnnotator
+                screenshot={screenshot}
+                viewShot={block.options.viewShot}
+                copy={copy.annotate}
+                onCancel={(hadMarks) => {
+                  // Marks left unsaved: the screenshot would go without the parts the person meant to hide.
+                  if (hadMarks) setInclude(false);
+                  setAnnotating(false);
+                }}
+                onDone={(next, marked) => {
+                  setScreenshot(next);
+                  if (marked) setInclude(true);
+                  setAnnotating(false);
+                }}
+                testID={`${testID}-annotator`}
+              />
+            </View>
+          </SafeAreaView>
+        </Modal>
+      ) : null}
+      <NativeButton onPress={() => void send()} loading={sending} disabled={sending} testID={`${testID}-send`}>
+        {sending ? copy.feedback.sending : copy.feedback.send}
+      </NativeButton>
+    </View>
+  );
+}

@@ -13,7 +13,7 @@ const config = getDefaultConfig(projectRoot);
 // The workspace packages the app imports, so edits to them reload the app.
 config.watchFolders = [
   ...(config.watchFolders || []),
-  ...["core", "design-system", "forms", "forms-native", "forms-react", "native", "supabase", "ui-native"].map((name) => path.resolve(monorepoRoot, "packages", name)),
+  ...["core", "design-system", "features", "forms", "forms-native", "forms-react", "native", "supabase", "support", "ui-native"].map((name) => path.resolve(monorepoRoot, "packages", name)),
 ];
 
 config.resolver.nodeModulesPaths = [

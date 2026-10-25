@@ -72,6 +72,14 @@ export interface StarterFeatures {
    */
   devtools: boolean;
   /**
+   * The support block (`createSupport` from @marktiderman/genesis-support): Send feedback and Help
+   * in Settings, a feedback screen with a screenshot (shake the phone to capture the screen you're
+   * on), the person's reports with staff replies, and the idea board with votes, on the
+   * `genesis_support` migration. JavaScript only: react-native-view-shot and expo-sensors stay in
+   * the build either way.
+   */
+  support: boolean;
+  /**
    * The check-in example on Home (`@marktiderman/genesis-forms-native`'s `FormFocus`): a sample
    * form one question at a time, with a draft per user and the offline outbox. A demo: replace
    * the form in `src/forms/check-in.json`, or turn it off. JavaScript only.
