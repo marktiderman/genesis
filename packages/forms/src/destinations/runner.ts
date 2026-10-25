@@ -20,7 +20,23 @@
  *
  * It never throws for a delivery's failure, and never logs answers, contact
  * details or secrets: only ids, kinds and the destinations' safe messages.
+ *
+ * It is genesis-notifications' runner (`createRunner` from
+ * `@marktiderman/genesis-notifications/runner`, bundled into this build so
+ * forms keeps no dependencies), with forms' claim, grouping by destination
+ * and destinations as its sender.
  */
+import {
+  DEFAULT_BATCH_SIZE as SHARED_BATCH_SIZE,
+  DEFAULT_MAX_ATTEMPTS as SHARED_MAX_ATTEMPTS,
+  DEFAULT_MAX_DEFERRALS as SHARED_MAX_DEFERRALS,
+  createRunner,
+  defaultBackoff as sharedBackoff,
+  jobOutcome,
+  type JobOutcome,
+  type JobResult,
+  type RunReport,
+} from "@marktiderman/genesis-notifications/runner";
 import type { FormDefinition, Json } from "../types";
 import { passesCondition } from "./condition";
 import {
@@ -159,9 +175,10 @@ export interface DeliveryRunner<Filter = undefined> {
   run(options?: RunOptions<Filter>): Promise<DeliveryReport>;
 }
 
-export const DEFAULT_MAX_ATTEMPTS = 8;
-export const DEFAULT_MAX_DEFERRALS = 24;
-export const DEFAULT_BATCH_SIZE = 25;
+// Declared here (with their types written out) so this build's types stand alone.
+export const DEFAULT_MAX_ATTEMPTS: number = SHARED_MAX_ATTEMPTS;
+export const DEFAULT_MAX_DEFERRALS: number = SHARED_MAX_DEFERRALS;
+export const DEFAULT_BATCH_SIZE: number = SHARED_BATCH_SIZE;
 
 /**
  * 5 minutes, quadrupling each attempt, at most 24 hours: 5m, 20m, 80m, 5h20m,
@@ -170,12 +187,14 @@ export const DEFAULT_BATCH_SIZE = 25;
  * deliveries that failed together (a receiver's outage) don't all come back
  * at once. `random` (default `Math.random`) is for tests.
  */
-export function defaultBackoff(attempt: number, random?: () => number): number {
-  const nominal = Math.min(24 * 3600, 300 * 4 ** Math.max(0, attempt - 1));
-  // A function only: `[1, 2].map(defaultBackoff)` passes an index here.
-  const r = typeof random === "function" ? random() : Math.random();
-  return Math.round(nominal * (0.8 + 0.4 * Math.min(1, Math.max(0, r))));
-}
+export const defaultBackoff: (attempt: number, random?: () => number) => number = sharedBackoff;
+
+// The shared runner's outcome and report are these, field for field.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const sameOutcome: Same<DeliveryOutcome, JobOutcome> = true;
+const sameReport: Same<DeliveryReport, RunReport> = true;
+void sameOutcome;
+void sameReport;
 
 /** Turns a destination's result into an outcome for a delivery on its `attempt`. */
 export function deliveryOutcome(
@@ -190,21 +209,7 @@ export function deliveryOutcome(
     maxDeferrals?: number | undefined;
   } = {},
 ): DeliveryOutcome {
-  if (result.ok) return result.notSent ? { status: "skipped", reason: result.notSent.slice(0, 500) } : { status: "sent" };
-  const http = result.status !== undefined ? { httpStatus: result.status } : {};
-  if (result.disable) return { status: "failed", error: result.error, ...http, disable: true };
-  if (!result.retryable) return { status: "failed", error: result.error, ...http };
-  const now = options.now ?? Date.now();
-  // Deferred without counting an attempt, until maxDeferrals: after that a
-  // service that keeps saying "later" is backed off and given up like any other.
-  if (result.retryAfterSeconds !== undefined && (options.deferrals ?? 0) < (options.maxDeferrals ?? DEFAULT_MAX_DEFERRALS)) {
-    const seconds = Math.max(1, Math.ceil(result.retryAfterSeconds));
-    return { status: "retry", error: result.error, retryAt: new Date(now + seconds * 1000), retryAfterSeconds: seconds, counted: false, ...http };
-  }
-  const max = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
-  if (attempt >= max) return { status: "failed", error: `${result.error} (gave up after ${attempt} attempts)`.slice(0, 500), ...http };
-  const seconds = Math.max(1, Math.ceil((options.backoff ?? defaultBackoff)(attempt)));
-  return { status: "retry", error: result.error, retryAt: new Date(now + seconds * 1000), retryAfterSeconds: seconds, counted: true, ...http };
+  return jobOutcome(result.ok ? { ok: true, notSent: result.notSent } : result, attempt, options);
 }
 
 export function createDeliveryRunner<Filter = undefined>(options: DeliveryRunnerOptions<Filter>): DeliveryRunner<Filter> {
@@ -216,7 +221,6 @@ export function createDeliveryRunner<Filter = undefined>(options: DeliveryRunner
       // Ignored.
     }
   };
-  const now = () => options.now?.() ?? Date.now();
 
   /** Sends one destination's deliveries; resolves one result per delivery, in order. */
   async function send(group: readonly ClaimedDelivery[], signal: AbortSignal | undefined): Promise<(DeliveryResult | "filtered")[]> {
@@ -282,76 +286,26 @@ export function createDeliveryRunner<Filter = undefined>(options: DeliveryRunner
     return results.map((r) => r ?? sent[next++]!);
   }
 
-  return {
-    async run(runOptions: RunOptions<Filter> = {}): Promise<DeliveryReport> {
-      const report: DeliveryReport = {
-        claimed: 0,
-        sent: 0,
-        filtered: 0,
-        skipped: 0,
-        retrying: 0,
-        deferred: 0,
-        failed: 0,
-        stale: 0,
-        unrecorded: 0,
-      };
-      const limit = runOptions.limit ?? options.batchSize ?? DEFAULT_BATCH_SIZE;
-      const claimed = await options.claim({ limit, filter: runOptions.filter });
-      report.claimed = claimed.length;
-
-      // One group per destination: a sheet gets one append for all its rows.
-      const groups = new Map<string, ClaimedDelivery[]>();
-      for (const delivery of claimed) {
-        const list = groups.get(delivery.destinationId) ?? [];
-        list.push(delivery);
-        groups.set(delivery.destinationId, list);
-      }
-
-      await Promise.all(
-        [...groups.values()].map(async (group) => {
-          const results = await send(group, runOptions.signal);
-          const at = now();
-          await Promise.all(
-            group.map(async (delivery, i) => {
-              const result = results[i]!;
-              const outcome: DeliveryOutcome =
-                result === "filtered"
-                  ? { status: "filtered" }
-                  : deliveryOutcome(result, delivery.attempt, {
-                      now: at,
-                      maxAttempts: options.maxAttempts,
-                      backoff: options.backoff,
-                      deferrals: delivery.deferrals,
-                      maxDeferrals: options.maxDeferrals,
-                    });
-              if (outcome.status === "sent" && result !== "filtered" && result.ok && result.skipped?.includes(delivery.submission.id)) {
-                outcome.alreadyThere = true;
-              }
-              if (outcome.status === "failed" || outcome.status === "retry") {
-                log(`Delivery ${delivery.id} (${delivery.kind}) ${outcome.status === "failed" ? "failed" : "will be retried"}: ${outcome.error}`);
-              } else if (outcome.status === "skipped") {
-                log(`Delivery ${delivery.id} (${delivery.kind}) skipped: ${outcome.reason}`);
-              }
-              let recorded: void | boolean;
-              try {
-                recorded = await options.record(delivery, outcome);
-              } catch {
-                report.unrecorded++;
-                log(`Recording delivery ${delivery.id} failed`);
-                return;
-              }
-              if (recorded === false) report.stale++;
-              else if (outcome.status === "sent") report.sent++;
-              else if (outcome.status === "filtered") report.filtered++;
-              else if (outcome.status === "skipped") report.skipped++;
-              else if (outcome.status === "failed") report.failed++;
-              else if (outcome.counted) report.retrying++;
-              else report.deferred++;
-            }),
-          );
-        }),
-      );
-      return report;
+  return createRunner<ClaimedDelivery, Filter>({
+    claim: options.claim,
+    // One group per destination: a sheet gets one append for all its rows.
+    group: (delivery) => delivery.destinationId,
+    async send(group, { signal }) {
+      const results = await send(group, signal);
+      return results.map((result, i): JobResult | "filtered" => {
+        if (result === "filtered") return result;
+        if (!result.ok) return result;
+        return { ok: true, notSent: result.notSent, alreadyThere: result.skipped?.includes(group[i]!.submission.id) && !result.notSent };
+      });
     },
-  };
+    record: options.record,
+    now: options.now,
+    log: options.log,
+    label: (delivery) => `Delivery ${delivery.id} (${delivery.kind})`,
+    recordLabel: (delivery) => `delivery ${delivery.id}`,
+    batchSize: options.batchSize,
+    maxAttempts: options.maxAttempts,
+    maxDeferrals: options.maxDeferrals,
+    backoff: options.backoff,
+  });
 }

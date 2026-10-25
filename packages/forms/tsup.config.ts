@@ -1,6 +1,8 @@
 import { defineConfig } from "tsup";
 
 // Cross-runtime (browser, React Native, Node, edge) — ESM and CJS, no dependencies.
+// The outbox runner is genesis-notifications' (`/runner`, itself dependency-free),
+// bundled in, so forms still installs nothing (its own types are written out).
 // Entries are bundled separately; the field-type registry lives on globalThis
 // so they share it.
 export default defineConfig({
@@ -12,6 +14,7 @@ export default defineConfig({
   },
   format: ["esm", "cjs"],
   dts: true,
+  noExternal: [/^@marktiderman\/genesis-notifications/],
   splitting: false,
   sourcemap: true,
   clean: true,
