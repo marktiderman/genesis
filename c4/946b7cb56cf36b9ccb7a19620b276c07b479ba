@@ -1,0 +1,165 @@
+.changeset/genesis-chat.md
+  s_8252619ce79a86::t_7e0354dcb9cef3 2,6-9
+.changeset/sites-editor-review.md
+  s_8252619ce79a86::t_c85f42533e0da5 1-13
+.changeset/sites-editor.md
+  s_8252619ce79a86::t_015d0d1485bcee 1-13
+apps/sample/.react-router/types/+routes.ts
+  s_8252619ce79a86::t_a2c377114fee2b 25-27,84-86,122,136-139,142,216-219,259,279
+apps/sample/.react-router/types/app/routes/+types/chat.ts
+  s_8252619ce79a86::t_126911940b9a5c 1-74
+apps/sample/.react-router/types/app/routes/+types/sites-editor.ts
+  s_8252619ce79a86::t_f9942565dfad05 1-71
+apps/sample/app/app.css
+  s_8252619ce79a86::t_53eadce15901ce 11-12
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_b7c57f4204be85 10,605,612,2209,2432,2439,3337,3723,3730,4153,4158,4822,4829,5904,5911,6425,6451,13326,13491,13933,13947,14045,14136,14171,15849,16555,16896,16910,17008,17099,17134,17518,17532,17630,17721,17756,18070
+apps/sample/app/routes.ts
+  s_8252619ce79a86::t_140b4f37282770 14-15,38-39
+apps/sample/app/routes/_layout.tsx
+  s_8252619ce79a86::t_f15327cb9fb1d3 7,23
+apps/sample/app/routes/chat.tsx
+  s_8252619ce79a86::t_102c553406ccb2 1-92
+apps/sample/app/routes/sites-editor.tsx
+  s_8252619ce79a86::t_5fc1c2b53a1add 1-108
+apps/sample/app/routes/sites.tsx
+  s_8252619ce79a86::t_0140a7011a5029 5,56-68
+apps/sample/package.json
+  s_8252619ce79a86::t_eb3ffe7ed18b2d 25,38
+apps/sample/sites-demo/site.ts
+  s_8252619ce79a86::t_ac2c73df9c313f 15,182-184,205-228
+docs/SITES.md
+  s_8252619ce79a86::t_5ec69773c8652f 7-8,40-41,385-386,402-403,427-450
+features.json
+  s_8252619ce79a86::t_dda2cf9be19e5b 1051,1437-1493
+features.ts
+  s_8252619ce79a86::t_c29a5e0f2d690d 469,472,628-651
+packages/chat/README.md
+  s_8252619ce79a86::t_40d83c98ec48f9 16-40,84-164
+packages/chat/migrations/0001_genesis_chat.sql
+  s_8252619ce79a86::t_f374e5353d723a 846-847,849,851-853,855,857-859,1037,1079-1080,1117,1139,1323-1324,1464
+packages/chat/migrations/tests/0001_genesis_chat.test.sql
+  s_8252619ce79a86::t_9f7f7c5645283b 10,119-132
+packages/chat/package.json
+  s_8252619ce79a86::t_65cb35551845ec 3,59-60,64,66,71-76,101-103,107-109,121-122,131
+packages/chat/src/__tests__/server-fakes.ts
+  s_8252619ce79a86::t_9316d496183727 1-84
+packages/chat/src/__tests__/server-providers.test.ts
+  s_8252619ce79a86::t_9300d43ef3620b 1-206
+packages/chat/src/__tests__/server-runner.test.ts
+  s_8252619ce79a86::t_cf0e621e784d7f 1-217
+packages/chat/src/__tests__/web-markdown.test.tsx
+  s_8252619ce79a86::t_289d843612388f 1-88
+packages/chat/src/__tests__/web.test.tsx
+  s_8252619ce79a86::t_0f1a496794fda3 1-317
+packages/chat/src/server/crypto.ts
+  s_8252619ce79a86::t_77abedf15b937d 1-86
+packages/chat/src/server/expo.ts
+  s_8252619ce79a86::t_8342dfbad392e6 1-117
+packages/chat/src/server/handler.ts
+  s_8252619ce79a86::t_4f08e62236c0c4 1-32
+packages/chat/src/server/index.ts
+  s_8252619ce79a86::t_39b9647c179bd7 2-21
+packages/chat/src/server/mux.ts
+  s_8252619ce79a86::t_d68546873248cf 1-264
+packages/chat/src/server/runner.ts
+  s_8252619ce79a86::t_0d51d354683477 1-262
+packages/chat/src/server/transcribers.ts
+  s_8252619ce79a86::t_f83d35404e791b 1-111
+packages/chat/src/server/types.ts
+  s_8252619ce79a86::t_31a3976e3a4081 1-101
+packages/chat/src/web/attachments.tsx
+  s_8252619ce79a86::t_9234e688affac6 1-331
+packages/chat/src/web/bubble.tsx
+  s_8252619ce79a86::t_fd6a5cd37d84d4 1-502
+packages/chat/src/web/composer.tsx
+  s_8252619ce79a86::t_6269d4d26436f2 1-405
+packages/chat/src/web/format.ts
+  s_8252619ce79a86::t_6a94b1a92608b6 1-55
+packages/chat/src/web/inbox.tsx
+  s_8252619ce79a86::t_18294c4ba2477f 1-195
+packages/chat/src/web/index.ts
+  s_8252619ce79a86::t_3f295accd769c0 1-50
+packages/chat/src/web/markdown.tsx
+  s_8252619ce79a86::t_e49eb886e6eec8 1-245
+packages/chat/src/web/memory-client.ts
+  s_8252619ce79a86::t_9929b598c67b17 1-472
+packages/chat/src/web/panel.tsx
+  s_8252619ce79a86::t_a25a079c7fc1a5 1-90
+packages/chat/src/web/thread-context.ts
+  s_8252619ce79a86::t_24df35bb1b7c80 1-53
+packages/chat/src/web/thread.tsx
+  s_8252619ce79a86::t_e986a8dfc297ec 1-648
+packages/chat/src/web/use-voice-recorder.ts
+  s_8252619ce79a86::t_3a22422290d183 1-264
+packages/chat/src/web/voice-note.tsx
+  s_8252619ce79a86::t_10c5422c45b0fd 1-197
+packages/sites/README.md
+  s_8252619ce79a86::t_bf8854350fde84 18,22,34-36,448-531
+packages/sites/package.json
+  s_8252619ce79a86::t_05f522a1fb4e4c 8,11,51-54,82,90-92,103
+packages/sites/src/__tests__/editor-mount.test.tsx
+  s_8252619ce79a86::t_406ee9cb4ca577 1-205
+packages/sites/src/__tests__/editor.test.tsx
+  s_8252619ce79a86::t_ba53f3cd8fb0a4 1-700
+packages/sites/src/core/migrate.ts
+  s_8252619ce79a86::t_faa86afdaebd38 11,24-28,93-95,100,102,120,135
+packages/sites/src/editor/asset-picker.tsx
+  s_8252619ce79a86::t_298f97d785b48f 1-200
+packages/sites/src/editor/autosave.ts
+  s_8252619ce79a86::t_ee63c77be1ed4d 1-252
+packages/sites/src/editor/canvas-dom.ts
+  s_8252619ce79a86::t_e3396d4db6ef8d 1-10
+packages/sites/src/editor/config.tsx
+  s_8252619ce79a86::t_17fcb067da3031 1-222
+packages/sites/src/editor/data.ts
+  s_8252619ce79a86::t_5b4e98c52ee16f 1-240
+packages/sites/src/editor/field-components.tsx
+  s_8252619ce79a86::t_13ee0f776d4789 1-171
+packages/sites/src/editor/fields.ts
+  s_8252619ce79a86::t_0f3d62b1bdd5fd 1-284
+packages/sites/src/editor/index.ts
+  s_8252619ce79a86::t_0155a3ed25241e 1-45
+packages/sites/src/editor/overrides.tsx
+  s_8252619ce79a86::t_99df88050238ca 1-288
+packages/sites/src/editor/pages-panel.tsx
+  s_8252619ce79a86::t_36703081c45c23 1-433
+packages/sites/src/editor/preview.ts
+  s_8252619ce79a86::t_6ab0383cdc2e86 1-66
+packages/sites/src/editor/publish-panel.tsx
+  s_8252619ce79a86::t_a751c8b9ea5dec 1-293
+packages/sites/src/editor/services.ts
+  s_8252619ce79a86::t_9f3235d3ae0a43 1-45
+packages/sites/src/editor/site-actions.ts
+  s_8252619ce79a86::t_daa75bfac34794 1-163
+packages/sites/src/editor/site-editor.tsx
+  s_8252619ce79a86::t_333dcd9129cae6 1-1018
+packages/sites/tsup.config.ts
+  s_8252619ce79a86::t_8ac2208bc98e9a 10,20
+pnpm-lock.yaml
+  s_738228bc0d81b1::t_c78ff14d56dcae 267-269,306-308,542-547,572-574,1226-1228,2305-2328,3902-3910,5755-5759,5776-5782,6995-6998,7728-7731,7816-7819,9780-9785,10876-10881,11291-11308,12089-12132,13711-13761,15565-15568,15582-15587,17056-17057,18059-18060,18170-18171,20554-20558,21857-21860,22318-22324
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c4946b7cb56cf36b9ccb7a19620b276c07b479ba",
+  "prompts": {},
+  "sessions": {
+    "s_738228bc0d81b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e2142df-869e-4561-a3fe-f82b4e02dc97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
