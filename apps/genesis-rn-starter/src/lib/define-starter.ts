@@ -57,6 +57,12 @@ export interface StarterFeatures {
    * stays in the build either way. Needs an EAS project id for a push token.
    */
   push: boolean;
+  /**
+   * The check-in example on Home (`@marktiderman/genesis-forms-native`'s `FormFocus`): a sample
+   * form one question at a time, with a draft per user and the offline outbox. A demo: replace
+   * the form in `src/forms/check-in.json`, or turn it off. JavaScript only.
+   */
+  checkIn: boolean;
 }
 
 export interface StarterConfig {

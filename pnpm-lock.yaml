@@ -44,6 +44,15 @@ importers:
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../../packages/design-system
+      '@marktiderman/genesis-forms':
+        specifier: workspace:^
+        version: link:../../packages/forms
+      '@marktiderman/genesis-forms-native':
+        specifier: workspace:^
+        version: link:../../packages/forms-native
+      '@marktiderman/genesis-forms-react':
+        specifier: workspace:^
+        version: link:../../packages/forms-react
       '@marktiderman/genesis-native':
         specifier: workspace:^
         version: link:../../packages/native
