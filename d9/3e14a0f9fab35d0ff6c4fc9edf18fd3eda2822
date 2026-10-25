@@ -1,0 +1,121 @@
+.changeset/forms-native.md
+  s_8252619ce79a86::t_d25dde25073a36 1-7
+.changeset/outbox-hidden.md
+  s_8252619ce79a86::t_452c8806882b3d 1-5
+README.md
+  s_8252619ce79a86::t_07aef5d25a7689 65
+apps/genesis-rn-starter/metro.config.js
+  s_8252619ce79a86::t_e956ad28cc56ec 16
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_8c4ed5ebb20932 22-24
+apps/genesis-rn-starter/src/app/(app)/(home)/check-in.tsx
+  s_8252619ce79a86::t_05c5e74fed4aa1 1-40
+apps/genesis-rn-starter/src/app/(app)/(home)/index.tsx
+  s_8252619ce79a86::t_5a77b95020f32d 1-3,8-18,23-30
+apps/genesis-rn-starter/src/copy.ts
+  s_8252619ce79a86::t_b132b4c964bd41 42-46
+apps/genesis-rn-starter/src/forms/check-in.json
+  s_8252619ce79a86::t_1b4012dc6b03de 1-121
+apps/genesis-rn-starter/src/lib/check-in.ts
+  s_8252619ce79a86::t_b61e19273490f4 1-78
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_a79782992f7853 82-87
+apps/genesis-rn-starter/starter.config.ts
+  s_8252619ce79a86::t_8b59ea4588ac30 32
+docs/FORMS.md
+  s_8252619ce79a86::t_13e363f93233cc 19-20,183
+features.ts
+  s_8252619ce79a86::t_18930f9b043d8e 733,865-866,868,870-874,877-888,945
+packages/forms-native/LICENSE
+  s_8252619ce79a86::t_5db5c3f8efce78 1-21
+packages/forms-native/README.md
+  s_8252619ce79a86::t_616969fed25672 1-118
+packages/forms-native/package.json
+  s_8252619ce79a86::t_1751645b80f597 1-69
+packages/forms-native/src/FormFocus.tsx
+  s_8252619ce79a86::t_9671239cd49ae0 1-636
+packages/forms-native/src/__tests__/choices.test.tsx
+  s_8252619ce79a86::t_ca83ca3231347d 1-161
+packages/forms-native/src/__tests__/drafts-outbox.test.tsx
+  s_8252619ce79a86::t_f16c48d9771ec6 1-176
+packages/forms-native/src/__tests__/flow.test.tsx
+  s_8252619ce79a86::t_fbcec4be8947ff 1-306
+packages/forms-native/src/__tests__/helpers.tsx
+  s_8252619ce79a86::t_8b377cd0711e26 1-55
+packages/forms-native/src/__tests__/kinds.test.tsx
+  s_8252619ce79a86::t_f86bcb296f5d62 1-168
+packages/forms-native/src/__tests__/real-drafts-outbox.test.tsx
+  s_8252619ce79a86::t_5f2fce2ac73168 1-78
+packages/forms-native/src/__tests__/review-fixes.test.tsx
+  s_8252619ce79a86::t_d233b15a0db8f0 1-141
+packages/forms-native/src/chrome.tsx
+  s_8252619ce79a86::t_429e25cf3a1dc7 1-128
+packages/forms-native/src/content.tsx
+  s_8252619ce79a86::t_9a59360e624ec0 1-123
+packages/forms-native/src/context.tsx
+  s_8252619ce79a86::t_51d713f56f9f41 1-143
+packages/forms-native/src/index.ts
+  s_8252619ce79a86::t_e93361778b21ff 1-75
+packages/forms-native/src/parts.tsx
+  s_8252619ce79a86::t_394aec0df02803 1-49
+packages/forms-native/src/renderers/choice.tsx
+  s_8252619ce79a86::t_8fc54ac03e54cc 1-271
+packages/forms-native/src/renderers/index.tsx
+  s_8252619ce79a86::t_ad3a5aa5fc8cfe 1-80
+packages/forms-native/src/renderers/photo.tsx
+  s_8252619ce79a86::t_de6d5f877118d3 1-163
+packages/forms-native/src/renderers/scale.tsx
+  s_8252619ce79a86::t_ed74896542b9de 1-183
+packages/forms-native/src/renderers/text.tsx
+  s_8252619ce79a86::t_3373a7dcd8adf3 1-209
+packages/forms-native/src/seams.ts
+  s_8252619ce79a86::t_ea41e3d70628ab 1-83
+packages/forms-native/src/slots.tsx
+  s_8252619ce79a86::t_0bb2fd36db6182 1-275
+packages/forms-native/src/styles.ts
+  s_8252619ce79a86::t_431f3be6d04950 1-161
+packages/forms-native/src/theme.tsx
+  s_8252619ce79a86::t_e72bc55222a2c7 1-48
+packages/forms-native/test-utils/rn-mock.tsx
+  s_8252619ce79a86::t_905939a5ee3e7d 1-97
+packages/forms-native/tsconfig.json
+  s_8252619ce79a86::t_490b465d88e9d7 1-17
+packages/forms-native/tsup.config.ts
+  s_8252619ce79a86::t_5780b98f1f1f86 1-14
+packages/forms-native/vitest.config.ts
+  s_8252619ce79a86::t_73e3c6a4744f71 1-29
+packages/forms-react/src/__tests__/drafts-outbox.test.tsx
+  s_8252619ce79a86::t_c509a417acabbc 24,227-241
+packages/forms-react/src/outbox.ts
+  s_8252619ce79a86::t_6c75a8470eecad 76-77,80-81
+pnpm-lock.yaml
+  s_8252619ce79a86::t_e80f89d1bc5fef 47-55,768-809
+AGENTS.md
+  s_49703822ab15f1::t_740fd27c73b24b 16
+features.json
+  s_49703822ab15f1::t_a38100447b9a53 1653,1937-1938,1940,1949-1951,1954-1957,1960-1962,1966,1970-1972,1979-1980,1982-2001
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d93e14a0f9fab35d0ff6c4fc9edf18fd3eda2822",
+  "prompts": {},
+  "sessions": {
+    "s_49703822ab15f1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a7d56157b1c5abf0a",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
