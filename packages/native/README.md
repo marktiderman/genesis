@@ -430,7 +430,29 @@ permission as its subtitle; `settingsRow` changes or drops it) and a boot step
 that reads the permission behind the splash (a second at most; it never fails
 the boot), and names its migration. It runs on migration
 0005 and the `genesis-push-send` function of
-[`@marktiderman/genesis-supabase`](../supabase/README.md#push-the-push-block).
+[`@marktiderman/genesis-supabase`](../supabase/README.md#push-the-push-block),
+or on [`@marktiderman/genesis-notifications`](../notifications/README.md), which
+now owns the server side of push (it adopts 0005's tables and sends through
+one runner). With the notifier, pass its backend and the registry's categories:
+
+```ts
+import * as Crypto from "expo-crypto";
+import { notificationsPushBackend, pushOptionsFrom } from "@marktiderman/genesis-notifications/native";
+
+createPush({
+  …,
+  backend: notificationsPushBackend(supabase), // registers with this install's id
+  ...pushOptionsFrom(notifications),           // categories (Android channels) and device categories (action buttons)
+  randomUUID: Crypto.randomUUID,               // the install id; Hermes has no crypto.randomUUID
+});
+```
+
+`deviceCategories` registers notification categories with their buttons (Reply
+with a text field, Mark as read) when the block starts; a button tap reaches
+`onResponse`, and `notificationAction(response)` reads it: the action id, the
+typed text, the link and the notifier's notification id. A backend that sets
+`usesInstallationId` gets this install's id (made once, kept across sign-ins)
+as `register`'s fourth argument; `supabasePushBackend` doesn't.
 
 ```ts
 // lib/push.ts
