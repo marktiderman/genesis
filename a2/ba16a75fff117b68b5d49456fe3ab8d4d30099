@@ -1,0 +1,64 @@
+packages/chat/migrations/tests/0001_genesis_chat.test.sql
+  s_c0870a827920ef::t_179c54f35cc66f 1-218
+packages/chat/src/core/client.ts
+  s_c0870a827920ef::t_b370a4a205dc14 1-478
+packages/chat/src/core/outbox.ts
+  s_c0870a827920ef::t_4771a1fab4a66b 1-195
+packages/chat/src/core/thread.ts
+  s_c0870a827920ef::t_c353de3cb6599d 1-171
+packages/chat/src/index.ts
+  s_c0870a827920ef::t_da2e364dd0ead8 1-11
+packages/chat/src/core/media.ts
+  s_c0870a827920ef::t_28054cc9d0afb2 1-127
+packages/chat/src/core/types.ts
+  s_c0870a827920ef::t_607dde608ed905 1-192
+packages/chat/migrations/0001_genesis_chat.sql
+  s_c0870a827920ef::t_e7da3b6824a070 1-1792
+  s_c0870a827920ef::t_4c09bb629767f2 1793-1806
+.changeset/genesis-chat.md
+  s_c0870a827920ef::t_a939effffcb104 1-5
+AGENTS.md
+  s_c0870a827920ef::t_5773eac32adfb3 16
+features.json
+  s_c0870a827920ef::t_e2c7de3de30a39 2673-2737
+features.ts
+  s_c0870a827920ef::t_1d1ec1e5fc959c 1178-1201
+packages/chat/README.md
+  s_c0870a827920ef::t_168faee20cf238 1-58
+packages/chat/package.json
+  s_c0870a827920ef::t_c6b2fb68effa62 1-94
+packages/chat/src/__tests__/core.test.ts
+  s_c0870a827920ef::t_75880e5089f079 1-63
+packages/chat/src/native/index.ts
+  s_c0870a827920ef::t_d8d463465187ac 1-2
+packages/chat/src/react/index.ts
+  s_c0870a827920ef::t_5f887faeeb9e0e 1-2
+packages/chat/src/server/index.ts
+  s_c0870a827920ef::t_64889608aeba7b 1-2
+packages/chat/src/web/index.ts
+  s_c0870a827920ef::t_fbbe247acfb68f 1-2
+packages/chat/tsconfig.json
+  s_c0870a827920ef::t_3e6f8344cfc85a 1-18
+packages/chat/tsup.config.ts
+  s_c0870a827920ef::t_29a77e6e61bace 1-30
+packages/chat/vitest.config.ts
+  s_c0870a827920ef::t_0660a22af473ef 1-8
+pnpm-lock.yaml
+  s_c0870a827920ef::t_4204f0bb75d42d 515-536,563
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a2ba16a75fff117b68b5d49456fe3ab8d4d30099",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
