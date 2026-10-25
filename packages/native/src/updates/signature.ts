@@ -6,7 +6,10 @@
  *   1.4.0 (37) · production · embedded
  *   1.4.0 (37) · updates off
  *
- * A value the modules can't give is printed as `unknown`, never left out.
+ * A value the modules can't give is printed as `unknown`, never left out
+ * (an empty string counts as not given: expo-updates gives `""` for the
+ * runtime version in a development build); one that doesn't apply, with
+ * updates off, as `none`.
  */
 import type { ApplicationLike, UpdatesModuleLike } from "./modules";
 
@@ -40,13 +43,16 @@ export interface VersionSignatureInput {
 
 const UNKNOWN = "unknown";
 
+/** A module's value, or null when it gave none (undefined, null or an empty string). */
+const given = (value: string | null | undefined): string | null => (typeof value === "string" && value.trim() !== "" ? value : null);
+
 export function versionSignature({ application, updates, platform, requestedChannel = null }: VersionSignatureInput): VersionSignature {
-  const version = application?.nativeApplicationVersion ?? null;
-  const build = application?.nativeBuildVersion ?? null;
+  const version = given(application?.nativeApplicationVersion);
+  const build = given(application?.nativeBuildVersion);
   const on = Boolean(updates?.isEnabled);
-  const channel = on ? (updates?.channel ?? null) : null;
-  const updateId = on ? (updates?.updateId ?? null) : null;
-  const runtimeVersion = updates?.runtimeVersion ?? null;
+  const channel = on ? given(updates?.channel) : null;
+  const updateId = on ? given(updates?.updateId) : null;
+  const runtimeVersion = given(updates?.runtimeVersion);
   const launch: VersionSignature["launch"] = !on ? "off" : updates?.isEmbeddedLaunch ? "embedded" : "update";
   const emergency = on && updates?.isEmergencyLaunch === true;
   const shownChannel = requestedChannel ?? channel;
@@ -66,7 +72,7 @@ export function versionSignature({ application, updates, platform, requestedChan
     `Version ${head}`,
     `Platform ${platform}`,
     `Channel ${channel ?? (on ? UNKNOWN : "none")}${requestedChannel && requestedChannel !== channel ? ` (switched to ${requestedChannel})` : ""}`,
-    `Runtime ${runtimeVersion ?? UNKNOWN}`,
+    `Runtime ${runtimeVersion ?? (on ? UNKNOWN : "none")}`,
     `Update ${launch === "off" ? "updates off" : launch === "embedded" ? "embedded" : (updateId ?? UNKNOWN)}`,
   ];
   if (emergency) lines.push(`Emergency launch: ${updates?.emergencyLaunchReason ?? UNKNOWN}`);
