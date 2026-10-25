@@ -1,0 +1,147 @@
+{
+  "name": "@marktiderman/genesis-chat",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Chat for Genesis apps, in the app's own Supabase: conversations of kinds the app defines (direct, group, cohort, support ticket) with members, observers and internal notes; messages with replies, threads, topics, mentions, reactions, edits and deletes; photos, files, voice notes and videos; read state, live updates and typing over private Realtime topics; an outbox for push, transcripts and storage cleanup. A headless core, React hooks, web and native renderers on Genesis UI, and a server runner. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/chat"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "import": "./dist/web.js"
+    },
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "import": "./dist/native.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@marktiderman/genesis-features": "workspace:^"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@supabase/supabase-js": "^2.118.0",
+    "@tanstack/react-query": "^5.0.0",
+    "lucide-react": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@marktiderman/genesis-core": {
+      "optional": true
+    },
+    "@marktiderman/genesis-ui": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@supabase/supabase-js": "^2.118.0",
+    "@tanstack/react-query": "^5.75.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.9.0",
+    "lucide-react": "^1.28.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "blocks": {
+      "chat": {
+        "feature": {
+          "name": "Chat",
+          "summary": "Direct messages, groups and the app's own kinds of conversation (cohorts, support tickets), with photos, files, voice notes and videos, reactions, replies and threads, read state, live updates and push, in the app's own Supabase.",
+          "keywords": [
+            "chat",
+            "messages",
+            "dm",
+            "group chat",
+            "voice notes",
+            "video messages",
+            "inbox",
+            "support tickets"
+          ],
+          "audience": [
+            "person",
+            "admin"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native",
+          "server"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0001_genesis_chat.sql",
+            "test": "migrations/tests/0001_genesis_chat.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Expose the genesis_chat schema to the API: add it to `schemas` under [api] in supabase/config.toml, and to Exposed schemas in the dashboard.",
+          "Register your kinds' rules in a migration of your own, after this one: a start check for direct (who may message whom) and any kinds of your own, with an observer check where staff read without being members (genesis-chat README, Kinds and rules).",
+          "Run the outbox: call createChatRunner from @marktiderman/genesis-chat/server on a schedule (every minute) or from a database webhook on genesis_chat.effects, with your push sender."
+        ]
+      }
+    }
+  }
+}
