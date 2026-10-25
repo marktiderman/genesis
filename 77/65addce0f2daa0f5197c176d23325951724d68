@@ -1,0 +1,49 @@
+.changeset/chat-review-fixes.md
+  s_c0870a827920ef::t_94fde71b999907 1-9
+.changeset/sites-editor-review-2.md
+  s_c0870a827920ef::t_1c25d5890dbe3a 1-5
+apps/sample/sites-demo/site.ts
+  s_c0870a827920ef::t_cd6c4b1946d9b2 206-207,210-239,244-247,249-250
+packages/chat/README.md
+  s_c0870a827920ef::t_e101ba9dd59b2d 12
+packages/chat/migrations/0001_genesis_chat.sql
+  s_c0870a827920ef::t_121157b32e1874 272-275,1264-1266,1542-1561,1603,1666,1739
+packages/chat/migrations/tests/0001_genesis_chat.test.sql
+  s_c0870a827920ef::t_00cf277c5c276e 10,231-252
+packages/chat/src/__tests__/core.test.ts
+  s_c0870a827920ef::t_e84924df86bfd1 64-76
+packages/chat/src/__tests__/web.test.tsx
+  s_c0870a827920ef::t_d3b28f6b6c8b32 186-191
+packages/chat/src/react/index.tsx
+  s_c0870a827920ef::t_3bb47d4d4062b5 26-37,93-97
+packages/chat/src/web/composer.tsx
+  s_c0870a827920ef::t_ada344726572dd 41,225
+packages/sites/src/__tests__/editor-mount.test.tsx
+  s_c0870a827920ef::t_cf6ab2f135a2cd 20,28,205-268
+packages/sites/src/__tests__/editor.test.tsx
+  s_c0870a827920ef::t_34eab189ee823a 18,146-155
+packages/sites/src/editor/fields.ts
+  s_c0870a827920ef::t_3612276b1e46e8 125-131
+packages/sites/src/editor/overrides.tsx
+  s_c0870a827920ef::t_96d6f304819e57 24-30,155,159,197,215,227,243,246,254,256
+packages/sites/src/editor/pages-panel.tsx
+  s_c0870a827920ef::t_45af3b7bcad96f 242,272,278,286,289,292,302,306,391
+packages/sites/src/editor/site-editor.tsx
+  s_c0870a827920ef::t_da6127e7b2b800 34,44,53-58,528-532,534,540,553-555,681-697,705,711,728,876,1049
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7765addce0f2daa0f5197c176d23325951724d68",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
