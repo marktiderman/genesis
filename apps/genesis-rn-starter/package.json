@@ -54,7 +54,7 @@
     "expo-status-bar": "~58.0.4",
     "expo-symbols": "~58.0.4",
     "expo-updates": "~58.0.18",
-    "lucide-react-native": ">=0.400.0",
+    "lucide-react-native": ">=0.475.0",
     "nativewind": "^4.2.7",
     "react": "19.3.0",
     "react-hook-form": "^7.56.4",

@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import { AccessibilityInfo, Platform } from "react-native";
 import { GenesisModulesProvider, useGenesisModules, type GenesisModules } from "../native-modules";
 import { NATIVE_ICON_NAMES, SF_SYMBOLS } from "../icon-names";
+import { __resetReducedMotion, useReducedMotion } from "../hooks/use-reduced-motion";
 import { NativeToastProvider, useToast } from "../components/toast";
 import { NativeSkeleton } from "../components/skeleton";
 import { NativeDrawer } from "../components/drawer";
@@ -26,6 +27,7 @@ const originalOS = Platform.OS;
 afterEach(() => {
   Platform.OS = originalOS;
   vi.restoreAllMocks();
+  __resetReducedMotion();
 });
 
 function withModules(modules: GenesisModules, ui: ReactNode) {
@@ -198,6 +200,61 @@ describe("NativeToast", () => {
   });
 });
 
+describe("NativeToast on glass", () => {
+  it("slides in without fading, since glass doesn't draw under a translucent parent", () => {
+    Platform.OS = "ios";
+    const R = fakeReanimated();
+    withModules(
+      { reanimated: R, glass: fakeGlass() },
+      <NativeToastProvider>
+        <ShowToast />
+      </NativeToastProvider>,
+    );
+    fireEvent.click(screen.getByTestId("trigger"));
+    const style = JSON.parse((document.querySelector("[data-reanimated]") as HTMLElement).dataset.style!);
+    expect(style.opacity).toBe(1);
+    expect(R.withTiming).toHaveBeenCalledTimes(1);
+    expect(R.withTiming).toHaveBeenCalledWith(0, expect.objectContaining({ duration: 180 }));
+  });
+
+  it("stays solid, and says so in development, when expo-glass-effect lacks a check", () => {
+    Platform.OS = "ios";
+    (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const glass = { ...fakeGlass(), isGlassEffectAPIAvailable: undefined } as unknown as GenesisModules["glass"];
+      withModules(
+        { glass },
+        <NativeToastProvider disableAnimation>
+          <ShowToast />
+        </NativeToastProvider>,
+      );
+      fireEvent.click(screen.getByTestId("trigger"));
+      expect(screen.queryByTestId("native-toast-glass")).toBeNull();
+      expect(warn.mock.calls.some(([m]) => String(m).includes("modules.glass"))).toBe(true);
+    } finally {
+      delete (globalThis as { __DEV__?: boolean }).__DEV__;
+    }
+  });
+});
+
+describe("useReducedMotion", () => {
+  it("starts a later component from the last known answer", async () => {
+    vi.spyOn(AccessibilityInfo, "isReduceMotionEnabled").mockResolvedValue(true);
+    function Probe({ id }: { id: string }) {
+      return <span data-testid={id}>{String(useReducedMotion())}</span>;
+    }
+    const first = render(<Probe id="first" />);
+    await act(async () => {});
+    expect(screen.getByTestId("first").textContent).toBe("true");
+    first.unmount();
+    // The second one's first render, before its own query answers.
+    vi.spyOn(AccessibilityInfo, "isReduceMotionEnabled").mockReturnValue(new Promise(() => {}));
+    render(<Probe id="second" />);
+    expect(screen.getByTestId("second").textContent).toBe("true");
+  });
+});
+
 describe("NativeGlassSurface", () => {
   it("draws the fallback classes without expo-glass-effect", () => {
     render(<NativeGlassSurface testID="surface" fallbackClassName="bg-secondary" className="p-2" />);
@@ -315,6 +372,23 @@ describe("NativeAvatar and NativeImage", () => {
   it("fall back to React Native's Image", () => {
     render(<NativeAvatar testID="av" src="https://example.com/a.png" fallback="AB" />);
     expect(screen.getByTestId("av-image").dataset.expoImage).toBeUndefined();
+  });
+
+  it("give a recycled row the new person's state on its first frame", () => {
+    const Image = vi.fn((props: { testID?: string; onError?: () => void }) => (
+      <img data-testid={props.testID} alt="" onClick={() => props.onError?.()} />
+    ));
+    const { rerender } = withModules({ image: Image as never }, <NativeAvatar testID="av" src="https://example.com/a.png" fallback="AB" />);
+    fireEvent.click(screen.getByTestId("av-image")); // a.png fails
+    expect(screen.queryByTestId("av-image")).toBeNull();
+    rerender(
+      <GenesisModulesProvider modules={{ image: Image as never }}>
+        <NativeAvatar testID="av" src="https://example.com/b.png" fallback="CD" />
+      </GenesisModulesProvider>,
+    );
+    // b.png is tried at once, not after an effect resets the failure.
+    expect(screen.getByTestId("av-image")).toBeTruthy();
+    expect(screen.getByText("CD")).toBeTruthy();
   });
 
   it("show the initials when there is no picture", () => {
@@ -439,7 +513,7 @@ describe("NotificationsPage with FlashList", () => {
     expect(screen.getByText("Today")).toBeTruthy();
     expect(screen.getByTestId("notifications-page-row-c")).toBeTruthy();
     const types = [...list.querySelectorAll("[data-item-type]")].map((el) => (el as HTMLElement).dataset.itemType);
-    expect(types).toEqual(["header", "item", "item", "header", "item"]);
+    expect(types).toEqual(["header", "item", "item-last", "header", "item-last"]);
   });
 
   it("separates rows inside a section only", () => {

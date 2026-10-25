@@ -15,6 +15,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Platform, View } from "react-native";
 import { cn } from "../utils";
 import { useGenesisModules, type GenesisGlassModule } from "../native-modules";
+import { useThemeMode } from "../hooks/use-theme-mode";
 
 const availability = new WeakMap<GenesisGlassModule, boolean>();
 
@@ -22,13 +23,27 @@ function glassAvailable(glass: GenesisGlassModule): boolean {
   const known = availability.get(glass);
   if (known !== undefined) return known;
   let ok = false;
-  try {
-    ok = Boolean(glass.isLiquidGlassAvailable()) && Boolean(glass.isGlassEffectAPIAvailable());
-  } catch {
-    ok = false;
+  if (typeof glass.isLiquidGlassAvailable !== "function" || typeof glass.isGlassEffectAPIAvailable !== "function" || !glass.GlassView) {
+    // An expo-glass-effect without both checks (or not the module namespace)
+    // can't say glass is safe to draw: stay solid, and say why.
+    warnDev(
+      "[genesis] modules.glass needs expo-glass-effect's GlassView, isLiquidGlassAvailable and isGlassEffectAPIAvailable (pass `import * as GlassEffect from \"expo-glass-effect\"`, SDK 54 or later). Surfaces stay solid.",
+    );
+  } else {
+    try {
+      ok = Boolean(glass.isLiquidGlassAvailable()) && Boolean(glass.isGlassEffectAPIAvailable());
+    } catch {
+      ok = false;
+    }
   }
   availability.set(glass, ok);
   return ok;
+}
+
+declare const __DEV__: boolean | undefined;
+
+function warnDev(message: string) {
+  if (typeof __DEV__ !== "undefined" && __DEV__) console.warn(message);
 }
 
 /** True while the user has Reduce Transparency on (iOS). Always false elsewhere. */
@@ -85,9 +100,18 @@ export function NativeGlassSurface({
   testID,
 }: NativeGlassSurfaceProps) {
   const GlassView = useLiquidGlass();
+  // The app's scheme, not the system's, so the glass matches the text on it.
+  const colorScheme = useThemeMode();
   if (GlassView) {
     return (
-      <GlassView testID={testID} style={{ borderRadius: radius, overflow: "hidden" }} glassEffectStyle={glassEffectStyle} tintColor={tintColor} isInteractive={interactive}>
+      <GlassView
+        testID={testID}
+        style={{ borderRadius: radius, overflow: "hidden" }}
+        glassEffectStyle={glassEffectStyle}
+        colorScheme={colorScheme}
+        tintColor={tintColor}
+        isInteractive={interactive}
+      >
         <View className={className}>{children}</View>
       </GlassView>
     );

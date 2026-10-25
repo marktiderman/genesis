@@ -20,7 +20,7 @@
  *
  * @stability Beta
  */
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import {
   Pressable,
@@ -196,6 +196,17 @@ function flattenSections(sections: Section[]): { rows: FlatRow[]; headerIndices:
   return { rows, headerIndices };
 }
 
+function flatRowKey(row: FlatRow) {
+  return row.kind === "header" ? `header:${row.title}` : row.item.id;
+}
+
+/** A row with its separator and the section's last row differ in height: separate recycling pools. */
+function flatRowType(row: FlatRow) {
+  return row.kind === "header" ? "header" : row.last ? "item-last" : "item";
+}
+
+const NO_SLOTS = {};
+
 // Expose internal helpers for unit tests via a side-channel export.
 export const __test = { bucketFor, groupByDate, flattenSections };
 
@@ -208,8 +219,8 @@ export function NotificationsPage({
   emptyBody,
   className,
   testID = "notifications-page",
-  slots = {},
-  slotProps = {},
+  slots = NO_SLOTS,
+  slotProps = NO_SLOTS,
 }: NotificationsPageProps) {
   // Note: header props (headerTitle, headerLeft, headerRight, large,
   // scrollEdgeBehavior, headerOptions) are accepted on the type for API
@@ -221,6 +232,19 @@ export function NotificationsPage({
   // flat list whose header rows stick (FlashList's own section-list recipe).
   const { list: FlashList } = useGenesisModules();
   const flat = useMemo(() => flattenSections(sections), [sections]);
+  // Stable, so a parent re-render doesn't re-render every visible cell.
+  const renderFlatRow = useCallback(
+    ({ item: row }: { item: FlatRow }) =>
+      row.kind === "header" ? (
+        renderSlot(DefaultSectionHeader, slots.sectionHeader, { title: row.title }, slotProps.sectionHeader)
+      ) : (
+        <>
+          {renderSlot(DefaultRow, slots.row, { ...row.item, testID: row.item.testID ?? `${testID}-row-${row.item.id}` }, slotProps.row)}
+          {row.last ? null : <RowSeparator />}
+        </>
+      ),
+    [slots, slotProps, testID],
+  );
 
   if (items.length === 0) {
     return (
@@ -244,11 +268,6 @@ export function NotificationsPage({
     );
   }
 
-  const renderHeader = (title: string) =>
-    renderSlot(DefaultSectionHeader, slots.sectionHeader, { title }, slotProps.sectionHeader);
-  const renderRow = (item: NotificationItem) =>
-    renderSlot(DefaultRow, slots.row, { ...item, testID: item.testID ?? `${testID}-row-${item.id}` }, slotProps.row);
-
   if (FlashList) {
     return (
       <SafeAreaView
@@ -259,19 +278,10 @@ export function NotificationsPage({
         <FlashList
           testID={`${testID}-list`}
           data={flat.rows}
-          keyExtractor={(row: FlatRow) => (row.kind === "header" ? `header:${row.title}` : row.item.id)}
-          getItemType={(row: FlatRow) => row.kind}
+          keyExtractor={flatRowKey}
+          getItemType={flatRowType}
           stickyHeaderIndices={flat.headerIndices}
-          renderItem={({ item: row }: { item: FlatRow }) =>
-            row.kind === "header" ? (
-              renderHeader(row.title)
-            ) : (
-              <>
-                {renderRow(row.item)}
-                {row.last ? null : <RowSeparator />}
-              </>
-            )
-          }
+          renderItem={renderFlatRow}
           refreshing={onRefresh ? !!refreshing : undefined}
           onRefresh={onRefresh ? () => void onRefresh() : undefined}
           contentContainerStyle={{ paddingBottom: 28 }}

@@ -31,6 +31,7 @@ import {
 import { Animated, Pressable, Text } from "react-native";
 import { cn } from "../utils";
 import { useReducedMotion } from "../hooks/use-reduced-motion";
+import { useThemeMode } from "../hooks/use-theme-mode";
 import { useGenesisModules, type GenesisReanimatedModule } from "../native-modules";
 import { useLiquidGlass } from "./glass-surface";
 
@@ -115,13 +116,34 @@ interface ToastViewProps {
   onDismiss: () => void;
 }
 
+type GlassComponent = NonNullable<ReturnType<typeof useLiquidGlass>>;
+
+interface ToastFrameProps extends ToastViewProps {
+  /** GlassView when this toast is drawn as Liquid Glass. */
+  glass: GlassComponent | null;
+}
+
 const ENTER_MS = 180;
 
 // Reanimated 4 when the app passed it, else React Native's Animated. Two
 // components rather than one with a branch, so each keeps a fixed hook order.
 function ToastView(props: ToastViewProps) {
   const { reanimated } = useGenesisModules();
-  return reanimated ? <ReanimatedToastView {...props} reanimated={reanimated} /> : <AnimatedToastView {...props} />;
+  const GlassView = useLiquidGlass();
+  const glass = (props.toast.variant ?? "default") === "default" ? GlassView : null;
+  return reanimated ? (
+    <ReanimatedToastView {...props} glass={glass} reanimated={reanimated} />
+  ) : (
+    <AnimatedToastView {...props} glass={glass} />
+  );
+}
+
+/**
+ * Glass slides in without fading: Liquid Glass doesn't draw under a parent
+ * whose opacity is below 1 (Expo's glass-effect docs, after Apple's).
+ */
+function fades(animate: boolean, glass: GlassComponent | null) {
+  return animate && !glass;
 }
 
 function useAutoDismiss(toast: ToastInstance, onDismiss: () => void) {
@@ -153,15 +175,17 @@ function ReanimatedToastView({
   position,
   animate,
   onDismiss,
+  glass,
   reanimated: R,
-}: ToastViewProps & { reanimated: GenesisReanimatedModule }) {
-  const opacity = R.useSharedValue(animate ? 0 : 1);
+}: ToastFrameProps & { reanimated: GenesisReanimatedModule }) {
+  const fade = fades(animate, glass);
+  const opacity = R.useSharedValue(fade ? 0 : 1);
   const offset = R.useSharedValue(animate ? startOffset(position) : 0);
   useAutoDismiss(toast, onDismiss);
   useEffect(() => {
     if (!animate) return;
     const easing = R.Easing.out(R.Easing.cubic);
-    opacity.value = R.withTiming(1, { duration: ENTER_MS, easing });
+    if (fade) opacity.value = R.withTiming(1, { duration: ENTER_MS, easing });
     offset.value = R.withTiming(0, { duration: ENTER_MS, easing });
     // Once per toast: each toast mounts under its own key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,32 +197,33 @@ function ReanimatedToastView({
   const AnimatedView = R.default.View;
   return (
     <AnimatedView {...regionProps(toast)} className={regionClass(position)} style={animatedStyle}>
-      <ToastBody toast={toast} onDismiss={onDismiss} />
+      <ToastBody toast={toast} onDismiss={onDismiss} glass={glass} />
     </AnimatedView>
   );
 }
 
-function AnimatedToastView({ toast, position, animate, onDismiss }: ToastViewProps) {
-  const opacity = useRef(new Animated.Value(animate ? 0 : 1)).current;
+function AnimatedToastView({ toast, position, animate, onDismiss, glass }: ToastFrameProps) {
+  const fade = fades(animate, glass);
+  const opacity = useRef(new Animated.Value(fade ? 0 : 1)).current;
   const offset = useRef(new Animated.Value(animate ? startOffset(position) : 0)).current;
   useAutoDismiss(toast, onDismiss);
 
   useEffect(() => {
-    if (animate) {
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: ENTER_MS,
-          useNativeDriver: true,
-        }),
-        Animated.timing(offset, {
-          toValue: 0,
-          duration: ENTER_MS,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [animate, offset, opacity]);
+    if (!animate) return;
+    const slide = Animated.timing(offset, {
+      toValue: 0,
+      duration: ENTER_MS,
+      useNativeDriver: true,
+    });
+    const fadeIn = Animated.timing(opacity, {
+      toValue: 1,
+      duration: ENTER_MS,
+      useNativeDriver: true,
+    });
+    Animated.parallel(fade ? [fadeIn, slide] : [slide]).start();
+    // Once per toast: each toast mounts under its own key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Animated.View
@@ -206,7 +231,7 @@ function AnimatedToastView({ toast, position, animate, onDismiss }: ToastViewPro
       className={regionClass(position)}
       style={{ opacity, transform: [{ translateY: offset }] }}
     >
-      <ToastBody toast={toast} onDismiss={onDismiss} />
+      <ToastBody toast={toast} onDismiss={onDismiss} glass={glass} />
     </Animated.View>
   );
 }
@@ -240,10 +265,9 @@ const textClass: Record<NativeToastVariant, string> = {
  * with label-colored text; success and destructive keep their solid color,
  * which carries their meaning.
  */
-function ToastBody({ toast, onDismiss }: { toast: ToastInstance; onDismiss: () => void }) {
-  const GlassView = useLiquidGlass();
+function ToastBody({ toast, onDismiss, glass: Glass }: { toast: ToastInstance; onDismiss: () => void; glass: GlassComponent | null }) {
+  const colorScheme = useThemeMode();
   const variant = toast.variant ?? "default";
-  const Glass = variant === "default" ? GlassView : null;
   const text = Glass ? "text-foreground" : textClass[variant];
   const testID = toast.testID ?? "native-toast";
   const pressable = (
@@ -266,7 +290,13 @@ function ToastBody({ toast, onDismiss }: { toast: ToastInstance; onDismiss: () =
   );
   if (!Glass) return pressable;
   return (
-    <Glass testID={`${testID}-glass`} glassEffectStyle="regular" isInteractive style={{ borderRadius: 16, overflow: "hidden" }}>
+    <Glass
+      testID={`${testID}-glass`}
+      glassEffectStyle="regular"
+      colorScheme={colorScheme}
+      isInteractive
+      style={{ borderRadius: 16, overflow: "hidden" }}
+    >
       {pressable}
     </Glass>
   );

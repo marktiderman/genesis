@@ -182,11 +182,13 @@ export function NativePopoverContent({
         >
           <Pressable onPress={() => {}}>
             {/* Liquid Glass on iOS 26 with `modules.glass`; the popover surface otherwise. */}
-            <View testID={testID ?? "native-popover-content"} accessibilityViewIsModal className="max-w-[280px]">
+            {/* Every class stays on one view, as before: without glass it is
+                exactly the old popover, and `className` still sets its width. */}
+            <View testID={testID ?? "native-popover-content"} accessibilityViewIsModal>
               <NativeGlassSurface
                 radius={14}
                 fallbackClassName="rounded-md border border-border bg-popover shadow-md"
-                className={cn("p-3", className)}
+                className={cn("max-w-[280px] p-3", className)}
               >
                 {children}
               </NativeGlassSurface>

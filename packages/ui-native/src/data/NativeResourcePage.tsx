@@ -489,7 +489,8 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
           ListHeaderComponent={ListHeaderComponent}
           ListEmptyComponent={ListEmptyComponent}
           contentContainerStyle={{ paddingBottom: 24 }}
-          refreshing={refreshing}
+          // offlineFirst: as FlatList below, the spinner follows the fetch, not the paused promise.
+          refreshing={refreshing && !list.isPaused}
           onRefresh={handleRefresh}
         />
       );

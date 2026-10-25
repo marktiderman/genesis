@@ -10,7 +10,7 @@
  *
  * @stability Stable
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Image, Text, View } from "react-native";
 import { cn } from "../utils";
 import { useReducedMotion } from "../hooks/use-reduced-motion";
@@ -53,17 +53,16 @@ function NativeAvatar({
 }: NativeAvatarProps) {
   const { image: ExpoImage } = useGenesisModules();
   const reducedMotion = useReducedMotion();
-  const [hasError, setHasError] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    setHasError(false);
-    setLoaded(false);
-  }, [src]);
-  const showImage = !!src && !hasError;
+  // Which URL loaded or failed, not a flag: a row FlashList recycles for
+  // someone else gets the right state on its first frame, with no reset.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const showImage = !!src && failedSrc !== src;
+  const loaded = !!src && loadedSrc === src;
   const imageProps = {
     accessible: false,
-    onError: () => setHasError(true),
-    onLoad: () => setLoaded(true),
+    onError: () => setFailedSrc(src ?? null),
+    onLoad: () => setLoadedSrc(src ?? null),
   };
 
   return (
