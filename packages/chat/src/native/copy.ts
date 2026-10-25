@@ -57,6 +57,8 @@ export interface ChatNativeCopy {
   sending: string;
   notSent: string;
   retry: string;
+  /** On a message whose file didn't survive a relaunch: pick it again. */
+  attachAgain: string;
   discard: string;
   deleted: string;
   edited: string;
@@ -129,6 +131,7 @@ export const chatNativeCopy: ChatNativeCopy = {
   sending: "Sending",
   notSent: "Not sent",
   retry: "Retry",
+  attachAgain: "Attach again",
   discard: "Delete",
   deleted: "Message deleted",
   edited: "edited",

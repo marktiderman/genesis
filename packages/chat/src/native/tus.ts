@@ -13,7 +13,7 @@
  * expects; the upload finishes before the send (the outbox orders that).
  */
 import { CHAT_BUCKET, ChatError } from "../core/client";
-import { fileExtension, isAllowedExtension } from "../core/media";
+import { fileExtension, isAllowedExtension, randomId } from "../core/media";
 import type { LocalFile } from "../core/outbox";
 
 /** Supabase requires 6 MB chunks for TUS (every chunk but the last). */
@@ -34,7 +34,7 @@ export interface TusUploadOptions {
   chunkBytes?: number;
   /** Network failures retried per chunk before the send fails (it can be retried). Default 3. */
   retries?: number;
-  /** A uuid for each file's name. Default `crypto.randomUUID()`, which not every React Native runtime has: pass expo-crypto's `randomUUID`. */
+  /** A uuid for each file's name. Default core's `randomId` (crypto.randomUUID where there is one, else getRandomValues). */
   newId?: () => string;
   bucket?: string;
 }
@@ -65,7 +65,7 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
   const retries = options.retries ?? 3;
   const bucket = options.bucket ?? CHAT_BUCKET;
   const endpoint = `${options.supabaseUrl.replace(/\/+$/, "")}/storage/v1/upload/resumable`;
-  const newId = options.newId ?? (() => crypto.randomUUID());
+  const newId = options.newId ?? randomId;
   const readFile = options.readFile ?? (async (uri: string) => (await doFetch(uri)).arrayBuffer());
   // By file object: a retry of the same message in this session resumes it. Two messages never
   // share an object, so deleting one never breaks the other.

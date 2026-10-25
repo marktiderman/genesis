@@ -6,12 +6,12 @@
  * press and as accessibility actions. Under the navigator's large title
  * (`getInboxPageStackOptions`).
  */
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { NativeAvatar } from "@marktiderman/genesis-ui-native/components";
 import { InboxPage, type InboxItem, type InboxPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import { previewText } from "../core/thread";
 import type { ChatInboxItem } from "../core/types";
-import { chatKeys, useChat, useInbox } from "../react/index";
+import { chatKeys, useChat, useInbox, usePeople } from "../react/index";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ChatNativeCopy } from "./copy";
 import { initials, useChatNative, type ChatPerson } from "./context";
@@ -55,8 +55,12 @@ export function inboxRow(
 export function ChatInboxScreen({ onOpen, onStart, kind, archived, pageProps, testID = "chat-inbox" }: ChatInboxScreenProps) {
   const { client, userId } = useChat();
   const queryClient = useQueryClient();
-  const { copy, person } = useChatNative();
+  const { copy, person: known } = useChatNative();
   const inbox = useInbox({ kind, archived });
+  // The other person in each direct conversation, fetched in one batch (ChatProvider loadPeople).
+  const others = useMemo(() => inbox.items.map((i) => i.otherUserId), [inbox.items]);
+  const people = usePeople(others);
+  const person = useCallback((id: string | null | undefined) => known(id) ?? (id ? people[id] : undefined), [known, people]);
   const [refreshing, setRefreshing] = useState(false);
 
   const refresh = useCallback(async () => {

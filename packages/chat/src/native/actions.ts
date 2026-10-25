@@ -1,8 +1,9 @@
 /**
  * @feat:chat
  * Which actions a message offers this person, from the same rules migration
- * 0001 enforces (react and reply need can_post; pin needs an owner or admin,
- * or a member of a direct conversation; delete needs the sender, an owner or
+ * 0001 enforces (react and reply need can_post; pin follows
+ * useConversation().canPin: an owner or admin, or a member of a two-person
+ * kind; delete needs the sender, an owner or
  * admin, or an observer who may post). The server stays the judge: an action
  * it refuses shows a toast.
  */
@@ -18,8 +19,8 @@ export interface MessageActionContext {
   role: ChatRole | null;
   canPost: boolean;
   pinned: boolean;
-  /** A two-person kind, where members may pin. */
-  direct: boolean;
+  /** May pin here (`useConversation().canPin`: an owner or admin, or a member of a two-person kind). */
+  canPin: boolean;
   /** Copy needs expo-clipboard. */
   canCopy: boolean;
 }
@@ -34,7 +35,7 @@ export function messageActionsFor(message: ChatMessage, ctx: MessageActionContex
   if (ctx.canPost) out.push("reply");
   if (ctx.canCopy && message.body.trim()) out.push("copy");
   const admin = ctx.role === "owner" || ctx.role === "admin";
-  if (message.visibility === "everyone" && (admin || (ctx.direct && ctx.role === "member"))) out.push(ctx.pinned ? "unpin" : "pin");
+  if (message.visibility === "everyone" && ctx.canPin) out.push(ctx.pinned ? "unpin" : "pin");
   const own = message.senderId === ctx.me && ctx.role !== null;
   if (own || admin || (ctx.role === "observer" && ctx.canPost)) out.push("delete");
   return out;

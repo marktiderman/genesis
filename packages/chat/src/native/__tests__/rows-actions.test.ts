@@ -52,17 +52,17 @@ describe("thread rows", () => {
 });
 
 describe("messageActionsFor", () => {
-  const base = { me: ME, role: "member" as const, canPost: true, pinned: false, direct: false, canCopy: true };
+  const base = { me: ME, role: "member" as const, canPost: true, pinned: false, canPin: false, canCopy: true };
 
-  it("a member's own message: reply, copy, delete; no pin outside a direct conversation", () => {
+  it("a member's own message: reply, copy, delete; no pin where the kind doesn't allow it", () => {
     expect(messageActionsFor(msg(ME, "2026-10-24T09:00:00"), base)).toEqual(["reply", "copy", "delete"]);
   });
 
   it("someone else's: no delete for a member; an admin may pin and delete", () => {
     const theirs = msg("sam", "2026-10-24T09:00:00");
     expect(messageActionsFor(theirs, base)).toEqual(["reply", "copy"]);
-    expect(messageActionsFor(theirs, { ...base, role: "admin", pinned: true })).toEqual(["reply", "copy", "unpin", "delete"]);
-    expect(messageActionsFor(theirs, { ...base, direct: true })).toEqual(["reply", "copy", "pin"]);
+    expect(messageActionsFor(theirs, { ...base, role: "admin", canPin: true, pinned: true })).toEqual(["reply", "copy", "unpin", "delete"]);
+    expect(messageActionsFor(theirs, { ...base, canPin: true })).toEqual(["reply", "copy", "pin"]);
   });
 
   it("a read-only viewer can only copy; deleted and system messages offer nothing", () => {

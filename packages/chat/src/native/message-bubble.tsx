@@ -12,7 +12,7 @@ import { Animated, PanResponder, Pressable, View } from "react-native";
 import { NativeAvatar, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { previewText, summarizeReactions } from "../core/thread";
-import type { ChatMessage } from "../core/types";
+import type { ChatMessage, PendingFile } from "../core/types";
 import { fill } from "./copy";
 import { initials, useChatNative } from "./context";
 import { fromPending, fromServer, MessageAttachments, type BubbleAttachment } from "./media";
@@ -34,6 +34,8 @@ export interface MessageBubbleProps {
   onReply?: (message: ChatMessage) => void;
   onRetry?: (clientId: string) => void;
   onDiscard?: (clientId: string) => void;
+  /** A failed message whose files didn't survive a relaunch: pick them again (`useConversation().reattach`). */
+  onReattach?: (clientId: string, files: readonly PendingFile[]) => void;
   onToggleReaction?: (message: ChatMessage, emoji: string, on: boolean) => void;
   onOpenImage?: (uri: string, alt: string) => void;
   /** The swipe crossed the reply line (for a haptic). */
@@ -64,14 +66,15 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const body = message ? (message.deletedAt ? "" : message.body) : (pending?.input.body ?? "");
   const createdAt = message?.createdAt ?? pending!.createdAt;
   const failed = pending?.status === "failed";
+  // Its files are gone (bytes not kept between launches): Retry can't send it, picking them again can.
+  const lost = failed && (pending?.files ?? []).some((f) => f.lost);
   const sending = pending?.status === "sending";
   const sender = person(row.senderId);
   const senderName = mine ? copy.you : (sender?.name ?? "");
 
   const attachments: BubbleAttachment[] = useMemo(() => {
     if (message) return message.deletedAt ? [] : message.attachments.map((a) => fromServer(a, urls));
-    const files = (pending as unknown as { files?: { name: string; contentType: string; meta?: Record<string, unknown> }[] }).files ?? [];
-    return files.map((f, i) => fromPending(pending!.clientId, i, f as never, pending!.previews?.[i]));
+    return (pending?.files ?? []).map((f, i) => fromPending(pending!.clientId, i, f, pending!.previews?.[i]));
   }, [message, pending, urls]);
 
   // ---- Swipe to reply ----
@@ -134,13 +137,15 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const actions = [
     ...(message && props.onReply && !message.deletedAt ? [{ name: "reply", label: copy.reply }] : []),
     ...(message && props.onLongPress && !message.deletedAt ? [{ name: "actions", label: copy.messageActions }] : []),
-    ...(failed && props.onRetry ? [{ name: "retry", label: copy.retry }] : []),
+    ...(failed && !lost && props.onRetry ? [{ name: "retry", label: copy.retry }] : []),
+    ...(lost && props.onReattach ? [{ name: "reattach", label: copy.attachAgain }] : []),
     ...(failed && props.onDiscard ? [{ name: "discard", label: copy.discard }] : []),
   ];
   const onAction = (name: string) => {
     if (name === "reply" && message) props.onReply?.(message);
     else if (name === "actions" && message) props.onLongPress?.(message);
     else if (name === "retry" && pending) props.onRetry?.(pending.clientId);
+    else if (name === "reattach" && pending) props.onReattach?.(pending.clientId, pending.files ?? []);
     else if (name === "discard" && pending) props.onDiscard?.(pending.clientId);
   };
 
@@ -250,7 +255,13 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
               <NativeText testID={`${testID}-failed`} preset="caption" style={{ color: colors.destructive }}>
                 {pending?.error ?? copy.notSent}
               </NativeText>
-              <SmallAction testID={`${testID}-retry`} label={copy.retry} onPress={() => props.onRetry?.(pending!.clientId)} color={colors.tint} />
+              {lost ? (
+                props.onReattach ? (
+                  <SmallAction testID={`${testID}-reattach`} label={copy.attachAgain} onPress={() => props.onReattach?.(pending!.clientId, pending!.files ?? [])} color={colors.tint} />
+                ) : null
+              ) : (
+                <SmallAction testID={`${testID}-retry`} label={copy.retry} onPress={() => props.onRetry?.(pending!.clientId)} color={colors.tint} />
+              )}
               <SmallAction testID={`${testID}-discard`} label={copy.discard} onPress={() => props.onDiscard?.(pending!.clientId)} color={colors.destructive} />
             </>
           ) : (

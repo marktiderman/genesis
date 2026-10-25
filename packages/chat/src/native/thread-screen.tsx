@@ -16,12 +16,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeEmptyState, NativeSkeleton, NativeText, useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { activityLine, previewText } from "../core/thread";
-import type { ChatMessage } from "../core/types";
-import { useChat, useConversation, useFileUrls, useMessageActions, usePins } from "../react/index";
+import type { ChatMessage, PendingFile } from "../core/types";
+import { useChat, useConversation, useFileUrls, useMessageActions, usePeople, usePins } from "../react/index";
 import type { MessageActionId } from "./actions";
 import { ChatComposer } from "./composer";
-import { composerDisabledReason, replyTargetFor } from "./composer-state";
-import { useChatNative } from "./context";
+import { composerDisabledReason, filesFromAssets, replyTargetFor } from "./composer-state";
+import { ChatPeopleScope, useChatNative } from "./context";
 import { useChatComposer } from "./use-composer";
 import { attachmentPaths, ChatMediaViewer } from "./media";
 import { MessageActionsSheet } from "./message-actions-sheet";
@@ -73,9 +73,6 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const List = (genesis.list ?? FlatList) as unknown as ComponentType<ChatListProps>;
   const composer = useChatComposer(conversationId, threadRootId);
   const { setReply } = composer;
-  // useMessageActions returns new functions each render; read the latest through a ref.
-  const actionsRef = useRef(messageActions);
-  actionsRef.current = messageActions;
   const [actionsFor, setActionsFor] = useState<ChatMessage | null>(null);
   const [viewer, setViewer] = useState<{ uri: string; alt: string } | null>(null);
   // Where this screen starts on the window: the keyboard offset when the app gives none.
@@ -87,17 +84,22 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
     });
   }, []);
 
-  const kind = conv.conversation?.kind ?? null;
-  // Pin for members follows the kind's max_members = 2, which the client can't read; the built-in
-  // `direct` kind is the one known to be two-person. The server stays the judge.
-  const direct = kind === "direct";
-  const group = !direct && conv.members.length !== 2 && (conv.members.length > 2 || kind !== null);
+  // Names and avatars show for more than two people: the kind's rule once it is read, else the member count.
+  const group = conv.kind ? conv.kind.maxMembers !== 2 : conv.members.length > 2;
+  const peopleIds = useMemo(
+    () => [...conv.members.map((m) => m.userId), ...conv.messages.map((m) => m.senderId)],
+    [conv.members, conv.messages],
+  );
 
   const rows = useMemo(() => invertedRows(conv.items, { me: userId, firstUnreadId: conv.firstUnreadId, group }), [conv.items, userId, conv.firstUnreadId, group]);
   const paths = useMemo(() => conv.items.flatMap((i) => (i.type === "message" ? attachmentPaths(i.message.attachments) : [])), [conv.items]);
   const urls = useFileUrls(paths);
   const byId = useMemo(() => new Map(conv.messages.map((m) => [m.id, m])), [conv.messages]);
-  const nameOf = useCallback((id: string | null) => (id === userId ? copy.you : (person(id)?.name ?? copy.someone)), [userId, copy, person]);
+  const people = usePeople(peopleIds);
+  const nameOf = useCallback(
+    (id: string | null) => (id === userId ? copy.you : ((person(id) ?? (id ? people[id] : undefined))?.name ?? copy.someone)),
+    [userId, copy, person, people],
+  );
 
   const fail = useCallback(() => {
     haptic(modules.haptics, "error");
@@ -137,9 +139,9 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const react = useCallback(
     (m: ChatMessage, emoji: string, on: boolean) => {
       haptic(modules.haptics, "select");
-      void actionsRef.current.react(m, emoji, on).catch(fail);
+      void messageActions.react(m, emoji, on).catch(fail);
     },
-    [modules.haptics, fail],
+    [modules.haptics, fail, messageActions],
   );
 
   // Stable handlers, so MessageBubble's memo holds while someone types or a row elsewhere changes.
@@ -155,6 +157,25 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const onRetry = useCallback((clientId: string) => void retry(clientId), [retry]);
   const onDiscard = useCallback((clientId: string) => void discard(clientId), [discard]);
   const onOpenImage = useCallback((uri: string, alt: string) => setViewer({ uri, alt }), []);
+  // Files that didn't survive a relaunch: photos and videos can be picked again; anything else can only be deleted.
+  const { reattach } = conv;
+  const picker = modules.imagePicker;
+  const onReattach = useCallback(
+    async (clientId: string, files: readonly PendingFile[]) => {
+      if (!picker) return;
+      try {
+        const result = await picker.launchImageLibraryAsync({ mediaTypes: ["images", "videos"], allowsMultipleSelection: files.length > 1, selectionLimit: files.length, quality: 0.8 });
+        if (!result || result.canceled || !result.assets?.length) return;
+        const { attachments, notice } = filesFromAssets(result.assets, copy);
+        if (notice) toast.show({ title: notice, variant: "destructive" });
+        if (attachments.length) await reattach(clientId, attachments.map((a) => a.file));
+      } catch {
+        fail();
+      }
+    },
+    [picker, copy, toast, reattach, fail],
+  );
+  const reattachable = useCallback((files: readonly PendingFile[]) => files.every((f) => !f.lost || f.kind === "image" || f.kind === "video"), []);
 
   const renderItem = useCallback(
     ({ item: row }: { item: ThreadRow }) => {
@@ -175,18 +196,19 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
           onSwipeReply={onSwipeReply}
           onRetry={onRetry}
           onDiscard={onDiscard}
+          onReattach={picker && row.item.type === "pending" && reattachable(row.item.pending.files ?? []) ? onReattach : undefined}
           onToggleReaction={allowed ? react : undefined}
           onOpenImage={onOpenImage}
           testID={`${testID}-message-${m?.id ?? row.key}`}
         />
       );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage],
+    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach],
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
-  // The hook says canPost false until it knows; with no role yet it doesn't know (anyone who can open it has one).
-  const canPost = conv.role === null ? null : conv.canPost;
+  // Unknown while access loads: the composer waits quietly instead of saying you can't post.
+  const canPost = conv.accessLoading ? null : conv.canPost;
   const disabledReason = composerDisabledReason(canPost, conv.conversation, conv.role, copy);
   const KeyboardAvoiding = (modules.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
   const offset = keyboardVerticalOffset ?? measuredTop;
@@ -196,65 +218,67 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
 
   const empty = !conv.isLoading && rows.length === 0;
   return (
-    <SafeAreaView ref={rootRef as never} onLayout={measureTop} testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
-      <KeyboardAvoiding style={{ flex: 1 }} {...keyboardProps}>
-        <View style={{ flex: 1 }}>
-          {conv.isLoading ? (
-            <LoadingThread testID={`${testID}-loading`} />
-          ) : empty ? (
-            <View style={{ flex: 1, justifyContent: "center" }}>
-              <NativeEmptyState variant="first-run" title={copy.threadEmptyTitle} body={copy.threadEmptyBody} testID={`${testID}-empty`} />
-            </View>
-          ) : (
-            <List
-              testID={`${testID}-list`}
-              data={rows}
-              inverted
-              renderItem={renderItem}
-              keyExtractor={(row) => row.key}
-              getItemType={(row) => (row.type === "message" ? (row.mine ? "mine" : "theirs") : row.type)}
-              onEndReached={() => {
-                if (conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
-              }}
-              onEndReachedThreshold={0.5}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="interactive"
-              contentContainerStyle={{ paddingVertical: 8 }}
-              // Earlier messages join at the far end of an inverted list, so what is on screen stays put;
-              // new ones join at the near end and the list follows them while you are at the bottom.
-              maintainVisibleContentPosition={{ autoscrollToTopThreshold: 120, minIndexForVisible: 0 }}
-              ListHeaderComponent={activity ? <ActivityLine text={activity} testID={`${testID}-activity`} /> : null}
-              ListFooterComponent={
-                conv.hasEarlier ? (
-                  <EarlierAnchor loading={conv.loadingEarlier} label={copy.loadEarlier} onPress={() => void conv.loadEarlier()} testID={`${testID}-earlier`} />
-                ) : null
-              }
-            />
-          )}
-        </View>
-        <ChatComposer
-          composer={composer}
-          canPost={canPost}
-          disabledReason={disabledReason}
-          role={conv.role}
-          onSend={({ input, files }) => {
-            void conv.send(input, files).catch(fail);
-          }}
-          signalTyping={conv.signalTyping}
-          signalRecording={conv.signalRecording}
-          testID={`${testID}-composer`}
+    <ChatPeopleScope userIds={peopleIds}>
+      <SafeAreaView ref={rootRef as never} onLayout={measureTop} testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+        <KeyboardAvoiding style={{ flex: 1 }} {...keyboardProps}>
+          <View style={{ flex: 1 }}>
+            {conv.isLoading ? (
+              <LoadingThread testID={`${testID}-loading`} />
+            ) : empty ? (
+              <View style={{ flex: 1, justifyContent: "center" }}>
+                <NativeEmptyState variant="first-run" title={copy.threadEmptyTitle} body={copy.threadEmptyBody} testID={`${testID}-empty`} />
+              </View>
+            ) : (
+              <List
+                testID={`${testID}-list`}
+                data={rows}
+                inverted
+                renderItem={renderItem}
+                keyExtractor={(row) => row.key}
+                getItemType={(row) => (row.type === "message" ? (row.mine ? "mine" : "theirs") : row.type)}
+                onEndReached={() => {
+                  if (conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
+                }}
+                onEndReachedThreshold={0.5}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+                contentContainerStyle={{ paddingVertical: 8 }}
+                // Earlier messages join at the far end of an inverted list, so what is on screen stays put;
+                // new ones join at the near end and the list follows them while you are at the bottom.
+                maintainVisibleContentPosition={{ autoscrollToTopThreshold: 120, minIndexForVisible: 0 }}
+                ListHeaderComponent={activity ? <ActivityLine text={activity} testID={`${testID}-activity`} /> : null}
+                ListFooterComponent={
+                  conv.hasEarlier ? (
+                    <EarlierAnchor loading={conv.loadingEarlier} label={copy.loadEarlier} onPress={() => void conv.loadEarlier()} testID={`${testID}-earlier`} />
+                  ) : null
+                }
+              />
+            )}
+          </View>
+          <ChatComposer
+            composer={composer}
+            canPost={canPost}
+            disabledReason={disabledReason}
+            role={conv.role}
+            onSend={({ input, files }) => {
+              void conv.send(input, files).catch(fail);
+            }}
+            signalTyping={conv.signalTyping}
+            signalRecording={conv.signalRecording}
+            testID={`${testID}-composer`}
+          />
+        </KeyboardAvoiding>
+        <MessageActionsSheet
+          message={actionsFor}
+          context={{ me: userId, role: conv.role, canPost: conv.canPost, pinned: actionsFor ? pins.includes(actionsFor.id) : false, canPin: conv.canPin, canCopy: Boolean(modules.clipboard) }}
+          onClose={() => setActionsFor(null)}
+          onReact={react}
+          onAction={onAction}
+          testID={`${testID}-actions`}
         />
-      </KeyboardAvoiding>
-      <MessageActionsSheet
-        message={actionsFor}
-        context={{ me: userId, role: conv.role, canPost: conv.canPost, pinned: actionsFor ? pins.includes(actionsFor.id) : false, direct, canCopy: Boolean(modules.clipboard) }}
-        onClose={() => setActionsFor(null)}
-        onReact={react}
-        onAction={onAction}
-        testID={`${testID}-actions`}
-      />
-      <ChatMediaViewer image={viewer} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />
-    </SafeAreaView>
+        <ChatMediaViewer image={viewer} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />
+      </SafeAreaView>
+    </ChatPeopleScope>
   );
 }
 

@@ -2,9 +2,11 @@
  * @feat:chat
  * What the native screens share: the native modules the app passed, the copy,
  * and how to name and picture a person (the chat schema stores user ids only;
- * names and avatars are the app's, from its own profiles).
+ * names and avatars are the app's, from its own profiles: `ChatProvider
+ * loadPeople`, read through `usePeople`, or `getPerson` here, which wins).
  */
 import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { usePeople } from "../react/index";
 import { resolveChatCopy, type ChatNativeCopy, type ChatNativeCopyOverrides } from "./copy";
 import type { ChatNativeModules } from "./modules";
 
@@ -28,7 +30,7 @@ export interface ChatNativeProviderProps {
   /** Define at module scope: a new object every render re-renders every chat screen. */
   modules?: ChatNativeModules;
   copy?: ChatNativeCopyOverrides;
-  /** Names and avatars, from the app's profiles (a cached query is fine). */
+  /** Names and avatars the app already has; wins over `ChatProvider loadPeople`. */
   getPerson?: (userId: string) => ChatPerson | undefined;
   children: ReactNode;
 }
@@ -44,6 +46,20 @@ export function ChatNativeProvider({ modules = EMPTY_MODULES, copy, getPerson, c
 
 export function useChatNative(): ChatNativeContextValue {
   return useContext(Context);
+}
+
+/**
+ * Below it, `person()` also knows these people, fetched in one batch through
+ * `ChatProvider loadPeople` (a screen wraps its rows in it with the ids it shows).
+ */
+export function ChatPeopleScope({ userIds, children }: { userIds: readonly (string | null | undefined)[]; children: ReactNode }) {
+  const parent = useContext(Context);
+  const people = usePeople(userIds as (string | null | undefined)[]);
+  const value = useMemo<ChatNativeContextValue>(
+    () => ({ ...parent, person: (id) => parent.person(id) ?? (id ? people[id] : undefined) }),
+    [parent, people],
+  );
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
 /** "SA" for "Sam Altman", "S" for "sam". */

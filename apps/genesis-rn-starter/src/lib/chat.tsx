@@ -5,39 +5,35 @@
  * `src/app/(app)/messages/_layout.tsx` mounts `ChatRoot` over the Messages
  * tab; `push.ts` adds the category and the reply handler.
  *
- * Names and avatars: genesis-chat stores user ids only. Pass `getPerson` (from
- * your profiles) to `ChatRoot` to show who is who; without it a direct
- * conversation shows its title, or "Conversation".
+ * Names and avatars: genesis-chat stores user ids only. Pass `loadPeople` (a
+ * batch read of your profiles: `{ [userId]: { name, avatarUrl } }`) to
+ * `ChatRoot` to show who is who; without it a direct conversation shows its
+ * title, or "Conversation", and avatars their initials' fallback.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Audio from "expo-audio";
 import * as Clipboard from "expo-clipboard";
 import * as ExpoCrypto from "expo-crypto";
+import { File, Paths } from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Notifications from "expo-notifications";
 import type { ReactNode } from "react";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-import { createChatClient, type OutboxStore, type QueuedMessage } from "@marktiderman/genesis-chat";
-import { ChatProvider } from "@marktiderman/genesis-chat/react";
+import { createChatClient, type LocalFile, type OutboxStore, type QueuedMessage } from "@marktiderman/genesis-chat";
+import { ChatProvider, type ChatProviderProps } from "@marktiderman/genesis-chat/react";
 import {
   ChatNativeProvider,
   createTusUpload,
   handleChatPushResponse,
   registerChatNotificationActions,
   type ChatNativeModules,
-  type ChatPerson,
 } from "@marktiderman/genesis-chat/native";
 import { useSession } from "@marktiderman/genesis-native";
 import starter from "../../starter.config";
 import { copy } from "@/copy";
 import { env } from "./env";
 import { supabase } from "./supabase";
-
-// genesis-chat makes each message's client id with `crypto.randomUUID`, which Hermes may not have:
-// expo-crypto's stands in (after supabase.ts, which installs `crypto.getRandomValues`).
-const webCrypto = ((globalThis as { crypto?: Partial<Crypto> }).crypto ??= {}) as Partial<Crypto>;
-if (typeof webCrypto.randomUUID !== "function") webCrypto.randomUUID = ExpoCrypto.randomUUID as Crypto["randomUUID"];
 
 export const chatClient = createChatClient(supabase);
 
@@ -72,11 +68,32 @@ function outboxStore(userId: string): OutboxStore {
 
 const accessToken = async () => (await supabase.auth.getSession()).data.session?.access_token;
 
+/**
+ * A file held as bytes (a pasted picture) copied into the cache directory, so an unsent message
+ * keeps it across a relaunch. The outbox only calls this for bytes; picked files are already URIs.
+ */
+async function persistFile(file: LocalFile): Promise<string> {
+  const data = file.data;
+  const bytes = data instanceof ArrayBuffer ? data : typeof data === "object" && typeof data.arrayBuffer === "function" ? await data.arrayBuffer() : null;
+  if (!bytes) throw new Error(`[chat] can't keep ${file.name}: no bytes to write`);
+  const safe = file.name.replace(/[^\w.-]+/g, "_").slice(-80) || "file";
+  const out = new File(Paths.cache, `genesis-chat-${ExpoCrypto.randomUUID()}-${safe}`);
+  out.create({ overwrite: true });
+  await out.write(new Uint8Array(bytes));
+  return out.uri;
+}
+
+type LoadPeople = NonNullable<ChatProviderProps["loadPeople"]>;
+
 /** The providers the Messages screens read: the signed-in person's chat, with its uploads and drafts. */
-export function ChatRoot({ children, getPerson }: { children: ReactNode; getPerson?: (userId: string) => ChatPerson | undefined }) {
+export function ChatRoot({ children, loadPeople }: { children: ReactNode; loadPeople?: LoadPeople }) {
   const { userId } = useSession();
   if (!userId) return null;
-  return <ChatForUser userId={userId} getPerson={getPerson}>{children}</ChatForUser>;
+  return (
+    <ChatForUser userId={userId} loadPeople={loadPeople}>
+      {children}
+    </ChatForUser>
+  );
 }
 
 const stores = new Map<string, { store: OutboxStore; upload: ReturnType<typeof createTusUpload> }>();
@@ -92,11 +109,11 @@ function forUser(userId: string) {
   return s;
 }
 
-function ChatForUser({ userId, getPerson, children }: { userId: string; getPerson?: (userId: string) => ChatPerson | undefined; children: ReactNode }) {
+function ChatForUser({ userId, loadPeople, children }: { userId: string; loadPeople?: LoadPeople; children: ReactNode }) {
   const { store, upload } = forUser(userId);
   return (
-    <ChatProvider client={chatClient} userId={userId} outboxStore={store} upload={upload}>
-      <ChatNativeProvider modules={modules} copy={copy.chat} getPerson={getPerson}>
+    <ChatProvider client={chatClient} userId={userId} outboxStore={store} upload={upload} newId={ExpoCrypto.randomUUID} persistFile={persistFile} loadPeople={loadPeople}>
+      <ChatNativeProvider modules={modules} copy={copy.chat}>
         {children}
       </ChatNativeProvider>
     </ChatProvider>

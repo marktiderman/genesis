@@ -81,6 +81,15 @@ describe("handleChatPushResponse", () => {
     expect(client.send).not.toHaveBeenCalled();
   });
 
+  it("reads the data createChatRunner sends: conversationId and seq, and a seq that is null", async () => {
+    const client = fakeClient();
+    const data = { url: chatPath(CONV), conversationId: CONV, messageId: "m1", seq: 12 };
+    expect(await handleChatPushResponse(response("mark-read", {}, data), { client })).toBe("marked-read");
+    expect(client.markRead).toHaveBeenLastCalledWith(CONV, 12);
+    await handleChatPushResponse(response("mark-read", {}, { conversationId: CONV, seq: null }), { client });
+    expect(client.markRead).toHaveBeenLastCalledWith(CONV, undefined);
+  });
+
   it("leaves taps, empty replies and other pushes alone", async () => {
     const client = fakeClient();
     expect(await handleChatPushResponse(response("expo.modules.notifications.actions.DEFAULT"), { client })).toBe("ignored");
