@@ -124,7 +124,7 @@ function setup(options: Setup = {}) {
 function request(body: unknown, headers: Record<string, string> = {}) {
   return new Request("https://riverside.example/api/upload/broken-kit", {
     method: "POST",
-    headers: { "x-forwarded-for": "203.0.113.7", "content-type": "application/json", ...headers },
+    headers: { "x-vercel-forwarded-for": "203.0.113.7", "content-type": "application/json", ...headers },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }

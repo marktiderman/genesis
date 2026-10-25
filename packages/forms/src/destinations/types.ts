@@ -109,6 +109,12 @@ export interface DeliveryFailure {
   retryAfterSeconds?: number;
   /** The HTTP status that refused it, if one did. */
   status?: number;
+  /**
+   * The receiver asked to be switched off (a webhook answered 410 Gone, as
+   * Standard Webhooks specifies): disable the destination rather than keep
+   * sending to it. Always with `retryable: false`.
+   */
+  disable?: true;
   /** Safe to store and log: a status and a short reason, never secrets, answers or contact details. */
   error: string;
 }
@@ -147,12 +153,20 @@ export class DeliveryError extends Error {
   readonly retryable: boolean;
   readonly retryAfterSeconds: number | undefined;
   readonly status: number | undefined;
+  /** The receiver asked to be switched off (`DeliveryFailure.disable`); never retryable. */
+  readonly disable: boolean;
   constructor(
     message: string,
-    options: { retryable?: boolean | undefined; retryAfterSeconds?: number | undefined; status?: number | undefined } = {},
+    options: {
+      retryable?: boolean | undefined;
+      retryAfterSeconds?: number | undefined;
+      status?: number | undefined;
+      disable?: boolean | undefined;
+    } = {},
   ) {
     super(message);
-    this.retryable = options.retryable ?? false;
+    this.disable = options.disable ?? false;
+    this.retryable = !this.disable && (options.retryable ?? false);
     this.retryAfterSeconds = options.retryAfterSeconds;
     this.status = options.status;
   }
@@ -222,6 +236,7 @@ export function deliveryFailure(error: unknown): DeliveryFailure {
       error: error.message.slice(0, 500),
       ...(error.retryAfterSeconds !== undefined ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
       ...(error.status !== undefined ? { status: error.status } : {}),
+      ...(error.disable ? { disable: true as const } : {}),
     };
   }
   const name = error instanceof Error ? error.name : "";

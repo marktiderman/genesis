@@ -73,6 +73,7 @@ export {
 export {
   checkWebhookUrl,
   isPrivateHost,
+  MIN_WEBHOOK_SECRET_BYTES,
   newWebhookSecret,
   signWebhook,
   verifyWebhook,
@@ -113,7 +114,7 @@ export {
   type GoogleOAuthTokenOptions,
   type RefreshedGoogleToken,
 } from "./destinations/google-oauth";
-export { deriveSecretKey, openSecret, sealSecret, secretKeyBytes } from "./destinations/secret-box";
+export { deriveSecretKey, openSecret, sealSecret, secretKeyBytes, type DeriveSecretKeyOptions } from "./destinations/secret-box";
 export {
   createDeliveryRunner,
   DEFAULT_BATCH_SIZE,

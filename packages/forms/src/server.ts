@@ -363,6 +363,7 @@ export {
   addressPrefix,
   rateLimitKey,
   allow,
+  type ClientIpOptions,
   type RateLimitStore,
 } from "./rate-limit";
 export {

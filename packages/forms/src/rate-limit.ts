@@ -9,10 +9,28 @@
  */
 
 /**
- * The headers a proxy reports the client's address in, most trusted first. Trust only
- * headers your proxy sets (and overwrites): a client can send any of them itself.
+ * The headers a platform reports the client's address in, most trusted first: Vercel's
+ * `x-vercel-forwarded-for` and Cloudflare's `cf-connecting-ip`, which the platform sets
+ * itself. `x-forwarded-for` is not read by default: its leftmost entries are whatever the
+ * client sent (MDN), so only the hop your own proxy appended can be trusted; opt in with
+ * `forwardedForHops`. A header is only trustworthy behind the platform that sets it: on any
+ * other host a client can send it, so pass the list your host actually has.
  */
-export const DEFAULT_TRUSTED_IP_HEADERS: readonly string[] = ["x-vercel-forwarded-for", "x-forwarded-for", "x-real-ip"];
+export const DEFAULT_TRUSTED_IP_HEADERS: readonly string[] = ["x-vercel-forwarded-for", "cf-connecting-ip"];
+
+/** Where `clientIp` looks for the address. */
+export interface ClientIpOptions {
+  /** Headers your platform sets (and overwrites), most trusted first. Default `DEFAULT_TRUSTED_IP_HEADERS`. */
+  headers?: readonly string[] | undefined;
+  /**
+   * Read `x-forwarded-for` too, after `headers`: the number of proxies you run in front of
+   * the app that each append the address they saw. The entry that many places from the
+   * right is the client (1: the rightmost). Entries left of it are the client's own and
+   * never read. Unset (the default), `x-forwarded-for` is ignored. Behind only your own
+   * proxies, pass `headers: []` as well, so a client can't send a platform header.
+   */
+  forwardedForHops?: number | undefined;
+}
 
 /**
  * How many submits, saves as they go and photo uploads one client may make per scope
@@ -31,15 +49,34 @@ export const RATE_LIMIT_DEFAULTS = {
 } as const satisfies Record<string, { limit: number; windowSeconds: number }>;
 
 /**
- * The client's address as the proxy reports it, used only as a rate-limit key: the first
- * entry of the first of `trusted` that is set, trimmed, else `"unknown"`.
+ * The client's address as the platform reports it, used only as a rate-limit key: the
+ * first entry of the first trusted header that is set (`DEFAULT_TRUSTED_IP_HEADERS` by
+ * default), then, only when `forwardedForHops` is set, the `x-forwarded-for` entry that
+ * many places from the right; else `"unknown"`. The second argument may also be the
+ * header list alone.
  */
-export function clientIp(headers: Pick<Headers, "get">, trusted: readonly string[] = DEFAULT_TRUSTED_IP_HEADERS): string {
+export function clientIp(
+  headers: Pick<Headers, "get">,
+  options: readonly string[] | ClientIpOptions = DEFAULT_TRUSTED_IP_HEADERS,
+): string {
+  const { headers: trusted = DEFAULT_TRUSTED_IP_HEADERS, forwardedForHops: hops } = isHeaderList(options)
+    ? { headers: options }
+    : options;
   for (const name of trusted) {
     const first = headers.get(name)?.split(",")[0]?.trim();
     if (first) return first;
   }
+  if (hops !== undefined) {
+    if (!Number.isInteger(hops) || hops < 1) throw new RangeError("forwardedForHops must be a whole number of at least 1");
+    const entries = (headers.get("x-forwarded-for") ?? "").split(",").map((entry) => entry.trim());
+    const entry = entries.length >= hops ? entries[entries.length - hops] : undefined;
+    if (entry) return entry;
+  }
   return "unknown";
+}
+
+function isHeaderList(options: readonly string[] | ClientIpOptions): options is readonly string[] {
+  return Array.isArray(options);
 }
 
 /** The part of an address that names one client: an IPv4 address whole, an IPv6 address by its /64. */
