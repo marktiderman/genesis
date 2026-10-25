@@ -17,6 +17,7 @@ const en = {
   signIn: {
     headline: "Welcome",
     subhead: "Sign in to continue.",
+    createSubhead: "Create an account to get started.",
     submit: "Sign in",
     createSubmit: "Create account",
     switchToCreate: "New here? Create an account",
