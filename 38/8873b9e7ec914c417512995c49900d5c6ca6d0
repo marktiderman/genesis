@@ -1,0 +1,59 @@
+apps/genesis-rn-starter/__tests__/app-config.test.ts
+  s_8252619ce79a86::t_5ca0528908c788 52-64
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_9d2642ffb613b2 44-47
+packages/chat/package.json
+  s_8252619ce79a86::t_c00a05e20c37e5 46-51
+packages/chat/src/native/__tests__/push-payload.test.ts
+  s_8252619ce79a86::t_9d4aed9f2de2fc 1-66
+packages/chat/src/native/index.ts
+  s_8252619ce79a86::t_f6d2c8e7dcbd8f 82,84-86
+packages/chat/src/native/push.ts
+  s_8252619ce79a86::t_08beefa361757a 16-19,197-284
+packages/chat/tsup.config.ts
+  s_8252619ce79a86::t_cf45a5a15f329f 9
+packages/native/ios/notification-service/NotificationService.swift
+  s_8252619ce79a86::t_173599f9c1cfc9 1-291
+packages/native/package.json
+  s_8252619ce79a86::t_8571accfbdee89 45-49,64-68,74,91-92,101-106,119-121,133-134
+packages/native/src/__tests__/push/payload.test.ts
+  s_8252619ce79a86::t_0948da48858a7b 1-44
+packages/native/src/plugin/__tests__/fixtures/project.pbxproj
+  s_8252619ce79a86::t_2acb52c8ec863e 1-446
+packages/native/src/plugin/__tests__/rich-push.test.ts
+  s_8252619ce79a86::t_e2a84d530fac39 1-183
+packages/native/src/plugin/rich-push.ts
+  s_8252619ce79a86::t_8c0b97784c8b9b 1-280
+packages/native/src/push/index.ts
+  s_8252619ce79a86::t_abeaace97e7ea7 88
+packages/native/src/push/payload.ts
+  s_8252619ce79a86::t_5cf8009d72fa85 1-57
+packages/native/tsup.config.ts
+  s_8252619ce79a86::t_69e68b3705c868 9-10,29
+pnpm-lock.yaml
+  s_c0870a827920ef::t_7cdffc1c0a80b0 536-999,1641-1646,13081-13085,13669-13679,16699-16714,16727-16738,16769-16780,16809-16819,18358-18374,18398-18412,18424-18434,18444-18452,18482-18510,18522-18532,18555-18576,18629-18669
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "388873b9e7ec914c417512995c49900d5c6ca6d0",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
