@@ -15,7 +15,7 @@ import { BUILT_IN_SECTION_TYPES, createMemorySiteStore, migrateNode, defineSecti
 import { createEditorConfig, type CanvasMetadata } from "../editor/config";
 import { countTypes, fromEditorData, h1SectionId, placeholderSnapshot, pruneEmpty, safeSectionId, toEditorData } from "../editor/data";
 import { SectionNode } from "../core/schemas";
-import { sectionFields } from "../editor/fields";
+import { fieldFor, sectionFields, type FieldContext } from "../editor/fields";
 import { Autosaver, AutosaveBlockedError } from "../editor/autosave";
 import { checkSite, pageTemplates, pathProblems, publishSite, renamePage, slugify } from "../editor/site-actions";
 import { brand, sectionProps } from "./fixtures";
@@ -141,6 +141,16 @@ describe("createEditorConfig", () => {
     expect(root.header!.allow).toEqual(expect.arrayContaining(["nav"]));
     expect(root.header!.allow).not.toContain("hero");
     expect(root.footer!.allow).toEqual(expect.arrayContaining(["footer"]));
+  });
+
+  it("makes only a section's own props slots; a slot inside an object or a list item is reported", () => {
+    const slot = { "x-genesis-kind": "slot" } as never;
+    const ctx: FieldContext = { path: "", unsupported: [], slots: [] };
+    expect(fieldFor("children", slot, false, ctx)).toMatchObject({ type: "slot" });
+    fieldFor("box", { type: "object", properties: { inner: slot } } as never, false, ctx);
+    fieldFor("items", { type: "array", items: { type: "object", properties: { inner: slot } } } as never, false, ctx);
+    expect(ctx.slots).toEqual(["children"]);
+    expect(ctx.unsupported).toEqual(["box.inner", "items[].inner"]);
   });
 
   it("turns insert off everywhere while the page is read-only", () => {

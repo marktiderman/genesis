@@ -91,3 +91,32 @@ describe("files across a relaunch", () => {
     expect(again.sent).toHaveLength(1);
   });
 });
+
+describe("reattaching only what was lost", () => {
+  it("fills the lost slots and keeps the files that survived", async () => {
+    const store = memoryOutboxStore();
+    const first = fakeClient();
+    (first.client.upload as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("offline"));
+    const before = createOutbox({ client: first.client, userId: "me", store });
+    const id = await before.send({ conversationId: "c1" }, [
+      { data: "file:///docs/plan.pdf", name: "plan.pdf", contentType: "application/pdf" },
+      { data: new Blob(["png"]), name: "paste.png", contentType: "image/png" },
+    ]);
+    await tick();
+
+    const again = fakeClient();
+    const after = createOutbox({ client: again.client, userId: "me", store, readFile: async () => new Blob(["pdf"]) });
+    await after.load();
+    expect(after.pending("c1")[0]!.files!.map((f) => [f.name, Boolean(f.lost)])).toEqual([["plan.pdf", false], ["paste.png", true]]);
+
+    // Saving again (any change) must not forget which slot was lost.
+    await after.retryAll();
+    expect(((await store.load()) as QueuedMessage[])[0]!.pendingFiles!.map((f) => Boolean(f.lost))).toEqual([false, true]);
+
+    await after.reattach(id, [{ data: new Blob(["png2"]), name: "paste-again.png", contentType: "image/png" }]);
+    await tick();
+    expect(again.client.upload).toHaveBeenCalledTimes(2);
+    expect((again.client.upload as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[3].name)).toEqual(["plan.pdf", "paste-again.png"]);
+    expect(again.sent).toHaveLength(1);
+  });
+});

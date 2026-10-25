@@ -21,6 +21,13 @@ import type { ComponentInfo } from "./config";
 
 const usePuck = createUsePuck();
 
+/**
+ * Is the editor locked (view-only, or a publish holding it)? Puck's
+ * permissions stop dragging, but these controls call Puck's raw `dispatch`,
+ * which skips them: each control checks this itself.
+ */
+export const EditorLockContext = React.createContext(false);
+
 interface BaseProps {
   field: { label?: string; placeholder?: string; options?: readonly { label: string; value: unknown }[]; min?: number; max?: number; step?: number; metadata?: unknown };
   name: string;
@@ -145,9 +152,11 @@ function ComponentItem({ name, info, announce }: { name: string; info: ReadonlyM
   const used = React.useMemo(() => countTypes(data).get(type) ?? 0, [data, type]);
   const full = meta?.limit !== undefined && used >= meta.limit;
   const dispatch = usePuck((s) => s.dispatch);
+  const locked = React.useContext(EditorLockContext);
   const label = meta?.label ?? name;
   /** Dragging isn't the only way in (WCAG 2.5.7): the button adds the section at the end of its zone and selects it. */
   const add = () => {
+    if (locked) return;
     const zone = meta?.placement === "header" ? "root:header" : meta?.placement === "footer" ? "root:footer" : "root:default-zone";
     const list = zone === "root:header" ? data.root.props.header : zone === "root:footer" ? data.root.props.footer : data.content;
     const index = list?.length ?? 0;
@@ -185,7 +194,7 @@ function ComponentItem({ name, info, announce }: { name: string; info: ReadonlyM
           Limit reached
         </Badge>
       ) : (
-        <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 px-2" aria-label={`Add ${label}`} onPointerDown={(e) => e.stopPropagation()} onClick={add}>
+        <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 px-2" aria-label={`Add ${label}`} disabled={locked} onPointerDown={(e) => e.stopPropagation()} onClick={add}>
           Add
         </Button>
       )}
@@ -203,6 +212,7 @@ function SectionActions({ info, announce }: { info: ReadonlyMap<string, Componen
   const getSelectorForId = usePuck((s) => s.getSelectorForId);
   const getItemBySelector = usePuck((s) => s.getItemBySelector);
   const dispatch = usePuck((s) => s.dispatch);
+  const locked = React.useContext(EditorLockContext);
   const upRef = React.useRef<HTMLButtonElement>(null);
   const downRef = React.useRef<HTMLButtonElement>(null);
   if (!selected) return null;
@@ -214,6 +224,7 @@ function SectionActions({ info, announce }: { info: ReadonlyMap<string, Componen
   const canUp = index > 0;
   const canDown = Boolean(getItemBySelector({ index: index + 1, zone }));
   const move = (by: -1 | 1) => {
+    if (locked) return;
     const to = index + by;
     dispatch({ type: "reorder", sourceIndex: index, destinationIndex: to, destinationZone: zone });
     dispatch({ type: "setUi", ui: { itemSelector: { index: to, zone } } });
@@ -229,10 +240,10 @@ function SectionActions({ info, announce }: { info: ReadonlyMap<string, Componen
     <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-border px-1 pb-2" role="group" aria-label={`${label} section`}>
       <span className="text-sm font-semibold">{label}</span>
       <div className="flex gap-1">
-        <Button ref={upRef} type="button" size="sm" variant="outline" disabled={!canUp} onClick={() => move(-1)} aria-label={`Move ${label} up`}>
+        <Button ref={upRef} type="button" size="sm" variant="outline" disabled={locked || !canUp} onClick={() => move(-1)} aria-label={`Move ${label} up`}>
           Up
         </Button>
-        <Button ref={downRef} type="button" size="sm" variant="outline" disabled={!canDown} onClick={() => move(1)} aria-label={`Move ${label} down`}>
+        <Button ref={downRef} type="button" size="sm" variant="outline" disabled={locked || !canDown} onClick={() => move(1)} aria-label={`Move ${label} down`}>
           Down
         </Button>
         <Button
@@ -240,7 +251,9 @@ function SectionActions({ info, announce }: { info: ReadonlyMap<string, Componen
           size="sm"
           variant="outline"
           aria-label={`Remove ${label}`}
+          disabled={locked}
           onClick={() => {
+            if (locked) return;
             dispatch({ type: "remove", index, zone });
             dispatch({ type: "setUi", ui: { itemSelector: null } });
             announce?.(`${label} removed. Undo brings it back.`);

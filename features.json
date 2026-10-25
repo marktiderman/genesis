@@ -2937,11 +2937,9 @@
     {
       "id": "push-sender",
       "name": "Push sender, devices and preferences",
-      "summary": "Migration 0005 and the genesis-push-send Edge Function: push_devices, notification_preferences and push_receipts under owner-only row level security; genesis_push_targets returns the devices a push may reach now, honouring categories, quiet hours in the person's time zone (past midnight and across daylight saving) and hidden previews; the function sends through Expo in batches of 100, swaps hidden previews for neutral text on the server, records a receipt per ticket with no content, polls the receipts and forgets DeviceNotRegistered devices.",
+      "summary": "Superseded by notifications (genesis-notifications adopts these tables and replaces the sender). Migration 0005 and the genesis-push-send Edge Function: push_devices, notification_preferences and push_receipts under owner-only row level security; genesis_push_targets returns the devices a push may reach now, honouring categories, quiet hours in the person's time zone (past midnight and across daylight saving) and hidden previews; the function sends through Expo in batches of 100, swaps hidden previews for neutral text on the server, records a receipt per ticket with no content, polls the receipts and forgets DeviceNotRegistered devices.",
       "category": "Engagement",
-      "status": "building",
-      "claimedBy": "mark",
-      "horizon": "now",
+      "status": "deprecated",
       "layer": "service",
       "keywords": [
         "push sender",
@@ -2956,7 +2954,7 @@
         "rls"
       ],
       "platforms": {
-        "server": "building"
+        "server": "deprecated"
       },
       "entry": {
         "server": "@marktiderman/genesis-supabase"
@@ -2987,6 +2985,150 @@
         ],
         "docs": [
           "packages/supabase/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "notifications",
+      "name": "Notifications",
+      "summary": "@marktiderman/genesis-notifications: one notifier for every domain. A domain says who and what (notify() over the security-definer genesis_notify, with an idempotency key per recipient, thread and collapse keys, a badge and a tenant); the notifier decides channel and timing: the in-app feed (which is also the outbox), Expo push and email, preferences by category and channel with tenant defaults and critical types always on, quiet hours across daylight saving, delay-then-skip-if-read for email, dedupe, retries on one shared runner (claim with SKIP LOCKED, jittered backoff, deferrals), receipts and dead-token pruning, erasure of people with or without a login, and a short delivery log. defineNotifications registers the types, the device action categories (Reply, Mark as read) and the Android channels. Hooks for React and React Native, a web bell, feed, preferences matrix and admin views (delivery log, suppression list, send a test) on genesis-ui, a native feed on genesis-ui-native's NotificationsPage. Push ownership moves here from migration 0005, which it adopts in place.",
+      "category": "Engagement",
+      "status": "building",
+      "claimedBy": "mark",
+      "horizon": "now",
+      "layer": "block",
+      "keywords": [
+        "notifications",
+        "notify",
+        "in-app feed",
+        "inbox",
+        "bell",
+        "unread count",
+        "push",
+        "email",
+        "preferences",
+        "quiet hours",
+        "outbox",
+        "idempotency",
+        "delivery log",
+        "realtime",
+        "erasure",
+        "collapse",
+        "badge"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building",
+        "server": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-notifications/web",
+        "native": "@marktiderman/genesis-notifications/native",
+        "server": "@marktiderman/genesis-notifications/server"
+      },
+      "requires": [
+        "push",
+        "native-layouts",
+        "page-layouts",
+        "supabase-kit"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "end user",
+        "admin"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A notification is unique per recipient and idempotency key: the same key again creates nothing and queues nothing.",
+        "A person reads only their own feed rows; the delivery log shows admins status and a masked address, never content, a rendered email or a secret.",
+        "Preferences resolve as the person's choice for the category and channel, then the tenant's default, then the type's; a critical type ignores both; a choice made after queueing is honoured at send time.",
+        "A push in the person's quiet hours waits until they end (no attempt used), across daylight-saving changes; a transactional one goes through.",
+        "A secret never appears in notifications.data or a push: genesis_notify refuses secret-looking keys and links, and a one-time token travels encrypted on the email job and is cleared once it settles.",
+        "Erasing a person (by login, address or the domain's ref) deletes their notifications, send jobs, devices, receipts and preferences.",
+        "A push token moves to another login only when registered with the same install id, and every move is recorded; forget works signed out and reveals nothing.",
+        "cancelNotification cancels the pending jobs of an idempotency key (for some recipients, archiving the feed rows if asked); a cancelled job is never claimed and a sent one is left alone.",
+        "Not yet run against Expo or Resend with real credentials."
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/notifications"
+        ],
+        "docs": [
+          "docs/NOTIFICATIONS.md",
+          "packages/notifications/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "notifications-email",
+      "name": "Notification email",
+      "summary": "The notifier's email channel on Resend: one app key, a sender identity per tenant (the shared domain with the tenant's name and reply-to, or its own verified domain, with an SPF, DKIM and DMARC check), transactional and other mail from separate domains, React Email templates on a brand layout, each email rendered once at first claim and stored so retries are byte-identical under one idempotency key (409 invalid_idempotent_request counts as sent), RFC 8058 one-click unsubscribe on everything that isn't transactional, secret links built at send time with resolveSecretLink, and bounce and complaint webhooks feeding a suppression list kept by hash.",
+      "category": "Engagement",
+      "status": "building",
+      "claimedBy": "mark",
+      "horizon": "now",
+      "layer": "service",
+      "keywords": [
+        "email",
+        "resend",
+        "react email",
+        "unsubscribe",
+        "list-unsubscribe",
+        "rfc 8058",
+        "bounce",
+        "complaint",
+        "suppression",
+        "spf",
+        "dkim",
+        "dmarc",
+        "sender domain",
+        "secret link",
+        "idempotency"
+      ],
+      "platforms": {
+        "server": "deprecated"
+      },
+      "entry": {
+        "server": "@marktiderman/genesis-notifications/server"
+      },
+      "extends": "notifications",
+      "requires": [
+        "notifications"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "admin"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A retry sends the stored first render with the same idempotency key; a stored render whose hash changed is never sent.",
+        "Mail that isn't transactional carries List-Unsubscribe and List-Unsubscribe-Post; the endpoint never unsubscribes on GET, and a forged token changes nothing.",
+        "A hard bounce suppresses the address for all mail; a complaint for all but transactional mail.",
+        "Not yet sent through Resend with a real key."
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/notifications/src/server",
+          "packages/notifications/src/email"
+        ],
+        "docs": [
+          "docs/NOTIFICATIONS.md"
         ]
       },
       "access": "all",

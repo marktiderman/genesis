@@ -16,17 +16,22 @@
     "provenance": false
   },
   "main": "./dist/index.js",
+  "react-native": "./src/index.ts",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "react-native": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./react": {
       "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
+      "react-native": "./src/react/index.tsx",
+      "import": "./dist/react.js",
+      "default": "./dist/react.js"
     },
     "./web": {
       "types": "./dist/web.d.ts",
@@ -34,7 +39,9 @@
     },
     "./native": {
       "types": "./dist/native.d.ts",
-      "import": "./dist/native.js"
+      "react-native": "./src/native/index.ts",
+      "import": "./dist/native.js",
+      "default": "./dist/native.js"
     },
     "./server": {
       "types": "./dist/server.d.ts",
@@ -43,6 +50,7 @@
   },
   "files": [
     "dist",
+    "src",
     "migrations",
     "README.md"
   ],

@@ -25,3 +25,33 @@ export function pathForResponse(response: NotificationResponseLike, links?: Link
   const path = normalizeLink(url, ANY_PATH);
   return path === "/" && url.split(/[?#]/)[0] !== "/" ? null : path;
 }
+
+/** A notification action (a button such as Reply or Mark as read), as the app handles it. */
+export interface NotificationAction {
+  /** The button's id (`reply`, `mark_read`); the plain tap is not an action. */
+  actionId: string;
+  /** The notifier's id for the notification (`data.notification_id`): use it as the reply's client id, so a retried reply stays one reply. */
+  notificationId: string | null;
+  /** What the person typed, for a text-input action. */
+  text: string | null;
+  /** `data.url`, the screen it belongs to (`/messages/<conversation>`). */
+  url: string | null;
+  data: Record<string, unknown>;
+}
+
+/**
+ * The action in a response, or null for a plain tap (`defaultActionId`,
+ * expo-notifications' `DEFAULT_ACTION_IDENTIFIER`) or a dismissal.
+ */
+export function notificationAction(response: NotificationResponseLike, defaultActionId = "expo.modules.notifications.actions.DEFAULT"): NotificationAction | null {
+  const id = response.actionIdentifier;
+  if (!id || id === defaultActionId || id === "com.apple.UNNotificationDismissActionIdentifier") return null;
+  const data = notificationData(response.notification);
+  return {
+    actionId: id,
+    notificationId: typeof data.notification_id === "string" ? data.notification_id : null,
+    text: typeof response.userText === "string" ? response.userText : null,
+    url: typeof data.url === "string" ? data.url : null,
+    data,
+  };
+}

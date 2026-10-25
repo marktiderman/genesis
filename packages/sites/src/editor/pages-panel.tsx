@@ -239,7 +239,7 @@ export function menuItemProblems(item: MenuItem): string[] {
  * the menu as typed (so a link being fixed survives a tab switch) and saves
  * it whenever every item is valid.
  */
-function MenuEditor({ nav, pages, onChange }: { nav: readonly MenuItem[]; pages: readonly PageMeta[]; onChange(nav: MenuItem[]): void }) {
+function MenuEditor({ nav, pages, busy, onChange }: { nav: readonly MenuItem[]; pages: readonly PageMeta[]; busy: boolean; onChange(nav: MenuItem[]): void }) {
   const items = nav;
   const id = React.useId();
   const list = React.useRef<HTMLOListElement>(null);
@@ -269,13 +269,13 @@ function MenuEditor({ nav, pages, onChange }: { nav: readonly MenuItem[]; pages:
                 <Label htmlFor={`${id}-${i}-label`} className="text-xs">
                   Label
                 </Label>
-                <Input id={`${id}-${i}-label`} value={item.label} maxLength={40} onChange={(e) => commit(items.map((x, k) => (k === i ? { ...x, label: e.currentTarget.value } : x)))} />
+                <Input id={`${id}-${i}-label`} value={item.label} maxLength={40} disabled={busy} onChange={(e) => commit(items.map((x, k) => (k === i ? { ...x, label: e.currentTarget.value } : x)))} />
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor={`${id}-${i}-href`} className="text-xs">
                   Link
                 </Label>
-                <Input id={`${id}-${i}-href`} value={item.href} aria-invalid={problems.length > 0 || undefined} aria-describedby={`${id}-${i}-err`} onChange={(e) => commit(items.map((x, k) => (k === i ? { ...x, href: e.currentTarget.value } : x)))} />
+                <Input id={`${id}-${i}-href`} value={item.href} disabled={busy} aria-invalid={problems.length > 0 || undefined} aria-describedby={`${id}-${i}-err`} onChange={(e) => commit(items.map((x, k) => (k === i ? { ...x, href: e.currentTarget.value } : x)))} />
               </div>
               {problems.length ? (
                 <p id={`${id}-${i}-err`} className="text-xs text-destructive">
@@ -283,13 +283,13 @@ function MenuEditor({ nav, pages, onChange }: { nav: readonly MenuItem[]; pages:
                 </p>
               ) : null}
               <div className="flex gap-1">
-                <Button type="button" size="icon" variant="ghost" data-menu-move={`${i}:-1`} aria-label={`Move ${item.label || "item"} up`} disabled={i === 0} onClick={() => move(i, -1)}>
+                <Button type="button" size="icon" variant="ghost" data-menu-move={`${i}:-1`} aria-label={`Move ${item.label || "item"} up`} disabled={busy || i === 0} onClick={() => move(i, -1)}>
                   <ArrowUp className="h-4 w-4" />
                 </Button>
-                <Button type="button" size="icon" variant="ghost" data-menu-move={`${i}:1`} aria-label={`Move ${item.label || "item"} down`} disabled={i === items.length - 1} onClick={() => move(i, 1)}>
+                <Button type="button" size="icon" variant="ghost" data-menu-move={`${i}:1`} aria-label={`Move ${item.label || "item"} down`} disabled={busy || i === items.length - 1} onClick={() => move(i, 1)}>
                   <ArrowDown className="h-4 w-4" />
                 </Button>
-                <Button type="button" size="icon" variant="ghost" aria-label={`Remove ${item.label || "item"} from the menu`} onClick={() => commit(items.filter((_, k) => k !== i))}>
+                <Button type="button" size="icon" variant="ghost" aria-label={`Remove ${item.label || "item"} from the menu`} disabled={busy} onClick={() => commit(items.filter((_, k) => k !== i))}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -299,11 +299,11 @@ function MenuEditor({ nav, pages, onChange }: { nav: readonly MenuItem[]; pages:
       </ol>
       <div className="flex flex-wrap gap-2">
         {unlinked.slice(0, 4).map((p) => (
-          <Button key={p.id} type="button" size="sm" variant="outline" disabled={items.length >= 12} onClick={() => commit([...items, { label: p.title.slice(0, 40), href: p.path }])}>
+          <Button key={p.id} type="button" size="sm" variant="outline" disabled={busy || items.length >= 12} onClick={() => commit([...items, { label: p.title.slice(0, 40), href: p.path }])}>
             <Plus className="mr-1 h-3 w-3" /> {p.title}
           </Button>
         ))}
-        <Button type="button" size="sm" variant="outline" disabled={items.length >= 12} onClick={() => commit([...items, { label: "", href: "" }])}>
+        <Button type="button" size="sm" variant="outline" disabled={busy || items.length >= 12} onClick={() => commit([...items, { label: "", href: "" }])}>
           <Plus className="mr-1 h-3 w-3" /> Link
         </Button>
       </div>
@@ -388,7 +388,7 @@ export function PagesPanel(props: PagesPanelProps) {
         ) : (
           <>
             <p className="text-sm text-muted-foreground">The links in the site's header. Use the arrows to reorder them.</p>
-            <MenuEditor nav={props.nav} pages={props.pages} onChange={props.onNavChange} />
+            <MenuEditor nav={props.nav} pages={props.pages} busy={props.busy} onChange={props.onNavChange} />
           </>
         )}
       </section>

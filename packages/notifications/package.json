@@ -1,0 +1,194 @@
+{
+  "name": "@marktiderman/genesis-notifications",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "One notifier for Genesis apps: a domain (chat, forms, sites, support) says who and what; this decides how and when. defineNotifications registers types (category, channels, critical, transactional, device action categories, Android channels); notify() queues them through a security-definer SQL function; the in-app feed is also the outbox; one runner (claim with SKIP LOCKED, retries with jittered backoff, deferrals) sends Expo push (batches of 100, receipts, dead tokens pruned, private previews) and Resend email (rendered once for byte-identical retries, tenant sender identities, RFC 8058 one-click unsubscribe, bounce and complaint suppression); preferences by category and channel with tenant defaults and quiet hours across daylight saving; secret links built at send time; erasure. Hooks for React and React Native, a web bell, feed, preferences matrix and admin views on genesis-ui, a native feed on genesis-ui-native. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/notifications"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "source": "./src/index.ts",
+  "react-native": "./src/index.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "react-native": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/index.d.ts",
+      "react-native": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./runner": {
+      "types": "./dist/runner.d.ts",
+      "react-native": "./src/runner/index.ts",
+      "import": "./dist/runner.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./email": {
+      "types": "./dist/email.d.ts",
+      "import": "./dist/email.js"
+    },
+    "./supabase": {
+      "types": "./dist/supabase.d.ts",
+      "react-native": "./src/supabase/index.ts",
+      "import": "./dist/supabase.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "react-native": "./src/react/index.tsx",
+      "import": "./dist/react.js"
+    },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "import": "./dist/web.js"
+    },
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "react-native": "./src/native/index.tsx",
+      "import": "./dist/native.js"
+    },
+    "./blocks": {
+      "types": "./dist/blocks.d.ts",
+      "import": "./dist/blocks.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/__tests__",
+    "migrations",
+    "functions",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@marktiderman/genesis-features": "workspace:^"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-native": "workspace:>=0.2.0 <1.0.0",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
+    "@react-email/components": "^1.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "lucide-react": "^1.0.0",
+    "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@marktiderman/genesis-native": {
+      "optional": true
+    },
+    "@marktiderman/genesis-ui": {
+      "optional": true
+    },
+    "@marktiderman/genesis-ui-native": {
+      "optional": true
+    },
+    "@react-email/components": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-native": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
+    "@react-email/components": "1.0.12",
+    "@tanstack/react-query": "^5.75.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.9.0",
+    "lucide-react": "^1.0.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "blocks": {
+      "notifications": {
+        "feature": {
+          "name": "Notifications",
+          "summary": "One notifier for every domain: the in-app feed, Expo push and Resend email, with preferences by category and channel, quiet hours, retries, receipts and suppression.",
+          "keywords": [
+            "notifications",
+            "push",
+            "email",
+            "inbox",
+            "preferences",
+            "unsubscribe"
+          ],
+          "audience": [
+            "person",
+            "admin"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native",
+          "server"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0001_genesis_notifications.sql",
+            "test": "migrations/tests/0001_genesis_notifications.test.sql"
+          }
+        ],
+        "functions": [
+          {
+            "dir": "functions/genesis-notifications",
+            "verifyJwt": false,
+            "secrets": [
+              "GENESIS_NOTIFICATIONS_CRON_SECRET",
+              "GENESIS_NOTIFICATIONS_UNSUBSCRIBE_SECRET",
+              "RESEND_API_KEY",
+              "RESEND_WEBHOOK_SECRET",
+              "EXPO_ACCESS_TOKEN"
+            ]
+          }
+        ],
+        "install": [
+          "@tanstack/react-query@^5.0.0"
+        ],
+        "steps": [
+          "Mirror your registry on deploy: syncNotificationTypes(adminClient, notifications) from @marktiderman/genesis-notifications/server.",
+          "Say who administers notifications: replace private.genesis_notifications_admin(uuid, uuid) in a migration of your own, after this one (genesis-notifications README, Admins).",
+          "Deploy functions/genesis-notifications and schedule POST \u2026/run every minute and POST \u2026/receipts every 15 minutes, with GENESIS_NOTIFICATIONS_CRON_SECRET as the bearer token; point Resend's webhook at \u2026/webhooks/resend.",
+          "Coming from genesis-supabase's push migration (0005): stop calling genesis-push-send, and remove its pgTAP test (tests/database/*genesis_push.test.sql): two of its assertions describe the token takeover this migration closes."
+        ]
+      }
+    }
+  }
+}
