@@ -22,11 +22,12 @@
  */
 export { ChatInboxScreen, inboxRow, type ChatInboxScreenProps } from "./inbox-screen";
 export { ChatThreadScreen, type ChatThreadScreenProps } from "./thread-screen";
+export { chatThreadStackOptions, useChatThreadStackOptions, type ChatThreadStackOptionsProps } from "./stack-options";
 export { ChatStartSheet, ChatStartButton, type ChatStartPerson, type ChatStartSheetProps } from "./start-sheet";
 export { ChatComposer, type ChatComposerProps } from "./composer";
 export { MessageBubble, displayBody, formatClock, type MessageBubbleProps } from "./message-bubble";
 export { MessageActionsSheet, type MessageActionsSheetProps } from "./message-actions-sheet";
-export { VoiceNotePlayer, claimPlayback, releasePlayback, activePlaybackId, scrubSeconds, waveformBars, type VoiceNotePlayerProps } from "./voice-player";
+export { VoiceNotePlayer, claimPlayback, releasePlayback, activePlaybackId, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
 export { ChatMediaViewer, MessageAttachments, attachmentPaths, type BubbleAttachment, type ChatMediaViewerProps } from "./media";
 export { ChatNativeProvider, useChatNative, initials, type ChatNativeProviderProps, type ChatNativeContextValue, type ChatPerson } from "./context";
 export { chatNativeCopy, resolveChatCopy, fill, type ChatNativeCopy, type ChatNativeCopyOverrides } from "./copy";

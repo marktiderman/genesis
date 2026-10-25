@@ -1,9 +1,8 @@
 import { Redirect, Stack, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { ChatThreadScreen, chatThreadMatch } from "@marktiderman/genesis-chat/native";
+import { ChatThreadScreen, chatThreadMatch, useChatThreadStackOptions } from "@marktiderman/genesis-chat/native";
 import { chatKeys } from "@marktiderman/genesis-chat/react";
 import { useSuppressNotifications } from "@marktiderman/genesis-native/push";
-import { getThreadPageStackOptions } from "@marktiderman/genesis-ui-native";
 import starter from "../../../../starter.config";
 import { copy } from "@/copy";
 import { chatClient } from "@/lib/chat";
@@ -20,9 +19,10 @@ function Thread({ id }: { id: string }) {
   // The same query the thread reads (one fetch), for the header's title.
   const { data: conversation } = useQuery({ queryKey: chatKeys.conversation(id), queryFn: () => chatClient.conversation(id) });
   useSuppressNotifications(chatThreadMatch(id));
+  const options = useChatThreadStackOptions({ headerTitle: conversation?.title ?? copy.messages.threadTitle });
   return (
     <>
-      <Stack.Screen options={getThreadPageStackOptions({ headerTitle: conversation?.title ?? copy.messages.threadTitle })} />
+      <Stack.Screen options={options} />
       <ChatThreadScreen conversationId={id} />
     </>
   );

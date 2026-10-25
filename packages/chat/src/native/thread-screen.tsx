@@ -7,7 +7,8 @@
  * recording, retry and delete on a send that failed, the long-press sheet and
  * swipe to reply, pictures in a full-screen viewer, and the composer above
  * the keyboard. Render it as the screen's only content, under the
- * navigator's header (`getThreadPageStackOptions` from genesis-ui-native).
+ * navigator's header with `useChatThreadStackOptions` (an opaque bar: on
+ * iOS 26 and later a see-through bar blurs the whole inverted list).
  */
 import { useCallback, useMemo, useRef, useState, type ComponentType } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
@@ -32,7 +33,11 @@ export interface ChatThreadScreenProps {
   conversationId: string;
   /** One thread's replies instead of the main timeline. */
   threadRootId?: string | null;
-  /** Points from the top of the screen to the top of this view (the header), for keeping the composer above the keyboard. */
+  /**
+   * Points from the top of the screen to the top of this view, for keeping the composer above the
+   * keyboard. Measured from the screen's own position when left out (under an opaque header it is
+   * the header's bottom).
+   */
   keyboardVerticalOffset?: number;
   testID?: string;
 }
@@ -55,7 +60,7 @@ interface ChatListProps {
   testID?: string;
 }
 
-export function ChatThreadScreen({ conversationId, threadRootId = null, keyboardVerticalOffset = 0, testID = "chat-thread" }: ChatThreadScreenProps) {
+export function ChatThreadScreen({ conversationId, threadRootId = null, keyboardVerticalOffset, testID = "chat-thread" }: ChatThreadScreenProps) {
   const { userId } = useChat();
   const conv = useConversation(conversationId, { threadRootId: threadRootId ?? undefined });
   const pins = usePins(conversationId);
@@ -73,6 +78,14 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   actionsRef.current = messageActions;
   const [actionsFor, setActionsFor] = useState<ChatMessage | null>(null);
   const [viewer, setViewer] = useState<{ uri: string; alt: string } | null>(null);
+  // Where this screen starts on the window: the keyboard offset when the app gives none.
+  const rootRef = useRef<{ measureInWindow?: (callback: (x: number, y: number) => void) => void } | null>(null);
+  const [measuredTop, setMeasuredTop] = useState(0);
+  const measureTop = useCallback(() => {
+    rootRef.current?.measureInWindow?.((_x: number, y: number) => {
+      if (Number.isFinite(y)) setMeasuredTop(Math.max(0, Math.round(y)));
+    });
+  }, []);
 
   const kind = conv.conversation?.kind ?? null;
   // Pin for members follows the kind's max_members = 2, which the client can't read; the built-in
@@ -176,13 +189,14 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const canPost = conv.role === null ? null : conv.canPost;
   const disabledReason = composerDisabledReason(canPost, conv.conversation, conv.role, copy);
   const KeyboardAvoiding = (modules.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
+  const offset = keyboardVerticalOffset ?? measuredTop;
   const keyboardProps = modules.keyboardAvoidingView
-    ? { behavior: "translate-with-padding", keyboardVerticalOffset }
-    : { behavior: Platform.OS === "ios" ? "padding" : undefined, keyboardVerticalOffset };
+    ? { behavior: "translate-with-padding", keyboardVerticalOffset: offset }
+    : { behavior: Platform.OS === "ios" ? "padding" : undefined, keyboardVerticalOffset: offset };
 
   const empty = !conv.isLoading && rows.length === 0;
   return (
-    <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+    <SafeAreaView ref={rootRef as never} onLayout={measureTop} testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
       <KeyboardAvoiding style={{ flex: 1 }} {...keyboardProps}>
         <View style={{ flex: 1 }}>
           {conv.isLoading ? (

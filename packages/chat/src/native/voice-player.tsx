@@ -45,6 +45,15 @@ export function scrubSeconds(x: number, width: number, durationSec: number): num
   return Math.max(0, Math.min(1, x / width)) * durationSec;
 }
 
+const BAR_WIDTH = 3;
+const BAR_GAP = 2;
+
+/** How many bars fit across `width` points, one bar plus a gap each; never fewer than one. */
+export function barsThatFit(width: number): number {
+  if (!(width > 0)) return 1;
+  return Math.max(1, Math.floor((width + BAR_GAP) / (BAR_WIDTH + BAR_GAP)));
+}
+
 /** Bars 0–1 from stored peaks (0–100), resampled to `count`; flat when there are none. */
 export function waveformBars(peaks: readonly number[] | null | undefined, count = 32): number[] {
   if (!peaks || peaks.length === 0) return new Array(count).fill(0.08);
@@ -79,7 +88,7 @@ function StaticVoiceNote({ durationMs, waveform, mine, testID }: VoiceNotePlayer
   const duration = formatDuration(durationMs);
   return (
     <View testID={testID} accessible accessibilityLabel={fill(copy.voiceMessage, { duration })} style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44 }}>
-      <Bars bars={waveformBars(waveform)} progress={0} mine={mine} colors={colors} />
+      <Bars bars={waveformBars(waveform, 24)} progress={0} mine={mine} colors={colors} />
       <NativeText className={mine ? "text-primary-foreground" : undefined} style={{ fontSize: 13, fontVariant: ["tabular-nums"] }}>
         {duration}
       </NativeText>
@@ -95,6 +104,8 @@ function AudioVoiceNote({ id, uri, durationMs, waveform, mine, testID, audio }: 
   const status = audio.useAudioPlayerStatus(player);
   const [scrubbing, setScrubbing] = useState<number | null>(null);
   const width = useRef(0);
+  // As many bars as the waveform's slot holds, so they never run under the time and speed.
+  const [barCount, setBarCount] = useState(0);
 
   // Unmounted (scrolled away, screen closed): it no longer holds the one playback slot.
   useEffect(() => () => releasePlayback(id), [id]);
@@ -141,7 +152,7 @@ function AudioVoiceNote({ id, uri, durationMs, waveform, mine, testID, audio }: 
   const fg = mine ? "text-primary-foreground" : undefined;
   const shown = formatDuration((status.playing || position > 0 ? position : durationSec) * 1000);
   return (
-    <View testID={testID} style={{ flexDirection: "row", alignItems: "center", gap: 6, minWidth: 220 }}>
+    <View testID={testID} style={{ flexDirection: "row", alignItems: "center", gap: 6, minWidth: 240 }}>
       <Pressable
         testID={testID ? `${testID}-play` : undefined}
         accessibilityRole="button"
@@ -161,11 +172,14 @@ function AudioVoiceNote({ id, uri, durationMs, waveform, mine, testID, audio }: 
         accessibilityValue={{ text: `${formatDuration(position * 1000)} / ${formatDuration(durationSec * 1000)}` }}
         accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
         onAccessibilityAction={(e) => seek(status.currentTime + (e.nativeEvent.actionName === "increment" ? 5 : -5))}
-        onLayout={(e: LayoutChangeEvent) => (width.current = e.nativeEvent.layout.width)}
+        onLayout={(e: LayoutChangeEvent) => {
+          width.current = e.nativeEvent.layout.width;
+          setBarCount(barsThatFit(e.nativeEvent.layout.width));
+        }}
         style={{ flex: 1, minWidth: 0, height: 44, justifyContent: "center", overflow: "hidden" }}
         {...responder.panHandlers}
       >
-        <Bars bars={waveformBars(waveform, 28)} progress={progress} mine={mine} colors={colors} />
+        {barCount > 0 ? <Bars bars={waveformBars(waveform, barCount)} progress={progress} mine={mine} colors={colors} /> : null}
       </View>
       <NativeText className={fg} style={{ fontSize: 13, minWidth: 36, fontVariant: ["tabular-nums"] }}>
         {shown}
@@ -189,14 +203,13 @@ function Bars({ bars, progress, mine, colors }: { bars: number[]; progress: numb
   const played = mine ? colors.surface : colors.tint;
   const rest = mine ? colors.surface : colors.tertiaryLabel;
   return (
-    // Spread across the width it is given (never past it, so the time and speed stay clear).
-    <View pointerEvents="none" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 28, overflow: "hidden" }}>
+    <View pointerEvents="none" style={{ flexDirection: "row", alignItems: "center", gap: BAR_GAP, height: 28, overflow: "hidden" }}>
       {bars.map((h, i) => (
         <View
           key={i}
           style={{
-            width: 3,
-            borderRadius: 1.5,
+            width: BAR_WIDTH,
+            borderRadius: BAR_WIDTH / 2,
             height: Math.max(3, Math.round(h * 28)),
             backgroundColor: (i + 0.5) / bars.length <= progress ? played : rest,
             opacity: mine && (i + 0.5) / bars.length > progress ? 0.45 : 1,
