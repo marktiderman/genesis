@@ -1,0 +1,159 @@
+/**
+ * @feat:chat
+ * Every word the native chat screens say, in one catalog an app can override
+ * (translate, rename "Message" to "Note"). `{name}` and `{count}` are filled in.
+ */
+export interface ChatNativeCopy {
+  inboxTitle: string;
+  inboxEmptyTitle: string;
+  inboxEmptyBody: string;
+  inboxErrorTitle: string;
+  startConversation: string;
+  startConversationTitle: string;
+  untitled: string;
+  you: string;
+  someone: string;
+  youPrefix: string;
+  mentionedYou: string;
+  markRead: string;
+  pin: string;
+  unpin: string;
+  archive: string;
+  threadEmptyTitle: string;
+  threadEmptyBody: string;
+  loadEarlier: string;
+  newMessages: string;
+  placeholder: string;
+  send: string;
+  attach: string;
+  attachLibrary: string;
+  attachCamera: string;
+  attachPaste: string;
+  removeAttachment: string;
+  replyingTo: string;
+  cancelReply: string;
+  cantPost: string;
+  cantPostAdmins: string;
+  cantPostClosed: string;
+  recordVoice: string;
+  recordHint: string;
+  slideToCancel: string;
+  releaseToCancel: string;
+  lockedHint: string;
+  stopAndSend: string;
+  cancelRecording: string;
+  micDenied: string;
+  tooShort: string;
+  play: string;
+  pause: string;
+  speed: string;
+  voiceMessage: string;
+  voice: string;
+  photo: string;
+  file: string;
+  video: string;
+  openImage: string;
+  closeViewer: string;
+  sending: string;
+  notSent: string;
+  retry: string;
+  discard: string;
+  deleted: string;
+  edited: string;
+  react: string;
+  reply: string;
+  copy: string;
+  copied: string;
+  delete: string;
+  deleteConfirm: string;
+  cancel: string;
+  actionFailed: string;
+  messageActions: string;
+  reactions: string;
+  tooLarge: string;
+  notAllowedType: string;
+  tooMany: string;
+}
+
+export const chatNativeCopy: ChatNativeCopy = {
+  inboxTitle: "Messages",
+  inboxEmptyTitle: "No conversations yet",
+  inboxEmptyBody: "When someone messages you, or you start a conversation, it shows up here.",
+  inboxErrorTitle: "Couldn't load your messages",
+  startConversation: "New message",
+  startConversationTitle: "Message someone",
+  untitled: "Conversation",
+  you: "You",
+  someone: "Someone",
+  youPrefix: "You: ",
+  mentionedYou: "Mentioned you",
+  markRead: "Mark read",
+  pin: "Pin",
+  unpin: "Unpin",
+  archive: "Archive",
+  threadEmptyTitle: "No messages yet",
+  threadEmptyBody: "Say hello below.",
+  loadEarlier: "Load earlier messages",
+  newMessages: "New messages",
+  placeholder: "Message",
+  send: "Send",
+  attach: "Add a photo or file",
+  attachLibrary: "Photo library",
+  attachCamera: "Take a photo",
+  attachPaste: "Paste picture",
+  removeAttachment: "Remove {name}",
+  replyingTo: "Replying to {name}",
+  cancelReply: "Cancel reply",
+  cantPost: "You can't post in this conversation.",
+  cantPostAdmins: "Only admins can post here.",
+  cantPostClosed: "This conversation is closed.",
+  recordVoice: "Record a voice message",
+  recordHint: "Hold to record, slide left to cancel, slide up to lock.",
+  slideToCancel: "‹ Slide to cancel",
+  releaseToCancel: "Release to cancel",
+  lockedHint: "Recording. Tap send when you're done.",
+  stopAndSend: "Send voice message",
+  cancelRecording: "Delete recording",
+  micDenied: "Turn on the microphone for this app in Settings to record.",
+  tooShort: "Hold to record a voice message.",
+  play: "Play",
+  pause: "Pause",
+  speed: "Playback speed {rate}",
+  voiceMessage: "Voice message, {duration}",
+  voice: "Voice message",
+  photo: "Photo",
+  file: "File",
+  video: "Video",
+  openImage: "Open photo",
+  closeViewer: "Close",
+  sending: "Sending",
+  notSent: "Not sent",
+  retry: "Retry",
+  discard: "Delete",
+  deleted: "Message deleted",
+  edited: "edited",
+  react: "React with {emoji}",
+  reply: "Reply",
+  copy: "Copy",
+  copied: "Copied",
+  delete: "Delete",
+  deleteConfirm: "Delete this message for everyone?",
+  cancel: "Cancel",
+  actionFailed: "That didn't work",
+  messageActions: "Message actions",
+  reactions: "{count} reactions",
+  tooLarge: "{name} is too large to send.",
+  notAllowedType: "{name} can't be sent.",
+  tooMany: "At most {count} attachments in one message.",
+};
+
+export type ChatNativeCopyOverrides = Partial<ChatNativeCopy>;
+
+export function resolveChatCopy(overrides?: ChatNativeCopyOverrides): ChatNativeCopy {
+  return overrides ? { ...chatNativeCopy, ...overrides } : chatNativeCopy;
+}
+
+/** `fill("Replying to {name}", { name: "Sam" })`. */
+export function fill(text: string, values: Record<string, string | number>): string {
+  return text.replace(/\{(\w+)\}/g, (m, k: string) => (k in values ? String(values[k]) : m));
+}

@@ -1,0 +1,277 @@
+/**
+ * @feat:chat
+ * One message row: mine on the trailing side in the tint, theirs on surface;
+ * in a group, the sender's name over the first of a run and their avatar
+ * beside the last. A reply shows what it answers; reactions sit under the
+ * bubble; a message still sending is faded, and one that failed says so with
+ * Retry and Delete. Long press opens the actions; swipe right to reply. Both
+ * are also VoiceOver / TalkBack actions, so nothing needs a gesture.
+ */
+import { memo, useMemo, useRef } from "react";
+import { Animated, PanResponder, Pressable, View } from "react-native";
+import { NativeAvatar, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { previewText, summarizeReactions } from "../core/thread";
+import type { ChatMessage } from "../core/types";
+import { fill } from "./copy";
+import { initials, useChatNative } from "./context";
+import { fromPending, fromServer, MessageAttachments, type BubbleAttachment } from "./media";
+import type { ThreadRow } from "./rows";
+
+type MessageRow = Extract<ThreadRow, { type: "message" }>;
+
+export interface MessageBubbleProps {
+  row: MessageRow;
+  me: string;
+  /** Signed links by storage path. */
+  urls: Record<string, string>;
+  /** The message this one replies to, when it is loaded. */
+  repliedTo?: ChatMessage | null;
+  /** Avatars sit in a column when the conversation is a group. */
+  group: boolean;
+  reducedMotion: boolean;
+  onLongPress?: (message: ChatMessage) => void;
+  onReply?: (message: ChatMessage) => void;
+  onRetry?: (clientId: string) => void;
+  onDiscard?: (clientId: string) => void;
+  onToggleReaction?: (message: ChatMessage, emoji: string, on: boolean) => void;
+  onOpenImage?: (uri: string, alt: string) => void;
+  /** The swipe crossed the reply line (for a haptic). */
+  onSwipeReply?: () => void;
+  testID: string;
+}
+
+const SWIPE_REPLY = 56;
+const SWIPE_MAX = 80;
+
+export function formatClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+/** Mentions written `@[Name](user:<id>)` read as `@Name`. */
+export function displayBody(body: string): string {
+  return body.replace(/@\[([^\]]+)\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
+}
+
+function MessageBubbleImpl(props: MessageBubbleProps) {
+  const { row, me, urls, repliedTo, group, reducedMotion, testID } = props;
+  const { copy, person } = useChatNative();
+  const colors = useThemeRoles();
+  const { item, mine } = row;
+  const message = item.type === "message" ? item.message : null;
+  const pending = item.type === "pending" ? item.pending : null;
+
+  const body = message ? (message.deletedAt ? "" : message.body) : (pending?.input.body ?? "");
+  const createdAt = message?.createdAt ?? pending!.createdAt;
+  const failed = pending?.status === "failed";
+  const sending = pending?.status === "sending";
+  const sender = person(row.senderId);
+  const senderName = mine ? copy.you : (sender?.name ?? "");
+
+  const attachments: BubbleAttachment[] = useMemo(() => {
+    if (message) return message.deletedAt ? [] : message.attachments.map((a) => fromServer(a, urls));
+    const files = (pending as unknown as { files?: { name: string; contentType: string; meta?: Record<string, unknown> }[] }).files ?? [];
+    return files.map((f, i) => fromPending(pending!.clientId, i, f as never, pending!.previews?.[i]));
+  }, [message, pending, urls]);
+
+  // ---- Swipe to reply ----
+  const x = useRef(new Animated.Value(0)).current;
+  const latest = useRef(props);
+  latest.current = props;
+  const crossed = useRef(false);
+  const responder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_e, g) => g.dx > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
+        onPanResponderMove: (_e, g) => {
+          const dx = Math.max(0, Math.min(SWIPE_MAX, g.dx));
+          x.setValue(dx);
+          const over = dx >= SWIPE_REPLY;
+          if (over && !crossed.current) latest.current.onSwipeReply?.();
+          crossed.current = over;
+        },
+        onPanResponderRelease: (_e, g) => {
+          const m = latest.current.row.item.type === "message" ? latest.current.row.item.message : null;
+          if (g.dx >= SWIPE_REPLY && m) latest.current.onReply?.(m);
+          crossed.current = false;
+          if (latest.current.reducedMotion) x.setValue(0);
+          else Animated.spring(x, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+        },
+        onPanResponderTerminate: () => {
+          crossed.current = false;
+          x.setValue(0);
+        },
+      }),
+    [x],
+  );
+
+  if (message?.kind === "system") {
+    return (
+      <View testID={testID} style={{ alignItems: "center", paddingVertical: 6, paddingHorizontal: 24 }}>
+        <NativeText preset="caption" style={{ color: colors.secondaryLabel, textAlign: "center" }}>
+          {displayBody(message.body)}
+        </NativeText>
+      </View>
+    );
+  }
+
+  const canSwipe = Boolean(message && !message.deletedAt && props.onReply);
+  const reactions = message ? summarizeReactions(message, me) : [];
+  const time = formatClock(createdAt);
+  const statusText = failed ? copy.notSent : sending ? copy.sending : null;
+  const label = [
+    senderName,
+    message?.deletedAt ? copy.deleted : displayBody(body),
+    attachments.map((a) => (a.kind === "image" ? copy.photo : a.kind === "voice" ? copy.voice : copy.file)).join(", "),
+    time,
+    message?.editedAt ? copy.edited : null,
+    statusText,
+    reactions.length ? fill(copy.reactions, { count: reactions.reduce((n, r) => n + r.count, 0) }) : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const actions = [
+    ...(message && props.onReply && !message.deletedAt ? [{ name: "reply", label: copy.reply }] : []),
+    ...(message && props.onLongPress && !message.deletedAt ? [{ name: "actions", label: copy.messageActions }] : []),
+    ...(failed && props.onRetry ? [{ name: "retry", label: copy.retry }] : []),
+    ...(failed && props.onDiscard ? [{ name: "discard", label: copy.discard }] : []),
+  ];
+  const onAction = (name: string) => {
+    if (name === "reply" && message) props.onReply?.(message);
+    else if (name === "actions" && message) props.onLongPress?.(message);
+    else if (name === "retry" && pending) props.onRetry?.(pending.clientId);
+    else if (name === "discard" && pending) props.onDiscard?.(pending.clientId);
+  };
+
+  const quote = message?.replyToId ?? pending?.input.replyToId ?? null;
+  const quoted = quote && repliedTo ? repliedTo : null;
+  const bubbleColor = mine ? colors.tint : colors.surface;
+  const fg = mine ? "text-primary-foreground" : undefined;
+  const textStyle = mine ? { fontSize: 17, lineHeight: 22 } : { fontSize: 17, lineHeight: 22, color: colors.label };
+
+  return (
+    <View testID={testID} style={{ paddingHorizontal: 8, paddingTop: row.groupStart ? 8 : 2 }}>
+      {row.showName && sender?.name ? (
+        <NativeText preset="caption" style={{ marginLeft: group ? 48 : 12, marginBottom: 2, color: colors.secondaryLabel }}>
+          {sender.name}
+        </NativeText>
+      ) : null}
+      <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: mine ? "flex-end" : "flex-start" }}>
+        {group && !mine ? (
+          <View style={{ width: 40, alignItems: "flex-start" }}>
+            {row.showAvatar ? <NativeAvatar size={32} src={sender?.avatarUrl ?? null} fallback={initials(sender?.name)} alt={sender?.name} recyclingKey={row.senderId ?? undefined} /> : null}
+          </View>
+        ) : null}
+        <Animated.View
+          style={{ maxWidth: "80%", transform: [{ translateX: x }] }}
+          {...(canSwipe ? responder.panHandlers : {})}
+        >
+          <Pressable
+            testID={`${testID}-bubble`}
+            accessible
+            accessibilityLabel={label}
+            accessibilityHint={failed ? copy.retry : undefined}
+            accessibilityActions={actions}
+            onAccessibilityAction={(e) => onAction(e.nativeEvent.actionName)}
+            onLongPress={message && !message.deletedAt ? () => props.onLongPress?.(message) : undefined}
+            delayLongPress={350}
+            style={{
+              paddingHorizontal: attachments.length && !body ? 4 : 12,
+              paddingVertical: attachments.length && !body ? 4 : 8,
+              borderRadius: 18,
+              backgroundColor: bubbleColor,
+              opacity: sending ? 0.6 : 1,
+              gap: 4,
+            }}
+          >
+            {quote ? (
+              <View
+                testID={`${testID}-quote`}
+                style={{ borderLeftWidth: 3, borderLeftColor: mine ? colors.surface : colors.tint, paddingLeft: 8, paddingVertical: 2, opacity: 0.85 }}
+              >
+                <NativeText preset="caption" className={fg} style={mine ? { fontWeight: "600" } : { fontWeight: "600", color: colors.secondaryLabel }}>
+                  {quoted ? (quoted.senderId === me ? copy.you : (person(quoted.senderId)?.name ?? "")) : ""}
+                </NativeText>
+                <NativeText preset="caption" numberOfLines={2} className={fg} style={mine ? undefined : { color: colors.secondaryLabel }}>
+                  {quoted ? previewText(quoted.body, quoted.attachments[0]?.kind, Boolean(quoted.deletedAt)) : "…"}
+                </NativeText>
+              </View>
+            ) : null}
+            {attachments.length ? <MessageAttachments attachments={attachments} mine={mine} onOpenImage={props.onOpenImage} testID={testID} /> : null}
+            {message?.deletedAt ? (
+              <NativeText className={fg} style={[textStyle, { fontStyle: "italic", opacity: 0.7 }]}>
+                {copy.deleted}
+              </NativeText>
+            ) : body ? (
+              <NativeText selectable className={fg} style={[textStyle, attachments.length ? { paddingHorizontal: 8, paddingBottom: 4 } : null]}>
+                {displayBody(body)}
+              </NativeText>
+            ) : null}
+          </Pressable>
+        </Animated.View>
+      </View>
+      {reactions.length ? (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 2, justifyContent: mine ? "flex-end" : "flex-start", marginLeft: group && !mine ? 40 : 0 }}>
+          {reactions.map((r) => (
+            <Pressable
+              key={r.emoji}
+              testID={`${testID}-reaction-${r.emoji}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: r.mine }}
+              accessibilityLabel={`${r.emoji} ${r.count}`}
+              disabled={!message || !props.onToggleReaction}
+              onPress={() => message && props.onToggleReaction?.(message, r.emoji, !r.mine)}
+              hitSlop={6}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                minHeight: 32,
+                paddingHorizontal: 10,
+                borderRadius: 16,
+                backgroundColor: r.mine ? colors.fill : colors.surface,
+                borderWidth: r.mine ? 1 : 0,
+                borderColor: colors.tint,
+              }}
+            >
+              <NativeText style={{ fontSize: 15 }}>{r.emoji}</NativeText>
+              <NativeText preset="caption" style={{ color: colors.secondaryLabel }}>
+                {String(r.count)}
+              </NativeText>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      {row.groupEnd || failed ? (
+        <View style={{ flexDirection: "row", justifyContent: mine ? "flex-end" : "flex-start", alignItems: "center", gap: 4, marginTop: 2, marginLeft: group && !mine ? 52 : 12, marginRight: 12 }}>
+          {failed ? (
+            <>
+              <NativeText testID={`${testID}-failed`} preset="caption" style={{ color: colors.destructive }}>
+                {pending?.error ?? copy.notSent}
+              </NativeText>
+              <SmallAction testID={`${testID}-retry`} label={copy.retry} onPress={() => props.onRetry?.(pending!.clientId)} color={colors.tint} />
+              <SmallAction testID={`${testID}-discard`} label={copy.discard} onPress={() => props.onDiscard?.(pending!.clientId)} color={colors.destructive} />
+            </>
+          ) : (
+            <NativeText preset="caption" style={{ color: colors.tertiaryLabel }}>
+              {[time, message?.editedAt ? copy.edited : null, sending ? copy.sending : null].filter(Boolean).join(" · ")}
+            </NativeText>
+          )}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SmallAction({ label, onPress, color, testID }: { label: string; onPress: () => void; color: unknown; testID: string }) {
+  return (
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{ minHeight: 44, minWidth: 44, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" }}>
+      <NativeText preset="label" style={{ color: color as string }}>
+        {label}
+      </NativeText>
+    </Pressable>
+  );
+}
+
+export const MessageBubble = memo(MessageBubbleImpl);
