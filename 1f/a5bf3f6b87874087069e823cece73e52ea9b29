@@ -1,0 +1,25 @@
+packages/chat/package.json
+  s_c0870a827920ef::t_cff30e2ba07655 19,26-28,32-34,42-44,53
+packages/chat/src/__tests__/outbox.test.ts
+  s_c0870a827920ef::t_e1ae09832c9d1b 94-122
+packages/chat/src/core/outbox.ts
+  s_c0870a827920ef::t_c757d621638df8 82-97,233-237,242-275
+.changeset/chat-reattach-rn.md
+  s_c0870a827920ef::t_d1d5d52b4ba88a 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1fa5bf3f6b87874087069e823cece73e52ea9b29",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
