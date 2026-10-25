@@ -1,0 +1,82 @@
+apps/genesis-rn-starter/__tests__/components/settings.test.tsx
+  s_8252619ce79a86::t_aab758313e52e6 1-92
+  s_8252619ce79a86::t_7632666684ee62 93-94
+apps/genesis-rn-starter/__tests__/components/fake-supabase.ts
+  s_8252619ce79a86::t_45b3f727df051e 47,65-66
+  s_8252619ce79a86::t_2bac511cd639ee 93-95
+  s_8252619ce79a86::t_742a3d8959a2f1 101-102
+  s_8252619ce79a86::t_ff4cec903ce0a1 3-4,17-22,27-36,48-64,76-77,84-90,96,100
+  s_8252619ce79a86::t_ed6e9eb361111b 1-2,5-16,23-26,37-46,67-75,78-83,91-92,97-99,103-115
+apps/genesis-rn-starter/__tests__/components/sign-in.test.tsx
+  s_8252619ce79a86::t_e2a7824a716a1e 3,6,11-18,25-32,36,38,42,48,50,55,58-60,65-67,70-71,75,79-81
+  s_8252619ce79a86::t_06e57541e5040a 1-2,4-5,7-10,19-24,33-35,37,39-41,43-47,49,51-54,56-57,61-64,68-69,72-74,76-78,82-83
+  s_8252619ce79a86::t_a072f1d4f08089 84-85
+apps/genesis-rn-starter/__tests__/components/tabs-feature-off.test.tsx
+  s_8252619ce79a86::t_9d812d80309cef 1-19
+apps/genesis-rn-starter/__tests__/components/setup.ts
+  s_8252619ce79a86::t_6253d45ae69ae3 31-35
+  s_8252619ce79a86::t_84ca7c58e66623 14-30
+  s_8252619ce79a86::t_2ff2eeaef1c3a7 1-9,37,40
+  s_8252619ce79a86::t_e374f7cfd29d95 38-39
+  s_8252619ce79a86::t_457364c68722f3 10-13,36
+apps/genesis-rn-starter/jest.config.js
+  s_8252619ce79a86::t_ac83c67bdd0fa5 24-25
+  s_8252619ce79a86::t_d219f55b3e5517 1-3,5,17-20,26
+  s_8252619ce79a86::t_082bdaa1c341ae 4,6-10,12-16,23
+  s_8252619ce79a86::t_6236b55ffd0663 21
+  s_8252619ce79a86::t_14ac1c27b20d39 11,22
+packages/genesis-cli/test/init-native.test.ts
+  s_8252619ce79a86::t_ce58e50cf4c301 75-79
+  s_8252619ce79a86::t_5e0dbffb3afa3b 44
+pnpm-workspace.yaml
+  s_8252619ce79a86::t_4c727ead9db466 67-71
+docs/APP-CI.md
+  s_8252619ce79a86::t_936d4a1bf38439 69
+packages/genesis-cli/src/blocks/init-native.ts
+  s_8252619ce79a86::t_24457900515303 74-78,84
+apps/genesis-rn-starter/__tests__/components/tabs.test.tsx
+  s_8252619ce79a86::t_a16d5aa536d10e 2-7,10-17,19,22,25,27-41
+  s_8252619ce79a86::t_272a3ebbf05cec 1,8-9,42-43
+  s_8252619ce79a86::t_fc76ddbd9444fb 18,20-21,23-24,26
+apps/genesis-rn-starter/__tests__/components/render-app.ts
+  s_8252619ce79a86::t_d66cc0496f2070 1,4-8,14,16,22
+  s_8252619ce79a86::t_6bcfe7887aaa1f 2-3,17-21
+  s_8252619ce79a86::t_4151925292aede 9-13,15
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_878471e0c0da4f 158-164
+  s_8252619ce79a86::t_1846b9c8ba1eae 149-151
+.changeset/typescript-6.md
+  s_8252619ce79a86::t_22580a0b90db10 3,6-9
+  s_8252619ce79a86::t_92ed1f25414b1e 1-2,4-5
+apps/genesis-rn-starter/__tests__/components/resolver.js
+  s_8252619ce79a86::t_111dd0fd9c458f 1-12
+apps/genesis-rn-starter/__tests__/components/root-layout.test.tsx
+  s_8252619ce79a86::t_90be0cde13a906 1,3,12-14,17-20,23-35,39-49
+  s_8252619ce79a86::t_8a57f83be28fe2 2,4-5,7-10,15-16,22,36-38
+  s_8252619ce79a86::t_15226e2f455eda 6,11,21,50-51
+  s_8252619ce79a86::t_9ce33f4d03ede8 52-53
+apps/genesis-rn-starter/__tests__/components/tabs.ts
+  s_8252619ce79a86::t_cc4da054938e6f 1-12
+apps/genesis-rn-starter/__tests__/components/css-stub.js
+  s_8252619ce79a86::t_8a22efcbb3ad6c 1-2
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_34139e081a8bf2 14-15
+apps/genesis-rn-starter/vitest.config.mts
+  s_8252619ce79a86::t_09f0ca783b8953 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "661e2a2ba949b788935b1feeaded31ba5f8ff0bf",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
