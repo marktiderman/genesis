@@ -25,7 +25,7 @@ const rows = must(await supabase.from("tasks").select("*"));
 - **`refreshWhileActive(client, AppState)`**: refreshes the session only while the app is in front.
 - **`wipeSessionOnReinstall`**: the iOS Keychain outlives an uninstall; this removes a leftover session (and its PKCE verifier) on the first launch after an install.
 - **`must(result)`**: the data, or a thrown `SupabaseQueryError` carrying the database's `code`, `details` and `hint`.
-- **`signInWithApple`, `completeOAuthRedirect`, `deleteMyAccount`, `storeAppleToken`**: see [Account](#account-sign-in-and-deletion) below.
+- **`signInWithApple`, `signInWithGoogle`, `completeOAuthRedirect`, `deleteMyAccount`, `storeAppleToken`**: see [Account](#account-sign-in-and-deletion) below.
 - **`app_release_policy`**: the table the native updates block reads; see [Release policy](#release-policy-the-updates-block).
 
 Nothing here imports React Native or Expo: you pass those modules in.
@@ -50,7 +50,8 @@ import { signInWithApple } from "@marktiderman/genesis-supabase/native";
 const digest = (s: string) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, s);
 
 async function onApple() {
-  const result = await signInWithApple(supabase, AppleAuthentication, { digest, randomNonce: Crypto.randomUUID });
+  // The nonce is 32 random bytes from crypto.getRandomValues (createGenesisSupabase installs it on native).
+  const result = await signInWithApple(supabase, AppleAuthentication, { digest });
   if (result.canceled) return; // they closed Apple's sheet: not an error
   if (result.error) return showError(result.error.message); // result.error.code says why
   // Apple shares the name on the first sign-in only, so save it now.
@@ -76,6 +77,40 @@ async function onApple() {
 - Setup is yours: enable the Apple provider in Supabase Auth with your bundle id as a client id,
   turn on the Sign in with Apple capability (`ios.usesAppleSignIn: true` in `app.json`), and add
   `expo-apple-authentication` and `expo-crypto`.
+
+### Google, natively
+
+```ts
+import { GoogleOneTapSignIn } from "@react-native-google-signin/google-signin";
+import { signInWithGoogle } from "@marktiderman/genesis-supabase/native";
+
+GoogleOneTapSignIn.configure({ webClientId: WEB_CLIENT_ID, iosClientId: IOS_CLIENT_ID }); // once, at start-up
+
+async function onGoogle() {
+  const result = await signInWithGoogle(supabase, GoogleOneTapSignIn, { digest });
+  if (result.canceled) return;
+  if (result.error) return showError(result.error.message);
+}
+```
+
+- **`signInWithGoogle(client, GoogleOneTapSignIn, { digest, randomNonce? })`**: makes a fresh
+  nonce (32 random bytes), gives Google its SHA-256 (hex) through
+  `authenticate({ nonce })`, checks the returned ID token's `nonce` claim is that hash
+  (`google_nonce_missing` otherwise, and nothing is sent), then signs in with
+  `signInWithIdToken({ provider: "google", token, nonce })` with the raw nonce, which Supabase checks
+  against the token: the flow in Supabase's Google guide. Returns `{ session, user, fullName, email }`,
+  `{ canceled: true }` or `{ error }`; it never throws.
+- **It needs the Universal sign-in module** (`GoogleOneTapSignIn`, with `authenticate`) of
+  `@react-native-google-signin/google-signin`, which is in the library's paid build. The free npm
+  build only has the original `GoogleSignin`, which can't pass a nonce on Android or iOS, so its
+  tokens fail the nonce check. Genesis doesn't offer a way around that: Supabase's "Skip nonce
+  check" would let a stolen ID token sign in, so keep it off. Without the paid build, use the
+  redirect below.
+- Draw it with `googleProvider({ onPress: onGoogle })` from `@marktiderman/genesis-ui-native`. On
+  iOS, Guideline 4.8 wants Sign in with Apple beside it.
+- Setup is yours: a Web client id (Supabase's Google provider takes it, plus the iOS and Android
+  client ids under "Authorized Client IDs"), an iOS client id, an Android client id with your
+  signing certificate's SHA-1, and the module's config plugin with the iOS URL scheme.
 
 ### Other OAuth providers (Google…): the redirect
 

@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and OAuth redirects, in-app account deletion, per-tenant feature switches (tenant_features), and a result helper. Part of the Genesis framework.",
+  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and Google, OAuth redirects, in-app account deletion, per-tenant feature switches (tenant_features), and a result helper. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -45,12 +45,18 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@supabase/supabase-js": "^2.118.0"
+    "@supabase/supabase-js": "^2.118.0",
+    "@react-native-google-signin/google-signin": "*"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.118.0",
     "tsup": "^8.3.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"
+  },
+  "peerDependenciesMeta": {
+    "@react-native-google-signin/google-signin": {
+      "optional": true
+    }
   }
 }

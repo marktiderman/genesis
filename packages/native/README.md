@@ -67,8 +67,12 @@ From the outside in:
    and then fail; the shell waits at most `sessionWaitMs` (5 s) and on a
    timeout or a network error carries on with the session stored on the
    phone (`offline: true`). Supabase's own events correct it once online.
-8. **Query**: `networkMode: "always"` so offline queries fail instead of
-   hanging. With `persist`, the query-key roots you list are saved to the
+8. **Query**: `networkMode: "offlineFirst"`: a query or mutation runs once,
+   then its retries pause while NetInfo says offline and continue when the
+   network is back, and stale queries refetch on reconnect. Offline, saved
+   data stays on screen; a query with nothing saved is `pending` with
+   `isPaused` (show "offline", not a spinner); a mutation fails at once (no
+   retries by default). With `persist`, the query-key roots you list are saved to the
    phone for 24 hours (`maxAge`), discarded when `buster` (your app version)
    changes, and **scoped to the signed-in user**: the user id is part of what
    is saved, a cache saved for anyone else is deleted instead of restored, and

@@ -125,6 +125,10 @@ jobs:
       channel: production
       platform: ios
       rollout_percentage: 10
+      # Explicit: unset, EAS tries a Sentry source map upload whenever @sentry/react-native is
+      # installed and only logs a failure. Set true once the Sentry plugin is on in app.config.ts
+      # (with SENTRY_AUTH_TOKEN), so a failed upload fails the job.
+      upload_sentry_sourcemaps: false
 
   update_android:
     name: Update Android (10% of production installs)
@@ -139,3 +143,7 @@ jobs:
       channel: production
       platform: android
       rollout_percentage: 10
+      # Explicit: unset, EAS tries a Sentry source map upload whenever @sentry/react-native is
+      # installed and only logs a failure. Set true once the Sentry plugin is on in app.config.ts
+      # (with SENTRY_AUTH_TOKEN), so a failed upload fails the job.
+      upload_sentry_sourcemaps: false

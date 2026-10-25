@@ -38,6 +38,10 @@ import { AuthScreen, appleProvider } from "@marktiderman/genesis-ui-native/layou
 - **`AppleSignInButton`**: the same button on its own, for a screen you compose yourself. While an
   `onPress` promise is pending it ignores further taps (so a double tap can't open a second sheet)
   and reports itself busy and disabled to accessibility; `disabled` does the same and dims it.
+- **`googleProvider({ onPress, label?, icon?, disabled?, enabled? })`**: a provider with id
+  `"google"` ("Continue with Google"), drawn as the row's outline button, or `null` when `enabled`
+  is false. Pass Google's "G" mark as `icon` (Genesis ships no Google artwork). `onPress` is
+  usually `signInWithGoogle` from `@marktiderman/genesis-supabase/native`.
 - **`SocialAuthProvider.render`**: any provider can draw its own button this way.
 - `onPress` is usually `signInWithApple` from `@marktiderman/genesis-supabase/native`, which
   returns the full name Apple shares on the first sign-in only; save it with

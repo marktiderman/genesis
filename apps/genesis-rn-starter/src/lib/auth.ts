@@ -6,9 +6,16 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import * as Crypto from "expo-crypto";
 import Constants from "expo-constants";
 import { storeAppleToken } from "@marktiderman/genesis-supabase";
-import { signInWithApple } from "@marktiderman/genesis-supabase/native";
+import { signInWithApple, signInWithGoogle } from "@marktiderman/genesis-supabase/native";
+import starter from "../../starter.config";
 import { copy } from "@/copy";
+import { googleModule } from "./google-signin";
 import { supabase } from "./supabase";
+
+// A switch that can't work fails where the sign-in screen loads, naming the fix.
+if (starter.features.googleSignIn && !googleModule) {
+  throw new Error("[starter] features.googleSignIn is on, but src/lib/google-signin.ts exports no module. See the README, \"Google sign-in\".");
+}
 
 type ErrorCode = keyof typeof copy.signIn.errors;
 
@@ -36,7 +43,9 @@ let pendingName: string | null = null;
 
 /** Sign in with Apple. Returns an error message, or null (signed in, or they closed Apple's sheet). */
 export async function appleSignIn(): Promise<string | null> {
-  const result = await signInWithApple(supabase, AppleAuthentication, { digest, randomNonce: Crypto.randomUUID });
+  // The nonce is the package default: 32 random bytes from crypto.getRandomValues, which
+  // createGenesisSupabase installed from expo-crypto when it made `supabase`.
+  const result = await signInWithApple(supabase, AppleAuthentication, { digest });
   if (result.canceled) return null;
   if (result.error) {
     pendingName = result.fullName ?? pendingName;
@@ -52,6 +61,18 @@ export async function appleSignIn(): Promise<string | null> {
   if (result.authorizationCode) {
     const stored = await storeAppleToken(supabase, { authorizationCode: result.authorizationCode, clientId: Constants.expoConfig?.ios?.bundleIdentifier });
     if (!stored.ok) console.warn(`genesis-apple-revoke: couldn't keep the Apple token: ${stored.error.message}`);
+  }
+  return null;
+}
+
+/** Sign in with Google (`features.googleSignIn`). Returns an error message, or null (signed in, or they closed Google's sheet). */
+export async function googleSignIn(): Promise<string | null> {
+  if (!googleModule) return authErrorMessage(undefined);
+  const result = await signInWithGoogle(supabase, googleModule, { digest });
+  if (result.canceled) return null;
+  if (result.error) {
+    if (result.error.code === "google_nonce_missing") console.error(`[starter] ${result.error.message}`);
+    return authErrorMessage(result.error.code);
   }
   return null;
 }

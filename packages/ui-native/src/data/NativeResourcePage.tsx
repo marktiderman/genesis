@@ -60,6 +60,12 @@ export interface NativeResourcePageProps<T extends BaseRecord = BaseRecord> {
   // Slots
   headerRight?: ReactNode;
   emptyState?: ReactNode;
+  /**
+   * Shown while the list has nothing saved and its fetch is paused because
+   * the device is offline (`networkMode: "offlineFirst"`), instead of an empty
+   * list that says there is nothing. Default: a one-line offline message.
+   */
+  offlineState?: ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,6 +194,7 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
   createLabel = "New",
   headerRight,
   emptyState,
+  offlineState,
 }: NativeResourcePageProps<T>) {
   // -------------------------------------------------------------------------
   // State
@@ -266,6 +273,8 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
   const items: T[] = list.data?.data ?? [];
   const isLoading = list.isLoading;
   const hasError = list.isError;
+  // Paused offline with nothing saved: not loading (no request in flight), not empty either.
+  const isOfflineEmpty = list.isPaused && list.data === undefined;
 
   // -------------------------------------------------------------------------
   // Resolve card fields
@@ -437,6 +446,18 @@ function NativeResourcePage<T extends BaseRecord = BaseRecord>({
           <NativeSkeleton className="w-full h-20 rounded-lg" />
           <NativeSkeleton className="w-full h-20 rounded-lg" />
           <NativeSkeleton className="w-full h-20 rounded-lg" />
+        </View>
+      );
+    }
+
+    if (isOfflineEmpty) {
+      return (
+        <View testID="native-resource-offline" className="flex-1 items-center justify-center px-4 py-12 gap-4">
+          {offlineState ?? (
+            <NativeText preset="body" className="text-muted-foreground text-center">
+              You're offline. This list loads when you're back online.
+            </NativeText>
+          )}
         </View>
       );
     }

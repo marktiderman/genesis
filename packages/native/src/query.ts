@@ -17,11 +17,16 @@ export interface AsyncStorageLike {
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * A QueryClient for a phone. `networkMode: "always"` runs a query or mutation
- * even when the device reports offline, so it fails (and shows its error or
- * cached data) instead of waiting forever for a network that may never come
- * back. `gcTime` matches the persisted max age, or restored queries would be
- * collected before they are used. Your `config` wins.
+ * A QueryClient for a phone. `networkMode: "offlineFirst"` runs a query or
+ * mutation once whatever the network says, then pauses its retries while the
+ * device is offline (`onlineManager`, which `connectQueryLifecycle` feeds from
+ * NetInfo), continues them when it is back, and refetches stale queries on
+ * reconnect. So offline, a query with saved data keeps showing it
+ * (`fetchStatus: "paused"`); one with nothing saved stays `pending` and paused
+ * until the network returns (check `isPaused`, not only `isPending`, before
+ * showing a spinner); and a mutation, which TanStack doesn't retry by default,
+ * fails at once instead of waiting. `gcTime` matches the persisted max age, or
+ * restored queries would be collected before they are used. Your `config` wins.
  */
 export function createNativeQueryClient(config: QueryClientConfig = {}): QueryClient {
   const { queries, mutations, ...rest } = config.defaultOptions ?? {};
@@ -29,8 +34,8 @@ export function createNativeQueryClient(config: QueryClientConfig = {}): QueryCl
     ...config,
     defaultOptions: {
       ...rest,
-      queries: { networkMode: "always", gcTime: DAY_MS, staleTime: 60_000, ...queries },
-      mutations: { networkMode: "always", ...mutations },
+      queries: { networkMode: "offlineFirst", gcTime: DAY_MS, staleTime: 60_000, ...queries },
+      mutations: { networkMode: "offlineFirst", ...mutations },
     },
   });
 }

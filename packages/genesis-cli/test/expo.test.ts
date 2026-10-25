@@ -14,6 +14,9 @@ import { loadConfig } from "../src/doctor/config";
 import {
   applyPrivacyApis,
   GenesisConfigError,
+  PRIVACY_BLOCKS,
+  PRIVACY_DATA_TYPES,
+  PRIVACY_PURPOSES,
   privacyApisFor,
   readGenesisConfig,
   resolveVariant,
@@ -177,13 +180,115 @@ describe("privacy manifest", () => {
       NSPrivacyAccessedAPITypes: [
         { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp", NSPrivacyAccessedAPITypeReasons: ["C617.1"] },
       ],
+      NSPrivacyTracking: false,
+      NSPrivacyCollectedDataTypes: [],
     });
   });
 
-  it("adds nothing for expo-secure-store (the Keychain is not a required-reason API) or other packages", () => {
-    write("package.json", { dependencies: { expo: "~55.0.0", "expo-secure-store": "~55.0.0" } });
-    expect(run().ios?.privacyManifests).toBeUndefined();
-    expect(privacyApisFor({ "expo-secure-store": "*" })).toEqual([]);
+  it("adds no API for expo-secure-store (the Keychain is not a required-reason API) or other packages", () => {
+    write("package.json", { dependencies: { "expo-secure-store": "~55.0.0", "expo-crypto": "~55.0.0" } });
+    expect(run().ios?.privacyManifests?.NSPrivacyAccessedAPITypes).toBeUndefined();
+    expect(privacyApisFor({ "expo-secure-store": "*", "expo-haptics": "*" })).toEqual([]);
+  });
+
+  it("declares React Native's and Expo's own required-reason APIs, as their PrivacyInfo.xcprivacy files do", () => {
+    write("package.json", { dependencies: { "react-native": "0.88.0", expo: "~58.0.19", "expo-updates": "*", "expo-application": "*", "expo-notifications": "*" } });
+    const byType = Object.fromEntries((run().ios?.privacyManifests?.NSPrivacyAccessedAPITypes ?? []).map((t) => [t.NSPrivacyAccessedAPIType.replace("NSPrivacyAccessedAPICategory", ""), [...t.NSPrivacyAccessedAPITypeReasons].sort()]));
+    expect(byType).toEqual({
+      FileTimestamp: ["0A2A.1", "3B52.1", "C617.1"],
+      UserDefaults: ["CA92.1"],
+      SystemBootTime: ["35F9.1"],
+      DiskSpace: ["85F4.1", "E174.1"],
+    });
+  });
+
+  describe("collected data types", () => {
+    const types = (out: ExpoConfig) =>
+      Object.fromEntries(
+        (out.ios?.privacyManifests?.NSPrivacyCollectedDataTypes ?? []).map((t) => [
+          t.NSPrivacyCollectedDataType.replace("NSPrivacyCollectedDataType", ""),
+          { linked: t.NSPrivacyCollectedDataTypeLinked, tracking: t.NSPrivacyCollectedDataTypeTracking, purposes: t.NSPrivacyCollectedDataTypePurposes.map((p) => p.replace("NSPrivacyCollectedDataTypePurpose", "")) },
+        ]),
+      );
+    const fn = { linked: true, tracking: false, purposes: ["AppFunctionality"] };
+
+    it("is the union of the blocks the app's packages carry, never for tracking", () => {
+      write("package.json", { dependencies: { "@marktiderman/genesis-supabase": "*", "@marktiderman/genesis-native": "*", "@sentry/react-native": "*", "expo-notifications": "*" } });
+      const out = run();
+      expect(out.ios?.privacyManifests?.NSPrivacyTracking).toBe(false);
+      expect(types(out)).toEqual({
+        EmailAddress: fn,
+        UserID: { linked: true, tracking: false, purposes: ["AppFunctionality", "Analytics"] },
+        Name: fn,
+        CrashData: fn,
+        PerformanceData: fn,
+        ProductInteraction: { linked: true, tracking: false, purposes: ["Analytics"] },
+        DeviceID: fn,
+      });
+    });
+
+    it("declares only what a block found in package.json collects", () => {
+      write("package.json", { dependencies: { "@marktiderman/genesis-supabase": "*", "@sentry/react-native": "*" } });
+      // Sentry without genesis-native is not the observability block; supabase is the account block.
+      expect(Object.keys(types(run()))).toEqual(["EmailAddress", "UserID", "Name"]);
+    });
+
+    it("takes the blocks from genesis.config.json privacy, and the plugin option over that", () => {
+      write("package.json", { dependencies: { "@marktiderman/genesis-supabase": "*", "@marktiderman/genesis-native": "*", "@sentry/react-native": "*", "expo-notifications": "*" } });
+      write("genesis.config.json", { privacy: { blocks: ["account", "push"] } });
+      expect(Object.keys(types(run()))).toEqual(["EmailAddress", "UserID", "Name", "DeviceID"]);
+      expect(Object.keys(types(run(base(), { privacy: { blocks: ["observability"] } })))).toEqual(["CrashData", "PerformanceData", "UserID", "ProductInteraction"]);
+    });
+
+    it("an app's own collects list replaces the blocks'", () => {
+      write("package.json", { dependencies: { "@marktiderman/genesis-supabase": "*" } });
+      write("genesis.config.json", { privacy: { collects: [{ type: "email address", purposes: ["app functionality"], linked: true, tracking: false }] } });
+      expect(types(run())).toEqual({ EmailAddress: fn });
+    });
+
+    it("keeps the app's own entries and NSPrivacyTracking, and adding twice changes nothing", () => {
+      write("package.json", { dependencies: { "@marktiderman/genesis-supabase": "*" } });
+      const config = base();
+      config.ios!.privacyManifests = {
+        NSPrivacyTracking: false,
+        NSPrivacyCollectedDataTypes: [
+          { NSPrivacyCollectedDataType: "NSPrivacyCollectedDataTypeEmailAddress", NSPrivacyCollectedDataTypeLinked: false, NSPrivacyCollectedDataTypeTracking: false, NSPrivacyCollectedDataTypePurposes: ["NSPrivacyCollectedDataTypePurposeOther"] },
+        ],
+      };
+      const before = JSON.stringify(config);
+      const out = run(config);
+      expect(JSON.stringify(config)).toBe(before);
+      expect(types(out).EmailAddress).toEqual({ linked: false, tracking: false, purposes: ["Other"] });
+      expect(Object.keys(types(out))).toEqual(["EmailAddress", "UserID", "Name"]);
+      expect(run(out)).toEqual(out);
+    });
+
+    it("fails loud on a misspelt type, purpose or block, and on tracking data with tracking off", () => {
+      write("genesis.config.json", { privacy: { collects: [{ type: "e-mail", purposes: ["app functionality"], linked: true, tracking: false }] } });
+      expect(() => run()).toThrow(/privacy.collects\[0\].type "e-mail"/);
+      write("genesis.config.json", { privacy: { collects: [{ type: "email address", purposes: ["marketing"], linked: true, tracking: false }] } });
+      expect(() => run()).toThrow(/"marketing" is not one of/);
+      write("genesis.config.json", { privacy: { blocks: ["acount"] } });
+      expect(() => run()).toThrow(/"acount" not one of/);
+      write("genesis.config.json", { privacy: { tracking: false, collects: [{ type: "device ID", purposes: ["third-party advertising"], linked: true, tracking: true }] } });
+      expect(() => run()).toThrow(/used for tracking but NSPrivacyTracking is false/);
+      expect(() => run(base(), { privacy: { blocks: "account" } as never })).toThrow(/withGenesis\(\{ privacy \}\): privacy.blocks/);
+    });
+
+    it("every block entry uses Apple's vocabulary", () => {
+      for (const [id, block] of Object.entries(PRIVACY_BLOCKS)) {
+        for (const use of block.collects) {
+          expect(PRIVACY_DATA_TYPES[use.type], `${id} ${use.type}`).toMatch(/^NSPrivacyCollectedDataType[A-Z]/);
+          for (const p of use.purposes) expect(PRIVACY_PURPOSES[p], `${id} ${p}`).toMatch(/^NSPrivacyCollectedDataTypePurpose[A-Z]/);
+        }
+      }
+    });
+
+    it("the account entry says what the supabase account block says", async () => {
+      const { accountBlock } = await import("../../supabase/src/blocks");
+      const declared = accountBlock.contributes?.privacy?.collects ?? [];
+      expect(PRIVACY_BLOCKS.account!.collects.map((u) => u.type).sort()).toEqual(declared.map((u) => u.type).sort());
+    });
   });
 
   it("merges into the app's entries without overwriting them", () => {

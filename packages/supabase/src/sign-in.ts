@@ -1,6 +1,7 @@
 /**
- * Native sign-in onto a Supabase session: finishing an OAuth redirect (PKCE)
- * and Sign in with Apple. Nothing here imports Expo: pass the modules in.
+ * Native sign-in onto a Supabase session: finishing an OAuth redirect (PKCE),
+ * Sign in with Apple and native Google sign-in. Nothing here imports Expo or
+ * the Google module: pass the modules in.
  * Exported from `@marktiderman/genesis-supabase/native`.
  */
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
@@ -10,7 +11,8 @@ import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
  * (`access_denied`…), Supabase Auth's error code, or one of Genesis's own:
  * `missing_code` (the redirect carried neither a code nor an error),
  * `oauth_error`, `exchange_failed`, `apple_unavailable`, `apple_failed`,
- * `apple_no_token`, `bad_digest`, `sign_in_failed`, `no_session`.
+ * `apple_no_token`, `google_failed`, `google_no_token`,
+ * `google_nonce_missing`, `bad_digest`, `sign_in_failed`, `no_session`.
  *
  * @stability Beta
  */
@@ -162,7 +164,12 @@ export interface SignInWithAppleOptions {
    * Apple gets the hash; Supabase gets the raw nonce and checks the token against it.
    */
   digest(value: string): Promise<string>;
-  /** A fresh random nonce. Default: 32 bytes from `crypto.getRandomValues`, as hex (pass one, e.g. `Crypto.randomUUID`, where that's missing). */
+  /**
+   * A fresh random nonce. Default: 32 bytes from `crypto.getRandomValues`, as
+   * hex. On React Native that is the expo-crypto polyfill
+   * `createGenesisSupabase({ platform: "native", crypto })` installs; leave
+   * this out rather than pass something with less randomness.
+   */
   randomNonce?: () => string;
 }
 
@@ -248,6 +255,137 @@ export async function signInWithApple(
   }
 }
 
+/**
+ * The part of `@react-native-google-signin/google-signin` that
+ * {@link signInWithGoogle} uses: its Universal sign-in module,
+ * `GoogleOneTapSignIn`, configured (`configure({ webClientId, iosClientId })`)
+ * before the first sign-in. Pass the module itself.
+ *
+ * Only Universal sign-in passes a nonce into the ID token on Android and iOS.
+ * The free package's original `GoogleSignin.signIn` can't (its `nonce` is iOS
+ * and paid-version only), so its tokens fail the nonce check below.
+ */
+export interface GoogleSignInLike {
+  authenticate(params?: { nonce?: string }): Promise<{
+    user?: { idToken?: string | null; user?: { email?: string | null; name?: string | null } | null } | null;
+    error?: { code?: string | number; message?: string } | null;
+    isCancelled?: boolean;
+  }>;
+}
+
+/** @stability Beta */
+export interface SignInWithGoogleOptions {
+  /** SHA-256 of a string as lowercase hex, as for {@link signInWithApple}. Google gets the hash; Supabase gets the raw nonce. */
+  digest(value: string): Promise<string>;
+  /** A fresh random nonce. Default: 32 bytes from `crypto.getRandomValues`, as hex. */
+  randomNonce?: () => string;
+}
+
+/** @stability Beta */
+export type SignInWithGoogleResult =
+  | {
+      session: Session;
+      user: User;
+      /** The name Google shared, if any. */
+      fullName: string | null;
+      email: string | null;
+      canceled?: undefined;
+      error?: undefined;
+    }
+  | { canceled: true; session?: undefined; error?: undefined }
+  | { error: GenesisAuthError; session?: undefined; canceled?: undefined };
+
+/**
+ * Native Google sign-in straight into a Supabase session, as Supabase's
+ * Google guide describes: a fresh random nonce, its SHA-256 (hex) to Google,
+ * which puts it in the ID token, and the raw nonce to `signInWithIdToken`,
+ * which checks the two match, so a token taken from another sign-in can't be
+ * replayed. Before Supabase sees the token it is checked here too: a token
+ * whose `nonce` claim isn't this sign-in's hash (a module that ignored the
+ * nonce) is `google_nonce_missing`, never sent. Closing Google's sheet is
+ * `{ canceled: true }`. Nothing is thrown; every failure is `{ error }`.
+ *
+ * Keep the Supabase Google provider's "Skip nonce check" off: this helper
+ * needs no exception, and turning it on lets a stolen ID token sign in.
+ *
+ * @stability Beta
+ */
+export async function signInWithGoogle(
+  client: SignInClient,
+  google: GoogleSignInLike,
+  { digest, randomNonce = defaultNonce }: SignInWithGoogleOptions,
+): Promise<SignInWithGoogleResult> {
+  let nonce: string;
+  let hashed: string;
+  let response: Awaited<ReturnType<GoogleSignInLike["authenticate"]>>;
+  try {
+    nonce = randomNonce();
+    hashed = await digest(nonce);
+    if (!/^[0-9a-f]{64}$/.test(hashed)) {
+      return { error: new GenesisAuthError("bad_digest", "signInWithGoogle: digest must return SHA-256 as 64 lowercase hex characters") };
+    }
+    response = await google.authenticate({ nonce: hashed });
+  } catch (e) {
+    return { error: new GenesisAuthError("google_failed", e instanceof Error ? e.message : "Google sign-in failed", { cause: e }) };
+  }
+  if (response.isCancelled) return { canceled: true };
+  if (response.error) {
+    return { error: new GenesisAuthError("google_failed", response.error.message ?? `Google sign-in failed (${String(response.error.code ?? "unknown")})`, { cause: response.error }) };
+  }
+  const token = response.user?.idToken;
+  if (!token) return { error: new GenesisAuthError("google_no_token", "Google returned no ID token") };
+  if (jwtClaim(token, "nonce") !== hashed) {
+    return {
+      error: new GenesisAuthError(
+        "google_nonce_missing",
+        "Google's ID token doesn't carry this sign-in's nonce. Use the Universal sign-in module (GoogleOneTapSignIn) of @react-native-google-signin/google-signin; the original GoogleSignin can't pass one.",
+      ),
+    };
+  }
+  try {
+    const { data, error } = await client.auth.signInWithIdToken({ provider: "google", token, nonce });
+    if (error) return { error: new GenesisAuthError(error.code ?? "sign_in_failed", error.message, { cause: error }) };
+    if (!data.session || !data.user) return { error: new GenesisAuthError("no_session", "Sign-in returned no session") };
+    const profile = response.user?.user;
+    return { session: data.session, user: data.user, fullName: profile?.name?.trim() || null, email: profile?.email ?? null };
+  } catch (e) {
+    return { error: new GenesisAuthError("sign_in_failed", e instanceof Error ? e.message : "Sign-in failed", { cause: e }) };
+  }
+}
+
+/** One string claim of a JWT's payload, unverified (Supabase verifies the signature), or undefined. */
+function jwtClaim(token: string, claim: string): string | undefined {
+  const payload = token.split(".")[1];
+  if (!payload) return undefined;
+  try {
+    const value: unknown = JSON.parse(decodeBase64Url(payload))?.[claim];
+    return typeof value === "string" ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+/** base64url to a UTF-8 string, without atob, Buffer or TextDecoder (not on every React Native runtime). */
+function decodeBase64Url(input: string): string {
+  let escaped = "";
+  let buffer = 0;
+  let bits = 0;
+  for (const ch of input.replace(/=+$/, "")) {
+    const v = B64.indexOf(ch === "+" ? "-" : ch === "/" ? "_" : ch);
+    if (v < 0) throw new Error("not base64url");
+    buffer = (buffer << 6) | v;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      escaped += `%${((buffer >> bits) & 0xff).toString(16).padStart(2, "0")}`;
+      buffer &= (1 << bits) - 1;
+    }
+  }
+  return decodeURIComponent(escaped);
+}
+
 /** "Given Middle Family", or null when Apple shared no name. */
 export function formatFullName(name: AppleFullNameLike | null | undefined): string | null {
   if (!name) return null;
@@ -256,6 +394,7 @@ export function formatFullName(name: AppleFullNameLike | null | undefined): stri
 
 function defaultNonce(): string {
   const c = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto;
-  if (!c?.getRandomValues) throw new Error("[genesis] signInWithApple: no crypto.getRandomValues here; pass randomNonce (e.g. expo-crypto's randomUUID)");
+  // A nonce is a secret: no fallback to anything weaker than the platform's CSPRNG.
+  if (!c?.getRandomValues) throw new Error("[genesis] sign-in nonce: no crypto.getRandomValues here; install react-native-get-random-values or expo-crypto's getRandomValues polyfill, or pass randomNonce returning 32 random bytes");
   return Array.from(c.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
 }

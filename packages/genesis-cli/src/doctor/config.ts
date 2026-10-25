@@ -30,11 +30,77 @@ export interface GenesisLinks {
   webcredentials?: boolean;
 }
 
+/**
+ * Apple's collected data types (`NSPrivacyCollectedDataType`), by the
+ * stores' own words, as Genesis blocks name them in `privacy.collects`.
+ * Only types a Genesis block or app is likely to declare; see Apple's
+ * "NSPrivacyCollectedDataType" reference for the rest.
+ */
+export const PRIVACY_DATA_TYPES: Readonly<Record<string, string>> = {
+  name: "NSPrivacyCollectedDataTypeName",
+  "email address": "NSPrivacyCollectedDataTypeEmailAddress",
+  "phone number": "NSPrivacyCollectedDataTypePhoneNumber",
+  "physical address": "NSPrivacyCollectedDataTypePhysicalAddress",
+  "other user contact info": "NSPrivacyCollectedDataTypeOtherUserContactInfo",
+  "precise location": "NSPrivacyCollectedDataTypePreciseLocation",
+  "coarse location": "NSPrivacyCollectedDataTypeCoarseLocation",
+  contacts: "NSPrivacyCollectedDataTypeContacts",
+  "emails or text messages": "NSPrivacyCollectedDataTypeEmailsOrTextMessages",
+  "photos or videos": "NSPrivacyCollectedDataTypePhotosorVideos",
+  "audio data": "NSPrivacyCollectedDataTypeAudioData",
+  "customer support": "NSPrivacyCollectedDataTypeCustomerSupport",
+  "other user content": "NSPrivacyCollectedDataTypeOtherUserContent",
+  "user id": "NSPrivacyCollectedDataTypeUserID",
+  "device ID": "NSPrivacyCollectedDataTypeDeviceID",
+  "purchase history": "NSPrivacyCollectedDataTypePurchaseHistory",
+  "product interaction": "NSPrivacyCollectedDataTypeProductInteraction",
+  "other usage data": "NSPrivacyCollectedDataTypeOtherUsageData",
+  "crash data": "NSPrivacyCollectedDataTypeCrashData",
+  "performance data": "NSPrivacyCollectedDataTypePerformanceData",
+  "other diagnostic data": "NSPrivacyCollectedDataTypeOtherDiagnosticData",
+};
+
+/** Apple's collection purposes (`NSPrivacyCollectedDataTypePurposes`), by the stores' words. */
+export const PRIVACY_PURPOSES: Readonly<Record<string, string>> = {
+  "app functionality": "NSPrivacyCollectedDataTypePurposeAppFunctionality",
+  analytics: "NSPrivacyCollectedDataTypePurposeAnalytics",
+  "product personalization": "NSPrivacyCollectedDataTypePurposeProductPersonalization",
+  "developer advertising": "NSPrivacyCollectedDataTypePurposeDeveloperAdvertising",
+  "third-party advertising": "NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising",
+  other: "NSPrivacyCollectedDataTypePurposeOther",
+};
+
+/** One kind of data the app collects, as a Genesis block's `privacy.collects` entry says it. */
+export interface GenesisDataUse {
+  /** A key of {@link PRIVACY_DATA_TYPES}: `"email address"`, `"user id"`, `"crash data"`… */
+  type: string;
+  /** Keys of {@link PRIVACY_PURPOSES}: `"app functionality"`, `"analytics"`… */
+  purposes: string[];
+  /** Tied to the person's identity. */
+  linked: boolean;
+  /** Used to track the person across other companies' apps and websites. */
+  tracking: boolean;
+}
+
+/**
+ * The `privacy` block: what goes in the iOS privacy manifest's collected data
+ * types. Left out, the Genesis blocks the app's packages carry decide.
+ */
+export interface GenesisPrivacy {
+  /** The Genesis blocks whose data the app sends anywhere (`account`, `observability`, `push`). Default: found from package.json. */
+  blocks?: string[];
+  /** Every kind of data the app collects. Replaces what the blocks give, so list everything. */
+  collects?: GenesisDataUse[];
+  /** `NSPrivacyTracking`. Default false; true needs `NSPrivacyTrackingDomains` in app.config. */
+  tracking?: boolean;
+}
+
 /** genesis.config.json, parsed, with its shared blocks validated. */
 export interface GenesisConfigFile {
   /** The whole parsed file, for blocks other readers own (`doctor`, `features`). */
   raw: Record<string, unknown>;
   links?: GenesisLinks;
+  privacy?: GenesisPrivacy;
 }
 
 export interface LoadedConfig {
@@ -114,7 +180,7 @@ function readJson(file: string) {
 
 /**
  * Reads `<root>/genesis.config.json` and validates its shared blocks (today:
- * `links`). Returns null when the file doesn't exist; throws a
+ * `links` and `privacy`). Returns null when the file doesn't exist; throws a
  * GenesisConfigError naming the file when it isn't valid.
  */
 export function readGenesisConfig(root: string): GenesisConfigFile | null {
@@ -122,8 +188,55 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   if (!existsSync(file)) return null;
   const raw: unknown = readJson(file);
   if (!isObject(raw)) throw new GenesisConfigError(`${file}: the config must be a JSON object`);
-  const links = raw.links === undefined ? undefined : validateLinks(raw.links, file);
-  return links ? { raw, links } : { raw };
+  const out: GenesisConfigFile = { raw };
+  if (raw.links !== undefined) out.links = validateLinks(raw.links, file);
+  if (raw.privacy !== undefined) out.privacy = validatePrivacy(raw.privacy, file);
+  return out;
+}
+
+const PRIVACY_KEYS = new Set(["blocks", "collects", "tracking"]);
+const DATA_USE_KEYS = new Set(["type", "purposes", "linked", "tracking"]);
+
+/**
+ * Check a `privacy` block (genesis.config.json's, or the plugin's `privacy`
+ * option): a misspelt data type or purpose fails the build, since Xcode's
+ * privacy report ignores values it doesn't know.
+ */
+export function validatePrivacy(raw: unknown, source = "config"): GenesisPrivacy {
+  const fail = (msg: string): never => {
+    throw new GenesisConfigError(`${source}: ${msg}`);
+  };
+  if (!isObject(raw)) fail(`"privacy" must be an object`);
+  const c = raw as Record<string, unknown>;
+  for (const key of Object.keys(c)) if (!PRIVACY_KEYS.has(key)) fail(`privacy: unknown setting "${key}"`);
+  const out: GenesisPrivacy = {};
+  if (c.blocks !== undefined) {
+    if (!isStringList(c.blocks)) fail(`privacy.blocks must be a list of block ids`);
+    out.blocks = [...new Set(c.blocks as string[])];
+  }
+  if (c.tracking !== undefined) {
+    if (typeof c.tracking !== "boolean") fail(`privacy.tracking must be true or false`);
+    out.tracking = c.tracking as boolean;
+  }
+  if (c.collects !== undefined) {
+    if (!Array.isArray(c.collects)) fail(`privacy.collects must be a list`);
+    out.collects = (c.collects as unknown[]).map((entry, i) => {
+      const where = `privacy.collects[${i}]`;
+      if (!isObject(entry)) return fail(`${where} must be an object`);
+      for (const key of Object.keys(entry)) if (!DATA_USE_KEYS.has(key)) fail(`${where}: unknown setting "${key}"`);
+      if (typeof entry.type !== "string" || !(entry.type in PRIVACY_DATA_TYPES)) {
+        fail(`${where}.type "${String(entry.type)}" is not one of ${Object.keys(PRIVACY_DATA_TYPES).join(", ")}`);
+      }
+      if (!isStringList(entry.purposes) || entry.purposes.length === 0) fail(`${where}.purposes must be a non-empty list`);
+      for (const p of entry.purposes as string[]) {
+        if (!(p in PRIVACY_PURPOSES)) fail(`${where}.purposes: "${p}" is not one of ${Object.keys(PRIVACY_PURPOSES).join(", ")}`);
+      }
+      if (typeof entry.linked !== "boolean") fail(`${where}.linked must be true or false`);
+      if (typeof entry.tracking !== "boolean") fail(`${where}.tracking must be true or false`);
+      return { type: entry.type as string, purposes: [...new Set(entry.purposes as string[])], linked: entry.linked as boolean, tracking: entry.tracking as boolean };
+    });
+  }
+  return out;
 }
 
 const LINK_KEYS = new Set(["hosts", "paths", "webcredentials"]);

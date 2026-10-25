@@ -1,17 +1,68 @@
 // @feat:native-app-shell
-import { describe, expect, it, vi } from "vitest";
-import { focusManager, onlineManager } from "@tanstack/react-query";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { QueryObserver, focusManager, onlineManager } from "@tanstack/react-query";
 import { DAY_MS, connectQueryLifecycle, createNativeQueryClient } from "../query";
 import { createQueryPersistence, persistQueries } from "../persist";
 import { flush, memoryStorage, settle } from "./fakes";
 
 describe("createNativeQueryClient", () => {
-  it("runs offline instead of waiting, and keeps data as long as it is persisted", () => {
+  it("is offlineFirst, and keeps data as long as it is persisted", () => {
     const client = createNativeQueryClient();
     const { queries, mutations } = client.getDefaultOptions();
-    expect(queries?.networkMode).toBe("always");
-    expect(mutations?.networkMode).toBe("always");
+    expect(queries?.networkMode).toBe("offlineFirst");
+    expect(mutations?.networkMode).toBe("offlineFirst");
     expect(queries?.gcTime).toBe(DAY_MS);
+  });
+
+  describe("offline", () => {
+    afterEach(() => onlineManager.setOnline(true));
+
+    it("tries a query once, pauses its retries, keeps saved data, and continues when back online", async () => {
+      const client = createNativeQueryClient({ defaultOptions: { queries: { retryDelay: 0 } } });
+      client.mount();
+      client.setQueryData(["me"], { name: "saved" }, { updatedAt: 0 });
+      onlineManager.setOnline(false);
+      let calls = 0;
+      const queryFn = vi.fn(async () => {
+        calls += 1;
+        if (!onlineManager.isOnline()) throw new Error("Network request failed");
+        return { name: "fresh" };
+      });
+      // An observer, as useQuery makes: its default retry (3) is what offlineFirst pauses.
+      const unsubscribe = new QueryObserver(client, { queryKey: ["me"], queryFn, staleTime: 0 }).subscribe(() => {});
+      await vi.waitFor(() => expect(client.getQueryState(["me"])?.fetchStatus).toBe("paused"));
+      expect(calls).toBe(1);
+      expect(client.getQueryData(["me"])).toEqual({ name: "saved" });
+      onlineManager.setOnline(true);
+      await vi.waitFor(() => expect(client.getQueryData(["me"])).toEqual({ name: "fresh" }));
+      expect(calls).toBe(2);
+      unsubscribe();
+    });
+
+    it("fails a mutation at once instead of queueing it", async () => {
+      const client = createNativeQueryClient();
+      onlineManager.setOnline(false);
+      const mutationFn = vi.fn(async () => {
+        throw new Error("Network request failed");
+      });
+      const mutation = client.getMutationCache().build(client, { mutationFn });
+      await expect(mutation.execute(undefined)).rejects.toThrow("Network request failed");
+      expect(mutationFn).toHaveBeenCalledTimes(1);
+      expect(mutation.state.isPaused).toBe(false);
+    });
+
+    it("refetches a stale query on reconnect (networkMode always turned that off)", async () => {
+      const client = createNativeQueryClient({ defaultOptions: { queries: { staleTime: 0 } } });
+      client.mount();
+      const queryFn = vi.fn(async () => 1);
+      const unsubscribe = new QueryObserver(client, { queryKey: ["x"], queryFn }).subscribe(() => {});
+      await vi.waitFor(() => expect(queryFn).toHaveBeenCalledTimes(1));
+      onlineManager.setOnline(false);
+      onlineManager.setOnline(true);
+      await vi.waitFor(() => expect(queryFn).toHaveBeenCalledTimes(2));
+      unsubscribe();
+      client.unmount();
+    });
   });
 
   it("lets the app's config win", () => {
