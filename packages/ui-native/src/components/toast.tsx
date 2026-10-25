@@ -6,7 +6,8 @@
  * <NativeAlert> or <NativeBanner>) or for destructive confirmations
  * (use <NativeDialog>).
  *
- * Wrap the app in <NativeToastProvider>. Components anywhere in the tree
+ * `GenesisNativeApp` (genesis-native) mounts <NativeToastProvider> for you, at the top; elsewhere,
+ * wrap the app in it (its own default position is the bottom). Components anywhere in the tree
  * call `useToast()` and invoke `toast.show({ title, description, variant })`.
  * Toasts are queued — the next one shows once the current one dismisses
  * (or the user dismisses early).
@@ -29,6 +30,7 @@ import {
   useState,
 } from "react";
 import { Animated, Pressable, Text } from "react-native";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { cn } from "../utils";
 import { useReducedMotion } from "../hooks/use-reduced-motion";
 import { useThemeMode } from "../hooks/use-theme-mode";
@@ -165,6 +167,15 @@ function useAutoDismiss(toast: ToastInstance, onDismiss: () => void) {
   }, [toast.duration]);
 }
 
+/**
+ * A top toast sits below the safe area's top (the status bar, the Dynamic Island), which the
+ * `top-12` class alone doesn't clear on every phone. Without a SafeAreaProvider, the class stays.
+ */
+function useEdgeStyle(position: "top" | "bottom") {
+  const insets = useContext(SafeAreaInsetsContext);
+  return position === "top" && insets ? { top: insets.top + 8 } : null;
+}
+
 /** Slides in from the edge it sits on. */
 function startOffset(position: "top" | "bottom") {
   return position === "top" ? -16 : 16;
@@ -195,8 +206,9 @@ function ReanimatedToastView({
     return { opacity: opacity.value, transform: [{ translateY: offset.value }] };
   });
   const AnimatedView = R.default.View;
+  const edge = useEdgeStyle(position);
   return (
-    <AnimatedView {...regionProps(toast)} className={regionClass(position)} style={animatedStyle}>
+    <AnimatedView {...regionProps(toast)} className={regionClass(position)} style={edge ? [edge, animatedStyle] : animatedStyle}>
       <ToastBody toast={toast} onDismiss={onDismiss} glass={glass} />
     </AnimatedView>
   );
@@ -207,6 +219,7 @@ function AnimatedToastView({ toast, position, animate, onDismiss, glass }: Toast
   const opacity = useRef(new Animated.Value(fade ? 0 : 1)).current;
   const offset = useRef(new Animated.Value(animate ? startOffset(position) : 0)).current;
   useAutoDismiss(toast, onDismiss);
+  const edge = useEdgeStyle(position);
 
   useEffect(() => {
     if (!animate) return;
@@ -229,7 +242,7 @@ function AnimatedToastView({ toast, position, animate, onDismiss, glass }: Toast
     <Animated.View
       {...regionProps(toast)}
       className={regionClass(position)}
-      style={{ opacity, transform: [{ translateY: offset }] }}
+      style={[edge, { opacity, transform: [{ translateY: offset }] }]}
     >
       <ToastBody toast={toast} onDismiss={onDismiss} glass={glass} />
     </Animated.View>

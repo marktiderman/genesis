@@ -143,6 +143,22 @@ From the outside in:
     so sheet content can read them. The library also needs gesture-handler's
     `GestureHandlerRootView` around the app and Reanimated set up; without
     them it throws when a sheet opens.
+12. **Toasts**: `NativeToastProvider` is mounted around the screens, so
+    `useToast()` from genesis-ui-native works on any screen. Toasts show at
+    the top (a bottom toast would sit on a tab bar), below the safe area;
+    `toast={{ position: "bottom" }}` moves them, and `toast={null}` leaves
+    the provider to the app (one the app mounts inside the shell is the one
+    `useToast()` finds either way).
+13. **Development warnings**: in React Native 0.88 the first `console.warn`
+    pins LogBox's "Open debugger to view warnings." pill over the bottom of
+    the screen, where a native tab bar's first tap lands on it. The warnings
+    the app can't act on (React Native's `ImageBackground` deprecation, set
+    off by NativeWind's runtime) are kept out by
+    `ignoreKnownDependencyWarnings(LogBox, __DEV__)` from
+    `@marktiderman/genesis-native/dev-warnings`, called from the app's entry
+    file before `require("expo-router/entry")` (it has to run before any
+    library loads; see the starter's `index.ts`). It removes that trigger
+    only: any other warning, the app's own included, still shows the pill.
 
 ## Slots
 
@@ -158,7 +174,7 @@ From the outside in:
 | `maintenance` | `MaintenanceScreen` (with `updates`) | `{ message, retry, retrying }` |
 | `updateBanner` | `UpdateBanner` (with `updates`) | `{ reload, dismiss, canReload, blocked, reloading }` |
 | `whatsNew` | `WhatsNewSheet` (with `updates`) | `{ notes, version, dismiss }` |
-| `devtoolsFeedback` | nothing (in the devtools overlay; the support block fills it) | `{ debugInfo, close }` |
+| `devtoolsFeedback` | nothing (in the devtools overlay; the support block fills it) | `{ debugInfo, close }` (`close()` resolves once the sheet has slid away) |
 
 The last four render only when the `updates` prop is given. Ejecting a
 blocking one (`forceUpgrade: null`, `maintenance: null`) shows your screens
@@ -380,7 +396,9 @@ builds. It opens with a three-finger hold (every build, no native module), a sha
   fatal screen and reporting end to end), "Clear cache" (the query cache, then your `clearCache`)
   and "Sign out" (your `signOut`);
 - the `devtoolsFeedback` slot, which the support block fills with "Send feedback" (an annotated
-  screenshot); empty by default.
+  screenshot); empty by default. `close()` (the block's, and the slot's) resolves once the sheet
+  has finished sliding away (its `onDismiss`, iOS), or after 800 ms where the platform doesn't
+  report it (Android), so a screenshot taken after it shows the app, not the sheet.
 
 **Keep it out of production.** Import the entry only behind a condition Metro folds at build time.
 Metro inlines `__DEV__`, babel-preset-expo inlines `process.env.EXPO_PUBLIC_*`, and in a

@@ -260,6 +260,7 @@ declare module "react-native" {
     ItemSeparatorComponent?: ComponentType;
     refreshing?: boolean;
     onRefresh?: () => void;
+    stickySectionHeadersEnabled?: boolean;
   }
 
   export interface RefreshControlProps {
@@ -317,6 +318,7 @@ declare module "react-native" {
     onRefresh?: () => void;
     refreshControl?: React.ReactElement | undefined;
     contentInsetAdjustmentBehavior?: "automatic" | "scrollableAxes" | "never" | "always";
+    keyboardShouldPersistTaps?: "always" | "never" | "handled";
     testID?: string;
   }
 

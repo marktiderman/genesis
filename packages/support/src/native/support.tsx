@@ -89,6 +89,9 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
 
 const SupportContext = createContext<SupportBlock | null>(null);
 
+/** How long to let an overlay whose `close` returns nothing slide away before capturing. */
+const LEGACY_CLOSE_MS = 400;
+
 /** The support block, from `GenesisNativeApp blocks` (or `SupportProvider`). Throws outside one. */
 export function useSupport(): SupportBlock {
   const block = useContext(SupportContext);
@@ -159,15 +162,18 @@ export function createSupport(options: SupportOptions): SupportBlock {
 
   let opening = false;
   // The devtools overlay's "Send feedback" (its `devtoolsFeedback` slot): closes the overlay,
-  // captures the screen under it and opens the feedback screen with the debug report attached.
-  function DevtoolsFeedback({ debugInfo, close }: { debugInfo: string; close: () => void }) {
+  // waits for its sheet to be gone (a capture during the dismissal caught the sheet half way
+  // down), then captures the screen under it and opens the feedback screen with the debug report.
+  function DevtoolsFeedback({ debugInfo, close }: { debugInfo: string; close: () => Promise<void> | void }) {
     return (
       <NativeButton
         variant="outline"
         testID="genesis-support-devtools-feedback"
-        onPress={() => {
-          close();
-          void block.openFeedback({ extra: { debugInfo: debugInfo.slice(0, 8000) }, delayMs: 400 });
+        onPress={async () => {
+          const closed = close();
+          // An overlay whose close doesn't say when it's done: give its sheet time to leave.
+          await (closed instanceof Promise ? closed : new Promise((resolve) => setTimeout(resolve, LEGACY_CLOSE_MS)));
+          void block.openFeedback({ extra: { debugInfo: debugInfo.slice(0, 8000) } });
         }}
       >
         {copy.settings.sendFeedback}

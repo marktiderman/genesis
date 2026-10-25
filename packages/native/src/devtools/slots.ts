@@ -7,8 +7,11 @@
 export interface DevtoolsFeedbackProps {
   /** The overlay's debug report (version signature, user id, blocks, recent activity). */
   debugInfo: string;
-  /** Closes the overlay (before a screenshot, say). */
-  close: () => void;
+  /**
+   * Closes the overlay (before a screenshot, say). Resolves once the sheet has finished sliding
+   * away, so a capture after it shows the app, not the closing sheet.
+   */
+  close: () => Promise<void> | void;
 }
 
 // A type, not an interface, so it fits the slots contract's Record constraint.

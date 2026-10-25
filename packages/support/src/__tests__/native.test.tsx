@@ -131,6 +131,21 @@ describe("FeedbackForm", () => {
     expect(vi.mocked(Alert.alert)).toHaveBeenCalledWith("Thanks for the feedback", expect.any(String));
   });
 
+  it("leaves the confirmation to onSent with sentAlert={false} (the app's toast)", async () => {
+    const { block, wrap } = harness((call) => (call.table === "support_reports" ? { data: { id: REPORT }, error: null } : { data: null, error: null }));
+    const onSent = vi.fn();
+    const view = render(wrap(<span />));
+    await block.openFeedback({ screenshot: false });
+    view.rerender(wrap(<FeedbackForm sentAlert={false} onSent={onSent} />));
+    fireEvent.change(screen.getByTestId("genesis-support-feedback-message"), { target: { value: "Works now" } });
+    vi.mocked(Alert.alert).mockClear();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-feedback-send"));
+    });
+    await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(Alert.alert)).not.toHaveBeenCalled();
+  });
+
   it("sends no screenshot unless the person includes it", async () => {
     const { fake, block, wrap } = harness(() => ({ data: { id: REPORT }, error: null }), { viewShot: viewShot() });
     const view = render(wrap(<span />));
@@ -157,6 +172,28 @@ describe("FeedbackForm", () => {
     expect(close).toHaveBeenCalled();
     expect(block.peekPending()?.extra).toEqual({ debugInfo: "version 1.4.0" });
     void fake;
+  });
+
+  it("captures the screen only after the devtools sheet has finished closing", async () => {
+    const shot = viewShot();
+    const { block, wrap } = harness(() => ({ data: { id: REPORT }, error: null }), { viewShot: shot });
+    const Fill = block.contributes!.slots!.devtoolsFeedback as unknown as (p: { debugInfo: string; close: () => Promise<void> }) => ReactNode;
+    let finishClosing!: () => void;
+    const close = vi.fn(() => new Promise<void>((resolve) => (finishClosing = resolve)));
+    render(wrap(<Fill debugInfo="version 1.4.0" close={close} />));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-devtools-feedback"));
+      // Longer than the old fixed 400 ms: still no capture while the sheet is on its way down.
+      await new Promise((r) => setTimeout(r, 450));
+    });
+    expect(close).toHaveBeenCalled();
+    expect(shot.captureScreen).not.toHaveBeenCalled();
+    await act(async () => {
+      finishClosing();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(shot.captureScreen).toHaveBeenCalledTimes(1);
+    expect(block.peekPending()?.screenshot?.uri).toBe("data:image/jpeg;base64,aGk=");
   });
 
   it("sends no screenshot once the person removes it", async () => {
@@ -189,6 +226,8 @@ describe("FeedbackForm", () => {
     view.rerender(wrap(<FeedbackForm />));
     fireEvent.click(screen.getByTestId("genesis-support-feedback-annotate"));
     expect(screen.getByTestId("genesis-support-feedback-annotator")).toBeTruthy();
+    // Drawn in a full-screen modal, outside the page's scroll view: a drag draws, it never scrolls the page.
+    expect(screen.getByTestId("genesis-support-feedback-annotator").closest('[role="dialog"]')?.getAttribute("data-presentation-style")).toBe("fullScreen");
     // No marks: Done keeps the image as it was, without a capture.
     await act(async () => {
       fireEvent.click(screen.getByTestId("genesis-support-feedback-annotator-done"));

@@ -51,6 +51,11 @@
       "types": "./dist/devtools.d.ts",
       "react-native": "./src/devtools/index.ts",
       "import": "./dist/devtools.js"
+    },
+    "./dev-warnings": {
+      "types": "./dist/dev-warnings.d.ts",
+      "react-native": "./src/dev-warnings.ts",
+      "import": "./dist/dev-warnings.js"
     }
   },
   "files": [

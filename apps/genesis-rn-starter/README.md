@@ -99,18 +99,35 @@ import at the top of that file, and its package from `package.json`. FlashList v
 needs the New Architecture (the starter's default). Liquid Glass needs a build made with Xcode 26
 and iOS 26 on the device; otherwise the surfaces stay solid.
 
+## Entry file
+
+`package.json`'s `main` is `index.ts`, not `expo-router/entry`. In development it first keeps the
+warnings the app can't act on out of LogBox (`ignoreKnownDependencyWarnings` from
+`@marktiderman/genesis-native/dev-warnings`), then requires expo-router's entry. Why: in React
+Native 0.88 (Expo SDK 58) the first warning pins LogBox's "Open debugger to view warnings." pill to
+the bottom of the screen, over the native tab bar, so the first tab tap after a launch (or after a
+link brought the app forward) lands on the pill and seems ignored; the second works. The warning
+was NativeWind's runtime reading React Native's deprecated `ImageBackground` as expo-router loads
+the first screen, too early for anything in `_layout.tsx`. A warning your own code causes still
+shows the pill: open the debugger (`j` in Metro) to read it, then fix it. Release builds have no
+LogBox.
+
 ## App variants
 
 `app.config.ts` lists the Genesis config plugin (`withGenesis()`, from `@marktiderman/genesis-cli`).
 `APP_VARIANT` picks the build:
 
-| `APP_VARIANT` | Name | Bundle id / package |
-| --- | --- | --- |
-| `development` | Genesis Starter (Dev) | `com.example.genesisstarter.dev` |
-| `preview` | Genesis Starter (Preview) | `com.example.genesisstarter.preview` |
-| unset or `production` | Genesis Starter | `com.example.genesisstarter` |
+| `APP_VARIANT` | Name | Bundle id / package | URL scheme |
+| --- | --- | --- | --- |
+| `development` | Genesis Starter (Dev) | `com.example.genesisstarter.dev` | `genesis-starter-dev://` |
+| `preview` | Genesis Starter (Preview) | `com.example.genesisstarter.preview` | `genesis-starter-preview://` |
+| unset or `production` | Genesis Starter | `com.example.genesisstarter` | `genesis-starter://` |
 
-All three install side by side. Any other value fails the build. Set it per EAS environment so
+All three install side by side, and each registers its own scheme, so a link opens the build it
+names (`genesis-starter-dev://check-in?gym=hilltop` in a development build). `src/lib/links.ts`
+accepts every variant's scheme (the OS only delivers the one the build registered). Redirect URLs
+that use the scheme (Supabase Auth, OAuth clients) need each variant's. Any other value fails the
+build. Set it per EAS environment so
 builds, updates and fingerprints all see it; see the
 [plugin's README](../../packages/genesis-cli/README.md#setting-app_variant). The plugin also adds
 the associated domains and Android app links from `genesis.config.json`'s `links`, the privacy
@@ -279,8 +296,10 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
   (what the person sends: their request and text, an optional screenshot, the account id and device
   facts); all
   linked to the person, none for tracking, and `NSPrivacyTracking` false. The check-in example sends
-  nothing yet (its `send` is a stub); once it posts answers to your server, add them (`other user
-  content`, or the types your questions ask for) to `privacy.collects`. Turn `observability` off
+  nothing yet (its `send` and its photo `upload`, `src/lib/check-in-photos.ts`, are stubs; the
+  photo question picks from the library through expo-image-picker, a native module, so adding or
+  removing it changes the fingerprint); once it posts answers to your server, add them (`other user
+  content`, `photos or videos`, or the types your questions ask for) to `privacy.collects`. Turn `observability` off
   if you never set a DSN. If the app collects anything else, list everything it collects in
   `genesis.config.json` `privacy.collects` (it replaces the blocks' list). Check the result with
   `npx expo config --type introspect`. The App Store privacy label in App Store Connect is still
