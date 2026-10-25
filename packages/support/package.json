@@ -104,5 +104,151 @@
     "tsup": "^8.3.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "blocks": {
+      "support-feedback": {
+        "feature": {
+          "name": "Support and feedback",
+          "summary": "Send feedback with a marked-up screenshot (shake to report on native), read staff replies, and vote on an idea board, in the app's own Supabase.",
+          "keywords": [
+            "feedback",
+            "bug report",
+            "screenshot",
+            "shake to report",
+            "idea board",
+            "votes",
+            "help"
+          ],
+          "audience": [
+            "person"
+          ]
+        },
+        "requires": [
+          "account"
+        ],
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "packages": [
+          "@marktiderman/genesis-support",
+          "@marktiderman/genesis-supabase"
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "migrations": [
+          {
+            "package": "@marktiderman/genesis-supabase",
+            "file": "migrations/0006_genesis_support.sql",
+            "test": "migrations/tests/0006_genesis_support.test.sql"
+          }
+        ],
+        "functions": [
+          {
+            "package": "@marktiderman/genesis-supabase",
+            "dir": "functions/genesis-support-cleanup",
+            "verifyJwt": false,
+            "secrets": [
+              "GENESIS_SUPPORT_CLEANUP_SECRET"
+            ]
+          },
+          {
+            "package": "@marktiderman/genesis-supabase",
+            "dir": "functions/genesis-support-notify",
+            "verifyJwt": false,
+            "secrets": [
+              "GENESIS_SUPPORT_WEBHOOK_SECRET",
+              "GITHUB_TOKEN",
+              "GITHUB_REPO",
+              "SUPPORT_WEBHOOK_URL",
+              "SUPPORT_WEBHOOK_SIGNING_SECRET"
+            ]
+          }
+        ],
+        "routes": [
+          {
+            "path": "/settings/support",
+            "description": "Help: the person's reports and staff replies",
+            "signedIn": true
+          },
+          {
+            "path": "/settings/support/new",
+            "description": "Send feedback, with a screenshot",
+            "signedIn": true
+          },
+          {
+            "path": "/settings/support/[id]",
+            "description": "One report's conversation",
+            "signedIn": true
+          },
+          {
+            "path": "/settings/support/ideas",
+            "description": "The idea board, with votes",
+            "signedIn": true
+          },
+          {
+            "path": "/settings/support/shipped",
+            "description": "Ideas the person asked for that shipped",
+            "signedIn": true
+          }
+        ],
+        "steps": [
+          "npx expo install react-native-view-shot expo-sensors (screenshots and shake to report; both optional).",
+          "Create the block with createSupport (@marktiderman/genesis-support/native), pass it to <GenesisNativeApp blocks> with appFeatures [\"account\"], and add the five route files (genesis-support README, Native).",
+          "Make someone staff: create private.genesis_support_staff(person uuid) returns boolean in a migration of your own, and revoke execute on it from public, anon, authenticated. Without it nobody is staff.",
+          "Optional: deploy genesis-support-cleanup on a schedule to remove deleted screenshots, and genesis-support-notify behind a Database Webhook for a GitHub issue or webhook per report."
+        ],
+        "privacy": {
+          "collects": [
+            {
+              "type": "user ID",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "customer support",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "other user content",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "photos or videos",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            },
+            {
+              "type": "other diagnostic data",
+              "purposes": [
+                "app functionality"
+              ],
+              "linked": true,
+              "tracking": false
+            }
+          ],
+          "notes": [
+            "Feedback is sent only when the person taps Send, and a screenshot only when they include it.",
+            "Reports, screenshots and replies are visible to the person and the app's support staff only."
+          ]
+        }
+      }
+    }
   }
 }

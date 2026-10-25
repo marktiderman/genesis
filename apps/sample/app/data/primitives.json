@@ -1976,6 +1976,27 @@
               "description": ""
             },
             {
+              "name": "error",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The read failed: the empty slot shows `errorTitle` / `errorBody` instead (and pull to refresh retries)."
+            },
+            {
+              "name": "errorBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "errorTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "formatTime",
               "type": "((date: Date, now: Date) => string)",
               "required": false,
@@ -2023,6 +2044,13 @@
               "required": false,
               "defaultValue": null,
               "description": "When true, iOS uses large-title mode + scroll-edge appearance."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The first page is loading: a spinner instead of the empty state."
             },
             {
               "name": "loadingMore",
@@ -5408,6 +5436,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Custom header title. Falls back to `<Stack.Screen name>` mapping."
+            },
+            {
+              "name": "labels",
+              "type": "Partial<ThreadLabels>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The words the defaults say, for translating."
             },
             {
               "name": "large",

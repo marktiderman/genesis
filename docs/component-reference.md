@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 138 components · 478 other exports · 343 standalone types across 11 packages and entry points.
+**Totals:** 138 components · 478 other exports · 344 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -823,7 +823,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (41)
+### Types (42)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -866,6 +866,7 @@ export type { ThemeMode };
 export type { ThemeRoleColors };
 export type { ThreadAttachment };
 export type { ThreadComposer };
+export type { ThreadLabels };
 export type { ThreadMessage };
 export type { ThreadPageSlotMap };
 export type { UseThemeRolesOptions };

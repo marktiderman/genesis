@@ -9,3 +9,5 @@
 `ThreadPage`: messages with attachments, a read receipt, "load earlier", optimistic sending and retry, and a composer kept above the keyboard through `KeyboardScrollProvider` (or a `KeyboardAvoidingView` without it); `composer={null}` is read-only.
 
 The React Native type stubs gain the props these use (`accessibilityActions`, `onAccessibilityAction`, `onPressIn` / `onPressOut`, `onContentSizeChange`, FlatList's `refreshControl` and `contentInsetAdjustmentBehavior`), and the test shim renders FlatList headers and footers and accessibility actions.
+
+`NativeSegmentedControl` shows the selected segment's lift as a style instead of toggling a `shadow-sm` class, which crashed in development when the selection changed (NativeWind's upgrade warning).
