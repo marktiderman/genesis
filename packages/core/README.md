@@ -509,3 +509,30 @@ const release = useWrite((itemId: string) => callRpc(supabase, "release_step", {
 
 `run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`). One write runs at a
 time: a second click while it runs gets the same promise, not a second write.
+
+## Days and time zones (`/dates`)
+
+A day is a `YYYY-MM-DD` string: the date on one time zone's clock. `new Date().toISOString().slice(0, 10)`
+gives the day in UTC. For an evening in the Americas that is already tomorrow, and for a morning in
+Asia it is still yesterday. A server's own zone is usually UTC too. `@marktiderman/genesis-core/dates`
+always takes the zone, so you can't fall into that by accident:
+
+```ts
+import { personDay, dayIn, dayRangeIn, addDays, startOfWeek } from "@marktiderman/genesis-core/dates";
+
+const today = personDay(profile);                 // the person's saved zone, else the device's, else UTC
+const yesterday = addDays(today, -1);
+const week = startOfWeek(today);                  // Monday; startOfWeek(today, 0) for Sunday
+const { start, end } = dayRangeIn(today, profile.timeZone); // the instants, for created_at >= start and < end
+```
+
+- `personDay(person, at?)` and `personTimeZone(person)`: the person's `timeZone` when the runtime
+  knows it, else `deviceTimeZone()`, else UTC. On a server, always pass the person's zone.
+- `dayIn(zone, at?)` and `wallClock(zone, at?)`: what the calendar and the clock say in `zone`.
+- `startOfDayIn(day, zone)` and `dayRangeIn(day, zone)`: the instants a day starts and ends.
+  Daylight-saving days are 23 or 25 hours long, and where midnight is skipped the day starts at the
+  first instant that exists.
+- `addDays`, `daysBetween`, `weekdayOf`, `startOfWeek` and `isDay`: plain calendar arithmetic on
+  `YYYY-MM-DD` strings, with no zone involved. They refuse days that don't exist, such as `2026-02-30`.
+
+In SQL, the same day is `(now() at time zone person_zone)::date`.
