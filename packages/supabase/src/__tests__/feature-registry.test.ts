@@ -35,6 +35,20 @@ describe("featureGateState", () => {
     expect(rpc).toHaveBeenCalledWith("feature_gate_state", { tenant: "t1" });
   });
 
+  it("throws on an empty or malformed answer instead of reporting nothing set", async () => {
+    for (const data of [null, [], { off: [], entitled: [] }, { off: "x", entitled: [], flags: {} }]) {
+      const { client } = fakeClient({ data, error: null });
+      await expect(featureGateState(client, "t1")).rejects.toThrow(TypeError);
+    }
+  });
+
+  it("spreads into a gate context as documented", async () => {
+    const { client } = fakeClient({ data: { off: [], entitled: [], flags: { a: true, b: null, c: [1] } }, error: null });
+    const state = await featureGateState(client, "t1");
+    const context: { platform: "web"; off?: readonly string[]; entitlements?: readonly string[]; flags?: { readonly [name: string]: boolean | string | number | { readonly [key: string]: unknown } | undefined } } = { platform: "web", ...state };
+    expect(context.flags).toEqual({ a: true });
+  });
+
   it("throws a refusal rather than reporting nothing set", async () => {
     const { client } = fakeClient({
       data: null,
@@ -73,8 +87,25 @@ describe("syncFeatureRegistry", () => {
       flags: [{ key: "forms.release", feature: "forms" }],
     });
     expect(String(args?.hash)).toMatch(/^[0-9a-f]{64}$/);
-    await syncFeatureRegistry(client, document, { version: 200 });
+    expect(args?.allow_shrink).toBe(false);
+    // The same registry with keys in another order hashes the same.
+    const reordered = {
+      flags: {
+        "forms.release": {
+          scopes: ["platform"],
+          default: true,
+          kind: "release",
+          feature: "forms",
+        },
+      },
+      features: [{ status: "live", name: "Forms", id: "forms" }],
+    };
+    await syncFeatureRegistry(client, reordered, {
+      version: 200,
+      allowShrink: true,
+    });
     expect(rpc.mock.calls[1]![1]?.hash).toBe(args?.hash);
+    expect(rpc.mock.calls[1]![1]?.allow_shrink).toBe(true);
   });
 
   it("reports an older or unchanged registry as not synced, and refuses a bad version", async () => {

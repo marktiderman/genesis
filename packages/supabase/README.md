@@ -595,14 +595,21 @@ Migration `0008_genesis_feature_registry.sql` (needs 0004) gives the feature gat
 way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
 
 - **The mirror.** `features` and `feature_flags` copy `features.json`, written only by `sync_feature_registry`
-  with the service key. Run it when a deploy starts; an older build can't roll the registry back, and the same
-  registry again changes nothing.
+  with the service key. Run it from **production deployments only**, when one starts serving, with
+  `Date.now()` as the version (not the build time), so an instant rollback syncs as the newest. The same
+  registry again changes nothing; an empty registry, or one dropping more than a fifth of the features, is
+  refused unless `allowShrink`. Nothing is deleted: a removed feature or flag is marked `in_registry = false`,
+  and a flag's tenant values stay.
 - **Paid access.** `feature_entitlements` (tenant, feature, source, `active`, optional `ends_at`). Your billing
   webhook writes it with the service key.
 - **Flag values.** `tenant_flag_values` overrides a flag's default for one tenant (service key).
 - **The gate in SQL.** `feature_on(tenant, feature)` is true for a shipped feature that, when paid, has an
-  active entitlement. Use it in policies: `using (feature_on(team_id, 'form-webhook-delivery'))`. A signed-in
-  caller outside the tenant gets false. Switches and flags are not checked here: server code enforces them.
+  active entitlement; a signed-in caller outside the tenant gets false. It runs once per row, so in policies
+  over many rows use the once-per-statement pair instead:
+  `using ((select feature_shipped('exports')) and team_id = any (array(select feature_entitled_tenants('exports'))))`
+  (drop the second half for a free feature). Switches and flags are not checked here: server code enforces them.
+- **Reading features.** Signed-in people (not anonymous sign-ins) read shipped, customer-facing features, and
+  only `id, name, status, visibility, access_plan, platforms, in_registry`; the full record stays server side.
 - **The snapshot's input.** `feature_gate_state(tenant)` returns the tenant's switches off, entitlements and
   flag values, to its members (with their own JWT, so browsers and extensions can call it) and the service role.
 
@@ -611,7 +618,8 @@ import { featureGateState, syncFeatureRegistry } from "@marktiderman/genesis-sup
 import { gateSnapshot } from "@marktiderman/genesis-features/gate";
 import registry from "../features.json";
 
-await syncFeatureRegistry(admin, registry, { version: BUILD_TIME }); // on deploy
+// When a production deployment starts serving (never from a preview):
+if (process.env.VERCEL_ENV === "production") await syncFeatureRegistry(admin, registry, { version: Date.now() });
 
 const state = await featureGateState(supabase, teamId); // per session
 const snapshot = gateSnapshot({ features, flags }, { platform: "web", ...state }, { version: BUILD_TIME });
