@@ -3,7 +3,7 @@
 // the peek, the form, delete, saved views and slots are all ResourcePage's. Every ResourcePage
 // prop still works as an escape hatch, and the screen's own props win over the view.
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import type { DataRow, FilterParam, ResourceContract } from "@marktiderman/genesis-core";
 import type { DisplayHint, ResourceView as View, ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
@@ -32,6 +32,11 @@ export interface ResourceViewOptions {
 
 export type ResourceViewProps<T extends Row = Row> = ResourceViewOptions &
   Omit<Partial<ResourcePageProps<T>>, "resource" | "columns" | "variant" | "title" | "subtitle"> & {
+    /**
+     * Draw some cells this screen's own way, by column key (an avatar beside a name). The step
+     * before a slot: the column, its label, sorting and visibility stay the view's.
+     */
+    cells?: Partial<Record<string, (row: T) => ReactNode>>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
     view: View<ResourceContract<any>, T & DataRow>;
   };
@@ -76,7 +81,7 @@ function filterParams(filter: Filter | undefined): FilterParam[] {
  * `<ResourceView>` both use it; call it yourself to hand the props to your own layout.
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
-  const { view, layout = "page", columns: columnPreset, preset, filter, mode, title, subtitle, can, resourceOptions, ...rest } = props;
+  const { view, layout = "page", columns: columnPreset, preset, filter, mode, title, subtitle, can, resourceOptions, cells, ...rest } = props;
   const cell = useDisplayCell();
   const tab = preset ? view.definition.presets?.[preset] : undefined;
   if (preset && !tab) {
@@ -91,9 +96,9 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
         header: c.label,
         // A computed column has no database column to sort by.
         ...(c.field ? {} : { sortable: false, accessor: (row: T) => c.value(row as T & DataRow) }),
-        render: (row: T) => cell(c as never, row),
+        render: (row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row)),
       })),
-    [view, presetName, cell],
+    [view, presetName, cell, cells],
   );
 
   // The form lists only fields a writer may send. A field that can't change after create is

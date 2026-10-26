@@ -143,6 +143,15 @@ describe("ResourceView", () => {
     expect(await screen.findByText("status:active")).toBeTruthy();
   });
 
+  it("draws a cell the screen's own way, keeping the view's column", async () => {
+    localStorage.clear();
+    render(<ResourceView view={view} mode="table" detail="none" cells={{ name: (r) => <i>★ {r.name}</i> }} />, {
+      wrapper: wrap(provider()),
+    });
+    expect(await screen.findByText("★ Northwind")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: /Name/ })).toBeTruthy();
+  });
+
   it("sends the screen's filter, the tab's filter and the view's order to the provider", async () => {
     localStorage.clear();
     const p = provider();
