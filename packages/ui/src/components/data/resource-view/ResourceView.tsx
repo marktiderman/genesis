@@ -5,11 +5,12 @@
 
 import { useMemo, type ReactNode } from "react";
 import type { DataRow, FilterParam, ResourceContract } from "@marktiderman/genesis-core";
-import type { DisplayHint, ResourceView as View, ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
+import { rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
 import { useDisplayCell } from "./display";
+import { RowAvatar } from "./RowAvatar";
 
 type Row = Record<string, unknown>;
 type Filter = Readonly<Record<string, string | number | boolean | null>>;
@@ -91,14 +92,43 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   const columns = useMemo(
     () =>
-      view.columns(presetName).map((c) => ({
-        key: c.key,
-        header: c.label,
-        // A computed column has no database column to sort by.
-        ...(c.field ? {} : { sortable: false, accessor: (row: T) => c.value(row as T & DataRow) }),
-        render: (row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row)),
-      })),
+      view.columns(presetName).map((c, index) => {
+        const draw = (row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row));
+        return {
+          key: c.key,
+          header: c.label,
+          // A computed column has no database column to sort by.
+          ...(c.field ? {} : { sortable: false, accessor: (row: T) => c.value(row as T & DataRow) }),
+          // The summary's picture sits beside the first column.
+          render:
+            index === 0
+              ? (row: T) => {
+                  const picture = rowPicture(view.summary(row as T & DataRow));
+                  return picture ? (
+                    <span className="flex min-w-0 items-center gap-2">
+                      <RowAvatar picture={picture} />
+                      <span className="min-w-0 truncate">{draw(row)}</span>
+                    </span>
+                  ) : (
+                    draw(row)
+                  );
+                }
+              : draw,
+        };
+      }),
     [view, presetName, cell, cells],
+  );
+
+  // The peek shows the view's full column list, drawn like the cells (so `when` hides there too),
+  // never every key of the row: sensitive values and columns the view leaves out stay out.
+  const detailFields = useMemo(
+    () =>
+      view.columns().map((c) => ({
+        key: c.key,
+        label: c.label,
+        render: (_value: unknown, row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row)),
+      })),
+    [view, cell, cells],
   );
 
   // The form lists only fields a writer may send. A field that can't change after create is
@@ -108,7 +138,8 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     const writable = new Set(view.writable("create"));
     return view
       .form("create")
-      .filter((f) => writable.has(f.field.name))
+      // JSON and lists need editors of their own; the plain form would send them back as text.
+      .filter((f) => writable.has(f.field.name) && f.display !== "json" && !f.field.array)
       .map((f) => formField(f, editable.has(f.field.name)));
   }, [view]);
 
@@ -140,6 +171,11 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...(mode ? { defaultView: mode } : layout === "compact" ? { defaultView: "list" as const } : {}),
     ...(view.labelField ? { titleField: view.labelField } : {}),
     getTitle: (row: T) => view.summary(row as T & DataRow).title,
+    // Never ResourcePage's default (the second column's raw value, which skips `when`).
+    getSubtitle: (row: T) => view.summary(row as T & DataRow).subtitle,
+    detailFields,
+    // Server paging by default: a list never loads a whole table to search it in the browser.
+    pagination: "server",
     formFields,
     allowCreate: formFields.length > 0,
     allowEdit: formFields.length > 0,

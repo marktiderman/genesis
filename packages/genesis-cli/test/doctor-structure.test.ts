@@ -32,7 +32,8 @@ declare function BreadcrumbPage(): React.ReactNode;
 declare function PageHeader(): React.ReactNode;
 declare function StatusBadge(): React.ReactNode;
 declare function FormError(): React.ReactNode;
-export { FormError, AppShell, AppShellPageHeader, AppShellSubNavEnd, BreadcrumbPage, Button, Card, CardContent, DashboardPage, DetailPage, Dialog, DialogContent, PageHeader, StatusBadge, SubNavTabs, Tabs, TabsContent, TabsList, TabsTrigger, useAppShellSubNav };
+declare function ResourceView(): React.ReactNode;
+export { FormError, AppShell, AppShellPageHeader, AppShellSubNavEnd, BreadcrumbPage, Button, Card, CardContent, DashboardPage, DetailPage, Dialog, DialogContent, PageHeader, ResourceView, StatusBadge, SubNavTabs, Tabs, TabsContent, TabsList, TabsTrigger, useAppShellSubNav };
 `;
 const FORMS_STUDIO = {
   "node_modules/@marktiderman/genesis-forms-studio/package.json": JSON.stringify({
@@ -379,6 +380,10 @@ describe("page-layout", () => {
         "src/routes/_shell/my/index.tsx": route(`<EmptyState />`),
         "src/routes/_shell/support.tsx": route(`<SupportPage />`, `import { SupportPage } from "@marktiderman/genesis-support";`),
         "src/routes/_shell/settings.tsx": route(`<ResourceSettingsPage />`, `import { ResourceSettingsPage } from "@marktiderman/genesis-forms-studio";`),
+        "src/routes/_shell/brands.tsx": route(`<ResourceView view={brandsView} />`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
+        "src/routes/_shell/embedded.tsx": route(`<ResourceView view={v} layout="embedded" />`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
+        "src/routes/_shell/framed.tsx": route(`<DetailPage title="x"><ResourceView view={v} layout="embedded" /></DetailPage>`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
+        "src/routes/_shell/chosen.tsx": route(`<ResourceView view={v} layout={mode} />`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
         "src/routes/_shell/crumbs.tsx": route(`<BreadcrumbPage />`),
         "src/routes/_shell/go.tsx": route(`<Navigate to="/" />`),
         "src/routes/_shell/invite.$token.tsx": `export const Route = createFileRoute("/invite/$token")({ beforeLoad: () => { throw redirect({ to: "/" }); } });`,
@@ -387,7 +392,11 @@ describe("page-layout", () => {
         "src/routes/index.tsx": route(`<Landing />`),
       }),
     );
-    expect(brief(f, "page-layout")).toEqual(["src/routes/_shell/crumbs.tsx:0", "src/routes/_shell/inbox.tsx:0"]);
+    expect(brief(f, "page-layout")).toEqual([
+      "src/routes/_shell/crumbs.tsx:0",
+      "src/routes/_shell/embedded.tsx:0",
+      "src/routes/_shell/inbox.tsx:0",
+    ]);
     expect(f.find((x) => x.rule === "page-layout")!.message).toContain("DashboardPage");
   });
 

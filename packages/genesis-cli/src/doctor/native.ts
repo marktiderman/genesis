@@ -21,8 +21,8 @@ import type { DoctorContext } from "./types.js";
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
 const JSX_EXTS = new Set([".tsx", ".jsx"]);
 
-/** A Genesis screen layout: an exported component named `…Page`, `…Screen` or `ScreenContainer`. */
-const LAYOUT_NAME = /(?:Page|Screen|ScreenContainer)$/;
+/** A Genesis screen layout: an exported component named `…Page`, `…Screen`, `ScreenContainer` or `NativeResourceView`. */
+const LAYOUT_NAME = /(?:Page|Screen|ScreenContainer)$|^NativeResourceView$/;
 /** Route files Expo Router treats as non-screens. */
 const NON_SCREEN_ROUTE = /(?:^|\/)(?:_layout|\+html|\+native-intent|\+middleware)\.[jt]sx?$|\+api\.[jt]sx?$/;
 /** Header-named components that head a section of a screen, not the screen. */

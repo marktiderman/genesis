@@ -111,7 +111,26 @@ export interface RowSummary {
   title: string;
   subtitle?: string;
   chips?: readonly { label: string; tone?: ViewTone }[];
+  /**
+   * A picture beside the row: `src` is shown only when `isSafeUrl` accepts it; otherwise the
+   * initials of `name`. `alt` defaults to empty (decorative). Resolve it with `rowPicture`.
+   */
+  image?: RowImage;
 }
+
+/** A row's picture, as a view's `summary` gives it. */
+export interface RowImage {
+  src?: string;
+  /** Whose picture: the initials come from it when there is no safe `src`. */
+  name?: string;
+  /** Alternative text. Default empty: the picture is decorative (the row's title names it). */
+  alt?: string;
+}
+
+/** A row's picture, ready to draw: an image (with initials for when it fails to load), or initials. */
+export type RowPicture =
+  | { readonly kind: "image"; readonly src: string; readonly alt: string; readonly fallback: string }
+  | { readonly kind: "initials"; readonly text: string };
 
 /** The words a view shows. Each defaults from the contract (`noun`, labels). */
 export interface ViewCopy {
