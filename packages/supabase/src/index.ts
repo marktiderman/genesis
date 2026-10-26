@@ -197,6 +197,7 @@ export {
   featureGateState,
   syncFeatureRegistry,
   type FeatureGateState,
+  type FlagStateValue,
   type FeatureRegistryClient,
   type FeatureRegistryDocument,
   type SyncFeatureRegistryOptions,

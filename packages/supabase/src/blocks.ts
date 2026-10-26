@@ -87,7 +87,7 @@ export const tenantFeaturesBlock = defineBlock({
 
 /**
  * The feature registry block: the registry mirrored into the app's database
- * on deploy, entitlements, per-tenant flag values and SQL `feature_on()`,
+ * on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`,
  * for the feature gate. Needs the tenant features block.
  *
  * @stability Beta

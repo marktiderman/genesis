@@ -1,4 +1,4 @@
-import type { FeatureStatus } from "./model";
+import type { FeatureStatus } from "./types";
 import type { FeaturePlatform } from "./platforms";
 
 /**

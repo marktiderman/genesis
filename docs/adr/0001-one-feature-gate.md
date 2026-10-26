@@ -69,9 +69,11 @@ function runs on both sides, they cannot disagree about the rules, only about fr
 
 ### 5. Where the data lives
 
-- Feature and flag **definitions** live in code. A deploy copies them into the app's database
-  (`features`, `feature_flags`, through `sync_feature_registry`), so foreign keys and SQL checks
-  have real rows. The copy never goes backwards: an older build cannot overwrite a newer one.
+- Feature and flag **definitions** live in code. A production deployment copies them into the app's
+  database (`features`, `feature_flags`, through `sync_feature_registry`) when it starts serving, so
+  foreign keys and SQL checks have real rows. Its version is the time it started serving, so an
+  instant rollback syncs as the newest; a broken or empty registry is refused rather than switching
+  everything off, and nothing is ever deleted.
 - **Runtime state** lives in the app's own database, in Genesis migrations every app gets:
   tenant switches (`tenant_features`), entitlements (`feature_entitlements`) and per-tenant flag
   values. Who is a tenant's admin or member is the app's hook, as in `tenant_features`.
