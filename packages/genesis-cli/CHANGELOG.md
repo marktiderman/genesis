@@ -1,5 +1,32 @@
 # @marktiderman/genesis-cli
 
+## 1.9.0
+
+### Minor Changes
+
+- d54328d: The doctor's supabase pack adds `migration-testing-kit`: an error when a migration uses `genesis_testing`, the pgTAP kit that belongs in `supabase/tests` only.
+- 89ea12c: `genesis doctor` catches structural copies of Genesis. They are warnings (failures under `--strict`), except `resource-workspace`, which is `info`.
+
+  A new `info` level is reported (in the text report, with `--json` `infos` and each finding's `level`) but never fails a run, `--strict` included. `rules` accepts it for any rule.
+
+  The new rules:
+
+  - `hand-rolled-sub-nav`: a route inside the AppShell layout that switches its sections with its own page-level `TabsList` / `SubNavTabs` instead of `useAppShellSubNav` and `AppShellPageHeader`.
+  - `local-genesis-copy`: an app component definition (it renders JSX, and it is exported or outside the routes folder) named like a genesis-ui or forms-studio component (`ResourceHeader`, `SettingsSection`, `StatusBadge`, …). A route's own `errorComponent` and similar are not copies.
+  - `duplicate-genesis-package`: more than one loadable copy of a Genesis package, found by following resolution through npm/yarn/bun trees, pnpm's store (workspace sub-apps included) and bun's isolated store, with the paths and the ranges that caused it.
+  - `peer-range-mismatch`: an installed Genesis package whose peer range on another Genesis package isn't met by the installed peer, with the package, range and installed version.
+  - `resource-workspace` (info): detail pages beside one that uses `AppShellPageHeader` but don't.
+  - `page-layout`: a route inside the AppShell with no Genesis page layout, itself, through one local import, or from a layout route around it.
+
+  New settings: `routesDir` and `componentPackages`; `--print-genesis` lists the companion packages' components.
+
+- a4dd4aa: `genesis doctor` adds the `iso-date-slice` rule, a warning. It flags a day cut from an ISO timestamp (`toISOString().slice(0, 10)`, `.substring(0, 10)`, `.split("T")[0]` and the like). That is the day in UTC, not the person's. Use `personDay` or `dayIn` from `@marktiderman/genesis-core/dates` instead. Test files are skipped. Where UTC is what you mean, allow it with a reason.
+
+### Patch Changes
+
+- Updated dependencies [6c180f6]
+  - @marktiderman/genesis-studio-server@0.3.1
+
 ## 1.8.0
 
 ### Minor Changes

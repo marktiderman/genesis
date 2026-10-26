@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-forms-builder",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "private": false,
   "type": "module",
   "sideEffects": [
