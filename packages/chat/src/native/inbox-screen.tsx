@@ -24,6 +24,10 @@ export interface ChatInboxScreenProps {
   onStart?: () => void;
   /** One kind only. */
   kind?: string;
+  /** Only these kinds. */
+  kinds?: string[];
+  /** Every kind but these (`["support"]` keeps support tickets out of a messages inbox). */
+  excludeKinds?: string[];
   archived?: boolean;
   /** Passed to InboxPage (a header, a section title, slots). */
   pageProps?: Partial<Omit<InboxPageProps, "items">>;
@@ -52,11 +56,11 @@ export function inboxRow(
   };
 }
 
-export function ChatInboxScreen({ onOpen, onStart, kind, archived, pageProps, testID = "chat-inbox" }: ChatInboxScreenProps) {
+export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, archived, pageProps, testID = "chat-inbox" }: ChatInboxScreenProps) {
   const { client, userId } = useChat();
   const queryClient = useQueryClient();
   const { copy, person: known } = useChatNative();
-  const inbox = useInbox({ kind, archived });
+  const inbox = useInbox({ kind, kinds, excludeKinds, archived });
   // The other person in each direct conversation, fetched in one batch (ChatProvider loadPeople).
   const others = useMemo(() => inbox.items.map((i) => i.otherUserId), [inbox.items]);
   const people = usePeople(others);

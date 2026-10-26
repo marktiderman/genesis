@@ -91,7 +91,7 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, testID =
   const voiceNotice = voice?.state.phase === "idle" ? voice.state.notice : null;
   const notice =
     state.notice ??
-    (voiceNotice === "denied" ? copy.micDenied : voiceNotice === "too-short" ? copy.tooShort : voiceNotice === "error" ? copy.actionFailed : null);
+    (voiceNotice === "denied" ? copy.micDenied : voiceNotice === "too-short" ? copy.tooShort : voiceNotice === "error" ? copy.recordingFailed : voiceNotice === "interrupted" ? copy.recordingInterrupted : null);
 
   const send = () => {
     if (!sendable) return;
@@ -295,13 +295,21 @@ function IconButton({
   );
 }
 
-/** Hold to record. While held, the finger's movement slides to cancel or up to lock. */
+/**
+ * Hold to record. While held, the finger's movement slides to cancel or up to lock; locked, the
+ * same button stops and sends. It stays one view throughout: swapping in another button while
+ * the finger that locked is still down left the touch with a responder that no longer existed,
+ * and the next tap anywhere on the screen did nothing.
+ */
 function MicButton({ voice, disabled, testID }: { voice: Voice; disabled: boolean; testID: string }) {
   const { copy } = useChatNative();
   const colors = useThemeRoles();
   const { state, dispatch } = voice;
   const latest = useRef(dispatch);
   latest.current = dispatch;
+  const locked = state.phase === "recording" && state.locked;
+  const lockedNow = useRef(locked);
+  lockedNow.current = locked;
   // VoiceOver and TalkBack can't hold and slide: a double tap starts a locked (hands-free) recording.
   const lockWhenReady = useRef(false);
   useEffect(() => {
@@ -312,24 +320,28 @@ function MicButton({ voice, disabled, testID }: { voice: Voice; disabled: boolea
     if (state.phase === "idle") lockWhenReady.current = false;
   }, [state.phase, dispatch]);
 
-  const responder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderGrant: () => latest.current({ type: "press" }),
-        onPanResponderMove: (_e, g) => latest.current({ type: "move", dx: g.dx, dy: g.dy }),
-        onPanResponderRelease: () => latest.current({ type: "release" }),
-        onPanResponderTerminate: () => latest.current({ type: "cancel" }),
-      }),
-    [],
-  );
+  const responder = useMemo(() => {
+    // A touch that began on the locked button is a tap on Send, not a new hold.
+    let tapToSend = false;
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => {
+        tapToSend = lockedNow.current;
+        if (!tapToSend) latest.current({ type: "press" });
+      },
+      onPanResponderMove: (_e, g) => {
+        if (!tapToSend) latest.current({ type: "move", dx: g.dx, dy: g.dy });
+      },
+      onPanResponderRelease: () => latest.current({ type: tapToSend ? "send" : "release" }),
+      onPanResponderTerminate: () => {
+        if (!tapToSend) latest.current({ type: "cancel" });
+      },
+    });
+  }, []);
 
-  if (state.phase === "recording" && state.locked) {
-    return <IconButton testID={`${testID}-voice-send`} icon="arrow-up" label={copy.stopAndSend} onPress={() => dispatch({ type: "send" })} filled color={colors.tint} />;
-  }
-  const holding = state.phase === "starting" || state.phase === "recording";
+  const holding = !locked && (state.phase === "starting" || state.phase === "recording");
   return (
     <View style={{ alignItems: "center" }}>
       {holding ? (
@@ -339,23 +351,25 @@ function MicButton({ voice, disabled, testID }: { voice: Voice; disabled: boolea
         </View>
       ) : null}
       <View
-        testID={`${testID}-mic`}
+        testID={locked ? `${testID}-voice-send` : `${testID}-mic`}
         accessible
         accessibilityRole="button"
-        accessibilityLabel={copy.recordVoice}
-        accessibilityHint={copy.recordHint}
+        accessibilityLabel={locked ? copy.stopAndSend : copy.recordVoice}
+        accessibilityHint={locked ? undefined : copy.recordHint}
         accessibilityState={{ disabled }}
         accessibilityActions={disabled ? [] : [{ name: "activate" }]}
         onAccessibilityAction={(e) => {
-          if (e.nativeEvent.actionName !== "activate" || state.phase !== "idle") return;
+          if (e.nativeEvent.actionName !== "activate") return;
+          if (locked) return dispatch({ type: "send" });
+          if (state.phase !== "idle") return;
           lockWhenReady.current = true;
           dispatch({ type: "press" });
         }}
         style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.4 : 1, transform: [{ scale: holding ? 1.25 : 1 }] }}
         {...(disabled ? {} : responder.panHandlers)}
       >
-        <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: holding ? colors.destructive : "transparent" }}>
-          <NativeIcon name="mic" size={holding ? 18 : 24} color={holding ? colors.surface : colors.tint} />
+        <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: locked ? colors.tint : holding ? colors.destructive : "transparent" }}>
+          <NativeIcon name={locked ? "arrow-up" : "mic"} size={locked || holding ? 18 : 24} color={locked || holding ? colors.surface : colors.tint} weight={locked ? "semibold" : undefined} />
         </View>
       </View>
     </View>

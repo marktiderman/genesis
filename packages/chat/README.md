@@ -7,11 +7,11 @@ replies, threads, reactions, read state, live updates and push.
 | Entry | What it is |
 |---|---|
 | `@marktiderman/genesis-chat` | The headless core: types, `createChatClient`, the send outbox, thread logic, media rules. No React. |
-| `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useSend`, `useMessageActions`. |
-| `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice), media. |
+| `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useMessageActions`, and for 0002 `useTopics`, `useScheduled`, `useAvailability`, `useBroadcast`, `useSearch`, `useLinkPreviews`. |
+| `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast. |
 | `/native` | Coming in the next release: renderers on genesis-ui-native (`InboxPage` and `ThreadPage` wired to chat, voice notes with expo-audio). Empty in this version. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
-| `migrations/0001_genesis_chat.sql` | The schema, copied into your app by `genesis add chat`, with its pgTAP test. |
+| `migrations/0001_genesis_chat.sql`, `0002_genesis_chat_coaching.sql` | The schema, copied into your app by `genesis add chat`, each with its pgTAP test. |
 
 ## On the web
 
@@ -73,7 +73,7 @@ reaches nothing. The pgTAP test beside the migration proves each rule.
 
 New and changed messages, reactions and memberships are broadcast as hints (ids only) to private
 Realtime topics, `genesis-chat:conv:<id>` and `genesis-chat:user:<id>`; clients fetch through row
-level security, and fetch what they missed after a reconnect. Typing and recording are broadcast
+level security, and fetch what they missed every time a channel joins (`onJoin`), the first time included. Typing and recording are broadcast
 by clients and never stored.
 
 ## The outbox
@@ -81,6 +81,140 @@ by clients and never stored.
 A message queues a `push` effect, a voice note or video a `transcribe` effect, a deleted file a
 `storage.remove` effect. `createChatRunner` (from `/server`) claims and settles them; nothing is sent
 from a trigger.
+
+## Topics, scheduled send, availability, broadcast, search, previews (migration 0002)
+
+Everything here is in the core and `/react`, so web and native share it; `/web` draws it.
+
+### Core client
+
+```ts
+// Topics: named sub-threads; messages join one through `topic`.
+chat.topics(conversationId): Promise<ChatTopic[]>
+chat.setTopic(conversationId, topic, { title?, position?, closed? }): Promise<void>   // owners and admins
+
+// Scheduled send: a minute to a year ahead, posted as you by the runner.
+chat.schedule({ conversationId, clientId, sendAt, body?, attachments?, replyToId?, topic?, mentions?, silent? }): Promise<string>
+chat.scheduled(conversationId?): Promise<ScheduledMessage[]>   // waiting or failed, soonest first
+chat.cancelScheduled(id): Promise<void>
+
+// Availability: away message, until when, hours per weekday, time zone.
+chat.availabilityFor(conversationId): Promise<ChatAvailability[]>
+chat.myAvailability(): Promise<ChatAvailability | null>
+chat.setAvailability({ awayMessage?, awayUntil?, timeZone?, hours? }): Promise<void>  // replaces all four
+
+// Broadcast: one text message into each conversation you may post in; replies come back privately.
+chat.broadcast(conversationIds, clientId, body, { silent? }): Promise<string[]>
+
+// Search: text and transcripts, newest first; snippets mark matches with « ».
+chat.search(query, conversationId?, { limit? }): Promise<ChatSearchHit[]>
+
+// Link previews the runner fetched (status ok only), by message id, through link_previews_for
+// (one call per message, six at a time): only for messages you can read. The table is closed.
+chat.linkPreviewsFor(messageIds): Promise<Record<string, ChatLinkPreview[]>>
+```
+
+`ChatMessage.moderation` is `"flagged" | "hidden" | null`: a hidden message reaches only its
+sender and the conversation's observers. Pure helpers: `isWithinWorkingHours(hours, timeZone,
+now)` (an end at or before the start runs past midnight), `isAway(a, now)`, `hoursSummary(hours)`
+("Mon–Fri, 9–5"), `awaySummary(people, { now })` (a group: "Sam, Lee and 2 others are away"),
+`awayLine(a, name, { now })` ("Mark replies Mon–Fri, 9–5 (Eastern)", "Away until
+Monday: Back Monday", or null when they're around), `extractLinks(body)` (the database's `message_links` rule, which skips credential-looking queries),
+`isHttpsUrl`, `snippetParts(snippet)`, `scheduleQuickPicks(now)`, `scheduleLabel`, `isSchedulable`,
+`topicKey(title)`.
+
+```ts
+const line = awayLine(await chat.availabilityFor(id).then((a) => a[0]), "Mark");
+```
+
+### React hooks
+
+```tsx
+const { topics, setTopic } = useTopics(conversationId);          // live: set_topic's hint refreshes it
+const thread = useConversation(conversationId, { topic: "week-1" }); // one topic; sends go into it
+const { items, schedule, cancel } = useScheduled(conversationId);   // schedule(input, files?) uploads byte files first
+const { mine, setMine, members, others, forUser } = useAvailability(conversationId);
+const { send, sending } = useBroadcast();                          // send(ids, body) -> message ids
+const { hits, isSearching, query } = useSearch(text, { conversationId, debounceMs: 250 });
+const previews = useLinkPreviews(messageIds);                      // Record<messageId, ChatLinkPreview[]>, in link order
+```
+
+`useConversation` also returns `signalRecordingVideo()` (throttled, like `signalRecording`), `loadUntil(seq)` (loads earlier pages until that message is here,
+for a search result), `accessError` and `refetchAccess` (the role check failed: offer a retry, not
+"can't post"). It catches up (messages after the newest one held) every time its live channel
+joins, the first time included, and keeps `hasEarlier` in the cached page.
+
+`useChat()` adds `retryAll()` (call it from AppState or NetInfo on native; the web provider retries
+on `online` and once after loading the saved outbox) and `clearOutbox()` (call it on sign-out).
+
+`ChatProvider` takes two more props:
+
+```tsx
+<ChatProvider
+  client={chat}
+  userId={user.id}
+  // Mux direct uploads: your server makes the upload; the composer PUTs the recording there and
+  // sends { kind: "video", provider: "mux", providerId, status: "pending" }. Without it, videos
+  // upload to storage as files.
+  // Pairs with createVideoUploadHandler from /server, which mints the upload and its passthrough;
+  // the client sends only the upload id (no attachment id).
+  videoUpload={{
+    create: (conversationId) =>
+      fetch("/api/chat-video-upload", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ conversationId }),
+      }).then((r) => (r.ok ? r.json() : Promise.reject(new Error("Couldn't start the upload")))),
+  }}
+  // Cards for your own attachment kinds (no forms dependency): a title, a subtitle, one action.
+  attachmentKinds={{
+    form: {
+      title: (a) => String(a.ref.title ?? "Form"),
+      subtitle: (a) => (a.ref.dueAt ? `Due ${a.ref.dueAt}` : null),
+      action: (a) => ({ label: "Fill in", href: `/forms/${a.ref.formId}` }),
+    },
+  }}
+>
+```
+
+A registered kind draws as `ChatAttachmentCard`; any other app kind goes to `ChatThread`'s
+`attachment` slot (a generic card by default). For anything richer than a card, render the kind
+yourself in that slot:
+
+```tsx
+<ChatThread slots={{ attachment: (props) =>
+  props.attachment.kind === "check-in"
+    ? <CheckInCard id={String(props.attachment.ref.checkInId)} mine={props.mine} />
+    : <GenericAttachment {...props} />
+}} />
+```
+
+### Web components
+
+- **Topics**: `ChatThread` shows `ChatTopicBar` (All plus each topic, a lock on closed ones) when
+  the conversation has topics (`showTopics` shows it before the first, for owners). Owners and
+  admins get "New topic" and close or reopen. In a closed topic members see "This topic is closed".
+- **Scheduled send**: the arrow beside Send offers tomorrow 9 AM, Monday 9 AM, or a date and time;
+  "N scheduled messages" above the box opens `ChatScheduledList` with Cancel (`scheduling={false}`
+  turns it off). `ChatScheduledList` also works on its own, for all conversations.
+- **Availability**: `ChatAwayBanner` above the messages when the other person is away or outside
+  their hours, or in a group everyone who is (two names, then "and N others"); `ChatAvailabilitySettings` for your own.
+- **Broadcast**: `<ChatBroadcast resolveUser={…} kind="direct" />` picks conversations from the inbox
+  and sends once, saying replies come back privately.
+- **Search**: `<ChatSearch resolveUser onOpen={(hit) => …} conversationId? />`; the thread header has
+  it for one conversation and jumps to the message (loading earlier pages); `ChatPanel` has it
+  across all (`search={false}` hides it) and opens the conversation at the message
+  (`ChatThread jumpTo={{ messageId, seq }}`).
+- **Link previews**: `ChatLinkPreview` under a message with a link: plain text only, the image only
+  from an https URL, no referrer.
+- **Moderation**: the sender sees "Hidden by moderation. Only you can see it."; observers see a
+  "Hidden by moderation" or "Flagged" badge.
+- **Emoji**: `ChatEmojiPicker` (frimousse) behind "+" in the reaction bar and the composer's smiley.
+  Its data comes from jsDelivr's emojibase-data; self-host it with `emojibaseUrl`.
+- **Video**: the composer's camera button opens `ChatVideoRecorder` (preview, a limit by role,
+  retake, send). `ChatVideoPlayer` streams Mux (`https://stream.mux.com/<playbackId>.m3u8`) with
+  native HLS where the browser has it and `hls.js` (an optional peer, imported only then)
+  elsewhere, with Mux's thumbnail as the poster and "Processing…" while pending.
 
 ## Server: the runner
 
@@ -97,7 +231,7 @@ export const video = muxVideo({
 });
 const runner = createChatRunner({
   supabase,
-  // Or: (n) => notify({ type: "chat.message", recipients: n.recipients, data: n.data, idempotencyKey: n.idempotencyKey, threadKey: n.threadKey, collapseKey: n.collapseKey })
+  // Or through genesis-notifications: notificationsDeliver({ notify, client: supabase, registry: notifications })
   deliver: createExpoDeliver({ tokensFor: myPushTokens, accessToken: process.env.EXPO_ACCESS_TOKEN }),
   transcriber: deepgramTranscriber({ apiKey: process.env.DEEPGRAM_API_KEY! }),
   video,
@@ -108,13 +242,23 @@ export const POST = chatRunnerHandler({ runner, secret: process.env.CHAT_RUNNER_
 
 Each `run()` claims up to 50 due effects (`batch.limit`), works up to 4 of a kind at once
 (`batch.concurrency`), settles each (`complete_effect`; an error backs off 30 s × 2^attempts) and
-answers `{ claimed, done, failed }`. It claims only `push`, `transcribe`, `storage.remove` and
-`video.remove` (or the `kinds` you pass); after the 8th attempt an effect is left alone.
+answers `{ claimed, done, failed, scheduled }` (plus `purged` and `errors` when there are any). It
+claims `push`, `transcribe`, `storage.remove` and `video.remove`, plus `moderate` with a `moderator`
+and `unfurl` with an `unfurler` (or the `kinds` you pass); after the 8th attempt an effect is left
+alone. Each run also posts due scheduled messages (`due_scheduled`, then `post_scheduled` each, as
+their sender, with every check `send_message` makes; a refusal is recorded on the row at once, a
+passing error such as a deadlock is tried again on the next run, up to five times; `scheduled:
+false` turns it off) and, with
+`retention: true`, removes messages past their kind's retention (`purge_expired`, up to 10 000 a run,
+never in a conversation on legal hold). A failure there is reported in `errors`, never thrown.
 
 - **push**: one `deliver(notification)` per message, with every recipient and their badge. The
   title is the conversation's, or the sender's name (`resolveName`) in a direct conversation; in a
   group the body is `Name: preview`. `idempotencyKey` is `push:<message id>`, so a sender that
-  dedupes never pushes a message twice. Throw from `deliver` to retry. `createExpoDeliver` sends
+  dedupes never pushes a message twice; `data` always carries `messageId` and `seq` (native derives
+  a reply's client id from them). There is no `collapseKey` unless you pass `collapse: true`: on iOS
+  the collapse id becomes the notification's identifier, so replies from two notifications of one
+  conversation would collide. Throw from `deliver` to retry. `createExpoDeliver` sends
   through Expo in requests of 100 (`threadId`, `collapseId`, `badge`, channel `messages`, category
   `chat-message`) and returns the tickets: forget `deadTokens(tickets)`. It throws only when
   nothing was sent. Note that `collapseId` replaces a conversation's earlier notification on iOS.
@@ -149,16 +293,135 @@ those up.
 | `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET` | `muxVideo` uploads and removal |
 | `MUX_WEBHOOK_SECRET` | the Mux webhook's signing secret |
 | `MUX_SIGNING_KEY_ID`, `MUX_SIGNING_KEY` | only for `playbackPolicy: "signed"` (`signing` option) |
+| `OPENAI_API_KEY` | `openAiModerator` (omni-moderation-latest) |
+| `ANTHROPIC_API_KEY` | `createChatAssistant` on the fetch path (or pass an `@anthropic-ai/sdk` client) |
 
 ### Mux
 
-The client asks your server for an upload (`video.createUpload({ corsOrigin, passthrough })`), puts
-the file to its `url`, and sends the message with an attachment `{ kind: "video", provider: "mux",
-provider_id: uploadId, status: "pending" }`. Point a Mux webhook (Settings → Webhooks) at a route
-that calls `video.handleWebhook(request, { supabase })`. It checks `mux-signature` (HMAC-SHA256,
-5 minutes' tolerance), and on `video.asset.ready` sets the attachment ready with its asset id,
+The client asks your server for an upload (`createVideoUploadHandler`, below), puts the file to its
+`url`, and sends the message with an attachment `{ kind: "video", provider: "mux", provider_id:
+uploadId, status: "pending" }`. Point a Mux webhook (Settings → Webhooks) at a route that calls
+`video.handleWebhook(request, { supabase })`. It checks `mux-signature` (HMAC-SHA256, 5 minutes'
+tolerance) and finds the attachment only by that upload id (unique per attachment). It applies an
+asset event only when the upload's passthrough, which the upload handler sets, names the
+attachment's conversation (and its sender, when `authorize` named the uploader); anything else
+answers 409 and changes nothing. On `video.asset.ready` it sets the attachment ready with its asset id,
 playback id and duration; on `video.asset.errored` failed; on the English auto-generated caption
 track's `video.asset.track.ready` it stores the caption text as the transcript. An event for an
 attachment not there yet answers 404, so Mux retries it. Playback is public by default
 (`https://stream.mux.com/<playback id>.m3u8`); with `playbackPolicy: "signed"` and `signing`,
 `video.playbackUrl(id)` (or `muxPlaybackUrl`) returns a URL with an RS256 token.
+
+### Push through genesis-notifications
+
+```ts
+import { defineNotifications, MESSAGE_ACTIONS } from "@marktiderman/genesis-notifications";
+import { notify } from "@marktiderman/genesis-notifications/server";
+import { CHAT_NOTIFICATION_CATEGORIES, CHAT_NOTIFICATION_TYPES, notificationsDeliver } from "@marktiderman/genesis-chat/server";
+
+export const notifications = defineNotifications({
+  categories: { ...CHAT_NOTIFICATION_CATEGORIES },
+  actions: { message: MESSAGE_ACTIONS },
+  types: { "chat.message": { ...CHAT_NOTIFICATION_TYPES["chat.message"], actions: "message" } },
+});
+const deliver = notificationsDeliver({ notify, client: supabase, registry: notifications });
+```
+
+One `notify()` per message: type `chat.message` (category `messages`, in the feed and pushed),
+every recipient with their own badge, `idempotencyKey: push:<message id>`, `threadKey` the
+conversation, `data` `{ url, conversationId, messageId, seq, title, body, senderId }`, and
+`collapseKey` only when the runner's `collapse` is on. Preferences, quiet hours and devices are
+genesis-notifications'.
+
+### Moderation
+
+`set_kind_options('cohort', p_moderate => true)` (a migration of yours) queues a `moderate` effect
+for each new or edited text message in that kind, and holds the message's push until the verdict:
+clean or flagged sends it, hidden never does (nor counts the message in a badge or shows it in the
+inbox). So a runner without a moderator sends no pushes for that kind. Give the runner
+`moderator: openAiModerator({ apiKey: process.env.OPENAI_API_KEY! })`: it sends the text and up to
+four photos (signed 10 minute URLs; the text with the first, the others one request each) to
+`omni-moderation-latest`. A category score at or over `hide` (default 0.9) hides the message from
+members and files a report for observers; at or over `flag` (default 0.5), or flagged by OpenAI,
+files the report only. `sexual/minors` hides at 0.5; `self-harm/intent` and
+`self-harm/instructions` flag at 0.3 so a coach sees them. Change them with `thresholds` and
+`categories`. The report names the categories and scores, never the text. A verdict never lowers
+one already given (a retry can't un-hide a message), the same verdict on the same text files one
+report, and a moderator still failing on the last of 8 attempts files `flagged` with the reason
+"moderation unavailable", so observers see it and the push goes.
+
+### Link previews
+
+`unfurler: createLinkUnfurler()` works `unfurl` effects (a message's first three https links,
+leaving out any whose query carries a credential such as `token=`, `sig=`, `code=` or
+`X-Amz-Signature=`) and stores `ok`, `failed` or `blocked` with `save_link_preview`. Clients read
+previews with `genesis_chat.link_previews_for(message_id)`, which returns them only for a message
+the caller can read; the table itself is not readable, since its URLs come from private messages.
+It fetches https on port 443 only, follows at most 3 redirects and checks each one, refuses private,
+loopback, link-local, carrier-grade NAT and cloud metadata addresses and the IPv6 forms that carry
+them (and `localhost`, `*.local`, `*.internal`, single-label names), holds og:image to the same
+rules (else drops it), reads HTML only, up to 512 KiB, in 5 seconds (the DNS lookup included), and
+runs nothing. It resolves the host first through `node:dns` or `Deno.resolveDns`; where neither
+exists (some edge runtimes) it refuses every named host and logs once, unless you pass `resolve`,
+or `allowUnresolved: true` behind an egress firewall. fetch resolves the name again; on Node, close
+that rebinding gap with `dispatcher: new Agent({ connect: { lookup: guardedLookup } })` (`Agent`
+from `undici`), which checks the address each connection actually uses. Elsewhere, firewall private
+ranges from the runner.
+
+### Video uploads
+
+```ts
+import { createVideoUploadHandler } from "@marktiderman/genesis-chat/server";
+const handler = createVideoUploadHandler({
+  video, // muxVideo(...) from above
+  // Confirm the session's user may post there (e.g. a select on genesis_chat.members as that
+  // user) and name them, so the upload is bound to its uploader.
+  authorize: async (request, { conversationId }) => {
+    const user = await userFrom(request);
+    return user && (await mayPost(user, conversationId)) ? { userId: user.id } : false;
+  },
+  corsOrigin: ["https://app.example.com"], // required; native apps send no origin and get the first
+  rateLimit: async (_request, { userId }) => underUploadCap(userId), // optional: 429 when false
+});
+export const POST = handler;
+export const OPTIONS = handler; // CORS preflight for a web client on another origin
+```
+
+The composer POSTs `{ conversationId }` and gets `{ url, providerId, provider: "mux" }`; it PUTs
+the file to `url` and sends the attachment with `provider_id: providerId`. The client chooses
+nothing the webhook trusts: the server sets the upload's passthrough to the conversation and
+uploader. A refusal answers 403; over the cap, 429.
+
+### AI recaps and reply drafts
+
+```ts
+import { createChatAssistant } from "@marktiderman/genesis-chat/server";
+const assistant = createChatAssistant({ apiKey: process.env.ANTHROPIC_API_KEY! }); // or { anthropic: new Anthropic() }
+const { text, model, labelled } = await assistant.recap({ messages, since: lastReadAt, me: userId, resolveName });
+const draft = await assistant.draftReply({ messages, me: coachId, voice: "warm, brief, first names", resolveName });
+```
+
+Default model `claude-sonnet-5-5`, low effort, with `fallbacks: "default"` (a declined request is
+re-run on Anthropic's recommended model; `fallbacks: false` turns it off). Nothing is sent: show the
+text as written by AI (`labelled: true`) and let the person edit and send it. Internal notes and
+hidden messages are left out unless you pass `observer: true` for a staff reader: take it from
+`genesis_chat.i_observe(conversation)` asked as that reader, never from the request. The transcript
+goes in as data, with `<` and `>` in bodies and names replaced so nothing can close its tags, and
+the prompt tells the model to ignore instructions inside it. Call it from your server only, for a
+user you have checked may read the conversation. `fallbacks` is a Claude API feature: Bedrock,
+Vertex AI and Foundry clients reject it, so pass `fallbacks: false` with those.
+
+### Retention once a day
+
+Run a second runner daily with retention on (and scheduled posting off, since the minute runner
+does it). `vercel.json`: `{ "crons": [{ "path": "/api/chat-runner", "schedule": "* * * * *" },
+{ "path": "/api/chat-retention", "schedule": "30 3 * * *" }] }`, and:
+
+```ts
+// app/api/chat-retention/route.ts
+const retention = createChatRunner({ supabase, deliver, kinds: [], scheduled: false, retention: true });
+export const GET = chatRunnerHandler({ runner: retention, secret: process.env.CHAT_RUNNER_SECRET! });
+```
+
+Set a kind's retention with `set_kind_options('support', p_retention => interval '365 days')`, and
+hold a conversation with `set_legal_hold(id, true)` (service role).

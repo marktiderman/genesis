@@ -8,6 +8,7 @@ import {
   composerReducer,
   createDraftSaver,
   draftKey,
+  clearDrafts,
   emptyComposer,
   fileFromDataUri,
   filesFromAssets,
@@ -120,9 +121,44 @@ describe("pasting a picture", () => {
 describe("drafts", () => {
   afterEach(() => vi.useRealTimers());
 
-  it("has one key per conversation and thread", () => {
-    expect(draftKey("c1")).toBe("genesis-chat:draft:c1");
-    expect(draftKey("c1", "r1")).toBe("genesis-chat:draft:c1:r1");
+  it("has one key per person, conversation and thread", () => {
+    expect(draftKey("u1", "c1")).toBe("genesis-chat:drafts:u1:c1");
+    expect(draftKey("u1", "c1", "r1")).toBe("genesis-chat:drafts:u1:c1:r1");
+    expect(draftKey("u2", "c1")).not.toBe(draftKey("u1", "c1"));
+  });
+
+  it("clears one person's drafts on sign-out and leaves everything else", async () => {
+    const storage = memoryDraftStorage();
+    await storage.setItem(draftKey("u1", "c1"), "{}");
+    await storage.setItem(draftKey("u1", "c2", "r1"), "{}");
+    await storage.setItem(draftKey("u10", "c1"), "{}");
+    await storage.setItem("other-app-key", "x");
+    // Saved before drafts were per person: no one's, so it goes too.
+    await storage.setItem("genesis-chat:draft:c9", "{}");
+    expect(await clearDrafts(storage, "u1")).toBe(3);
+    expect(await storage.getItem("genesis-chat:draft:c9")).toBeNull();
+    expect(await storage.getItem(draftKey("u1", "c1"))).toBeNull();
+    expect(await storage.getItem(draftKey("u1", "c2", "r1"))).toBeNull();
+    expect(await storage.getItem(draftKey("u10", "c1"))).toBe("{}");
+    expect(await storage.getItem("other-app-key")).toBe("x");
+  });
+
+  it("on sign-in clears everyone's drafts but the person's own (a session that ended while the app was closed)", async () => {
+    const storage = memoryDraftStorage();
+    await storage.setItem(draftKey("u1", "c1"), "{}");
+    await storage.setItem(draftKey("u2", "c1"), "{}");
+    await storage.setItem("genesis-chat:draft:c9", "{}");
+    await storage.setItem("other-app-key", "x");
+    expect(await clearDrafts(storage, { except: "u2" })).toBe(2);
+    expect(await storage.getItem(draftKey("u2", "c1"))).toBe("{}");
+    expect(await storage.getItem("other-app-key")).toBe("x");
+  });
+
+  it("says so, and clears nothing, when the storage can't list its keys", async () => {
+    const onError = vi.fn();
+    const { getAllKeys: _, ...noList } = memoryDraftStorage();
+    expect(await clearDrafts(noList, "u1", onError)).toBe(0);
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it("saves after typing stops, flushes at once, removes when empty", async () => {

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // @feat:chat
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatComposer } from "../composer";
 import { ChatNativeProvider } from "../context";
@@ -11,7 +12,7 @@ import { memoryDraftStorage, draftKey } from "../composer-state";
 afterEach(cleanup);
 
 function Harness({ canPost = true, onSend = vi.fn(), reason = null as string | null }) {
-  const composer = useChatComposer("c1");
+  const composer = useChatComposer("c1", null, "u1");
   return <ChatComposer composer={composer} canPost={canPost} disabledReason={reason} role="member" onSend={onSend} testID="cmp" />;
 }
 
@@ -47,7 +48,7 @@ describe("ChatComposer", () => {
 
   it("restores the thread's draft", async () => {
     const drafts = memoryDraftStorage();
-    await drafts.setItem(draftKey("c1"), JSON.stringify({ text: "half written" }));
+    await drafts.setItem(draftKey("u1", "c1"), JSON.stringify({ text: "half written" }));
     render(
       <ChatNativeProvider modules={{ drafts }}>
         <Harness />
@@ -96,5 +97,37 @@ describe("ChatComposer", () => {
       </ChatNativeProvider>,
     );
     expect(screen.getByTestId("cmp-mic").getAttribute("aria-label")).toBe("Record a voice message");
+  });
+});
+
+describe("useChatComposer across conversations", () => {
+  const wrapper = (drafts: ReturnType<typeof memoryDraftStorage>) =>
+    function Wrapper({ children }: { children: ReactNode }) {
+      return <ChatNativeProvider modules={{ drafts }}>{children}</ChatNativeProvider>;
+    };
+
+  it("starts the next conversation empty, keeps the first one's draft, and restores the next one's", async () => {
+    const drafts = memoryDraftStorage();
+    await drafts.setItem(draftKey("u1", "c2"), JSON.stringify({ text: "for c2" }));
+    const hook = renderHook(({ id }) => useChatComposer(id, null, "u1"), { initialProps: { id: "c1" }, wrapper: wrapper(drafts) });
+    await act(async () => undefined);
+    act(() => hook.result.current.dispatch({ type: "text", text: "for c1" }));
+    act(() => hook.result.current.setReply({ messageId: "m1", name: "Sam", preview: "hi" }));
+    hook.rerender({ id: "c2" });
+    // Never c1's text or reply in c2, not even for one render.
+    expect(hook.result.current.state.text).not.toBe("for c1");
+    expect(hook.result.current.state.replyTo).toBeNull();
+    await waitFor(() => expect(hook.result.current.state.text).toBe("for c2"));
+    expect(JSON.parse((await drafts.getItem(draftKey("u1", "c1")))!)).toMatchObject({ text: "for c1", replyTo: { messageId: "m1" } });
+    // c1's text was never saved under c2.
+    expect(JSON.parse((await drafts.getItem(draftKey("u1", "c2")))!)).toEqual({ text: "for c2" });
+  });
+
+  it("keeps each signed-in person's drafts apart", async () => {
+    const drafts = memoryDraftStorage();
+    await drafts.setItem(draftKey("u1", "c1"), JSON.stringify({ text: "u1's words" }));
+    const hook = renderHook(() => useChatComposer("c1", null, "u2"), { wrapper: wrapper(drafts) });
+    await act(async () => undefined);
+    expect(hook.result.current.state.text).toBe("");
   });
 });

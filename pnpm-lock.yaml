@@ -26,6 +26,9 @@ importers:
       '@marktiderman/genesis-features':
         specifier: workspace:*
         version: link:packages/features
+      '@marktiderman/genesis-product':
+        specifier: workspace:*
+        version: link:packages/product
       vitest:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@20.11.1)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
@@ -533,11 +536,16 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@20.11.1)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
 
+  packages/agents: {}
+
   packages/chat:
     dependencies:
       '@marktiderman/genesis-features':
         specifier: workspace:^
         version: link:../features
+      frimousse:
+        specifier: 0.4.0
+        version: 0.4.0(react@19.3.0)(typescript@6.0.3)
       react-native:
         specifier: 0.88.0
         version: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
@@ -548,6 +556,9 @@ importers:
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../core
+      '@marktiderman/genesis-notifications':
+        specifier: workspace:^
+        version: link:../notifications
       '@marktiderman/genesis-ui':
         specifier: workspace:^
         version: link:../ui
@@ -575,6 +586,9 @@ importers:
       happy-dom:
         specifier: ^20.9.0
         version: 20.11.1
+      hls.js:
+        specifier: 1.7.3
+        version: 1.7.3
       lucide-react:
         specifier: ^1.28.0
         version: 1.28.0(react@19.3.0)
@@ -1266,6 +1280,25 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@20.11.1)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
 
+  packages/product:
+    dependencies:
+      '@marktiderman/genesis-features':
+        specifier: workspace:^
+        version: link:../features
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.20.1
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.12
+        version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@20.11.1)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
+
   packages/sites:
     dependencies:
       '@marktiderman/genesis-features':
@@ -1464,6 +1497,9 @@ importers:
         specifier: '>=4.0.0'
         version: 5.10.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
     devDependencies:
+      '@marktiderman/genesis-chat':
+        specifier: workspace:^
+        version: link:../chat
       '@marktiderman/genesis-native':
         specifier: workspace:^
         version: link:../native
@@ -8101,6 +8137,15 @@ packages:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
     engines: {node: '>= 0.6'}
 
+  frimousse@0.4.0:
+    resolution: {integrity: sha512-wA/1Xt9UTk51wYNpy+EvHKPUA4jdm4NuEFzSNNZxqT0Nxrj4RFwYByjRMuaq4qSLOco/ikDCpLKesB8W1w2q+Q==}
+    peerDependencies:
+      react: 19.3.0
+      typescript: '>=5.1.0'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   fs-extra@10.1.0:
     resolution: {integrity: sha512-oRXApq54ETRj4eMiFzGnHWGy+zo5raudjuxN0b8H7s/RU2oW0Wvsx9O0ACRN/kRq9E8Vu/ReskGB5o3ji+FzHQ==}
     engines: {node: '>=12'}
@@ -8282,6 +8327,9 @@ packages:
 
   hermes-parser@0.36.0:
     resolution: {integrity: sha512-GdpwMmH5x6IpC1cijvcvYnlPB60Mh6kTSF/NFdYV/j56gYdi+0RIakYs+eqOV+bbO0SW7mgVVGSsTJxyPQfo3w==}
+
+  hls.js@1.7.3:
+    resolution: {integrity: sha512-MsPlx6yVW4Qv4C7mEVou4/gk/5cN2dVxOTnrNjPSmyH2f0Ln+/UkG10Ax1PE6OvrmTVPKgQYozTtBaPOuCzq7A==}
 
   hosted-git-info@7.0.2:
     resolution: {integrity: sha512-puUZAUKT5m8Zzvs72XWy3HtvVbTWljRE66cP60bxJzAqf2DgICo7lYTY2IHUmLnNpjYvw5bvmoHvPc0QO2a62w==}
@@ -18601,6 +18649,12 @@ snapshots:
 
   fresh@0.5.2: {}
 
+  frimousse@0.4.0(react@19.3.0)(typescript@6.0.3):
+    dependencies:
+      react: 19.3.0
+    optionalDependencies:
+      typescript: 6.0.3
+
   fs-extra@10.1.0:
     dependencies:
       graceful-fs: 4.2.11
@@ -18795,6 +18849,8 @@ snapshots:
   hermes-parser@0.36.0:
     dependencies:
       hermes-estree: 0.36.0
+
+  hls.js@1.7.3: {}
 
   hosted-git-info@7.0.2:
     dependencies:

@@ -9,19 +9,25 @@
 --   scheduled       a message written now and sent later, by its sender, as its sender
 --   availability    a person's away message and working hours, shown to the people they
 --                   share a conversation with (the "replies Mon–Fri" line)
---   link_previews   a cache of Open Graph data for links in messages, filled by the runner
+--   link_previews   a cache of Open Graph data for links in messages, filled by the runner;
+--                   read through link_previews_for(message), never directly
 --   messages        gain `moderation` (null | flagged | hidden) and a search vector
 --   conversations   gain `legal_hold`, which stops retention from removing anything
 --
 -- Functions for people: topics (set_topic), scheduled send (schedule_message,
 -- cancel_scheduled), availability (set_availability, availability_for), broadcast with
--- private replies (broadcast_message), and search (search_messages). Functions for the
+-- private replies (broadcast_message), search (search_messages) and link previews
+-- (link_previews_for). Functions for the
 -- server: posting what's due (due_scheduled, post_scheduled), moderation results
 -- (moderate_message), link previews (save_link_preview), retention (purge_expired) and kind
 -- options (set_kind_options).
 --
--- New effects in the outbox: `moderate` (a message in a kind that moderates) and `unfurl` (a
--- message with a link). The runner in /server works them.
+-- New effects in the outbox: `moderate` (a message in a kind that moderates, sent or edited)
+-- and `unfurl` (a message with a link). The runner in /server works them. In a kind that
+-- moderates, a message's push waits for its verdict and a hidden message is never pushed.
+--
+-- Replaces three of 0001's functions with the same signatures, to leave hidden messages out:
+-- unread_count, push_targets and inbox.
 --
 -- Use: `genesis add chat` copies this after 0001. Verify: tests/0002_genesis_chat_coaching.test.sql.
 
@@ -166,6 +172,9 @@ create table genesis_chat.scheduled (
   sent_message_id uuid references genesis_chat.messages (id) on delete set null,
   cancelled_at timestamptz,
   error text check (error is null or length(error) <= 500),
+  -- Tries that failed for a reason that may pass (a deadlock, a timeout); `error` is set
+  -- after the fifth, or at once for a refusal.
+  attempts integer not null default 0,
   created_at timestamptz not null default now(),
   unique (sender_id, client_id)
 );
@@ -255,7 +264,9 @@ as $$
 $$;
 
 -- The server's side: posts one due message as its sender, with every check send_message makes
--- for them (they may have left the conversation since). Records the message, or the reason.
+-- for them (they may have left the conversation since). Records the message, or the reason:
+-- a refusal (no right to post, bad input, a constraint) is final at once; anything else (a
+-- deadlock, a statement timeout) is tried again on the next run, up to five times.
 create or replace function genesis_chat.post_scheduled(p_id uuid)
 returns uuid
 language plpgsql
@@ -278,7 +289,15 @@ begin
                                      s.topic, s.mentions, 'everyone', s.silent);
     update genesis_chat.scheduled set sent_message_id = msg.id where id = s.id;
   exception when others then
-    update genesis_chat.scheduled set error = left(sqlerrm, 500) where id = s.id;
+    if left(sqlstate, 2) in ('22', '23', '42') or sqlstate = 'P0001' or s.attempts + 1 >= 5 then
+      update genesis_chat.scheduled
+         set attempts = attempts + 1,
+             error = left(case when left(sqlstate, 2) in ('22', '23', '42') or sqlstate = 'P0001' then sqlerrm
+                               else 'Gave up after 5 tries: ' || sqlerrm end, 500)
+       where id = s.id;
+    else
+      update genesis_chat.scheduled set attempts = attempts + 1 where id = s.id;
+    end if;
   end;
   perform set_config('request.jwt.claims', coalesce(claims, ''), true);
   return msg.id;
@@ -445,12 +464,53 @@ create table genesis_chat.link_previews (
 );
 
 comment on table genesis_chat.link_previews is
-  'Open Graph data for links in messages (public page metadata), fetched by the runner. Genesis Chat.';
+  'Open Graph data for links in messages, fetched by the runner. A URL can carry a secret (a share link), so people read a row only through link_previews_for, for a message they can read. Genesis Chat.';
 
+-- No policy and no select for people: the URLs come from private messages.
 alter table genesis_chat.link_previews enable row level security;
-create policy link_previews_read on genesis_chat.link_previews for select to authenticated using (true);
-grant select on genesis_chat.link_previews to authenticated;
 grant select, insert, update, delete on genesis_chat.link_previews to service_role;
+
+-- The links in a message's text that get a preview: its first three https links, without
+-- any whose query looks like a credential (a reset token, a signed URL), which the server
+-- must not fetch (it could use up a one-time link) or keep.
+create or replace function genesis_chat.message_links(p_body text)
+returns setof text
+language sql
+immutable
+set search_path = ''
+as $$
+  select u from (
+    select distinct on (x.u) x.u, x.n
+      from (select m[1] as u, row_number() over () as n
+              from regexp_matches(coalesce(p_body, ''), '(https://[^\s<>()"'']{4,})', 'g') m) x
+     where length(x.u) <= 2000
+       and x.u !~* '[?&#;](access_token|id_token|refresh_token|token|auth|code|key|api_key|apikey|sig|signature|x-amz-signature|x-amz-credential|x-goog-signature|x-goog-credential|otp|secret|password|session|sessionid)='
+     order by x.u, x.n) y
+   order by y.n
+   limit 3
+$$;
+revoke execute on function genesis_chat.message_links(text) from public, anon, authenticated;
+grant execute on function genesis_chat.message_links(text) to service_role;
+
+-- The previews for the links in one message, for someone who can read that message (the
+-- same rules as reading it: a member or observer, internal notes for observers, a hidden
+-- message for its sender and observers). Nothing for anyone else.
+create or replace function genesis_chat.link_previews_for(p_message_id uuid)
+returns table (url text, status text, title text, description text, image_url text, site_name text, fetched_at timestamptz)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.url, p.status, p.title, p.description, p.image_url, p.site_name, p.fetched_at
+    from genesis_chat.messages m
+    cross join lateral genesis_chat.message_links(m.body) l(u)
+    join genesis_chat.link_previews p on p.url = l.u
+   where m.id = p_message_id and m.deleted_at is null and auth.uid() is not null
+     and genesis_chat.can_view(m.conversation_id)
+     and (m.visibility = 'everyone' or genesis_chat.i_observe(m.conversation_id))
+     and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid() or genesis_chat.i_observe(m.conversation_id))
+$$;
 
 create or replace function genesis_chat.save_link_preview(
   p_url text, p_status text, p_title text default null, p_description text default null,
@@ -470,8 +530,16 @@ $$;
 
 -- ── Moderation ────────────────────────────────────────────────────────────────
 
+-- In a kind that moderates, a message's push waits for the verdict: message_effects_0002
+-- queues `push:<id>` to run at 'infinity' (0001's message_posted then finds the key taken),
+-- and moderate_message releases it (clean or flagged) or settles it unsent (hidden). So a
+-- push never carries text moderation hides. A runner without a moderator never sends those
+-- pushes: give it one when a kind moderates.
+
 -- The server's side: what moderation said. `hidden` takes the message from members' view and
--- files a report the conversation's observers see; `flagged` files the report only.
+-- files a report the conversation's observers see; `flagged` files the report only. A verdict
+-- never lowers one already given (a retry, or an edit judged again, can't un-hide a message),
+-- and the same verdict on the same text files one report however often it comes.
 create or replace function genesis_chat.moderate_message(p_message_id uuid, p_result text, p_reason text default null)
 returns void
 language plpgsql
@@ -480,26 +548,58 @@ set search_path = ''
 as $$
 declare
   msg genesis_chat.messages;
+  next_ text;
 begin
-  if p_result not in ('clean', 'flagged', 'hidden') then
+  if p_result is null or p_result not in ('clean', 'flagged', 'hidden') then
     raise exception 'Moderation is clean, flagged or hidden' using errcode = '22023';
   end if;
-  select * into msg from genesis_chat.messages where id = p_message_id;
+  select * into msg from genesis_chat.messages where id = p_message_id for update;
+  if p_result = 'hidden' then
+    update genesis_chat.effects set done_at = now(), locked_until = null, last_error = 'hidden by moderation'
+     where key = 'push:' || p_message_id and done_at is null;
+  else
+    update genesis_chat.effects set run_after = now()
+     where key = 'push:' || p_message_id and done_at is null and run_after = 'infinity';
+  end if;
   if msg.id is null or p_result = 'clean' then
     return;
   end if;
-  update genesis_chat.messages set moderation = p_result where id = msg.id;
-  insert into genesis_chat.reports (message_id, conversation_id, reporter_id, reason, note, snapshot)
-  values (msg.id, msg.conversation_id, null, 'safety', left(coalesce(p_reason, 'Automatic moderation'), 1000),
-          jsonb_build_object('message', jsonb_build_object('id', msg.id, 'sender_id', msg.sender_id, 'body', msg.body,
-                                                           'created_at', msg.created_at), 'automatic', true));
-  perform genesis_chat.broadcast('genesis-chat:conv:' || msg.conversation_id, 'message',
-    jsonb_build_object('id', msg.id, 'seq', msg.seq, 'conversation_id', msg.conversation_id, 'op', 'update'));
+  next_ := case when msg.moderation = 'hidden' or p_result = 'hidden' then 'hidden' else 'flagged' end;
+  if next_ is distinct from msg.moderation then
+    update genesis_chat.messages set moderation = next_ where id = msg.id;
+    perform genesis_chat.broadcast('genesis-chat:conv:' || msg.conversation_id, 'message',
+      jsonb_build_object('id', msg.id, 'seq', msg.seq, 'conversation_id', msg.conversation_id, 'op', 'update'));
+  end if;
+  if not exists (
+       select 1 from genesis_chat.reports r
+        where r.message_id = msg.id and r.reporter_id is null and r.snapshot ->> 'automatic' = 'true'
+          and r.snapshot ->> 'result' = p_result
+          and (r.snapshot ->> 'edited_at')::timestamptz is not distinct from msg.edited_at) then
+    insert into genesis_chat.reports (message_id, conversation_id, reporter_id, reason, note, snapshot)
+    values (msg.id, msg.conversation_id, null, 'safety', left(coalesce(p_reason, 'Automatic moderation'), 1000),
+            jsonb_build_object('message', jsonb_build_object('id', msg.id, 'sender_id', msg.sender_id, 'body', msg.body,
+                                                             'created_at', msg.created_at),
+                               'automatic', true, 'result', p_result, 'edited_at', msg.edited_at));
+  end if;
 end;
 $$;
 
--- New messages queue moderation (where the kind asks for it) and link previews (where the
--- text has a link that has none yet).
+-- Does this conversation's kind moderate?
+create or replace function genesis_chat.moderates(p_conversation_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from genesis_chat.kind_options o join genesis_chat.conversations c on c.kind = o.kind
+                  where c.id = p_conversation_id and o.moderate)
+$$;
+revoke execute on function genesis_chat.moderates(uuid) from public, anon, authenticated;
+grant execute on function genesis_chat.moderates(uuid) to service_role;
+
+-- New messages queue moderation (where the kind asks for it, holding the push until it is
+-- done) and link previews (where the text has a link that has none yet).
 create or replace function genesis_chat.message_effects_0002()
 returns trigger
 language plpgsql
@@ -512,13 +612,17 @@ begin
   if new.kind <> 'text' then
     return null;
   end if;
-  if exists (select 1 from genesis_chat.kind_options o join genesis_chat.conversations c on c.kind = o.kind
-              where c.id = new.conversation_id and o.moderate) then
+  if genesis_chat.moderates(new.conversation_id) then
     perform genesis_chat.enqueue('moderate', 'moderate:' || new.id,
       jsonb_build_object('message_id', new.id, 'conversation_id', new.conversation_id));
+    -- The push waits for the verdict, whichever of this and 0001's trigger runs first.
+    if not new.silent and new.visibility = 'everyone' then
+      insert into genesis_chat.effects (kind, key, payload, run_after)
+      values ('push', 'push:' || new.id, jsonb_build_object('message_id', new.id, 'conversation_id', new.conversation_id), 'infinity')
+      on conflict (key) do update set run_after = 'infinity' where genesis_chat.effects.done_at is null;
+    end if;
   end if;
-  for link in select distinct u from (select (regexp_matches(new.body, '(https://[^\s<>()"'']{4,})', 'g'))[1] as u) x
-                where length(u) <= 2000 limit 3 loop
+  for link in select genesis_chat.message_links(new.body) loop
     if not exists (select 1 from genesis_chat.link_previews p where p.url = link and p.fetched_at > now() - interval '7 days') then
       perform genesis_chat.enqueue('unfurl', 'unfurl:' || md5(link) || ':' || to_char(now(), 'YYYY-MM-DD'),
         jsonb_build_object('url', link, 'message_id', new.id, 'conversation_id', new.conversation_id));
@@ -530,6 +634,168 @@ $$;
 revoke execute on function genesis_chat.message_effects_0002() from public, anon, authenticated;
 create trigger messages_effects_0002 after insert on genesis_chat.messages
   for each row execute function genesis_chat.message_effects_0002();
+
+-- An edited message is judged again (sending "hi" and editing it is no way around moderation).
+create or replace function genesis_chat.message_edited_0002()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.kind = 'text' and new.deleted_at is null and new.body is distinct from old.body and btrim(new.body) <> ''
+     and genesis_chat.moderates(new.conversation_id) then
+    perform genesis_chat.enqueue('moderate', 'moderate:' || new.id || ':' || coalesce(new.edited_at, now()),
+      jsonb_build_object('message_id', new.id, 'conversation_id', new.conversation_id));
+  end if;
+  return null;
+end;
+$$;
+revoke execute on function genesis_chat.message_edited_0002() from public, anon, authenticated;
+create trigger messages_edited_0002 after update of body on genesis_chat.messages
+  for each row execute function genesis_chat.message_edited_0002();
+
+-- 0001's functions that read messages for someone, now leaving out hidden ones: no push
+-- for a hidden message, no badge count for it, no inbox preview of it (except its sender's).
+-- Same signatures; re-granted by name below.
+
+create or replace function genesis_chat.unread_count(p_conversation_id uuid, p_user_id uuid, p_after bigint)
+returns integer
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select count(*)::integer from (
+    select 1 from genesis_chat.messages m
+     where m.conversation_id = p_conversation_id and m.seq > p_after and m.deleted_at is null
+       and m.sender_id is distinct from p_user_id and m.visibility = 'everyone' and m.thread_root_id is null
+       and m.moderation is distinct from 'hidden'
+     limit 99) u
+$$;
+
+-- p_badge_exclude_kinds: kinds the app leaves out of its badge (as unread_total does), so the
+-- push badge and the app's own badge agree.
+drop function genesis_chat.push_targets(uuid);
+create function genesis_chat.push_targets(p_message_id uuid, p_badge_exclude_kinds text[] default null)
+returns table (user_id uuid, conversation_id uuid, title text, sender_id uuid, preview text, mentioned boolean, unread_total integer)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with msg as (
+    select m.*, c.title as conversation_title
+      from genesis_chat.messages m join genesis_chat.conversations c on c.id = m.conversation_id
+     where m.id = p_message_id and m.deleted_at is null and not m.silent and m.kind = 'text' and m.visibility = 'everyone'
+       and m.moderation is distinct from 'hidden'
+  ), recipients as (
+    select me.user_id from msg join genesis_chat.members me on me.conversation_id = msg.conversation_id
+     where me.left_at is null and me.role <> 'observer' and me.user_id is distinct from msg.sender_id
+       and coalesce(me.muted_until <= now(), true) and me.notify <> 'none'
+       and (me.notify = 'all' or me.user_id = any (msg.mentions))
+    union
+    select c.assignee_id from msg join genesis_chat.conversations c on c.id = msg.conversation_id
+     where c.assignee_id is not null and c.assignee_id is distinct from msg.sender_id
+  )
+  select r.user_id, msg.conversation_id, msg.conversation_title, msg.sender_id,
+         case when msg.body <> '' then left(msg.body, 180)
+              else (select case a.kind when 'image' then 'Photo' when 'voice' then 'Voice message' when 'video' then 'Video'
+                                       when 'file' then 'File' else 'Attachment' end
+                      from genesis_chat.attachments a where a.message_id = msg.id order by a.position limit 1) end,
+         r.user_id = any (msg.mentions),
+         (select coalesce(sum(genesis_chat.unread_count(c2.id, m2.user_id, m2.last_read_seq)), 0)::integer
+            from genesis_chat.members m2 join genesis_chat.conversations c2 on c2.id = m2.conversation_id
+           where m2.user_id = r.user_id and m2.left_at is null and m2.role <> 'observer' and not m2.archived
+             and coalesce(m2.muted_until <= now(), true) and c2.last_seq > m2.last_read_seq
+             and (p_badge_exclude_kinds is null or not (c2.kind = any (p_badge_exclude_kinds))))
+    from recipients r cross join msg
+$$;
+
+-- The inbox also narrows to several kinds, or leaves some out (an app's Messages without its
+-- support tickets). Same columns as 0001's; the old call shape still works.
+drop function genesis_chat.inbox(text, boolean, integer, timestamptz);
+create function genesis_chat.inbox(
+  p_kind text default null,
+  p_archived boolean default false,
+  p_limit integer default 50,
+  p_before timestamptz default null,
+  p_kinds text[] default null,
+  p_exclude_kinds text[] default null
+)
+returns table (
+  conversation_id uuid,
+  kind text,
+  title text,
+  subject_type text,
+  subject_id text,
+  status text,
+  role text,
+  other_user_id uuid,
+  member_count integer,
+  last_seq bigint,
+  last_read_seq bigint,
+  unread integer,
+  mentioned boolean,
+  muted boolean,
+  pinned boolean,
+  archived boolean,
+  last_message_at timestamptz,
+  last_message jsonb
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select c.id, c.kind, c.title, c.subject_type, c.subject_id, c.status, me.role,
+         (select o.user_id from genesis_chat.members o
+           where o.conversation_id = c.id and o.user_id <> me.user_id and o.left_at is null and o.role <> 'observer'
+             and k.max_members = 2 limit 1),
+         (select count(*)::integer from genesis_chat.members o
+           where o.conversation_id = c.id and o.left_at is null and o.role <> 'observer'),
+         c.last_seq, me.last_read_seq,
+         genesis_chat.unread_count(c.id, me.user_id, me.last_read_seq),
+         exists (select 1 from genesis_chat.messages m
+                  where m.conversation_id = c.id and m.seq > me.last_read_seq and me.user_id = any (m.mentions)
+                    and m.moderation is distinct from 'hidden'),
+         coalesce(me.muted_until > now(), false), me.pinned, me.archived, c.last_message_at,
+         (select jsonb_build_object('id', m.id, 'seq', m.seq, 'sender_id', m.sender_id, 'kind', m.kind,
+                                    'body', left(m.body, 160), 'deleted', m.deleted_at is not null, 'created_at', m.created_at,
+                                    'attachment', (select a.kind from genesis_chat.attachments a where a.message_id = m.id order by a.position limit 1))
+            from genesis_chat.messages m
+           where m.conversation_id = c.id and m.visibility = 'everyone' and m.thread_root_id is null
+             and (m.moderation is distinct from 'hidden' or m.sender_id = me.user_id)
+           order by m.seq desc limit 1)
+    from genesis_chat.members me
+    join genesis_chat.conversations c on c.id = me.conversation_id
+    join genesis_chat.kinds k on k.kind = c.kind
+   where me.user_id = auth.uid() and me.left_at is null and me.role <> 'observer'
+     and me.archived = coalesce(p_archived, false)
+     and (p_kind is null or c.kind = p_kind)
+     and (p_kinds is null or c.kind = any (p_kinds))
+     and (p_exclude_kinds is null or not (c.kind = any (p_exclude_kinds)))
+     and (p_before is null or coalesce(c.last_message_at, c.created_at) < p_before)
+   order by me.pinned desc, coalesce(c.last_message_at, c.created_at) desc, c.id
+   limit least(greatest(coalesce(p_limit, 50), 1), 200)
+$$;
+
+-- The badge can leave kinds out too, to match an inbox that does.
+drop function genesis_chat.unread_total(uuid);
+create function genesis_chat.unread_total(p_user_id uuid default null, p_exclude_kinds text[] default null)
+returns integer
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(sum(genesis_chat.unread_count(c.id, me.user_id, me.last_read_seq)), 0)::integer
+    from genesis_chat.members me join genesis_chat.conversations c on c.id = me.conversation_id
+   where me.user_id = case when auth.role() = 'service_role' then coalesce(p_user_id, auth.uid()) else auth.uid() end
+     and me.left_at is null and me.role <> 'observer' and me.archived = false
+     and coalesce(me.muted_until <= now(), true) and c.last_seq > me.last_read_seq
+     and (p_exclude_kinds is null or not (c.kind = any (p_exclude_kinds)))
+$$;
 
 -- ── Retention and legal hold ──────────────────────────────────────────────────
 
@@ -583,7 +849,10 @@ revoke execute on function
   genesis_chat.set_availability(text, timestamptz, text, jsonb),
   genesis_chat.availability_for(uuid),
   genesis_chat.broadcast_message(uuid[], uuid, text, jsonb, boolean),
-  genesis_chat.search_messages(text, uuid, integer)
+  genesis_chat.search_messages(text, uuid, integer),
+  genesis_chat.link_previews_for(uuid),
+  genesis_chat.inbox(text, boolean, integer, timestamptz, text[], text[]),
+  genesis_chat.unread_total(uuid, text[])
 from public, anon;
 
 grant execute on function
@@ -593,7 +862,10 @@ grant execute on function
   genesis_chat.set_availability(text, timestamptz, text, jsonb),
   genesis_chat.availability_for(uuid),
   genesis_chat.broadcast_message(uuid[], uuid, text, jsonb, boolean),
-  genesis_chat.search_messages(text, uuid, integer)
+  genesis_chat.search_messages(text, uuid, integer),
+  genesis_chat.link_previews_for(uuid),
+  genesis_chat.inbox(text, boolean, integer, timestamptz, text[], text[]),
+  genesis_chat.unread_total(uuid, text[])
 to authenticated, service_role;
 
 revoke execute on function
@@ -602,7 +874,9 @@ revoke execute on function
   genesis_chat.save_link_preview(text, text, text, text, text, text),
   genesis_chat.moderate_message(uuid, text, text),
   genesis_chat.purge_expired(integer),
-  genesis_chat.set_legal_hold(uuid, boolean)
+  genesis_chat.set_legal_hold(uuid, boolean),
+  genesis_chat.unread_count(uuid, uuid, bigint),
+  genesis_chat.push_targets(uuid, text[])
 from public, anon, authenticated;
 
 grant execute on function
@@ -611,5 +885,7 @@ grant execute on function
   genesis_chat.save_link_preview(text, text, text, text, text, text),
   genesis_chat.moderate_message(uuid, text, text),
   genesis_chat.purge_expired(integer),
-  genesis_chat.set_legal_hold(uuid, boolean)
+  genesis_chat.set_legal_hold(uuid, boolean),
+  genesis_chat.unread_count(uuid, uuid, bigint),
+  genesis_chat.push_targets(uuid, text[])
 to service_role;

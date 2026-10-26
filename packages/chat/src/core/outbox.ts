@@ -72,7 +72,6 @@ export interface OutboxOptions {
 export function createOutbox(opts: OutboxOptions) {
   const store = opts.store ?? memoryOutboxStore();
   let queue: QueuedMessage[] = [];
-  let loaded = false;
   const running = new Set<string>();
   const uploaded = new Map<string, string>(); // clientId:index -> path
 
@@ -115,24 +114,41 @@ export function createOutbox(opts: OutboxOptions) {
     }
   }
 
-  async function ensureLoaded() {
-    if (loaded) return;
-    loaded = true;
-    const saved = await store.load();
-    // A file held as bytes that wasn't persisted doesn't survive a relaunch: its message waits,
-    // failed, for the file to be attached again (never sent without it) or discarded.
-    queue = saved.map((q) => {
-      const lost = (q.pendingFiles ?? []).filter((f) => f.lost).length;
-      return {
-        ...q,
-        status: q.status === "sending" || lost > 0 ? "failed" : q.status,
-        error: lost > 0 ? "Attach the file again to send" : (q.error ?? "Not sent"),
-        files: q.files ?? [],
-        attempts: q.attempts ?? 0,
-        lostFiles: lost,
-      };
-    });
-    if (queue.length) opts.onChange?.([...queue]);
+  /**
+   * One load for the outbox's life, which every method awaits. What was saved is merged into
+   * the live queue (a send made while the load was in flight stays), deduped by clientId.
+   */
+  let loading: Promise<void> | null = null;
+  function ensureLoaded(): Promise<void> {
+    loading ??= (async () => {
+      let saved: QueuedMessage[] = [];
+      try {
+        saved = (await store.load()) ?? [];
+      } catch {
+        saved = [];
+      }
+      // A file held as bytes that wasn't persisted doesn't survive a relaunch: its message waits,
+      // failed, for the file to be attached again (never sent without it) or discarded.
+      const live = new Set(queue.map((q) => q.clientId));
+      const restored: QueuedMessage[] = saved
+        .filter((q) => !live.has(q.clientId))
+        .map((q) => {
+          const lost = (q.pendingFiles ?? []).filter((f) => f.lost).length;
+          return {
+            ...q,
+            status: q.status === "sending" || lost > 0 ? "failed" : q.status,
+            error: lost > 0 ? "Attach the file again to send" : (q.error ?? "Not sent"),
+            files: q.files ?? [],
+            attempts: q.attempts ?? 0,
+            lostFiles: lost,
+          };
+        });
+      if (restored.length) {
+        queue = [...restored, ...queue];
+        opts.onChange?.([...queue]);
+      }
+    })();
+    return loading;
   }
 
   async function uploadFile(conversationId: string, file: LocalFile): Promise<string> {
@@ -291,6 +307,15 @@ export function createOutbox(opts: OutboxOptions) {
       }
       emit();
       for (const c of conversations) void run(c);
+    },
+
+    /** Forgets every queued message, here and in the store (call it on sign-out). */
+    async clear() {
+      await ensureLoaded();
+      queue = [];
+      uploaded.clear();
+      opts.onChange?.([]);
+      await store.save([]);
     },
 
     async discard(clientId: string) {
