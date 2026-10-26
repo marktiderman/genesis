@@ -1,0 +1,27 @@
+packages/product/src/__tests__/app.test.ts
+  s_8252619ce79a86::t_13e695f3b44def 217-233
+packages/product/src/__tests__/native.test.tsx
+  s_8252619ce79a86::t_6dae9c80d8da5d 167-179
+packages/product/src/app.ts
+  s_8252619ce79a86::t_3619ffd08baa47 247-250,252
+packages/product/src/native/idea-board.tsx
+  s_8252619ce79a86::t_c20d983d25d631 67-73,84,92,108,112,129
+packages/product/src/native/roadmap.tsx
+  s_8252619ce79a86::t_f762b34ee2e760 49-50,54,62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c282baaa866265afa06d0cd2b95bc1f28ff13807",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
