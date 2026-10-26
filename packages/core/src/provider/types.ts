@@ -113,6 +113,12 @@ export interface ListResult<T> {
    * the last one. Absent when the provider paged by offset.
    */
   nextCursor?: string | null;
+  /**
+   * Cursor mode only: the cursor for the page before this one, or `null` on
+   * the first page. Lets an infinite list drop pages from the front (TanStack
+   * Query's `maxPages`) and load them again when scrolled back.
+   */
+  prevCursor?: string | null;
 }
 
 /** Parameters for `getOne`. */
