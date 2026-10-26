@@ -127,9 +127,10 @@ export function renderPageBar(model: PageBarModel | null): void {
     .chip { display: inline-flex; align-items: center; gap: 3px; }
     .chip.success { color: var(--gx-ok); }
     .chip.bare { padding: 0; background: none; }
-    .chip.bare:not(.success) { color: var(--gx-mark); }
+    .chip.bare.neutral { color: var(--gx-mark); }
     .reveal { opacity: 0; transition: opacity .12s; }
     .bar:hover .reveal, .bar:focus-within .reveal { opacity: 1; }
+    @media (hover: none) { .reveal { opacity: 1; } }
     svg { flex: none; }
     .bar.compact { min-height: 32px; padding: 0 8px 0 10px; font-size: 12px; box-shadow: 0 1px 4px rgba(15, 23, 42, .25); }
     .bar.compact .logo { width: 18px; height: 18px; border-radius: 5px; font-size: 11px; }
