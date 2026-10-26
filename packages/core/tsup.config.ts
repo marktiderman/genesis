@@ -17,6 +17,7 @@ export default defineConfig({
     "src/navigation.ts",
     "src/testing/index.ts",
     "src/dates.ts",
+    "src/resource/index.ts",
     "src/resource-view/index.ts",
     "src/urls.ts",
     "src/csv.ts",

@@ -51,8 +51,9 @@ export {
   type FormAvailability,
   type AvailabilityInput,
 } from "./availability";
-export { formStatusChip, formCounts, formNavItems, type FormTab, type FormNavItem } from "./status";
-// Moved to genesis-ui (`@marktiderman/genesis-ui/resource/rules`); kept here, deprecated.
+export { formStatusChip, formCounts, formNavItems, type FormTab, type FormNavItem, type NavItemShape } from "./status";
+// Moved to genesis-core (`@marktiderman/genesis-core/resource`, also re-exported by
+// `@marktiderman/genesis-ui/resource/rules`); kept here, deprecated.
 export {
   dayLabel,
   prefilledUrl,

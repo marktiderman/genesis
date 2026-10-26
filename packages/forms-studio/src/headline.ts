@@ -2,7 +2,7 @@
 // period before), the average of the form's main rating, how many have a low rating, and
 // the rate of the form's first consent or yes/no question. Built on summary.ts. Pure.
 import type { FormDefinition } from "@marktiderman/genesis-forms";
-import type { HeadlineNumber } from "@marktiderman/genesis-ui/resource";
+import type { HeadlineNumber } from "@marktiderman/genesis-core/resource";
 import {
   hasLowRatingExcept,
   presetRange,

@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 133
+      "count": 130
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -11588,23 +11588,6 @@
       ]
     },
     {
-      "slug": "days",
-      "aliases": [],
-      "surface": "web",
-      "subpath": "@marktiderman/genesis-ui",
-      "filePath": "packages/ui/src/components/resource/days.ts",
-      "stability": "stable",
-      "summary": "A day (YYYY-MM-DD) in words, given today on the same clock: \"Today\", \"Yesterday\", \"Oct 21\", \"Oct 21, 2025\".",
-      "primaryComponent": "dayLabel",
-      "components": [
-        {
-          "name": "dayLabel",
-          "summary": "A day (YYYY-MM-DD) in words, given today on the same clock: \"Today\", \"Yesterday\", \"Oct 21\", \"Oct 21, 2025\".",
-          "props": []
-        }
-      ]
-    },
-    {
       "slug": "detail-page",
       "aliases": [],
       "surface": "web",
@@ -18545,6 +18528,21 @@
           "props": []
         },
         {
+          "name": "dayLabel",
+          "summary": "A day (YYYY-MM-DD) in words, given today on the same clock: \"Today\", \"Yesterday\", \"Oct 21\", \"Oct 21, 2025\".",
+          "props": []
+        },
+        {
+          "name": "prefilledUrl",
+          "summary": "`url` with `values` set as search params (empty values left out), keeping what it has.\nAn absolute link stays absolute; a relative one (`/f/a?x=1`) stays relative, so it never\nthrows while a page is still working out its origin.",
+          "props": []
+        },
+        {
+          "name": "embedSnippet",
+          "summary": "An `<iframe>` that shows the page on another website, full width.",
+          "props": []
+        },
+        {
           "name": "SaveState",
           "summary": "Where the host's draft saving stands.",
           "props": []
@@ -18567,21 +18565,6 @@
         {
           "name": "ReadinessLabels",
           "summary": "The readiness chip's words, each optional; the defaults are resource-neutral.",
-          "props": []
-        },
-        {
-          "name": "dayLabel",
-          "summary": "A day (YYYY-MM-DD) in words, given today on the same clock: \"Today\", \"Yesterday\", \"Oct 21\", \"Oct 21, 2025\".",
-          "props": []
-        },
-        {
-          "name": "prefilledUrl",
-          "summary": "`url` with `values` set as search params (empty values left out), keeping what it has.\nAn absolute link stays absolute; a relative one (`/f/a?x=1`) stays relative, so it never\nthrows while a page is still working out its origin.",
-          "props": []
-        },
-        {
-          "name": "embedSnippet",
-          "summary": "An `<iframe>` that shows the page on another website, full width.",
           "props": []
         },
         {
@@ -18983,28 +18966,6 @@
               "description": "Stable test/automation selector (emitted as `data-testid`)."
             }
           ]
-        }
-      ]
-    },
-    {
-      "slug": "share",
-      "aliases": [],
-      "surface": "web",
-      "subpath": "@marktiderman/genesis-ui",
-      "filePath": "packages/ui/src/components/resource/share.ts",
-      "stability": "stable",
-      "summary": "`url` with `values` set as search params (empty values left out), keeping what it has.\nAn absolute link stays absolute; a relative one (`/f/a?x=1`) stays relative, so it never\nthrows while a page is still working out its origin.",
-      "primaryComponent": "prefilledUrl",
-      "components": [
-        {
-          "name": "prefilledUrl",
-          "summary": "`url` with `values` set as search params (empty values left out), keeping what it has.\nAn absolute link stays absolute; a relative one (`/f/a?x=1`) stays relative, so it never\nthrows while a page is still working out its origin.",
-          "props": []
-        },
-        {
-          "name": "embedSnippet",
-          "summary": "An `<iframe>` that shows the page on another website, full width.",
-          "props": []
         }
       ]
     },
@@ -19777,28 +19738,6 @@
               "description": ""
             }
           ]
-        }
-      ]
-    },
-    {
-      "slug": "status",
-      "aliases": [],
-      "surface": "web",
-      "subpath": "@marktiderman/genesis-ui",
-      "filePath": "packages/ui/src/components/resource/status.ts",
-      "stability": "stable",
-      "summary": "Readiness from an editor's findings (any list of `{ level, code? }`): errors block\npublishing, warnings ask for a look. One pass over the findings.",
-      "primaryComponent": "readinessOf",
-      "components": [
-        {
-          "name": "readinessOf",
-          "summary": "Readiness from an editor's findings (any list of `{ level, code? }`): errors block\npublishing, warnings ask for a look. One pass over the findings.",
-          "props": []
-        },
-        {
-          "name": "readinessChip",
-          "summary": "The readiness chip's label and tone.",
-          "props": []
         }
       ]
     },

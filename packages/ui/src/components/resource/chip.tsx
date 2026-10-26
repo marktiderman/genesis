@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Badge } from "../ui/badge";
 import { StatusBadge } from "../patterns/status-badge";
 import { cn } from "../../utils";
-import type { ChipTone } from "./status";
+import type { ChipTone } from "@marktiderman/genesis-core/resource";
 
 /** A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges). */
 export function Chip({
