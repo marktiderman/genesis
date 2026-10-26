@@ -372,6 +372,36 @@ describe("phone bar vs an app-wide mobileNavItems", () => {
   });
 });
 
+describe("hideOnPhone", () => {
+  it("leaves an item out of the phone bar but keeps it in the tab row", () => {
+    function Page() {
+      useAppShellSubNav([
+        { to: "/forms/f1/edit", label: "Questions" },
+        { to: "/forms/f1/edit/logic", label: "Logic and endings", hideOnPhone: true },
+        { to: "/forms/f1/edit/responses", label: "Responses" },
+      ]);
+      return null;
+    }
+    renderShell("/forms/f1/edit/logic", { subNav: "tabs", children: <Page /> });
+    expect(tabs().getAllByRole("link").map((a: HTMLElement) => a.textContent)).toEqual([
+      "Questions",
+      "Logic and endings",
+      "Responses",
+    ]);
+    expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => a.getAttribute("aria-label") ?? a.textContent)).toEqual([
+      "Back to Forms",
+      "Questions",
+      "Responses",
+    ]);
+    // The hidden panel's parent tab shows as current on the phone bar.
+    const current = bottomBar()
+      .getAllByRole("link")
+      .filter((a: HTMLElement) => a.getAttribute("aria-current") === "page");
+    expect(current).toHaveLength(1);
+    expect(current[0]!.getAttribute("aria-label") ?? current[0]!.textContent).toMatch(/Questions$/);
+  });
+});
+
 describe("sub-navigation on phones", () => {
   it("switches the bottom bar to the children, led by a back item to the parent", () => {
     renderShell("/forms/f1/edit/logic");
