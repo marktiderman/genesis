@@ -442,3 +442,15 @@ describe("product demo", () => {
     expect(Object.keys(pkg.dependencies)).toContain("@marktiderman/genesis-product");
   });
 });
+
+describe("metro", () => {
+  it("watches every Genesis workspace package the app depends on, so an edit to one reloads the app", () => {
+    const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+    const watched = /\.\.\.\[([^\]]+)\]\.map\(\(name\) => path\.resolve\(monorepoRoot, "packages", name\)\)/.exec(read("metro.config.js"))?.[1] ?? "";
+    const names = [...watched.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    const genesis = Object.keys(pkg.dependencies)
+      .filter((d) => d.startsWith("@marktiderman/genesis-"))
+      .map((d) => d.slice("@marktiderman/genesis-".length));
+    for (const name of genesis) expect(names, name).toContain(name);
+  });
+});

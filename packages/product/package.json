@@ -29,11 +29,14 @@
     },
     "./native": {
       "types": "./dist/native.d.ts",
-      "import": "./dist/native.js"
+      "react-native": "./src/native/index.ts",
+      "import": "./dist/native.js",
+      "default": "./dist/native.js"
     }
   },
   "files": [
     "dist",
+    "src",
     "README.md"
   ],
   "scripts": {
