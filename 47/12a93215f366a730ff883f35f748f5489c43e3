@@ -1,0 +1,80 @@
+packages/ui/src/components/resource/HeadlineNumbers.tsx
+  s_3daa86e3ae6031::t_585975b2c510b9 2,6-11,16
+packages/forms-studio/src/rules.ts
+  s_3daa86e3ae6031::t_179383cb4eda62 54-56
+packages/ui/src/components/resource/FollowUpList.tsx
+  s_3daa86e3ae6031::t_fc0a50b1b5fd63 6
+packages/forms-studio/src/status.ts
+  s_3daa86e3ae6031::t_a0f9420951b95f 4,36-52,74,78-79,81
+packages/core/README.md
+  s_3daa86e3ae6031::t_23dac962d4aafb 584-601
+packages/forms-studio/src/moved-rules.ts
+  s_3daa86e3ae6031::t_9c7668b3a53f57 1-3,20,28,30,32,34,37,39,41,43,48,59
+packages/core/src/resource/headline.ts
+  s_3daa86e3ae6031::t_f30c93bf581577 1-16
+pnpm-lock.yaml
+  s_3daa86e3ae6031::t_26c682b726eb1a 1010-1012,1025-1027
+features.ts
+  s_3daa86e3ae6031::t_e8653d3e27fe78 85
+packages/ui/src/components/resource/__tests__/rules.test.ts
+  s_3daa86e3ae6031::t_7c4553be918ae0 2,4-13
+packages/ui/src/components/resource/chip.tsx
+  s_3daa86e3ae6031::t_4b90f6fc6e1600 5
+.changeset/forms-studio-pure-rules.md
+  s_3daa86e3ae6031::t_b41e38b5b4aaf6 1-9
+packages/ui/src/components/resource/ReadinessChip.tsx
+  s_3daa86e3ae6031::t_1fd2adc8356fed 3
+packages/ui/src/components/resource/rules.ts
+  s_3daa86e3ae6031::t_77f784a4d4b762 3-6,12-14,21-22
+packages/forms-studio/package.json
+  s_3daa86e3ae6031::t_5486139d408196 49,55-65,67,72
+packages/core/src/__tests__/resource-share.test.ts
+  s_3daa86e3ae6031::t_b20936f02510a0 3
+packages/core/package.json
+  s_3daa86e3ae6031::t_b63a8f37ad4b51 62-65
+packages/forms-studio/src/__tests__/rules-purity.test.ts
+  s_3daa86e3ae6031::t_863d01bb124439 124
+  s_3daa86e3ae6031::t_094ad797aab3de 1-123
+packages/forms-studio/tsconfig.json
+  s_3daa86e3ae6031::t_27f0b40ae26b37 7
+packages/core/src/__tests__/resource-rules.test.ts
+  s_3daa86e3ae6031::t_216a8d0ee61eae 1-52
+packages/core/tsup.config.ts
+  s_3daa86e3ae6031::t_cfaf0d8122255f 20
+packages/core/src/resource/index.ts
+  s_3daa86e3ae6031::t_cd166c8a904df6 1-19
+packages/forms-studio/type-tests/nav-item.tsx
+  s_3daa86e3ae6031::t_5bcfdfe47ed4dc 1-28
+features.json
+  s_3daa86e3ae6031::t_27d73a87e3ff47 169-170
+packages/ui/src/components/resource/ResourceHeader.tsx
+  s_3daa86e3ae6031::t_229d61673b6e72 14
+packages/ui/src/components/resource/ShareDialog.tsx
+  s_3daa86e3ae6031::t_ae0c72adb03d73 13
+packages/forms-studio/README.md
+  s_3daa86e3ae6031::t_104f4a7fd9b3bb 107-112,118-123,131-132
+.changeset/core-resource-rules.md
+  s_3daa86e3ae6031::t_cd25cfe5889dcf 1-7
+packages/forms-studio/src/headline.ts
+  s_3daa86e3ae6031::t_a7005aff6dcd36 5
+.changeset/ui-resource-rules-from-core.md
+  s_3daa86e3ae6031::t_2c2bd804e68216 1-7
+apps/sample/app/data/primitives.json
+  s_3daa86e3ae6031::t_4f915128a0aae7 10,3843,18530-18544
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4712a93215f366a730ff883f35f748f5489c43e3",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
