@@ -35,6 +35,14 @@ export interface GenesisInstall {
 
 /** Dev tools whose own dependency tree never ships, wherever the app lists them. */
 const DEV_TOOLS = new Set(["@marktiderman/genesis-cli"]);
+/**
+ * devDependencies that are tooling, not app code: test runners, type packages,
+ * linters and formatters, compilers and bundlers, Storybook, release and git
+ * hooks. A bundler ships every other devDependency the app imports (a Vite or
+ * Next app lists its UI there freely), so only these count as dev-only.
+ */
+const NON_SHIPPING =
+  /^(?:@marktiderman\/genesis-cli|vitest|@vitest\/.+|jest|jest-.+|@jest\/.+|ts-jest|babel-jest|mocha|ava|c8|nyc|@playwright\/test|playwright|cypress|@testing-library\/.+|happy-dom|jsdom|msw|@types\/.+|typescript|tsx|ts-node|eslint|eslint-.+|@eslint\/.+|@typescript-eslint\/.+|typescript-eslint|prettier|prettier-.+|@biomejs\/.+|oxlint|vite|@vitejs\/.+|vite-plugin-.+|webpack|webpack-.+|rollup|@rollup\/.+|esbuild|tsup|turbo|@storybook\/.+|storybook|@changesets\/.+|husky|lint-staged|wrangler|knip|concurrently|npm-run-all2?|rimraf|cross-env|dotenv-cli)$/;
 
 interface Manifest {
   name?: string;
@@ -93,12 +101,12 @@ function packagesIn(nodeModules: string): string[] {
  * where a package's dependencies are its siblings in the store entry. Copies
  * nothing resolves to are left out: they never load.
  *
- * Each copy records which roots reach it: the app's declared runtime
- * dependencies (`runtime`), hoisted packages nobody declared (they could be
- * anyone's), and the dev roots (declared devDependencies, and the Genesis CLI
- * wherever it's listed). Only a copy reached from dev roots alone is `devOnly`.
- * An app with no runtime dependencies at all (everything in devDependencies, as
- * a bundled SPA may list them) has its devDependencies taken as runtime.
+ * Each copy records which roots reach it: the app's declared dependencies
+ * (`runtime`; devDependencies included, since a bundler ships what the app
+ * imports from them), hoisted packages nobody declared (they could be anyone's),
+ * and the dev roots: declared tooling (test runners, type packages, linters,
+ * bundlers, the Genesis CLI wherever it's listed), whose trees never ship. Only
+ * a copy reached from dev roots alone is `devOnly`.
  */
 export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
   const copies = new Map<string, GenesisInstall>();
@@ -150,13 +158,16 @@ export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
     });
 
   const app = readManifest(root);
-  let runtimeDeps: Record<string, string> = { ...app?.peerDependencies, ...app?.optionalDependencies, ...app?.dependencies };
-  let devDeps = Object.fromEntries(Object.entries(app?.devDependencies ?? {}).filter(([n]) => !(n in runtimeDeps)));
-  // A bundled app (a Vite SPA) may list everything as devDependencies: then they are what ships.
-  if (Object.keys(runtimeDeps).length === 0) {
-    runtimeDeps = Object.fromEntries(Object.entries(devDeps).filter(([n]) => !DEV_TOOLS.has(n)));
-    devDeps = Object.fromEntries(Object.entries(devDeps).filter(([n]) => DEV_TOOLS.has(n)));
-  }
+  // A devDependency ships when the app bundles it, and the doctor can't tell for sure which apps
+  // bundle: so every devDependency counts as runtime except tooling (NON_SHIPPING), whose tree never ships.
+  const declaredDev = Object.entries(app?.devDependencies ?? {});
+  const runtimeDeps: Record<string, string> = {
+    ...Object.fromEntries(declaredDev.filter(([n]) => !NON_SHIPPING.test(n))),
+    ...app?.peerDependencies,
+    ...app?.optionalDependencies,
+    ...app?.dependencies,
+  };
+  const devDeps = Object.fromEntries(declaredDev.filter(([n]) => NON_SHIPPING.test(n) && !(n in runtimeDeps)));
   walk("runtime", rootsOf(runtimeDeps, "the app"));
   // Hoisted packages nobody in the app declared are loadable too, but could be anyone's.
   const top = path.join(root, "node_modules");
