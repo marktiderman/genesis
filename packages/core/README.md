@@ -364,7 +364,8 @@ use the same fixture people (`FIXTURE_USERS`: owner, staff, client, stranger), s
 with `select genesis_testing.create_users();`.
 
 Each check passes only on evidence and throws a `ContractError` otherwise, so it works in vitest,
-jest or node:test. A wrong resource, a missing row or a typo fails instead of passing.
+jest or node:test. A wrong resource, a missing row or a typo fails instead of passing. The control and system
+writes are real (and `expectServerOwned` puts its value back): run the checks on test data.
 
 ```ts
 import { createClient } from "@supabase/supabase-js";
@@ -382,6 +383,7 @@ const providerFor = async (who: "owner" | "client" | "stranger") => {
 
 const client = await providerFor("client");
 const owner = await providerFor("owner");
+const stranger = await providerFor("stranger");
 const system = createSupabaseProvider(createClient(url, serviceRoleKey)); // the server's own writes
 
 // A write the client may not make is refused, in plain words. When RLS hides the row (it reaches
