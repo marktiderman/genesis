@@ -85,3 +85,17 @@ export {
   type GateSnapshotOptions,
   type IdSet,
 } from "./gate";
+export {
+  CONTENT_PACK_FIELD_TARGETS,
+  ContentPackError,
+  contentPackBlocks,
+  contentPackProblems,
+  defineContentPack,
+  type ContentPackDef,
+  type ContentPackFieldDefinition,
+  type ContentPackFieldTarget,
+  type ContentPackForm,
+  type ContentPackMetricTemplate,
+  type ContentPackRoadmapTemplate,
+  type ContentPackSessionType,
+} from "./content-packs";
