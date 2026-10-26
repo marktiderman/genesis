@@ -1,7 +1,9 @@
 // What a resource means to people (docs/RESOURCE-VIEW.md, "View"). Types only: no React, no
 // DOM, so web, native and the extension all import the same view.
 
-import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
+import type { DataRow, FieldSchema, ResourceContract, RowOf } from "../schema/types";
+
+export type { RowOf };
 
 /** A chip's colour: the tinted, AA-safe Genesis badge tones (genesis-ui's `ChipTone`). */
 export type ViewTone = "success" | "warning" | "danger" | "info" | "muted";
@@ -28,9 +30,6 @@ export type DisplayHint =
 
 /** The field names a contract declares; `string` when the contract isn't a literal. */
 export type FieldNameOf<C extends ResourceContract> = C["fields"][number]["name"];
-
-/** The row a contract describes, when it carries one; otherwise any row. */
-export type RowOf<C> = C extends ResourceContract<infer R> ? R : DataRow;
 
 /** What a view says about one field. Every key is optional; the contract fills the rest. */
 export interface ViewField<Row extends DataRow = DataRow> {

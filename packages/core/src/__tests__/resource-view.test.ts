@@ -6,7 +6,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { csvField } from "../csv";
 import { defineView, deriveDisplay, ViewDefinitionError } from "../resource-view";
-import type { ResourceContract } from "../schema/types";
+import { defineResource, type ResourceContract } from "../schema/types";
 import { isSafeUrl } from "../urls";
 
 type BrandRow = {
@@ -38,9 +38,7 @@ const brands = {
     { name: "updated_at", type: "datetime", hasDefault: true, readOnly: true },
     { name: "score", type: "number", generated: true },
   ],
-} as const;
-// Until the @genesis facts (readOnly, sensitive) land in FieldSchema, check the rest of the shape.
-brands satisfies ResourceContract;
+} as const satisfies ResourceContract<BrandRow>;
 
 const row: BrandRow = {
   id: "b1",
@@ -201,6 +199,13 @@ describe("defineView checks names", () => {
     expect(() => defineView(brands, { columns: { default: [{ key: "name", label: "N", value: () => 1 }] } })).toThrow(
       /clashes with a field/,
     );
+  });
+
+  it("reads the row type a generated contract carries", () => {
+    const typed = defineResource<BrandRow>()({ name: "public.brands", key: "id", labelField: "name", fields: brands.fields });
+    const view = defineView(typed, { can: { delete: (r) => (r.is_default ? "kept" : true) } });
+    expectTypeOf(view.summary).parameter(0).toEqualTypeOf<BrandRow>();
+    expect(view.can("delete", row)).toBe("kept");
   });
 
   it("types field names from the contract", () => {
