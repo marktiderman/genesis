@@ -60,6 +60,18 @@ export interface RenderedText {
   body?: string;
   /** The app path a tap opens (`/messages/42`). */
   url?: string;
+  /**
+   * Push-only extras, for a type whose app reads more than the link: `ids` always travel
+   * (a Reply action needs the conversation and message), `display` only when previews are
+   * shown (a sender's name and photo for iOS rich push), and `mutableContent` lets the app's
+   * Notification Service Extension run (dropped with hidden previews). Flat values only; the
+   * notifier's own keys (`notification_id`, `type`, `url`, `thread_key`) can't be replaced.
+   */
+  push?: {
+    ids?: Record<string, string | number>;
+    display?: Record<string, string | number>;
+    mutableContent?: boolean;
+  };
 }
 
 /** A notification's `data`: references and display values, never a secret. */
@@ -262,6 +274,7 @@ export function defineNotifications<
           title: typeof out?.title === "string" && out.title ? out.title : key,
           ...(typeof out?.body === "string" ? { body: out.body } : {}),
           ...(typeof out?.url === "string" && out.url ? { url: out.url } : {}),
+          ...(out?.push && typeof out.push === "object" ? { push: out.push } : {}),
         };
       } catch {
         return { title: key };

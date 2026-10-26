@@ -224,15 +224,28 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
       })
     : null;
 
+  /** Only strings and finite numbers, so a type can't put an object or a function in a push. */
+  function flatValues(values: Record<string, unknown> | undefined): Record<string, string | number> {
+    const out: Record<string, string | number> = {};
+    for (const [key, value] of Object.entries(values ?? {})) {
+      if (typeof value === "string" || (typeof value === "number" && Number.isFinite(value))) out[key] = value;
+    }
+    return out;
+  }
+
   function pushMessage(job: Job, token: string): PushMessage {
     const hidden = job.hide_previews || job.push_privacy === "generic";
-    const text = hidden ? { title: registry.hiddenPreview.title, body: registry.hiddenPreview.body } : registry.render(job.type, job.data);
-    const url = appPath(registry.render(job.type, job.data).url);
+    const rendered = registry.render(job.type, job.data);
+    const text = hidden ? { title: registry.hiddenPreview.title, body: registry.hiddenPreview.body } : rendered;
+    const url = appPath(rendered.url);
+    // The type's push extras: ids always, display values and rich push only with previews shown.
+    const extras = { ...flatValues(rendered.push?.ids), ...(hidden ? {} : flatValues(rendered.push?.display)) };
     return {
       to: token,
       title: text.title,
       ...(text.body ? { body: text.body } : {}),
-      data: { notification_id: job.notification_id, type: job.type, ...(url ? { url } : {}), ...(job.thread_key ? { thread_key: job.thread_key } : {}) },
+      data: { ...extras, notification_id: job.notification_id, type: job.type, ...(url ? { url } : {}), ...(job.thread_key ? { thread_key: job.thread_key } : {}) },
+      ...(!hidden && rendered.push?.mutableContent ? { mutableContent: true } : {}),
       sound: "default",
       ...(job.badge !== null && job.badge !== undefined ? { badge: job.badge } : {}),
       channelId: job.category,

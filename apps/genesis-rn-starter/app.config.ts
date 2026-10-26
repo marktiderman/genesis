@@ -46,6 +46,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ["expo-audio", { microphonePermission: MICROPHONE }],
     // The privacy manifest declares the data of the blocks that are on (account, observability, push).
     ["@marktiderman/genesis-cli", { privacy: { blocks: privacyBlocks(starter.features) } }],
+    // iOS rich push for chat: a Notification Service Extension that shows the sender's photo, makes
+    // message pushes Communication Notifications (Focus treats them as messages) and attaches photos.
+    // Kept whichever way the chat and push switches are, so they stay JavaScript only: it does nothing
+    // until a push carries chatPushPayload's fields. After the Genesis plugin, so the extension's
+    // bundle id follows the APP_VARIANT suffix.
+    "@marktiderman/genesis-native/rich-push-plugin",
     // Optional: upload source maps to Sentry from EAS builds (the observability block). Set your
     // organization and project slugs, add SENTRY_AUTH_TOKEN as an EAS secret, set "@sentry/cli" to
     // true under allowBuilds in pnpm-workspace.yaml, and switch metro.config.js to
