@@ -355,3 +355,50 @@ leave; asks with `window.confirm` otherwise). For other state,
 `useUnsavedChangesGuard({ when, message, confirm })` gives the same
 `confirmLeave` and `beforeunload` handling. Neither depends on a router; see
 genesis-ui's SKILL.md "Unsaved changes" for React Router and TanStack Router.
+
+## Test your data contract
+
+`@marktiderman/genesis-core/testing` checks your own provider keeps the data rules, against your
+real schema (a local Supabase in CI). Its pgTAP twin is genesis-supabase's `genesis_testing`; both
+use the same fixture people (`FIXTURE_USERS`: owner, staff, client, stranger), so seed them once
+with `select genesis_testing.create_users();`.
+
+Each check passes only on evidence and throws a `ContractError` otherwise, so it works in vitest,
+jest or node:test. A wrong resource, a missing row or a typo fails instead of passing.
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+import { createSupabaseProvider } from "@marktiderman/genesis-core/provider";
+import {
+  expectBinned, expectNeverShows, expectRefused, expectServerOwned, fixtureAccessToken,
+} from "@marktiderman/genesis-core/testing";
+
+// The local stack's legacy JWT secret (`supabase status`); never a production one.
+const providerFor = async (who: "owner" | "client" | "stranger") => {
+  const token = await fixtureAccessToken(who, { secret: process.env.SUPABASE_JWT_SECRET! });
+  const client = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
+  return createSupabaseProvider(client, { binTables: ["notes"] });
+};
+
+const client = await providerFor("client");
+const owner = await providerFor("owner");
+
+// A write the client may not make is refused, in plain words.
+await expectRefused((await providerFor("stranger")).update("tasks", { id, data: { title: "x" } }));
+// A column only the server sets stays as it was.
+await expectServerOwned({ as: client, control: owner, resource: "tasks", id, field: "status", value: "done" });
+// A private value never shows, reports included.
+await expectNeverShows(client.getList("group_progress", {}), "private-marker-7");
+// A delete on a bin table keeps the row.
+await expectBinned({ as: client, resource: "notes", id, inBin: () => adminSeesDeleted("notes", id) });
+```
+
+| Check | Passes when |
+| --- | --- |
+| `expectRefused(write)` | it rejects as `forbidden`, `gone` or `unauthenticated` (or the `outcomes` you pass) with a plain message |
+| `expectAllowed(write)` | it resolves |
+| `expectServerOwned({ as, control, … })` | `control` reads the same value before and after `as` tries to set it; refused or put back both count |
+| `expectNeverShows(read, marker)` | the marker appears nowhere in the result (raw or JSON-escaped), or the read is refused |
+| `expectSees(read, n)` | the read returns exactly `n` rows |
+| `expectBinned({ as, resource, id, inBin })` | the delete succeeds, `as` can't read the row back, and `inBin()` confirms it's still stored |
+| `expectPlainMessage(error)` | the message has no raw database text or error codes |
