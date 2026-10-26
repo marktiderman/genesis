@@ -1,5 +1,49 @@
 # @marktiderman/genesis-core
 
+## 1.13.0
+
+### Minor Changes
+
+- 4712a93: `genesis-core/resource`: the resource workspace's pure rules, with no React: `readinessOf`, `readinessChip`, `dayLabel`, `SAVE_STATE_LABEL`, `prefilledUrl`, `embedSnippet` and the types `ChipTone`, `SaveState`, `Readiness`, `ReadinessFinding`, `ReadinessOptions`, `ReadinessLabels` and `PrefillChoice`, moved from genesis-ui. New `HeadlineNumber` (a headline number as data: `value` is a string or number) and `HeadlineTone`, which a server or a phone app can build.
+
+  Features: resource-workspace
+
+- eb4d080: Count modes for lists: `count: "exact" | "estimated" | "planned" | "none"` on a Supabase resource or per `getList`, with `totalIsEstimate` for approximate totals. `ViewerScope` takes a `scope` (practice, person, space or a set of people), read with `useViewerScope()` / `useOptionalViewerScope()`, plus the viewer's `timeZone` and today on their clock (`day`), which query keys take as their day.
+- c098d74: ResourcePage `pagination="cursor"` now searches, sorts and filters on the server, as `pagination="server"` already did. Before, the toolbar's search, the status filter and a header sort worked only on the rows already loaded, so a match on an unloaded page never showed.
+
+  - **What happens now:** each change restarts from the first page with the server's count, and search waits for a pause in typing.
+  - **Search box:** it shows only when the list has `searchFields`, since the server needs to know which columns to match.
+  - **`useResourceTable`'s `total`:** in cursor mode it's the server's count of matches.
+
+  Cursor lists sort on the server only. Column headers aren't client-sortable there, since a header sort would reorder just the loaded rows, in an order the next page disagrees with. A URL sort on a computed column is ignored. A new search, sort or filter keeps the loaded rows on screen until it lands (core: `useInfiniteResource({ keepPreviousData })`). A shared link starts from its search and sort in one request.
+
+- 2bf5afd: Resource facts from `@genesis` comments: tables take `noun` and `nounPlural`, columns `readonly` and `sensitive` (booleans). `genesis introspect` emits each resource as `as const satisfies ResourceContract<Row>` with a field-name union, so a bad setting fails to compile; row types are now type aliases. Core's `ResourceContract` gains `label`, `labelField`, `noun` and `nounPlural`, and `FieldSchema` gains `readOnly` and `sensitive`.
+- f8df3a4: Live updates scale: the Supabase provider shares one realtime channel per resource and list filter (the first equality filter narrows inserts on the server; updates and deletes arrive unfiltered so a row leaving a list is still heard; no server filter for a resource read from a view or function). A write's own realtime echo is skipped once, matched by row and event kind, within `REALTIME_ECHO_MS` (2s). Updates carry the row for resources read from their own table: `live` patches the fields cached rows already have at once (values show as the payload has them until the refetch settles them) and refetches only the lists the change could touch. Each distinct filter value is its own channel; mind the realtime per-client channel limit for screens with many.
+- 35145a1: `live` reads resync on an interval while the page is visible (`resyncMs`, default 60s; 0 turns it off). Realtime checks each change against the row's new state, so a row the viewer can no longer read (binned, made a draft, moved) sends them nothing; the resync removes it.
+- a93108d: Cursor pages go both ways: the Supabase provider returns `prevCursor` (the rows before a page's first row, read in reverse and turned around), and `useInfiniteResource` takes `maxPages` to keep only that many pages loaded, loading dropped ones again when scrolled back. Realtime echo marks are now skipped once per channel, so two lists of one table don't refetch for your own write.
+- bcb938c: **An edit never blanks what it didn't load.** `useResourceForm` (and so ResourcePage, ResourceView and ResourceForm) sends a field the opened record didn't carry only when the person changed it. A list that didn't load a column, or a value the server left out, can no longer be overwritten with an empty one by an unrelated edit. `updates: "all"` restores the old behaviour.
+
+  On a create, a field's `defaultValue` now wins over the blank template ResourcePage builds.
+
+  **ResourceView:**
+  - A link named in a view's form is read-only until there's a relation picker, so no one sends a hand-typed id.
+  - A screen's `filter` fills those fields on create.
+
+- af29d35: `genesis-core/resource-view`: `defineView(contract, {...})` describes what a resource means to people (labels, display hints, column presets, tabs, form sections, guards, summary) with no React, checked once and frozen. A name the contract doesn't have throws `ViewDefinitionError` at start-up.
+
+  `isSafeUrl` and `normalizeLinkUrl` move to core (`genesis-core/urls`, also the root), so native and the extension use the same link check; genesis-ui re-exports them. The CSV helpers move to `genesis-core/csv`, and a cell that starts with spaces and then a formula character is now neutralised too.
+
+- 32bdd36: `genesis-core/resource-view`: a view's `summary` can carry a picture, `image: { src?, name?, alt? }`. `rowPicture(summary)` says what to draw: the image when `isSafeUrl` accepts its `src` (with initials for when it fails to load), the initials of `name` when the `src` is unsafe or missing, or `null`. `alt` defaults to empty, so the picture is decorative. `initialsOf(name)` takes whole characters, so an emoji or accented letter is never split.
+
+  `genesis-ui`: `ResourceView` draws the summary's picture as an avatar beside the first column of the table.
+
+- 32bdd36: `genesis-core/resource-view`: `scopeValues(view, scope)` returns `{ key: value }` for the scope keys a view declares, read from `ViewerScope`'s `scope` (`practice_id`, then `practiceId`), for a screen's `filter`. In development a declared key with no single value throws `ViewDefinitionError`. Action names `create`, `update` and `delete` are reserved for the view's own operations, and initials come from letters only, so a name with none (`"  "`, `"🎉🎉"`) has no initials and no picture.
+- 32bdd36: `genesis-core/resource-view`: a view can declare `actions`, named operations on one row shaped like core's `RowAction` (`name`, `label`, `confirm`, `description`) plus an optional `can(row)` guard that returns `true` or a reason. `defineView` checks them at start-up (unique names, a name and label each, a function guard) and throws `ViewDefinitionError` otherwise. `view.actions()` lists them, frozen, and `view.canAction(name, row)` answers for one row; guards only narrow what the server allows.
+
+### Patch Changes
+
+- f0146a4: A failed search with `keepPreviousData` no longer keeps the old search's count, and a realtime channel reopened on the same topic just after your write hears a teammate's update instead of taking it for your echo.
+
 ## 1.12.0
 
 ### Minor Changes
