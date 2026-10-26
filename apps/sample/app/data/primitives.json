@@ -3840,7 +3840,7 @@
               "type": "number",
               "required": false,
               "defaultValue": null,
-              "description": "Pages kept loaded when the provider pages by cursor: scrolling far drops pages from the front\nand scrolling back loads them again. Default 10."
+              "description": "Pages kept loaded when the provider pages by cursor (and serves `prevCursor`): scrolling far\ndrops pages from the front, and scrolling back to the top loads them again (`loadPrevious` on\nthe list's `onStartReached`, with `maintainVisibleContentPosition` so the rows on screen stay\nput). Offset paging never drops pages. Default 10."
             },
             {
               "name": "onRowPress",
