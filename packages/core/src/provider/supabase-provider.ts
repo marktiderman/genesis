@@ -203,11 +203,14 @@ export interface SupabaseResourceConfig {
    * and cursors, because PostgREST filters a view or a set-returning function
    * like a table. Realtime still watches the table.
    *
+<<<<<<< HEAD
    * Row-level security: a plain view runs as its owner and a SECURITY DEFINER
    * function as its definer, so either one reads past RLS. Create the view
    * `with (security_invoker = true)` and the function `security invoker` (or
    * have it filter by `auth.uid()` itself), or this exposes every row.
    *
+=======
+>>>>>>> origin/main
    * ```ts
    * resources: {
    *   tasks: { source: "tasks_with_people" },
@@ -218,6 +221,7 @@ export interface SupabaseResourceConfig {
   source?: string | { rpc: string; args?: () => Record<string, unknown> };
   /** The columns read when the caller names none, e.g. embedded joins: `"*, person:people(full_name)"`. Default `"*"`. */
   select?: string;
+<<<<<<< HEAD
   /**
    * With a `source` (or a `select` that embeds other tables), the table's own
    * columns: creates and updates write only these, so a form built from the
@@ -225,6 +229,8 @@ export interface SupabaseResourceConfig {
    * Without it, an update writes only the columns the table's row has.
    */
   writeColumns?: readonly string[];
+=======
+>>>>>>> origin/main
 }
 
 /** Options for `createSupabaseProvider`. All optional; none changes reads. */
@@ -496,6 +502,7 @@ export function createSupabaseProvider(
 
   const from = (resource: string) => client.from(resource) as SupabaseQueryBuilder;
 
+<<<<<<< HEAD
   /** The relation PostgREST names in errors about a read of `resource`: its view, function or table. */
   function readName(resource: string): string {
     const source = configFor(resource).source;
@@ -523,6 +530,8 @@ export function createSupabaseProvider(
     return Object.fromEntries(Object.entries(values).filter(([key]) => key in row));
   }
 
+=======
+>>>>>>> origin/main
   /** A read of `resource` from its configured source (table, view or function), with its default columns. */
   function read(resource: string, columns: string | undefined, count?: "exact"): SupabaseQueryBuilder {
     const config = configFor(resource);

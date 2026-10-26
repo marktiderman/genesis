@@ -50,6 +50,7 @@ describe("resource source", () => {
     await p.getMany("tasks", { ids: ["t1"] });
     expect(call("from")).toEqual([["tasks_with_people"], ["tasks_with_people"], ["tasks_with_people"]]);
 
+<<<<<<< HEAD
     // An update writes only the table's own columns: the view's joined ones stay behind.
     calls = [];
     queue.push({ data: [{ id: "t1", title: "a" }], error: null }); // the table's row
@@ -74,6 +75,12 @@ describe("resource source", () => {
     queue.push({ data: null, error: { code: "42703", message: "column practice_stats.id does not exist" } });
     queue.push({ data: [{ practice: "a", n: 2 }], error: null, count: 1 });
     expect((await p.getList("stats", { pagination: { page: 1, perPage: 10 } })).data).toEqual([{ practice: "a", n: 2 }]);
+=======
+    calls = [];
+    queue.push({ data: [{ id: "t1", title: "x" }], error: null });
+    await p.update("tasks", { id: "t1", data: { title: "x" } });
+    expect(call("from")[0]).toEqual(["tasks"]);
+>>>>>>> origin/main
   });
 
   it("reads from a set-returning function, keeping filters, search, sort, paging and the total", async () => {
