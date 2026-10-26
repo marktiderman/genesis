@@ -1,0 +1,35 @@
+.changeset/count-mode-scope.md
+  s_a1b83c03f697d3::t_36bfae4d735b1e 1-5
+packages/core/README.md
+  s_a1b83c03f697d3::t_ab55fdbfa4362b 142-148,541-544
+packages/core/src/hooks/__tests__/keys-and-viewer.test.tsx
+  s_a1b83c03f697d3::t_48f5d227cd5486 4-5,12,127-161
+packages/core/src/hooks/index.ts
+  s_a1b83c03f697d3::t_41582ec6d2981b 48-56
+packages/core/src/hooks/viewer-scope.tsx
+  s_a1b83c03f697d3::t_43245e0c74a01b 2,17-49,58-59,79,81-84,103-107
+packages/core/src/provider/__tests__/supabase-source.test.ts
+  s_a1b83c03f697d3::t_ff1a0597be94be 122-146
+packages/core/src/provider/index.ts
+  s_a1b83c03f697d3::t_d0062fff515fae 7
+packages/core/src/provider/supabase-provider.ts
+  s_a1b83c03f697d3::t_1f1d32dca4384c 3,220-224,505-509,538-542,723-724,764-769,797,799,852-856
+packages/core/src/provider/types.ts
+  s_a1b83c03f697d3::t_23d5dc569a9046 75-81,96-97,108-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eb4d080714fd2b1eed0a60970d3175b1d48e5ee3",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
