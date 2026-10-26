@@ -443,6 +443,18 @@ export function useConversation(conversationId: string | null | undefined, opts:
     if (shouldMark && latestSeq > 0) void markRead().catch(() => undefined);
   }, [shouldMark, latestSeq, markRead]);
 
+  const refetchConversation = useCallback(
+    () =>
+      Promise.all([
+        queryClient.refetchQueries({ queryKey: chatKeys.conversation(id) }),
+        queryClient.refetchQueries({ queryKey: chatKeys.members(id) }),
+        queryClient.refetchQueries({ queryKey: chatKeys.role(id) }),
+        queryClient.refetchQueries({ queryKey: chatKeys.pins(id) }),
+        queryClient.refetchQueries({ queryKey: ["genesis-chat", "kind"] }),
+      ]).then(() => undefined),
+    [queryClient, id],
+  );
+
   const loadEarlier = useCallback(async () => {
     const first = list[0];
     if (!first || loadingEarlier) return;
@@ -513,7 +525,10 @@ export function useConversation(conversationId: string | null | undefined, opts:
     conversationLoading: conversation.isLoading,
     /** Your role couldn't be loaded (offline): offer `refetchAccess`, don't say "can't post". */
     accessError: access.error ?? null,
-    refetchAccess: access.refetch,
+    /** Retries everything this conversation loads (role, members, the conversation, topics, availability, pins), not only access. */
+    refetchAccess: refetchConversation,
+    /** Same as refetchAccess: every per-conversation lookup again, for a Retry after being offline. */
+    refetchConversation,
     /** The kind's rules (max members, threads, who posts). */
     kind: kindRules.data ?? null,
     /** May you pin here: owners and admins, or anyone in a two-person conversation. */
