@@ -26,6 +26,13 @@ import { listCouldChange, patchCachedRow } from "./live-cache";
 /** How long a burst of change events is gathered into one refetch. */
 export const DEFAULT_LIVE_DEBOUNCE_MS = 250;
 
+/**
+ * How often a live read refetches anyway while the page is visible. Realtime checks each change
+ * against the row's new state, so a row the viewer stops being allowed to see (binned, made a
+ * draft, moved to another practice) sends them nothing and would stay on screen.
+ */
+export const DEFAULT_LIVE_RESYNC_MS = 60_000;
+
 /** `live` as an object, to tune it. `live: true` takes the defaults. */
 export interface LiveOptions {
   /**
@@ -34,6 +41,12 @@ export interface LiveOptions {
    * steady stream still refetches at least every `4 × debounceMs`.
    */
   debounceMs?: number;
+  /**
+   * Refetch at least this often while the page is visible, for the changes realtime can't
+   * deliver (a row the viewer may no longer read). Default {@link DEFAULT_LIVE_RESYNC_MS}; 0 turns
+   * it off.
+   */
+  resyncMs?: number;
 }
 
 const warnedNoSubscribe = new WeakSet<object>();
@@ -60,6 +73,10 @@ export function useLiveInvalidation(
   const debounceMs = Math.max(
     0,
     (typeof live === "object" ? live.debounceMs : undefined) ?? DEFAULT_LIVE_DEBOUNCE_MS,
+  );
+  const resyncMs = Math.max(
+    0,
+    (typeof live === "object" ? live.resyncMs : undefined) ?? DEFAULT_LIVE_RESYNC_MS,
   );
   const paramsKey = JSON.stringify(params);
   const keyKey = JSON.stringify(queryKey);
@@ -122,8 +139,19 @@ export function useLiveInvalidation(
     } catch (error) {
       console.error(`[genesis] subscribing to "${resource}" failed:`, error);
     }
+    // The safety net for changes realtime can't deliver; skipped while the page is hidden (a
+    // hidden page refetches when it's shown again).
+    const resync =
+      resyncMs > 0
+        ? setInterval(() => {
+            if (!active) return;
+            if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+            void queryClient.invalidateQueries({ queryKey: [...latest.current.queryKey], refetchType: "active" });
+          }, resyncMs)
+        : undefined;
     return () => {
       active = false;
+      if (resync !== undefined) clearInterval(resync);
       if (timer !== undefined) clearTimeout(timer);
       try {
         unsubscribe?.();
@@ -132,5 +160,5 @@ export function useLiveInvalidation(
       }
     };
     // `paramsKey` / `keyKey` stand for `params` / `queryKey` by value.
-  }, [on, provider, queryClient, resource, debounceMs, paramsKey, keyKey]);
+  }, [on, provider, queryClient, resource, debounceMs, resyncMs, paramsKey, keyKey]);
 }
