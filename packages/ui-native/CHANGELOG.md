@@ -1,5 +1,14 @@
 # @marktiderman/genesis-ui-native
 
+## 2.3.1
+
+### Patch Changes
+
+- da7fef7: `InboxPage`: `avatarLabel` says who a row's avatar shows when its title doesn't name them (screen readers read it before the title). The docs now say an unread count shows at the end of the row.
+- 4514072: `NativeRefreshControl` no longer throws inside `GenesisNativeApp`: its tint is the theme's `tint` role (`useThemeRoles`) rather than `useGenesisTheme` from `providers/native`, a context the shell never mounts. `InboxPage` uses it for pull to refresh, draws its empty and loading states in a scroll view so they sit below a large-title header (and can be pulled to refresh), and takes an `avatar` per row, between the unread dot or count and the text, with the separator starting at the text.
+
+  `NativeIcon` gains the names a chat screen needs, with an SF Symbol and a lucide icon each: `arrow-up`, `camera`, `compose`, `copy`, `file`, `image`, `message`, `mic`, `paperclip`, `pause`, `pin`, `play`, `reply`.
+
 ## 2.3.0
 
 ### Minor Changes
