@@ -6,7 +6,6 @@ import type { DataRow } from "@marktiderman/genesis-core";
 import type {
   Allowed,
   DisplayHint,
-  ResolvedColumn,
   ResourceView,
   RowSummary,
 } from "@marktiderman/genesis-core/resource-view";
@@ -22,43 +21,21 @@ export type AnyResourceView<T extends Row = Row> = ResourceView<any, T & DataRow
 export interface NativeResourceRowItem {
   id: string;
   title: string;
-  /** From `summary(row).subtitle`, else the first two columns after the title, joined. */
+  /** `summary(row).subtitle`, the only subtitle: never a raw column. */
   subtitle?: string;
   chips: NonNullable<RowSummary["chips"]>;
 }
 
-/** Hints that don't read as a line of text, so they never fill a subtitle. */
-const NOT_TEXT = new Set<DisplayHint>(["image", "json", "longText"]);
-
 /**
- * A row as NativeListItem draws it. The title and chips are `view.summary(row)`'s. The subtitle is
- * the summary's, or else the first two columns of `preset` that aren't the title, have a value and
- * read as text, joined with " · ".
+ * A row as NativeListItem draws it: `view.summary(row)`'s title, subtitle and chips, and nothing
+ * else. A view that wants a second line says so in its summary.
  */
-export function rowItem<T extends Row>(
-  view: AnyResourceView<T>,
-  row: T,
-  columns: readonly ResolvedColumn<T & DataRow>[],
-  messages: NativeResourceViewMessages,
-): NativeResourceRowItem {
+export function rowItem<T extends Row>(view: AnyResourceView<T>, row: T): NativeResourceRowItem {
   const summary = view.summary(row as T & DataRow);
-  let subtitle = summary.subtitle;
-  if (subtitle === undefined) {
-    const parts: string[] = [];
-    for (const column of columns) {
-      if (parts.length === 2) break;
-      if (column.key === view.labelField || NOT_TEXT.has(column.display)) continue;
-      if (column.when && !column.when(row as T & DataRow)) continue;
-      const value = column.value(row as T & DataRow);
-      if (isEmptyValue(value)) continue;
-      parts.push(displayText(column.display, value, messages, column.timeZone));
-    }
-    if (parts.length) subtitle = parts.join(" · ");
-  }
   return {
     id: String(row.id ?? summary.title),
     title: summary.title,
-    ...(subtitle ? { subtitle } : {}),
+    ...(summary.subtitle ? { subtitle: summary.subtitle } : {}),
     chips: summary.chips ?? [],
   };
 }
@@ -231,8 +208,9 @@ function kindFor(display: DisplayHint, options: unknown[] | undefined): NativeFo
 }
 
 /**
- * The form sheet's fields: `view.form(mode)`, each marked read-only unless `view.writable(mode)`
- * lists it. A create leaves read-only fields out (there is nothing to show yet); an edit shows
+ * The form sheet's fields: `view.form(mode)` (which already leaves out JSON, lists, links, scope,
+ * sensitive and unreadable fields and server-filled keys), each marked read-only unless
+ * `view.writable(mode)` lists it. Copied, never mutated: core caches and freezes `form()`. A create leaves read-only fields out (there is nothing to show yet); an edit shows
  * them as text.
  */
 export function formFieldsFor<T extends Row>(view: AnyResourceView<T>, mode: "create" | "edit"): NativeFormField[] {

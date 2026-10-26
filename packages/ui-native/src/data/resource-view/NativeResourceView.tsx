@@ -1,6 +1,6 @@
 // NativeResourceView: a native list screen from a genesis-core view, in one line
 // (docs/RESOURCE-VIEW.md, "Native"). It reads the same view as the web's ResourceView:
-//   - `view.summary(row)` and `view.columns(preset)` → NativeListItem (title, subtitle, a chip);
+//   - `view.summary(row)` → NativeListItem (title, subtitle, a chip); `view.columns()` → the peek;
 //   - `definition.groupBy` → SectionList sections, inset grouped on iOS;
 //   - `view.can()` → swipe actions (InboxPage's shape: long press and accessibility actions,
 //     the `swipeable` slot for the gesture), every refusal with its reason;
@@ -282,15 +282,16 @@ export function NativeResourceView<T extends Row = Row>(props: NativeResourceVie
     )))
   );
 
-  // Peek: every column of the preset, drawn by the display renderers, with the guarded actions.
+  // Peek: the view's full column list, drawn like the cells (so `when` hides there too), never
+  // every key of the row: sensitive values and columns the view leaves out stay out. As the web's.
   const peekFields = useMemo(
     () =>
-      view.columns(options.columns ?? "default").map((column) => ({
+      view.columns().map((column) => ({
         key: column.key,
         label: column.label,
         render: (_value: unknown, row: Row) => cell(column as never, row),
       })),
-    [view, options.columns, cell],
+    [view, cell],
   );
   const { formFields } = state;
   const createFields = useMemo(() => formFields("create"), [formFields]);

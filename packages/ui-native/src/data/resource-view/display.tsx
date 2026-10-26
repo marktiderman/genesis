@@ -2,7 +2,8 @@
 // (`DisplayRenderers`, `DisplayRenderersProvider`, `useDisplayCell`): a view says
 // `status: { display: "badge" }` and never imports a component, and an app replaces any hint with
 // DisplayRenderersProvider. Links and images go through core's `isSafeUrl`; a calendar day is
-// formatted from its parts, never `new Date(day)`.
+// formatted from its parts, never `new Date(day)`. Rows show only `summary(row)`; these draw the
+// peek and read-only form values.
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { Linking, Text } from "react-native";
@@ -57,16 +58,28 @@ export function formatDay(value: unknown): string {
   return date ? DAY.format(date) : String(value);
 }
 
+// One formatter per zone: building an Intl.DateTimeFormat costs far more than a format call.
+const INSTANTS = new Map<string, Intl.DateTimeFormat>();
+function instantFormat(zone: string | undefined): Intl.DateTimeFormat {
+  const key = zone ?? "";
+  let format = INSTANTS.get(key);
+  if (!format) {
+    try {
+      format = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: zone });
+    } catch {
+      // An unknown zone name: the viewer's clock, rather than a broken value.
+      format = instantFormat(undefined);
+    }
+    INSTANTS.set(key, format);
+  }
+  return format;
+}
+
 export function formatInstant(value: unknown, timeZone?: string): string {
   const at = new Date(String(value));
   if (Number.isNaN(at.getTime())) return String(value);
   const zone = timeZone && timeZone !== "viewer" && timeZone !== "practice" ? timeZone : undefined;
-  try {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(at);
-  } catch {
-    // An unknown zone name: the viewer's clock, rather than a broken cell.
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(at);
-  }
+  return instantFormat(zone).format(at);
 }
 
 /** A link a row may open: http(s), mailto or tel that passes `isSafeUrl`. Root-relative paths mean nothing on a phone. */
