@@ -181,3 +181,31 @@ export const metricsBlock = defineBlock({
     },
   },
 });
+
+/**
+ * The status updates block: dated updates (health and a note) on a pursuit,
+ * work item or metric, and requests to one person for an update by a due
+ * time, answered by the first update they post. Needs the pursuits and
+ * metrics blocks.
+ *
+ * @stability Experimental
+ */
+export const statusUpdatesBlock = defineBlock({
+  id: "status-updates",
+  requires: ["pursuits", "metrics"],
+  platforms: ["web", "native"],
+  contributes: {
+    migrations: [
+      {
+        package: PACKAGE,
+        file: "migrations/0011_genesis_updates.sql",
+        test: "migrations/tests/0011_genesis_updates.test.sql",
+      },
+    ],
+    privacy: {
+      notes: [
+        "Stores the updates people write and who asked whom for one; a closed account's requests to it are deleted.",
+      ],
+    },
+  },
+});
