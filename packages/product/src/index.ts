@@ -9,6 +9,7 @@ export {
   PRODUCT_SHIPPED_TYPE,
   PRODUCT_UPDATES_CATEGORY,
   cancelShipped,
+  isAppPath,
   notifyShipped,
   productNotifications,
   shippedKey,

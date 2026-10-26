@@ -84,15 +84,20 @@ await notifyShipped((input) => notify(supabase, input, { registry: notifications
   release: "2026-10-26",
   feature,             // a CatalogFeature: its tagline (or summary) is the body
   recipients: askers,  // user ids, { userId }, or { email, name }
-  url: "/whats-new",
+  url: "/whats-new",   // a path on the app; anything else throws (the notifier would drop it)
 });
 
-// The release was withdrawn: stop what hasn't gone out, and take it out of the feed.
-await cancelShipped((input) => cancelNotification(supabase, input), { release: "2026-10-26", featureId: feature.id, archive: true });
+// The release was withdrawn: stop what hasn't gone out, and take it out of the feed (archive is on by default).
+await cancelShipped((input) => cancelNotification(supabase, input), { release: "2026-10-26", featureId: feature.id });
 ```
 
-The key is `shipped:<release>:<feature>`, so a re-run sends nobody a second one, and the same
-feature shipped again under a new release name notifies again. `/server` and the core (`.`) export
+Run genesis-notifications' `syncNotificationTypes` after adding the fragment (on deploy), or
+`notify` refuses the type. The key is `shipped:<release>:<feature>` (neither may contain `:`), so
+a re-run sends nobody a second one, and the same feature shipped again under a new release name
+notifies again. A cancel stops only what is still waiting: email goes as soon as the runner picks
+it up, so most of it has usually gone. The sent rows stay, so re-publish a withdrawn release under
+a new name; under the same one nobody is told again. Pass a `tenantId` (a uuid) to both calls, or
+to neither. `/server` and the core (`.`) export
 the same things: the registry is imported by the web and the phone too, and neither does I/O.
 This package doesn't depend on genesis-notifications; the shapes are structural and tested against
 it.

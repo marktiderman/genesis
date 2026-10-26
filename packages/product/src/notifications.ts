@@ -8,7 +8,8 @@
  * `notifyShipped` sends one notification per shipped feature to everyone who
  * asked for it, keyed `shipped:<release>:<feature>`, so a re-run sends nothing
  * twice and a re-ship under a new release name notifies again; `cancelShipped`
- * stops what hasn't gone out when a release is withdrawn.
+ * stops what hasn't gone out when a release is withdrawn. Run genesis-notifications'
+ * `syncNotificationTypes` after adding the fragment, or `notify` refuses the type.
  *
  * ```ts
  * import { defineNotifications } from "@marktiderman/genesis-notifications";
@@ -54,6 +55,18 @@ export type ShippedData = {
 
 const text = (value: unknown): string | undefined => (typeof value === "string" && value.trim() ? value.trim() : undefined);
 
+/**
+ * A path on the app's own origin (`/whats-new`), the only links the notifier's
+ * runner puts in a push or an email: not `https://…`, `//host`, `javascript:`
+ * or a relative path, and no spaces, control characters or backslashes.
+ */
+const APP_PATH = /^\/(?![/\\])[^\s\\\u0000-\u001f\u007f]*$/;
+
+/** @stability Experimental */
+export function isAppPath(url: string): boolean {
+  return APP_PATH.test(url);
+}
+
 function renderShipped(data: Record<string, unknown>): { title: string; body: string; url?: string } {
   const name = text(data.featureName) ?? text(data.featureId) ?? "Something you asked for";
   const release = text(data.release);
@@ -61,7 +74,8 @@ function renderShipped(data: Record<string, unknown>): { title: string; body: st
   return {
     title: data.change === "beta" ? `${name} is in beta` : `${name} has shipped`,
     body: text(data.tagline) ?? (release ? `You asked for it, and it's in release ${release}.` : "You asked for it, and it's here."),
-    ...(url ? { url } : {}),
+    // A stored row with any other link opens nothing, as the runner's push and email do.
+    ...(url && isAppPath(url) ? { url } : {}),
   };
 }
 
@@ -124,25 +138,28 @@ export interface NotifyShippedOptions {
   /** The release's name, as in the notes (`2026-10-26`). */
   release: string;
   feature: ShippedFeature;
-  /** Everyone who asked for it or voted for it; the same person twice is sent once. */
+  /** Everyone who asked for it or voted for it. The same user id or email address twice is sent once (a login listed by id and by email is two). */
   recipients: readonly ProductRecipient[];
   /** Default `live`. */
   change?: "live" | "beta";
-  /** The app path a tap opens. */
+  /** The app path a tap opens, on the app's own origin (`/whats-new`); anything else throws. */
   url?: string;
-  /** The workspace or organization, for its sender identity and defaults. Use the same one to cancel. */
+  /** The workspace or organization (a uuid), for its sender identity and defaults. Use the same one to cancel. */
   tenantId?: string;
 }
 
 /** `shipped:<release>:<feature>`: the same release and feature never notify twice. @stability Experimental */
 export function shippedKey(release: string, featureId: string): string {
   if (!release.trim() || !featureId.trim()) throw new Error("shippedKey: a release and a feature id are required");
+  // "a:b" + "c" and "a" + "b:c" would be the same key.
+  if (release.includes(":") || featureId.includes(":")) throw new Error("shippedKey: a release name or feature id can't contain \":\"");
   const key = `shipped:${release.trim()}:${featureId.trim()}`;
   if (key.length > 200) throw new Error("shippedKey: the release and feature id are too long for an idempotency key (200 characters)");
   return key;
 }
 
-const recipientKey = (r: ProductRecipient) => (typeof r === "string" ? `u:${r}` : "userId" in r ? `u:${r.userId}` : `e:${r.email.trim().toLowerCase()}`);
+const recipientKey = (r: ProductRecipient) =>
+  typeof r === "string" ? `u:${r.toLowerCase()}` : "userId" in r ? `u:${r.userId.toLowerCase()}` : `e:${r.email.trim().toLowerCase()}`;
 
 /** The most recipients genesis-notifications' `notify()` takes in one call. @stability Experimental */
 export const NOTIFY_BATCH = 1000;
@@ -160,6 +177,9 @@ export const NOTIFY_BATCH = 1000;
  */
 export async function notifyShipped<T>(notify: (input: ProductNotifyInput) => Promise<T>, options: NotifyShippedOptions): Promise<T[]> {
   const idempotencyKey = shippedKey(options.release, options.feature.id);
+  if (options.url !== undefined && !isAppPath(options.url)) {
+    throw new Error(`notifyShipped: url "${options.url}" isn't a path on the app (like /whats-new); the notifier would send it with no link.`);
+  }
   const seen = new Set<string>();
   const recipients = options.recipients.filter((r) => {
     const key = recipientKey(r);
@@ -170,7 +190,7 @@ export async function notifyShipped<T>(notify: (input: ProductNotifyInput) => Pr
   const tagline = text(options.feature.tagline) ?? text(options.feature.summary);
   const data: ShippedData = {
     release: options.release.trim(),
-    featureId: options.feature.id,
+    featureId: options.feature.id.trim(),
     featureName: options.feature.name,
     change: options.change ?? "live",
     ...(tagline ? { tagline } : {}),
@@ -193,9 +213,13 @@ export async function notifyShipped<T>(notify: (input: ProductNotifyInput) => Pr
 
 /**
  * A release was withdrawn: stop the shipped notifications for one feature
- * that haven't gone out (and, with `archive`, take them out of the feed).
- * `cancel` is genesis-notifications' `cancelNotification` with the client
- * bound. Pass the `tenantId` the notifications were sent with.
+ * that haven't gone out yet, and take them out of the feed (`archive`, on by
+ * default). Only sends still waiting are stopped: email goes out as soon as
+ * the runner picks it up, so most of it has usually gone already. The rows
+ * stay, so the same release name and feature never notify again: re-publish a
+ * fixed release under a new name. `cancel` is genesis-notifications'
+ * `cancelNotification` with the client bound. Pass the `tenantId` the
+ * notifications were sent with.
  *
  * @stability Experimental
  */
@@ -207,6 +231,6 @@ export function cancelShipped<T>(
     type: PRODUCT_SHIPPED_TYPE,
     idempotencyKey: shippedKey(options.release, options.featureId),
     ...(options.tenantId ? { tenantId: options.tenantId } : {}),
-    ...(options.archive !== undefined ? { archive: options.archive } : {}),
+    archive: options.archive ?? true,
   });
 }
