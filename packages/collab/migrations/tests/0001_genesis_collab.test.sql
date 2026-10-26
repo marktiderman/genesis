@@ -7,7 +7,7 @@
 -- takes part; f6 is a facilitator; 07 views; 08 is in nothing.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(74);
+select plan(76);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c1' || n)::uuid, 'authenticated', 'authenticated', 'genesis-collab-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -155,6 +155,10 @@ select throws_ok($$ select genesis_collab.can_see(pg_temp.v('a'), '00000000-0000
 select set_config('request.jwt.claims', '', true), set_config('request.jwt.claim.sub', '', true), set_config('role', 'authenticated', true);
 select throws_ok($$ select genesis_collab.role_of(pg_temp.v('space'), '00000000-0000-4000-8000-00000000c1a2') $$,
   '42501', null, 'a request without claims can''t ask about anyone');
+-- Claims a session sets for itself don't make it the server.
+select set_config('request.jwt.claims', '{"role":"service_role"}', true), set_config('role', 'authenticated', true);
+select throws_ok($$ select genesis_collab.role_of(pg_temp.v('space'), '00000000-0000-4000-8000-00000000c1a2') $$,
+  '42501', null, 'nor can one that claims to be the service role');
 select pg_temp.as_server();
 insert into t select 'srv', genesis_collab.contribute(pg_temp.v('space'), 'answer', 'ans-srv', '2026-W46');
 select is((select author_id from genesis_collab.contributions where id = pg_temp.v('srv')), pg_temp.person('c4'),
@@ -247,6 +251,15 @@ select pg_temp.sign_in('01');
 select throws_ok($$ select genesis_collab.remove_member(pg_temp.v('space'), 'person', '00000000-0000-4000-8000-00000000c101') $$,
   '23514', null, 'a space keeps its last owner');
 
+-- A dropped audience hook lets nobody in through it, and errors for nobody.
+reset role;
+insert into t select 'gone', genesis_collab.create_space('00000000-0000-4000-8000-0000000000ee', 'worksheet', 'w2');
+create function public.genesis_collab_test_gone(audience uuid) returns setof uuid language sql as $$ select null::uuid where false $$;
+select genesis_collab.register_audience('gone', 'Gone', 'public.genesis_collab_test_gone(uuid)');
+select genesis_collab.add_member(pg_temp.v('gone'), 'gone', gen_random_uuid());
+drop function public.genesis_collab_test_gone(uuid);
+select pg_temp.sign_in('b3');
+select lives_ok($$ select genesis_collab.visible_refs('answer') $$, 'a dropped audience hook errors for nobody');
 select throws_ok($$ select * from genesis_collab.spaces $$, '42501', null, 'tables are reached only through the functions');
 select pg_temp.as_anon();
 select throws_ok($$ select genesis_collab.gate('00000000-0000-4000-8000-000000000000') $$, '42501', null, 'anon reaches nothing');

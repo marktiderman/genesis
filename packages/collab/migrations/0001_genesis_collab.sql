@@ -21,6 +21,7 @@
 --   language sql stable security definer set search_path = '' as $$
 --     select a.person_id from public.answers a where a.id::text = ref
 --   $$;
+--   revoke execute on function public.collab_answer_author(text) from public, anon, authenticated;
 --   select genesis_collab.register_contribution_kind('answer', 'Answer', 'public.collab_answer_author(text)');
 --
 --   create policy "space members read shared answers" on public.answers for select
@@ -59,6 +60,10 @@
 --   $$;
 --   revoke execute on function public.collab_group_members(uuid) from public, anon, authenticated;
 --   select genesis_collab.register_audience('group', 'Group', 'public.collab_group_members(uuid)');
+--
+-- Tenancy: a space belongs to one tenant, and this file doesn't know which tenant your groups
+-- belong to. Only add audiences of that tenant (check it in the code that calls add_member), or
+-- have your members function list only that tenant's people.
 --
 -- Who may start a space: a subject type the app registers with its create check, a function
 -- (tenant uuid, subject_type text, subject_id text, person uuid) returns boolean. Without one
@@ -195,6 +200,9 @@ begin
     raise exception 'an audience''s members function must be (uuid) returns setof uuid'
       using errcode = '22023';
   end if;
+  if not has_function_privilege(p_members, 'execute') then
+    raise exception 'the members function must be callable by whoever registers it' using errcode = '42501';
+  end if;
   insert into genesis_collab.audience_kinds (kind, label, members) values (p_kind, p_label, p_members)
   on conflict (kind) do update set label = excluded.label, members = excluded.members;
 end $$;
@@ -204,6 +212,9 @@ returns void language plpgsql security definer set search_path = '' as $$
 declare
   f record;
 begin
+  if p_create_check is not null and not has_function_privilege(p_create_check, 'execute') then
+    raise exception 'the create check must be callable by whoever registers it' using errcode = '42501';
+  end if;
   if p_create_check is not null then
     select pg_catalog.oidvectortypes(p.proargtypes) as args, p.prorettype into f
     from pg_catalog.pg_proc p where p.oid = p_create_check;
@@ -227,6 +238,9 @@ begin
   if f.args <> 'text' or f.prorettype <> 'uuid'::regtype or f.proretset then
     raise exception 'a contribution kind''s author function must be (text) returns uuid'
       using errcode = '22023';
+  end if;
+  if not has_function_privilege(p_author_of, 'execute') then
+    raise exception 'the author function must be callable by whoever registers it' using errcode = '42501';
   end if;
   insert into genesis_collab.contribution_kinds (kind, label, author_of) values (p_kind, p_label, p_author_of)
   on conflict (kind) do update set label = excluded.label, author_of = excluded.author_of;
@@ -257,8 +271,15 @@ begin
       ids := ids || m.member_id;
       roles := roles || m.role;
     elsif m.members is not null then
-      execute format('select coalesce(array_agg(x), ''{}'') from %s($1) x', m.members::oid::regproc)
-        into found_ids using m.member_id;
+      begin
+        if not exists (select 1 from pg_catalog.pg_proc p where p.oid = m.members) then
+          raise undefined_function;
+        end if;
+        execute format('select coalesce(array_agg(x), ''{}'') from %s($1) x', m.members::oid::regproc)
+          into found_ids using m.member_id;
+      exception when undefined_function or invalid_parameter_value then
+        found_ids := '{}';
+      end;
       ids := ids || found_ids;
       roles := roles || array_fill(m.role, array[coalesce(array_length(found_ids, 1), 0)]);
     end if;
@@ -273,12 +294,11 @@ end $$;
 revoke execute on function genesis_collab._people(uuid) from public, anon, authenticated;
 
 -- The server: the service role, or database code (a migration, a trigger, a job) running as a
--- role that isn't one of the API's. A request with no claims as authenticated or anon is not.
+-- role that isn't one of the API's. Read from the session's role, never from the JWT claims,
+-- which a direct SQL session can set to anything.
 create function genesis_collab._is_server()
 returns boolean language sql stable set search_path = '' as $$
-  select coalesce(auth.role(), '') = 'service_role'
-    or (coalesce(auth.role(), '') = ''
-        and coalesce(nullif(current_setting('role', true), ''), 'none') not in ('authenticated', 'anon'))
+  select coalesce(nullif(current_setting('role', true), ''), 'none') not in ('authenticated', 'anon')
 $$;
 revoke execute on function genesis_collab._is_server() from public, anon, authenticated;
 
@@ -311,8 +331,15 @@ begin
     where mm.space_id = p_space
       and (r is null or (rank_of ->> mm.role)::int > (rank_of ->> r)::int)
   loop
-    execute format('select $3 where $2 in (select x from %s($1) x)', m.members::oid::regproc)
-      into found_role using m.member_id, p_person, m.role;
+    begin
+      if not exists (select 1 from pg_catalog.pg_proc p where p.oid = m.members) then
+        raise undefined_function;
+      end if;
+      execute format('select $3 where $2 in (select x from %s($1) x)', m.members::oid::regproc)
+        into found_role using m.member_id, p_person, m.role;
+    exception when undefined_function or invalid_parameter_value then
+      found_role := null;
+    end;
     if found_role is not null and (r is null or (rank_of ->> found_role)::int > (rank_of ->> r)::int) then
       r := found_role;
     end if;
@@ -435,8 +462,16 @@ begin
     select distinct m.member_kind, m.member_id, ak.members
     from genesis_collab.members m join genesis_collab.audience_kinds ak on ak.kind = m.member_kind
   loop
-    execute format('select $2 in (select x from %s($1) x)', a.members::oid::regproc)
-      into is_member using a.member_id, me;
+    begin
+      if not exists (select 1 from pg_catalog.pg_proc p where p.oid = a.members) then
+        raise undefined_function;
+      end if;
+      execute format('select $2 in (select x from %s($1) x)', a.members::oid::regproc)
+        into is_member using a.member_id, me;
+    exception when undefined_function or invalid_parameter_value then
+      -- A dropped or replaced hook: that audience lets nobody in, and the rest still work.
+      is_member := false;
+    end;
     if is_member then
       spaces_ := spaces_ || array(select m.space_id from genesis_collab.members m
                                   where m.member_kind = a.member_kind and m.member_id = a.member_id);
