@@ -696,7 +696,11 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
         .on("broadcast", { event: "activity" }, ({ payload }) => {
           if (payload?.userId && payload.userId !== me) handlers.onActivity?.({ userId: payload.userId, activity: payload.activity, at: Date.now() });
         });
+      // Typing and recording are ephemeral: until the channel has joined, they're dropped
+      // rather than sent (supabase-js would fall back to REST and warn).
+      let joined = false;
       const leave = join(channel, (status) => {
+        joined = status === "SUBSCRIBED";
         if (status === "SUBSCRIBED") {
           handlers.onJoin?.();
           if (joinedOnce) handlers.onReconnect?.();
@@ -705,6 +709,7 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
       });
       return {
         signal(activity) {
+          if (!joined) return;
           void channel.send({ type: "broadcast", event: "activity", payload: { userId: me, activity } });
         },
         unsubscribe: leave,
