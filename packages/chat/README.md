@@ -399,8 +399,8 @@ import { CHAT_NOTIFICATION_CATEGORIES, CHAT_NOTIFICATION_TYPES, notificationsDel
 
 export const notifications = defineNotifications({
   categories: { ...CHAT_NOTIFICATION_CATEGORIES },
-  actions: { message: MESSAGE_ACTIONS },
-  types: { "chat.message": { ...CHAT_NOTIFICATION_TYPES["chat.message"], actions: "message" } },
+  actions: { messages: MESSAGE_ACTIONS },
+  types: { "chat.message": { ...CHAT_NOTIFICATION_TYPES["chat.message"], actions: "messages" } },
 });
 const deliver = notificationsDeliver({ notify, client: supabase, registry: notifications });
 ```
