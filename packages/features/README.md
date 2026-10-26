@@ -219,6 +219,35 @@ Blocks shipped so far: `createUpdates(…)` (`app-updates`, in `@marktiderman/ge
 `accountBlock` and `tenantFeaturesBlock` (in `@marktiderman/genesis-supabase`).
 `<GenesisNativeApp blocks={…}>` runs them; see that package's README.
 
+## Content packs
+
+A content pack is versioned data that fills installed blocks: session types and their agendas, metric
+templates, custom field definitions (genesis-forms fields on a work table), forms, roadmap templates and
+labels. Packs are code: the publishing package exports them, and an installer copies them into a tenant's
+editable rows, keeping each row's source (pack, version, key) so an update can tell what someone changed.
+
+```ts
+import { contentPackProblems, defineContentPack } from "@marktiderman/genesis-features/blocks";
+
+export const weeklyTeamRhythm = defineContentPack({
+  id: "weekly-team-rhythm",
+  name: "Weekly team rhythm",
+  version: "1.0.0",
+  publisher: "@marktiderman/genesis-content",
+  requires: ["sessions", "metrics"],
+  labels: { "pursuit.quarter": "Rocks" },
+  sessionTypes: [{ key: "weekly", kind: "team", name: "Weekly meeting", agenda: [{ key: "check-in", title: "Check in", minutes: 5 }] }],
+  metricTemplates: [{ key: "revenue", name: "Revenue", unitType: "currency", cadence: "weekly", goalDirection: "up" }],
+});
+
+contentPackProblems(weeklyTeamRhythm, installedBlockIds); // [] when it can be installed
+```
+
+`defineContentPack` lists every problem at once: ids, semver versions, keys (unique per section, stable
+across versions), references between roadmap items, field targets, and any section whose block
+`requires` doesn't list (`sessionTypes` → sessions, `metricTemplates` → metrics, `fieldDefinitions` →
+its target's block, `forms` → forms, `roadmapTemplates` → roadmap).
+
 ## The page
 
 ```tsx
