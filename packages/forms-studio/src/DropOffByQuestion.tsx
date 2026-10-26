@@ -1,6 +1,6 @@
 import { Skeleton, cn } from "@marktiderman/genesis-ui";
 import { ChartNoAxesColumnDecreasing } from "lucide-react";
-import { SummaryCard } from "./generic/SummaryCard";
+import { SummaryCard } from "@marktiderman/genesis-ui/resource";
 import type { QuestionDropOff } from "./dropoff";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
