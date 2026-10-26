@@ -114,9 +114,10 @@ describe("packages pack invariants", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("an unavailable base ref is info too, not a guess", async () => {
-    const result = await runDoctor({ root: makeApp(null, CLEAN), config: PACKAGES, base: "origin/nope" });
-    expect(result.findings.filter((f) => f.rule.startsWith("package-")).map((f) => f.level)).toEqual(["info"]);
+  it("a base ref that was asked for but can't be compared is a warning, so --strict fails", async () => {
+    const result = await runDoctor({ root: makeApp(null, CLEAN), config: PACKAGES, base: "origin/nope", strict: true });
+    expect(result.findings.filter((f) => f.rule.startsWith("package-")).map((f) => f.level)).toEqual(["warn"]);
+    expect(result.ok).toBe(false);
   });
 
   it("reads imports the way the import trail does: comments, strings and type-only imports aren't dependencies", async () => {
@@ -160,5 +161,45 @@ describe("what counts as declared", () => {
       config: PACKAGES,
     });
     expect(brief(result.findings)).toEqual([]);
+  });
+});
+
+describe("change gate edge cases", () => {
+  const commit = (root: string, ...args: string[]) => execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd: root, stdio: "pipe" });
+
+  it("works for an app in a subfolder of its repository, with changesets at the repository root", async () => {
+    const repo = makeApp(null, {});
+    const app = path.join(repo, "apps/web");
+    for (const [rel, text] of Object.entries(CLEAN)) {
+      execFileSync("mkdir", ["-p", path.dirname(path.join(app, rel))]);
+      writeFileSync(path.join(app, rel), text);
+    }
+    commit(repo, "init", "-q", "-b", "main");
+    commit(repo, "add", "-A");
+    commit(repo, "commit", "-qm", "base");
+    commit(repo, "checkout", "-qb", "work");
+    writeFileSync(path.join(app, "packages/os/src/read.ts"), "export const read = () => 3;\n");
+    clearLocalPackagesCache();
+    let result = await runDoctor({ root: app, config: PACKAGES, base: "main" });
+    expect(brief(result.findings)).toEqual(["package-unversioned-change packages/os/package.json"]);
+    execFileSync("mkdir", ["-p", path.join(repo, ".changeset")]);
+    writeFileSync(path.join(repo, ".changeset/os.md"), "---\n'@acme/os': patch\n---\n\nFaster reads.\n");
+    result = await runDoctor({ root: app, config: PACKAGES, base: "main" });
+    expect(brief(result.findings)).toEqual([]);
+  });
+
+  it("counts only a version that goes up, and only names in the front matter", async () => {
+    const root = makeApp(null, CLEAN);
+    commit(root, "init", "-q", "-b", "main");
+    commit(root, "add", "-A");
+    commit(root, "commit", "-qm", "base");
+    commit(root, "checkout", "-qb", "work");
+    writeFileSync(path.join(root, "packages/os/src/read.ts"), "export const read = () => 4;\n");
+    writeFileSync(path.join(root, "packages/os/package.json"), JSON.stringify({ ...PKG, version: "0.0.9" }));
+    execFileSync("mkdir", ["-p", path.join(root, ".changeset")]);
+    writeFileSync(path.join(root, ".changeset/other.md"), '---\n"@acme/other": patch\n---\n\nAlso touches "@acme/os".\n');
+    clearLocalPackagesCache();
+    const result = await runDoctor({ root, config: PACKAGES, base: "main" });
+    expect(brief(result.findings)).toEqual(["package-unversioned-change packages/os/package.json"]);
   });
 });

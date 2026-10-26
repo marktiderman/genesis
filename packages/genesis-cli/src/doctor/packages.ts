@@ -26,6 +26,7 @@ import { builtinModules } from "node:module";
 import * as path from "node:path";
 import { localPackages, type LocalPackage } from "../blocks/local.js";
 import { MIGRATION_FILE, rawBlocksOf } from "../blocks/manifest.js";
+import { compareVersions, parseVersion } from "./semver.js";
 import { stripForImports } from "./trail.js";
 import type { DoctorContext } from "./types.js";
 
@@ -153,6 +154,18 @@ function checkRegistered(ctx: DoctorContext, pkg: LocalPackage): void {
   }
 }
 
+/** The packages a changeset's front matter releases: `"name": bump`, `'name': bump` or `name: bump` lines between the `---` fences. */
+export function changesetNames(text: string): Set<string> {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  const names = new Set<string>();
+  if (!m) return names;
+  for (const line of m[1]!.split(/\r?\n/)) {
+    const entry = /^\s*(?:"([^"]+)"|'([^']+)'|([^\s:'"]+))\s*:\s*(major|minor|patch)\s*$/.exec(line);
+    if (entry) names.add((entry[1] ?? entry[2] ?? entry[3])!);
+  }
+  return names;
+}
+
 /** The merge base with `base`, or why the change gate can't run. */
 function mergeBaseOf(root: string, base: string): { sha: string } | { reason: string } {
   if (git(root, ["rev-parse", "--is-inside-work-tree"])?.trim() !== "true") return { reason: "not a git repository" };
@@ -175,22 +188,28 @@ function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, 
     }
   }
   if (!changed.length) return;
-  const before = git(ctx.root, ["show", `${mergeBase}:${pkg.rel}/package.json`]);
+  // `./` makes git read the path from the app's folder, not the repository root (gitrevisions(7)).
+  const before = git(ctx.root, ["show", `${mergeBase}:./${pkg.rel}/package.json`]);
   let versionBefore: string | undefined;
   try {
     versionBefore = before ? (JSON.parse(before) as { version?: string }).version : undefined;
   } catch {
     versionBefore = undefined;
   }
-  const bumped = before === null || versionBefore !== json.version;
-  const changesets = (git(ctx.root, ["diff", "--relative", "--name-only", "--diff-filter=A", mergeBase, "--", ".changeset"]) ?? "")
-    .split("\n")
-    .concat((git(ctx.root, ["ls-files", "--others", "--exclude-standard", "--", ".changeset"]) ?? "").split("\n"))
-    .filter((f) => f.endsWith(".md"));
-  const named = changesets.some((f) => {
-    const p = path.join(ctx.root, f);
-    return existsSync(p) && readFileSync(p, "utf8").includes(`"${json.name}"`);
-  });
+  // A new package counts as versioned; otherwise the version must go up (semver), not just change.
+  const now = typeof json.version === "string" ? parseVersion(json.version) : null;
+  const was = typeof versionBefore === "string" ? parseVersion(versionBefore) : null;
+  const bumped = before === null || (now !== null && was !== null && compareVersions(now, was) > 0);
+  // Changesets live at the repository root, wherever the app is inside it.
+  const top = git(ctx.root, ["rev-parse", "--show-toplevel"])?.trim();
+  const changesets = top
+    ? (git(top, ["diff", "--name-only", "--diff-filter=A", mergeBase, "--", ".changeset"]) ?? "")
+        .split("\n")
+        .concat((git(top, ["ls-files", "--others", "--exclude-standard", "--", ".changeset"]) ?? "").split("\n"))
+        .filter((f) => f.endsWith(".md"))
+        .map((f) => path.join(top, f))
+    : [];
+  const named = changesets.some((p) => existsSync(p) && changesetNames(readFileSync(p, "utf8")).has(json.name));
   if (!bumped && !named) {
     ctx.report({
       rule: "package-unversioned-change",
@@ -206,7 +225,9 @@ export function checkPackagesPack(ctx: DoctorContext): void {
   const base = ctx.base ?? ctx.config.packages?.base;
   const merge = base ? mergeBaseOf(ctx.root, base) : { reason: "no base ref (pass --base <ref>, e.g. --base origin/main)" };
   if ("reason" in merge) {
-    ctx.report({ rule: "package-unversioned-change", level: "info", file: "genesis.config.json", message: `change gate skipped: ${merge.reason}` });
+    // Asked for a base that can't be compared: a warning (it fails --strict), since the gate the
+    // run was asked to apply didn't run. Not asked at all: info.
+    ctx.report({ rule: "package-unversioned-change", level: base ? "warn" : "info", file: "genesis.config.json", message: `change gate skipped: ${merge.reason}` });
   }
   for (const pkg of packages) {
     const json = JSON.parse(readFileSync(path.join(pkg.dir, "package.json"), "utf8")) as PackageJson;
