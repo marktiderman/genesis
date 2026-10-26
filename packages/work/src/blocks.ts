@@ -66,3 +66,21 @@ export const sessionsBlock = defineBlock({
     privacy: { notes: ["Stores sessions, who attended and each attendee's rating and note; a closed account's attendance goes with it."] },
   },
 });
+
+/**
+ * A tenant's own fields on goals, projects, tasks, issues, metrics and
+ * sessions, with no code or migration: genesis-forms field types, values in a
+ * `custom` jsonb checked by shape, and app or content-pack fields that only
+ * server code writes.
+ *
+ * @stability Experimental
+ */
+export const customFieldsBlock = defineBlock({
+  id: "custom-fields",
+  requires: ["pursuits", "metrics", "sessions"],
+  platforms: ["web", "native"],
+  contributes: {
+    migrations: [{ package: PACKAGE, file: "migrations/0005_genesis_work_fields.sql", test: "migrations/tests/0005_genesis_work_fields.test.sql" }],
+    privacy: { notes: ["Stores the extra fields a tenant defines and their values on its rows."] },
+  },
+});
