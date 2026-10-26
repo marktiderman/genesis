@@ -57,13 +57,13 @@ test, and the `functions/genesis-notifications` Edge Function template.
 
    export const notifications = defineNotifications({
      categories: { messages: { label: "Messages", android: { importance: "high" } }, ...GENESIS_TEST_CATEGORY },
-     actions: { message: MESSAGE_ACTIONS },
+     actions: { messages: MESSAGE_ACTIONS },
      types: {
        "chat.message": {
          category: "messages",
          channels: { in_app: true, push: true, email: true },
          emailDelaySeconds: 600,
-         actions: "message",
+         actions: "messages",
          render: (d) => ({ title: String(d.sender_name), body: String(d.preview), url: `/messages/${d.conversation_id}` }),
        },
        ...GENESIS_TEST_TYPE,

@@ -29,7 +29,10 @@ import type { Outbox, OutboxStore, QueuedMessage } from "../core/outbox";
 
 export const CHAT_PUSH_CATEGORY = "messages";
 export const CHAT_REPLY_ACTION = "reply";
-export const CHAT_MARK_READ_ACTION = "mark-read";
+/** The same id as genesis-notifications' `MESSAGE_ACTIONS` (device ids take no "-" or ":"). */
+export const CHAT_MARK_READ_ACTION = "mark_read";
+/** The id before 0.2.2: a notification already on a phone still carries it. */
+const LEGACY_MARK_READ_ACTION = "mark-read";
 
 export interface ChatPushCopy {
   title: string;
@@ -212,7 +215,7 @@ export async function handleChatPushResponse(
     waitMs?: number;
   } & ChatPushOutboxDeps,
 ): Promise<ChatPushOutcome> {
-  const action = response.actionIdentifier;
+  const action = response.actionIdentifier === LEGACY_MARK_READ_ACTION ? CHAT_MARK_READ_ACTION : response.actionIdentifier;
   if (action !== CHAT_REPLY_ACTION && action !== CHAT_MARK_READ_ACTION) return "ignored";
   const data = response.notification.request.content.data ?? {};
   const conversationId = conversationIdFromData(data);
