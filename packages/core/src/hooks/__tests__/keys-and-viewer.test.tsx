@@ -204,6 +204,37 @@ describe("useInfiniteResource maxPages with offset paging", () => {
   });
 });
 
+describe("useInfiniteResource keepPreviousData and the count", () => {
+  it("a failed new search doesn't keep the old search's count", async () => {
+    let fail = false;
+    const provider = {
+      ...createMockProvider({}),
+      async getList() {
+        if (fail) throw new Error("search failed");
+        return { data: [{ id: "a" }], total: 50 };
+      },
+    } as never;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let api!: ReturnType<typeof useInfiniteResource>;
+    function Feed() {
+      api = useInfiniteResource("rows", { perPage: 10, keepPreviousData: true, searchFields: ["title"] });
+      return null;
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <DataProviderRoot provider={provider}>
+          <Feed />
+        </DataProviderRoot>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(api.total).toBe(50));
+    fail = true;
+    act(() => api.setSearch("zzz"));
+    await waitFor(() => expect(api.query.isError).toBe(true));
+    expect(api.total).toBeUndefined();
+  });
+});
+
 describe("ViewerScope", () => {
   /** Shows whose data the cache holds under a key with no viewer in it (like a resource key). */
   function Whoami({ who }: { who: string }) {
