@@ -45,7 +45,15 @@ export {
   type DraftStatus,
   type DraftValue,
 } from "./draft-controller";
-export { ViewerScope, clearViewerCache, type ViewerScopeProps } from "./viewer-scope";
+export {
+  ViewerScope,
+  clearViewerCache,
+  useViewerScope,
+  useOptionalViewerScope,
+  type ViewerScopeProps,
+  type ViewerContext,
+  type ResourceScope,
+} from "./viewer-scope";
 export { DEFAULT_LIVE_DEBOUNCE_MS, type LiveOptions } from "./use-live";
 export { useResourceForm, buildArrayItemDefaults, type UseResourceFormOptions, type UseResourceFormReturn } from "./use-resource-form";
 export { useWizard, type WizardStep, type UseWizardReturn } from "./use-wizard";

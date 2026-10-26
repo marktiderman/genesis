@@ -1,5 +1,6 @@
 import type {
   BaseRecord,
+  CountMode,
   DataProvider,
   FilterParam,
   Identifier,
@@ -216,6 +217,11 @@ export interface SupabaseResourceConfig {
    * ```
    */
   source?: string | { rpc: string; args?: () => Record<string, unknown> };
+  /**
+   * How lists of this resource count their total (default `exact`). Use
+   * `estimated` for large tables, or `none` when no screen shows a count.
+   */
+  count?: CountMode;
   /** The columns read when the caller names none, e.g. embedded joins: `"*, person:people(full_name)"`. Default `"*"`. */
   select?: string;
   /**
@@ -496,6 +502,11 @@ export function createSupabaseProvider(
 
   const from = (resource: string) => client.from(resource) as SupabaseQueryBuilder;
 
+  /** How a list of `resource` counts its total: the caller's, else the resource's, else exact. */
+  function countMode(resource: string, params: ListParams): CountMode {
+    return params.count ?? configFor(resource).count ?? "exact";
+  }
+
   /** The relation PostgREST names in errors about a read of `resource`: its view, function or table. */
   function readName(resource: string): string {
     const source = configFor(resource).source;
@@ -524,7 +535,11 @@ export function createSupabaseProvider(
   }
 
   /** A read of `resource` from its configured source (table, view or function), with its default columns. */
-  function read(resource: string, columns: string | undefined, count?: "exact"): SupabaseQueryBuilder {
+  function read(
+    resource: string,
+    columns: string | undefined,
+    count?: "exact" | "estimated" | "planned",
+  ): SupabaseQueryBuilder {
     const config = configFor(resource);
     const cols = columns ?? config.select ?? "*";
     const source = config.source;
@@ -705,7 +720,8 @@ export function createSupabaseProvider(
       }
     }
 
-    let query = read(resource, params.select, cursor ? undefined : "exact");
+    const mode = countMode(resource, params);
+    let query = read(resource, params.select, cursor || mode === "none" ? undefined : mode);
     query = applyFilters(query, params.filters);
     const search = searchClauses(resource, params);
     const keyset = after ? keysetClauses(after) : "";
@@ -745,7 +761,12 @@ export function createSupabaseProvider(
         id,
       });
     }
-    return { data: page, total: cursor ? -1 : (result.count ?? 0), nextCursor };
+    return {
+      data: page,
+      total: cursor || mode === "none" ? -1 : (result.count ?? 0),
+      ...(!cursor && (mode === "estimated" || mode === "planned") ? { totalIsEstimate: true } : {}),
+      nextCursor,
+    };
   }
 
   const provider: DataProvider = {
@@ -773,8 +794,9 @@ export function createSupabaseProvider(
       if (params.pagination && params.pagination.cursor !== undefined) {
         return getCursorPage(resource, params, configuredKey === undefined ? "id" : configuredKey) as never;
       }
+      const mode = countMode(resource, params);
       const run = (key: string | false) => {
-        let query = read(resource, params.select, "exact");
+        let query = read(resource, params.select, mode === "none" ? undefined : mode);
 
         query = applyFilters(query, params.filters);
 
@@ -827,7 +849,11 @@ export function createSupabaseProvider(
       }
       await throwIfReadError(result, resource, "getList");
 
-      return { data: result.data ?? [], total: result.count ?? 0 } as never;
+      return {
+        data: result.data ?? [],
+        total: mode === "none" ? -1 : (result.count ?? 0),
+        ...(mode === "estimated" || mode === "planned" ? { totalIsEstimate: true } : {}),
+      } as never;
     },
 
     async getOne(resource, params) {

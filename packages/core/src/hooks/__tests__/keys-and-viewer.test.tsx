@@ -1,15 +1,15 @@
 // @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { useState, type ReactNode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataProviderRoot } from "../../provider/context";
 import { createMockProvider } from "../../provider/mock-provider";
 import { resourceKeys } from "../../query-keys";
 import { useInfiniteResource } from "../use-infinite-resource";
 import { useOne } from "../use-one";
 import { useResource } from "../use-resource";
-import { ViewerScope } from "../viewer-scope";
+import { ViewerScope, useOptionalViewerScope, useViewerScope } from "../viewer-scope";
 
 afterEach(cleanup);
 
@@ -123,5 +123,40 @@ describe("ViewerScope", () => {
     render(same.wrap(<ViewerScope viewer="ann" persistedViewer="ann"><p>ann home</p></ViewerScope>));
     await screen.findByText("ann home");
     expect(same.client.getQueryData(["whoami"])).toBe("ann (restored)");
+  });
+
+  it("passes the viewer and scope down, and a new scope re-renders readers without remounting them", async () => {
+    const { wrap } = setup();
+    const mounts: string[] = [];
+    function Where() {
+      const { viewer, scope } = useViewerScope();
+      const [id] = useState(() => {
+        mounts.push("mount");
+        return Math.random();
+      });
+      return <p data-id={id}>{`${viewer}@${scope.practiceId ?? "-"}`}</p>;
+    }
+    const view = (practiceId: string) => wrap(<ViewerScope viewer="ann" scope={{ practiceId }}><Where /></ViewerScope>);
+    const { rerender } = render(view("p1"));
+    await screen.findByText("ann@p1");
+    rerender(view("p2"));
+    await screen.findByText("ann@p2");
+    expect(mounts).toEqual(["mount"]);
+  });
+
+  it("useViewerScope needs a ViewerScope; useOptionalViewerScope is null without one", () => {
+    const { wrap } = setup();
+    function Optional() {
+      return <p>{useOptionalViewerScope() === null ? "none" : "some"}</p>;
+    }
+    render(wrap(<Optional />));
+    expect(screen.getByText("none")).toBeTruthy();
+    function Required() {
+      useViewerScope();
+      return null;
+    }
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => render(wrap(<Required />))).toThrow(/needs a <ViewerScope>/);
+    spy.mockRestore();
   });
 });

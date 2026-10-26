@@ -1,5 +1,5 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { Fragment, useState, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useMemo, useState, type ReactNode } from "react";
 import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
 
 /**
@@ -14,6 +14,39 @@ export async function clearViewerCache(queryClient: QueryClient): Promise<void> 
   queryClient.clear();
 }
 
+/**
+ * Where the viewer is working: the current practice, person or space, or a set
+ * of people. Screens turn it into server filters and create defaults; it never
+ * decides access (row-level security does).
+ */
+export interface ResourceScope {
+  practiceId?: string;
+  personId?: string;
+  spaceId?: string;
+  /** Several people at once (a coach's client list, a group). */
+  personIds?: readonly string[];
+  [key: string]: unknown;
+}
+
+export interface ViewerContext {
+  viewer: string | null;
+  scope: ResourceScope;
+}
+
+const ViewerContextValue = createContext<ViewerContext | null>(null);
+
+/** The viewer and scope from the nearest `ViewerScope`. Throws without one: screens that cache per viewer need it. */
+export function useViewerScope(): ViewerContext {
+  const value = useContext(ViewerContextValue);
+  if (!value) throw new Error("[genesis-core] useViewerScope needs a <ViewerScope> above it");
+  return value;
+}
+
+/** Like useViewerScope, or null outside a ViewerScope. */
+export function useOptionalViewerScope(): ViewerContext | null {
+  return useContext(ViewerContextValue);
+}
+
 export interface ViewerScopeProps {
   /** The signed-in viewer's id, null when signed out, undefined while the session loads. */
   viewer: string | null | undefined;
@@ -22,6 +55,8 @@ export interface ViewerScopeProps {
    * is this one, the restored cache is kept; otherwise it's emptied.
    */
   persistedViewer?: string | null;
+  /** Where the viewer is working (see `ResourceScope`). Changing it doesn't remount or clear anything. */
+  scope?: ResourceScope;
   /** Shown while the session loads (and for the one render a change takes). */
   fallback?: ReactNode;
   children: ReactNode;
@@ -41,8 +76,12 @@ export interface ViewerScopeProps {
  * </ViewerScope>
  * ```
  */
-export function ViewerScope({ viewer, persistedViewer, fallback = null, children }: ViewerScopeProps) {
+export function ViewerScope({ viewer, persistedViewer, scope, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
+  // A new scope object each render shouldn't re-render every reader: compare by value.
+  const scopeKey = JSON.stringify(scope ?? {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const value = useMemo<ViewerContext>(() => ({ viewer: viewer ?? null, scope: scope ?? {} }), [viewer, scopeKey]);
   // The viewer the children were last mounted for; undefined before the first.
   const [mounted, setMounted] = useState<string | null | undefined>(undefined);
   if (viewer === undefined) return <>{fallback}</>;
@@ -61,5 +100,9 @@ export function ViewerScope({ viewer, persistedViewer, fallback = null, children
     setMounted(viewer);
     return <>{fallback}</>;
   }
-  return <Fragment key={viewer ?? "signed-out"}>{children}</Fragment>;
+  return (
+    <ViewerContextValue.Provider value={value}>
+      <Fragment key={viewer ?? "signed-out"}>{children}</Fragment>
+    </ViewerContextValue.Provider>
+  );
 }

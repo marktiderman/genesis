@@ -72,6 +72,13 @@ export interface NullFilter {
 
 export type FilterParam = ScalarFilter | ArrayFilter | RangeFilter | NullFilter;
 
+/**
+ * How a list's total is counted: `exact` counts every matching row (slow on
+ * large tables), `estimated` and `planned` ask the database's statistics
+ * (fast, approximate), `none` skips the count (`total` is -1).
+ */
+export type CountMode = "exact" | "estimated" | "planned" | "none";
+
 /** Parameters for `getList`. */
 export interface ListParams {
   pagination?: PaginationParam;
@@ -86,6 +93,8 @@ export interface ListParams {
   select?: string;
   /** Multi-field text search (case-insensitive). */
   search?: { query: string; fields: string[] };
+  /** How to count `total`; wins over the resource's own setting. Providers that can't choose count exactly. */
+  count?: CountMode;
 }
 
 /** Result of `getList`. */
@@ -96,6 +105,8 @@ export interface ListResult<T> {
    * count only on the first page (`cursor: null`) and return `-1` after it.
    */
   total: number;
+  /** True when `total` is the database's estimate (`estimated` or `planned`), so a screen says "about". */
+  totalIsEstimate?: boolean;
   /**
    * Cursor mode only: the cursor for the next page, or `null` when this is
    * the last one. Absent when the provider paged by offset.

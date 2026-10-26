@@ -139,6 +139,13 @@ create view public.tasks_with_people with (security_invoker = true) as
 Writes send only the table's own columns: list them as `writeColumns`, or an update keeps just the
 columns the table's row has, so a form built from the view row never sends `person_name` back.
 
+### Counting totals
+
+`total` is exact by default, which scans every matching row. For a large table, set
+`resources.<name>.count` to `"estimated"` (or `"planned"`): the database's statistics answer
+instantly and `totalIsEstimate` is true, so a screen can say "about 90,000". `"none"` skips the
+count (`total` is -1). A caller can override per request with `getList(resource, { count })`.
+
 ### Handling failures
 
 ```ts
@@ -530,6 +537,10 @@ queryClient.invalidateQueries({ queryKey: resourceKeys("tasks").all });      // 
 Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, kind?)` matches a
 field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
 value, or for an array value an array field containing every item. Never a substring.
+
+`ViewerScope` also carries **where** the viewer is working: `scope={{ practiceId }}` (or
+`personId`, `spaceId`, a `personIds` set). Read it with `useViewerScope()`; screens turn it into
+server filters and create defaults. It never decides access, and changing it remounts nothing.
 
 With a persisted cache (a native app's saved query cache), pass the viewer it was saved for as
 `persistedViewer`, or the first known viewer empties it on every cold start. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
