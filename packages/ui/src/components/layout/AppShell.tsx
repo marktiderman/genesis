@@ -1409,7 +1409,8 @@ export function AppShell({
   // item to the logical parent. "section": the children replace the bar
   // as before, with no back item. "off": the app's main bar. An explicit
   // `mobileNavItems` always wins.
-  const contextualLeaves = subNavMode === "off" ? [] : leaves(contextualNavItems);
+  const contextualLeaves =
+    subNavMode === "off" ? [] : leaves(contextualNavItems).filter((i) => !i.hideOnPhone);
   // With sub-navigation on, a page's children win over an app-wide
   // `mobileNavItems` on that page; elsewhere `mobileNavItems` applies.
   const subBottom = subNavOn && contextualLeaves.length > 0;

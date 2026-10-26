@@ -27,13 +27,23 @@ const EXPORT_FROM = /^[ \t]*export\s+(type\s+)?[^;"'`]*?\bfrom\s*["']([^"']+)["'
 const DYNAMIC = /\bimport\s*\(\s*["']([^"']+)["']/g;
 
 /**
- * The code with comments and string contents blanked (same length, newlines
- * kept), except module specifiers (`from "x"`, `import "x"`, `import("x")`,
- * `require("x")`): so `"Start from"`, a `// import("./Old")` comment or a
- * `"import('./Page')"` string is never read as an import. Template literals
- * are blanked, their `${…}` expressions kept.
+ * The code with comments, string, template and regex-literal contents blanked
+ * (same length, newlines kept), except module specifiers (`from "x"`,
+ * `import "x"`, `import("x")`, `require("x")`): so `"Start from"`, a
+ * `// import("./Old")` comment or a `"import('./Page')"` string is never read as
+ * an import. Template `${…}` expressions are kept.
+ *
+ * Whether a quote, backtick or slash opens a literal follows the usual
+ * preceding-token rule: it does at the start of an expression (after an
+ * operator, punctuation or a keyword like `return`), and not after a word or
+ * `)` / `]`, which is how JSX text reads (`Rock 'n roll`, `use \`npm i\``,
+ * `and/or`). A backtick right after a word is a tagged template (css`…`).
+ * Closing tags (`</p>`) and self-closing `/>` are never regexes.
+ *
+ * Returns null when it can't be sure where literals end (one runs past the end
+ * of its line, or the file): callers then treat the file as unknown.
  */
-export function stripForImports(code: string): string {
+export function stripForImports(code: string): string | null {
   const out: string[] = [];
   const blank = (ch: string) => (ch === "\n" ? "\n" : " ");
   const n = code.length;
@@ -41,15 +51,27 @@ export function stripForImports(code: string): string {
   const templates: number[] = [];
   let depth = 0;
   let i = 0;
+  let sure = true;
   const isSpecifier = () => /(?:\bfrom|(?:^|[;{}\n])\s*import|\bimport\s*\(|\brequire\s*\()\s*$/.test(out.slice(-40).join(""));
+  /** The code just before `i`, as written so far. */
+  const before = () => out.slice(-24).join("");
+  const KEYWORD = /(?:^|[^\w$.])(?:return|typeof|instanceof|case|do|else|in|of|new|delete|void|throw|yield|await|from|import|export|default|require)\s*$/;
+  /** At the start of an expression, after the text `b`: a literal can begin here. */
+  const startsExpression = (b: string) => {
+    const t = b.replace(/\s+$/, "");
+    if (!t) return true;
+    if (KEYWORD.test(b)) return true;
+    return /[([{,;:=!&|?+\-*%<>~^}]$/.test(t);
+  };
+  const exprStart = () => startsExpression(before());
   /**
-   * A quote right after a word is JSX text (`Don't`), not a string, unless the word is a keyword
-   * that can precede one (`return"x"`, `from"x"`).
+   * A tagged template: a name (css, styled.div, String.raw) right before the backtick, itself where an
+   * expression can start. `use npm i` + backtick in JSX text is two words in a row, which isn't.
    */
-  const opensString = () => {
-    const before = out.slice(-12).join("");
-    if (!/[\w$]$/.test(before)) return true;
-    return /(?:^|[^\w$])(?:return|from|import|case|typeof|in|of|else|yield|await|export|default|void|require)$/.test(before);
+  const taggedTemplate = () => {
+    const b = out.slice(-48).join("");
+    const m = /([A-Za-z_$][\w$.]*)$/.exec(b);
+    return m !== null && startsExpression(b.slice(0, b.length - m[1].length));
   };
   /** The body of a template literal, from `i`, up to and including its closing backtick or a `${`. */
   const templateBody = () => {
@@ -73,8 +95,9 @@ export function stripForImports(code: string): string {
         i++;
       }
     }
+    sure = false; // ran off the end of the file
   };
-  while (i < n) {
+  while (i < n && sure) {
     const ch = code[i];
     const next = code[i + 1];
     if (ch === "/" && next === "/") {
@@ -93,7 +116,49 @@ export function stripForImports(code: string): string {
         out.push("  ");
         i += 2;
       }
-    } else if ((ch === '"' || ch === "'") && opensString()) {
+    } else if (ch === "/" && next !== ">" && code[i - 1] !== "<" && exprStart()) {
+      // A regex literal: up to the unescaped `/` outside a [class], then its flags.
+      // After a `}` or a tag's `>` it may be JSX text instead (`{done}/{total}`, `<p> / </p>`): if it
+      // doesn't close on its line, or its "body" holds a tag, it was a slash.
+      const afterBrace = /[}>]\s*$/.test(before());
+      const start = i;
+      const mark = out.length;
+      out.push("/");
+      i++;
+      let inClass = false;
+      for (;;) {
+        const c = code[i];
+        if (c === undefined || c === "\n") {
+          if (afterBrace) {
+            out.length = mark;
+            out.push("/");
+            i = start + 1;
+          } else sure = false;
+          break;
+        }
+        if (c === "\\") {
+          out.push(" ", blank(code[i + 1] ?? ""));
+          i += 2;
+          continue;
+        }
+        i++;
+        if (c === "[") inClass = true;
+        else if (c === "]") inClass = false;
+        else if (c === "/" && !inClass) {
+          // After a `}` or `>`, a "regex" spanning JSX (`{a}/{b} <Foo />`) was text and a slash.
+          if (afterBrace && /[<>]/.test(code.slice(start + 1, i - 1))) {
+            out.length = mark;
+            out.push("/");
+            i = start + 1;
+            break;
+          }
+          out.push("/");
+          break;
+        }
+        out.push(" ");
+      }
+      if (out.length > mark + 1 || i > start + 1) while (i < n && /[a-z]/.test(code[i])) out.push(code[i++]);
+    } else if ((ch === '"' || ch === "'") && exprStart()) {
       const keep = isSpecifier();
       out.push(ch);
       i++;
@@ -106,11 +171,12 @@ export function stripForImports(code: string): string {
           i++;
         }
       }
-      if (i < n) {
+      if (code[i] !== ch) sure = false; // a string can't run past its line
+      else {
         out.push(code[i]);
         i++;
       }
-    } else if (ch === "`") {
+    } else if (ch === "`" && (exprStart() || taggedTemplate())) {
       out.push("`");
       i++;
       templateBody();
@@ -127,7 +193,7 @@ export function stripForImports(code: string): string {
       i++;
     }
   }
-  return out.join("");
+  return sure && templates.length === 0 ? out.join("") : null;
 }
 
 /** The local names an import statement binds: default, `* as NS`, and `{ A, B as C }` (inline `type` names left out). */
@@ -283,6 +349,12 @@ export function createTrail(ctx: Pick<DoctorContext, "root" | "files">): Trail {
     const files: string[] = [];
     let lost = false;
     const code = stripped(file);
+    if (code === null) {
+      // The tokenizer couldn't be sure of this file: don't guess what it imports.
+      const out = { files: [], lost: true };
+      importsCache.set(file.absolutePath, out);
+      return out;
+    }
     const used = new Set(renderedElements(code).map((e) => e.split(".")[0]));
     for (const m of code.matchAll(/\b\w*[cC]omponent\s*:\s*([A-Za-z_$][\w$]*)/g)) used.add(m[1]);
     for (const m of code.matchAll(/\bexport\s+default\s+([A-Za-z_$][\w$]*)/g)) used.add(m[1]);
@@ -319,28 +391,36 @@ export function createTrail(ctx: Pick<DoctorContext, "root" | "files">): Trail {
     importsCache.set(file.absolutePath, out);
     return out;
   };
-  const strippedCache = new Map<string, string>();
-  const stripped = (file: Code) => {
-    let c = strippedCache.get(file.absolutePath);
-    if (c === undefined) strippedCache.set(file.absolutePath, (c = stripForImports(file.code)));
-    return c;
+  const strippedCache = new Map<string, string | null>();
+  const stripped = (file: Code): string | null => {
+    if (!strippedCache.has(file.absolutePath)) strippedCache.set(file.absolutePath, stripForImports(file.code));
+    return strippedCache.get(file.absolutePath)!;
   };
-  const memo = new WeakMap<(code: string) => boolean, Map<string, Reach>>();
+  /** Per test: answers that hold on any path, and answers that hold while their cut modules are on the path. */
+  const memo = new WeakMap<(code: string) => boolean, { free: Map<string, Reach>; cut: Map<string, Array<{ cut: string[]; result: Reach }>> }>();
 
   /**
-   * The answer, and whether it was cut short by a cycle (a module already on the
-   * current path was skipped). A cut-short "no"/"unknown" depends on the path
-   * taken, so only uncut answers (and every "yes") are cached.
+   * The answer, and the modules it skipped because they were already on the
+   * current path (its cut). An answer with an empty cut holds on any path. One
+   * with a cut holds whenever every cut module is again on the path: each of
+   * those is then being explored by an ancestor, with at least as much depth
+   * left, so skipping it loses nothing. Both are cached; a cut answer is
+   * reused only under that condition, so the result never depends on the
+   * order routes are checked in (the bug a plain cache had).
    */
-  const reach = (file: Code, test: (code: string) => boolean, depth: number, seen: Set<string>): [Reach, boolean] => {
+  const reach = (file: Code, test: (code: string) => boolean, depth: number, seen: Set<string>): [Reach, Set<string>] => {
     let cache = memo.get(test);
-    if (!cache) memo.set(test, (cache = new Map()));
+    if (!cache) memo.set(test, (cache = { free: new Map(), cut: new Map() }));
     const k = `${file.absolutePath}\0${depth}`;
-    const cached = cache.get(k);
-    if (cached) return [cached, false];
+    const free = cache.free.get(k);
+    if (free) return [free, new Set()];
+    const reusable = cache.cut.get(k)?.find((e) => e.cut.every((m) => seen.has(m)));
+    if (reusable) return [reusable.result, new Set(reusable.cut)];
     let result: Reach;
-    let cut = false;
-    if (test(stripped(file))) result = "yes";
+    const cut = new Set<string>();
+    const code = stripped(file);
+    if (code === null) result = "unknown";
+    else if (test(code)) result = "yes";
     else {
       const { files, lost } = importsOf(file);
       // An import we couldn't place matters only where the trail would have followed it.
@@ -351,7 +431,7 @@ export function createTrail(ctx: Pick<DoctorContext, "root" | "files">): Trail {
         seen.add(file.absolutePath);
         for (const abs of files) {
           if (seen.has(abs)) {
-            cut = true;
+            cut.add(abs);
             continue;
           }
           const target = read(abs);
@@ -360,7 +440,7 @@ export function createTrail(ctx: Pick<DoctorContext, "root" | "files">): Trail {
             continue;
           }
           const [r, c] = reach(target, test, depth - 1, seen);
-          if (c) cut = true;
+          for (const m of c) cut.add(m);
           if (r === "yes") {
             result = "yes";
             break;
@@ -368,11 +448,20 @@ export function createTrail(ctx: Pick<DoctorContext, "root" | "files">): Trail {
           if (r === "unknown") unknown = true;
         }
         seen.delete(file.absolutePath);
+        // Skipping this module itself, deeper down, is covered right here.
+        cut.delete(file.absolutePath);
       }
       if (result === "no" && unknown) result = "unknown";
     }
-    if (result === "yes" || !cut) cache.set(k, result);
-    return [result, cut && result !== "yes"];
+    // A "yes" is a real path, true on any path.
+    if (result === "yes" || cut.size === 0) {
+      cache.free.set(k, result);
+      return [result, new Set()];
+    }
+    const entries = cache.cut.get(k) ?? [];
+    entries.push({ cut: [...cut], result });
+    cache.cut.set(k, entries);
+    return [result, cut];
   };
   return { reach: (file, test, depth = TRAIL_DEPTH) => reach(file, test, depth, new Set())[0] };
 }

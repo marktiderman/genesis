@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and Google, OAuth redirects, in-app account deletion, per-tenant feature switches (tenant_features), a background-job queue with schedules (genesis_jobs), and a result helper. Part of the Genesis framework.",
+  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and Google, OAuth redirects, in-app account deletion, per-tenant feature switches (tenant_features), a background-job queue with schedules (genesis_jobs), the feature registry in the database for the feature gate (features, entitlements, flag values, feature_on), and a result helper. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -163,6 +163,33 @@
         "steps": [
           "Add one job route with createJobsHandler from @marktiderman/genesis-supabase/jobs, and set GENESIS_JOBS_SECRET on the server.",
           "For schedules: enable pg_cron and pg_net, add the Vault secrets genesis_jobs_url (the route's base URL) and genesis_jobs_secret (the same secret), then call genesis_schedule_job(name, cron, job) in a migration."
+        ]
+      },
+      "feature-mirror": {
+        "feature": {
+          "name": "Registry in the app's database",
+          "summary": "The feature registry mirrored into the database on deploy, entitlements, per-tenant flag values and SQL feature_on(), for the feature gate.",
+          "keywords": [
+            "feature gate",
+            "entitlements",
+            "flags",
+            "feature_on"
+          ],
+          "audience": [
+            "developer"
+          ]
+        },
+        "requires": [
+          "tenant-features"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0008_genesis_feature_registry.sql",
+            "test": "migrations/tests/0008_genesis_feature_registry.test.sql"
+          }
+        ],
+        "steps": [
+          "Sync the registry on every deploy with the service key: syncFeatureRegistry(admin, features.json, { version: BUILD_TIME }). Grant paid features by writing feature_entitlements from your billing webhook."
         ]
       }
     }

@@ -2152,7 +2152,8 @@
       "name": "Registry in the app's database",
       "summary": "A Genesis migration copies features.ts and flags.json into the app's own database on every deploy (features, feature_flags, sync_feature_registry; never backwards), adds feature_entitlements and per-tenant flag values, SQL feature_on() for row security (status and entitlement), and one call that returns a tenant's switches, entitlements and flag values for the gate's snapshot.",
       "category": "Platform",
-      "status": "planned",
+      "status": "building",
+      "claimedBy": "mark",
       "horizon": "now",
       "layer": "service",
       "keywords": [
@@ -2178,9 +2179,37 @@
         "developer"
       ],
       "visibility": "internal",
+      "contributes": [
+        "table: features",
+        "table: feature_flags",
+        "table: feature_entitlements",
+        "table: tenant_flag_values",
+        "rpc: sync_feature_registry",
+        "rpc: feature_gate_state",
+        "sql: feature_on",
+        "fn: syncFeatureRegistry",
+        "fn: featureGateState"
+      ],
+      "platforms": {
+        "server": "building"
+      },
+      "entry": {
+        "server": "@marktiderman/genesis-supabase"
+      },
+      "acceptance": [
+        "sync_feature_registry is service-role only, refuses an older version, does nothing for the same hash, keeps removed features marked gone and drops removed flags with their tenant values.",
+        "feature_on is true only for a shipped feature that, when paid, has an active unexpired entitlement; a signed-in caller outside the tenant gets false.",
+        "feature_gate_state returns a tenant's switches off, entitlements and flag values to its members and the service role, and refuses everyone else."
+      ],
+      "reviewedAt": "2026-10-22",
       "links": {
+        "code": [
+          "packages/supabase/migrations/0008_genesis_feature_registry.sql",
+          "packages/supabase/src/feature-registry.ts"
+        ],
         "docs": [
-          "docs/adr/0001-one-feature-gate.md"
+          "docs/adr/0001-one-feature-gate.md",
+          "packages/supabase/README.md"
         ]
       },
       "access": "all",

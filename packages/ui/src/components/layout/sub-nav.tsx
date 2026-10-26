@@ -63,6 +63,14 @@ export type SubNavMode = "section" | "tabs" | "sidebar" | "off";
 export interface SubNavItem extends Omit<NavItem, "icon" | "children"> {
   icon?: LucideIcon;
   children?: SubNavItem[];
+  /**
+   * Leave this item out of the phone bar (it stays in the tab row, the
+   * sidebar and the rail). The phone bar fits back plus about four items:
+   * fold a builder panel into its parent tab on phones instead of
+   * overflowing. If its route sits under another item's (without `end`),
+   * that item shows as current while it is open.
+   */
+  hideOnPhone?: boolean;
 }
 
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;

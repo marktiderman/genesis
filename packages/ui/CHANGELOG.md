@@ -1,5 +1,17 @@
 # @marktiderman/genesis-ui
 
+## 2.16.0
+
+### Minor Changes
+
+- d3576b7: `SubNavItem.hideOnPhone`: leave a sub-navigation item out of the phone bar while keeping it in the tab row, sidebar and rail, so a page with five sections can fold a builder panel into its parent tab on phones instead of overflowing the bar.
+
+### Patch Changes
+
+- d44b294: Brand accents: `accessibleAccent` now checks contrast on the rounded HSL triplet it actually emits, so the rendered `--primary` always reaches 4.5:1 on white (new `strongTriplet` field). `parseColor` also accepts `hsl()`/`hsla()` and bare token triplets like `"160 84% 39%"`; anything unparseable still falls back to Genesis's primary.
+- Updated dependencies [32c5146]
+  - @marktiderman/genesis-core@1.10.0
+
 ## 2.15.0
 
 ### Minor Changes
