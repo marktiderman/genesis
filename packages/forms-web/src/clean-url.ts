@@ -1,4 +1,4 @@
-// A public form's address bar shows only its path: the link's query (?about=, ?coach=,
+// A public form's address bar shows only its path: the link's query (?about=, ?staff=,
 // ?edit=, utm_…) is read on load, then taken out of the visible URL. The page keeps using
 // the values it read: the router isn't told, so its state keeps the query. A reload within
 // the same tab gets them back, since the query is kept in sessionStorage for a little while.
