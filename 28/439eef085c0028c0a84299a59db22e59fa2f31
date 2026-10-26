@@ -1,0 +1,69 @@
+.changeset/chat-native-sim-leftovers.md
+  s_8252619ce79a86::t_ea4a0ee542e668 1-8
+apps/genesis-rn-starter/__tests__/check-in-photos.test.ts
+  s_8252619ce79a86::t_0d319c5c7fb79b 54
+apps/genesis-rn-starter/__tests__/components/messages.test.tsx
+  s_8252619ce79a86::t_e40eff3f4bf9a2 1-33
+apps/genesis-rn-starter/src/app/(app)/(home)/check-in.tsx
+  s_8252619ce79a86::t_965f43114a1889 2,4-6
+apps/genesis-rn-starter/src/app/(app)/messages/[id].tsx
+  s_8252619ce79a86::t_3f98002cab78bc 2,9,43-53,60
+apps/genesis-rn-starter/src/app/(app)/messages/check-in.tsx
+  s_8252619ce79a86::t_93b8f317b81387 1-9
+apps/genesis-rn-starter/src/copy.ts
+  s_8252619ce79a86::t_d60b700b014c58 124-125
+apps/genesis-rn-starter/src/lib/chat.tsx
+  s_8252619ce79a86::t_83109eb44df48d 45,95-99,102-106,110-114
+apps/genesis-rn-starter/src/lib/check-in-screen.tsx
+  s_8252619ce79a86::t_770015babe2a53 1-43
+apps/sample/app/data/primitives.json
+  s_8252619ce79a86::t_e41c13ca36a3f0 5100,5141-5147
+packages/chat/src/native/__tests__/emoji.test.tsx
+  s_8252619ce79a86::t_07056de1c7a9b2 157-172
+packages/chat/src/native/__tests__/organise-screens.test.tsx
+  s_8252619ce79a86::t_495f92078d7971 16-17,347-424
+packages/chat/src/native/__tests__/video-media.test.tsx
+  s_8252619ce79a86::t_d875f6f57fb5f2 15-19,161-185,350-380
+packages/chat/src/native/attachment-cards.tsx
+  s_8252619ce79a86::t_44658321db8e93 8-12,17,50-94,96-102,105,130,132-133,139
+packages/chat/src/native/inbox-screen.tsx
+  s_8252619ce79a86::t_27d7b632c48d73 13-14,40-46,51,66,91
+packages/chat/src/native/index.ts
+  s_8252619ce79a86::t_e556c96010db6b 35,75
+packages/chat/src/native/message-actions-sheet.tsx
+  s_8252619ce79a86::t_6ccba9fb4eb21a 12-14,27-28,34,74-77
+packages/chat/src/native/message-bubble.tsx
+  s_8252619ce79a86::t_b329ef5bcb155c 20,116,169
+packages/chat/src/native/schedule-sheet.tsx
+  s_8252619ce79a86::t_f315e3dab166d0 151,233-243,271
+packages/chat/src/native/thread-screen.tsx
+  s_8252619ce79a86::t_144416cdc292f6 55,83-88,143,219-228,476,563
+packages/chat/src/native/topics.tsx
+  s_8252619ce79a86::t_8429dfd0aff8e2 9-10,51-61,86-107,153-167,169-171,173-184,189
+packages/chat/src/native/video-player.tsx
+  s_8252619ce79a86::t_82676db4132167 9-11,14,295-304,307-312,341
+packages/chat/src/native/voice-player.tsx
+  s_8252619ce79a86::t_bcf15fa125ea02 85-102
+packages/ui-native/src/components/__tests__/sheet.test.tsx
+  s_8252619ce79a86::t_2d45d079ccf846 121-132,172-183
+packages/ui-native/src/components/sheet.tsx
+  s_8252619ce79a86::t_70519422156c58 23-24,41,56-63,169,212-216,253-254,256,266-267,300,312,326
+packages/ui-native/test-utils/rn-mock.tsx
+  s_8252619ce79a86::t_5bc58e28ab4dce 428-441
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "28439eef085c0028c0a84299a59db22e59fa2f31",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
