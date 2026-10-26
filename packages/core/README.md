@@ -126,6 +126,19 @@ createSupabaseProvider(supabase, {
 });
 ```
 
+**Keep RLS on.** A plain view runs as its owner, and a `security definer` function as its definer, so
+either reads past row-level security and shows every row. Create the view
+`with (security_invoker = true)` and the function `security invoker` (or have it filter by
+`auth.uid()` itself):
+
+```sql
+create view public.tasks_with_people with (security_invoker = true) as
+  select t.*, p.full_name as person_name from public.tasks t join public.people p on p.id = t.person_id;
+```
+
+Writes send only the table's own columns: list them as `writeColumns`, or an update keeps just the
+columns the table's row has, so a form built from the view row never sends `person_name` back.
+
 ### Handling failures
 
 ```ts
