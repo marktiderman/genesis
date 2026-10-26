@@ -148,6 +148,8 @@ export class DraftController<V extends DraftValue, R> {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private revision: string | undefined;
   private ended = false;
+  /** Bumped by each new revision: a save that started before it lands on nothing. */
+  private generation = 0;
   private listeners = new Set<() => void>();
 
   constructor(private readonly options: () => DraftOptions<V, R>) {
@@ -182,7 +184,12 @@ export class DraftController<V extends DraftValue, R> {
   /** Save now, after any write already running. Resolves once written or failed; never rejects. */
   readonly flush = (hints: { keepalive?: boolean } = {}): Promise<void> => {
     this.clearTimer();
-    const run = this.chain.then(() => this.save(hints.keepalive ?? false));
+    // Never rejects, so one throwing option (isEmpty, equal) can't wedge the chain.
+    const run = this.chain
+      .then(() => this.save(hints.keepalive ?? false))
+      .catch((error: unknown) => {
+        this.patch({ status: "error", error: (this.options().messageOf ?? plainMessage)(error) });
+      });
     this.chain = run;
     return run;
   };
@@ -203,7 +210,10 @@ export class DraftController<V extends DraftValue, R> {
       this.options().onSaved?.(row);
       return row;
     });
-    this.chain = run.catch(() => undefined);
+    // A failed commit leaves the draft as it was: autosave carries on.
+    this.chain = run.catch(() => {
+      if (this.pending()) this.schedule();
+    });
     return run;
   };
 
@@ -214,6 +224,7 @@ export class DraftController<V extends DraftValue, R> {
   readonly reseed = (seed: DraftSeed<V, R>, revision: string | undefined) => {
     if (revision === this.revision) return;
     this.revision = revision;
+    this.generation++;
     this.clearTimer();
     const opts = this.options();
     const pending = !this.same(this.state.value, this.saved);
@@ -282,10 +293,15 @@ export class DraftController<V extends DraftValue, R> {
     const isEmpty = opts.isEmpty ?? ((v: V) => !Object.values(v).some(hasContent));
     if (!this.state.row && isEmpty(value)) return;
     this.patch({ status: "saving" });
+    const generation = this.generation;
     try {
       const { row, merged } = await this.write(value, keepalive);
+      // A new revision arrived while this ran: the server's copy won, so this result is stale.
+      if (generation !== this.generation) return;
       const stored = opts.toValue(row);
-      this.saved = stored;
+      // What was sent, not what came back: a store that tidies values (trims text, fills
+      // defaults) would otherwise look unsaved forever and be written again and again.
+      this.saved = merged ? stored : value;
       if (merged) {
         // Another tab's row: show its fields, keeping only those changed here.
         const next = { ...stored } as DraftValue;
@@ -298,7 +314,7 @@ export class DraftController<V extends DraftValue, R> {
       // Typed while this save ran, or merged: save again.
       if (this.pending()) this.schedule();
     } catch (error) {
-      if (error instanceof Halt) return;
+      if (error instanceof Halt || generation !== this.generation) return;
       this.patch({ status: "error", error: (opts.messageOf ?? plainMessage)(error) });
     }
   }

@@ -277,3 +277,55 @@ describe("DraftController: flush, commit and enabled", () => {
     expect(h.s.calls).toEqual(['create {"a":"x"}']);
   });
 });
+
+describe("DraftController: review follow-ups", () => {
+  it("doesn't save again forever when the store tidies the value", async () => {
+    const s = store();
+    // The store trims text, so what comes back never equals what was sent.
+    s.create.mockImplementation(async (answers: V) => ({ id: "r1", answers: { a: String(answers.a).trim() }, status: "draft" }));
+    const { d } = draft({}, s);
+    d.set({ a: " x " });
+    await settle(10_000);
+    expect(s.create).toHaveBeenCalledTimes(1);
+    expect(s.update).not.toHaveBeenCalled();
+    expect(d.pending()).toBe(false);
+  });
+
+  it("drops a save that lands after a new revision", async () => {
+    const { d, s } = draft();
+    const release = s.hold();
+    d.set({ a: "typed" });
+    await settle();
+    const sent: Row = { id: "s1", answers: { a: "server" }, status: "sent" };
+    d.reseed({ row: sent, value: sent.answers }, "s1:sent");
+    release();
+    await settle();
+    expect(d.getState()).toMatchObject({ row: { id: "s1" }, value: { a: "server" } });
+  });
+
+  it("survives an option that throws, and keeps saving afterwards", async () => {
+    let fail = true;
+    const { d, s } = draft({
+      isEmpty: () => {
+        if (fail) throw new Error("boom");
+        return false;
+      },
+    });
+    d.set({ a: "x" });
+    await settle();
+    expect(d.getState().status).toBe("error");
+    fail = false;
+    d.set({ a: "y" });
+    await settle();
+    expect(s.calls).toEqual(['create {"a":"y"}']);
+  });
+
+  it("saves what's pending after a commit fails", async () => {
+    const { d, s } = draft();
+    d.set({ a: "x" });
+    await expect(d.commit(async () => Promise.reject(new Error("no")))).rejects.toThrow("no");
+    await settle();
+    expect(s.calls).toEqual(['create {"a":"x"}']);
+  });
+});
+
