@@ -59,6 +59,10 @@
       "types": "./dist/dates.d.ts",
       "import": "./dist/dates.js"
     },
+    "./resource": {
+      "types": "./dist/resource/index.d.ts",
+      "import": "./dist/resource/index.js"
+    },
     "./resource-view": {
       "types": "./dist/resource-view/index.d.ts",
       "import": "./dist/resource-view/index.js"

@@ -19,7 +19,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { encodeRecordKey, type BaseRecord, type DataRow } from "@marktiderman/genesis-core";
 import { isTimeZone, personTimeZone } from "@marktiderman/genesis-core/dates";
 import { useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
+import type { RowPicture } from "@marktiderman/genesis-core/resource-view";
+import { NativeAvatar } from "../../components/avatar";
 import { NativeBadge } from "../../components/badge";
+import { NativeImage } from "../../components/image";
 import { NativeButton } from "../../components/button";
 import { NativeEmptyState } from "../../components/empty-state";
 import { NativeInlineAlert } from "../../components/inline-alert";
@@ -135,6 +138,39 @@ interface RowProps<T extends Row> {
   testID: string;
 }
 
+/** A row picture's size, in points (Mail's and Contacts' list avatars). */
+const PICTURE_SIZE = 40;
+
+/**
+ * NativeListItem's `leading` from `rowPicture(summary)`: the image (decorative unless it has
+ * `alt`), with its initials if it fails to load; initials alone; or nothing.
+ */
+function RowLeading({ picture, testID }: { picture: RowPicture; testID: string }) {
+  // Which src failed, not a flag: a recycled row for another record starts fresh.
+  const [failed, setFailed] = useState<string | null>(null);
+  if (picture.kind === "image" && failed !== picture.src) {
+    return (
+      <NativeImage
+        testID={`${testID}-image`}
+        src={picture.src}
+        {...(picture.alt ? { alt: picture.alt } : {})}
+        width={PICTURE_SIZE}
+        height={PICTURE_SIZE}
+        className="rounded-full"
+        onError={() => setFailed(picture.src)}
+      />
+    );
+  }
+  const initials = picture.kind === "image" ? picture.fallback : picture.text;
+  if (!initials) return null;
+  return (
+    // The row's label already names it; the letters would only be read twice.
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <NativeAvatar testID={`${testID}-initials`} fallback={initials} size={PICTURE_SIZE} />
+    </View>
+  );
+}
+
 /** One row. Memoised: it redraws only when its row or what it reads changes, not per keystroke. */
 const ResourceRow = memo(function ResourceRow<T extends Row>({
   row,
@@ -154,6 +190,7 @@ const ResourceRow = memo(function ResourceRow<T extends Row>({
   const item: NativeResourceRowItem = itemFor(row);
   const actions = actionsFor(row, handlers);
   const chip = item.chips[0];
+  const picture = item.picture;
   const rowTestID = `${testID}-row-${item.id}`;
   const content = (
     <View
@@ -175,7 +212,7 @@ const ResourceRow = memo(function ResourceRow<T extends Row>({
       <Pressable
         testID={rowTestID}
         accessibilityRole="button"
-        accessibilityLabel={[item.title, item.subtitle, chip?.label].filter(Boolean).join(", ")}
+        accessibilityLabel={[picture?.kind === "image" ? picture.alt : null, item.title, item.subtitle, chip?.label].filter(Boolean).join(", ")}
         accessibilityActions={actions.map((a) => ({ name: a.id, label: a.reason ? `${a.label}: ${a.reason}` : a.label }))}
         onAccessibilityAction={(event) => actions.find((a) => a.id === event.nativeEvent.actionName)?.onPress()}
         onPress={() => onPress(row)}
@@ -185,6 +222,7 @@ const ResourceRow = memo(function ResourceRow<T extends Row>({
           testID={`${rowTestID}-item`}
           title={item.title}
           subtitle={item.subtitle}
+          leading={picture ? <RowLeading picture={picture} testID={rowTestID} /> : undefined}
           className="bg-transparent"
           trailing={
             chip ? (

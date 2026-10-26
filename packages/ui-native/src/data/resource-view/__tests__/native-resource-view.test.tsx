@@ -200,12 +200,12 @@ function pressAlert(text: string) {
 describe("rows", () => {
   it("uses summary(row) for the title, subtitle and chips", () => {
     const item = rowItem(summaryView, ROWS[0]!);
-    expect(item).toEqual({ id: "b1", title: "Northwind", subtitle: "Since 2026-01-02", chips: [{ label: "Live", tone: "success" }] });
+    expect(item).toEqual({ id: "b1", title: "Northwind", subtitle: "Since 2026-01-02", chips: [{ label: "Live", tone: "success" }], picture: null });
   });
 
   it("shows no subtitle when the summary has none, never a raw column", () => {
     const item = rowItem(plainView, ROWS[1]!);
-    expect(item).toEqual({ id: "b2", title: "Contoso", chips: [] });
+    expect(item).toEqual({ id: "b2", title: "Contoso", chips: [], picture: null });
   });
 
   it("draws rows as list items with the summary's chip", async () => {
@@ -811,5 +811,60 @@ describe("review follow-ups", () => {
     fireEvent.click(screen.getByTestId("native-resource-view-row-b1"));
     expect(second).toHaveBeenCalledWith(expect.objectContaining({ id: "b1" }));
     expect(first).not.toHaveBeenCalled();
+  });
+});
+
+describe("row pictures", () => {
+  const pictured = (image: (r: Brand) => { src?: string; name?: string; alt?: string } | undefined) =>
+    defineView(brands, { summary: (r) => ({ title: r.name, image: image(r) }) });
+
+  it("draws a safe image as the row's leading picture, decorative without alt", async () => {
+    const view = pictured((r) => ({ src: `https://img.example/${r.id}.png`, name: r.name }));
+    render(<NativeResourceView view={view} />, { wrapper: wrap(provider()) });
+    const image = await screen.findByTestId("native-resource-view-row-b1-image");
+    expect(image.getAttribute("aria-hidden")).toBe("true");
+    expect(screen.queryByTestId("native-resource-view-row-b1-initials")).toBeNull();
+    expect(rowItem(view, ROWS[0]!).picture).toEqual({ kind: "image", src: "https://img.example/b1.png", alt: "", fallback: "N" });
+  });
+
+  it("reads the image's alt with the row, when it has one", async () => {
+    const view = pictured((r) => ({ src: `https://img.example/${r.id}.png`, name: r.name, alt: `${r.name}'s logo` }));
+    render(<NativeResourceView view={view} />, { wrapper: wrap(provider()) });
+    expect((await screen.findByTestId("native-resource-view-row-b2")).getAttribute("aria-label")).toBe("Contoso's logo, Contoso");
+  });
+
+  it("falls back to initials when the image fails to load", async () => {
+    const view = pictured(() => ({ src: "https://img.example/missing.png", name: "Ada Lovelace" }));
+    render(<NativeResourceView view={view} />, { wrapper: wrap(provider()) });
+    const image = await screen.findByTestId("native-resource-view-row-b1-image");
+    fireEvent.error(image.querySelector("img")!);
+    expect((await screen.findByTestId("native-resource-view-row-b1-initials")).textContent).toBe("AL");
+    expect(screen.queryByTestId("native-resource-view-row-b1-image")).toBeNull();
+  });
+
+  it("draws initials when there's only a name", async () => {
+    render(<NativeResourceView view={pictured((r) => ({ name: r.name }))} />, { wrapper: wrap(provider()) });
+    expect((await screen.findByTestId("native-resource-view-row-b2-initials")).textContent).toBe("C");
+    expect(screen.queryByTestId("native-resource-view-row-b2-image")).toBeNull();
+  });
+
+  it("never loads an unsafe src: javascript: falls back to initials", async () => {
+    const view = pictured(() => ({ src: "javascript:alert(1)", name: "Ada Lovelace" }));
+    expect(rowItem(view, ROWS[0]!).picture).toEqual({ kind: "initials", text: "AL" });
+    render(<NativeResourceView view={view} />, { wrapper: wrap(provider()) });
+    expect((await screen.findByTestId("native-resource-view-row-b1-initials")).textContent).toBe("AL");
+    expect(document.querySelector("img")).toBeNull();
+  });
+
+  it("draws initials for a safe src a phone can't load (a root-relative path)", () => {
+    expect(rowItem(pictured(() => ({ src: "/logo.png", name: "Ada" })), ROWS[0]!).picture).toEqual({ kind: "initials", text: "A" });
+  });
+
+  it("draws nothing without a picture", async () => {
+    render(<NativeResourceView view={pictured(() => undefined)} />, { wrapper: wrap(provider()) });
+    await screen.findByTestId("native-resource-view-row-b1");
+    expect(screen.queryByTestId("native-resource-view-row-b1-image")).toBeNull();
+    expect(screen.queryByTestId("native-resource-view-row-b1-initials")).toBeNull();
+    expect(rowItem(pictured(() => ({ src: "javascript:x" })), ROWS[0]!).picture).toBeNull();
   });
 });
