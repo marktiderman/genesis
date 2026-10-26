@@ -101,6 +101,18 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     [view, presetName, cell, cells],
   );
 
+  // The peek shows the view's full column list, drawn like the cells (so `when` hides there too),
+  // never every key of the row: sensitive values and columns the view leaves out stay out.
+  const detailFields = useMemo(
+    () =>
+      view.columns().map((c) => ({
+        key: c.key,
+        label: c.label,
+        render: (_value: unknown, row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row)),
+      })),
+    [view, cell, cells],
+  );
+
   // The form lists only fields a writer may send. A field that can't change after create is
   // shown read-only when editing.
   const formFields = useMemo(() => {
@@ -108,7 +120,8 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     const writable = new Set(view.writable("create"));
     return view
       .form("create")
-      .filter((f) => writable.has(f.field.name))
+      // JSON and lists need editors of their own; the plain form would send them back as text.
+      .filter((f) => writable.has(f.field.name) && f.display !== "json" && !f.field.array)
       .map((f) => formField(f, editable.has(f.field.name)));
   }, [view]);
 
@@ -140,6 +153,11 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...(mode ? { defaultView: mode } : layout === "compact" ? { defaultView: "list" as const } : {}),
     ...(view.labelField ? { titleField: view.labelField } : {}),
     getTitle: (row: T) => view.summary(row as T & DataRow).title,
+    // Never ResourcePage's default (the second column's raw value, which skips `when`).
+    getSubtitle: (row: T) => view.summary(row as T & DataRow).subtitle,
+    detailFields,
+    // Server paging by default: a list never loads a whole table to search it in the browser.
+    pagination: "server",
     formFields,
     allowCreate: formFields.length > 0,
     allowEdit: formFields.length > 0,

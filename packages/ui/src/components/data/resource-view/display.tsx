@@ -38,25 +38,37 @@ function formatDay(value: unknown): string {
   return DAY.format(new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])));
 }
 
+// One formatter per zone: building an Intl.DateTimeFormat costs ~40x a format call.
+const INSTANTS = new Map<string, Intl.DateTimeFormat>();
+function instantFormat(zone: string | undefined): Intl.DateTimeFormat {
+  const key = zone ?? "";
+  let format = INSTANTS.get(key);
+  if (!format) {
+    try {
+      format = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: zone });
+    } catch {
+      // An unknown zone name: the viewer's clock, rather than a broken cell.
+      format = instantFormat(undefined);
+    }
+    INSTANTS.set(key, format);
+  }
+  return format;
+}
+
 function formatInstant(value: unknown, timeZone: string | undefined): string {
   const at = new Date(String(value));
   if (Number.isNaN(at.getTime())) return String(value);
-  const zone = timeZone && timeZone !== "viewer" && timeZone !== "practice" ? timeZone : undefined;
-  try {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(at);
-  } catch {
-    // An unknown zone name: the viewer's clock, rather than a broken cell.
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(at);
-  }
+  return instantFormat(timeZone && timeZone !== "viewer" && timeZone !== "practice" ? timeZone : undefined).format(at);
 }
 
 /** Genesis's web renderers. Every one shows text it can't draw, never a broken cell. */
 export const webDisplayRenderers: DisplayRenderers = {
-  text: (value) => String(value),
+  text: (value) => (typeof value === "object" ? JSON.stringify(value) : String(value)),
   longText: (value) => <span className="line-clamp-2">{String(value)}</span>,
   number: (value) => numeric(value, NUMBER),
+  // Two decimals with no symbol: the currency is the app's, so an app registers its own renderer.
   currency: (value) => numeric(value, DECIMAL),
-  // A fraction: 0.42 shows as 42%.
+  // A fraction: 0.42 shows as 42%. A column storing 42 for 42% uses `number` or its own renderer.
   percent: (value) => numeric(value, PERCENT),
   boolean: (value, { messages }) => (value === true || value === "true" ? messages.common.yes : messages.common.no),
   badge: (value, { column }) => (
@@ -76,7 +88,8 @@ export const webDisplayRenderers: DisplayRenderers = {
     ),
   email: (value) => {
     const href = `mailto:${String(value).trim()}`;
-    return /^[^\s@]+@[^\s@]+$/.test(String(value).trim()) && isSafeUrl(href) ? (
+    // A plain address only: no `?subject=` or `&body=` riding along in the mailto link.
+    return /^[^\s@?&#/]+@[^\s@?&#/]+$/.test(String(value).trim()) && isSafeUrl(href) ? (
       <a href={href} className="underline underline-offset-2">
         {String(value).trim()}
       </a>
@@ -95,7 +108,11 @@ export const webDisplayRenderers: DisplayRenderers = {
 
 const DisplayRenderersContext = createContext<DisplayRenderers>(webDisplayRenderers);
 
-/** Replace some of the renderers for everything below (nested providers build on each other). */
+/**
+ * Replace some of the renderers for everything below (nested providers build on each other).
+ * Pass a stable object (a module constant or a `useMemo`): a new one each render redraws every
+ * column.
+ */
 export function DisplayRenderersProvider({
   renderers,
   children,

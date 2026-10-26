@@ -6,7 +6,7 @@
  * - a calendar day is the same day west of UTC (DateCell too).
  */
 // West of UTC, where `new Date("2026-01-02")` is the 1st.
-process.env.TZ = "America/Los_Angeles";
+(globalThis as unknown as { process: { env: Record<string, string> } }).process.env.TZ = "America/Los_Angeles";
 
 import { render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
@@ -195,6 +195,54 @@ describe("ResourceView", () => {
 
   it("refuses a tab the view doesn't define", () => {
     expect(() => renderHook(() => useResourceViewProps({ view, preset: "nope" }), { wrapper: wrap(provider()) })).toThrow(/no preset "nope"/);
+  });
+});
+
+describe("ResourceView review fixes", () => {
+  it("the peek shows only the view's columns, with `when` and sensitive values held back", async () => {
+    localStorage.clear();
+    const withSensitive = defineResource<Brand & { staff_note: string }>()({
+      name: "brands", key: "id", labelField: "name",
+      fields: [...brands.fields, { name: "staff_note", type: "string", sensitive: true }],
+    });
+    const v = defineView(withSensitive, { fields: { secret: { when: (r) => r.secret_visible } }, columns: { default: ["name", "secret"] } });
+    const p = provider();
+    p.getList = vi.fn(async () => ({ data: [{ ...ROWS[0], staff_note: "STAFF-ONLY" }], total: 1 })) as DataProvider["getList"];
+    const { result } = renderHook(() => useResourceViewProps({ view: v }), { wrapper: wrap(p) });
+    expect(result.current.detailFields!.map((f) => f.key)).toEqual(["name", "secret"]);
+    render(<>{result.current.detailFields![1]!.render!(undefined, { ...ROWS[0], staff_note: "STAFF-ONLY" })}</>);
+    expect(screen.queryByText("hidden")).toBeNull();
+    expect(result.current.getSubtitle!(ROWS[0] as never)).toBeUndefined();
+  });
+
+  it("pages on the server by default, and leaves JSON out of the form", () => {
+    const withJson = defineResource<Brand & { meta: unknown }>()({
+      name: "brands", key: "id", labelField: "name",
+      fields: [...brands.fields, { name: "meta", type: "json", nullable: true }],
+    });
+    const v = defineView(withJson, { form: ["name", "meta"] });
+    const { result } = renderHook(() => useResourceViewProps({ view: v }), { wrapper: wrap(provider()) });
+    expect(result.current.pagination).toBe("server");
+    expect(result.current.formFields!.map((f) => f.key)).toEqual(["name"]);
+    const { result: cursor } = renderHook(() => useResourceViewProps({ view: v, pagination: "cursor" }), { wrapper: wrap(provider()) });
+    expect(cursor.current.pagination).toBe("cursor");
+  });
+
+  it("keeps a URL sort on a field column in cursor mode", async () => {
+    localStorage.clear();
+    const p = provider();
+    p.getList = vi.fn(async () => ({ data: ROWS, total: 2, nextCursor: null })) as DataProvider["getList"];
+    renderHook(
+      () =>
+        useResourceView({
+          view,
+          pagination: "cursor",
+          urlState: { searchParams: new URLSearchParams("sort=name:desc"), setSearchParams: () => {} },
+        }),
+      { wrapper: wrap(p) },
+    );
+    await waitFor(() => expect(vi.mocked(p.getList).mock.calls.length).toBeGreaterThan(0));
+    expect((vi.mocked(p.getList).mock.calls[0]![1] as ListParams).sort).toEqual({ field: "name", order: "desc" });
   });
 });
 
