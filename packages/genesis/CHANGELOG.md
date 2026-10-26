@@ -1,5 +1,19 @@
 # @marktiderman/genesis
 
+## 0.9.4
+
+### Patch Changes
+
+- Updated dependencies [099084a]
+- Updated dependencies [9c63a78]
+- Updated dependencies [ae8503d]
+- Updated dependencies [edfb983]
+- Updated dependencies [c2dbc4f]
+- Updated dependencies [3c3c549]
+  - @marktiderman/genesis-ui-native@2.4.0
+  - @marktiderman/genesis-forms@0.9.1
+  - @marktiderman/genesis-native@0.4.0
+
 ## 0.9.3
 
 ### Patch Changes
