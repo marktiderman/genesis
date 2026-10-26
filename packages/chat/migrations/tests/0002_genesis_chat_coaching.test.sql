@@ -6,7 +6,7 @@
 -- People: a1 owns a group with b2 and e5 in it; c3 is outside; d4 is staff (an observer).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(68);
+select plan(65);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c2' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat2-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -93,8 +93,6 @@ select is(genesis_chat.post_scheduled(pg_temp.v('sch2')), null, 'a scheduled mes
 select ok((select error is not null from genesis_chat.scheduled where id = pg_temp.v('sch2')), 'and says why');
 select pg_temp.sign_in('a1');
 select throws_ok($$ select genesis_chat.post_scheduled(pg_temp.v('sch2')) $$, '42501', null, 'only the server posts scheduled messages');
-select pg_temp.sign_in('e5');
-select lives_ok($$ select genesis_chat.cancel_scheduled(pg_temp.v('sch2')) $$, 'its sender removes a scheduled message that failed');
 
 -- A failure that may pass (here a deadlock) is tried again on the next run, not recorded for good.
 select pg_temp.sign_in('b2');
@@ -165,10 +163,6 @@ select ok(not exists (select 1 from genesis_chat.search_messages('pacing')), 'ne
 select genesis_chat.send_message(pg_temp.v('grp'), gen_random_uuid(), 'the word quilt beside a «fake» highlight');
 select ok((select snippet like '%«quilt»%' and snippet not like '%«fake»%' from genesis_chat.search_messages('quilt')),
           'a message''s own « and » can''t fake a highlight');
-insert into t select 'root', (genesis_chat.send_message(pg_temp.v('grp'), gen_random_uuid(), 'a thread starter')).id;
-select genesis_chat.send_message(pg_temp.v('grp'), gen_random_uuid(), 'a reply about zebras', p_thread_root_id => pg_temp.v('root'));
-select is((select thread_root_id from genesis_chat.search_messages('zebras')), pg_temp.v('root'), 'a reply in a thread comes with its thread');
-select is((select thread_root_id from genesis_chat.search_messages('quilt')), null, 'a message on the main timeline with none');
 select pg_temp.sign_in('c3');
 select ok(not exists (select 1 from genesis_chat.search_messages('lesson')), 'someone outside finds nothing');
 

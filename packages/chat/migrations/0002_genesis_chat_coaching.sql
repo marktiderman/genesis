@@ -445,13 +445,9 @@ $$;
 
 -- Messages (and voice or video transcripts) you can read that match `p_query`, newest first.
 -- Within one conversation, or across all of yours. The snippet marks matches with « and »; the
--- text's own « and » become ‹ and › first, so a message can't fake a highlight. A reply in a
--- thread carries its thread_root_id, so the app opens that thread to show it.
--- Dropped first: an earlier draft of this migration returned no thread_root_id, and a return
--- type can't change in place. Its grants are given again, by name, below.
-drop function if exists genesis_chat.search_messages(text, uuid, integer);
-create function genesis_chat.search_messages(p_query text, p_conversation_id uuid default null, p_limit integer default 30)
-returns table (message_id uuid, conversation_id uuid, seq bigint, sender_id uuid, created_at timestamptz, snippet text, in_transcript boolean, thread_root_id uuid)
+-- text's own « and » become ‹ and › first, so a message can't fake a highlight.
+create or replace function genesis_chat.search_messages(p_query text, p_conversation_id uuid default null, p_limit integer default 30)
+returns table (message_id uuid, conversation_id uuid, seq bigint, sender_id uuid, created_at timestamptz, snippet text, in_transcript boolean)
 language plpgsql
 stable
 security definer
@@ -473,16 +469,14 @@ begin
     select p_conversation_id where p_conversation_id is not null and genesis_chat.i_observe(p_conversation_id)
   ), hits as (
     select m.id, m.conversation_id, m.seq, m.sender_id, m.created_at,
-           ts_headline('simple', translate(m.body, '«»', '‹›'), q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»') as snippet, false as in_transcript,
-           m.thread_root_id
+           ts_headline('simple', translate(m.body, '«»', '‹›'), q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»') as snippet, false as in_transcript
       from genesis_chat.messages m join mine using (conversation_id)
      where m.search @@ q and m.deleted_at is null
        and (m.visibility = 'everyone' or genesis_chat.i_observe(m.conversation_id))
        and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid() or genesis_chat.i_observe(m.conversation_id))
     union all
     select m.id, m.conversation_id, m.seq, m.sender_id, m.created_at,
-           ts_headline('simple', translate(a.transcript, '«»', '‹›'), q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»'), true,
-           m.thread_root_id
+           ts_headline('simple', translate(a.transcript, '«»', '‹›'), q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»'), true
       from genesis_chat.attachments a
       join genesis_chat.messages m on m.id = a.message_id
       join mine on mine.conversation_id = m.conversation_id
@@ -490,7 +484,7 @@ begin
        and (m.visibility = 'everyone' or genesis_chat.i_observe(m.conversation_id))
        and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid() or genesis_chat.i_observe(m.conversation_id))
   )
-  select distinct on (h.created_at, h.id) h.id, h.conversation_id, h.seq, h.sender_id, h.created_at, h.snippet, h.in_transcript, h.thread_root_id
+  select distinct on (h.created_at, h.id) h.id, h.conversation_id, h.seq, h.sender_id, h.created_at, h.snippet, h.in_transcript
     from hits h
    order by h.created_at desc, h.id
    limit least(greatest(coalesce(p_limit, 30), 1), 100);
