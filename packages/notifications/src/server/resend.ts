@@ -4,11 +4,18 @@
  *
  * Retries are byte-identical (the runner stores the first render), and every
  * send carries an idempotency key, so Resend sends once:
- * - 409 `invalid_idempotent_request`: the key was used with another body,
- *   which for us means this email went already: it counts as sent.
+ * - 409 `invalid_idempotent_request`: the key was used with another body. The
+ *   stored render never changes, so the body differed in what is built at send
+ *   time: a secret link builder that isn't deterministic (it must give the same
+ *   link for the same notification every time). The job fails loudly
+ *   (`idempotency_body_changed`); it is never counted as sent.
  * - 409 `concurrent_idempotent_requests`: another attempt is in flight: retry soon.
+ *
+ * Requests are paced (`perSecond`, default 5) under Resend's default limit of
+ * 10 requests a second per team, which every key of the team shares.
  */
 import { SendError, discard, isRetryableStatus, retryAfterSeconds, timedFetch, type HttpDeps } from "./errors";
+import { createRateLimiter } from "./rate";
 
 /** One email, ready to send. Addresses and headers are already checked. */
 export interface EmailMessage {
@@ -41,9 +48,17 @@ export interface EmailProvider {
 
 export const RESEND_API = "https://api.resend.com/emails";
 
+/** Requests a second the provider starts by default: half Resend's default team limit (10). */
+export const RESEND_DEFAULT_PER_SECOND = 5;
+
 export interface ResendOptions extends HttpDeps {
   apiKey: string;
   endpoint?: string;
+  /** Requests started per second, at most. Default `RESEND_DEFAULT_PER_SECOND` (5). Raise it only if Resend raised your team's limit. */
+  perSecond?: number;
+  /** For tests: the clock and the wait the pacer uses. */
+  now?: () => number;
+  sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
 
 /**
@@ -52,10 +67,20 @@ export interface ResendOptions extends HttpDeps {
  * @stability Beta
  */
 export function resendProvider(options: ResendOptions): EmailProvider {
+  const pace = createRateLimiter({
+    perSecond: options.perSecond ?? RESEND_DEFAULT_PER_SECOND,
+    ...(options.now ? { now: options.now } : {}),
+    ...(options.sleep ? { sleep: options.sleep } : {}),
+  });
   return {
     name: "resend",
     async send(message, { signal } = {}) {
       if (!options.apiKey) throw new SendError("The Resend API key is not set");
+      try {
+        await pace.acquire(signal);
+      } catch {
+        throw new SendError("Timed out", { retryable: true });
+      }
       const response = await timedFetch(
         options,
         options.endpoint ?? RESEND_API,
@@ -97,7 +122,13 @@ export function resendProvider(options: ResendOptions): EmailProvider {
       } catch {
         discard(response);
       }
-      if (response.status === 409 && name === "invalid_idempotent_request") return { id: null, alreadySent: true };
+      if (response.status === 409 && name === "invalid_idempotent_request") {
+        // Never "sent": the body changed under the same key, so something built at send time isn't deterministic.
+        throw new SendError("idempotency_body_changed: Resend answered 409 (invalid_idempotent_request); a secret link builder must give the same link every time", {
+          retryable: false,
+          status: 409,
+        });
+      }
       if (response.status === 409 && name === "concurrent_idempotent_requests") {
         throw new SendError("Resend answered 409 (concurrent_idempotent_requests)", { retryable: true, retryAfterSeconds: 5, status: 409 });
       }

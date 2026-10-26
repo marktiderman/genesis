@@ -4,7 +4,10 @@
  * minute and `checkReceipts()` every 15 minutes (pg_cron with pg_net calling
  * the handler, or any scheduler).
  *
- * Push: every claimed job's devices in Expo batches of 100, with `threadId`,
+ * Push: the claimed jobs' devices in Expo batches of 100 (a job's devices
+ * never split across two), each batch sent, its tickets recorded and its jobs
+ * settled on its own, and no batch started once its lease is about to run
+ * out (those jobs come straight back), with `threadId`,
  * `categoryId`, `badge`, a `collapseId` (the collapse key, else the
  * notification id, so a resend after a timeout replaces rather than repeats),
  * and neutral text when the person hides previews or the type says so. The
@@ -17,19 +20,25 @@
  * domain, or the app's shared one with the tenant's name and reply-to;
  * transactional and other mail from separate domains; RFC 8058 unsubscribe
  * headers on everything that isn't transactional; a secret link swapped in
- * at send time.
+ * at send time. The provider's id is kept the moment a send returns, before
+ * the job settles, so a webhook that comes first finds it.
+ *
+ * Links (a type's `render().url`) must be paths on the app's own origin
+ * (`/messages/42`): anything else (another host, `//host`, `javascript:`) is
+ * left out of the push and the email.
  */
 import type { NotificationRegistry } from "../core/registry";
 import type { NotificationBrand } from "../core/types";
 import { createRunner, failureOf, type JobOutcome, type JobResult, type RunReport } from "../runner/index";
 import { canonicalJson, defaultEmailTemplate, displayName, escapeHtml, headerSafe, isSafeAddress, type EmailTemplate } from "./email-render";
-import { SendError } from "./errors";
+import { REQUEST_TIMEOUT_MS, SendError } from "./errors";
+import { isReservedDomain } from "./dns";
 import { EXPO_RECEIPTS_BATCH, EXPO_SEND_BATCH, refusedOutright, type PushMessage, type PushProvider, type PushTicket } from "./expo";
 import type { EmailProvider } from "./resend";
 import { SECRET_LINK_PLACEHOLDER, resolveSecretLink, type SecretLinks } from "./secret-links";
 import { sha256Hex } from "./crypto";
 import type { ClaimedJob, NotificationStore, PushTicketRow, RenderedEmail, SettleOutcome } from "./store";
-import { createUnsubscribeToken, unsubscribeHeaders } from "./unsubscribe";
+import { createUnsubscribeToken, emailHash, unsubscribeHeaders } from "./unsubscribe";
 
 export interface EmailOptions {
   provider: EmailProvider;
@@ -68,6 +77,13 @@ export interface NotificationRunnerOptions {
   batchSize?: number;
   /** How long a claim holds a job. Default 300 seconds. */
   leaseSeconds?: number;
+  /**
+   * How long one `run()` may take (your function's wall-clock limit, less a
+   * margin). With it, a run claims again while the last claim was full, and
+   * stops claiming once the time left is under the lease. Without it, a run
+   * claims once per channel. At least `leaseSeconds`.
+   */
+  runBudgetMs?: number;
   maxAttempts?: number;
   maxDeferrals?: number;
   /** Safe lines only (ids, statuses, error codes). */
@@ -87,6 +103,7 @@ export interface NotificationRunner {
 type Job = ClaimedJob & { attempt: number };
 
 function settleOf(outcome: JobOutcome, providerId: string | undefined): SettleOutcome {
+  const id = providerId ? { provider_id: providerId } : {};
   switch (outcome.status) {
     case "sent":
       return { status: "sent", provider_id: providerId ?? null };
@@ -95,10 +112,27 @@ function settleOf(outcome: JobOutcome, providerId: string | undefined): SettleOu
     case "skipped":
       return { status: "skipped", reason: /^[a-z_]{1,64}$/.test(outcome.reason) ? outcome.reason : "not_sent" };
     case "failed":
-      return { status: "failed", error: outcome.error };
+      return { status: "failed", error: outcome.error, ...id };
     case "retry":
-      return { status: "retry", error: outcome.error, retry_at: outcome.retryAt.toISOString(), counted: outcome.counted };
+      return { status: "retry", error: outcome.error, retry_at: outcome.retryAt.toISOString(), counted: outcome.counted, ...id };
   }
+}
+
+/** A link a type rendered, if it is a path on the app's own origin (`/x`, never `//host` or `/\host`); else null. */
+export function appPath(url: string | undefined): string | null {
+  if (typeof url !== "string" || url.length > 2000) return null;
+  if (!/^\/(?![/\\])/.test(url) || /[\u0000-\u001f\u007f\s\\]/.test(url)) return null;
+  return url;
+}
+
+function emptyReport(): RunReport {
+  return { claimed: 0, sent: 0, filtered: 0, skipped: 0, retrying: 0, deferred: 0, failed: 0, stale: 0, unrecorded: 0 };
+}
+
+function addReport(a: RunReport, b: RunReport): RunReport {
+  const out = { ...a };
+  for (const k of Object.keys(out) as (keyof RunReport)[]) out[k] += b[k];
+  return out;
 }
 
 /**
@@ -117,6 +151,10 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
   };
   const batch = options.batchSize ?? 100;
   const lease = options.leaseSeconds ?? 300;
+  const now = () => options.now?.() ?? Date.now();
+  if (options.runBudgetMs !== undefined && !(options.runBudgetMs >= lease * 1000)) {
+    throw new Error("createNotificationRunner: runBudgetMs must be at least leaseSeconds (a run would claim jobs it can't finish)");
+  }
   const email = options.email;
   if (email) {
     const needsUnsubscribe = Object.keys(registry.types).some((key) => registry.type(key).channels.email !== undefined && !registry.type(key).transactional && !registry.isCritical(key));
@@ -144,13 +182,40 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
   };
 
   // Push ---------------------------------------------------------------------
+  // Each claimed job's Expo batch (its devices never split), and when its lease runs out.
+  const pushChunk = new Map<string, number>();
+  const leaseEnds = new Map<string, number>();
   const pushRunner = options.push
     ? createRunner<Job>({
         ...common,
         label: (job) => `Push ${job.id}`,
-        claim: ({ limit }) => store.claim("push", limit, lease, options.maxAttempts ?? 8) as Promise<Job[]>,
-        group: () => "push",
-        send: (jobs, { signal }) => sendPush(jobs, options.push!.provider, signal),
+        claim: async ({ limit }) => {
+          const claimedAt = now();
+          const jobs = (await store.claim("push", limit, lease, options.maxAttempts ?? 8)) as Job[];
+          let chunk = 0;
+          let filled = 0;
+          for (const job of jobs) {
+            const n = Math.min(job.devices?.length ?? 0, EXPO_SEND_BATCH);
+            if (filled > 0 && filled + n > EXPO_SEND_BATCH) {
+              chunk++;
+              filled = 0;
+            }
+            filled += n;
+            pushChunk.set(job.id, chunk);
+            leaseEnds.set(job.id, claimedAt + lease * 1000);
+          }
+          return jobs;
+        },
+        // One group per Expo batch: each is sent, recorded and settled on its own.
+        group: (job) => `push:${pushChunk.get(job.id) ?? 0}`,
+        send: (jobs, { signal }) => {
+          const deadline = Math.min(...jobs.map((j) => leaseEnds.get(j.id) ?? Infinity));
+          for (const j of jobs) {
+            pushChunk.delete(j.id);
+            leaseEnds.delete(j.id);
+          }
+          return sendPush(jobs, options.push!.provider, deadline, signal);
+        },
         batchSize: batch,
       })
     : null;
@@ -158,7 +223,7 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
   function pushMessage(job: Job, token: string): PushMessage {
     const hidden = job.hide_previews || job.push_privacy === "generic";
     const text = hidden ? { title: registry.hiddenPreview.title, body: registry.hiddenPreview.body } : registry.render(job.type, job.data);
-    const url = registry.render(job.type, job.data).url;
+    const url = appPath(registry.render(job.type, job.data).url);
     return {
       to: token,
       title: text.title,
@@ -175,7 +240,10 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
     };
   }
 
-  async function sendPush(jobs: readonly Job[], provider: PushProvider, signal?: AbortSignal): Promise<JobResult[]> {
+  async function sendPush(jobs: readonly Job[], provider: PushProvider, deadline: number, signal?: AbortSignal): Promise<JobResult[]> {
+    // A request started after this may outlive the lease, and another runner would send the same push again.
+    const lastStart = deadline - REQUEST_TIMEOUT_MS - 5_000;
+    const leaseRunningOut = () => new SendError("lease_running_out", { retryable: true, retryAfterSeconds: 1 });
     const slots: { job: number; device: string; message: PushMessage }[] = [];
     const results: (JobResult | null)[] = jobs.map((job) => (registry.has(job.type) ? null : { ok: false, retryable: false, error: "unknown_type" }));
     jobs.forEach((job, j) => {
@@ -185,6 +253,10 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
     const tickets: (PushTicket | SendError)[] = new Array(slots.length);
     for (let start = 0; start < slots.length; start += EXPO_SEND_BATCH) {
       const chunk = slots.slice(start, start + EXPO_SEND_BATCH);
+      if (now() > lastStart) {
+        for (let i = 0; i < chunk.length; i++) tickets[start + i] = leaseRunningOut();
+        continue;
+      }
       try {
         const got = await provider.send(chunk.map((s) => s.message), { signal });
         got.forEach((t, i) => (tickets[start + i] = t));
@@ -192,6 +264,10 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
         if (refusedOutright(error) && chunk.length > 1) {
           // One bad message can't hold up the rest: each on its own.
           for (let i = 0; i < chunk.length; i++) {
+            if (now() > lastStart) {
+              tickets[start + i] = leaseRunningOut();
+              continue;
+            }
             try {
               tickets[start + i] = (await provider.send([chunk[i]!.message], { signal }))[0] ?? { status: "error", code: "NoTicket" };
             } catch (one) {
@@ -257,7 +333,9 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
   function fromAddress(job: Job, e: EmailOptions): string {
     const local = e.localPart ?? "notifications";
     const shared = job.transactional ? e.domains.transactional : (e.domains.other ?? e.domains.transactional);
-    const domain = job.sender?.domain_verified && job.sender.domain ? job.sender.domain : shared;
+    // A tenant's verified domain, unless it is (or is under) one of the app's own: never a tenant's to send as.
+    const own = job.sender?.domain_verified && job.sender.domain && !isReservedDomain(job.sender.domain, [e.domains.transactional, e.domains.other]) ? job.sender.domain : null;
+    const domain = own ?? shared;
     const brandName = typeof job.brand?.["name"] === "string" ? (job.brand["name"] as string) : null;
     const name = displayName(job.sender?.from_name ?? brandName ?? e.appName) || displayName(e.appName);
     return `${name} <${local}@${domain}>`;
@@ -272,7 +350,7 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
     // Transactional mail has no unsubscribe, and nor does a critical type's (preferences can't turn it off).
     if (!job.transactional && !job.critical && e.unsubscribe) {
       const token = await createUnsubscribeToken(e.unsubscribe.secret, {
-        ...(job.user_id ? { userId: job.user_id } : { email: to }),
+        ...(job.user_id ? { userId: job.user_id } : { emailHash: await emailHash(to) }),
         category: job.category,
         ...(job.tenant_id ? { tenantId: job.tenant_id } : {}),
       });
@@ -280,7 +358,8 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
       unsubscribeUrl = headers["List-Unsubscribe"]!.slice(1, -1);
     }
     const text = registry.render(job.type, job.data);
-    const url = text.url && options.appUrl ? new URL(text.url, options.appUrl).toString() : null;
+    const path = appPath(text.url);
+    const url = path && options.appUrl ? new URL(path, new URL(options.appUrl).origin).toString() : null;
     const template = e.templates?.[job.type] ?? e.defaultTemplate ?? defaultEmailTemplate;
     const content = await template({
       type: job.type,
@@ -354,7 +433,14 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
         },
         { signal },
       );
-      if (result.id) providerIds.set(job.id, result.id);
+      if (result.id) {
+        providerIds.set(job.id, result.id);
+        try {
+          await store.recordProviderId(job.id, job.claim_id, result.id);
+        } catch {
+          log(`Keeping email ${job.id}'s provider id failed; it is kept when it settles`);
+        }
+      }
       return result.alreadySent ? { ok: true, alreadyThere: true } : { ok: true };
     } catch (error) {
       if (error instanceof SendError && error.message === "no_valid_address") return { ok: true, notSent: "no_address" };
@@ -367,13 +453,27 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
     throw new Error("This channel isn't configured");
   };
 
+  // One claim, or (with runBudgetMs) claims while they come back full and the time left covers a lease.
+  async function drain(r: { run(o: { signal?: AbortSignal }): Promise<RunReport> }, signal?: AbortSignal): Promise<RunReport> {
+    const budget = options.runBudgetMs;
+    if (budget === undefined) return r.run({ signal });
+    const started = now();
+    let total = emptyReport();
+    while (budget - (now() - started) >= lease * 1000 && !signal?.aborted) {
+      const report = await r.run({ signal });
+      total = addReport(total, report);
+      if (report.claimed < batch) break;
+    }
+    return total;
+  }
+
   return {
     async run({ signal } = {}) {
-      const [push, mail] = await Promise.all([pushRunner?.run({ signal }) ?? null, emailRunner?.run({ signal }) ?? null]);
+      const [push, mail] = await Promise.all([pushRunner ? drain(pushRunner, signal) : null, emailRunner ? drain(emailRunner, signal) : null]);
       return { push, email: mail };
     },
-    runPush: ({ signal } = {}) => (pushRunner ? pushRunner.run({ signal }) : none()),
-    runEmail: ({ signal } = {}) => (emailRunner ? emailRunner.run({ signal }) : none()),
+    runPush: ({ signal } = {}) => (pushRunner ? drain(pushRunner, signal) : none()),
+    runEmail: ({ signal } = {}) => (emailRunner ? drain(emailRunner, signal) : none()),
     async checkReceipts({ signal, budgetMs = 60_000 } = {}) {
       const provider = options.push?.provider;
       if (!provider) return { checked: 0, settled: 0 };

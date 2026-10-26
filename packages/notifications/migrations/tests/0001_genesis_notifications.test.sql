@@ -65,7 +65,7 @@ select ok(
 select ok(
   not has_function_privilege('authenticated', 'public.genesis_notifications_claim(text, integer, integer, integer)', 'execute')
   and not has_function_privilege('authenticated', 'public.genesis_notifications_erase(uuid, text, text)', 'execute')
-  and not has_function_privilege('authenticated', 'public.genesis_notifications_unsubscribe(uuid, text, text)', 'execute'),
+  and not has_function_privilege('authenticated', 'public.genesis_notifications_unsubscribe(uuid, text, text, uuid)', 'execute'),
   'the runner, erasure and unsubscribe are the service role''s');
 select ok(
   (select bool_and(not has_function_privilege('anon', p.oid, 'execute') and not has_function_privilege('public', p.oid, 'execute'))
@@ -233,7 +233,7 @@ create temp table mails as select * from public.genesis_notifications_claim('ema
 select is((select skip_reason from public.notification_deliveries where notification_id = pg_temp.k('n1') and channel = 'email'), 'suppressed', 'a complaint stops non-transactional mail');
 select ok(exists (select 1 from mails where notification_id = pg_temp.k('n2') and transactional), 'a transactional email still goes to a complainer');
 select ok((select send_after <= now() from public.notification_deliveries where notification_id = pg_temp.k('n2')), '... and is never delayed');
-select ok(public.genesis_notifications_unsubscribe(null, 'outside@example.test', 'gntest-forms'), 'someone with no login unsubscribes from a category');
+select ok(public.genesis_notifications_unsubscribe(null, private.genesis_notifications_email_hash('outside@example.test'), 'gntest-forms'), 'someone with no login unsubscribes from a category');
 select ok(public.genesis_notifications_unsubscribe(pg_temp.u('a1'), null, 'gntest-messages'), 'a login unsubscribes through their preferences');
 select is((select channels -> 'gntest-messages' ->> 'email' from public.notification_preferences where user_id = pg_temp.u('a1')), 'false', '... the category''s email is off');
 select ok(public.genesis_notifications_email_event('re_1', 'bounced', true), 'a hard bounce is recorded');
@@ -271,7 +271,7 @@ update public.notification_preferences set categories = '{}' where user_id = pg_
 insert into k select 'x3', notification_id from public.genesis_notify('gntest.message', jsonb_build_array(pg_temp.u('c3')), '{}', 'release:43');
 update public.notification_deliveries set status = 'sent', sent_at = now()
 where notification_id = pg_temp.k('x3') and channel = 'push';
-select is((select cancelled from public.genesis_notifications_cancel('release:42', jsonb_build_array(pg_temp.u('b2')))), 1,
+select is((select cancelled from public.genesis_notifications_cancel('gntest.message', 'release:42', null, jsonb_build_array(pg_temp.u('b2')))), 1,
   'cancel stops the pending email of only the recipient named');
 select is((select status from public.notification_deliveries d join public.notifications n on n.id = d.notification_id
            where n.idempotency_key = 'release:42' and n.user_id = pg_temp.u('b2') and d.channel = 'email'), 'cancelled', '... marked cancelled');
@@ -279,15 +279,15 @@ select is((select count(*) from public.notification_deliveries d join public.not
            where n.idempotency_key = 'release:42' and n.user_id = pg_temp.u('c3') and d.status = 'pending'), 0::bigint,
   '... (c3 had message email off, so nothing was queued for them)');
 select is((select archived_at from public.notifications where idempotency_key = 'release:42' and user_id = pg_temp.u('b2')), null, '... and leaves the feed row without archive');
-select is((select row(cancelled, archived)::text from public.genesis_notifications_cancel('release:43', null, true)), '(1,1)',
+select is((select row(cancelled, archived)::text from public.genesis_notifications_cancel('gntest.message', 'release:43', null, null, true)), '(1,1)',
   'cancel with archive: the pending email cancelled and the feed row archived');
 select is((select status from public.notification_deliveries where notification_id = pg_temp.k('x3') and channel = 'push'), 'sent', 'a job already sent is left alone');
 update public.notification_deliveries set send_after = now() - interval '1 day' where status = 'cancelled';
 select ok(not exists (select 1 from public.genesis_notifications_claim('email', 500) c join public.notification_deliveries d on d.id = c.id
                       join public.notifications n on n.id = d.notification_id where n.idempotency_key in ('release:42', 'release:43')),
   'a cancelled job is never claimed');
-select throws_ok($$ select * from public.genesis_notifications_cancel(null) $$, '22023', null, 'cancel needs an idempotency key');
-select ok(not has_function_privilege('authenticated', 'public.genesis_notifications_cancel(text, jsonb, boolean)', 'execute'), '... and is the service role''s');
+select throws_ok($$ select * from public.genesis_notifications_cancel('gntest.message', null) $$, '22023', null, 'cancel needs an idempotency key');
+select ok(not has_function_privilege('authenticated', 'public.genesis_notifications_cancel(text, text, uuid, jsonb, boolean)', 'execute'), '... and is the service role''s');
 
 -- A job whose lease keeps running out fails --------------------------------------------------
 update public.notification_deliveries set status = 'sending', lease_until = now() - interval '1 minute', attempts = 8, send_after = now() - interval '1 hour'
@@ -313,6 +313,130 @@ select is((select count(*) from public.push_devices where user_id = pg_temp.u('a
 select is((select count(*) from public.notification_preferences where user_id = pg_temp.u('a1')), 0::bigint, '... and their preferences');
 select is((select count(*) from public.push_device_moves where from_user_id = pg_temp.u('a1') or to_user_id = pg_temp.u('a1')), 0::bigint, '... and their device moves');
 select ok((public.genesis_notifications_prune(interval '1 hour', interval '0'))->>'deliveries' is not null, 'prune runs and reports what it removed');
+
+-- Review fixes ------------------------------------------------------------------------------
+create function pg_temp.t(n text) returns uuid language sql immutable as $$ select ('00000000-0000-4000-8000-00000000' || repeat(n, 4))::uuid $$;
+
+-- Sender domains: one tenant per verified domain, proved with its own token.
+select pg_temp.sign_in('c3');
+select lives_ok($$ select public.genesis_notifications_set_sender(pg_temp.t('a'), 'Tenant A', null, 'mail.gntest.example') $$, 'tenant A sets its own domain');
+select lives_ok($$ select public.genesis_notifications_set_sender(pg_temp.t('b'), 'Tenant B', null, 'mail.gntest.example') $$, '... and tenant B may name the same one while neither has verified it');
+reset role;
+select ok((select bool_and(domain_token ~ '^[0-9a-f]{32}$') from public.notification_senders where tenant_id in (pg_temp.t('a'), pg_temp.t('b'))), 'each sender gets an ownership token for the TXT record');
+select ok((select count(distinct domain_token) = 2 from public.notification_senders where tenant_id in (pg_temp.t('a'), pg_temp.t('b'))), '... a token of its own');
+select ok(public.genesis_notifications_set_sender_dns(pg_temp.t('a'), 'mail.gntest.example', 'verified', '{"ownership": true}'), 'tenant A verifies it');
+select throws_ok($$ select public.genesis_notifications_set_sender_dns(pg_temp.t('b'), 'mail.gntest.example', 'verified', '{"ownership": true}') $$, '23505', null,
+  'tenant B can never verify a domain tenant A has verified');
+select is((select domain_status from public.notification_senders where tenant_id = pg_temp.t('b')), 'pending', '... and stays unverified');
+select ok(not public.genesis_notifications_set_sender_dns(pg_temp.t('a'), 'other.gntest.example', 'failed', '{}'), 'a check of a domain the tenant no longer has changes nothing');
+select pg_temp.sign_in('c3');
+select throws_ok($$ select public.genesis_notifications_set_sender(pg_temp.t('c'), 'Tenant C', null, 'MAIL.gntest.example') $$, '23505', null, 'a third tenant may not even name a verified domain');
+select lives_ok($$ select public.genesis_notifications_set_sender(pg_temp.t('b'), 'Tenant B', null, 'b.gntest.example') $$, 'tenant B moves to another domain');
+reset role;
+select ok((select domain_token is not null and domain_status = 'pending' from public.notification_senders where tenant_id = pg_temp.t('b')), '... pending again, with a fresh token');
+
+-- Idempotency is per type and tenant.
+select is((select count(*) from (
+  select * from public.genesis_notify('gntest.message', jsonb_build_array(pg_temp.u('b2')), '{}', 'tenant-key', null, null, null, pg_temp.t('a'))
+  union all
+  select * from public.genesis_notify('gntest.message', jsonb_build_array(pg_temp.u('b2')), '{}', 'tenant-key', null, null, null, pg_temp.t('b'))
+) x where created), 2::bigint, 'the same key for tenants A and B gives two notifications');
+select is((select created from public.genesis_notify('gntest.message', jsonb_build_array(pg_temp.u('b2')), '{}', 'tenant-key', null, null, null, pg_temp.t('a'))), false,
+  '... and the key again for tenant A finds tenant A''s');
+select is((select created from public.genesis_notify('gntest.alert', jsonb_build_array(pg_temp.u('b2')), '{}', 'tenant-key', null, null, null, pg_temp.t('a'))), true,
+  '... while another type with the key is a notification of its own');
+select is((select cancelled from public.genesis_notifications_cancel('gntest.message', 'tenant-key', pg_temp.t('a'))), 1, 'cancel for tenant A cancels its pending email');
+select is((select d.status from public.notification_deliveries d join public.notifications n on n.id = d.notification_id
+           where n.idempotency_key = 'tenant-key' and n.tenant_id = pg_temp.t('b') and d.channel = 'email'), 'pending', '... and never tenant B''s');
+select is((select cancelled from public.genesis_notifications_cancel('gntest.message', 'tenant-key')), 0, '... nor does a cancel with no tenant');
+
+-- A cancel during a send sticks.
+insert into k select 'cm', notification_id from public.genesis_notify('gntest.receipt', '[{"email": "cancel-mid@example.test"}]', '{}', 'cancel-mid');
+insert into k select 'cl', notification_id from public.genesis_notify('gntest.receipt', '[{"email": "cancel-lease@example.test"}]', '{}', 'cancel-lease');
+create temp table cmc as select * from public.genesis_notifications_claim('email', 500);
+select is((select count(*) from cmc where notification_id in (pg_temp.k('cm'), pg_temp.k('cl'))), 2::bigint, 'claimed: both are being sent');
+select is((select cancelled from public.genesis_notifications_cancel('gntest.receipt', 'cancel-mid')), 1, 'a cancel while one is being sent counts it');
+select ok(public.genesis_notifications_settle((select id from cmc where notification_id = pg_temp.k('cm')), (select claim_id from cmc where notification_id = pg_temp.k('cm')),
+  '{"status": "retry", "error": "Resend answered HTTP 500", "counted": true}'), 'the runner settles a retry');
+select is((select status || ':' || skip_reason from public.notification_deliveries where notification_id = pg_temp.k('cm')), 'cancelled:cancelled', '... and it ends cancelled, not back in the queue');
+select is((select cancelled from public.genesis_notifications_cancel('gntest.receipt', 'cancel-lease')), 1, 'cancel the other mid-send');
+update public.notification_deliveries set lease_until = now() - interval '1 minute', send_after = now() - interval '1 hour' where notification_id in (pg_temp.k('cm'), pg_temp.k('cl'));
+select ok(not exists (select 1 from public.genesis_notifications_claim('email', 500) c where c.notification_id in (pg_temp.k('cm'), pg_temp.k('cl'))),
+  'claim -> cancel -> settle retry (or a lost lease) -> never claimed again');
+select is((select status from public.notification_deliveries where notification_id = pg_temp.k('cl')), 'cancelled', '... a lost lease ends cancelled too');
+
+-- One secret that won't decrypt fails alone.
+insert into k select 'sb', notification_id from public.genesis_notify('gntest.receipt', '[{"email": "bad-secret@example.test"}]', '{}', 'bad-secret', null, null, null, null, null, 'unreadable');
+insert into k select 'sg', notification_id from public.genesis_notify('gntest.receipt', '[{"email": "good-secret@example.test"}]', '{}', 'good-secret', null, null, null, null, null, 'readable');
+update public.notification_deliveries set secret_ciphertext = '\xc30d04070302deadbeef'::bytea where notification_id = pg_temp.k('sb');
+create temp table sbc as select * from public.genesis_notifications_claim('email', 500);
+select is((select secret from sbc where notification_id = pg_temp.k('sg')), 'readable', 'a corrupt secret on one email never blocks another''s');
+select is((select status || ':' || error from public.notification_deliveries where notification_id = pg_temp.k('sb')), 'failed:secret_unreadable', '... it fails as secret_unreadable');
+select ok((select secret_ciphertext is null from public.notification_deliveries where notification_id = pg_temp.k('sb')), '... and drops the ciphertext');
+
+-- The provider's id is kept before settle, so an early webhook finds the job.
+select ok(public.genesis_notifications_record_provider_id((select id from sbc where notification_id = pg_temp.k('sg')), (select claim_id from sbc where notification_id = pg_temp.k('sg')), 're_early'),
+  'the provider id is kept as soon as the send returns');
+select ok(public.genesis_notifications_email_event('re_early', 'delivered'), 'a webhook that comes before settle finds the job');
+select is((select status from public.notification_deliveries where notification_id = pg_temp.k('sg')), 'delivered', '... and settles it');
+select ok(not public.genesis_notifications_settle((select id from sbc where notification_id = pg_temp.k('sg')), (select claim_id from sbc where notification_id = pg_temp.k('sg')), '{"status": "sent"}'),
+  '... so the runner''s late settle is stale and changes nothing');
+select ok(not has_function_privilege('authenticated', 'public.genesis_notifications_record_provider_id(uuid, uuid, text)', 'execute'), '... and it is the service role''s');
+
+-- Unsubscribe is for the tenant the email came from.
+select ok(public.genesis_notifications_unsubscribe(null, private.genesis_notifications_email_hash('Tenant-Out@example.test'), 'gntest-messages', pg_temp.t('a')),
+  'someone with no login unsubscribes from tenant A''s mail, by the address''s hash');
+insert into k select 'ua', notification_id from public.genesis_notify('gntest.message', '[{"email": "tenant-out@example.test"}]', '{}', 'unsub-a', null, null, null, pg_temp.t('a'));
+insert into k select 'ub', notification_id from public.genesis_notify('gntest.message', '[{"email": "tenant-out@example.test"}]', '{}', 'unsub-b', null, null, null, pg_temp.t('b'));
+create temp table uc as select * from public.genesis_notifications_claim('email', 500);
+select is((select skip_reason from public.notification_deliveries where notification_id = pg_temp.k('ua')), 'suppressed', '... tenant A''s mail stops');
+select ok(exists (select 1 from uc where notification_id = pg_temp.k('ub')), '... tenant B''s doesn''t');
+select ok(public.genesis_notifications_unsubscribe(pg_temp.u('b2'), null, 'gntest-messages', pg_temp.t('a')), 'a login unsubscribes from tenant A''s mail');
+select is(private.genesis_notifications_channel_on(pg_temp.u('b2'), pg_temp.t('a'), 'gntest.message', 'email'), false, '... off for tenant A');
+select is(private.genesis_notifications_channel_on(pg_temp.u('b2'), pg_temp.t('b'), 'gntest.message', 'email'), true, '... still on for tenant B');
+select pg_temp.sign_in('b2');
+select lives_ok($$ select public.genesis_notifications_set_preference('gntest-messages', 'email', true) $$, 'turning it on in Settings');
+reset role;
+select is(private.genesis_notifications_channel_on(pg_temp.u('b2'), pg_temp.t('a'), 'gntest.message', 'email'), true, '... turns it on for tenant A again');
+
+-- A token from before install ids is adopted by the first register that brings one.
+insert into public.push_devices (user_id, token, platform) values (pg_temp.u('c3'), pg_temp.tok('legacy'), 'ios');
+select pg_temp.sign_in('b2');
+select lives_ok($$ select public.genesis_push_register(pg_temp.tok('legacy'), 'ios', '1.0', '44444444-4444-4444-8444-444444444444') $$,
+  'a token 0005 left with no install id is adopted by the first register that brings one');
+reset role;
+select is((select user_id::text || ':' || installation_id::text from public.push_devices where token = pg_temp.tok('legacy')),
+  pg_temp.u('b2')::text || ':44444444-4444-4444-8444-444444444444', '... it is b2''s, with that install id');
+select is((select count(*) from public.push_device_moves where from_user_id = pg_temp.u('c3') and to_user_id = pg_temp.u('b2')), 1::bigint, '... and the move is audited');
+select pg_temp.sign_in('c3');
+select throws_ok($$ select public.genesis_push_register(pg_temp.tok('legacy'), 'ios', '1.0', '55555555-5555-4555-8555-555555555555') $$, '42501', null,
+  '... after which only that phone may move it');
+reset role;
+
+-- 0005's switch left on never opts anyone into email; clearing a choice never made is fine.
+update public.notification_types set retired_at = null where key = 'gntest.news';
+update public.notification_preferences set categories = '{"gntest-news": true}', channels = '{}' where user_id = pg_temp.u('c3');
+select pg_temp.sign_in('c3');
+select is(public.genesis_notifications_set_preference('gntest-news', 'in_app', false), '{"gntest-news": {"in_app": false}}'::jsonb,
+  'an old switch left on carries over as nothing, not as email on');
+select lives_ok($$ select public.genesis_notifications_set_preference('gntest-forms', 'email', null) $$, 'clearing a choice in a category with none is fine');
+reset role;
+select is(private.genesis_notifications_channel_on(pg_temp.u('c3'), null, 'gntest.news', 'email'), false, '... so opt-in email stays off');
+
+-- Secrets: relative links and any parameter ending like one.
+select throws_ok($$ select * from public.genesis_notify('gntest.message', '["00000000-0000-4000-8000-0000000000b2"]', '{"link": "/accept?inviteCode=abc"}', 'rel-1') $$,
+  '22023', null, 'a relative link carrying a code is refused');
+select throws_ok($$ select * from public.genesis_notify('gntest.message', '["00000000-0000-4000-8000-0000000000b2"]', '{"next": "?otp=123456"}', 'rel-2') $$,
+  '22023', null, '... and a bare query');
+select throws_ok($$ select * from public.genesis_notify('gntest.message', '["00000000-0000-4000-8000-0000000000b2"]', '{"verification_code": "1"}', 'rel-3') $$,
+  '22023', null, '... and a key ending in code');
+select lives_ok($$ select * from public.genesis_notify('gntest.message', '["00000000-0000-4000-8000-0000000000b2"]', '{"link": "/messages/42?tab=files"}', 'rel-4') $$,
+  '... but not a plain link');
+
+-- Erasing a login erases mail addressed to its email.
+insert into k select 'em', notification_id from public.genesis_notify('gntest.receipt', '[{"email": "GNTEST-b2@example.test"}]', '{}', 'erase-mail');
+select ok(public.genesis_notifications_erase(pg_temp.u('b2')) >= 1, 'erasing a login');
+select is((select count(*) from public.notifications where id = pg_temp.k('em')), 0::bigint, '... also erases what was addressed to its email');
 
 select * from finish();
 rollback;

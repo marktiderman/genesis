@@ -114,7 +114,7 @@ export function createNotificationsHandler(options: NotificationsHandlerOptions)
           );
         }
         if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-        await options.store.unsubscribe(claims.userId ?? null, claims.userId ? null : (claims.email ?? null), claims.category);
+        await options.store.unsubscribe(claims.userId ?? null, claims.userId ? null : (claims.emailHash ?? null), claims.category, claims.tenantId ?? null);
         return page(copy.title, `<p>${escapeHtml(copy.done)}</p>`);
       }
 

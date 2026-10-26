@@ -38,6 +38,9 @@ export { notificationAction, type NotificationAction };
 
 export const CHANNEL_LABELS: Record<Channel, string> = { in_app: "In the app", push: "Push", email: "Email" };
 
+/** How many notifications the feed (and its header) reads: one query, shared by both. */
+export const NOTIFICATIONS_FEED_LIMIT = 100;
+
 export interface NotificationsFeedProps extends Omit<NotificationsPageProps, "items" | "refreshing" | "onRefresh" | "onMarkAllRead"> {
   /** Opens a notification's link (`router.push(item.url)`); it is marked read first. */
   onOpen?: (item: FeedItem) => void;
@@ -50,7 +53,7 @@ export interface NotificationsFeedProps extends Omit<NotificationsPageProps, "it
  *
  * @stability Beta
  */
-export function NotificationsFeed({ onOpen, limit = 100, ...page }: NotificationsFeedProps) {
+export function NotificationsFeed({ onOpen, limit = NOTIFICATIONS_FEED_LIMIT, ...page }: NotificationsFeedProps) {
   const { items, isRefetching, refetch, markRead } = useNotifications({ limit });
   const rows = useMemo<NotificationItem[]>(
     () =>
@@ -80,9 +83,12 @@ export function NotificationsFeed({ onOpen, limit = 100, ...page }: Notification
   );
 }
 
-/** The feed's `Stack.Screen` options, with "Mark all read" while anything is unread. */
-export function useNotificationsFeedHeader(options: { headerTitle?: string } = {}): Record<string, unknown> {
-  const { items, markAllRead } = useNotifications();
+/**
+ * The feed's `Stack.Screen` options, with "Mark all read" while anything is
+ * unread. Pass the feed's `limit` if you changed it, so both read one query.
+ */
+export function useNotificationsFeedHeader(options: { headerTitle?: string; limit?: number } = {}): Record<string, unknown> {
+  const { items, markAllRead } = useNotifications({ limit: options.limit ?? NOTIFICATIONS_FEED_LIMIT });
   const unread = items.some((i) => i.unread);
   // With nothing unread the header gets an explicit empty right side: leaving it out would keep the old button.
   return getNotificationsPageStackOptions({
@@ -192,8 +198,11 @@ function clock(value: unknown, fallback: string): string {
  * registers with this install's id (so a token moves between logins only on
  * its own phone), and keeps the push block's category switches as each
  * category's push channel (`genesis_notifications_set_preference`, one cell
- * at a time, so nothing else in the row is overwritten). Quiet hours and
- * previews are the same columns as before.
+ * at a time, so nothing else in the row is overwritten). A category no
+ * notifier type sends push in (chat's `messages` while chat still sends
+ * through 0005's sender) keeps its switch in 0005's `categories`, which that
+ * sender reads, instead of failing the whole save. Quiet hours and previews
+ * are the same columns as before.
  *
  * @stability Beta
  */
@@ -204,6 +213,8 @@ export function notificationsPushBackend(client: PushBackendClientLike): PushBac
   };
   // The push channel per category as last loaded or saved, so a save writes only what changed.
   let known: Record<string, boolean> = {};
+  // 0005's `categories` as last loaded or saved: the switches of categories the notifier has no push type in.
+  let legacy: Record<string, boolean> = {};
   return {
     usesInstallationId: true,
     async register(token, platform, appVersion, installationId) {
@@ -221,7 +232,11 @@ export function notificationsPushBackend(client: PushBackendClientLike): PushBac
           .maybeSingle(),
       ) as Record<string, unknown> | null;
       known = {};
+      legacy = {};
       if (!data) return null;
+      if (data.categories && typeof data.categories === "object") {
+        for (const [category, on] of Object.entries(data.categories as Record<string, unknown>)) if (typeof on === "boolean") legacy[category] = on;
+      }
       // As the server reads it: the push channel chosen, or 0005's switch for the whole category.
       for (const [category, row] of Object.entries(choicesOf(data))) if (typeof row.push === "boolean") known[category] = row.push;
       return {
@@ -236,12 +251,23 @@ export function notificationsPushBackend(client: PushBackendClientLike): PushBac
       } satisfies PushPreferences;
     },
     async savePreferences(userId, p) {
+      let legacyChanged = false;
       for (const [category, on] of Object.entries(p.categories)) {
         if (known[category] === on) continue;
-        must("genesis_notifications_set_preference", await client.rpc("genesis_notifications_set_preference", { p_category: category, p_channel: "push", p_on: on }));
+        const result = await client.rpc("genesis_notifications_set_preference", { p_category: category, p_channel: "push", p_on: on });
+        if (result.error?.code === "22023") {
+          // No notifier type sends push in this category: keep the switch where 0005's sender reads it.
+          legacy[category] = on;
+          legacyChanged = true;
+        } else {
+          must("genesis_notifications_set_preference", result);
+          // The server moved this category's 0005 switch into channel choices.
+          if (category in legacy) delete legacy[category];
+        }
         known[category] = on;
       }
       const row = {
+        ...(legacyChanged ? { categories: { ...legacy } } : {}),
         user_id: userId,
         quiet_hours_enabled: p.quietHours.enabled,
         quiet_hours_start: p.quietHours.start,

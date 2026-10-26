@@ -1,6 +1,6 @@
 // @feat:notifications
 import { describe, expect, it, vi } from "vitest";
-import { SendError, expoPushProvider, resendProvider } from "../server/index";
+import { RESEND_DEFAULT_PER_SECOND, SendError, expoPushProvider, resendProvider } from "../server/index";
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 
@@ -53,9 +53,26 @@ describe("resendProvider", () => {
     expect(await resendProvider({ apiKey: "re_key", fetch: fetch as typeof globalThis.fetch }).send(message)).toEqual({ id: "re_123" });
   });
 
-  it("counts invalid_idempotent_request as already sent", async () => {
+  it("fails invalid_idempotent_request loudly: the body changed under the key, so it is never counted as sent", async () => {
     const resend = resendProvider({ apiKey: "k", fetch: (async () => json({ name: "invalid_idempotent_request", message: "…" }, 409)) as typeof fetch });
-    expect(await resend.send(message)).toEqual({ id: null, alreadySent: true });
+    const error = (await resend.send(message).catch((e: unknown) => e)) as SendError;
+    expect(error).toBeInstanceOf(SendError);
+    expect(error).toMatchObject({ retryable: false, status: 409 });
+    expect(error.message).toMatch(/^idempotency_body_changed/);
+  });
+
+  it("paces its requests under Resend's limit, five a second by default", async () => {
+    const fetch = (async () => json({ id: "re_1" })) as typeof globalThis.fetch;
+    const sleep = vi.fn(async () => {});
+    const resend = resendProvider({ apiKey: "k", fetch, now: () => 0, sleep });
+    await Promise.all(Array.from({ length: 6 }, () => resend.send(message)));
+    expect(RESEND_DEFAULT_PER_SECOND).toBeLessThan(10);
+    // Six at once, five a second: the first goes now, each next one 200 ms after the one before.
+    expect(sleep.mock.calls.map((c) => (c as unknown[])[0])).toEqual([200, 400, 600, 800, 1000]);
+    const slower = vi.fn(async () => {});
+    const two = resendProvider({ apiKey: "k", fetch, now: () => 0, sleep: slower, perSecond: 2 });
+    await Promise.all([two.send(message), two.send(message), two.send(message)]);
+    expect(slower.mock.calls.map((c) => (c as unknown[])[0])).toEqual([500, 1000]);
   });
 
   it("retries concurrent_idempotent_requests soon", async () => {

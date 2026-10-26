@@ -10,17 +10,24 @@ const EMAIL = /^[^\s@<>,;:"()[\]\\]+@[^\s@<>,;:"()[\]\\]+\.[^\s@<>,;:"()[\]\\]+$
 
 /**
  * Keys that hold a secret by their name, matched on the key split into words
- * (`inviteToken` is `invite_token`), at its end. The database refuses the
- * same list.
+ * (`inviteToken` is `invite_token`): any key ending in token, code, secret,
+ * key, otp or password, and a few more by word. The database refuses the same
+ * list. A backstop, not a guarantee: it catches the usual names, so a display
+ * value named that way (`country_code`) is refused too; name it otherwise.
  */
-export const SECRET_KEY = /(^|[._-])(token|secret|password|passcode|otp|api_?key|signature|sig|magic_?link|invite_?link|reset_?link|access_?key|client_?secret|auth_?token|access_?token|refresh_?token)$/;
+export const SECRET_KEY = /((token|code|secret|key|otp|password)|(^|[._-])(signature|sig|magic_?link|invite_?link|reset_?link))$/;
 
 /** A key as words, lower case: `inviteToken` → `invite_token`. */
 export function keyWords(key: string): string {
   return key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 }
-/** A link that carries a credential in its query (`?token=`, `&sig=`, `code=`). */
-export const SECRET_URL = /^[a-z][a-z0-9+.-]*:\/\/[^\s]*[?&#](token|access_token|signature|sig|code|key|secret|otp)=/i;
+/**
+ * A link, absolute (`https://…`, `mailto:…`) or relative (`/…`, `./…`, `?…`,
+ * `#…`), with a query or fragment parameter whose name ends in token, code,
+ * secret, key, otp, password, sig or signature (`?token=`, `#access_token=`,
+ * `&inviteCode=`).
+ */
+export const SECRET_URL = /^([a-z][a-z0-9+.-]*:|\/|\.\.?\/|(?=[?#]))\S*[?&#;][^=&#;\s]*(token|code|secret|key|otp|password|signature|sig)=/i;
 
 /** `data` held something that looks like a secret: build such links at send time instead. */
 export class SecretInDataError extends Error {
