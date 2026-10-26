@@ -1,0 +1,27 @@
+packages/supabase/sql/testing/tests/genesis_testing.test.sql
+  s_2c334912fcb08f::t_3688d94c44ca22 6,121-124,130-131
+.github/ci-fixture/supabase/tests/database/000_genesis_testing.test.sql
+  s_2c334912fcb08f::t_5b1bb5f8a7ff38 321-322,348-354,456,458-459
+packages/supabase/sql/testing/genesis_testing.sql
+  s_2c334912fcb08f::t_c6ce545c60ba34 321-322,348-354,456,458-459
+.github/ci-fixture/supabase/tests/database/genesis_testing_selftest.test.sql
+  s_2c334912fcb08f::t_5b1bb5f8a7ff38 6,121-124,130-131
+.changeset/genesis-testing-nits.md
+  s_2c334912fcb08f::t_a929f768c8f5e2 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0022e9a22ae1d3450072f6d0a579cd6914085fcd",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
