@@ -624,9 +624,22 @@ What it sets:
   minimum iOS and team. The app embeds it and depends on it.
 - **EAS:** `extra.eas.build.experimental.ios.appExtensions`. The extension is
   a separate bundle id, so it needs its own provisioning profile. EAS Build
-  reads this entry and creates the App ID, its capability and the profile with
-  the app's. You don't create them by hand. A local `expo run:ios` on a device
-  needs an Apple team (`ios.appleTeamId`) that can sign both.
+  reads this entry and registers the extension's App ID with the app's, but on
+  a first build its capability sync can fail ("invalid value at
+  bundleIdCapabilities attributes") and leave the extension without a profile.
+  Before the first build with the plugin, once per app:
+  1. In the Apple developer portal (Certificates, Identifiers & Profiles →
+     Identifiers), open the `<bundle id>.NotificationService` App ID (create it
+     if EAS hasn't) and enable **Communication Notifications**. Leave it off
+     with `communication: false`.
+  2. From a checkout that has the plugin in its app config, run
+     `eas credentials --platform ios`, pick the **production** profile, then
+     **Build Credentials** → **All: Set up all the required credentials to
+     build your project**. EAS makes the extension's provisioning profile
+     (and the app's, if missing) with that capability.
+
+  After that, EAS Build reuses the profiles. A local `expo run:ios` on a
+  device needs an Apple team (`ios.appleTeamId`) that can sign both.
 
 **The payload contract.** The sender sets `mutableContent: true`, or the
 extension never runs. `richPushMessage(message, { image, senderAvatar })`
