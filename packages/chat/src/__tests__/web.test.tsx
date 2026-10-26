@@ -7,7 +7,7 @@ import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } f
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatProvider } from "../react";
-import { ChatInbox, ChatThread, VoiceNote, createMemoryChatClient, type MemoryChatClient, type MemoryConversationSeed } from "../web";
+import { ChatComposer, ChatInbox, ChatThread, VoiceNote, createMemoryChatClient, type MemoryChatClient, type MemoryConversationSeed } from "../web";
 
 afterEach(cleanup);
 // Generous waits: these run in parallel with other suites in CI.
@@ -187,6 +187,16 @@ describe("ChatThread", () => {
     const client = createMemoryChatClient({ me: ME, conversations: [group({ canPost: false, myRole: null })] });
     mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
     expect((await screen.findByTestId("genesis-chat-cannot-post")).textContent).toContain("can't post");
+  });
+
+  it("waits only while the conversation loads, and says can't post once it settles to nothing", () => {
+    const client = createMemoryChatClient({ me: ME, conversations: [] });
+    const state = { send: vi.fn(), signalTyping: vi.fn(), signalRecording: vi.fn(), role: null, canPost: false, accessLoading: false, conversation: null };
+    mount(client, <ChatComposer conversation={{ ...state, conversationLoading: true }} />);
+    expect(screen.queryByTestId("genesis-chat-cannot-post")).toBeNull();
+    cleanup();
+    mount(client, <ChatComposer conversation={{ ...state, conversationLoading: false }} />);
+    expect(screen.getByTestId("genesis-chat-cannot-post").textContent).toContain("can't post");
   });
 
   it("announces an incoming message and shows who is typing", async () => {

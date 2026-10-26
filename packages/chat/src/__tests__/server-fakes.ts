@@ -24,10 +24,13 @@ export function fakeSupabase(opts: {
   const signed: string[] = [];
   const builder = (table: string) => {
     const filters: [string, unknown][] = [];
-    const rows = () => (opts.tables?.[table] ?? []).filter((r) => filters.every(([k, v]) => r[k] === v));
+    let orderBy: string | null = null;
+    const sorted = (list: Row[]) => (orderBy ? [...list].sort((x, y) => Number(x[orderBy!]) - Number(y[orderBy!])) : list);
+    const rows = () => sorted((opts.tables?.[table] ?? []).filter((r) => filters.every(([k, v]) => r[k] === v)));
     const b = {
       select: () => b,
       eq: (k: string, v: unknown) => (filters.push([k, v]), b),
+      order: (k: string) => ((orderBy = k), b),
       limit: () => b,
       maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
       // Awaiting the builder itself lists every matching row.

@@ -10,7 +10,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ChatClient, ConversationChannel, MessagePage } from "../core/client";
 import { createOutbox, type LocalFile, type Outbox, type OutboxStore, type QueuedMessage } from "../core/outbox";
 import { currentActivity, firstUnreadId, mergeThread, throttle, upsertMessages, type ThreadItem } from "../core/thread";
-import { randomId } from "../core/media";
+import { attachmentKindFor, randomId } from "../core/media";
 import type {
   AvailabilityInput,
   ChatActivity,
@@ -462,6 +462,8 @@ export function useConversation(conversationId: string | null | undefined, opts:
     canPost: access.data?.canPost ?? false,
     /** Your role and posting rights are still loading: show the composer as waiting, not refused. */
     accessLoading: enabled && access.isLoading,
+    /** The conversation itself is still loading (it settles to `null` when you can't see it). */
+    conversationLoading: conversation.isLoading,
     /** Your role couldn't be loaded (offline): offer `refetchAccess`, don't say "can't post". */
     accessError: access.error ?? null,
     refetchAccess: access.refetch,
@@ -630,7 +632,7 @@ export function useScheduled(conversationId?: string | null, opts: { enabled?: b
       for (const f of files) {
         if (typeof f.data === "string") throw new Error("Scheduled files must be bytes (a Blob or ArrayBuffer)");
         const path = await client.upload(input.conversationId, userId, f.data, { name: f.name, contentType: f.contentType });
-        attachments.push({ ...f.meta, kind: f.meta?.kind ?? (f.contentType.startsWith("image/") ? "image" : f.contentType.startsWith("video/") ? "video" : f.contentType.startsWith("audio/") ? "voice" : "file"), path, name: f.meta?.name ?? f.name, mime: f.contentType });
+        attachments.push({ ...f.meta, kind: f.meta?.kind ?? attachmentKindFor(f.contentType), path, name: f.meta?.name ?? f.name, mime: f.contentType });
       }
       const id = await client.schedule({ ...input, clientId: input.clientId ?? randomId(), attachments });
       await refresh();

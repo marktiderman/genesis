@@ -41,8 +41,6 @@ import type {
 export const CHAT_MAX_ATTEMPTS = 8;
 const BASE_KINDS: readonly ChatEffectKind[] = ["push", "transcribe", "storage.remove", "video.remove"];
 const SIGNED_URL_SECONDS = 600;
-/** Photos sent to the moderator per message. */
-const MODERATED_IMAGES = 4;
 /** purge_expired calls per run, each removing up to `retentionBatch`. */
 const PURGE_ROUNDS = 10;
 
@@ -320,11 +318,11 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
     const { data: rows, error: attachmentsError } = (await db()
       .from("attachments")
       .select("id, kind, provider, path, mime")
-      .eq("message_id", messageId)) as Result<Pick<AttachmentRow, "id" | "kind" | "provider" | "path" | "mime">[]>;
+      .eq("message_id", messageId)
+      .order("position")) as Result<Pick<AttachmentRow, "id" | "kind" | "provider" | "path" | "mime">[]>;
     if (attachmentsError) throw errorText("attachments", attachmentsError);
-    const photos = (rows ?? [])
-      .filter((a) => a.provider === "storage" && a.path && (a.kind === "image" || (a.mime ?? "").startsWith("image/")))
-      .slice(0, MODERATED_IMAGES);
+    // Every photo (a message holds at most 20): one left out could carry what the verdict misses.
+    const photos = (rows ?? []).filter((a) => a.provider === "storage" && a.path && (a.kind === "image" || (a.mime ?? "").startsWith("image/")));
     const imageUrls: string[] = [];
     for (const photo of photos) {
       const signed = (await supabase.storage.from(CHAT_BUCKET).createSignedUrl(photo.path!, SIGNED_URL_SECONDS)) as Result<{ signedUrl: string }>;

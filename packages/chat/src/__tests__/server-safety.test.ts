@@ -132,6 +132,26 @@ describe("createLinkUnfurler", () => {
     expect(og).toMatchObject({ title: "real", description: null });
   });
 
+  // Each of these took seconds when every unclosed start rescanned to the end of the page.
+  it.each([
+    ["unclosed scripts", "<script "],
+    ["unclosed comments", "<!--"],
+    ["unclosed metas", "<meta "],
+    ["unclosed titles", "<title>"],
+    ["an attribute's open quotes", "<meta x='"],
+    ["a long attribute name", "a"],
+    ["unclosed tags in a title", "<title>" + "<".repeat(1000)],
+  ])("parses a 512 KiB page of %s in linear time", (_, unit) => {
+    const page = unit.repeat(Math.ceil((512 * 1024) / unit.length));
+    const started = performance.now();
+    parseOpenGraph(unit === "a" ? `<meta ${page}>` : page, "https://x.example/");
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
+  it("still reads a title and an unclosed script runs to the end", () => {
+    expect(parseOpenGraph(`<title>Hi</title><script>var x = 1;<meta property="og:title" content="no">`, "https://x.example/").title).toBe("Hi");
+  });
+
   it.each([
     ["http://coach.example/", "blocked"],
     ["https://127.0.0.1/", "blocked"],
