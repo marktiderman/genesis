@@ -1,5 +1,32 @@
 # @marktiderman/genesis-sites
 
+## 0.3.0
+
+### Minor Changes
+
+- 1bc3e37: Add the visual editor, `@marktiderman/genesis-sites/editor`: `<SiteEditor siteId store brand forms? assets? onPublish? />`.
+
+  - The Puck config is generated from the section registry: fields from each section's JSON Schema (text, textarea, rich text, links, the image picker, selects for variants and enums, lists, slots), one Add-picker entry per preset grouped by category, and each section's `limit` enforced in the picker.
+  - The canvas is an iframe drawn by the sections' own renderers with the site stylesheet and the brand's theme; Preview runs the real `/web` request handler in a sandboxed frame.
+  - Pages panel: open, add (blank, the landing page from the brand, the starter site's pages), change an address (a 301 is written; reserved paths are refused), delete, and the header menu. Reordering uses the store's optional `reorderPages`.
+  - Autosave by compare-and-swap (`Autosaver`): edits made during a save or a conflict are kept; a conflict offers loading the other version or keeping yours. Undo and redo come from Puck's history.
+  - Publish panel: the publish checks (errors block), preview, publish with a note, release history and rollback, and per-page SEO (title, description, share image, noindex).
+  - Image picker over the store's `putAsset` (or the host's upload), with alt text required unless the image is decorative.
+  - Styled with Genesis UI through Puck's overrides. Puck (`@puckeditor/core` ^0.23) is an optional peer dependency: install it where the editor runs. Apps import everything from `/editor`; the root, `/web` and `/sections` never load it.
+
+### Patch Changes
+
+- 7765add: The site editor no longer saves over another editor's work after a publish: a change made while publishing is saved on the new revision only when the store still holds what the publish left; otherwise it meets the conflict dialog. While a publish runs (or in view-only mode) the Add, Up, Down and Remove buttons and the menu editor are off too. A slot inside an object or a list item is reported as "can't be edited here" instead of being treated as a top-level slot.
+- e4f1d0a: Editor fixes from review:
+
+  - `@puckeditor/core` is an optional peer dependency instead of a dependency: install it where `/editor` runs. The root, `/web`, `/sections`, `/supabase` and `/blocks` never import it.
+  - A publish no longer re-saves every draft: `migrateNode` reports a change only when a node's version or variant moves or a migration step changes its props, compared by content (`stableHash`), not by key order or zod's defaults. `migratePage` and `migrateSite` always return the parsed nodes. The editor saves the parsed page, `Autosaver`'s default `equals` is `stableHash`, and placeholder detection ignores key order and empty values.
+  - While a publish runs, the canvas is read-only and autosave is paused (`Autosaver.pause()` and `resume()`); afterwards the editor adopts the new revisions and saves what waited.
+  - Unmounting with unsaved changes saves them, best effort. `onDirtyChange(dirty)` tells the host when there are unsaved changes, so it can ask before a route change.
+  - `readOnly`: view only, with no Add picker, page actions, Publish or Roll back, no autosave, and a "View only" note.
+  - "Load their version" keeps the header's and footer's sample sections marked as samples.
+  - The canvas's fallback theme uses the design system's default brand, and library images get the same address check as links.
+
 ## 0.2.0
 
 ### Minor Changes

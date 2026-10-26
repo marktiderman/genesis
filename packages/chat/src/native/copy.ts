@@ -3,7 +3,10 @@
  * Every word the native chat screens say, in one catalog an app can override
  * (translate, rename "Message" to "Note"). `{name}` and `{count}` are filled in.
  */
-export interface ChatNativeCopy {
+import { chatOrganiseCopy, type ChatOrganiseCopy } from "./organise-copy";
+
+/** Topics, scheduled send, availability, broadcast, search and moderation are in `ChatOrganiseCopy`. */
+export interface ChatNativeCopy extends ChatOrganiseCopy {
   inboxTitle: string;
   inboxEmptyTitle: string;
   inboxEmptyBody: string;
@@ -33,6 +36,8 @@ export interface ChatNativeCopy {
   replyingTo: string;
   cancelReply: string;
   cantPost: string;
+  /** Your role in a conversation couldn't be read (offline): with Retry. */
+  accessError: string;
   cantPostAdmins: string;
   cantPostClosed: string;
   recordVoice: string;
@@ -101,6 +106,12 @@ export interface ChatNativeCopy {
   attachmentCard: string;
   openImage: string;
   closeViewer: string;
+  photoOf: string;
+  sharePhoto: string;
+  savePhoto: string;
+  photoSaved: string;
+  photosDenied: string;
+  viewerHint: string;
   sending: string;
   notSent: string;
   retry: string;
@@ -110,6 +121,22 @@ export interface ChatNativeCopy {
   deleted: string;
   edited: string;
   react: string;
+  /** The long-press sheet's "+": every emoji. */
+  moreReactions: string;
+  addEmoji: string;
+  emojiPicker: string;
+  searchEmoji: string;
+  noEmoji: string;
+  recentEmoji: string;
+  emojiSmileys: string;
+  emojiPeople: string;
+  emojiNature: string;
+  emojiFood: string;
+  emojiTravel: string;
+  emojiActivities: string;
+  emojiObjects: string;
+  emojiSymbols: string;
+  emojiFlags: string;
   reply: string;
   copy: string;
   copied: string;
@@ -125,6 +152,7 @@ export interface ChatNativeCopy {
 }
 
 export const chatNativeCopy: ChatNativeCopy = {
+  ...chatOrganiseCopy,
   inboxTitle: "Messages",
   inboxEmptyTitle: "No conversations yet",
   inboxEmptyBody: "When someone messages you, or you start a conversation, it shows up here.",
@@ -154,6 +182,7 @@ export const chatNativeCopy: ChatNativeCopy = {
   replyingTo: "Replying to {name}",
   cancelReply: "Cancel reply",
   cantPost: "You can't post in this conversation.",
+  accessError: "This conversation couldn't be loaded. Check your connection and try again.",
   cantPostAdmins: "Only admins can post here.",
   cantPostClosed: "This conversation is closed.",
   recordVoice: "Record a voice message",
@@ -212,6 +241,12 @@ export const chatNativeCopy: ChatNativeCopy = {
   attachmentCard: "{title}, {subtitle}",
   openImage: "Open photo",
   closeViewer: "Close",
+  photoOf: "Photo {n} of {count}",
+  sharePhoto: "Share photo",
+  savePhoto: "Save to Photos",
+  photoSaved: "Saved to Photos",
+  photosDenied: "Allow this app to add to Photos in Settings to save.",
+  viewerHint: "Swipe up or down for the next or previous photo.",
   sending: "Sending",
   notSent: "Not sent",
   retry: "Retry",
@@ -220,6 +255,21 @@ export const chatNativeCopy: ChatNativeCopy = {
   deleted: "Message deleted",
   edited: "edited",
   react: "React with {emoji}",
+  moreReactions: "More reactions",
+  addEmoji: "Add emoji",
+  emojiPicker: "Emoji",
+  searchEmoji: "Search emoji",
+  noEmoji: "No emoji found",
+  recentEmoji: "Recent",
+  emojiSmileys: "Smileys and emotion",
+  emojiPeople: "People and body",
+  emojiNature: "Animals and nature",
+  emojiFood: "Food and drink",
+  emojiTravel: "Travel and places",
+  emojiActivities: "Activities",
+  emojiObjects: "Objects",
+  emojiSymbols: "Symbols",
+  emojiFlags: "Flags",
   reply: "Reply",
   copy: "Copy",
   copied: "Copied",

@@ -17,6 +17,8 @@ export default defineConfig({
     globals: false,
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     setupFiles: [path.join(uiNative, "test-utils/setup.ts")],
+    // Whole chat threads render here (about 1.3 s locally); CI runners have taken over 5 s, vitest's default.
+    testTimeout: 30_000,
   },
   resolve: {
     alias: {

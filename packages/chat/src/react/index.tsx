@@ -509,6 +509,8 @@ export function useConversation(conversationId: string | null | undefined, opts:
     canPost: access.data?.canPost ?? false,
     /** Your role and posting rights are still loading: show the composer as waiting, not refused. */
     accessLoading: enabled && access.isLoading,
+    /** The conversation itself is still loading (it settles to `null` when you can't see it). */
+    conversationLoading: conversation.isLoading,
     /** Your role couldn't be loaded (offline): offer `refetchAccess`, don't say "can't post". */
     accessError: access.error ?? null,
     refetchAccess: access.refetch,

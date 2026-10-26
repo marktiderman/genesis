@@ -10,6 +10,9 @@
  *   import * as Clipboard from "expo-clipboard";            // copy, paste a picture
  *   import { KeyboardAvoidingView } from "react-native-keyboard-controller";
  *   import AsyncStorage from "@react-native-async-storage/async-storage"; // drafts
+ *   import * as Sharing from "expo-sharing";                // share a photo
+ *   import * as MediaLibrary from "expo-media-library";     // save a photo
+ *   import NetInfo from "@react-native-community/netinfo";  // retry when back online
  *   import * as Camera from "expo-camera";                  // video messages
  *   import * as Video from "expo-video";                    // video playback
  *   import * as WebBrowser from "expo-web-browser";         // link previews
@@ -127,6 +130,23 @@ export interface DraftStorageLike {
   multiRemove?(keys: readonly string[]): Promise<void>;
 }
 
+/** `import * as Sharing from "expo-sharing"`: the system share sheet for a file on the phone. */
+export interface SharingLike {
+  isAvailableAsync(): Promise<boolean>;
+  shareAsync(url: string, options?: { mimeType?: string; UTI?: string; dialogTitle?: string }): Promise<void>;
+}
+
+/** `import * as MediaLibrary from "expo-media-library"`: save to Photos (asks for add-only access). */
+export interface MediaLibraryLike {
+  requestPermissionsAsync(writeOnly?: boolean): Promise<{ granted: boolean }>;
+  saveToLibraryAsync(localUri: string): Promise<void>;
+}
+
+/** `NetInfo` from @react-native-community/netinfo: tells chat when the connection comes back. */
+export interface NetInfoLike {
+  addEventListener(listener: (state: { isConnected: boolean | null; isInternetReachable?: boolean | null }) => void): () => void;
+}
+
 /** A permission answer from expo-camera (`PermissionResponse`). */
 export interface PermissionLike {
   granted: boolean;
@@ -210,6 +230,17 @@ export interface ChatNativeModules {
   clipboard?: ClipboardLike;
   keyboardAvoidingView?: KeyboardAvoidingLike;
   drafts?: DraftStorageLike;
+  /** Share in the photo viewer (with `downloadFile` for photos not on the phone). */
+  sharing?: SharingLike;
+  /** Save in the photo viewer (with `downloadFile`). */
+  mediaLibrary?: MediaLibraryLike;
+  /**
+   * Copies a photo from its signed link to the phone and returns the file:// URI, for sharing
+   * and saving (expo-file-system: `(await File.downloadFileAsync(url, Paths.cache, { idempotent: true })).uri`).
+   */
+  downloadFile?: (url: string) => Promise<string>;
+  /** Unsent messages are retried when the connection comes back (`ChatAutoRetry`). */
+  netInfo?: NetInfoLike;
   /** Video messages recorded in the thread. Without it there is no video button. */
   camera?: ExpoCameraLike;
   /** Video playback (HLS and files) in the bubble. Without it a video shows as a row with its name. */

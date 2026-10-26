@@ -78,6 +78,8 @@ const en = {
     deletedTitle: "Account deleted",
     deletedBody: "Your account and its data have been deleted.",
     notifications: "Notifications",
+    availability: "Availability",
+    availabilitySubtitle: "Away message and working hours",
   },
   push: {
     settingsTitle: "Notifications",
@@ -112,6 +114,10 @@ const en = {
   },
   messages: {
     threadTitle: "Conversation",
+    searchTitle: "Search",
+    search: "Search messages",
+    searchThread: "Search this conversation",
+    broadcast: "Broadcast a message",
     // A check-in sent in a conversation (an attachment of kind `check_in`), drawn as a card.
     checkInCard: "Check-in",
     checkInAnswer: "Answer",

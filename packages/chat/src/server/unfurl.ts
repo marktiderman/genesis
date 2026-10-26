@@ -264,31 +264,74 @@ export function decodeEntities(text: string): string {
 function clean(value: string | undefined, cap: number): string | null {
   if (!value) return null;
   // eslint-disable-next-line no-control-regex
-  const text = decodeEntities(value.replace(/<[^>]*>/g, " ")).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  const text = decodeEntities(value.replace(/<[^<>]*>/g, " ")).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
   if (!text) return null;
   return text.length > cap ? `${text.slice(0, cap - 1).trimEnd()}…` : text;
 }
 
 function attributes(tag: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const m of tag.matchAll(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g)) {
+  // A bounded name and a quote that may stay open keep this linear on a hostile tag.
+  for (const m of tag.matchAll(/([a-zA-Z_:][-a-zA-Z0-9_:.]{0,63})\s*=\s*(?:"([^"]*)"?|'([^']*)'?|([^\s"'=<>`]+))/g)) {
     const name = m[1]!.toLowerCase();
     if (!(name in out)) out[name] = m[2] ?? m[3] ?? m[4] ?? "";
   }
   return out;
 }
 
-/** Open Graph data from a page's HTML (exported for tests). `base` resolves a relative og:image. */
+/**
+ * `text` without each span from `open` to `close` (global regexes); an unclosed span runs to the
+ * end, as in a browser. One forward pass: a page full of unclosed `<script`s costs linear time,
+ * not a rescan to the end from each one.
+ */
+function stripSpans(text: string, open: RegExp, close: RegExp): string {
+  let out = "";
+  let from = 0;
+  for (;;) {
+    open.lastIndex = from;
+    const o = open.exec(text);
+    if (!o) return out + text.slice(from);
+    out += text.slice(from, o.index);
+    close.lastIndex = o.index + o[0].length;
+    const c = close.exec(text);
+    if (!c) return out;
+    from = c.index + c[0].length;
+  }
+}
+
+/** The text from each match of `open` (global) to the next `>`, in one forward pass. */
+function* tags(text: string, open: RegExp): Generator<string> {
+  open.lastIndex = 0;
+  for (let o = open.exec(text); o; o = open.exec(text)) {
+    const end = text.indexOf(">", o.index);
+    if (end < 0) return;
+    yield text.slice(o.index, end + 1);
+    open.lastIndex = end + 1;
+  }
+}
+
+/**
+ * Open Graph data from a page's HTML (exported for tests). `base` resolves a relative og:image.
+ * The page is hostile input and this runs synchronously, so every scan is linear in its length.
+ */
 export function parseOpenGraph(html: string, base: string): Omit<LinkPreview, "url" | "status"> {
   const headEnd = html.search(/<\/head\s*>/i);
-  const head = (headEnd >= 0 ? html.slice(0, headEnd) : html).replace(/<!--[\s\S]*?-->/g, "").replace(/<script\b[\s\S]*?<\/script\s*>/gi, "");
+  const head = stripSpans(stripSpans(headEnd >= 0 ? html.slice(0, headEnd) : html, /<!--/g, /-->/g), /<script\b/gi, /<\/script\s*>/gi);
   const meta: Record<string, string> = {};
-  for (const m of head.matchAll(/<meta\b[^>]*>/gi)) {
-    const a = attributes(m[0]);
+  for (const tag of tags(head, /<meta\b/gi)) {
+    const a = attributes(tag);
     const key = (a.property ?? a.name ?? "").toLowerCase();
     if (key && a.content !== undefined && !(key in meta)) meta[key] = a.content;
   }
-  const titleTag = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(head)?.[1];
+  let titleTag: string | undefined;
+  const titleOpen = /<title\b/i.exec(head);
+  const titleStart = titleOpen ? head.indexOf(">", titleOpen.index) + 1 : 0;
+  if (titleStart > 0) {
+    const close = /<\/title\s*>/gi;
+    close.lastIndex = titleStart;
+    const c = close.exec(head);
+    if (c) titleTag = head.slice(titleStart, c.index);
+  }
   let imageUrl: string | null = null;
   const rawImage = meta["og:image:secure_url"] ?? meta["og:image"] ?? meta["og:image:url"] ?? meta["twitter:image"];
   if (rawImage) {

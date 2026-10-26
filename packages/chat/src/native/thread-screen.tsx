@@ -7,8 +7,8 @@
  * place while earlier ones load at the top; day separators, the "New messages" line,
  * grouped bubbles with names and avatars in groups, who is typing or
  * recording, retry and delete on a send that failed, the long-press sheet and
- * swipe to reply, pictures in a full-screen viewer, and the composer above
- * the keyboard. Render it as the screen's only content, under the
+ * swipe to reply, a message's photos in the full-screen viewer, and the composer above
+ * the keyboard (or, when your role couldn't be read, Retry). Render it as the screen's only content, under the
  * navigator's header with `useChatThreadStackOptions` (an opaque bar).
  *
  * Not inverted: FlashList 2 keeps the first visible row in place when rows
@@ -16,34 +16,46 @@
  * it declares `autoscrollToTopThreshold` but never reads it), so in an inverted list a new message
  * at index 0 was pushed under the composer. Inverted, VoiceOver also read
  * each day's heading after its messages.
+ *
+ * Organising: a topic bar when the conversation has topics (the list shows the topic chosen; a
+ * closed one takes no posts from members), the away line under the header, scheduled send
+ * (touch and hold Send) with the thread's scheduled messages over the composer, `jumpTo` a
+ * message (a search result), and moderation's markers.
  */
-import { useCallback, useMemo, useRef, useState, type ComponentType } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { AccessibilityInfo, FlatList, KeyboardAvoidingView, Platform, Pressable, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeEmptyState, NativeSkeleton, NativeText, useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { activityLine, previewText } from "../core/thread";
 import type { ChatMessage, PendingFile } from "../core/types";
-import { useChat, useConversation, useFileUrls, useLinkPreviews, useMessageActions, usePeople, usePins } from "../react/index";
+import { useChat, useConversation, useFileUrls, useLinkPreviews, useMessageActions, usePeople, usePins, useTopics } from "../react/index";
 import { recordingLimitMs } from "../core/media";
 import type { OpenAttachment } from "./attachment-cards";
 import { linkPreviewIds, previewToShow } from "./link-preview";
 import { ChatVideoRecorder } from "./video-recorder";
 import { VideoUploadTray } from "./video-upload-tray";
 import { videoUploads, type MintedUpload, type RecordedVideo } from "./video-upload";
-
-/** How long an upload minted for a thrown-away take is kept for the next one. */
-const PREPARED_UPLOAD_MS = 20 * 60_000;
+import { ChatAwayLine, useAwayLine } from "./availability";
+import { fill } from "./copy";
+import { ChatScheduledBar, ChatScheduleSheet, useScheduleSend } from "./schedule-sheet";
+import { canManageTopics, ChatTopicBar, topicClosedFor } from "./topics";
+import { rowIndexOf, useJumpToMessage, type JumpTarget } from "./use-jump";
 import type { MessageActionId } from "./actions";
 import { ChatComposer } from "./composer";
 import { composerDisabledReason, filesFromAssets, replyTargetFor } from "./composer-state";
 import { ChatPeopleScope, useChatNative } from "./context";
 import { useChatComposer } from "./use-composer";
-import { attachmentPaths, ChatMediaViewer } from "./media";
+import { ChatAccessError } from "./access-error";
+import { attachmentPaths } from "./media";
+import { ChatPhotoViewer, galleryFor, type ChatPhoto } from "./photo-viewer";
 import { MessageActionsSheet } from "./message-actions-sheet";
 import { displayBody, MessageBubble } from "./message-bubble";
 import { haptic } from "./modules";
 import { buildThreadRows, type ThreadRow } from "./rows";
+
+/** How long an upload minted for a thrown-away take is kept for the next one. */
+const PREPARED_UPLOAD_MS = 20 * 60_000;
 
 export interface ChatThreadScreenProps {
   conversationId: string;
@@ -55,6 +67,16 @@ export interface ChatThreadScreenProps {
    * the header's bottom).
    */
   keyboardVerticalOffset?: number;
+  /** Open at this message (a search result's `messageId` and `seq`): earlier pages load until it is held. */
+  jumpTo?: JumpTarget | null;
+  /** Only this topic's messages, with no topic bar. */
+  topic?: string;
+  /** Show the topic bar before the first topic exists, so an owner or admin can add one. */
+  showTopics?: boolean;
+  /** Scheduled send (touch and hold Send) and the scheduled list. Default true. */
+  scheduling?: boolean;
+  /** The away line under the header. Default true. */
+  availability?: boolean;
   /** An app attachment card's button (a form, a check-in), when its kind gives no `onPress`. */
   onOpenAttachment?: OpenAttachment;
   testID?: string;
@@ -80,6 +102,8 @@ interface ChatListProps {
   scrollEventThrottle?: number;
   onContentSizeChange?: (width: number, height: number) => void;
   onLayout?: (e: LayoutChangeEvent) => void;
+  extraData?: unknown;
+  onScrollToIndexFailed?: (info: { index: number; averageItemLength: number }) => void;
   testID?: string;
 }
 
@@ -108,12 +132,28 @@ export function nearBottom(m: { contentOffset: { y: number }; contentSize: { hei
   return m.contentOffset.y + m.layoutMeasurement.height >= m.contentSize.height - slack;
 }
 
-export function ChatThreadScreen({ conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, testID = "chat-thread" }: ChatThreadScreenProps) {
+export function ChatThreadScreen(props: ChatThreadScreenProps) {
+  const { conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, testID = "chat-thread" } = props;
   const chat = useChat();
   const { userId, videoUpload, attachmentKinds, outbox } = chat;
   // Off unless the app turns it on: an og:image fetched from the phone tells its site who reads it.
   const linkPreviewImages = (chat as { linkPreviewImages?: boolean }).linkPreviewImages === true;
-  const conv = useConversation(conversationId, { threadRootId: threadRootId ?? undefined });
+  const topicsState = useTopics(threadRootId ? null : conversationId);
+  const [chosenTopic, setChosenTopic] = useState<string | null>(null);
+  // Another conversation in this screen starts in All.
+  const [topicFor, setTopicFor] = useState(conversationId);
+  if (topicFor !== conversationId) {
+    setTopicFor(conversationId);
+    setChosenTopic(null);
+  }
+  // A message to go to is looked for in All, not in the topic shown.
+  const [jumpedFor, setJumpedFor] = useState(jumpTo);
+  if (jumpTo !== jumpedFor) {
+    setJumpedFor(jumpTo);
+    if (jumpTo) setChosenTopic(null);
+  }
+  const topic = topicProp ?? chosenTopic ?? undefined;
+  const conv = useConversation(conversationId, { threadRootId: threadRootId ?? undefined, topic });
   const pins = usePins(conversationId);
   const messageActions = useMessageActions();
   const { modules, copy, person } = useChatNative();
@@ -123,7 +163,11 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const genesis = useGenesisModules();
   const List = (genesis.list ?? FlatList) as unknown as ComponentType<ChatListProps>;
   const mode = threadListMode(Boolean(genesis.list), reducedMotion);
-  const listRef = useRef<{ scrollToEnd?: (o?: { animated?: boolean }) => void } | null>(null);
+  const listRef = useRef<{
+    scrollToEnd?: (o?: { animated?: boolean }) => void;
+    scrollToIndex?: (o: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToOffset?: (o: { offset: number; animated?: boolean }) => void;
+  } | null>(null);
   // FlatList follows by hand: at the bottom (or not yet scrolled), new rows and a shorter list keep it there.
   const atBottom = useRef(true);
   // FlatList opens at the top and is moved to the bottom a frame later: until it has been, the top
@@ -144,7 +188,8 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const composer = useChatComposer(conversationId, threadRootId, userId);
   const { setReply } = composer;
   const [actionsFor, setActionsFor] = useState<ChatMessage | null>(null);
-  const [viewer, setViewer] = useState<{ uri: string; alt: string } | null>(null);
+  const [viewer, setViewer] = useState<{ photos: ChatPhoto[]; index: number } | null>(null);
+  const [retryingAccess, setRetryingAccess] = useState(false);
   // Where this screen starts on the window: the keyboard offset when the app gives none.
   const rootRef = useRef<{ measureInWindow?: (callback: (x: number, y: number) => void) => void } | null>(null);
   const [measuredTop, setMeasuredTop] = useState(0);
@@ -228,7 +273,16 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const onSwipeReply = useCallback(() => haptic(modules.haptics, "select"), [modules.haptics]);
   const onRetry = useCallback((clientId: string) => void retry(clientId), [retry]);
   const onDiscard = useCallback((clientId: string) => void discard(clientId), [discard]);
-  const onOpenImage = useCallback((uri: string, alt: string) => setViewer({ uri, alt }), []);
+  // Read when a photo is tapped, so the handler stays stable for MessageBubble's memo.
+  const forGallery = useRef({ messages: conv.messages, urls });
+  forGallery.current = { messages: conv.messages, urls };
+  const onOpenImage = useCallback(
+    (uri: string, alt: string) => {
+      const { messages, urls: signed } = forGallery.current;
+      setViewer(galleryFor(messages, signed, uri, alt, (a) => (a.name ? `${copy.photo}, ${a.name}` : copy.photo)));
+    },
+    [copy.photo],
+  );
   // Files that didn't survive a relaunch: photos and videos can be picked again; anything else can only be deleted.
   const { reattach } = conv;
   const picker = modules.imagePicker;
@@ -236,7 +290,9 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
     async (clientId: string, files: readonly PendingFile[]) => {
       if (!picker) return;
       try {
-        const result = await picker.launchImageLibraryAsync({ mediaTypes: ["images", "videos"], allowsMultipleSelection: files.length > 1, selectionLimit: files.length, quality: 0.8 });
+        // Only the slots that were lost: reattach fills those and keeps the rest.
+        const lostCount = Math.max(1, files.filter((f) => f.lost).length);
+        const result = await picker.launchImageLibraryAsync({ mediaTypes: ["images", "videos"], allowsMultipleSelection: lostCount > 1, selectionLimit: lostCount, quality: 0.8 });
         if (!result || result.canceled || !result.assets?.length) return;
         const { attachments, notice } = filesFromAssets(result.assets, copy);
         if (notice) toast.show({ title: notice, variant: "destructive" });
@@ -247,6 +303,42 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
     },
     [picker, copy, toast, reattach, fail],
   );
+  const observer = conv.role === "observer";
+  const { loadUntil } = conv;
+  // The message being gone to, for FlatList's retry once it has measured that far (by id: rows may have moved).
+  const jumpingTo = useRef<{ id: string; tries: number } | null>(null);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+  }, []);
+  const rowsNow = useRef(rows);
+  rowsNow.current = rows;
+  const { highlightedId, jumping } = useJumpToMessage({
+    target: jumpTo,
+    rows,
+    loading: conv.isLoading,
+    has: useCallback((id: string) => byId.has(id), [byId]),
+    loadUntil,
+    scrollTo: (index, id) => {
+      jumpingTo.current = { id, tries: 0 };
+      requestAnimationFrame(() => listRef.current?.scrollToIndex?.({ index, animated: !reducedMotion, viewPosition: 0.5 }));
+    },
+    onStart: () => {
+      atBottom.current = false;
+      placed.current = true;
+    },
+    onLanded: (id) => {
+      const m = byId.get(id);
+      if (m) AccessibilityInfo.announceForAccessibility?.(fill(copy.jumpedTo, { name: nameOf(m.senderId), text: previewText(displayBody(m.body), m.attachments[0]?.kind, Boolean(m.deletedAt)) }));
+    },
+    onGone: () => {
+      toast.show({ title: copy.messageGone });
+      // Back to where the thread opens: the newest messages.
+      atBottom.current = true;
+      toBottom(false);
+    },
+    onError: fail,
+  });
   const reattachable = useCallback((files: readonly PendingFile[]) => files.every((f) => !f.lost || f.kind === "image" || f.kind === "video"), []);
 
   const renderItem = useCallback(
@@ -271,6 +363,8 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
           onReattach={picker && row.item.type === "pending" && reattachable(row.item.pending.files ?? []) ? onReattach : undefined}
           onToggleReaction={allowed ? react : undefined}
           onOpenImage={onOpenImage}
+          observer={observer}
+          highlighted={Boolean(m && m.id === highlightedId)}
           linkPreview={m ? previewToShow(previews[m.id]) : null}
           linkPreviewImages={linkPreviewImages}
           attachmentKinds={attachmentKinds}
@@ -279,7 +373,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
         />
       );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment],
+    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, observer, highlightedId],
   );
 
   // ---- Video messages ----
@@ -315,12 +409,24 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
-  // Unknown while access loads: the composer waits quietly instead of saying you can't post.
-  // TODO(chat accessError): when useConversation exposes `accessError` and `refetchAccess` (the chat
-  // owner's PR), show the error here with a Retry that calls `refetchAccess`, instead of waiting
-  // quietly forever on an access read that failed.
-  const canPost = conv.accessLoading ? null : conv.canPost;
-  const disabledReason = composerDisabledReason(canPost, conv.conversation, conv.role, copy);
+  // Unknown while access loads: the composer waits quietly instead of saying you can't post. A
+  // read that failed (and no role known from before) offers Retry in the composer's place.
+  const topics = topicsState.topics;
+  const currentTopic = topic ? (topics.find((t) => t.topic === topic) ?? null) : null;
+  const topicClosed = topicClosedFor(currentTopic, conv.role);
+  const showTopicBar = !threadRootId && topicProp === undefined && (topics.length > 0 || (showTopics && canManageTopics(conv.role)));
+  const canPost = topicClosed ? false : conv.accessLoading ? null : conv.canPost;
+  const disabledReason = topicClosed ? copy.topicClosedNotice : composerDisabledReason(canPost, conv.conversation, conv.role, copy);
+  const awayLine = useAwayLine(availability ? conversationId : null, conv.members, userId, nameOf);
+  // Scheduled send: not in a reply thread (a scheduled message has no thread).
+  const canSchedule = scheduling && !threadRootId && canPost === true;
+  const schedule = useScheduleSend({ conversationId, topic: topic ?? null, composer, enabled: scheduling && !threadRootId });
+  const accessFailed = Boolean(conv.accessError) && conv.role === null && !conv.accessLoading;
+  const { refetchAccess } = conv;
+  const retryAccess = useCallback(() => {
+    setRetryingAccess(true);
+    void Promise.resolve(refetchAccess()).finally(() => setRetryingAccess(false));
+  }, [refetchAccess]);
   const KeyboardAvoiding = (modules.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
   const offset = keyboardVerticalOffset ?? measuredTop;
   const keyboardProps = modules.keyboardAvoidingView
@@ -332,6 +438,10 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
     <ChatPeopleScope userIds={peopleIds}>
       <SafeAreaView ref={rootRef as never} onLayout={measureTop} testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
         <KeyboardAvoiding style={{ flex: 1 }} {...keyboardProps}>
+          {showTopicBar ? (
+            <ChatTopicBar topics={topics} value={topic ?? null} onValueChange={setChosenTopic} canManage={canManageTopics(conv.role)} onSetTopic={topicsState.setTopic} testID={`${testID}-topics`} />
+          ) : null}
+          <ChatAwayLine text={awayLine} testID={`${testID}-away`} />
           <View style={{ flex: 1 }}>
             {conv.isLoading ? (
               <LoadingThread testID={`${testID}-loading`} />
@@ -348,13 +458,27 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
                 keyExtractor={(row) => row.key}
                 getItemType={(row) => (row.type === "message" ? (row.mine ? "mine" : "theirs") : row.type)}
                 onStartReached={() => {
-                  if (placed.current && conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
+                  // Not while going to a message: its pages are loading, and new rows would move it.
+                  if (placed.current && !jumping && conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
                 }}
                 onStartReachedThreshold={0.5}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="interactive"
                 contentContainerStyle={{ paddingVertical: 8 }}
                 maintainVisibleContentPosition={mode.maintainVisibleContentPosition}
+                extraData={highlightedId}
+                onScrollToIndexFailed={({ index, averageItemLength }) => {
+                  // FlatList hasn't measured that far up yet: get near it, then try again (three times at most).
+                  listRef.current?.scrollToOffset?.({ offset: Math.max(0, index * averageItemLength - 200), animated: false });
+                  const target = jumpingTo.current;
+                  if (!target || target.tries >= 3) return;
+                  target.tries += 1;
+                  if (retryTimer.current) clearTimeout(retryTimer.current);
+                  retryTimer.current = setTimeout(() => {
+                    const at = rowIndexOf(rowsNow.current, target.id);
+                    if (at >= 0) listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
+                  }, 250);
+                }}
                 {...(mode.followsByHand
                   ? {
                       scrollEventThrottle: 32,
@@ -378,9 +502,16 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
               />
             )}
           </View>
+          {scheduling && !threadRootId ? <ChatScheduledBar conversationId={conversationId} testID={`${testID}-scheduled`} /> : null}
           <VideoUploadTray conversationId={conversationId} userId={userId} testID={`${testID}-video-uploads`} />
+          {accessFailed ? (
+            <ChatAccessError onRetry={retryAccess} retrying={retryingAccess} testID={`${testID}-access-error`} />
+          ) : (
           <ChatComposer
             composer={composer}
+            userId={userId}
+            placeholder={currentTopic ? fill(copy.topicPlaceholder, { name: currentTopic.title }) : undefined}
+            onSchedule={canSchedule ? schedule.request : undefined}
             canPost={canPost}
             disabledReason={disabledReason}
             role={conv.role}
@@ -395,6 +526,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
             onRecordVideo={modules.camera ? () => setVideoOpen(true) : undefined}
             testID={`${testID}-composer`}
           />
+          )}
         </KeyboardAvoiding>
         <MessageActionsSheet
           message={actionsFor}
@@ -404,7 +536,8 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
           onAction={onAction}
           testID={`${testID}-actions`}
         />
-        <ChatMediaViewer image={viewer} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />
+        <ChatPhotoViewer photos={viewer?.photos ?? null} initialIndex={viewer?.index} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />
+        {canSchedule ? <ChatScheduleSheet open={schedule.open} onOpenChange={schedule.setOpen} onSchedule={(at) => void schedule.scheduleAt(at)} testID={`${testID}-schedule`} /> : null}
         <ChatVideoRecorder
           open={videoOpen}
           onClose={() => setVideoOpen(false)}

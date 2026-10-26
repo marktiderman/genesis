@@ -4,14 +4,15 @@ import { useSession } from "@marktiderman/genesis-native";
 import { NotificationsProvider } from "@marktiderman/genesis-notifications/react";
 import starter from "../../../starter.config";
 import { copy } from "@/copy";
-import { useClearChatOnSignOut } from "@/lib/chat";
+import { ChatRoot, useClearChatOnSignOut } from "@/lib/chat";
 import { notifications } from "@/lib/notifications";
 import { supabase } from "@/lib/supabase";
 
 /**
  * Signed-in screens: the platform's own tab bar. A tab whose feature is off is hidden. The
  * notifier (feed, unread count, preferences) is provided to every tab, and refetches on the
- * person's private realtime channel.
+ * person's private realtime channel. Chat (`features.chat`) is provided to every tab too, so
+ * Settings → Availability and the Messages tab share one chat (one outbox).
  */
 export default function AppLayout() {
   const { status, userId } = useSession();
@@ -37,10 +38,12 @@ export default function AppLayout() {
       </NativeTabs.Trigger>
     </NativeTabs>
   );
-  if (!starter.features.notifications) return tabs;
-  return (
+  const app = starter.features.notifications ? (
     <NotificationsProvider client={supabase} registry={notifications} userId={status === "signedIn" ? userId : null}>
       {tabs}
     </NotificationsProvider>
+  ) : (
+    tabs
   );
+  return starter.features.chat ? <ChatRoot>{app}</ChatRoot> : app;
 }
