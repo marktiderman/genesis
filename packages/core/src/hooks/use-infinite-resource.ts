@@ -13,6 +13,7 @@ import type {
   SortParam,
 } from "../provider/types";
 import { useLiveInvalidation, type LiveOptions } from "./use-live";
+import { resourceKeys } from "../query-keys";
 
 // ---------------------------------------------------------------------------
 // useInfiniteResource — a list that grows with "Load more", by cursor.
@@ -125,7 +126,7 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     readonly unknown[],
     InfinitePageParam
   >({
-    queryKey: [resource, "infinite", params],
+    queryKey: resourceKeys(resource).infinite(params),
     initialPageParam: { page: 1, cursor: null },
     queryFn: ({ pageParam }) => {
       const { perPage: size, ...rest } = params;

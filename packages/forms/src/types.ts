@@ -38,7 +38,7 @@ export interface FieldBlock {
  * options from, as `props.optionsFrom`. `source: "host"`: the app showing the
  * form supplies the list named `key` when the form opens and again when a
  * response is checked (`hostOptions` on `createForm` and `validateSubmission`),
- * such as a practice's current coaches. They follow the field's own
+ * such as an organization's current staff. They follow the field's own
  * `props.options`, if it has any.
  */
 export interface OptionsSource {

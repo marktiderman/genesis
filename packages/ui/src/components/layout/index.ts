@@ -77,3 +77,24 @@ export { Container, containerVariants, type ContainerProps } from "./container";
 export { GAP_CLASSES, spaceScale, type SpaceToken } from "./spacing";
 // Marketing bands (full-bleed sections and the display type scale).
 export { Band, BandLead, Display, bandVariants, displayVariants, leadVariants, type BandProps, type BandLeadProps, type DisplayProps } from "./band";
+
+// Public and auth pages: a whole screen with no AppShell around it.
+export {
+  AuthPage,
+  type AuthPageProps,
+  type AuthPageBrandingProps,
+  type AuthPageSlotMap,
+} from "./auth-page";
+export { PublicPage, type PublicPageProps, type PublicPageSlotMap } from "./public-page";
+export {
+  accessibleAccent,
+  brandThemeStyle,
+  contrastRatio,
+  parseColor,
+  relativeLuminance,
+  toHslTriplet,
+  MIN_TEXT_CONTRAST,
+  type AccessibleAccent,
+  type PublicBrand,
+  type Rgb,
+} from "./brand-theme";

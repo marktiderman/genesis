@@ -93,7 +93,7 @@
     {
       "id": "page-layouts",
       "name": "Page layouts",
-      "summary": "DashboardPage, DetailPage, SettingsPage, FormPage, Section, Stack, Grid and Split: the page shells apps compose. BuilderLayout lays out a builder's outline, editor and live preview, responsive by container query, with the preview kept mounted as the editor changes.",
+      "summary": "DashboardPage, DetailPage, SettingsPage, FormPage, AuthPage, PublicPage, Section, Stack, Grid and Split: the page shells apps compose. PublicPage themes itself from a brand object, darkening an accent that fails 4.5:1, and has an embedded mode for iframes. BuilderLayout lays out a builder's outline, editor and live preview, responsive by container query, with the preview kept mounted as the editor changes.",
       "tagline": "Pages that look consistent without a designer on every screen.",
       "category": "Design system",
       "status": "live",
@@ -104,6 +104,11 @@
         "settings page",
         "detail page",
         "form page",
+        "auth page",
+        "sign-in page",
+        "public page",
+        "embed",
+        "brand accent",
         "builder layout"
       ],
       "entry": {
@@ -579,6 +584,56 @@
       "links": {
         "code": [
           "packages/core/src/provider/supabase-provider.ts"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "query-keys",
+      "name": "Query keys",
+      "summary": "Cache keys built in one place: scoped to the signed-in viewer (and group and day), invalidated by domain, kind or any field, including one person inside a multi-person key. ViewerScope empties the cache when the viewer changes.",
+      "tagline": "Invalidation that never misses, and no data across people.",
+      "category": "Data",
+      "status": "beta",
+      "layer": "hook",
+      "keywords": [
+        "query key",
+        "cache",
+        "invalidate",
+        "react query",
+        "tanstack",
+        "sign out",
+        "viewer"
+      ],
+      "entry": {
+        "web": "@marktiderman/genesis-core",
+        "native": "@marktiderman/genesis-core"
+      },
+      "requires": [
+        "data-provider"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "where({ people: id }) invalidates every multi-person key that includes id, and no other.",
+        "After a sign-out or a new viewer, no screen renders the previous viewer's cached data."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/query-keys.ts",
+          "packages/core/src/hooks/viewer-scope.tsx"
+        ],
+        "docs": [
+          "packages/core/README.md"
         ]
       },
       "access": "all",

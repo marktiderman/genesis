@@ -28,6 +28,8 @@ export const BUILTIN_RULES = [
   "local-genesis-copy",
   "resource-workspace",
   "page-layout",
+  // dates
+  "iso-date-slice",
   // native pack
   "native-raw-primitive",
   "native-literal-color",
