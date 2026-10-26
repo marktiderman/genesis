@@ -1,11 +1,129 @@
-# The Genesis Framework
+# The Genesis Way
 
-What Genesis is, what belongs in it, and — just as importantly — what does not.
+Why Genesis exists, how we decide where code goes, and the layered contract that decides what
+belongs in Genesis at all. Read this before you build anything, in Genesis or in an app on it.
 
-This is the contract. `docs/component-reference.md` is the inventory; this is the rule that
-decides whether the next thing added to that inventory belongs there at all.
+- **Part 1, the Genesis way:** the purpose, the decision rule (reuse, extend, invent), what
+  counts as config and what counts as custom code, and how an invention moves up into Genesis.
+- **Part 2, the layered contract:** the layers, the rules, and what is explicitly out.
+
+`docs/component-reference.md` is the inventory. This document is the rule that decides whether
+the next thing added to that inventory belongs there at all.
 
 ---
+
+# Part 1 — The Genesis way
+
+## The purpose
+
+Genesis exists so that every app built on it writes as little custom code as possible.
+Everything an app needs again and again lives in Genesis once, and every app reuses it. An app
+configures what Genesis gives it, extends it where it needs to, and invents only what is truly
+its own.
+
+## In Mark's words
+
+The rule below comes from this, as Mark put it:
+
+> What is custom code? What's the difference between custom code and configuration?
+>
+> Anytime you are adding in with a slot, choosing a variant, or populating functions with variables
+> and configuration, that should be called config. That's how I consider that config, and I still
+> consider that no-code.
+>
+> Custom code is when we are recreating the header, or we're recreating a button, or rewriting
+> something from scratch. Anytime we're writing something out that already exists somewhere else,
+> or should exist somewhere else. That's why we have reuse, extend, invent.
+>
+> Think of it as: anytime we're doing full custom code, we're inventing something. And inventing is
+> possible. Inventing is actually needed at times. That's how all this even started. Everything
+> starts with an invention, but we just don't want to go there first.
+>
+> You want to ask, "Can we reuse first?" If so, do it. If we can't reuse what's already there, is
+> there a way to extend it? Maybe we add a variant to it, or we add a different something to go work
+> with a slot, or we create a component based on another component. If those don't work, then we
+> invent it, and we first invent in the client app.
+>
+> Again, we still want to be wise about what we're writing, how we're writing our code, and being as
+> clean as possible. At some point, we're going to say, "Oh, this actually would benefit us multiple
+> times inside of our current client app." Then we would make it a component inside the client app.
+>
+> Let's just say there's something that Growth90 needs that really doesn't need to ship to Genesis
+> yet. It's a custom component for coaching your growth. The worksheet component really is: as we
+> start dialing into that next, there's going to be some real power there that we might really
+> customize for Growth90 that never needs to go to Genesis.
+>
+> For instance, as we're building out the course builder and the lessons, as we decide, "Hey, we
+> actually want a whole learning package inside of Genesis," then it makes sense to move that
+> component all the way up to Genesis. Now we're actually inventing something inside of Genesis, but
+> from now on, all the other client apps will be able to reuse that, possibly extend it, and then
+> possibly invent.
+>
+> It's really the Genesis way, and it's what we're trying to do here: the purpose of Genesis.
+
+## The rule: reuse, then extend, then invent
+
+Ask these in order, every time, before writing code.
+
+| ID | Principle | What it means |
+|---|---|---|
+| **G1 Reuse** | Can we reuse what's already there? If so, do it. | Use the Genesis component, hook, layout or provider as it is, configured with its props. |
+| **G2 Extend** | If we can't reuse it, is there a way to extend it? | Add a variant, fill a slot, pass a function or configuration, or build a component based on another component. |
+| **G3 Invent, in the app first** | If those don't work, invent it, first inside the client app. | Inventing is allowed and sometimes needed. Everything starts with an invention; we just don't go there first. |
+| **G4 Promote when it pays** | When an invention would benefit us several times, give it a home one level up. | Used in several places in one app: make it a component inside that app. Wanted by many apps, or a capability Genesis decides to own (a learning package, say): move it into Genesis. |
+| **G5 Never recreate** | Don't write out something that already exists somewhere else, or should. | Recreating a header, a button or a page layout is the one kind of code Genesis is here to remove. If Genesis lacks something you keep needing, that's a gap to raise, not a reason to rebuild it. |
+| **G6 Be wise and clean** | Whatever we write, write it as cleanly as possible. | Config is still code people read. An invention is held to the same standard as Genesis itself. |
+
+In reviews, cite the ID ("this recreates `PageHeader`, G5") rather than re-arguing the rule.
+
+## Config or custom code
+
+| It is… | When you… | Counts as custom code? |
+|---|---|---|
+| **Config** (no-code) | choose a variant, fill a slot, set props, pass functions, variables or configuration to a Genesis component, hook or provider, describe a resource, a form or a feature | No |
+| **An extension** | build a component on Genesis primitives through their extension points (slots, variants, a wrapper that composes them) | No, as long as it doesn't recreate what it extends |
+| **An invention** | write something new that doesn't exist anywhere yet, because reuse and extension didn't fit | Yes, and that's allowed: say why in the PR |
+| **A recreation** | write out something that already exists in Genesis or another package, or should | Yes, and the target is zero |
+
+**Measuring custom code.** An app's custom code is its inventions plus its recreations, never
+its config. Track both, separately: inventions show where an app is genuinely its own (and
+which might be worth promoting); recreations show where Genesis isn't being used, or has a gap.
+`genesis doctor` already flags several kinds of recreation (raw HTML in place of Genesis
+components, exports that shadow Genesis's, hard-coded colors), and the native rule pack flags
+screens that don't use a Genesis screen layout.
+
+## Where an invention lives: the promotion ladder
+
+| Rung | Where | When it moves up |
+|---|---|---|
+| **1 · In the feature** | inside the one screen or module that needs it | It would benefit the app in several places. |
+| **2 · In the app** | an app component, built on Genesis primitives | More than one app wants it, or we decide Genesis should own the capability. |
+| **3 · Genesis, experimental** | a Genesis package, marked experimental, with no stability promise | It has an owner, tests, accessibility and docs, and an app has replaced its own copy with it. |
+| **4 · Genesis, stable** | a Genesis package, in the reference catalogue, checked by `genesis doctor` | — |
+
+Some inventions stay on rung 2 forever, and that's right: a component made for one app's own
+domain (a coaching worksheet, say) may never need to go to Genesis. Promote on purpose, not by
+default. When something moves up, the app deletes its own copy in the same change.
+
+When an invention moves into Genesis, it becomes something every other app can reuse, extend,
+and only then invent around. That's the loop, and it's the point.
+
+## How this stays true
+
+- **In code review:** the pull request template asks what you reused and why extending didn't
+  fit. Cite the principle IDs above.
+- **In tools:** `genesis features find <term>` searches what exists before you build;
+  `genesis doctor` flags recreations in apps; the repo's own lint rules guard Genesis.
+- **For agents:** `AGENTS.md` (which `CLAUDE.md` loads) points every agent here first.
+- **Changing this document:** it changes by pull request like code. Changing a principle needs
+  Mark's sign-off and a line in the pull request saying what changed and why. Part 2 records
+  its own corrections in place rather than quietly rewriting them; Part 1 does the same.
+
+---
+
+# Part 2 — The layered contract
+
+What Genesis is, what belongs in it, and — just as importantly — what does not.
 
 ## What it is, in one sentence
 
