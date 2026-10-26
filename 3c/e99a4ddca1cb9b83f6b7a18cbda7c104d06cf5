@@ -1,0 +1,93 @@
+.github/workflows/claude-code-review.yml
+  s_a1b83c03f697d3::t_91d48d2776ff2a 1-2,24-26
+features.json
+  s_a1b83c03f697d3::t_bbf9dfe2f130e6 2025-2086
+features.ts
+  s_a1b83c03f697d3::t_3bf6fac764880e 894-917
+packages/chat/CHANGELOG.md
+  s_a1b83c03f697d3::t_35206b3d550b0a 3-9
+packages/chat/package.json
+  s_a1b83c03f697d3::t_b2973b52e1d6c2 3
+packages/core/CHANGELOG.md
+  s_a1b83c03f697d3::t_bbe180668a1fa8 3-8
+packages/core/README.md
+  s_a1b83c03f697d3::t_7dea96e9eb8cf1 557-558
+packages/core/package.json
+  s_a1b83c03f697d3::t_885faaa59c75fa 3
+packages/core/src/provider/__tests__/write-helpers.test.ts
+  s_a1b83c03f697d3::t_5872384d1d7f2d 201-221
+packages/core/src/provider/write-helpers.ts
+  s_a1b83c03f697d3::t_cab3259c672f27 88-93,132-135
+packages/features/CHANGELOG.md
+  s_a1b83c03f697d3::t_01ebaba6dfd690 3-8
+packages/features/README.md
+  s_a1b83c03f697d3::t_044fdf447974c5 222-250
+packages/features/package.json
+  s_a1b83c03f697d3::t_8f6167931ff323 3
+packages/features/src/__tests__/content-packs.test.ts
+  s_a1b83c03f697d3::t_482ec515bcdd70 1-68
+packages/features/src/blocks-entry.ts
+  s_a1b83c03f697d3::t_0ecb117296cee6 9
+packages/features/src/content-packs.ts
+  s_a1b83c03f697d3::t_d2636c9f9be5a1 1-234
+packages/features/src/index.ts
+  s_a1b83c03f697d3::t_e903b38a1b18e3 88-101
+packages/forms/src/__tests__/hardening.test.ts
+  s_a1b83c03f697d3::t_69ff29a16c22da 118-125,127-135
+packages/genesis-cli/CHANGELOG.md
+  s_a1b83c03f697d3::t_317cc7c7fe7e36 3-16
+packages/genesis-cli/package.json
+  s_a1b83c03f697d3::t_ec08b648b703a3 3
+packages/genesis-cli/src/blocks/local.ts
+  s_a1b83c03f697d3::t_382a0828cc2e54 114-116
+packages/genesis-cli/src/doctor/packages.ts
+  s_a1b83c03f697d3::t_2878fb8eb4a3b5 38,206-209,245-248,252,282-293,341-343
+packages/genesis-cli/test/doctor-packages.test.ts
+  s_a1b83c03f697d3::t_09fc2ceeed7f4d 96-99,279-325
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_a1b83c03f697d3::t_a270bc49f80914 916-920,922-930,932-933
+packages/genesis/CHANGELOG.md
+  s_a1b83c03f697d3::t_9fb42e1b43a072 3-12
+packages/genesis/package.json
+  s_a1b83c03f697d3::t_f0dc02356570d7 3
+packages/native/CHANGELOG.md
+  s_a1b83c03f697d3::t_90e0739cc708a7 3-11
+packages/native/package.json
+  s_a1b83c03f697d3::t_a131129a9673ea 3
+packages/notifications/CHANGELOG.md
+  s_a1b83c03f697d3::t_8fd35fc8ca415a 3-9
+packages/notifications/package.json
+  s_a1b83c03f697d3::t_2962eba3f26373 3
+packages/product/CHANGELOG.md
+  s_a1b83c03f697d3::t_f52664be6018b3 3-9
+packages/product/package.json
+  s_a1b83c03f697d3::t_a5f9f814a4bc9d 3
+packages/sites/CHANGELOG.md
+  s_a1b83c03f697d3::t_3a8fd9705da278 3-9
+packages/sites/package.json
+  s_a1b83c03f697d3::t_92eff1c66299f1 3
+packages/supabase/CHANGELOG.md
+  s_a1b83c03f697d3::t_8f9464c39d89ab 3-9
+packages/supabase/package.json
+  s_a1b83c03f697d3::t_b27d4a1918b763 3
+packages/support/CHANGELOG.md
+  s_a1b83c03f697d3::t_f22d939a418d51 3-9
+packages/support/package.json
+  s_a1b83c03f697d3::t_0c5b397a4498c2 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ce99a4ddca1cb9b83f6b7a18cbda7c104d06cf5",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+.changeset/genesis-work-packs.md
+  s_26495fc9681b7e::t_49aec52d766971 5,10
+AGENTS.md
+  s_26495fc9681b7e::t_f0d44f8dc209c4 40
+features.json
+  s_26495fc9681b7e::t_e04fd990f0733b 4255-4256,4281
+features.ts
+  s_26495fc9681b7e::t_34a5886bde9ab1 1847-1848,1857
+packages/work/README.md
+  s_26495fc9681b7e::t_f922da23f43655 14
+packages/work/migrations/tests/0006_genesis_work_packs.test.sql
+  s_26495fc9681b7e::t_e6a540d84031e5 1
+packages/work/package.json
+  s_26495fc9681b7e::t_2d9cbb519ad342 242,244
+packages/work/src/__tests__/blocks.test.ts
+  s_26495fc9681b7e::t_d326b2b2bc713f 5,10
+packages/work/src/blocks.ts
+  s_26495fc9681b7e::t_795e7a9436a960 96-97
+packages/work/src/index.ts
+  s_26495fc9681b7e::t_0ecdc084626c2e 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e5d114a6d09c44f687545f420b4232ed3ad3e241",
+  "prompts": {},
+  "sessions": {
+    "s_26495fc9681b7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5c422c-84c1-438e-92dc-04be689d1e63",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
