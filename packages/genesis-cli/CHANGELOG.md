@@ -1,5 +1,19 @@
 # @marktiderman/genesis-cli
 
+## 1.11.1
+
+### Patch Changes
+
+- 67a06cd: `genesis doctor`, from the third #314 review:
+
+  - `duplicate-genesis-package` / `peer-range-mismatch`: devDependencies count as runtime (a bundler ships what the app imports from them) unless they are tooling: test runners, `@types/*`, linters and formatters, compilers and bundlers, Storybook, release tools, the Genesis CLI. A duplicate under a UI package listed in devDependencies warns again.
+  - The route trail's tokenizer reads regex literals and JSX text (`Rock 'n roll`, backticks, `{done}/{total}`) without losing its place, and treats a file it can't read for sure as unknown instead of guessing.
+  - Answers cut short by an import cycle are cached by the modules they skipped, so cyclic import graphs no longer run several times slower.
+
+- 2eae42f: `genesis doctor`: in an app with its own install inside another app's folder (growth90's `apps/mobile`), `duplicate-genesis-package` and `peer-range-mismatch` count only copies the app's own dependency graph resolves to. An undeclared, uninstalled peer dependency is unmet rather than met by the parent's `node_modules`, and the Genesis CLI's tree is followed only when the app declares the CLI. A regular dependency that resolves up to the parent still counts. Workspace members (no lockfile of their own) are unchanged.
+- Updated dependencies [773e809]
+  - @marktiderman/genesis-features@0.4.1
+
 ## 1.11.0
 
 ### Minor Changes
