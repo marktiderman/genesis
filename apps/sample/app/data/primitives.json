@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 111
+      "count": 124
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -8858,6 +8858,52 @@
       ]
     },
     {
+      "slug": "chip",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/chip.tsx",
+      "stability": "stable",
+      "summary": "A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges).",
+      "primaryComponent": "Chip",
+      "components": [
+        {
+          "name": "Chip",
+          "summary": "A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges).",
+          "props": [
+            {
+              "name": "tone",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "collapsible",
       "aliases": [],
       "surface": "web",
@@ -10546,6 +10592,23 @@
       ]
     },
     {
+      "slug": "days",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/days.ts",
+      "stability": "stable",
+      "summary": "A day (YYYY-MM-DD) in words, given today on the same clock: \"Today\", \"Yesterday\", \"Oct 21\", \"Oct 21, 2025\".",
+      "primaryComponent": "dayLabel",
+      "components": [
+        {
+          "name": "dayLabel",
+          "summary": "A day (YYYY-MM-DD) in words, given today on the same clock: \"Today\", \"Yesterday\", \"Oct 21\", \"Oct 21, 2025\".",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "detail-page",
       "aliases": [],
       "surface": "web",
@@ -11701,6 +11764,73 @@
       ]
     },
     {
+      "slug": "follow-up-list",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/FollowUpList.tsx",
+      "stability": "stable",
+      "summary": "Responses that need a follow-up (the host decides which; forms-studio's needsFollowUp is\none rule), each with who answered, a tag, the day and context, their comment, its low\nscore and the host's actions (Reply, Mark handled). Handled items are the host's to leave out.",
+      "primaryComponent": "FollowUpList",
+      "components": [
+        {
+          "name": "FollowUpList",
+          "summary": "Responses that need a follow-up (the host decides which; forms-studio's needsFollowUp is\none rule), each with who answered, a tag, the day and context, their comment, its low\nscore and the host's actions (Reply, Mark handled). Handled items are the host's to leave out.",
+          "props": [
+            {
+              "name": "entries",
+              "type": "readonly FollowUpEntry[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "actions",
+              "type": "((entry: FollowUpEntry) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Buttons for one entry."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "empty",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": "Nothing to follow up right now.",
+              "description": "Said when the list is empty."
+            },
+            {
+              "name": "isLoading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
+            },
+            {
+              "name": "noComment",
+              "type": "string",
+              "required": false,
+              "defaultValue": "No comment",
+              "description": "Said for an entry without a comment. Default \"No comment\"."
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Needs a follow-up",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "form-field",
       "aliases": [],
       "surface": "web",
@@ -11811,6 +11941,45 @@
               "required": false,
               "defaultValue": null,
               "description": "Stable test/automation selector (emitted as `data-testid`)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "headline-numbers",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/HeadlineNumbers.tsx",
+      "stability": "stable",
+      "summary": "A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen.",
+      "primaryComponent": "HeadlineNumbers",
+      "components": [
+        {
+          "name": "HeadlineNumbers",
+          "summary": "A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen.",
+          "props": [
+            {
+              "name": "numbers",
+              "type": "readonly HeadlineNumber[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "isLoading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
             }
           ]
         }
@@ -13077,6 +13246,52 @@
       ]
     },
     {
+      "slug": "readiness-chip",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/ReadinessChip.tsx",
+      "stability": "stable",
+      "summary": "\"Ready to publish\", or how many problems to fix: for the trailing slot of a resource\npage's row of tabs (genesis-ui's `<AppShellSubNavEnd>`). With `onClick` it is a button (open the checks).",
+      "primaryComponent": "ReadinessChip",
+      "components": [
+        {
+          "name": "ReadinessChip",
+          "summary": "\"Ready to publish\", or how many problems to fix: for the trailing slot of a resource\npage's row of tabs (genesis-ui's `<AppShellSubNavEnd>`). With `onClick` it is a button (open the checks).",
+          "props": [
+            {
+              "name": "readiness",
+              "type": "Readiness",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "ReadinessLabels",
+              "required": false,
+              "defaultValue": null,
+              "description": "The chip's words; the defaults are neutral (\"Nothing to publish yet\" when empty)."
+            },
+            {
+              "name": "onClick",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "relation-field",
       "aliases": [],
       "surface": "web",
@@ -13698,6 +13913,122 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "resource-header",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/ResourceHeader.tsx",
+      "stability": "stable",
+      "summary": "The header of a page that edits one publishable thing (a form, a course, a lesson, a\nworksheet): the breadcrumb (\"Courses › name\"), the title once, its status and save-state\nchips, and on the right undo and redo, Preview, Share and Publish. Every action is the\nhost's; a button shows only when its handler is given.",
+      "primaryComponent": "ResourceHeader",
+      "components": [
+        {
+          "name": "ResourceHeader",
+          "summary": "The header of a page that edits one publishable thing (a form, a course, a lesson, a\nworksheet): the breadcrumb (\"Courses › name\"), the title once, its status and save-state\nchips, and on the right undo and redo, Preview, Share and Publish. Every action is the\nhost's; a button shows only when its handler is given.",
+          "props": [
+            {
+              "name": "title",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The title, shown once: as the heading and the breadcrumb's last part."
+            },
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Anything else for the right-hand side, before Preview (a Reload button, a menu)."
+            },
+            {
+              "name": "canRedo",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": ""
+            },
+            {
+              "name": "canUndo",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onPreview",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A Preview button."
+            },
+            {
+              "name": "onRedo",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onShare",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A Share button (open a share dialog)."
+            },
+            {
+              "name": "onUndo",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Undo and redo buttons, shown when given (for example the builder's history)."
+            },
+            {
+              "name": "parent",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The breadcrumb's parent link, e.g. `<Link to=\"/courses\">Courses</Link>`: one element, so\nthe host's router renders it."
+            },
+            {
+              "name": "publish",
+              "type": "{ onClick: () => void; label?: string; loading?: boolean; disabled?: boolean | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The primary button: \"Publish\", or \"Publish changes\" once it is live."
+            },
+            {
+              "name": "saveState",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Where saving the draft stands; no chip when absent."
+            },
+            {
+              "name": "status",
+              "type": "{ label: string; tone: ChipTone; }",
+              "required": false,
+              "defaultValue": null,
+              "description": "The status chip, e.g. \"Live · version 3\" or \"Draft\" (forms-studio's formStatusChip makes a form's)."
+            },
+            {
+              "name": "untitled",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Untitled",
+              "description": "Shown when the title is empty. Default \"Untitled\"."
             }
           ]
         }
@@ -14331,7 +14662,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win);\n- no filter row, unless you pass `filters`, `statusFilter` or\n  `searchFields`;\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win;\n  an explicit `header=\"page\"` keeps the full header);\n- no filter row, unless you pass `filters`, `statusFilter`,\n  `searchFields` or saved views, or the list is already filtered (a\n  search in the URL, say);\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
             },
             {
               "name": "viewSettingsKey",
@@ -14339,6 +14670,146 @@
               "required": false,
               "defaultValue": null,
               "description": "Persist key for density / page size via `useViewSettings`.\nDefaults to `resource` or a slug of `title`."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "resource-settings-page",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/ResourceSettingsPage.tsx",
+      "stability": "stable",
+      "summary": "Every setting of one thing (a form, a course, a worksheet) on one page: jump links on the left (\"On this page\", the one in\nview marked), the sections as cards on the right. On a phone the links sit above the\nsections as a row that scrolls sideways.\n\nNot genesis-ui's `SettingsPage`: that one is a whole page with its own title, and plain\nsections; these settings sit under the resource's header, as cards with icons.",
+      "primaryComponent": "ResourceSettingsPage",
+      "components": [
+        {
+          "name": "SettingsSection",
+          "summary": "One group of settings as a card: an icon, a title and a sentence, then its rows\n(genesis-ui `SettingsRow` and `ToggleRow`: a label, a one-sentence description and the\ncontrol), divided by lines. On a phone a row whose control isn't a switch puts the\ncontrol under its label, so wide controls (a link, a list of people) still fit.",
+          "props": [
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The jump link's target."
+            }
+          ]
+        },
+        {
+          "name": "ResourceSettingsPage",
+          "summary": "Every setting of one thing (a form, a course, a worksheet) on one page: jump links on the left (\"On this page\", the one in\nview marked), the sections as cards on the right. On a phone the links sit above the\nsections as a row that scrolls sideways.\n\nNot genesis-ui's `SettingsPage`: that one is a whole page with its own title, and plain\nsections; these settings sit under the resource's header, as cards with icons.",
+          "props": [
+            {
+              "name": "sections",
+              "type": "readonly ResourceSettingsSection[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "navLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "On this page",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "responses-toolbar",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/ResponsesToolbar.tsx",
+      "stability": "stable",
+      "summary": "The Responses tab's toolbar: a Summary / Each response switch, the host's filters\n(forms-studio's ResponsesFilters, or its own) and, on the right, its export actions\n(open a Sheet, Download CSV). `labels` renames the switch, e.g. \"Each submission\".",
+      "primaryComponent": "ResponsesToolbar",
+      "components": [
+        {
+          "name": "ResponsesToolbar",
+          "summary": "The Responses tab's toolbar: a Summary / Each response switch, the host's filters\n(forms-studio's ResponsesFilters, or its own) and, on the right, its export actions\n(open a Sheet, Download CSV). `labels` renames the switch, e.g. \"Each submission\".",
+          "props": [
+            {
+              "name": "onViewChange",
+              "type": "(view: ResponsesView) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "view",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "filters",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "{ summary?: string; each?: string; group?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "The switch's words. Defaults \"Summary\", \"Each response\" and \"Show responses as\"."
             }
           ]
         }
@@ -14789,6 +15260,73 @@
       ]
     },
     {
+      "slug": "rules",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/rules.ts",
+      "stability": "stable",
+      "summary": "Readiness from an editor's findings (any list of `{ level, code? }`): errors block\npublishing, warnings ask for a look. One pass over the findings.",
+      "primaryComponent": "readinessOf",
+      "components": [
+        {
+          "name": "readinessOf",
+          "summary": "Readiness from an editor's findings (any list of `{ level, code? }`): errors block\npublishing, warnings ask for a look. One pass over the findings.",
+          "props": []
+        },
+        {
+          "name": "readinessChip",
+          "summary": "The readiness chip's label and tone.",
+          "props": []
+        },
+        {
+          "name": "SaveState",
+          "summary": "Where the host's draft saving stands.",
+          "props": []
+        },
+        {
+          "name": "ChipTone",
+          "summary": "A chip's colour: the tinted, AA-safe Genesis badge tones.",
+          "props": []
+        },
+        {
+          "name": "Readiness",
+          "summary": "Whether something can be published, from an editor's checks.",
+          "props": []
+        },
+        {
+          "name": "ReadinessFinding",
+          "summary": "One of an editor's findings, as readinessOf reads it.",
+          "props": []
+        },
+        {
+          "name": "ReadinessLabels",
+          "summary": "The readiness chip's words, each optional; the defaults are resource-neutral.",
+          "props": []
+        },
+        {
+          "name": "dayLabel",
+          "summary": "A day (YYYY-MM-DD) in words, given today on the same clock: \"Today\", \"Yesterday\", \"Oct 21\", \"Oct 21, 2025\".",
+          "props": []
+        },
+        {
+          "name": "prefilledUrl",
+          "summary": "`url` with `values` set as search params (empty values left out), keeping what it has.\nAn absolute link stays absolute; a relative one (`/f/a?x=1`) stays relative, so it never\nthrows while a page is still working out its origin.",
+          "props": []
+        },
+        {
+          "name": "embedSnippet",
+          "summary": "An `<iframe>` that shows the page on another website, full width.",
+          "props": []
+        },
+        {
+          "name": "PrefillChoice",
+          "summary": "One search param a prefilled link may set, and the values staff pick from.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "scroll-area",
       "aliases": [],
       "surface": "web",
@@ -15178,6 +15716,130 @@
               "required": false,
               "defaultValue": null,
               "description": "Stable test/automation selector (emitted as `data-testid`)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "share",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/share.ts",
+      "stability": "stable",
+      "summary": "`url` with `values` set as search params (empty values left out), keeping what it has.\nAn absolute link stays absolute; a relative one (`/f/a?x=1`) stays relative, so it never\nthrows while a page is still working out its origin.",
+      "primaryComponent": "prefilledUrl",
+      "components": [
+        {
+          "name": "prefilledUrl",
+          "summary": "`url` with `values` set as search params (empty values left out), keeping what it has.\nAn absolute link stays absolute; a relative one (`/f/a?x=1`) stays relative, so it never\nthrows while a page is still working out its origin.",
+          "props": []
+        },
+        {
+          "name": "embedSnippet",
+          "summary": "An `<iframe>` that shows the page on another website, full width.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "share-dialog",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/ShareDialog.tsx",
+      "stability": "stable",
+      "summary": "Sharing one published page (a form, a course, a worksheet), as Google Forms' Send step:\nits link with Copy, a QR code (and a printable poster when the host has one), an\n`<iframe>` to embed it on a website, and a builder for prefilled links\n(`?location=…&staff=…`, or whatever the host offers).\nGeneric: the host passes the link, how to draw a QR code, and the prefill choices.",
+      "primaryComponent": "ShareDialog",
+      "components": [
+        {
+          "name": "ShareDialog",
+          "summary": "Sharing one published page (a form, a course, a worksheet), as Google Forms' Send step:\nits link with Copy, a QR code (and a printable poster when the host has one), an\n`<iframe>` to embed it on a website, and a builder for prefilled links\n(`?location=…&staff=…`, or whatever the host offers).\nGeneric: the host passes the link, how to draw a QR code, and the prefill choices.",
+          "props": [
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Its name, for the embed's accessible title."
+            },
+            {
+              "name": "onOpenChange",
+              "type": "(open: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "url",
+              "type": "string | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "The public link; null while it is still loading."
+            },
+            {
+              "name": "defaultTab",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "link",
+              "description": "The tab it opens on (each time it opens). Default \"link\"."
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": "Anyone with the link can open it.",
+              "description": "Default \"Anyone with the link can open it.\""
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": "page",
+              "description": "What it is, in the default title and buttons: \"page\" (default), \"form\", \"course\"."
+            },
+            {
+              "name": "posterUrl",
+              "type": "((url: string, prefill: Record<string, string>) => string | null)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A printable poster for a link (the base link, or a prefilled one), when the host has one."
+            },
+            {
+              "name": "prefill",
+              "type": "readonly PrefillChoice[]",
+              "required": false,
+              "defaultValue": "[]",
+              "description": "The search params a prefilled link may set, each with its choices. None hides the builder."
+            },
+            {
+              "name": "prefillNote",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Said under the prefilled-link builder (what a prefilled link does)."
+            },
+            {
+              "name": "renderQr",
+              "type": "((url: string) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Draws a QR code for a link."
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": "`Share your ${noun}`",
+              "description": "Default \"Share your {noun}\"."
             }
           ]
         }
@@ -15854,6 +16516,28 @@
       ]
     },
     {
+      "slug": "status",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/status.ts",
+      "stability": "stable",
+      "summary": "Readiness from an editor's findings (any list of `{ level, code? }`): errors block\npublishing, warnings ask for a look. One pass over the findings.",
+      "primaryComponent": "readinessOf",
+      "components": [
+        {
+          "name": "readinessOf",
+          "summary": "Readiness from an editor's findings (any list of `{ level, code? }`): errors block\npublishing, warnings ask for a look. One pass over the findings.",
+          "props": []
+        },
+        {
+          "name": "readinessChip",
+          "summary": "The readiness chip's label and tone.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "status-badge",
       "aliases": [],
       "surface": "web",
@@ -15999,6 +16683,59 @@
           "name": "SubNavContext",
           "summary": "",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "summary-card",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/SummaryCard.tsx",
+      "stability": "stable",
+      "summary": "One card of a summary column: an icon and a title, a short line on the right (\"24\nresponses · average 4.1\"), then whatever summarises it (bars, quotes, a split bar).",
+      "primaryComponent": "SummaryCard",
+      "components": [
+        {
+          "name": "SummaryCard",
+          "summary": "One card of a summary column: an icon and a title, a short line on the right (\"24\nresponses · average 4.1\"), then whatever summarises it (bars, quotes, a split bar).",
+          "props": [
+            {
+              "name": "title",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "meta",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
         }
       ]
     },
@@ -17383,7 +18120,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win);\n- no filter row, unless you pass `filters`, `statusFilter` or\n  `searchFields`;\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win;\n  an explicit `header=\"page\"` keeps the full header);\n- no filter row, unless you pass `filters`, `statusFilter`,\n  `searchFields` or saved views, or the list is already filtered (a\n  search in the URL, say);\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
             },
             {
               "name": "viewSettingsKey",
@@ -18012,7 +18749,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win);\n- no filter row, unless you pass `filters`, `statusFilter` or\n  `searchFields`;\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win;\n  an explicit `header=\"page\"` keeps the full header);\n- no filter row, unless you pass `filters`, `statusFilter`,\n  `searchFields` or saved views, or the list is already filtered (a\n  search in the URL, say);\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
             },
             {
               "name": "viewSettingsKey",

@@ -15,11 +15,11 @@ import { privacyApisFor } from "../expo.js";
 import { DoctorConfigError } from "./config.js";
 import { NATIVE_UI_PACKAGE, readPackageExports, type PackageExports } from "./genesis.js";
 import { lineAt } from "./scan.js";
-import type { DoctorContext, SourceFile } from "./types.js";
+import { localImports, readSource } from "./source.js";
+import type { DoctorContext } from "./types.js";
 
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
 const JSX_EXTS = new Set([".tsx", ".jsx"]);
-const RESOLVE_EXTS = [".tsx", ".ts", ".jsx", ".js"];
 
 /** A Genesis screen layout: an exported component named `…Page`, `…Screen` or `ScreenContainer`. */
 const LAYOUT_NAME = /(?:Page|Screen|ScreenContainer)$/;
@@ -212,35 +212,6 @@ function checkScreenLayouts(ctx: DoctorContext, pkg: PackageExports): void {
       file: file.path,
       message: `doesn't render a Genesis screen layout (${layouts.join(", ")}); wrap the screen in one so the header, safe area and scrolling match every other screen`,
     });
-  }
-}
-
-/** Files a source imports by relative path or the `@/` / `~/` root aliases, resolved to absolute paths that exist. */
-function localImports(root: string, file: SourceFile): string[] {
-  const out: string[] = [];
-  for (const m of file.code.matchAll(/\bfrom\s*["']((?:\.{1,2}|[@~])\/[^"']+)["']/g)) {
-    const spec = m[1];
-    const bases = spec.startsWith(".")
-      ? [path.resolve(path.dirname(file.absolutePath), spec)]
-      : [path.join(root, spec.slice(2)), path.join(root, "src", spec.slice(2))];
-    for (const base of bases) {
-      const hit = [base, ...RESOLVE_EXTS.map((e) => base + e), ...RESOLVE_EXTS.map((e) => path.join(base, `index${e}`))].find(
-        (p) => SCRIPT_EXTS.has(path.extname(p)) && existsSync(p),
-      );
-      if (hit) {
-        out.push(hit);
-        break;
-      }
-    }
-  }
-  return out;
-}
-
-function readSource(abs: string): Pick<SourceFile, "code"> | null {
-  try {
-    return { code: readFileSync(abs, "utf8") };
-  } catch {
-    return null;
   }
 }
 

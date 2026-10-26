@@ -2,7 +2,8 @@
  * Public types for `genesis doctor` and its rule plugins.
  */
 
-export type Level = "error" | "warn";
+/** `info` is reported but never fails a run, `--strict` included. */
+export type Level = "error" | "warn" | "info";
 
 /** A rule's configured level: a level, or `"off"` to drop its findings. */
 export type RuleSetting = Level | "off";
@@ -124,7 +125,7 @@ export interface DoctorConfig {
   forbiddenImports?: Record<string, string>;
   /** Folders that must not exist (local design-system primitives). Default `["src/components/ui"]`. */
   localPrimitiveDirs?: string[];
-  /** Per-rule level overrides, e.g. `{ "raw-color": "warn", "palette-color": "off" }`. */
+  /** Per-rule level overrides, e.g. `{ "raw-color": "warn", "palette-color": "off" }`. `info` never fails a run. */
   rules?: Record<string, RuleSetting>;
   /** Justified exceptions. */
   allow?: AllowEntry[];
@@ -134,6 +135,18 @@ export interface DoctorConfig {
   rulesDoc?: string;
   /** Rule modules, resolved relative to the config file. */
   plugins?: PluginSpec[];
+  /**
+   * The web app's file-based routes folder, read by the structure rules
+   * (`hand-rolled-sub-nav`, `resource-workspace`, `page-layout`). Default: the
+   * first of `src/routes`, `src/app`, `app`, `src/pages`, `pages` that exists.
+   */
+  routesDir?: string;
+  /**
+   * Genesis packages besides `uiPackage` whose exported components an app
+   * should reuse, not copy (`local-genesis-copy`). Default
+   * `["@marktiderman/genesis-forms-studio"]`; packages not installed are skipped.
+   */
+  componentPackages?: string[];
   /** Commands `--build` runs, in order. Default: the app's `typecheck` then `build` scripts. */
   build?: string[];
 }
@@ -154,6 +167,16 @@ export interface GenesisFacts {
   rawTags: ReadonlyMap<string, string>;
   /** Tailwind palette color names (red, slate, …). */
   palette: readonly string[];
+  /** The installed `componentPackages` (forms-studio by default) and the components each exports. */
+  companions: ReadonlyArray<CompanionPackage>;
+}
+
+/** A Genesis component package read alongside the main one. */
+export interface CompanionPackage {
+  package: string;
+  version: string;
+  /** Exported components, sorted. */
+  components: readonly string[];
 }
 
 /** One scanned file. */
@@ -196,4 +219,6 @@ export interface DoctorResult {
   ruleCount: number;
   errors: number;
   warnings: number;
+  /** Findings at `info`: shown, never failing. */
+  infos: number;
 }

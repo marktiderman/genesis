@@ -695,9 +695,11 @@ export interface ResourcePageProps<
    * heading, filters and shortcuts. Embedded sets, unless you set them:
    * - `header="toolbar"`, showing only the create button, and the view
    *   toggle when there is a `renderCard`. No title, count, view settings
-   *   or header options menu (`slotProps.shell.headerOptions` still win);
-   * - no filter row, unless you pass `filters`, `statusFilter` or
-   *   `searchFields`;
+   *   or header options menu (`slotProps.shell.headerOptions` still win;
+   *   an explicit `header="page"` keeps the full header);
+   * - no filter row, unless you pass `filters`, `statusFilter`,
+   *   `searchFields` or saved views, or the list is already filtered (a
+   *   search in the URL, say);
    * - `keyboardNavigation={false}`, since j/k shortcuts belong to the page.
    */
   variant?: "page" | "embedded";
@@ -831,8 +833,6 @@ export function ResourcePage<
   } = props;
   const embedded = props.variant === "embedded";
   const headerMode = headerProp ?? (embedded ? "toolbar" : "page");
-  // An embedded list shows a filter row only when it has something to filter by.
-  const wantsFilters = !!(filtersProp?.length || props.statusFilter || props.searchFields?.length);
   const {
     actions,
     allows,
@@ -901,6 +901,17 @@ export function ResourcePage<
     useBuiltInDelete,
     useBuiltInEdit,
   } = useResourceTableModel<T>(props);
+  // An embedded list shows a filter row only when it has something to filter by, or when
+  // something is already filtering it (a `?q=` in the URL, say): never filtered with no way
+  // to see why or clear it.
+  const wantsFilters = !!(
+    filtersProp?.length ||
+    props.statusFilter ||
+    props.searchFields?.length ||
+    savedViews?.length ||
+    onSaveView ||
+    page.hasActiveFilters
+  );
 
   const showCreateButton = (onCreate || useBuiltInCreate) && allows("create");
   const createButton = showCreateButton ? (
@@ -1127,9 +1138,9 @@ export function ResourcePage<
         slotProps?.filters,
       )}
       {...shellSlotProps}
-      {...(embedded
+      {...(embedded && headerMode === "toolbar"
         ? {
-            // The title goes with `header="toolbar"`; an explicit `header="page"` keeps it.
+            // Only with the toolbar header: an explicit `header="page"` keeps the full header.
             headerOptions: {
               showCount: false,
               showViewSettings: false,

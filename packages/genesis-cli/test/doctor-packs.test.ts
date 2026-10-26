@@ -80,7 +80,7 @@ describe("packs config", () => {
     for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness"]) {
       expect(BUILTIN_RULES).toContain(id);
     }
-    for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited"]) expect(BUILTIN_RULES).toContain(id);
+    for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit"]) expect(BUILTIN_RULES).toContain(id);
     await expect(run("clean", { patterns: [{ id: "migration-rls", files: ["src/**"], forbid: "x" }] })).rejects.toThrow(/built-in rule id/);
   });
 
@@ -368,6 +368,14 @@ describe("supabase pack", () => {
     // A blanket grant to authenticated is a warning; to anon or public an error.
     expect(r.findings.map((f) => f.level)).toEqual(["error", "error", "warn", "error", "error"]);
     expect(r.findings.find((f) => f.subject === "private.do_thing")!.message).toContain("to anon;");
+  });
+
+  it("migration-testing-kit: the pgTAP kit never ships as a migration", async () => {
+    const r = await migration("create table public.notes (id uuid primary key);\ncreate schema if not exists genesis_testing;\n");
+    expect(brief(r.findings, "migration-testing-kit")).toEqual([`migration-testing-kit ${M}:2 genesis_testing`]);
+    expect(levels(r.findings, "migration-testing-kit")).toEqual(["error"]);
+    const clean = await migration("create table public.genesis_testings (id uuid primary key);\n");
+    expect(brief(clean.findings, "migration-testing-kit")).toEqual([]);
   });
 
   it("migration-grants: without git or since, grants are skipped with a warning instead of flagging applied migrations", async () => {

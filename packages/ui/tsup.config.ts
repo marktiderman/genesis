@@ -57,6 +57,10 @@ export default defineConfig({
     "src/components/layout/detail-page.tsx",
     "src/components/layout/form-page.tsx",
     "src/components/layout/settings-page.tsx",
+    // Resource workspace family (`/resource`) and its pure, server-safe rules
+    // (`/resource/rules`). Both are curated subpaths in scripts/gen-exports.mjs.
+    "src/components/resource/index.ts",
+    "src/components/resource/rules.ts",
     // Experimental spreadsheet grid, on its own subpath so nobody else
     // inherits its @tanstack/react-virtual peer (DATA-STUDIO.md decision 20).
     "src/components/sheet-grid/sheet-grid.tsx",

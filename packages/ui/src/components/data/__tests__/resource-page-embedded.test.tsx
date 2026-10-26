@@ -70,6 +70,24 @@ describe('ResourcePage variant="embedded"', () => {
     expect(search()).toBeTruthy();
   });
 
+  it("shows the filter row for saved views, and when the list is already filtered", () => {
+    const { unmount } = renderPage({ variant: "embedded", savedViews: [{ id: "v1", name: "Mine", filters: {} }] });
+    expect(screen.getByText(/views/i)).toBeTruthy();
+    unmount();
+    // A search arriving from the URL: the row is there to see it and clear it.
+    renderPage({
+      variant: "embedded",
+      urlState: { searchParams: new URLSearchParams("q=ada"), setSearchParams: () => {} },
+    });
+    expect((search() as HTMLInputElement | null)?.value).toBe("ada");
+  });
+
+  it("keeps the full header, count included, with an explicit header=\"page\"", () => {
+    renderPage({ variant: "embedded", header: "page" });
+    expect(heading()).toBeTruthy();
+    expect(screen.getByText(/2\b/)).toBeTruthy();
+  });
+
   it("lets explicit props win over the preset", () => {
     renderPage({
       variant: "embedded",
