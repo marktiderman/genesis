@@ -47,6 +47,8 @@ export interface MessageBubbleProps {
   onSwipeReply?: () => void;
   /** You observe this conversation: moderation's markers show (hidden, flagged). */
   observer?: boolean;
+  /** Drawn highlighted for a moment (the message a search result opened). */
+  highlighted?: boolean;
   testID: string;
 }
 
@@ -183,7 +185,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const textStyle = mine ? { fontSize: 17, lineHeight: 22 } : { fontSize: 17, lineHeight: 22, color: colors.label };
 
   return (
-    <View testID={testID} style={{ paddingHorizontal: 8, paddingTop: row.groupStart ? 8 : 2 }}>
+    <View testID={testID} style={{ paddingHorizontal: 8, paddingTop: row.groupStart ? 8 : 2, backgroundColor: props.highlighted ? colors.fill : undefined }}>
       {row.showName && sender?.name ? (
         <NativeText preset="caption" style={{ marginLeft: group ? 48 : 12, marginBottom: 2, color: colors.secondaryLabel }}>
           {sender.name}

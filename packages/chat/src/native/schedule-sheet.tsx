@@ -8,7 +8,7 @@
  * scheduled messages" over the composer, opening that list. The thread opens the sheet when Send
  * is touched and held. The same rules as the web's `ChatScheduleMenu` and `ChatScheduledList`.
  */
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import {
   NativeButton,
@@ -133,6 +133,12 @@ export function ChatScheduleSheet({ open, onOpenChange, onSchedule, now, testID 
   const picks = useMemo(() => scheduleQuickPicks(now ?? new Date()), [now, open]); // eslint-disable-line react-hooks/exhaustive-deps
   const [custom, setCustom] = useState(false);
   const [at, setAt] = useState(() => defaultScheduleAt(clock));
+  // Each opening starts again: the quick picks, and an hour from now for a custom time.
+  useEffect(() => {
+    if (!open) return;
+    setCustom(false);
+    setAt(defaultScheduleAt(now ?? new Date()));
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const ok = isSchedulable(at, clock);
 
   const choose = (when: Date) => {
@@ -144,11 +150,7 @@ export function ChatScheduleSheet({ open, onOpenChange, onSchedule, now, testID 
   return (
     <NativeSheet
       open={open}
-      onOpenChange={(o) => {
-        if (!o) setCustom(false);
-        else setAt(defaultScheduleAt(new Date()));
-        onOpenChange(o);
-      }}
+      onOpenChange={onOpenChange}
       testID={testID}
     >
       <View style={{ paddingVertical: 8 }}>
@@ -254,16 +256,17 @@ function ScheduledRow({ item, where, onCancel, testID }: { item: ScheduledMessag
           </NativeText>
         ) : null}
       </View>
-      {item.status === "scheduled" ? (
+      {item.status === "scheduled" || failed ? (
+        // A failed one can't be sent again, but it can be removed (cancel_scheduled takes it).
         <Pressable
           testID={`${testID}-cancel`}
           accessibilityRole="button"
-          accessibilityLabel={`${copy.scheduledCancel}, ${fill(copy.scheduledFor, { when })}`}
+          accessibilityLabel={failed ? `${copy.scheduledRemove}, ${text}` : `${copy.scheduledCancel}, ${fill(copy.scheduledFor, { when })}`}
           onPress={onCancel}
           style={{ minHeight: 44, minWidth: 44, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" }}
         >
           <NativeText preset="label" style={{ color: colors.destructive }}>
-            {copy.scheduledCancel}
+            {failed ? copy.scheduledRemove : copy.scheduledCancel}
           </NativeText>
         </Pressable>
       ) : null}

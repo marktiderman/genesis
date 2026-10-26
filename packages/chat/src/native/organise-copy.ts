@@ -41,6 +41,8 @@ export interface ChatOrganiseCopy {
   scheduledEmpty: string;
   scheduledEmptyBody: string;
   scheduledCancel: string;
+  /** On a scheduled message that couldn't be sent. */
+  scheduledRemove: string;
   scheduledCancelled: string;
   scheduledCouldntSend: string;
   // Availability
@@ -93,6 +95,8 @@ export interface ChatOrganiseCopy {
   searchIn: string;
   transcript: string;
   messageGone: string;
+  /** Said by VoiceOver when a jump lands. */
+  jumpedTo: string;
   // Moderation
   moderationHidden: string;
   moderationHiddenMine: string;
@@ -134,6 +138,7 @@ export const chatOrganiseCopy: ChatOrganiseCopy = {
   scheduledEmpty: "Nothing scheduled",
   scheduledEmptyBody: "Touch and hold Send to schedule a message.",
   scheduledCancel: "Cancel",
+  scheduledRemove: "Remove",
   scheduledCancelled: "Scheduled message cancelled",
   scheduledCouldntSend: "Couldn't send",
   availabilityTitle: "Availability",
@@ -183,6 +188,7 @@ export const chatOrganiseCopy: ChatOrganiseCopy = {
   searchIn: "in {name}",
   transcript: "Transcript",
   messageGone: "That message isn't here any more",
+  jumpedTo: "Message from {name}: {text}",
   moderationHidden: "Hidden by moderation",
   moderationHiddenMine: "Hidden by moderation. Only you can see it.",
   moderationFlagged: "Flagged",

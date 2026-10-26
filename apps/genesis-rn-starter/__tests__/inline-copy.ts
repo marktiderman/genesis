@@ -14,7 +14,7 @@ import ts from "typescript";
 const NON_COPY_ATTRIBUTES = new Set([
   "testID", "nativeID", "id", "key", "name", "href", "src", "md", "sf", "variant", "size", "mode", "type", "appearance",
   "className", "contentClassName", "textClassName", "style", "autoComplete", "textContentType", "keyboardType",
-  "returnKeyType", "autoCapitalize", "accessibilityRole", "behavior", "statusBar", "themeMode", "pointerEvents", "icon", "kind",
+  "returnKeyType", "autoCapitalize", "accessibilityRole", "behavior", "statusBar", "themeMode", "pointerEvents", "icon",
 ]);
 
 /** Object keys whose string values are shown to people. */

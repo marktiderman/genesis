@@ -6,6 +6,9 @@ import { getInboxPageStackOptions } from "@marktiderman/genesis-ui-native";
 import starter from "../../../../starter.config";
 import { copy } from "@/copy";
 
+/** Broadcasts go into direct conversations, one per person. */
+const BROADCAST_KIND = "direct";
+
 /**
  * Your conversations, newest first, with unread counts (`features.chat`; ChatInboxScreen is
  * genesis-ui-native's InboxPage). The header searches every conversation and broadcasts one
@@ -29,7 +32,7 @@ export default function MessagesInboxScreen() {
         })}
       />
       <ChatInboxScreen onOpen={(id) => router.push(chatPath(id) as Href)} />
-      <ChatBroadcastSheet open={broadcasting} onOpenChange={setBroadcasting} kind="direct" />
+      <ChatBroadcastSheet open={broadcasting} onOpenChange={setBroadcasting} kind={BROADCAST_KIND} />
     </>
   );
 }

@@ -29,11 +29,12 @@ export function moderationText(note: ModerationNote, copy: { moderationHidden: s
 export function ModerationMarker({ note, mine, testID }: { note: ModerationNote; mine: boolean; testID?: string }) {
   const { copy } = useChatNative();
   const colors = useThemeRoles();
-  const color = mine ? colors.surface : note === "flagged" ? colors.secondaryLabel : colors.destructive;
+  const color = note === "flagged" ? colors.secondaryLabel : colors.destructive;
+  // On your own bubble (the tint), in the bubble's own text color, as its body is.
   return (
     <View testID={testID} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-      <NativeIcon name={note === "flagged" ? "warning" : "lock"} size={12} color={color} />
-      <NativeText preset="caption" style={{ color, fontWeight: "600", flexShrink: 1 }}>
+      {mine ? null : <NativeIcon name={note === "flagged" ? "warning" : "lock"} size={12} color={color} />}
+      <NativeText preset="caption" className={mine ? "text-primary-foreground" : undefined} style={mine ? { fontWeight: "600", flexShrink: 1 } : { color, fontWeight: "600", flexShrink: 1 }}>
         {moderationText(note, copy)}
       </NativeText>
     </View>

@@ -25,26 +25,28 @@ export interface UseJumpOptions {
   loading: boolean;
   has: (messageId: string) => boolean;
   loadUntil: (seq: number) => Promise<boolean>;
-  /** Scroll the list to this row (centred). */
-  scrollTo: (index: number) => void;
+  /** Scroll the list to this row (centred); the message id, for a retry once rows have moved. */
+  scrollTo: (index: number, messageId: string) => void;
   /** Called before loading or scrolling (stop following the bottom). */
   onStart?: () => void;
-  /** It isn't there any more. */
+  /** It was scrolled to (say so to VoiceOver). */
+  onLanded?: (messageId: string) => void;
+  /** It isn't there any more (go back to where the thread was). */
   onGone: () => void;
   onError: (e: unknown) => void;
 }
 
 type Pending = JumpTarget & { phase: "new" | "loading" | "loaded" };
 
-export function useJumpToMessage({ target, rows, loading, has, loadUntil, scrollTo, onStart, onGone, onError }: UseJumpOptions) {
+export function useJumpToMessage({ target, rows, loading, has, loadUntil, scrollTo, onStart, onLanded, onGone, onError }: UseJumpOptions) {
   const [pending, setPending] = useState<Pending | null>(target ? { ...target, phase: "new" } : null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   useEffect(() => {
     if (target) setPending({ ...target, phase: "new" });
   }, [target?.messageId, target?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const latest = useRef({ rows, scrollTo, onStart, onGone, onError });
-  latest.current = { rows, scrollTo, onStart, onGone, onError };
+  const latest = useRef({ rows, scrollTo, onStart, onLanded, onGone, onError });
+  latest.current = { rows, scrollTo, onStart, onLanded, onGone, onError };
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
@@ -54,7 +56,8 @@ export function useJumpToMessage({ target, rows, loading, has, loadUntil, scroll
     const index = rowIndexOf(latest.current.rows, messageId);
     if (index < 0) return;
     latest.current.onStart?.();
-    latest.current.scrollTo(index);
+    latest.current.scrollTo(index, messageId);
+    latest.current.onLanded?.(messageId);
     setHighlightedId(messageId);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setHighlightedId((h) => (h === messageId ? null : h)), 2000);
@@ -79,6 +82,7 @@ export function useJumpToMessage({ target, rows, loading, has, loadUntil, scroll
     const settle = () => setPending((p) => (p && p.messageId === messageId ? { ...p, phase: "loaded" } : p));
     void loadUntil(seq).then(settle, (e) => {
       latest.current.onError(e);
+      // Not found after all: the "loaded" step says so and puts the thread back.
       settle();
     });
   }, [pending, loading, has, loadUntil, go]);

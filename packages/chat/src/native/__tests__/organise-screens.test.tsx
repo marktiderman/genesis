@@ -10,6 +10,7 @@ import { createMemoryChatClient, type MemoryChatClient, type MemoryConversationS
 import { ChatAvailabilityScreen } from "../availability";
 import { ChatBroadcastSheet } from "../broadcast-sheet";
 import { ChatNativeProvider } from "../context";
+import { ChatScheduledList, ChatScheduleSheet } from "../schedule-sheet";
 import { ChatSearchScreen } from "../search-screen";
 import { ChatThreadScreen } from "../thread-screen";
 
@@ -103,6 +104,22 @@ describe("ChatThreadScreen topics", () => {
   });
 });
 
+describe("ChatThreadScreen topics across conversations", () => {
+  it("starts another conversation in All, not in the last one's topic", async () => {
+    const client = memory([
+      { id: "one", kind: "cohort", members: [{ userId: ME }, { userId: SAM }, { userId: LEE }], topics: [{ topic: "week-1", title: "Week 1" }], messages: [{ id: "a", senderId: SAM, body: "x", topic: "week-1" }] },
+      { id: "two", kind: "cohort", members: [{ userId: ME }, { userId: SAM }, { userId: LEE }], messages: [{ id: "b", senderId: SAM, body: "y" }] },
+    ]);
+    const view = render(wrap(client, <ChatThreadScreen conversationId="one" testID="t" />));
+    fireEvent.click(await screen.findByTestId("t-topics-week-1"));
+    await waitFor(() => expect(screen.getByTestId("t-topics-week-1").getAttribute("aria-selected")).toBe("true"));
+    view.rerender(wrap(client, <ChatThreadScreen conversationId="two" testID="t" />));
+    await screen.findByTestId("t-message-b");
+    const last = called(client, "messages").filter((c) => c.args[0] === "two").at(-1)!;
+    expect((last.args[1] as { topic?: string }).topic).toBeUndefined();
+  });
+});
+
 describe("ChatThreadScreen scheduled send", () => {
   const direct: MemoryConversationSeed = { id: "dm", members: [{ userId: ME }, { userId: SAM }], messages: [{ id: "a", senderId: SAM, body: "hi" }] };
 
@@ -148,6 +165,31 @@ describe("ChatThreadScreen scheduled send", () => {
   });
 });
 
+describe("ChatScheduleSheet and ChatScheduledList", () => {
+  it("starts again at the quick picks each time it opens", async () => {
+    const client = memory([]);
+    const view = render(wrap(client, <ChatScheduleSheet open onOpenChange={vi.fn()} onSchedule={vi.fn()} testID="s" />));
+    fireEvent.click(await screen.findByTestId("s-pick-custom"));
+    expect(screen.getByTestId("s-custom")).toBeTruthy();
+    view.rerender(wrap(client, <ChatScheduleSheet open={false} onOpenChange={vi.fn()} onSchedule={vi.fn()} testID="s" />));
+    view.rerender(wrap(client, <ChatScheduleSheet open onOpenChange={vi.fn()} onSchedule={vi.fn()} testID="s" />));
+    expect(await screen.findByTestId("s-pick-0")).toBeTruthy();
+    expect(screen.queryByTestId("s-custom")).toBeNull();
+  });
+
+  it("offers Remove on one that couldn't be sent", async () => {
+    const client = memory([{ id: "dm", members: [{ userId: ME }, { userId: SAM }] }]);
+    await client.schedule({ conversationId: "dm", clientId: "c1", body: "later", sendAt: new Date(Date.now() + 3600_000) });
+    client.failNextSends(1);
+    await client.sendDue(new Date(Date.now() + 2 * 3600_000));
+    render(wrap(client, <ChatScheduledList conversationId="dm" testID="l" />));
+    const remove = await screen.findByText("Remove");
+    expect(screen.getByText("Couldn't send")).toBeTruthy();
+    fireEvent.click(remove.closest("button")!);
+    await waitFor(() => expect(called(client, "cancelScheduled")).toHaveLength(1));
+  });
+});
+
 describe("ChatThreadScreen availability and moderation", () => {
   it("shows the other person's away line under the header", async () => {
     const client = memory([{ id: "dm", members: [{ userId: ME }, { userId: SAM }] }], { availability: { [SAM]: { awayMessage: "On a retreat" } } });
@@ -188,7 +230,8 @@ describe("ChatThreadScreen jumpTo", () => {
     render(wrap(client, <ChatThreadScreen conversationId="dm" jumpTo={{ messageId: "m3", seq: 3 }} testID="t" />));
     await waitFor(() => expect(screen.getByTestId("t-message-m3")).toBeTruthy());
     expect(called(client, "messages").some((c) => (c.args[1] as { beforeSeq?: number }).beforeSeq !== undefined)).toBe(true);
-    await waitFor(() => expect(within(screen.getByTestId("t-highlight")).getByTestId("t-message-m3")).toBeTruthy());
+    await waitFor(() => expect(JSON.parse(screen.getByTestId("t-message-m3").dataset.style!).backgroundColor).toBeTruthy());
+    expect(JSON.parse(screen.getByTestId("t-message-m4").dataset.style!).backgroundColor).toBeUndefined();
   });
 
   it("says so when the message isn't there any more", async () => {

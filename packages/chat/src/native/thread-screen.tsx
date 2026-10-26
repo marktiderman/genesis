@@ -22,8 +22,8 @@
  * (touch and hold Send) with the thread's scheduled messages over the composer, `jumpTo` a
  * message (a search result), and moderation's markers.
  */
-import { useCallback, useMemo, useRef, useState, type ComponentType } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { AccessibilityInfo, FlatList, KeyboardAvoidingView, Platform, Pressable, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeEmptyState, NativeSkeleton, NativeText, useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -34,7 +34,7 @@ import { ChatAwayLine, useAwayLine } from "./availability";
 import { fill } from "./copy";
 import { ChatScheduledBar, ChatScheduleSheet, useScheduleSend } from "./schedule-sheet";
 import { canManageTopics, ChatTopicBar, topicClosedFor } from "./topics";
-import { useJumpToMessage, type JumpTarget } from "./use-jump";
+import { rowIndexOf, useJumpToMessage, type JumpTarget } from "./use-jump";
 import type { MessageActionId } from "./actions";
 import { ChatComposer } from "./composer";
 import { composerDisabledReason, filesFromAssets, replyTargetFor } from "./composer-state";
@@ -124,6 +124,12 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const { userId } = useChat();
   const topicsState = useTopics(threadRootId ? null : conversationId);
   const [chosenTopic, setChosenTopic] = useState<string | null>(null);
+  // Another conversation in this screen starts in All.
+  const [topicFor, setTopicFor] = useState(conversationId);
+  if (topicFor !== conversationId) {
+    setTopicFor(conversationId);
+    setChosenTopic(null);
+  }
   // A message to go to is looked for in All, not in the topic shown.
   const [jumpedFor, setJumpedFor] = useState(jumpTo);
   if (jumpTo !== jumpedFor) {
@@ -269,18 +275,38 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   );
   const observer = conv.role === "observer";
   const { loadUntil } = conv;
-  const { highlightedId } = useJumpToMessage({
+  // The message being gone to, for FlatList's retry once it has measured that far (by id: rows may have moved).
+  const jumpingTo = useRef<{ id: string; tries: number } | null>(null);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+  }, []);
+  const rowsNow = useRef(rows);
+  rowsNow.current = rows;
+  const { highlightedId, jumping } = useJumpToMessage({
     target: jumpTo,
     rows,
     loading: conv.isLoading,
     has: useCallback((id: string) => byId.has(id), [byId]),
     loadUntil,
-    scrollTo: (index) => requestAnimationFrame(() => listRef.current?.scrollToIndex?.({ index, animated: !reducedMotion, viewPosition: 0.5 })),
+    scrollTo: (index, id) => {
+      jumpingTo.current = { id, tries: 0 };
+      requestAnimationFrame(() => listRef.current?.scrollToIndex?.({ index, animated: !reducedMotion, viewPosition: 0.5 }));
+    },
     onStart: () => {
       atBottom.current = false;
       placed.current = true;
     },
-    onGone: () => toast.show({ title: copy.messageGone }),
+    onLanded: (id) => {
+      const m = byId.get(id);
+      if (m) AccessibilityInfo.announceForAccessibility?.(fill(copy.jumpedTo, { name: nameOf(m.senderId), text: previewText(displayBody(m.body), m.attachments[0]?.kind, Boolean(m.deletedAt)) }));
+    },
+    onGone: () => {
+      toast.show({ title: copy.messageGone });
+      // Back to where the thread opens: the newest messages.
+      atBottom.current = true;
+      toBottom(false);
+    },
     onError: fail,
   });
   const reattachable = useCallback((files: readonly PendingFile[]) => files.every((f) => !f.lost || f.kind === "image" || f.kind === "video"), []);
@@ -291,7 +317,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
       if (row.type === "unread") return <UnreadDivider label={copy.newMessages} testID={`${testID}-unread`} />;
       const m = row.item.type === "message" ? row.item.message : null;
       const replyTo = m?.replyToId ?? (row.item.type === "pending" ? row.item.pending.input.replyToId : null);
-      const bubble = (
+      return (
         <MessageBubble
           row={row}
           me={userId}
@@ -308,18 +334,12 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           onToggleReaction={allowed ? react : undefined}
           onOpenImage={onOpenImage}
           observer={observer}
+          highlighted={Boolean(m && m.id === highlightedId)}
           testID={`${testID}-message-${m?.id ?? row.key}`}
         />
       );
-      return m && m.id === highlightedId ? (
-        <View testID={`${testID}-highlight`} style={{ backgroundColor: colors.fill }}>
-          {bubble}
-        </View>
-      ) : (
-        bubble
-      );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, observer, highlightedId, colors.fill],
+    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, observer, highlightedId],
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
@@ -368,7 +388,8 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
                 keyExtractor={(row) => row.key}
                 getItemType={(row) => (row.type === "message" ? (row.mine ? "mine" : "theirs") : row.type)}
                 onStartReached={() => {
-                  if (placed.current && conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
+                  // Not while going to a message: its pages are loading, and new rows would move it.
+                  if (placed.current && !jumping && conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
                 }}
                 onStartReachedThreshold={0.5}
                 keyboardShouldPersistTaps="handled"
@@ -377,9 +398,16 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
                 maintainVisibleContentPosition={mode.maintainVisibleContentPosition}
                 extraData={highlightedId}
                 onScrollToIndexFailed={({ index, averageItemLength }) => {
-                  // FlatList hasn't measured that far up yet: get near it, then try again.
+                  // FlatList hasn't measured that far up yet: get near it, then try again (three times at most).
                   listRef.current?.scrollToOffset?.({ offset: Math.max(0, index * averageItemLength - 200), animated: false });
-                  setTimeout(() => listRef.current?.scrollToIndex?.({ index, animated: !reducedMotion, viewPosition: 0.5 }), 250);
+                  const target = jumpingTo.current;
+                  if (!target || target.tries >= 3) return;
+                  target.tries += 1;
+                  if (retryTimer.current) clearTimeout(retryTimer.current);
+                  retryTimer.current = setTimeout(() => {
+                    const at = rowIndexOf(rowsNow.current, target.id);
+                    if (at >= 0) listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
+                  }, 250);
                 }}
                 {...(mode.followsByHand
                   ? {

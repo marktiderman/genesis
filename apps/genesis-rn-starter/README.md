@@ -177,6 +177,13 @@ manifest for the packages installed, export compliance and the fingerprint runti
   has an example). To get an issue or a webhook per report, or to remove deleted screenshots from
   storage, copy the `genesis-support-notify` and `genesis-support-cleanup` templates: see "Support"
   in [`@marktiderman/genesis-supabase`](../../packages/supabase/README.md#support-the-support-block).
+- **Chat:** `supabase/migrations/20261025000000_genesis_chat.sql` and
+  `20261025000050_genesis_chat_coaching.sql` are genesis-chat's migrations 0001 and 0002 (topics,
+  scheduled send, availability, broadcast, search, link previews, moderation), copied and
+  drift-tested the same way. Scheduled messages, link previews, moderation and chat pushes are
+  worked by genesis-chat's runner (`createChatRunner` from `@marktiderman/genesis-chat/server`),
+  which the starter doesn't deploy: until you run it on a schedule, a scheduled message waits in
+  its thread's Scheduled list.
 - **Auth providers:** email works with Supabase's defaults (confirmation on: sign-up asks the
   person to confirm, then sign in; the confirmation link opens `site_url`, not the app). For Apple, enable the Apple provider with the bundle ids of all
   three variants as client ids; `supabase/config.toml` does this for a local stack.
