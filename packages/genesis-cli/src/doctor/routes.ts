@@ -45,7 +45,7 @@ const RENDERS_OUTLET = (code: string) => /<Outlet(?=[\s>/])/.test(code);
  * or a table. A wrapper (`<div className="space-y-4"><Outlet /></div>`) has none.
  */
 const OWN_CONTENT =
-  />\s*[A-Za-z][^<>{}]*</.source + "|" + /(?<![\w$.])<(?:h[1-6]|ul|ol|table|dl|H[1-6]|[A-Z]\w*(?:Heading|Title|Table|List|Grid))(?=[\s>/])/.source;
+  /(?<![=-])>\s*[A-Za-z][^<>{}]*</.source + "|" + /(?<![\w$.])<(?:h[1-6]|ul|ol|table|dl|H[1-6]|[A-Z]\w*(?:Heading|Title|Table|List|Grid))(?=[\s>/])/.source;
 
 export interface RouteFile {
   /** The file holding the route's component: the `.lazy` file when there is one. */
@@ -136,7 +136,9 @@ export function webRoutes(ctx: Pick<DoctorContext, "root" | "config" | "files">)
     const parts = id.split("/");
     const stem = parts.pop()!;
     // Next: `(group)` and `@slot` folders aren't URL segments.
-    const folders = flavor === "next-app" ? parts.filter((p) => !/^\(.*\)$/.test(p) && !p.startsWith("@")) : parts;
+    // An intercepting folder (`(.)photo`, `(..)photo`, `(...)photo`) is the segment it intercepts.
+    const folders =
+      flavor === "next-app" ? parts.map((p) => p.replace(/^\((?:\.{1,3}|\.\.\)\(\.\.)\)(?=.)/, "")).filter((p) => !/^\(.*\)$/.test(p) && !p.startsWith("@")) : parts;
     const named = stems.layout.has(stem) || stems.index.has(stem);
     const own = named ? [] : flavor === "tanstack" ? stem.split(".") : [stem];
     const segments = [...folders, ...own];
@@ -150,10 +152,11 @@ export function webRoutes(ctx: Pick<DoctorContext, "root" | "config" | "files">)
     const code = files.map((f) => f.code).join("\n");
     const elements = renderedElements(code);
     const pathless = flavor === "tanstack" && !index && /^_(?!_)/.test(tree.at(-1) ?? "");
-    // An <Outlet> of its own, or in the layout component it imports (`component: AdminLayout`); an untraceable import counts as one.
+    // An <Outlet> of its own, or one found in the layout component it imports (`component: AdminLayout`).
+    // An import that can't be traced never counts as one: it doesn't make the route a layout.
     const outlet =
       elements.includes("Outlet") ||
-      (!stems.index.has(stem) && files.some((f) => trail.reach(f, RENDERS_OUTLET, 2) !== "no"));
+      (!stems.index.has(stem) && files.some((f) => trail.reach(f, RENDERS_OUTLET, 2) === "yes"));
     const layout = stems.layout.has(stem) || pathless || outlet;
     const rendering = renders(code);
     const ownContent = new RegExp(OWN_CONTENT).test(code);

@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { formatReport, genesisInstalls, loadGenesis, runDoctor, satisfies, toJson, validateConfig, webRoutes, type DoctorConfig, type Finding } from "../src/doctor/index.js";
 import { scanFiles } from "../src/doctor/scan.js";
+import { createTrail, stripForImports } from "../src/doctor/trail.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
 afterAll(cleanupApps);
@@ -575,7 +576,7 @@ describe("follow-ups from the #303 review", () => {
         "package.json": JSON.stringify({
           name: "app",
           version: "1.0.0",
-          dependencies: { "@marktiderman/genesis-features": "^0.3.0" },
+          dependencies: { "@marktiderman/genesis-features": "^0.3.0", "@marktiderman/genesis-chat": "^0.2.0" },
           devDependencies: { "@marktiderman/genesis-cli": "1.3.0", "some-tool": "1.0.0" },
         }),
         "node_modules/@marktiderman/genesis-features/package.json": pkg("@marktiderman/genesis-features", "0.3.0"),
@@ -760,5 +761,133 @@ describe("#314 review", () => {
     expect(by["src/routes/_shell/posts/route.tsx"]).toMatchObject({ layout: true, page: true });
     expect(by["src/routes/_shell/old.tsx"]!.redirectOnly).toBe(true);
     expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/posts/route.tsx:0"]);
+  });
+});
+
+describe("#314 re-review", () => {
+  const pkgJson = (extra: Record<string, unknown> = {}) => JSON.stringify({ name: "app", version: "1.0.0", dependencies: { "@tanstack/react-router": "1" }, ...extra });
+  const route = (body: string, imports = "") => `${imports}\nexport const Route = createFileRoute("/x")({ component: () => ${body} });`;
+  const layoutTest = (code: string) => /<DetailPage(?=[\s>/])/.test(code);
+
+  it("the trail cache gives the same answer in either order, through a cycle", () => {
+    const root = app({
+      "src/A.tsx": `import { B } from "./B";\nimport { D } from "./D";\nexport const A = () => <><B /><D /></>;`,
+      "src/B.tsx": `import { A } from "./A";\nexport const B = () => <A />;`,
+      "src/C.tsx": `import { B } from "./B";\nexport const C = () => <B />;`,
+      "src/D.tsx": `export const D = () => <DetailPage title="x" />;`,
+    });
+    const files = scanFiles(root, {});
+    const get = (name: string) => files.find((f) => f.path === `src/${name}.tsx`)!;
+    const forward = createTrail({ root, files });
+    const one = [forward.reach(get("A"), layoutTest), forward.reach(get("C"), layoutTest), forward.reach(get("B"), layoutTest)];
+    const backward = createTrail({ root, files });
+    const two = [backward.reach(get("B"), layoutTest), backward.reach(get("C"), layoutTest), backward.reach(get("A"), layoutTest)];
+    expect(one).toEqual(["yes", "yes", "yes"]);
+    expect(two).toEqual(["yes", "yes", "yes"]);
+  });
+
+  it("resolves tsconfig extends (a file or a package) and baseUrl bare imports, so it reports what main reported", async () => {
+    const root = app({
+      "package.json": pkgJson(),
+      "tsconfig.json": `{ "extends": "./tsconfig.base.json", "compilerOptions": { "strict": true } }`,
+      "tsconfig.base.json": `{ "extends": "@acme/tsconfig/web.json", "compilerOptions": { "baseUrl": "src" } }`,
+      "node_modules/@acme/tsconfig/package.json": JSON.stringify({ name: "@acme/tsconfig", version: "1.0.0" }),
+      "node_modules/@acme/tsconfig/web.json": `{ "compilerOptions": { "paths": { "@app/*": ["../../../src/*"] } } }`,
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      // Through the package's paths (relative to the config that holds them): a layout, so it passes.
+      "src/routes/_shell/framed.tsx": route(`<Framed />`, `import { Framed } from "@app/pages/Framed";`),
+      "src/pages/Framed.tsx": `export const Framed = () => <DetailPage title="x" />;`,
+      // Through baseUrl: no layout at the end, so it's reported (as on main).
+      "src/routes/_shell/plain.tsx": route(`<Plain />`, `import { Plain } from "pages/Plain";`),
+      "src/pages/Plain.tsx": `export const Plain = () => <main />;`,
+    });
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/plain.tsx:0"]);
+  });
+
+  it("ignores import() in strings and comments", async () => {
+    expect(stripForImports(`const s = "import('./Page')"; // import("./Old")\nimport { A } from "./a";`)).toContain(`from "./a"`);
+    expect(stripForImports(`const s = "import('./Page')";`)).not.toContain("./Page");
+    expect(stripForImports("const t = `${x} import(\"./T\")`;")).not.toContain("./T");
+    expect(stripForImports(`<p>Don't import("./x") here</p>; const y = import("./real");`)).toContain(`import("./real")`);
+    const root = app({
+      "package.json": pkgJson(),
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/notes.tsx": `const tip = "lazy(() => import('../../pages/Page'))";\n/* import("../../pages/Page") */\n${route("<main>{tip}</main>")}`,
+      "src/pages/Page.tsx": `export default function Page() { return <DetailPage title="x" />; }`,
+    });
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/notes.tsx:0"]);
+  });
+
+  it("past six hops the trail ends as main's did: the route is reported", async () => {
+    const chain = (prefix: string, n: number): Record<string, string> => {
+      const files: Record<string, string> = {};
+      for (let i = 1; i <= n; i++) {
+        files[`src/${prefix}/C${i}.tsx`] =
+          i === n ? `export const C${i} = () => <DetailPage title="x" />;` : `import { C${i + 1} } from "./C${i + 1}";\nexport const C${i} = () => <C${i + 1} />;`;
+      }
+      return files;
+    };
+    const root = app({
+      "package.json": pkgJson(),
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/near.tsx": route(`<C1 />`, `import { C1 } from "../../near/C1";`),
+      ...chain("near", 3),
+      "src/routes/_shell/far.tsx": route(`<C1 />`, `import { C1 } from "../../far/C1";`),
+      ...chain("far", 8),
+    });
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/far.tsx:0"]);
+  });
+
+  it("an unresolved import never counts as an <Outlet>: the route stays a page and its children are still checked", async () => {
+    const root = app({
+      "package.json": pkgJson(),
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/team.tsx": route(`<main><Mystery /></main>`, `import { Mystery } from "@corp/mystery";`),
+      "src/routes/_shell/team.members.tsx": route(`<MembersTable />`),
+    });
+    const by = Object.fromEntries(webRoutes({ root, config: {}, files: scanFiles(root, {}) }).map((r) => [r.file.path, r]));
+    expect(by["src/routes/_shell/team.tsx"]!.layout).toBe(false);
+    expect(by["src/routes/_shell/team.members.tsx"]!.parents.map((p) => p.file.path)).not.toContain("src/routes/_shell/team.tsx");
+    // team.tsx itself is unsure (its import can't be traced); its child is reported as on main.
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/team.members.tsx:0"]);
+  });
+
+  it("a mixed graph (an undeclared hoisted package pulls in the top-level copy) warns", async () => {
+    const pkg = (name: string, version: string, deps: Record<string, string> = {}) => JSON.stringify({ name, version, dependencies: deps });
+    const root = makeApp(null, {
+      "package.json": JSON.stringify({ name: "app", version: "1.0.0", dependencies: { react: "^19.0.0" }, devDependencies: { "@marktiderman/genesis-ui": "^9.0.0" } }),
+      "node_modules/react/package.json": pkg("react", "19.0.0"),
+      "node_modules/@marktiderman/genesis-chat/package.json": pkg("@marktiderman/genesis-chat", "0.2.0", { "@marktiderman/genesis-core": "^1.7.0" }),
+      "node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.7.0"),
+      "node_modules/@marktiderman/genesis-ui/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.6.0"),
+    });
+    writeFileSync(
+      path.join(root, "node_modules/@marktiderman/genesis-ui/package.json"),
+      JSON.stringify({ name: "@marktiderman/genesis-ui", version: "9.9.9", types: "./dist/index.d.ts", dependencies: { "@marktiderman/genesis-core": "1.6.0" } }),
+    );
+    const core = genesisInstalls(root).get("@marktiderman/genesis-core")!;
+    expect(core.map((c) => [c.version, c.runtime, c.devOnly])).toEqual([
+      ["1.7.0", false, false],
+      ["1.6.0", false, true],
+    ]);
+    const result = await runDoctor({ root, config: {}, strict: true });
+    expect(result.findings.filter((f) => f.rule === "duplicate-genesis-package").map((f) => f.level)).toEqual(["warn"]);
+    expect(result.ok).toBe(false);
+  });
+
+  it("Next intercepting folders are the segment they intercept; a conditional outlet is still a layout", () => {
+    const root = app({
+      "src/app/layout.tsx": `export default function Root({ children }) { return <html><body>{children}</body></html>; }`,
+      "src/app/feed/(..)photo/[id]/page.tsx": `export default function P() { return <main>Photo</main>; }`,
+      "src/routes-unused.tsx": "",
+    });
+    const by = Object.fromEntries(webRoutes({ root, config: {}, files: scanFiles(root, {}) }).map((r) => [r.file.path, r]));
+    expect(by["src/app/feed/(..)photo/[id]/page.tsx"]!.segments).toEqual(["feed", "photo", "[id]"]);
+    const tan = app({
+      "src/routes/__root.tsx": `export const Route = createRootRoute({ component: () => <Outlet /> });`,
+      "src/routes/admin.tsx": `export const Route = createFileRoute("/admin")({ component: () => isAdmin ? <div className="p-4"><Outlet /></div> : <Outlet /> });`,
+    });
+    const admin = webRoutes({ root: tan, config: {}, files: scanFiles(tan, {}) }).find((r) => r.file.path === "src/routes/admin.tsx")!;
+    expect(admin).toMatchObject({ layout: true, page: false });
   });
 });

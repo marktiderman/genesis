@@ -24,10 +24,13 @@ export interface GenesisInstall {
   /** `the app` or `<package>@<version>`, with the range it declared. */
   requiredBy: Array<{ by: string; range?: string }>;
   /**
-   * Reached only through dev tooling: the app's devDependencies, or the Genesis
-   * CLI's own tree. Such a copy runs in scripts and builds, not in the app.
+   * Reached only through dev tooling: every path to it from the app runs through
+   * a declared devDependency, or the Genesis CLI's own tree. Such a copy runs in
+   * scripts and builds, not in the app.
    */
   devOnly: boolean;
+  /** Reached from a declared runtime dependency of the app: it ships. */
+  runtime: boolean;
 }
 
 /** Dev tools whose own dependency tree never ships, wherever the app lists them. */
@@ -90,48 +93,61 @@ function packagesIn(nodeModules: string): string[] {
  * where a package's dependencies are its siblings in the store entry. Copies
  * nothing resolves to are left out: they never load.
  *
- * Runtime dependencies are followed first; what only the app's devDependencies
- * (or the Genesis CLI, wherever it's listed) reach afterwards is `devOnly`. An
- * app with no runtime dependencies at all (everything in devDependencies, as a
- * bundled SPA may list them) has its devDependencies taken as runtime.
+ * Each copy records which roots reach it: the app's declared runtime
+ * dependencies (`runtime`), hoisted packages nobody declared (they could be
+ * anyone's), and the dev roots (declared devDependencies, and the Genesis CLI
+ * wherever it's listed). Only a copy reached from dev roots alone is `devOnly`.
+ * An app with no runtime dependencies at all (everything in devDependencies, as
+ * a bundled SPA may list them) has its devDependencies taken as runtime.
  */
 export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
   const copies = new Map<string, GenesisInstall>();
   // Real paths on both sides, so a store reached through a link (or macOS's /var → /private/var) reads plainly.
   const realRoot = real(root);
   const rel = (abs: string) => path.relative(realRoot, abs).split(path.sep).join("/") || ".";
-  const record = (real: string, manifest: Manifest, by: string, range: string | undefined, runtime: boolean) => {
+  type Root = "runtime" | "hoisted" | "dev";
+  const via = new Map<string, Set<Root>>();
+  const record = (real: string, manifest: Manifest, by: string, range: string | undefined, root: Root) => {
     let copy = copies.get(real);
     if (!copy) {
-      copy = { name: manifest.name!, version: String(manifest.version ?? "unknown"), dir: rel(real), absolutePath: real, requiredBy: [], devOnly: !runtime };
+      copy = { name: manifest.name!, version: String(manifest.version ?? "unknown"), dir: rel(real), absolutePath: real, requiredBy: [], devOnly: false, runtime: false };
       copies.set(real, copy);
+      via.set(real, new Set());
     }
+    via.get(real)!.add(root);
     if (!copy.requiredBy.some((r) => r.by === by)) copy.requiredBy.push({ by, ...(range ? { range } : {}) });
   };
 
-  const expanded = new Set<string>();
-  const queue: Array<{ real: string; manifest: Manifest; label: string }> = [];
-  /** A package at `dir` that `by` asked for with `range`; `runtime` while following the app's runtime tree. */
-  const visit = (dir: string, by: string, range: string | undefined, runtime: boolean) => {
-    const manifest = readManifest(dir);
-    if (!manifest?.name) return;
-    if (runtime && DEV_TOOLS.has(manifest.name)) return; // its tree is walked with the dev tools
-    const realDir = real(dir);
-    if (GENESIS.test(manifest.name)) record(realDir, manifest, by, range, runtime);
-    if (expanded.has(realDir)) return;
-    expanded.add(realDir);
-    queue.push({ real: realDir, manifest, label: `${manifest.name}@${manifest.version ?? "?"}` });
-  };
-  const drain = (runtime: boolean) => {
+  /** Follow resolution from `roots`, tagging every Genesis copy reached with `kind`. Each kind is its own walk. */
+  const walk = (kind: Root, roots: Array<{ dir: string; by: string; range?: string }>) => {
+    const expanded = new Set<string>();
+    const queue: Array<{ real: string; manifest: Manifest; label: string }> = [];
+    const visit = (dir: string, by: string, range: string | undefined) => {
+      const manifest = readManifest(dir);
+      if (!manifest?.name) return;
+      // The CLI's tree is dev tooling's, wherever it's reached from.
+      if (kind !== "dev" && DEV_TOOLS.has(manifest.name)) return;
+      const realDir = real(dir);
+      if (GENESIS.test(manifest.name)) record(realDir, manifest, by, range, kind);
+      if (expanded.has(realDir)) return;
+      expanded.add(realDir);
+      queue.push({ real: realDir, manifest, label: `${manifest.name}@${manifest.version ?? "?"}` });
+    };
+    for (const r of roots) visit(r.dir, r.by, r.range);
     while (queue.length) {
       const { real: from, manifest, label } = queue.shift()!;
       const deps = { ...manifest.peerDependencies, ...manifest.optionalDependencies, ...manifest.dependencies };
       for (const [name, range] of Object.entries(deps)) {
         const dir = findPackageDir(from, name);
-        if (dir) visit(dir, label, range, runtime);
+        if (dir) visit(dir, label, range);
       }
     }
   };
+  const rootsOf = (deps: Record<string, string | undefined>, by: string) =>
+    Object.entries(deps).flatMap(([name, range]) => {
+      const dir = findPackageDir(root, name);
+      return dir ? [{ dir, by, ...(range ? { range } : {}) }] : [];
+    });
 
   const app = readManifest(root);
   let runtimeDeps: Record<string, string> = { ...app?.peerDependencies, ...app?.optionalDependencies, ...app?.dependencies };
@@ -141,24 +157,26 @@ export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
     runtimeDeps = Object.fromEntries(Object.entries(devDeps).filter(([n]) => !DEV_TOOLS.has(n)));
     devDeps = Object.fromEntries(Object.entries(devDeps).filter(([n]) => DEV_TOOLS.has(n)));
   }
-  for (const [name, range] of Object.entries(runtimeDeps)) {
-    const dir = findPackageDir(root, name);
-    if (dir) visit(dir, "the app", range, true);
-  }
-  // Hoisted packages nobody in the app declared are loadable too.
+  walk("runtime", rootsOf(runtimeDeps, "the app"));
+  // Hoisted packages nobody in the app declared are loadable too, but could be anyone's.
   const top = path.join(root, "node_modules");
-  for (const dir of packagesIn(top)) {
-    const name = path.relative(top, dir).split(path.sep).join("/");
-    if (!(name in runtimeDeps) && !(name in devDeps)) visit(dir, "hoisted, not a direct dependency", undefined, true);
-  }
-  drain(true);
+  walk(
+    "hoisted",
+    packagesIn(top)
+      .filter((dir) => {
+        const name = path.relative(top, dir).split(path.sep).join("/");
+        return !(name in runtimeDeps) && !(name in devDeps);
+      })
+      .map((dir) => ({ dir, by: "hoisted, not a direct dependency" })),
+  );
   const devRoots: Record<string, string | undefined> = { ...devDeps };
   for (const tool of DEV_TOOLS) if (!(tool in devRoots)) devRoots[tool] = runtimeDeps[tool];
-  for (const [name, range] of Object.entries(devRoots)) {
-    const dir = findPackageDir(root, name);
-    if (dir) visit(dir, "the app (dev)", range, false);
+  walk("dev", rootsOf(devRoots, "the app (dev)"));
+  for (const [key, copy] of copies) {
+    const kinds = via.get(key)!;
+    copy.runtime = kinds.has("runtime");
+    copy.devOnly = kinds.size === 1 && kinds.has("dev");
   }
-  drain(false);
 
   const byName = new Map<string, GenesisInstall[]>();
   for (const copy of copies.values()) byName.set(copy.name, [...(byName.get(copy.name) ?? []), copy]);
@@ -171,9 +189,10 @@ export function checkDuplicatePackages(ctx: DoctorContext): void {
     `${c.version} at ${c.dir} (${c.requiredBy.map((r) => `${r.by}${r.range ? ` wants ${r.range}` : ""}`).join("; ")})`;
   for (const [name, copies] of genesisInstalls(ctx.root)) {
     if (copies.length < 2) continue;
-    const runtime = copies.filter((c) => !c.devOnly);
-    // Info only when exactly one copy ships and the rest are dev tooling's; anything else is a real split.
-    if (runtime.length !== 1) {
+    // Info only when exactly one copy provably ships (a declared runtime dependency reaches it) and every
+    // other is reached only through dev tooling. Anything else, an undeclared hoisted path included, warns.
+    const shipping = copies.filter((c) => c.runtime);
+    if (!(shipping.length === 1 && copies.every((c) => c === shipping[0] || c.devOnly))) {
       ctx.report({
         rule: "duplicate-genesis-package",
         level: "warn",
