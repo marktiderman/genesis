@@ -1,0 +1,39 @@
+.changeset/scope-values.md
+  s_1f35d570c63beb::t_07ff54f3edd44a 1-5
+docs/RESOURCE-VIEW.md
+  s_1f35d570c63beb::t_890c1cc71cb830 295-296
+packages/core/src/__tests__/resource-view.test.ts
+  s_1f35d570c63beb::t_f5dfa1c3397cc7 8,379-387,426-428,430-433,436-471
+packages/core/src/resource-view/define-view.ts
+  s_1f35d570c63beb::t_4c957919cb424c 97-99,194
+packages/core/src/resource-view/index.ts
+  s_2550badb988043::t_37952a0b24db50 7
+packages/core/src/resource-view/picture.ts
+  s_2550badb988043::t_c953bc84a7e48e 9-12,16-17,20-23,25-29
+packages/core/src/resource-view/scope.ts
+  s_2550badb988043::t_d0376f98f8ffda 1-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ca9d6b52d21849b96a3a493737add3e442ce1539",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2550badb988043": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d71b6317-4d78-4e83-8104-820e0c7b724b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
