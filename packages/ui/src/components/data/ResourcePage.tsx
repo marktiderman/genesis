@@ -913,7 +913,9 @@ export function ResourcePage<
     props.searchFields?.length ||
     savedViews?.length ||
     onSaveView ||
-    page.hasActiveFilters
+    // Search or a status filter; a sort (a column click) isn't a filter.
+    page.search !== "" ||
+    page.statusValue.length > 0
   );
 
   const showCreateButton = (onCreate || useBuiltInCreate) && allows("create");

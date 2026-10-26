@@ -82,6 +82,12 @@ describe('ResourcePage variant="embedded"', () => {
     expect((search() as HTMLInputElement | null)?.value).toBe("ada");
   });
 
+  it("doesn't show the filter row for a sort from a column header", () => {
+    renderPage({ variant: "embedded", columns: [{ key: "name", header: "Name", sortable: true }] });
+    fireEvent.click(screen.getByRole("button", { name: /Name/ }));
+    expect(search()).toBeNull();
+  });
+
   it("keeps the full header, count included, with an explicit header=\"page\"", () => {
     renderPage({ variant: "embedded", header: "page" });
     expect(heading()).toBeTruthy();

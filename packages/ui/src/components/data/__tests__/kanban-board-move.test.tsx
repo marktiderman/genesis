@@ -245,6 +245,32 @@ describe("KanbanBoard keyboard pick-up", () => {
     expect(document.activeElement).toBe(handle("Ana"));
   });
 
+  it("stops waiting to refocus when a move saves but the caller leaves the card in place", async () => {
+    const board = (cols: KanbanColumn<Card>[]) => (
+      <KanbanBoard<Card>
+        columns={cols}
+        getKey={(c) => c.id}
+        getItemLabel={(c) => c.name}
+        renderCard={(c) => <div>{c.name}</div>}
+        onMoveItem={() => Promise.resolve()}
+      />
+    );
+    const { rerender } = render(board(columns));
+    // From the menu, so focus isn't on the handle when the move settles.
+    fireEvent.keyDown(screen.getByRole("button", { name: "Move Ana" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Done" }));
+    await waitFor(() => expect(live()).toBe("Ana moved to Done."));
+    // The caller kept Ana in To do. Later, someone else moves her while focus is on the page.
+    (document.activeElement as HTMLElement | null)?.blur();
+    rerender(
+      board([
+        { ...columns[0]!, items: [] },
+        { ...columns[1]!, items: [...columns[1]!.items, { id: "a", name: "Ana" }] },
+      ]),
+    );
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it("ignores a pointer click on the handle", () => {
     const onMoveItem = vi.fn();
     renderBoard(onMoveItem);
