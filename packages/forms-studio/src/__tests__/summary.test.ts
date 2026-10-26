@@ -301,6 +301,25 @@ describe("summarizeResponses", () => {
     expect(s.average).toBe(3);
     expect(Date.now() - started).toBeLessThan(10_000);
   });
+
+  it("counts a 5,000-option choice question in linear time", () => {
+    const options = Array.from({ length: 5_000 }, (_, i) => ({ value: `o${i}`, label: `Option ${i}` }));
+    const big = {
+      schemaVersion: 1,
+      id: "big",
+      title: "Big",
+      blocks: [{ kind: "field", id: "b", key: "pick", type: "single-choice", label: "Pick", props: { options } }],
+    } as unknown as FormDefinition;
+    // Answers near the end of the list: a scan per answer would be 50,000 × ~5,000 comparisons.
+    const many = Array.from({ length: 50_000 }, (_, i) =>
+      item(`b${i}`, "2026-10-02", big, { b: `o${4_990 + (i % 10)}` }),
+    );
+    const started = Date.now();
+    const s = summarizeResponses(many, [big]).find((x) => x.key === "pick") as ChoiceSummary;
+    expect(s.options).toHaveLength(5_000);
+    expect(s.options.filter((o) => o.count === 5_000)).toHaveLength(10);
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
 });
 
 describe("filters", () => {
