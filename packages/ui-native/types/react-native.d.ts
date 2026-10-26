@@ -261,6 +261,13 @@ declare module "react-native" {
     refreshing?: boolean;
     onRefresh?: () => void;
     stickySectionHeadersEnabled?: boolean;
+    ListHeaderComponent?: React.ReactNode | ComponentType;
+    ListFooterComponent?: React.ReactNode | ComponentType;
+    ListEmptyComponent?: React.ReactNode | ComponentType;
+    onEndReached?: () => void;
+    onEndReachedThreshold?: number;
+    /** Anything else `renderItem` reads, so the list (a PureComponent) re-renders when it changes. */
+    extraData?: unknown;
   }
 
   export interface RefreshControlProps {
@@ -351,6 +358,11 @@ declare module "react-native" {
     /** iOS-only: forces a specific UI style for the alert (RN 0.76+). */
     userInterfaceStyle?: "light" | "dark" | "unspecified";
   }
+
+  export const Linking: {
+    openURL(url: string): Promise<void>;
+    canOpenURL(url: string): Promise<boolean>;
+  };
 
   export const Alert: {
     alert(
