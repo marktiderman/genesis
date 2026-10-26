@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(36);
 
 -- People: a1 (leader) and b2 on tenant 1's team t1; c3 in tenant 2; d4 in nothing.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -159,6 +159,14 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.metrics (tenant_id, team_id, name, source) values (pg_temp.tenant(1), pg_temp.team(1), 'No formula', 'formula') $$,
   '23514', null, 'a formula metric needs a formula');
+
+select throws_ok(
+  $$ insert into public.metrics (tenant_id, team_id, name, source, source_config) values (pg_temp.tenant(1), pg_temp.team(1), 'Synced', 'quickbooks', '{"report": "pl"}') $$,
+  '23514', null, 'a synced metric names its connection');
+select lives_ok(
+  $$ insert into public.metrics (tenant_id, team_id, name, source, source_config)
+     values (pg_temp.tenant(1), pg_temp.team(1), 'Synced', 'sheet', '{"connection_id": "00000000-0000-4000-f000-000000000001", "range": "A1"}') $$,
+  'a synced metric with its connection');
 
 -- Goals over time ---------------------------------------------------------------------------
 select lives_ok(

@@ -65,9 +65,15 @@ create table public.metrics (
     constraint metrics_template_key_format check (template_key is null or template_key ~ '^[a-z][a-z0-9_-]{0,59}$'),
   source text not null default 'manual'
     constraint metrics_source check (source in ('manual', 'formula', 'sheet', 'quickbooks', 'hubspot', 'query')),
-  -- Where a synced value comes from: ids and options only, never a secret.
+  -- Where a synced value comes from: ids and options only, never a secret. A synced source names
+  -- its connected account as "connection_id" (a uuid), so many metrics share one connection and
+  -- revoking it stops them all, beside its own ids (a sheet and range, a report).
   source_config jsonb not null default '{}'::jsonb
     constraint metrics_source_config_object check (jsonb_typeof(source_config) = 'object'),
+  -- The last sync's outcome, so a failing source shows instead of going quietly stale.
+  last_synced_at timestamptz,
+  last_error text
+    constraint metrics_last_error_length check (last_error is null or char_length(last_error) <= 1000),
   -- A formula over other metrics: { "op": "-", "args": [{ "metric": "<uuid>" }, { "number": 7 }] }.
   formula jsonb,
   -- Shown only to those the app trusts with it (money, for example). Display rule only:
@@ -84,7 +90,11 @@ create table public.metrics (
     goal_direction <> 'between' or (goal_value is not null and goal_max is not null and goal_max >= goal_value)),
   constraint metrics_max_only_between check (goal_direction = 'between' or goal_max is null),
   constraint metrics_formula_source check ((source = 'formula') = (formula is not null)),
-  constraint metrics_formula_object check (formula is null or jsonb_typeof(formula) = 'object')
+  constraint metrics_formula_object check (formula is null or jsonb_typeof(formula) = 'object'),
+  constraint metrics_synced_names_connection check (
+    source not in ('sheet', 'quickbooks', 'hubspot')
+    or (source_config ? 'connection_id'
+        and (source_config ->> 'connection_id') ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'))
 );
 
 comment on table public.metrics is
@@ -119,6 +129,8 @@ create table public.metric_values (
   source_ref text
     constraint metric_values_source_ref_length check (source_ref is null or char_length(source_ref) <= 200),
   entered_by uuid default auth.uid() references auth.users (id) on delete set null,
+  -- When a sync last wrote this value.
+  synced_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint metric_values_one_per_period unique (metric_id, period_start)
