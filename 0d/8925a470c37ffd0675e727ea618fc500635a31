@@ -1,0 +1,37 @@
+packages/studio-server/src/switch.ts
+  s_a1b83c03f697d3::t_bf16a258b2a031 1-145
+packages/studio-server/test/switch.integration.test.ts
+  s_a1b83c03f697d3::t_868a9db1b16f79 1-124
+.changeset/studio-server-rls-seam.md
+  s_a1b83c03f697d3::t_60dde01972a8a6 1-5
+packages/studio-server/README.md
+  s_a1b83c03f697d3::t_7b99ca849cb31b 315-355
+packages/studio-server/package.json
+  s_a1b83c03f697d3::t_2f668d595916c9 59
+packages/studio-server/src/auth.ts
+  s_a1b83c03f697d3::t_6cb4cb5e3892c7 45-47,53-65,89,117-125,134,140
+packages/studio-server/src/db.ts
+  s_a1b83c03f697d3::t_d821998735b257 10,66,164-175
+packages/studio-server/src/index.ts
+  s_a1b83c03f697d3::t_e6da29c2f1e866 23-27,30-31,33
+packages/studio-server/test/unit.test.ts
+  s_a1b83c03f697d3::t_88266332d420eb 4,516-574
+pnpm-lock.yaml
+  s_a1b83c03f697d3::t_52e21c55e99c63 1482-1484,7433-7524,17784-17787
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0d8925a470c37ffd0675e727ea618fc500635a31",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
