@@ -253,6 +253,55 @@ describe("subscribe: events", () => {
     }
   });
 
+  it("each channel skips the echo once: two lists of the same table don't refetch for your own write", async () => {
+    const { p } = provider({
+      realtime: true,
+      resources: { tasks: { update: async (id) => ({ id, title: "mine" }) } },
+    });
+    const a: ResourceChangeEvent[] = [];
+    const b: ResourceChangeEvent[] = [];
+    p.subscribe!("tasks", { filters: [{ field: "person_id", operator: "eq", value: "p1" }] }, (e) => a.push(e));
+    p.subscribe!("tasks", {}, (e) => b.push(e));
+    expect(channels).toHaveLength(2);
+    await p.update("tasks", { id: "t1", data: { title: "mine" } });
+    channels[0]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "mine" } });
+    channels[1]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "mine" } });
+    expect(a).toEqual([]);
+    expect(b).toEqual([]);
+    // The next change to t1 on either channel is someone else's.
+    channels[1]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "theirs" } });
+    expect(b).toHaveLength(1);
+  });
+
+  it("a channel opened after your write never saw it: a teammate's update there is heard", async () => {
+    const { p } = provider({
+      realtime: true,
+      resources: { tasks: { update: async (id) => ({ id, title: "mine" }) } },
+    });
+    p.subscribe!("tasks", {}, vi.fn());
+    await p.update("tasks", { id: "t1", data: { title: "mine" } });
+    const late: ResourceChangeEvent[] = [];
+    p.subscribe!("tasks", { filters: [{ field: "person_id", operator: "eq", value: "p1" }] }, (e) => late.push(e));
+    channels[1]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "teammate" } });
+    expect(late).toHaveLength(1);
+  });
+
+  it("forgets old write marks as new writes come in", async () => {
+    vi.useFakeTimers();
+    try {
+      const { p } = provider({ realtime: true, resources: { tasks: { update: async (id) => ({ id }) } } });
+      const count = (p as unknown as { __recentWriteCount: () => number }).__recentWriteCount;
+      await p.update("tasks", { id: "a", data: {} });
+      await p.update("tasks", { id: "b", data: {} });
+      expect(count()).toBe(2);
+      vi.advanceTimersByTime(2500);
+      await p.update("tasks", { id: "c", data: {} });
+      expect(count()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("skips the echo of this client's own write, then hears that row again", async () => {
     vi.useFakeTimers();
     try {
@@ -266,7 +315,7 @@ describe("subscribe: events", () => {
       channels[0]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "mine" } });
       channels[0]!.change!({ eventType: "UPDATE", new: { id: "t2", title: "theirs" } });
       expect(events.map((e) => ("id" in e ? e.id : null))).toEqual(["t2"]);
-      // The mark is used up: a second update to t1 (a trigger, another person) is heard at once.
+      // The channel used its mark: a second update to t1 (a trigger, another person) is heard at once.
       channels[0]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "someone else" } });
       expect(events.map((e) => ("id" in e ? e.id : null))).toEqual(["t2", "t1"]);
     } finally {
