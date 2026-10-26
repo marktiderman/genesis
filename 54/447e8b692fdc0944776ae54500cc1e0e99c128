@@ -1,0 +1,39 @@
+.changeset/native-resource-view-fixes.md
+  s_1f35d570c63beb::t_bcd2b41a25d3f6 1-8
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_1f35d570c63beb::t_f821384642ac5d 93-95,98-99,123-124
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_1f35d570c63beb::t_a954f4d2269b8b 351-353,429-434
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_1f35d570c63beb::t_3903a154f2a6d2 183,708-815
+packages/ui-native/src/data/resource-view/use-native-resource-view.ts
+  s_2c334912fcb08f::t_01b4c0064623dc 48-51,80-83,135-136,153-155,199-205,216,242,291-293
+packages/ui-native/test-utils/rn-mock.tsx
+  s_1f35d570c63beb::t_ebadb4bd628a7b 359-361,364,375-386
+packages/ui-native/types/react-native.d.ts
+  s_1f35d570c63beb::t_dbc85b9ab7d926 269-271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "54447e8b692fdc0944776ae54500cc1e0e99c128",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
