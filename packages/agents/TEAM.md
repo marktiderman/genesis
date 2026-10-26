@@ -17,10 +17,10 @@ session adopts an orphaned area.
 
 | Area | Paths | Area owner |
 |---|---|---|
-| Product system and agent process | `packages/agents`, `packages/product` (planned) | Compass |
+| Product system and agent process | `packages/agents`, `packages/product` except its native screens, including its migrations and web screens | Weaver (since 2026-10-26, from Compass) |
 | Sites and chat, including their wiring into apps | `packages/sites`, `packages/chat` except `src/native`, and their sample-app demos (`apps/sample/app/routes/sites*.tsx`, `apps/sample/app/routes/chat.tsx`, `apps/sample/sites-demo`) | Weaver |
-| React Native and notifications | `packages/native`, `packages/ui-native`, `packages/chat/src/native`, `packages/notifications`, `apps/genesis-rn-starter` | Forge (also the releaser of the batch, and hands the owner first-publish commands) |
-| Forms, and app batches and releases | `packages/forms*`, including `packages/forms-native`; app batches and releases live in each app repo, not here | Quill (app batches with whoever cut them) |
+| React Native and notifications | `packages/native`, `packages/ui-native`, `packages/chat/src/native`, the product system's native screens, `packages/notifications`, `apps/genesis-rn-starter`, and the product system's wiring into `.github/workflows/release.yml` | Forge (also the releaser of the batch, and hands the owner first-publish commands) |
+| Forms, and app batches and releases | `packages/forms*`, including `packages/forms-native` and the forms destination contract; the product system's wiring into the first app; app batches and releases live in each app repo, not here | Quill (app batches with whoever cut them) |
 
 Shared, so every area owner is told before a change: `packages/support`, `packages/supabase` (its
 migrations), `packages/ui`, `packages/design-system`, `packages/core`, `packages/features`,
