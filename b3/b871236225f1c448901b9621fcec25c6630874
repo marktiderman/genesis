@@ -1,0 +1,41 @@
+packages/chat/src/native/__tests__/push-ids.test.ts
+  s_1f35d570c63beb::t_f5f498f75210ef 1-18
+.changeset/push-ids-match.md
+  s_1f35d570c63beb::t_2af1bdd904904d 1-9
+apps/genesis-rn-starter/src/lib/notifications.ts
+  s_1f35d570c63beb::t_63145a9b541776 11,19
+packages/chat/README.md
+  s_1f35d570c63beb::t_2d3d236aaeb648 402-403
+packages/chat/src/native/__tests__/push.test.ts
+  s_1f35d570c63beb::t_6f62f0a63209fc 34,82,87-92,96,98
+packages/chat/src/native/push.ts
+  s_1f35d570c63beb::t_ad0fd0860acf31 32-35,218
+packages/notifications/README.md
+  s_1f35d570c63beb::t_c973067866141b 60,66
+packages/notifications/src/__tests__/core.test.ts
+  s_1f35d570c63beb::t_39f76d91313f65 36,49
+packages/notifications/src/__tests__/fixtures.ts
+  s_1f35d570c63beb::t_76c0e82426dfcc 10,16
+packages/notifications/src/__tests__/notification-runner.test.ts
+  s_1f35d570c63beb::t_8b973010182a2d 68,154
+packages/notifications/src/__tests__/ui.test.tsx
+  s_1f35d570c63beb::t_1024947fc48d20 173
+packages/notifications/src/core/registry.ts
+  s_1f35d570c63beb::t_26a5b287154eb7 194,200,331-334
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b3b871236225f1c448901b9621fcec25c6630874",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
