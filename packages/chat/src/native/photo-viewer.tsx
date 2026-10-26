@@ -86,7 +86,8 @@ export function isLocalUri(uri: string): boolean {
 }
 
 const clamp = (v: number, limit: number) => Math.max(-limit, Math.min(limit, v));
-const DOUBLE_TAP_MS = 280;
+// Between two `onPress`es (each fires on release): a quick double tap measured 330ms apart on iOS.
+export const DOUBLE_TAP_MS = 400;
 
 export function ChatPhotoViewer({ photos, initialIndex = 0, onClose, testID = "chat-photo-viewer" }: ChatPhotoViewerProps) {
   const open = photos !== null && photos.length > 0;

@@ -10,7 +10,7 @@ import type { ChatAttachment, ChatMessage } from "../../core/types";
 import { ChatProvider } from "../../react/index";
 import { ChatNativeProvider } from "../context";
 import type { ChatNativeModules } from "../modules";
-import { ChatMediaViewer, ChatPhotoViewer, DISMISS_DISTANCE, galleryFor, isLocalUri, panLimit, pinchScale, shouldDismiss } from "../photo-viewer";
+import { ChatMediaViewer, ChatPhotoViewer, DISMISS_DISTANCE, DOUBLE_TAP_MS, galleryFor, isLocalUri, panLimit, pinchScale, shouldDismiss } from "../photo-viewer";
 import { ChatThreadScreen } from "../thread-screen";
 
 vi.mock("react-native", async (original) => ({ ...(await original<object>()), useWindowDimensions: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) }));
@@ -70,6 +70,10 @@ describe("the viewer's gestures", () => {
     expect(pinchScale(1.5, 0, 50)).toBe(1.5);
     expect(panLimit(1, 390)).toBe(0);
     expect(panLimit(2, 390)).toBe(195);
+  });
+
+  it("count two taps 330ms apart as a double tap: that's how far apart a quick one's onPress events land on iOS", () => {
+    expect(DOUBLE_TAP_MS).toBeGreaterThan(330);
   });
 
   it("know a file on the phone from a link", () => {

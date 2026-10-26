@@ -63,7 +63,9 @@ export function forgetRecentEmoji(userId?: string): void {
 export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "chat-emoji-picker" }: ChatEmojiPickerProps) {
   const { modules, copy } = useChatNative();
   const colors = useThemeRoles();
-  const { width, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // Its own width once laid out (a sheet's padding), the window's until then.
+  const [width, setWidth] = useState(windowWidth);
   const [query, setQuery] = useState("");
   const [recents, setRecents] = useState<string[]>(() => (userId ? (recentCache.get(userId) ?? []) : []));
   const [tab, setTab] = useState<Tab>(recents.length ? "recent" : "smileys");
@@ -88,7 +90,7 @@ export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "cha
     };
   }, [userId, storage]);
 
-  const columns = Math.max(6, Math.floor((width - 16) / CELL));
+  const columns = Math.max(6, Math.floor(width / CELL));
   const gridHeight = height ?? Math.round(windowHeight * 0.4);
   const searching = query.trim().length > 0;
   const data: readonly EmojiEntry[] = useMemo(() => {
@@ -109,7 +111,12 @@ export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "cha
     },
     [onSelect, userId, storage],
   );
-  const renderItem = useCallback(({ item }: { item: EmojiEntry }) => <EmojiCell entry={item} onPress={choose} testID={`${testID}-emoji-${item.emoji}`} />, [choose, testID]);
+  // The columns share the width, so the grid fills it edge to edge.
+  const cellWidth = Math.floor(width / columns);
+  const renderItem = useCallback(
+    ({ item }: { item: EmojiEntry }) => <EmojiCell entry={item} width={cellWidth} onPress={choose} testID={`${testID}-emoji-${item.emoji}`} />,
+    [choose, testID, cellWidth],
+  );
 
   const tabs: { id: Tab; label: string; icon: string | null }[] = [
     ...(recents.length ? [{ id: "recent" as const, label: copy.recentEmoji, icon: null }] : []),
@@ -118,7 +125,7 @@ export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "cha
   const heading = searching ? null : (tabs.find((t) => t.id === tab)?.label ?? null);
 
   return (
-    <View testID={testID} style={{ gap: 8 }}>
+    <View testID={testID} style={{ gap: 8 }} onLayout={(e) => e.nativeEvent.layout.width > 0 && setWidth(e.nativeEvent.layout.width)}>
       <NativeSearchBar value={query} onChange={setQuery} placeholder={copy.searchEmoji} cancelLabel={copy.cancel} testID={`${testID}-search`} />
       {searching ? null : (
         <View accessibilityRole="tablist" testID={`${testID}-tabs`} style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -138,7 +145,7 @@ export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "cha
                 style={{ minWidth: 36, height: 44, flexGrow: 1, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: on ? colors.fill : undefined }}
               >
                 {t.icon ? (
-                  <NativeText style={{ fontSize: 20, opacity: on ? 1 : 0.55 }}>{t.icon}</NativeText>
+                  <NativeText style={{ fontSize: 20, lineHeight: 26, opacity: on ? 1 : 0.55 }}>{t.icon}</NativeText>
                 ) : (
                   <NativeIcon name="clock" size={20} color={on ? colors.label : colors.secondaryLabel} />
                 )}
@@ -176,16 +183,17 @@ export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "cha
   );
 }
 
-const EmojiCell = memo(function EmojiCell({ entry, onPress, testID }: { entry: EmojiEntry; onPress: (emoji: string) => void; testID: string }) {
+const EmojiCell = memo(function EmojiCell({ entry, width, onPress, testID }: { entry: EmojiEntry; width: number; onPress: (emoji: string) => void; testID: string }) {
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={entry.label}
       onPress={() => onPress(entry.emoji)}
-      style={{ width: CELL, height: CELL, alignItems: "center", justifyContent: "center" }}
+      style={{ width: Math.max(CELL, width), height: CELL, alignItems: "center", justifyContent: "center" }}
     >
-      <NativeText style={{ fontSize: 28 }} accessible={false}>
+      {/* A line height of its own: the text preset's is a body line's and clips a 28pt glyph. */}
+      <NativeText style={{ fontSize: 28, lineHeight: 36 }} accessible={false}>
         {entry.emoji}
       </NativeText>
     </Pressable>
@@ -205,7 +213,7 @@ export function ChatEmojiPickerSheet({ open, onClose, onSelect, testID = "chat-e
   const colors = useThemeRoles();
   return (
     <NativeSheet open={open} onOpenChange={(o) => (o ? undefined : onClose())} testID={testID}>
-      <View style={{ gap: 4, paddingHorizontal: 8 }}>
+      <View style={{ gap: 4, paddingHorizontal: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
           <NativeText preset="h4" accessibilityRole="header">
             {copy.emojiPicker}

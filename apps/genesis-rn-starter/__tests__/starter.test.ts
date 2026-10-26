@@ -385,6 +385,8 @@ describe("chat", () => {
     const chat = read("src/lib/chat.tsx");
     expect(chat).toContain('supabase.rpc("chat_people"');
     expect(chat).toContain("loadPeople = loadChatPeople");
+    // An untitled two-person thread is called by the other person's name.
+    expect(read("src/app/(app)/messages/[id].tsx")).toContain("conversation?.title ?? otherName ?? copy.messages.threadTitle");
   });
 
   it("forgets unsent messages on sign-out and retries them on return and reconnect", () => {

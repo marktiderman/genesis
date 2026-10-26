@@ -56,6 +56,7 @@ export function MessageActionsSheet({ message, context, onClose, onReact, onActi
   return (
     <NativeSheet open={message !== null} onOpenChange={(open) => (open ? undefined : onClose())} testID={testID}>
       {message && picking ? (
+        <View style={{ paddingHorizontal: 16 }}>
         <ChatEmojiPicker
           userId={context.me}
           testID={`${testID}-picker`}
@@ -64,8 +65,9 @@ export function MessageActionsSheet({ message, context, onClose, onReact, onActi
             onReact(message, emoji, !mineReactions.has(emoji));
           }}
         />
+        </View>
       ) : message ? (
-        <View style={{ gap: 12, paddingBottom: 8 }}>
+        <View style={{ gap: 12, paddingBottom: 8, paddingHorizontal: 16 }}>
           <NativeText numberOfLines={2} preset="body-sm" style={{ color: colors.secondaryLabel, paddingHorizontal: 4 }}>
             {previewText(message.body, message.attachments[0]?.kind, Boolean(message.deletedAt))}
           </NativeText>
@@ -86,7 +88,7 @@ export function MessageActionsSheet({ message, context, onClose, onReact, onActi
                     }}
                     style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: on ? colors.fill : undefined }}
                   >
-                    <NativeText style={{ fontSize: 26 }}>{emoji}</NativeText>
+                    <NativeText style={{ fontSize: 26, lineHeight: 34 }}>{emoji}</NativeText>
                   </Pressable>
                 );
               })}
