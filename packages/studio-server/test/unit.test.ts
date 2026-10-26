@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SignJWT } from "jose";
 import { isDataWriteError } from "@marktiderman/genesis-core/schema";
-import { byResource, createStudioHandler, databaseDecides, jwtAuth, studioSetupSql, supabaseAuth, supabaseStudio, type StudioDatabase } from "../src/index";
+import { byResource, createStudioHandler, databaseDecides, jwtAuth, jwtVerifier, switchToUser, studioSetupSql, supabaseAuth, supabaseStudio, type StudioDatabase } from "../src/index";
 import { triggerAdvances, withoutSettings, type CatalogTrigger } from "../src/catalog";
 import { createStudioProvider, createSupabaseStudioProvider } from "../src/client";
 
@@ -511,5 +511,64 @@ describe("supabaseAuth issuers", () => {
     expect(await auth(await req("http://127.0.0.1:54321/auth/v1"))).toMatchObject({ sub: "u1" });
     expect(await auth(await req("http://kong:8000/auth/v1"))).toMatchObject({ sub: "u1" });
     expect(await auth(await req("https://abc.supabase.co/auth/v1"))).toBeNull();
+  });
+});
+
+describe("jwtVerifier", () => {
+  const verify = jwtVerifier({ secret: SECRET, audience: "authenticated" });
+
+  it("checks a raw token by jwtAuth's rules", async () => {
+    expect(await verify(await sign({ sub: "u-1", aud: "authenticated" }))).toMatchObject({ sub: "u-1" });
+    expect(await verify(await sign({ sub: "u", aud: "anon" }))).toBeNull();
+    expect(await verify(await sign({ sub: "u", aud: "authenticated" }, SECRET, "-1m"))).toBeNull();
+    expect(await verify("")).toBeNull();
+  });
+});
+
+describe("switchToUser", () => {
+  const identity = { role: "authenticated", claims: { sub: "u-1", role: "authenticated", email: "a@b.test" } };
+
+  /** A tagged query that records each statement as parameterised text. */
+  function recorder() {
+    const calls: { text: string; values: unknown[] }[] = [];
+    const query = async (strings: TemplateStringsArray, ...values: unknown[]) => {
+      calls.push({ text: strings.reduce((out, part, i) => out + (i ? `$${i}` : "") + part, ""), values });
+      return calls.length === 1 ? [] : [{ role: "authenticated" }];
+    };
+    return { calls, query };
+  }
+
+  it("sets every setting as a parameter, then checks current_user", async () => {
+    const { calls, query } = recorder();
+    await switchToUser(query, identity, { headers: { "x-app": "gamify" }, statementTimeoutMs: 5000 });
+    expect(calls[0]!.text).toContain("set_config('role', $1::text, true)");
+    expect(calls[0]!.text).toContain("set_config('request.headers', $6::text, true)");
+    expect(calls[0]!.values).toEqual([
+      "authenticated",
+      JSON.stringify(identity.claims),
+      "u-1",
+      "authenticated",
+      "a@b.test",
+      JSON.stringify({ "x-app": "gamify" }),
+      "5000",
+    ]);
+    expect(calls[1]!.text).toBe("select current_user as role");
+  });
+
+  it("reads rows from node-postgres's { rows } too", async () => {
+    let n = 0;
+    await expect(
+      switchToUser(async () => (n++ === 0 ? { rows: [] } : { rows: [{ role: "authenticated" }] }), identity),
+    ).resolves.toBeUndefined();
+  });
+
+  it("refuses credential or badly named headers, and a missing role", async () => {
+    const { query, calls } = recorder();
+    for (const name of ["authorization", "cookie", "apikey", "x-api-key"]) {
+      await expect(switchToUser(query, identity, { headers: { [name]: "x" } })).rejects.toThrow(/credential/);
+    }
+    await expect(switchToUser(query, identity, { headers: { "X-App": "x" } })).rejects.toThrow(/lower-case/);
+    await expect(switchToUser(query, { role: "", claims: {} })).rejects.toThrow(/role/);
+    expect(calls).toHaveLength(0);
   });
 });

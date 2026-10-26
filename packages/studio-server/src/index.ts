@@ -21,8 +21,16 @@ export {
   type RunSummary,
 } from "./outbox";
 export {
+  switchToUser,
+  type SwitchOptions,
+  type TaggedQuery,
+} from "./switch";
+export {
   jwtAuth,
+  jwtVerifier,
+  type StudioTokenVerifier,
   supabaseAuth,
+  supabaseVerifier,
   bearerToken,
   type StudioAuth,
   type StudioClaims,
