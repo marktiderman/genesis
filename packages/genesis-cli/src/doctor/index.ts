@@ -104,7 +104,8 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
 
   const findings = applyConfig(raw, config);
   const errors = findings.filter((f) => f.level === "error").length;
-  const warnings = findings.length - errors;
+  const warnings = findings.filter((f) => f.level === "warn").length;
+  const infos = findings.length - errors - warnings;
   return {
     ok: errors === 0 && !(options.strict && warnings > 0),
     root,
@@ -114,6 +115,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     ruleCount: (patterns?.count ?? 0) + plugins.length,
     errors,
     warnings,
+    infos,
   };
 }
 
@@ -196,7 +198,8 @@ export function formatReport(result: DoctorResult): string {
     lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${f.rule}] ${f.message}`);
   }
   lines.push(`Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}`);
-  lines.push(result.ok ? `PASS (${result.warnings} warnings)` : `FAIL (${result.errors} errors, ${result.warnings} warnings)`);
+  const info = result.infos ? `, ${result.infos} info` : "";
+  lines.push(result.ok ? `PASS (${result.warnings} warnings${info})` : `FAIL (${result.errors} errors, ${result.warnings} warnings${info})`);
   return lines.join("\n");
 }
 
@@ -207,6 +210,7 @@ export function toJson(result: DoctorResult) {
     genesis: `${result.genesis.uiPackage}@${result.genesis.uiVersion}`,
     errors: result.errors,
     warnings: result.warnings,
+    infos: result.infos,
     findings: result.findings,
     unused: result.unused,
   };

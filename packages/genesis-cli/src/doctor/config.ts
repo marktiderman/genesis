@@ -151,7 +151,7 @@ const KNOWN = new Set<string>([
   "$schema",
   "$comment",
 ]);
-const LEVELS = new Set(["error", "warn", "off"]);
+const LEVELS = new Set(["error", "warn", "info", "off"]);
 const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "require", "path", "message"]);
 const PACKS = new Set(["native", "supabase"]);
 /** Each pack's settings: key → "string", "path" (app-relative folder, normalized) or "list". */
@@ -328,7 +328,7 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
   if (c.rules !== undefined) {
     if (!isObject(c.rules)) fail(`"rules" must be an object of rule → level`);
     for (const [rule, level] of Object.entries(c.rules as object)) {
-      if (!LEVELS.has(level as string)) fail(`rules.${rule} must be "error", "warn" or "off"`);
+      if (!LEVELS.has(level as string)) fail(`rules.${rule} must be "error", "warn", "info" or "off"`);
     }
   }
   if (c.allow !== undefined) {

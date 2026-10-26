@@ -112,6 +112,11 @@ export function renderedElements(code: string): string[] {
   return out;
 }
 
+/** Whether code renders JSX: a component element, a host element (`<main>`, `<div …>`) or a fragment. */
+export function rendersJsx(code: string): boolean {
+  return renderedElements(code).length > 0 || /(?<![\w$.])<(?:[a-z][\w-]*(?=[\s>/])|>)/.test(code);
+}
+
 /** Names a file imports from packages matching `pkg` (named imports, aliases resolved to the local name). */
 export function namedImportsFrom(code: string, pkg: RegExp): string[] {
   const out: string[] = [];

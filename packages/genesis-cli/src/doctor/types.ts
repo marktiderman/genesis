@@ -2,7 +2,8 @@
  * Public types for `genesis doctor` and its rule plugins.
  */
 
-export type Level = "error" | "warn";
+/** `info` is reported but never fails a run, `--strict` included. */
+export type Level = "error" | "warn" | "info";
 
 /** A rule's configured level: a level, or `"off"` to drop its findings. */
 export type RuleSetting = Level | "off";
@@ -124,7 +125,7 @@ export interface DoctorConfig {
   forbiddenImports?: Record<string, string>;
   /** Folders that must not exist (local design-system primitives). Default `["src/components/ui"]`. */
   localPrimitiveDirs?: string[];
-  /** Per-rule level overrides, e.g. `{ "raw-color": "warn", "palette-color": "off" }`. */
+  /** Per-rule level overrides, e.g. `{ "raw-color": "warn", "palette-color": "off" }`. `info` never fails a run. */
   rules?: Record<string, RuleSetting>;
   /** Justified exceptions. */
   allow?: AllowEntry[];
@@ -218,4 +219,6 @@ export interface DoctorResult {
   ruleCount: number;
   errors: number;
   warnings: number;
+  /** Findings at `info`: shown, never failing. */
+  infos: number;
 }

@@ -25,7 +25,7 @@ export interface GenesisDoctorOptions {
 
 const formatProblems = (result: DoctorResult, withWarnings = false) =>
   result.findings
-    .filter((f) => f.level === "error" || withWarnings)
+    .filter((f) => f.level === "error" || (withWarnings && f.level === "warn"))
     .map((f) => `${f.file}${f.line ? `:${f.line}` : ""}  [${f.rule}] ${f.message}`)
     .join("\n");
 

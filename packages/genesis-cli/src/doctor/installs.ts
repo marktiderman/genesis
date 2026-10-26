@@ -2,16 +2,16 @@
  * `duplicate-genesis-package`: more than one installed copy of a Genesis
  * package. Two copies are two module instances, so a provider from one is
  * invisible to hooks from the other (a nested genesis-core broke DataProvider
- * this way). Reads npm/bun/yarn nested `node_modules` and pnpm's `.pnpm` store.
+ * this way). Follows resolution through npm/yarn/bun trees and the pnpm and
+ * bun isolated stores, workspace roots included.
  */
-import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import * as path from "node:path";
 import { findPackageDir } from "./genesis.js";
 import { satisfies } from "./semver.js";
 import type { DoctorContext } from "./types.js";
 
 const GENESIS = /^@marktiderman\/genesis(?:-[\w.-]+)?$/;
-const MAX_DEPTH = 8;
 
 /** One physical copy of a Genesis package, and who asked for it. */
 export interface GenesisInstall {
@@ -19,6 +19,8 @@ export interface GenesisInstall {
   version: string;
   /** Folder relative to the app root, POSIX separators. */
   dir: string;
+  /** The folder's real absolute path. */
+  absolutePath: string;
   /** `the app` or `<package>@<version>`, with the range it declared. */
   requiredBy: Array<{ by: string; range?: string }>;
 }
@@ -69,71 +71,64 @@ function packagesIn(nodeModules: string): string[] {
   return out;
 }
 
-/** Every installed copy of every Genesis package, by name. */
+/**
+ * Every installed copy of every Genesis package the app can load, by name.
+ *
+ * Follows resolution, not folder layout: from each top-level package in the
+ * app's `node_modules` (and the app's own dependencies), each dependency is
+ * resolved the way Node does, from the real folder of the package asking. That
+ * covers npm/yarn/bun hoisted and nested trees, pnpm's `.pnpm` store (in the
+ * app or at a workspace root above a sub-app) and bun's isolated `.bun` store,
+ * where a package's dependencies are its siblings in the store entry. Copies
+ * nothing resolves to are left out: they never load.
+ */
 export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
   const copies = new Map<string, GenesisInstall>();
-  const rel = (abs: string) => path.relative(root, abs).split(path.sep).join("/") || ".";
-  const record = (dir: string, by: string, range: string | undefined) => {
-    const key = real(dir);
-    let copy = copies.get(key);
+  // Real paths on both sides, so a store reached through a link (or macOS's /var → /private/var) reads plainly.
+  const realRoot = real(root);
+  const rel = (abs: string) => path.relative(realRoot, abs).split(path.sep).join("/") || ".";
+  const record = (real: string, manifest: Manifest, by: string, range: string | undefined) => {
+    let copy = copies.get(real);
     if (!copy) {
-      const m = readManifest(dir);
-      if (!m?.name || !GENESIS.test(m.name)) return;
-      copy = { name: m.name, version: String(m.version ?? "unknown"), dir: rel(dir), requiredBy: [] };
-      copies.set(key, copy);
+      copy = { name: manifest.name!, version: String(manifest.version ?? "unknown"), dir: rel(real), absolutePath: real, requiredBy: [] };
+      copies.set(real, copy);
     }
     if (!copy.requiredBy.some((r) => r.by === by)) copy.requiredBy.push({ by, ...(range ? { range } : {}) });
   };
 
-  // pnpm: each store entry is one copy; the symlinks in other entries' node_modules say who depends on it.
-  const store = path.join(root, "node_modules", ".pnpm");
-  if (existsSync(store)) {
-    for (const entry of readdirSync(store)) {
-      const nm = path.join(store, entry, "node_modules");
-      if (!existsSync(nm)) continue;
-      let owner: { label: string; manifest: Manifest | null } | null = null;
-      const links: string[] = [];
-      for (const pkg of packagesIn(nm)) {
-        if (lstatSync(pkg).isSymbolicLink()) links.push(pkg);
-        else {
-          const m = readManifest(pkg);
-          owner = { label: `${m?.name}@${m?.version}`, manifest: m };
-          if (m?.name && GENESIS.test(m.name) && !copies.has(real(pkg))) {
-            copies.set(real(pkg), { name: m.name, version: String(m.version ?? "unknown"), dir: rel(pkg), requiredBy: [] });
-          }
-        }
-      }
-      for (const link of links) {
-        const name = path.relative(nm, link).split(path.sep).join("/");
-        if (GENESIS.test(name)) record(link, owner?.label ?? entry, rangeIn(owner?.manifest ?? null, name));
-      }
-    }
+  const expanded = new Set<string>();
+  const queue: Array<{ real: string; manifest: Manifest; label: string; own?: boolean }> = [];
+  /** A package at `dir` that `by` asked for with `range`. */
+  const visit = (dir: string, by: string, range: string | undefined) => {
+    const manifest = readManifest(dir);
+    if (!manifest?.name) return;
+    const realDir = real(dir);
+    if (GENESIS.test(manifest.name)) record(realDir, manifest, by, range);
+    if (expanded.has(realDir)) return;
+    expanded.add(realDir);
+    queue.push({ real: realDir, manifest, label: `${manifest.name}@${manifest.version ?? "?"}` });
+  };
+
+  const app = readManifest(root);
+  const appDeps = { ...app?.devDependencies, ...app?.peerDependencies, ...app?.optionalDependencies, ...app?.dependencies };
+  for (const name of Object.keys(appDeps)) {
+    const dir = findPackageDir(root, name);
+    if (dir) visit(dir, "the app", appDeps[name]);
+  }
+  // Hoisted packages nobody in the app declared are loadable too.
+  const top = path.join(root, "node_modules");
+  for (const dir of packagesIn(top)) {
+    const name = path.relative(top, dir).split(path.sep).join("/");
+    if (!(name in appDeps)) visit(dir, "hoisted, not a direct dependency", undefined);
   }
 
-  // Nested node_modules (npm, bun, yarn), and the app's own top-level links under pnpm.
-  const app = readManifest(root);
-  const seen = new Set<string>();
-  const walk = (nodeModules: string, by: string, manifest: Manifest | null, depth: number) => {
-    for (const pkg of packagesIn(nodeModules)) {
-      const name = path.relative(nodeModules, pkg).split(path.sep).join("/");
-      if (GENESIS.test(name)) {
-        const range = rangeIn(manifest, name);
-        record(pkg, depth === 0 && !range ? "hoisted, not a direct dependency" : by, range);
-      }
-      const key = real(pkg);
-      if (seen.has(key) || depth >= MAX_DEPTH || key.includes(`${path.sep}.pnpm${path.sep}`)) continue;
-      seen.add(key);
-      const nested = path.join(pkg, "node_modules");
-      if (existsSync(nested)) {
-        const m = readManifest(pkg);
-        walk(nested, `${m?.name ?? name}@${m?.version ?? "?"}`, m, depth + 1);
-      }
+  while (queue.length) {
+    const { real: from, manifest, label } = queue.shift()!;
+    const deps = { ...manifest.peerDependencies, ...manifest.optionalDependencies, ...manifest.dependencies };
+    for (const [name, range] of Object.entries(deps)) {
+      const dir = findPackageDir(from, name);
+      if (dir) visit(dir, label, range);
     }
-  };
-  walk(path.join(root, "node_modules"), "the app", app, 0);
-  // A copy found only nested says nothing about who wanted the top-level one; parents' ranges fill that in.
-  for (const copy of copies.values()) {
-    if (copy.requiredBy.length === 0) copy.requiredBy.push({ by: "a dependency" });
   }
 
   const byName = new Map<string, GenesisInstall[]>();
@@ -170,7 +165,7 @@ export function checkPeerRanges(ctx: DoctorContext): void {
   const rel = (abs: string) => path.relative(ctx.root, abs).split(path.sep).join("/");
   for (const copies of genesisInstalls(ctx.root).values()) {
     for (const copy of copies) {
-      const dir = path.join(ctx.root, copy.dir);
+      const dir = copy.absolutePath;
       const peers = readManifest(dir)?.peerDependencies ?? {};
       for (const [peer, range] of Object.entries(peers)) {
         if (!GENESIS.test(peer)) continue;

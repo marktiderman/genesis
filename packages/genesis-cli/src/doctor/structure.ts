@@ -6,8 +6,8 @@
  * name comes from the installed packages.
  */
 import { lineAt } from "./scan.js";
-import { webRoutes, type RouteFile } from "./routes.js";
-import { JSX_EXTS, namedImportsFrom, openElementsAt, viaOneImport } from "./source.js";
+import { routesDir, webRoutes, type RouteFile } from "./routes.js";
+import { JSX_EXTS, namedImportsFrom, openElementsAt, rendersJsx, viaOneImport } from "./source.js";
 import type { DoctorContext } from "./types.js";
 
 /** Where the shell's sub-navigation is documented. */
@@ -29,19 +29,27 @@ const rendersRe = (names: Iterable<string>) => {
   return list.length ? new RegExp(`<(?:${list.map((n) => n.replace(/[.$]/g, "\\$&")).join("|")})(?=[\\s>/])`) : null;
 };
 
+/**
+ * Which routes render inside the AppShell: those under a layout route that
+ * renders it (directly or through one local import). When no route renders it
+ * but some app file does, the app mounts the shell elsewhere, so every route counts.
+ * The shell's own layout route is not "inside" it.
+ */
+function insideShell(ctx: DoctorContext, routes: RouteFile[]): (r: RouteFile) => boolean {
+  const shell = new Set(routes.filter((r) => viaOneImport(ctx.root, ctx.files, r.file, (code) => SHELL.test(code))));
+  const anyShell = shell.size === 0 && ctx.files.some((f) => SHELL.test(f.code));
+  return (r) => !shell.has(r) && (anyShell || r.parents.some((p) => shell.has(p)));
+}
+
 /** `hand-rolled-sub-nav`: a route inside the shell draws its own page-level section tabs. */
 export function checkHandRolledSubNav(ctx: DoctorContext): void {
   if (isNative(ctx) || !ctx.genesis.values.has("useAppShellSubNav")) return;
   const routes = webRoutes(ctx);
   if (routes.length === 0) return;
-  const rendersShell = (r: RouteFile) => viaOneImport(ctx.root, ctx.files, r.file, (code) => SHELL.test(code));
-  // Routes under a layout that renders AppShell; when no route does, any shell in the app counts for every route.
-  const shellRoutes = new Set(routes.filter(rendersShell));
-  const anyShell = shellRoutes.size === 0 && ctx.files.some((f) => SHELL.test(f.code));
+  const inShell = insideShell(ctx, routes);
   const ui = ctx.genesis.uiPackage;
   for (const r of routes) {
-    if (shellRoutes.has(r)) continue;
-    if (!anyShell && !r.parents.some((p) => shellRoutes.has(p))) continue;
+    if (!inShell(r)) continue;
     const code = r.file.code;
     if (/\buseAppShellSubNav\s*\(/.test(code)) continue;
     for (const m of code.matchAll(SWITCHER)) {
@@ -62,25 +70,41 @@ export function checkHandRolledSubNav(ctx: DoctorContext): void {
   }
 }
 
-/** `local-genesis-copy`: an app component named like a Genesis component (`ResourceHeader`, `PageHeader`, `StatusBadge`). */
+/**
+ * `local-genesis-copy`: an app component named like a Genesis component
+ * (`ResourceHeader`, `PageHeader`, `StatusBadge`). Only a component
+ * definition counts: it renders JSX, the file doesn't import the Genesis one,
+ * and it is exported or lives outside the routes folder. A route's own
+ * `errorComponent` / `pendingComponent` / `notFoundComponent` (TanStack's
+ * `FormError`) shares a name, not a job.
+ */
 export function checkLocalGenesisCopies(ctx: DoctorContext): void {
   const owner = new Map<string, string>();
   for (const c of ctx.genesis.companions) for (const name of c.components) owner.set(name, c.package);
   for (const name of ctx.genesis.components) owner.set(name, ctx.genesis.uiPackage);
   if (owner.size === 0) return;
   const decl = /\b(export\s+(?:default\s+)?)?(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Z][\w$]*)\b/g;
+  const routes = routesDir(ctx);
   for (const file of ctx.files) {
     if (!JSX_EXTS.has(file.ext)) continue;
     const imported = new Set(namedImportsFrom(file.code, GENESIS_PACKAGE));
-    for (const m of file.code.matchAll(decl)) {
+    const inRoutes = routes !== null && file.path.startsWith(`${routes}/`);
+    // Route options that take a component: `errorComponent: FormError`, `pendingComponent`, `component`.
+    const routeComponents = new Set([...file.code.matchAll(/\b\w*[cC]omponent\s*:\s*([A-Z][\w$]*)\b/g)].map((r) => r[1]));
+    const decls = [...file.code.matchAll(decl)];
+    decls.forEach((m, i) => {
       const [, exported, name] = m;
       const pkg = owner.get(name);
-      if (!pkg || imported.has(name)) continue;
+      if (!pkg || imported.has(name) || routeComponents.has(name)) return;
+      if (inRoutes && !exported && !new RegExp(`\\bexport\\s*(?:default\\s+${name}\\b|\\{[^}]*\\b${name}\\b)`).test(file.code)) return;
+      // Its body, up to the next declaration in the file: a component renders JSX.
+      const body = file.code.slice(m.index! + m[0].length, decls[i + 1]?.index ?? file.code.length);
+      if (!rendersJsx(body)) return;
       // An exported value named like a genesis-ui export is already shadowed-export (an error).
-      if (exported && pkg === ctx.genesis.uiPackage && ctx.genesis.values.has(name)) continue;
+      if (exported && pkg === ctx.genesis.uiPackage && ctx.genesis.values.has(name)) return;
       // `const RichTextEditor = lazy(() => import("@marktiderman/genesis-ui/…"))` loads the Genesis one.
       const init = file.code.slice(m.index! + m[0].length, m.index! + m[0].length + 400).split(";")[0];
-      if (/["']@marktiderman\/genesis/.test(init)) continue;
+      if (/["']@marktiderman\/genesis/.test(init)) return;
       ctx.report({
         rule: "local-genesis-copy",
         level: "warn",
@@ -89,7 +113,7 @@ export function checkLocalGenesisCopies(ctx: DoctorContext): void {
         subject: name,
         message: `defines its own ${name}; Genesis already has ${name} (${pkg}). Use it, or extend it upstream`,
       });
-    }
+    });
   }
 }
 
@@ -114,7 +138,7 @@ export function checkResourceWorkspaces(ctx: DoctorContext): void {
       if (has.includes(r)) continue;
       ctx.report({
         rule: "resource-workspace",
-        level: "warn",
+        level: "info",
         file: r.file.path,
         message:
           `is a detail page without AppShellPageHeader, unlike ${ref} beside it; put its header in AppShellPageHeader and its sections in ` +
@@ -125,8 +149,13 @@ export function checkResourceWorkspaces(ctx: DoctorContext): void {
 }
 
 /**
- * `page-layout`: a web route that renders no Genesis page layout, directly,
- * through one local import, or from a layout route around it.
+ * `page-layout`: a web route inside the AppShell that renders no Genesis page
+ * layout, directly, through one local import, or from a layout route around it.
+ *
+ * Only routes inside the shell are checked: Genesis has no layout yet for the
+ * pages outside it (sign-in, reset password, invite, landing, public forms).
+ * When PublicPage and AuthPage ship (Elite plan L3), check every route, and
+ * name those two in the message for routes outside the shell.
  */
 export function checkPageLayouts(ctx: DoctorContext): void {
   if (isNative(ctx)) return;
@@ -134,6 +163,7 @@ export function checkPageLayouts(ctx: DoctorContext): void {
   for (const c of ctx.genesis.companions) for (const n of c.components) if (PAGE_LAYOUT.test(n)) layouts.add(n);
   if (layouts.size === 0) return;
   const routes = webRoutes(ctx);
+  const inShell = insideShell(ctx, routes);
   const rendersLayout = (code: string) => {
     const names = new Set(layouts);
     for (const n of namedImportsFrom(code, GENESIS_PACKAGE)) if (PACKAGE_SCREEN.test(n)) names.add(n);
@@ -147,7 +177,7 @@ export function checkPageLayouts(ctx: DoctorContext): void {
   const list = [...layouts].sort();
   const named = list.length > 4 ? `${list.slice(0, 4).join(", ")}, …` : list.join(", ");
   for (const r of routes) {
-    if (r.layout || r.redirectOnly) continue;
+    if (r.layout || r.redirectOnly || !inShell(r)) continue;
     if (provides(r) || r.parents.some(provides)) continue;
     ctx.report({
       rule: "page-layout",

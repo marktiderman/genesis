@@ -2,7 +2,7 @@
 import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { genesisInstalls, loadGenesis, runDoctor, satisfies, validateConfig, webRoutes, type DoctorConfig, type Finding } from "../src/doctor/index.js";
+import { formatReport, genesisInstalls, loadGenesis, runDoctor, satisfies, toJson, validateConfig, webRoutes, type DoctorConfig, type Finding } from "../src/doctor/index.js";
 import { scanFiles } from "../src/doctor/scan.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
@@ -30,7 +30,8 @@ declare function DashboardPage(): React.ReactNode;
 declare function BreadcrumbPage(): React.ReactNode;
 declare function PageHeader(): React.ReactNode;
 declare function StatusBadge(): React.ReactNode;
-export { AppShell, AppShellPageHeader, AppShellSubNavEnd, BreadcrumbPage, Button, Card, CardContent, DashboardPage, DetailPage, Dialog, DialogContent, PageHeader, StatusBadge, SubNavTabs, Tabs, TabsContent, TabsList, TabsTrigger, useAppShellSubNav };
+declare function FormError(): React.ReactNode;
+export { FormError, AppShell, AppShellPageHeader, AppShellSubNavEnd, BreadcrumbPage, Button, Card, CardContent, DashboardPage, DetailPage, Dialog, DialogContent, PageHeader, StatusBadge, SubNavTabs, Tabs, TabsContent, TabsList, TabsTrigger, useAppShellSubNav };
 `;
 const FORMS_STUDIO = {
   "node_modules/@marktiderman/genesis-forms-studio/package.json": JSON.stringify({
@@ -191,6 +192,35 @@ describe("local-genesis-copy", () => {
     expect(brief(f, "shadowed-export")).toEqual(["src/components/Page.tsx:1 PageHeader"]);
   });
 
+  it("leaves a route's own errorComponent / pendingComponent, route-local helpers and non-components", async () => {
+    const f = await run(
+      app({
+        "src/routes/f.$slug.tsx": `import { useRouter, type ErrorComponentProps } from "@tanstack/react-router";
+export const Route = createFileRoute("/f/$slug")({ component: Page, errorComponent: FormError, pendingComponent: Card });
+function Page() { return <main />; }
+function FormError(_props: ErrorComponentProps) {
+  const router = useRouter();
+  return <p>Try again</p>;
+}
+function Card() { return <div />; }
+function StatusBadge() { return <span />; }
+`,
+        "src/components/data.tsx": `export const StatusBadge = { ok: "green" };\nexport function Card(label: string) { return label.toUpperCase(); }`,
+      }),
+    );
+    expect(brief(f, "local-genesis-copy")).toEqual([]);
+  });
+
+  it("still flags a component a route file exports", async () => {
+    const f = await run(
+      app({
+        ...FORMS_STUDIO,
+        "src/routes/x.tsx": `export function ResourceHeader() { return <header />; }\nexport const Route = createFileRoute("/x")({ component: () => <ResourceHeader /> });`,
+      }),
+    );
+    expect(brief(f, "local-genesis-copy")).toEqual(["src/routes/x.tsx:1 ResourceHeader"]);
+  });
+
   it("lists forms-studio's components in --print-genesis facts", () => {
     const g = loadGenesis(app(FORMS_STUDIO), {});
     expect(g.companions).toEqual([
@@ -231,27 +261,66 @@ describe("duplicate-genesis-package", () => {
     expect(brief(await run(root), "duplicate-genesis-package")).toEqual([]);
   });
 
-  it("reads pnpm's store: two entries are two copies, the app's links are not extra ones", () => {
-    const root = makeApp(null, { "package.json": pkg("app", "1.0.0", { "@marktiderman/genesis-forms": "^1.0.0" }) });
-    const store = path.join(root, "node_modules", ".pnpm");
-    const put = (entry: string, name: string, version: string, deps: Record<string, string> = {}) => {
-      const dir = path.join(store, entry, "node_modules", name);
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(path.join(dir, "package.json"), pkg(name, version, deps));
-      return dir;
-    };
-    const forms = put("@marktiderman+genesis-forms@1.0.0", "@marktiderman/genesis-forms", "1.0.0");
-    const oldForms = put("@marktiderman+genesis-forms@0.9.0", "@marktiderman/genesis-forms", "0.9.0");
-    put("@marktiderman+genesis-chat@0.2.0", "@marktiderman/genesis-chat", "0.2.0", { "@marktiderman/genesis-forms": "^0.9.0" });
-    mkdirSync(path.join(store, "@marktiderman+genesis-chat@0.2.0", "node_modules", "@marktiderman"), { recursive: true });
-    symlinkSync(oldForms, path.join(store, "@marktiderman+genesis-chat@0.2.0", "node_modules", "@marktiderman", "genesis-forms"));
-    symlinkSync(forms, path.join(root, "node_modules", "@marktiderman", "genesis-forms"));
-    const copies = genesisInstalls(root).get("@marktiderman/genesis-forms")!;
-    expect(copies.map((c) => c.version)).toEqual(["0.9.0", "1.0.0"]);
-    expect(copies.find((c) => c.version === "0.9.0")!.requiredBy).toEqual([{ by: "@marktiderman/genesis-chat@0.2.0", range: "^0.9.0" }]);
-    expect(copies.find((c) => c.version === "1.0.0")!.requiredBy).toEqual([{ by: "the app", range: "^1.0.0" }]);
-    // The fake genesis-ui and the rest are real folders installed once.
-    expect(genesisInstalls(root).get("@marktiderman/genesis-ui")).toHaveLength(1);
+  /** A store entry (`.pnpm` / `.bun` style): the package, and symlinks to its dependencies beside it. */
+  const storeEntry = (store: string, entry: string, name: string, version: string, deps: Record<string, string> = {}, links: Record<string, string> = {}) => {
+    const nm = path.join(store, entry, "node_modules");
+    const dir = path.join(nm, name);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, "package.json"), pkg(name, version, deps));
+    for (const [dep, target] of Object.entries(links)) {
+      mkdirSync(path.dirname(path.join(nm, dep)), { recursive: true });
+      symlinkSync(target, path.join(nm, dep));
+    }
+    return dir;
+  };
+  const link = (target: string, at: string) => {
+    mkdirSync(path.dirname(at), { recursive: true });
+    symlinkSync(target, at);
+  };
+
+  for (const store of [".pnpm", ".bun"]) {
+    it(`follows a ${store} store: two entries the app reaches are two copies, its own links aren't extra ones`, () => {
+      const root = makeApp(null, {
+        "package.json": pkg("app", "1.0.0", { "@marktiderman/genesis-forms": "^1.0.0", "@marktiderman/genesis-chat": "^0.2.0" }),
+      });
+      const dir = path.join(root, "node_modules", store);
+      const forms = storeEntry(dir, "@marktiderman+genesis-forms@1.0.0", "@marktiderman/genesis-forms", "1.0.0");
+      const oldForms = storeEntry(dir, "@marktiderman+genesis-forms@0.9.0", "@marktiderman/genesis-forms", "0.9.0");
+      const chat = storeEntry(dir, "@marktiderman+genesis-chat@0.2.0", "@marktiderman/genesis-chat", "0.2.0", { "@marktiderman/genesis-forms": "^0.9.0" }, {
+        "@marktiderman/genesis-forms": oldForms,
+      });
+      // An entry nothing depends on never loads.
+      storeEntry(dir, "@marktiderman+genesis-forms@0.1.0", "@marktiderman/genesis-forms", "0.1.0");
+      link(forms, path.join(root, "node_modules", "@marktiderman", "genesis-forms"));
+      link(chat, path.join(root, "node_modules", "@marktiderman", "genesis-chat"));
+      const copies = genesisInstalls(root).get("@marktiderman/genesis-forms")!;
+      expect(copies.map((c) => c.version).sort()).toEqual(["0.9.0", "1.0.0"]);
+      expect(copies.find((c) => c.version === "0.9.0")!.requiredBy).toEqual([{ by: "@marktiderman/genesis-chat@0.2.0", range: "^0.9.0" }]);
+      expect(copies.find((c) => c.version === "1.0.0")!.requiredBy).toEqual([{ by: "the app", range: "^1.0.0" }]);
+      expect(genesisInstalls(root).get("@marktiderman/genesis-ui")).toHaveLength(1);
+    });
+  }
+
+  it("follows a pnpm workspace sub-app into the store at the workspace root", async () => {
+    const workspace = makeApp(null);
+    const store = path.join(workspace, "node_modules", ".pnpm");
+    const core = storeEntry(store, "@marktiderman+genesis-core@1.7.0", "@marktiderman/genesis-core", "1.7.0");
+    const oldCore = storeEntry(store, "@marktiderman+genesis-core@1.6.0", "@marktiderman/genesis-core", "1.6.0");
+    const server = storeEntry(store, "@marktiderman+genesis-studio-server@0.2.1", "@marktiderman/genesis-studio-server", "0.2.1", { "@marktiderman/genesis-core": "1.6.0" }, {
+      "@marktiderman/genesis-core": oldCore,
+    });
+    const app = path.join(workspace, "apps", "web");
+    mkdirSync(app, { recursive: true });
+    writeFileSync(path.join(app, "package.json"), pkg("web", "1.0.0", { "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-studio-server": "0.2.1" }));
+    link(core, path.join(app, "node_modules", "@marktiderman", "genesis-core"));
+    link(server, path.join(app, "node_modules", "@marktiderman", "genesis-studio-server"));
+    const copies = genesisInstalls(app).get("@marktiderman/genesis-core")!;
+    expect(copies.map((c) => `${c.version} ${c.dir}`)).toEqual([
+      "1.6.0 ../../node_modules/.pnpm/@marktiderman+genesis-core@1.6.0/node_modules/@marktiderman/genesis-core",
+      "1.7.0 ../../node_modules/.pnpm/@marktiderman+genesis-core@1.7.0/node_modules/@marktiderman/genesis-core",
+    ]);
+    expect(copies[0]!.requiredBy).toEqual([{ by: "@marktiderman/genesis-studio-server@0.2.1", range: "1.6.0" }]);
+    expect(copies[1]!.requiredBy).toEqual([{ by: "the app", range: "^1.7.0" }]);
   });
 });
 
@@ -270,7 +339,19 @@ describe("resource-workspace", () => {
       }),
     );
     expect(brief(f, "resource-workspace")).toEqual(["src/routes/_shell/courses.$courseId.tsx:0"]);
+    expect(f.find((x) => x.rule === "resource-workspace")!.level).toBe("info");
     expect(f.find((x) => x.rule === "resource-workspace")!.message).toContain("unlike forms.$formId.tsx");
+  });
+
+  it("is info: shown in text and --json, never failing, --strict included", async () => {
+    const root = app({ "src/routes/forms.$formId.tsx": detail(true), "src/routes/courses.$courseId.tsx": detail(false) });
+    const strict = await runDoctor({ root, config: {}, strict: true });
+    expect(strict).toMatchObject({ ok: true, errors: 0, warnings: 0, infos: 1 });
+    expect(formatReport(strict)).toMatch(/^INFO  src\/routes\/courses\.\$courseId\.tsx  \[resource-workspace\]/m);
+    expect(formatReport(strict)).toContain("PASS (0 warnings, 1 info)");
+    expect(toJson(strict)).toMatchObject({ ok: true, infos: 1, findings: [{ rule: "resource-workspace", level: "info" }] });
+    // A level override can raise it.
+    expect((await runDoctor({ root, config: { rules: { "resource-workspace": "warn" } }, strict: true })).ok).toBe(false);
   });
 
   it("says nothing when no detail page uses it", async () => {
@@ -282,26 +363,30 @@ describe("resource-workspace", () => {
 describe("page-layout", () => {
   const route = (body: string, imports = "") => `${imports}\nexport const Route = createFileRoute("/x")({ component: () => ${body} });`;
 
-  it("flags a page with no Genesis layout, and passes direct, imported, parent-supplied and package layouts", async () => {
+  it("flags a page inside the shell with no Genesis layout, and passes direct, imported, parent-supplied and package layouts", async () => {
     const f = await run(
       app({
         ...FORMS_STUDIO,
         "src/routes/__root.tsx": route("<Outlet />"),
-        "src/routes/sign-in.tsx": route(`<main><h1>Sign in</h1></main>`),
-        "src/routes/dashboard.tsx": route(`<DashboardPage title="Home" />`),
-        "src/routes/about.tsx": route(`<AboutPage />`, `import { AboutPage } from "@/components/AboutPage";`),
+        "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+        "src/routes/_shell/inbox.tsx": route(`<main><h1>Inbox</h1></main>`),
+        "src/routes/_shell/dashboard.tsx": route(`<DashboardPage title="Home" />`),
+        "src/routes/_shell/about.tsx": route(`<AboutPage />`, `import { AboutPage } from "@/components/AboutPage";`),
         "src/components/AboutPage.tsx": `import { DetailPage } from "@marktiderman/genesis-ui";\nexport const AboutPage = () => <DetailPage title="About" />;`,
-        "src/routes/my/route.tsx": route(`<SpaceLayout />`, `import { SpaceLayout } from "../../components/SpaceLayout";`),
+        "src/routes/_shell/my/route.tsx": route(`<SpaceLayout />`, `import { SpaceLayout } from "../../../components/SpaceLayout";`),
         "src/components/SpaceLayout.tsx": `export const SpaceLayout = () => <DetailPage title="Me"><Outlet /></DetailPage>;`,
-        "src/routes/my/index.tsx": route(`<EmptyState />`),
-        "src/routes/support.tsx": route(`<SupportPage />`, `import { SupportPage } from "@marktiderman/genesis-support";`),
-        "src/routes/settings.tsx": route(`<ResourceSettingsPage />`, `import { ResourceSettingsPage } from "@marktiderman/genesis-forms-studio";`),
-        "src/routes/crumbs.tsx": route(`<BreadcrumbPage />`),
-        "src/routes/go.tsx": route(`<Navigate to="/" />`),
-        "src/routes/invite.$token.tsx": `export const Route = createFileRoute("/invite/$token")({ beforeLoad: () => { throw redirect({ to: "/" }); } });`,
+        "src/routes/_shell/my/index.tsx": route(`<EmptyState />`),
+        "src/routes/_shell/support.tsx": route(`<SupportPage />`, `import { SupportPage } from "@marktiderman/genesis-support";`),
+        "src/routes/_shell/settings.tsx": route(`<ResourceSettingsPage />`, `import { ResourceSettingsPage } from "@marktiderman/genesis-forms-studio";`),
+        "src/routes/_shell/crumbs.tsx": route(`<BreadcrumbPage />`),
+        "src/routes/_shell/go.tsx": route(`<Navigate to="/" />`),
+        "src/routes/_shell/invite.$token.tsx": `export const Route = createFileRoute("/invite/$token")({ beforeLoad: () => { throw redirect({ to: "/" }); } });`,
+        // Outside the shell: Genesis has no PublicPage / AuthPage yet.
+        "src/routes/sign-in.tsx": route(`<main><h1>Sign in</h1></main>`),
+        "src/routes/index.tsx": route(`<Landing />`),
       }),
     );
-    expect(brief(f, "page-layout")).toEqual(["src/routes/crumbs.tsx:0", "src/routes/sign-in.tsx:0"]);
+    expect(brief(f, "page-layout")).toEqual(["src/routes/_shell/crumbs.tsx:0", "src/routes/_shell/inbox.tsx:0"]);
     expect(f.find((x) => x.rule === "page-layout")!.message).toContain("DashboardPage");
   });
 

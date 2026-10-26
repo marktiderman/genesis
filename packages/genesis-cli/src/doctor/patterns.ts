@@ -11,7 +11,7 @@ import * as path from "node:path";
 import { DoctorConfigError } from "./config.js";
 import { globMatcher } from "./glob.js";
 import { lineAt } from "./scan.js";
-import type { DoctorContext, DoctorPlugin, PatternRule } from "./types.js";
+import type { DoctorContext, DoctorPlugin, Level, PatternRule } from "./types.js";
 
 export function parseRulesMarkdown(markdown: string): PatternRule[] {
   const rules: PatternRule[] = [];
@@ -46,7 +46,7 @@ function toRegExp(source: string, flags = ""): RegExp {
 
 interface CompiledRule {
   rule: PatternRule;
-  level: "error" | "warn";
+  level: Level;
   includes: (p: string) => boolean;
   excludes: (p: string) => boolean;
   forbid?: RegExp;
@@ -62,8 +62,8 @@ export function compilePatternRules(rules: PatternRule[], source: string): Compi
     if (ids.has(rule.id)) throw new DoctorConfigError(`${source}: rule "${rule.id}" is defined twice`);
     ids.add(rule.id);
     const level = rule.level ?? "error";
-    if (!["error", "warn", "guide"].includes(level)) {
-      throw new DoctorConfigError(`${source}: rule "${rule.id}" has level "${level}" (use error, warn or guide)`);
+    if (!["error", "warn", "info", "guide"].includes(level)) {
+      throw new DoctorConfigError(`${source}: rule "${rule.id}" has level "${level}" (use error, warn, info or guide)`);
     }
     if (level === "guide") continue;
     if (!rule.files?.length) throw new DoctorConfigError(`${source}: rule "${rule.id}" needs "files" (or level: guide)`);
