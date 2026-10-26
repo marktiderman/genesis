@@ -1,9 +1,11 @@
 /**
  * @feat:chat
- * The long-press sheet: a row of quick reactions, then Reply, Copy, Pin or
+ * The long-press sheet: a row of quick reactions and "+" for every emoji
+ * (the picker takes the sheet's place), then Reply, Copy, Pin or
  * Unpin, and Delete (confirmed), offered per `messageActionsFor`. Each runs
  * through `useMessageActions`; a refusal from the server is a toast.
  */
+import { useEffect, useState } from "react";
 import { Alert, Pressable, View } from "react-native";
 import { NativeIcon, NativeListItem, NativeSheet, NativeText, type NativeIconName } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -12,6 +14,7 @@ import type { ChatMessage } from "../core/types";
 import { QUICK_REACTIONS, canReactTo, messageActionsFor, type MessageActionContext, type MessageActionId } from "./actions";
 import { fill } from "./copy";
 import { useChatNative } from "./context";
+import { ChatEmojiPicker } from "./emoji-picker";
 
 export interface MessageActionsSheetProps {
   message: ChatMessage | null;
@@ -30,6 +33,11 @@ export function MessageActionsSheet({ message, context, onClose, onReact, onActi
   const actions = message ? messageActionsFor(message, context) : [];
   const mineReactions = new Set(message ? summarizeReactions(message, context.me).filter((r) => r.mine).map((r) => r.emoji) : []);
   const labels: Record<MessageActionId, string> = { reply: copy.reply, copy: copy.copy, pin: copy.pin, unpin: copy.unpin, delete: copy.delete };
+  // "+" swaps the sheet's content for the full picker (iOS can't present a second sheet over this one).
+  const [picking, setPicking] = useState(false);
+  useEffect(() => {
+    if (!message) setPicking(false);
+  }, [message]);
 
   const run = (action: MessageActionId) => {
     if (!message) return;
@@ -47,8 +55,19 @@ export function MessageActionsSheet({ message, context, onClose, onReact, onActi
 
   return (
     <NativeSheet open={message !== null} onOpenChange={(open) => (open ? undefined : onClose())} testID={testID}>
-      {message ? (
-        <View style={{ gap: 12, paddingBottom: 8 }}>
+      {message && picking ? (
+        <View style={{ paddingHorizontal: 16 }}>
+        <ChatEmojiPicker
+          userId={context.me}
+          testID={`${testID}-picker`}
+          onSelect={(emoji) => {
+            onClose();
+            onReact(message, emoji, !mineReactions.has(emoji));
+          }}
+        />
+        </View>
+      ) : message ? (
+        <View style={{ gap: 12, paddingBottom: 8, paddingHorizontal: 16 }}>
           <NativeText numberOfLines={2} preset="body-sm" style={{ color: colors.secondaryLabel, paddingHorizontal: 4 }}>
             {previewText(message.body, message.attachments[0]?.kind, Boolean(message.deletedAt))}
           </NativeText>
@@ -69,10 +88,19 @@ export function MessageActionsSheet({ message, context, onClose, onReact, onActi
                     }}
                     style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: on ? colors.fill : undefined }}
                   >
-                    <NativeText style={{ fontSize: 26 }}>{emoji}</NativeText>
+                    <NativeText style={{ fontSize: 26, lineHeight: 34 }}>{emoji}</NativeText>
                   </Pressable>
                 );
               })}
+              <Pressable
+                testID={`${testID}-react-more`}
+                accessibilityRole="button"
+                accessibilityLabel={copy.moreReactions}
+                onPress={() => setPicking(true)}
+                style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.fill }}
+              >
+                <NativeIcon name="plus" size={22} color={colors.secondaryLabel} />
+              </Pressable>
             </View>
           ) : null}
           <View>

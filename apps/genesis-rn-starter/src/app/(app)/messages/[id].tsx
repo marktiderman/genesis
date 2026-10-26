@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Redirect, Stack, router, useLocalSearchParams, type Href } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChatIconButton, ChatThreadScreen, chatThreadMatch, useChatThreadStackOptions } from "@marktiderman/genesis-chat/native";
-import { chatKeys } from "@marktiderman/genesis-chat/react";
+import { chatKeys, useChat, usePeople } from "@marktiderman/genesis-chat/react";
 import { useSuppressNotifications } from "@marktiderman/genesis-native/push";
 import starter from "../../../../starter.config";
 import { copy } from "@/copy";
@@ -22,9 +22,15 @@ export default function MessagesThreadScreen() {
 function Thread({ id, message, seq }: { id: string; message?: string; seq?: string }) {
   // The same query the thread reads (one fetch), for the header's title.
   const { data: conversation } = useQuery({ queryKey: chatKeys.conversation(id), queryFn: () => chatClient.conversation(id) });
+  // An untitled two-person conversation is called by the other person's name (chat_people).
+  const { userId } = useChat();
+  const { data: members } = useQuery({ queryKey: chatKeys.members(id), queryFn: () => chatClient.members(id) });
+  const other = members && members.length === 2 ? (members.find((m) => m.userId !== userId)?.userId ?? null) : null;
+  const people = usePeople([other]);
+  const otherName = other ? people[other]?.name : undefined;
   useSuppressNotifications(chatThreadMatch(id));
   const options = useChatThreadStackOptions({
-    headerTitle: conversation?.title ?? copy.messages.threadTitle,
+    headerTitle: conversation?.title ?? otherName ?? copy.messages.threadTitle,
     headerRight: () => (
       <ChatIconButton
         testID="thread-search"
