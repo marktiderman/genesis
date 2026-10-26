@@ -11,6 +11,7 @@ import type {
   DisplayHint,
   ResolvedColumn,
   ResolvedFormField,
+  ResolvedViewAction,
   ResourceView,
   RowOf,
   RowSummary,
@@ -93,6 +94,9 @@ export function singular(word: string): string {
   return one(last.slice(0, -1));
 }
 
+// The view's own operations (`view.can`): an action can't take their names.
+const RESERVED_ACTIONS: ReadonlySet<string> = new Set(["create", "update", "delete"]);
+
 const own = <V>(record: Readonly<Record<string, V>> | undefined, key: string): V | undefined =>
   record && Object.hasOwn(record, key) ? record[key] : undefined;
 
@@ -104,6 +108,7 @@ const own = <V>(record: Readonly<Record<string, V>> | undefined, key: string): V
  *   fields: { status: { display: "badge", tones: { active: "success" } } },
  *   columns: { default: ["name", "status", "created_at"], compact: ["name"] },
  *   can: { delete: (row) => (row.is_default ? "The default brand stays." : true) },
+ *   actions: [{ name: "archive", label: "Archive", can: (row) => (row.is_default ? "The default brand stays." : true) }],
  * });
  * ```
  *
@@ -139,6 +144,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       Object.entries(definition.presets ?? {}).map(([k, p]) => [k, Object.freeze({ ...p, ...(p.filter ? { filter: Object.freeze({ ...p.filter }) } : {}) })]),
     ),
   ) as NonNullable<ViewDefinition<C, Row>["presets"]>;
+  const actionList = Object.freeze(
+    (Array.isArray(definition.actions) ? definition.actions : []).map((a) => (a && typeof a === "object" ? Object.freeze({ ...a }) : a)),
+  );
 
   // ── Check every name once ────────────────────────────────────────────
   const problems: string[] = [];
@@ -174,6 +182,25 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     for (const field of Object.keys(preset.filter ?? {})) known(field, `presets.${name}.filter`);
   }
   if (facts.labelField) known(facts.labelField, "the contract's labelField");
+  const actionSeen = new Set<string>();
+  if (definition.actions !== undefined && !Array.isArray(definition.actions)) problems.push("actions isn't a list");
+  actionList.forEach((action, i) => {
+    const where = `actions[${i}]`;
+    if (!action || typeof action !== "object") {
+      problems.push(`${where} isn't an action`);
+      return;
+    }
+    if (typeof action.name !== "string" || !action.name.trim()) problems.push(`${where} has no name`);
+    else if (RESERVED_ACTIONS.has(action.name)) problems.push(`${where} is named "${action.name}", which is reserved for the view's own ${action.name}`);
+    else if (actionSeen.has(action.name)) problems.push(`actions lists "${action.name}" twice`);
+    else actionSeen.add(action.name);
+    if (typeof action.label !== "string" || !action.label.trim()) problems.push(`${where} has no label`);
+    if (action.confirm !== undefined && typeof action.confirm !== "string") problems.push(`${where}.confirm isn't text`);
+    if (action.description !== undefined && typeof action.description !== "string") {
+      problems.push(`${where}.description isn't text`);
+    }
+    if (action.can !== undefined && typeof action.can !== "function") problems.push(`${where}.can isn't a function`);
+  });
   if (problems.length) throw new ViewDefinitionError(contract.name, problems);
 
   // ── Words ────────────────────────────────────────────────────────────
@@ -278,6 +305,21 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     const guard = guards[action];
     return guard && row ? guard(row) : true;
   }
+  const actionGuards = new Map(actionList.map((a) => [a.name, a.can]));
+  const resolvedActions: readonly ResolvedViewAction[] = Object.freeze(
+    actionList.map((a) =>
+      Object.freeze({
+        name: a.name,
+        label: a.label,
+        ...(a.confirm !== undefined ? { confirm: a.confirm } : {}),
+        ...(a.description !== undefined ? { description: a.description } : {}),
+      }),
+    ),
+  );
+  function canAction(name: string, row: Row): Allowed {
+    if (!actionGuards.has(name)) throw new ViewDefinitionError(contract.name, [`no action "${name}"`]);
+    return actionGuards.get(name)?.(row) ?? true;
+  }
   const summary = (row: Row): RowSummary => {
     if (definition.summary) return definition.summary(row);
     const value = labelField ? row[labelField] : undefined;
@@ -293,6 +335,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       presets,
       ...(definition.form ? { form: formItems } : {}),
       ...(definition.scope ? { scope: Object.freeze([...definition.scope]) } : {}),
+      ...(definition.actions ? { actions: actionList } : {}),
     }) as Readonly<ViewDefinition<C, Row>>,
     resource: contract.name,
     noun,
@@ -307,6 +350,8 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     form,
     writable,
     can: can as ResourceView<C, Row>["can"],
+    actions: () => resolvedActions,
+    canAction,
     summary,
   });
 }

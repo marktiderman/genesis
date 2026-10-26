@@ -5,7 +5,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { csvField, exportCsv } from "../csv";
-import { defineView, deriveDisplay, ViewDefinitionError } from "../resource-view";
+import { defineView, deriveDisplay, initialsOf, rowPicture, scopeValues, ViewDefinitionError } from "../resource-view";
 import { defineResource, type ResourceContract } from "../schema/types";
 import { isSafeUrl } from "../urls";
 
@@ -304,5 +304,169 @@ describe("helpers moved into core", () => {
     expect(csvField("\t@x")).toBe("'\t@x");
     expect(csvField("-5")).toBe("-5");
     expect(csvField("plain")).toBe("plain");
+  });
+});
+
+describe("defineView actions", () => {
+  const view = defineView<typeof brands, BrandRow>(brands, {
+    actions: [
+      { name: "archive", label: "Archive", confirm: "Archive this brand?", can: (r) => (r.is_default ? "The default brand stays." : true) },
+      { name: "duplicate", label: "Duplicate", description: "Copies the brand." },
+    ],
+  });
+
+  it("lists actions in order, frozen, without their guards", () => {
+    expect(view.actions()).toEqual([
+      { name: "archive", label: "Archive", confirm: "Archive this brand?" },
+      { name: "duplicate", label: "Duplicate", description: "Copies the brand." },
+    ]);
+    expect(Object.isFrozen(view.actions())).toBe(true);
+    expect(Object.isFrozen(view.actions()[0])).toBe(true);
+    expect(view.actions()).toBe(view.actions());
+  });
+
+  it("guards narrow with a reason; an unguarded action is allowed", () => {
+    expect(view.canAction("archive", row)).toBe("The default brand stays.");
+    expect(view.canAction("archive", { ...row, is_default: false })).toBe(true);
+    expect(view.canAction("duplicate", row)).toBe(true);
+  });
+
+  it("throws for an action the view doesn't define", () => {
+    expect(() => view.canAction("explode", row)).toThrow(ViewDefinitionError);
+  });
+
+  it("copies the actions, so changing the list passed in changes nothing", () => {
+    const list = [{ name: "a", label: "A" }];
+    const v = defineView(brands, { actions: list });
+    list[0]!.label = "Changed";
+    list.push({ name: "b", label: "B" });
+    expect(v.actions()).toEqual([{ name: "a", label: "A" }]);
+    expect(Object.isFrozen(v.definition.actions)).toBe(true);
+  });
+
+  it("has no actions by default", () => {
+    expect(defineView(brands).actions()).toEqual([]);
+  });
+
+  it("throws on duplicate names and bad input", () => {
+    const bad = () =>
+      defineView(brands, {
+        actions: [
+          { name: "archive", label: "Archive" },
+          { name: "archive", label: "Again" },
+          { name: "", label: "Nameless" },
+          { name: "x", label: "  " },
+          { name: "y", label: "Y", can: "no" as never, confirm: 1 as never, description: false as never },
+          null as never,
+        ],
+      });
+    expect(bad).toThrow(ViewDefinitionError);
+    try {
+      bad();
+    } catch (error) {
+      const problems = (error as ViewDefinitionError).problems.join("\n");
+      expect(problems).toContain('actions lists "archive" twice');
+      expect(problems).toContain("actions[2] has no name");
+      expect(problems).toContain("actions[3] has no label");
+      expect(problems).toContain("actions[4].can isn't a function");
+      expect(problems).toContain("actions[4].confirm isn't text");
+      expect(problems).toContain("actions[4].description isn't text");
+      expect(problems).toContain("actions[5] isn't an action");
+    }
+    expect(() => defineView(brands, { actions: {} as never })).toThrow(/actions isn't a list/);
+  });
+
+  it("reserves create, update and delete for the view's own operations", () => {
+    for (const name of ["create", "update", "delete"]) {
+      expect(() => defineView(brands, { actions: [{ name, label: "X" }] })).toThrow(
+        new RegExp(`actions\\[0\\] is named "${name}", which is reserved`),
+      );
+    }
+    expect(() => defineView(brands, { actions: [{ name: "deleteForever", label: "X" }] })).not.toThrow();
+  });
+
+  it("types the guard's row from the contract", () => {
+    const typed = defineResource<BrandRow>()({ name: "public.brands", key: "id", labelField: "name", fields: brands.fields });
+    const v = defineView(typed, { actions: [{ name: "a", label: "A", can: (r) => (r.is_default ? "no" : true) }] });
+    expectTypeOf(v.canAction).parameter(1).toEqualTypeOf<BrandRow>();
+  });
+});
+
+describe("rowPicture", () => {
+  it("is null without an image", () => {
+    expect(rowPicture({ title: "Ada" })).toBeNull();
+  });
+
+  it("draws a safe src, decorative by default, with initials for a failed load", () => {
+    expect(rowPicture({ title: "Ada", image: { src: " https://example.com/a.png ", name: "Ada Lovelace" } })).toEqual({
+      kind: "image",
+      src: "https://example.com/a.png",
+      alt: "",
+      fallback: "AL",
+    });
+    expect(rowPicture({ title: "Ada", image: { src: "/avatars/a.png", alt: "Ada at her desk" } })).toEqual({
+      kind: "image",
+      src: "/avatars/a.png",
+      alt: "Ada at her desk",
+      fallback: "",
+    });
+  });
+
+  it("shows initials when src is unsafe or missing", () => {
+    expect(rowPicture({ title: "x", image: { src: "javascript:alert(1)", name: "Ada Lovelace" } })).toEqual({ kind: "initials", text: "AL" });
+    expect(rowPicture({ title: "x", image: { src: "data:image/png;base64,AAAA", name: "cher" } })).toEqual({ kind: "initials", text: "C" });
+    expect(rowPicture({ title: "x", image: { name: "Grace Brewster Hopper" } })).toEqual({ kind: "initials", text: "GH" });
+  });
+
+  it("is null with neither a safe src nor a name", () => {
+    expect(rowPicture({ title: "x", image: { src: "//evil.example/a.png" } })).toBeNull();
+    expect(rowPicture({ title: "x", image: { name: "   " } })).toBeNull();
+  });
+
+  it("takes letters only, as whole characters", () => {
+    expect(initialsOf("Ana-María López")).toBe("AL");
+    expect(initialsOf("李 小龙")).toBe("李小");
+    expect(initialsOf("\u00e9mile zola")).toBe("\u00c9Z");
+    expect(initialsOf("😊 Jones")).toBe("J");
+    expect(initialsOf("(Ada) 2nd Lovelace")).toBe("AL");
+    expect(initialsOf("straße")).toBe("S");
+    expect(initialsOf("ß")).toBe("ß");
+    expect(initialsOf(undefined)).toBe("");
+  });
+
+  it("gives no initials for a name with no letters", () => {
+    for (const name of ["", "  ", "🎉🎉", "🎉 🎉", "42", "- —"]) {
+      expect(initialsOf(name)).toBe("");
+      expect(rowPicture({ title: "x", image: { name } })).toBeNull();
+    }
+    expect(rowPicture({ title: "x", image: { src: "https://example.com/a.png", name: "🎉🎉" } })).toMatchObject({ kind: "image", fallback: "" });
+  });
+});
+
+describe("scopeValues", () => {
+  const scoped = defineView(brands, { scope: ["practice_id"] });
+
+  it("reads the view's scope keys from the viewer's scope, as a filter", () => {
+    expect(scopeValues(scoped, { practice_id: "p1", personId: "x" })).toEqual({ practice_id: "p1" });
+    expect(scopeValues(scoped, { practiceId: "p2" })).toEqual({ practice_id: "p2" });
+    expect(scopeValues(scoped, { practice_id: null })).toEqual({ practice_id: null });
+    expect(Object.isFrozen(scopeValues(scoped, { practiceId: "p2" }))).toBe(true);
+    expect(scopeValues(defineView(brands), {})).toEqual({});
+  });
+
+  it("throws in development when a declared key has no single value", () => {
+    expect(() => scopeValues(scoped, {})).toThrow(/scope "practice_id" has no single value/);
+    expect(() => scopeValues(scoped, null)).toThrow(ViewDefinitionError);
+    expect(() => scopeValues(scoped, { practice_id: ["p1", "p2"] })).toThrow(ViewDefinitionError);
+  });
+
+  it("leaves a missing key out in production", () => {
+    const env = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      expect(scopeValues(scoped, {})).toEqual({});
+    } finally {
+      process.env.NODE_ENV = env;
+    }
   });
 });

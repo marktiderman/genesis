@@ -292,6 +292,8 @@ space, or a set of them (`personIds: string[]`).
 - Scope becomes server filters, never a filter on loaded rows, so paging and totals stay right.
   It's part of every cache key.
 - A view declares which scope keys it needs, so a missing scope fails loudly in development.
+  `scopeValues(view, useViewerScope().scope)` turns them into a screen's `filter` (`practice_id`
+  read as `practice_id` or `practiceId`), and throws in development when one is missing.
 - A screen's `filter` and `defaults` override the scope: an admin screen across practices and a
   client screen can share one view.
 - `ResourceView` requires `ViewerScope` above it.

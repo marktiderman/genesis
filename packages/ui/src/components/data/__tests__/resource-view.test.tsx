@@ -152,6 +152,33 @@ describe("ResourceView", () => {
     expect(screen.getByRole("columnheader", { name: /Name/ })).toBeTruthy();
   });
 
+  it("draws the summary's picture beside the first column: initials when the src is unsafe", async () => {
+    localStorage.clear();
+    const pictured = defineView(brands, {
+      columns: { default: ["name", "status"] },
+      summary: (r) => ({
+        title: r.name,
+        image: { src: r.website ?? undefined, name: r.name },
+      }),
+    });
+    render(<ResourceView view={pictured} mode="table" detail="none" />, { wrapper: wrap(provider()) });
+    const row = (await screen.findByText("Northwind")).closest("tr")!;
+    const avatar = within(row).getByTestId("resource-view-avatar");
+    // javascript: is never an image src; the initials stand in, decorative beside the name.
+    expect(avatar.textContent).toBe("N");
+    expect(avatar.getAttribute("aria-hidden")).toBe("true");
+    expect(row.querySelector("img")).toBeNull();
+    // Only the first column gets it.
+    expect(within(row).getAllByTestId("resource-view-avatar")).toHaveLength(1);
+  });
+
+  it("draws no picture when the summary has none", async () => {
+    localStorage.clear();
+    render(<ResourceView view={view} mode="table" detail="none" />, { wrapper: wrap(provider()) });
+    const row = (await screen.findByText("Northwind")).closest("tr")!;
+    expect(within(row).queryByTestId("resource-view-avatar")).toBeNull();
+  });
+
   it("sends the screen's filter, the tab's filter and the view's order to the provider", async () => {
     localStorage.clear();
     const p = provider();
