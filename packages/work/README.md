@@ -10,6 +10,8 @@ Every table lives in the `genesis_work` schema, so nothing collides with the app
 | `status-updates` | `0003_genesis_work_updates.sql` | Dated updates (health and a note) on any of the above, and requests to a person for an update by a due time |
 | `sessions` | `0004_genesis_work_sessions.sql` | Meetings, workshops, presentations, coaching calls, one-on-ones, classes and planning days: types with agendas, the live step, attendees and guests, ratings, links |
 
+| `custom-fields` | `0005_genesis_work_fields.sql` | A tenant's own fields on goals, projects, tasks, issues, metrics and sessions, with no code or migration |
+
 ## Install
 
 1. Add genesis-supabase's `owner-access` block, and define its two hooks in your own migration
@@ -25,8 +27,14 @@ owner-access hooks. Add your own foreign keys in a later migration.
 
 ## Extending
 
-Never change a genesis-work table. Add your own table keyed by the row's id, plus a view that joins
-the two. Custom fields and content packs are coming next.
+Never change a genesis-work table. Instead:
+
+- **Custom fields** (the `custom-fields` block): a tenant adds fields in Settings, with no code. The
+  values sit in `custom`, keyed `<namespace>.<key>`. Validate them on the server with the genesis-forms
+  engine; the database checks their shape.
+- **Your own table**, keyed by the row's id, plus a view that joins the two, for fields you filter or
+  join heavily.
+- **Content packs** (coming next) bring session types, metric templates, fields and forms.
 
 ## Status
 

@@ -201,6 +201,43 @@
           "Uses the owner-access block (genesis-supabase) and its app hooks. To share pre-work or a live worksheet with attendees, register private.genesis_session_members(session) as a collaboration audience.",
           "Add genesis_work to your API's exposed schemas (supabase/config.toml [api] schemas)."
         ]
+      },
+      "custom-fields": {
+        "feature": {
+          "name": "Custom fields",
+          "summary": "A tenant's own fields on goals, projects, tasks, issues, metrics and sessions, with no code or migration: genesis-forms field types, values in a custom jsonb checked by shape, app and content-pack fields that only server code writes.",
+          "keywords": [
+            "custom fields",
+            "extend",
+            "metafields",
+            "properties"
+          ],
+          "audience": [
+            "admin",
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "requires": [
+          "pursuits",
+          "metrics",
+          "sessions"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0005_genesis_work_fields.sql",
+            "test": "migrations/tests/0005_genesis_work_fields.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Validate custom values on the server with the genesis-forms engine before writing; the database checks only their shape and that a field exists."
+        ]
       }
     }
   }
