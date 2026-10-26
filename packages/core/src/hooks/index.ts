@@ -30,6 +30,7 @@ export {
   type InfinitePageParam,
 } from "./use-infinite-resource";
 export { useCapabilities } from "./use-capabilities";
+export { useWrite, WRITE_FAILED, type UseWriteOptions, type UseWriteReturn } from "./use-write";
 export { useDraft, type UseDraftReturn } from "./use-draft";
 export {
   DraftController,
@@ -51,6 +52,8 @@ export { useWizard, type WizardStep, type UseWizardReturn } from "./use-wizard";
 export {
   DEFAULT_UNDO_DELAY_MS,
   pendingWriteCount,
+  flushPendingWrites,
+  dropPendingWrites,
   type MutationMode,
   type MutationModeOptions,
   type UndoableWrite,

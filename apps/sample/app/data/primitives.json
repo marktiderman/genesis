@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 127
+      "count": 128
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -7101,6 +7101,101 @@
           "name": "BreadcrumbEllipsis",
           "summary": "",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "builder-layout",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/builder-layout.tsx",
+      "stability": "beta",
+      "summary": "BuilderLayout — the three columns of a builder: an outline of the parts on\nthe left, the editor for the selected part in the centre, a live preview\non the right.\n\n```tsx\n<BuilderLayout\n  outline={<QuestionList />}\n  outlineLabel=\"Outline\"\n  editor={<QuestionEditor key={selectedId} />}\n  preview={<LivePreview />}\n  previewLabel=\"Preview\"\n  sticky\n/>\n```\n\nResponsive by container query, so it needs no knowledge of the page around\nit: all three columns from a 56rem container, wider side columns from\n76rem, the preview under the editor below 56rem and everything stacked\nbelow 34rem (see `GRID` for each slot combination). The preview keeps its\nplace in the tree when the editor or outline changes, so it never\nremounts; changing `previewLabel` between set and unset does remount it\n(the element changes from `<div>` to `<aside>`).\n\nIt positions the three parts and nothing else. It does **not** own tabs,\nthe app rail or a page header: those belong to the shell. Put a builder's\nsections in `useAppShellSubNav` (or your own tabs inside `editor`) and its\ntitle, status and actions in `AppShellPageHeader`. To keep one preview\nacross sections, render one `BuilderLayout` around the sections and swap\n`editor`; nest a second one (outline and editor only) inside a section\nthat has an outline.",
+      "primaryComponent": "BuilderLayout",
+      "components": [
+        {
+          "name": "BuilderLayout",
+          "summary": "BuilderLayout — the three columns of a builder: an outline of the parts on\nthe left, the editor for the selected part in the centre, a live preview\non the right.\n\n```tsx\n<BuilderLayout\n  outline={<QuestionList />}\n  outlineLabel=\"Outline\"\n  editor={<QuestionEditor key={selectedId} />}\n  preview={<LivePreview />}\n  previewLabel=\"Preview\"\n  sticky\n/>\n```\n\nResponsive by container query, so it needs no knowledge of the page around\nit: all three columns from a 56rem container, wider side columns from\n76rem, the preview under the editor below 56rem and everything stacked\nbelow 34rem (see `GRID` for each slot combination). The preview keeps its\nplace in the tree when the editor or outline changes, so it never\nremounts; changing `previewLabel` between set and unset does remount it\n(the element changes from `<div>` to `<aside>`).\n\nIt positions the three parts and nothing else. It does **not** own tabs,\nthe app rail or a page header: those belong to the shell. Put a builder's\nsections in `useAppShellSubNav` (or your own tabs inside `editor`) and its\ntitle, status and actions in `AppShellPageHeader`. To keep one preview\nacross sections, render one `BuilderLayout` around the sections and swap\n`editor`; nest a second one (outline and editor only) inside a section\nthat has an outline.",
+          "props": [
+            {
+              "name": "editor",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "Centre column: the editor for the selected thing. Required."
+            },
+            {
+              "name": "editorProps",
+              "type": "BuilderLayoutSlotProps",
+              "required": false,
+              "defaultValue": null,
+              "description": "Props for the editor's wrapper."
+            },
+            {
+              "name": "outline",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Left column: the list of things being built (questions, lessons, steps).\nOptional. Rendered as a `<nav>` when `outlineLabel` is set."
+            },
+            {
+              "name": "outlineLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name for the outline; makes it a `navigation` landmark."
+            },
+            {
+              "name": "outlineProps",
+              "type": "BuilderLayoutSlotProps",
+              "required": false,
+              "defaultValue": null,
+              "description": "Props for the outline's wrapper (class, test id, data attributes)."
+            },
+            {
+              "name": "preview",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Right column: a live preview (and anything that sits with it, such as\nchecks). Optional. Rendered as an `<aside>` when `previewLabel` is set.\n\nIt keeps its place in the tree whatever `editor` and `outline` hold, so\nswapping the editor (another section, another selected item) never\nremounts it: the preview's own state (device, answers typed into it,\nscroll) survives."
+            },
+            {
+              "name": "previewHidden",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Keep the preview mounted but hidden, and give its width back to the\neditor. For a section that needs the whole width (a host's own\nsettings layout) without losing the preview's state."
+            },
+            {
+              "name": "previewLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name for the preview; makes it a `complementary` landmark."
+            },
+            {
+              "name": "previewProps",
+              "type": "BuilderLayoutSlotProps",
+              "required": false,
+              "defaultValue": null,
+              "description": "Props for the preview's wrapper."
+            },
+            {
+              "name": "scrollSticky",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "With `sticky`, cap each pinned column at the viewport height and let it\nscroll on its own, so a long outline or preview stays reachable.\nDefault `false`."
+            },
+            {
+              "name": "sticky",
+              "type": "boolean | { outline?: boolean; preview?: boolean; } | undefined",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Pin the outline and/or the preview at the top while the editor scrolls,\nonce each sits in a column of its own (not while stacked). `true` pins\nboth. Default `false`."
+            }
+          ]
         }
       ]
     },

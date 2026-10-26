@@ -134,6 +134,10 @@
       "types": "./dist/components/ui/breadcrumb.d.ts",
       "import": "./dist/components/ui/breadcrumb.js"
     },
+    "./builder-layout": {
+      "types": "./dist/components/layout/builder-layout.d.ts",
+      "import": "./dist/components/layout/builder-layout.js"
+    },
     "./button": {
       "types": "./dist/components/ui/button.d.ts",
       "import": "./dist/components/ui/button.js"
