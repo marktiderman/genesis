@@ -17088,7 +17088,7 @@
         },
         {
           "name": "AppShellSubNavEnd",
-          "summary": "Render `children` in the right-hand slot of the shell's sub-navigation\ntab row, e.g. a \"Ready to publish\" status chip. Rendered through a\nportal, so it keeps the page's context and state. Renders nothing when\nthe shell shows no tab row (other modes, phones, no children). When\nseveral are mounted (a layout's and a page's), the innermost renders.",
+          "summary": "Render `children` in the right-hand slot of the shell's sub-navigation\ntab row, e.g. a \"Ready to publish\" status chip. Rendered through a\nportal, so it keeps the page's context and state. On phones, where the\nbottom bar replaces the tab row, it renders in a compact strip under the\npage header instead, so the chip stays reachable. Renders nothing when\nthe shell has no tab row (other modes, a page without children). When\nseveral are mounted (a layout's and a page's), the innermost renders.",
           "props": []
         },
         {
