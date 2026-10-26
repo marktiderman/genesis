@@ -13,6 +13,12 @@
  * - package-unregistered: no feature in features.json lists the package in `links.code`.
  * - package-unversioned-change: files in the package changed since the base ref, but
  *   neither its version nor a new changeset naming it did.
+ *
+ * The change rules (package-migration-edited, package-unversioned-change) run only
+ * with a base ref: `--base <ref>`, or `doctor.packages.base`. Without one, or when git
+ * can't compare, they report one info finding and nothing else. Like every rule,
+ * anything the pack can't be sure of (a file whose literals it can't parse) is
+ * left alone rather than guessed at.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -20,14 +26,15 @@ import { builtinModules } from "node:module";
 import * as path from "node:path";
 import { localPackages, type LocalPackage } from "../blocks/local.js";
 import { MIGRATION_FILE, rawBlocksOf } from "../blocks/manifest.js";
+import { stripForImports } from "./trail.js";
 import type { DoctorContext } from "./types.js";
-
-export const DEFAULT_PACKAGES_BASE = "origin/main";
 
 const SOURCE = /\.(?:[cm]?[jt]sx?)$/;
 const SKIP_DIRS = new Set(["node_modules", "dist", "build", "coverage", ".turbo"]);
 const BUILTINS = new Set(builtinModules.flatMap((m) => [m, `node:${m}`]));
-const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*|\bexport\s+\*\s+from\s*)["']([^"']+)["']/g;
+const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)["']([^"']+)["']/g;
+/** `import type …` and `export type … from`: compile-time only, never a runtime dependency. */
+const TYPE_ONLY = /^\s*(?:import|export)\s+type\b/;
 
 /** Every source file in a package (not node_modules or build output), package-relative. */
 function sourceFiles(dir: string, rel = ""): string[] {
@@ -71,9 +78,13 @@ function checkImports(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson):
     ...Object.keys(json.optionalDependencies ?? {}),
   ]);
   for (const file of sourceFiles(pkg.dir)) {
-    const code = readFileSync(path.join(pkg.dir, file), "utf8");
+    // Comments and string contents blanked, specifiers kept (the import trail's reader).
+    // A file whose literals can't be parsed for sure is skipped: no guesses.
+    const code = stripForImports(readFileSync(path.join(pkg.dir, file), "utf8"));
+    if (code === null) continue;
     const at = `${pkg.rel}/${file}`;
     code.split("\n").forEach((text, i) => {
+      if (TYPE_ONLY.test(text)) return;
       for (const m of text.matchAll(IMPORT)) {
         const spec = m[1]!;
         const line = i + 1;
@@ -142,18 +153,16 @@ function checkRegistered(ctx: DoctorContext, pkg: LocalPackage): void {
   }
 }
 
-/** Version bump or changeset, against the base ref; edited migrations too. */
-function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, base: string): void {
-  if (git(ctx.root, ["rev-parse", "--is-inside-work-tree"])?.trim() !== "true") return;
-  if (git(ctx.root, ["rev-parse", "--verify", "--quiet", `${base}^{commit}`]) === null) {
-    ctx.report({ rule: "package-unversioned-change", level: "warn", file: pkg.rel, message: `can't check ${pkg.name}'s changes: the git ref ${base} isn't available (fetch it, or set doctor.packages.base)` });
-    return;
-  }
-  const mergeBase = git(ctx.root, ["merge-base", "HEAD", base])?.trim();
-  if (!mergeBase) {
-    ctx.report({ rule: "package-unversioned-change", level: "warn", file: pkg.rel, message: `can't check ${pkg.name}'s changes: HEAD has no merge base with ${base} (fetch with depth 0)` });
-    return;
-  }
+/** The merge base with `base`, or why the change gate can't run. */
+function mergeBaseOf(root: string, base: string): { sha: string } | { reason: string } {
+  if (git(root, ["rev-parse", "--is-inside-work-tree"])?.trim() !== "true") return { reason: "not a git repository" };
+  if (git(root, ["rev-parse", "--verify", "--quiet", `${base}^{commit}`]) === null) return { reason: `the git ref ${base} isn't available (fetch it)` };
+  const sha = git(root, ["merge-base", "HEAD", base])?.trim();
+  return sha ? { sha } : { reason: `HEAD has no merge base with ${base} (fetch with depth 0)` };
+}
+
+/** Version bump or changeset, against the merge base; edited migrations too. */
+function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, base: string, mergeBase: string): void {
   const diff = git(ctx.root, ["diff", "--relative", "--name-status", "-M", mergeBase, "--", pkg.rel]) ?? "";
   const untracked = (git(ctx.root, ["ls-files", "--others", "--exclude-standard", "--", pkg.rel]) ?? "").split("\n").filter(Boolean);
   const changed = [...diff.split("\n").filter(Boolean).map((row) => row.split("\t").at(-1)!), ...untracked].filter(
@@ -192,12 +201,18 @@ function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, 
 }
 
 export function checkPackagesPack(ctx: DoctorContext): void {
-  const base = ctx.config.packages?.base ?? DEFAULT_PACKAGES_BASE;
-  for (const pkg of localPackages(ctx.root)) {
+  const packages = localPackages(ctx.root);
+  if (!packages.length) return;
+  const base = ctx.base ?? ctx.config.packages?.base;
+  const merge = base ? mergeBaseOf(ctx.root, base) : { reason: "no base ref (pass --base <ref>, e.g. --base origin/main)" };
+  if ("reason" in merge) {
+    ctx.report({ rule: "package-unversioned-change", level: "info", file: "genesis.config.json", message: `change gate skipped: ${merge.reason}` });
+  }
+  for (const pkg of packages) {
     const json = JSON.parse(readFileSync(path.join(pkg.dir, "package.json"), "utf8")) as PackageJson;
     checkImports(ctx, pkg, json);
     checkMigrations(ctx, pkg, json);
     checkRegistered(ctx, pkg);
-    checkChanges(ctx, pkg, json, base);
+    if (base && "sha" in merge) checkChanges(ctx, pkg, json, base, merge.sha);
   }
 }

@@ -70,7 +70,7 @@ export type DoctorPack = "native" | "supabase" | "packages";
 
 /** Settings for the `packages` pack (the app's local packages). */
 export interface PackagesPackConfig {
-  /** The git ref changes are compared against. Default `origin/main`. */
+  /** The git ref the change gate compares against when `--base` isn't given. No default: without one the gate is skipped (info). */
   base?: string;
 }
 
@@ -205,6 +205,8 @@ export interface DoctorContext {
   files: readonly SourceFile[];
   genesis: GenesisFacts;
   config: DoctorConfig;
+  /** The git ref change checks compare against (`--base`), when given. */
+  base?: string;
   /** Record a finding. Config `rules` levels and `allow` entries apply afterwards. */
   report(finding: FindingInput): void;
 }

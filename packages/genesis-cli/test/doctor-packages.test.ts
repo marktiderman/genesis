@@ -12,7 +12,7 @@ beforeEach(() => clearLocalPackagesCache());
 
 const PACKAGES: DoctorConfig = { packs: ["packages"] };
 const brief = (findings: Finding[], prefix = "package-") =>
-  findings.filter((f) => f.rule.startsWith(prefix)).map((f) => `${f.rule} ${f.file}${f.subject ? ` ${f.subject}` : ""}`);
+  findings.filter((f) => f.rule.startsWith(prefix) && f.level !== "info").map((f) => `${f.rule} ${f.file}${f.subject ? ` ${f.subject}` : ""}`);
 
 const PKG = {
   name: "@acme/os",
@@ -76,8 +76,8 @@ describe("packages pack", () => {
     git("checkout", "-qb", "work");
     writeFileSync(path.join(root, "packages/os/src/read.ts"), "export const read = () => 2;\n");
     writeFileSync(path.join(root, "packages/os/migrations/0001_acme_scorecard.sql"), "create table x (id int, y int);\n");
-    const config: DoctorConfig = { packs: ["packages"], packages: { base: "main" } };
-    let result = await runDoctor({ root, config });
+    const config: DoctorConfig = { packs: ["packages"] };
+    let result = await runDoctor({ root, config, base: "main" });
     expect(brief(result.findings)).toEqual([
       "package-migration-edited packages/os/migrations/0001_acme_scorecard.sql",
       "package-unversioned-change packages/os/package.json",
@@ -86,12 +86,12 @@ describe("packages pack", () => {
     execFileSync("mkdir", ["-p", path.join(root, ".changeset")]);
     writeFileSync(path.join(root, ".changeset/scorecard.md"), '---\n"@acme/os": patch\n---\n\nScorecard reads twice as fast.\n');
     clearLocalPackagesCache();
-    result = await runDoctor({ root, config });
+    result = await runDoctor({ root, config, base: "main" });
     expect(brief(result.findings)).toEqual(["package-migration-edited packages/os/migrations/0001_acme_scorecard.sql"]);
     // So does a version bump.
     writeFileSync(path.join(root, ".changeset/scorecard.md"), "");
     writeFileSync(path.join(root, "packages/os/package.json"), JSON.stringify({ ...PKG, version: "0.1.1" }));
-    result = await runDoctor({ root, config });
+    result = await runDoctor({ root, config, base: "main" });
     expect(brief(result.findings, "package-unversioned")).toEqual([]);
   });
 });
@@ -103,5 +103,46 @@ describe("app rules on local packages", () => {
       config: {},
     });
     expect(result.findings.some((f) => f.file === "packages/os/src/badge.tsx")).toBe(true);
+  });
+});
+
+describe("packages pack invariants", () => {
+  it("without a base ref the change gate reports one info finding, which never fails, even strict", async () => {
+    const result = await runDoctor({ root: makeApp(null, CLEAN), config: PACKAGES, strict: true });
+    const gate = result.findings.filter((f) => f.rule === "package-unversioned-change");
+    expect(gate.map((f) => [f.level, f.message])).toEqual([["info", expect.stringMatching(/^change gate skipped: no base ref/)]]);
+    expect(result.ok).toBe(true);
+  });
+
+  it("an unavailable base ref is info too, not a guess", async () => {
+    const result = await runDoctor({ root: makeApp(null, CLEAN), config: PACKAGES, base: "origin/nope" });
+    expect(result.findings.filter((f) => f.rule.startsWith("package-")).map((f) => f.level)).toEqual(["info"]);
+  });
+
+  it("reads imports the way the import trail does: comments, strings and type-only imports aren't dependencies", async () => {
+    const result = await runDoctor({
+      root: makeApp(null, {
+        ...CLEAN,
+        "packages/os/src/index.ts": '// import x from "dayjs";\nconst s = "import y from \'lodash\'";\nimport type { Z } from "zod";\nexport type { Z };\nexport { s };\n',
+      }),
+      config: PACKAGES,
+    });
+    expect(brief(result.findings)).toEqual([]);
+  });
+
+  it("honours rules off and allow entries", async () => {
+    const files = { ...CLEAN, "packages/os/src/index.ts": 'import dayjs from "dayjs";\nexport { dayjs };\n' };
+    const off = await runDoctor({ root: makeApp(null, files), config: { ...PACKAGES, rules: { "package-undeclared-dependency": "off" } } });
+    expect(brief(off.findings)).toEqual([]);
+    const allowed = await runDoctor({
+      root: makeApp(null, files),
+      config: { ...PACKAGES, allow: [{ rule: "package-undeclared-dependency", match: "dayjs", reason: "hoisted by the app on purpose" }] },
+    });
+    expect(brief(allowed.findings)).toEqual([]);
+  });
+
+  it("does nothing without local packages", async () => {
+    const result = await runDoctor({ root: makeApp(null, {}), config: PACKAGES });
+    expect(result.findings.filter((f) => f.rule.startsWith("package-"))).toEqual([]);
   });
 });

@@ -72,6 +72,8 @@ export interface RunDoctorOptions {
   quietBuild?: boolean;
   /** Reuse facts read earlier (the Vite dev server caches them). */
   genesis?: GenesisFacts;
+  /** The git ref change checks compare against (`--base`): the packages pack's change gate. */
+  base?: string;
 }
 
 export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorResult> {
@@ -89,7 +91,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   }
 
   const raw: FindingInput[] = [];
-  const ctx: DoctorContext = { root, files, genesis, config, report: (f) => raw.push(f) };
+  const ctx: DoctorContext = { root, files, genesis, config, ...(options.base ? { base: options.base } : {}), report: (f) => raw.push(f) };
   for (const plugin of [...builtinChecks(config), ...(patterns ? [patterns.plugin] : []), ...plugins]) {
     try {
       await plugin.check(ctx);

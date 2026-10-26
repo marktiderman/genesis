@@ -503,12 +503,20 @@ migrations never fail a build. In CI, check out with full history and fetch the 
 ```
 
 **`packages`**, for the app's [local packages](#local-packages). Each one is held to a
-Genesis package's standard. The changes are compared against `packages.base`, which defaults
-to `origin/main`:
+Genesis package's standard. The change rules compare against a base ref, given as
+`genesis doctor --base origin/main` (or `doctor.packages.base`). Without one, or when git
+can't compare, they report a single info finding ("change gate skipped") and never fail:
 
 ```json
-{ "localPackages": ["packages/*"], "doctor": { "packs": ["packages"], "packages": { "base": "origin/main" } } }
+{ "localPackages": ["packages/*"], "doctor": { "packs": ["packages"] } }
 ```
+
+```bash
+genesis doctor --strict --base origin/main
+```
+
+A file whose literals can't be parsed for sure is skipped, and type-only imports never count
+as dependencies.
 
 | Rule | Level | What it flags |
 | --- | --- | --- |
@@ -516,9 +524,9 @@ to `origin/main`:
 | `package-undeclared-dependency` | error | A bare import whose package isn't in the package's `dependencies`, `peerDependencies`, `devDependencies` or `optionalDependencies`. Node built-ins are fine. |
 | `package-migration-test` | error | A block migration with no `test`, or a `test` that doesn't exist. |
 | `package-migration-number` | error | Two migrations in one package with the same `NNNN_` number. |
-| `package-migration-edited` | error | A package migration that existed at the merge base and was changed, deleted or renamed. Add a new migration instead. |
+| `package-migration-edited` | error | With a base ref: a package migration that existed at the merge base and was changed, deleted or renamed. Add a new migration instead. |
 | `package-unregistered` | warn | No feature in `features.json` lists the package's folder in `links.code`. |
-| `package-unversioned-change` | error | Files in the package changed since the merge base, but neither its `version` nor a new `.changeset/*.md` naming it did. This is the gate that makes every change to a package say what changed. |
+| `package-unversioned-change` | error | With a base ref: files in the package changed since the merge base, but neither its `version` nor a new `.changeset/*.md` naming it did. This is the gate that makes every change to a package say what changed. |
 
 Every other rule also scans local packages' source, as it does the app's.
 
