@@ -1,12 +1,13 @@
 // What a resource means to people (docs/RESOURCE-VIEW.md, "View"). Types only: no React, no
 // DOM, so web, native and the extension all import the same view.
 
+import type { ChipTone } from "../resource/status";
 import type { DataRow, FieldSchema, ResourceContract, RowAction, RowOf } from "../schema/types";
 
 export type { RowOf };
 
-/** A chip's colour: the tinted, AA-safe Genesis badge tones (genesis-ui's `ChipTone`). */
-export type ViewTone = "success" | "warning" | "danger" | "info" | "muted";
+/** A chip's colour: the one Genesis tone set (`ChipTone`, genesis-core/resource). */
+export type ViewTone = ChipTone;
 
 /**
  * How a value is shown. A hint: each platform registers one renderer per hint, so the shared view
