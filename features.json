@@ -3951,6 +3951,63 @@
       "flags": []
     },
     {
+      "id": "person-day",
+      "name": "Person days and time zones",
+      "summary": "@marktiderman/genesis-core/dates: calendar days on the right clock. personDay(person) is today in the person's saved zone, else the device's, else UTC; dayIn, wallClock, startOfDayIn and dayRangeIn (23- and 25-hour days, skipped midnights) for server code; addDays, daysBetween, startOfWeek and isDay for YYYY-MM-DD arithmetic. No dependencies.",
+      "category": "Data",
+      "status": "building",
+      "horizon": "now",
+      "layer": "primitive",
+      "keywords": [
+        "time zone",
+        "timezone",
+        "today",
+        "local date",
+        "calendar day",
+        "daylight saving",
+        "dst",
+        "YYYY-MM-DD",
+        "toISOString slice"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building",
+        "server": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-core/dates",
+        "native": "@marktiderman/genesis-core/dates",
+        "server": "@marktiderman/genesis-core/dates"
+      },
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "personDay gives the day on the person's saved zone, falling back to the device's zone and then UTC; never the UTC day by accident.",
+        "startOfDayIn and dayRangeIn are right across daylight-saving changes, including a midnight that doesn't exist.",
+        "Day arithmetic works on YYYY-MM-DD strings without a zone and refuses days that don't exist.",
+        "Not yet used by an app."
+      ],
+      "reviewedAt": "2026-10-26",
+      "links": {
+        "code": [
+          "packages/core/src/dates.ts"
+        ],
+        "docs": [
+          "packages/core/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "jobs",
       "name": "Background jobs",
       "summary": "genesis_jobs in genesis-supabase: one queue for background work (enqueue with an idempotency key, claim with SKIP LOCKED and leases, retry with jittered backoff, redeliveries, lease_expired) and named schedules that call the app's one job route through pg_cron and pg_net with the URL and bearer secret read from Vault; runJobs, enqueueJob and createJobsHandler (constant-time secret check with rotation) on the server.",

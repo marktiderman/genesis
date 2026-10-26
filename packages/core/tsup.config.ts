@@ -15,6 +15,8 @@ export default defineConfig({
     "src/utils.ts",
     "src/slots.tsx",
     "src/navigation.ts",
+    "src/testing/index.ts",
+    "src/dates.ts",
   ],
   format: ["esm"],
   dts: true,

@@ -1,5 +1,11 @@
 # @marktiderman/genesis-forms-studio
 
+## 0.5.1
+
+### Patch Changes
+
+- 49d789d: Doc comments use neutral examples (staff, locations, organization) instead of coaching ones, since Genesis is domain-neutral. No behaviour changes.
+
 ## 0.5.0
 
 ### Minor Changes

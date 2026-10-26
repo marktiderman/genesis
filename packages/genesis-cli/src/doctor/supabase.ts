@@ -282,6 +282,7 @@ export function checkSupabasePack(ctx: DoctorContext): void {
     checkGrants(ctx, migrations.filter((m) => isNew(m.file)), exposed);
   }
   checkRls(ctx, migrations, exposed);
+  checkViewInvoker(ctx, migrations, exposed);
   checkDefinerSearchPath(ctx, migrations);
   checkTestingKit(ctx, migrations);
 }
@@ -428,6 +429,57 @@ function checkRls(ctx: DoctorContext, migrations: Migration[], exposed: Set<stri
       message: at.disabled
         ? `disables row level security on ${t}, and no later migration turns it back on; anyone with the API key can read and write it`
         : `creates ${t} without enabling row level security in any migration; add "alter table ${t} enable row level security;" and its policies`,
+    });
+  }
+}
+
+/**
+ * `migration-view-rls`: a view in an exposed schema runs as the signed-in user
+ * (`security_invoker = true`) once every migration has run. A plain view runs as
+ * its owner, so it reads past row-level security on every table it selects from.
+ * `create or replace view` without the option turns it off again.
+ */
+function checkViewInvoker(ctx: DoctorContext, migrations: Migration[], exposed: Set<string>): void {
+  const views = new Map<string, { invoker: boolean; file: string; line: number }>();
+  const name = String.raw`([\w$.]+)`;
+  const invokerOn = /\bsecurity_invoker\s*(?:=\s*(?:true|on|yes|1|'true'|'on'))?\s*(?:,|\))/;
+  for (const { file, statements } of migrations) {
+    for (const { sql, line } of statements) {
+      const create = new RegExp(String.raw`^create (?:or replace )?(?:temp |temporary )?(?:recursive )?view ${name}`).exec(sql);
+      if (create) {
+        if (/^create (?:or replace )?(?:temp|temporary) /.test(sql)) continue;
+        const options = /^[^(]*?\bwith\s*(\([^)]*\))\s*as\b/.exec(sql)?.[1] ?? "";
+        views.set(qualify(create[1]), { invoker: invokerOn.test(options), file, line });
+        continue;
+      }
+      const alter = new RegExp(String.raw`^alter view (?:if exists )?${name} (set|reset) (\([^)]*\))`).exec(sql);
+      if (alter && /\bsecurity_invoker\b/.test(alter[3])) {
+        const state = views.get(qualify(alter[1]));
+        if (state) state.invoker = alter[2] === "set" && invokerOn.test(alter[3]);
+        continue;
+      }
+      const rename = new RegExp(String.raw`^alter view (?:if exists )?${name} rename to ([\w$]+)$`).exec(sql);
+      if (rename) {
+        const from = qualify(rename[1]);
+        const state = views.get(from);
+        if (state) {
+          views.delete(from);
+          views.set(`${schemaOf(from)}.${rename[2]}`, state);
+        }
+        continue;
+      }
+      const drop = /^drop view (?:if exists )?(.+?)(?: cascade| restrict)?$/.exec(sql);
+      if (drop) for (const n of drop[1].split(",")) views.delete(qualify(n));
+    }
+  }
+  for (const [v, at] of views) {
+    if (at.invoker || !exposed.has(schemaOf(v))) continue;
+    ctx.report({
+      rule: "migration-view-rls",
+      file: at.file,
+      line: at.line,
+      subject: v,
+      message: `${v} runs as its owner, so it reads past row level security; create it "with (security_invoker = true)" or add "alter view ${v} set (security_invoker = true);"`,
     });
   }
 }

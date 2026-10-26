@@ -126,6 +126,19 @@ createSupabaseProvider(supabase, {
 });
 ```
 
+**Keep RLS on.** A plain view runs as its owner, and a `security definer` function as its definer, so
+either reads past row-level security and shows every row. Create the view
+`with (security_invoker = true)` and the function `security invoker` (or have it filter by
+`auth.uid()` itself):
+
+```sql
+create view public.tasks_with_people with (security_invoker = true) as
+  select t.*, p.full_name as person_name from public.tasks t join public.people p on p.id = t.person_id;
+```
+
+Writes send only the table's own columns: list them as `writeColumns`, or an update keeps just the
+columns the table's row has, so a form built from the view row never sends `person_name` back.
+
 ### Handling failures
 
 ```ts
@@ -376,6 +389,61 @@ leave; asks with `window.confirm` otherwise). For other state,
 `confirmLeave` and `beforeunload` handling. Neither depends on a router; see
 genesis-ui's SKILL.md "Unsaved changes" for React Router and TanStack Router.
 
+## Test your data contract
+
+`@marktiderman/genesis-core/testing` checks your own provider keeps the data rules, against your
+real schema (a local Supabase in CI). Its pgTAP twin is genesis-supabase's `genesis_testing`; both
+use the same fixture people (`FIXTURE_USERS`: owner, staff, client, stranger), so seed them once
+with `select genesis_testing.create_users();`.
+
+Each check passes only on evidence and throws a `ContractError` otherwise, so it works in vitest,
+jest or node:test. A wrong resource, a missing row or a typo fails instead of passing. The control and system
+writes are real (and `expectServerOwned` puts its value back): run the checks on test data.
+
+A refusal must read as plain words, so a provider that passes the database's raw text through (an
+RLS insert refusal says `new row violates row-level security policy …`) fails `expectRefused`. Map
+it to a plain message in the provider; that failure is the kit doing its job.
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+import { createSupabaseProvider } from "@marktiderman/genesis-core/provider";
+import {
+  expectBinned, expectNeverShows, expectRefused, expectServerOwned, fixtureAccessToken,
+} from "@marktiderman/genesis-core/testing";
+
+// The local stack's legacy JWT secret (`supabase status`); never a production one.
+const providerFor = async (who: "owner" | "client" | "stranger") => {
+  const token = await fixtureAccessToken(who, { secret: process.env.SUPABASE_JWT_SECRET! });
+  const client = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
+  return createSupabaseProvider(client, { binTables: ["notes"] });
+};
+
+const client = await providerFor("client");
+const owner = await providerFor("owner");
+const stranger = await providerFor("stranger");
+const system = createSupabaseProvider(createClient(url, serviceRoleKey)); // the server's own writes
+
+// A write the client may not make is refused, in plain words. When RLS hides the row (it reaches
+// no row), the control runs the same write as someone who may make it and must change a row.
+await expectRefused((p) => p.update("tasks", { id, data: { title: "x" } }), { as: stranger, control: owner });
+// A column only the server sets stays as it was (the system proves it can change it first).
+await expectServerOwned({ as: client, system, resource: "tasks", id, field: "status", value: "done" });
+// A private value never shows, reports included: read the list around it, not the row by id.
+await expectNeverShows(client.getList("group_progress", {}), "private-marker-7");
+// A delete on a bin table keeps the row.
+await expectBinned({ as: client, resource: "notes", id, inBin: () => adminSeesDeleted("notes", id) });
+```
+
+| Check | Passes when |
+| --- | --- |
+| `expectRefused(write, { as?, control? })` | it's refused (42501, a guard's P0001, or `forbidden` / `unauthenticated`) in plain words; reaching no row counts only when `control` makes the same write and changes a row |
+| `expectAllowed(write)` | it resolves |
+| `expectServerOwned({ as, system, … })` | `system` can change the value (then puts it back), and it's unchanged after `as` tries; refused or put back both count |
+| `expectNeverShows(read, marker)` | the marker appears nowhere in the result (raw or JSON-escaped), or the read is refused; a read that found nothing fails |
+| `expectSees(read, n)` | the read returns exactly `n` rows |
+| `expectBinned({ as, resource, id, inBin })` | `as` sees the row, deletes it, can't read it back, and `inBin()` confirms it's still stored |
+| `expectPlainMessage(error)` | the message has no raw database text or error codes |
+
 ## Autosave a draft
 
 `useDraft` saves one row as someone edits it: an answer to a questionnaire, a
@@ -496,3 +564,30 @@ const release = useWrite((itemId: string) => callRpc(supabase, "release_step", {
 
 `run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`). One write runs at a
 time: a second click while it runs gets the same promise, not a second write.
+
+## Days and time zones (`/dates`)
+
+A day is a `YYYY-MM-DD` string: the date on one time zone's clock. `new Date().toISOString().slice(0, 10)`
+gives the day in UTC. For an evening in the Americas that is already tomorrow, and for a morning in
+Asia it is still yesterday. A server's own zone is usually UTC too. `@marktiderman/genesis-core/dates`
+always takes the zone, so you can't fall into that by accident:
+
+```ts
+import { personDay, dayIn, dayRangeIn, addDays, startOfWeek } from "@marktiderman/genesis-core/dates";
+
+const today = personDay(profile);                 // the person's saved zone, else the device's, else UTC
+const yesterday = addDays(today, -1);
+const week = startOfWeek(today);                  // Monday; startOfWeek(today, 0) for Sunday
+const { start, end } = dayRangeIn(today, profile.timeZone); // the instants, for created_at >= start and < end
+```
+
+- `personDay(person, at?)` and `personTimeZone(person)`: the person's `timeZone` when the runtime
+  knows it, else `deviceTimeZone()`, else UTC. On a server, always pass the person's zone.
+- `dayIn(zone, at?)` and `wallClock(zone, at?)`: what the calendar and the clock say in `zone`.
+- `startOfDayIn(day, zone)` and `dayRangeIn(day, zone)`: the instants a day starts and ends.
+  Daylight-saving days are 23 or 25 hours long, and where midnight is skipped the day starts at the
+  first instant that exists.
+- `addDays`, `daysBetween`, `weekdayOf`, `startOfWeek` and `isDay`: plain calendar arithmetic on
+  `YYYY-MM-DD` strings, with no zone involved. They refuse days that don't exist, such as `2026-02-30`.
+
+In SQL, the same day is `(now() at time zone person_zone)::date`.

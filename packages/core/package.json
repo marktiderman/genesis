@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-core",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -50,6 +50,14 @@
     "./navigation": {
       "types": "./dist/navigation.d.ts",
       "import": "./dist/navigation.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
+    },
+    "./dates": {
+      "types": "./dist/dates.d.ts",
+      "import": "./dist/dates.js"
     }
   },
   "files": [

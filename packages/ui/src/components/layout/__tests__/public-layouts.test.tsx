@@ -35,6 +35,17 @@ const fromTriplet = (triplet: string) => {
   return hslToRgb({ h, s, l });
 };
 
+/** The same triplet without 8-bit rounding, as a float-precision renderer would see it. */
+const fromTripletExact = (triplet: string) => {
+  const [h, s, l] = triplet.replace(/%/g, "").split(" ").map(Number) as [number, number, number];
+  const sn = s / 100;
+  const ln = l / 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = sn * Math.min(ln, 1 - ln);
+  const f = (n: number) => ln - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return { r: f(0) * 255, g: f(8) * 255, b: f(4) * 255 };
+};
+
 describe("AuthPage", () => {
   const renderSignIn = (extra: Partial<React.ComponentProps<typeof AuthPage>> = {}) =>
     render(
@@ -195,6 +206,69 @@ describe("contrast fallback", () => {
     expect(parseColor(undefined)).toBeNull();
   });
 
+  it("parses rgba(), ignoring alpha", () => {
+    expect(parseColor("rgba(16, 185, 129, 0.5)")).toEqual({ r: 16, g: 185, b: 129 });
+    expect(parseColor("rgb(16 185 129 / 50%)")).toEqual({ r: 16, g: 185, b: 129 });
+  });
+
+  it("parses hsl() with commas", () => {
+    expect(parseColor("hsl(160, 84%, 39%)")).toEqual(hslToRgb({ h: 160, s: 84, l: 39 }));
+    expect(parseColor("hsl(0, 0%, 100%)")).toEqual(WHITE);
+  });
+
+  it("parses hsl() with spaces and a / alpha", () => {
+    expect(parseColor("hsl(160 84% 39%)")).toEqual(hslToRgb({ h: 160, s: 84, l: 39 }));
+    expect(parseColor("hsl(160deg 84% 39% / 0.8)")).toEqual(hslToRgb({ h: 160, s: 84, l: 39 }));
+  });
+
+  it("parses hsla()", () => {
+    expect(parseColor("hsla(160, 84%, 39%, 0.5)")).toEqual(hslToRgb({ h: 160, s: 84, l: 39 }));
+    expect(parseColor("HSLA(160 84% 39% / 50%)")).toEqual(hslToRgb({ h: 160, s: 84, l: 39 }));
+  });
+
+  it("parses bare shadcn-style HSL triplets", () => {
+    expect(parseColor("160 84% 39%")).toEqual(hslToRgb({ h: 160, s: 84, l: 39 }));
+    expect(parseColor("  221.2 83.2% 53.3%  ")).toEqual(hslToRgb({ h: 221.2, s: 83.2, l: 53.3 }));
+    expect(parseColor("0 0% 100%")).toEqual(WHITE);
+  });
+
+  it("returns null, never throws, for anything unparseable", () => {
+    for (const bad of [
+      "",
+      "   ",
+      "#12",
+      "#gggggg",
+      "hsl(160, 184%, 39%)",
+      "hsl(160, 84%)",
+      "160 84 39",
+      "160 84% 139%",
+      "rgb(1, 2)",
+      "hsl(nan, 1%, 1%)",
+      "url(javascript:alert(1))",
+      "var(--primary)",
+    ]) {
+      expect(() => parseColor(bad), bad).not.toThrow();
+      expect(parseColor(bad), bad).toBeNull();
+    }
+    expect(parseColor(null)).toBeNull();
+    expect(parseColor(42 as unknown as string)).toBeNull();
+  });
+
+  it("falls back to the default primary for an unparseable accent", () => {
+    for (const accent of ["hsl(oops)", "160 84", "not-a-colour", ""]) {
+      expect(accessibleAccent(accent), accent).toBeNull();
+      expect(brandThemeStyle({ accent }), accent).toEqual({});
+    }
+  });
+
+  it("themes from hsl() and bare-triplet accents", () => {
+    for (const accent of ["hsl(160, 84%, 39%)", "160 84% 39%", "hsla(160 84% 39% / 1)"]) {
+      const style = brandThemeStyle({ accent }) as Record<string, string>;
+      expect(style["--primary"], accent).toBeDefined();
+      expect(contrastRatio(fromTriplet(style["--primary"]!), WHITE), accent).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+    }
+  });
+
   it("computes WCAG ratios", () => {
     expect(contrastRatio(WHITE, { r: 0, g: 0, b: 0 })).toBeCloseTo(21, 5);
     expect(contrastRatio(WHITE, WHITE)).toBe(1);
@@ -236,4 +310,39 @@ describe("contrast fallback", () => {
     expect(brandThemeStyle(undefined)).toEqual({});
     expect(brandThemeStyle({})).toEqual({});
   });
+
+  it("the emitted, rounded triplet reaches 4.5:1 across hues and lightness levels", () => {
+    // Property-style sweep: every hue in 11-degree steps, several saturations,
+    // lightness 0-100 in 1.3% steps (offsets chosen to hit awkward roundings),
+    // plus every 8-bit colour on a coarse RGB grid, including Gate's
+    // counter-example rgb(4, 195, 202) and the cyan band around it, where
+    // rounding to 0.1 used to land at 4.48:1.
+    const inputs: string[] = ["rgb(4, 195, 202)"];
+    for (let h = 0; h < 360; h += 11) {
+      for (const s of [15, 47.3, 72.9, 100]) {
+        for (let l = 0; l <= 100; l += 1.3) inputs.push(`${h} ${s}% ${Math.round(l * 10) / 10}%`);
+      }
+    }
+    for (let r = 0; r <= 255; r += 51) {
+      for (let g = 0; g <= 255; g += 15) {
+        for (let b = 0; b <= 255; b += 51) inputs.push(`rgb(${r}, ${g}, ${b})`);
+      }
+    }
+    for (let r = 0; r <= 255; r += 5) {
+      for (let g = 150; g <= 255; g += 3) inputs.push(`rgb(${r}, ${g}, 202)`);
+    }
+    let checked = 0;
+    for (const accent of inputs) {
+      const result = accessibleAccent(accent)!;
+      expect(result, accent).not.toBeNull();
+      const style = brandThemeStyle({ accent }) as Record<string, string>;
+      expect(style["--primary"], accent).toBe(result.strongTriplet);
+      const triplet = style["--primary"]!;
+      const ratio = Math.min(contrastRatio(fromTriplet(triplet), WHITE), contrastRatio(fromTripletExact(triplet), WHITE));
+      if (ratio < MIN_TEXT_CONTRAST) throw new Error(`${accent} -> ${style["--primary"]} is ${ratio.toFixed(3)}:1`);
+      expect(result.strongRatio, accent).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+      checked += 1;
+    }
+    expect(checked).toBeGreaterThan(5_000);
+  }, 30_000);
 });
