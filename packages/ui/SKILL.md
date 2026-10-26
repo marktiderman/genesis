@@ -5,7 +5,7 @@ description: Build web UI with the Genesis design system (@marktiderman/genesis-
 
 # genesis-ui
 
-Genesis is a starting point, not a ceiling. **Reuse > Extend > Create**: before
+Genesis is a starting point, not a ceiling. **Reuse > Extend > Invent** ([the Genesis way](https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md)): before
 writing a component, find the export that already answers the question, then
 step down the ladder one rung — never off it.
 

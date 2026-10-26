@@ -9,6 +9,10 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
 - Every package change needs a changeset (`pnpm changeset`). Releases follow `docs/RELEASING.md`.
 - `docs/component-reference.md` is generated: `pnpm gen:component-reference`. Never edit it by hand.
 - Merge, never rebase or force-push.
+- Before building anything, read Part 1 of `docs/FRAMEWORK.md` ("The Genesis way"): reuse, then
+  extend, then invent, and invent in the app before Genesis. Slots, variants and configuration
+  are config; recreating something that exists, or should, is the custom code we remove. Cite
+  the principle IDs (G1–G6) in reviews.
 
 <!-- genesis-features:start -->
 ## Features
