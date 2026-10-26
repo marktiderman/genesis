@@ -27,11 +27,11 @@ import { AccessibilityInfo, FlatList, KeyboardAvoidingView, Platform, Pressable,
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeEmptyState, NativeSkeleton, NativeText, useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
-import { activityLine, previewText } from "../core/thread";
+import { activityLine } from "../core/thread";
 import type { ChatMessage, PendingFile } from "../core/types";
 import { useChat, useConversation, useFileUrls, useLinkPreviews, useMessageActions, usePeople, usePins, useTopics } from "../react/index";
 import { recordingLimitMs } from "../core/media";
-import type { OpenAttachment } from "./attachment-cards";
+import { attachmentPreview, type ChatAttachmentSlot, type OpenAttachment } from "./attachment-cards";
 import { linkPreviewIds, previewToShow } from "./link-preview";
 import { ChatVideoRecorder } from "./video-recorder";
 import { VideoUploadTray } from "./video-upload-tray";
@@ -81,12 +81,23 @@ export interface ChatThreadScreenProps {
   /** An app attachment card's button (a form, a check-in), when its kind gives no `onPress`. */
   onOpenAttachment?: OpenAttachment;
   /**
+   * Swap parts, as the web `ChatThread` does. `attachment` draws the app's own attachment kinds
+   * (a task with a checkbox): every kind the package doesn't draw, with `fallback` for the card it
+   * would have been; `null` hides kinds that aren't registered. Define it at module scope.
+   */
+  slots?: ChatThreadScreenSlots;
+  /**
    * Whether the screen is the one shown (the navigator's `useIsFocused()`). When it turns false a
    * video or voice note of this thread that is playing pauses: switching tab keeps the screen
    * mounted. Default true.
    */
   focused?: boolean;
   testID?: string;
+}
+
+export interface ChatThreadScreenSlots {
+  /** Draws the app's own attachment kinds; the card by default. */
+  attachment?: ChatAttachmentSlot | null;
 }
 
 /** The list props chat passes; FlashList v2 and FlatList both take them. */
@@ -143,6 +154,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const { conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, focused = true, testID = "chat-thread" } = props;
   const chat = useChat();
   const { userId, videoUpload, attachmentKinds, outbox } = chat;
+  const attachmentSlot = props.slots?.attachment;
   // Off unless the app turns it on: an og:image fetched from the phone tells its site who reads it.
   const linkPreviewImages = (chat as { linkPreviewImages?: boolean }).linkPreviewImages === true;
   const topicsState = useTopics(threadRootId ? null : conversationId);
@@ -242,9 +254,9 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
 
   const reply = useCallback(
     (m: ChatMessage) => {
-      setReply(replyTargetFor(m, nameOf(m.senderId), previewText(displayBody(m.body), m.attachments[0]?.kind, Boolean(m.deletedAt))));
+      setReply(replyTargetFor(m, nameOf(m.senderId), attachmentPreview(displayBody(m.body), m.attachments[0], attachmentKinds, Boolean(m.deletedAt))));
     },
-    [setReply, nameOf],
+    [setReply, nameOf, attachmentKinds],
   );
 
   const onAction = useCallback(
@@ -355,7 +367,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
     },
     onLanded: (id) => {
       const m = byId.get(id);
-      if (m) AccessibilityInfo.announceForAccessibility?.(fill(copy.jumpedTo, { name: nameOf(m.senderId), text: previewText(displayBody(m.body), m.attachments[0]?.kind, Boolean(m.deletedAt)) }));
+      if (m) AccessibilityInfo.announceForAccessibility?.(fill(copy.jumpedTo, { name: nameOf(m.senderId), text: attachmentPreview(displayBody(m.body), m.attachments[0], attachmentKinds, Boolean(m.deletedAt)) }));
     },
     onGone: () => {
       toast.show({ title: copy.messageGone });
@@ -395,11 +407,12 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           linkPreviewImages={linkPreviewImages}
           attachmentKinds={attachmentKinds}
           onOpenAttachment={onOpenAttachment}
+          attachmentSlot={attachmentSlot}
           testID={`${testID}-message-${m?.id ?? row.key}`}
         />
       );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, observer, highlightedId],
+    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, observer, highlightedId],
   );
 
   // ---- Video messages ----

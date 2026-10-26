@@ -8,9 +8,16 @@
  *
  * The kind's `title`, `subtitle` and `action` get a second argument, `{ mine }` (`ChatCardContext`):
  * true on the sender's own card, so a kind can drop its button there (you don't answer your own
- * check-in). Previews (the inbox, the long-press sheet) name a card by its kind's `label`, else
- * its title, not "Attachment".
+ * check-in). Previews (the inbox, the long-press sheet, a reply's quote) name a card by its kind's
+ * `label`, else its title, not "Attachment".
+ *
+ * For more than a card (a task with a checkbox, a worksheet with its progress) the app draws its
+ * kinds itself through the `attachment` slot (`ChatThreadScreen slots`, `MessageBubble
+ * attachmentSlot`), the native twin of the web slot: the same props (`attachment`, `message`,
+ * `url`, `mine`) plus the kind, its action, `run` for the app's own actions with `pending` and
+ * `error`, and `fallback` (the card it would have been). A slot that throws shows the fallback.
  */
+import { useCallback, useRef, useState, type ComponentType, type ReactElement } from "react";
 import { Linking, View } from "react-native";
 import { NativeButton, NativeIcon, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -20,18 +27,31 @@ import { attachmentPreview, callAttachmentKind as call, cardTitle, messagePrevie
 
 export type { ChatCardContext };
 export { attachmentPreview, cardTitle, messagePreview };
+import { ChatErrorBoundary } from "../react/error-boundary";
 import { fill } from "./copy";
 import { useChatNative } from "./context";
 import { ON_TINT_FILL, ON_TINT_FILL_STRONG } from "./media-colors";
 
 export type OpenAttachment = (attachment: ChatAttachment, message: ChatMessage) => void;
 
-/** A message's attachments split into the app's cards and the rest (photos, voice, video, files). */
-export function splitCardAttachments<T extends { kind: string }>(attachments: readonly T[], kinds: Record<string, ChatAttachmentKind> | undefined): { cards: T[]; rest: T[] } {
-  if (!kinds) return { cards: [], rest: [...attachments] };
+/** The kinds the package draws itself; every other kind is the app's. */
+export const BUILT_IN_KINDS: ReadonlySet<string> = new Set(["image", "voice", "video", "file", "link"]);
+
+/** The app's registered kind for this attachment kind (own keys only, never `constructor` and the like). */
+export function attachmentKindOf(kinds: Record<string, ChatAttachmentKind> | undefined, kind: string): ChatAttachmentKind | undefined {
+  return kinds && Object.prototype.hasOwnProperty.call(kinds, kind) ? kinds[kind] : undefined;
+}
+
+/**
+ * A message's attachments split into the app's cards and the rest (photos, voice, video, files).
+ * A card is a registered kind; with `slot` (the app draws its kinds) also any kind the package
+ * doesn't draw itself, as on the web.
+ */
+export function splitCardAttachments<T extends { kind: string }>(attachments: readonly T[], kinds: Record<string, ChatAttachmentKind> | undefined, slot = false): { cards: T[]; rest: T[] } {
+  if (!kinds && !slot) return { cards: [], rest: [...attachments] };
   const cards: T[] = [];
   const rest: T[] = [];
-  for (const a of attachments) (Object.prototype.hasOwnProperty.call(kinds, a.kind) ? cards : rest).push(a);
+  for (const a of attachments) (attachmentKindOf(kinds, a.kind) || (slot && !BUILT_IN_KINDS.has(a.kind)) ? cards : rest).push(a);
   return { cards, rest };
 }
 
@@ -71,16 +91,104 @@ export function cardAction(
   return run ? { label: action.label, run } : null;
 }
 
+/** Where one card's app action stands: running, or failed with a short message. */
+export interface CardRunState {
+  pending: boolean;
+  error: string | null;
+}
+
+const IDLE: CardRunState = { pending: false, error: null };
+
+/**
+ * Runs the app's actions for a message's cards (tick a task, answer a check-in) and keeps each
+ * card's state by attachment id: `pending` until the action settles, then `error` (the copy's
+ * `cardActionFailed`) if it threw or rejected. Only a promise makes a card busy; a second run
+ * while one is pending is ignored.
+ */
+export function useCardRuns(failedText: string): { stateOf(id: string): CardRunState; run(id: string, task: () => unknown): Promise<void> } {
+  const [states, setStates] = useState<Record<string, CardRunState>>({});
+  const busy = useRef(new Set<string>());
+  const run = useCallback(
+    async (id: string, task: () => unknown) => {
+      if (busy.current.has(id)) return;
+      const failed = (e: unknown) => {
+        if (typeof __DEV__ !== "undefined" && __DEV__) console.warn("[genesis-chat] an attachment card's action failed:", e);
+        setStates((s) => ({ ...s, [id]: { pending: false, error: failedText } }));
+      };
+      let result: unknown;
+      try {
+        result = task();
+      } catch (e) {
+        failed(e);
+        return;
+      }
+      // Only an action that returns a promise is busy; a plain handler is done when it returns.
+      if (!result || typeof (result as PromiseLike<unknown>).then !== "function") {
+        setStates((s) => (s[id] ? { ...s, [id]: IDLE } : s));
+        return;
+      }
+      busy.current.add(id);
+      setStates((s) => ({ ...s, [id]: { pending: true, error: null } }));
+      try {
+        await result;
+        setStates((s) => ({ ...s, [id]: IDLE }));
+      } catch (e) {
+        failed(e);
+      } finally {
+        busy.current.delete(id);
+      }
+    },
+    [failedText],
+  );
+  const stateOf = useCallback((id: string) => states[id] ?? IDLE, [states]);
+  return { stateOf, run };
+}
+
+/**
+ * What the `attachment` slot gets: the web slot's props (`attachment`, `message`, `url`, `mine`)
+ * and what a native card needs besides. The bubble is one VoiceOver element, so a control drawn
+ * here (a checkbox) is reached through the kind's `action`, which the bubble offers as its own
+ * action: give the kind one, and call `action.run` from the control so both stay the same.
+ */
+export interface ChatAttachmentSlotProps {
+  attachment: ChatAttachment;
+  message: ChatMessage;
+  /** Its signed URL when it has a file (else its `url`). */
+  url: string | null;
+  /** On a message you sent (drawn on the tint). */
+  mine: boolean;
+  /** The app's kind for it (`ChatProvider attachmentKinds`), when registered. */
+  kind: ChatAttachmentKind | undefined;
+  /** The kind's `action`, ready to call: it runs through `run`, so `pending` and `error` follow it. Null without one. */
+  action: { label: string; run: () => void } | null;
+  /** Runs an app action (tick a task): `pending` until it settles, `error` if it throws or rejects. */
+  run(task: () => unknown): void;
+  pending: boolean;
+  /** A short message once an action failed; cleared by the next run. */
+  error: string | null;
+  /** The card the package would draw: return it for kinds the slot doesn't draw. */
+  fallback: ReactElement;
+  testID: string;
+}
+
+/** Draws the app's own attachment kinds; `null` hides the kinds that aren't registered. */
+export type ChatAttachmentSlot = ComponentType<ChatAttachmentSlotProps>;
+
 export interface ChatAttachmentCardProps {
   attachment: ChatAttachment;
   message: ChatMessage;
-  kind: ChatAttachmentKind;
+  /** The app's kind; without one the card shows the attachment's name (or kind) and no button. */
+  kind?: ChatAttachmentKind;
   mine?: boolean;
   onOpenAttachment?: OpenAttachment;
+  /** Runs the button's action (the bubble passes its own, for busy and error state); calls it straight away by default. */
+  run?: (task: () => unknown) => void;
+  /** Busy while the action runs; the error under the card once it failed. */
+  state?: CardRunState;
   testID?: string;
 }
 
-export function ChatAttachmentCard({ attachment, message, kind, mine = false, onOpenAttachment, testID = "chat-attachment-card" }: ChatAttachmentCardProps) {
+export function ChatAttachmentCard({ attachment, message, kind, mine = false, onOpenAttachment, run, state = IDLE, testID = "chat-attachment-card" }: ChatAttachmentCardProps) {
   const { copy } = useChatNative();
   const colors = useThemeRoles();
   let title = "";
@@ -97,9 +205,9 @@ export function ChatAttachmentCard({ attachment, message, kind, mine = false, on
   const action = cardAction(kind, attachment, message, onOpenAttachment, ctx);
   const fg = mine ? "text-primary-foreground" : undefined;
   return (
+    <View testID={testID} style={{ gap: 4, minWidth: 220 }}>
     <View
-      testID={testID}
-      style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 12, minWidth: 220, backgroundColor: mine ? ON_TINT_FILL : colors.groupedBackground }}
+      style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 12, backgroundColor: mine ? ON_TINT_FILL : colors.groupedBackground }}
     >
       <View
         accessible
@@ -121,11 +229,59 @@ export function ChatAttachmentCard({ attachment, message, kind, mine = false, on
         </View>
       </View>
       {action ? (
-        <NativeButton testID={`${testID}-action`} variant={mine ? "secondary" : "default"} onPress={action.run}>
+        <NativeButton
+          testID={`${testID}-action`}
+          variant={mine ? "secondary" : "default"}
+          className="h-11"
+          loading={state.pending}
+          onPress={() => (run ? run(action.run) : action.run())}
+        >
           {action.label}
         </NativeButton>
       ) : null}
     </View>
+      {state.error ? <CardError text={state.error} mine={mine} testID={`${testID}-error`} /> : null}
+    </View>
+  );
+}
+
+/** The line under a card whose action failed. */
+export function CardError({ text, mine, testID }: { text: string; mine: boolean; testID?: string }) {
+  const colors = useThemeRoles();
+  return (
+    <NativeText testID={testID} preset="caption" accessibilityLiveRegion="polite" className={mine ? "text-primary-foreground" : undefined} style={mine ? { paddingHorizontal: 4 } : { paddingHorizontal: 4, color: colors.destructive }}>
+      {text}
+    </NativeText>
+  );
+}
+
+export interface AppAttachmentProps {
+  attachment: ChatAttachment;
+  message: ChatMessage;
+  kind: ChatAttachmentKind | undefined;
+  url: string | null;
+  mine: boolean;
+  /** The app's slot: a component draws it, `null` hides an unregistered kind, undefined draws the card. */
+  slot?: ChatAttachmentSlot | null;
+  onOpenAttachment?: OpenAttachment;
+  run: (task: () => unknown) => void;
+  state: CardRunState;
+  testID: string;
+}
+
+/** One app attachment in a bubble: through the app's slot when there is one, else the card. */
+export function AppAttachment({ attachment, message, kind, url, mine, slot, onOpenAttachment, run, state, testID }: AppAttachmentProps) {
+  const fallback = <ChatAttachmentCard attachment={attachment} message={message} kind={kind} mine={mine} onOpenAttachment={onOpenAttachment} run={run} state={state} testID={testID} />;
+  if (slot === undefined) return fallback;
+  if (slot === null) return kind ? fallback : null;
+  const Slot = slot;
+  const found = cardAction(kind, attachment, message, onOpenAttachment, { mine });
+  const action = found ? { label: found.label, run: () => run(found.run) } : null;
+  // The slot draws sender-controlled data: if it throws, the card stands in.
+  return (
+    <ChatErrorBoundary fallback={fallback}>
+      <Slot attachment={attachment} message={message} url={url} mine={mine} kind={kind} action={action} run={run} pending={state.pending} error={state.error} fallback={fallback} testID={testID} />
+    </ChatErrorBoundary>
   );
 }
 

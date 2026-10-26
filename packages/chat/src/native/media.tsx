@@ -3,8 +3,10 @@
  * Pictures and files in a message: photos as a grid of NativeImage (expo-image
  * when the app gave it) over signed links from `useFileUrls`, a local preview
  * while one still uploads, a tap opening the full-screen viewer (photo-viewer.tsx); voice notes
- * as VoiceNotePlayer; other files as a row with their name.
+ * as VoiceNotePlayer with their transcript under them (three lines, then "Show more"), as on the
+ * web; other files as a row with their name.
  */
+import { useState } from "react";
 import { Pressable, View, useWindowDimensions } from "react-native";
 import { NativeIcon, NativeImage, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -33,6 +35,9 @@ export interface BubbleAttachment {
   posterUri?: string | null;
   /** Still on its way from this phone. */
   uploading?: boolean;
+  /** A voice note's (or video's) transcript, and whether one is still being made. */
+  transcript?: string | null;
+  transcriptStatus?: ChatAttachment["transcriptStatus"];
 }
 
 export function fromServer(a: ChatAttachment, urls: Record<string, string>): BubbleAttachment {
@@ -50,6 +55,8 @@ export function fromServer(a: ChatAttachment, urls: Record<string, string>): Bub
     playbackId: a.playbackId,
     status: a.status,
     posterUri: a.posterPath ? (urls[a.posterPath] ?? null) : null,
+    transcript: a.transcript,
+    transcriptStatus: a.transcriptStatus,
   };
 }
 
@@ -149,7 +156,10 @@ export function MessageAttachments({ attachments, mine, onOpenImage, testID }: A
       ) : null}
       {others.map((a, i) =>
         a.kind === "voice" ? (
-          <VoiceNotePlayer key={a.key} id={a.key} uri={a.uri} durationMs={a.durationMs} waveform={a.waveform} mine={mine} testID={`${testID}-voice-${i}`} />
+          <View key={a.key} style={{ gap: 2 }}>
+            <VoiceNotePlayer id={a.key} uri={a.uri} durationMs={a.durationMs} waveform={a.waveform} mine={mine} testID={`${testID}-voice-${i}`} />
+            <VoiceTranscript transcript={a.transcript} status={a.transcriptStatus} mine={mine} testID={`${testID}-voice-${i}-transcript`} />
+          </View>
         ) : a.kind === "video" && modules.video ? (
           <ChatVideoPlayer
             key={a.key}
@@ -185,3 +195,70 @@ export function MessageAttachments({ attachments, mine, onOpenImage, testID }: A
 }
 
 // ChatMediaViewer (one picture) is in photo-viewer.tsx, over the full-screen ChatPhotoViewer.
+
+/** Lines a transcript shows before "Show more". */
+export const TRANSCRIPT_LINES = 3;
+
+/** A transcript long enough to fold, before its text is laid out (about three lines of a bubble). */
+export function transcriptIsLong(text: string): boolean {
+  return text.length > 140 || text.split("\n").length > TRANSCRIPT_LINES;
+}
+
+export interface VoiceTranscriptProps {
+  transcript: string | null | undefined;
+  status: ChatAttachment["transcriptStatus"] | undefined;
+  mine: boolean;
+  testID: string;
+}
+
+/**
+ * A voice note's transcript under the player: "Transcribing…" while it is made, then the text,
+ * folded to three lines with "Show more" when it is longer. The bubble reads the whole transcript
+ * to VoiceOver, so the toggle is for sight only.
+ */
+export function VoiceTranscript({ transcript, status, mine, testID }: VoiceTranscriptProps) {
+  const { copy } = useChatNative();
+  const colors = useThemeRoles();
+  const [open, setOpen] = useState(false);
+  const [laidOutLong, setLaidOutLong] = useState(false);
+  const fg = mine ? "text-primary-foreground" : undefined;
+  const text = transcript?.trim();
+  if (status === "pending" && !text) {
+    return (
+      <NativeText testID={testID} preset="caption" className={fg} style={mine ? { fontStyle: "italic", opacity: 0.85, paddingHorizontal: 8 } : { fontStyle: "italic", color: colors.secondaryLabel, paddingHorizontal: 8 }}>
+        {copy.transcribing}
+      </NativeText>
+    );
+  }
+  if (!text) return null;
+  const long = laidOutLong || transcriptIsLong(text);
+  return (
+    <View testID={testID} style={{ paddingHorizontal: 8, alignItems: "flex-start" }}>
+      <NativeText
+        testID={`${testID}-text`}
+        className={fg}
+        numberOfLines={open ? undefined : TRANSCRIPT_LINES}
+        onTextLayout={(e: { nativeEvent: { lines: unknown[] } }) => {
+          if (!open && e.nativeEvent.lines.length > TRANSCRIPT_LINES) setLaidOutLong(true);
+        }}
+        style={mine ? { fontSize: 15, lineHeight: 20 } : { fontSize: 15, lineHeight: 20, color: colors.label }}
+      >
+        {text}
+      </NativeText>
+      {long ? (
+        <Pressable
+          testID={`${testID}-toggle`}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          onPress={() => setOpen((o) => !o)}
+          hitSlop={{ top: 8, bottom: 8 }}
+          style={{ minHeight: 44, minWidth: 44, justifyContent: "center" }}
+        >
+          <NativeText preset="caption" className={fg} style={mine ? { fontWeight: "600" } : { fontWeight: "600", color: colors.tint }}>
+            {open ? copy.showLess : copy.showMore}
+          </NativeText>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
