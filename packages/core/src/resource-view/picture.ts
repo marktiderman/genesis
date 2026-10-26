@@ -6,24 +6,27 @@ import type { RowPicture, RowSummary } from "./types";
 
 let segmenter: Intl.Segmenter | null | undefined;
 
-// The first user-perceived character, so "😊 Jones" or "é" never splits into half a character.
-function firstGrapheme(word: string): string {
+// The first letter of a word, as a whole character: "é" keeps its accent, "李" is a letter, and
+// punctuation, digits and emoji never count.
+const LETTER = /^\p{L}/u;
+function firstLetter(word: string): string {
   if (segmenter === undefined) {
     segmenter = typeof Intl !== "undefined" && typeof Intl.Segmenter === "function" ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
   }
-  if (segmenter) {
-    for (const { segment } of segmenter.segment(word)) return segment;
-    return "";
-  }
-  return Array.from(word)[0] ?? "";
+  const parts = segmenter ? Array.from(segmenter.segment(word), (s) => s.segment) : Array.from(word);
+  return parts.find((part) => LETTER.test(part)) ?? "";
 }
 
-/** First and last initial of a name: "Ada Lovelace" → "AL", "Cher" → "C", "" → "". */
+/**
+ * First and last initial of a name, from letters only: "Ada Lovelace" → "AL", "Ana-María López"
+ * → "AL", "李 小龙" → "李小", "Cher" → "C". Empty when the name has no letters ("  ", "🎉🎉").
+ */
 export function initialsOf(name: string | undefined): string {
-  const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "";
-  const first = firstGrapheme(words[0]!);
-  return (words.length === 1 ? first : first + firstGrapheme(words[words.length - 1]!)).toUpperCase();
+  const letters = (name ?? "").trim().split(/\s+/).map(firstLetter).filter(Boolean);
+  if (letters.length === 0) return "";
+  const pair = letters.length === 1 ? [letters[0]!] : [letters[0]!, letters[letters.length - 1]!];
+  // One character each: "ß" stays "ß" rather than becoming "SS".
+  return pair.map((l) => (l.toUpperCase().length === l.length ? l.toUpperCase() : l)).join("");
 }
 
 /**

@@ -4,6 +4,7 @@
 
 export { defineView, deriveDisplay, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
+export { scopeValues } from "./scope";
 export type {
   Allowed,
   ComputedColumn,
