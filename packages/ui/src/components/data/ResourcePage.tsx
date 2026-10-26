@@ -45,6 +45,7 @@ import type {
   UseResourceOptions,
 } from "@marktiderman/genesis-core/hooks";
 import { useResourceTableModel } from "./use-resource-table";
+import { fillMessage, useUiMessages } from "../../messages";
 import type {
   ResourceColumnDef,
   ResourceActions,
@@ -781,7 +782,7 @@ export function ResourcePage<
     className,
     columnVisibility,
     columnVisibilityKey,
-    createLabel = "New",
+    createLabel: createLabelProp,
     detail = "panel",
     detailFields,
     detailWidth = "md",
@@ -831,6 +832,8 @@ export function ResourcePage<
     title,
     toolbar,
   } = props;
+  const m = useUiMessages();
+  const createLabel = createLabelProp ?? m.page.create;
   const embedded = props.variant === "embedded";
   const headerMode = headerProp ?? (embedded ? "toolbar" : "page");
   const {
@@ -1010,7 +1013,7 @@ export function ResourcePage<
                     ? badgeCol.render(item, badgeVal, actions)
                     : badgeVal != null
                       ? String(badgeVal)
-                      : "—"}
+                      : m.common.empty}
                 </span>
               )}
               {priceVal != null && (
@@ -1030,7 +1033,7 @@ export function ResourcePage<
                     ? col.render(item, val, actions)
                     : val != null
                       ? String(val)
-                      : "—"}
+                      : m.common.empty}
                 </p>
               );
             })}
@@ -1062,7 +1065,7 @@ export function ResourcePage<
                   ? col.render(item, val, actions)
                   : val != null
                     ? String(val)
-                    : "—"}
+                    : m.common.empty}
               </span>
             );
           })}
@@ -1228,7 +1231,7 @@ export function ResourcePage<
           ...(openOnCardClick && renderCardProp && detail !== "none"
             ? {
                 onItemClick: handleRowClick,
-                getItemLabel: (item: T) => `Open ${titleOf(item)}`.trim(),
+                getItemLabel: (item: T) => fillMessage(m.common.openItem, { name: titleOf(item) }).trim(),
               }
             : {}),
           renderCard: (item: T, index: number) =>
@@ -1268,10 +1271,10 @@ export function ResourcePage<
               testID="resource-page-load-more"
             >
               {loadMore.loading
-                ? "Loading…"
+                ? m.common.loading
                 : loadMore.hasMore
-                  ? "Load more"
-                  : `All ${loadMore.loaded.toLocaleString()} loaded`}
+                  ? m.page.loadMore
+                  : fillMessage(m.page.allLoaded, { loaded: loadMore.loaded.toLocaleString() })}
             </Button>
           )}
           <p
@@ -1281,7 +1284,10 @@ export function ResourcePage<
             data-testid="resource-page-load-status"
           >
             {loadMore.lastLoaded > 0
-              ? `Loaded ${loadMore.lastLoaded.toLocaleString()} more. ${loadMore.loaded.toLocaleString()} shown.`
+              ? fillMessage(m.page.loadedMore, {
+                  added: loadMore.lastLoaded.toLocaleString(),
+                  loaded: loadMore.loaded.toLocaleString(),
+                })
               : ""}
           </p>
         </div>
@@ -1292,8 +1298,10 @@ export function ResourcePage<
           className="px-3 py-2 text-sm text-muted-foreground"
           data-testid="resource-page-truncated"
         >
-          Showing the first {displayData.length.toLocaleString()} of{" "}
-          {displayTotal.toLocaleString()} records.
+          {fillMessage(m.page.truncated, {
+            shown: displayData.length.toLocaleString(),
+            total: displayTotal.toLocaleString(),
+          })}
         </p>
       )}
       {isServerControlled && pagerOnPageChange && pagerMisconfigured && (
@@ -1318,7 +1326,7 @@ export function ResourcePage<
       )}
       {isServerControlled && pagerOnPageChange && !pagerMisconfigured && (
         <nav
-          aria-label="Pagination"
+          aria-label={m.page.pagination}
           // The previous page stays on screen while the next one loads.
           aria-busy={
             (resourceServerPaging && resourceHook.list.isPlaceholderData) ||
@@ -1333,8 +1341,8 @@ export function ResourcePage<
             aria-live="polite"
           >
             {displayTotal === 0
-              ? "No records"
-              : `Showing ${rangeFrom}-${rangeTo} of ${displayTotal}`}
+              ? m.page.noRecords
+              : fillMessage(m.page.range, { from: rangeFrom, to: rangeTo, total: displayTotal })}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -1345,13 +1353,13 @@ export function ResourcePage<
               testID="resource-page-prev"
             >
               <ChevronLeft className="h-4 w-4 mr-1" aria-hidden="true" />
-              Previous
+              {m.page.previous}
             </Button>
             <span
               className="text-muted-foreground"
               data-testid="resource-page-indicator"
             >
-              Page {currentPage} of {totalPages}
+              {fillMessage(m.page.pageOf, { page: currentPage, pages: totalPages })}
             </span>
             <Button
               variant="outline"
@@ -1360,7 +1368,7 @@ export function ResourcePage<
               onClick={() => pagerOnPageChange(currentPage + 1)}
               testID="resource-page-next"
             >
-              Next
+              {m.page.next}
               <ChevronRight className="h-4 w-4 ml-1" aria-hidden="true" />
             </Button>
           </div>
@@ -1382,14 +1390,14 @@ export function ResourcePage<
                 item: {} as T,
                 open: detailOpen,
                 onClose: closeDetail,
-                title: "Record not found",
+                title: m.page.notFoundTitle,
                 width: detailWidth,
                 layout: detail === "modal" ? "dialog" : "sheet",
                 children: () => (
                   <p className="text-sm text-muted-foreground" data-testid="resource-page-link-missing">
                     {isDataReadError(linked.error) && linked.error.outcome === "forbidden"
                       ? linked.error.message
-                      : "This record doesn't exist, or you don't have access to it."}
+                      : m.page.notFoundBody}
                   </p>
                 ),
               }
