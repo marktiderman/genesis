@@ -21,6 +21,12 @@ export const BUILTIN_RULES = [
   "undefined-token",
   "shadowed-export",
   "version-skew",
+  "duplicate-genesis-package",
+  // structure
+  "hand-rolled-sub-nav",
+  "local-genesis-copy",
+  "resource-workspace",
+  "page-layout",
   // native pack
   "native-raw-primitive",
   "native-literal-color",

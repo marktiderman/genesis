@@ -132,7 +132,7 @@ export interface LoadedConfig {
   dir: string;
 }
 
-const STRING_LISTS = ["src", "extensions", "ignore", "tokenFiles", "ignoreTokenPrefixes", "localPrimitiveDirs", "build"] as const;
+const STRING_LISTS = ["src", "extensions", "ignore", "tokenFiles", "ignoreTokenPrefixes", "localPrimitiveDirs", "build", "componentPackages"] as const;
 const STRINGS = ["uiPackage", "rulesDoc"] as const;
 const KNOWN = new Set<string>([
   ...STRING_LISTS,
@@ -147,6 +147,7 @@ const KNOWN = new Set<string>([
   "packs",
   "native",
   "supabase",
+  "routesDir",
   "$schema",
   "$comment",
 ]);
@@ -309,6 +310,7 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
   for (const key of STRINGS) {
     if (c[key] !== undefined && typeof c[key] !== "string") fail(`"${key}" must be a string`);
   }
+  if (c.routesDir !== undefined) c.routesDir = appPath(c.routesDir, `"routesDir"`, fail);
   if (c.rawTags !== undefined) {
     if (!isObject(c.rawTags)) fail(`"rawTags" must be an object`);
     for (const [tag, v] of Object.entries(c.rawTags as object)) {

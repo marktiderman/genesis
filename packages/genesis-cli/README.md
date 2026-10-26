@@ -341,7 +341,7 @@ Upgrading Genesis upgrades the checks.
 | `--build` | After the checks, run `doctor.build` commands, or the app's `typecheck` then `build` scripts. A build that itself runs the doctor doesn't recurse. |
 | `-c, --config <path>` | Config file. Default: `genesis.config.json`, then the `genesis` key of package.json. |
 | `-d, --dir <dir>` | The app's folder (default: cwd). |
-| `--print-genesis` | Print the components, tokens, raw tags and palette read from Genesis, and exit. |
+| `--print-genesis` | Print the components, tokens, raw tags, palette and companion packages' components read from Genesis, and exit. |
 
 Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Genesis not installed or not built).
 
@@ -358,10 +358,26 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `raw-color` | error | Hex and `rgb()/hsl()` literals in code and CSS, via the same lexer as the repo's `check:token-usage` (comments, issue refs and `hsl(var(--x))` are fine). A brand file that defines token values needs an `allow` entry. |
 | `undefined-token` | error | `var(--x)` where the theme doesn't define `--x`. Tokens declared in the app's CSS (or only `tokenFiles`) and inline style custom properties count as defined; `--tw-*` and `--radix-*` are ignored. |
 | `shadowed-export` | error | An exported value named like a Genesis export (`export function Button`). Reuse or extend it. |
+| `duplicate-genesis-package` | warn | More than one installed copy of a `@marktiderman/genesis-*` package (nested `node_modules` under npm/bun/yarn, separate `.pnpm` store entries under pnpm), with each copy's path, version and the ranges that asked for it. Two copies are two module instances: a `DataProvider` from one is invisible to hooks from the other. |
+| `hand-rolled-sub-nav` | warn | A route under the layout that renders `AppShell` that switches its sections with its own page-level `<TabsList>` or `<SubNavTabs>`, when the installed Genesis has `useAppShellSubNav`. Tabs inside a card, dialog, sheet, popover, accordion, panel, table or another tab's content are fine, as are pages that call the hook. Use `useAppShellSubNav(items, { mode: "tabs" })`, `AppShellPageHeader` and `AppShellSubNavEnd` from `@marktiderman/genesis-ui/layout` ([sub-navigation](../ui/SKILL.md)). |
+| `local-genesis-copy` | warn | An app component (exported or not, `.tsx`/`.jsx`) named like a component of `uiPackage` or of `componentPackages` (forms-studio's `ResourceHeader`, `SettingsSection`, `ResourceSettingsPage`, `HeadlineNumbers`, `SummaryCard`, `ShareDialog`, …): "Genesis already has X". An exported genesis-ui value is `shadowed-export` instead; `const X = lazy(() => import("@marktiderman/genesis-…"))` is fine. |
+| `resource-workspace` | warn | In a routes folder where a detail page (`courses.$courseId.tsx`, `[id]/page.tsx`) renders `AppShellPageHeader`, directly or through one local import, the other detail pages there that don't. Informational: one workspace header and tab row for every resource. |
+| `page-layout` | warn | A web route that renders no Genesis page layout (the `…Page` / `…PageShell` components `uiPackage` and `componentPackages` export, not `BreadcrumbPage`) itself, through one local import, or from a layout route around it (`my/route.tsx` supplying `DetailPage` covers `my/index.tsx`). A `…Page`, `…Screen` or `…Workspace` imported from any Genesis package counts. Layout-only routes (`route.tsx`, `__root`, `<Outlet>`) and redirect-only routes are skipped; off with the `native` pack (see `native-screen-layout`). |
 | `stale-exception` | warn | An `allow` entry that no longer matches anything. |
 
 It also prints **Available but unused**: the Genesis components no file imports. Check it
 before building something.
+
+The route rules (`hand-rolled-sub-nav`, `resource-workspace`, `page-layout`) read the routes
+folder (`routesDir`, default the first of `src/routes`, `src/app`, `app`, `src/pages`, `pages`):
+TanStack Router files (flat `a.$id.tsx` or folders, `route.tsx` layouts, `__root.tsx`, `-private`
+files skipped, a trailing `_` un-nesting a segment) and Next-style `layout.tsx` / `page.tsx`.
+Like every rule, they are warnings (failures under `--strict`); opt out with `rules`
+(`{ "page-layout": "off" }`) or a justified `allow` entry for one file:
+
+```json
+{ "rule": "hand-rolled-sub-nav", "file": "src/routes/_shell/onboarding.tsx", "reason": "A wizard's steps, not sections." }
+```
 
 Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__fixtures__`,
 `__mocks__`, `*.d.ts` and `*.gen.*`. Comments are ignored by every rule.
@@ -468,6 +484,8 @@ migrations never fail a build. In CI, check out with full history and fetch the 
 | `rawTags` | | `{ "img": "Avatar" }` adds a mapping; `{ "select": false }` stops checking a tag. |
 | `forbiddenImports` | | `{ "<regexp>": "message" }`, added to the defaults. |
 | `localPrimitiveDirs` | `["src/components/ui"]` | |
+| `routesDir` | first of `src/routes`, `src/app`, `app`, `src/pages`, `pages` | The web routes folder the route rules read. |
+| `componentPackages` | `["@marktiderman/genesis-forms-studio"]` | Genesis packages besides `uiPackage` whose components `local-genesis-copy` and `page-layout` read (skipped when not installed). `--print-genesis` lists them under `companions`. |
 | `rules` | | `{ "<rule>": "error" \| "warn" \| "off" }` for any rule, built-in or yours. |
 | `allow` | | Exceptions: `{ rule, file?, match?, reason }`. `match` is the exact tag, token, export name or import specifier. `reason` is required. |
 | `patterns` | | Declarative rules, below. |

@@ -134,6 +134,18 @@ export interface DoctorConfig {
   rulesDoc?: string;
   /** Rule modules, resolved relative to the config file. */
   plugins?: PluginSpec[];
+  /**
+   * The web app's file-based routes folder, read by the structure rules
+   * (`hand-rolled-sub-nav`, `resource-workspace`, `page-layout`). Default: the
+   * first of `src/routes`, `src/app`, `app`, `src/pages`, `pages` that exists.
+   */
+  routesDir?: string;
+  /**
+   * Genesis packages besides `uiPackage` whose exported components an app
+   * should reuse, not copy (`local-genesis-copy`). Default
+   * `["@marktiderman/genesis-forms-studio"]`; packages not installed are skipped.
+   */
+  componentPackages?: string[];
   /** Commands `--build` runs, in order. Default: the app's `typecheck` then `build` scripts. */
   build?: string[];
 }
@@ -154,6 +166,16 @@ export interface GenesisFacts {
   rawTags: ReadonlyMap<string, string>;
   /** Tailwind palette color names (red, slate, …). */
   palette: readonly string[];
+  /** The installed `componentPackages` (forms-studio by default) and the components each exports. */
+  companions: ReadonlyArray<CompanionPackage>;
+}
+
+/** A Genesis component package read alongside the main one. */
+export interface CompanionPackage {
+  package: string;
+  version: string;
+  /** Exported components, sorted. */
+  components: readonly string[];
 }
 
 /** One scanned file. */

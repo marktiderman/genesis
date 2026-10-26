@@ -1,7 +1,9 @@
 /**
  * `genesis doctor`: checks an app against the installed Genesis — local
  * primitives, forbidden imports, raw tags Genesis has components for,
- * literal colors, undefined tokens, shadowed exports — plus the app's own
+ * literal colors, undefined tokens, shadowed exports, duplicate Genesis
+ * installs and structural copies (hand-rolled sub-nav, local copies of
+ * Genesis components, pages without a Genesis layout) — plus the app's own
  * pattern rules and rule plugins. The CLI and the Vite plugin both call
  * `runDoctor`.
  */
@@ -26,7 +28,9 @@ import { checkNativePack } from "./native.js";
 import { scanFiles } from "./scan.js";
 import { checkSupabasePack } from "./supabase.js";
 import { checkVersionSkew } from "./versions.js";
-import type { DoctorConfig, DoctorContext, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
+import { checkDuplicatePackages } from "./installs.js";
+import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkResourceWorkspaces } from "./structure.js";
+import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
 export type * from "./types.js";
 export {
@@ -47,6 +51,8 @@ export { globToRegExp } from "./glob.js";
 export { nativeLayouts } from "./native.js";
 export { sqlStatements } from "./supabase.js";
 export { readReleaseManifest, type ReleaseManifest } from "./versions.js";
+export { genesisInstalls, type GenesisInstall } from "./installs.js";
+export { webRoutes, routesDir, type RouteFile } from "./routes.js";
 
 export interface RunDoctorOptions {
   /** The app root. Default `process.cwd()`. */
@@ -81,18 +87,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
 
   const raw: FindingInput[] = [];
   const ctx: DoctorContext = { root, files, genesis, config, report: (f) => raw.push(f) };
-  const builtins: DoctorPlugin[] = [
-    { name: "layout", check: checkProjectLayout },
-    { name: "imports", check: checkImports },
-    { name: "raw-tags", check: checkRawTags },
-    { name: "colors", check: checkColors },
-    { name: "tokens", check: checkTokens },
-    { name: "shadowed-exports", check: checkShadowedExports },
-    { name: "version-skew", check: checkVersionSkew },
-    ...(config.packs?.includes("native") ? [{ name: "native", check: checkNativePack }] : []),
-    ...(config.packs?.includes("supabase") ? [{ name: "supabase", check: checkSupabasePack }] : []),
-  ];
-  for (const plugin of [...builtins, ...(patterns ? [patterns.plugin] : []), ...plugins]) {
+  for (const plugin of [...builtinChecks(config), ...(patterns ? [patterns.plugin] : []), ...plugins]) {
     try {
       await plugin.check(ctx);
     } catch (err) {
@@ -119,6 +114,33 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     errors,
     warnings,
   };
+}
+
+/**
+ * The built-in checks, in the order they run. A new built-in rule is a check
+ * here plus its ids in BUILTIN_RULES (rules.ts); a pack's checks run only when
+ * `packs` lists it.
+ */
+export function builtinChecks(config: DoctorConfig): DoctorPlugin[] {
+  const packs: Record<DoctorPack, DoctorPlugin> = {
+    native: { name: "native", check: checkNativePack },
+    supabase: { name: "supabase", check: checkSupabasePack },
+  };
+  return [
+    { name: "layout", check: checkProjectLayout },
+    { name: "imports", check: checkImports },
+    { name: "raw-tags", check: checkRawTags },
+    { name: "colors", check: checkColors },
+    { name: "tokens", check: checkTokens },
+    { name: "shadowed-exports", check: checkShadowedExports },
+    { name: "version-skew", check: checkVersionSkew },
+    { name: "duplicate-packages", check: checkDuplicatePackages },
+    { name: "hand-rolled-sub-nav", check: checkHandRolledSubNav },
+    { name: "local-genesis-copies", check: checkLocalGenesisCopies },
+    { name: "resource-workspaces", check: checkResourceWorkspaces },
+    { name: "page-layouts", check: checkPageLayouts },
+    ...(config.packs ?? []).map((p) => packs[p]),
+  ];
 }
 
 /** Apply `rules` level overrides and `allow` exceptions; flag exceptions that no longer match anything. */
@@ -196,5 +218,6 @@ export function genesisSummary(g: GenesisFacts) {
     tokens: [...g.tokens].sort(),
     rawTags: Object.fromEntries(g.rawTags),
     palette: g.palette,
+    companions: Object.fromEntries(g.companions.map((c) => [`${c.package}@${c.version}`, c.components])),
   };
 }
