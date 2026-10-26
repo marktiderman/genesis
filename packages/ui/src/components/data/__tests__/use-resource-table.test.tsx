@@ -139,6 +139,34 @@ describe("useResourceTable with rows passed in", () => {
   });
 });
 
+describe("useResourceTable agrees with ResourcePage", () => {
+  it("offers no create when `can` refuses it, as the page hides its button", () => {
+    const { result } = renderHook(
+      () =>
+        useResourceTable<Row>({
+          data: rows,
+          title: "People",
+          columns: ["name"],
+          onCreate: () => {},
+          can: (action) => action !== "create",
+        }),
+      { wrapper: mockWrapper },
+    );
+    expect(result.current.create).toBeUndefined();
+  });
+
+  it("returns loadMore, with a fixed shape, only with pagination=\"cursor\"", async () => {
+    const people = Array.from({ length: 3 }, (_, i) => ({ id: String(i + 1), name: `P${i + 1}` }));
+    const { result } = renderHook(
+      () => useResourceTable<Row>({ resource: "people", title: "People", columns: ["name"], pagination: "cursor" }),
+      { wrapper: providerWrapper(createMockProvider({ people })) },
+    );
+    await waitFor(() => expect(result.current.rows).toHaveLength(3));
+    expect(Object.keys(result.current)).toContain("loadMore");
+    expect(Object.keys(result.current.loadMore!).sort()).toEqual(["hasMore", "lastLoaded", "load", "loaded", "loading"]);
+  });
+});
+
 describe("useResourceTable in resource mode", () => {
   const people = Array.from({ length: 12 }, (_, i) => ({ id: String(i + 1), name: `Person ${String(i + 1).padStart(2, "0")}` }));
 

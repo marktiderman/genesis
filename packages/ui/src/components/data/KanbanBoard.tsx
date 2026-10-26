@@ -130,7 +130,12 @@ export function KanbanBoard<T>({
     // The caller reports the failure; the card simply stays put.
     void Promise.resolve(result).then(
       () => announce(`${name} moved to ${columnLabel(to)}.`),
-      () => announce(`Couldn’t move ${name}.`),
+      () => {
+        // Nothing moved, so there is no new handle to focus; a pending
+        // refocus would otherwise grab focus the next time it reaches body.
+        if (getKey && refocus.current === getKey(item)) refocus.current = null;
+        announce(`Couldn’t move ${name}.`);
+      },
     );
   };
 
@@ -206,7 +211,12 @@ export function KanbanBoard<T>({
     const key = refocus.current;
     if (!key) return;
     const handle = handles.current.get(key);
-    if (!handle) return;
+    if (!handle) {
+      // The card left the board (filtered out, or moved to a column that
+      // isn't shown): nothing to put focus back on.
+      if (!find(key)) refocus.current = null;
+      return;
+    }
     // Wait while the card is still in its old column (an async move).
     if (handle.isConnected && document.activeElement === handle) {
       refocus.current = null;
