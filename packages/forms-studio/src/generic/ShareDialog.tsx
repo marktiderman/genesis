@@ -67,7 +67,7 @@ function CopyField({
 /**
  * Sharing one published page (a form, a course), as Google Forms' Send step: its link with Copy, a QR code
  * (and a printable poster when the host has one), an `<iframe>` to embed it on a website,
- * and a builder for prefilled links (`?location=…&staff=…`, or whatever the host offers).
+ * and a builder for prefilled links (`?class=…&coach=…`, or whatever the host offers).
  * Generic: the host passes the link, how to draw a QR code, and the prefill choices.
  * Moved up from the host app's src/components/forms/ShareDialog.tsx.
  */
