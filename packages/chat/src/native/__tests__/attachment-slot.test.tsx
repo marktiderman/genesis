@@ -1,22 +1,37 @@
 // @vitest-environment happy-dom
 // @feat:chat
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { createElement, useLayoutEffect, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatAttachment, ChatMessage } from "../../core/types";
 import type { ChatAttachmentKind } from "../../react/index";
-import { attachmentPreview, splitCardAttachments, type ChatAttachmentSlotProps } from "../attachment-cards";
+import { attachmentPreview, slotUrl, splitCardAttachments, type ChatAttachmentSlotProps } from "../attachment-cards";
 import { chatNativeCopy } from "../copy";
 import { inboxRow } from "../inbox-screen";
 import { MessageBubble } from "../message-bubble";
 import { transcriptIsLong } from "../media";
 import { invertedRows, type ThreadRow } from "../rows";
 
-vi.mock("react-native", async (original) => ({ ...(await original<object>()), useWindowDimensions: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) }));
+// Text lays out to `layout.lines` lines when a test sets it (the shim lays nothing out).
+const layout = vi.hoisted(() => ({ lines: null as number | null }));
+vi.mock("react-native", async (original) => {
+  const rn = await original<{ Text: (p: object) => ReactNode }>();
+  function Text(props: { onTextLayout?: (e: { nativeEvent: { lines: unknown[] } }) => void }) {
+    const { onTextLayout, ...rest } = props;
+    useLayoutEffect(() => {
+      if (onTextLayout && layout.lines !== null) onTextLayout({ nativeEvent: { lines: Array.from({ length: layout.lines }) } });
+    }, [onTextLayout]);
+    return createElement(rn.Text as never, rest);
+  }
+  return { ...rn, Text, useWindowDimensions: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) };
+});
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
+  layout.lines = null;
 });
 
 const ME = "11111111-1111-4111-8111-111111111111";
@@ -192,6 +207,89 @@ describe("the attachment slot", () => {
   });
 });
 
+describe("the attachment slot, after review", () => {
+  it("tries the slot again once what it draws changes, after it threw", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const Slot = (p: ChatAttachmentSlotProps) => {
+      if (!p.kind?.label) throw new Error("data not loaded");
+      return <TaskCard {...p} />;
+    };
+    const task = attachment({ ref: { title: "Walk" } });
+    const m = message({ attachments: [task] });
+    const bubble = (kinds: Record<string, ChatAttachmentKind>) => <MessageBubble row={row(m)} me={ME} urls={{}} group={false} reducedMotion attachmentKinds={kinds} attachmentSlot={Slot} testID="b" />;
+    const { rerender } = render(bubble({ task: { title: () => "Loading" } }));
+    expect(screen.queryByTestId("b-card-0-task")).toBeNull();
+    expect(screen.getByTestId("b-card-0").textContent).toContain("Loading");
+    rerender(bubble({ task: taskKind({ done: false }, vi.fn()) }));
+    expect(screen.getByTestId("b-card-0-task")).toBeTruthy();
+  });
+
+  it("draws nothing for a kind the slot returns null for, and leaves out a message with nothing else", () => {
+    const Slot = (p: ChatAttachmentSlotProps) => (p.attachment.kind === "worksheet" ? <TaskCard {...p} /> : null);
+    const kinds = { task: taskKind({ done: false }, vi.fn()) };
+    render(<MessageBubble row={row(message({ attachments: [attachment({ ref: { title: "Walk" } })] }))} me={ME} urls={{}} group={false} reducedMotion attachmentKinds={kinds} attachmentSlot={Slot} testID="b" />);
+    expect(screen.queryByTestId("b-card-0")).toBeNull();
+    expect(screen.getByTestId("b").getAttribute("aria-hidden")).toBe("true");
+    expect(screen.getByTestId("b-bubble").getAttribute("data-a11y-actions") ?? "").not.toContain("card-0");
+    cleanup();
+    // With text it stays, and reads without the card.
+    render(<MessageBubble row={row(message({ body: "for today", attachments: [attachment({ ref: { title: "Walk" } })] }))} me={ME} urls={{}} group={false} reducedMotion attachmentKinds={kinds} attachmentSlot={Slot} testID="b" />);
+    expect(screen.getByTestId("b").getAttribute("aria-hidden")).toBeNull();
+    const label = screen.getByTestId("b-bubble").getAttribute("aria-label") ?? "";
+    expect(label).toContain("for today");
+    expect(label).not.toContain("Walk");
+  });
+
+  it("with `null`, leaves out a message that is only an unregistered kind", () => {
+    render(<MessageBubble row={row(message({ attachments: [attachment({ kind: "poll" })] }))} me={ME} urls={{}} group={false} reducedMotion attachmentSlot={null} testID="b" />);
+    expect(screen.getByTestId("b").getAttribute("aria-hidden")).toBe("true");
+    expect(screen.getByTestId("b-bubble").getAttribute("aria-label") ?? "").not.toContain("poll");
+  });
+
+  it("gives the slot only an http(s) url", () => {
+    expect(slotUrl("javascript:alert(1)")).toBeNull();
+    expect(slotUrl("file:///etc/passwd")).toBeNull();
+    expect(slotUrl("myapp://x")).toBeNull();
+    expect(slotUrl("https://example.com/a")).toBe("https://example.com/a");
+    expect(slotUrl("http://127.0.0.1:54321/a")).toBe("http://127.0.0.1:54321/a");
+    const seen: (string | null)[] = [];
+    const Slot = (p: ChatAttachmentSlotProps) => {
+      seen.push(p.url);
+      return null;
+    };
+    render(<MessageBubble row={row(message({ attachments: [attachment({ url: "javascript:alert(1)" })] }))} me={ME} urls={{}} group={false} reducedMotion attachmentSlot={Slot} testID="b" />);
+    expect(seen.every((u) => u === null)).toBe(true);
+  });
+
+  it("stops being busy when an action runs too long, and ignores what it settles to later", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    let resolve!: () => void;
+    const toggle = vi.fn(() => new Promise<void>((r) => (resolve = r)));
+    const kinds = { task: taskKind({ done: false }, toggle) };
+    render(<MessageBubble row={row(message({ attachments: [attachment({ ref: { title: "Walk" } })] }))} me={ME} urls={{}} group={false} reducedMotion attachmentKinds={kinds} attachmentSlot={TaskCard} cardActionTimeoutMs={5000} testID="b" />);
+    fireEvent.click(screen.getByTestId("b-card-0-check"));
+    expect(screen.getByTestId("b-card-0-check").getAttribute("aria-busy")).toBe("true");
+    await act(async () => void vi.advanceTimersByTime(5000));
+    expect(screen.getByTestId("b-card-0-check").getAttribute("aria-busy")).toBe("false");
+    expect(screen.getByTestId("b-card-0-slot-error").textContent).toBe(chatNativeCopy.cardActionTimedOut);
+    await act(async () => resolve());
+    expect(screen.getByTestId("b-card-0-slot-error").textContent).toBe(chatNativeCopy.cardActionTimedOut);
+  });
+
+  it("times out after 30 seconds by default", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const kinds = { task: taskKind({ done: false }, () => new Promise<void>(() => undefined)) };
+    render(<MessageBubble row={row(message({ attachments: [attachment({ ref: { title: "Walk" } })] }))} me={ME} urls={{}} group={false} reducedMotion attachmentKinds={kinds} attachmentSlot={TaskCard} testID="b" />);
+    fireEvent.click(screen.getByTestId("b-card-0-check"));
+    await act(async () => void vi.advanceTimersByTime(29_999));
+    expect(screen.getByTestId("b-card-0-check").getAttribute("aria-busy")).toBe("true");
+    await act(async () => void vi.advanceTimersByTime(1));
+    expect(screen.getByTestId("b-card-0-check").getAttribute("aria-busy")).toBe("false");
+  });
+});
+
 describe("previews of an app kind", () => {
   const kinds = { task: { label: "Task", title: (a: ChatAttachment) => String(a.ref.title) } };
   it("a reply's quote names it by its label", () => {
@@ -230,6 +328,19 @@ describe("a voice note's transcript", () => {
     fireEvent.click(toggle);
     expect(screen.getByTestId("b-voice-0-transcript-toggle").textContent).toBe(chatNativeCopy.showLess);
     expect(screen.getByTestId("b-voice-0-transcript-toggle").getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("folds by the measured line count once laid out, not by length", () => {
+    const longText = "word ".repeat(60).trim();
+    layout.lines = 2;
+    render(<MessageBubble row={row(message({ attachments: [voice({ transcript: longText, transcriptStatus: "ready" })] }))} me={ME} urls={{}} group={false} reducedMotion testID="b" />);
+    expect(screen.queryByTestId("b-voice-0-transcript-toggle")).toBeNull();
+    cleanup();
+    layout.lines = 5;
+    render(<MessageBubble row={row(message({ attachments: [voice({ transcript: "Short\nbut\non many lines", transcriptStatus: "ready" })] }))} me={ME} urls={{}} group={false} reducedMotion testID="b" />);
+    expect(screen.getByTestId("b-voice-0-transcript-toggle").textContent).toBe(chatNativeCopy.showMore);
+    expect(transcriptIsLong("x", 4)).toBe(true);
+    expect(transcriptIsLong("x".repeat(500), 3)).toBe(false);
   });
 
   it("says Transcribing while it is made, and nothing when there is none", () => {

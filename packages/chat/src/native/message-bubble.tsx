@@ -13,7 +13,7 @@
  * `attachmentSlot` (see attachment-cards.tsx); a voice note's transcript is
  * part of the bubble's label.
  */
-import { memo, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, View } from "react-native";
 import { NativeAvatar, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -70,6 +70,8 @@ export interface MessageBubbleProps {
    * kinds that aren't registered. Define it at module scope (or memoize it) so rows stay memoized.
    */
   attachmentSlot?: ChatAttachmentSlot | null;
+  /** How long an app card's action may run before it reads as failed; 30 s by default, 0 for never. */
+  cardActionTimeoutMs?: number;
   testID: string;
 }
 
@@ -108,7 +110,19 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     () => splitCardAttachments(message && !message.deletedAt ? message.attachments : [], kinds, slot !== undefined),
     [message, kinds, slot],
   );
-  const runs = useCardRuns(copy.cardActionFailed);
+  const runs = useCardRuns({ failedText: copy.cardActionFailed, timedOutText: copy.cardActionTimedOut, timeoutMs: props.cardActionTimeoutMs });
+  // App attachments that drew nothing (the slot returned null): left out of the label and actions.
+  const [empty, setEmpty] = useState<ReadonlySet<string>>(() => new Set());
+  const onEmpty = useCallback((id: string, isEmpty: boolean) => {
+    setEmpty((s) => {
+      if (s.has(id) === isEmpty) return s;
+      const next = new Set(s);
+      if (isEmpty) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+  const shownCards = cards.filter((a) => !empty.has(a.id));
   const attachments: BubbleAttachment[] = useMemo(() => {
     if (message) return message.deletedAt ? [] : plain.map((a) => fromServer(a, urls));
     // What it already carries (a hosted video) comes first, as the outbox sends it.
@@ -126,6 +140,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const playingVideo = usePlayingVideo(videos.map((a) => a.key));
   const cardActions = message
     ? cards.map((a) => {
+        if (empty.has(a.id)) return null;
         const c = cardAction(attachmentKindOf(kinds, a.kind), a, message, props.onOpenAttachment, { mine });
         return c ? { label: c.label, run: () => void runs.run(a.id, c.run) } : null;
       })
@@ -192,7 +207,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
               : copy.file,
       )
       .join(", "),
-    cards
+    shownCards
       .map((a) => {
         const s = runs.stateOf(a.id);
         return [cardTitle(attachmentKindOf(kinds, a.kind), a, { mine }), s.error].filter(Boolean).join(", ");
@@ -252,12 +267,19 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
 
   const quote = message?.replyToId ?? pending?.input.replyToId ?? null;
   const quoted = quote && repliedTo ? repliedTo : null;
+  // A message that is only app attachments the slot drew nothing for has nothing to show or read.
+  const invisible = Boolean(message && !message.deletedAt && !body && !attachments.length && !preview && !quote && !moderation && cards.length && !shownCards.length);
   const bubbleColor = mine ? colors.tint : colors.surface;
   const fg = mine ? "text-primary-foreground" : undefined;
   const textStyle = mine ? { fontSize: 17, lineHeight: 22 } : { fontSize: 17, lineHeight: 22, color: colors.label };
 
   return (
-    <View testID={testID} style={{ paddingHorizontal: 8, paddingTop: row.groupStart ? 8 : 2, backgroundColor: props.highlighted ? colors.fill : undefined }}>
+    <View
+      testID={testID}
+      accessibilityElementsHidden={invisible || undefined}
+      importantForAccessibility={invisible ? "no-hide-descendants" : undefined}
+      style={{ paddingHorizontal: 8, paddingTop: row.groupStart ? 8 : 2, backgroundColor: props.highlighted ? colors.fill : undefined, display: invisible ? "none" : undefined }}
+    >
       {row.showName && sender?.name ? (
         <NativeText preset="caption" style={{ marginLeft: group ? 48 : 12, marginBottom: 2, color: colors.secondaryLabel }}>
           {sender.name}
@@ -316,6 +338,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                     mine={mine}
                     slot={slot}
                     onOpenAttachment={props.onOpenAttachment}
+                    onEmpty={onEmpty}
                     run={(task) => void runs.run(a.id, task)}
                     state={runs.stateOf(a.id)}
                     testID={`${testID}-card-${i}`}

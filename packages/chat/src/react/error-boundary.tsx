@@ -3,7 +3,8 @@
  * `ChatErrorBoundary`: what one message (or one app attachment card) draws can't take the whole
  * thread down. Messages carry what other people sent, and app renderers get sender-controlled
  * data, so a render that throws shows its fallback instead, and the error goes to `onError`
- * (console.error by default) so it is never silent.
+ * (console.error by default) so it is never silent. `resetKeys` lets it try again once what it
+ * draws changes (the app's data arrived).
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
@@ -12,7 +13,15 @@ export interface ChatErrorBoundaryProps {
   fallback: ReactNode;
   /** Told about the error; console.error by default. */
   onError?: (error: unknown, info: ErrorInfo) => void;
+  /** When any of these changes (by identity), a boundary showing its fallback tries the children again. */
+  resetKeys?: readonly unknown[];
   children: ReactNode;
+}
+
+function changed(a: readonly unknown[] | undefined, b: readonly unknown[] | undefined): boolean {
+  if (a === b) return false;
+  if (!a || !b || a.length !== b.length) return true;
+  return a.some((v, i) => !Object.is(v, b[i]));
 }
 
 export class ChatErrorBoundary extends Component<ChatErrorBoundaryProps, { failed: boolean }> {
@@ -20,6 +29,10 @@ export class ChatErrorBoundary extends Component<ChatErrorBoundaryProps, { faile
 
   static getDerivedStateFromError(): { failed: boolean } {
     return { failed: true };
+  }
+
+  override componentDidUpdate(prev: ChatErrorBoundaryProps) {
+    if (this.state.failed && changed(prev.resetKeys, this.props.resetKeys)) this.setState({ failed: false });
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo) {

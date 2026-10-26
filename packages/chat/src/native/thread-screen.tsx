@@ -86,6 +86,8 @@ export interface ChatThreadScreenProps {
    * would have been; `null` hides kinds that aren't registered. Define it at module scope.
    */
   slots?: ChatThreadScreenSlots;
+  /** How long an app card's action may run before it reads as failed; 30 s by default, 0 for never. */
+  cardActionTimeoutMs?: number;
   /**
    * Whether the screen is the one shown (the navigator's `useIsFocused()`). When it turns false a
    * video or voice note of this thread that is playing pauses: switching tab keeps the screen
@@ -155,6 +157,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const chat = useChat();
   const { userId, videoUpload, attachmentKinds, outbox } = chat;
   const attachmentSlot = props.slots?.attachment;
+  const cardActionTimeoutMs = props.cardActionTimeoutMs;
   // Off unless the app turns it on: an og:image fetched from the phone tells its site who reads it.
   const linkPreviewImages = (chat as { linkPreviewImages?: boolean }).linkPreviewImages === true;
   const topicsState = useTopics(threadRootId ? null : conversationId);
@@ -408,11 +411,12 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           attachmentKinds={attachmentKinds}
           onOpenAttachment={onOpenAttachment}
           attachmentSlot={attachmentSlot}
+          cardActionTimeoutMs={cardActionTimeoutMs}
           testID={`${testID}-message-${m?.id ?? row.key}`}
         />
       );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, observer, highlightedId],
+    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, cardActionTimeoutMs, observer, highlightedId],
   );
 
   // ---- Video messages ----
