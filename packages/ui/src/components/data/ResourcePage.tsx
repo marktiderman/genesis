@@ -1137,7 +1137,8 @@ export function ResourcePage<
           onClearAll: page.hasActiveFilters ? handleClearFilters : undefined,
           showSearch:
             capabilities?.search !== false &&
-            !(resourceServerPaging && !serverSearchFields?.length),
+            // Server and cursor paging search on the server, which needs the columns.
+            !((resourceServerPaging || loadMore) && !serverSearchFields?.length),
           showSort: capabilities?.sort !== false,
         },
         slotProps?.filters,

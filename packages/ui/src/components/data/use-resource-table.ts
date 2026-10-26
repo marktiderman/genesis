@@ -150,6 +150,10 @@ export function useResourceTableModel<
   const resourceServerPaging = isClientMode && pagination === "server";
   // `pagination="cursor"`: pages load by cursor and append ("Load more").
   const resourceCursorPaging = isClientMode && pagination === "cursor";
+  // Server and cursor paging both ask the provider to search, sort and
+  // filter: the rows on hand are a window, so doing it in the browser would
+  // answer from the wrong set.
+  const queryDriven = resourceServerPaging || resourceCursorPaging;
 
   // ── URL state (`urlState`): the open record, search, sort and page ──
   // An adapter has `setSearchParams`; the options object wraps one.
@@ -248,6 +252,7 @@ export function useResourceTableModel<
     defaultSort: resourceOptions?.defaultSort,
     defaultFilters: resourceOptions?.defaultFilters,
     select: resourceOptions?.select,
+    searchFields: serverSearchFields,
     live: resourceOptions?.live ?? live,
   });
 
@@ -309,24 +314,24 @@ export function useResourceTableModel<
     detail,
     titleField: titleFieldProp,
     subtitleField: subtitleFieldProp,
-    controlled: isServerControlled,
+    controlled: isServerControlled || resourceCursorPaging,
   });
 
-  // ── `pagination="server"`: push the filter row's state into useResource ──
+  // ── Server and cursor paging: push the filter row's state to the provider ──
   // Effects rather than the change handlers, so `initialFilters` and "Clear
   // all" reach the provider by the same path as a keystroke. Each push is
   // skipped while its value still equals what the hook already has, so the
   // first render does not reset `defaultSort` or refetch for nothing.
-  const {
-    setSearch: setResourceSearch,
-    setSort: setResourceSort,
-    setFilters: setResourceFilters,
-  } = resourceHook;
+  // Cursor paging reads through useInfiniteResource; changing its search,
+  // sort or filters starts again from the first page.
+  const setResourceSearch = resourceCursorPaging ? infinite.setSearch : resourceHook.setSearch;
+  const setResourceSort = resourceCursorPaging ? infinite.setSort : resourceHook.setSort;
+  const setResourceFilters = resourceCursorPaging ? infinite.setFilters : resourceHook.setFilters;
   // Seeded from the URL, which useResource already starts on (see above).
   const pushedSearchRef = useRef(resourceServerPaging ? (urlSeed?.q ?? "") : "");
   const searchEffectRanRef = useRef(false);
   useEffect(() => {
-    if (!resourceServerPaging) return;
+    if (!queryDriven) return;
     const firstRun = !searchEffectRanRef.current;
     searchEffectRanRef.current = true;
     if (page.search === pushedSearchRef.current) return;
@@ -344,19 +349,19 @@ export function useResourceTableModel<
     }
     const timer = setTimeout(push, 300);
     return () => clearTimeout(timer);
-  }, [resourceServerPaging, page.search, setResourceSearch]);
+  }, [queryDriven, page.search, setResourceSearch]);
 
   const defaultSort = resourceOptions?.defaultSort;
   const pushedSortRef = useRef<string>(resourceServerPaging ? urlSortKey : "");
   useEffect(() => {
-    if (!resourceServerPaging) return;
+    if (!queryDriven) return;
     const key = page.sort ? `${page.sort.field}:${page.sort.order}` : "";
     if (key === pushedSortRef.current) return;
     pushedSortRef.current = key;
     // Clearing the sort returns to the resource's default order, not to
     // whatever order the provider happens to use.
     setResourceSort(page.sort ?? defaultSort);
-  }, [resourceServerPaging, page.sort, defaultSort, setResourceSort]);
+  }, [queryDriven, page.sort, defaultSort, setResourceSort]);
 
   const statusField = statusFilter
     ? typeof statusFilter === "string"
@@ -366,7 +371,7 @@ export function useResourceTableModel<
   const defaultFilters = resourceOptions?.defaultFilters;
   const pushedStatusRef = useRef<string>("");
   useEffect(() => {
-    if (!resourceServerPaging || !statusField) return;
+    if (!queryDriven || !statusField) return;
     // `defaultFilters` is part of the key: useResource re-syncs its filters
     // to a changed `defaultFilters` (dropping the status filter), so a
     // change there must re-push even when the chips did not move.
@@ -380,7 +385,7 @@ export function useResourceTableModel<
         : []),
     ]);
   }, [
-    resourceServerPaging,
+    queryDriven,
     statusField,
     page.statusValue,
     defaultFilters,
@@ -1222,10 +1227,9 @@ export function useResourceTable<
   );
   return {
     rows: m.page.data,
-    total:
-      m.loadMore && m.page.search === "" && m.page.statusValue.length === 0
-        ? m.displayTotal
-        : m.page.total,
+    // Server-controlled (server or cursor paging): the server's count of matches.
+    // Client mode: the matches among the loaded rows.
+    total: m.page.total,
     loading: m.isLoading,
     error: m.hasError,
     truncated: m.clientTruncated,

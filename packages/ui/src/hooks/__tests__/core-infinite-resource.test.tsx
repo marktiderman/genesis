@@ -31,10 +31,13 @@ function cursorProvider(rows: Row[] = ALL): DataProvider {
   return baseProvider({
     getList: vi.fn(async (_r: string, params: ListParams) => {
       const { perPage, cursor } = params.pagination!;
+      // Searches on the server, as a real provider does.
+      const q = params.search?.query.toLowerCase();
+      const matching = q ? rows.filter((r) => String(r.title).toLowerCase().includes(q)) : rows;
       const start = cursor ? Number(cursor) : 0;
-      const data = rows.slice(start, start + perPage);
-      const next = start + perPage < rows.length ? String(start + perPage) : null;
-      return { data, total: cursor ? -1 : rows.length, nextCursor: next };
+      const data = matching.slice(start, start + perPage);
+      const next = start + perPage < matching.length ? String(start + perPage) : null;
+      return { data, total: cursor ? -1 : matching.length, nextCursor: next };
     }) as DataProvider["getList"],
   });
 }
@@ -219,7 +222,7 @@ describe("ResourcePage — pagination=\"cursor\"", () => {
     expect(document.querySelectorAll("tbody tr")).toHaveLength(5);
   });
 
-  it("useResourceTable's total is the server's count, and the loaded matches while searching", async () => {
+  it("searches on the server, from the first page, with the server's count", async () => {
     localStorage.clear();
     const provider = cursorProvider();
     const { wrapper } = wrap(provider);
@@ -241,6 +244,11 @@ describe("ResourcePage — pagination=\"cursor\"", () => {
     act(() => result.current.setSearch("Task 2"));
     await waitFor(() => expect(result.current.rows).toHaveLength(1));
     expect(result.current.total).toBe(1);
+    // The search went to the provider, starting again without a cursor.
+    const calls = (provider.getList as ReturnType<typeof vi.fn>).mock.calls;
+    const last = calls.at(-1)![1] as ListParams;
+    expect(last.search).toEqual({ query: "Task 2", fields: ["title"] });
+    expect(last.pagination?.cursor ?? null).toBeNull();
   });
 
   it("refetches the loaded pages on a live change event", async () => {
