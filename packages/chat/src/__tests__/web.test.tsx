@@ -237,6 +237,22 @@ describe("ChatInbox", () => {
     expect(document.activeElement).toBe(groupRow);
   });
 
+  it("previews a message that is only an app card by its kind's title", async () => {
+    const client = createMemoryChatClient({
+      me: ME,
+      conversations: [{ id: "d1", members: [{ userId: ME }, { userId: SAM }], messages: [{ senderId: SAM, body: "", createdAt: at(10), attachments: [{ kind: "check_in" }] }] }],
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ChatProvider client={client} userId={ME} attachmentKinds={{ check_in: { title: () => "Check-in" } }}>
+          <ChatInbox resolveUser={resolveUser} onSelect={() => undefined} />
+        </ChatProvider>
+      </QueryClientProvider>,
+    );
+    expect((await screen.findByTestId("genesis-chat-inbox-row-d1")).textContent).toContain("Check-in");
+  });
+
   it("shows an empty state when there are none", async () => {
     const client = createMemoryChatClient({ me: ME, conversations: [] });
     mount(client, <ChatInbox resolveUser={resolveUser} onSelect={() => undefined} />);

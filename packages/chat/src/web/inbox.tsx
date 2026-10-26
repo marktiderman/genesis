@@ -9,10 +9,9 @@ import { useRef, type KeyboardEvent } from "react";
 import { AtSign, BellOff, MessageSquare, Pin } from "lucide-react";
 import { Badge, Button, EmptyState, Skeleton, UserAvatar, cn } from "@marktiderman/genesis-ui";
 import { renderSlot, type SlotOverride } from "@marktiderman/genesis-core/slots";
-import { previewText } from "../core/thread";
 import type { ChatInboxItem } from "../core/types";
 import { useChat, useInbox, type ChatAttachmentKind } from "../react/index";
-import { attachmentKindOf } from "./attachments";
+import { attachmentPreview } from "../react/previews";
 import { relativeTime, type ResolveUser } from "./format";
 
 export interface ChatInboxEmptyProps {
@@ -137,10 +136,7 @@ function InboxRow({ item, me, kinds, resolveUser, fallbackTitle, selected, onSel
   const other = item.otherUserId ? resolveUser(item.otherUserId) : null;
   const last = item.lastMessage;
   const unread = item.unread > 0;
-  let preview = last ? previewText(last.body, last.attachment, last.deleted) : "";
-  // A message that is only an app card reads as its kind's label ("Check-in"), not "Attachment".
-  const kindLabel = last?.attachment && !last.deleted && !previewText(last.body, null) ? attachmentKindOf(kinds, last.attachment)?.label : undefined;
-  if (typeof kindLabel === "string" && kindLabel.trim()) preview = kindLabel.trim();
+  let preview = last ? attachmentPreview(last.body, last.attachment, kinds, last.deleted) : "";
   if (last && last.kind !== "system" && !last.deleted && last.senderId) {
     if (last.senderId === me) preview = `You: ${preview}`;
     else if (!item.otherUserId && item.memberCount > 2) preview = `${resolveUser(last.senderId).name}: ${preview}`;
