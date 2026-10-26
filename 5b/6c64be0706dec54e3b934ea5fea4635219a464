@@ -1,0 +1,25 @@
+.changeset/linear-option-lookups.md
+  s_3daa86e3ae6031::t_95217975f3e844 6
+packages/forms-studio/src/__tests__/summary.test.ts
+  s_3daa86e3ae6031::t_727b368f3d2b52 305-333
+packages/forms-studio/src/answers.ts
+  s_3daa86e3ae6031::t_db536c5a0fa0d9 17-29,40-41
+packages/forms-studio/src/summary.ts
+  s_3daa86e3ae6031::t_7ff25eb7ea4a23 283-287,294
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b6c64be0706dec54e3b934ea5fea4635219a464",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
