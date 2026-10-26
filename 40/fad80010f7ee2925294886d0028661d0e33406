@@ -1,0 +1,21 @@
+packages/supabase/migrations/0009_genesis_pursuits.sql
+  s_26495fc9681b7e::t_3e1b479ee33152 62-63,246-249,251,285-288,290
+packages/supabase/migrations/tests/0009_genesis_pursuits.test.sql
+  s_26495fc9681b7e::t_3da00a5cf45af1 10,209-211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "40fad80010f7ee2925294886d0028661d0e33406",
+  "prompts": {},
+  "sessions": {
+    "s_26495fc9681b7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5c422c-84c1-438e-92dc-04be689d1e63",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
