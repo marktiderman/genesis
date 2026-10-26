@@ -15,7 +15,7 @@
 /** Primitive → the Genesis components that replace it (the doctor names the ones the installed package exports). */
 export const NATIVE_WRAPPED_PRIMITIVES = Object.freeze({
   Modal: Object.freeze(['NativeDialog', 'NativeSheet', 'NativeDrawer']),
-  ActivityIndicator: Object.freeze(['NativeSkeleton', 'NativeProgress']),
+  ActivityIndicator: Object.freeze(['NativeLoadingState', 'NativeSkeleton', 'NativeProgress']),
 });
 
 /**
