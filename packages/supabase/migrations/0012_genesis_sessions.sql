@@ -22,7 +22,12 @@
 --   - read a session, its attendees and links: whoever may read its owner, and its attendees;
 --   - schedule, run and edit a session, invite people, mark presence and add links: whoever may
 --     write its owner;
---   - rate a session: each attendee, their own rating only.
+--   - rate a session: each attendee, their own rating only, once it's live or ended;
+--   - leave a session: each attendee, their own row.
+-- An invitee who may not read the session's owner comes in only as a guest (set by a writer): a
+-- guest sees the session and its links, and only their own attendee row. A facilitator or scribe
+-- is an attendee or someone who may read the owner. A session type is used only by someone who
+-- may read it, so a private type's agenda never leaks.
 --
 -- Collaboration: private.genesis_session_members(session) lists a session's attendees, for an app
 -- to register as a collaboration audience, so a pre-work or live worksheet space follows the
@@ -117,6 +122,10 @@ create table public.session_attendees (
   person_id uuid,
   team_id uuid,
   organization_id uuid,
+  -- Someone invited who may not otherwise read the session's owner (a workshop guest). Set only by
+  -- whoever may write the session. A guest sees the session and its links, and only their own
+  -- attendee row.
+  guest boolean not null default false,
   present boolean,
   rating smallint
     constraint session_attendees_rating check (rating between 1 and 10),
@@ -175,6 +184,29 @@ as $$
   select current_setting('role', true) = 'authenticated'
 $$;
 
+-- The app's hook, asked about any person. No hook, or a hook that errors, means no.
+create or replace function private.genesis_sessions_person_can(viewer uuid, tenant uuid, person uuid, team uuid, organization uuid, action text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  allowed boolean;
+begin
+  if viewer is null or tenant is null
+     or to_regprocedure('private.genesis_owner_can(uuid,uuid,uuid,uuid,uuid,text)') is null then
+    return false;
+  end if;
+  execute 'select (private.genesis_owner_can($1, $2, $3, $4, $5, $6))::boolean'
+    into allowed using tenant, viewer, person, team, organization, action;
+  return coalesce(allowed, false);
+exception when others then
+  return false;
+end;
+$$;
+
 -- Whether the signed-in person is an attendee of a session.
 create or replace function private.genesis_sessions_attends(session uuid)
 returns boolean
@@ -210,6 +242,7 @@ as $$
 declare
   type_agenda jsonb;
   type_kind text;
+  tp uuid; ttm uuid; torg uuid;
 begin
   -- Refuse a signed-in writer who may not write here before checking anything else, so errors
   -- reveal nothing about other tenants.
@@ -220,16 +253,20 @@ begin
   if tg_op = 'INSERT' then
     if private.genesis_sessions_caller_is_person() then
       new.created_by := auth.uid();
+      new.created_at := now();
     end if;
   else
+    if new.tenant_id is distinct from old.tenant_id then
+      raise exception 'A %''s tenant never changes', tg_table_name using errcode = '22023';
+    end if;
     if private.genesis_sessions_caller_is_person() then
-      if new.tenant_id is distinct from old.tenant_id
-         or new.person_id is distinct from old.person_id
+      if new.person_id is distinct from old.person_id
          or new.team_id is distinct from old.team_id
          or new.organization_id is distinct from old.organization_id then
         raise exception 'A %''s tenant and owner never change', tg_table_name using errcode = '22023';
       end if;
       new.created_by := old.created_by;
+      new.created_at := old.created_at;
     end if;
     new.updated_at := now();
   end if;
@@ -237,12 +274,29 @@ begin
   if tg_table_name = 'sessions' then
     if new.session_type_id is not null
        and (tg_op = 'INSERT' or new.session_type_id is distinct from old.session_type_id) then
-      select t.agenda, t.kind into type_agenda, type_kind from public.session_types t
+      select t.agenda, t.kind, t.person_id, t.team_id, t.organization_id
+        into type_agenda, type_kind, tp, ttm, torg
+        from public.session_types t
        where t.id = new.session_type_id and t.tenant_id = new.tenant_id;
-      if not found then
-        raise exception 'A session''s type must be in the same tenant' using errcode = '22023';
+      if not found
+         or (private.genesis_sessions_caller_is_person()
+             and not private.genesis_owner_allows(new.tenant_id, tp, ttm, torg, 'read')) then
+        raise exception 'A session''s type must be one you can read, in the same tenant' using errcode = '22023';
       end if;
       new.kind := type_kind;
+    end if;
+    -- The facilitator and scribe are attendees, or people who may read the session's owner.
+    if new.facilitator_id is not null
+       and (tg_op = 'INSERT' or new.facilitator_id is distinct from old.facilitator_id)
+       and not private.genesis_sessions_person_can(new.facilitator_id, new.tenant_id, new.person_id, new.team_id, new.organization_id, 'read')
+       and not exists (select 1 from public.session_attendees a where a.session_id = new.id and a.user_id = new.facilitator_id) then
+      raise exception 'The facilitator must be an attendee or someone who can read the session' using errcode = '22023';
+    end if;
+    if new.scribe_id is not null
+       and (tg_op = 'INSERT' or new.scribe_id is distinct from old.scribe_id)
+       and not private.genesis_sessions_person_can(new.scribe_id, new.tenant_id, new.person_id, new.team_id, new.organization_id, 'read')
+       and not exists (select 1 from public.session_attendees a where a.session_id = new.id and a.user_id = new.scribe_id) then
+      raise exception 'The scribe must be an attendee or someone who can read the session' using errcode = '22023';
     end if;
     if new.status = 'live' and (tg_op = 'INSERT' or old.status is distinct from 'live') then
       new.started_at := coalesce(new.started_at, now());
@@ -288,17 +342,36 @@ begin
   end if;
   new.tenant_id := t; new.person_id := p; new.team_id := tm; new.organization_id := o;
 
+  if private.genesis_sessions_caller_is_person() then
+    if tg_op = 'INSERT' then
+      new.created_at := now();
+    else
+      new.created_at := old.created_at;
+    end if;
+  end if;
+
   if tg_table_name = 'session_attendees' then
     if tg_op = 'UPDATE' and private.genesis_sessions_caller_is_person()
        and not private.genesis_owner_allows(t, p, tm, o, 'write') then
-      if new.user_id is distinct from old.user_id or new.present is distinct from old.present then
+      if new.user_id is distinct from old.user_id or new.present is distinct from old.present
+         or new.guest is distinct from old.guest then
         raise exception 'An attendee changes only their own rating' using errcode = '42501';
       end if;
+    end if;
+    -- An invitee who can't read the session's owner comes in only as a deliberate guest.
+    if (tg_op = 'INSERT' or new.user_id is distinct from old.user_id or new.guest is distinct from old.guest)
+       and not new.guest
+       and not private.genesis_sessions_person_can(new.user_id, t, p, tm, o, 'read') then
+      raise exception 'Invite someone who can''t read this session as a guest' using errcode = '22023';
     end if;
     if new.rating is distinct from (case when tg_op = 'UPDATE' then old.rating end)
        or new.rating_note is distinct from (case when tg_op = 'UPDATE' then old.rating_note end) then
       if private.genesis_sessions_caller_is_person() and new.user_id <> auth.uid() then
         raise exception 'Only the attendee rates the session' using errcode = '42501';
+      end if;
+      if new.rating is not null
+         and not exists (select 1 from public.sessions x where x.id = new.session_id and x.status in ('live', 'ended')) then
+        raise exception 'A session is rated once it''s under way or over' using errcode = '22023';
       end if;
       new.rated_at := case when new.rating is null then null else now() end;
     end if;
@@ -316,6 +389,7 @@ create trigger session_links_guard
 
 revoke execute on function private.genesis_sessions_guard() from public, anon, authenticated;
 revoke execute on function private.genesis_session_parts_guard() from public, anon, authenticated;
+revoke execute on function private.genesis_sessions_person_can(uuid, uuid, uuid, uuid, uuid, text) from public, anon, authenticated;
 revoke execute on function private.genesis_sessions_caller_is_person() from public, anon, authenticated;
 revoke execute on function private.genesis_session_members(uuid) from public, anon, authenticated;
 revoke execute on function private.genesis_sessions_attends(uuid) from public, anon;
@@ -346,10 +420,12 @@ create policy sessions_write on public.sessions for all to authenticated
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
 create policy session_attendees_read on public.session_attendees for select to authenticated
-  using (exists (select 1 from private.genesis_owner_readable() r
-                 where r.tenant_id = session_attendees.tenant_id
-                   and r.owner_id = coalesce(session_attendees.person_id, session_attendees.team_id, session_attendees.organization_id))
-         or private.genesis_sessions_attends(session_id));
+  using (user_id = (select auth.uid())
+         or exists (select 1 from private.genesis_owner_readable() r
+                    where r.tenant_id = session_attendees.tenant_id
+                      and r.owner_id = coalesce(session_attendees.person_id, session_attendees.team_id, session_attendees.organization_id)));
+create policy session_attendees_leave on public.session_attendees for delete to authenticated
+  using (user_id = (select auth.uid()));
 create policy session_attendees_manage on public.session_attendees for all to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));

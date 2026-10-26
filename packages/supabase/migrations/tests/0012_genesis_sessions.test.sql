@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(38);
 
 -- People: a1 and b2 on tenant 1's team t1; c3 in tenant 2; e5 is a guest of tenant 1 (no team).
 insert into auth.users (id, aud, role, email, instance_id)
@@ -91,8 +91,17 @@ select throws_ok(
   '42501', null, 'scheduling in another tenant is refused');
 select lives_ok(
   $$ insert into public.session_attendees (session_id, user_id) values
-     (pg_temp.session(1), pg_temp.person('a1')), (pg_temp.session(1), pg_temp.person('b2')), (pg_temp.session(1), pg_temp.person('e5')) $$,
+     (pg_temp.session(1), pg_temp.person('a1')), (pg_temp.session(1), pg_temp.person('b2')) $$,
   'inviting attendees, a guest included');
+select throws_ok(
+  $$ insert into public.session_attendees (session_id, user_id) values (pg_temp.session(1), pg_temp.person('e5')) $$,
+  '22023', null, 'someone who can''t read the session comes in only as a guest');
+select lives_ok(
+  $$ insert into public.session_attendees (session_id, user_id, guest) values (pg_temp.session(1), pg_temp.person('e5'), true) $$,
+  'inviting a guest deliberately');
+select throws_ok(
+  $$ update public.sessions set facilitator_id = pg_temp.person('c3') where id = pg_temp.session(1) $$,
+  '22023', null, 'a facilitator is an attendee or can read the session');
 select is((select team_id from public.session_attendees where user_id = pg_temp.person('e5')), pg_temp.team(1),
   'an attendee row takes its session''s owner');
 select lives_ok(
@@ -111,6 +120,7 @@ select lives_ok($$ update public.sessions set current_step = 1 where id = pg_tem
 select pg_temp.sign_in('e5');
 select is((select count(*)::int from public.sessions), 1, 'a guest attendee reads the session they attend');
 select is((select count(*)::int from public.session_links), 1, 'and its pre-work');
+select is((select count(*)::int from public.session_attendees), 1, 'a guest sees only their own attendee row');
 select isnt_empty(
   $$ update public.session_attendees set rating = 9, rating_note = 'Great IDS' where session_id = pg_temp.session(1) and user_id = pg_temp.person('e5') returning user_id $$,
   'an attendee rates the session');
@@ -127,6 +137,23 @@ select throws_ok(
 select lives_ok($$ update public.session_attendees set present = true where session_id = pg_temp.session(1) $$, 'the runner marks presence');
 select lives_ok($$ update public.session_attendees set rating = 8 where session_id = pg_temp.session(1) and user_id = pg_temp.person('a1') $$, 'the runner rates too');
 select is((select average from public.session_ratings where session_id = pg_temp.session(1)), 8.5::numeric, 'the average rating');
+
+select pg_temp.sign_in('e5');
+select isnt_empty($$ delete from public.session_attendees where user_id = pg_temp.person('e5') returning user_id $$, 'an attendee leaves a session');
+
+-- A private type's agenda never leaks --------------------------------------------------------
+select pg_temp.as_server();
+insert into public.session_types (id, tenant_id, person_id, name, agenda)
+values (pg_temp.stype(2), pg_temp.tenant(1), pg_temp.person('b2'), 'b2''s private coaching format', '[{"key":"secret","title":"Private","minutes":5}]');
+select pg_temp.sign_in('a1');
+select throws_ok(
+  $$ insert into public.sessions (tenant_id, team_id, session_type_id, title) values (pg_temp.tenant(1), pg_temp.team(1), pg_temp.stype(2), 'Borrowed format') $$,
+  '22023', null, 'nobody uses a session type they can''t read');
+insert into public.sessions (id, tenant_id, team_id, title) values (pg_temp.session(3), pg_temp.tenant(1), pg_temp.team(1), 'Not yet');
+insert into public.session_attendees (session_id, user_id) values (pg_temp.session(3), pg_temp.person('a1'));
+select throws_ok(
+  $$ update public.session_attendees set rating = 7 where session_id = pg_temp.session(3) and user_id = pg_temp.person('a1') $$,
+  '22023', null, 'a session is rated only once it''s under way or over');
 
 select pg_temp.sign_in('c3');
 select is((select count(*)::int from public.sessions), 0, 'another tenant sees no sessions');
