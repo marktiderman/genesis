@@ -102,12 +102,12 @@ describe("genesis add", () => {
   it("refuses a package whose manifest points outside it", async () => {
     const root = expoApp();
     fixturePackage(root, { migrations: [{ file: "../../../../etc/0001_passwd.sql" }] });
-    await expect(add(root)).rejects.toThrow(/No Genesis package declares a block "fixture-notes"/);
+    await expect(add(root)).rejects.toThrow(/No Genesis or local package declares a block "fixture-notes"/);
     expect(existsSync(path.join(root, "genesis.lock.json"))).toBe(false);
   });
 
   it("names an unknown block and the known ones", async () => {
-    await expect(runAdd({ root: app(), block: "nope", yes: true, install: false })).rejects.toThrow(/No Genesis package declares a block "nope".*fixture-notes/);
+    await expect(runAdd({ root: app(), block: "nope", yes: true, install: false })).rejects.toThrow(/No Genesis or local package declares a block "nope".*fixture-notes/);
   });
 });
 

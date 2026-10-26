@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { createApp, readApp, replaceApp, sha256 } from "./files.js";
 import { parseSource, type GenesisLock } from "./lock.js";
+import { localPackageNames } from "./local.js";
 import { GENESIS_PACKAGE, safeRelative } from "./manifest.js";
 
 export interface OwnedWrite {
@@ -63,7 +64,7 @@ const CLI = "@marktiderman/genesis-cli";
  * .git (appPath refuses that too). A lock is a file anyone with commit access can
  * edit, so it is checked like a manifest.
  */
-export function ownedKeyProblem(key: string, source: string): string | null {
+export function ownedKeyProblem(key: string, source: string, localNames: ReadonlySet<string> = new Set()): string | null {
   let parsed: { package: string; path: string };
   try {
     parsed = parseSource(source);
@@ -71,7 +72,7 @@ export function ownedKeyProblem(key: string, source: string): string | null {
     return err instanceof Error ? err.message : String(err);
   }
   const { package: pkg, path: rel } = parsed;
-  if (!GENESIS_PACKAGE.test(pkg)) return `${key}'s source ${pkg} isn't a Genesis package`;
+  if (!GENESIS_PACKAGE.test(pkg) && !localNames.has(pkg)) return `${key}'s source ${pkg} isn't a Genesis or local package`;
   if (!safeRelative(rel) || !safeRelative(key)) return `${key} or its source isn't a plain path`;
   if (key.startsWith("supabase/migrations/")) return `${key} is a migration; migrations are never refreshed`;
   const base = rel.split("/").pop()!;
@@ -123,7 +124,7 @@ export interface RefreshInput {
 export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInput, options: { dryRun?: boolean; keepMine?: boolean } = {}): RefreshOutcome {
   const entry = lock.files[input.path];
   if (!entry) throw new Error(`${input.path} isn't in genesis.lock.json`);
-  const problem = ownedKeyProblem(input.path, entry.source);
+  const problem = ownedKeyProblem(input.path, entry.source, localPackageNames(root));
   if (problem) return { path: input.path, outcome: "refused", detail: `genesis.lock.json: ${problem}; left alone` };
   const write = (rel: string, text: string) => {
     if (!options.dryRun) replaceApp(root, rel, text);

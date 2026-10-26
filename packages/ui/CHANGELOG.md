@@ -1,5 +1,13 @@
 # @marktiderman/genesis-ui
 
+## 2.17.1
+
+### Patch Changes
+
+- 6543b28: Say "reuse, then extend, then invent" everywhere, and point to The Genesis Way (`docs/FRAMEWORK.md`, Part 1). The CLAUDE.md that `genesis init` writes and genesis-ui's agent skill now use the same words.
+- Updated dependencies [e35cabb]
+  - @marktiderman/genesis-core@1.11.0
+
 ## 2.17.0
 
 ### Minor Changes
