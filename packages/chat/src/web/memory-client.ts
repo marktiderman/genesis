@@ -4,9 +4,18 @@
  * as `createChatClient`, with no Supabase behind it. It also plays the other
  * side (`receive`, `activity`) so a demo looks alive.
  */
-import { ChatError, type ChatClient, type ChatSupabase, type ConversationChannel, type MessagePage } from "../core/client";
+import { ChatError, type ChatClient, type ChatSupabase, type ConversationChannel, type ConversationHandlers, type MessagePage } from "../core/client";
+import { extractLinks } from "../core/extras";
 import type {
+  AvailabilityInput,
   ChatActivity,
+  ChatAvailability,
+  ChatLinkPreview,
+  ChatSearchHit,
+  ChatTopic,
+  ScheduleInput,
+  ScheduledMessage,
+  TopicInput,
   ChatAttachment,
   ChatConversation,
   ChatInboxItem,
@@ -30,6 +39,8 @@ export interface MemoryConversationSeed {
   pinned?: boolean;
   messages?: (Partial<Omit<ChatMessage, "attachments">> & { attachments?: Partial<ChatAttachment>[] })[];
   pins?: string[];
+  /** Its topics, in order. */
+  topics?: { topic: string; title?: string; closed?: boolean }[];
 }
 
 export interface MemoryChatOptions {
@@ -40,6 +51,10 @@ export interface MemoryChatOptions {
   files?: Record<string, string>;
   /** Milliseconds each call waits, to show loading states. Default 0. */
   latencyMs?: number;
+  /** Away messages and working hours, by user id. */
+  availability?: Record<string, Partial<Omit<ChatAvailability, "userId">>>;
+  /** Link previews the "server" has fetched. */
+  linkPreviews?: Partial<ChatLinkPreview>[];
 }
 
 interface Conv {
@@ -51,6 +66,7 @@ interface Conv {
   pinned: boolean;
   messages: ChatMessage[];
   pins: string[];
+  topics: ChatTopic[];
 }
 
 export type MemoryChatClient = ChatClient & {
@@ -62,6 +78,10 @@ export type MemoryChatClient = ChatClient & {
   failNextSends(count?: number): void;
   /** The next send waits until the returned function is called (a test watching the sending state). */
   holdNextSend(): () => void;
+  /** Posts every scheduled message due by `now` (a demo's clock), as the server's runner does. */
+  sendDue(now?: Date): Promise<number>;
+  /** Moderation's verdict on a message (the server's side). */
+  moderate(messageId: string, result: "clean" | "flagged" | "hidden"): void;
   /** Every call made, for tests. */
   calls: { method: string; args: unknown[] }[];
 };
@@ -134,6 +154,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       createdAt,
       editedAt: m.editedAt ?? null,
       deletedAt: m.deletedAt ?? null,
+      moderation: m.moderation ?? null,
       attachments: (m.attachments ?? []).map((a, i) => attachment(id, a, i)),
       reactions: m.reactions ?? [],
     };
@@ -168,6 +189,15 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       pinned: seed.pinned ?? false,
       messages: [],
       pins: seed.pins ?? [],
+      topics: (seed.topics ?? []).map((t, i) => ({
+        conversationId: seed.id,
+        topic: t.topic,
+        title: t.title ?? t.topic,
+        position: i,
+        closedAt: t.closed ? new Date().toISOString() : null,
+        createdBy: null,
+        createdAt: new Date().toISOString(),
+      })),
     };
     for (const m of seed.messages ?? []) c.messages.push(makeMessage(c, m));
     convs.set(seed.id, c);
@@ -185,7 +215,21 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
     }
     throw new ChatError("Message not found", "42501", "message");
   };
-  const visible = (c: Conv, m: ChatMessage) => m.visibility !== "observers" || c.myRole === "observer";
+  const visible = (c: Conv, m: ChatMessage) =>
+    (m.visibility !== "observers" || c.myRole === "observer") && (m.moderation !== "hidden" || m.senderId === me || c.myRole === "observer");
+  const scheduledList: ScheduledMessage[] = [];
+  const availability = new Map<string, ChatAvailability>(
+    Object.entries(options.availability ?? {}).map(([userId, a]) => [
+      userId,
+      { userId, awayMessage: a.awayMessage ?? null, awayUntil: a.awayUntil ?? null, timeZone: a.timeZone ?? null, hours: a.hours ?? null },
+    ]),
+  );
+  const previews = new Map<string, ChatLinkPreview>(
+    (options.linkPreviews ?? []).filter((p) => p.url).map((p) => [
+      p.url!,
+      { url: p.url!, status: p.status ?? "ok", title: p.title ?? null, description: p.description ?? null, imageUrl: p.imageUrl ?? null, siteName: p.siteName ?? null, fetchedAt: p.fetchedAt ?? new Date().toISOString() },
+    ]),
+  );
   const clone = (m: ChatMessage): ChatMessage => ({ ...m, attachments: m.attachments.map((a) => ({ ...a })), reactions: [...m.reactions] });
   const emit = (conversationId: string, s: ChatSignal) => {
     for (const l of convListeners.get(conversationId) ?? []) l.onSignal(s);
@@ -313,6 +357,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
         pinned: false,
         messages: [],
         pins: [],
+        topics: [],
       });
       for (const l of inboxListeners) l({ type: "inbox", conversationId: id });
       return id;
@@ -331,6 +376,10 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       }
       const c = get(input.conversationId);
       if (!c.canPost) throw new ChatError("You can't post here", "42501", "send_message");
+      const topic = input.topic ? c.topics.find((t) => t.topic === input.topic) : undefined;
+      if (topic?.closedAt && !["owner", "admin", "observer"].includes(c.myRole ?? "member")) {
+        throw new ChatError("This topic is closed", "42501", "send_message");
+      }
       const existing = c.messages.find((m) => m.clientId === input.clientId);
       if (existing) return clone(existing);
       const m = makeMessage(c, {
@@ -436,21 +485,194 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       inboxListeners.add(onSignal);
       return { unsubscribe: () => void inboxListeners.delete(onSignal) };
     },
-    subscribeConversation(
-      conversationId: string,
-      _me: string,
-      handlers: { onSignal: (s: ChatSignal) => void; onActivity?: (a: ChatActivity) => void; onReconnect?: () => void },
-    ): ConversationChannel {
+    subscribeConversation(conversationId: string, _me: string, handlers: ConversationHandlers): ConversationChannel {
       const set = convListeners.get(conversationId) ?? new Set();
       convListeners.set(conversationId, set);
       const entry = { onSignal: handlers.onSignal, onActivity: handlers.onActivity };
       set.add(entry);
+      // Joins at once, as a live channel does once it is subscribed.
+      setTimeout(() => {
+        if (set.has(entry)) handlers.onJoin?.();
+      }, 0);
       return {
         signal(activity) {
           log("signal", conversationId, activity);
         },
         unsubscribe: () => void set.delete(entry),
       };
+    },
+
+    // ── 0002 ──
+    async topics(conversationId: string) {
+      log("topics", conversationId);
+      await wait();
+      return [...(convs.get(conversationId)?.topics ?? [])].sort((a, b) => a.position - b.position || a.topic.localeCompare(b.topic)).map((t) => ({ ...t }));
+    },
+    async setTopic(conversationId: string, topic: string, input: TopicInput = {}) {
+      log("setTopic", conversationId, topic, input);
+      const c = get(conversationId);
+      if (c.myRole !== "owner" && c.myRole !== "admin") throw new ChatError("Only an owner or admin manages topics", "42501", "set_topic");
+      const key = topic.trim();
+      let t = c.topics.find((x) => x.topic === key);
+      if (!t) {
+        t = { conversationId, topic: key, title: input.title?.trim() || key, position: input.position ?? c.topics.length, closedAt: null, createdBy: me, createdAt: new Date().toISOString() };
+        c.topics.push(t);
+      } else {
+        if (input.title?.trim()) t.title = input.title.trim();
+        if (input.position != null) t.position = input.position;
+      }
+      if (input.closed === true) t.closedAt ??= new Date().toISOString();
+      if (input.closed === false) t.closedAt = null;
+      emit(conversationId, { type: "conversation", conversationId });
+    },
+    async schedule(input: ScheduleInput) {
+      log("schedule", input);
+      await wait();
+      const c = get(input.conversationId);
+      if (!c.canPost) throw new ChatError("You can't post in this conversation", "42501", "schedule_message");
+      const sendAt = typeof input.sendAt === "string" ? input.sendAt : input.sendAt.toISOString();
+      const t = Date.parse(sendAt);
+      if (!(t >= Date.now() + 60_000 && t <= Date.now() + 365 * 86_400_000)) throw new ChatError("Schedule between a minute and a year from now", "22023", "schedule_message");
+      if (!(input.body ?? "").trim() && !(input.attachments ?? []).length) throw new ChatError("A message needs text or an attachment", "22023", "schedule_message");
+      const existing = scheduledList.find((s) => s.clientId === input.clientId);
+      if (existing) {
+        existing.sendAt = sendAt;
+        return existing.id;
+      }
+      const s: ScheduledMessage = {
+        id: uuid(),
+        conversationId: input.conversationId,
+        clientId: input.clientId,
+        body: input.body ?? "",
+        attachments: input.attachments ?? [],
+        replyToId: input.replyToId ?? null,
+        topic: input.topic ?? null,
+        mentions: input.mentions ?? [],
+        silent: input.silent ?? false,
+        sendAt,
+        sentMessageId: null,
+        cancelledAt: null,
+        error: null,
+        createdAt: new Date().toISOString(),
+        status: "scheduled",
+      };
+      scheduledList.push(s);
+      return s.id;
+    },
+    async scheduled(conversationId?: string) {
+      log("scheduled", conversationId);
+      await wait();
+      return scheduledList
+        .filter((s) => (s.status === "scheduled" || s.status === "failed") && (!conversationId || s.conversationId === conversationId))
+        .sort((a, b) => a.sendAt.localeCompare(b.sendAt))
+        .map((s) => ({ ...s }));
+    },
+    async cancelScheduled(id: string) {
+      log("cancelScheduled", id);
+      const s = scheduledList.find((x) => x.id === id && x.status === "scheduled");
+      if (!s) throw new ChatError("Nothing to cancel", "22023", "cancel_scheduled");
+      s.cancelledAt = new Date().toISOString();
+      s.status = "cancelled";
+    },
+    async availabilityFor(conversationId: string) {
+      log("availabilityFor", conversationId);
+      const c = get(conversationId);
+      return c.members.filter((m) => m.role !== "observer" && availability.has(m.userId)).map((m) => ({ ...availability.get(m.userId)! }));
+    },
+    async myAvailability() {
+      const a = availability.get(me);
+      return a ? { ...a } : null;
+    },
+    async setAvailability(input: AvailabilityInput) {
+      log("setAvailability", input);
+      availability.set(me, {
+        userId: me,
+        awayMessage: input.awayMessage?.trim() || null,
+        awayUntil: input.awayUntil ?? null,
+        timeZone: input.timeZone ?? null,
+        hours: input.hours ?? null,
+      });
+    },
+    async broadcast(conversationIds: string[], clientId: string, body: string, opts: { silent?: boolean } = {}) {
+      log("broadcast", conversationIds, clientId, body);
+      await wait();
+      const ids: string[] = [];
+      for (const id of new Set(conversationIds)) {
+        const c = convs.get(id);
+        if (!c?.canPost) continue;
+        const m = await client.send({ conversationId: id, clientId: `${clientId}:${id}`, body, silent: opts.silent });
+        ids.push(m.id);
+      }
+      return ids;
+    },
+    async search(query: string, conversationId?: string | null) {
+      log("search", query, conversationId);
+      await wait();
+      const q = query.trim().toLowerCase();
+      if (q.length < 2) return [];
+      const hits: ChatSearchHit[] = [];
+      const mark = (text: string) => {
+        const i = text.toLowerCase().indexOf(q);
+        const start = Math.max(0, i - 40);
+        return `${start > 0 ? "…" : ""}${text.slice(start, i)}«${text.slice(i, i + q.length)}»${text.slice(i + q.length, i + q.length + 60)}`;
+      };
+      for (const c of convs.values()) {
+        if (conversationId && c.conversation.id !== conversationId) continue;
+        for (const m of c.messages) {
+          if (m.deletedAt || !visible(c, m)) continue;
+          const base = { messageId: m.id, conversationId: c.conversation.id, seq: m.seq, senderId: m.senderId, createdAt: m.createdAt };
+          if (m.body.toLowerCase().includes(q)) hits.push({ ...base, snippet: mark(m.body), inTranscript: false });
+          else {
+            const t = m.attachments.find((a) => a.transcript?.toLowerCase().includes(q))?.transcript;
+            if (t) hits.push({ ...base, snippet: mark(t), inTranscript: true });
+          }
+        }
+      }
+      return hits.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 30);
+    },
+    async linkPreviewsFor(messageIds: string[]) {
+      log("linkPreviewsFor", messageIds);
+      const out: Record<string, ChatLinkPreview[]> = {};
+      for (const id of new Set(messageIds)) {
+        let found: { c: Conv; m: ChatMessage } | null = null;
+        try {
+          found = findMessage(id);
+        } catch {
+          found = null;
+        }
+        // Only for a message you can read, as link_previews_for answers.
+        if (!found || found.m.deletedAt || !visible(found.c, found.m)) {
+          out[id] = [];
+          continue;
+        }
+        out[id] = extractLinks(found.m.body)
+          .map((u) => previews.get(u))
+          .filter((p): p is ChatLinkPreview => Boolean(p && p.status === "ok"))
+          .map((p) => ({ ...p }));
+      }
+      return out;
+    },
+    async sendDue(now = new Date()) {
+      let n = 0;
+      for (const s of scheduledList) {
+        if (s.status !== "scheduled" || Date.parse(s.sendAt) > now.getTime()) continue;
+        try {
+          const m = await client.send({ conversationId: s.conversationId, clientId: s.clientId, body: s.body, attachments: s.attachments, replyToId: s.replyToId, topic: s.topic, mentions: s.mentions, silent: s.silent });
+          s.sentMessageId = m.id;
+          s.status = "sent";
+          n += 1;
+        } catch (e) {
+          s.error = e instanceof Error ? e.message : String(e);
+          s.status = "failed";
+        }
+      }
+      return n;
+    },
+    moderate(messageId: string, result: "clean" | "flagged" | "hidden") {
+      if (result === "clean") return;
+      const { c, m } = findMessage(messageId);
+      m.moderation = result;
+      emit(c.conversation.id, { type: "message", conversationId: c.conversation.id, id: m.id, seq: m.seq, op: "update" });
     },
 
     receive(conversationId: string, senderId: string, body: string, extra: Partial<ChatMessage> = {}) {

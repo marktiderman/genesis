@@ -1,6 +1,6 @@
 /**
  * @feat:chat
- * The chat contract: what the genesis_chat schema (migration 0001) stores, in
+ * The chat contract: what the genesis_chat schema (migrations 0001 and 0002) stores, in
  * the app's words. Everything here is plain data, shared by web, native and
  * the server.
  */
@@ -68,6 +68,11 @@ export interface ChatMessage {
   createdAt: string;
   editedAt: string | null;
   deletedAt: string | null;
+  /**
+   * What moderation said (migration 0002): `hidden` messages reach only their sender and the
+   * conversation's observers; `flagged` ones are visible to everyone and reported to observers.
+   */
+  moderation?: "flagged" | "hidden" | null;
   attachments: ChatAttachment[];
   reactions: ChatReaction[];
 }
@@ -212,4 +217,93 @@ export interface ChatActivity {
   userId: string;
   activity: "typing" | "recording-voice" | "recording-video";
   at: number;
+}
+
+// ── Migration 0002: topics, scheduled send, availability, search, link previews ──
+
+/** A named sub-thread of a conversation (a cohort's lesson threads). Messages join one through `topic`. */
+export interface ChatTopic {
+  conversationId: string;
+  /** The key messages carry in `topic`. */
+  topic: string;
+  title: string;
+  position: number;
+  /** Set when closed: only owners, admins and observers post in it then. */
+  closedAt: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+/** What `setTopic` changes; anything left out keeps its value (a new topic's title is its key). */
+export interface TopicInput {
+  title?: string;
+  position?: number;
+  closed?: boolean;
+}
+
+/** A message to send later, as its sender. Only its sender reads it. */
+export interface ScheduledMessage {
+  id: string;
+  conversationId: string;
+  clientId: string;
+  body: string;
+  attachments: AttachmentInput[];
+  replyToId: string | null;
+  topic: string | null;
+  mentions: string[];
+  silent: boolean;
+  sendAt: string;
+  sentMessageId: string | null;
+  cancelledAt: string | null;
+  /** Why it couldn't be sent when due (the sender left the conversation, say). */
+  error: string | null;
+  createdAt: string;
+  status: "scheduled" | "sent" | "cancelled" | "failed";
+}
+
+/** Between a minute and a year ahead. Files in `attachments` are uploaded first, as for `send`. */
+export interface ScheduleInput extends Omit<SendInput, "threadRootId" | "visibility"> {
+  sendAt: string | Date;
+}
+
+export type Weekday = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+/** Working hours per weekday as `[["09:00","17:00"]]`, 24-hour local times; a missing day is not working. An end at or before its start runs past midnight. */
+export type WorkingHours = Partial<Record<Weekday, [string, string][]>>;
+
+/** A person's away message and working hours. */
+export interface ChatAvailability {
+  userId: string;
+  awayMessage: string | null;
+  /** Away until then; with an away message and no date, away until they clear it. */
+  awayUntil: string | null;
+  /** An IANA zone (`America/New_York`); hours are read in it. */
+  timeZone: string | null;
+  hours: WorkingHours | null;
+}
+
+export type AvailabilityInput = Partial<Omit<ChatAvailability, "userId">>;
+
+/** One search result. `snippet` marks the matched words with « and ». */
+export interface ChatSearchHit {
+  messageId: string;
+  conversationId: string;
+  seq: number;
+  senderId: string | null;
+  createdAt: string;
+  snippet: string;
+  /** Found in a voice note's or video's transcript, not the text. */
+  inTranscript: boolean;
+}
+
+/** Open Graph data for a link (fetched by the server's runner). Plain text: never render it as HTML. */
+export interface ChatLinkPreview {
+  url: string;
+  status: "ok" | "failed" | "blocked";
+  title: string | null;
+  description: string | null;
+  /** Always https when present. */
+  imageUrl: string | null;
+  siteName: string | null;
+  fetchedAt: string;
 }

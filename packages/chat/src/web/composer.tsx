@@ -3,8 +3,9 @@
  * The composer: a growing text box (Enter sends, Shift+Enter is a new line;
  * on touch screens Enter is a new line), photos and files from a picker, a
  * paste or a drop, with previews to remove before sending, a reply banner,
- * internal notes for observers, and voice notes recorded in place. Where you
- * may not post it says why instead.
+ * internal notes for observers, voice notes recorded in place, videos from the
+ * camera, emoji, and scheduled send (the arrow beside Send). Where you may not
+ * post it says why instead; when who you are couldn't load, it offers a retry.
  */
 import {
   useCallback,
@@ -18,14 +19,31 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { FileText, Lock, Mic, Paperclip, SendHorizontal, Trash2, X } from "lucide-react";
-import { Alert, AlertDescription, Button, Skeleton, Textarea, Toggle, Tooltip, cn, toast } from "@marktiderman/genesis-ui";
+import { CalendarClock, FileText, Lock, Mic, Paperclip, RefreshCw, SendHorizontal, Smile, Trash2, Video, X } from "lucide-react";
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Skeleton,
+  Textarea,
+  Toggle,
+  Tooltip,
+  cn,
+  toast,
+} from "@marktiderman/genesis-ui";
+import { scheduleLabel } from "../core/extras";
 import { CHAT_LIMITS, attachmentKindFor, fileExtension, formatDuration, isAllowedExtension, randomId, recordingLimitMs } from "../core/media";
 import type { LocalFile } from "../core/outbox";
 import { parseMentions, previewText } from "../core/thread";
 import type { ChatMessage } from "../core/types";
-import { useChat, type ConversationState } from "../react/index";
+import { useChat, useScheduled, type ConversationState } from "../react/index";
+import { ChatEmojiPicker } from "./emoji-picker";
 import type { ResolveUser } from "./format";
+import { ChatScheduleMenu, ChatScheduledList } from "./schedule";
+import { ChatVideoRecorder } from "./video";
 import { useVoiceRecorder, voiceFile } from "./use-voice-recorder";
 
 export interface ChatComposerHandle {
@@ -38,7 +56,8 @@ export interface ChatComposerHandle {
 
 export interface ChatComposerProps {
   /** From `useConversation`: how to send, and whether you may. */
-  conversation: Pick<ConversationState, "send" | "signalTyping" | "signalRecording" | "role" | "canPost" | "accessLoading" | "conversation">;
+  conversation: Pick<ConversationState, "send" | "signalTyping" | "signalRecording" | "role" | "canPost" | "accessLoading" | "conversation"> &
+    Partial<Pick<ConversationState, "accessError" | "refetchAccess" | "signalRecordingVideo">>;
   /** The message being replied to; a banner shows above the box. */
   replyTo?: ChatMessage | null;
   onCancelReply?: () => void;
@@ -50,6 +69,18 @@ export interface ChatComposerProps {
   /** Called after a message is queued. */
   onSent?: () => void;
   autoFocus?: boolean;
+  /** Shown instead of the box, with a lock (a closed topic). */
+  disabledReason?: string | null;
+  /** The topic new messages go to (scheduled ones too). */
+  topic?: string | null;
+  /** Offer scheduled send (the arrow beside Send) and list what's scheduled. Default true. */
+  scheduling?: boolean;
+  /** Offer video recording. Default true where the browser can record. */
+  video?: boolean;
+  /** Offer the emoji picker. Default true. */
+  emoji?: boolean;
+  /** Where the emoji picker loads its data from. */
+  emojibaseUrl?: string;
   className?: string;
   ref?: Ref<ChatComposerHandle>;
 }
@@ -77,10 +108,21 @@ export function ChatComposer({
   accessory,
   onSent,
   autoFocus,
+  disabledReason,
+  topic,
+  scheduling = true,
+  video = true,
+  emoji = true,
+  emojibaseUrl,
   className,
   ref,
 }: ChatComposerProps) {
-  const { userId: me } = useChat();
+  const { userId: me, videoUpload } = useChat();
+  const conversationId = state.conversation?.id ?? null;
+  const scheduled = useScheduled(conversationId, { enabled: scheduling && Boolean(conversationId) });
+  const [recordingVideo, setRecordingVideo] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const canRecordVideo = video && typeof MediaRecorder !== "undefined" && typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
   const [text, setText] = useState("");
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [internal, setInternal] = useState(false);
@@ -164,7 +206,32 @@ export function ChatComposer({
   const common = () => ({
     replyToId: replyTo?.id ?? null,
     visibility: internal ? ("observers" as const) : ("everyone" as const),
+    ...(topic ? { topic } : {}),
   });
+
+  const scheduleAt = async (at: Date) => {
+    const body = text.trim();
+    if ((!body && drafts.length === 0) || !conversationId) return;
+    const files: LocalFile[] = drafts.map((d) => ({
+      data: d.file,
+      name: d.file.name,
+      contentType: d.file.type || "application/octet-stream",
+      meta: { kind: d.kind, bytes: d.file.size, name: d.file.name },
+    }));
+    try {
+      await scheduled.schedule(
+        { conversationId, body, mentions: parseMentions(body), replyToId: replyTo?.id ?? null, topic: topic ?? null, sendAt: at },
+        files,
+      );
+      setText("");
+      drafts.forEach((d) => revoke(d.previewUrl));
+      setDrafts([]);
+      onCancelReply?.();
+      toast.success(`Scheduled for ${scheduleLabel(at)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't schedule it");
+    }
+  };
 
   const submit = () => {
     const body = text.trim();
@@ -230,6 +297,35 @@ export function ChatComposer({
     );
   }
 
+  if (state.accessError) {
+    return (
+      <div className={cn("flex items-center justify-center gap-2 border-t p-3 text-sm text-muted-foreground", className)} role="alert" data-testid="genesis-chat-access-error">
+        <span>Couldn't check whether you can post here.</span>
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1" onClick={() => void state.refetchAccess?.()} data-testid="genesis-chat-access-retry">
+          <RefreshCw className="size-3.5" aria-hidden /> Try again
+        </Button>
+      </div>
+    );
+  }
+
+  // Who may post depends on the conversation's settings: wait for them rather than say the wrong reason.
+  if (!state.canPost && !state.conversation) {
+    return (
+      <div className={cn("border-t p-3", className)} aria-busy>
+        <Skeleton className="h-10 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (state.canPost && disabledReason) {
+    return (
+      <div className={cn("border-t p-3 text-center text-sm text-muted-foreground", className)} role="status" data-testid="genesis-chat-composer-disabled">
+        <Lock className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />
+        {disabledReason}
+      </div>
+    );
+  }
+
   if (!state.canPost) {
     const adminsOnly = state.conversation?.settings?.who_posts === "admins";
     return (
@@ -265,6 +361,21 @@ export function ChatComposer({
           <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={onCancelReply} aria-label="Cancel reply">
             <X />
           </Button>
+        </div>
+      ) : null}
+      {scheduling && scheduled.items.length ? (
+        <div className="flex items-center px-3 pt-1.5">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-2 text-xs text-muted-foreground" data-testid="genesis-chat-scheduled-count">
+                <CalendarClock className="size-3.5" aria-hidden />
+                {scheduled.items.length === 1 ? "1 scheduled message" : `${scheduled.items.length} scheduled messages`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-80 p-0">
+              <ChatScheduledList conversationId={conversationId} />
+            </PopoverContent>
+          </Popover>
         </div>
       ) : null}
       {drafts.length ? (
@@ -347,6 +458,13 @@ export function ChatComposer({
               <Paperclip />
             </Button>
           </Tooltip>
+          {canRecordVideo && conversationId ? (
+            <Tooltip content="Record a video">
+              <Button type="button" variant="ghost" size="icon" className="shrink-0 rounded-full text-muted-foreground" onClick={() => setRecordingVideo(true)} aria-label="Record a video" data-testid="genesis-chat-video-button">
+                <Video />
+              </Button>
+            </Tooltip>
+          ) : null}
           {accessory}
           {state.role === "observer" ? (
             <Tooltip content={internal ? "Internal note: only observers see it" : "Write an internal note"}>
@@ -379,10 +497,31 @@ export function ChatComposer({
             )}
             data-testid="genesis-chat-input"
           />
+          {emoji ? (
+            <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="ghost" size="icon" className="shrink-0 rounded-full text-muted-foreground" aria-label="Add emoji" data-testid="genesis-chat-emoji-button">
+                  <Smile />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="end" className="w-auto overflow-hidden p-0" onCloseAutoFocus={(e) => { e.preventDefault(); textarea.current?.focus(); }}>
+                <ChatEmojiPicker
+                  emojibaseUrl={emojibaseUrl}
+                  onSelect={(e) => {
+                    insertText(e);
+                    setEmojiOpen(false);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          ) : null}
           {hasContent ? (
-            <Button type="button" size="icon" className="shrink-0 rounded-full" onClick={submit} aria-label="Send" data-testid="genesis-chat-send">
-              <SendHorizontal />
-            </Button>
+            <>
+              <Button type="button" size="icon" className="shrink-0 rounded-full" onClick={submit} aria-label="Send" data-testid="genesis-chat-send">
+                <SendHorizontal />
+              </Button>
+              {scheduling && conversationId && !internal ? <ChatScheduleMenu onSchedule={(at) => void scheduleAt(at)} /> : null}
+            </>
           ) : (
             <Tooltip content="Record a voice message">
               <Button
@@ -400,6 +539,21 @@ export function ChatComposer({
           )}
         </div>
       )}
+      {canRecordVideo && conversationId ? (
+        <ChatVideoRecorder
+          open={recordingVideo}
+          onOpenChange={setRecordingVideo}
+          conversationId={conversationId}
+          maxMs={recordingLimitMs(state.role)}
+          send={(input, files) => state.send({ ...input, ...common() }, files)}
+          videoUpload={videoUpload}
+          onTick={state.signalRecordingVideo ?? state.signalRecording}
+          onSent={() => {
+            onCancelReply?.();
+            onSent?.();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

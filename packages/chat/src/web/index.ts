@@ -2,8 +2,9 @@
  * @feat:chat
  * `@marktiderman/genesis-chat/web`: chat on Genesis UI. `ChatPanel` (inbox and
  * thread side by side), `ChatInbox`, `ChatThread` and `ChatComposer`, the
- * voice note player and recorder, the safe markdown renderer, and an
- * in-memory client for demos and tests. Render them under `ChatProvider`
+ * voice note player and recorder, topics, scheduled send, availability,
+ * broadcast, search, link previews, video, the emoji picker, the safe
+ * markdown renderer, and an in-memory client for demos and tests. Render them under `ChatProvider`
  * (from `/react`) inside a TanStack QueryClientProvider.
  *
  * @stability Beta
@@ -48,3 +49,26 @@ export { ChatMarkdown, parseMarkdown, isSafeHref, type ChatMarkdownProps, type M
 export { clockTime, relativeTime, formatBytes, messageLabel, type ChatUser, type ResolveUser } from "./format";
 export { QUICK_REACTIONS } from "./thread-context";
 export { createMemoryChatClient, type MemoryChatClient, type MemoryChatOptions, type MemoryConversationSeed } from "./memory-client";
+export { ChatTopicBar, type ChatTopicBarProps } from "./topics";
+export { ChatScheduleMenu, ChatScheduledList, toLocalInput, type ChatScheduleMenuProps, type ChatScheduledListProps } from "./schedule";
+export { ChatAwayBanner, ChatAvailabilitySettings, type ChatAwayBannerProps, type ChatAvailabilitySettingsProps } from "./availability";
+export { ChatBroadcast, type ChatBroadcastProps } from "./broadcast";
+export { ChatSearch, SearchSnippet, type ChatSearchProps } from "./search";
+export { ChatLinkPreview, ChatAttachmentCard, type ChatLinkPreviewProps, type ChatAttachmentCardProps } from "./cards";
+export { ChatEmojiPicker, type ChatEmojiPickerProps } from "./emoji-picker";
+export {
+  ChatVideoRecorder,
+  ChatVideoPlayer,
+  useVideoRecorder,
+  pickVideoMimeType,
+  videoFile,
+  uploadVideo,
+  muxStreamUrl,
+  muxPosterUrl,
+  type ChatVideoRecorderProps,
+  type ChatVideoPlayerProps,
+  type UseVideoRecorderOptions,
+  type VideoRecorder,
+  type VideoRecorderState,
+  type VideoRecording,
+} from "./video";

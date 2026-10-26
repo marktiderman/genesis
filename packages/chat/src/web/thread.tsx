@@ -5,6 +5,9 @@
  * pill; earlier ones load as you reach the top without moving what you were
  * reading), day dividers and the "New" line, who is typing, and the composer.
  * Files dropped anywhere on it attach. Screen readers hear incoming messages.
+ * With topics, a topic bar filters it; when the other person is away or outside
+ * their hours a banner says so; search (in the header) jumps to a message,
+ * loading earlier ones as needed; links get preview cards.
  */
 import {
   useCallback,
@@ -17,7 +20,7 @@ import {
   type DragEvent,
   type ReactNode,
 } from "react";
-import { ArrowDown, ArrowLeft, ImagePlus, MessageSquare, Pin } from "lucide-react";
+import { ArrowDown, ArrowLeft, ImagePlus, MessageSquare, Pin, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +41,11 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
   Skeleton,
   Spinner,
   Textarea,
@@ -47,13 +55,18 @@ import {
 } from "@marktiderman/genesis-ui";
 import { renderSlot, type SlotOverride } from "@marktiderman/genesis-core/slots";
 import { ChatError } from "../core/client";
+import { extractLinks } from "../core/extras";
 import { activityLine, dayLabel, itemSender, itemTime, parseMentions, previewText, startsDay, startsGroup, type ThreadItem } from "../core/thread";
-import type { ChatConversation, ChatMember, ChatMessage, ChatRole } from "../core/types";
-import { useChat, useConversation, useFileUrls, useMessageActions, usePins } from "../react/index";
+import type { ChatConversation, ChatMember, ChatMessage, ChatRole, ChatSearchHit } from "../core/types";
+import { useAvailability, useChat, useConversation, useFileUrls, useLinkPreviews, useMessageActions, usePins, useTopics } from "../react/index";
+import { awaySummary } from "../core/availability";
 import type { ChatAttachmentSlotProps } from "./attachments";
 import { MessageRow, plainText } from "./bubble";
+import { ChatAwayBanner } from "./availability";
 import { ChatComposer, type ChatComposerHandle } from "./composer";
 import type { ResolveUser } from "./format";
+import { ChatSearch } from "./search";
+import { ChatTopicBar } from "./topics";
 import { QUICK_REACTIONS, ThreadContext, type ThreadContextValue } from "./thread-context";
 
 export interface ChatThreadHeaderProps {
@@ -72,6 +85,8 @@ export interface ChatThreadHeaderProps {
   resolveUser: ResolveUser;
   onBack?: () => void;
   backClassName?: string;
+  /** Opens search in this conversation (absent when search is off). */
+  onSearch?: () => void;
 }
 
 export interface ChatThreadEmptyProps {
@@ -115,6 +130,18 @@ export interface ChatThreadProps {
   /** The quick reactions; 👍 ❤️ 😂 😮 😢 🙏 by default. */
   quickReactions?: readonly string[];
   placeholder?: string;
+  /** Show the topic bar even before the first topic exists (so an owner can add one). */
+  showTopics?: boolean;
+  /** Scroll to this message once it's loaded (a search result across conversations); `seq` lets earlier pages load to reach it. */
+  jumpTo?: { messageId: string; seq?: number } | null;
+  /** A search button in the header. Default true. */
+  search?: boolean;
+  /** Scheduled send in the composer. Default true. */
+  scheduling?: boolean;
+  /** The away banner. Default true. */
+  availability?: boolean;
+  /** Where the emoji picker loads its data from (self-host emojibase-data to skip the CDN). */
+  emojibaseUrl?: string;
   slots?: ChatThreadSlots;
   className?: string;
 }
@@ -139,7 +166,7 @@ function errorText(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong";
 }
 
-function DefaultHeader({ title, subtitle, otherUserId, resolveUser, onBack, backClassName }: ChatThreadHeaderProps) {
+function DefaultHeader({ title, subtitle, otherUserId, resolveUser, onBack, backClassName, onSearch }: ChatThreadHeaderProps) {
   const other = otherUserId ? resolveUser(otherUserId) : null;
   return (
     <header className="flex min-h-14 items-center gap-3 border-b px-3 py-2" data-testid="genesis-chat-thread-header">
@@ -153,6 +180,11 @@ function DefaultHeader({ title, subtitle, otherUserId, resolveUser, onBack, back
         <h2 className="truncate text-sm font-semibold leading-tight">{title}</h2>
         {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
       </div>
+      {onSearch ? (
+        <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={onSearch} aria-label="Search this conversation" data-testid="genesis-chat-thread-search">
+          <Search />
+        </Button>
+      ) : null}
     </header>
   );
 }
@@ -168,14 +200,23 @@ export function ChatThread({
   onBack,
   backClassName,
   threadRootId,
-  topic,
+  topic: topicProp,
   onOpenThread,
   quickReactions = QUICK_REACTIONS,
   placeholder,
+  showTopics,
+  jumpTo: jumpToProp,
+  search = true,
+  scheduling = true,
+  availability = true,
+  emojibaseUrl,
   slots,
   className,
 }: ChatThreadProps) {
-  const { userId: me } = useChat();
+  const { userId: me, attachmentKinds } = useChat();
+  const topicsState = useTopics(threadRootId ? null : conversationId);
+  const [chosenTopic, setChosenTopic] = useState<string | null>(null);
+  const topic = topicProp ?? chosenTopic ?? undefined;
   const state = useConversation(conversationId, { threadRootId, topic });
   const actions = useMessageActions();
   const pinIds = usePins(conversationId);
@@ -204,7 +245,22 @@ export function ChatThread({
     setReplyTo(null);
     setEditingId(null);
     setNewCount(0);
+    setChosenTopic(null);
   }, [conversationId]);
+
+  const topics = topicsState.topics;
+  const currentTopic = topic ? topics.find((t) => t.topic === topic) : undefined;
+  const canManageTopics = role === "owner" || role === "admin";
+  const showTopicBar = !threadRootId && topicProp === undefined && (topics.length > 0 || (showTopics && canManageTopics));
+  const topicClosed = Boolean(currentTopic?.closedAt) && role !== "owner" && role !== "admin" && role !== "observer";
+
+  const linkMessageIds = useMemo(
+    () => messages.filter((m) => !m.deletedAt && m.moderation !== "hidden" && extractLinks(m.body).length > 0).map((m) => m.id),
+    [messages],
+  );
+  const previews = useLinkPreviews(linkMessageIds);
+  const avail = useAvailability(availability ? conversationId : null);
+  const [searching, setSearching] = useState(false);
 
   const nameOf = useCallback((id: string) => (id === me ? "You" : resolveUser(id).name), [me, resolveUser]);
   const others = members.filter((m) => m.userId !== me);
@@ -227,6 +283,17 @@ export function ChatThread({
     (id) => resolveUser(id).name,
   );
   const subtitle = members.length > 2 ? `${members.length} members` : null;
+
+  // The away line: the other person in a two-person conversation; in a group, everyone away or outside their hours.
+  const awayPeople = useMemo(() => {
+    if (!availability) return null;
+    const ids = otherUserId ? [otherUserId] : members.filter((m) => m.userId !== me).map((m) => m.userId);
+    const people = ids.flatMap((id) => {
+      const a = avail.forUser(id);
+      return a ? [{ availability: a, name: resolveUser(id).name }] : [];
+    });
+    return awaySummary(people) ? people : null;
+  }, [availability, otherUserId, members, me, avail, resolveUser]);
 
   // ---- scrolling ------------------------------------------------------------
   const scroller = useRef<HTMLDivElement>(null);
@@ -317,6 +384,45 @@ export function ChatThread({
     setTimeout(() => setHighlightedId((h) => (h === id ? null : h)), 1600);
   }, []);
 
+  // A message to reach: loads earlier pages until it is here (leaving a topic it isn't in), then scrolls to it.
+  type Jump = { messageId: string; seq?: number; phase: "new" | "loading" | "loaded" };
+  const [pendingJump, setPendingJump] = useState<Jump | null>(jumpToProp ? { ...jumpToProp, phase: "new" } : null);
+  useEffect(() => {
+    if (jumpToProp) setPendingJump({ ...jumpToProp, phase: "new" });
+  }, [jumpToProp?.messageId, jumpToProp?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { loadUntil } = state;
+  useEffect(() => {
+    if (!pendingJump || state.isLoading) return;
+    const { messageId, seq, phase } = pendingJump;
+    if (byId.has(messageId)) {
+      setPendingJump(null);
+      // After the rows it needs have rendered.
+      requestAnimationFrame(() => jumpTo(messageId));
+      return;
+    }
+    if (phase === "loading") return;
+    if (phase === "loaded" || seq == null) {
+      setPendingJump(null);
+      toast.info("That message isn't here any more");
+      return;
+    }
+    setPendingJump({ messageId, seq, phase: "loading" });
+    const settle = () => setPendingJump((p) => (p && p.messageId === messageId ? { ...p, phase: "loaded" } : p));
+    void loadUntil(seq).then(settle, (e) => {
+      toast.error(errorText(e));
+      settle();
+    });
+  }, [pendingJump, byId, state.isLoading, loadUntil, jumpTo]);
+
+  const openHit = useCallback(
+    (hit: ChatSearchHit) => {
+      setSearching(false);
+      if (topic && topicProp === undefined) setChosenTopic(null);
+      setPendingJump({ messageId: hit.messageId, seq: hit.seq, phase: "new" });
+    },
+    [topic, topicProp],
+  );
+
   // ---- actions --------------------------------------------------------------
   const run = useCallback(async (p: Promise<unknown>, done?: string) => {
     try {
@@ -340,6 +446,9 @@ export function ChatThread({
     byId,
     quickReactions,
     attachmentSlot: slots?.attachment,
+    attachmentKinds,
+    previews,
+    emojibaseUrl,
     highlightedId,
     editingId,
     reply: (m) => {
@@ -477,7 +586,18 @@ export function ChatThread({
           resolveUser,
           onBack,
           backClassName,
+          onSearch: search && !threadRootId ? () => setSearching(true) : undefined,
         })}
+        {showTopicBar ? (
+          <ChatTopicBar
+            topics={topics}
+            value={topic ?? null}
+            onValueChange={setChosenTopic}
+            canManage={canManageTopics}
+            onSetTopic={topicsState.setTopic}
+          />
+        ) : null}
+        {awayPeople ? <ChatAwayBanner people={awayPeople} /> : null}
         {pinnedMessage ? (
           <button
             type="button"
@@ -537,7 +657,11 @@ export function ChatThread({
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
           resolveUser={resolveUser}
-          placeholder={placeholder}
+          placeholder={currentTopic ? `Message #${currentTopic.title}` : placeholder}
+          topic={topic ?? null}
+          disabledReason={topicClosed ? "This topic is closed" : null}
+          scheduling={scheduling}
+          emojibaseUrl={emojibaseUrl}
           accessory={renderSlot(EmptyAccessory, slots?.composerAccessory, {
             conversationId,
             insertText: (t) => composer.current?.insertText(t),
@@ -545,6 +669,18 @@ export function ChatThread({
           })}
         />
       </section>
+
+      {search && !threadRootId ? (
+        <Sheet open={searching} onOpenChange={setSearching}>
+          <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+            <SheetHeader className="border-b px-4 py-3">
+              <SheetTitle>Search</SheetTitle>
+              <SheetDescription className="sr-only">Search this conversation and jump to a message.</SheetDescription>
+            </SheetHeader>
+            <ChatSearch conversationId={conversationId} resolveUser={resolveUser} onOpen={openHit} autoFocus className="min-h-0 flex-1" />
+          </SheetContent>
+        </Sheet>
+      ) : null}
 
       <AlertDialog open={confirmDelete !== null} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>
