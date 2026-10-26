@@ -51,3 +51,19 @@ export const tenantFeaturesBlock = defineBlock({
     privacy: { notes: ["Keeps who changed a tenant's switches; a deleted person's changes stay, without the person."] },
   },
 });
+
+/**
+ * The feature registry block: the registry mirrored into the app's database
+ * on deploy, entitlements, per-tenant flag values and SQL `feature_on()`,
+ * for the feature gate. Needs the tenant features block.
+ *
+ * @stability Beta
+ */
+export const featureMirrorBlock = defineBlock({
+  id: "feature-mirror",
+  requires: ["tenant-features"],
+  contributes: {
+    migrations: [{ package: PACKAGE, file: "migrations/0007_genesis_feature_registry.sql", test: "migrations/tests/0007_genesis_feature_registry.test.sql" }],
+    privacy: { notes: ["Stores which tenants hold which paid features and flag values; no personal data."] },
+  },
+});
