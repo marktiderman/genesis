@@ -1,0 +1,22 @@
+packages/extension/src/__tests__/core.test.ts
+  s_18dd9cee35b819::t_65858eddb1c59b 550
+  s_18dd9cee35b819::t_890fa9183b2630 520
+packages/extension/src/page-bar.ts
+  s_18dd9cee35b819::t_6ead145c078489 64,133,139,209-213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7ad4c0765ac0276966fc7c3ae1153b6f2cab71f7",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
