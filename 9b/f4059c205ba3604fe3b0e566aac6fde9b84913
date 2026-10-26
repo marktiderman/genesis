@@ -1,0 +1,19 @@
+packages/supabase/migrations/0010_genesis_metrics.sql
+  s_9bf81edc5cc904::t_abdbdf6aaeeb43 178-180,187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9bf4059c205ba3604fe3b0e566aac6fde9b84913",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
