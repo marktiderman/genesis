@@ -1,0 +1,197 @@
+.changeset/answer-cell-non-string.md
+  s_03a3816737bc07::t_81a61fd556f98e 1-5
+.changeset/doctor-migration-testing-kit.md
+  s_03a3816737bc07::t_d37ce25664fa2a 1-5
+.changeset/doctor-structure-checks.md
+  s_03a3816737bc07::t_4f6be5fb0138e6 1-18
+.changeset/forms-studio-resource-reexports.md
+  s_03a3816737bc07::t_3fa801e29d6092 1-7
+.changeset/genesis-testing-nits.md
+  s_03a3816737bc07::t_4c249d9fa0e2fe 1-5
+.changeset/genesis-testing-pgtap-kit.md
+  s_03a3816737bc07::t_3ba89244609d56 1-5
+.changeset/linear-option-lookups.md
+  s_03a3816737bc07::t_9fed20de70a4e0 1-6
+.changeset/resource-workspace-ui.md
+  s_03a3816737bc07::t_bff5e6c94e44e2 1-9
+.changeset/write-outcome-duplicate.md
+  s_03a3816737bc07::t_36a12a210f5722 1-6
+.github/ci-fixture/supabase/tests/database/000_genesis_testing.test.sql
+  s_03a3816737bc07::t_673caedd446344 1-526
+.github/ci-fixture/supabase/tests/database/genesis_testing_selftest.test.sql
+  s_03a3816737bc07::t_36a6ab1dab547f 1-181
+.github/workflows/ci-templates-self-test.yml
+  s_03a3816737bc07::t_fd212313ec5635 18
+AGENTS.md
+  s_03a3816737bc07::t_f910c9800e7833 16
+apps/sample/app/data/primitives.json
+  s_03a3816737bc07::t_63b6d8dcdda90d 10,8860-8905,10594-10610,11766-11832,11949-11987,13248-13293,13922,13925-13926,13928-13929,13932-13933,13940,13943-13944,13947,13950,13953-13954,13957,13960-13961,13964-13965,13971-13972,13975,13978-13979,13982,13985-13986,13989,13992-13993,13996,13999-14000,14003,14006-14007,14010,14013-14014,14017,14020-14021,14024,14027-14144,14671-14810,15255-15321,15717-15840,16511-16532,16682-16734
+apps/sample/stories/ResourceWorkspace.stories.tsx
+  s_03a3816737bc07::t_566aedfb0c1dec 1-158
+docs/component-reference.md
+  s_4ea9e233c4fda6::t_4d4ea4304b8368 7,240,267,286,343,373,412-413,424,482,486-488,493-495,507-508,526,553,561,563,565,570-574,576-578
+features.json
+  s_03a3816737bc07::t_e0478f9f7f3ec4 131-169
+features.ts
+  s_03a3816737bc07::t_71bf98d81f0251 72-86
+packages/core/README.md
+  s_03a3816737bc07::t_73a945e872a47e 120
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_03a3816737bc07::t_bb3c9c908b0276 62,98,166,361
+packages/core/src/provider/postgrest-errors.ts
+  s_03a3816737bc07::t_b81e56c62c03c5 36-39,50
+packages/core/src/schema/write-outcome.ts
+  s_03a3816737bc07::t_769826ae2c5e58 19-21,32
+packages/forms-builder/src/OptionListEditor.tsx
+  s_03a3816737bc07::t_4204cdb391c542 95-96,133-135
+packages/forms-studio/README.md
+  s_03a3816737bc07::t_9e307eb7072ebd 17-18,20,39-44,51-53,100-103,110-111,117-132
+packages/forms-studio/package.json
+  s_03a3816737bc07::t_2d1f88e88517e2 50
+packages/forms-studio/src/DropOffByQuestion.tsx
+  s_03a3816737bc07::t_5b1145bf0eeaa3 3
+packages/forms-studio/src/QuestionSummaryCards.tsx
+  s_03a3816737bc07::t_475d60f679cef8 14
+packages/forms-studio/src/__tests__/answers.test.ts
+  s_03a3816737bc07::t_d0e207b2d1f3ca 107-129
+packages/forms-studio/src/__tests__/components.test.tsx
+  s_03a3816737bc07::t_7aab4e9216e766 6,13-15,19-21,24-28,31-33,37
+packages/forms-studio/src/__tests__/rules.test.ts
+  s_03a3816737bc07::t_58363d899b6dd4 7,126
+packages/forms-studio/src/__tests__/summary.test.ts
+  s_03a3816737bc07::t_cbdbe01fea31e0 304-334
+packages/forms-studio/src/answers.ts
+  s_03a3816737bc07::t_e1be4b794544c5 17-31,42-43
+packages/forms-studio/src/headline.ts
+  s_03a3816737bc07::t_ca8cc0c22ab3cf 5
+packages/forms-studio/src/index.ts
+  s_03a3816737bc07::t_c08b18c2f64ba6 5-8,11-29
+packages/forms-studio/src/moved-rules.ts
+  s_03a3816737bc07::t_6984e297a66d73 1-65
+packages/forms-studio/src/moved.tsx
+  s_03a3816737bc07::t_4613f9383be5f5 1-77
+packages/forms-studio/src/rules.ts
+  s_03a3816737bc07::t_8c106beac4295e 55,57-59,63-65,69
+packages/forms-studio/src/status.ts
+  s_03a3816737bc07::t_a93ffe79c53881 5
+packages/forms-studio/src/summary.ts
+  s_03a3816737bc07::t_5306aefc9619cb 264-278,280-291,293-294
+packages/genesis-cli/README.md
+  s_03a3816737bc07::t_867d1ce75a4926 339-340,344,361-366,372-383,437,490-492
+packages/genesis-cli/src/doctor/config.ts
+  s_03a3816737bc07::t_3a1f5e70b5e91e 135,150,154,313,331
+packages/genesis-cli/src/doctor/genesis.ts
+  s_03a3816737bc07::t_1a11e30d510dd0 12,17-18,98,102-116
+packages/genesis-cli/src/doctor/index.ts
+  s_03a3816737bc07::t_15a844c71489fd 4-6,31-33,54-56,91,107-108,118,122-149,201-202,213,227
+packages/genesis-cli/src/doctor/installs.ts
+  s_03a3816737bc07::t_97ba57f9f5ca43 1-188
+packages/genesis-cli/src/doctor/native.ts
+  s_03a3816737bc07::t_c875a219a446f1 18-19
+packages/genesis-cli/src/doctor/patterns.ts
+  s_03a3816737bc07::t_08ef646038e907 14,49,65-66
+packages/genesis-cli/src/doctor/routes.ts
+  s_03a3816737bc07::t_a8d7dc524b58f9 1-92
+packages/genesis-cli/src/doctor/rules.ts
+  s_03a3816737bc07::t_89cff9cd2c265c 24-30,42
+packages/genesis-cli/src/doctor/semver.ts
+  s_03a3816737bc07::t_ca5d722987a5a0 1-165
+packages/genesis-cli/src/doctor/source.ts
+  s_03a3816737bc07::t_09cc3ec576576f 1-133
+packages/genesis-cli/src/doctor/structure.ts
+  s_03a3816737bc07::t_520e064008f545 1-189
+packages/genesis-cli/src/doctor/supabase.ts
+  s_03a3816737bc07::t_0d0491fa2136f1 286-304
+packages/genesis-cli/src/doctor/types.ts
+  s_03a3816737bc07::t_60c841551d9bc7 5-6,128,138-149,170-179,222-223
+packages/genesis-cli/src/vite.ts
+  s_03a3816737bc07::t_3e52af629918ab 28
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_03a3816737bc07::t_6a90839c386168 83,370-377
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_03a3816737bc07::t_e1d29e7ead0682 1-475
+packages/genesis-cli/test/doctor.test.ts
+  s_03a3816737bc07::t_3089c1fd30af4d 200
+packages/studio-server/src/handler.ts
+  s_03a3816737bc07::t_a8ba81e739152f 38
+packages/supabase/README.md
+  s_03a3816737bc07::t_d794c2d8eb6213 7-11,18-30,64-65,69-71,75-76,79-82,108-111,114-116,148-151,155-156,196-197,199-201,509-513,550-554,559-564,568-569,571-574,592-637
+packages/supabase/package.json
+  s_03a3816737bc07::t_d4a248299f2389 40
+packages/supabase/sql/testing/genesis_testing.sql
+  s_03a3816737bc07::t_3cee67691562df 1-526
+packages/supabase/sql/testing/tests/genesis_testing.test.sql
+  s_03a3816737bc07::t_4d3ef0342067d8 1-181
+packages/supabase/src/__tests__/testing-kit.test.ts
+  s_03a3816737bc07::t_07309c6e933a07 1-45
+packages/ui/SKILL.md
+  s_03a3816737bc07::t_9e0ee36b9d6372 138
+packages/ui/package.json
+  s_03a3816737bc07::t_27645b2e07dbe6 33,52-59
+packages/ui/scripts/gen-exports.mjs
+  s_03a3816737bc07::t_563b66283aaab2 11,186-195
+packages/ui/src/components/resource/FollowUpList.tsx
+  s_03a3816737bc07::t_d11007097fdcfa 2-3,8,17,24-26,34,44-45,103
+packages/ui/src/components/resource/HeadlineNumbers.tsx
+  s_03a3816737bc07::t_ed013f1bf6b5d0 2-3
+packages/ui/src/components/resource/ReadinessChip.tsx
+  s_03a3816737bc07::t_728287f4ddc53c 3,12,16-17,21
+packages/ui/src/components/resource/ResourceHeader.tsx
+  s_03a3816737bc07::t_acd64e8756bfe6 8-11,22,26,64,95-96
+packages/ui/src/components/resource/ResourceSettingsPage.tsx
+  s_03a3816737bc07::t_04671a5f75480d 1-2,4,65-69,81,93,108-109,112-114,118
+packages/ui/src/components/resource/ResponsesToolbar.tsx
+  s_03a3816737bc07::t_e7d7bf0814540d 2-3,9-10,17,24-25,41,44,47
+packages/ui/src/components/resource/ShareDialog.tsx
+  s_03a3816737bc07::t_76cde0322dd8b0 1-2,4-11,55-58,64,66,77,79,89
+packages/ui/src/components/resource/SummaryCard.tsx
+  s_03a3816737bc07::t_2f2301fca4258d 2,6
+packages/ui/src/components/resource/__tests__/components.test.tsx
+  s_03a3816737bc07::t_7feb1bbf50ed4e 1-253
+packages/ui/src/components/resource/__tests__/rules.test.ts
+  s_03a3816737bc07::t_fc1e6753c1a9ca 1-52
+packages/ui/src/components/resource/__tests__/share.test.ts
+  s_03a3816737bc07::t_5a0c433b84ad07 1,3,8-11,15,25-26,28
+packages/ui/src/components/resource/chip.tsx
+  s_03a3816737bc07::t_27ff37c68d59b4 2-4,7
+packages/ui/src/components/resource/index.ts
+  s_03a3816737bc07::t_f3bed2d386dcff 1-20
+packages/ui/src/components/resource/rules.ts
+  s_03a3816737bc07::t_e9294f681c2853 1-18
+packages/ui/src/components/resource/share.ts
+  s_03a3816737bc07::t_12116503dfcf23 1,6,8,39
+packages/ui/src/components/resource/status.ts
+  s_03a3816737bc07::t_7f9804ab7ba029 1-3,17,27-42,44-45,48-49,51-58,60,65-83,86,88,90,93-95,99
+packages/ui/src/index.ts
+  s_03a3816737bc07::t_e20fbcf69dfd64 136-169
+packages/ui/tsconfig.type-tests-exact.json
+  s_03a3816737bc07::t_cb98b4d30072f5 1-9
+packages/ui/tsup.config.ts
+  s_03a3816737bc07::t_e8c031b3c836b6 60-63
+packages/ui/type-tests-exact/resource.tsx
+  s_03a3816737bc07::t_6592e13cd413ed 1-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d605a664b29e58ffa42f83f0946bb131cab58208",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_4ea9e233c4fda6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87517208-b3be-4ddc-b8ac-0ec52a33a61a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
