@@ -1,6 +1,6 @@
-// @feat:notifications
+// @feat:jobs
 import { describe, expect, it, vi } from "vitest";
-import { createRunner, defaultBackoff, jobOutcome, type JobOutcome, type RunnerJob } from "../runner/index";
+import { createRunner, defaultBackoff, jobOutcome, type JobOutcome, type RunnerJob } from "../runner";
 
 const job = (id: string, extra: Partial<RunnerJob> & { group?: string } = {}) => ({ id, attempt: 1, ...extra });
 
@@ -79,5 +79,28 @@ describe("createRunner", () => {
   it("refuses a send that answers the wrong number of results", async () => {
     const runner = createRunner({ claim: async () => [job("a"), job("b")], group: () => "g", send: async () => [{ ok: true as const }], record: async () => {} });
     expect(await runner.run()).toMatchObject({ retrying: 2, sent: 0 });
+  });
+
+  it("sends at most `concurrency` groups at once, and every group when it is unset", async () => {
+    const peak = async (concurrency?: number) => {
+      let inFlight = 0;
+      let most = 0;
+      const runner = createRunner({
+        claim: async () => ["a", "b", "c", "d", "e"].map((id) => job(id)),
+        send: async (g) => {
+          most = Math.max(most, ++inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          inFlight--;
+          return g.map(() => ({ ok: true as const }));
+        },
+        record: async () => {},
+        concurrency,
+      });
+      expect(await runner.run()).toMatchObject({ claimed: 5, sent: 5 });
+      return most;
+    };
+    expect(await peak(2)).toBe(2);
+    expect(await peak(1)).toBe(1);
+    expect(await peak()).toBe(5);
   });
 });
