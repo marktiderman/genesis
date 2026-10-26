@@ -11,10 +11,9 @@ export const SafeAreaView = React.forwardRef<HTMLDivElement, AnyProps>(
       testID?: string;
       edges?: string[];
     };
-    void edges;
     return React.createElement(
       "div",
-      { ...rest, "data-testid": testID, ref },
+      { ...rest, "data-testid": testID, "data-edges": edges?.join(","), ref },
       children,
     );
   },

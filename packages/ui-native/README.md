@@ -52,6 +52,28 @@ as a direct dependency of your app (`npx expo install react-native-gesture-handl
 root in its `GestureHandlerRootView`; don't rely on another package bringing it in. The drawer's
 swipe uses React Native's `PanResponder`.
 
+## Loading screens: `NativeLoadingState` and `ScreenContainer loading`
+
+For a screen that is waiting (a redirect while the session loads, a first fetch), don't hand-roll
+`<View><ActivityIndicator /></View>`. `NativeLoadingState` is a centred spinner in the theme tint,
+read by screen readers as one "Loading" progress bar (or your `label`, which also shows under the
+spinner). By default it fills the screen on the background, inside the safe area; `fullScreen={false}`
+makes it a centred block for a screen body, a section or a list footer.
+
+```tsx
+import { NativeLoadingState, ScreenContainer } from "@marktiderman/genesis-ui-native";
+
+if (!session) return <NativeLoadingState label="Signing you in" />;
+
+<ScreenContainer scroll loading={isLoading} loadingLabel="Loading your plan">{body}</ScreenContainer>;
+```
+
+`ScreenContainer`'s `loading` puts the inline form in place of the body, keeping its safe area,
+background and status bar. `InboxPage` uses it for its first load and "Loading more" footer. Use
+`NativeSkeleton` for a placeholder shaped like the content, and `NativeProgress` for known progress.
+`genesis doctor` (native pack) flags a raw `ActivityIndicator` from `react-native` and points here,
+and counts a route that renders `NativeLoadingState` as a screen.
+
 ## Keyboard toolbar
 
 `KeyboardScrollProvider` (from `/layouts`) takes an optional `toolbar`: react-native-keyboard-controller's

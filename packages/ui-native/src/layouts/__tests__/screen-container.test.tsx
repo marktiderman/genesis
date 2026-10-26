@@ -78,3 +78,30 @@ describe("composeHeaderOptions", () => {
     expect(opts.headerRight).toBe(right);
   });
 });
+
+describe("ScreenContainer loading", () => {
+  it("replaces the body with a centred loading state inside the same safe area", () => {
+    render(
+      <ScreenContainer testID="screen" loading loadingLabel="Opening your space" scroll>
+        <span data-testid="child">Hello</span>
+      </ScreenContainer>,
+    );
+    expect(screen.queryByTestId("child")).toBeNull();
+    expect(screen.queryByTestId("screen-scroll")).toBeNull();
+    expect(screen.getByTestId("screen-body")).toBeTruthy();
+    const loading = screen.getByTestId("screen-loading");
+    expect(loading.getAttribute("role")).toBe("progressbar");
+    expect(loading.getAttribute("aria-label")).toBe("Opening your space");
+    expect(screen.getByTestId("screen").getAttribute("data-edges")).toBe("left,right");
+  });
+
+  it("renders the children once loading ends", () => {
+    render(
+      <ScreenContainer testID="screen" loading={false}>
+        <span data-testid="child">Hello</span>
+      </ScreenContainer>,
+    );
+    expect(screen.getByTestId("child")).toBeTruthy();
+    expect(screen.queryByTestId("screen-loading")).toBeNull();
+  });
+});

@@ -96,7 +96,7 @@ export interface ChatAttachmentCardProps {
   /** An icon component (lucide); a clipboard by default. */
   icon?: ComponentType<{ className?: string }>;
   /** One button: a link (`href`, safe schemes only) or a handler. */
-  action?: { label: string; href?: string; onPress?: () => void } | null;
+  action?: { label: string; href?: string; onPress?: () => void | Promise<unknown> } | null;
   tone?: "default" | "primary";
   className?: string;
 }
@@ -126,7 +126,7 @@ export function ChatAttachmentCard({ title, subtitle, icon: Icon = ClipboardList
             </a>
           </Button>
         ) : (
-          <Button type="button" size="sm" variant={primary ? "secondary" : "default"} className="shrink-0" onClick={action.onPress}>
+          <Button type="button" size="sm" variant={primary ? "secondary" : "default"} className="shrink-0" onClick={() => void Promise.resolve(action.onPress?.()).catch((e) => console.error("genesis-chat: a card's action failed", e))}>
             {action.label}
           </Button>
         )

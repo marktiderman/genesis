@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 148 components · 508 other exports · 372 standalone types across 11 packages and entry points.
+**Totals:** 149 components · 508 other exports · 373 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -721,7 +721,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (95)
+### Components (96)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -774,6 +774,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeInput`](../packages/ui-native/src/components/input.tsx) | `NativeInputProps` | — | _(no summary)_ |
 | [`NativeLabel`](../packages/ui-native/src/components/label.tsx) | `NativeLabelProps` | — | _(no summary)_ |
 | [`NativeListItem`](../packages/ui-native/src/components/list-item.tsx) | `NativeListItemProps` | — | _(no summary)_ |
+| [`NativeLoadingState`](../packages/ui-native/src/components/loading-state.tsx) | `NativeLoadingStateProps` | — | _(no summary)_ |
 | [`NativeNumberInput`](../packages/ui-native/src/components/number-input.tsx) | `NativeNumberInputProps` | — | _(no summary)_ |
 | [`NativePagination`](../packages/ui-native/src/components/pagination.tsx) | `NativePaginationProps` | — | _(no summary)_ |
 | [`NativePopover`](../packages/ui-native/src/components/popover.tsx) | `NativePopoverProps` | — | _(no summary)_ |
@@ -874,7 +875,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (59)
+### Types (60)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -912,6 +913,7 @@ export type { NativeComboboxOption };
 export type { NativeEmptyStateVariant };
 export type { NativeIconName };
 export type { NativeInlineAlertVariant };
+export type { NativeLoadingStateEdge };
 export type { NativeSegmentedControlOption };
 export type { NativeSheetLibrary };
 export type { NativeStepperStep };

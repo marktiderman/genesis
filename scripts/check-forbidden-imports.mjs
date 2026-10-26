@@ -14,7 +14,7 @@
  *
  * Forbidden today: the list in scripts/lib/native-primitives.mjs
  * (`Modal` → NativeDialog / NativeSheet / NativeDrawer, `ActivityIndicator` →
- * NativeSkeleton / NativeProgress). `genesis doctor`'s native pack reads the
+ * NativeLoadingState / NativeSkeleton / NativeProgress). `genesis doctor`'s native pack reads the
  * same list (rule `native-raw-primitive`).
  *
  * Allowlist:

@@ -104,6 +104,13 @@ export interface ChatNativeCopy extends ChatOrganiseCopy {
   /** The bubble's VoiceOver action for its link preview. */
   openLinkAction: string;
   attachmentCard: string;
+  /** Under an attachment card whose action failed (ticking a task offline). */
+  cardActionFailed: string;
+  /** A voice note's transcript: still being made, its VoiceOver label, and the toggle for a long one. */
+  transcribing: string;
+  transcriptLabel: string;
+  showMore: string;
+  showLess: string;
   openImage: string;
   closeViewer: string;
   photoOf: string;
@@ -239,6 +246,11 @@ export const chatNativeCopy: ChatNativeCopy = {
   openLink: "Opens the link",
   openLinkAction: "Open link",
   attachmentCard: "{title}, {subtitle}",
+  cardActionFailed: "That didn't work. Try again.",
+  transcribing: "Transcribing…",
+  transcriptLabel: "Transcript: {text}",
+  showMore: "Show more",
+  showLess: "Show less",
   openImage: "Open photo",
   closeViewer: "Close",
   photoOf: "Photo {n} of {count}",

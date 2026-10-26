@@ -6,6 +6,7 @@
  *   - StatusBar style (light / dark / auto)
  *   - Scroll vs static body
  *   - Tokens-aware background (`bg-background`)
+ *   - A loading state (`loading`): a centred `NativeLoadingState` in place of the body
  *
  * Header customization is delegated: pass `headerLeft`, `headerRight`,
  * `large`, `scrollEdgeBehavior`, `safeAreaEdges`, plus any direct
@@ -31,6 +32,7 @@ import { ScrollView, StatusBar, View, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { cn } from "../utils";
 import { useThemeMode } from "../hooks/use-theme-mode";
+import { NativeLoadingState } from "../components/loading-state";
 
 export type SafeAreaEdge = "top" | "bottom" | "left" | "right";
 
@@ -64,6 +66,14 @@ export interface ScreenContainerProps {
    * Only used when `scroll` is true.
    */
   keyboardShouldPersistTaps?: "always" | "never" | "handled";
+  /**
+   * When `true`, a centred `NativeLoadingState` (theme-tinted spinner,
+   * announced as loading) replaces the body, inside the same safe area and
+   * background. Use it for redirect and first-load screens. Default `false`.
+   */
+  loading?: boolean;
+  /** Text under the spinner while `loading`; also what screen readers announce. */
+  loadingLabel?: string;
   /** Style on the root, e.g. a theme-role background color. */
   style?: ViewStyle;
   /** testID on the root container. */
@@ -170,6 +180,8 @@ export function ScreenContainer({
   className,
   contentClassName,
   keyboardShouldPersistTaps = "handled",
+  loading = false,
+  loadingLabel,
   style,
   testID,
 }: ScreenContainerProps) {
@@ -177,7 +189,11 @@ export function ScreenContainer({
   const resolvedMode = themeMode === "system" ? osMode : themeMode;
   const barStyle = resolveBarStyle(statusBar, resolvedMode);
 
-  const body = scroll ? (
+  const body = loading ? (
+    <View testID={testID ? `${testID}-body` : undefined} className={cn("flex-1", contentClassName)}>
+      <NativeLoadingState fullScreen={false} label={loadingLabel} testID={`${testID ?? "screen-container"}-loading`} />
+    </View>
+  ) : scroll ? (
     <ScrollView
       testID={testID ? `${testID}-scroll` : undefined}
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}

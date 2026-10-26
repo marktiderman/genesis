@@ -192,7 +192,9 @@ function checkScreenLayouts(ctx: DoctorContext, pkg: PackageExports): void {
     });
     return;
   }
-  const renders = new RegExp(`<(?:${layouts.join("|")}|Redirect)\\b`);
+  // A redirect, and a whole-screen loading state (it brings its own safe area), are screens too.
+  const passing = ["Redirect", ...(pkg.values.has("NativeLoadingState") ? ["NativeLoadingState"] : [])];
+  const renders = new RegExp(`<(?:${[...layouts, ...passing].join("|")})\\b`);
   const byPath = new Map(ctx.files.map((f) => [f.absolutePath, f]));
   for (const file of routes) {
     if (!JSX_EXTS.has(file.ext) || NON_SCREEN_ROUTE.test(file.path)) continue;
