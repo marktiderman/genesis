@@ -122,7 +122,7 @@ export function isNetworkFailure(error: unknown): boolean {
 }
 
 function isDuplicateOutcome(error: unknown): boolean {
-  return isDataWriteError(error) && (error.outcome as string) === "duplicate";
+  return isDataWriteError(error) && error.outcome === "duplicate";
 }
 
 function plainMessage(error: unknown): string {

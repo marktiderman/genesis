@@ -118,7 +118,7 @@ describe("DraftController: saving", () => {
 });
 
 describe("DraftController: a row another tab started", () => {
-  const duplicate = new DataWriteError("duplicate" as never, "Already there.", { code: "23505" });
+  const duplicate = new DataWriteError("duplicate", "Already there.", { code: "23505" });
 
   it("merges into it, keeping only the fields changed here, then saves the merge", async () => {
     const s = store();
