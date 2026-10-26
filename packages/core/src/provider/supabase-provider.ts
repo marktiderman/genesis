@@ -105,6 +105,8 @@ export interface SupabaseRealtimeChannel {
  */
 export interface SupabaseClientInput {
   from(table: string): unknown;
+  /** Database functions, for a resource whose `source` is an `rpc`. Any real client's `rpc` fits. */
+  rpc?(fn: string, args?: Record<string, unknown>, options?: { count?: "exact" | "planned" | "estimated" }): unknown;
   /** Supabase Realtime, for `subscribe`. Any real client's `channel` fits. */
   channel?(name: string): unknown;
   removeChannel?(channel: unknown): unknown;
@@ -194,6 +196,35 @@ export interface SupabaseResourceConfig {
    * covers the resource.
    */
   realtime?: boolean;
+  /**
+   * Read this resource from somewhere else than its table: a view (joins,
+   * counts, aggregations) or a database function that returns rows. Writes
+   * still go to the table. Lists keep paging, filters, search, sort, totals
+   * and cursors, because PostgREST filters a view or a set-returning function
+   * like a table. Realtime still watches the table.
+   *
+   * Row-level security: a plain view runs as its owner and a SECURITY DEFINER
+   * function as its definer, so either one reads past RLS. Create the view
+   * `with (security_invoker = true)` and the function `security invoker` (or
+   * have it filter by `auth.uid()` itself), or this exposes every row.
+   *
+   * ```ts
+   * resources: {
+   *   tasks: { source: "tasks_with_people" },
+   *   course_progress: { source: { rpc: "group_progress", args: () => ({ group_id: currentGroup() }) } },
+   * }
+   * ```
+   */
+  source?: string | { rpc: string; args?: () => Record<string, unknown> };
+  /** The columns read when the caller names none, e.g. embedded joins: `"*, person:people(full_name)"`. Default `"*"`. */
+  select?: string;
+  /**
+   * With a `source` (or a `select` that embeds other tables), the table's own
+   * columns: creates and updates write only these, so a form built from the
+   * richer read row never sends its joined or computed columns to the table.
+   * Without it, an update writes only the columns the table's row has.
+   */
+  writeColumns?: readonly string[];
 }
 
 /** Options for `createSupabaseProvider`. All optional; none changes reads. */
@@ -464,6 +495,49 @@ export function createSupabaseProvider(
   // ---------------------------------------------------------------------------
 
   const from = (resource: string) => client.from(resource) as SupabaseQueryBuilder;
+
+  /** The relation PostgREST names in errors about a read of `resource`: its view, function or table. */
+  function readName(resource: string): string {
+    const source = configFor(resource).source;
+    return typeof source === "string" ? source : source ? source.rpc : resource;
+  }
+
+  /**
+   * The values a create or update sends to the table: with `writeColumns`,
+   * only those; for an update of a sourced resource without them, only the
+   * columns the table's row has, so read-only columns from a view never go out.
+   */
+  async function tableValues(
+    resource: string,
+    values: Record<string, unknown>,
+    id?: Identifier,
+  ): Promise<Record<string, unknown>> {
+    const config = configFor(resource);
+    if (config.writeColumns) {
+      const allowed = new Set(config.writeColumns);
+      return Object.fromEntries(Object.entries(values).filter(([key]) => allowed.has(key)));
+    }
+    if (!config.source || id === undefined) return values;
+    const row = await readBack(resource, id);
+    if (!row) return values;
+    return Object.fromEntries(Object.entries(values).filter(([key]) => key in row));
+  }
+
+  /** A read of `resource` from its configured source (table, view or function), with its default columns. */
+  function read(resource: string, columns: string | undefined, count?: "exact"): SupabaseQueryBuilder {
+    const config = configFor(resource);
+    const cols = columns ?? config.select ?? "*";
+    const source = config.source;
+    if (source && typeof source === "object") {
+      if (!client.rpc) {
+        throw new DataReadError("error", `[SupabaseProvider] "${resource}" reads from ${source.rpc}(), but the client has no rpc.`);
+      }
+      const builder = client.rpc(source.rpc, source.args?.() ?? {}, count ? { count } : undefined) as SupabaseQueryBuilder;
+      return builder.select(cols);
+    }
+    const table = client.from(source ?? resource) as SupabaseQueryBuilder;
+    return count ? table.select(cols, { count }) : table.select(cols);
+  }
   const configFor = (resource: string): SupabaseResourceConfig =>
     options.resources?.[resource] ?? {};
   const nounFor = (resource: string) => configFor(resource).noun ?? "record";
@@ -631,10 +705,7 @@ export function createSupabaseProvider(
       }
     }
 
-    let query = from(resource).select(
-      params.select ?? "*",
-      ...(cursor ? [] : [{ count: "exact" as const }]),
-    );
+    let query = read(resource, params.select, cursor ? undefined : "exact");
     query = applyFilters(query, params.filters);
     const search = searchClauses(resource, params);
     const keyset = after ? keysetClauses(after) : "";
@@ -703,10 +774,7 @@ export function createSupabaseProvider(
         return getCursorPage(resource, params, configuredKey === undefined ? "id" : configuredKey) as never;
       }
       const run = (key: string | false) => {
-        let query = (client.from(resource) as SupabaseQueryBuilder).select(
-          params.select ?? "*",
-          { count: "exact" },
-        );
+        let query = read(resource, params.select, "exact");
 
         query = applyFilters(query, params.filters);
 
@@ -748,7 +816,7 @@ export function createSupabaseProvider(
       // as before, without the key order, and is not ordered by it again.
       const guessKey = configuredKey === undefined && !keylessResources.has(resource);
       let result = await run(configuredKey ?? (keylessResources.has(resource) ? false : "id"));
-      if (guessKey && isMissingColumn(result.error, resource, "id")) {
+      if (guessKey && isMissingColumn(result.error, readName(resource), "id")) {
         keylessResources.add(resource);
         if (process.env.NODE_ENV !== "production") {
           console.warn(
@@ -763,8 +831,7 @@ export function createSupabaseProvider(
     },
 
     async getOne(resource, params) {
-      const result = (await (client.from(resource) as SupabaseQueryBuilder)
-        .select(params.select ?? "*")
+      const result = (await read(resource, params.select)
         .eq("id", params.id)
         .single()) as { data: unknown; error: unknown };
       await throwIfReadError(result, resource, "getOne");
@@ -773,8 +840,7 @@ export function createSupabaseProvider(
 
     async getMany(resource, params) {
       if (params.ids.length === 0) return { data: [] } as never;
-      const result = (await (client.from(resource) as SupabaseQueryBuilder)
-        .select("*")
+      const result = (await read(resource, undefined)
         .in("id", params.ids)) as { data: unknown[]; error: unknown };
       await throwIfReadError(result, resource, "getMany");
       return { data: result.data ?? [] } as never;
@@ -878,10 +944,10 @@ export function createSupabaseProvider(
     },
 
     async create(resource, params) {
-      const row = await prepare(resource, params.data as Record<string, unknown>, {
+      const row = await tableValues(
         resource,
-        action: "create",
-      });
+        await prepare(resource, params.data as Record<string, unknown>, { resource, action: "create" }),
+      );
       const override = configFor(resource).create;
       let record: BaseRecord;
       if (override) {
@@ -913,11 +979,11 @@ export function createSupabaseProvider(
 
     async update(resource, params) {
       const { id } = params;
-      const row = await prepare(resource, params.data as Record<string, unknown>, {
+      const row = await tableValues(
         resource,
-        action: "update",
+        await prepare(resource, params.data as Record<string, unknown>, { resource, action: "update", id }),
         id,
-      });
+      );
       const override = configFor(resource).update;
       let record: BaseRecord;
       if (override) {

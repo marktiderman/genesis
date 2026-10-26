@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { cycleProblems, requirementProblem } from "./graph";
 import { FEATURE_PLATFORMS, type FeaturePlatform } from "./platforms";
+import { statusOn } from "./status";
 
 /**
  * Where a feature is in its life. The order is the board's column order.
@@ -476,13 +477,8 @@ export interface FindOptions {
   status?: FeatureStatus;
 }
 
-/** A feature's status on one platform, or undefined when it isn't there. @stability Beta */
-export function statusOn(def: FeatureDef, platform: FeaturePlatform): FeatureStatus | undefined {
-  if (def.platforms) return def.platforms[platform];
-  // Registries often call the server "node" in `apps`.
-  const apps = def.apps.map((a) => (a === "node" ? "server" : a));
-  return apps.includes(platform) ? def.status : undefined;
-}
+// A feature's status on one platform: in its own zod-free file so the gate shares it.
+export { statusOn };
 
 /**
  * Features matching `term` in their id, aliases, name, keywords, summary,

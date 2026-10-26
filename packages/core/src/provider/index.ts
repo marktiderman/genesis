@@ -68,6 +68,17 @@ export {
   type DataReadErrorOptions,
 } from "../schema/read-outcome";
 
+// One-off writes
+export {
+  callRpc,
+  createOrAdopt,
+  DEFAULT_RPC_MESSAGES,
+  RPC_FAILED,
+  type RpcClient,
+  type CallRpcOptions,
+  type CreateOrAdoptOptions,
+} from "./write-helpers";
+
 // React context
 export {
   DataProviderRoot,

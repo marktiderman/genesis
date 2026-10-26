@@ -138,6 +138,9 @@ export async function expectRefused(
   write: Promise<unknown> | ((provider: DataProvider) => Promise<unknown>),
   options: ExpectRefusedOptions = {},
 ): Promise<DataWriteError> {
+  // A write promise may reject before an argument check below throws: mark it handled now
+  // (awaiting it later still sees the rejection).
+  if (typeof write !== "function") void write.catch(() => undefined);
   let attempt: Promise<unknown>;
   let control: (() => Promise<unknown>) | undefined;
   if (typeof write === "function") {
