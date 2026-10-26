@@ -1,0 +1,308 @@
+/**
+ * defineView: a contract plus what it means to people. Names are checked once, defaults come from
+ * the contract, and the result is frozen, so every platform draws the same view.
+ */
+import { describe, expect, expectTypeOf, it } from "vitest";
+
+import { csvField, exportCsv } from "../csv";
+import { defineView, deriveDisplay, ViewDefinitionError } from "../resource-view";
+import { defineResource, type ResourceContract } from "../schema/types";
+import { isSafeUrl } from "../urls";
+
+type BrandRow = {
+  id: string;
+  practice_id: string;
+  name: string;
+  status: "active" | "archived";
+  is_default: boolean;
+  website: string | null;
+  notes: string | null;
+  launched_on: string | null;
+  updated_at: string;
+  score: number;
+};
+
+const brands = {
+  name: "public.brands",
+  key: "id",
+  labelField: "name",
+  fields: [
+    { name: "id", type: "string", hasDefault: true },
+    { name: "practice_id", type: "string", references: { resource: "public.practices", field: "id" } },
+    { name: "name", type: "string", label: "Brand name" },
+    { name: "status", type: "string", enumValues: ["active", "archived"], hasDefault: true },
+    { name: "is_default", type: "boolean", hasDefault: true },
+    { name: "website", type: "string", widget: "url", nullable: true },
+    { name: "notes", type: "string", nullable: true, sensitive: true },
+    { name: "launched_on", type: "datetime", dbType: "date", nullable: true },
+    { name: "updated_at", type: "datetime", hasDefault: true, readOnly: true },
+    { name: "score", type: "number", generated: true },
+  ],
+} as const satisfies ResourceContract<BrandRow>;
+
+const row: BrandRow = {
+  id: "b1",
+  practice_id: "p1",
+  name: "Northwind",
+  status: "active",
+  is_default: true,
+  website: "https://example.com",
+  notes: "private",
+  launched_on: "2026-01-02",
+  updated_at: "2026-01-02T00:00:00Z",
+  score: 4,
+};
+
+describe("defineView defaults", () => {
+  const view = defineView<typeof brands, BrandRow>(brands);
+
+  it("names the resource from the contract", () => {
+    expect(view.resource).toBe("public.brands");
+    expect(view.noun).toBe("brand");
+    expect(view.nounPlural).toBe("brands");
+    expect(view.title).toBe("Brands");
+    expect(view.labelField).toBe("name");
+  });
+
+  it("derives labels and display hints", () => {
+    expect(view.label("name")).toBe("Brand name");
+    expect(view.label("launched_on")).toBe("Launched On");
+    expect(view.display("status")).toBe("badge");
+    expect(view.display("practice_id")).toBe("relation");
+    expect(view.display("website")).toBe("url");
+    expect(view.display("launched_on")).toBe("date");
+    expect(view.display("updated_at")).toBe("datetime");
+    expect(view.display("is_default")).toBe("boolean");
+    expect(deriveDisplay({ name: "x", type: "json" })).toBe("json");
+  });
+
+  it("leaves the key and sensitive fields out of the default columns", () => {
+    const keys = view.columns().map((c) => c.key);
+    expect(keys).not.toContain("id");
+    expect(keys).not.toContain("notes");
+    expect(keys).toContain("name");
+    expect(view.columns().find((c) => c.key === "name")!.value(row)).toBe("Northwind");
+  });
+
+  it("builds a form of writable fields only", () => {
+    const create = view.form("create").map((f) => f.field.name);
+    expect(create).not.toContain("id");
+    expect(create).not.toContain("score");
+    expect(create).not.toContain("updated_at");
+    expect(create).not.toContain("notes");
+    expect(view.form("create").find((f) => f.field.name === "name")!.required).toBe(true);
+    expect(view.form("create").find((f) => f.field.name === "status")!.required).toBe(false);
+    expect(view.form("edit").find((f) => f.field.name === "status")!.required).toBe(true);
+  });
+
+  it("summarises a row by its label field", () => {
+    expect(view.summary(row)).toEqual({ title: "Northwind" });
+    expect(view.summary({ ...row, name: "" }).title).toBe("Brand");
+  });
+
+  it("allows everything when the view has no guards", () => {
+    expect(view.can("create")).toBe(true);
+    expect(view.can("delete", row)).toBe(true);
+  });
+
+  it("is frozen", () => {
+    expect(Object.isFrozen(view)).toBe(true);
+    expect(Object.isFrozen(view.columns())).toBe(true);
+    expect(view.columns()).toBe(view.columns());
+  });
+});
+
+describe("defineView settings", () => {
+  const view = defineView<typeof brands, BrandRow>(brands, {
+    copy: { noun: "label", title: "Labels" },
+    scope: ["practice_id"],
+    fields: {
+      status: { tones: { active: "success", archived: "muted" } },
+      name: { max: 120, label: "Name" },
+      website: { visible: (v) => v["status"] === "active" },
+    },
+    columns: {
+      default: ["name", "status", { key: "initial", label: "Initial", value: (r) => r.name[0] }],
+      compact: ["name"],
+    },
+    presets: { archived: { label: "Archived", columns: "compact", filter: { status: "archived" } } },
+    form: ["name", { section: "web", fields: ["website", "status", "updated_at"] }],
+    can: { delete: (r) => (r.is_default ? "The default label stays." : true) },
+    summary: (r) => ({ title: r.name, chips: [{ label: r.status, tone: "success" }] }),
+  });
+
+  it("uses the view's words", () => {
+    expect(view.noun).toBe("label");
+    expect(view.nounPlural).toBe("labels");
+    expect(view.title).toBe("Labels");
+    expect(view.label("name")).toBe("Name");
+  });
+
+  it("resolves presets, computed columns and tones", () => {
+    expect(view.presets).toEqual(["default", "compact"]);
+    expect(view.columns("compact").map((c) => c.key)).toEqual(["name"]);
+    const [, status, initial] = view.columns();
+    expect(status!.tones).toEqual({ active: "success", archived: "muted" });
+    expect(initial!.value(row)).toBe("N");
+    expect(initial!.field).toBeUndefined();
+    expect(() => view.columns("wide")).toThrow(ViewDefinitionError);
+  });
+
+  it("lays out the form in sections, keeping read-only fields out of writes", () => {
+    const form = view.form("create");
+    expect(form.map((f) => [f.field.name, f.section])).toEqual([
+      ["name", null],
+      ["website", "web"],
+      ["status", "web"],
+      ["updated_at", "web"],
+    ]);
+    expect(form[1]!.sectionTitle).toBe("Web");
+    expect(form[0]!.max).toBe(120);
+    expect(form[1]!.visible!({ status: "archived" })).toBe(false);
+    expect(form[3]!.readOnly).toBe(true);
+    expect(view.writable("create")).toEqual(["name", "website", "status"]);
+  });
+
+  it("guards narrow with a reason", () => {
+    expect(view.can("delete", row)).toBe("The default label stays.");
+    expect(view.can("delete", { ...row, is_default: false })).toBe(true);
+    expect(view.can("update", row)).toBe(true);
+    expect(view.summary(row).chips).toHaveLength(1);
+  });
+});
+
+describe("defineView checks names", () => {
+  it("throws on a field, column, form entry or preset the contract doesn't have", () => {
+    const bad = () =>
+      defineView(brands, {
+        fields: { nope: { label: "x" } } as never,
+        columns: { default: ["name", "name", "missing" as never] },
+        form: ["name", "name"],
+        presets: { x: { columns: "wide" } },
+        groupBy: "gone" as never,
+      });
+    expect(bad).toThrow(ViewDefinitionError);
+    try {
+      bad();
+    } catch (error) {
+      const problems = (error as ViewDefinitionError).problems.join("\n");
+      expect(problems).toContain('fields names "nope"');
+      expect(problems).toContain('columns.default lists "name" twice');
+      expect(problems).toContain('columns.default names "missing"');
+      expect(problems).toContain('form lists "name" twice');
+      expect(problems).toContain('presets.x uses columns "wide"');
+      expect(problems).toContain('groupBy names "gone"');
+    }
+  });
+
+  it("rejects a computed column that shadows a field", () => {
+    expect(() => defineView(brands, { columns: { default: [{ key: "name", label: "N", value: () => 1 }] } })).toThrow(
+      /clashes with a field/,
+    );
+  });
+
+  it("reads the row type a generated contract carries", () => {
+    const typed = defineResource<BrandRow>()({ name: "public.brands", key: "id", labelField: "name", fields: brands.fields });
+    const view = defineView(typed, { can: { delete: (r) => (r.is_default ? "kept" : true) } });
+    expectTypeOf(view.summary).parameter(0).toEqualTypeOf<BrandRow>();
+    expect(view.can("delete", row)).toBe("kept");
+  });
+
+  it("types field names from the contract", () => {
+    expectTypeOf<Parameters<typeof defineView<typeof brands>>[1]>().not.toBeAny();
+    // @ts-expect-error: not a field of brands
+    const wrong = () => defineView(brands, { groupBy: "colour" });
+    expect(wrong).toThrow(ViewDefinitionError);
+  });
+});
+
+describe("defineView review fixes", () => {
+  it("leaves out fields the user can't read, and locks ones they can't update", () => {
+    const c = {
+      name: "notes",
+      key: "id",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "body", type: "string" },
+        { name: "payout", type: "number", permissions: { read: false, update: false } },
+        { name: "status", type: "string", permissions: { read: true, update: false } },
+      ],
+    } as const satisfies ResourceContract;
+    const v = defineView(c, { columns: { default: ["body", "payout", "status"] }, form: ["body", "payout", "status"] });
+    expect(v.columns().map((x) => x.key)).toEqual(["body", "status"]);
+    expect(v.form("edit").map((f) => f.field.name)).toEqual(["body", "status"]);
+    expect(v.writable("edit")).toEqual(["body"]);
+  });
+
+  it("keeps links, scope and JSON out of defaults, keeps a typed key, and never sends a server-filled key", () => {
+    const c = {
+      name: "codes",
+      key: "code",
+      fields: [
+        { name: "code", type: "string" },
+        { name: "owner_id", type: "string", references: { resource: "users", field: "id" } },
+        { name: "meta", type: "json", nullable: true },
+        { name: "note", type: "string", optional: true },
+      ],
+    } as const satisfies ResourceContract;
+    const v = defineView(c);
+    expect(v.columns().map((x) => x.key)).toEqual(["meta", "note"]);
+    expect(v.writable("create")).toEqual(["code", "note"]);
+    expect(v.writable("edit")).toEqual(["note"]);
+    expect(v.form("create").find((f) => f.field.name === "note")!.required).toBe(false);
+    const listed = defineView<typeof brands, BrandRow>(brands, { form: ["id", "name"] });
+    expect(listed.writable("create")).toEqual(["name"]);
+  });
+
+  it("guesses common singulars", () => {
+    const guess = (name: string) => defineView({ name, key: "id", fields: [{ name: "id", type: "string" }] }).noun;
+    expect(["statuses", "series", "addresses", "boxes", "movies", "categories", "classes", "tasks", "people", "work_items"].map(guess)).toEqual([
+      "status", "series", "address", "box", "movie", "category", "class", "task", "person", "work item",
+    ]);
+  });
+
+  it("is deeply frozen: changing what was passed in changes nothing", () => {
+    const def = { columns: { default: ["name"] as string[] } };
+    const v = defineView<typeof brands, BrandRow>(brands, def as never);
+    def.columns.default.push("nope");
+    expect(v.columns().map((c) => c.key)).toEqual(["name"]);
+    expect(Object.isFrozen(v.definition.columns!.default)).toBe(true);
+    expect(Object.isFrozen(v.form("create"))).toBe(true);
+    expect(v.form("create")).toBe(v.form("create"));
+  });
+
+  it("never resolves a preset from Object.prototype", () => {
+    expect(() => defineView(brands, { presets: { x: { columns: "toString" } } })).toThrow(ViewDefinitionError);
+    expect(() => defineView(brands).columns("toString")).toThrow(ViewDefinitionError);
+  });
+});
+
+describe("helpers moved into core", () => {
+  it("isSafeUrl accepts http(s), mailto, tel and relative links only", () => {
+    expect(isSafeUrl("https://example.com")).toBe(true);
+    expect(isSafeUrl("/lessons/1")).toBe(true);
+    expect(isSafeUrl("javascript:alert(1)")).toBe(false);
+    expect(isSafeUrl("java\tscript:alert(1)")).toBe(false);
+    expect(isSafeUrl("//evil.example")).toBe(false);
+  });
+
+  it("exportCsv passes the search's fields and an explicit select to the provider", async () => {
+    const calls: unknown[] = [];
+    const provider = {
+      getList: async (_r: string, params: unknown) => {
+        calls.push(params);
+        return { data: [{ name: "a" }], total: 1 };
+      },
+    } as never;
+    await exportCsv({ provider, resource: "brands", fields: [{ name: "name", type: "string" }], sorts: [], filters: [], search: "a", searchFields: ["name"], select: "name" });
+    expect(calls[0]).toMatchObject({ search: { query: "a", fields: ["name"] }, select: "name" });
+  });
+
+  it("csvField neutralises formulas, including after leading spaces", () => {
+    expect(csvField("=1+1")).toBe("'=1+1");
+    expect(csvField("  =HYPERLINK(1)")).toBe("'  =HYPERLINK(1)");
+    expect(csvField("\t@x")).toBe("'\t@x");
+    expect(csvField("-5")).toBe("-5");
+    expect(csvField("plain")).toBe("plain");
+  });
+});
