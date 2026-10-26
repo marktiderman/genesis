@@ -707,6 +707,22 @@ export const features = defineFeatures({
       docs: ["docs/APP-CI.md"],
     },
   },
+  "agent-rules": {
+    name: "Agent rules of engagement",
+    summary: "How agent sessions and the owner work together: who owns what, how work is claimed, verified, reviewed and shipped through staging batches, each rule marked agreed, reported, practice or proposed.",
+    category: "Tooling",
+    status: "building",
+    horizon: "now",
+    claimedBy: "compass",
+    layer: "tool",
+    keywords: ["agents", "rules of engagement", "process", "claims", "review", "staging batch", "team"],
+    owner: "compass",
+    apps: ["cli"],
+    audience: ["developer"],
+    visibility: "internal",
+    reviewedAt: "2026-10-25",
+    links: { code: ["packages/agents"] },
+  },
   // Product system: @marktiderman/genesis-product, used on this repo first
   "product-roadmap": {
     name: "Product board",
