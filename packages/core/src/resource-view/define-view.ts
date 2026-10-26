@@ -69,11 +69,33 @@ export function deriveDisplay(field: FieldSchema): DisplayHint {
   return "text";
 }
 
-function singular(word: string): string {
-  if (/ies$/.test(word)) return `${word.slice(0, -3)}y`;
-  if (/(ss|us)$/.test(word) || !word.endsWith("s")) return word;
-  return word.slice(0, -1);
+// Plurals whose singular the rules below would get wrong.
+const SAME_OR_IRREGULAR: Readonly<Record<string, string>> = {
+  series: "series",
+  species: "species",
+  movies: "movie",
+  cookies: "cookie",
+  ties: "tie",
+  pies: "pie",
+  people: "person",
+};
+
+/** A table name's singular, for the default noun. A wrong guess is fixed with `@genesis {"noun"}`. */
+export function singular(word: string): string {
+  const last = word.split(" ").pop()!;
+  const head = word.slice(0, word.length - last.length);
+  const lower = last.toLowerCase();
+  const one = (s: string) => head + s;
+  if (SAME_OR_IRREGULAR[lower]) return one(SAME_OR_IRREGULAR[lower]!);
+  if (/[^aeiou]ies$/.test(lower)) return one(`${last.slice(0, -3)}y`);
+  // statuses, addresses, boxes, matches, wishes, quizzes
+  if (/(?:s|x|z|ch|sh)es$/.test(lower)) return one(last.slice(0, -2));
+  if (/(?:ss|us|is)$/.test(lower) || !lower.endsWith("s")) return word;
+  return one(last.slice(0, -1));
 }
+
+const own = <V>(record: Readonly<Record<string, V>> | undefined, key: string): V | undefined =>
+  record && Object.hasOwn(record, key) ? record[key] : undefined;
 
 /**
  * Describe what a resource means to people. The result is frozen and platform-neutral:
@@ -99,8 +121,26 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   const byName = new Map(fields.map((f) => [f.name, f]));
   const keys = new Set(keyFields(contract));
   const scope = new Set<string>(definition.scope ?? []);
-  const viewFields = (definition.fields ?? {}) as Readonly<Record<string, NonNullable<ViewDefinition<C, Row>["fields"]>[never]>>;
-  const columnLists = (definition.columns ?? {}) as Readonly<Record<string, readonly (string | ComputedColumn<Row>)[] | undefined>>;
+  // Copied and frozen, so changing the objects passed in can't change the view afterwards.
+  const viewFields = Object.freeze(
+    Object.fromEntries(Object.entries(definition.fields ?? {}).map(([k, v]) => [k, Object.freeze({ ...(v as object) })])),
+  ) as Readonly<Record<string, NonNullable<ViewDefinition<C, Row>["fields"]>[never]>>;
+  const columnLists = Object.freeze(
+    Object.fromEntries(
+      Object.entries(definition.columns ?? {}).map(([k, list]) => [
+        k,
+        Object.freeze((list ?? []).map((c) => (typeof c === "string" ? c : Object.freeze({ ...c })))),
+      ]),
+    ),
+  ) as Readonly<Record<string, readonly (string | ComputedColumn<Row>)[] | undefined>>;
+  const formItems = Object.freeze(
+    (definition.form ?? []).map((item) => (typeof item === "string" ? item : Object.freeze({ ...item, fields: Object.freeze([...item.fields]) }))),
+  );
+  const presets = Object.freeze(
+    Object.fromEntries(
+      Object.entries(definition.presets ?? {}).map(([k, p]) => [k, Object.freeze({ ...p, ...(p.filter ? { filter: Object.freeze({ ...p.filter }) } : {}) })]),
+    ),
+  ) as NonNullable<ViewDefinition<C, Row>["presets"]>;
 
   // ── Check every name once ────────────────────────────────────────────
   const problems: string[] = [];
@@ -119,7 +159,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     }
   }
   const formSeen = new Set<string>();
-  for (const item of definition.form ?? []) {
+  for (const item of formItems) {
     for (const name of typeof item === "string" ? [item] : item.fields) {
       known(name, "form");
       if (formSeen.has(name)) problems.push(`form lists "${name}" twice`);
@@ -129,8 +169,8 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   for (const name of scope) known(name, "scope");
   if (definition.groupBy) known(definition.groupBy, "groupBy");
   if (definition.orderBy) known(definition.orderBy.field, "orderBy");
-  for (const [name, preset] of Object.entries(definition.presets ?? {})) {
-    if (preset.columns && preset.columns !== "default" && !columnLists[preset.columns]) {
+  for (const [name, preset] of Object.entries(presets)) {
+    if (preset.columns && preset.columns !== "default" && !own(columnLists, preset.columns)) {
       problems.push(`presets.${name} uses columns "${preset.columns}", which isn't defined`);
     }
     for (const field of Object.keys(preset.filter ?? {})) known(field, `presets.${name}.filter`);
@@ -164,29 +204,35 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   const title = copy.title ?? facts.label ?? titleCase(nounPlural);
   const labelField = facts.labelField ?? fields.find((f) => /^(name|title|label|full_name|display_name)$/.test(f.name))?.name;
 
-  const label = (name: string): string => viewFields[name]?.label ?? byName.get(name)?.label ?? titleCase(name);
+  const label = (name: string): string => own(viewFields, name)?.label ?? byName.get(name)?.label ?? titleCase(name);
   const display = (name: string): DisplayHint => {
     const field = byName.get(name);
-    return viewFields[name]?.display ?? (field ? deriveDisplay(field) : "text");
+    return own(viewFields, name)?.display ?? (field ? deriveDisplay(field) : "text");
   };
-  const readOnly = (field: FieldFacts) => Boolean(field.generated || field.readOnly || viewFields[field.name]?.readOnly);
+  // A field the provider says this user can't read is left out everywhere, even when listed.
+  const readable = (name: string) => byName.get(name)?.permissions?.read !== false;
+  const readOnly = (field: FieldFacts) =>
+    Boolean(field.generated || field.readOnly || field.permissions?.update === false || own(viewFields, field.name)?.readOnly);
+  // Left out of defaults (a view still lists them on purpose): the key, scope (tenant) columns,
+  // sensitive values, and links, which need a picker rather than a raw id.
+  const quiet = (f: FieldFacts) => keys.has(f.name) || scope.has(f.name) || Boolean(f.sensitive) || Boolean(f.references);
 
   // ── Columns ──────────────────────────────────────────────────────────
   const defaultColumns: readonly (string | ComputedColumn<Row>)[] =
-    columnLists["default"] ?? fields.filter((f) => !f.sensitive && !keys.has(f.name)).map((f) => f.name);
+    own(columnLists, "default") ?? fields.filter((f) => !quiet(f)).map((f) => f.name);
   const presetNames = Object.freeze(["default", ...Object.keys(columnLists).filter((p) => p !== "default")]);
   const resolvedColumns = new Map<string, readonly ResolvedColumn<Row>[]>();
   const columns = (preset = "default"): readonly ResolvedColumn<Row>[] => {
     const cached = resolvedColumns.get(preset);
     if (cached) return cached;
-    const list = preset === "default" ? defaultColumns : columnLists[preset];
+    const list = preset === "default" ? defaultColumns : own(columnLists, preset);
     if (!list) throw new ViewDefinitionError(contract.name, [`no column preset "${preset}"`]);
     const out = Object.freeze(
-      list.map((column): ResolvedColumn<Row> => {
+      list.filter((column) => typeof column !== "string" || readable(column)).map((column): ResolvedColumn<Row> => {
         if (typeof column !== "string") {
           return Object.freeze({ key: column.key, label: column.label, display: column.display ?? "text", value: column.value });
         }
-        const v = viewFields[column];
+        const v = own(viewFields, column);
         return Object.freeze({
           key: column,
           label: label(column),
@@ -206,34 +252,44 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   // ── Form ─────────────────────────────────────────────────────────────
   type Placed = { name: string; section: string | null; sectionTitle: string | null };
   const placed: readonly Placed[] = definition.form
-    ? definition.form.flatMap((item): Placed[] =>
+    ? formItems.flatMap((item): Placed[] =>
         typeof item === "string"
           ? [{ name: item, section: null, sectionTitle: null }]
           : item.fields.map((name) => ({ name, section: item.section, sectionTitle: item.title ?? titleCase(item.section) })),
       )
     : fields
-        .filter((f) => !f.generated && !f.readOnly && !f.sensitive && !scope.has(f.name) && !(keys.has(f.name) && f.hasDefault))
+        // JSON needs an editor of its own, so it is never in a derived form.
+        // A key the person types (a code, a slug) stays; one the server fills doesn't.
+        .filter((f) => !readOnly(f) && (!quiet(f) || (keys.has(f.name) && !f.hasDefault && !f.sensitive)) && f.type !== "json" && !f.array)
         .map((f): Placed => ({ name: f.name, section: null, sectionTitle: null }));
-  const form = (mode: "create" | "edit"): readonly ResolvedFormField[] =>
-    placed
-      .filter(({ name }) => !scope.has(name) && !(mode === "edit" && keys.has(name)))
+  // A key the server fills (a default) is never sent on create; no key is sent on edit.
+  const serverKey = (f: FieldFacts, mode: "create" | "edit") => keys.has(f.name) && (mode === "edit" || Boolean(f.hasDefault));
+  const resolvedForms = new Map<string, readonly ResolvedFormField[]>();
+  const form = (mode: "create" | "edit"): readonly ResolvedFormField[] => {
+    const cached = resolvedForms.get(mode);
+    if (cached) return cached;
+    const out = Object.freeze(placed
+      .filter(({ name }) => !scope.has(name) && readable(name) && !serverKey(byName.get(name)!, mode))
       .map(({ name, section, sectionTitle }) => {
         const field = byName.get(name)!;
-        const v = viewFields[name];
+        const v = own(viewFields, name);
         const locked = readOnly(field);
         return Object.freeze({
           field,
           label: label(name),
           display: display(name),
-          required: !locked && !field.nullable && (mode === "edit" || !field.hasDefault),
+          required: !locked && !field.nullable && !field.optional && (mode === "edit" || !field.hasDefault),
           readOnly: locked,
           section,
           sectionTitle,
           ...(v?.max !== undefined ? { max: v.max } : {}),
           ...(v?.visible ? { visible: v.visible } : {}),
         });
-      });
-  const writable = (mode: "create" | "edit") => form(mode).filter((f) => !f.readOnly).map((f) => f.field.name);
+      }));
+    resolvedForms.set(mode, out);
+    return out;
+  };
+  const writable = (mode: "create" | "edit") => Object.freeze(form(mode).filter((f) => !f.readOnly).map((f) => f.field.name));
 
   // ── Guards and summary ───────────────────────────────────────────────
   const guards = definition.can ?? {};
@@ -265,7 +321,14 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
 
   return Object.freeze({
     contract,
-    definition: Object.freeze({ ...definition }),
+    definition: Object.freeze({
+      ...definition,
+      fields: viewFields,
+      columns: columnLists,
+      presets,
+      ...(definition.form ? { form: formItems } : {}),
+      ...(definition.scope ? { scope: Object.freeze([...definition.scope]) } : {}),
+    }) as Readonly<ViewDefinition<C, Row>>,
     resource: contract.name,
     noun,
     nounPlural,

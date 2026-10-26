@@ -32,6 +32,13 @@ export interface ExportOptions {
   sorts: SortParam[];
   filters: FilterParam[];
   search?: string;
+  /** Columns the search matches. Without them a provider may skip the search, so pass the list's. */
+  searchFields?: string[];
+  /**
+   * What to read, in the provider's select syntax. Pass only the exported columns so nothing else
+   * leaves the database for the file. Default: the provider's own select for the resource.
+   */
+  select?: string;
   /** Stop after this many rows. Default 10 000. */
   maxRows?: number;
   onProgress?: (rows: number) => void;
@@ -48,7 +55,8 @@ export async function exportCsv(options: ExportOptions): Promise<{ csv: string; 
       sort: options.sorts[0],
       sorts: options.sorts,
       filters: options.filters,
-      ...(options.search ? { search: { query: options.search, fields: [] } } : {}),
+      ...(options.select ? { select: options.select } : {}),
+      ...(options.search ? { search: { query: options.search, fields: options.searchFields ?? [] } } : {}),
     });
     rows.push(...(result.data as Record<string, unknown>[]));
     options.onProgress?.(rows.length);

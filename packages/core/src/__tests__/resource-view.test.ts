@@ -4,7 +4,7 @@
  */
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { csvField } from "../csv";
+import { csvField, exportCsv } from "../csv";
 import { defineView, deriveDisplay, ViewDefinitionError } from "../resource-view";
 import { defineResource, type ResourceContract } from "../schema/types";
 import { isSafeUrl } from "../urls";
@@ -216,6 +216,67 @@ describe("defineView checks names", () => {
   });
 });
 
+describe("defineView review fixes", () => {
+  it("leaves out fields the user can't read, and locks ones they can't update", () => {
+    const c = {
+      name: "notes",
+      key: "id",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "body", type: "string" },
+        { name: "payout", type: "number", permissions: { read: false, update: false } },
+        { name: "status", type: "string", permissions: { read: true, update: false } },
+      ],
+    } as const satisfies ResourceContract;
+    const v = defineView(c, { columns: { default: ["body", "payout", "status"] }, form: ["body", "payout", "status"] });
+    expect(v.columns().map((x) => x.key)).toEqual(["body", "status"]);
+    expect(v.form("edit").map((f) => f.field.name)).toEqual(["body", "status"]);
+    expect(v.writable("edit")).toEqual(["body"]);
+  });
+
+  it("keeps links, scope and JSON out of defaults, keeps a typed key, and never sends a server-filled key", () => {
+    const c = {
+      name: "codes",
+      key: "code",
+      fields: [
+        { name: "code", type: "string" },
+        { name: "owner_id", type: "string", references: { resource: "users", field: "id" } },
+        { name: "meta", type: "json", nullable: true },
+        { name: "note", type: "string", optional: true },
+      ],
+    } as const satisfies ResourceContract;
+    const v = defineView(c);
+    expect(v.columns().map((x) => x.key)).toEqual(["meta", "note"]);
+    expect(v.writable("create")).toEqual(["code", "note"]);
+    expect(v.writable("edit")).toEqual(["note"]);
+    expect(v.form("create").find((f) => f.field.name === "note")!.required).toBe(false);
+    const listed = defineView<typeof brands, BrandRow>(brands, { form: ["id", "name"] });
+    expect(listed.writable("create")).toEqual(["name"]);
+  });
+
+  it("guesses common singulars", () => {
+    const guess = (name: string) => defineView({ name, key: "id", fields: [{ name: "id", type: "string" }] }).noun;
+    expect(["statuses", "series", "addresses", "boxes", "movies", "categories", "classes", "tasks", "people", "work_items"].map(guess)).toEqual([
+      "status", "series", "address", "box", "movie", "category", "class", "task", "person", "work item",
+    ]);
+  });
+
+  it("is deeply frozen: changing what was passed in changes nothing", () => {
+    const def = { columns: { default: ["name"] as string[] } };
+    const v = defineView<typeof brands, BrandRow>(brands, def as never);
+    def.columns.default.push("nope");
+    expect(v.columns().map((c) => c.key)).toEqual(["name"]);
+    expect(Object.isFrozen(v.definition.columns!.default)).toBe(true);
+    expect(Object.isFrozen(v.form("create"))).toBe(true);
+    expect(v.form("create")).toBe(v.form("create"));
+  });
+
+  it("never resolves a preset from Object.prototype", () => {
+    expect(() => defineView(brands, { presets: { x: { columns: "toString" } } })).toThrow(ViewDefinitionError);
+    expect(() => defineView(brands).columns("toString")).toThrow(ViewDefinitionError);
+  });
+});
+
 describe("helpers moved into core", () => {
   it("isSafeUrl accepts http(s), mailto, tel and relative links only", () => {
     expect(isSafeUrl("https://example.com")).toBe(true);
@@ -223,6 +284,18 @@ describe("helpers moved into core", () => {
     expect(isSafeUrl("javascript:alert(1)")).toBe(false);
     expect(isSafeUrl("java\tscript:alert(1)")).toBe(false);
     expect(isSafeUrl("//evil.example")).toBe(false);
+  });
+
+  it("exportCsv passes the search's fields and an explicit select to the provider", async () => {
+    const calls: unknown[] = [];
+    const provider = {
+      getList: async (_r: string, params: unknown) => {
+        calls.push(params);
+        return { data: [{ name: "a" }], total: 1 };
+      },
+    } as never;
+    await exportCsv({ provider, resource: "brands", fields: [{ name: "name", type: "string" }], sorts: [], filters: [], search: "a", searchFields: ["name"], select: "name" });
+    expect(calls[0]).toMatchObject({ search: { query: "a", fields: ["name"] }, select: "name" });
   });
 
   it("csvField neutralises formulas, including after leading spaces", () => {
