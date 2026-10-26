@@ -319,3 +319,27 @@ describe("defineWorkspace checks", () => {
   });
 });
 
+
+describe("defineWorkspace with viewer-aware guards", () => {
+  type Who = { teamRoles?: readonly string[] };
+  const isEditor = (v: { roles?: object }) => ((v.roles as Who | undefined)?.teamRoles ?? []).includes("editor");
+  const view = defineView(brands, {
+    can: { update: (_b, v) => (isEditor(v) ? true : "Only editors change settings.") },
+    actions: [{ name: "publish", label: "Publish", can: (_b, v) => (v.id ? true : "Sign in to publish.") }],
+  });
+  const workspace = defineWorkspace(view, { sections: [{ id: "settings", label: "Settings", settings: ["name"] }] });
+  const brand: Brand = { id: "b1", name: "North", website: null, is_default: false, public: true, updated_at: "2026-01-01T00:00:00Z" };
+  const ann = { id: "ann", scope: {}, roles: { teamRoles: ["editor"] } as never };
+  const bob = { id: "bob", scope: {}, roles: { teamRoles: ["reader"] } as never };
+
+  it("locks settings for one viewer and not another, and for no viewer", () => {
+    expect(workspace.settingsLocked(brand, bob)).toBe("Only editors change settings.");
+    expect(workspace.settingsLocked(brand, ann)).toBeNull();
+    expect(workspace.settingsLocked(brand)).toBe("Only editors change settings.");
+  });
+
+  it("asks header action guards with the viewer", () => {
+    expect(workspace.headerFor(brand, { viewer: bob }).actions[0]!.allowed).toBe(true);
+    expect(workspace.headerFor(brand).actions[0]!.allowed).toBe("Sign in to publish.");
+  });
+});

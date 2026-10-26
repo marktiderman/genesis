@@ -1598,7 +1598,7 @@
         },
         {
           "name": "useDisplayCell",
-          "summary": "Draw one value: the empty mark for no value or a value the row hides (`when`), else its hint's renderer.",
+          "summary": "Draw one value: the empty mark for no value or a value the row (or viewer) hides (`when`), else its hint's renderer.",
           "props": []
         },
         {
@@ -3086,7 +3086,7 @@
         },
         {
           "name": "allowed",
-          "summary": "The effective right: the screen's rule AND the view's guard (never OR).",
+          "summary": "The effective right: the screen's rule AND the view's guard (never OR). The guard gets the\nviewer (`useViewer()`); without one it gets no one, so a guard that needs it refuses.",
           "props": []
         },
         {
@@ -6903,14 +6903,14 @@
             },
             {
               "name": "can",
-              "type": "{ (action: \"create\"): Allowed; (action: \"update\" | \"delete\", row: T & DataRow): Allowed; }",
+              "type": "{ (action: \"create\", viewer?: Viewer | undefined): Allowed; (action: \"update\" | \"delete\", row: T & DataRow, viewer?: Viewer | undefined): Allowed; }",
               "required": true,
               "defaultValue": null,
-              "description": ""
+              "description": "Whether the view's guard allows it for this viewer: `true`, or the guard's reason. Without a\nviewer, guards get `NO_VIEWER` (no one), so one that needs the viewer refuses."
             },
             {
               "name": "canAction",
-              "type": "(name: string, row: T & DataRow) => Allowed",
+              "type": "(name: string, row: T & DataRow, viewer?: Viewer | undefined) => Allowed",
               "required": true,
               "defaultValue": null,
               "description": "Whether this row allows the named action: `true`, or the guard's reason. Only narrows what the\nserver allows. Throws {@link ViewDefinitionError} for a name the view doesn't define."
@@ -12127,7 +12127,7 @@
         },
         {
           "name": "useDisplayCell",
-          "summary": "Draw one cell: the empty mark for no value or a cell the row hides (`when`), else its hint's renderer.",
+          "summary": "Draw one cell: the empty mark for no value or a cell the row (or viewer) hides (`when`), else its hint's renderer.",
           "props": []
         },
         {

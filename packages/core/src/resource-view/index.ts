@@ -29,10 +29,8 @@ export type {
   ViewTone,
   Viewer,
 } from "./types";
-<<<<<<< HEAD
 export { NO_VIEWER } from "../viewer";
 export type { GenesisViewerRoles } from "../viewer";
-=======
 export { defineWorkspace, isWorkspace } from "./workspace";
 export type {
   ResolvedReadinessItem,
@@ -49,4 +47,3 @@ export type {
   WorkspaceSettingsSection,
   WorkspaceSlotSection,
 } from "./workspace";
->>>>>>> origin/prestage/resource-view

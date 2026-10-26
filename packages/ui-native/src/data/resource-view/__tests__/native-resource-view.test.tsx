@@ -38,8 +38,10 @@ import {
   DataWriteError,
   defineResource,
   GenesisProvider,
+  ViewerScope,
   type DataProvider,
   type ListParams,
+  type Viewer,
 } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
 import {
@@ -280,6 +282,45 @@ describe("guards to swipe actions", () => {
       row.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "delete" }));
     });
     expect(alert).toHaveBeenLastCalledWith("Delete", "The default brand stays.");
+  });
+});
+
+describe("viewer-aware guards", () => {
+  const handlers = () => ({ onEdit: vi.fn(), onDelete: vi.fn(), onRefused: vi.fn() });
+  const isEditor = (v: Viewer) => ((v.roles as { teamRoles?: readonly string[] } | undefined)?.teamRoles ?? []).includes("editor");
+  const guarded = defineView(brands, {
+    form: ["name"],
+    can: {
+      create: (v) => (isEditor(v) ? true : "Only editors add brands."),
+      update: (_r, v) => (isEditor(v) ? true : "Only editors edit brands."),
+    },
+  });
+  const ann: Viewer = { id: "ann", scope: {}, roles: { teamRoles: ["editor"] } as never };
+  const bob: Viewer = { id: "bob", scope: {}, roles: { teamRoles: ["reader"] } as never };
+
+  it("refuses one viewer's swipe and allows another's; no viewer refuses", () => {
+    const edit = (viewer?: Viewer) =>
+      swipeActionsFor(guarded, ROWS[1]!, { messages, softDelete: false, editable: true, ...(viewer ? { viewer } : {}), ...handlers() }).find(
+        (a) => a.id === "edit",
+      )!.reason;
+    expect(edit(bob)).toBe("Only editors edit brands.");
+    expect(edit(ann)).toBeUndefined();
+    expect(edit()).toBe("Only editors edit brands.");
+  });
+
+  it("reads the viewer from ViewerScope for create, and fails closed without one", async () => {
+    const at = (viewer?: string, roles?: { teamRoles: string[] }) => {
+      const Base = wrap(provider());
+      return ({ children }: { children: ReactNode }) => (
+        <Base>{viewer ? <ViewerScope viewer={viewer} roles={roles as never}>{children}</ViewerScope> : children}</Base>
+      );
+    };
+    const editor = renderHook(() => useNativeResourceView(guarded), { wrapper: at("ann", { teamRoles: ["editor"] }) });
+    await waitFor(() => expect(editor.result.current.canCreate).toBe(true));
+    const reader = renderHook(() => useNativeResourceView(guarded), { wrapper: at("bob", { teamRoles: ["reader"] }) });
+    await waitFor(() => expect(reader.result.current.canCreate).toBe("Only editors add brands."));
+    const nobody = renderHook(() => useNativeResourceView(guarded), { wrapper: at() });
+    expect(nobody.result.current.canCreate).toBe("Only editors add brands.");
   });
 });
 

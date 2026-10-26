@@ -337,16 +337,12 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   );
   function canAction(name: string, row: Row, viewer: Viewer = NO_VIEWER): Allowed {
     if (!actionGuards.has(name)) throw new ViewDefinitionError(contract.name, [`no action "${name}"`]);
-<<<<<<< HEAD
-    return actionGuards.get(name)?.(row, viewer) ?? true;
-=======
     const guard = actionGuards.get(name);
     if (!guard) return true;
-    const result: unknown = guard(row);
+    const result: unknown = guard(row, viewer);
     // Only `true` allows; a reason is shown as given; anything else (false, "", undefined) refuses.
     if (result === true) return true;
     return typeof result === "string" && result.trim() ? result : "This isn't allowed.";
->>>>>>> origin/prestage/resource-view
   }
   const summary = (row: Row): RowSummary => {
     if (definition.summary) return definition.summary(row);
