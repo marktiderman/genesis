@@ -84,6 +84,7 @@ describe("notificationsDeliver", () => {
       title: "Cohort 4",
       body: "Ana: see you at 6",
       url: "/messages/c1",
+      push: { ids: { conversationId: "c1", messageId: "m1", seq: 42, senderId: "ana" }, display: {}, mutableContent: false },
     });
 
     const rpc = vi.fn(async (_fn: string, _args: Record<string, unknown>) => ({ data: [], error: null }));
