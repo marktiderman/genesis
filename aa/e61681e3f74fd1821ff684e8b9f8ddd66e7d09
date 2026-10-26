@@ -1,0 +1,19 @@
+packages/forms-studio/src/generic/ShareDialog.tsx
+  s_03a3816737bc07::t_00290d5033f342 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aae61681e3f74fd1821ff684e8b9f8ddd66e7d09",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
