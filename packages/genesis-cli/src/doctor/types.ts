@@ -66,7 +66,13 @@ export interface PatternRule {
 export type PluginSpec = string | [string, unknown];
 
 /** An opt-in rule pack. */
-export type DoctorPack = "native" | "supabase";
+export type DoctorPack = "native" | "supabase" | "packages";
+
+/** Settings for the `packages` pack (the app's local packages). */
+export interface PackagesPackConfig {
+  /** The git ref the change gate compares against when `--base` isn't given. No default: without one the gate is skipped (info). */
+  base?: string;
+}
 
 /** Settings for the `native` pack. */
 export interface NativePackConfig {
@@ -96,6 +102,7 @@ export interface DoctorConfig {
   packs?: DoctorPack[];
   native?: NativePackConfig;
   supabase?: SupabasePackConfig;
+  packages?: PackagesPackConfig;
   /** Folders to scan, relative to the app root. Default `["src"]` (`["app", "src", "components"]` with the native pack). */
   src?: string[];
   /** File extensions to scan. Default `.ts .tsx .js .jsx .mts .cts .css`. */
@@ -198,6 +205,8 @@ export interface DoctorContext {
   files: readonly SourceFile[];
   genesis: GenesisFacts;
   config: DoctorConfig;
+  /** The git ref change checks compare against (`--base`), when given. */
+  base?: string;
   /** Record a finding. Config `rules` levels and `allow` entries apply afterwards. */
   report(finding: FindingInput): void;
 }

@@ -2,10 +2,11 @@
 
 <!-- What changed, and why. Link an issue if there is one. -->
 
-## Reuse check
+## Reuse check (the Genesis way: reuse, then extend, then invent)
 
-<!-- Did you check docs/component-reference.md for something that already does this?
-     If you're adding rather than extending, say why reuse/extend didn't fit. -->
+<!-- Did you check docs/component-reference.md and `genesis features find` for something that
+     already does this? If you're inventing rather than reusing or extending, say why they didn't
+     fit, and whether it should live in an app first (docs/FRAMEWORK.md, Part 1, G1–G6). -->
 
 ## Changeset
 

@@ -184,7 +184,8 @@ program
   .option("-c, --config <path>", "Config file (default: genesis.config.json, then package.json \"genesis\")")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--print-genesis", "Print the components, tokens and raw tags read from Genesis, and exit", false)
-  .action(async (opts: { strict: boolean; json: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean }) => {
+  .option("--base <ref>", "The git ref change checks compare against (the packages pack's change gate), e.g. origin/main")
+  .action(async (opts: { strict: boolean; json: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean; base?: string }) => {
     const doctor = await import("./doctor/index.js");
     const root = path.resolve(opts.dir);
     try {
@@ -193,7 +194,7 @@ program
         console.log(JSON.stringify(doctor.genesisSummary(doctor.loadGenesis(root, config)), null, 2));
         return;
       }
-      const result = await doctor.runDoctor({ root, configPath: opts.config, strict: opts.strict, build: opts.build, quietBuild: opts.json });
+      const result = await doctor.runDoctor({ root, configPath: opts.config, strict: opts.strict, build: opts.build, quietBuild: opts.json, ...(opts.base ? { base: opts.base } : {}) });
       console.log(opts.json ? JSON.stringify(doctor.toJson(result), null, 2) : doctor.formatReport(result));
       process.exitCode = result.ok ? 0 : 1;
     } catch (err) {

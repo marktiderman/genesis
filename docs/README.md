@@ -1,8 +1,10 @@
 # Genesis docs
 
-- [`FRAMEWORK.md`](./FRAMEWORK.md) — the layered contract (tokens → primitives → patterns →
-  layouts → data-bound) that decides what belongs in Genesis and what doesn't. Read this
-  before proposing a new component.
+- [`FRAMEWORK.md`](./FRAMEWORK.md) — **The Genesis Way.** Part 1: why Genesis exists and how
+  we decide where code goes (reuse, then extend, then invent; config vs custom code; how an
+  invention moves up into Genesis). Part 2: the layered contract (tokens → primitives →
+  patterns → layouts → data-bound) that decides what belongs in Genesis and what doesn't.
+  Read this before building anything.
 - [`component-reference.md`](./component-reference.md) — auto-generated catalogue of every
   export across every package. Regenerate with `pnpm gen:component-reference`.
 - [`DATA-STUDIO.md`](./DATA-STUDIO.md): proposal for an Airtable-style data workspace built on the

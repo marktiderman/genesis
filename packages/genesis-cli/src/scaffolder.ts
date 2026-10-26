@@ -402,7 +402,7 @@ This consumer was bootstrapped with \`@marktiderman/genesis-cli init ${consumer}
 
 ## Workflow
 
-- **Reuse before extend, extend before create.** Before building anything,
+- **Reuse, then extend, then invent** (the Genesis way). Before building anything,
   run \`npx @marktiderman/genesis-cli features find <term>\` and read
   https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md
 - **Brand changes live in \`packages/${consumer}-brand\`.** Don't fork Genesis

@@ -139,7 +139,7 @@ export const STANDARDS = [
   {
     title: "Usage doctrine",
     summary:
-      "Reuse > Extend > Create. Decision tree: when to reuse a Genesis primitive, when to wrap, when to add to @<consumer>/components, when to escalate as an RFC.",
+      "Reuse > Extend > Invent. Decision tree: when to reuse a Genesis primitive, when to wrap, when to add to @<consumer>/components, when to escalate as an RFC.",
     href: "https://github.com/marktiderman/genesis/blob/main/docs/prds/PRD-07-genesis-consumption-architecture/standards/usage-doctrine.md",
   },
   {

@@ -113,7 +113,7 @@ describe("createOrAdopt", () => {
   it("adopts the row already there, merging in only what you return", async () => {
     const provider = uniqueProvider([{ id: "d1", person_id: "p1", lesson_id: "l1", body: "old", status: "open" }]);
     const kept = await createOrAdopt(provider, "drafts", { person_id: "p1", lesson_id: "l1", body: "new" }, { key: [...key] });
-    expect(kept).toEqual({ row: expect.objectContaining({ id: "d1", body: "old" }), adopted: true });
+    expect(kept).toEqual({ row: expect.objectContaining({ id: "d1", body: "old" }), adopted: true, final: false });
     const merged = await createOrAdopt(
       provider,
       "drafts",
@@ -121,6 +121,34 @@ describe("createOrAdopt", () => {
       { key: [...key], merge: (existing) => (existing.status === "open" ? { body: "new" } : null) },
     );
     expect(merged.row).toEqual(expect.objectContaining({ id: "d1", body: "new" }));
+  });
+
+  it("a finished row is handed back as final, never merged into", async () => {
+    const provider = uniqueProvider([{ id: "d1", person_id: "p1", lesson_id: "l1", body: "sent", status: "submitted" }]);
+    const update = vi.spyOn(provider, "update");
+    const merge = vi.fn(() => ({ body: "new" }));
+    const result = await createOrAdopt(
+      provider,
+      "drafts",
+      { person_id: "p1", lesson_id: "l1", body: "new" },
+      { key: [...key], merge, final: (row) => row.status === "submitted" },
+    );
+    expect(result).toEqual({ row: expect.objectContaining({ id: "d1", body: "sent" }), adopted: true, final: true });
+    expect(merge).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("matches null key fields with is_null (a standalone worksheet has no block or period)", async () => {
+    const provider = uniqueProvider([{ id: "d1", person_id: "p1", lesson_id: null }]);
+    const getList = vi.spyOn(provider, "getList");
+    await createOrAdopt(provider, "drafts", { person_id: "p1", lesson_id: null }, { key: [...key] });
+    expect(getList).toHaveBeenLastCalledWith("drafts", {
+      filters: [
+        { field: "person_id", operator: "eq", value: "p1" },
+        { field: "lesson_id", operator: "is_null" },
+      ],
+      pagination: { page: 1, perPage: 2 },
+    });
   });
 
   it("rethrows other errors, and a duplicate it can't find", async () => {

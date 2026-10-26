@@ -157,6 +157,10 @@ import { FeatureGate, FeatureGateProvider, useFeature } from "@marktiderman/gene
 </FeatureGateProvider>;
 ```
 
+A feature that `requires` other features in the registry (a module's parts) is off while any of them is off,
+with `via` naming the one that said no, so switching a module off or not paying for it turns its parts off
+too. Ids outside the registry don't gate.
+
 The gate doesn't check roles: "may this person" stays with roles and row security. Why it works this
 way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
 
