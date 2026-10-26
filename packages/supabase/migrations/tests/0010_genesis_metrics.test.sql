@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(34);
 
 -- People: a1 (leader) and b2 on tenant 1's team t1; c3 in tenant 2; d4 in nothing.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -125,6 +125,12 @@ select pg_temp.sign_in('a1');
 select lives_ok(
   $$ insert into public.metric_values (metric_id, period_start, value) values (pg_temp.metric(3), '2026-10-26', 1) $$,
   'a person ticks their own habit');
+select lives_ok(
+  $$ insert into public.metric_values (metric_id, period_start, value, source, source_ref)
+     values (pg_temp.metric(3), '2026-10-25', 0, 'worksheet', 'entry:00000000-0000-4000-e000-000000000001') $$,
+  'a worksheet answer records where its value came from');
+select is((select entered_by from public.metric_values where metric_id = pg_temp.metric(3) and period_start = '2026-10-25'), pg_temp.person('a1'),
+  'a value records who entered it');
 select throws_ok(
   $$ insert into public.metric_values (metric_id, period_start, value) values (pg_temp.metric(3), '2026-10-27', 2) $$,
   '22023', null, 'a yes or no metric takes 1 or 0');

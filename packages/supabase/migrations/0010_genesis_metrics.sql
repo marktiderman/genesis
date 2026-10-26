@@ -114,6 +114,10 @@ create table public.metric_values (
   note text,
   source text not null default 'manual'
     constraint metric_values_source check (source in ('manual', 'formula', 'sheet', 'quickbooks', 'hubspot', 'query', 'worksheet')),
+  -- What the value came from, so the writer can update its own value and a screen can link back:
+  -- for a worksheet answer, the entry's id; for a sync, the row or cell it read.
+  source_ref text
+    constraint metric_values_source_ref_length check (source_ref is null or char_length(source_ref) <= 200),
   entered_by uuid default auth.uid() references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -312,6 +316,8 @@ select
   v.value,
   v.note,
   v.source,
+  v.source_ref,
+  v.entered_by,
   coalesce(g.goal_direction, m.goal_direction) as goal_direction,
   coalesce(v.goal_override, g.goal_value, m.goal_value) as goal_value,
   coalesce(v.goal_max_override, g.goal_max, m.goal_max) as goal_max,
