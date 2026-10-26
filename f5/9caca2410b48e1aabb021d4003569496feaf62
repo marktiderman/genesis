@@ -1,0 +1,37 @@
+.changeset/doctor-followups.md
+  s_3daa86e3ae6031::t_70dac7015e8c17 11-12
+packages/genesis-cli/README.md
+  s_3daa86e3ae6031::t_d700aee6fc876c 361,396-401
+packages/genesis-cli/src/doctor/installs.ts
+  s_3daa86e3ae6031::t_58fababed30390 27-29,32-33,96-101,108-110,113,115,117,121-136,142,146-150,160-161,163-171,174-178,192-195
+packages/genesis-cli/src/doctor/routes.ts
+  s_3daa86e3ae6031::t_d236654238652b 48,139-141,155-156,159
+packages/genesis-cli/src/doctor/trail.ts
+  s_1f35d570c63beb::t_ef6b1a8de37b58 29-132,152-214,218-224,227-230,233-234,262,285-289,291-293,308-309,322-327,330-335,340,342-343,346-347,349-350,353-356,362-363,374-375,377
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_3daa86e3ae6031::t_d56ee5390c6245 7,579,766-893
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f59caca2410b48e1aabb021d4003569496feaf62",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

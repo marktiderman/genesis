@@ -1,0 +1,21 @@
+packages/core/src/testing/__tests__/testing-kit.test.ts
+  s_a1b83c03f697d3::t_6dcf8c7dd0b3b6 138-144,229-231
+packages/core/src/testing/index.ts
+  s_a1b83c03f697d3::t_e7dceba20b3c21 72-79,234
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6b8a913cd14601e7d28ff6325c0b48ba846b56ba",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

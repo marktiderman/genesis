@@ -1,0 +1,21 @@
+.changeset/genesis-connect-oauth-secrets.md
+  s_9bf81edc5cc904::t_d52d9b741db3eb 2
+packages/connect/package.json
+  s_9bf81edc5cc904::t_54e4cd098f68a9 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ddaca6ddcf005732354e6653ac837be419840ac9",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
