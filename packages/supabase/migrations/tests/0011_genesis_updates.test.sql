@@ -88,7 +88,7 @@ select throws_ok(
   '42501', null, 'a non-leader can''t post on a tenant-owned pursuit without being asked');
 select throws_ok(
   $$ insert into public.status_updates (item_kind, item_id, health) values ('pursuit', gen_random_uuid(), 'on_track') $$,
-  '23503', null, 'an update needs a real item');
+  '42501', null, 'an item that doesn''t exist looks the same as one you can''t read');
 select throws_ok(
   $$ insert into public.status_updates (item_kind, item_id, body) values ('pursuit', pg_temp.pursuit(1), '  ') $$,
   '23514', null, 'an update says something');

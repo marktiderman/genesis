@@ -116,6 +116,11 @@ begin
   else
     select x.tenant_id, x.person_id, x.team_id, x.organization_id into t, p, tm, o from public.metrics x where x.id = new.item_id;
   end if;
+  if coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'authenticated'
+     and (t is null or (not private.genesis_updates_can(t, p, tm, o, 'read')
+                        and not private.genesis_updates_asked(new.item_kind, new.item_id))) then
+    raise exception 'permission denied for %', tg_table_name using errcode = '42501';
+  end if;
   if t is null then
     raise exception 'No such %', new.item_kind using errcode = '23503';
   end if;
@@ -198,7 +203,9 @@ begin
   if auth.uid() is null or to_regprocedure('private.genesis_readable_owners(uuid)') is null then
     return;
   end if;
-  return query execute 'select r.tenant_id, r.owner_id from private.genesis_readable_owners($1) r' using auth.uid();
+  return query execute 'select r.tenant_id::uuid, r.owner_id::uuid from private.genesis_readable_owners($1) r' using auth.uid();
+exception when others then
+  return;
 end;
 $$;
 
@@ -216,9 +223,11 @@ begin
      or to_regprocedure('private.genesis_owner_can(uuid,uuid,uuid,uuid,uuid,text)') is null then
     return false;
   end if;
-  execute 'select private.genesis_owner_can($1, $2, $3, $4, $5, $6)'
+  execute 'select (private.genesis_owner_can($1, $2, $3, $4, $5, $6))::boolean'
     into allowed using tenant, auth.uid(), person, team, organization, action;
   return coalesce(allowed, false);
+exception when others then
+  return false;
 end;
 $$;
 
@@ -248,7 +257,9 @@ alter table public.status_updates enable row level security;
 alter table public.update_requests enable row level security;
 
 create policy status_updates_read on public.status_updates for select to authenticated
-  using ((tenant_id, coalesce(person_id, team_id, organization_id)) in (select r.tenant_id, r.owner_id from private.genesis_updates_readable() r));
+  using (exists (select 1 from private.genesis_updates_readable() r
+                 where r.tenant_id = status_updates.tenant_id
+                   and r.owner_id = coalesce(status_updates.person_id, status_updates.team_id, status_updates.organization_id)));
 create policy status_updates_insert on public.status_updates for insert to authenticated
   with check (
     author_id = auth.uid()
@@ -258,7 +269,9 @@ create policy status_updates_insert on public.status_updates for insert to authe
 
 create policy update_requests_read on public.update_requests for select to authenticated
   using (asked_of = auth.uid()
-         or (tenant_id, coalesce(person_id, team_id, organization_id)) in (select r.tenant_id, r.owner_id from private.genesis_updates_readable() r));
+         or exists (select 1 from private.genesis_updates_readable() r
+                 where r.tenant_id = update_requests.tenant_id
+                   and r.owner_id = coalesce(update_requests.person_id, update_requests.team_id, update_requests.organization_id)));
 create policy update_requests_insert on public.update_requests for insert to authenticated
   with check (asked_by = auth.uid()
               and private.genesis_updates_can(tenant_id, person_id, team_id, organization_id, 'read'));
