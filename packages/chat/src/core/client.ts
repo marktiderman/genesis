@@ -323,12 +323,17 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
   return {
     supabase,
 
-    async inbox(opts: { kind?: string; archived?: boolean; limit?: number; before?: string } = {}): Promise<ChatInboxItem[]> {
+    /** Your conversations: one `kind`, several `kinds`, or all but `excludeKinds` (e.g. Messages without `support`). */
+    async inbox(
+      opts: { kind?: string; kinds?: string[]; excludeKinds?: string[]; archived?: boolean; limit?: number; before?: string } = {},
+    ): Promise<ChatInboxItem[]> {
       const rows = await rpc<Row[]>("inbox", {
         p_kind: opts.kind ?? null,
         p_archived: opts.archived ?? false,
         p_limit: opts.limit ?? 50,
         p_before: opts.before ?? null,
+        ...(opts.kinds?.length ? { p_kinds: opts.kinds } : {}),
+        ...(opts.excludeKinds?.length ? { p_exclude_kinds: opts.excludeKinds } : {}),
       });
       return rows.map(toInboxItem);
     },
@@ -337,8 +342,9 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
       return rpc<Row[]>("observed", { p_kind: kind, p_status: opts.status ?? null, p_limit: opts.limit ?? 50, p_before: opts.before ?? null });
     },
 
-    async unreadTotal(): Promise<number> {
-      return rpc<number>("unread_total", {});
+    /** Unread across your conversations (for a badge), leaving out `excludeKinds` to match an inbox that does. */
+    async unreadTotal(opts: { excludeKinds?: string[] } = {}): Promise<number> {
+      return rpc<number>("unread_total", opts.excludeKinds?.length ? { p_exclude_kinds: opts.excludeKinds } : {});
     },
 
     async conversation(id: string): Promise<ChatConversation | null> {
