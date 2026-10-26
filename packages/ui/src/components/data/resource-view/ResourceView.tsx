@@ -131,17 +131,27 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     [view, cell, cells],
   );
 
+  // By value, so an inline `filter={{ client_id }}` doesn't rebuild the form every render.
+  const filterKey = JSON.stringify(filter ?? {});
+
   // The form lists only fields a writer may send. A field that can't change after create is
   // shown read-only when editing.
   const formFields = useMemo(() => {
     const editable = new Set(view.writable("edit"));
     const writable = new Set(view.writable("create"));
-    return view
+    const shown = view
       .form("create")
       // JSON and lists need editors of their own; the plain form would send them back as text.
       .filter((f) => writable.has(f.field.name) && f.display !== "json" && !f.field.array)
       .map((f) => formField(f, editable.has(f.field.name)));
-  }, [view]);
+    // The screen's filter fills those fields on create (the client a session belongs to). Hidden,
+    // and never sent on edit, where only changed fields go.
+    const keys = new Set(shown.map((f) => f.key));
+    const filled = Object.entries(JSON.parse(filterKey) as Filter)
+      .filter(([key]) => !keys.has(key) && view.field(key))
+      .map(([key, value]): ResourceFormFieldDef => ({ key, type: "hidden", hidden: true, defaultValue: value }));
+    return [...shown, ...filled];
+  }, [view, filterKey]);
 
   const defaultFilters = useMemo(
     () => [...filterParams(tab?.filter as Filter | undefined), ...filterParams(filter), ...(resourceOptions?.defaultFilters ?? [])],

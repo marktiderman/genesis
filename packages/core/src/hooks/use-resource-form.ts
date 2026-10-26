@@ -90,6 +90,13 @@ export interface UseResourceFormOptions extends MutationModeOptions {
    * the provider's own `invalidates`.
    */
   invalidates?: InvalidationKey[];
+  /**
+   * What an edit sends. `"loaded"` (default): every field of the record the form opened with,
+   * plus any field the person changed, but never a field the record didn't carry and nobody
+   * touched. So a list that didn't load a column (or a value the server left out) can't be
+   * overwritten with an empty one. `"all"`: every form field, as before.
+   */
+  updates?: "loaded" | "all";
 }
 
 export interface UseResourceFormReturn {
@@ -338,7 +345,9 @@ function buildDefaults(
 ): Record<string, unknown> {
   const defaults: Record<string, unknown> = {};
   for (const field of fields) {
-    if (data && field.key in data) {
+    // A create's blank template (every column as "") never hides a field's own default.
+    const blankOnCreate = action === "create" && data?.[field.key] === "" && field.defaultValue !== undefined;
+    if (data && field.key in data && !blankOnCreate) {
       defaults[field.key] = data[field.key];
     } else if (field.defaultValue !== undefined) {
       defaults[field.key] = field.defaultValue;
@@ -404,6 +413,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     undoDelayMs,
     onUndoable,
     visible = true,
+    updates = "loaded",
   } = options;
 
   const autosaveEnabled = !!autosave;
@@ -611,10 +621,25 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
 
   // Submit handler
   const handleSubmit = useCallback(
-    async (formData: Record<string, unknown>) => {
+    async (submitted: Record<string, unknown>) => {
       // What the form shows as this save goes out (raw input values, before
       // any resolver coercion), to tell later whether it still does.
       const shown = structuredCloneSafe(form.getValues());
+      // A field the opened record didn't carry goes only when the person changed it (compared by
+      // value: RHF's dirtyFields updates only when read during render).
+      const opened = formSource as Record<string, unknown> | undefined;
+      const formData =
+        action === "edit" && updates === "loaded" && opened
+          ? Object.fromEntries(
+              Object.entries(submitted).filter(
+                // Changed: what an input shows differs from where it started, or, for a value saved
+                // without an input (a direct handleSave), the value itself does.
+                ([k, v]) =>
+                  k in opened ||
+                  !sameValue(k in (shown as object) ? (shown as Record<string, unknown>)[k] : v, defaultValues[k]),
+              ),
+            )
+          : submitted;
       try {
         let recordId: string | number | undefined;
         if (action === "edit") {
@@ -684,7 +709,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
         reportError(err instanceof Error ? err : new Error(String(err)));
       }
     },
-    [form, action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, reportError, markSaved],
+    [form, action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, reportError, markSaved, updates, defaultValues],
   );
 
   const onSubmit = useCallback(

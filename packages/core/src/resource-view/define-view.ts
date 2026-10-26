@@ -218,8 +218,16 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   };
   // A field the provider says this user can't read is left out everywhere, even when listed.
   const readable = (name: string) => byName.get(name)?.permissions?.read !== false;
+  // A link stays read-only until there's a picker, so no one sends a hand-typed id. A screen
+  // fills a required one on create (its `filter`).
   const readOnly = (field: FieldFacts) =>
-    Boolean(field.generated || field.readOnly || field.permissions?.update === false || own(viewFields, field.name)?.readOnly);
+    Boolean(
+      field.generated ||
+        field.readOnly ||
+        field.references ||
+        field.permissions?.update === false ||
+        own(viewFields, field.name)?.readOnly,
+    );
   // Left out of defaults (a view still lists them on purpose): the key, scope (tenant) columns,
   // sensitive values, and links, which need a picker rather than a raw id.
   const quiet = (f: FieldFacts) => keys.has(f.name) || scope.has(f.name) || Boolean(f.sensitive) || Boolean(f.references);
