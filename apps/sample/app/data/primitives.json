@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 132
+      "count": 133
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 72
+      "count": 78
     }
   },
   "primitives": [
@@ -1529,6 +1529,101 @@
       ]
     },
     {
+      "slug": "display",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/resource-view/display.tsx",
+      "stability": "stable",
+      "summary": "A `YYYY-MM-DD` day as a local Date at midnight, from its parts (the picker's value). Null when it isn't a day.",
+      "primaryComponent": "dayToDate",
+      "components": [
+        {
+          "name": "dayToDate",
+          "summary": "A `YYYY-MM-DD` day as a local Date at midnight, from its parts (the picker's value). Null when it isn't a day.",
+          "props": []
+        },
+        {
+          "name": "dateToDay",
+          "summary": "A picked Date back to the `YYYY-MM-DD` day it shows, from its local parts (never `toISOString`).",
+          "props": []
+        },
+        {
+          "name": "formatDay",
+          "summary": "A calendar day, the same day on every clock.",
+          "props": []
+        },
+        {
+          "name": "resolveZone",
+          "summary": "A column's clock: \"viewer\" (the default) and \"practice\" from `zones`, else a valid IANA name.",
+          "props": []
+        },
+        {
+          "name": "formatInstant",
+          "summary": "A timestamp as the clock on the wall in `zone` shows it (core's `wallClock`), not the device's.",
+          "props": []
+        },
+        {
+          "name": "openableUrl",
+          "summary": "A link a row may open: http(s), mailto or tel that passes `isSafeUrl`. Root-relative paths mean nothing on a phone.",
+          "props": []
+        },
+        {
+          "name": "displayText",
+          "summary": "One value as plain text, for the places that take a string (a row's subtitle, a section title,\na read-only form row). Renderers use the same words.",
+          "props": []
+        },
+        {
+          "name": "badgeVariant",
+          "summary": "A chip's tone as a NativeBadge variant.",
+          "props": []
+        },
+        {
+          "name": "useDisplayTimeZones",
+          "summary": "The clocks for timestamps: the nearest provider's, else the device's for both.",
+          "props": []
+        },
+        {
+          "name": "DisplayRenderersProvider",
+          "summary": "Replace some of the renderers for everything below (nested providers build on each other).",
+          "props": [
+            {
+              "name": "renderers",
+              "type": "Partial<Record<DisplayHint, DisplayRenderer>>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "useDisplayCell",
+          "summary": "Draw one value: the empty mark for no value or a value the row hides (`when`), else its hint's renderer.",
+          "props": []
+        },
+        {
+          "name": "isEmptyValue",
+          "summary": "",
+          "props": []
+        },
+        {
+          "name": "nativeDisplayRenderers",
+          "summary": "Genesis's native renderers. Every one shows text it can't draw, never a broken row.",
+          "props": []
+        },
+        {
+          "name": "DisplayTimeZonesProvider",
+          "summary": "The clocks timestamps are read on below. NativeResourceView sets it from ViewerScope.",
+          "props": []
+        },
+        {
+          "name": "NativeResourceViewMessagesProvider",
+          "summary": "The words NativeResourceView shows, for everything below. Pass a stable object.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "drawer",
       "aliases": [],
       "surface": "native",
@@ -2963,6 +3058,85 @@
       ]
     },
     {
+      "slug": "mapping",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/resource-view/mapping.ts",
+      "stability": "stable",
+      "summary": "A row as NativeListItem draws it: `view.summary(row)`'s title, subtitle and chips, and nothing\nelse. A view that wants a second line says so in its summary.",
+      "primaryComponent": "rowItem",
+      "components": [
+        {
+          "name": "rowItem",
+          "summary": "A row as NativeListItem draws it: `view.summary(row)`'s title, subtitle and chips, and nothing\nelse. A view that wants a second line says so in its summary.",
+          "props": []
+        },
+        {
+          "name": "sectionsFor",
+          "summary": "Rows in sections by `definition.groupBy`, in the order each group first appears (the server's\nsort, so paging never reorders what's on screen). Without `groupBy`, one untitled section.",
+          "props": []
+        },
+        {
+          "name": "allowed",
+          "summary": "The effective right: the screen's rule AND the view's guard (never OR).",
+          "props": []
+        },
+        {
+          "name": "swipeActionsFor",
+          "summary": "A row's swipe actions, from the view's guards. A refused action stays in the list with its\nreason, so the person learns why; one the screen turns off (`false`) is left out.",
+          "props": []
+        },
+        {
+          "name": "formFieldsFor",
+          "summary": "The form sheet's fields: `view.form(mode)` (which already leaves out JSON, lists, links, scope,\nsensitive and unreadable fields and server-filled keys), each marked read-only unless\n`view.writable(mode)` lists it. Copied, never mutated: core caches and freezes `form()`. A create leaves read-only fields out (there is nothing to show yet); an edit shows\nthem as text.",
+          "props": []
+        },
+        {
+          "name": "shownFields",
+          "summary": "Fields shown for these values: a field whose `visible` says no is hidden, and isn't saved.",
+          "props": []
+        },
+        {
+          "name": "writableValues",
+          "summary": "What a save sends: only the keys `view.writable(mode)` lists and the form shows. Read-only,\ngenerated, key and scope fields, and anything else the values carry (joined columns), never go.\nAn edit passes `dirty`, the fields the person changed, so a save never rewrites the rest. A\ncleared optional value (an empty text, a cleared number or date) is sent as null.",
+          "props": []
+        },
+        {
+          "name": "validateValues",
+          "summary": "Field errors for a save: required fields with no value, and text over `max`.",
+          "props": []
+        },
+        {
+          "name": "refusalMessage",
+          "summary": "A refused write in plain words. A provider's `DataWriteError` (a zero-row update or delete it\nread back: forbidden, gone, a guard's message) already says it plainly; anything else gets the\nfallback sentence, never a raw driver message.",
+          "props": []
+        },
+        {
+          "name": "refusalFields",
+          "summary": "Per-field messages a provider attached to a refused write (`DataWriteError.fields`).",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "messages",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/resource-view/messages.ts",
+      "stability": "stable",
+      "summary": "Fill `{name}` placeholders. A placeholder with no value is left as it is.",
+      "primaryComponent": "fill",
+      "components": [
+        {
+          "name": "fill",
+          "summary": "Fill `{name}` placeholders. A placeholder with no value is left as it is.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "native-data-filters",
       "aliases": [],
       "surface": "native",
@@ -3132,6 +3306,13 @@
               "description": ""
             },
             {
+              "name": "footer",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Below the fields and actions (e.g. actions with their own wording, or the reason one is refused)."
+            },
+            {
               "name": "onDelete",
               "type": "((item: T) => void)",
               "required": false,
@@ -3144,6 +3325,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The heading. Wins over `titleField` (e.g. a view's `summary(row).title`)."
             },
             {
               "name": "titleField",
@@ -3374,6 +3562,94 @@
       ]
     },
     {
+      "slug": "native-resource-form-sheet",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx",
+      "stability": "stable",
+      "summary": "",
+      "primaryComponent": "NativeResourceFormSheet",
+      "components": [
+        {
+          "name": "NativeResourceFormSheet",
+          "summary": "",
+          "props": [
+            {
+              "name": "fields",
+              "type": "readonly NativeFormField[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "mode",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onCancel",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSave",
+              "type": "(values: Values, dirty: ReadonlySet<string>) => Promise<SaveResult>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Saves with the fields the person changed; the sheet closes on `{ ok: true }` and shows the refusal otherwise."
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "initial",
+              "type": "Values",
+              "required": false,
+              "defaultValue": null,
+              "description": "The row being edited (fetched by id), or a create's starting values."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The record is still loading: a spinner instead of fields, and Save is off."
+            },
+            {
+              "name": "recordKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Which record the sheet holds; the form starts over when it (or `open`) changes."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-resource-form",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "native-resource-page",
       "aliases": [],
       "surface": "native",
@@ -3498,6 +3774,143 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "native-resource-view",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/resource-view/NativeResourceView.tsx",
+      "stability": "stable",
+      "summary": "A native list screen from a view:\n\n```tsx\n<NativeResourceView view={brandsView} onRowPress={(b) => router.push(`/brands/${b.id}`)} />\n```",
+      "primaryComponent": "NativeResourceView",
+      "components": [
+        {
+          "name": "NativeResourceView",
+          "summary": "A native list screen from a view:\n\n```tsx\n<NativeResourceView view={brandsView} onRowPress={(b) => router.push(`/brands/${b.id}`)} />\n```",
+          "props": [
+            {
+              "name": "view",
+              "type": "AnyResourceView<T>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "can",
+              "type": "NativeResourceScreenCan<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own rule. It only narrows the view's guards."
+            },
+            {
+              "name": "emptyState",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the empty state."
+            },
+            {
+              "name": "filter",
+              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A create\nalso saves every non-null value here (a tab's filter too), even for read-only fields such as\na required link: they come from the screen, never from an input. An edit never sends them."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the list, under the search (a filter, a call to action)."
+            },
+            {
+              "name": "live",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Refetch loaded pages when the provider reports a change."
+            },
+            {
+              "name": "maxPages",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Pages kept loaded when the provider pages by cursor: scrolling far drops pages from the front\nand scrolling back loads them again. Default 10."
+            },
+            {
+              "name": "onRowPress",
+              "type": "((row: T) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A row was pressed: push its detail route (`router.push(\\`/brands/${row.id}\\`)`), so deep links\nand notification taps land on the same screen. Without it, a press opens a peek sheet."
+            },
+            {
+              "name": "perPage",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Rows per page. Default 25."
+            },
+            {
+              "name": "practiceTimeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The practice's IANA zone, for columns with `timeZone: \"practice\"`. Timestamps otherwise read\non the viewer's clock (ViewerScope's zone, else the device's)."
+            },
+            {
+              "name": "preset",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A tab the view defines: its server filter."
+            },
+            {
+              "name": "searchable",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Hide the search box. Shown by default when the view has something to search."
+            },
+            {
+              "name": "searchFields",
+              "type": "string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Fields the search box searches. Default: the view's `labelField`."
+            },
+            {
+              "name": "subtitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "swipeable",
+              "type": "ComponentType<NativeResourceSwipeableProps>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Wraps each row that has actions in a swipe gesture (e.g. gesture-handler's ReanimatedSwipeable)."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string | false",
+              "required": false,
+              "defaultValue": null,
+              "description": "The heading above the list. Default the view's title; `false` when the navigation bar shows it."
             }
           ]
         }
@@ -6223,6 +6636,165 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "use-native-resource-view",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/resource-view/use-native-resource-view.ts",
+      "stability": "stable",
+      "summary": "The values a create takes from the screen: every non-null equality filter, the screen's over the tab's.",
+      "primaryComponent": "screenValues",
+      "components": [
+        {
+          "name": "screenValues",
+          "summary": "The values a create takes from the screen: every non-null equality filter, the screen's over the tab's.",
+          "props": []
+        },
+        {
+          "name": "serverSort",
+          "summary": "The server sort: the `groupBy` field first, so every page arrives in section order and a later\npage never lands in the middle of an earlier section; else the view's `orderBy`. (A second sort\nkey within a group needs `useInfiniteResource` to take several sorts.)",
+          "props": [
+            {
+              "name": "actions",
+              "type": "() => readonly RowAction[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The view's actions, in order, frozen."
+            },
+            {
+              "name": "can",
+              "type": "{ (action: \"create\"): Allowed; (action: \"update\" | \"delete\", row: T & DataRow): Allowed; }",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "canAction",
+              "type": "(name: string, row: T & DataRow) => Allowed",
+              "required": true,
+              "defaultValue": null,
+              "description": "Whether this row allows the named action: `true`, or the guard's reason. Only narrows what the\nserver allows. Throws {@link ViewDefinitionError} for a name the view doesn't define."
+            },
+            {
+              "name": "columns",
+              "type": "(preset?: string | undefined) => readonly ResolvedColumn<T & DataRow>[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "contract",
+              "type": "any",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "definition",
+              "type": "Readonly<ViewDefinition<any, T & DataRow>>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "display",
+              "type": "(name: string) => DisplayHint",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "field",
+              "type": "(name: string) => FieldSchema | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "form",
+              "type": "(mode: \"create\" | \"edit\") => readonly ResolvedFormField[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "(name: string) => string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labelField",
+              "type": "string | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": "The field that names a row, for links, pickers and the peek's title."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "presets",
+              "type": "readonly string[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The column presets this view has, `default` first."
+            },
+            {
+              "name": "resource",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The resource name the provider addresses."
+            },
+            {
+              "name": "summary",
+              "type": "(row: T & DataRow) => RowSummary",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "writable",
+              "type": "(mode: \"create\" | \"edit\") => readonly string[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Fields a writer may send: the form's, never generated, read-only, key or scope fields."
+            }
+          ]
+        },
+        {
+          "name": "SEARCH_DEBOUNCE_MS",
+          "summary": "How long typing waits before the search goes to the server.",
+          "props": []
+        },
+        {
+          "name": "DEFAULT_MAX_PAGES",
+          "summary": "Pages kept loaded by default (cursor paging).",
+          "props": []
         }
       ]
     },
@@ -17922,6 +18494,31 @@
               "required": false,
               "defaultValue": null,
               "description": "Controlled value. Pass back the `doc` from `onChange` synchronously; any\nother document (including an older one from a debounced or deferred\nparent) replaces the content and resets the selection."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "row-avatar",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/RowAvatar.tsx",
+      "stability": "stable",
+      "summary": "A row's picture from `rowPicture(view.summary(row))`: the image, or initials when there is no\nsafe image or it fails to load. Decorative unless the view gave `alt`: the row's title beside it\nalready names the row.",
+      "primaryComponent": "RowAvatar",
+      "components": [
+        {
+          "name": "RowAvatar",
+          "summary": "A row's picture from `rowPicture(view.summary(row))`: the image, or initials when there is no\nsafe image or it fails to load. Decorative unless the view gave `alt`: the row's title beside it\nalready names the row.",
+          "props": [
+            {
+              "name": "picture",
+              "type": "RowPicture",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
             }
           ]
         }
