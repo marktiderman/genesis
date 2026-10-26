@@ -167,6 +167,17 @@ function checkCustomHeaders(ctx: DoctorContext, pkg: PackageExports): void {
   }
 }
 
+/** Tags a route that is only a loading state may render next to it: its header options and fragments. */
+const LOADING_ROUTE_COMPANIONS = new Set(["NativeLoadingState", "Stack.Screen", "Fragment", "React.Fragment"]);
+
+/** A route whose only screen is a full-screen NativeLoadingState (a redirect or loading bridge). */
+export function isLoadingOnlyRoute(code: string): boolean {
+  const loading = [...code.matchAll(/<NativeLoadingState\b([^>]*)>/g)];
+  if (loading.length === 0 || loading.some((m) => /\bfullScreen\s*=\s*\{\s*false\s*\}/.test(m[1] ?? ""))) return false;
+  const tags = [...code.matchAll(/<([A-Z][\w.]*)/g)].map((m) => m[1] ?? "");
+  return tags.every((t) => LOADING_ROUTE_COMPANIONS.has(t));
+}
+
 /** The Expo Router root: `native.routerRoot`, else `src/app`, else `app`. */
 export function routerRoot(ctx: Pick<DoctorContext, "root" | "config">): string {
   if (ctx.config.native?.routerRoot) return ctx.config.native.routerRoot.replace(/\/+$/, "");
@@ -192,15 +203,17 @@ function checkScreenLayouts(ctx: DoctorContext, pkg: PackageExports): void {
     });
     return;
   }
-  // A redirect, and a whole-screen loading state (it brings its own safe area), are screens too.
-  const passing = ["Redirect", ...(pkg.values.has("NativeLoadingState") ? ["NativeLoadingState"] : [])];
-  const renders = new RegExp(`<(?:${[...layouts, ...passing].join("|")})\\b`);
+  // A redirect is a screen too, here or through an import.
+  const renders = new RegExp(`<(?:${[...layouts, "Redirect"].join("|")})\\b`);
+  // So is a route that is only a whole-screen loading state (it brings its own safe area): counted
+  // in the route itself, never through an import, and not when it's a block (fullScreen={false}).
+  const loadingOnly = pkg.values.has("NativeLoadingState") ? isLoadingOnlyRoute : () => false;
   const byPath = new Map(ctx.files.map((f) => [f.absolutePath, f]));
   for (const file of routes) {
     if (!JSX_EXTS.has(file.ext) || NON_SCREEN_ROUTE.test(file.path)) continue;
     // A route that only re-exports a screen, or renders no JSX, is judged where the screen lives.
     if (!/\bexport\s+default\b/.test(file.code) || !/<[A-Za-z]/.test(file.code)) continue;
-    if (renders.test(file.code)) continue;
+    if (renders.test(file.code) || loadingOnly(file.code)) continue;
     const viaImport = localImports(ctx.root, file).some((abs) => {
       const target = byPath.get(abs) ?? readSource(abs);
       return target !== null && renders.test(target.code);

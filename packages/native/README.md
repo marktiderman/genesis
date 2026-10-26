@@ -464,6 +464,9 @@ import { notificationsPushPreferences } from "@marktiderman/genesis-notification
 const backend: PushBackend = { register, forget, ...notificationsPushPreferences(supabase) };
 ```
 
+Spread it after your own keys: a `loadPreferences` or `savePreferences` written later in the object
+replaces its functions.
+
 ```ts
 // lib/push.ts
 import * as Notifications from "expo-notifications";
