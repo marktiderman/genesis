@@ -2,21 +2,26 @@
 // Live reads — refetch a resource's cached reads when the provider reports a
 // change (`DataProvider.subscribe`).
 //
-// Events are invalidation hints only. Nothing from an event's payload is
-// written to the cache: the refetch goes through the provider's normal read,
-// so what a user sees is always what that read (and its RLS) returns.
+// Events are invalidation hints. When an update carries the row (the provider
+// sends one only for a resource read from its own table, under realtime's RLS),
+// the fields cached rows already have are patched at once; the refetch that
+// follows still goes through the provider's normal read, so what a user ends
+// up seeing is what that read (and its RLS) returns. Lists the change can't
+// have touched (its row matches none of their filters and isn't in them) are
+// left alone.
 //
 // Pending optimistic and undoable writes are safe: their patches are
 // re-applied to whatever a refetch brings (see mutation-mode.ts), so a row
 // deleted with undo stays hidden and an edit stays shown until the write
-// settles. A change caused by this client's own write arrives as an event
-// too; the refetch it causes is idempotent, so it is not filtered out.
+// settles. The provider drops the echo of this client's own writes, which
+// already refresh through the write path.
 // ---------------------------------------------------------------------------
 
 import { useEffect, useRef } from "react";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useDataProvider } from "../provider/context";
 import type { ResourceChangeEvent, SubscribeParams } from "../provider/types";
+import { listCouldChange, patchCachedRow } from "./live-cache";
 
 /** How long a burst of change events is gathered into one refetch. */
 export const DEFAULT_LIVE_DEBOUNCE_MS = 250;
@@ -77,6 +82,9 @@ export function useLiveInvalidation(
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
     let burstStart = 0;
+    // The rows of this burst's updates; null once an event without one (a delete, an insert,
+    // `changed`) means every read must refetch.
+    let burst: Record<string, unknown>[] | null = [];
     let active = true;
     // A busy table must not postpone the refetch forever.
     const maxWaitMs = debounceMs * 4;
@@ -84,9 +92,12 @@ export function useLiveInvalidation(
       timer = undefined;
       if (!active) return;
       const hidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+      const rows = burst;
+      burst = [];
       void queryClient.invalidateQueries({
         queryKey: [...latest.current.queryKey],
         refetchType: hidden ? "none" : "active",
+        ...(rows && rows.length ? { predicate: (query) => listCouldChange(query, rows) } : {}),
       });
     };
     let unsubscribe: (() => void) | undefined;
@@ -95,6 +106,12 @@ export function useLiveInvalidation(
         if (!active) return;
         const test = latest.current.accept;
         if (test && event.type !== "changed" && !test(event)) return;
+        if (event.type === "updated" && event.record) {
+          patchCachedRow(queryClient, resource, event.record);
+          burst?.push(event.record);
+        } else {
+          burst = null;
+        }
         // Coalesce: one refetch per burst, after it goes quiet (or has
         // lasted `maxWaitMs`).
         const now = Date.now();

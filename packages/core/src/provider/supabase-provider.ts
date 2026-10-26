@@ -383,6 +383,22 @@ function realtimeTable(resource: string): { schema: string; table: string } {
 }
 
 let realtimeChannelSeq = 0;
+
+/** How long after this client's own write a realtime event for that row is taken as its echo. */
+export const REALTIME_ECHO_MS = 2000;
+
+/** The realtime filter for a list's first equality filter on a plain column, or undefined. */
+function realtimeFilter(filters: FilterParam[] | undefined): string | undefined {
+  for (const f of filters ?? []) {
+    if (f.operator !== "eq" || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(f.field)) continue;
+    const v = f.value;
+    if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") continue;
+    // Realtime's filter grammar has no quoting: skip a value it would misread, or an empty one.
+    if (typeof v === "string" && (v === "" || /[,()]/.test(v))) continue;
+    return `${f.field}=eq.${String(v)}`;
+  }
+  return undefined;
+}
 const warnedRealtime = new Set<string>();
 
 /**
@@ -557,6 +573,34 @@ export function createSupabaseProvider(
     options.resources?.[resource] ?? {};
   const nounFor = (resource: string) => configFor(resource).noun ?? "record";
 
+  /**
+   * Rows this client wrote just now, `${resource}\0${id}` → the realtime event their write sends
+   * and when. Each mark is consumed by its first matching event, so a later change to the same row
+   * (a trigger, a job, another person) is still heard.
+   */
+  const recentWrites = new Map<string, { eventType: "INSERT" | "UPDATE" | "DELETE"; at: number }>();
+
+  function noteWrite(event: WriteEvent): void {
+    const now = Date.now();
+    for (const [key, mark] of recentWrites) if (now - mark.at > REALTIME_ECHO_MS) recentWrites.delete(key);
+    const eventType = event.kind === "create" ? "INSERT" : event.kind === "delete" ? "DELETE" : "UPDATE";
+    recentWrites.set(`${event.resource}\u0000${String(event.id)}`, { eventType, at: now });
+  }
+  /** One realtime channel per resource and server filter, shared by every subscriber to it. */
+  const sharedChannels = new Map<
+    string,
+    { listeners: Set<{ emit: (event: ResourceChangeEvent) => void; id?: Identifier }>; close: () => void }
+  >();
+
+  function isEcho(resource: string, id: unknown, eventType: SupabaseRealtimePayload["eventType"]): boolean {
+    if (!isIdentifier(id)) return false;
+    const key = `${resource}\u0000${String(id)}`;
+    const mark = recentWrites.get(key);
+    if (!mark || mark.eventType !== eventType) return false;
+    recentWrites.delete(key);
+    return Date.now() - mark.at <= REALTIME_ECHO_MS;
+  }
+
   function realtimeEnabled(resource: string): boolean {
     if (typeof client.channel !== "function") return false;
     const own = configFor(resource).realtime;
@@ -646,6 +690,8 @@ export function createSupabaseProvider(
 
   /** After a committed write. Never turns it into a failure. */
   async function committed(event: WriteEvent): Promise<void> {
+    // Its realtime echo is this client's own write: it already refreshes through the write path.
+    if (event.id != null) noteWrite(event);
     if (!options.onWrite) return;
     try {
       await options.onWrite(event);
@@ -907,64 +953,102 @@ export function createSupabaseProvider(
         return () => {};
       }
       const { schema, table } = realtimeTable(resource);
-      // No server-side `id=eq.` filter for one record: Realtime never
-      // delivers DELETE events through a filter, so the id is matched below.
-      // A unique topic: supabase-js hands back an existing channel for a
-      // topic already open, and removing it would end the other subscriber.
-      const channel = client.channel!(
-        `genesis:${resource}:${++realtimeChannelSeq}`,
-      ) as SupabaseRealtimeChannel;
-      let closed = false;
-      let subscribedOnce = false;
-      let interrupted = false;
-      const emit = (event: ResourceChangeEvent) => {
-        if (closed) return;
-        try {
-          callback(event);
-        } catch (error) {
-          console.error(`[SupabaseProvider] a realtime callback for "${resource}" threw:`, error);
+      // One record is matched below, not with a server-side `id=eq.` filter, so it can share the
+      // resource's channel. A list's first equality filter narrows the channel on the server.
+      // Not for a resource read from a view or function: the filter may name a column only the view
+      // has, and the channel watches the table.
+      const serverFilter =
+        params.id != null || configFor(resource).source !== undefined ? undefined : realtimeFilter(params.filters);
+      const topic = `${resource}\u0000${serverFilter ?? ""}`;
+      // The row is passed on only where it is the resource's own row: a resource read from a view
+      // or function shows other columns, so its listeners refetch instead.
+      const sendRecord = configFor(resource).source === undefined;
+      let shared = sharedChannels.get(topic);
+      if (!shared) {
+        const listeners = new Set<{ emit: (event: ResourceChangeEvent) => void; id?: Identifier }>();
+        // A unique topic: supabase-js hands back an existing channel for a topic already open.
+        const channel = client.channel!(`genesis:${resource}:${++realtimeChannelSeq}`) as SupabaseRealtimeChannel;
+        let subscribedOnce = false;
+        let interrupted = false;
+        const broadcast = (event: ResourceChangeEvent, rowId?: unknown) => {
+          for (const l of listeners) {
+            if (l.id != null && isIdentifier(rowId) && String(rowId) !== String(l.id)) continue;
+            l.emit(event);
+          }
+        };
+        const onChange = (payload: SupabaseRealtimePayload) => {
+          // Realtime applies RLS to inserts and updates; a delete's old key goes to every
+          // subscriber, so a delete passes on only its id.
+          const row = payload.eventType === "DELETE" ? payload.old : payload.new;
+          const id = row?.["id"];
+          if (isEcho(resource, id, payload.eventType)) return;
+          const type =
+            payload.eventType === "INSERT" ? "created" : payload.eventType === "UPDATE" ? "updated" : "deleted";
+          const event: ResourceChangeEvent = isIdentifier(id)
+            ? sendRecord && type !== "deleted" && row
+              ? { type, id, record: row as BaseRecord }
+              : { type, id }
+            : { type };
+          broadcast(event, id);
+        };
+        if (serverFilter) {
+          // Only inserts are filtered. Realtime filters on the new row, so a filtered update would
+          // never report a row leaving the list (status open → closed); and it never delivers
+          // deletes through a filter. Both come unfiltered.
+          channel.on("postgres_changes", { event: "INSERT", schema, table, filter: serverFilter }, onChange);
+          channel.on("postgres_changes", { event: "UPDATE", schema, table }, onChange);
+          channel.on("postgres_changes", { event: "DELETE", schema, table }, onChange);
+        } else {
+          channel.on("postgres_changes", { event: "*", schema, table }, onChange);
         }
-      };
-      channel
-        .on(
-          "postgres_changes",
-          { event: "*", schema, table },
-          (payload) => {
-            // Only the id: the payload is a hint, never data to show. Realtime
-            // applies RLS to inserts and updates, but a delete's old key is
-            // sent to every subscriber, so nothing else is passed on.
-            const row = payload.eventType === "DELETE" ? payload.old : payload.new;
-            const id = row?.["id"];
-            if (params.id != null && isIdentifier(id) && String(id) !== String(params.id)) return;
-            const type =
-              payload.eventType === "INSERT" ? "created" : payload.eventType === "UPDATE" ? "updated" : "deleted";
-            emit(isIdentifier(id) ? { type, id } : { type });
-          },
-        )
-        .subscribe((status) => {
+        channel.subscribe((status) => {
           if (status === "SUBSCRIBED") {
             // Back after a drop: changes made meanwhile were not sent.
-            if (subscribedOnce && interrupted) emit({ type: "changed" });
+            if (subscribedOnce && interrupted) broadcast({ type: "changed" });
             subscribedOnce = true;
             interrupted = false;
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
             interrupted = true;
           }
         });
+        shared = {
+          listeners,
+          close: () => {
+            try {
+              const done =
+                typeof client.removeChannel === "function" ? client.removeChannel(channel) : channel.unsubscribe?.();
+              // A failed removal (socket already gone) is nothing to report.
+              if (done && typeof (done as Promise<unknown>).catch === "function") {
+                (done as Promise<unknown>).catch(() => {});
+              }
+            } catch {
+              // As above.
+            }
+          },
+        };
+        sharedChannels.set(topic, shared);
+      }
+      let closed = false;
+      const listener = {
+        id: params.id,
+        emit: (event: ResourceChangeEvent) => {
+          if (closed) return;
+          try {
+            callback(event);
+          } catch (error) {
+            console.error(`[SupabaseProvider] a realtime callback for "${resource}" threw:`, error);
+          }
+        },
+      };
+      shared.listeners.add(listener);
+      const mine = shared;
       return () => {
         if (closed) return;
         closed = true;
-        try {
-          const done =
-            typeof client.removeChannel === "function"
-              ? client.removeChannel(channel)
-              : channel.unsubscribe?.();
-          // A failed removal (socket already gone) is nothing to report.
-          if (done && typeof (done as Promise<unknown>).catch === "function") {
-            (done as Promise<unknown>).catch(() => {});
-          }
-        } catch {
-          // As above.
+        mine.listeners.delete(listener);
+        if (mine.listeners.size === 0 && sharedChannels.get(topic) === mine) {
+          sharedChannels.delete(topic);
+          mine.close();
         }
       };
     },
