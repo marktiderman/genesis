@@ -466,7 +466,9 @@ export function useConversation(conversationId: string | null | undefined, opts:
   const refetchConversation = useCallback(
     () =>
       Promise.all([
-        queryClient.refetchQueries({ queryKey: chatKeys.conversation(id) }),
+        // The conversation and what hangs off it (topics, availability), never its message lists:
+        // a refetch would replace loaded history and merged live messages with one fresh page.
+        queryClient.refetchQueries({ queryKey: chatKeys.conversation(id), predicate: (q) => q.queryKey[3] !== "messages" }),
         queryClient.refetchQueries({ queryKey: chatKeys.members(id) }),
         queryClient.refetchQueries({ queryKey: chatKeys.role(id) }),
         queryClient.refetchQueries({ queryKey: chatKeys.pins(id) }),

@@ -258,10 +258,15 @@ describe("review fixes in the hooks", () => {
     const { result } = renderHook(() => useConversation("c1"), { wrapper });
     await waitFor(() => expect(client.members).toHaveBeenCalled());
     client.members = vi.fn(realMembers);
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    const realMessages = client.messages;
+    client.messages = vi.fn(realMessages);
     await act(async () => {
       await result.current.refetchAccess();
     });
     expect(client.members).toHaveBeenCalled();
+    // Never the message history: a refetch would drop loaded pages and merged live messages.
+    expect(client.messages).not.toHaveBeenCalled();
     expect(typeof result.current.refetchConversation).toBe("function");
   });
 
