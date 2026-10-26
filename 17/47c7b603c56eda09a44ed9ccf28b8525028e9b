@@ -1,0 +1,31 @@
+.changeset/genesis-agents-rules.md
+  s_c0870a827920ef::t_0303a47cdae84a 5
+features.json
+  s_c0870a827920ef::t_fbd59186fb024a 1618,1629,1653,1666,1695,1706,1737,1749
+features.ts
+  s_c0870a827920ef::t_fa424b3a2e3b10 716,719,733,737,754,757,774,778
+packages/agents/README.md
+  s_c0870a827920ef::t_6854b09cf1f45a 3,8-9
+packages/agents/RULES.md
+  s_c0870a827920ef::t_9da52e3d0df8d3 5-7,12-21,40,60-61,63,73,124
+packages/agents/package.json
+  s_c0870a827920ef::t_5e953b3aeffad3 5,14
+packages/product/src/__tests__/product.test.ts
+  s_c0870a827920ef::t_9169c55ab24d63 32,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1747c7b603c56eda09a44ed9ccf28b8525028e9b",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
