@@ -2,8 +2,9 @@
  * Chat (`features.chat`): the chat client on the app's Supabase, the native
  * modules the chat screens use, resumable uploads, unsent messages kept on
  * the phone, and the push glue (the `messages` category's Reply and Mark read).
- * `src/app/(app)/messages/_layout.tsx` mounts `ChatRoot` over the Messages
- * tab; `push.ts` adds the category and the reply handler.
+ * `src/app/(app)/_layout.tsx` mounts `ChatRoot` over the signed-in tabs (the
+ * Messages tab and Settings → Availability share it); `push.ts` adds the
+ * category and the reply handler.
  *
  * Names and avatars: genesis-chat stores user ids only. Pass `loadPeople` (a
  * batch read of your profiles: `{ [userId]: { name, avatarUrl } }`) to
@@ -123,10 +124,14 @@ async function persistFile(file: LocalFile): Promise<string> {
 
 type LoadPeople = NonNullable<ChatProviderProps["loadPeople"]>;
 
-/** The providers the Messages screens read: the signed-in person's chat, with its uploads and drafts. */
+/**
+ * The providers the chat screens read: the signed-in person's chat, with its uploads and drafts.
+ * Before the session is known its children render without it (the Messages stack waits for a
+ * person itself).
+ */
 export function ChatRoot({ children, loadPeople }: { children: ReactNode; loadPeople?: LoadPeople }) {
   const { userId } = useSession();
-  if (!userId) return null;
+  if (!userId) return <>{children}</>;
   return (
     <ChatForUser userId={userId} loadPeople={loadPeople}>
       {children}

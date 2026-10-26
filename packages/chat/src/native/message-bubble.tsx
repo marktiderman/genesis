@@ -23,6 +23,7 @@ import { cycleVideoRate, fullScreenVideo, toggleVideo, toggleVideoMute, usePlayi
 import { fill } from "./copy";
 import { initials, useChatNative } from "./context";
 import { fromPending, fromPendingInput, fromServer, MessageAttachments, type BubbleAttachment } from "./media";
+import { ModerationMarker, moderationNote, moderationText } from "./moderation";
 import { cycleVoiceNoteRate, toggleVoiceNote, usePlayingVoiceNote } from "./voice-player";
 import type { ThreadRow } from "./rows";
 
@@ -48,6 +49,10 @@ export interface MessageBubbleProps {
   onOpenImage?: (uri: string, alt: string) => void;
   /** The swipe crossed the reply line (for a haptic). */
   onSwipeReply?: () => void;
+  /** You observe this conversation: moderation's markers show (hidden, flagged). */
+  observer?: boolean;
+  /** Drawn highlighted for a moment (the message a search result opened). */
+  highlighted?: boolean;
   /** The preview of a link in its text (`useLinkPreviews`, `previewToShow`). */
   linkPreview?: ChatLinkPreview | null;
   /** Show link previews' images (off by default; the thread screen passes `ChatProvider linkPreviewImages`). */
@@ -155,6 +160,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const canSwipe = Boolean(message && !message.deletedAt && props.onReply);
   const reactions = message ? summarizeReactions(message, me) : [];
   const time = formatClock(createdAt);
+  const moderation = moderationNote(message, { mine, observer: Boolean(props.observer) });
   const statusText = failed ? copy.notSent : sending ? copy.sending : null;
   const label = [
     senderName,
@@ -165,6 +171,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     time,
     message?.editedAt ? copy.edited : null,
     statusText,
+    moderation ? moderationText(moderation, copy) : null,
     reactions.length ? fill(copy.reactions, { count: reactions.reduce((n, r) => n + r.count, 0) }) : null,
   ]
     .filter(Boolean)
@@ -219,7 +226,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const textStyle = mine ? { fontSize: 17, lineHeight: 22 } : { fontSize: 17, lineHeight: 22, color: colors.label };
 
   return (
-    <View testID={testID} style={{ paddingHorizontal: 8, paddingTop: row.groupStart ? 8 : 2 }}>
+    <View testID={testID} style={{ paddingHorizontal: 8, paddingTop: row.groupStart ? 8 : 2, backgroundColor: props.highlighted ? colors.fill : undefined }}>
       {row.showName && sender?.name ? (
         <NativeText preset="caption" style={{ marginLeft: group ? 48 : 12, marginBottom: 2, color: colors.secondaryLabel }}>
           {sender.name}
@@ -249,7 +256,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
               paddingVertical: attachments.length && !body ? 4 : 8,
               borderRadius: 18,
               backgroundColor: bubbleColor,
-              opacity: sending ? 0.6 : 1,
+              opacity: sending ? 0.6 : moderation === "hidden-mine" ? 0.7 : 1,
               gap: 4,
             }}
           >
@@ -281,6 +288,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                 {displayBody(body)}
               </NativeText>
             ) : null}
+            {moderation ? <ModerationMarker note={moderation} mine={mine} testID={`${testID}-moderation`} /> : null}
             {preview ? <ChatLinkPreviewCard preview={preview} mine={mine} images={props.linkPreviewImages} testID={`${testID}-preview`} /> : null}
           </Pressable>
         </Animated.View>

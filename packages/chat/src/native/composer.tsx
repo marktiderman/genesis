@@ -32,6 +32,10 @@ export interface ChatComposerProps {
   onSend: (payload: ReturnType<typeof toSend>) => void;
   signalTyping?: () => void;
   signalRecording?: () => void;
+  /** Touch and hold Send (or VoiceOver's action on it) to schedule what's written (`ChatScheduleSheet`). */
+  onSchedule?: () => void;
+  /** The field's placeholder ("Message #Week 1" in a topic). */
+  placeholder?: string;
   /** Opens the video recorder (`ChatVideoRecorder`); with it, a camera button sits beside attach. */
   onRecordVideo?: () => void;
   testID?: string;
@@ -82,7 +86,7 @@ function ComposerWithVoice(props: ChatComposerProps & { audio: ExpoAudioLike }) 
   return <ComposerBody {...props} voice={voice} />;
 }
 
-function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, voice, testID = "chat-composer" }: ChatComposerProps & { voice: Voice | null }) {
+function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, onSchedule, placeholder, voice, testID = "chat-composer" }: ChatComposerProps & { voice: Voice | null }) {
   const { modules, copy } = useChatNative();
   const colors = useThemeRoles();
   const { state, dispatch } = composer;
@@ -216,9 +220,9 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, 
                 dispatch({ type: "text", text });
                 if (text) signalTyping?.();
               }}
-              placeholder={copy.placeholder}
+              placeholder={placeholder ?? copy.placeholder}
               placeholderTextColor={colors.tertiaryLabel as string}
-              accessibilityLabel={copy.placeholder}
+              accessibilityLabel={placeholder ?? copy.placeholder}
               editable={ready}
               multiline
               maxLength={CHAT_LIMITS.bodyChars}
@@ -238,7 +242,7 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, 
           </>
         )}
         {sendable && !recording ? (
-          <IconButton testID={`${testID}-send`} icon="arrow-up" label={copy.send} onPress={send} filled color={colors.tint} />
+          <IconButton testID={`${testID}-send`} icon="arrow-up" label={copy.send} onPress={send} onLongPress={onSchedule} longPressLabel={onSchedule ? copy.schedule : undefined} filled color={colors.tint} />
         ) : voice ? (
           <MicButton voice={voice} testID={testID} disabled={!ready} />
         ) : (
@@ -269,11 +273,16 @@ function IconButton({
   color,
   filled = false,
   disabled = false,
+  onLongPress,
+  longPressLabel,
   testID,
 }: {
   icon: "plus" | "arrow-up" | "close" | "trash" | "mic" | "video";
   label: string;
   onPress: () => void;
+  onLongPress?: () => void;
+  /** The long press as a VoiceOver / TalkBack action. */
+  longPressLabel?: string;
   color: unknown;
   filled?: boolean;
   disabled?: boolean;
@@ -288,6 +297,10 @@ function IconButton({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={onLongPress ? 400 : undefined}
+      accessibilityActions={onLongPress && longPressLabel ? [{ name: "longpress", label: longPressLabel }] : undefined}
+      onAccessibilityAction={onLongPress ? (e) => e.nativeEvent.actionName === "longpress" && onLongPress() : undefined}
       style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.4 : 1 }}
     >
       {filled ? (
