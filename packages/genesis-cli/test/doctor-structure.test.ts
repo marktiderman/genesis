@@ -1022,3 +1022,54 @@ describe("tokenizer: third-pass review", () => {
     expect(brief(await run(root), "page-layout")).toEqual([]);
   });
 });
+
+describe("installs: a nested app with its own install", () => {
+  const manifest = (name: string, version: string, extra: Record<string, unknown> = {}) => JSON.stringify({ name, version, ...extra });
+  /** A parent app (makeApp's install, plus a CLI and a UI that pulls in the parent's core) and apps/mobile inside it. */
+  const nested = (opts: { lockfile: boolean; mobileDeps?: Record<string, string> }) => {
+    const root = makeApp(null, {
+      "package.json": manifest("parent", "1.0.0", { dependencies: { "@marktiderman/genesis-ui": "^9.0.0", "@marktiderman/genesis-forms": "^1.0.0" } }),
+      "node_modules/@marktiderman/genesis-cli/package.json": manifest("@marktiderman/genesis-cli", "1.8.0", { dependencies: { "@marktiderman/genesis-core": "^9.0.0" } }),
+      "node_modules/@marktiderman/genesis-forms/package.json": manifest("@marktiderman/genesis-forms", "1.0.0", { dependencies: { "@marktiderman/genesis-core": "^9.0.0" } }),
+      // The mobile app's own install: its own core (same version as the parent's) and a chat with optional peers.
+      "apps/mobile/package.json": manifest("mobile", "0.1.0", {
+        dependencies: { "@marktiderman/genesis-core": "9.9.9", "@marktiderman/genesis-chat": "0.2.0", ...opts.mobileDeps },
+      }),
+      ...(opts.lockfile ? { "apps/mobile/bun.lock": "{}" } : {}),
+      "apps/mobile/node_modules/@marktiderman/genesis-core/package.json": manifest("@marktiderman/genesis-core", "9.9.9"),
+      "apps/mobile/node_modules/@marktiderman/genesis-chat/package.json": manifest("@marktiderman/genesis-chat", "0.2.0", {
+        peerDependencies: { "@marktiderman/genesis-core": "^9.0.0", "@marktiderman/genesis-ui": "^9.0.0" },
+        peerDependenciesMeta: { "@marktiderman/genesis-ui": { optional: true } },
+      }),
+    });
+    // The parent's genesis-ui depends on the parent's core.
+    writeFileSync(
+      path.join(root, "node_modules/@marktiderman/genesis-ui/package.json"),
+      JSON.stringify({ name: "@marktiderman/genesis-ui", version: "9.9.9", types: "./dist/index.d.ts", dependencies: { "@marktiderman/genesis-core": "^9.0.0" } }),
+    );
+    return path.join(root, "apps", "mobile");
+  };
+  const installs = async (app: string) => (await runDoctor({ root: app, config: {} })).findings.filter((f) => /duplicate|peer-range/.test(f.rule));
+
+  it("leaves out copies only the parent's packages load (an unmet optional peer, an undeclared CLI)", async () => {
+    const app = nested({ lockfile: true });
+    const core = genesisInstalls(app).get("@marktiderman/genesis-core")!;
+    expect(core.map((c) => c.dir)).toEqual(["node_modules/@marktiderman/genesis-core"]);
+    expect(genesisInstalls(app).has("@marktiderman/genesis-cli")).toBe(false);
+    expect(await installs(app)).toEqual([]);
+  });
+
+  it("keeps a parent copy the app's own dependencies resolve to", async () => {
+    // genesis-forms isn't in the mobile install, so Node resolves it (and its core) from the parent.
+    const app = nested({ lockfile: true, mobileDeps: { "@marktiderman/genesis-forms": "^1.0.0" } });
+    const found = await installs(app);
+    expect(found.map((f) => `${f.level} ${f.rule} ${f.subject}`)).toEqual(["warn duplicate-genesis-package @marktiderman/genesis-core"]);
+    expect(found[0]!.message).toContain("../../node_modules/@marktiderman/genesis-core (@marktiderman/genesis-forms@1.0.0 wants ^9.0.0)");
+  });
+
+  it("a workspace member (no install of its own) shares the root's: hoisted peers there still count", async () => {
+    const app = nested({ lockfile: false });
+    const found = await installs(app);
+    expect(found.map((f) => `${f.level} ${f.subject}`)).toEqual(["warn @marktiderman/genesis-core"]);
+  });
+});

@@ -70,6 +70,15 @@ const real = (p: string) => {
   }
 };
 
+/** An app with one of these beside its package.json has an install of its own. */
+const LOCKFILES = ["bun.lock", "bun.lockb", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml"];
+
+/** The node_modules folder a package folder sits in (`…/node_modules` for `…/node_modules/@scope/name`). */
+function nodeModulesOf(dir: string): string {
+  const parent = path.dirname(dir);
+  return path.basename(parent).startsWith("@") ? path.dirname(parent) : parent;
+}
+
 /** Package folders directly in a node_modules folder (scoped ones included), skipping `.bin`, `.pnpm` and the like. */
 function packagesIn(nodeModules: string): string[] {
   if (!existsSync(nodeModules)) return [];
@@ -144,12 +153,35 @@ export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
     for (const r of roots) visit(r.dir, r.by, r.range);
     while (queue.length) {
       const { real: from, manifest, label } = queue.shift()!;
-      const deps = { ...manifest.peerDependencies, ...manifest.optionalDependencies, ...manifest.dependencies };
+      const deps = { ...manifest.optionalDependencies, ...manifest.dependencies };
       for (const [name, range] of Object.entries(deps)) {
         const dir = findPackageDir(from, name);
         if (dir) visit(dir, label, range);
       }
+      for (const [name, range] of Object.entries(manifest.peerDependencies ?? {})) {
+        if (name in deps) continue;
+        const dir = peerOf(from, name);
+        if (dir) visit(dir, label, range);
+      }
     }
+  };
+  /**
+   * Where a peer dependency comes from: the host app provides peers. One the app
+   * declares resolves as Node would from the package; one it doesn't is met only
+   * by a copy the app's own install holds (a sibling in the same node_modules,
+   * as pnpm and bun link peers, or anything under the app's folder). A copy
+   * found only by walking up past the app (a parent app's node_modules) is an
+   * unmet peer, not part of this app's graph. That boundary holds only for an app
+   * with its own install (its own lockfile): a workspace member shares the root's
+   * install, where hoisted peers are real.
+   */
+  const peerOf = (from: string, name: string): string | null => {
+    const dir = findPackageDir(from, name);
+    if (!dir) return null;
+    if (!ownInstall || name in declared) return dir;
+    const realDir = real(dir);
+    if (realDir.startsWith(realRoot + path.sep)) return dir;
+    return nodeModulesOf(realDir) === nodeModulesOf(from) ? dir : null;
   };
   const rootsOf = (deps: Record<string, string | undefined>, by: string) =>
     Object.entries(deps).flatMap(([name, range]) => {
@@ -158,6 +190,8 @@ export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
     });
 
   const app = readManifest(root);
+  const ownInstall = LOCKFILES.some((f) => existsSync(path.join(root, f)));
+  const declared = { ...app?.devDependencies, ...app?.peerDependencies, ...app?.optionalDependencies, ...app?.dependencies };
   // A devDependency ships when the app bundles it, and the doctor can't tell for sure which apps
   // bundle: so every devDependency counts as runtime except tooling (NON_SHIPPING), whose tree never ships.
   const declaredDev = Object.entries(app?.devDependencies ?? {});
@@ -181,7 +215,8 @@ export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
       .map((dir) => ({ dir, by: "hoisted, not a direct dependency" })),
   );
   const devRoots: Record<string, string | undefined> = { ...devDeps };
-  for (const tool of DEV_TOOLS) if (!(tool in devRoots)) devRoots[tool] = runtimeDeps[tool];
+  // The CLI's tree when the app declares it (anywhere): one found only in a parent's node_modules isn't this app's.
+  for (const tool of DEV_TOOLS) if (!(tool in devRoots) && tool in runtimeDeps) devRoots[tool] = runtimeDeps[tool];
   walk("dev", rootsOf(devRoots, "the app (dev)"));
   for (const [key, copy] of copies) {
     const kinds = via.get(key)!;
