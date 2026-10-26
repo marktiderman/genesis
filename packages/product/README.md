@@ -3,9 +3,8 @@
 The product system for a Genesis repo, first version: what is being built now, next and later,
 what people are asking for, and release notes that tell them when it shipped.
 
-Status: experimental and private. This repo uses it on itself first. It is private on purpose:
-publishing it means flipping `private`, setting a hand-made first version and the owner's first
-`npm publish` and `npm trust` (see docs/RELEASING.md), so it can't reach npm by accident.
+Status: experimental, published so apps made from the RN starter can install it (its product
+demo is off by default). This repo uses it on itself first.
 
 - **The catalog is `features.ts`.** Features, their status, `horizon` (now, next, later) and
   `claimedBy` come from the registry's generated `features.json`. There is no second list.
