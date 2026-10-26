@@ -38,7 +38,7 @@ import {
   type ComponentType,
   type ReactNode,
 } from "react";
-import { AccessibilityInfo, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View, type ScrollViewProps, type ViewStyle } from "react-native";
+import { AccessibilityInfo, Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View, type ScrollViewProps, type ViewStyle } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 
@@ -214,6 +214,8 @@ function LibrarySheet({
       // v5 sizes to the content by default and adds that as a snap point, which would shift the
       // indexes: only a sheet that fits its content asks for it, and then it is the only one.
       enableDynamicSizing={fitContent}
+      // Long content would otherwise grow the sheet to the full height, under the status bar.
+      {...(fitContent ? { maxDynamicContentSize: Math.round(Dimensions.get("window").height * 0.9) } : {})}
       onDismiss={onDismiss}
       enablePanDownToClose={!disableBackdropDismiss}
       backdropComponent={backdrop}
