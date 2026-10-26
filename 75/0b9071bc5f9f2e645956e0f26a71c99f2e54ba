@@ -1,0 +1,29 @@
+packages/genesis-cli/src/doctor/structure.ts
+  s_2c334912fcb08f::t_644e8ddb58d41f 28-33,200-202
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_1f35d570c63beb::t_bee7d17caa10f2 384-386,395-399
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "750b9071bc5f9f2e645956e0f26a71c99f2e54ba",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
