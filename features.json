@@ -2920,12 +2920,15 @@
         "On Android every category's channel exists, with private lock-screen visibility, before the permission prompt and the token request.",
         "A tapped notification's data.url goes through normalizeLink once (an unknown path opens /, another app's URL never opens); signed out, it is held and followed after sign-in.",
         "NotificationSettings saves a change at once and puts it back, saying so, when the save fails; replacing a part with a slot keeps its section, and null drops it.",
+        "With the rich push plugin, iOS shows a push's https image and a messages push as a Communication Notification with the sender's photo, and a failed download never drops the notification.",
         "Not yet delivered through Apple's or Google's push services: real delivery needs an EAS project with APNs and FCM credentials."
       ],
-      "reviewedAt": "2026-10-24",
+      "reviewedAt": "2026-10-25",
       "links": {
         "code": [
           "packages/native/src/push",
+          "packages/native/src/plugin",
+          "packages/native/ios/notification-service",
           "apps/genesis-rn-starter/src/lib/push.ts"
         ],
         "docs": [
