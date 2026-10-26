@@ -301,6 +301,43 @@
         "steps": [
           "Needs the pursuits and metrics blocks and their hooks. For reminders, schedule a job (the jobs block) that reads update_requests_due and sends one notification per request."
         ]
+      },
+      "meetings": {
+        "feature": {
+          "name": "Meetings",
+          "summary": "Meeting types with agendas, and meetings with a schedule, calendar event, the agenda copied at start, the live step, facilitator and scribe, notes and recordings; attendees with presence and a 1-to-10 rating; links to pre-work and collaboration spaces.",
+          "keywords": [
+            "meetings",
+            "agenda",
+            "weekly meeting",
+            "one-on-one",
+            "rating",
+            "attendance"
+          ],
+          "audience": [
+            "person",
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "requires": [
+          "tenant-features"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0012_genesis_meetings.sql",
+            "test": "migrations/tests/0012_genesis_meetings.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Uses the same owner hooks as the pursuits block. To share pre-work or a live worksheet with attendees, register private.genesis_meeting_members(meeting) as a collaboration audience."
+        ]
       }
     }
   },
