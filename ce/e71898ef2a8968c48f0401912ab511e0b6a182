@@ -1,0 +1,28 @@
+docs/adr/0002-product-system.md
+  s_f5a91deb5a46ce::t_a1a032b4aba96c 1-114
+  s_18dd9cee35b819::t_a89ee24fcf32fb 115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cee71898ef2a8968c48f0401912ab511e0b6a182",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
