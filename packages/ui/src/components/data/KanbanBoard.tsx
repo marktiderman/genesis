@@ -108,9 +108,14 @@ export function KanbanBoard<T>({
   // Which move the pending refocus belongs to: a slower, earlier move of the
   // same card that fails must not cancel the refocus a later move set up.
   const refocusMove = useRef(0);
+  // Bumped when a move settles, so the refocus check runs once more after the caller's update.
+  const [, setSettledTick] = useState(0);
   // The column the card was in when its move started: until it shows up
   // somewhere else, the move is still saving.
   const refocusFrom = useRef<string | null>(null);
+  // The move behind the pending refocus has settled. If the card is still where it was once the
+  // board has re-rendered (the caller kept it there), there is nothing left to wait for.
+  const refocusSettled = useRef(false);
   const moves = useRef(0);
   const instructionsId = useId();
   const keyOf = (item: T, index: number) => (getKey ? getKey(item) : String(index));
@@ -137,6 +142,7 @@ export function KanbanBoard<T>({
     if (key !== undefined && refocus.current === key) {
       refocusMove.current = id;
       refocusFrom.current = find(key)?.column.key ?? null;
+      refocusSettled.current = false;
     }
     let result: void | Promise<void>;
     try {
@@ -146,7 +152,14 @@ export function KanbanBoard<T>({
     }
     // The caller reports the failure; the card simply stays put.
     void Promise.resolve(result).then(
-      () => announce(fillMessage(k.moved, { name, column: columnLabel(to) })),
+      () => {
+        if (key !== undefined && refocus.current === key && refocusMove.current === id) {
+          refocusSettled.current = true;
+          // Re-check after the caller's update has had its render.
+          setSettledTick((n) => n + 1);
+        }
+        announce(fillMessage(k.moved, { name, column: columnLabel(to) }));
+      },
       () => {
         // Nothing moved, so there is no new handle to focus; a pending
         // refocus would otherwise grab focus the next time it reaches body.
@@ -236,7 +249,12 @@ export function KanbanBoard<T>({
     }
     // Still in the column it left: the move is saving (or failed, which
     // clears this). Wait.
-    if (found.column.key === refocusFrom.current) return;
+    if (found.column.key === refocusFrom.current) {
+      // Saved, yet still in its old column: the caller didn't move it. Stop waiting, so a later
+      // move by someone else can't pull focus to it.
+      if (refocusSettled.current) refocus.current = null;
+      return;
+    }
     const handle = handles.current.get(key);
     if (!handle) return;
     const active = document.activeElement;
