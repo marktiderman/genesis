@@ -1,6 +1,6 @@
 # ResourceView: one description per resource, one line per screen
 
-Design v0.3, 2026-10-26. Status: **approved by the maintainer; building**. v0.3 adds what the first adopter's lists need (presets with filters, grouping, manual rank, footer totals).
+Design v0.4, 2026-10-26. Status: **approved by the maintainer; building**. v0.4 adds the reuse map from a survey of every Genesis package: most pieces already exist and are promoted or extended, not rebuilt. v0.3 adds what the first adopter's lists need (presets with filters, grouping, manual rank, footer totals).
 
 v0.2 folds in three adversarial reviews (security, speed and scale, API design) and reviews from
 the data, layout, native, extension and coordination owners. What changed from v0.1 is listed at
@@ -32,6 +32,45 @@ Non-goals:
   Those keep `AppShellPageHeader`, `ResourceHeader` and `useAppShellSubNav`. ResourceView is for
   **collection screens**, lists of records. The view's shape is kept open so a later
   `ResourceWorkspace` can reuse it.
+
+## Reuse map: what already exists and how it's used
+
+A survey of every package found that most of what ResourceView needs already exists. The rule is:
+reuse what's there, promote pure pieces to `genesis-core` when a second package needs them, and
+build only what's missing.
+
+| Need | Existing piece | Plan |
+| --- | --- | --- |
+| The web screen | `ResourcePage`, `useResourceTable`, `ResourcePageSlotMap` (genesis-ui) | **ResourceView maps a view onto ResourcePage props and slots.** It isn't a second list page |
+| The phone screen | `NativeResourcePage`, `NativeListItem` (title, subtitle, leading, trailing), `InboxPage` swipe actions, `SectionList` (genesis-ui-native) | `NativeResourceView` maps `native.row` onto these |
+| Resource facts | `ResourceSchema` (`label`, `labelField`, `access`, `actions`, `createFields`), `FieldSchema` (`widget`, `enumValues`, `references`, `generated`), Supabase resource config (`noun`, `nounPlural`, `searchFields`, `source`, `select`, `writeColumns`, `deleteMode`, `realtime`) | Reuse. `introspect` adds only `readonly` and `sensitive` (boolean comment values) |
+| Generated contracts | `emitContracts` → `contracts` (keyed `schema.table`), `GenesisRows` | Views import `contracts`. The name stays |
+| Form, sections, conditional fields, validation | `ResourceFormFieldDef` (`group`, `visible`, `disabled`, `maxLength`, `relation`), `useResourceForm` with zod `buildSchema`; studio's `formSchema` and `StudioFormConfig` (`sections`, `visibleWhen`) | **Promote studio's `formSchema` and `form-config` to core.** The view's `form` compiles to `ResourceFormFieldDef[]`, so conditional fields ship in phase 1 |
+| CSV export and import | studio `exportCsv` and `parseCsv` (paged through the provider, formula-safe); forms-studio `toCsv`; forms-builder `parseCsvRows` | **Promote one CSV helper to core**, and fix the leading-space formula case there |
+| Grouping, sort and filter state | studio `query-state` (sorts, filters, group) | Promote to core, used by `groupBy` and presets |
+| Relation labels with no N+1 | studio `usePageLinkLabels` (batched) | Promote, used by the `relation` hint |
+| Bulk, import, row actions | provider `updateMany`, `deleteMany`, `importRows({ dryRun })`, `runAction`; studio `BulkEditDialog`, `ImportDialog` | Reuse through the provider, gated on `capabilities()` |
+| Header, peek, filters, saved views | `PageHeader`, `DataFilters`, `SavedViewItem`, `DataPageShell`, `DetailPanel`, `ResourceDetailPage`, `ResourceHeader`, `HeadlineNumbers`, `Chip` | Reuse as the header parts and summary chips |
+| Drag order, sheet, kanban | `SortableList`, `SheetGrid`, `KanbanBoard` | Reuse |
+| Storage | core `useStorage` / `StorageAdapter` | Reuse. `useSavedViews` and `option-storage` move onto it (today they call `localStorage`) |
+| Copy | the typed catalogue pattern: `uiMessages` + `UiMessagesProvider` + `fillMessage`, `supportCopy` + `resolveSupportCopy` | A view's copy is a typed `DeepPartial` catalogue with `{name}` placeholders, not dotted string keys. **Plurals are new work:** a small `Intl.PluralRules` helper in core, since none exists |
+| Dates | core `/dates`; ui `DateCell` | Reuse `/dates`. **Fix `DateCell`**, which does `new Date("YYYY-MM-DD")` and shifts a day west of UTC, and its hard-coded "—" |
+| Tones | `ChipTone` (success, warning, danger, info, muted) | The one tone set for display hints |
+| Safe URLs | `isSafeUrl`, `normalizeLinkUrl` (genesis-ui rich text) | **Move to core** so native and the extension use the same check |
+| Renderer registries | forms-react / forms-native `createRendererRegistry({ type \| test, rank, Component })` | Display-hint renderers use this shape, passed through context |
+| Define and register | Sites `defineSection` (validates and freezes), `Symbol.for` registries | `defineView` validates and freezes the same way |
+| Scope and keys | `ViewerScope`, `defineQueryKeys` / `KeyScope { viewer, group, day }` | `scope` joins `KeyScope` |
+| Testing | core `/testing` (`expectRefused`, `expectServerOwned`, `expectNeverShows`) | The generated cross-scope stubs use it |
+| Refusals | `readFailureMessage`, `DataWriteError`, `showWriteErrorToast` | Reuse for inline refusals |
+| Jobs | genesis-supabase `enqueueJob`, `runJobs` | Reuse. **A browser job-status read is new work** |
+| Feature gate | features `useFeature`, `FeatureGate` | Gates the sheet toggle. ResourceView gets a FeatureId |
+| Doctor | `page-layout` (`…Page`, `…PageShell`), `native-screen-layout` (`…Page`, `…Screen`) | Both rules learn `ResourceView` and `NativeResourceView`. A "lists use ResourceView" rule joins the built-in structure rules |
+
+Naming follows what exists:
+- Modes are the existing `ViewMode` (`table`, `grid`, `list`) plus `sheet`. "Cards" means `grid`,
+  and the stored choice key is unchanged.
+- The permission hook keeps ResourcePage's name, `can`. It returns `true` or a reason, and it can
+  only narrow what the server allows.
 
 ## The layers
 
@@ -72,10 +111,10 @@ The provider config holds the data-side facts. These are owned by the data layer
 ```ts
 // features/brands/brands.view.ts — no React, no DOM: native and the extension import it too
 import { defineView } from "@marktiderman/genesis-core/resource-view";
-import { resources } from "../../resources.genesis";
+import { contracts } from "../../resources.genesis";
 
-export const brandsView = defineView(resources.brands, {
-  messages: "brands",                      // copy keys: brands.noun, brands.empty.*, brands.fields.*
+export const brandsView = defineView(contracts["public.brands"], {
+  copy: brandsCopy,                        // a typed catalogue (DeepPartial), like uiMessages
   fields: {
     name: { max: 120 },                    // feeds the derived validation
     status: { display: "badge" },          // a hint; each platform registers its renderer
@@ -84,7 +123,7 @@ export const brandsView = defineView(resources.brands, {
   columns: { default: ["name", "status", "created_at"], compact: ["name"] },
   form: ["name", { section: "advanced", fields: ["slug"] }],
   validate: (s) => s.refine((r) => r.slug !== "admin", { path: ["slug"], message: "brands.slug.reserved" }),
-  guards: { delete: (row) => (row.is_default ? "brands.guard.default" : true) },
+  can: { delete: (row) => (row.is_default ? copy.brands.defaultKept : true) },
   summary: (row) => ({ title: row.name, chips: [{ label: row.status, tone: "info" }] }),
 });
 ```
@@ -132,7 +171,7 @@ Screen settings:
 - `layout`: `page`, `embedded` or `compact`;
 - `columns`: a preset;
 - `filter` and `defaults`, which override the scope;
-- `mode`: `table`, `cards` or `sheet`;
+- `mode`: `table`, `grid` (cards), `list` or `sheet`;
 - `header`: parts on or off, or one part filled;
 - `slots`: `peekExtra`, `detail`, `card`, `toolbar`, `rowActions`, `header`;
 - `onTotal`: for a parent tab's badge.
