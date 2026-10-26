@@ -603,7 +603,7 @@ export function createSupabaseProvider(
    */
   const recentWrites = new Map<
     string,
-    { eventType: "INSERT" | "UPDATE" | "DELETE"; at: number; heardOn: Set<string>; openTopics: Set<string> }
+    { eventType: "INSERT" | "UPDATE" | "DELETE"; at: number; heardOn: Set<string>; openChannels: Set<object> }
   >();
 
   function noteWrite(event: WriteEvent): void {
@@ -611,8 +611,10 @@ export function createSupabaseProvider(
     for (const [key, mark] of recentWrites) if (now - mark.at > REALTIME_ECHO_MS) recentWrites.delete(key);
     const eventType = event.kind === "create" ? "INSERT" : event.kind === "delete" ? "DELETE" : "UPDATE";
     // Only the channels open now carry this write's echo; one opened later never saw the write.
-    const openTopics = new Set([...sharedChannels.keys()].filter((t) => t.startsWith(`${event.resource}\u0000`)));
-    recentWrites.set(`${event.resource}\u0000${String(event.id)}`, { eventType, at: now, heardOn: new Set(), openTopics });
+    const openChannels = new Set(
+      [...sharedChannels.entries()].filter(([t]) => t.startsWith(`${event.resource}\u0000`)).map(([, c]) => c as object),
+    );
+    recentWrites.set(`${event.resource}\u0000${String(event.id)}`, { eventType, at: now, heardOn: new Set(), openChannels });
   }
   /** One realtime channel per resource and server filter, shared by every subscriber to it. */
   const sharedChannels = new Map<
@@ -625,11 +627,14 @@ export function createSupabaseProvider(
     id: unknown,
     eventType: SupabaseRealtimePayload["eventType"],
     topic: string,
+    channelObject: object | undefined,
   ): boolean {
     if (!isIdentifier(id)) return false;
     const key = `${resource}\u0000${String(id)}`;
     const mark = recentWrites.get(key);
-    if (!mark || mark.eventType !== eventType || mark.heardOn.has(topic) || !mark.openTopics.has(topic)) return false;
+    // Only a channel that was open at the write carries its echo: one reopened on the same topic
+    // since then is a different object and never saw it.
+    if (!mark || mark.eventType !== eventType || mark.heardOn.has(topic) || !channelObject || !mark.openChannels.has(channelObject)) return false;
     if (Date.now() - mark.at > REALTIME_ECHO_MS) {
       recentWrites.delete(key);
       return false;
@@ -1034,7 +1039,7 @@ export function createSupabaseProvider(
           // subscriber, so a delete passes on only its id.
           const row = payload.eventType === "DELETE" ? payload.old : payload.new;
           const id = row?.["id"];
-          if (isEcho(resource, id, payload.eventType, topic)) return;
+          if (isEcho(resource, id, payload.eventType, topic, sharedChannels.get(topic))) return;
           const type =
             payload.eventType === "INSERT" ? "created" : payload.eventType === "UPDATE" ? "updated" : "deleted";
           const event: ResourceChangeEvent = isIdentifier(id)
