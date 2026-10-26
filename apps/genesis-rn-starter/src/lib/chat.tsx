@@ -64,6 +64,16 @@ const modules: ChatNativeModules = {
 // Mux when the app has an upload handler, else storage (src/lib/chat-video.ts).
 const videoUpload = chatVideoUpload();
 
+// The app's own attachment kinds, drawn as cards in the thread. A check-in sent in a conversation
+// opens the check-in screen (`onOpenAttachment` in messages/[id].tsx).
+const attachmentKinds: NonNullable<ChatProviderProps["attachmentKinds"]> = {
+  check_in: {
+    title: () => copy.messages.checkInCard,
+    subtitle: (a) => (typeof a.ref.title === "string" ? a.ref.title : null),
+    action: () => (starter.features.checkIn ? { label: copy.messages.checkInAnswer } : null),
+  },
+};
+
 /** Unsent messages wait here between launches (per signed-in person). */
 function outboxStore(userId: string): OutboxStore {
   const key = `genesis-chat:outbox:${userId}`;
@@ -140,7 +150,7 @@ function forUser(userId: string) {
 function ChatForUser({ userId, loadPeople, children }: { userId: string; loadPeople?: LoadPeople; children: ReactNode }) {
   const { store, upload } = forUser(userId);
   return (
-    <ChatProvider client={chatClient} userId={userId} outboxStore={store} upload={upload} newId={ExpoCrypto.randomUUID} persistFile={persistFile} loadPeople={loadPeople} videoUpload={videoUpload}>
+    <ChatProvider client={chatClient} userId={userId} outboxStore={store} upload={upload} newId={ExpoCrypto.randomUUID} persistFile={persistFile} loadPeople={loadPeople} videoUpload={videoUpload} attachmentKinds={attachmentKinds}>
       <ShareOutbox userId={userId} />
       <ChatNativeProvider modules={modules} copy={copy.chat}>
         {children}
