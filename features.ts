@@ -893,7 +893,7 @@ export const features = defineFeatures({
   },
   "feature-gate": {
     name: "Feature gate",
-    summary: "One answer to \"is this feature on here?\": featureOn(registry, context, id) checks status, platform, entitlement, the tenant's switch and release flags in that order and returns { on, reason, unlock }. The same function runs in browsers, phones, Node and edge functions (/gate, no zod); React reads a server-made snapshot through FeatureGateProvider, useFeature and FeatureGate (/gate/react); server code refuses with requireFeature and FeatureOff.",
+    summary: "One answer to \"is this feature on here?\": featureOn(registry, context, id) checks status, platform, the tenant's switch, release flags and last entitlement, in that order, and returns { on, reason, unlock }. The same function runs in browsers, phones, Node and edge functions (/gate, no zod); React reads a server-made snapshot through FeatureGateProvider, useFeature and FeatureGate (/gate/react); server code refuses with requireFeature and FeatureOff.",
     category: "Platform",
     status: "building",
     horizon: "now",
@@ -909,7 +909,7 @@ export const features = defineFeatures({
     audience: ["developer", "agent"],
     visibility: "internal",
     acceptance: [
-      "featureOn reports the first failing check (status, platform, entitlement, tenant, flag) as the reason, and for a paid feature the plan that unlocks it.",
+      "featureOn reports the first failing check (status, platform, tenant, flag, entitlement) as the reason, and for a paid feature the plan that unlocks it; a flag is on only when exactly true.",
       "requireFeature throws FeatureOff with the reason; its status is 402 for entitlement and 403 otherwise.",
       "useFeature reads a server-made snapshot and throws without a FeatureGateProvider.",
       "Not yet: SQL feature_on() agreeing with featureOn on status and entitlement (feature-mirror).",

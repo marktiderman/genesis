@@ -1,8 +1,9 @@
 /**
  * `@marktiderman/genesis-features/gate/react`: the gate's answers in React,
  * on the web and in React Native. The server computes a {@link GateSnapshot}
- * once per session and the provider hands it down; components never decide
- * on their own.
+ * and the provider hands it down; components never decide on their own. To
+ * refresh, give the provider a new snapshot: every `useFeature` below it
+ * re-renders with the new answers.
  *
  * @stability Beta
  */

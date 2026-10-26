@@ -123,12 +123,13 @@ The CLI loads TypeScript itself, so the registry needs no build step. Keep its i
 ## The gate
 
 `featureOn(registry, context, id)` answers "is this feature on here?" the same way everywhere. Checks
-run in a fixed order and the first "no" wins: **status** (beta, live or deprecated), **platform**,
-**entitlement** (for `access: { plan }`), **tenant** (switched off) and **flag** (a boolean release
-flag that is false). The answer carries the reason, and for a paid feature the plan that unlocks it.
+run in a fixed order and the first "no" wins: **status** (beta, live or deprecated), **platform**, **tenant**
+(switched off), **flag** (each boolean release flag must be exactly `true`) and last **entitlement** (for
+`access: { plan }`), so an upgrade prompt only appears when paying is the one thing missing. The answer
+carries the reason, and for a paid feature the plan that unlocks it.
 
 ```ts
-import { featureOn, gateSnapshot, requireFeature } from "@marktiderman/genesis-features/gate";
+import { featureOn, gateSnapshot, isSnapshotStale, requireFeature } from "@marktiderman/genesis-features/gate";
 
 const context = { platform: "web", entitlements: ["form-webhook-delivery"], off: ["library"], flags: { "sms.release": true } };
 featureOn({ features, flags }, context, "library"); // { on: false, reason: "tenant" }
@@ -136,11 +137,14 @@ featureOn({ features, flags }, context, "library"); // { on: false, reason: "ten
 // Server functions refuse whatever the reason: FeatureOff has status 402 (entitlement) or 403.
 requireFeature({ features, flags }, context, "form-webhook-delivery");
 
-// Once per session, the server hands the client every answer.
-const snapshot = gateSnapshot({ features, flags }, context);
+// The server hands the client every shipped feature's answer: plain JSON with `at` (and `version`).
+const snapshot = gateSnapshot({ features, flags }, context, { version: buildVersion });
+// A client keeps it, and replaces it when stale, after sign-in or a tenant switch, or after a refusal.
+if (isSnapshotStale(snapshot, 5 * 60_000)) refresh();
 ```
 
-`/gate` has no zod, so it ships to browsers, phones and edge functions. In React (web and React
+`/gate` has no zod, React, Node built-ins or DOM globals, so it ships to browsers, extension service workers,
+phones and edge functions. Context id sets are lists, Sets or functions (not iterators or strings). In React (web and React
 Native), `/gate/react` reads the server's snapshot:
 
 ```tsx

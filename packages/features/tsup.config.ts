@@ -32,5 +32,8 @@ export default defineConfig({
   treeshake: true,
   target: "es2022",
   external: [/^@marktiderman\//, "react", "react-dom", "lucide-react", "zod", /^node:/],
-  onSuccess: async () => stampUseClient("dist/react.js"),
+  onSuccess: async () => {
+    stampUseClient("dist/react.js");
+    stampUseClient("dist/gate-react.js");
+  },
 });

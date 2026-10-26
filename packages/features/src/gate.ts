@@ -6,9 +6,13 @@
  *
  *   1. status       the feature has shipped (beta, live or deprecated)
  *   2. platform     it has shipped on this platform
- *   3. entitlement  a paid feature (`access: { plan }`) has an active entitlement
- *   4. tenant       the tenant has not switched it off
- *   5. flag         none of its boolean release or permission flags is false
+ *   3. tenant       the tenant has not switched it off
+ *   4. flag         each of its boolean release or permission flags is true
+ *   5. entitlement  a paid feature (`access: { plan }`) has an active entitlement
+ *
+ * Entitlement is last on purpose: an "upgrade to unlock" answer is only given
+ * when paying is the one thing missing, so an upsell never promises a feature
+ * that a switch or a flag would still keep off.
  *
  * The registry comes from code (features.ts and flags.json). Everything that
  * changes at runtime (entitlements, switches, flag values) comes in through
@@ -16,7 +20,8 @@
  * and row rights are not the gate's business: "may this person" stays with
  * roles and row security.
  *
- * No zod here: this file ships to browsers, phones and edge functions.
+ * No zod, React, Node built-ins or DOM globals here: this file ships to
+ * browsers, extension service workers, phones and edge functions.
  */
 import type {
   FeatureAccess,
@@ -36,12 +41,12 @@ export const SHIPPED_STATUSES: readonly FeatureStatus[] = [
 
 /**
  * Why a feature is off: the first check that said no. `unknown` is an id that
- * isn't in the registry.
+ * isn't in the registry (or not in a snapshot).
  *
  * @stability Beta
  */
 export type GateReason =
-  "unknown" | "status" | "platform" | "entitlement" | "tenant" | "flag";
+  "unknown" | "status" | "platform" | "tenant" | "flag" | "entitlement";
 
 /**
  * The gate's answer for one feature. `unlock` is set when the reason is
@@ -54,7 +59,7 @@ export interface GateAnswer {
   on: boolean;
   reason?: GateReason;
   unlock?: { plan: string };
-  /** The flag that turned it off, when the reason is `flag`. */
+  /** The flag that turned it off, when the reason is `flag`. Server side only: snapshots leave it out. */
   flag?: string;
 }
 
@@ -79,8 +84,15 @@ export interface GateRegistry {
   flags?: { readonly [name: string]: GateFlag };
 }
 
-/** A set of ids, given as a list, a Set or a test. */
-export type IdSet = Iterable<string> | ((id: string) => boolean);
+/**
+ * A set of ids: a list, a Set or a test. Not any iterable: an iterator would
+ * be used up by the first feature asked, and a bare string would count as its
+ * characters.
+ *
+ * @stability Beta
+ */
+export type IdSet =
+  readonly string[] | ReadonlySet<string> | ((id: string) => boolean);
 
 /**
  * Where and for whom the gate is asked: the platform, plus the tenant's
@@ -105,12 +117,23 @@ export interface GateContext {
 /** Flag kinds that can turn a feature off. Experiments and ops flags pick a variant; they don't gate. */
 const GATING_KINDS: readonly FlagKind[] = ["release", "permission"];
 
-function has(set: IdSet | undefined, id: string): boolean {
-  if (!set) return false;
-  if (typeof set === "function") return set(id);
-  if (set instanceof Set) return set.has(id);
-  for (const item of set) if (item === id) return true;
-  return false;
+type Test = (id: string) => boolean;
+
+function toTest(set: IdSet | undefined, name: string): Test {
+  if (set === undefined) return () => false;
+  if (typeof set === "function") return set;
+  if (typeof set === "string")
+    throw new TypeError(
+      `GateContext.${name} must be a list, a Set or a function, not a string`,
+    );
+  if (Array.isArray(set)) {
+    const ids = new Set<string>(set);
+    return (id) => ids.has(id);
+  }
+  if (set instanceof Set) return (id) => set.has(id);
+  throw new TypeError(
+    `GateContext.${name} must be a list, a Set or a function`,
+  );
 }
 
 function flagValue(
@@ -118,12 +141,61 @@ function flagValue(
   name: string,
 ): FlagValue | undefined {
   if (!flags) return undefined;
-  return typeof flags === "function" ? flags(name) : flags[name];
+  if (typeof flags === "function") return flags(name);
+  return Object.hasOwn(flags, name) ? flags[name] : undefined;
+}
+
+interface Prepared {
+  registry: GateRegistry;
+  context: GateContext;
+  entitled: Test;
+  off: Test;
+}
+
+function prepare(registry: GateRegistry, context: GateContext): Prepared {
+  return {
+    registry,
+    context,
+    entitled: toTest(context.entitlements, "entitlements"),
+    off: toTest(context.off, "off"),
+  };
+}
+
+function answer(
+  { registry, context, entitled, off }: Prepared,
+  id: string,
+): GateAnswer {
+  const def = Object.hasOwn(registry.features, id)
+    ? registry.features[id]
+    : undefined;
+  if (!def) return { on: false, reason: "unknown" };
+  if (!SHIPPED_STATUSES.includes(def.status))
+    return { on: false, reason: "status" };
+  const here = statusOn(def, context.platform);
+  if (!here || !SHIPPED_STATUSES.includes(here))
+    return { on: false, reason: "platform" };
+  if (off(id)) return { on: false, reason: "tenant" };
+  for (const [name, flag] of Object.entries(registry.flags ?? {})) {
+    if (
+      flag.feature !== id ||
+      !GATING_KINDS.includes(flag.kind) ||
+      typeof flag.default !== "boolean"
+    )
+      continue;
+    // On only when exactly true: a malformed value ("false", 0, null) keeps the feature off.
+    if ((flagValue(context.flags, name) ?? flag.default) !== true)
+      return { on: false, reason: "flag", flag: name };
+  }
+  const access = def.access ?? "all";
+  if (access !== "all" && !entitled(id))
+    return { on: false, reason: "entitlement", unlock: { plan: access.plan } };
+  return { on: true };
 }
 
 /**
  * Is feature `id` on for this context? Returns the first check that said no
- * as `reason`, and for a paid feature the plan that unlocks it.
+ * as `reason`, and for a paid feature the plan that unlocks it. An unknown id
+ * is off with reason `unknown`; it never throws for one.
  *
  * ```ts
  * const answer = featureOn({ features, flags }, { platform: "web", entitlements, off }, "form-webhook-delivery");
@@ -137,60 +209,85 @@ export function featureOn(
   context: GateContext,
   id: string,
 ): GateAnswer {
-  const def = Object.hasOwn(registry.features, id)
-    ? registry.features[id]
-    : undefined;
-  if (!def) return { on: false, reason: "unknown" };
-  if (!SHIPPED_STATUSES.includes(def.status))
-    return { on: false, reason: "status" };
-  const here = statusOn(def, context.platform);
-  if (!here || !SHIPPED_STATUSES.includes(here))
-    return { on: false, reason: "platform" };
-  const access = def.access ?? "all";
-  if (access !== "all" && !has(context.entitlements, id))
-    return { on: false, reason: "entitlement", unlock: { plan: access.plan } };
-  if (has(context.off, id)) return { on: false, reason: "tenant" };
-  for (const [name, flag] of Object.entries(registry.flags ?? {})) {
-    if (
-      flag.feature !== id ||
-      !GATING_KINDS.includes(flag.kind) ||
-      typeof flag.default !== "boolean"
-    )
-      continue;
-    const value = flagValue(context.flags, name) ?? flag.default;
-    if (value === false) return { on: false, reason: "flag", flag: name };
-  }
-  return { on: true };
+  return answer(prepare(registry, context), id);
 }
 
 /**
- * Every feature's answer for one context, by id: what a server hands a client
- * once per session, so the client never decides on its own. Pass `ids` to
- * answer for some features only.
+ * Every shipped feature's answer for one context: what a server hands a
+ * client, so the client never decides on its own. Plain JSON, safe to store
+ * (an extension's session storage, a cache) and to compare by `version`.
+ *
+ * It lists only features that have shipped somewhere (beta, live or
+ * deprecated) and leaves out flag names; anything missing reads as off.
  *
  * @stability Beta
  */
-export type GateSnapshot = { readonly [id: string]: GateAnswer };
+export interface GateSnapshot {
+  /** The answers, by feature id. */
+  readonly answers: { readonly [id: string]: GateAnswer };
+  /** When the server made it (ISO 8601). Refresh after your own time limit. */
+  readonly at: string;
+  /** The registry version it was made from, when known (the build's version). */
+  readonly version?: string | number;
+}
+
+/** @stability Beta */
+export interface GateSnapshotOptions {
+  /** Answer for these features only. */
+  ids?: Iterable<string>;
+  /** The registry version, carried into the snapshot. */
+  version?: string | number;
+  /** The time to stamp (default now). */
+  at?: Date;
+}
 
 /** @stability Beta */
 export function gateSnapshot(
   registry: GateRegistry,
   context: GateContext,
-  ids?: Iterable<string>,
+  options: GateSnapshotOptions = {},
 ): GateSnapshot {
-  const snapshot: Record<string, GateAnswer> = {};
-  for (const id of ids ?? Object.keys(registry.features))
-    snapshot[id] = featureOn(registry, context, id);
-  return snapshot;
+  const prepared = prepare(registry, context);
+  const ids =
+    options.ids === undefined
+      ? Object.keys(registry.features).filter((id) =>
+          SHIPPED_STATUSES.includes(registry.features[id]!.status),
+        )
+      : Array.from(options.ids);
+  const answers: Record<string, GateAnswer> = {};
+  for (const id of ids) {
+    const { flag: _flag, ...rest } = answer(prepared, id);
+    answers[id] = rest;
+  }
+  return {
+    answers,
+    at: (options.at ?? new Date()).toISOString(),
+    ...(options.version === undefined ? {} : { version: options.version }),
+  };
 }
 
-/** An id missing from a snapshot is off, as an unknown feature. @stability Beta */
+/**
+ * Whether a snapshot is older than `maxAgeMs`: refresh it then. A client
+ * (an extension worker, a tab left open) keeps a snapshot, replaces it when it
+ * is stale, after sign-in or a tenant switch, and right after a refusal.
+ *
+ * @stability Beta
+ */
+export function isSnapshotStale(
+  snapshot: GateSnapshot,
+  maxAgeMs: number,
+  now: Date = new Date(),
+): boolean {
+  const at = Date.parse(snapshot.at);
+  return Number.isNaN(at) || now.getTime() - at > maxAgeMs;
+}
+
+/** One feature's answer from a snapshot. An id missing from it is off, as an unknown feature. @stability Beta */
 export function fromSnapshot(snapshot: GateSnapshot, id: string): GateAnswer {
   return (
-    (Object.hasOwn(snapshot, id) ? snapshot[id] : undefined) ?? {
-      on: false,
-      reason: "unknown",
-    }
+    (Object.hasOwn(snapshot.answers, id)
+      ? snapshot.answers[id]
+      : undefined) ?? { on: false, reason: "unknown" }
   );
 }
 
@@ -237,6 +334,6 @@ export function requireFeature(
   context: GateContext,
   id: string,
 ): void {
-  const answer = featureOn(registry, context, id);
-  if (!answer.on) throw new FeatureOff(id, answer);
+  const result = featureOn(registry, context, id);
+  if (!result.on) throw new FeatureOff(id, result);
 }

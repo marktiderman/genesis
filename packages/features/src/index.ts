@@ -73,6 +73,7 @@ export {
   featureOn,
   fromSnapshot,
   gateSnapshot,
+  isSnapshotStale,
   requireFeature,
   type GateAnswer,
   type GateContext,
@@ -81,5 +82,6 @@ export {
   type GateReason,
   type GateRegistry,
   type GateSnapshot,
+  type GateSnapshotOptions,
   type IdSet,
 } from "./gate";

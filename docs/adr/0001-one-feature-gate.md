@@ -22,15 +22,21 @@ deploy: who pays for what, which features a tenant turned off, and flag values.
 `featureOn(registry, context, id)` returns `{ on, reason, unlock? }`. Checks run in this order
 and the first "no" wins:
 
-| #   | Check       | Off when                                       | Reason                             |
-| --- | ----------- | ---------------------------------------------- | ---------------------------------- |
-| 1   | status      | not beta, live or deprecated                   | `status`                           |
-| 2   | platform    | not shipped on this platform                   | `platform`                         |
-| 3   | entitlement | `access: { plan }` and no active entitlement   | `entitlement` (with `unlock.plan`) |
-| 4   | tenant      | the tenant switched it off                     | `tenant`                           |
-| 5   | flag        | a boolean release flag of the feature is false | `flag`                             |
+| #   | Check       | Off when                                                                  | Reason                             |
+| --- | ----------- | ------------------------------------------------------------------------- | ---------------------------------- |
+| 1   | status      | not beta, live or deprecated                                              | `status`                           |
+| 2   | platform    | not shipped on this platform                                              | `platform`                         |
+| 3   | tenant      | the tenant switched it off                                                | `tenant`                           |
+| 4   | flag        | a boolean release or permission flag of the feature is not exactly `true` | `flag`                             |
+| 5   | entitlement | `access: { plan }` and no active entitlement                              | `entitlement` (with `unlock.plan`) |
 
-An id that isn't in the registry is off with reason `unknown`.
+An id that isn't in the registry is off with reason `unknown`; the gate never throws for one, since an
+older snapshot can meet newer code. Entitlement is checked last so that an upgrade prompt is only shown
+when paying is the one thing missing: an upsell never promises a feature a switch or flag keeps off.
+
+A snapshot lists only features that have shipped somewhere and leaves out flag names; it is plain
+JSON with the time it was made (`at`) and the registry version, so clients can store it and refresh
+it on their own schedule (a time limit, sign-in, a tenant switch, a refusal).
 
 The same function runs in browsers, React Native, Node and edge functions (`/gate`, no zod).
 React reads it through `FeatureGateProvider`, `useFeature` and `FeatureGate` (`/gate/react`).
@@ -85,5 +91,8 @@ flags choose a variant.
   as on native.
 - Every app gets the same tables and checks from Genesis migrations instead of writing its own.
 - A refused write always says why, so the UI can show an upgrade instead of an error.
-- Tests share one fixture: the TypeScript gate and SQL `feature_on()` must agree on status and
-  entitlement.
+- SQL `feature_on()` implements checks 1 and 5 only (status and entitlement). It has no platform
+  (data is shared across platforms), and tenant switches and flags are exposure, enforced by server
+  code. So SQL may say "on" where the TypeScript gate says off for `platform`, `tenant` or `flag`,
+  never the other way round. The pgTAP tests and the TypeScript tests use the same feature shapes
+  so the two agree on what they share.

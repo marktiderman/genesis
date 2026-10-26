@@ -8,8 +8,10 @@ import {
   featureOn,
   fromSnapshot,
   gateSnapshot,
+  isSnapshotStale,
   requireFeature,
   type GateContext,
+  type IdSet,
 } from "../index";
 import { FeatureGate, FeatureGateProvider, useFeature } from "../gate-react";
 
@@ -172,14 +174,14 @@ describe("featureOn", () => {
     ).toBe(true);
   });
 
-  it("reports the first no in the fixed order", () => {
-    // Paid, switched off and on the wrong platform: platform comes first, then entitlement.
+  it("reports the first no in the fixed order, with entitlement last", () => {
     const everything: GateContext = { platform: "native", off: ["webhooks"] };
     expect(featureOn(registry, everything, "webhooks").reason).toBe("platform");
+    // Switched off and unpaid: no upsell, since paying wouldn't turn it on.
     expect(
       featureOn(registry, { ...everything, platform: "web" }, "webhooks")
         .reason,
-    ).toBe("entitlement");
+    ).toBe("tenant");
     expect(
       featureOn(
         registry,
@@ -188,23 +190,80 @@ describe("featureOn", () => {
       ).reason,
     ).toBe("tenant");
   });
+
+  it("turns a flag on only when it is exactly true", () => {
+    for (const value of ["true", 1, "false", 0, null as unknown as boolean]) {
+      expect(
+        featureOn(
+          registry,
+          { platform: "web", flags: { "sms.release": value } },
+          "sms",
+        ).reason,
+      ).toBe("flag");
+    }
+  });
+
+  it("reads each id set the same for every feature, and refuses iterators and strings", () => {
+    const off = new Set(["library", "forms"]);
+    const snapshot = gateSnapshot(registry, { platform: "web", off });
+    expect([
+      snapshot.answers.forms?.reason,
+      snapshot.answers.library?.reason,
+    ]).toEqual(["tenant", "tenant"]);
+    expect(() =>
+      featureOn(
+        registry,
+        { platform: "web", off: off.values() as unknown as IdSet },
+        "forms",
+      ),
+    ).toThrow(TypeError);
+    expect(() =>
+      featureOn(
+        registry,
+        { platform: "web", off: "library" as unknown as IdSet },
+        "forms",
+      ),
+    ).toThrow(/string/);
+  });
 });
 
 describe("snapshots and requireFeature", () => {
-  it("answers every feature, or the ones asked for", () => {
-    const snapshot = gateSnapshot(registry, {
-      platform: "web",
-      off: ["library"],
-    });
-    expect(Object.keys(snapshot)).toEqual(Object.keys(features));
-    expect(snapshot.library?.reason).toBe("tenant");
-    expect(Object.keys(gateSnapshot(registry, web, ["forms"]))).toEqual([
+  it("answers every shipped feature, without flag names, or the ones asked for", () => {
+    const at = new Date("2026-10-26T12:00:00Z");
+    const snapshot = gateSnapshot(
+      registry,
+      { platform: "web", off: ["library"] },
+      { at, version: 7 },
+    );
+    expect(Object.keys(snapshot.answers)).toEqual([
       "forms",
+      "webhooks",
+      "library",
+      "sms",
+      "legacy",
     ]);
-    expect(fromSnapshot(snapshot, "missing")).toEqual({
+    expect(snapshot.answers.library?.reason).toBe("tenant");
+    expect(snapshot.answers.sms).toEqual({ on: false, reason: "flag" });
+    expect([snapshot.at, snapshot.version]).toEqual([
+      "2026-10-26T12:00:00.000Z",
+      7,
+    ]);
+    expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot);
+    expect(
+      Object.keys(
+        gateSnapshot(registry, web, { ids: ["forms", "courses"] }).answers,
+      ),
+    ).toEqual(["forms", "courses"]);
+    expect(fromSnapshot(snapshot, "courses")).toEqual({
       on: false,
       reason: "unknown",
     });
+    expect(
+      isSnapshotStale(snapshot, 5 * 60_000, new Date("2026-10-26T12:04:00Z")),
+    ).toBe(false);
+    expect(
+      isSnapshotStale(snapshot, 5 * 60_000, new Date("2026-10-26T12:06:00Z")),
+    ).toBe(true);
   });
 
   it("throws FeatureOff with the reason and an HTTP status", () => {

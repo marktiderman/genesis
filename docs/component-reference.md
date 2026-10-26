@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 148 components · 508 other exports · 372 standalone types across 11 packages and entry points.
+**Totals:** 149 components · 518 other exports · 385 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -23,20 +23,22 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 
 **Barrel:** [`packages/core/src/index.ts`](../packages/core/src/index.ts)
 
-### Components (2)
+### Components (3)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
+| [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 
-### Other exports (32)
+### Other exports (35)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`buildArrayItemDefaults`](../packages/core/src/hooks/use-resource-form.ts) | function | — | Build default values for a single array item from its sub-field definitions |
+| [`clearViewerCache`](../packages/core/src/hooks/viewer-scope.tsx) | value | — | _(no summary)_ |
 | [`createLocalStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | localStorage adapter with SSR safety. |
 | [`createMemoryStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | In-memory adapter for testing and SSR. |
 | [`createMockProvider`](../packages/core/src/provider/mock-provider.ts) | function | — | _(no summary)_ |
@@ -48,6 +50,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DEFAULT_LIVE_DEBOUNCE_MS`](../packages/core/src/hooks/use-live.ts) | const | — | How long a burst of change events is gathered into one refetch. |
 | [`DEFAULT_UNDO_DELAY_MS`](../packages/core/src/hooks/mutation-mode.ts) | const | — | How long an `undoable` write waits for an undo before it is sent. |
 | [`DEFAULT_UNSAVED_CHANGES_MESSAGE`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | const | — | _(no summary)_ |
+| [`defineQueryKeys`](../packages/core/src/query-keys.ts) | function | — | The keys of one domain. Each query maps its arguments to the fields that make it distinct (sort arrays so order never makes two keys): |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
 | [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
@@ -56,6 +59,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`pendingWriteCount`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Optimistic or undoable writes on `resource` not yet settled. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
+| [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
@@ -69,7 +73,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (81)
+### Types (85)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -102,6 +106,8 @@ export type { Identifier };
 export type { ImportParams };
 export type { InfinitePageParam };
 export type { InvalidationKey };
+export type { KeyFilter };
+export type { KeyScope };
 export type { ListParams };
 export type { ListResult };
 export type { LiveOptions };
@@ -112,6 +118,7 @@ export type { NullFilter };
 export type { PaginationParam };
 export type { PostgrestFieldErrors };
 export type { ProviderCapabilities };
+export type { QueryKeys };
 export type { RangeFilter };
 export type { ReadOutcome };
 export type { RecordComment };
@@ -125,6 +132,7 @@ export type { ResourceSummary };
 export type { RowAction };
 export type { RowFailure };
 export type { ScalarFilter };
+export type { ScopedKey };
 export type { SelectOption };
 export type { SortParam };
 export type { StorageAdapter };
@@ -1260,7 +1268,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (36)
+### Other exports (43)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1280,22 +1288,29 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
 | [`FEATURE_PLATFORMS`](../packages/features/src/model.ts) | value | — | _(no summary)_ |
 | [`FEATURE_STATUSES`](../packages/features/src/model.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
+| [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
+| [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
 | [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, keywords, summary, tagline, category, import paths, slots, contributions or code paths, best matches (id, name and keywords) first. With `options` and an empty `term`, every feature th... |
 | [`FLAG_KINDS`](../packages/features/src/model.ts) | const | Beta | Why a flag exists. `release` and `experiment` flags need `expires`, `ops` flags need a `runbook`, and `permission` flags fail `check`: paid access belongs in entitlements (`access`), not flags. |
 | [`flagSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FlagDef}. Cross-flag rules live in {@link defineFlags}. |
 | [`flagsForFeature`](../packages/features/src/model.ts) | function | Beta | The names of the flags that belong to a feature, in declaration order. |
+| [`fromSnapshot`](../packages/features/src/gate.ts) | function | Beta | One feature's answer from a snapshot. An id missing from it is off, as an unknown feature. @stability Beta |
+| [`gateSnapshot`](../packages/features/src/gate.ts) | function | Beta | _(no summary)_ |
+| [`isSnapshotStale`](../packages/features/src/gate.ts) | function | Beta | Whether a snapshot is older than `maxAgeMs`: refresh it then. A client (an extension worker, a tab left open) keeps a snapshot, replaces it when it is stale, after sign-in or a tenant switch, and right after a refusal. |
 | [`MARKETING_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated marketing block. |
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
 | [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
+| [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
 | [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
 | [`requiresProblems`](../packages/features/src/graph.ts) | function | Beta | Self-requirements, unknown requirements and cycles through `requires`, as problem strings (`a.requires: …`). Each cycle is reported once, from where the depth-first search found it: `a.requires: a cycle: a → b → a`. |
 | [`resolveBlocks`](../packages/features/src/blocks.ts) | function | Beta | The blocks that are on, checked and merged: |
-| [`statusOn`](../packages/features/src/model.ts) | function | Beta | A feature's status on one platform, or undefined when it isn't there. @stability Beta |
+| [`SHIPPED_STATUSES`](../packages/features/src/gate.ts) | const | Beta | The statuses in which a feature is on. A deprecated feature still works until it is retired. @stability Beta |
+| [`statusOn`](../packages/features/src/model.ts) | value | — | _(no summary)_ |
 | [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: deliberately short. It points agents at `find` and the skill and gives counts, never the whole list, so AGENTS.md stays small however many features there are. |
 | [`toJson`](../packages/features/src/generate.ts) | function | Beta | The registry as JSON, for tools that can't import TypeScript. Stable: no timestamps, features in declaration order, so `check` can compare it. It is also the record of every id ever used, which keeps ids permanent. |
 | [`toMarketingMarkdown`](../packages/features/src/generate.ts) | function | Beta | A benefit-led feature list for a README or a marketing page: public, shipped features with a tagline, highlights first, grouped by category. |
@@ -1303,7 +1318,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (32)
+### Types (41)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1335,7 +1350,16 @@ export type { FlagDef };
 export type { FlagKind };
 export type { FlagValue };
 export type { Flags };
+export type { GateAnswer };
+export type { GateContext };
+export type { GateFeature };
+export type { GateFlag };
+export type { GateReason };
+export type { GateRegistry };
+export type { GateSnapshot };
+export type { GateSnapshotOptions };
 export type { GenerateOptions };
+export type { IdSet };
 export type { RequiresNode };
 export type { RequiresProblemsOptions };
 export type { ResolveBlocksOptions };
