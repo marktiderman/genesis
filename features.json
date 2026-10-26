@@ -4054,9 +4054,9 @@
     {
       "id": "collaboration",
       "name": "Collaboration and sharing",
-      "summary": "One model for anything more than one person works on (docs/COLLABORATION.md): a space with a subject, an audience, roles (owner, facilitator, participant, viewer), a visibility policy (nothing, who's done, totals, totals with names, full; shown always, after I contribute, after everyone or when the facilitator reveals; anonymous; per-contribution private) and timing (ongoing, a window, live, by period). SQL checks the app's own row-level security calls, a headless canSee and gateOf, the Share dialog's people tab, a reveal gate and roster, discussions on genesis-chat and a compare view in forms-studio. Proposal only.",
+      "summary": "One model for anything more than one person works on (docs/COLLABORATION.md): a space with a subject, an audience, roles (owner, facilitator, participant, viewer), a visibility policy (nothing, who's done, totals, totals with names, full; shown always, after I contribute, after everyone or when the facilitator reveals; anonymous; per-contribution private) and timing (ongoing, a window, live, by period). SQL checks the app's own row-level security calls, a headless canSee and gateOf, the Share dialog's people tab, a reveal gate and roster, discussions on genesis-chat and a compare view in forms-studio. Built so far: the genesis_collab migration with its pgTAP contract, and the pure core.",
       "category": "Social",
-      "status": "idea",
+      "status": "building",
       "layer": "block",
       "keywords": [
         "sharing",
@@ -4083,6 +4083,30 @@
         "developer"
       ],
       "visibility": "internal",
+      "claimedBy": "mark",
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-collab",
+        "native": "@marktiderman/genesis-collab"
+      },
+      "reviewedAt": "2026-10-26",
+      "acceptance": [
+        "A contribution's contents are read by its author, by owners and facilitators unless it is private, and by participants and viewers only at full visibility once the gate opens; anon reaches nothing.",
+        "Combined results and anonymous contents need at least 3 other contributors; a private contribution is never shown to anyone but its author.",
+        "A signed-in person can ask the rules only about themselves."
+      ],
+      "links": {
+        "code": [
+          "packages/collab"
+        ],
+        "docs": [
+          "docs/COLLABORATION.md",
+          "packages/collab/README.md"
+        ]
+      },
       "access": "all",
       "flags": []
     },
