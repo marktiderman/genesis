@@ -1,0 +1,31 @@
+.changeset/chat-rich-push-server.md
+  s_c0870a827920ef::t_0701f759c93db8 1-5
+packages/chat/src/__tests__/server-integrations.test.ts
+  s_c0870a827920ef::t_c9cc288f29ca2f 87
+packages/chat/src/__tests__/server-runner.test.ts
+  s_c0870a827920ef::t_e62697d3fcfa1f 54-55,99-120
+packages/chat/src/server/expo.ts
+  s_c0870a827920ef::t_9ef6f28d2fe805 25,69,72
+packages/chat/src/server/notifications.ts
+  s_c0870a827920ef::t_e8d71e7f765a58 34-36,38,71-73,75,112-118,122-130
+packages/chat/src/server/runner.ts
+  s_c0870a827920ef::t_a0aafec160e218 26,80-81,208-228,240-242
+packages/chat/src/server/types.ts
+  s_c0870a827920ef::t_82ab30796e876a 44-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2641a64a1f41a017575c57522ed8ccb461b35ff7",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
