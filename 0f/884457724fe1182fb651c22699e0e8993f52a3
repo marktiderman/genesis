@@ -1,0 +1,30 @@
+packages/genesis-cli/test/doctor-dates.test.ts
+  s_4ea9e233c4fda6::t_cec580276a7034 2-47
+  s_4ea9e233c4fda6::t_bb4ecbb391538d 1
+packages/genesis-cli/src/doctor/dates.ts
+  s_4ea9e233c4fda6::t_ff95f4941dd3fe 1-33
+packages/genesis-cli/README.md
+  s_4ea9e233c4fda6::t_cec580276a7034 367
+packages/genesis-cli/src/doctor/index.ts
+  s_4ea9e233c4fda6::t_ff95f4941dd3fe 33,147
+.changeset/iso-date-slice.md
+  s_4ea9e233c4fda6::t_bb4ecbb391538d 1-5
+packages/genesis-cli/src/doctor/rules.ts
+  s_4ea9e233c4fda6::t_ff95f4941dd3fe 31-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0f884457724fe1182fb651c22699e0e8993f52a3",
+  "prompts": {},
+  "sessions": {
+    "s_4ea9e233c4fda6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87517208-b3be-4ddc-b8ac-0ec52a33a61a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

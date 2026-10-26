@@ -1,0 +1,55 @@
+packages/ui-native/README.md
+  s_1f35d570c63beb::t_9d119bcce5ff90 55-76
+packages/ui-native/src/components/loading-state.tsx
+  s_1f35d570c63beb::t_0cc23aa6546ca2 1-92
+.changeset/cli-loading-state.md
+  s_1f35d570c63beb::t_0ec07c06679849 1-5
+.changeset/ui-native-loading-state.md
+  s_1f35d570c63beb::t_b45ca6b5334252 1-7
+docs/component-reference.md
+  s_1f35d570c63beb::t_d6a50e13e826a4 7,697,741,750,798,816,851,889
+packages/genesis-cli/README.md
+  s_1f35d570c63beb::t_18263d776a9c62 403
+packages/genesis-cli/src/doctor/native.ts
+  s_1f35d570c63beb::t_f8b5ee6128695d 195-197
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_1f35d570c63beb::t_44784ebcc685fb 111-113,189
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui-native/index.d.ts
+  s_1f35d570c63beb::t_3f8d0bd9014378 9,15
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/signing-in.tsx
+  s_1f35d570c63beb::t_ef24413b8f0cd2 1-5
+packages/ui-native/src/components/__tests__/loading-state.test.tsx
+  s_1f35d570c63beb::t_a4c26d54144c97 1-41
+packages/ui-native/src/components/index.ts
+  s_1f35d570c63beb::t_844e21c22e409a 141-143
+packages/ui-native/src/layouts/__tests__/inbox-page.test.tsx
+  s_1f35d570c63beb::t_0f187b4797ffce 49-50
+packages/ui-native/src/layouts/__tests__/screen-container.test.tsx
+  s_1f35d570c63beb::t_a2368062a81c96 81-107
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_1f35d570c63beb::t_f2bbfddbb13495 34,42,224,432
+packages/ui-native/src/layouts/screen-container.tsx
+  s_1f35d570c63beb::t_f0c5fbc8f2536b 9,35,69-76,183-184,192-196
+packages/ui-native/test-utils/safe-area-mock.tsx
+  s_1f35d570c63beb::t_98da082fb86535 16
+scripts/check-forbidden-imports.mjs
+  s_1f35d570c63beb::t_c23782d8179e3b 17
+scripts/lib/native-primitives.mjs
+  s_1f35d570c63beb::t_8b928b152d1895 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6f725f8a9d7b1f99cb26c081f97b6fda845b07c4",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
