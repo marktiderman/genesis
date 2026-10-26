@@ -2,6 +2,7 @@
 // genesis-sites' defineSection). Everything a renderer needs is resolved here, so web, native and
 // the extension draw the same labels, columns and form.
 
+import { NO_VIEWER, type Viewer } from "../viewer";
 import { keyFields } from "../schema/keys";
 import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
 import { titleCase } from "../utils";
@@ -107,7 +108,10 @@ const own = <V>(record: Readonly<Record<string, V>> | undefined, key: string): V
  * export const brandsView = defineView(contracts["public.brands"], {
  *   fields: { status: { display: "badge", tones: { active: "success" } } },
  *   columns: { default: ["name", "status", "created_at"], compact: ["name"] },
- *   can: { delete: (row) => (row.is_default ? "The default brand stays." : true) },
+ *   can: {
+ *     delete: (row) => (row.is_default ? "The default brand stays." : true),
+ *     update: (row, viewer) => (row.owner_id === viewer.id ? true : "Only its owner edits a brand."),
+ *   },
  *   actions: [{ name: "archive", label: "Archive", can: (row) => (row.is_default ? "The default brand stays." : true) }],
  * });
  * ```
@@ -308,10 +312,12 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
 
   // ── Guards and summary ───────────────────────────────────────────────
   const guards = definition.can ?? {};
-  function can(action: "create" | "update" | "delete", row?: Row): Allowed {
-    if (action === "create") return guards.create?.() ?? true;
+  // `can("create", viewer)` and `can("update", row, viewer)`; no viewer means no one (fail closed).
+  function can(action: "create" | "update" | "delete", rowOrViewer?: Row | Viewer, maybeViewer?: Viewer): Allowed {
+    if (action === "create") return guards.create?.((rowOrViewer as Viewer | undefined) ?? NO_VIEWER) ?? true;
     const guard = guards[action];
-    return guard && row ? guard(row) : true;
+    const row = rowOrViewer as Row | undefined;
+    return guard && row ? guard(row, maybeViewer ?? NO_VIEWER) : true;
   }
   const actionGuards = new Map(actionList.map((a) => [a.name, a.can]));
   const resolvedActions: readonly ResolvedViewAction[] = Object.freeze(
@@ -324,9 +330,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       }),
     ),
   );
-  function canAction(name: string, row: Row): Allowed {
+  function canAction(name: string, row: Row, viewer: Viewer = NO_VIEWER): Allowed {
     if (!actionGuards.has(name)) throw new ViewDefinitionError(contract.name, [`no action "${name}"`]);
-    return actionGuards.get(name)?.(row) ?? true;
+    return actionGuards.get(name)?.(row, viewer) ?? true;
   }
   const summary = (row: Row): RowSummary => {
     if (definition.summary) return definition.summary(row);

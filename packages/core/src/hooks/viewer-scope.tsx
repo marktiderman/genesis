@@ -2,7 +2,10 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, Fragment, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { dayIn, personTimeZone, type Day } from "../dates";
 import { stableJson } from "./draft-controller";
+import { NO_VIEWER, type GenesisViewerRoles, type Viewer } from "../viewer";
 import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
+
+export { NO_VIEWER, type GenesisViewerRoles, type Viewer };
 
 /** Today in `zone`, rechecked when the page comes back into view and at the next minute boundary while it's open. */
 function useToday(zone: string): Day {
@@ -53,6 +56,8 @@ export interface ResourceScope {
 export interface ViewerContext {
   viewer: string | null;
   scope: ResourceScope;
+  /** The viewer's roles (see `GenesisViewerRoles`), when ViewerScope was given them. */
+  roles?: GenesisViewerRoles;
   /** The zone the viewer's days are counted in: theirs if known, else the device's. */
   timeZone: string;
   /**
@@ -76,6 +81,22 @@ export function useOptionalViewerScope(): ViewerContext | null {
   return useContext(ViewerContextValue);
 }
 
+/**
+ * The viewer for guards: `{ id, scope, roles }` from the nearest ViewerScope, or
+ * {@link NO_VIEWER} without one. The object is stable while those are equal by value, so it can
+ * sit in a memo's dependencies.
+ */
+export function useViewer(): Viewer {
+  const context = useContext(ViewerContextValue);
+  return useMemo<Viewer>(
+    () =>
+      context
+        ? Object.freeze({ id: context.viewer, scope: context.scope, ...(context.roles !== undefined ? { roles: context.roles } : {}) })
+        : NO_VIEWER,
+    [context],
+  );
+}
+
 export interface ViewerScopeProps {
   /** The signed-in viewer's id, null when signed out, undefined while the session loads. */
   viewer: string | null | undefined;
@@ -86,6 +107,13 @@ export interface ViewerScopeProps {
   persistedViewer?: string | null;
   /** Where the viewer is working (see `ResourceScope`). Changing it doesn't remount or clear anything. */
   scope?: ResourceScope;
+  /**
+   * What the viewer may do there (see `GenesisViewerRoles`), for view guards. Compared by value,
+   * so a new object with the same roles changes nothing. Undefined while they load: guards that
+   * need them refuse. Arriving (undefined → roles) or going back to undefined keeps the cache;
+   * changing to different roles empties it and remounts, as a new viewer does.
+   */
+  roles?: GenesisViewerRoles;
   /**
    * The viewer's saved time zone (IANA), when known; else the device's is used. Pass it when
    * rendering on a server, whose own zone is rarely the viewer's.
@@ -110,38 +138,50 @@ export interface ViewerScopeProps {
  * </ViewerScope>
  * ```
  */
-export function ViewerScope({ viewer, persistedViewer, scope, timeZone, fallback = null, children }: ViewerScopeProps) {
+export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
   const zone = personTimeZone({ timeZone });
   const day = useToday(zone);
   // A new scope object each render shouldn't re-render every reader: compare by value.
   const scopeKey = stableJson(scope ?? {});
+  // Roles by value too: undefined stays undefined, so "not known yet" never equals "none".
+  const rolesKey = roles === undefined ? undefined : stableJson(roles);
   const value = useMemo<ViewerContext>(
-    () => ({ viewer: viewer ?? null, scope: scope ?? {}, timeZone: zone, day }),
+    () => ({ viewer: viewer ?? null, scope: scope ?? {}, ...(roles !== undefined ? { roles } : {}), timeZone: zone, day }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [viewer, scopeKey, zone, day],
+    [viewer, scopeKey, rolesKey, zone, day],
   );
-  // The viewer the children were last mounted for; undefined before the first.
-  const [mounted, setMounted] = useState<string | null | undefined>(undefined);
+  // Who the children were last mounted for: the viewer, the last roles known for them (undefined
+  // until some arrive), and how many times they were reset. Undefined before the first mount.
+  const [mounted, setMounted] = useState<{ viewer: string | null; roles: string | undefined; epoch: number } | undefined>(undefined);
   if (viewer === undefined) return <>{fallback}</>;
-  if (viewer !== mounted) {
+  // Roles arriving or going back to undefined are not a new identity; different roles are.
+  const rolesChanged = mounted !== undefined && mounted.roles !== undefined && rolesKey !== undefined && rolesKey !== mounted.roles;
+  if (mounted !== undefined && mounted.viewer === viewer && !rolesChanged) {
+    if (rolesKey !== undefined && rolesKey !== mounted.roles) setMounted({ ...mounted, roles: rolesKey });
+  } else {
     const keep = mounted === undefined && persistedViewer !== undefined && persistedViewer === viewer;
     // Nothing for the new viewer is mounted yet, so emptying now can't strand
     // a fetch; the old viewer's screens unmount with this render.
     if (!keep) {
-      // The session already belongs to the new viewer: the old one's unsent
-      // writes must never go out under it. (clearViewerCache, run before the
-      // session changes, sends them instead.)
-      dropPendingWrites(queryClient);
+      if (rolesChanged && mounted.viewer === viewer) {
+        // Same person, new roles: the session is still theirs, so their waiting writes go out.
+        void flushPendingWrites(queryClient);
+      } else {
+        // The session already belongs to the new viewer: the old one's unsent
+        // writes must never go out under it. (clearViewerCache, run before the
+        // session changes, sends them instead.)
+        dropPendingWrites(queryClient);
+      }
       void queryClient.cancelQueries();
       queryClient.clear();
     }
-    setMounted(viewer);
+    setMounted({ viewer, roles: rolesKey, epoch: (mounted?.epoch ?? 0) + 1 });
     return <>{fallback}</>;
   }
   return (
     <ViewerContextValue.Provider value={value}>
-      <Fragment key={viewer ?? "signed-out"}>{children}</Fragment>
+      <Fragment key={`${viewer ?? "signed-out"}#${mounted.epoch}`}>{children}</Fragment>
     </ViewerContextValue.Provider>
   );
 }

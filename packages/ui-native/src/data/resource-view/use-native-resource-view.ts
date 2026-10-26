@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BaseRecord, DataRow, FilterParam } from "@marktiderman/genesis-core";
-import { useCapabilities, useInfiniteResource, useResource } from "@marktiderman/genesis-core/hooks";
+import { useCapabilities, useInfiniteResource, useResource, useViewer } from "@marktiderman/genesis-core/hooks";
 import type { Allowed } from "@marktiderman/genesis-core/resource-view";
 import { useNativeResourceViewMessages } from "./display";
 import {
@@ -204,9 +204,11 @@ export function useNativeResourceView<T extends Row = Row>(
     [view, createDefaults],
   );
   const editable = useMemo(() => formFieldsFor(view, "edit").some((f) => !f.readOnly), [view]);
+  // Guards read the viewer (ViewerScope's id, scope and roles): a change asks them again.
+  const viewer = useViewer();
   const canCreate = useMemo(
-    () => (formFieldsFor(view, "create").length ? allowed(view, "create", undefined, can) : false),
-    [view, can],
+    () => (formFieldsFor(view, "create").length ? allowed(view, "create", undefined, can, viewer) : false),
+    [view, can, viewer],
   );
 
   const writers = useRef(pessimistic);
@@ -254,8 +256,8 @@ export function useNativeResourceView<T extends Row = Row>(
 
   const item = useCallback((row: T) => rowItem(view, row), [view]);
   const actions = useCallback<UseNativeResourceViewReturn<T>["actions"]>(
-    (row, handlers) => swipeActionsFor(view, row, { messages, softDelete, editable, screen: can, ...handlers }),
-    [view, messages, softDelete, editable, can],
+    (row, handlers) => swipeActionsFor(view, row, { messages, softDelete, editable, screen: can, viewer, ...handlers }),
+    [view, messages, softDelete, editable, can, viewer],
   );
 
   const sections = useMemo(() => sectionsFor(view, pages.rows, messages), [view, pages.rows, messages]);

@@ -9,6 +9,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { Linking, Text } from "react-native";
 import { titleCase } from "@marktiderman/genesis-core";
 import { isTimeZone, personTimeZone, wallClock } from "@marktiderman/genesis-core/dates";
+import { useViewer } from "@marktiderman/genesis-core/hooks";
 import { isSafeUrl } from "@marktiderman/genesis-core/urls";
 import type { DisplayHint, ResolvedColumn, ViewTone } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
@@ -239,18 +240,20 @@ export function useNativeResourceViewMessages(): NativeResourceViewMessages {
   return useContext(MessagesContext);
 }
 
-/** Draw one value: the empty mark for no value or a value the row hides (`when`), else its hint's renderer. */
+/** Draw one value: the empty mark for no value or a value the row (or viewer) hides (`when`), else its hint's renderer. */
 export function useDisplayCell(): (column: ResolvedColumn<Record<string, unknown>>, row: Record<string, unknown>) => ReactNode {
   const renderers = useContext(DisplayRenderersContext);
   const messages = useNativeResourceViewMessages();
   const zones = useDisplayTimeZones();
+  // `when` reads the viewer too: a new viewer or new roles redraws the cells.
+  const viewer = useViewer();
   return useMemo(
     () => (column, row) => {
-      if (column.when && !column.when(row)) return <NativeText preset="body">{messages.common.empty}</NativeText>;
+      if (column.when && !column.when(row, viewer)) return <NativeText preset="body">{messages.common.empty}</NativeText>;
       const value = column.value(row);
       if (isEmptyValue(value)) return <NativeText preset="body">{messages.common.empty}</NativeText>;
       return renderers[column.display](value, { row, column, messages, zones });
     },
-    [renderers, messages, zones],
+    [renderers, messages, zones, viewer],
   );
 }

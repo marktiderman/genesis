@@ -4,7 +4,7 @@
 // prop still works as an escape hatch, and the screen's own props win over the view.
 
 import { useMemo, type ReactNode } from "react";
-import type { DataRow, FilterParam, ResourceContract } from "@marktiderman/genesis-core";
+import { useViewer, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
 import { rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
@@ -158,15 +158,17 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     [tab, filter, resourceOptions?.defaultFilters],
   );
 
-  // Guards only narrow: the view's rule AND the screen's own `can`.
+  // Guards only narrow: the view's rule AND the screen's own `can`. They read the viewer, so a
+  // new viewer or new roles asks them again.
+  const viewer = useViewer();
   const allows = useMemo(
     () => (action: ResourceAction, item?: T) => {
       if (can && !can(action, item)) return false;
-      if (action === "create") return view.can("create") === true;
+      if (action === "create") return view.can("create", viewer) === true;
       if (!item) return true;
-      return view.can(action === "edit" ? "update" : "delete", item as T & DataRow) === true;
+      return view.can(action === "edit" ? "update" : "delete", item as T & DataRow, viewer) === true;
     },
-    [view, can],
+    [view, can, viewer],
   );
 
   const orderBy = view.definition.orderBy;
