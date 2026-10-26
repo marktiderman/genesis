@@ -14327,6 +14327,13 @@
               "description": "Keep the list's state in the URL: the open record (`?id=`), the search\n(`q`), the sort (`sort=field:asc`) and, with `pagination=\"server\"`, the\npage. Pass your router's search-params adapter\n(`useReactRouterSearchParams()`, `useTanStackRouterSearchParams()`, or\n`useBrowserSearchParams()` with no router), or `{ searchParams, params }`\nto rename the keys. A copied link reopens the same record, and Back\ncloses one that was opened. Search and sort are read when the page\nmounts and written as they change. A server-controlled page owns its\nown page, sort and search: use `useResourceUrlState` there."
             },
             {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win);\n- no filter row, unless you pass `filters`, `statusFilter` or\n  `searchFields`;\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
+            },
+            {
               "name": "viewSettingsKey",
               "type": "string",
               "required": false,
@@ -17372,6 +17379,13 @@
               "description": "Keep the list's state in the URL: the open record (`?id=`), the search\n(`q`), the sort (`sort=field:asc`) and, with `pagination=\"server\"`, the\npage. Pass your router's search-params adapter\n(`useReactRouterSearchParams()`, `useTanStackRouterSearchParams()`, or\n`useBrowserSearchParams()` with no router), or `{ searchParams, params }`\nto rename the keys. A copied link reopens the same record, and Back\ncloses one that was opened. Search and sort are read when the page\nmounts and written as they change. A server-controlled page owns its\nown page, sort and search: use `useResourceUrlState` there."
             },
             {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win);\n- no filter row, unless you pass `filters`, `statusFilter` or\n  `searchFields`;\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
+            },
+            {
               "name": "viewSettingsKey",
               "type": "string",
               "required": false,
@@ -17992,6 +18006,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Keep the list's state in the URL: the open record (`?id=`), the search\n(`q`), the sort (`sort=field:asc`) and, with `pagination=\"server\"`, the\npage. Pass your router's search-params adapter\n(`useReactRouterSearchParams()`, `useTanStackRouterSearchParams()`, or\n`useBrowserSearchParams()` with no router), or `{ searchParams, params }`\nto rename the keys. A copied link reopens the same record, and Back\ncloses one that was opened. Search and sort are read when the page\nmounts and written as they change. A server-controlled page owns its\nown page, sort and search: use `useResourceUrlState` there."
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win);\n- no filter row, unless you pass `filters`, `statusFilter` or\n  `searchFields`;\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
             },
             {
               "name": "viewSettingsKey",

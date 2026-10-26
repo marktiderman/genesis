@@ -699,6 +699,18 @@ export interface ResourcePageProps<
    * already has the heading. See `DataPageShell`'s `header`.
    */
   header?: "page" | "toolbar";
+  /**
+   * `"page"` (default): a full list page. `"embedded"`: a list inside
+   * another page (a tab, a card, a side panel), whose page already has the
+   * heading, filters and shortcuts. Embedded sets, unless you set them:
+   * - `header="toolbar"`, showing only the create button, and the view
+   *   toggle when there is a `renderCard`. No title, count, view settings
+   *   or header options menu (`slotProps.shell.headerOptions` still win);
+   * - no filter row, unless you pass `filters`, `statusFilter` or
+   *   `searchFields`;
+   * - `keyboardNavigation={false}`, since j/k shortcuts belong to the page.
+   */
+  variant?: "page" | "embedded";
 
   /**
    * Imperative navigation used only when `detail="route"` (navigates to
@@ -792,9 +804,9 @@ export function ResourcePage<
     formMode,
     formSteps,
     gridCols: gridColsProp,
-    header: headerMode = "page",
+    header: headerProp,
     icon,
-    keyboardNavigation = true,
+    keyboardNavigation = props.variant !== "embedded",
     mutationMode: mutationModeProp,
     onCreate,
     onDelete,
@@ -827,6 +839,10 @@ export function ResourcePage<
     title,
     toolbar,
   } = props;
+  const embedded = props.variant === "embedded";
+  const headerMode = headerProp ?? (embedded ? "toolbar" : "page");
+  // An embedded list shows a filter row only when it has something to filter by.
+  const wantsFilters = !!(filtersProp?.length || props.statusFilter || props.searchFields?.length);
   const {
     actions,
     allows,
@@ -1097,7 +1113,7 @@ export function ResourcePage<
       {...(headerMode === "toolbar" ? { header: "toolbar" as const } : {})}
       filters={renderSlot(
         DataFilters,
-        slots?.filters,
+        slots?.filters !== undefined ? slots.filters : embedded && !wantsFilters ? null : undefined,
         {
           search: page.filterConfig.search,
           onSearchChange: handleSearchChange,
@@ -1121,6 +1137,18 @@ export function ResourcePage<
         slotProps?.filters,
       )}
       {...shellSlotProps}
+      {...(embedded
+        ? {
+            // The title goes with `header="toolbar"`; an explicit `header="page"` keeps it.
+            headerOptions: {
+              showCount: false,
+              showViewSettings: false,
+              showViewToggle: !!renderCardProp,
+              configurable: false,
+              ...shellSlotProps?.headerOptions,
+            },
+          }
+        : {})}
       className={cn(className, shellSlotProps?.className)}
     >
       {bulkActions &&
