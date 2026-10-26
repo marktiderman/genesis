@@ -1,5 +1,11 @@
 # @marktiderman/genesis-core
 
+## 1.12.0
+
+### Minor Changes
+
+- a9e6ea7: `createOrAdopt` takes `scope`: extra filters on the adopt lookup for a partial unique index (e.g. `deleted_at is null`, `kind = 'worksheet'`), so the row adopted is the one the index actually covers.
+
 ## 1.11.0
 
 ### Minor Changes
