@@ -94,6 +94,9 @@ export function singular(word: string): string {
   return one(last.slice(0, -1));
 }
 
+// The view's own operations (`view.can`): an action can't take their names.
+const RESERVED_ACTIONS: ReadonlySet<string> = new Set(["create", "update", "delete"]);
+
 const own = <V>(record: Readonly<Record<string, V>> | undefined, key: string): V | undefined =>
   record && Object.hasOwn(record, key) ? record[key] : undefined;
 
@@ -188,6 +191,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       return;
     }
     if (typeof action.name !== "string" || !action.name.trim()) problems.push(`${where} has no name`);
+    else if (RESERVED_ACTIONS.has(action.name)) problems.push(`${where} is named "${action.name}", which is reserved for the view's own ${action.name}`);
     else if (actionSeen.has(action.name)) problems.push(`actions lists "${action.name}" twice`);
     else actionSeen.add(action.name);
     if (typeof action.label !== "string" || !action.label.trim()) problems.push(`${where} has no label`);

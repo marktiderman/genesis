@@ -5,7 +5,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { csvField, exportCsv } from "../csv";
-import { defineView, deriveDisplay, initialsOf, rowPicture, ViewDefinitionError } from "../resource-view";
+import { defineView, deriveDisplay, initialsOf, rowPicture, scopeValues, ViewDefinitionError } from "../resource-view";
 import { defineResource, type ResourceContract } from "../schema/types";
 import { isSafeUrl } from "../urls";
 
@@ -376,6 +376,15 @@ describe("defineView actions", () => {
     expect(() => defineView(brands, { actions: {} as never })).toThrow(/actions isn't a list/);
   });
 
+  it("reserves create, update and delete for the view's own operations", () => {
+    for (const name of ["create", "update", "delete"]) {
+      expect(() => defineView(brands, { actions: [{ name, label: "X" }] })).toThrow(
+        new RegExp(`actions\\[0\\] is named "${name}", which is reserved`),
+      );
+    }
+    expect(() => defineView(brands, { actions: [{ name: "deleteForever", label: "X" }] })).not.toThrow();
+  });
+
   it("types the guard's row from the contract", () => {
     const typed = defineResource<BrandRow>()({ name: "public.brands", key: "id", labelField: "name", fields: brands.fields });
     const v = defineView(typed, { actions: [{ name: "a", label: "A", can: (r) => (r.is_default ? "no" : true) }] });
@@ -414,9 +423,50 @@ describe("rowPicture", () => {
     expect(rowPicture({ title: "x", image: { name: "   " } })).toBeNull();
   });
 
-  it("takes whole characters for initials", () => {
-    expect(initialsOf("😊 Jones")).toBe("😊J");
+  it("takes letters only, as whole characters", () => {
+    expect(initialsOf("Ana-María López")).toBe("AL");
+    expect(initialsOf("李 小龙")).toBe("李小");
     expect(initialsOf("\u00e9mile zola")).toBe("\u00c9Z");
+    expect(initialsOf("😊 Jones")).toBe("J");
+    expect(initialsOf("(Ada) 2nd Lovelace")).toBe("AL");
+    expect(initialsOf("straße")).toBe("S");
+    expect(initialsOf("ß")).toBe("ß");
     expect(initialsOf(undefined)).toBe("");
+  });
+
+  it("gives no initials for a name with no letters", () => {
+    for (const name of ["", "  ", "🎉🎉", "🎉 🎉", "42", "- —"]) {
+      expect(initialsOf(name)).toBe("");
+      expect(rowPicture({ title: "x", image: { name } })).toBeNull();
+    }
+    expect(rowPicture({ title: "x", image: { src: "https://example.com/a.png", name: "🎉🎉" } })).toMatchObject({ kind: "image", fallback: "" });
+  });
+});
+
+describe("scopeValues", () => {
+  const scoped = defineView(brands, { scope: ["practice_id"] });
+
+  it("reads the view's scope keys from the viewer's scope, as a filter", () => {
+    expect(scopeValues(scoped, { practice_id: "p1", personId: "x" })).toEqual({ practice_id: "p1" });
+    expect(scopeValues(scoped, { practiceId: "p2" })).toEqual({ practice_id: "p2" });
+    expect(scopeValues(scoped, { practice_id: null })).toEqual({ practice_id: null });
+    expect(Object.isFrozen(scopeValues(scoped, { practiceId: "p2" }))).toBe(true);
+    expect(scopeValues(defineView(brands), {})).toEqual({});
+  });
+
+  it("throws in development when a declared key has no single value", () => {
+    expect(() => scopeValues(scoped, {})).toThrow(/scope "practice_id" has no single value/);
+    expect(() => scopeValues(scoped, null)).toThrow(ViewDefinitionError);
+    expect(() => scopeValues(scoped, { practice_id: ["p1", "p2"] })).toThrow(ViewDefinitionError);
+  });
+
+  it("leaves a missing key out in production", () => {
+    const env = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      expect(scopeValues(scoped, {})).toEqual({});
+    } finally {
+      process.env.NODE_ENV = env;
+    }
   });
 });
