@@ -214,3 +214,20 @@ describe("what's new (@feat:product-releases)", () => {
     expect(store.getState().status).toBe("showing");
   });
 });
+
+describe("vote queue review fixes (@feat:product-insights)", () => {
+  it("never sends a vote toggled back while an earlier one was on its way", async () => {
+    let release!: () => void;
+    const vote = vi.fn((id: string) => (id === "a" ? new Promise<void>((r) => (release = r)) : Promise.resolve()));
+    const queue = createVoteQueue({ source: { vote, unvote: vi.fn(async () => {}) } });
+    await queue.toggle(idea("a"));
+    await queue.toggle(idea("b"));
+    const flushing = queue.flush();
+    await flushMicrotasks();
+    await queue.toggle(idea("b")); // back to not voted before b's turn: nothing to send for b
+    release();
+    await flushing;
+    expect(vote.mock.calls.map(([id]) => id)).toEqual(["a"]);
+    expect(queue.pending()).toEqual([]);
+  });
+});

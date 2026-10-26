@@ -46,10 +46,12 @@ export function useRoadmap(options: RoadmapOptions): Roadmap {
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<RoadmapItem | null>(null);
   const alive = useRef(true);
+  const latest = useRef(source);
+  latest.current = source;
 
   const load = useCallback(async () => {
     try {
-      const items = await source.roadmap();
+      const items = await latest.current.roadmap();
       if (alive.current) {
         setAll(items);
         setError(false);
@@ -57,7 +59,7 @@ export function useRoadmap(options: RoadmapOptions): Roadmap {
     } catch {
       if (alive.current) setError(true);
     }
-  }, [source]);
+  }, []);
 
   useEffect(() => {
     alive.current = true;

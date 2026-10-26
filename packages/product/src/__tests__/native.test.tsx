@@ -164,3 +164,16 @@ describe("ProductWhatsNew", () => {
     expect(whatsNew).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("review fixes", () => {
+  it("an inline source (a new object each render) doesn't restart the board or read it again and again", async () => {
+    const base = memoryProductSource({ ideas: [idea("a")] });
+    const ideas = vi.fn(() => base.ideas());
+    const { rerender } = render(<IdeaBoardScreen source={{ ...base, ideas }} />);
+    await screen.findByText("Idea a");
+    rerender(<IdeaBoardScreen source={{ ...base, ideas }} />);
+    rerender(<IdeaBoardScreen source={{ ...base, ideas }} />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(ideas).toHaveBeenCalledTimes(1);
+  });
+});

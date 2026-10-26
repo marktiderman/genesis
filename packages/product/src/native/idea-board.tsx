@@ -64,8 +64,13 @@ export function VoteButton({ voted, onPress, label, testID }: VoteButtonProps) {
 export function useIdeaBoard(options: IdeaBoardOptions): IdeaBoard {
   const { source, haptics, onReconnect, onOpenIdea, testID = "product-ideas" } = options;
   const copy = useMemo(() => mergeCopy(options.copy), [options.copy]);
-  const ownQueue = useMemo(() => (options.queue ? null : createVoteQueue({ source })), [options.queue, source]);
-  const queue = options.queue ?? ownQueue!;
+  // The latest props, read at call time: an inline `source` or `haptics` never restarts the board.
+  const latest = useRef({ source, haptics });
+  latest.current = { source, haptics };
+  const [ownQueue] = useState(() =>
+    createVoteQueue({ source: { vote: (id) => latest.current.source.vote(id), unvote: (id) => latest.current.source.unvote(id) } }),
+  );
+  const queue = options.queue ?? ownQueue;
   const [ideas, setIdeas] = useState<ProductIdea[] | null>(null);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -76,7 +81,7 @@ export function useIdeaBoard(options: IdeaBoardOptions): IdeaBoard {
   const load = useCallback(async () => {
     const mine = ++read.current;
     try {
-      const next = await source.ideas();
+      const next = await latest.current.source.ideas();
       if (alive.current && mine === read.current) {
         setIdeas(next);
         setError(false);
@@ -84,7 +89,7 @@ export function useIdeaBoard(options: IdeaBoardOptions): IdeaBoard {
     } catch {
       if (alive.current && mine === read.current) setError(true);
     }
-  }, [source]);
+  }, []);
 
   const flush = useCallback(async () => {
     const result = await queue.flush();
@@ -100,11 +105,11 @@ export function useIdeaBoard(options: IdeaBoardOptions): IdeaBoard {
       );
     }
     if (result.refused.length) {
-      haptic(haptics, "refused");
+      haptic(latest.current.haptics, "refused");
       void load();
     }
     return result;
-  }, [queue, haptics, load]);
+  }, [queue, load]);
 
   useEffect(() => {
     alive.current = true;
@@ -121,7 +126,7 @@ export function useIdeaBoard(options: IdeaBoardOptions): IdeaBoard {
   }, [queue, load, flush]);
 
   const toggle = (idea: ProductIdea) => {
-    haptic(haptics, "vote");
+    haptic(latest.current.haptics, "vote");
     void queue.toggle(idea).then(() => flush());
   };
 

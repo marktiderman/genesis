@@ -244,9 +244,12 @@ export function createVoteQueue(options: VoteQueueOptions): VoteQueue {
 
   const sendAll = async (): Promise<VoteFlushResult> => {
     const result: VoteFlushResult = { sent: [], refused: [], failed: [] };
-    for (const entry of [...queue.values()]) {
+    for (const ideaId of [...queue.keys()]) {
+      // Read it again: a vote toggled back while an earlier one was being sent is gone, or changed.
+      const entry = queue.get(ideaId);
+      if (!entry) continue;
       const sent = { ...entry };
-      inFlight.add(entry.ideaId);
+      inFlight.add(ideaId);
       try {
         await (sent.voted ? options.source.vote(sent.ideaId) : options.source.unvote(sent.ideaId));
         const now = queue.get(sent.ideaId);
