@@ -541,6 +541,9 @@ value, or for an array value an array field containing every item. Never a subst
 `ViewerScope` also carries **where** the viewer is working: `scope={{ practiceId }}` (or
 `personId`, `spaceId`, a `personIds` set). Read it with `useViewerScope()`; screens turn it into
 server filters and create defaults. It never decides access, and changing it remounts nothing.
+Pass the viewer's saved `timeZone` too: `useViewerScope().day` is today on their clock (kept current
+when the page comes back into view, and across midnight), and `keys.for(useViewerScope())` uses it
+as the key's `day`, so no screen works out "today" itself.
 
 With a persisted cache (a native app's saved query cache), pass the viewer it was saved for as
 `persistedViewer`, or the first known viewer empties it on every cold start. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and

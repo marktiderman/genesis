@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataProviderRoot } from "../../provider/context";
 import { createMockProvider } from "../../provider/mock-provider";
-import { resourceKeys } from "../../query-keys";
+import { defineQueryKeys, resourceKeys } from "../../query-keys";
 import { useInfiniteResource } from "../use-infinite-resource";
 import { useOne } from "../use-one";
 import { useResource } from "../use-resource";
@@ -158,5 +158,30 @@ describe("ViewerScope", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => render(wrap(<Required />))).toThrow(/needs a <ViewerScope>/);
     spy.mockRestore();
+  });
+
+  it("gives today on the viewer's clock, and query keys take it as their day", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-27T03:30:00Z")); // still the 26th in Chicago
+      const { wrap } = setup();
+      const seen: string[] = [];
+      function Today() {
+        const ctx = useViewerScope();
+        seen.push(`${ctx.timeZone} ${ctx.day} ${JSON.stringify(defineQueryKeys("x", { q: () => ({}) }).for(ctx).q()[2])}`);
+        return <p>{ctx.day}</p>;
+      }
+      render(wrap(<ViewerScope viewer="ann" timeZone="America/Chicago"><Today /></ViewerScope>));
+      await screen.findByText("2026-10-26");
+      expect(seen.at(-1)).toBe('America/Chicago 2026-10-26 {"viewer":"ann","day":"2026-10-26"}');
+      // Past midnight in Chicago, the next check rolls the day over.
+      vi.setSystemTime(new Date("2026-10-27T05:30:00Z"));
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+      expect(screen.getByText("2026-10-27")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
