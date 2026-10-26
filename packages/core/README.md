@@ -382,12 +382,16 @@ const providerFor = async (who: "owner" | "client" | "stranger") => {
 
 const client = await providerFor("client");
 const owner = await providerFor("owner");
+const system = createSupabaseProvider(createClient(url, serviceRoleKey)); // the server's own writes
 
-// A write the client may not make is refused, in plain words.
-await expectRefused((await providerFor("stranger")).update("tasks", { id, data: { title: "x" } }));
-// A column only the server sets stays as it was.
-await expectServerOwned({ as: client, control: owner, resource: "tasks", id, field: "status", value: "done" });
-// A private value never shows, reports included.
+// A write the client may not make is refused, in plain words. When RLS hides the row (it reaches
+// no row), the control proves the same write works for someone who may make it.
+await expectRefused(stranger.update("tasks", { id, data: { title: "x" } }), {
+  control: () => owner.update("tasks", { id, data: { title: "x" } }),
+});
+// A column only the server sets stays as it was (the system proves it can change it first).
+await expectServerOwned({ as: client, system, resource: "tasks", id, field: "status", value: "done" });
+// A private value never shows, reports included: read the list around it, not the row by id.
 await expectNeverShows(client.getList("group_progress", {}), "private-marker-7");
 // A delete on a bin table keeps the row.
 await expectBinned({ as: client, resource: "notes", id, inBin: () => adminSeesDeleted("notes", id) });
@@ -395,10 +399,10 @@ await expectBinned({ as: client, resource: "notes", id, inBin: () => adminSeesDe
 
 | Check | Passes when |
 | --- | --- |
-| `expectRefused(write)` | it rejects as `forbidden`, `gone` or `unauthenticated` (or the `outcomes` you pass) with a plain message |
+| `expectRefused(write, { control? })` | it's refused (42501, a guard's P0001, or `forbidden` / `unauthenticated`) in plain words; reaching no row counts only when `control` makes the same write |
 | `expectAllowed(write)` | it resolves |
-| `expectServerOwned({ as, control, … })` | `control` reads the same value before and after `as` tries to set it; refused or put back both count |
-| `expectNeverShows(read, marker)` | the marker appears nowhere in the result (raw or JSON-escaped), or the read is refused |
+| `expectServerOwned({ as, system, … })` | `system` can change the value (then puts it back), and it's unchanged after `as` tries; refused or put back both count |
+| `expectNeverShows(read, marker)` | the marker appears nowhere in the result (raw or JSON-escaped), or the read is refused; a read that found nothing fails |
 | `expectSees(read, n)` | the read returns exactly `n` rows |
-| `expectBinned({ as, resource, id, inBin })` | the delete succeeds, `as` can't read the row back, and `inBin()` confirms it's still stored |
+| `expectBinned({ as, resource, id, inBin })` | `as` sees the row, deletes it, can't read it back, and `inBin()` confirms it's still stored |
 | `expectPlainMessage(error)` | the message has no raw database text or error codes |

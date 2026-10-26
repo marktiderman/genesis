@@ -13,8 +13,8 @@
 // ---------------------------------------------------------------------------
 
 import type { BaseRecord, DataProvider, Identifier } from "../provider/types";
-import { isDataReadError, type ReadOutcome } from "../schema/read-outcome";
-import { isDataWriteError, type DataWriteError, type WriteOutcome } from "../schema/write-outcome";
+import { isDataReadError } from "../schema/read-outcome";
+import { isDataWriteError, type DataWriteError } from "../schema/write-outcome";
 
 /** The shared fixture logins, the same ids `genesis_testing.user_id()` uses. */
 export const FIXTURE_USERS = {
@@ -44,7 +44,7 @@ export async function fixtureAccessToken(
   user: FixtureUser | string,
   options: { secret: string; expiresInSeconds?: number; role?: string },
 ): Promise<string> {
-  const sub = user in FIXTURE_USERS ? FIXTURE_USERS[user as FixtureUser] : user;
+  const sub = Object.hasOwn(FIXTURE_USERS, user) ? FIXTURE_USERS[user as FixtureUser] : user;
   const now = Math.floor(Date.now() / 1000);
   const role = options.role ?? "authenticated";
   const claims = { sub, role, aud: role, iat: now, exp: now + (options.expiresInSeconds ?? 3600) };
@@ -74,30 +74,60 @@ export function expectPlainMessage(error: unknown): void {
   if (RAW_TEXT.test(message)) throw new ContractError(`the message shows raw database text: ${message}`);
 }
 
-const REFUSALS: readonly WriteOutcome[] = ["forbidden", "gone", "unauthenticated"];
+/** Codes that are refusals: insufficient privilege (RLS, grants) and a guard's `raise exception`. */
+const REFUSAL_CODES = new Set(["42501", "P0001"]);
 
 /**
- * The write is refused: it rejects with a DataWriteError whose outcome is a
- * refusal (forbidden, gone, unauthenticated, or the ones you pass) and whose
- * message is plain words. Returns the error for more checks.
+ * Whether a failed write is a refusal: a refusal code (42501, P0001), or the
+ * provider's own `forbidden` (the row is still visible but unchanged) or
+ * `unauthenticated`. `gone` is not: it also means the id matched nothing.
+ */
+export function isRefusal(error: unknown): error is DataWriteError {
+  if (!isDataWriteError(error)) return false;
+  if (error.code !== undefined && REFUSAL_CODES.has(error.code)) return true;
+  return error.outcome === "forbidden" || error.outcome === "unauthenticated";
+}
+
+const describeError = (error: unknown) =>
+  isDataWriteError(error) || isDataReadError(error)
+    ? `${error.outcome}${error.code ? ` (${error.code})` : ""}: ${error.message}`
+    : String(error);
+
+/**
+ * The write is refused, in plain words: a refusal code (42501, P0001) or the
+ * provider's `forbidden` / `unauthenticated`. A write that reaches no row
+ * (`gone`) counts only with `control`: a run of the same write by someone who
+ * may make it (an owner, the service role) that must succeed, so a typo'd id
+ * or resource can't pass. The control's write is real: run it on test data.
+ * Returns the refusal for more checks.
  */
 export async function expectRefused(
   write: Promise<unknown>,
-  options: { outcomes?: readonly WriteOutcome[] } = {},
+  options: { control?: () => Promise<unknown> } = {},
 ): Promise<DataWriteError> {
-  const outcomes = options.outcomes ?? REFUSALS;
   let result: unknown;
   try {
     result = await write;
   } catch (error) {
-    if (!isDataWriteError(error)) {
-      throw new ContractError(`it failed, but not as a DataWriteError: ${String(error)}`);
+    if (isRefusal(error)) {
+      expectPlainMessage(error);
+      return error;
     }
-    if (!outcomes.includes(error.outcome)) {
-      throw new ContractError(`it failed as "${error.outcome}" (${error.message}), not as ${outcomes.join(" or ")}`);
+    if (isDataWriteError(error) && error.outcome === "gone") {
+      if (!options.control) {
+        throw new ContractError(
+          `it reached no row (${error.message}); pass a control that can make the same write, or it could be a wrong id`,
+        );
+      }
+      try {
+        await options.control();
+      } catch (controlError) {
+        throw new ContractError(`the control failed too (${describeError(controlError)}): nothing was refused`);
+      }
+      expectPlainMessage(error);
+      return error;
     }
-    expectPlainMessage(error);
-    return error;
+    throw new ContractError(`it failed, but not as a refusal: ${describeError(error)}`);
   }
   throw new ContractError(`it was allowed: ${JSON.stringify(result)?.slice(0, 300)}`);
 }
@@ -107,9 +137,7 @@ export async function expectAllowed<T>(write: Promise<T>): Promise<T> {
   try {
     return await write;
   } catch (error) {
-    throw new ContractError(
-      `it was refused: ${isDataWriteError(error) ? `${error.outcome}: ${error.message}` : String(error)}`,
-    );
+    throw new ContractError(`it was refused: ${describeError(error)}`);
   }
 }
 
@@ -121,23 +149,24 @@ const stable = (value: unknown) =>
   );
 
 /**
- * A client can't change a column only the server sets. `control` reads the
- * row (an owner, or the service role) before and after `as` tries to set
- * `field` to `value`; the stored value must not change, whether the update
- * was refused or quietly put back. A missing row or field, or a `value` equal
- * to what's stored, fails: there would be nothing to test.
+ * A client can't change a column only the server sets. First `system` (the
+ * service role, or whoever the server writes as) sets `field` to `value` and
+ * must change the stored value, then puts it back: that proves the row exists
+ * and the value can change at all. Then `as` tries the same update, and the
+ * stored value must stay as it was, whether the update was refused, reached
+ * no row, or a trigger put the value back. Any other error fails.
  */
 export async function expectServerOwned(args: {
   as: DataProvider;
-  control: DataProvider;
+  system: DataProvider;
   resource: string;
   id: Identifier;
   field: string;
   value: unknown;
 }): Promise<void> {
-  const { as, control, resource, id, field, value } = args;
+  const { as, system, resource, id, field, value } = args;
   const read = async () => {
-    const row = (await control.getOne<BaseRecord>(resource, { id })).data;
+    const row = (await system.getOne<BaseRecord>(resource, { id })).data;
     if (!row || !(field in row)) throw new ContractError(`${resource} ${String(id)} has no field ${field}`);
     return row[field];
   };
@@ -145,13 +174,27 @@ export async function expectServerOwned(args: {
   if (stable(before) === stable(value)) {
     throw new ContractError(`${field} is already ${stable(value)}: try a different value`);
   }
+  const set = async (to: unknown, what: string) => {
+    try {
+      await system.update(resource, { id, data: { [field]: to } });
+    } catch (error) {
+      throw new ContractError(`the system couldn't ${what} ${field} (${describeError(error)}): nothing was tested`);
+    }
+  };
+  await set(value, "set");
+  const changed = await read();
+  await set(before, "put back");
+  if (stable(changed) === stable(before)) {
+    throw new ContractError(`the system couldn't change ${field} either: nothing was tested`);
+  }
+  if (stable(await read()) !== stable(before)) {
+    throw new ContractError(`the system couldn't put ${field} back to ${stable(before)}`);
+  }
   try {
     await as.update(resource, { id, data: { [field]: value } });
   } catch (error) {
-    if (!isDataWriteError(error) || !REFUSALS.includes(error.outcome)) {
-      throw new ContractError(
-        `setting ${field} failed, but not as a refusal: ${isDataWriteError(error) ? `${error.outcome}: ${error.message}` : String(error)}`,
-      );
+    if (!isRefusal(error) && !(isDataWriteError(error) && error.outcome === "gone")) {
+      throw new ContractError(`setting ${field} failed, but not as a refusal: ${describeError(error)}`);
     }
   }
   const after = await read();
@@ -160,12 +203,12 @@ export async function expectServerOwned(args: {
   }
 }
 
-const HIDDEN: readonly ReadOutcome[] = ["forbidden", "gone"];
-
 /**
  * `marker` (a value only a private row holds) appears nowhere in what the read
- * returns. A read refused as forbidden or gone shows nothing and passes; any
- * other failure fails, so a broken query can't pass.
+ * returns: use a list or report read that returns the rows around the private
+ * one. A refused read (42501, or `forbidden` / `unauthenticated`) shows
+ * nothing and passes; any other failure fails, `gone` included, so a wrong id
+ * or a broken query can't pass.
  */
 export async function expectNeverShows(read: Promise<unknown>, marker: string): Promise<void> {
   if (!marker) throw new ContractError("give a marker to look for");
@@ -173,8 +216,13 @@ export async function expectNeverShows(read: Promise<unknown>, marker: string): 
   try {
     result = await read;
   } catch (error) {
-    if (isDataReadError(error) && HIDDEN.includes(error.outcome)) return;
-    throw new ContractError(`the read failed: ${error instanceof Error ? error.message : String(error)}`);
+    const refused =
+      (isDataReadError(error) || isDataWriteError(error)) &&
+      ((error.code !== undefined && REFUSAL_CODES.has(error.code)) ||
+        error.outcome === "forbidden" ||
+        error.outcome === "unauthenticated");
+    if (refused) return;
+    throw new ContractError(`the read failed: ${describeError(error)}`);
   }
   const text = JSON.stringify(result) ?? "";
   const escaped = JSON.stringify(marker).slice(1, -1);
@@ -212,12 +260,18 @@ export async function expectBinned(args: {
   inBin: () => Promise<boolean>;
 }): Promise<void> {
   const { as, resource, id, inBin } = args;
+  // Visible first, so "can't read it back" is evidence of the delete.
+  try {
+    await as.getOne(resource, { id });
+  } catch (error) {
+    throw new ContractError(`${resource} ${String(id)} isn't visible before the delete: ${describeError(error)}`);
+  }
   await expectAllowed(as.deleteOne(resource, { id }));
   try {
     await as.getOne(resource, { id });
   } catch (error) {
-    if (!isDataReadError(error) || !HIDDEN.includes(error.outcome)) {
-      throw new ContractError(`reading it back failed: ${error instanceof Error ? error.message : String(error)}`);
+    if (!isDataReadError(error) || (error.outcome !== "gone" && error.outcome !== "forbidden")) {
+      throw new ContractError(`reading it back failed: ${describeError(error)}`);
     }
     if (!(await inBin())) throw new ContractError(`${resource} ${String(id)} was deleted for good, not binned`);
     return;
