@@ -36,6 +36,14 @@ describe("dayIn", () => {
 });
 
 describe("wallClock", () => {
+  it("builds one formatter per zone", () => {
+    wallClock("Europe/Paris", evening);
+    const made = vi.spyOn(Intl, "DateTimeFormat");
+    for (let i = 0; i < 50; i++) wallClock("Europe/Paris", evening);
+    expect(made).not.toHaveBeenCalled();
+  });
+
+
   it("reads the clock, with 0 for Sunday and a 24-hour day", () => {
     expect(wallClock("America/Denver", evening)).toEqual({ year: 2026, month: 10, day: 26, hour: 21, minute: 30, second: 0, weekday: 1 });
     expect(wallClock("UTC", new Date("2026-11-01T00:00:00Z")).hour).toBe(0);
@@ -75,6 +83,8 @@ describe("calendar arithmetic", () => {
     expect(daysBetween("2026-10-26", "2026-11-02")).toBe(7);
     expect(daysBetween("2026-11-02", "2026-10-26")).toBe(-7);
     expect(() => addDays("2026-13-01", 1)).toThrow(RangeError);
+    expect(() => addDays("2026-10-26", 1.5)).toThrow(RangeError);
+    expect(() => addDays("2026-10-26", Number.NaN)).toThrow(RangeError);
   });
 
   it("finds the week's first day", () => {

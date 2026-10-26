@@ -35,9 +35,13 @@ function assertDay(day: Day, where: string): [number, number, number] {
   return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
 
+// One formatter per zone, made once: building an Intl.DateTimeFormat is the slow part.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
 /** Whether the runtime knows `zone` (`"America/Denver"`). @stability Beta */
 export function isTimeZone(zone: unknown): zone is string {
   if (typeof zone !== "string" || !zone) return false;
+  if (formatters.has(zone)) return true;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: zone });
     return true;
@@ -55,7 +59,6 @@ export function deviceTimeZone(): string {
   }
 }
 
-const formatters = new Map<string, Intl.DateTimeFormat>();
 function partsFormatter(zone: string): Intl.DateTimeFormat {
   let f = formatters.get(zone);
   if (!f) {
@@ -147,6 +150,7 @@ export function personDay(person?: PersonClock | null, at: Date = new Date()): D
 /** `day` moved by `days` (negative goes back). Calendar arithmetic: no zone, no daylight saving. @stability Beta */
 export function addDays(day: Day, days: number): Day {
   const [y, m, d] = assertDay(day, "addDays");
+  if (!Number.isInteger(days)) throw new RangeError(`addDays: ${days} is not a whole number of days`);
   const t = new Date(Date.UTC(y, m - 1, d + days));
   return dayOf(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
 }

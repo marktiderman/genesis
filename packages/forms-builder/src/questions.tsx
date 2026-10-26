@@ -17,6 +17,7 @@ import {
   type Json,
 } from "@marktiderman/genesis-forms";
 import { Badge } from "@marktiderman/genesis-ui/badge";
+import { BuilderLayout } from "@marktiderman/genesis-ui/builder-layout";
 import { Checkbox } from "@marktiderman/genesis-ui/checkbox";
 import { Label } from "@marktiderman/genesis-ui/label";
 import { Button } from "@marktiderman/genesis-ui/button";
@@ -339,32 +340,37 @@ export function QuestionsPanel({
     onSelect(created.id);
   };
 
-  const grid = cn(
-    "grid items-start gap-6",
-    preview
-      ? "@min-[34rem]:grid-cols-[13rem_minmax(0,1fr)] @min-[56rem]:grid-cols-[13rem_minmax(0,1fr)_20rem] @min-[76rem]:grid-cols-[16rem_minmax(0,1fr)_24.5rem]"
-      : "@min-[34rem]:grid-cols-[13rem_minmax(0,1fr)] @min-[48rem]:grid-cols-[16rem_minmax(0,1fr)]",
-  );
+  // Outline, editor and preview columns; without `preview` (the builder shows its own beside every
+  // panel), outline and editor only.
+  const layout = {
+    "data-testid": "builder-questions",
+    preview,
+    previewLabel: "Preview",
+    sticky: true,
+  } as const;
 
   if (!def.blocks.length) {
     return (
-      <div className="@container" data-testid="builder-questions">
-        <div className={grid}>
-          <div className="rounded-lg border border-dashed p-8 text-center @min-[34rem]:col-span-2" data-testid="builder-empty">
+      <BuilderLayout
+        {...layout}
+        editor={
+          <div className="rounded-lg border border-dashed p-8 text-center" data-testid="builder-empty">
             <p className={cn("text-sm text-muted-foreground", !readOnly && "mb-3")}>No questions yet.</p>
             {readOnly ? null : <AddBlockMenu onAdd={add} label="Add the first question" />}
           </div>
-          {preview ? <div className="@min-[34rem]:col-span-2 @min-[56rem]:col-span-1">{preview}</div> : null}
-        </div>
-      </div>
+        }
+      />
     );
   }
 
   const endings = def.endings ?? [];
   return (
-    <div className="@container" data-testid="builder-questions">
-      <div className={grid}>
-        <nav aria-label="Outline" className="min-w-0 space-y-3 @min-[34rem]:sticky @min-[34rem]:top-4" data-testid="builder-outline">
+    <BuilderLayout
+      {...layout}
+      outlineLabel="Outline"
+      outlineProps={{ className: "space-y-3", "data-testid": "builder-outline" }}
+      outline={
+        <>
           <SectionLabel>Questions</SectionLabel>
           <SortableList
             items={def.blocks}
@@ -432,9 +438,10 @@ export function QuestionsPanel({
               </ul>
             </div>
           ) : null}
-        </nav>
-
-        {current ? (
+        </>
+      }
+      editor={
+        current ? (
           <BlockEditorCard
             key={current.id}
             def={def}
@@ -447,15 +454,9 @@ export function QuestionsPanel({
             onSelect={onSelect}
             onReplaced={(id, target) => setRefocus({ id, target })}
           />
-        ) : null}
-
-        {preview ? (
-          <aside aria-label="Preview" className="min-w-0 @min-[34rem]:col-span-2 @min-[56rem]:sticky @min-[56rem]:top-4 @min-[56rem]:col-span-1">
-            {preview}
-          </aside>
-        ) : null}
-      </div>
-    </div>
+        ) : null
+      }
+    />
   );
 }
 
