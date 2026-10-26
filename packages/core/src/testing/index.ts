@@ -69,7 +69,14 @@ const RAW_TEXT =
 
 /** The error's message is plain words: no raw database text or error codes. */
 export function expectPlainMessage(error: unknown): void {
-  const message = error instanceof Error ? error.message : String(error);
+  const message =
+    error instanceof Error
+      ? error.message
+      : error && typeof error === "object" && typeof (error as { message?: unknown }).message === "string"
+        ? (error as { message: string }).message
+        : typeof error === "string"
+          ? error
+          : "";
   if (!message.trim()) throw new ContractError("the error has no message to show");
   if (RAW_TEXT.test(message)) throw new ContractError(`the message shows raw database text: ${message}`);
 }
@@ -224,6 +231,7 @@ export async function expectNeverShows(read: Promise<unknown>, marker: string): 
     if (refused) return;
     throw new ContractError(`the read failed: ${describeError(error)}`);
   }
+  if (result === undefined) throw new ContractError("the read returned nothing to look through");
   const text = JSON.stringify(result) ?? "";
   const escaped = JSON.stringify(marker).slice(1, -1);
   if (text.includes(marker) || text.includes(escaped)) {

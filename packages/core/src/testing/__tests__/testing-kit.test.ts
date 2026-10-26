@@ -135,6 +135,13 @@ describe("expectPlainMessage", () => {
   );
 });
 
+it("reads the message of a plain error object", () => {
+  expect(() => expectPlainMessage({ message: "duplicate key value violates unique constraint" })).toThrow(/raw database text/);
+  expect(() => expectPlainMessage({ message: "" })).toThrow(/no message/);
+  expect(() => expectPlainMessage({})).toThrow(/no message/);
+  expect(() => expectPlainMessage({ message: "You can't." })).not.toThrow();
+});
+
 describe("expectAllowed", () => {
   it("returns the result", async () => expect(await expectAllowed(Promise.resolve(7))).toBe(7));
   it("fails on a refusal", () =>
@@ -219,6 +226,9 @@ describe("expectNeverShows", () => {
     fails(expectNeverShows(Promise.reject(new DataReadError("invalid", "Bad column.")), "secret-1"), /read failed/));
 
   it("needs a marker", () => fails(expectNeverShows(Promise.resolve([]), ""), /give a marker/));
+
+  it("false pass: a read that resolved to nothing fails", () =>
+    fails(expectNeverShows(Promise.resolve(undefined), "secret-1"), /nothing to look through/));
 });
 
 describe("expectSees", () => {
