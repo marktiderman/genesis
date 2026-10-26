@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(50);
+select plan(51);
 
 -- People: a1 and b2 are members of tenant 1's team t1; a1 leads it. c3 belongs to tenant 2 only.
 -- d4 belongs to nothing.
@@ -206,6 +206,9 @@ select pg_temp.as_server();
 select lives_ok(
   $$ update public.pursuits set team_id = null, person_id = pg_temp.person('b2') where id = '00000000-0000-4000-b000-000000000014' $$,
   'server code may move a pursuit to another owner');
+select throws_ok(
+  $$ update public.pursuits set tenant_id = pg_temp.tenant(2) where id = '00000000-0000-4000-b000-000000000014' $$,
+  '22023', null, 'not even server code moves a pursuit to another tenant');
 
 -- Work items ---------------------------------------------------------------------------------
 select pg_temp.sign_in('b2');

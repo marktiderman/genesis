@@ -59,8 +59,8 @@
 --   $$;
 --   revoke execute on function private.genesis_readable_owners(uuid) from public, anon, authenticated;
 --
--- Guards: a signed-in person never changes a row's tenant or owner (server code may, for a merge
--- or when someone leaves) and never sets created_by; a parent pursuit and a work item's pursuit
+-- Guards: nobody changes a row's tenant; a signed-in person never changes its owner (server code
+-- may, for a merge or when someone leaves) and never sets created_by; a parent pursuit and a work item's pursuit
 -- must be in the same tenant; a pursuit is never its own ancestor. Links are checked as the table
 -- owner, so a row the caller can't see still counts, under a per-tenant lock, and only when a
 -- link is set or changes.
@@ -243,9 +243,12 @@ begin
       new.created_by := auth.uid();
     end if;
   else
+    -- The tenant never changes, for anyone: moving it would strand links across tenants.
+    if new.tenant_id is distinct from old.tenant_id then
+      raise exception 'A pursuit''s tenant never changes' using errcode = '22023';
+    end if;
     if private.genesis_pursuits_caller_is_person() then
-      if new.tenant_id is distinct from old.tenant_id
-         or new.person_id is distinct from old.person_id
+      if new.person_id is distinct from old.person_id
          or new.team_id is distinct from old.team_id
          or new.organization_id is distinct from old.organization_id then
         raise exception 'A pursuit''s tenant and owner never change' using errcode = '22023';
@@ -279,9 +282,12 @@ begin
       new.created_by := auth.uid();
     end if;
   else
+    -- The tenant never changes, for anyone: moving it would strand links across tenants.
+    if new.tenant_id is distinct from old.tenant_id then
+      raise exception 'A work item''s tenant never changes' using errcode = '22023';
+    end if;
     if private.genesis_pursuits_caller_is_person() then
-      if new.tenant_id is distinct from old.tenant_id
-         or new.person_id is distinct from old.person_id
+      if new.person_id is distinct from old.person_id
          or new.team_id is distinct from old.team_id
          or new.organization_id is distinct from old.organization_id then
         raise exception 'A work item''s tenant and owner never change' using errcode = '22023';
