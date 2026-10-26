@@ -43,5 +43,8 @@ export {
   type ScopedKey,
 } from "./query-keys";
 
+// Links checked before they reach an href or src
+export { isSafeUrl, normalizeLinkUrl } from "./urls";
+
 // Utils
 export { titleCase } from "./utils";
