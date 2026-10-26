@@ -938,7 +938,8 @@ export const features = defineFeatures({
     platforms: { server: "building" },
     entry: { server: "@marktiderman/genesis-supabase" },
     acceptance: [
-      "sync_feature_registry is service-role only, refuses an older version, does nothing for the same hash, keeps removed features marked gone and drops removed flags with their tenant values.",
+      "sync_feature_registry is service-role only, refuses an older version, an empty registry, duplicate ids or a sharp shrink (unless allow_shrink), does nothing for the same hash, and deletes nothing: removed features and flags are marked gone and flag values stay.",
+      "Signed-in people (not anonymous ones) read only shipped, customer-facing features and their public columns; feature_shipped and feature_entitled_tenants let policies check once per statement.",
       "feature_on is true only for a shipped feature that, when paid, has an active unexpired entitlement; a signed-in caller outside the tenant gets false.",
       "feature_gate_state returns a tenant's switches off, entitlements and flag values to its members and the service role, and refuses everyone else.",
     ],

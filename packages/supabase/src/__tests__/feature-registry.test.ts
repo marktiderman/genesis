@@ -73,8 +73,25 @@ describe("syncFeatureRegistry", () => {
       flags: [{ key: "forms.release", feature: "forms" }],
     });
     expect(String(args?.hash)).toMatch(/^[0-9a-f]{64}$/);
-    await syncFeatureRegistry(client, document, { version: 200 });
+    expect(args?.allow_shrink).toBe(false);
+    // The same registry with keys in another order hashes the same.
+    const reordered = {
+      flags: {
+        "forms.release": {
+          scopes: ["platform"],
+          default: true,
+          kind: "release",
+          feature: "forms",
+        },
+      },
+      features: [{ status: "live", name: "Forms", id: "forms" }],
+    };
+    await syncFeatureRegistry(client, reordered, {
+      version: 200,
+      allowShrink: true,
+    });
     expect(rpc.mock.calls[1]![1]?.hash).toBe(args?.hash);
+    expect(rpc.mock.calls[1]![1]?.allow_shrink).toBe(true);
   });
 
   it("reports an older or unchanged registry as not synced, and refuses a bad version", async () => {

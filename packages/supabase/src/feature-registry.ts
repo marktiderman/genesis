@@ -74,8 +74,29 @@ export interface FeatureRegistryDocument {
 
 /** @stability Beta */
 export interface SyncFeatureRegistryOptions {
-  /** This build's version: an increasing number, such as the build time in milliseconds. Older versions are refused. */
+  /**
+   * When this deployment started serving, in milliseconds (`Date.now()` at server start), not its
+   * build time: an instant rollback to an older build then syncs as the newest. Older versions
+   * than the last sync are refused.
+   */
   version: number;
+  /** Allow a registry that drops more than a fifth of the features (at least 3). Default false. */
+  allowShrink?: boolean;
+}
+
+/** JSON with object keys sorted, so the hash doesn't depend on key order. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).filter(
+      ([, v]) => v !== undefined,
+    );
+    return `{${entries
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
 }
 
 async function sha256(text: string): Promise<string> {
@@ -90,12 +111,14 @@ async function sha256(text: string): Promise<string> {
 
 /**
  * Copy the registry into the database: `sync_feature_registry`. Call it with
- * the service key when a deploy starts. Returns false when the database
- * already has this registry or a newer one.
+ * the service key when a production deployment starts serving, never from a
+ * preview. Returns false when the database already has this registry or a
+ * newer one; throws (`22023`) for an empty registry or one that drops most
+ * features, unless `allowShrink`.
  *
  * ```ts
  * import registry from "../features.json";
- * await syncFeatureRegistry(admin, registry, { version: BUILD_TIME });
+ * if (process.env.VERCEL_ENV === "production") await syncFeatureRegistry(admin, registry, { version: Date.now() });
  * ```
  *
  * @stability Beta
@@ -115,7 +138,7 @@ export async function syncFeatureRegistry(
     key,
     ...flag,
   }));
-  const hash = await sha256(JSON.stringify({ features, flags }));
+  const hash = await sha256(canonical({ features, flags }));
   return (
     must(
       (await client.rpc("sync_feature_registry", {
@@ -123,6 +146,7 @@ export async function syncFeatureRegistry(
         hash,
         features,
         flags,
+        allow_shrink: options.allowShrink ?? false,
       })) as RpcResult,
     ) === true
   );
