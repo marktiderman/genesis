@@ -9,7 +9,6 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
-import { validateLocalPackages } from "../blocks/local.js";
 import type { DoctorConfig } from "./types.js";
 
 /** A genesis.config.json that can't be read or has a block of the wrong shape. */
@@ -123,8 +122,6 @@ export interface GenesisConfigFile {
   raw: Record<string, unknown>;
   links?: GenesisLinks;
   privacy?: GenesisPrivacy;
-  /** The app's own packages, as folders or `folder/*` (see blocks/local.ts). */
-  localPackages?: string[];
 }
 
 export interface LoadedConfig {
@@ -218,13 +215,8 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   const out: GenesisConfigFile = { raw };
   if (raw.links !== undefined) out.links = validateLinks(raw.links, file);
   if (raw.privacy !== undefined) out.privacy = validatePrivacy(raw.privacy, file);
-  if (raw.localPackages !== undefined) {
-    try {
-      out.localPackages = validateLocalPackages(raw.localPackages, file);
-    } catch (err) {
-      throw new GenesisConfigError((err as Error).message);
-    }
-  }
+  // localPackages is read and validated by blocks/local.ts where it's used (doctor, add, migrate);
+  // the Expo config plugin loads this file too and must not pull the CLI's block code in.
   return out;
 }
 
