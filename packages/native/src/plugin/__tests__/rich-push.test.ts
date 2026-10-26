@@ -4,11 +4,12 @@
  * `expo config` and EAS), the extension's files, and the Xcode target it adds
  * to an Expo-generated project (a prebuild of the starter, in fixtures/).
  */
+import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
-import { IOSConfig } from "@expo/config-plugins";
-import type { ExpoConfig } from "@expo/config-types";
+import { IOSConfig } from "expo/config-plugins";
+import type { ExpoConfig } from "expo/config";
 import { afterEach, describe, expect, it } from "vitest";
 import withRichPush, {
   COMMUNICATION_ENTITLEMENT,
@@ -106,6 +107,22 @@ describe("the extension's files", () => {
   it("escapes the display name", () => {
     expect(extensionInfoPlist("A & <B>")).toContain("<string>A &amp; &lt;B&gt;</string>");
   });
+
+  it("declares INSendMessageIntent for the extension with Communication Notifications, not without", () => {
+    expect(extensionInfoPlist("A", { communication: true })).toMatch(/<key>IntentsSupported<\/key>\s*<array>\s*<string>INSendMessageIntent<\/string>/);
+    expect(extensionInfoPlist("A", { communication: false })).not.toContain("IntentsSupported");
+  });
+
+  it("imageHosts narrows the hosts the extension downloads from", () => {
+    const ios = mkdtempSync(path.join(tmpdir(), "rich-push-ios-"));
+    dirs.push(ios);
+    writeExtensionFiles(ios, { targetName: "Svc", displayName: "A", communication: true, imageHosts: ["cdn.example.com", "example.org"] });
+    expect(readFileSync(path.join(ios, "Svc", "Info.plist"), "utf8")).toMatch(
+      /<key>GenesisRichPushImageHosts<\/key>\s*<array>\s*<string>cdn\.example\.com<\/string>\s*<string>example\.org<\/string>/,
+    );
+    expect(extensionInfoPlist("A")).not.toContain("GenesisRichPushImageHosts");
+    expect(() => withRichPush(base, { imageHosts: ["https://cdn.example.com"] })).toThrow(/imageHosts/);
+  });
 });
 
 describe("the Swift service", () => {
@@ -124,13 +141,35 @@ describe("the Swift service", () => {
     expect(swift).toContain('userInfo["body"]');
   });
 
+  it("reads only the avatar into memory, and only a small one", () => {
+    expect(swift).toContain("keepBytes && size <= maxAvatarBytes");
+    expect(swift).toContain("download(imageURL, session: session, keepBytes: false)");
+  });
+
+  // Typechecks against the iOS Simulator SDK where Xcode is installed (macOS); skipped elsewhere.
+  const xcrun = (() => {
+    try {
+      execFileSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { stdio: "pipe" });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  it.skipIf(!xcrun)("compiles for iOS", () => {
+    const sdk = execFileSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" }).trim();
+    execFileSync("xcrun", ["--sdk", "iphonesimulator", "swiftc", "-typecheck", "-swift-version", "5", "-sdk", sdk, "-target", "arm64-apple-ios16.4-simulator", serviceSwiftPath()], { stdio: "pipe" });
+  }, 60_000);
+
   it("always shows the notification: on time running out and on every failure", () => {
     expect(swift).toContain("override func serviceExtensionTimeWillExpire()");
     expect(swift).toMatch(/catch \{[\s\S]*?plain\(\)/);
   });
 
-  it("downloads https only and fetches nothing but the two images", () => {
+  it("downloads https only, from the allowed hosts, and fetches nothing but the two images", () => {
     expect(swift).toContain('components.scheme?.lowercased() == "https"');
+    expect(swift).toContain('"GenesisRichPushImageHosts"');
+    expect(swift).toContain("allowedHost(host)");
+    expect(swift).toContain("private let maxURLLength = 1024");
     expect(swift.match(/downloadTask\(/g)).toHaveLength(1);
     expect(swift.match(/download\((imageURL|avatarURL)/g)).toEqual(["download(imageURL", "download(avatarURL"]);
     expect(swift).not.toMatch(/dataTask\(/);

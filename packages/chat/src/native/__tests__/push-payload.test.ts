@@ -36,11 +36,11 @@ describe("chatPushPayload", () => {
   });
 
   it("hidden previews carry the link and ids only, and the extension doesn't run", () => {
-    const p = chatPushPayload({ conversationId: CONV, messageId: "m1", seq: 2, sender, groupName: "Cohort 3", imageUrl: "https://cdn.example.com/p.png", hidePreview: true });
+    const p = chatPushPayload({ conversationId: CONV, messageId: "m1", seq: 2, sender, groupName: "Cohort 3", imageUrl: "https://cdn.example.com/p.png", hidePreviews: true });
     expect(p).toEqual({ categoryId: "messages", threadId: conv, mutableContent: false, data: { url: `/messages/${conv}`, conversationId: conv, messageId: "m1", seq: 2 } });
   });
 
-  it.each(["http://cdn.example.com/a.jpg", "file:///etc/passwd", "https://user:pw@cdn.example.com/a.jpg", "not a url", `https://cdn.example.com/${"a".repeat(2050)}`])(
+  it.each(["http://cdn.example.com/a.jpg", "file:///etc/passwd", "https://user:pw@cdn.example.com/a.jpg", "not a url", `https://cdn.example.com/${"a".repeat(1010)}`])(
     "leaves out an image that isn't a plain https URL: %s",
     (url) => {
       const p = chatPushPayload({ conversationId: CONV, messageId: "m1", sender: { ...sender, avatarUrl: url }, imageUrl: url });

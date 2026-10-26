@@ -5,8 +5,9 @@
 // It reads only the payload: it never fetches a message, so a push sent with
 // hidden previews (neutral text, no sender fields) stays neutral.
 //
-// - `data.image` / `data.senderAvatar` (https only) are downloaded within the
-//   time limit and attached. A download that fails or runs late is skipped:
+// - `data.image` / `data.senderAvatar` (https only, and only from the hosts in
+//   the Info.plist's `GenesisRichPushImageHosts` when the plugin's `imageHosts`
+//   set it) are downloaded within the time limit and attached. A download that fails or runs late is skipped:
 //   the notification is always shown, with what the payload already said.
 // - A push in the `messages` category becomes a Communication Notification:
 //   an incoming INSendMessageIntent with the sender (`senderName`,
@@ -25,6 +26,9 @@ import os
 
 private let messagesCategory = "messages"
 private let maxImageBytes = 10 * 1024 * 1024
+// The extension has about 24 MB; only the avatar is read into memory, and small.
+private let maxAvatarBytes = 1024 * 1024
+private let maxURLLength = 1024
 private let log = Logger(subsystem: "genesis.rich-push", category: "service")
 
 final class NotificationService: UNNotificationServiceExtension {
@@ -72,14 +76,14 @@ final class NotificationService: UNNotificationServiceExtension {
     var avatarFile: URL?
     if let imageURL {
       group.enter()
-      download(imageURL, session: session) { file, _ in
+      download(imageURL, session: session, keepBytes: false) { file, _ in
         imageFile = file
         group.leave()
       }
     }
     if let avatarURL {
       group.enter()
-      download(avatarURL, session: session) { file, bytes in
+      download(avatarURL, session: session, keepBytes: true) { file, bytes in
         avatarFile = file
         avatarData = bytes
         group.leave()
@@ -167,9 +171,6 @@ final class NotificationService: UNNotificationServiceExtension {
       sender: sender,
       attachments: nil
     )
-    if groupName != nil, let avatar {
-      intent.setImage(INImage(imageData: avatar), forParameterNamed: \.speakableGroupName)
-    }
     let interaction = INInteraction(intent: intent, response: nil)
     interaction.direction = .incoming
     interaction.donate { [weak self] error in
@@ -207,7 +208,7 @@ final class NotificationService: UNNotificationServiceExtension {
 
   // MARK: Downloads
 
-  private func download(_ url: URL, session: URLSession, done: @escaping (URL?, Data?) -> Void) {
+  private func download(_ url: URL, session: URLSession, keepBytes: Bool, done: @escaping (URL?, Data?) -> Void) {
     let task = session.downloadTask(with: url) { location, response, error in
       guard error == nil, let location,
         let http = response as? HTTPURLResponse, http.statusCode == 200,
@@ -227,7 +228,8 @@ final class NotificationService: UNNotificationServiceExtension {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let file = dir.appendingPathComponent("image.\(ext)")
         try FileManager.default.moveItem(at: location, to: file)
-        done(file, try? Data(contentsOf: file))
+        // Bytes only for the avatar (the intent's INImage), and only a small one.
+        done(file, keepBytes && size <= maxAvatarBytes ? try? Data(contentsOf: file) : nil)
       } catch {
         log.error("image save failed")
         done(nil, nil)
@@ -269,12 +271,22 @@ private func text(_ value: Any?) -> String? {
   return trimmed.isEmpty ? nil : String(trimmed.prefix(200))
 }
 
-/// Only https, with a host and no credentials, at most 2048 characters (the JS `isRichPushUrl`).
+/// The hosts images may come from (the plugin's `imageHosts`); none set means any https host.
+private let imageHosts: [String] = ((Bundle.main.object(forInfoDictionaryKey: "GenesisRichPushImageHosts") as? [String]) ?? [])
+  .map { $0.lowercased() }
+
+private func allowedHost(_ host: String) -> Bool {
+  if imageHosts.isEmpty { return true }
+  let h = host.lowercased()
+  return imageHosts.contains { h == $0 || h.hasSuffix("." + $0) }
+}
+
+/// Only https, with a host and no credentials, at most 1024 characters (the JS `isRichPushUrl`).
 private func httpsURL(_ value: Any?) -> URL? {
-  guard let string = value as? String, string.count <= 2048,
+  guard let string = value as? String, string.count <= maxURLLength,
     let components = URLComponents(string: string),
     components.scheme?.lowercased() == "https",
-    let host = components.host, !host.isEmpty,
+    let host = components.host, !host.isEmpty, allowedHost(host),
     components.user == nil, components.password == nil
   else { return nil }
   return components.url
@@ -285,7 +297,6 @@ private func imageExtension(_ mime: String) -> String? {
   case "image/jpeg", "image/jpg": return "jpg"
   case "image/png": return "png"
   case "image/gif": return "gif"
-  case "image/heic": return "heic"
   default: return nil
   }
 }

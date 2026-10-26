@@ -21,8 +21,9 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { withDangerousMod, withXcodeProject, type ConfigPlugin } from "@expo/config-plugins";
-import type { ExpoConfig } from "@expo/config-types";
+// Expo's own copy (the app's `expo`), so the mods run on the same config-plugins as prebuild.
+import { withDangerousMod, withXcodeProject, type ConfigPlugin } from "expo/config-plugins";
+import type { ExpoConfig } from "expo/config";
 
 export const COMMUNICATION_ENTITLEMENT = "com.apple.developer.usernotifications.communication";
 export const SEND_MESSAGE_INTENT = "INSendMessageIntent";
@@ -42,6 +43,12 @@ export interface RichPushPluginOptions {
   communication?: boolean;
   /** The extension's minimum iOS. Default: the app target's. */
   deploymentTarget?: string;
+  /**
+   * The hosts images may be downloaded from (`cdn.example.com`, or `example.com`
+   * for it and its subdomains). Unset, any https host: a sender who puts a URL
+   * a person chose (their avatar) in a push lets that host see each delivery.
+   */
+  imageHosts?: string[];
 }
 
 interface Resolved {
@@ -49,6 +56,7 @@ interface Resolved {
   bundleIdSuffix: string;
   communication: boolean;
   deploymentTarget: string | undefined;
+  imageHosts: string[];
 }
 
 function resolve(options: RichPushPluginOptions | undefined): Resolved {
@@ -56,7 +64,9 @@ function resolve(options: RichPushPluginOptions | undefined): Resolved {
   const bundleIdSuffix = options?.bundleIdSuffix ?? DEFAULT_BUNDLE_SUFFIX;
   if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(targetName)) throw new Error(`rich-push-plugin: targetName "${targetName}" must be letters, digits and _`);
   if (!/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/.test(bundleIdSuffix)) throw new Error(`rich-push-plugin: bundleIdSuffix "${bundleIdSuffix}" isn't a bundle id part`);
-  return { targetName, bundleIdSuffix, communication: options?.communication ?? true, deploymentTarget: options?.deploymentTarget };
+  const imageHosts = (options?.imageHosts ?? []).map((h) => h.trim().toLowerCase());
+  for (const h of imageHosts) if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h)) throw new Error(`rich-push-plugin: imageHosts "${h}" isn't a host name`);
+  return { targetName, bundleIdSuffix, communication: options?.communication ?? true, deploymentTarget: options?.deploymentTarget, imageHosts };
 }
 
 /** The extension's bundle id: the app's plus the suffix. */
@@ -97,7 +107,7 @@ export function applyRichPushConfig(config: ExpoConfig, options?: RichPushPlugin
 }
 
 /** The extension's Info.plist. Versions follow the app's (App Store Connect rejects a mismatch). */
-export function extensionInfoPlist(displayName: string): string {
+export function extensionInfoPlist(displayName: string, options: { communication?: boolean; imageHosts?: string[] } = {}): string {
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -126,8 +136,27 @@ export function extensionInfoPlist(displayName: string): string {
     <key>NSExtensionPointIdentifier</key>
     <string>com.apple.usernotifications.service</string>
     <key>NSExtensionPrincipalClass</key>
-    <string>$(PRODUCT_MODULE_NAME).NotificationService</string>
-  </dict>
+    <string>$(PRODUCT_MODULE_NAME).NotificationService</string>${
+      options.communication
+        ? `
+    <key>NSExtensionAttributes</key>
+    <dict>
+      <key>IntentsSupported</key>
+      <array>
+        <string>${SEND_MESSAGE_INTENT}</string>
+      </array>
+    </dict>`
+        : ""
+    }
+  </dict>${
+    options.imageHosts?.length
+      ? `
+  <key>GenesisRichPushImageHosts</key>
+  <array>
+${options.imageHosts.map((h) => `    <string>${esc(h)}</string>`).join("\n")}
+  </array>`
+      : ""
+  }
 </dict>
 </plist>
 `;
@@ -165,11 +194,14 @@ export function serviceSwiftPath(root = packageRoot()): string {
 }
 
 /** Writes the extension's folder under ios/: the Swift, its Info.plist and its entitlements. */
-export function writeExtensionFiles(iosRoot: string, options: { targetName: string; displayName: string; communication: boolean; swiftSource?: string }): void {
+export function writeExtensionFiles(
+  iosRoot: string,
+  options: { targetName: string; displayName: string; communication: boolean; imageHosts?: string[]; swiftSource?: string },
+): void {
   const dir = path.join(iosRoot, options.targetName);
   mkdirSync(dir, { recursive: true });
   copyFileSync(options.swiftSource ?? serviceSwiftPath(), path.join(dir, SWIFT_FILE));
-  writeFileSync(path.join(dir, "Info.plist"), extensionInfoPlist(options.displayName));
+  writeFileSync(path.join(dir, "Info.plist"), extensionInfoPlist(options.displayName, { communication: options.communication, imageHosts: options.imageHosts ?? [] }));
   writeFileSync(path.join(dir, `${options.targetName}.entitlements`), entitlementsPlist(extensionEntitlements(options.communication)));
 }
 
@@ -259,7 +291,7 @@ const withRichPush: ConfigPlugin<RichPushPluginOptions | void> = (config, option
   config = withDangerousMod(config, [
     "ios",
     (c) => {
-      writeExtensionFiles(c.modRequest.platformProjectRoot, { targetName: o.targetName, displayName: c.name, communication: o.communication });
+      writeExtensionFiles(c.modRequest.platformProjectRoot, { targetName: o.targetName, displayName: c.name, communication: o.communication, imageHosts: o.imageHosts });
       return c;
     },
   ]);

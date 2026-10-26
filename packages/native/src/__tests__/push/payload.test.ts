@@ -38,7 +38,8 @@ describe("isRichPushUrl", () => {
     ["https://user:pw@cdn.example.com/a.jpg", false],
     ["data:image/png;base64,AAAA", false],
     ["/relative.jpg", false],
-    [`https://cdn.example.com/${"a".repeat(2048)}`, false],
+    [`https://cdn.example.com/${"a".repeat(1001)}`, false],
+    [`https://cdn.example.com/${"a".repeat(990)}`, true],
     [42, false],
   ])("%s → %s", (value, ok) => expect(isRichPushUrl(value)).toBe(ok));
 });

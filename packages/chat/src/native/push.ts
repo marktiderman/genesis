@@ -302,7 +302,7 @@ export interface ChatPushPayloadInput {
    * sender, group or photo) and the service extension doesn't run. Send neutral
    * title and body text with it.
    */
-  hidePreview?: boolean | undefined;
+  hidePreviews?: boolean | undefined;
 }
 
 /** The `data` of a message's push. Flat strings and numbers, as genesis-notifications' `PushMessage.data` takes. */
@@ -323,9 +323,9 @@ export interface ChatPushPayload {
   data: ChatPushData;
 }
 
-/** The extension fetches only https URLs (no credentials, at most 2048 characters): genesis-native's `isRichPushUrl`. */
+/** The extension fetches only https URLs (no credentials, at most 1024 characters): genesis-native's `isRichPushUrl`. */
 function httpsUrl(value: unknown): string | null {
-  if (typeof value !== "string" || value.length > 2048) return null;
+  if (typeof value !== "string" || value.length > 1024) return null;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && url.hostname.length > 0 && !url.username && !url.password ? value : null;
@@ -344,7 +344,7 @@ function shortText(value: unknown): string | null {
  * The category, thread, `mutableContent` and `data` of a message's push, for
  * the server that sends it:
  *
- *   const message = { to, title, body, badge, channelId: "messages", ...chatPushPayload({ conversationId, messageId, seq, sender, groupName, imageUrl, hidePreview }) };
+ *   const message = { to, title, body, badge, channelId: "messages", ...chatPushPayload({ conversationId, messageId, seq, sender, groupName, imageUrl, hidePreviews }) };
  *
  * On iOS, with the rich push plugin, a push with a sender is a Communication
  * Notification (the sender's photo; Focus treats it as a message) and `imageUrl`
@@ -356,7 +356,7 @@ export function chatPushPayload(input: ChatPushPayloadInput): ChatPushPayload {
   if (!UUID.test(conversationId)) throw new Error("chatPushPayload: conversationId must be a uuid");
   const data: ChatPushData = { url: chatPath(conversationId), conversationId, messageId: input.messageId };
   if (typeof input.seq === "number" && Number.isFinite(input.seq)) data.seq = input.seq;
-  if (input.hidePreview) {
+  if (input.hidePreviews) {
     return { categoryId: CHAT_PUSH_CATEGORY, threadId: conversationId, mutableContent: false, data };
   }
   const senderName = shortText(input.sender?.name);

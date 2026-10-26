@@ -50,7 +50,7 @@ describe("app.config.ts per APP_VARIANT", () => {
   });
 });
 
-describe("iOS rich push (chat and push on)", () => {
+describe("iOS rich push (in the build whichever way the chat switch is)", () => {
   it.each([
     ["development", "com.example.genesisstarter.dev.NotificationService"],
     ["production", "com.example.genesisstarter.NotificationService"],

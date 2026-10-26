@@ -27,9 +27,13 @@ export interface RichPushMessageLike {
 
 export const RICH_PUSH_IMAGE_FIELDS = ["image", "senderAvatar"] as const;
 
-/** The extension downloads only https URLs (no credentials, at most 2048 characters); this is the same check. */
+/**
+ * The extension downloads only https URLs (no credentials, at most 1024
+ * characters: APNs takes 4 KB in all); this is the same check. The plugin's
+ * `imageHosts`, when set, narrows it on the phone.
+ */
 export function isRichPushUrl(value: unknown): value is string {
-  if (typeof value !== "string" || value.length > 2048) return false;
+  if (typeof value !== "string" || value.length > 1024) return false;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && url.hostname.length > 0 && !url.username && !url.password;
