@@ -140,6 +140,10 @@ reveal and private, who sees what.
   once the gate opens.
 - **Roster.** Who's in, who's done, and nudge. Facilitators see names. Participants see what the
   policy shows.
+- **Lists are ResourceViews.** The roster, a space's contributions and combined results are
+  `ResourceView`s (genesis-ui), not lists of their own. Their source is
+  `genesis_collab.roster` or `.contributions`, and the server's `author_visible` flag decides
+  whether the author column shows. The interface never decides anonymity itself.
 - **Live controls**, for a facilitator in a meeting: open, lock, reveal, next. Realtime is a
   hint (a Supabase channel that invalidates queries). The data is never carried over the
   channel.
