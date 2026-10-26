@@ -86,6 +86,7 @@
   },
   "devDependencies": {
     "@fast-check/vitest": "^0.2.4",
+    "@marktiderman/genesis-connect": "workspace:^",
     "@marktiderman/genesis-notifications": "workspace:^",
     "fast-check": "^4.10.2",
     "tsup": "^8.3.0",

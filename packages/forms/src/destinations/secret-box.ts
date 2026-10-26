@@ -7,44 +7,46 @@
  *
  * The sealed form is `v1.<iv>.<ciphertext and tag>`, base64url. Where it is
  * stored is the app's; the key never is.
+ *
+ * The cryptography is genesis-connect's (`@marktiderman/genesis-connect/secrets`,
+ * bundled in, so forms still installs nothing). Its keyring, `createSecrets`
+ * (re-exported from `@marktiderman/genesis-forms/destinations`), seals
+ * `v2.<key id>.…` secrets that name their key, so the key can be rotated,
+ * and still opens these `v1.` ones: give it the same purpose and salt, with
+ * this key under its `legacyKeyId` (`"k1"` by default).
  */
-import { base64url, DeliveryError, fromBase64, type WebCryptoKey } from "./types";
+import {
+  deriveSecretKey as deriveKey,
+  openWithKey,
+  sealWithKey,
+  SecretError,
+  secretKeyBytes as keyBytes,
+  type DeriveSecretKeyOptions,
+} from "@marktiderman/genesis-connect/secrets";
+import { DeliveryError, type WebCryptoKey } from "./types";
 
-const enc = new TextEncoder();
+export type { DeriveSecretKeyOptions } from "@marktiderman/genesis-connect/secrets";
+
+/** A secret-box failure as a permanent `DeliveryError`, with the same safe message. */
+function asDeliveryError(error: unknown): unknown {
+  return error instanceof SecretError
+    ? new DeliveryError(error.message)
+    : error;
+}
 
 /**
  * The 32 key bytes from base64 or base64url text (as `openssl rand -base64 32`
  * prints), or the bytes themselves. Throws a `DeliveryError` naming the
  * problem, never the key.
  */
-export function secretKeyBytes(key: string | Uint8Array): Uint8Array<ArrayBuffer> {
-  if (typeof key !== "string") {
-    if (key.length !== 32) throw new DeliveryError("The encryption key must be 32 bytes");
-    return new Uint8Array(key);
-  }
-  const text = key.trim().replace(/=+$/, "");
-  if (!text) throw new DeliveryError("The encryption key is not set");
-  let bytes: Uint8Array<ArrayBuffer>;
+export function secretKeyBytes(
+  key: string | Uint8Array,
+): Uint8Array<ArrayBuffer> {
   try {
-    bytes = fromBase64(text + "=".repeat((4 - (text.length % 4)) % 4));
-  } catch {
-    throw new DeliveryError("The encryption key is not base64");
+    return keyBytes(key);
+  } catch (error) {
+    throw asDeliveryError(error);
   }
-  if (bytes.length !== 32) throw new DeliveryError("The encryption key must be 32 bytes");
-  return bytes;
-}
-
-/** Options for `deriveSecretKey`. */
-export interface DeriveSecretKeyOptions {
-  /**
-   * The HKDF salt: bytes, or text taken as its UTF-8 bytes. Default empty,
-   * which is what every key derived before this option existed used, so
-   * leave it out to open those. For new keys a fixed, app-wide random value
-   * (say 32 bytes from `openssl rand -base64 32`, kept as config) is
-   * recommended (RFC 5869). It need not be secret, but must never change
-   * once anything is sealed with it.
-   */
-  salt?: string | Uint8Array | undefined;
 }
 
 /**
@@ -58,23 +60,20 @@ export async function deriveSecretKey(
   info: string,
   options: DeriveSecretKeyOptions = {},
 ): Promise<WebCryptoKey> {
-  if (!info) throw new DeliveryError("A sealing key needs its purpose (info)");
-  const salt = typeof options.salt === "string" ? enc.encode(options.salt) : new Uint8Array(options.salt ?? new Uint8Array(0));
-  const base = await crypto.subtle.importKey("raw", secretKeyBytes(key), "HKDF", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt, info: enc.encode(info) },
-    base,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"],
-  );
+  try {
+    return await deriveKey(key, info, options);
+  } catch (error) {
+    throw asDeliveryError(error);
+  }
 }
 
 /** Encrypts `plaintext` bound to `aad` (the row it belongs to): `v1.<iv>.<ciphertext>`. */
-export async function sealSecret(key: WebCryptoKey, plaintext: string, aad: string): Promise<string> {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const sealed = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(aad) }, key, enc.encode(plaintext));
-  return `v1.${base64url(iv)}.${base64url(new Uint8Array(sealed))}`;
+export async function sealSecret(
+  key: WebCryptoKey,
+  plaintext: string,
+  aad: string,
+): Promise<string> {
+  return sealWithKey(key, plaintext, aad);
 }
 
 /**
@@ -82,21 +81,14 @@ export async function sealSecret(key: WebCryptoKey, plaintext: string, aad: stri
  * permanent `DeliveryError` for an unknown format, a wrong key (rotated?) or
  * a ciphertext from another row; never echoes the ciphertext.
  */
-export async function openSecret(key: WebCryptoKey, sealed: string, aad: string): Promise<string> {
-  const [version, iv, body, extra] = sealed.split(".");
-  if (version !== "v1" || !iv || !body || extra !== undefined) throw new DeliveryError("The stored secret is not in a known format");
+export async function openSecret(
+  key: WebCryptoKey,
+  sealed: string,
+  aad: string,
+): Promise<string> {
   try {
-    const plain = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: padded(iv), additionalData: enc.encode(aad) },
-      key,
-      padded(body),
-    );
-    return new TextDecoder().decode(plain);
-  } catch {
-    throw new DeliveryError("The stored secret could not be decrypted");
+    return await openWithKey(key, sealed, aad);
+  } catch (error) {
+    throw asDeliveryError(error);
   }
-}
-
-function padded(text: string): Uint8Array<ArrayBuffer> {
-  return fromBase64(text + "=".repeat((4 - (text.length % 4)) % 4));
 }

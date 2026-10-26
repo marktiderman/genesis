@@ -115,6 +115,17 @@ export {
   type RefreshedGoogleToken,
 } from "./destinations/google-oauth";
 export { deriveSecretKey, openSecret, sealSecret, secretKeyBytes, type DeriveSecretKeyOptions } from "./destinations/secret-box";
+// The keyring with rotation (v2 secrets that name their key; v1 still opens), from genesis-connect.
+export {
+  createSecrets,
+  parseKeyring,
+  SecretError,
+  type Keyring,
+  type KeyringInput,
+  type Secrets,
+  type SecretErrorCode,
+  type SecretsOptions,
+} from "@marktiderman/genesis-connect/secrets";
 export {
   createDeliveryRunner,
   DEFAULT_BATCH_SIZE,

@@ -5,6 +5,8 @@ import { defineConfig } from "tsup";
 // `pnpm --filter @marktiderman/genesis-forms build` works on a fresh clone
 // without building notifications first. tsconfig.json maps the same path.
 const runnerSource = fileURLToPath(new URL("../notifications/src/runner/index.ts", import.meta.url));
+// The same for genesis-connect's secret box (`/secrets`, dependency-free), bundled in.
+const secretsSource = fileURLToPath(new URL("../connect/src/secrets.ts", import.meta.url));
 
 // Cross-runtime (browser, React Native, Node, edge) — ESM and CJS, no dependencies.
 // The outbox runner is genesis-notifications' (`/runner`, itself dependency-free),
@@ -20,9 +22,13 @@ export default defineConfig({
   },
   format: ["esm", "cjs"],
   dts: true,
-  noExternal: [/^@marktiderman\/genesis-notifications/],
+  noExternal: [/^@marktiderman\/genesis-notifications/, /^@marktiderman\/genesis-connect/],
   esbuildOptions(options) {
-    options.alias = { ...options.alias, "@marktiderman/genesis-notifications/runner": runnerSource };
+    options.alias = {
+      ...options.alias,
+      "@marktiderman/genesis-notifications/runner": runnerSource,
+      "@marktiderman/genesis-connect/secrets": secretsSource,
+    };
   },
   splitting: false,
   sourcemap: true,

@@ -936,6 +936,58 @@
       "flags": []
     },
     {
+      "id": "connect",
+      "name": "Connect an outside account",
+      "summary": "@marktiderman/genesis-connect: encrypted secrets with key versioning (AES-256-GCM, HKDF per purpose, row-bound associated data, a keyring with needsRotation and reseal, legacy v1 still opening) and an OAuth connector kit on Web Request and Response (authorization code with PKCE, a signed short-lived state, the verifier in an HttpOnly cookie, a pinned callback origin with a safe return on a shared domain, the granted-scope check, the refresh token sealed and handed to the app's store, cached access tokens, revoke), Google built in and any provider as a plain object.",
+      "category": "Integrations",
+      "status": "building",
+      "claimedBy": "mark",
+      "horizon": "now",
+      "layer": "service",
+      "keywords": [
+        "oauth",
+        "connect",
+        "google",
+        "google drive",
+        "refresh token",
+        "pkce",
+        "encryption",
+        "secrets",
+        "key rotation",
+        "keyring",
+        "integrations"
+      ],
+      "entry": {
+        "server": "@marktiderman/genesis-connect"
+      },
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A secret sealed for one row does not open for another, and errors never hold a key, a plaintext or a ciphertext.",
+        "After the active key changes, secrets sealed with an older key still open, needsRotation reports them and reseal moves them to the active key; v1 secrets from genesis-forms open with the legacy key.",
+        "A connection only finishes in the browser that started it, with an unexpired state the connector signed, and only when every scope asked for was granted.",
+        "The browser is only ever sent back to a path on the starting origin, when that origin is the callback's or an https origin on the shared domain.",
+        "Not yet run against Google with a real client."
+      ],
+      "reviewedAt": "2026-10-26",
+      "links": {
+        "code": [
+          "packages/connect"
+        ],
+        "docs": [
+          "packages/connect/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "forms-submit",
       "name": "Form submit contract",
       "summary": "submitResponse on the server: re-checks a submission (validateSubmission, uploads), snapshots the options picked and stores it once per idempotency key through the app's SubmissionStore, answering one SubmitResult the client outbox reads.",
