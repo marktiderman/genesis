@@ -3,7 +3,7 @@
 -- 0004 applied first). It writes only its own users, tenants, teams and hooks and rolls back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(25);
 
 -- People: a1 (tenant 1's lead) and b2 on tenant 1's team t1; c3 in tenant 2.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -60,7 +60,7 @@ insert into genesis_work.pursuits (id, tenant_id, team_id, title) values (pg_tem
 -- Shape -------------------------------------------------------------------------------------
 select has_table('genesis_work', 'field_definitions', 'field_definitions exists');
 select has_column('genesis_work', 'pursuits', 'custom', 'pursuits have custom values');
-select has_column('genesis_work', 'sessions', 'custom', 'sessions have custom values');
+select has_column('genesis_work', 'session_details', 'custom', 'sessions have custom values, with their details');
 select ok(not has_table_privilege('anon', 'genesis_work.field_definitions', 'select,insert'), 'anon has no privilege');
 
 -- Defining fields ---------------------------------------------------------------------------
@@ -121,10 +121,18 @@ select pg_temp.sign_in('a1');
 select throws_ok(
   $$ update genesis_work.field_definitions set field = '{"type": "number"}' where key = 'region' $$,
   '22023', null, 'a field''s type is fixed once rows hold values for it');
+select throws_ok($$ delete from genesis_work.field_definitions where key = 'region' $$,
+  '22023', null, 'a field rows hold values for is retired, not deleted');
 select lives_ok($$ update genesis_work.field_definitions set active = false where key = 'region' $$, 'retiring a field');
 select lives_ok(
   $$ update genesis_work.pursuits set title = 'Open two sites' where id = pg_temp.pursuit(1) $$,
   'rows holding a retired field''s value can still be edited');
+
+select lives_ok(
+  $$ insert into genesis_work.field_definitions (tenant_id, target, key, label, field, source_pack, source_version)
+     values (pg_temp.tenant(1), 'work_items', 'tags', 'Tags', '{"type": "list"}', 'spoofed', '9.9.9') $$,
+  'the lead adds a list field');
+select is((select source_pack from genesis_work.field_definitions where key = 'tags'), null, 'a person can''t claim a field came from a pack');
 
 select pg_temp.sign_in('c3');
 select is((select count(*)::int from genesis_work.field_definitions), 0, 'another tenant sees no fields');

@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(44);
 
 -- People: a1 and b2 on tenant 1's team t1; c3 in tenant 2; e5 is a guest of tenant 1 (no team).
 insert into auth.users (id, aud, role, email, instance_id)
@@ -108,6 +108,10 @@ select lives_ok(
   $$ insert into genesis_work.session_links (session_id, kind, ref, title) values (pg_temp.session(1), 'prework', 'form:weekly-prework', 'Wins and numbers') $$,
   'adding pre-work');
 
+select lives_ok(
+  $$ insert into genesis_work.session_details (session_id, notes, recording_url) values (pg_temp.session(1), 'Decided to hire two leads', 'https://rec.example/1') $$,
+  'the owner side adds notes and a recording');
+
 -- Running -----------------------------------------------------------------------------------
 select lives_ok($$ update genesis_work.sessions set status = 'live' where id = pg_temp.session(1) $$, 'starting the session');
 select is((select jsonb_array_length(agenda) from genesis_work.sessions where id = pg_temp.session(1)), 2, 'starting copies the type''s agenda');
@@ -121,6 +125,7 @@ select pg_temp.sign_in('e5');
 select is((select count(*)::int from genesis_work.sessions), 1, 'a guest attendee reads the session they attend');
 select is((select count(*)::int from genesis_work.session_links), 1, 'and its pre-work');
 select is((select count(*)::int from genesis_work.session_attendees), 1, 'a guest sees only their own attendee row');
+select is((select count(*)::int from genesis_work.session_details), 0, 'a guest never sees the notes, recording or transcript');
 select isnt_empty(
   $$ update genesis_work.session_attendees set rating = 9, rating_note = 'Great IDS' where session_id = pg_temp.session(1) and user_id = pg_temp.person('e5') returning user_id $$,
   'an attendee rates the session');
@@ -154,6 +159,17 @@ insert into genesis_work.session_attendees (session_id, user_id) values (pg_temp
 select throws_ok(
   $$ update genesis_work.session_attendees set rating = 7 where session_id = pg_temp.session(3) and user_id = pg_temp.person('a1') $$,
   '22023', null, 'a session is rated only once it''s under way or over');
+
+select pg_temp.as_server();
+select lives_ok($$ update genesis_work.sessions set team_id = null, person_id = pg_temp.person('a1') where id = pg_temp.session(1) $$,
+  'server code moves a session to another owner');
+select is((select count(*)::int from genesis_work.session_links where session_id = pg_temp.session(1) and person_id = pg_temp.person('a1')), 1,
+  'its links move with it');
+select is((select person_id from genesis_work.session_details where session_id = pg_temp.session(1)), pg_temp.person('a1'),
+  'and its details');
+select pg_temp.sign_in('b2');
+select is((select count(*)::int from genesis_work.session_details where session_id = pg_temp.session(1)), 0,
+  'the old team no longer reads its notes');
 
 select pg_temp.sign_in('c3');
 select is((select count(*)::int from genesis_work.sessions), 0, 'another tenant sees no sessions');

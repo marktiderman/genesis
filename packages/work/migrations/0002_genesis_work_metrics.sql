@@ -255,9 +255,12 @@ begin
     return new;
   end if;
 
+  -- The tenant never changes, for anyone: moving it would strand the values in the old tenant.
+  if new.tenant_id is distinct from old.tenant_id then
+    raise exception 'A metric''s tenant never changes' using errcode = '22023';
+  end if;
   if private.genesis_metrics_caller_is_person() then
-    if new.tenant_id is distinct from old.tenant_id
-       or new.person_id is distinct from old.person_id
+    if new.person_id is distinct from old.person_id
        or new.team_id is distinct from old.team_id
        or new.organization_id is distinct from old.organization_id then
       raise exception 'A metric''s tenant and owner never change' using errcode = '22023';
