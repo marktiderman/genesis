@@ -358,8 +358,8 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `raw-color` | error | Hex and `rgb()/hsl()` literals in code and CSS, via the same lexer as the repo's `check:token-usage` (comments, issue refs and `hsl(var(--x))` are fine). A brand file that defines token values needs an `allow` entry. |
 | `undefined-token` | error | `var(--x)` where the theme doesn't define `--x`. Tokens declared in the app's CSS (or only `tokenFiles`) and inline style custom properties count as defined; `--tw-*` and `--radix-*` are ignored. |
 | `shadowed-export` | error | An exported value named like a Genesis export (`export function Button`). Reuse or extend it. |
-| `duplicate-genesis-package` | warn | More than one copy of a `@marktiderman/genesis-*` package that the app can load, with each copy's path, version and the ranges that asked for it. Found by resolving dependencies the way Node does, from each package's real folder, so npm/yarn/bun hoisted and nested trees, pnpm's `.pnpm` store (in the app, or at the workspace root above a sub-app) and bun's isolated `.bun` store all count; a store entry nothing resolves to is ignored. Two copies are two module instances: a `DataProvider` from one is invisible to hooks from the other. |
-| `peer-range-mismatch` | warn | An installed Genesis package's `peerDependencies` range on another Genesis package that the copy it resolves (looked up from its own folder, as Node does) doesn't satisfy: the package, the range and the installed version. Missing peers and non-semver ranges (`workspace:*`) are skipped. Ranges are read with npm's grammar (`^ ~ x - ||`, prereleases only when the range names one). |
+| `duplicate-genesis-package` | warn | More than one copy of a `@marktiderman/genesis-*` package that the app can load, with each copy's path, version and the ranges that asked for it. Found by resolving dependencies the way Node does, from each package's real folder, so npm/yarn/bun hoisted and nested trees, pnpm's `.pnpm` store (in the app, or at the workspace root above a sub-app) and bun's isolated `.bun` store all count; a store entry nothing resolves to is ignored. Two copies are two module instances: a `DataProvider` from one is invisible to hooks from the other. A copy reached only through dev tooling (the app's `devDependencies`, or anything under `@marktiderman/genesis-cli`, wherever it's listed) is `[dev only]`: when just one copy is left at runtime, the finding is `info` (it can't split the app's contexts). |
+| `peer-range-mismatch` | warn | An installed Genesis package's `peerDependencies` range on another Genesis package that the copy it resolves (looked up from its own folder, as Node does) doesn't satisfy: the package, the range and the installed version. Missing peers and non-semver ranges (`workspace:*`) are skipped. Ranges are read with npm's grammar (`^ ~ x - ||`, prereleases only when the range names one). A mismatch inside a dev-only copy (the CLI's own tree) is `info`. |
 | `hand-rolled-sub-nav` | warn | A route under the layout that renders `AppShell` that switches its sections with its own page-level `<TabsList>` or `<SubNavTabs>`, when the installed Genesis has `useAppShellSubNav`. Tabs inside a card, dialog, sheet, popover, accordion, panel, table or another tab's content are fine, as are pages that call the hook. Use `useAppShellSubNav(items, { mode: "tabs" })`, `AppShellPageHeader` and `AppShellSubNavEnd` from `@marktiderman/genesis-ui/layout` ([sub-navigation](../ui/SKILL.md)). |
 | `local-genesis-copy` | warn | An app component definition named like a component of `uiPackage` or of `componentPackages` (forms-studio's `ResourceHeader`, `SettingsSection`, `ResourceSettingsPage`, `HeadlineNumbers`, `SummaryCard`, `ShareDialog`, …): "Genesis already has X". A definition renders JSX, isn't in a file that imports the Genesis one, and is exported or lives outside the routes folder; a route's own non-exported functions and anything passed as `component` / `errorComponent` / `pendingComponent` / `notFoundComponent` (TanStack's `FormError`) are not copies. An exported genesis-ui value is `shadowed-export` instead; `const X = lazy(() => import("@marktiderman/genesis-…"))` is fine. |
 | `resource-workspace` | info | In a routes folder where a detail page (`courses.$courseId.tsx`, `[id]/page.tsx`) renders `AppShellPageHeader`, directly or through one local import, the other detail pages there that don't: one workspace header and tab row for every resource. Reported, never failing (`--strict` included); `rules` can raise it to `warn`. |
@@ -370,9 +370,23 @@ It also prints **Available but unused**: the Genesis components no file imports.
 before building something.
 
 The route rules (`hand-rolled-sub-nav`, `resource-workspace`, `page-layout`) read the routes
-folder (`routesDir`, default the first of `src/routes`, `src/app`, `app`, `src/pages`, `pages`):
-TanStack Router files (flat `a.$id.tsx` or folders, `route.tsx` layouts, `__root.tsx`, `-private`
-files skipped, a trailing `_` un-nesting a segment) and Next-style `layout.tsx` / `page.tsx`.
+folder (`routesDir`, default the first of `src/routes`, `src/app`, `app`, `src/pages`, `pages`).
+**TanStack Router**: flat `a.$id.tsx` or folders, `route.tsx` layouts, `__root.tsx`, `-private`
+files skipped, a trailing `_` un-nesting a segment, and `posts.lazy.tsx` paired with `posts.tsx`
+as one route (findings point at the lazy file, which holds the component). **Next.js `app/`**
+(chosen when the folder has `page` / `layout` files and no `__root`): `layout.tsx` around
+`page.tsx`, `[id]` params, `(group)` and `@slot` folders dropped from the path; private
+`_folders` and the special files (`error`, `global-error`, `loading`, `not-found`, `template`,
+`default`, `route` handlers, metadata files) aren't routes. **Next.js `pages/`**: `_app` is the
+layout; `_document`, `_error`, `404`, `500` and `api/` aren't pages.
+
+A route whose component is imported (`component: CoursesPage`, `export { default } from …`)
+renders; only a route that renders nothing but `<Navigate>` / `<Redirect>` / `<Outlet>` (or no
+component) is redirect-only. A pure layout (a layout file, a pathless `_layout` route, or one
+rendering nothing but `<Outlet>`) is judged through its pages; a route that renders its own
+content around an `<Outlet>` (a list beside its detail) is a page too, and `page-layout` and
+`hand-rolled-sub-nav` check it.
+
 `hand-rolled-sub-nav` and `page-layout` are warnings (failures under `--strict`) and
 `resource-workspace` is `info`. Opt out with `rules`
 (`{ "page-layout": "off" }`) or a justified `allow` entry for one file:

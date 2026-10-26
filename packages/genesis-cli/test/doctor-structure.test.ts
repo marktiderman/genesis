@@ -473,3 +473,161 @@ describe("peer-range-mismatch", () => {
     for (const [version, range, want] of cases) expect([version, range, satisfies(version, range)]).toEqual([version, range, want]);
   });
 });
+
+describe("follow-ups from the #303 review", () => {
+  const routesOf = (root: string) => {
+    const routes = webRoutes({ root, config: {}, files: scanFiles(root, {}) });
+    return Object.fromEntries(routes.map((r) => [r.file.path, r]));
+  };
+
+  it("a route whose component is imported renders (not redirect-only), and page-layout follows the import", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/courses.tsx": `import { CoursesPage } from "@/components/CoursesPage";\nexport const Route = createFileRoute("/_shell/courses")({ component: CoursesPage });`,
+      "src/components/CoursesPage.tsx": `import { DetailPage } from "@marktiderman/genesis-ui";\nexport function CoursesPage() { return <DetailPage title="Courses" />; }`,
+      "src/routes/_shell/inbox.tsx": `import { Inbox } from "@/components/Inbox";\nexport const Route = createFileRoute("/_shell/inbox")({ component: Inbox });`,
+      "src/components/Inbox.tsx": `export function Inbox() { return <main />; }`,
+      "src/routes/_shell/go.tsx": `function Go() { return <Navigate to="/" />; }\nexport const Route = createFileRoute("/_shell/go")({ component: Go });`,
+    });
+    const by = routesOf(root);
+    expect(by["src/routes/_shell/courses.tsx"]!.redirectOnly).toBe(false);
+    expect(by["src/routes/_shell/inbox.tsx"]!.redirectOnly).toBe(false);
+    expect(by["src/routes/_shell/go.tsx"]!.redirectOnly).toBe(true);
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/inbox.tsx:0"]);
+  });
+
+  it("pairs a TanStack posts.lazy.tsx with posts.tsx as one route", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/posts.tsx": `export const Route = createFileRoute("/_shell/posts")({ loader: () => fetchPosts() });`,
+      "src/routes/_shell/posts.lazy.tsx": `export const Route = createLazyFileRoute("/_shell/posts")({ component: () => <main><h1>Posts</h1></main> });`,
+      "src/routes/_shell/admin/route.lazy.tsx": `export const Route = createLazyFileRoute("/_shell/admin")({ component: () => <Outlet /> });`,
+    });
+    const routes = webRoutes({ root, config: {}, files: scanFiles(root, {}) });
+    const posts = routes.filter((r) => r.segments.join("/") === "_shell/posts");
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.file.path).toBe("src/routes/_shell/posts.lazy.tsx");
+    expect(posts[0]!.files.map((f) => f.path).sort()).toEqual(["src/routes/_shell/posts.lazy.tsx", "src/routes/_shell/posts.tsx"]);
+    expect(posts[0]!.redirectOnly).toBe(false);
+    expect(routes.find((r) => r.file.path.endsWith("admin/route.lazy.tsx"))).toMatchObject({ segments: ["_shell", "admin"], layout: true, page: false });
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/posts.lazy.tsx:0"]);
+  });
+
+  it("checks a page that renders its own content around an <Outlet>, in page-layout and hand-rolled-sub-nav", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      // A list with the detail beside it: a page and a layout.
+      "src/routes/_shell/courses.tsx": `export const Route = createFileRoute("/_shell/courses")({ component: () => (
+  <main>
+    <TabsList><TabsTrigger value="a">All</TabsTrigger></TabsList>
+    <Outlet />
+  </main>
+) });`,
+      "src/routes/_shell/courses.$id.tsx": `export const Route = createFileRoute("/_shell/courses/$id")({ component: () => <DetailPage title="x" /> });`,
+      // Pure layouts: a pathless one, and one rendering nothing but the outlet.
+      "src/routes/_shell/_admin.tsx": `export const Route = createFileRoute("/_shell/_admin")({ component: () => <section><Outlet /></section> });`,
+      "src/routes/_shell/settings.tsx": `export const Route = createFileRoute("/_shell/settings")({ component: () => <Outlet /> });`,
+      "src/routes/_shell/settings.profile.tsx": `export const Route = createFileRoute("/_shell/settings/profile")({ component: () => <DetailPage title="x" /> });`,
+    });
+    const by = routesOf(root);
+    expect(by["src/routes/_shell/courses.tsx"]).toMatchObject({ layout: true, page: true });
+    expect(by["src/routes/_shell/_admin.tsx"]).toMatchObject({ layout: true, page: false });
+    expect(by["src/routes/_shell/settings.tsx"]).toMatchObject({ layout: true, page: false });
+    const f = await run(root);
+    expect(brief(f, "page-layout")).toEqual(["src/routes/_shell/courses.tsx:0"]);
+    expect(brief(f, "hand-rolled-sub-nav")).toEqual(["src/routes/_shell/courses.tsx:3 TabsList"]);
+  });
+
+  it("reads Next.js app/: no private _folders, (groups), @slots or special files as routes", () => {
+    const page = (title: string) => `export default function Page() { return <main>${title}</main>; }`;
+    const root = app({
+      "src/app/layout.tsx": `export default function Root({ children }) { return <html><body>{children}</body></html>; }`,
+      "src/app/page.tsx": page("Home"),
+      "src/app/courses/[id]/page.tsx": page("Course"),
+      "src/app/courses/[id]/error.tsx": `"use client";\nexport default function Error() { return <p>Oops</p>; }`,
+      "src/app/courses/[id]/loading.tsx": `export default function Loading() { return <p>…</p>; }`,
+      "src/app/courses/not-found.tsx": `export default function NotFound() { return <p>Gone</p>; }`,
+      "src/app/courses/template.tsx": `export default function T({ children }) { return <div>{children}</div>; }`,
+      "src/app/@modal/default.tsx": `export default function D() { return null; }`,
+      "src/app/_components/Card.tsx": `export function Card() { return <div />; }`,
+      "src/app/(marketing)/about/page.tsx": page("About"),
+    });
+    const routes = webRoutes({ root, config: {}, files: scanFiles(root, {}) });
+    expect(routes.map((r) => r.file.path).sort()).toEqual([
+      "src/app/(marketing)/about/page.tsx",
+      "src/app/courses/[id]/page.tsx",
+      "src/app/layout.tsx",
+      "src/app/page.tsx",
+    ]);
+    const by = Object.fromEntries(routes.map((r) => [r.file.path, r]));
+    expect(by["src/app/(marketing)/about/page.tsx"]).toMatchObject({ segments: ["about"], index: true, page: true });
+    expect(by["src/app/courses/[id]/page.tsx"]).toMatchObject({ segments: ["courses", "[id]"], index: true });
+    expect(by["src/app/layout.tsx"]).toMatchObject({ layout: true, page: false });
+    expect(by["src/app/page.tsx"]!.parents.map((p) => p.file.path)).toEqual(["src/app/layout.tsx"]);
+  });
+
+  describe("dev-only Genesis copies", () => {
+    const pkg = (name: string, version: string, deps: Record<string, string> = {}, peers: Record<string, string> = {}) =>
+      JSON.stringify({ name, version, dependencies: deps, peerDependencies: peers });
+
+    it("a copy nested under the CLI (a devDependency) is info, not a runtime duplicate", async () => {
+      const root = makeApp(null, {
+        "package.json": JSON.stringify({
+          name: "app",
+          version: "1.0.0",
+          dependencies: { "@marktiderman/genesis-features": "^0.3.0" },
+          devDependencies: { "@marktiderman/genesis-cli": "1.3.0", "some-tool": "1.0.0" },
+        }),
+        "node_modules/@marktiderman/genesis-features/package.json": pkg("@marktiderman/genesis-features", "0.3.0"),
+        "node_modules/@marktiderman/genesis-cli/package.json": pkg("@marktiderman/genesis-cli", "1.3.0", { "@marktiderman/genesis-features": "^0.1.1" }),
+        "node_modules/@marktiderman/genesis-cli/node_modules/@marktiderman/genesis-features/package.json": pkg(
+          "@marktiderman/genesis-features",
+          "0.1.2",
+          {},
+          { "@marktiderman/genesis-ui": "^1.0.0" },
+        ),
+        // Another dev tool's own copy.
+        "node_modules/some-tool/package.json": pkg("some-tool", "1.0.0", { "@marktiderman/genesis-chat": "^0.1.0" }),
+        "node_modules/some-tool/node_modules/@marktiderman/genesis-chat/package.json": pkg("@marktiderman/genesis-chat", "0.1.0"),
+        "node_modules/@marktiderman/genesis-chat/package.json": pkg("@marktiderman/genesis-chat", "0.2.0"),
+      });
+      const copies = genesisInstalls(root);
+      expect(copies.get("@marktiderman/genesis-features")!.map((c) => [c.version, c.devOnly])).toEqual([
+        ["0.3.0", false],
+        ["0.1.2", true],
+      ]);
+      const f = await run(root);
+      expect(f.filter((x) => x.rule === "duplicate-genesis-package").map((x) => `${x.level} ${x.subject}`)).toEqual([
+        "info @marktiderman/genesis-features",
+        "info @marktiderman/genesis-chat",
+      ]);
+      // The CLI's own copy wants a genesis-ui the app doesn't have: info too.
+      expect(f.filter((x) => x.rule === "peer-range-mismatch").map((x) => x.level)).toEqual(["info"]);
+      expect((await runDoctor({ root, config: {}, strict: true })).ok).toBe(true);
+    });
+
+    it("the CLI's tree is dev-only even when it's listed in dependencies; a runtime copy still warns", async () => {
+      const root = makeApp(null, {
+        "package.json": JSON.stringify({
+          name: "app",
+          version: "1.0.0",
+          dependencies: { "@marktiderman/genesis-cli": "1.3.0", "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-studio-server": "0.2.1" },
+        }),
+        "node_modules/@marktiderman/genesis-cli/package.json": pkg("@marktiderman/genesis-cli", "1.3.0", { "@marktiderman/genesis-core": "^1.0.0" }),
+        "node_modules/@marktiderman/genesis-cli/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.0.0"),
+        "node_modules/@marktiderman/genesis-studio-server/package.json": pkg("@marktiderman/genesis-studio-server", "0.2.1", { "@marktiderman/genesis-core": "1.6.0" }),
+        "node_modules/@marktiderman/genesis-studio-server/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.6.0"),
+      });
+      const core = genesisInstalls(root).get("@marktiderman/genesis-core")!;
+      expect(core.map((c) => [c.version, c.devOnly])).toEqual([
+        ["9.9.9", false],
+        ["1.0.0", true],
+        ["1.6.0", false],
+      ]);
+      const dup = (await run(root)).filter((x) => x.rule === "duplicate-genesis-package");
+      expect(dup.map((x) => x.level)).toEqual(["warn"]);
+      expect(dup[0]!.message).toContain("1.0.0 at node_modules/@marktiderman/genesis-cli/node_modules/@marktiderman/genesis-core");
+      expect(dup[0]!.message).toContain("[dev only]");
+    });
+  });
+});

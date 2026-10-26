@@ -23,7 +23,15 @@ export interface GenesisInstall {
   absolutePath: string;
   /** `the app` or `<package>@<version>`, with the range it declared. */
   requiredBy: Array<{ by: string; range?: string }>;
+  /**
+   * Reached only through dev tooling: the app's devDependencies, or the Genesis
+   * CLI's own tree. Such a copy runs in scripts and builds, not in the app.
+   */
+  devOnly: boolean;
 }
+
+/** Dev tools whose own dependency tree never ships, wherever the app lists them. */
+const DEV_TOOLS = new Set(["@marktiderman/genesis-cli"]);
 
 interface Manifest {
   name?: string;
@@ -81,55 +89,69 @@ function packagesIn(nodeModules: string): string[] {
  * app or at a workspace root above a sub-app) and bun's isolated `.bun` store,
  * where a package's dependencies are its siblings in the store entry. Copies
  * nothing resolves to are left out: they never load.
+ *
+ * Runtime dependencies are followed first; what only the app's devDependencies
+ * (or the Genesis CLI, wherever it's listed) reach afterwards is `devOnly`.
  */
 export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
   const copies = new Map<string, GenesisInstall>();
   // Real paths on both sides, so a store reached through a link (or macOS's /var → /private/var) reads plainly.
   const realRoot = real(root);
   const rel = (abs: string) => path.relative(realRoot, abs).split(path.sep).join("/") || ".";
-  const record = (real: string, manifest: Manifest, by: string, range: string | undefined) => {
+  const record = (real: string, manifest: Manifest, by: string, range: string | undefined, runtime: boolean) => {
     let copy = copies.get(real);
     if (!copy) {
-      copy = { name: manifest.name!, version: String(manifest.version ?? "unknown"), dir: rel(real), absolutePath: real, requiredBy: [] };
+      copy = { name: manifest.name!, version: String(manifest.version ?? "unknown"), dir: rel(real), absolutePath: real, requiredBy: [], devOnly: !runtime };
       copies.set(real, copy);
     }
     if (!copy.requiredBy.some((r) => r.by === by)) copy.requiredBy.push({ by, ...(range ? { range } : {}) });
   };
 
   const expanded = new Set<string>();
-  const queue: Array<{ real: string; manifest: Manifest; label: string; own?: boolean }> = [];
-  /** A package at `dir` that `by` asked for with `range`. */
-  const visit = (dir: string, by: string, range: string | undefined) => {
+  const queue: Array<{ real: string; manifest: Manifest; label: string }> = [];
+  /** A package at `dir` that `by` asked for with `range`; `runtime` while following the app's runtime tree. */
+  const visit = (dir: string, by: string, range: string | undefined, runtime: boolean) => {
     const manifest = readManifest(dir);
     if (!manifest?.name) return;
+    if (runtime && DEV_TOOLS.has(manifest.name)) return; // its tree is walked with the dev tools
     const realDir = real(dir);
-    if (GENESIS.test(manifest.name)) record(realDir, manifest, by, range);
+    if (GENESIS.test(manifest.name)) record(realDir, manifest, by, range, runtime);
     if (expanded.has(realDir)) return;
     expanded.add(realDir);
     queue.push({ real: realDir, manifest, label: `${manifest.name}@${manifest.version ?? "?"}` });
   };
+  const drain = (runtime: boolean) => {
+    while (queue.length) {
+      const { real: from, manifest, label } = queue.shift()!;
+      const deps = { ...manifest.peerDependencies, ...manifest.optionalDependencies, ...manifest.dependencies };
+      for (const [name, range] of Object.entries(deps)) {
+        const dir = findPackageDir(from, name);
+        if (dir) visit(dir, label, range, runtime);
+      }
+    }
+  };
 
   const app = readManifest(root);
-  const appDeps = { ...app?.devDependencies, ...app?.peerDependencies, ...app?.optionalDependencies, ...app?.dependencies };
-  for (const name of Object.keys(appDeps)) {
+  const runtimeDeps = { ...app?.peerDependencies, ...app?.optionalDependencies, ...app?.dependencies };
+  const devDeps = Object.fromEntries(Object.entries(app?.devDependencies ?? {}).filter(([n]) => !(n in runtimeDeps)));
+  for (const [name, range] of Object.entries(runtimeDeps)) {
     const dir = findPackageDir(root, name);
-    if (dir) visit(dir, "the app", appDeps[name]);
+    if (dir) visit(dir, "the app", range, true);
   }
   // Hoisted packages nobody in the app declared are loadable too.
   const top = path.join(root, "node_modules");
   for (const dir of packagesIn(top)) {
     const name = path.relative(top, dir).split(path.sep).join("/");
-    if (!(name in appDeps)) visit(dir, "hoisted, not a direct dependency", undefined);
+    if (!(name in runtimeDeps) && !(name in devDeps)) visit(dir, "hoisted, not a direct dependency", undefined, true);
   }
-
-  while (queue.length) {
-    const { real: from, manifest, label } = queue.shift()!;
-    const deps = { ...manifest.peerDependencies, ...manifest.optionalDependencies, ...manifest.dependencies };
-    for (const [name, range] of Object.entries(deps)) {
-      const dir = findPackageDir(from, name);
-      if (dir) visit(dir, label, range);
-    }
+  drain(true);
+  const devRoots: Record<string, string | undefined> = { ...devDeps };
+  for (const tool of DEV_TOOLS) if (!(tool in devRoots)) devRoots[tool] = runtimeDeps[tool];
+  for (const [name, range] of Object.entries(devRoots)) {
+    const dir = findPackageDir(root, name);
+    if (dir) visit(dir, "the app (dev)", range, false);
   }
+  drain(false);
 
   const byName = new Map<string, GenesisInstall[]>();
   for (const copy of copies.values()) byName.set(copy.name, [...(byName.get(copy.name) ?? []), copy]);
@@ -138,20 +160,33 @@ export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
 }
 
 export function checkDuplicatePackages(ctx: DoctorContext): void {
+  const describe = (c: GenesisInstall) =>
+    `${c.version} at ${c.dir} (${c.requiredBy.map((r) => `${r.by}${r.range ? ` wants ${r.range}` : ""}`).join("; ")})`;
   for (const [name, copies] of genesisInstalls(ctx.root)) {
     if (copies.length < 2) continue;
-    const where = copies
-      .map((c) => `${c.version} at ${c.dir} (${c.requiredBy.map((r) => `${r.by}${r.range ? ` wants ${r.range}` : ""}`).join("; ")})`)
-      .join(", ");
+    const runtime = copies.filter((c) => !c.devOnly);
+    if (runtime.length >= 2) {
+      ctx.report({
+        rule: "duplicate-genesis-package",
+        level: "warn",
+        file: "package.json",
+        subject: name,
+        message:
+          `${name} is installed ${copies.length} times: ${copies.map((c) => `${describe(c)}${c.devOnly ? " [dev only]" : ""}`).join(", ")}. ` +
+          `Each copy is its own module, so a provider from one (DataProvider, the shell's contexts) is invisible to hooks from another. ` +
+          `Align the ranges so one copy satisfies them all, or add an override/resolution`,
+      });
+      continue;
+    }
+    // One copy ships; the others only run in dev tooling (the CLI, devDependencies). Worth knowing, never a failure.
     ctx.report({
       rule: "duplicate-genesis-package",
-      level: "warn",
+      level: "info",
       file: "package.json",
       subject: name,
       message:
-        `${name} is installed ${copies.length} times: ${where}. Each copy is its own module, so a provider from one ` +
-        `(DataProvider, the shell's contexts) is invisible to hooks from another. Align the ranges so one copy satisfies them all, ` +
-        `or add an override/resolution`,
+        `${name} has dev-only copies beside the one the app loads: ${copies.filter((c) => c.devOnly).map(describe).join(", ")}. ` +
+        `They run in tooling, not the app, so they can't split its contexts; upgrade the tool to drop them`,
     });
   }
 }
@@ -175,7 +210,8 @@ export function checkPeerRanges(ctx: DoctorContext): void {
         if (satisfies(installed, range) !== false) continue;
         ctx.report({
           rule: "peer-range-mismatch",
-          level: "warn",
+          // A dev tool's own tree (the CLI's) doesn't run in the app.
+          level: copy.devOnly ? "info" : "warn",
           file: "package.json",
           subject: `${copy.name}>${peer}`,
           message:
