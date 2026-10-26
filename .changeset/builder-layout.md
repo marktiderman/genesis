@@ -1,5 +1,0 @@
----
-"@marktiderman/genesis-ui": minor
----
-
-`BuilderLayout`: a builder's three columns, `outline` (left), `editor` (centre, the only required slot) and `preview` (right), from `@marktiderman/genesis-ui/builder-layout` (also `/layout` and the root). Responsive by container query with the forms-builder breakpoints: three columns from a 56rem container (13rem / editor / 20rem), 16rem / editor / 24.5rem from 76rem, the preview under the editor below 56rem, everything stacked below 34rem; outline and editor alone go 13rem from 34rem and 16rem from 48rem. The preview keeps its place in the tree, so swapping the editor never remounts it, and `previewHidden` hides it without unmounting. `sticky` (both, or `{ outline, preview }`) pins the side columns, `scrollSticky` gives them their own scroll, `outlineLabel` / `previewLabel` make them `nav` / `aside` landmarks, and `outlineProps` / `editorProps` / `previewProps` reach each wrapper. It owns no tabs, rail or header: those stay with the shell (`useAppShellSubNav`, `AppShellPageHeader`).

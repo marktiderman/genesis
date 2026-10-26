@@ -1,5 +1,12 @@
 # @marktiderman/genesis-forms-builder
 
+## 0.6.4
+
+### Patch Changes
+
+- 870ddce: The builder's preview column and the Questions panel's outline and editor columns now come from genesis-ui's `BuilderLayout`, with the same breakpoints, landmarks, test ids and sticky columns, and the preview still kept mounted across panels. Needs `@marktiderman/genesis-ui` 2.15.0 or later.
+- 49d789d: Doc comments use neutral examples (staff, locations, organization) instead of coaching ones, since Genesis is domain-neutral. No behaviour changes.
+
 ## 0.6.3
 
 ### Patch Changes

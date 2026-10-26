@@ -1,5 +1,27 @@
 # @marktiderman/genesis-core
 
+## 1.9.0
+
+### Minor Changes
+
+- fd09919: `@marktiderman/genesis-core/dates`: calendar days on the right clock.
+
+  - `personDay(person)` is today in the person's saved zone, else the device's, else UTC.
+  - `dayIn`, `wallClock`, `startOfDayIn` and `dayRangeIn` give a day's instants. They handle 23- and 25-hour days, and a midnight that doesn't exist.
+  - `addDays`, `daysBetween`, `weekdayOf`, `startOfWeek` and `isDay` do `YYYY-MM-DD` arithmetic.
+
+  No dependencies.
+
+- 927b32f: Query keys: `defineQueryKeys(domain, queries)` builds viewer-scoped keys (`for({ viewer, group?, day? })`) and invalidates by domain, kind or any field (`where(fields, kind?)`, which also finds one person inside a multi-person key); `resourceKeys(resource)` names the keys Genesis's own hooks use; `<ViewerScope viewer>` mounts screens only for a known viewer and empties the cache when it changes (`clearViewerCache` for apps without it).
+- 5344767: Supabase resources can read from a view or a set-returning database function (`source: "view"` or `source: { rpc, args }`) and name their default columns (`select`), keeping paging, filters, search, sort, totals, cursors and live updates; writes still go to the table.
+- 66e1a5d: New `useDraft` (and `DraftController`, the same rules without React): autosave one row as it's edited. It saves a moment after the last change, one write at a time, adds the row on the first save with something in it, and merges into a row another tab started (`adopt`). It starts again when the server's copy wins (`revision`, with `discarded` and `onRevision`), retries network failures only, saves on leaving the page, and has a final `commit`. See the README's "Autosave a draft".
+- b755b3e: One-off writes: `callRpc(client, fn, args, { messages })` calls a database function with plain error words per code; `createOrAdopt(provider, resource, data, { key, merge })` keeps one live row per key; `useWrite(write, { invalidates })` runs any write from a component with pending state, plain errors and invalidation.
+
+### Patch Changes
+
+- c054142: Sourced resources: `writeColumns` (and, without it, updates that send only the table row's columns) so a view's read-only columns never reach the table; keyless views list again; docs say a source view must be `security_invoker` and a function `security invoker`, or the read bypasses RLS.
+- 75965c0: A viewer switch never sends or re-applies the previous viewer's unsent undoable writes: `ViewerScope` drops them, `clearViewerCache` sends them first while the old session holds. New `flushPendingWrites` and `dropPendingWrites`. `where()` no longer matches every list for an empty list, or a key lacking a field asked for as undefined.
+
 ## 1.8.0
 
 ### Minor Changes
