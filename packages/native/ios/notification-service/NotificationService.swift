@@ -91,7 +91,8 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     group.notify(queue: .global(qos: .userInitiated)) { [weak self] in
-      guard let self else { return }
+      // Already shown (the time ran out): don't donate or build anything more.
+      guard let self, !self.delivered else { return }
       var attachments: [UNNotificationAttachment] = []
       if let imageFile, let attachment = self.attachment("image", imageFile) {
         attachments.append(attachment)
@@ -188,6 +189,12 @@ final class NotificationService: UNNotificationServiceExtension {
   }
 
   // MARK: Delivery
+
+  private var delivered: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return contentHandler == nil
+  }
 
   /// What `serviceExtensionTimeWillExpire` shows if the time runs out from here on.
   private func keep(_ content: UNNotificationContent) {
