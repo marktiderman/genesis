@@ -1,0 +1,201 @@
+.changeset/chat-badge-kinds.md
+  s_8252619ce79a86::t_f4669c8cb282c7 1-5
+.changeset/chat-inbox-kinds.md
+  s_8252619ce79a86::t_3877ece66b660a 1-5
+.changeset/chat-mic-lock-first-tap.md
+  s_8252619ce79a86::t_89324b4bdb4e6a 1-5
+.changeset/chat-native-inbox-kinds.md
+  s_8252619ce79a86::t_1692cdcc382580 1-5
+.changeset/chat-phases-web.md
+  s_8252619ce79a86::t_403c6848d39dba 1-5
+.changeset/chat-signal-unread.md
+  s_8252619ce79a86::t_4f1fa41ee3154e 1-5
+.changeset/genesis-agents-rules.md
+  s_8252619ce79a86::t_aa43b962b29415 1-7
+.changeset/genesis-product-v1.md
+  s_8252619ce79a86::t_5287ffab0fc830 1-7
+.changeset/support-on-chat-cli.md
+  s_8252619ce79a86::t_a146ec4a07c014 1-7
+.changeset/support-on-chat.md
+  s_8252619ce79a86::t_af49e3fcbec3c6 1-7
+.github/ISSUE_TEMPLATE/feedback.yml
+  s_8252619ce79a86::t_808e107a34e296 1-18
+.github/ISSUE_TEMPLATE/idea.yml
+  s_8252619ce79a86::t_6eb601be9673c9 1-24
+.github/workflows/product-board.yml
+  s_8252619ce79a86::t_0e62f250d735bb 1-53
+AGENTS.md
+  s_8252619ce79a86::t_0f07c66b01a5f3 16
+apps/sample/app/routes/chat.tsx
+  s_8252619ce79a86::t_bbedaaa1195ecd 3-5,9,25-31,33-47,91,103-119
+features.json
+  s_8252619ce79a86::t_d9616ccf1900d9 1611-1768,2888-2941
+features.ts
+  s_8252619ce79a86::t_61ccdd7d9b39bf 710-787,1280-1301
+package.json
+  s_8252619ce79a86::t_a711a51af1bc87 29-30,36
+packages/agents/README.md
+  s_8252619ce79a86::t_43c043c34a77e7 1-13
+packages/agents/RULES.md
+  s_8252619ce79a86::t_cd0f7dba62a384 1-128
+packages/agents/TEAM.md
+  s_8252619ce79a86::t_571a4afb0730a2 1-36
+packages/agents/package.json
+  s_8252619ce79a86::t_23bd1510d63ff4 1-17
+packages/chat/README.md
+  s_8252619ce79a86::t_1e69cac2411411 10-11,14,76,85-218
+packages/chat/migrations/0002_genesis_chat_coaching.sql
+  s_8252619ce79a86::t_feaaf1e1a98909 677-680,710-711,715-718,722-724,776-777,783-799,854-855,867-868,879,890
+packages/chat/migrations/tests/0002_genesis_chat_coaching.test.sql
+  s_8252619ce79a86::t_0e307ca398659e 9,227-240
+packages/chat/package.json
+  s_8252619ce79a86::t_8f477cc18836cf 70-71,79,117-119,151
+packages/chat/src/__tests__/coaching-core.test.ts
+  s_8252619ce79a86::t_0e133120ce13e7 1-330
+packages/chat/src/__tests__/coaching-react.test.tsx
+  s_8252619ce79a86::t_d523ae9dc4b9e8 1-247
+packages/chat/src/__tests__/coaching-web.test.tsx
+  s_8252619ce79a86::t_ffaec4370730fb 1-449
+packages/chat/src/__tests__/core.test.ts
+  s_8252619ce79a86::t_e331fd7143c28c 77-91
+packages/chat/src/__tests__/realtime.test.ts
+  s_8252619ce79a86::t_86c815a82955a4 11-12,14,55-69
+packages/chat/src/__tests__/server-runner.test.ts
+  s_8252619ce79a86::t_05d5697599e58b 88-96
+packages/chat/src/core/availability.ts
+  s_8252619ce79a86::t_eecdaba6203c3f 1-178
+packages/chat/src/core/client.ts
+  s_8252619ce79a86::t_dc47bee23768d1 3,11,14-21,125,183-263,281-289,326-329,335-336,345-347,512-632,681-684,689,705-707,709,711,718
+packages/chat/src/core/extras.ts
+  s_8252619ce79a86::t_63dfa95b83c7e2 1-106
+packages/chat/src/core/outbox.ts
+  s_8252619ce79a86::t_52caf7785df3d6 117-151,312-320
+packages/chat/src/core/types.ts
+  s_8252619ce79a86::t_150aa82790edf3 3,71-75,221-309
+packages/chat/src/index.ts
+  s_8252619ce79a86::t_f601c270fc10d2 12-13
+packages/chat/src/native/__tests__/composer-mic-lock.test.tsx
+  s_8252619ce79a86::t_f2af761f6b8aa3 1-115
+packages/chat/src/native/__tests__/inbox-screen.test.tsx
+  s_8252619ce79a86::t_55f6b7a55949f9 1-48
+packages/chat/src/native/composer.tsx
+  s_8252619ce79a86::t_c4f60e8fa21905 298-303,310-312,323-342,344,354,357-358,362-364,371-372
+packages/chat/src/native/inbox-screen.tsx
+  s_8252619ce79a86::t_07e671c41f8d16 27-30,59,63
+packages/chat/src/react/index.tsx
+  s_8252619ce79a86::t_4ceb930839a000 10,13-28,39-45,48-59,72-88,95-100,123-126,137-149,168,170,172,182-187,193-196,206-209,215,227,234,236-239,265,280-286,291-295,299-303,305-307,309-310,334-336,341,356,358-360,383,389-409,427,443-445,462,468-469,487-488,568-746
+packages/chat/src/server/runner.ts
+  s_8252619ce79a86::t_591cfdb2c0450f 87-88,181-185
+packages/chat/src/web/attachments.tsx
+  s_8252619ce79a86::t_58f6daefaecce2 21-22,25,217,219-220,222-230,299-300,304,334-337
+packages/chat/src/web/availability.tsx
+  s_8252619ce79a86::t_c3d3270814d4ee 1-299
+packages/chat/src/web/broadcast.tsx
+  s_8252619ce79a86::t_cbef93ba95ee50 1-157
+packages/chat/src/web/bubble.tsx
+  s_8252619ce79a86::t_acdbea2e5d9398 16,24,26,31,56-57,92,160-164,176,196,200-205,216,229-238,476,486-492,498-510,530-538,540
+packages/chat/src/web/cards.tsx
+  s_8252619ce79a86::t_1b6e6cc9d91fd3 1-110
+packages/chat/src/web/composer.tsx
+  s_8252619ce79a86::t_e670ee4b09d2a2 6-8,22-37,42-43,45-46,59-60,72-83,111-116,120-125,209,212-235,300-328,366-380,461-467,500-517,519-524,542-556
+packages/chat/src/web/emoji-picker.tsx
+  s_8252619ce79a86::t_de05f3689acad3 1-68
+packages/chat/src/web/index.ts
+  s_8252619ce79a86::t_4b41264e5fa7e1 5-7,52-74
+packages/chat/src/web/memory-client.ts
+  s_8252619ce79a86::t_d59f1a71ddc94d 7-8,10,12-18,42-43,54-57,69,81-84,157,192-200,218-232,284,289,296-297,360,379-382,488,493-496,505-677,699-704
+packages/chat/src/web/panel.tsx
+  s_8252619ce79a86::t_0d345a9b838819 5-6,9-10,12-15,38-39,60,64-70,91-123,128
+packages/chat/src/web/schedule.tsx
+  s_8252619ce79a86::t_7906cbd663b6ec 1-188
+packages/chat/src/web/search.tsx
+  s_8252619ce79a86::t_420e1c8b0108c5 1-129
+packages/chat/src/web/thread-context.ts
+  s_8252619ce79a86::t_2f10ea838cd058 7-8,27-32
+packages/chat/src/web/thread.tsx
+  s_8252619ce79a86::t_27fa0444cb0bf5 8-10,23,44-48,58,60-62,65,68-69,88-89,133-144,169,183-187,203,207-212,216-219,248,251-264,287-297,387-425,449-451,589,591-600,660-664,673-684
+packages/chat/src/web/topics.tsx
+  s_8252619ce79a86::t_7cbeea39cbe7e2 1-160
+packages/chat/src/web/video.tsx
+  s_8252619ce79a86::t_fad6af4b7f8790 1-467
+packages/chat/tsup.config.ts
+  s_8252619ce79a86::t_cc703f097d6536 30-31
+packages/product/LICENSE
+  s_8252619ce79a86::t_d38c33aa770469 1-21
+packages/product/README.md
+  s_8252619ce79a86::t_4302052b4125a2 1-74
+packages/product/package.json
+  s_8252619ce79a86::t_f55cc18cfe8696 1-50
+packages/product/src/__tests__/product.test.ts
+  s_8252619ce79a86::t_bf02e113143034 1-316
+packages/product/src/board.ts
+  s_8252619ce79a86::t_27271f370f0490 1-152
+packages/product/src/cli.ts
+  s_8252619ce79a86::t_56917aedfa20d7 1-109
+packages/product/src/index.ts
+  s_8252619ce79a86::t_06e9baad4067b2 1-6
+packages/product/src/model.ts
+  s_8252619ce79a86::t_52b21246b75275 1-80
+packages/product/src/node.ts
+  s_8252619ce79a86::t_d552ed876449c3 1-278
+packages/product/src/release.ts
+  s_8252619ce79a86::t_d7873e7fb0ac00 1-75
+packages/product/tsconfig.json
+  s_8252619ce79a86::t_c971935876b06c 1-17
+packages/product/tsup.config.ts
+  s_8252619ce79a86::t_be5ccbea167013 1-12
+packages/product/vitest.config.ts
+  s_8252619ce79a86::t_20653d01787ae4 1-8
+packages/support/README.md
+  s_8252619ce79a86::t_49d0c0be07961a 107-110,120-171,182-186
+packages/support/migrations/0001_genesis_support_chat.sql
+  s_8252619ce79a86::t_da5318932b49a1 1-616
+packages/support/migrations/tests/0001_genesis_support_chat.test.sql
+  s_8252619ce79a86::t_2393e9a8f5c344 1-288
+packages/support/package.json
+  s_8252619ce79a86::t_538496b09559ac 7,31-34,42,55,67-69,102,262-303
+packages/support/src/__tests__/chat.test.tsx
+  s_8252619ce79a86::t_bf999285ba48ce 1-345
+packages/support/src/block.ts
+  s_8252619ce79a86::t_1c42fc03a671c6 9,104-120
+packages/support/src/chat.ts
+  s_8252619ce79a86::t_8a0e9cfac92b4f 1-72
+packages/support/src/client.ts
+  s_8252619ce79a86::t_db6929fba080c4 6-10,15,65-66,77-88,122-123,125-139,153-159,167,194,216-225,243-287,354-359,375-388,397-402,406-439
+packages/support/src/copy.ts
+  s_8252619ce79a86::t_f9df4b4a9b737f 78-91
+packages/support/src/index.ts
+  s_8252619ce79a86::t_9a44c615fa9a31 7-9,16
+packages/support/src/native/index.ts
+  s_8252619ce79a86::t_b4f836c7f3b3bb 25
+packages/support/src/native/screens.tsx
+  s_8252619ce79a86::t_1cbf1f63b6f92f 18-19,113-116,119-136,139-143,148-151,153-160,196-208,231-232
+packages/support/src/native/support.tsx
+  s_8252619ce79a86::t_e93fe3fa75f27a 24,48-52,129
+packages/support/src/web-chat/index.ts
+  s_8252619ce79a86::t_3d1df974c580d9 1-14
+packages/support/src/web-chat/report-thread.tsx
+  s_8252619ce79a86::t_494145cfde57e2 1-123
+packages/support/src/web-chat/staff-thread.tsx
+  s_8252619ce79a86::t_722b2a93c0557c 1-128
+packages/support/tsup.config.ts
+  s_8252619ce79a86::t_7c27effb082884 4
+pnpm-lock.yaml
+  s_8252619ce79a86::t_cb6497f17e45e6 29-31,539,546-548,589-591,1286-1304,1503-1505,8143-8151,8334-8336,18655-18660,18856-18857
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5fdce5c3e7b55814c9ed282167f0c75ebe197b5b",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
