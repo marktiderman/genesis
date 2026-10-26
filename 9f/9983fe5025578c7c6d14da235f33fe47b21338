@@ -1,0 +1,25 @@
+packages/native/src/web-handoff.ts
+  s_1f35d570c63beb::t_88b3609da3418b 63
+packages/supabase/migrations/tests/0015_genesis_web_handoff.test.sql
+  s_1f35d570c63beb::t_ec86d6fb929ac9 54,56-57
+packages/supabase/src/__tests__/web-handoff.test.ts
+  s_1f35d570c63beb::t_f5b2801a14186d 74
+packages/supabase/src/web-handoff-path.ts
+  s_1f35d570c63beb::t_97bf42158cfe3e 10-11,13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f9983fe5025578c7c6d14da235f33fe47b21338",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
