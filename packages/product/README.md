@@ -60,9 +60,10 @@ GitHub issues to signals, and writes the board issue and the "shipped" comments.
 
 ## On this repo's releases
 
-Release (`.github/workflows/release.yml`) runs `release` around each publish: draft notes as a
-comment on the open version PR, then, after a successful publish, a `release/<YYYY-MM-DD>` tag
-whose GitHub release holds the notes, and `--notify --yes` to close the ideas it answered. The
+Release (`.github/workflows/release.yml`, its Release notes job) runs `release` around each
+publish: draft notes as a comment on the open version PR, then, after a successful publish, a
+`release/<YYYY-MM-DD>` tag whose GitHub release holds the notes (when a feature changed), and
+`--notify --yes` to close the ideas it answered. The
 diff starts from the previous `release/*` tag (the first time, the last version packages merge),
 so the job checks out with `fetch-depth: 0`. See docs/RELEASING.md, "Release notes".
 
