@@ -62,6 +62,62 @@ describe("resourceKeys are the keys the hooks cache under", () => {
   });
 });
 
+describe("useInfiniteResource and an uncounted or estimated total", () => {
+  /** A provider with 25 rows that reports `total` as given, 10 per page. */
+  function pagedProvider(total: number, totalIsEstimate?: boolean) {
+    const rows = Array.from({ length: 25 }, (_, i) => ({ id: `t${i}` }));
+    return {
+      ...createMockProvider({}),
+      async getList(_r: string, params: { pagination?: { page: number; perPage: number } }) {
+        const { page = 1, perPage = 10 } = params.pagination ?? {};
+        return { data: rows.slice((page - 1) * perPage, page * perPage), total, ...(totalIsEstimate ? { totalIsEstimate } : {}) };
+      },
+    } as never;
+  }
+
+  async function loadAll(provider: never) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let api!: ReturnType<typeof useInfiniteResource>;
+    function Pages() {
+      api = useInfiniteResource("tasks", { perPage: 10 });
+      return null;
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <DataProviderRoot provider={provider}>
+          <Pages />
+        </DataProviderRoot>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(api.rows.length).toBe(10));
+    for (let i = 0; i < 5 && api.hasNextPage; i++) {
+      const before = api.rows.length;
+      act(() => api.fetchNextPage());
+      await waitFor(() => expect(api.rows.length > before || !api.hasNextPage).toBe(true));
+    }
+    // Let a final page settle before reading hasNextPage.
+    await waitFor(() => expect(api.isFetchingNextPage).toBe(false));
+    return api;
+  }
+
+  it("count none (total -1) keeps paging until a short page", async () => {
+    const api = await loadAll(pagedProvider(-1));
+    expect(api.rows.length).toBe(25);
+    expect(api.hasNextPage).toBe(false);
+  });
+
+  it("an estimate that undercounts doesn't stop it early", async () => {
+    const api = await loadAll(pagedProvider(12, true));
+    expect(api.rows.length).toBe(25);
+  });
+
+  it("an exact total still stops at the total", async () => {
+    const api = await loadAll(pagedProvider(20));
+    expect(api.rows.length).toBe(20);
+    expect(api.hasNextPage).toBe(false);
+  });
+});
+
 describe("ViewerScope", () => {
   /** Shows whose data the cache holds under a key with no viewer in it (like a resource key). */
   function Whoami({ who }: { who: string }) {

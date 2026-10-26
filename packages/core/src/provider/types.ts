@@ -101,8 +101,9 @@ export interface ListParams {
 export interface ListResult<T> {
   data: T[];
   /**
-   * Rows matching the filters and search. In cursor mode a provider may
-   * count only on the first page (`cursor: null`) and return `-1` after it.
+   * Rows matching the filters and search. `-1` means not counted: in cursor
+   * mode after the first page, or with `count: "none"`. A pager must treat -1
+   * as unknown (no last page number) and stop on a short page instead.
    */
   total: number;
   /** True when `total` is the database's estimate (`estimated` or `planned`), so a screen says "about". */

@@ -1,6 +1,7 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, Fragment, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { dayIn, personTimeZone, type Day } from "../dates";
+import { stableJson } from "./draft-controller";
 import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
 
 /** Today in `zone`, rechecked when the page comes back into view and at the next minute boundary while it's open. */
@@ -85,7 +86,10 @@ export interface ViewerScopeProps {
   persistedViewer?: string | null;
   /** Where the viewer is working (see `ResourceScope`). Changing it doesn't remount or clear anything. */
   scope?: ResourceScope;
-  /** The viewer's saved time zone (IANA), when known; else the device's is used. */
+  /**
+   * The viewer's saved time zone (IANA), when known; else the device's is used. Pass it when
+   * rendering on a server, whose own zone is rarely the viewer's.
+   */
   timeZone?: string | null;
   /** Shown while the session loads (and for the one render a change takes). */
   fallback?: ReactNode;
@@ -111,7 +115,7 @@ export function ViewerScope({ viewer, persistedViewer, scope, timeZone, fallback
   const zone = personTimeZone({ timeZone });
   const day = useToday(zone);
   // A new scope object each render shouldn't re-render every reader: compare by value.
-  const scopeKey = JSON.stringify(scope ?? {});
+  const scopeKey = stableJson(scope ?? {});
   const value = useMemo<ViewerContext>(
     () => ({ viewer: viewer ?? null, scope: scope ?? {}, timeZone: zone, day }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
